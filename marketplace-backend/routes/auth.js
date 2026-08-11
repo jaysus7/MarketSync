@@ -10,6 +10,7 @@ import { syncDealerRole } from '../authorization.js'
 import { ACCOUNT_TYPES, provisionPlan } from '../entitlements.js'
 import { getPlan } from '../plan-catalog.js'
 import { createMfaLoginChallenge, consumeMfaLoginChallenge, getMfaLoginChallenge } from '../mfa-login-challenges.js'
+import { ensureStaffMember } from './people-identity.js'
 import {
   beginPasskeyRegistration, finishPasskeyRegistration,
   beginPasskeyLogin, finishPasskeyLogin,
@@ -363,6 +364,16 @@ export function registerRoutes(app) {
       // out of their own workspace. This runs inside the try so a failure rolls the whole
       // registration back (see catch), matching the team-invite flow.
       await syncDealerRole(createdUserId, createdDealershipId, chosenPlan?.owner_role || (isDealership ? 'DEALER_ADMIN' : 'OWNER'), createdUserId)
+
+      // A dealership owner is also its first employee. This is part of registration success,
+      // not a lazy repair: People, Academy and My Day must agree on the first login immediately.
+      if (isDealership) {
+        const employment = await ensureStaffMember(createdDealershipId, createdUserId, {
+          name: fullName, email, role: 'DEALER_ADMIN', startDate: new Date().toISOString().slice(0, 10),
+          createdBy: createdUserId, status: 'active',
+        })
+        if (employment.error) throw new Error(`Could not create the owner employment record: ${employment.error}`)
+      }
 
       // Grant the chosen plan as a 30-day FREE TRIAL — no card. This is part of the
       // registration success condition. If it fails, throw so the outer catch removes

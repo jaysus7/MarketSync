@@ -6,7 +6,7 @@ function syncParsedPlanToAllEngines() {
 
   crmOverlay(`
     <div class="p-6 space-y-5 text-center">
-      <div class="w-16 h-16 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto text-3xl shadow-inner animate-pulse">⚡</div>
+      <div class="w-16 h-16 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto text-3xl shadow-inner animate-pulse"></div>
       <div>
         <h3 class="text-xl font-black text-slate-900 dark:text-white">Synced Across All MarketSync Engines!</h3>
         <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">"${esc(plan.plan_name)}" rules have been written live into all store operational engines.</p>
@@ -14,19 +14,19 @@ function syncParsedPlanToAllEngines() {
 
       <div class="grid grid-cols-2 gap-3 text-left text-xs">
         <div class="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
-          <div class="font-bold text-emerald-600 dark:text-emerald-400">✓ Deal Desk Engine</div>
+          <div class="font-bold text-emerald-600 dark:text-emerald-400"> Deal Desk Engine</div>
           <div class="text-[11px] text-slate-400 mt-0.5">Calculates packs, gross tiers, EV minimums &amp; F&amp;I spiffs on every deal.</div>
         </div>
         <div class="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
-          <div class="font-bold text-emerald-600 dark:text-emerald-400">✓ HR &amp; Compliance Engine</div>
+          <div class="font-bold text-emerald-600 dark:text-emerald-400"> HR &amp; Compliance Engine</div>
           <div class="text-[11px] text-slate-400 mt-0.5">Tracks training deadlines, CSI scores &amp; process penalties on rep profiles.</div>
         </div>
         <div class="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
-          <div class="font-bold text-emerald-600 dark:text-emerald-400">✓ Accounting Payroll Ledger</div>
+          <div class="font-bold text-emerald-600 dark:text-emerald-400"> Accounting Payroll Ledger</div>
           <div class="text-[11px] text-slate-400 mt-0.5">Feeds gross commissions, volume bonuses, Christmas holdbacks &amp; draws.</div>
         </div>
         <div class="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
-          <div class="font-bold text-emerald-600 dark:text-emerald-400">✓ Store Settings</div>
+          <div class="font-bold text-emerald-600 dark:text-emerald-400"> Store Settings</div>
           <div class="text-[11px] text-slate-400 mt-0.5">Saved as primary active commission plan template.</div>
         </div>
       </div>
@@ -37,7 +37,7 @@ function syncParsedPlanToAllEngines() {
     </div>
   `, 'max-w-md');
 
-  showToast('Commission Plan Synced Across All Engines! ⚡', 'success');
+  showToast('Commission Plan Synced Across All Engines! ', 'success');
 }
 
 window.commLoadAIImporter = commLoadAIImporter;
@@ -425,24 +425,6 @@ async function loadDealerManagementMatrix() {
     }
   } catch (e) {}
 
-  // Merge HR Roster with team so onboarding and Users & Team are 100% unified
-  const hrEmployees = typeof getPeopleComplianceData === 'function' ? getPeopleComplianceData() : [];
-  hrEmployees.forEach(emp => {
-    const exists = team.some(t => t.id === emp.id || (t.email && emp.email && t.email.toLowerCase() === emp.email.toLowerCase()));
-    if (!exists) {
-      team.push({
-        id: emp.id,
-        full_name: `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || 'Team Member',
-        email: emp.email || '—',
-        role: emp.role || emp.department || 'STAFF',
-        listings_posted: 0,
-        listings_sold: 0,
-        conversion_rate: 0,
-        logins_30d: 12
-      });
-    }
-  });
-
   if (!team.length) {
     tableBody.innerHTML = `<tr><td colspan="8" class="p-4 text-slate-500 italic">No team members yet. Click "+ Invite User" to onboard a new member.</td></tr>`;
     return;
@@ -464,9 +446,9 @@ async function loadDealerManagementMatrix() {
         <td class="py-3 px-3">${nameCell}</td>
         <td class="py-3 px-3 text-slate-600 dark:text-slate-300 max-w-[160px] truncate">${esc(m.email || '—')}</td>
         <td class="py-3 px-3">${roleBadge}</td>
-        <td class="py-3 px-3 text-right text-indigo-600 dark:text-indigo-400 font-mono">${m.listings_posted || 0}</td>
-        <td class="py-3 px-3 text-right text-emerald-600 dark:text-emerald-400 font-mono">${m.listings_sold ?? 0}</td>
-        <td class="py-3 px-3 text-right text-amber-600 dark:text-amber-400 font-mono">${m.conversion_rate ?? 0}%</td>
+        <td class="py-3 px-3 font-semibold ${m.active === false ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}">${esc(m.account_status || (m.active === false ? 'Paused' : 'Active'))}</td>
+        <td class="py-3 px-3 text-slate-600 dark:text-slate-300">${m.linked_employee ? `<button onclick="switchPage('people-overview'); setTimeout(() => engineTab('people-overview','work'), 0)" class="text-left font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">${esc(m.linked_employee.name || 'Employee card')}</button>` : '<span class="text-amber-600 dark:text-amber-400">Employment missing</span>'}</td>
+        <td class="py-3 px-3 text-slate-500">${esc(m.linked_employee?.department || 'Not assigned')}</td>
         <td class="py-3 px-3 text-right text-slate-600 dark:text-slate-300 font-mono">${m.logins_30d ?? 0}</td>
         <td class="py-3 px-3 text-right">${action}</td>
       </tr>
@@ -605,7 +587,7 @@ async function saveLeadRouting(btn) {
   const mode = document.querySelector('input[name="lr-mode"]:checked')?.value || 'targeted';
   const body = { mode, notify_reps: document.getElementById('lr-notify-reps')?.checked, notify_managers: document.getElementById('lr-notify-mgrs')?.checked, notify_all_sales: document.getElementById('lr-notify-all-sales')?.checked };
   const msg = document.getElementById('lr-msg'); btn.disabled = true;
-  try { await apiSendJson('/leads/routing', 'PUT', body); if (msg) { msg.textContent = '✓ Saved'; msg.className = 'text-xs ml-2 text-emerald-600 dark:text-emerald-400'; msg.classList.remove('hidden'); } }
+  try { await apiSendJson('/leads/routing', 'PUT', body); if (msg) { msg.textContent = ' Saved'; msg.className = 'text-xs ml-2 text-emerald-600 dark:text-emerald-400'; msg.classList.remove('hidden'); } }
   catch (e) { if (msg) { msg.textContent = e.message; msg.className = 'text-xs ml-2 text-red-500'; msg.classList.remove('hidden'); } }
   finally { btn.disabled = false; }
 }
@@ -643,7 +625,7 @@ async function loadGuardrailSettings() {
           }),
         });
         if (!r.ok) throw new Error((await r.json()).error || 'Failed');
-        msg.textContent = '✓ Saved'; msg.className = 'text-xs mt-2 text-emerald-600 dark:text-emerald-400';
+        msg.textContent = ' Saved'; msg.className = 'text-xs mt-2 text-emerald-600 dark:text-emerald-400';
       } catch (e) { msg.textContent = e.message; msg.className = 'text-xs mt-2 text-red-500'; }
       finally { msg.classList.remove('hidden'); btn.disabled = false; }
     });
@@ -915,13 +897,13 @@ const calcPoints = (m) => (m.total_listings || 0) * 100 + (m.sold_listings || 0)
 function applyLeaderboardProductPresentation() {
   const facebook = facebookLeaderboardActive();
   const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
-  set('lb-title', facebook ? '🏆 Facebook Posting Leaderboard' : '🏆 Leaderboard');
+  set('lb-title', facebook ? ' Facebook Posting Leaderboard' : ' Leaderboard');
   set('lb-subtitle', facebook
     ? '100 pts per Facebook post · 500 pts per Facebook sale · Build your posting streak and lead the board.'
     : '500 pts / deal · 50 pts / appraisal · 100 pts / listing · Climb the tiers, top the team.');
   set('lb-conv-label', facebook ? 'Facebook Conversion' : 'Team Conversion');
   set('lb-rankings-title', facebook ? 'Facebook posting rankings' : 'Full rankings');
-  set('lb-tab-global', facebook ? '🌎 Facebook Community' : '🌎 Global');
+  set('lb-tab-global', facebook ? ' Facebook Community' : ' Global');
   set('gl-subtitle', facebook
     ? 'How your Facebook posting stacks up across MarketSync. Other accounts are anonymized.'
     : 'How you stack up across every dealer & rep on MarketSync. Others are anonymized — only you see your name.');
@@ -1000,7 +982,7 @@ async function loadInternalBoard() {
     .map((r, i) => ({ ...r, _rank: i + 1 }));
   const money = (n) => '$' + Number(n || 0).toLocaleString();
   const stat = (label, val) => `<div class="flex-1 min-w-[110px]"><div class="text-2xl font-black text-slate-900 dark:text-white tabular-nums">${val}</div><div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">${label}</div></div>`;
-  const medal = (rank) => rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `<span class="text-slate-400 font-mono">${rank}</span>`;
+  const medal = (rank) => rank === 1 ? '' : rank === 2 ? '' : rank === 3 ? '' : `<span class="text-slate-400 font-mono">${rank}</span>`;
   const selfId = (typeof user !== 'undefined' && user) ? user.id : null;
   const rows = ranking.length ? ranking.map(r => {
     const me = r.id === selfId;
@@ -1112,14 +1094,14 @@ function badgeCard(b) {
        </div>
        <div class="text-[10px] text-slate-400 mt-1">${next}${b.unit === '%' ? '%' : ''} for next tier</div>`
     : (next == null
-        ? `<div class="text-[10px] font-bold text-amber-500 mt-2">★ Max tier reached</div>`
+        ? `<div class="text-[10px] font-bold text-amber-500 mt-2"> Max tier reached</div>`
         : `<div class="text-[10px] text-slate-400 mt-2">Reach ${next}${b.unit === 'h' ? 'h or less' : ''} to unlock</div>`);
   return `
     <div class="rounded-xl border p-3 ${earned
       ? 'bg-white dark:bg-slate-900 border-indigo-200 dark:border-indigo-800'
       : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800'}">
       <div class="flex items-start justify-between gap-2">
-        <div class="text-2xl leading-none ${earned ? '' : 'opacity-30 grayscale'}">${b.icon || '🏅'}</div>
+        <div class="text-2xl leading-none ${earned ? '' : 'opacity-30 grayscale'}">${b.icon || ''}</div>
         ${earned ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300">TIER ${roman}</span>`
           : `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-400">LOCKED</span>`}
       </div>

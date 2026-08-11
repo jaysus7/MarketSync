@@ -78,7 +78,7 @@ async function accAdvancePeriod(period, next) {
   if (!confirm(`Advance ${period} to ${next.replace(/_/g, ' ')}? Closed and locked periods refuse new postings.`)) return;
   try {
     const r = await apiSendJson('/accounting/periods/advance', 'POST', { period });
-    showToast(`Period ${period} is now ${String(r.status || next).replace(/_/g, ' ')} ✓`, 'success');
+    showToast(`Period ${period} is now ${String(r.status || next).replace(/_/g, ' ')} `, 'success');
     ENGINE_DATA['accounting-overview'] = undefined;
     engineTab('accounting-overview', ENGINE_STATE['accounting-overview'] || 'work', true);
   } catch (e) { showToast(e.message, 'error'); }
@@ -88,7 +88,7 @@ window.accAdvancePeriod = accAdvancePeriod;
 async function accApprove(id) {
   try {
     await apiSendJson(`/expenses/${id}/approve`, 'POST', {});
-    showToast('Expense approved ✓', 'success');
+    showToast('Expense approved ', 'success');
     ENGINE_DATA['accounting-overview'] = undefined;
     engineTab('accounting-overview', ENGINE_STATE['accounting-overview'] || 'overview', true);
   } catch (e) { showToast(e.message, 'error'); }
@@ -99,7 +99,7 @@ async function accPay(id) {
   if (!confirm('Record this bill as paid? This clears the payable and credits cash.')) return;
   try {
     await apiSendJson(`/expenses/${id}/pay`, 'POST', {});
-    showToast('Bill paid ✓', 'success');
+    showToast('Bill paid ', 'success');
     ENGINE_DATA['accounting-overview'] = undefined;
     engineTab('accounting-overview', ENGINE_STATE['accounting-overview'] || 'overview', true);
   } catch (e) { showToast(e.message, 'error'); }
@@ -110,7 +110,7 @@ ENGINES['accounting-overview'] = {
   rootId: 'accounting-overview-root', title: 'Accounting',
   subtitle: 'Financial control — what reached the books, what has not, and what is owed',
   icon: 'currency', accent: 'emerald',
-  tabLabels: { overview: 'Today', work: 'Work' },
+  tabLabels: { overview: 'My Day', work: 'Work' },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(profileContext?.role);
     return mgr ? ['overview', 'work', 'insights'] : ['overview', 'work'];

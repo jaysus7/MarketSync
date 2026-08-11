@@ -34,6 +34,8 @@ import { academyAttention } from './academy.js'
 import { timeAttention } from './people-time.js'
 import { complianceAttention } from './people-compliance.js'
 import { launchAttention } from './launch-hub.js'
+import { serviceAttention, partsAttention, inventoryAttention, fniAttention } from './operational-attention.js'
+import { identityAttention } from './identity.js'
 
 /**
  * Every department that can answer for itself, and what a caller must hold to see it.
@@ -43,22 +45,27 @@ import { launchAttention } from './launch-hub.js'
  * than letting a quiet omission read as "nothing to do".
  */
 export const MY_DAY_SOURCES = [
-  { key: 'campaigns', label: 'Campaigns', department: 'Marketing', permission: 'marketing.view', load: campaignAttention },
-  { key: 'social', label: 'Social', department: 'Marketing', permission: 'marketing.view', load: socialAttention },
-  { key: 'reputation', label: 'Reputation', department: 'Marketing', permission: 'marketing.view', load: reputationAttention },
-  { key: 'conversations', label: 'Conversations', department: 'Sales', permission: 'customer.view', load: conversationAttention },
-  { key: 'sales_video', label: 'Sales video', department: 'Sales', permission: 'customer.view', load: salesVideoAttention },
-  { key: 'accounting', label: 'Accounting', department: 'Accounting', permission: 'accounting.view', load: accountingExceptions },
-  { key: 'people', label: 'People', department: 'People', permission: 'staff.view', load: peopleAttention },
+  { key: 'campaigns', label: 'Campaigns', department: 'Marketing', permission: 'marketing.view', deepLink: '#/w/marketing/campaigns', load: campaignAttention },
+  { key: 'social', label: 'Social', department: 'Marketing', permission: 'marketing.view', deepLink: '#/w/marketing/social', load: socialAttention },
+  { key: 'reputation', label: 'Reputation', department: 'Marketing', permission: 'marketing.view', deepLink: '#/w/marketing/reputation', load: reputationAttention },
+  { key: 'conversations', label: 'Conversations', department: 'Sales', permission: 'customer.view', deepLink: '#/w/sales/crm', load: conversationAttention },
+  { key: 'sales_video', label: 'Sales video', department: 'Sales', permission: 'customer.view', deepLink: '#/w/sales/crm', load: salesVideoAttention },
+  { key: 'accounting', label: 'Accounting', department: 'Accounting', permission: 'accounting.view', deepLink: '#/w/accounting/accounting-overview', load: accountingExceptions },
+  { key: 'people', label: 'People', department: 'People', permission: 'staff.view', deepLink: '#/w/people/people-overview', load: peopleAttention },
   // Training is gated on `staff.training.view` rather than `staff.view`: seeing that somebody
   // is behind on compliance training is a narrower thing than seeing the team list.
-  { key: 'academy', label: 'Academy', department: 'People', permission: 'staff.training.view', load: academyAttention },
+  { key: 'academy', label: 'Academy', department: 'People', permission: 'staff.training.view', deepLink: '#/w/academy/academy', load: academyAttention },
   // Approving hours is what turns them into pay, so this rides `staff.time.approve` — the
   // permission that already means "this person decides what somebody gets paid".
-  { key: 'time', label: 'Time', department: 'People', permission: 'staff.time.approve', load: timeAttention },
-  { key: 'compliance', label: 'Compliance', department: 'People', permission: 'staff.compliance.view', load: complianceAttention },
+  { key: 'time', label: 'Time', department: 'People', permission: 'staff.time.approve', deepLink: '#/w/people/people-overview', load: timeAttention },
+  { key: 'compliance', label: 'Compliance', department: 'People', permission: 'staff.compliance.view', deepLink: '#/w/people/people-overview', load: complianceAttention },
   // Setup reaches the day only when something is actually not working — never for a logo.
-  { key: 'setup', label: 'Setup', department: 'Dealership', permission: 'settings.manage', load: launchAttention },
+  { key: 'setup', label: 'Setup', department: 'Dealership', permission: 'settings.manage', deepLink: '#/w/launch/launch', load: launchAttention },
+  { key: 'service', label: 'Service', department: 'Service', permission: 'service.view', deepLink: '#/w/service/service-overview', load: serviceAttention },
+  { key: 'parts', label: 'Parts', department: 'Parts', permission: 'service.view', deepLink: '#/w/parts/parts-overview', load: partsAttention },
+  { key: 'inventory', label: 'Inventory', department: 'Inventory', permission: 'inventory.view', deepLink: '#/w/inventory/inventory-overview', load: inventoryAttention },
+  { key: 'fni', label: 'F&I', department: 'F&I', permission: 'fni.credit_application.view', deepLink: '#/w/fni/fni-overview', load: fniAttention },
+  { key: 'identity', label: 'Identity & Trust', department: 'Management', permission: 'identity.review', deepLink: '#/w/sales/crm', load: identityAttention },
 ]
 
 /**
@@ -66,7 +73,7 @@ export const MY_DAY_SOURCES = [
  * whose whole job is Service should not be told their day is clear by a queue that was never
  * able to see Service in the first place.
  */
-export const MY_DAY_GAPS = ['Service', 'Parts', 'Inventory', 'F&I']
+export const MY_DAY_GAPS = []
 
 const SEVERITY_MIN = 1
 const SEVERITY_MAX = 3
@@ -92,19 +99,33 @@ export function normalizeItem(raw, source) {
   if (!subject && !reason) return null
 
   const sev = Number(raw.severity)
+  const severity = Number.isFinite(sev) ? Math.min(SEVERITY_MAX, Math.max(SEVERITY_MIN, Math.round(sev))) : 2
+  const sourceId = raw.source_id ?? raw.ref ?? null
+  const nextAction = String(raw.next_action || raw.action || 'Review')
   return {
     kind: String(raw.kind || 'unknown'),
-    severity: Number.isFinite(sev) ? Math.min(SEVERITY_MAX, Math.max(SEVERITY_MIN, Math.round(sev))) : 2,
+    severity,
     subject: subject || reason.slice(0, 60),
     reason,
     // The department that can actually fix it, which is not always the one that noticed.
     owner: String(raw.owner || source.department),
-    action: String(raw.action || 'Review'),
+    action: nextAction,
     ref: raw.ref ?? null,
     amount: raw.amount ?? null,
     age_days: raw.age_days ?? null,
     source: source.key,
     source_label: source.label,
+    // Phase 8's shared attention contract. These are references to the owning record, never
+    // copied source records or a second task model. Legacy names above remain during migration.
+    source_type: String(raw.source_type || source.key),
+    source_id: sourceId,
+    department: String(raw.department || source.department),
+    title: subject || reason.slice(0, 60),
+    priority: raw.priority || (severity === 3 ? 'critical' : severity === 2 ? 'high' : 'normal'),
+    due_at: raw.due_at ?? null,
+    next_action: nextAction,
+    deep_link: raw.deep_link ?? source.deepLink ?? null,
+    attention_type: raw.attention_type || (severity >= 2 ? 'exception' : 'opportunity'),
   }
 }
 

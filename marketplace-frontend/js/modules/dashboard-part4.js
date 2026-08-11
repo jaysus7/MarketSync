@@ -899,7 +899,7 @@ async function saveCrmAdfEmail(btn) {
   try {
     const r = await fetch(`${API}/leads/crm-email`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ crm_adf_email: (inp?.value || '').trim() }) });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Failed');
-    if (msg) { msg.textContent = '✓ Saved — leads now deliver to your CRM.'; msg.className = 'text-xs mt-2 text-emerald-600 dark:text-emerald-400'; msg.classList.remove('hidden'); }
+    if (msg) { msg.textContent = ' Saved — leads now deliver to your CRM.'; msg.className = 'text-xs mt-2 text-emerald-600 dark:text-emerald-400'; msg.classList.remove('hidden'); }
   } catch (e) { if (msg) { msg.textContent = e.message; msg.className = 'text-xs mt-2 text-red-500'; msg.classList.remove('hidden'); } }
   finally { btn.disabled = false; btn.textContent = orig; }
 }
@@ -1012,6 +1012,7 @@ async function crmOpenForm(id) {
       <div>${lbl('DL expiry')}<input id="crm-f-dlexp" type="date" value="${esc(c.dl_expiry || '')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
     </div>
     ${id ? idvBlock(c) : ''}
+    ${id ? vehicleFitBlock(c) : ''}
     ${sect('Source & assignment')}
     <div class="grid grid-cols-3 gap-2">
       <div>${lbl('Source')}${(() => {
@@ -1050,7 +1051,7 @@ async function crmOpenForm(id) {
     <div class="flex gap-2 justify-end pt-1"><button onclick="this.closest('.fixed').remove()" class="text-sm font-bold text-slate-500 px-4 py-2">Cancel</button>
       <button onclick="crmSaveContact(this, ${id ? `'${id}'` : 'null'})" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">${id ? 'Save' : 'Create'}</button></div>
   </div>`, 'max-w-2xl');
-  if (id) idvFillProvider();
+  if (id) { idvFillProvider(); idvRefresh(id); }
 }
 function crmToggleCompany(isCo) { const r = document.getElementById('crm-company-row'); if (r) r.classList.toggle('hidden', !isCo); }
 
@@ -1107,6 +1108,9 @@ function idvBadge(status, verifiedAt) {
     processing: ['bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300', 'Checking…'],
     pending: ['bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300', 'Awaiting customer'],
     requires_input: ['bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300', 'Needs another attempt'],
+    manual_review: ['bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300', 'Manual review'],
+    failed: ['bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300', 'Failed'],
+    expired: ['bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300', 'Expired'],
     canceled: ['bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300', 'Canceled'],
   };
   const [cls, label] = map[status] || ['bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300', 'Not verified'];
@@ -1115,18 +1119,20 @@ function idvBadge(status, verifiedAt) {
 }
 function idvBlock(c) {
   const cid = c.id;
-  const status = c.id_verification_status || 'unstarted';
-  const rep = c.id_verification_report || {};
-  const summary = status === 'verified' && (rep.name || rep.dob)
-    ? `<div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Matched: ${esc(rep.name || '')}${rep.dob ? ` · DOB ${esc(rep.dob)}` : ''}${rep.selfie_matched ? ' · selfie matched' : ''}</div>` : '';
-  const lastErr = status === 'requires_input' && rep.last_error
-    ? `<div class="text-[11px] text-rose-500 mt-1">${esc(rep.last_error)}</div>` : '';
+  // Contact-level verification columns are legacy mirrors and can be stale. The canonical,
+  // purpose-scoped record is loaded immediately from /identity/status below.
+  const status = 'unstarted';
+  const summary = '';
+  const lastErr = '';
   return `<div class="text-[11px] font-black uppercase tracking-wider text-indigo-500 pt-1">Identity verification</div>
     <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-3">
       <div class="flex items-center justify-between gap-2">
         <div>
           <div class="flex items-center gap-2"><span class="text-sm font-bold text-slate-800 dark:text-slate-100">Government ID + selfie</span> <span id="idv-badge">${idvBadge(status, c.id_verified_at)}</span></div>
           <div class="text-[11px] text-slate-500 dark:text-slate-400">The customer photographs their ID and takes a selfie; images stay with the verification provider.</div>
+          <label class="mt-2 flex items-center gap-2 text-[11px] font-semibold text-slate-500">Purpose
+            <select id="idv-purpose" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-[11px] text-slate-700 dark:text-slate-200"><option value="test_drive">Test drive</option><option value="credit_application">Credit application</option><option value="remote_purchase">Remote purchase</option><option value="esign">E-sign</option><option value="payment">Payment</option><option value="delivery">Delivery</option></select>
+          </label>
           <div id="idv-provider-slot" class="mt-1"></div>
           <div id="idv-summary">${summary}${lastErr}</div>
         </div>
@@ -1142,7 +1148,8 @@ async function idvStart(contactId) {
   const link = document.getElementById('idv-link');
   if (link) { link.classList.remove('hidden'); link.innerHTML = '<div class="text-xs text-slate-500">Creating a secure verification link…</div>'; }
   try {
-    const r = await apiSendJson('/identity/start', 'POST', { contact_id: contactId }, { timeoutMs: 30000 });
+    const purpose = document.getElementById('idv-purpose')?.value || 'test_drive';
+    const r = await apiSendJson('/identity/start', 'POST', { contact_id: contactId, purpose }, { timeoutMs: 30000 });
     if (!r.url) throw new Error('No verification link returned.');
     const badge = document.getElementById('idv-badge'); if (badge) badge.innerHTML = idvBadge('pending');
     if (link) link.innerHTML = `
@@ -1165,9 +1172,10 @@ async function idvRefresh(contactId) {
     if (badge) badge.innerHTML = idvBadge(r.status, r.verified_at);
     const sum = document.getElementById('idv-summary');
     if (sum) {
-      const rep = r.report || {};
-      if (r.status === 'verified' && (rep.name || rep.dob)) sum.innerHTML = `<div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Matched: ${esc(rep.name || '')}${rep.dob ? ` · DOB ${esc(rep.dob)}` : ''}${rep.selfie_matched ? ' · selfie matched' : ''}</div>`;
-      else if (r.status === 'requires_input' && rep.last_error) sum.innerHTML = `<div class="text-[11px] text-rose-500 mt-1">${esc(rep.last_error)}</div>`;
+      const rep = r.verification || r;
+      if (r.status === 'verified') sum.innerHTML = `<div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">${esc(rep.legal_name || '')}${rep.dob ? ` · DOB ${esc(rep.dob)}` : ''} · document ${esc(rep.document_result || 'unknown')} · liveness ${esc(rep.liveness_result || 'unknown')}${rep.face_match_score != null ? ` · match ${Number(rep.face_match_score).toFixed(0)}/100` : ' · match score unavailable'}</div>`;
+      else if (r.status === 'manual_review') sum.innerHTML = `<div class="text-[11px] text-amber-600 dark:text-amber-400 mt-1">Provider result needs evidence review. It is not verified yet.</div>`;
+      else if ((r.status === 'failed' || r.status === 'expired') && rep.last_error) sum.innerHTML = `<div class="text-[11px] text-rose-500 mt-1">${esc(rep.last_error)}</div>`;
     }
     if (r.status === 'verified') { showToast('Identity verified', 'success'); const l = document.getElementById('idv-link'); if (l) l.classList.add('hidden'); }
   } catch (e) { if (badge) badge.innerHTML = idvBadge('requires_input'); showToast(e.message || 'Could not check status', 'error'); }
@@ -1201,6 +1209,28 @@ async function identityScan() {
   setTimeout(() => { try { crmScanLicense(); } catch (e) {} }, 200);
 }
 window.identityScan = identityScan;
+
+function vehicleFitBlock(c) {
+  return `<div class="text-[11px] font-black uppercase tracking-wider text-indigo-500 pt-1">Affordability &amp; vehicle fit</div>
+    <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-3 space-y-2">
+      <div class="grid grid-cols-2 gap-2"><label class="text-[11px] font-semibold text-slate-500">Desired monthly payment<input id="fit-payment" type="number" min="0" step="25" class="mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm"></label><label class="text-[11px] font-semibold text-slate-500">Body style<input id="fit-body" placeholder="SUV, truck, sedan" class="mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm"></label></div>
+      <button type="button" onclick="crmVehicleFit('${c.id}')" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg">Find available vehicles</button>
+      <div id="fit-results" class="space-y-2"></div>
+    </div>`;
+}
+async function crmVehicleFit(contactId) {
+  const host = document.getElementById('fit-results'); if (!host) return;
+  host.innerHTML = '<div class="text-xs text-slate-400">Checking current inventory…</div>';
+  try {
+    const desired = Number(document.getElementById('fit-payment')?.value || 0) || null;
+    const body = (document.getElementById('fit-body')?.value || '').trim() || null;
+    const r = await apiSendJson(`/customers/${encodeURIComponent(contactId)}/vehicle-fit`, 'POST', { desired_payment: desired, body_style: body });
+    const a = r.affordability || {}, rows = r.matches || [];
+    const paymentContext = a.assumptions_complete ? `${a.apr}% · ${a.term_months} months` : 'Payment estimate unavailable until rate and term are known';
+    host.innerHTML = `<div class="text-[11px] text-slate-500">${esc(paymentContext)} · Next action: <b>${esc(r.next_action || 'Review')}</b></div>${rows.length ? rows.slice(0, 6).map(v => `<button type="button" onclick="openVehicleRecord('${v.inventory_id}')" class="w-full text-left flex gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2"><div class="w-16 h-12 rounded bg-slate-100 dark:bg-slate-800 bg-cover bg-center shrink-0" ${v.photo ? `style="background-image:url('${esc(v.photo)}')"` : ''}></div><div class="min-w-0 flex-1"><div class="text-xs font-bold text-slate-900 dark:text-white">${esc([v.year,v.make,v.model,v.trim].filter(Boolean).join(' '))}</div><div class="text-[11px] text-slate-500">Stock ${esc(v.stock_number || '—')} · ${money(v.price)}${v.estimated_payment != null ? ` · est. ${money(v.estimated_payment)}/mo` : ''}</div><div class="text-[11px] font-bold text-indigo-600">Fit ${v.fit_score}/100 · ${esc((v.reasons || []).join(' · '))}</div></div></button>`).join('') : '<div class="text-xs text-amber-600">No currently available inventory fits the supported budget.</div>'}`;
+  } catch (e) { host.innerHTML = `<div class="text-xs text-rose-500">${esc(e.message || 'Could not calculate vehicle fit.')}</div>`; }
+}
+window.crmVehicleFit = crmVehicleFit;
 async function crmDecodeTrade() {
   const vin = (document.getElementById('crm-f-tradevin')?.value || '').trim().toUpperCase();
   if (vin.length !== 17) { showToast('Enter a 17-character VIN', 'error'); return; }
@@ -1324,7 +1354,7 @@ async function loadLeadsPage() {
     if (l.responded_at) {
       const sec = Math.max(0, Math.round((new Date(l.responded_at) - new Date(l.created_at)) / 1000));
       // Colour the answered time by the response goal — fast = green, slow = red.
-      return `<span class="text-xs font-bold ${leadTimeClasses(sec).join(' ')}" title="Answered${l.responded_by_name ? ' by ' + esc(l.responded_by_name) : ''} in ${fmtLeadDuration(sec)}">✓ ${fmtLeadDuration(sec)}</span>`;
+      return `<span class="text-xs font-bold ${leadTimeClasses(sec).join(' ')}" title="Answered${l.responded_by_name ? ' by ' + esc(l.responded_by_name) : ''} in ${fmtLeadDuration(sec)}"> ${fmtLeadDuration(sec)}</span>`;
     }
     return `<span class="lead-timer text-xs font-black tabular-nums" data-created="${l.created_at}" title="Live — time this lead has gone unanswered">${fmtLeadDuration(Math.max(0, Math.round((Date.now() - new Date(l.created_at)) / 1000)))}</span>`;
   };
@@ -1337,10 +1367,10 @@ async function loadLeadsPage() {
     }
     return `<div class="text-[11px] font-semibold mt-0.5 inline-flex items-center gap-1 ${l.rep ? 'text-indigo-600 dark:text-indigo-400' : 'text-amber-600 dark:text-amber-400'}"><svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>${l.rep ? esc(l.rep) : 'Unassigned'}</div>`;
   };
-  // Hot-lead score badge (🔥 hot / warm / cold) — hover for the biggest driver.
+  // Hot-lead score badge ( hot / warm / cold) — hover for the biggest driver.
   const scoreBadge = (l) => {
     if (l.score == null) return '';
-    const m = { hot: ['🔥', 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'], warm: ['🌤️', 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'], cold: ['❄️', 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'] };
+    const m = { hot: ['', 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'], warm: ['', 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'], cold: ['', 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'] };
     const [ic, cls] = m[l.score_tier] || m.cold;
     return `<span class="text-[10px] font-black uppercase px-1.5 py-0.5 rounded ${cls}" title="Lead score ${l.score}/100${l.score_reason ? ' · ' + esc(l.score_reason) : ''}">${ic} ${l.score}</span>`;
   };
@@ -1354,8 +1384,8 @@ async function loadLeadsPage() {
       <td class="py-3 px-3 whitespace-nowrap">${sittingBadge(l)}</td>
       <td class="py-3 px-3">${statusPill(l)}</td>
       <td class="py-3 px-3 text-right whitespace-nowrap">
-        ${!l.responded_at ? `<button class="lead-answered text-emerald-600 hover:text-emerald-500 text-xs font-bold" data-id="${l.id}" data-contact="${l.contact_id || ''}" title="Log a call/text/email with a note — stops the clock">✓ Log &amp; complete</button>` : ''}
-        <button class="lead-ai-reply text-violet-600 hover:text-violet-500 text-xs font-bold ml-3" data-id="${l.id}">✦ Draft reply</button>
+        ${!l.responded_at ? `<button class="lead-answered text-emerald-600 hover:text-emerald-500 text-xs font-bold" data-id="${l.id}" data-contact="${l.contact_id || ''}" title="Log a call/text/email with a note — stops the clock"> Log &amp; complete</button>` : ''}
+        <button class="lead-ai-reply text-violet-600 hover:text-violet-500 text-xs font-bold ml-3" data-id="${l.id}"> Draft reply</button>
         ${!l.adf_sent_at && crmSet ? `<button class="lead-resend text-indigo-500 hover:text-indigo-400 text-xs font-bold ml-3" data-id="${l.id}">Send to CRM</button>` : ''}
       </td>
     </tr>`).join('') || '<tr><td colspan="6" class="py-8 text-center text-sm text-slate-400 italic">No leads yet.</td></tr>';

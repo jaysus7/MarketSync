@@ -248,3 +248,34 @@ test('no provider adapter ships in this slice, and the code says so', () => {
 test('an adapter must supply a publish function to register at all', () => {
   assert.throws(() => registerSocialProvider('facebook', {}), /publish\(\) function/)
 })
+
+test('scheduled posts can be rescheduled or cancelled only before a target is claimed', () => {
+  assert.match(social, /app\.put\('\/social\/posts\/:id'/)
+  assert.match(social, /\.in\('status', \['publishing', 'published'\]\)/)
+  assert.match(social, /Publishing has started; claimed targets cannot be changed/)
+  assert.match(social, /app\.post\('\/social\/posts\/:id\/cancel'/)
+  assert.match(social, /social\.post_rescheduled/)
+  assert.match(social, /social\.post_cancelled/)
+})
+
+test('dealer-facing scheduler exposes calendar, queue, drafts, approvals, published and failed', () => {
+  const ws = readFileSync(new URL('../../marketplace-frontend/js/modules/marketing-workspace.js', import.meta.url), 'utf8')
+  for (const label of ['Calendar', 'Queue', 'Drafts', 'Approvals', 'Published', 'Failed']) assert.match(ws, new RegExp(`['"]${label}['"]`))
+  for (const mode of ['month', 'week', 'agenda']) assert.match(ws, new RegExp(`['"]${mode}['"]`))
+  assert.match(ws, /Intl\.DateTimeFormat\(undefined,\{timeZone:tz/)
+  assert.match(ws, /mktReschedule/)
+  assert.match(ws, /mktApprovePost/)
+  assert.match(ws, /mktCancelPost/)
+})
+
+test('calendar modes render distinct calendar structures and reschedule through the server', () => {
+  const ws = readFileSync(new URL('../../marketplace-frontend/js/modules/marketing-workspace.js', import.meta.url), 'utf8')
+  assert.match(ws, /__socialCalendarMode === 'month'/)
+  assert.match(ws, /__socialCalendarMode === 'week'/)
+  assert.match(ws, /__socialCalendarMode === 'agenda'/)
+  assert.match(ws, /dayCount = __socialCalendarMode === 'month' \? 42 : 7/)
+  assert.match(ws, /ondrop="mktCalendarDrop/)
+  assert.match(ws, /apiSendJson\(`\/social\/posts\/\$\{postId\}`, 'PUT', \{ scheduled_local:/)
+  assert.match(ws, /Intl\.DateTimeFormat\('en-CA', \{ timeZone: tz/,
+    'calendar grouping must use the canonical dealership timezone')
+})

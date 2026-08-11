@@ -13,6 +13,14 @@ import { audit } from '../audit.js'
 import { featuresForPlan, productsForPlan } from '../plan-catalog.js'
 import { ACADEMY_DEMO_VERSION, seedAcademyDemoData, wipeAcademyDemoData } from '../academy-demo-data.js'
 import { createHash } from 'node:crypto'
+import { ensureStaffMember } from './people-identity.js'
+
+const DEMO_EMPLOYEES = [
+  { name: 'Marcus Vance', email: 'marcus.vance@dealership.example', department: 'Sales', team: 'Sales', job_title: 'General Sales Manager', location_name: 'Main Showroom', start_date: '2021-03-15' },
+  { name: 'Sarah Jenkins', email: 'sarah.jenkins@dealership.example', department: 'Sales', team: 'Sales', job_title: 'Senior Sales Representative', location_name: 'Main Showroom', start_date: '2022-06-01' },
+  { name: 'David Miller', email: 'david.miller@dealership.example', department: 'F&I', team: 'F&I', job_title: 'Finance Manager', location_name: 'Finance Office', start_date: '2020-01-10' },
+  { name: 'Elena Rostova', email: 'elena.rostova@dealership.example', department: 'Service', team: 'Service', job_title: 'Service Manager', location_name: 'Service Bay', start_date: '2019-08-20' },
+]
 
 const isPlatformOwner = req => hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)
 const isDealerAdmin = req => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
@@ -62,6 +70,39 @@ async function currentDemoVersion(dealershipId) {
 }
 
 async function seedBase({ dealershipId, ownerId, products }) {
+  const { data: ownerProfile, error: ownerProfileError } = await supabaseAdmin.from('profiles')
+    .select('full_name,display_name,role,business_email').eq('id', ownerId)
+    .eq('dealership_id', dealershipId).maybeSingle()
+  if (ownerProfileError) throw ownerProfileError
+  const owner = await ensureStaffMember(dealershipId, ownerId, {
+    name: ownerProfile?.full_name || ownerProfile?.display_name,
+    email: ownerProfile?.business_email,
+    role: ownerProfile?.role,
+    jobTitle: 'Dealer Principal',
+    status: 'active',
+  })
+  if (owner.error) throw new Error(`seed demo owner employment: ${owner.error}`)
+
+  // Demo teammates are real employment records. They intentionally have no user_id until
+  // invited, proving People can precede access while Users & Access remains honest.
+  for (const employee of DEMO_EMPLOYEES) {
+    const { data: existing, error: findError } = await supabaseAdmin.from('staff_members')
+      .select('id').eq('dealership_id', dealershipId).eq('email', employee.email).maybeSingle()
+    if (findError) throw findError
+    if (!existing) {
+      const { data: created, error } = await supabaseAdmin.from('staff_members').insert({
+        dealership_id: dealershipId, ...employee, employment_status: 'active', active: true,
+        onboarding_status: 'not_started', compliance_status: 'not_started', created_by: ownerId,
+      }).select('id').single()
+      if (error) throw error
+      const { error: historyError } = await supabaseAdmin.from('staff_status_history').insert({
+        dealership_id: dealershipId, staff_member_id: created.id, from_status: null,
+        to_status: 'active', reason: 'Canonical demo employment seeded', changed_by: ownerId,
+      })
+      if (historyError) throw historyError
+    }
+  }
+
   const productSet = new Set(products)
   const byStock = {}
   for (const vehicle of VEHICLES) {

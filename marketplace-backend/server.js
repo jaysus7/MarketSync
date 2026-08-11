@@ -45,6 +45,7 @@ import { registerEsign } from './routes/esign.js'
 import { registerCalendar } from './routes/calendar.js'
 import { registerAdSpend } from './routes/adspend.js'
 import { registerIdentity } from './routes/identity.js'
+import { registerVehicleFit } from './routes/vehicle-fit.js'
 import { registerSquare } from './routes/square.js'
 import { registerCommissions } from './routes/commissions.js'
 import { registerFniCatalog } from './routes/fni-catalog.js'
@@ -175,6 +176,7 @@ registerEsign(app)
 registerCalendar(app)
 registerAdSpend(app)
 registerIdentity(app)
+registerVehicleFit(app)
 registerCommissions(app)
 registerFniCatalog(app)
 registerAccounting(app)
@@ -188,7 +190,7 @@ registerAccountingArAp(app)   // AR/AP/CIT read surface — derived from the pos
 registerCampaigns(app)        // canonical Campaign + source taxonomy + attribution by ID
 registerSocial(app)           // social account identity + server-side publish authorization
 registerSocialPublish(app)    // the dispatcher: posts actually leave the building, or say why not
-registerMarketingStudio(app)  // Studio — the dealership's own marketing media library
+registerMarketingStudio(app)  // Studio — canonical creative editor and media library
 registerConsent(app)          // the ONE consent gate every sender calls
 registerConversations(app)    // one customer conversation across channels + human takeover
 registerSalesVideo(app)       // Sales-owned video messaging — a link fetch is not a view

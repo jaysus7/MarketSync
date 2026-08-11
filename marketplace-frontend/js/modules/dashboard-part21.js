@@ -238,7 +238,7 @@ function setupAIBoostListeners() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Save failed');
-      msg.textContent = '✓ Saved';
+      msg.textContent = ' Saved';
       msg.className = 'text-xs font-medium px-2.5 py-1 rounded-md bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300';
       msg.classList.remove('hidden');
     } catch (err) {
@@ -416,7 +416,7 @@ async function runVinDecode(vinArg) {
     renderVinResults(data);
 
     // Persist the recall check to this vehicle so its Inventory card stops saying
-    // "not checked yet" and shows ✓/⚠. Only stores vin_data + recalls — it does not
+    // "not checked yet" and shows /. Only stores vin_data + recalls — it does not
     // overwrite the vehicle's year/make/model.
     if (__vinDecodeVehicleId) {
       const recalls = Array.isArray(data.recalls) ? data.recalls : [];
@@ -478,7 +478,7 @@ function renderVinResults({ decoded, recalls, all_fields }) {
   const recallHeader = document.getElementById('vin-recalls-header');
   const recallList = document.getElementById('vin-recalls-list');
   if (recalls?.length) {
-    recallHeader.innerHTML = `<span class="text-red-600 dark:text-red-400">⚠ ${recalls.length} Open Recall${recalls.length > 1 ? 's' : ''}</span>`;
+    recallHeader.innerHTML = `<span class="text-red-600 dark:text-red-400"> ${recalls.length} Open Recall${recalls.length > 1 ? 's' : ''}</span>`;
     recallList.innerHTML = recalls.map(r => `
       <div class="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2 text-xs">
         <div class="font-bold text-red-700 dark:text-red-400">${r.Component || 'Component'}</div>
@@ -487,7 +487,7 @@ function renderVinResults({ decoded, recalls, all_fields }) {
       </div>`).join('');
     recallSection.classList.remove('hidden');
   } else {
-    recallHeader.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400">✓ No open recalls found</span>`;
+    recallHeader.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400"> No open recalls found</span>`;
     recallList.innerHTML = '';
     recallSection.classList.remove('hidden');
   }
@@ -701,7 +701,7 @@ async function uploadBrandingLogo() {
     if (!res.ok) throw new Error(data.error || 'Upload failed');
     const preview = document.getElementById('branding-logo-preview');
     preview.innerHTML = `<img src="${data.url}" alt="Logo" class="max-h-full max-w-full object-contain p-2">`;
-    showBrandingMsg('✓ Logo uploaded', true);
+    showBrandingMsg(' Logo uploaded', true);
   } catch (e) {
     showBrandingMsg(e.message, false);
   }
@@ -722,7 +722,7 @@ async function saveBrandingSettings() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Save failed');
-    showBrandingMsg('✓ Branding saved', true);
+    showBrandingMsg(' Branding saved', true);
   } catch (e) {
     showBrandingMsg(e.message, false);
   }
@@ -1097,8 +1097,8 @@ async function loadVinStickerInventory() {
       const cap     = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
 
       const recallBadge = v.recalls?.length
-        ? `<span class="inline-flex items-center gap-1 text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded px-1.5 py-0.5">⚠ ${v.recalls.length} recall${v.recalls.length > 1 ? 's' : ''}</span>`
-        : (v.recalls_checked_at ? `<span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded px-1.5 py-0.5">✓ No recalls</span>` : '');
+        ? `<span class="inline-flex items-center gap-1 text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded px-1.5 py-0.5"> ${v.recalls.length} recall${v.recalls.length > 1 ? 's' : ''}</span>`
+        : (v.recalls_checked_at ? `<span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded px-1.5 py-0.5"> No recalls</span>` : '');
 
       const hasVin      = !!(v.vin_data);
       const hasSticker  = !!(v.window_sticker_oem_url || v.window_sticker_gen_url || v.window_sticker_url);

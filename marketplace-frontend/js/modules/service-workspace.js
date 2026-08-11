@@ -167,7 +167,7 @@ async function svcMove(roId, toState, needsReason) {
   try {
     const path = toState === 'closed' ? `/service-engine/ros/${roId}/close` : `/service-engine/ros/${roId}/status`;
     await apiSendJson(path, 'POST', toState === 'closed' ? { reason, disposition: disposition.trim() } : { status: toState, reason });
-    showToast(`${svcStatusLabel(toState)} ✓`, 'success');
+    showToast(`${svcStatusLabel(toState)} `, 'success');
     document.querySelectorAll('.fixed.inset-0.z-\\[9998\\]').forEach(n => n.remove());
     ENGINE_DATA['service-overview'] = undefined;
     engineTab('service-overview', ENGINE_STATE['service-overview'] || 'overview', true);
@@ -257,7 +257,7 @@ async function svcJob(lineId, action) {
   }
   try {
     await apiSendJson(`/service-engine/lines/${lineId}/progress`, 'POST', body);
-    showToast('Job updated ✓', 'success');
+    showToast('Job updated ', 'success');
     ENGINE_DATA['service-overview'] = undefined;
     engineTab('service-overview', ENGINE_STATE['service-overview'] || 'overview', true);
   } catch (e) { showToast(e.message, 'error'); }
@@ -322,7 +322,7 @@ function svcRenderWork(body, d) {
 ENGINES['service-overview'] = {
   rootId: 'service-overview-root', title: 'Service', subtitle: 'One repair order — check in, estimate, authorize, repair, deliver',
   icon: 'wrench', accent: 'sky',
-  get tabLabels() { return svcIsTechnician() ? { overview: 'My Work' } : { overview: 'Today', work: 'Work' }; },
+  get tabLabels() { return svcIsTechnician() ? { overview: 'My Day' } : { overview: 'My Day', work: 'Work' }; },
   get tabOrder() {
     if (svcIsTechnician()) return ['overview'];          // My Work is the whole job
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);

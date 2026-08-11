@@ -46,6 +46,23 @@ test('My Day merges every department it is allowed to see', async () => {
   assert.equal(day.complete, true)
 })
 
+test('every item carries the Phase 8 reference-only attention contract', () => {
+  const item = normalizeItem({
+    kind: 'follow_up', severity: 2, subject: 'Call Alex', reason: 'Appointment tomorrow',
+    owner: 'rep-1', action: 'Confirm appointment', ref: 'contact-1',
+    due_at: '2026-08-11T14:00:00Z', deep_link: '#/w/sales/crm',
+  }, src('crm', [], { department: 'Sales' }))
+  assert.deepEqual({
+    source_type: item.source_type, source_id: item.source_id, department: item.department,
+    title: item.title, priority: item.priority, owner: item.owner, due_at: item.due_at,
+    next_action: item.next_action, deep_link: item.deep_link, attention_type: item.attention_type,
+  }, {
+    source_type: 'crm', source_id: 'contact-1', department: 'Sales', title: 'Call Alex',
+    priority: 'high', owner: 'rep-1', due_at: '2026-08-11T14:00:00Z',
+    next_action: 'Confirm appointment', deep_link: '#/w/sales/crm', attention_type: 'exception',
+  })
+})
+
 test('opportunities are separated from problems, not ranked against them', async () => {
   const day = await buildMyDay(REQ, { can: allowing(),
     sources: [src('a', [
@@ -96,14 +113,10 @@ test('an all-quiet day is distinguishable from a broken one', async () => {
   assert.equal(broken.complete, false, 'same empty list, completely different meaning')
 })
 
-test('the departments with no builder are named, not implied', async () => {
+test('not-covered stays explicit and is empty only after every named gap has a builder', async () => {
   const day = await buildMyDay(REQ, { can: allowing(), sources: [src('a', [])] })
-  // Somebody whose whole job is Service must not be told their day is clear by a queue that
-  // was never able to see Service.
   assert.deepEqual(day.not_covered, MY_DAY_GAPS)
-  assert.ok(MY_DAY_GAPS.includes('Service'))
-  assert.ok(MY_DAY_GAPS.includes('Parts'))
-  assert.ok(!MY_DAY_GAPS.includes('People'), 'People emits attention as of 7.1')
+  assert.deepEqual(MY_DAY_GAPS, [])
 })
 
 // ── Normalization ───────────────────────────────────────────────────────────
@@ -212,7 +225,7 @@ test('every registered source names a real permission and a loader', () => {
     assert.equal(typeof s.load, 'function', `${s.key} has no loader`)
     assert.ok(s.department && s.label, `${s.key} must carry a department and a label`)
   }
-  assert.equal(MY_DAY_SOURCES.length, 11)
+  assert.equal(MY_DAY_SOURCES.length, 16)
   assert.equal(new Set(MY_DAY_SOURCES.map(s => s.key)).size, MY_DAY_SOURCES.length,
     'a duplicate source key would silently drop a department from the day')
 })
@@ -220,7 +233,8 @@ test('every registered source names a real permission and a loader', () => {
 test('My Day composes the departments rather than deriving anything itself', () => {
   for (const builder of ['campaignAttention', 'socialAttention', 'conversationAttention',
                          'reputationAttention', 'salesVideoAttention', 'accountingExceptions',
-                         'peopleAttention', 'academyAttention', 'timeAttention', 'complianceAttention', 'launchAttention']) {
+                         'peopleAttention', 'academyAttention', 'timeAttention', 'complianceAttention', 'launchAttention',
+                         'identityAttention']) {
     assert.ok(myDay.includes(builder), `must compose ${builder}`)
   }
   // No local severity, no invented kinds.

@@ -39,6 +39,7 @@ function loadRegistry() {
 
 const html = read('dashboard.html')
 const part2 = read('js/modules/dashboard-part2.js')
+const part11 = read('js/modules/dashboard-part11.js')
 const pageContainers = new Set([...html.matchAll(/data-page-content="([^"]+)"/g)].map(m => m[1]))
 
 // The nine target workspaces (project instructions §8 / Doc 21 §18).
@@ -61,6 +62,13 @@ test('registry exposes the nine DealerOS workspaces in workflow order', () => {
   assert.ok(MS_WORKSPACES, 'MS_WORKSPACES must be exported')
   assert.deepEqual(msDepartmentIds(MS_WORKSPACES), EXPECTED_WORKSPACES,
     'departments must be exactly the nine target workspaces, in order')
+})
+
+test('every dealer department leads with one role-aware My Day', () => {
+  const { MS_WORKSPACES, msDepartmentIds } = loadRegistry()
+  for (const id of msDepartmentIds(MS_WORKSPACES)) {
+    assert.equal(MS_WORKSPACES[id].pages[0]?.label, 'My Day', `${id} must lead with My Day`)
+  }
 })
 
 test('system engines are NOT primary departments', () => {
@@ -103,12 +111,20 @@ test('required UI moves landed in the right workspace', () => {
   assert.equal(at('appraisal'), 'inventory', 'Appraisals → Inventory > Acquire')
   assert.equal(at('equity'), 'inventory', 'Equity Mining → Inventory > Acquire')
   assert.equal(at('recon'), 'inventory', 'Recon → Inventory (not Sales)')
-  assert.equal(at('inv-intel'), 'inventory', 'Inventory Intelligence → Inventory > Pricing')
+  assert.equal(at('inv-intel'), 'inventory', 'Inventory Intelligence stays visibly named inside Inventory')
   assert.equal(at('delivery'), 'fni', 'Delivery → F&I')
   assert.equal(at('sales-team'), 'people', 'Employees → People')
   assert.equal(at('people-compliance'), 'people', 'Compliance → People')
   assert.equal(at('automation-builder'), 'settings', 'Automation → Settings, not a department')
   assert.equal(at('config'), 'settings', 'Configuration → Settings')
+})
+
+test('Inventory Intelligence remains visibly discoverable inside Inventory', () => {
+  const inv = readFileSync(new URL('../../marketplace-frontend/js/modules/inventory-workspace.js', import.meta.url), 'utf8')
+  assert.match(inv, /\['pricing', 'Inventory Intelligence'\]/)
+  assert.match(inv, /\['market', 'Market & Competitors'\]/)
+  assert.match(inv, /label: 'Inventory Intelligence'.*switchPage\('inv-intel'\)/s)
+  assert.match(inv, /label: 'Market & Competitors'.*switchPage\('market'\)/s)
 })
 
 test('one inventory pool — Vehicles and Syndication are two views of one page', () => {
@@ -132,7 +148,9 @@ test('role gating is preserved on regrouped workspaces', () => {
   // Manager-only slices inside rep-visible workspaces keep their per-tab gate.
   const tab = (ws, page) => MS_WORKSPACES[ws].pages.find(p => p.page === page)
   assert.equal(tab('sales', 'leads').mgr, true, 'Pipeline stays manager-only')
-  assert.equal(tab('inventory', 'inv-intel').mgr, true, 'Pricing stays manager-only')
+  assert.equal(tab('inventory', 'inv-intel').mgr, true, 'Inventory Intelligence stays manager-only')
+  assert.equal(tab('inventory', 'inv-intel').label, 'Inventory Intelligence')
+  assert.equal(tab('inventory', 'market').label, 'Market & Competitors')
   assert.equal(tab('fni', 'delivery').mgr, true, 'Delivery stays manager-only')
 })
 
@@ -159,6 +177,51 @@ test('entitlement gating still covers every registry page', () => {
 test('DEPARTMENTS is an alias of the registry, not a second copy', () => {
   assert.match(part2, /const DEPARTMENTS = \(typeof MS_WORKSPACES !== 'undefined' && MS_WORKSPACES\)/,
     'dashboard-part2.js must consume MS_WORKSPACES rather than redefining the nav')
+})
+
+test('engine workspaces and Settings render one primary header', () => {
+  assert.match(part2, /ENGINES\[pageId\]\) \|\| \['config', 'automation-builder', 'api-keys'\]\.includes\(pageId\)\) return hide\(\)/,
+    'the registry tab bar must yield to the canonical engine or Settings header')
+  const { MS_WORKSPACES } = loadRegistry()
+  assert.equal(MS_WORKSPACES.settings.pages[0].label, 'Settings')
+  assert.ok(MS_WORKSPACES.settings.pages.slice(1).every(page => page.legacy === true),
+    'Automation and API remain deep links inside Settings, not competing primary tabs')
+})
+
+test('Management exposes one canonical six-tab command header', () => {
+  const { MS_WORKSPACES } = loadRegistry()
+  assert.equal(MS_WORKSPACES.executive.label, 'My Day')
+  assert.deepEqual(MS_WORKSPACES.executive.pages.filter(page => !page.legacy).map(page => page.page), ['command'],
+    'legacy Executive pages must not render a competing department tab row')
+  assert.match(part11, /tabOrder:\s*\['overview', 'pulse', 'exceptions', 'approvals', 'forecast', 'financials'\]/)
+  for (const label of ['My Day', 'Pulse', 'Exceptions', 'Approvals', 'Forecast', 'Financials']) {
+    assert.match(part11, new RegExp(`['"]${label}['"]`), `Management must expose ${label}`)
+  }
+  assert.match(part11, /apiGetJson\('\/my-day'\)/,
+    'Management My Day must consume the shared role-aware attention aggregation')
+  assert.match(part11, /d\.day\.needs_attention/,
+    'Management must render canonical attention rather than a second task queue')
+  assert.match(part11, /This day is incomplete/,
+    'a failed attention source must stay visible instead of looking like a quiet day')
+  assert.doesNotMatch(part11.match(/ENGINES\['command'\][\s\S]*?function loadCommandCenter/)?.[0] || '', /☀️|🎓/,
+    'active Management output must use product icons, not emoji decoration')
+})
+
+test('the global header is identity, notifications and one menu instead of a CTA stack', () => {
+  assert.match(html, /id="shell-menu-btn"/)
+  assert.match(html, /id="shell-menu"/)
+  for (const id of ['header-desk-btn', 'header-appraise-btn', 'fb-post-btn', 'idscan-btn', 'training-btn', 'header-settings', 'logout-btn']) {
+    assert.match(html, new RegExp(`#${id}[^}]*display:\\s*none\\s*!important`), `${id} must leave the global toolbar`)
+  }
+})
+
+test('dealer login lands on the My Day owned by the caller role', () => {
+  const landing = part2.match(/function dealerRoleLanding[\s\S]*?\n\}/)?.[0] || ''
+  for (const [role, page] of Object.entries({
+    SALES_REP: 'sales', FNI: 'fni-overview', SERVICE: 'service-overview',
+    ACCOUNTING: 'accounting-overview', CLEANUP: 'recon', MANAGER: 'command',
+  })) assert.match(landing, new RegExp(`${role}: '${page}'`))
+  assert.match(part2, /switchPage\(dealerRoleLanding\(profileContext\?\.role\)\)/)
 })
 
 test('registry loads before dashboard.js', () => {

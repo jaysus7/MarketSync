@@ -5,6 +5,53 @@ let __canSeeLeaderboard = false;
 let __canSeeTeamInsights = false;
 let __canSeeSalesTeam = false;
 
+function msToggleShellMenu(force) {
+  const menu = document.getElementById('shell-menu');
+  const btn = document.getElementById('shell-menu-btn');
+  if (!menu || !btn) return;
+  const open = typeof force === 'boolean' ? force : menu.classList.contains('hidden');
+  menu.classList.toggle('hidden', !open);
+  btn.setAttribute('aria-expanded', String(open));
+}
+window.msToggleShellMenu = msToggleShellMenu;
+function msShellGo(page) { msToggleShellMenu(false); switchPage(page); }
+window.msShellGo = msShellGo;
+
+function dealerRoleLanding(role) {
+  const routes = {
+    DEALER_ADMIN: 'command', OWNER: 'command', MANAGER: 'command',
+    SALES_REP: 'sales', BDC: 'sales', FNI: 'fni-overview', SERVICE: 'service-overview',
+    ACCOUNTING: 'accounting-overview', CLEANUP: 'recon',
+  };
+  return routes[String(role || '').toUpperCase()] || 'insights';
+}
+window.dealerRoleLanding = dealerRoleLanding;
+
+async function refreshSetupIndicator(role) {
+  const banner = document.getElementById('setup-status-banner');
+  role = role || window.__setupIndicatorRole;
+  if (!banner || !['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(role)) return;
+  window.__setupIndicatorRole = role;
+  try {
+    const response = await fetch(`${API}/launch`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!response.ok) return;
+    const launch = await response.json();
+    if (launch.fully_configured) { banner.classList.add('hidden'); return; }
+    const items = launch.items || [];
+    const required = items.filter(i => i.status === 'outstanding' && i.type === 'REQUIRED_TO_LAUNCH').length;
+    const remaining = items.filter(i => i.status !== 'done').length;
+    document.getElementById('setup-status-title').textContent = required
+      ? `Finish setup — ${required} required item${required === 1 ? '' : 's'}`
+      : `Setup ${items.length - remaining}/${items.length} complete`;
+    document.getElementById('setup-status-detail').textContent = required
+      ? `${remaining} total item${remaining === 1 ? '' : 's'} remain`
+      : `${remaining} recommended or optional item${remaining === 1 ? '' : 's'} remain`;
+    banner.classList.remove('hidden');
+    banner.classList.add('flex');
+  } catch { /* Setup status is useful context, never a reason to block the shell. */ }
+}
+window.refreshSetupIndicator = refreshSetupIndicator;
+
 // AI Boost — hot/cold segment cache (populated by renderIntel, read by renderCatalog)
 let __hotMakeModels = new Set();
 let __coldMakeModels = new Set();
@@ -130,6 +177,7 @@ async function initializeDashboardEcosystem() {
       ? 'Independent'
       : (profileContext.dealership?.name || 'Independent');
     const isAdminHeader = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext.role);
+    refreshSetupIndicator(profileContext.role);
 
     // Purple "Desk a deal" quick-launch — any admin/manager/F&I (including a solo
     // "Independent" account, which is still allowed to desk deals).
@@ -414,11 +462,11 @@ async function initializeDashboardEcosystem() {
     setupMobileMoreMenu();
     // DealerOS: managers/admins land on the Command Center (today's operations +
     // exceptions); reps keep the Dashboard as home.
-    const __mgrHome = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     // SaaS Admin in MarketSync mode → the company command center; otherwise the
-    // dealership Command Center (managers) or the rep Dashboard.
+    // dealership role's own My Day. This is a UX landing choice; route permissions remain
+    // authoritative and switchPage will refuse any destination the caller cannot open.
     if (__dashMode === 'marketsync' && (profileContext?.workspace === 'saas_admin' || document.documentElement.getAttribute('data-dash-owner') === '1')) switchPage('saas-command');
-    else switchPage(__mgrHome ? 'command' : 'insights');
+    else switchPage(dealerRoleLanding(profileContext?.role));
     applyFeatureFlags();   // hide nav for features the dealer switched off
     // Entitlement-driven front door. Prefer the normalized access context (composes
     // subscription tier + product membership + role) and fall back to the legacy
@@ -599,7 +647,7 @@ window.openLeaderboardOnDash = openLeaderboardOnDash;
 // manager/analyst pages inside them hidden — and nothing else. Settings isn't a
 // department; the header gear owns it.
 //
-// ✅ SOURCE OF TRUTH for the dashboard sidebar navigation now lives in
+//  SOURCE OF TRUTH for the dashboard sidebar navigation now lives in
 //    js/modules/workspace-registry.js (MS_WORKSPACES) — it is the ONE registry the
 //    desktop sidebar, the workspace tab-bar and the mobile bottom row all derive
 //    from. To add/rename/reorder/gate a nav item or workspace, edit THERE
@@ -729,6 +777,11 @@ function renderDeptTabbar(pageId) {
   if (__productAllowedPages) { __activeDept = null; return hide(); }   // restricted product tiers use their flat nav, no dept tab-bar
   // MarketSync owner mode uses the SaaS departments, not the dealership ones.
   if (document.documentElement.getAttribute('data-dash-mode') === 'marketsync') { __activeDept = null; return hide(); }
+  // A registered engine already owns the department title and primary tabs. Rendering the
+  // registry's legacy page tabs above it creates two competing headers (and, once Work opens,
+  // a third row of subviews). Settings likewise owns one structured landing page; Automation
+  // and API remain contextual destinations inside it rather than a second primary tab bar.
+  if ((typeof ENGINES !== 'undefined' && ENGINES[pageId]) || ['config', 'automation-builder', 'api-keys'].includes(pageId)) return hide();
   // Sticky: keep the current department if it owns this page, else find the owner.
   let deptId = (__activeDept && DEPARTMENTS[__activeDept]?.pages.some(p => p.page === pageId)) ? __activeDept
              : Object.keys(DEPARTMENTS).find(d => DEPARTMENTS[d].pages.some(p => p.page === pageId));
@@ -794,7 +847,7 @@ function deptNavEligible(role) {
     && __productAllowedPages == null;
 }
 // A page the current user may actually open: role-allowed AND not entitlement/flag hidden.
-function deptPageAllowed(p) { return deptRoleOk(p) && deptPageVisible(p.page, p.invmode); }
+function deptPageAllowed(p) { return !p.legacy && deptRoleOk(p) && deptPageVisible(p.page, p.invmode); }
 function deptHomePage(dept) { return dept.pages.find(deptPageAllowed) || dept.pages.find(deptRoleOk) || dept.pages[0]; }
 // A department is present when it has one page the user's role and plan both permit.
 // Do not inspect the old nested sidebar here: it is merely a legacy presentation tree

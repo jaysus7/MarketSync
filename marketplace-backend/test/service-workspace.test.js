@@ -21,7 +21,7 @@ test('Service registers on the shared engine shell', () => {
   for (const prim of ['engKpi', 'engCard', 'engEmpty']) assert.ok(ws.includes(prim), `must reuse ${prim}`)
   assert.doesNotMatch(ws, /function (engKpi|engCard|engEmpty|renderEngine|engineTab)\b/,
     'must not redefine a shared primitive')
-  assert.match(ws, /overview: 'Today'/)
+  assert.match(ws, /overview: 'My Day'/)
 })
 
 test('the frontend asks the backend which moves are legal', () => {
@@ -47,7 +47,7 @@ test('it composes existing endpoints and introduces none', () => {
   }
 })
 
-test('Today is attention-first and every category is real', () => {
+test('My Day is attention-first and every category is real', () => {
   assert.match(ws, /function svcAttention/)
   assert.match(ws, /Needs attention/)
   assert.match(ws, /salesAttentionRow/, 'should reuse the shared attention row')
@@ -77,7 +77,7 @@ test('Service is wired into the shell and the registry', () => {
   assert.match(part2, /if \(pageId === 'service-overview'\) loadServiceWorkspace\(\)/)
   assert.match(part2, /'service-overview': 'os\.service'/, 'must carry an entitlement key')
   const block = registry.match(/\n  service: \{[\s\S]*?\n  \},/)?.[0] || ''
-  assert.match(block, /\{ page: 'service-overview', label: 'Today' \}/, 'Service must lead with Today')
+  assert.match(block, /\{ page: 'service-overview', label: 'My Day' \}/, 'Service must lead with My Day')
   for (const p of ['service-appointments', 'service-ros']) {
     assert.ok(block.includes(`page: '${p}'`), `existing page "${p}" must stay reachable`)
   }
@@ -114,7 +114,7 @@ test('an unavailable access context lands on the advisor surface, not the tech o
 test('a technician gets one tab and none of the desk tabs', () => {
   assert.match(ws, /if \(svcIsTechnician\(\)\) return \['overview'\]/)
   const labels = ws.match(/get tabLabels\(\)[\s\S]*?\n  \},/)?.[0] || ''
-  assert.match(labels, /svcIsTechnician\(\) \? \{ overview: 'My Work' \}/)
+  assert.match(labels, /svcIsTechnician\(\) \? \{ overview: 'My Day' \}/)
   // work/insights/settings are desk surfaces — they must stay behind the desk branch.
   const order = ws.match(/get tabOrder\(\)[\s\S]*?\n  \},/)?.[0] || ''
   assert.ok(order.indexOf("return ['overview']") < order.indexOf("'insights'"),

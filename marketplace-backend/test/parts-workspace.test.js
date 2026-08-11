@@ -17,11 +17,11 @@ const part2 = read('js/modules/dashboard-part2.js')
 test('Parts registers as its own department on the shared shell', () => {
   assert.match(ws, /ENGINES\['parts-overview'\]\s*=/)
   assert.match(ws, /rootId: 'parts-overview-root'/)
-  assert.match(ws, /tabLabels: \{ overview: 'Today'/)
+  assert.match(ws, /tabLabels: \{ overview: 'My Day'/)
   assert.doesNotMatch(ws, /function (engKpi|engCard|engEmpty|renderEngine|engineTab)\b/,
     'must not redefine a shared primitive')
   const block = registry.match(/\n  parts: \{[\s\S]*?\n  \},/)?.[0] || ''
-  assert.match(block, /\{ page: 'parts-overview', label: 'Today' \}/, 'Parts must lead with its own Today')
+  assert.match(block, /\{ page: 'parts-overview', label: 'My Day' \}/, 'Parts must lead with its own My Day')
   assert.ok(block.includes("page: 'service-parts'"), 'the existing catalogue must stay reachable')
 })
 

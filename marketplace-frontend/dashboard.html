@@ -247,6 +247,9 @@
     /* Guided setup: pulse the integration card we sent the user to finish. */
     @keyframes setupFlash { 0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); } 30% { box-shadow: 0 0 0 4px rgba(99,102,241,.45); } }
     .setup-flash { animation: setupFlash 1.3s ease-in-out 2; border-radius: 0.5rem; }
+    #header-desk-btn, #header-appraise-btn, #fb-post-btn, #idscan-btn, #ext-header-btn,
+    #training-btn, #open-upgrades, #header-settings, #logout-btn, #ui-tier-chip,
+    #header-shift-clock-chip { display: none !important; }
   </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased h-[100dvh] flex flex-col overflow-hidden">
@@ -279,7 +282,7 @@
           <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
           <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
         </span>
-        <span class="font-mono text-xs font-bold" id="header-shift-timer-display">🟢 SHIFT: 00:00:00</span>
+        <span class="font-mono text-xs font-bold" id="header-shift-timer-display"> SHIFT: 00:00:00</span>
       </button>
       <!-- Rank/tier chip — always-visible gamification status; opens the leaderboard -->
       <button id="ui-tier-chip" onclick="openLeaderboardOnDash()" title="Your rank & badges — open the leaderboard" class="hidden items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition hover:brightness-110 whitespace-nowrap"></button>
@@ -305,9 +308,25 @@
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"/></svg>
         <span id="notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none"></span>
       </button>
+      <div class="relative">
+        <button id="shell-menu-btn" onclick="msToggleShellMenu()" aria-expanded="false" aria-controls="shell-menu" class="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Menu">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <div id="shell-menu" class="hidden absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-1.5 z-50 text-sm">
+          <button onclick="msShellGo('academy')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Academy</button>
+          <button onclick="msShellGo('profile')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Settings</button>
+          <a href="https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada" target="_blank" rel="noopener" class="block px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Browser extension</a>
+          <button onclick="msSignOut()" class="w-full text-left px-3 py-2 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30">Sign out</button>
+        </div>
+      </div>
       <button id="logout-btn" onclick="msSignOut()" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-medium border border-slate-300 dark:border-slate-700 transition whitespace-nowrap">Sign Out</button>
     </div>
   </header>
+
+  <button id="setup-status-banner" onclick="switchPage('launch')" class="hidden flex-shrink-0 mx-3 sm:mx-6 mt-3 rounded-xl border border-amber-300/70 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/30 px-4 py-2.5 text-left items-center justify-between gap-3">
+    <span><span id="setup-status-title" class="block text-[13px] font-bold text-amber-900 dark:text-amber-200">Finish setup</span><span id="setup-status-detail" class="block text-[11px] text-amber-700 dark:text-amber-300"></span></span>
+    <span class="text-[12px] font-bold text-amber-800 dark:text-amber-200 whitespace-nowrap">Open Setup</span>
+  </button>
 
   <!-- Notification slideout panel -->
   <div id="notif-panel" class="fixed inset-0 z-50 hidden" aria-modal="true">
@@ -801,7 +820,7 @@
             <!-- ─── Backup codes shown ONCE after enrollment ─────────────── -->
             <div id="backup-codes-panel" class="hidden p-3 rounded bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-300 dark:border-amber-700 mb-3">
               <div class="flex items-center gap-2 mb-2">
-                <span class="text-lg">🔑</span>
+                <span class="text-lg"></span>
                 <p class="text-xs font-bold text-amber-900 dark:text-amber-200">Save these backup codes NOW</p>
               </div>
               <p class="text-sm text-amber-800 dark:text-amber-300 mb-3 leading-relaxed">
@@ -809,8 +828,8 @@
               </p>
               <div id="backup-codes-grid" class="grid grid-cols-2 gap-1.5 font-mono text-xs text-slate-900 dark:text-white mb-3"></div>
               <div class="flex gap-2">
-                <button id="backup-codes-download" class="flex-1 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold py-2 rounded transition">📥 Download as a file</button>
-                <button id="backup-codes-copy" class="flex-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white text-xs font-bold py-2 rounded transition">📋 Copy</button>
+                <button id="backup-codes-download" class="flex-1 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold py-2 rounded transition"> Download as a file</button>
+                <button id="backup-codes-copy" class="flex-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white text-xs font-bold py-2 rounded transition"> Copy</button>
               </div>
               <button id="backup-codes-done" class="w-full mt-2 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">I saved them — hide this</button>
             </div>
@@ -880,7 +899,7 @@
         </button>
 
         <!-- ═══════════════════════════════════════════════════════════════════
-             ⛔ LEGACY HARDCODED SIDEBAR — DO NOT EDIT / DO NOT ADD NAV ITEMS HERE.
+              LEGACY HARDCODED SIDEBAR — DO NOT EDIT / DO NOT ADD NAV ITEMS HERE.
 
              This static #nav-desktop tree is NOT the live navigation. At runtime it
              is hidden (.nav-init / .dept-mode) and REPLACED by the data-driven
@@ -1826,7 +1845,7 @@
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18"/></svg>
                 Website
               </button>
-              <button id="gen-pitches-btn" data-admin-only onclick="generateAllPitches(this)" title="Write an AI sales pitch for every car that doesn't have one" class="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0">✨ Sales pitches</button>
+              <button id="gen-pitches-btn" data-admin-only onclick="generateAllPitches(this)" title="Write an AI sales pitch for every car that doesn't have one" class="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0"> Sales pitches</button>
               <input type="file" id="inv-import-file" accept=".csv,text/csv" class="hidden" onchange="invImportCsv(this.files[0])">
               <button data-admin-only onclick="document.getElementById('inv-import-file').click()" title="Bulk import vehicles from a CSV" class="inv-raw-add flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0 border border-slate-300 dark:border-slate-700">Import CSV</button>
               <button data-admin-only onclick="invExportCsv(this)" title="Download all inventory as CSV" class="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0 border border-slate-300 dark:border-slate-700">Export CSV</button>
@@ -1860,7 +1879,7 @@
           <div class="flex flex-wrap gap-1.5 hidden" id="catalog-segment-pills">
             <button data-seg="all"  class="catalog-segment-pill active px-3 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition">All</button>
             <button data-seg="hot"  class="catalog-segment-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Hot</button>
-            <button data-seg="cold" class="catalog-segment-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">❄️ Cold</button>
+            <button data-seg="cold" class="catalog-segment-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"> Cold</button>
           </div>
           <!-- hidden select kept for JS compatibility -->
           <select id="catalog-status" class="hidden"></select>
@@ -1905,7 +1924,7 @@
         <!-- Header row: title + team conversion + carousel tabs -->
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 id="lb-title" class="text-lg font-bold text-slate-900 dark:text-white">🏆 Leaderboard</h2>
+            <h2 id="lb-title" class="text-lg font-bold text-slate-900 dark:text-white"> Leaderboard</h2>
             <p id="lb-subtitle" class="text-slate-500 dark:text-slate-400 text-xs">500 pts / deal · 50 pts / appraisal · 100 pts / listing · Climb the tiers, top the team.</p>
           </div>
           <div class="flex items-center gap-3 flex-wrap">
@@ -1918,7 +1937,7 @@
             <!-- Carousel tab pills -->
             <div class="inline-flex bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 text-xs font-bold">
               <button type="button" id="lb-tab-team" class="lb-view-tab px-3 py-1.5 rounded bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm transition">My Team</button>
-              <button type="button" id="lb-tab-global" class="lb-view-tab px-3 py-1.5 rounded text-slate-500 dark:text-slate-400 transition">🌎 Global</button>
+              <button type="button" id="lb-tab-global" class="lb-view-tab px-3 py-1.5 rounded text-slate-500 dark:text-slate-400 transition"> Global</button>
             </div>
           </div>
         </div>
@@ -2100,9 +2119,9 @@
                 <th class="py-3 px-3">Name</th>
                 <th class="py-3 px-3 max-w-[160px]">Email</th>
                 <th class="py-3 px-3">Role</th>
-                <th class="py-3 px-3 text-right">Listed</th>
-                <th class="py-3 px-3 text-right">Sold</th>
-                <th class="py-3 px-3 text-right">Conv.</th>
+                <th class="py-3 px-3">Account</th>
+                <th class="py-3 px-3">Linked employee</th>
+                <th class="py-3 px-3">Department</th>
                 <th class="py-3 px-3 text-right">Logins</th>
                 <th class="py-3 px-3 text-right">Action</th>
               </tr>
@@ -2404,7 +2423,7 @@
                 </div>
                 <div class="bg-white dark:bg-slate-800/60 border border-red-200 dark:border-red-800/50 rounded-xl p-4">
                   <div class="flex items-center gap-2 mb-3">
-                    <span class="text-base">🧊</span>
+                    <span class="text-base"></span>
                     <span class="text-sm font-bold text-slate-900 dark:text-white">Top 5 Cold Vehicles</span>
                     <span class="text-xs text-slate-400">High stock · slow moving</span>
                   </div>
@@ -2415,7 +2434,7 @@
               <!-- Duplicate VINs alert -->
               <div id="inv-intel-dups-wrap" class="hidden bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-xl p-4">
                 <div class="flex items-center gap-2 mb-2">
-                  <span class="text-base">⚠️</span>
+                  <span class="text-base"></span>
                   <span class="text-sm font-bold text-red-800 dark:text-red-300">Duplicate VINs Detected</span>
                 </div>
                 <div id="inv-intel-dups" class="space-y-2 text-sm"></div>
@@ -2871,7 +2890,7 @@
               <span id="appr-cust-linked" class="hidden items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 rounded-full px-2 py-0.5">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
                 <span id="appr-cust-linked-name">Linked</span>
-                <button type="button" onclick="apprUnlinkCustomer()" class="ml-1 text-emerald-600/70 hover:text-emerald-600" title="Unlink">✕</button>
+                <button type="button" onclick="apprUnlinkCustomer()" class="ml-1 text-emerald-600/70 hover:text-emerald-600" title="Unlink"></button>
               </span>
             </div>
             <!-- Search existing customer or start a new one -->
@@ -3512,7 +3531,7 @@
       <div class="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 p-6 text-white shrink-0 relative">
         <button onclick="closeThingsToKnowModal()" class="absolute top-4 right-4 text-white/80 hover:text-white text-2xl font-bold leading-none">&times;</button>
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-xs font-bold uppercase tracking-wider mb-2">
-          <span id="ttk-dept-badge-icon">🛡️</span> Department Onboarding
+          <span id="ttk-dept-badge-icon"></span> Department Onboarding
         </div>
         <h2 class="text-2xl sm:text-3xl font-black tracking-tight" id="ttk-dept-title">Opening CRM &amp; Customers</h2>
         <p class="text-xs sm:text-sm text-indigo-100 mt-1" id="ttk-dept-subtitle">Things to know before you start operating this department.</p>
@@ -3538,7 +3557,7 @@
         <button type="button" onclick="closeThingsToKnowModal()" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">Skip to Page</button>
         <div class="flex items-center gap-2">
           <button type="button" onclick="closeThingsToKnowModal(); openDepartmentSetupWizard(__activeOpenDeptId);" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 font-bold px-4 py-2.5 rounded-xl text-xs transition">
-            ⚙️ Configure Setup Wizard
+             Configure Setup Wizard
           </button>
           <button type="button" id="ttk-start-btn" onclick="startDepartmentTourAndWizard()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm shadow-md shadow-indigo-500/30 transition flex items-center gap-2">
             <span>Start Guided Tour</span>
@@ -3577,7 +3596,7 @@
       <div class="p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-between shrink-0">
         <button type="button" onclick="closeSetupWizardModal()" class="text-xs font-bold text-slate-500">Cancel</button>
         <button type="button" onclick="completeDepartmentWizard()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm shadow-md shadow-emerald-500/30 transition flex items-center gap-2">
-          <span>Complete Setup &amp; Unlock Badge 🎖️</span>
+          <span>Complete Setup &amp; Unlock Badge </span>
         </button>
       </div>
     </div>
@@ -3587,7 +3606,7 @@
   <div id="dealer-badge-reveal-modal" class="hidden fixed inset-0 z-[90] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
     <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl p-8 text-center shadow-2xl border border-amber-500/40 relative overflow-hidden animate-bounce-short">
       <div class="w-24 h-24 rounded-full bg-gradient-to-tr from-amber-400 via-amber-500 to-yellow-300 mx-auto flex items-center justify-center text-4xl shadow-xl shadow-amber-500/30 mb-4" id="dbr-badge-icon">
-        🛡️
+
       </div>
       <div class="text-xs font-black uppercase tracking-widest text-amber-500">DEALER Gamification Badge Earned!</div>
       <h3 class="text-2xl font-black text-slate-900 dark:text-white mt-1" id="dbr-badge-title">CRM Commander</h3>
@@ -3612,47 +3631,47 @@
        cannot reuse an older bundle from its cache after a staging deployment. -->
   <!-- Workspace registry: SINGLE SOURCE OF TRUTH for sidebar, workspace tabs and
        mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
-  <script src="js/modules/workspace-registry.js?v=20260809_ws"></script>
-  <script src="dashboard.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part2.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part3.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part4.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part5.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part6.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part7.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part8.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part9.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part10.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part11.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part12.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part13.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part14.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part15.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part16.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part17.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part18.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part19.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part20.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part21.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part22.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part23.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part24.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part25.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part26.js?v=20260809_ws"></script>
+  <script src="js/modules/workspace-registry.js?v=20260811_inventoryintel_noemoji"></script>
+  <script src="dashboard.js?v=20260809_ws_noemoji"></script>
+  <script src="js/modules/dashboard-part2.js?v=20260810_p8landing_noemoji"></script>
+  <script src="js/modules/dashboard-part3.js?v=20260809_ws_noemoji"></script>
+  <script src="js/modules/dashboard-part4.js?v=20260811_vehiclefit_noemoji"></script>
+  <script src="js/modules/dashboard-part5.js?v=20260809_ws_noemoji"></script>
+  <script src="js/modules/dashboard-part6.js?v=20260809_ws_noemoji"></script>
+  <script src="js/modules/dashboard-part7.js?v=20260809_ws_noemoji"></script>
+  <script src="js/modules/dashboard-part8.js?v=20260809_ws_noemoji"></script>
+  <script src="js/modules/dashboard-part9.js?v=20260810_p8shell_noemoji"></script>
+  <script src="js/modules/dashboard-part10.js?v=20260809_ws_noemoji"></script>
+  <script src="js/modules/dashboard-part11.js?v=20260811_identityreview_noemoji"></script>
+  <script src="js/modules/dashboard-part12.js?v=20260809_ws_noemoji"></script>
+  <script src="js/modules/dashboard-part13.js?v=20260809_ws_noemoji"></script>
+  <script src="js/modules/dashboard-part14.js?v=20260810_p8team_noemoji"></script>
+  <script src="js/modules/dashboard-part15.js?v=20260809_ws_noemoji"></script>
+  <script src="js/modules/dashboard-part16.js?v=20260809_ws_noemoji"></script>
+  <script src="js/modules/dashboard-part17.js?v=20260809_ws_noemoji"></script>
+  <script src="js/modules/dashboard-part18.js?v=20260809_ws_noemoji"></script>
+  <script src="js/modules/dashboard-part19.js?v=20260809_ws_noemoji"></script>
+  <script src="js/modules/dashboard-part20.js?v=20260809_ws_noemoji"></script>
+  <script src="js/modules/dashboard-part21.js?v=20260809_ws_noemoji"></script>
+  <script src="js/modules/dashboard-part22.js?v=20260809_ws_noemoji"></script>
+  <script src="js/modules/dashboard-part23.js?v=20260809_ws_noemoji"></script>
+  <script src="js/modules/dashboard-part24.js?v=20260810_p8team_noemoji"></script>
+  <script src="js/modules/dashboard-part25.js?v=20260809_ws_noemoji"></script>
+  <script src="js/modules/dashboard-part26.js?v=20260809_ws_noemoji"></script>
   <!-- Sales workspace: registers ENGINES['sales']; must load after the parts. -->
-  <script src="js/modules/sales-workspace.js?v=20260809_sales"></script>
-  <script src="js/modules/inventory-workspace.js?v=20260809_stage3"></script>
-  <script src="js/modules/fni-workspace.js?v=20260809_stage3"></script>
+  <script src="js/modules/sales-workspace.js?v=20260810_myday_noemoji"></script>
+  <script src="js/modules/inventory-workspace.js?v=20260811_inventoryintel_noemoji"></script>
+  <script src="js/modules/fni-workspace.js?v=20260810_myday_noemoji"></script>
   <!-- Vehicle Record: one unit, one surface. Loads after inventory-workspace.js,
        whose merchandising/acquisition definitions it renders. -->
-  <script src="js/modules/vehicle-record.js?v=20260809_stage3b2"></script>
-  <script src="js/modules/service-workspace.js?v=20260809_batch3"></script>
-  <script src="js/modules/parts-workspace.js?v=20260809_batch3"></script>
-  <script src="js/modules/accounting-workspace.js?v=20260810_pr52"></script>
-  <script src="js/modules/marketing-workspace.js?v=20260810_pr66"></script>
-  <script src="js/modules/academy-workspace.js?v=20260810_pr73"></script>
-  <script src="js/modules/launch-workspace.js?v=20260810_pr76"></script>
-  <script src="js/modules/people-workspace.js?v=20260810_pr77"></script>
+  <script src="js/modules/vehicle-record.js?v=20260809_stage3b2_noemoji"></script>
+  <script src="js/modules/service-workspace.js?v=20260810_myday_noemoji"></script>
+  <script src="js/modules/parts-workspace.js?v=20260810_myday_noemoji"></script>
+  <script src="js/modules/accounting-workspace.js?v=20260810_myday_noemoji"></script>
+  <script src="js/modules/marketing-workspace.js?v=20260811_socialcalendar_noemoji"></script>
+  <script src="js/modules/academy-workspace.js?v=20260810_pr73_noemoji"></script>
+  <script src="js/modules/launch-workspace.js?v=20260810_p8actions_noemoji"></script>
+  <script src="js/modules/people-workspace.js?v=20260810_p8team_noemoji"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
@@ -3660,7 +3679,7 @@
     };
   </script>
   <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async></script>
-  <script src="tour.js?v=20260805_hr30d_v3"></script>
-  <script src="table-sort.js?v=20260706a"></script>
+  <script src="tour.js?v=20260805_hr30d_v3_noemoji"></script>
+  <script src="table-sort.js?v=20260706a_noemoji"></script>
 </body>
 </html>

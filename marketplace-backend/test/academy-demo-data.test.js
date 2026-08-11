@@ -8,7 +8,7 @@ test('Academy demo manifest covers every course in catalog', async () => {
   const lessons = await loadAcademyDemoLessons()
   assert.ok(lessons.length >= 250, 'must load complete training catalog')
   assert.equal(new Set(lessons.map(lesson => lesson.id)).size, lessons.length)
-  assert.equal(ACADEMY_DEMO_VERSION, '2026.08.05-dedicated-accounts-v1')
+  assert.equal(ACADEMY_DEMO_VERSION, '2026.08.10-canonical-team-v2')
 })
 
 test('Academy scenario entity IDs are stable unique UUIDs', async () => {
@@ -25,6 +25,16 @@ test('demo reset clears seeded business data but preserves identity and subscrip
   for (const table of ['contacts', 'inventory', 'listings', 'deals', 'events', 'repair_orders', 'parts', 'ai_conversations', 'commission_plans']) {
     assert.ok(ACADEMY_DEMO_WIPE_TABLES.includes(table), `${table} demo data should reset`)
   }
+})
+
+test('the demo team is canonical employment data, never a frontend-only roster', async () => {
+  const route = await readFile(new URL('../routes/demo.js', import.meta.url), 'utf8')
+  for (const name of ['Marcus Vance', 'Sarah Jenkins', 'David Miller', 'Elena Rostova']) {
+    assert.match(route, new RegExp(name))
+  }
+  assert.match(route, /from\('staff_members'\)/)
+  assert.match(route, /ensureStaffMember\(dealershipId, ownerId/)
+  assert.match(route, /from\('staff_status_history'\)/)
 })
 
 test('dedicated demo accounts replace the old HQ workspace switch', async () => {

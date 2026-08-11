@@ -395,7 +395,7 @@ const PACKAGES_UI = {
   pro: { title: 'Pro', tagline: 'The full growth engine.', features: ['Everything in Growth', 'Equity mining — payoff & upgrade targeting', 'Executive ROI dashboard', 'Facebook Marketplace posting included', 'Priority support & onboarding'] },
 };
 
-// Trial countdown badge on the ✦ Upgrades icon (days left in the 30-day trial).
+// Trial countdown badge on the  Upgrades icon (days left in the 30-day trial).
 function updateTrialBadge(daysLeft) {
   const b = document.getElementById('upg-days-badge');
   if (!b) return;
@@ -410,7 +410,7 @@ function updateTrialBadge(daysLeft) {
 }
 window.updateTrialBadge = updateTrialBadge;
 
-// ── Upgrades hub (header ✦ icon) ─────────────────────────────────────────────
+// ── Upgrades hub (header  icon) ─────────────────────────────────────────────
 // One place to see every add-on, what you already have, pricing, and start a
 // 30-day free trial. Reads live entitlements from /ai/config.
 async function openUpgradesHub() {
@@ -673,7 +673,7 @@ body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#0f172a;font-
 @media print{.printbar{display:none!important}}
 </style></head><body>
 
-<div class="printbar"><button onclick="window.print()">🖨 Print / Save as PDF</button></div>
+<div class="printbar"><button onclick="window.print()"> Print / Save as PDF</button></div>
 
 <div class="header">
   <div>
@@ -692,7 +692,7 @@ body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#0f172a;font-
   </div>
 </div>
 
-${lowConf ? `<div style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;padding:8px 12px;font-size:11px;margin-bottom:10px;line-height:1.5">⚠ <b>Low-confidence market read</b> — the comparable listings may not match this exact trim${estimate.comp_count != null ? ` (only ${estimate.comp_count} found)` : ''}, so the % to market is a rough guide, not a firm number. Verify against your book (Black Book / vAuto) before repricing.</div>` : ''}
+${lowConf ? `<div style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;padding:8px 12px;font-size:11px;margin-bottom:10px;line-height:1.5"> <b>Low-confidence market read</b> — the comparable listings may not match this exact trim${estimate.comp_count != null ? ` (only ${estimate.comp_count} found)` : ''}, so the % to market is a rough guide, not a firm number. Verify against your book (Black Book / vAuto) before repricing.</div>` : ''}
 <div class="sl">Price Summary</div>
 <div class="strip5">
   <div class="tile"><div class="tl">Your Price</div><div class="tv">${fmt(vehicle.price)}</div></div>
@@ -903,7 +903,7 @@ async function openPriceReport(inventoryId, forceRefresh = false) {
     // raise = underpriced (money on the table), lower = overpriced (will sit).
     const verdict = estimate?.pricing_verdict || 'ok';
     const V = {
-      ok:    { icon: '✓', box: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800', head: 'text-emerald-700 dark:text-emerald-300', body: 'text-emerald-800/80 dark:text-emerald-200/70', tile: 'text-emerald-500', fallbackHead: 'Priced right' },
+      ok:    { icon: '', box: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800', head: 'text-emerald-700 dark:text-emerald-300', body: 'text-emerald-800/80 dark:text-emerald-200/70', tile: 'text-emerald-500', fallbackHead: 'Priced right' },
       raise: { icon: '↑', box: 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800', head: 'text-amber-700 dark:text-amber-300', body: 'text-amber-800/80 dark:text-amber-200/70', tile: 'text-amber-500', fallbackHead: 'Underpriced — room to raise' },
       lower: { icon: '↓', box: 'bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-800', head: 'text-red-700 dark:text-red-300', body: 'text-red-800/80 dark:text-red-200/70', tile: 'text-red-500', fallbackHead: 'Overpriced — consider lowering' },
     };
@@ -1214,7 +1214,7 @@ async function loadAIBoostSection() {
     // Facebook-only tier strips the dashboard to the Facebook hub + leaderboard.
     __fbOnly = !!cfg.fb_only;
     applyFbOnlyMode();
-    // Trial countdown badge on the ✦ Upgrades icon during the 30-day full-access window.
+    // Trial countdown badge on the  Upgrades icon during the 30-day full-access window.
     updateTrialBadge(cfg.full_access ? (cfg.trial_days_left || 0) : 0);
     // Photo tools state (branded background + AI cutout provider) for the add-vehicle form.
     __photoBackgroundUrl = cfg.photo_background_url || null;

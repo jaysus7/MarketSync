@@ -5,13 +5,13 @@ async function cfgSave(key) {
   let value;
   try { value = JSON.parse(el.value); }
   catch { return showToast('Invalid JSON — check the formatting', 'error'); }
-  try { await apiSendJson('/config/' + encodeURIComponent(key), 'PUT', { value }); showToast('Saved ✓', 'success'); loadConfigHub(); }
+  try { await apiSendJson('/config/' + encodeURIComponent(key), 'PUT', { value }); showToast('Saved ', 'success'); loadConfigHub(); }
   catch (e) { showToast(e.message, 'error'); }
 }
 
 async function cfgReset(key) {
   if (!confirm('Reset this setting to the global default?')) return;
-  try { await apiSendJson('/config/' + encodeURIComponent(key), 'DELETE'); showToast('Reset ✓', 'success'); loadConfigHub(); }
+  try { await apiSendJson('/config/' + encodeURIComponent(key), 'DELETE'); showToast('Reset ', 'success'); loadConfigHub(); }
   catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -98,13 +98,13 @@ async function apiGenerateKey() {
     if (box) box.innerHTML = `<div class="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded-xl p-4 space-y-2">
       <div class="text-[13px] font-bold text-amber-800 dark:text-amber-300">Copy your key now — it won't be shown again.</div>
       <div class="flex gap-2"><input readonly value="${esc(r.key)}" class="flex-1 px-3 py-2 rounded-lg border border-amber-300 dark:border-amber-800 bg-white dark:bg-slate-900 text-[12px] font-mono">
-      <button onclick="navigator.clipboard.writeText('${esc(r.key)}').then(()=>showToast('Copied ✓','success'))" class="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold">Copy</button></div>
+      <button onclick="navigator.clipboard.writeText('${esc(r.key)}').then(()=>showToast('Copied ','success'))" class="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold">Copy</button></div>
     </div>`;
   } catch (e) { showToast(e.message, 'error'); }
 }
 async function apiRevokeKey(id) {
   if (!confirm('Revoke this key? Anything using it will stop working immediately.')) return;
-  try { await apiSendJson(`/api-keys/${id}/revoke`, 'POST'); showToast('Revoked ✓', 'success'); loadApiKeys(); }
+  try { await apiSendJson(`/api-keys/${id}/revoke`, 'POST'); showToast('Revoked ', 'success'); loadApiKeys(); }
   catch (e) { showToast(e.message, 'error'); }
 }
 Object.assign(window, { loadApiKeys, apiGenerateKey, apiRevokeKey });
@@ -307,7 +307,7 @@ async function aiHomeSaveKnowledge() {
     trade_in: document.getElementById('ai-kb-trade').value, specials: document.getElementById('ai-kb-specials').value,
     policies: document.getElementById('ai-kb-policies').value,
   };
-  try { await apiSendJson('/ai/knowledge', 'PUT', body); showToast('Knowledge saved ✓', 'success'); }
+  try { await apiSendJson('/ai/knowledge', 'PUT', body); showToast('Knowledge saved ', 'success'); }
   catch (e) { showToast(e.message, 'error'); }
 }
 // Ready-to-use assistant personas (name + friendly illustrated headshot). The dealer
@@ -373,7 +373,7 @@ async function aiHomeSettings(body) {
           <div class="flex flex-wrap items-center gap-2">
             <label class="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold cursor-pointer transition">Upload photo<input type="file" accept="image/*" class="hidden" onchange="aiUploadAvatar(this)"></label>
             <button type="button" onclick="aiClearAvatar()" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-sm font-bold">Remove photo</button>
-            <span id="ai-p-avatar-status" class="text-[12px] text-slate-400">${p.avatar_url ? 'Photo set ✓' : ''}</span>
+            <span id="ai-p-avatar-status" class="text-[12px] text-slate-400">${p.avatar_url ? 'Photo set ' : ''}</span>
             <input type="hidden" id="ai-p-avatar" value="${esc(p.avatar_url || '')}">
           </div>
         </div>
@@ -404,11 +404,11 @@ async function aiHomeSettings(body) {
 function aiSetAvatar(uri, status) {
   const av = document.getElementById('ai-p-avatar'); if (av) av.value = uri || '';
   const pv = document.getElementById('ai-p-avatar-preview'); if (pv) pv.src = uri || AI_AVATAR_FALLBACK;
-  const st = document.getElementById('ai-p-avatar-status'); if (st) st.textContent = uri ? (status || 'Photo set ✓') : '';
+  const st = document.getElementById('ai-p-avatar-status'); if (st) st.textContent = uri ? (status || 'Photo set ') : '';
 }
 function aiPickPreset(name, avatarUri) {
   const nm = document.getElementById('ai-p-name'); if (nm && !nm.value.trim() && name) nm.value = name;
-  aiSetAvatar(avatarUri, 'Selected ✓');
+  aiSetAvatar(avatarUri, 'Selected ');
 }
 function aiClearAvatar() { aiSetAvatar('', ''); }
 async function aiUploadAvatar(input) {
@@ -418,8 +418,8 @@ async function aiUploadAvatar(input) {
     const fd = new FormData(); fd.append('file', file);
     const r = await fetch(`${API}/ai/avatar-upload`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: fd });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Upload failed');
-    aiSetAvatar(d.url, 'Photo uploaded ✓');
-    showToast('Photo uploaded ✓', 'success');
+    aiSetAvatar(d.url, 'Photo uploaded ');
+    showToast('Photo uploaded ', 'success');
   } catch (e) { showToast(e.message, 'error'); }
 }
 async function aiHomeSavePersonality(btn) {
@@ -431,7 +431,7 @@ async function aiHomeSavePersonality(btn) {
       greeting: document.getElementById('ai-p-greeting').value,
       tone: document.getElementById('ai-p-tone').value,
     });
-    showToast('Assistant saved ✓', 'success');
+    showToast('Assistant saved ', 'success');
   } catch (e) { showToast(e.message, 'error'); }
   if (btn) btn.disabled = false;
 }
@@ -442,7 +442,7 @@ async function aiHomeSaveControls(btn) {
       ai_assistant_reps: !!document.getElementById('ai2-reps')?.checked,
       ai_tools_disabled: [...document.querySelectorAll('[data-ai2-tool]')].filter(el => !el.checked).map(el => el.dataset.ai2Tool),
     });
-    showToast('Controls saved ✓', 'success');
+    showToast('Controls saved ', 'success');
   } catch (e) { showToast(e.message, 'error'); }
   if (btn) btn.disabled = false;
 }
@@ -1154,7 +1154,7 @@ window.automationEditSeq = (id) => {
       <button onclick="automationMoveStep('${s.id}','${st.id}',-1)" ${i === 0 ? 'disabled' : ''} class="text-slate-400 disabled:opacity-30 text-xs">▲</button>
       <button onclick="automationMoveStep('${s.id}','${st.id}',1)" ${i === steps.length - 1 ? 'disabled' : ''} class="text-slate-400 disabled:opacity-30 text-xs">▼</button>
       <button onclick="automationEditStep('${s.id}','${st.id}')" class="text-[12px] font-bold text-indigo-600 dark:text-indigo-400">Edit</button>
-      <button onclick="automationDeleteStep('${s.id}','${st.id}')" class="text-[12px] font-bold text-rose-500">✕</button>
+      <button onclick="automationDeleteStep('${s.id}','${st.id}')" class="text-[12px] font-bold text-rose-500"></button>
     </div>`;
   automationModal(`<div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">${esc(s.name)}</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
     <div class="grid grid-cols-2 gap-3 mb-4">
@@ -1342,7 +1342,7 @@ function renderDealerEmail() {
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
         <div class="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-          <span>📬 Total Sent</span>
+          <span> Total Sent</span>
           <span class="text-emerald-500 font-extrabold">+14% this mo</span>
         </div>
         <div class="text-2xl font-black text-slate-900 dark:text-white">${totalSent.toLocaleString()}</div>
@@ -1351,7 +1351,7 @@ function renderDealerEmail() {
 
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
         <div class="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-          <span>👁️ Emails Opened</span>
+          <span> Emails Opened</span>
           <span class="text-indigo-500 font-extrabold">${openRate}% rate</span>
         </div>
         <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400">${totalOpened.toLocaleString()}</div>
@@ -1360,7 +1360,7 @@ function renderDealerEmail() {
 
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
         <div class="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-          <span>👥 Recent Customers</span>
+          <span> Recent Customers</span>
           <span class="text-violet-500 font-extrabold">Active 30-60d</span>
         </div>
         <div class="text-2xl font-black text-violet-600 dark:text-violet-400">${totalRecentCustomers.toLocaleString()}</div>
@@ -1369,7 +1369,7 @@ function renderDealerEmail() {
 
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
         <div class="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-          <span>🛡️ Exclusion Rules</span>
+          <span> Exclusion Rules</span>
           <span class="text-emerald-500 font-extrabold">CAN-SPAM ON</span>
         </div>
         <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400">100%</div>
@@ -1393,8 +1393,8 @@ function renderDealerTemplates() {
         <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate mt-0.5">${esc(t.subject)}</div>
       </div>
       <div class="flex items-center gap-2 flex-shrink-0">
-        <button onclick="dealerEmailEditTmplVisual('${t.id}')" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-[12px] font-black shadow-sm transition flex items-center gap-1">🎨 Visual Builder</button>
-        <button onclick="dealerEmailEditTmpl('${t.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 text-[12px] font-bold transition flex items-center gap-1">✏️ Basic Builder</button>
+        <button onclick="dealerEmailEditTmplVisual('${t.id}')" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-[12px] font-black shadow-sm transition flex items-center gap-1"> Visual Builder</button>
+        <button onclick="dealerEmailEditTmpl('${t.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 text-[12px] font-bold transition flex items-center gap-1"> Basic Builder</button>
         <label title="Turn this template on or off" class="flex items-center gap-1 text-[12px] font-bold cursor-pointer select-none ml-1"><input type="checkbox" ${t.active !== false ? 'checked' : ''} onchange="dealerEmailToggleTmpl('${t.id}','active',this.checked)" class="accent-emerald-600 w-4 h-4"><span class="${t.active !== false ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">On</span></label>
         <label title="Also make this template available for text (SMS)" class="flex items-center gap-1 text-[12px] font-bold cursor-pointer select-none"><input type="checkbox" ${t.sms_enabled ? 'checked' : ''} onchange="dealerEmailToggleTmpl('${t.id}','sms_enabled',this.checked)" class="accent-indigo-600 w-4 h-4"><span class="${t.sms_enabled ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}">Text</span></label>
         <button onclick="dealerEmailDeleteTmpl('${t.id}')" class="text-[12px] font-bold text-rose-500 hover:text-rose-600 ml-1">Delete</button>

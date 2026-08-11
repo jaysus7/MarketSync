@@ -19,9 +19,9 @@ function renderDealerCampaigns() {
         <div class="text-[11px] text-slate-400 mt-0.5">Automated Drip / Trigger · Active for all CRM contacts</div>
       </div>
       <div class="flex items-center gap-2 flex-shrink-0">
-        <button onclick="dealerEmailSendCampaign('${t.id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex items-center gap-1">🚀 Run Broadcast</button>
-        <button onclick="dealerEmailEditTmplVisual('${t.id}')" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-[12px] font-black shadow-sm transition flex items-center gap-1">🎨 Visual Builder</button>
-        <button onclick="dealerEmailEditTmpl('${t.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 text-[12px] font-bold transition flex items-center gap-1">✏️ Basic Builder</button>
+        <button onclick="dealerEmailSendCampaign('${t.id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex items-center gap-1"> Run Broadcast</button>
+        <button onclick="dealerEmailEditTmplVisual('${t.id}')" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-[12px] font-black shadow-sm transition flex items-center gap-1"> Visual Builder</button>
+        <button onclick="dealerEmailEditTmpl('${t.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 text-[12px] font-bold transition flex items-center gap-1"> Basic Builder</button>
         <label title="Toggle active status" class="flex items-center gap-1 text-[12px] font-bold cursor-pointer select-none ml-1">
           <input type="checkbox" checked onchange="dealerEmailToggleTmpl('${t.id}','active',this.checked)" class="accent-emerald-600 w-4 h-4">
           <span class="text-emerald-600 dark:text-emerald-400">On</span>
@@ -43,8 +43,8 @@ function renderDealerCampaigns() {
       <div class="flex items-center gap-2 flex-shrink-0">
         ${c.status === 'sent' ? '<span class="text-[12px] font-bold text-emerald-600 dark:text-emerald-400">Sent</span>'
           : `<button onclick="dealerEmailSendCampaign('${c.id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold">Send Now</button>`}
-        <button onclick="dealerEmailEditCampaignVisual('${c.id}')" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-[12px] font-black shadow-sm transition flex items-center gap-1">🎨 Visual Builder</button>
-        <button onclick="dealerEmailDeleteCampaign('${c.id}')" class="text-[12px] font-bold text-rose-500 hover:text-rose-600 ml-1">✕</button>
+        <button onclick="dealerEmailEditCampaignVisual('${c.id}')" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-[12px] font-black shadow-sm transition flex items-center gap-1"> Visual Builder</button>
+        <button onclick="dealerEmailDeleteCampaign('${c.id}')" class="text-[12px] font-bold text-rose-500 hover:text-rose-600 ml-1"></button>
       </div>
     </div>
   `).join('');
@@ -94,7 +94,7 @@ window.dealerEmailSegCount = async () => {
       exclude_emailed_days: excludeDays,
       exclude_recent_buyers_days: excludeBuyers
     });
-    el.textContent = `🎯 Audience: ${r.reachable || r.matched || 0} qualified recipients`;
+    el.textContent = ` Audience: ${r.reachable || r.matched || 0} qualified recipients`;
   } catch {
     const seg = document.getElementById('mb-segment')?.value || 'all';
     let base = 2840;
@@ -107,7 +107,7 @@ window.dealerEmailSegCount = async () => {
     if (excludeDays > 0) filtered = Math.round(filtered * 0.88);
     if (excludeBuyers > 0) filtered = Math.round(filtered * 0.92);
 
-    el.textContent = `🎯 Audience: ${filtered.toLocaleString()} qualified recipients`;
+    el.textContent = ` Audience: ${filtered.toLocaleString()} qualified recipients`;
   }
 };
 
@@ -129,7 +129,7 @@ function getDealerBranding() {
 const BUILDER_STARTER_TEMPLATES = {
   inventory: {
     name: 'New Inventory Showcase',
-    subject: '🔥 Fresh Arrivals at {{dealership}} — Check Them Out!',
+    subject: ' Fresh Arrivals at {{dealership}} — Check Them Out!',
     blocks: [
       { type: 'header', logoText: '{{dealership}}', subtitle: 'Exclusive Vehicle Showroom', bgColor: '#0f172a' },
       { type: 'hero', imageUrl: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80', headline: 'Fresh Inventory Just Arrived!', body: 'Hi {{first_name}}, check out our latest trade-ins and premium arrivals fresh on the lot this week.' },
@@ -140,7 +140,7 @@ const BUILDER_STARTER_TEMPLATES = {
   },
   trade_up: {
     name: 'VIP Trade-Up Event',
-    subject: '🎁 {{first_name}}, your trade is worth more this month at {{dealership}}',
+    subject: ' {{first_name}}, your trade is worth more this month at {{dealership}}',
     blocks: [
       { type: 'header', logoText: '{{dealership}} VIP Program', subtitle: 'Trade-Up Private Sale', bgColor: '#1e1b4b' },
       { type: 'promo', badge: 'VIP EXCLUSIVE BONUS', text: '$1,000 Trade-In Bonus Allowance', expire: 'Valid Through End of Month' },
@@ -151,7 +151,7 @@ const BUILDER_STARTER_TEMPLATES = {
   },
   service: {
     name: 'Service & Maintenance Special',
-    subject: '🔧 Seasonal Maintenance Special for {{first_name}}',
+    subject: ' Seasonal Maintenance Special for {{first_name}}',
     blocks: [
       { type: 'header', logoText: '{{dealership}} Service Center', subtitle: 'Certified Technician Care', bgColor: '#0284c7' },
       { type: 'promo', badge: 'SERVICE SPECIAL', text: '15% Off Full Vehicle Inspection & Service', expire: 'Limited Appointments Available' },
@@ -298,23 +298,23 @@ function openMailchimpEmailBuilder(targetItem = 'inventory', isTemplate = false)
       <!-- Builder Header -->
       <div class="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800 shrink-0">
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-xl bg-violet-600 text-white flex items-center justify-center font-black">🎨</div>
+          <div class="w-9 h-9 rounded-xl bg-violet-600 text-white flex items-center justify-center font-black"></div>
           <div>
             <div class="flex items-center gap-2">
               <h2 class="text-lg font-black text-slate-900 dark:text-white leading-tight">Visual Email Builder ${__builderMeta.isTemplate ? '(Template Editor)' : '(Campaign Studio)'}</h2>
-              <span class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 flex items-center gap-1">🏢 ${esc(bBrand.name)}</span>
+              <span class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 flex items-center gap-1"> ${esc(bBrand.name)}</span>
             </div>
             <p class="text-xs text-slate-500 dark:text-slate-400">Drag, customize blocks &amp; send responsive email campaigns.</p>
           </div>
         </div>
 
         <div class="flex items-center gap-2">
-          <button onclick="openEmailFullPreviewModal()" class="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition flex items-center gap-1.5 shadow-sm border border-indigo-200/60 dark:border-indigo-800/60">👁️ Preview Email</button>
+          <button onclick="openEmailFullPreviewModal()" class="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition flex items-center gap-1.5 shadow-sm border border-indigo-200/60 dark:border-indigo-800/60"> Preview Email</button>
           <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
-            <button onclick="setBuilderDevice('desktop')" id="btn-device-desktop" class="px-2.5 py-1 text-xs font-bold rounded-md bg-white dark:bg-slate-900 text-indigo-600 shadow-sm">💻 Desktop</button>
-            <button onclick="setBuilderDevice('mobile')" id="btn-device-mobile" class="px-2.5 py-1 text-xs font-bold rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">📱 Mobile</button>
+            <button onclick="setBuilderDevice('desktop')" id="btn-device-desktop" class="px-2.5 py-1 text-xs font-bold rounded-md bg-white dark:bg-slate-900 text-indigo-600 shadow-sm"> Desktop</button>
+            <button onclick="setBuilderDevice('mobile')" id="btn-device-mobile" class="px-2.5 py-1 text-xs font-bold rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"> Mobile</button>
           </div>
-          <button data-close class="text-slate-400 hover:text-slate-600 text-2xl font-bold px-2">✕</button>
+          <button data-close class="text-slate-400 hover:text-slate-600 text-2xl font-bold px-2"></button>
         </div>
       </div>
 
@@ -347,7 +347,7 @@ function openMailchimpEmailBuilder(targetItem = 'inventory', isTemplate = false)
               <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Email Subject Line</label>
               <div class="flex gap-2">
                 <input id="mb-subject" value="${esc((__builderMeta.subject || preset.subject).replace(/\{\{dealership\}\}/gi, bBrand.name))}" class="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white">
-                <button onclick="generateAiEmailSubject()" title="AI Write Subject" class="px-3 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-lg text-xs font-black shadow-sm shrink-0 flex items-center gap-1">✨ AI</button>
+                <button onclick="generateAiEmailSubject()" title="AI Write Subject" class="px-3 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-lg text-xs font-black shadow-sm shrink-0 flex items-center gap-1"> AI</button>
               </div>
             </div>
           </div>
@@ -356,12 +356,12 @@ function openMailchimpEmailBuilder(targetItem = 'inventory', isTemplate = false)
           <div class="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3">
             <div class="text-xs font-black uppercase tracking-wider text-slate-400">Add Content Blocks</div>
             <div class="grid grid-cols-3 gap-2">
-              <button onclick="addBuilderBlock('header')" class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-500 rounded-lg text-center text-xs font-bold text-slate-700 dark:text-slate-300 transition">📌 Header</button>
-              <button onclick="addBuilderBlock('hero')" class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-500 rounded-lg text-center text-xs font-bold text-slate-700 dark:text-slate-300 transition">🖼️ Hero</button>
-              <button onclick="addBuilderBlock('text')" class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-500 rounded-lg text-center text-xs font-bold text-slate-700 dark:text-slate-300 transition">📝 Text</button>
-              <button onclick="addBuilderBlock('vehicle')" class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-500 rounded-lg text-center text-xs font-bold text-slate-700 dark:text-slate-300 transition">🚘 Vehicle</button>
-              <button onclick="addBuilderBlock('promo')" class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-500 rounded-lg text-center text-xs font-bold text-slate-700 dark:text-slate-300 transition">🏷️ Promo</button>
-              <button onclick="addBuilderBlock('cta')" class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-500 rounded-lg text-center text-xs font-bold text-slate-700 dark:text-slate-300 transition">🔘 Button</button>
+              <button onclick="addBuilderBlock('header')" class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-500 rounded-lg text-center text-xs font-bold text-slate-700 dark:text-slate-300 transition"> Header</button>
+              <button onclick="addBuilderBlock('hero')" class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-500 rounded-lg text-center text-xs font-bold text-slate-700 dark:text-slate-300 transition"> Hero</button>
+              <button onclick="addBuilderBlock('text')" class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-500 rounded-lg text-center text-xs font-bold text-slate-700 dark:text-slate-300 transition"> Text</button>
+              <button onclick="addBuilderBlock('vehicle')" class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-500 rounded-lg text-center text-xs font-bold text-slate-700 dark:text-slate-300 transition"> Vehicle</button>
+              <button onclick="addBuilderBlock('promo')" class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-500 rounded-lg text-center text-xs font-bold text-slate-700 dark:text-slate-300 transition"> Promo</button>
+              <button onclick="addBuilderBlock('cta')" class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-500 rounded-lg text-center text-xs font-bold text-slate-700 dark:text-slate-300 transition"> Button</button>
             </div>
           </div>
 
@@ -392,7 +392,7 @@ function openMailchimpEmailBuilder(targetItem = 'inventory', isTemplate = false)
         <div class="text-xs text-slate-500">Merge tags: <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono">{{first_name}}</code> <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono">{{dealership}}</code></div>
         <div class="flex gap-2">
           <button onclick="saveMailchimpCampaign(false)" class="px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition">Save Draft</button>
-          <button onclick="saveMailchimpCampaign(true)" class="px-5 py-2.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-sm font-bold shadow-md shadow-indigo-500/30 transition">🚀 Send Campaign Now</button>
+          <button onclick="saveMailchimpCampaign(true)" class="px-5 py-2.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-sm font-bold shadow-md shadow-indigo-500/30 transition"> Send Campaign Now</button>
         </div>
       </div>
     </div>
@@ -413,7 +413,7 @@ function openEmailFullPreviewModal() {
     <div class="flex flex-col h-[85vh] max-h-[800px]">
       <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 shrink-0">
         <div class="flex items-center gap-3">
-          <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-sm">👁️</div>
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-sm"></div>
           <div>
             <h3 class="text-base font-black text-slate-900 dark:text-white">Email Inbox Full Preview</h3>
             <p class="text-xs text-slate-500 dark:text-slate-400">Subject: <span class="font-semibold text-slate-700 dark:text-slate-300">${esc(subject)}</span></p>
@@ -421,7 +421,7 @@ function openEmailFullPreviewModal() {
         </div>
         <div class="flex items-center gap-2">
           <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2.5 py-1 rounded-full">Branded for ${esc(bBrand.name)}</span>
-          <button data-close class="text-slate-400 hover:text-slate-600 text-2xl font-bold px-2">✕</button>
+          <button data-close class="text-slate-400 hover:text-slate-600 text-2xl font-bold px-2"></button>
         </div>
       </div>
       <div class="flex-1 bg-slate-200 dark:bg-slate-950 p-6 overflow-hidden flex justify-center items-center rounded-b-xl mt-3">
@@ -536,7 +536,7 @@ function renderBuilderCanvas() {
         <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition flex items-center gap-1 bg-slate-900/90 text-white rounded-lg p-1 z-20 shadow-lg text-[11px]">
           <button onclick="event.stopPropagation(); moveBuilderBlock(${idx}, -1)" title="Move Up" class="p-1 hover:bg-slate-800 rounded">⬆</button>
           <button onclick="event.stopPropagation(); moveBuilderBlock(${idx}, 1)" title="Move Down" class="p-1 hover:bg-slate-800 rounded">⬇</button>
-          <button onclick="event.stopPropagation(); deleteBuilderBlock(${idx})" title="Delete Block" class="p-1 hover:bg-rose-600 rounded text-rose-300">🗑️</button>
+          <button onclick="event.stopPropagation(); deleteBuilderBlock(${idx})" title="Delete Block" class="p-1 hover:bg-rose-600 rounded text-rose-300"></button>
         </div>
         ${blockHtml}
       </div>
@@ -627,11 +627,11 @@ async function generateAiEmailSubject() {
       const clean = r.text.replace(/^["']|["']$/g, '').trim();
       const subjEl = document.getElementById('mb-subject');
       if (subjEl) subjEl.value = clean;
-      showToast('AI generated subject line ✓', 'success');
+      showToast('AI generated subject line ', 'success');
     }
   } catch {
     const subjEl = document.getElementById('mb-subject');
-    if (subjEl) subjEl.value = `🔥 Special Dealership Offer for {{first_name}}!`;
+    if (subjEl) subjEl.value = ` Special Dealership Offer for {{first_name}}!`;
   }
 }
 window.generateAiEmailSubject = generateAiEmailSubject;
@@ -654,9 +654,9 @@ async function saveMailchimpCampaign(sendNow = false) {
     const r = await apiSendJson('/dealer/email/campaigns', 'POST', payload);
     if (sendNow) {
       const sent = await apiSendJson('/dealer/email/campaigns/' + r.campaign.id + '/send', 'POST', {});
-      showToast(`Campaign sent to ${sent.sent || 0} recipients ✓`, 'success');
+      showToast(`Campaign sent to ${sent.sent || 0} recipients `, 'success');
     } else {
-      showToast('Campaign draft saved ✓', 'success');
+      showToast('Campaign draft saved ', 'success');
     }
     closeAutomationModal();
     await loadDealerEmail();
@@ -922,7 +922,7 @@ async function emailSendTest(btn) {
   try {
     const r = await apiSendJson('/owner/email/test', 'POST', {});
     if (out) {
-      if (r.ok) { out.className = 'text-[12px] text-emerald-600 dark:text-emerald-400 font-bold'; out.textContent = `Sent to ${r.sent_to} ✓`; }
+      if (r.ok) { out.className = 'text-[12px] text-emerald-600 dark:text-emerald-400 font-bold'; out.textContent = `Sent to ${r.sent_to} `; }
       else { out.className = 'text-[12px] text-rose-600 dark:text-rose-400 font-bold'; out.textContent = r.error || 'Failed'; }
     }
   } catch (e) {
@@ -939,14 +939,14 @@ function refreshSaasRoles() {
   else loadSaasEmployees();
 }
 async function saasSetRole(userId, role) {
-  try { await apiSendJson('/saas/employees/role', 'POST', { user_id: userId, saas_role: role }); showToast('Updated ✓', 'success'); refreshSaasRoles(); }
+  try { await apiSendJson('/saas/employees/role', 'POST', { user_id: userId, saas_role: role }); showToast('Updated ', 'success'); refreshSaasRoles(); }
   catch (e) { showToast(e.message, 'error'); }
 }
 async function saasAddEmployee() {
   const email = document.getElementById('saas-emp-email').value.trim();
   const role = document.getElementById('saas-emp-role').value;
   if (!email) return showToast('Email required', 'error');
-  try { await apiSendJson('/saas/employees/role', 'POST', { email, saas_role: role }); showToast('Staff added ✓', 'success'); refreshSaasRoles(); }
+  try { await apiSendJson('/saas/employees/role', 'POST', { email, saas_role: role }); showToast('Staff added ', 'success'); refreshSaasRoles(); }
   catch (e) { showToast(e.message, 'error'); }
 }
 Object.assign(window, { loadSaasEmployees, saasSetRole, saasAddEmployee });
@@ -983,7 +983,7 @@ function renderDailyBriefingWorkstation() {
         <div>
           <div class="flex items-center justify-between mb-1">
             <span class="text-lg">${c.icon}</span>
-            <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${isDone ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60'}">${isDone ? '✓ Passed (100%)' : c.duration}</span>
+            <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${isDone ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60'}">${isDone ? ' Passed (100%)' : c.duration}</span>
           </div>
           <h4 class="text-xs font-black text-slate-900 dark:text-white leading-tight line-clamp-1">${esc(c.title)}</h4>
           <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">${esc(c.desc)}</p>
@@ -991,9 +991,9 @@ function renderDailyBriefingWorkstation() {
 
         <div class="pt-2 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-1">
           <button onclick="openTrainingCourseModal('${c.id}')" class="px-2 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] shadow transition flex items-center gap-1">
-            <span>📖</span><span>${isDone ? 'Review' : 'Start'}</span>
+            <span></span><span>${isDone ? 'Review' : 'Start'}</span>
           </button>
-          <button onclick="openEmployeeCertificateModal('Active Employee', '${esc(c.title)}', '${new Date().toISOString().split('T')[0]}', 'CERT-${c.id.toUpperCase()}-2026')" class="px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-[10px] transition">🏆 Cert</button>
+          <button onclick="openEmployeeCertificateModal('Active Employee', '${esc(c.title)}', '${new Date().toISOString().split('T')[0]}', 'CERT-${c.id.toUpperCase()}-2026')" class="px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-[10px] transition"> Cert</button>
         </div>
       </div>
     `;
@@ -1004,7 +1004,7 @@ function renderDailyBriefingWorkstation() {
       <div class="flex items-center justify-between">
         <div>
           <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-            <span>☀️ My Employee Workstation &amp; Safety Station</span>
+            <span class="inline-flex items-center gap-2">${svgIcon('shield','w-4 h-4 text-indigo-500')}My Employee Workstation &amp; Safety Station</span>
             <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 px-2 py-0.5 rounded-full">All Staff Access</span>
           </h3>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Clock in/out for your shift, complete safety training courses, and view certificates of completion.</p>
@@ -1021,7 +1021,7 @@ function renderDailyBriefingWorkstation() {
         <div class="lg:col-span-2 space-y-3">
           <div class="flex items-center justify-between">
             <div class="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-              <span>🎓 Mandatory Safety &amp; Compliance Video Courses</span>
+              <span class="inline-flex items-center gap-2">${svgIcon('academy','w-4 h-4 text-indigo-500')}Mandatory Safety &amp; Compliance Video Courses</span>
               <span class="text-[10px] font-bold text-emerald-600">6 Modules</span>
             </div>
             <button onclick="switchPage('people-compliance')" class="text-[11px] font-bold text-indigo-600 hover:underline">HR Admin Hub &rarr;</button>
@@ -1039,28 +1039,28 @@ window.renderDailyBriefingWorkstation = renderDailyBriefingWorkstation;
 
 // Executive department — the whole business at a glance; uses every engine.
 ENGINES['command'] = {
-  rootId: 'command-root', title: 'Daily Briefing', subtitle: "Today's operations across every department — problems first",
-  icon: 'chart', accent: 'indigo', tabLabels: { work: 'Needs Attention' },
-  tabOrder: ['overview', 'work'],   // Insights/Automation/Settings removed per audit
+  rootId: 'command-root', title: 'Management', subtitle: 'Management attention across every department — priorities first',
+  icon: 'chart', accent: 'indigo',
+  tabLabels: { overview: 'My Day', pulse: 'Pulse', exceptions: 'Exceptions', approvals: 'Approvals', forecast: 'Forecast', financials: 'Financials' },
+  tabOrder: ['overview', 'pulse', 'exceptions', 'approvals', 'forecast', 'financials'],
 
   fetch: async () => {
-    const [cc, ev] = await Promise.all([
+    const [cc, ev, day, identityReviews] = await Promise.all([
       apiGetJson('/command-center').catch(() => ({ tiles: {}, exceptions: [], exception_count: 0 })),
       apiGetJson('/events?limit=40').catch(() => ({ events: [] })),
+      apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ label: 'My Day', reason: 'Could not be loaded' }], complete: false })),
+      apiGetJson('/identity/reviews').catch(() => ({ reviews: [] })),
     ]);
     const badge = document.getElementById('command-badge');
-    if (badge) { const n = cc.exception_count || 0; if (n) { badge.textContent = n; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
-    return { cc, events: ev.events || [] };
+    const attentionCount = (day.needs_attention || []).length;
+    if (badge) { if (attentionCount) { badge.textContent = attentionCount; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
+    return { cc, events: ev.events || [], day, identityReviews: identityReviews.reviews || [] };
   },
-  quickActions: [
-    { label: 'Reports', icon: 'chart', onclick: "switchPage('reports')" },
-    { label: 'Task Board', icon: 'clipboard', onclick: "switchPage('taskboard')" },
-    { label: 'Operations', icon: 'bolt', onclick: "switchPage('operations')" },
-  ],
-  nextActions: (d) => (d.cc.exceptions || []).slice(0, 4).map(x => ({
-    label: `${OPS_KIND_LABEL[x.kind] || x.kind}${x.department ? ' · ' + x.department : ''}`,
+  quickActions: [{ label: 'Open source operations', icon: 'bolt', onclick: "switchPage('operations')" }],
+  nextActions: (d) => (d.day.needs_attention || []).slice(0, 4).map(x => ({
+    label: `${x.next_action || 'Review'} · ${x.department || x.source_label}`,
     icon: 'shield', tone: (OPS_SEV[x.severity] || {}).text || 'text-amber-500',
-    onclick: `opsOpenEntity('${x.entity_type}','${x.entity_id}')`,
+    onclick: `cmdOpenAttention(decodeURIComponent('${encodeURIComponent(x.deep_link || '')}'))`,
   })),
   tabs: {
     overview(body, d) {
@@ -1073,12 +1073,13 @@ ENGINES['command'] = {
       };
       const hour = new Date().getHours();
       const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-      const workstationHtml = typeof renderDailyBriefingWorkstation === 'function' ? renderDailyBriefingWorkstation() : '';
+      const attention = d.day.needs_attention || [];
+      const incomplete = d.day.complete === false
+        ? `<div class="rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-4 py-3 text-[13px] text-amber-800 dark:text-amber-200"><b>This day is incomplete.</b> ${(d.day.failed || []).map(x => esc(x.label)).join(', ') || 'One or more sources'} could not be loaded.</div>` : '';
       body.innerHTML = `
         <div class="text-lg font-black text-slate-900 dark:text-white mb-2">${greet}</div>
-        <div id="daily-briefing-workstation-host">
-          ${workstationHtml}
-        </div>
+        ${incomplete}
+        ${engCard('Management next actions', attention.length ? `<div class="space-y-2">${attention.slice(0, 12).map(cmdAttentionCard).join('')}</div>` : `<div class="text-sm text-slate-400 py-4 text-center">Nothing requires management action.</div>`)}
         <div>
           <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Today's operations</div>
           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -1089,11 +1090,22 @@ ENGINES['command'] = {
             ${tile('Service bottlenecks', t.service_bottlenecks ?? 0, 'service-ros', true)}
           </div>
         </div>
-        ${engCard('Needs attention', `<div class="text-[13px] text-slate-600 dark:text-slate-300">${(d.cc.exceptions || []).length ? `<b class="text-slate-900 dark:text-white">${(d.cc.exceptions || []).length}</b> item${(d.cc.exceptions || []).length === 1 ? '' : 's'} across departments — see the Needs Attention tab.` : 'Every workflow is on track.'}</div>`)}`;
+        `;
     },
-    work(body, d) {
-      const ex = d.cc.exceptions || [];
-      const exCards = ex.length ? ex.slice(0, 20).map(execExceptionCard).join('') : `<div class="p-6 text-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl flex flex-col items-center gap-2">${svgIcon('check', 'w-6 h-6 text-emerald-400')}Nothing needs attention. Every workflow is on track.</div>`;
+    pulse(body, d) {
+      const t = d.cc.tiles || {};
+      const rows = [
+        ['Sales', 'Leads waiting', t.leads_waiting ?? 0, 'leads'],
+        ['Sales & F&I', 'Deals in progress', t.deals_in_progress ?? 0, 'desk'],
+        ['Delivery', 'Deliveries today', t.deliveries_today ?? 0, 'fni'],
+        ['Inventory', 'Recon delays', t.recon_delays ?? 0, 'recon'],
+        ['Fixed Ops', 'Service bottlenecks', t.service_bottlenecks ?? 0, 'service-overview'],
+      ];
+      body.innerHTML = engCard('Store pulse', `<div class="divide-y divide-slate-100 dark:divide-slate-800">${rows.map(([department, label, value, page]) => `<button onclick="switchPage('${page}')" class="w-full flex items-center justify-between gap-3 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"><span><span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400">${esc(department)}</span><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200">${esc(label)}</span></span><span class="text-xl font-black text-slate-900 dark:text-white">${value}</span></button>`).join('')}</div>`);
+    },
+    exceptions(body, d) {
+      const ex = d.day.needs_attention || [];
+      const exCards = ex.length ? ex.slice(0, 20).map(cmdAttentionCard).join('') : `<div class="p-6 text-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl flex flex-col items-center gap-2">${svgIcon('check', 'w-6 h-6 text-emerald-400')}Nothing needs attention. Every workflow is on track.</div>`;
       const feed = (d.events || []).length ? d.events.map(e => `
         <button onclick="opsOpenEntity('${e.entity_type}','${e.entity_id}')" class="w-full text-left flex items-start gap-2.5 px-1 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition">
           <span class="mt-0.5 text-slate-400">${svgIcon(ENTITY_ICON[e.entity_type] || 'dot', 'w-4 h-4')}</span>
@@ -1104,32 +1116,42 @@ ENGINES['command'] = {
         <div class="space-y-1"><div class="flex items-center gap-2 text-sm font-black text-slate-800 dark:text-slate-200 mb-1.5">${svgIcon('bolt', 'w-4 h-4 text-indigo-500')}Live activity</div><div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 max-h-[70vh] overflow-y-auto">${feed}</div></div>
       </div>`;
     },
-    insights(body) {
-      body.innerHTML = engCard('Executive insights', `
-        <p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Cross-department performance lives in Reports and the sales dashboard.</p>
-        <div class="flex flex-wrap gap-2">
-          <button onclick="switchPage('reports')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Open Reports →</button>
-          <button onclick="switchPage('insights')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Sales Dashboard →</button>
-        </div>`);
+    approvals(body, d) {
+      const approvals = (d.day.needs_attention || []).filter(x => /approv|review/i.test(`${x.kind || ''} ${x.reason || ''} ${x.next_action || ''}`));
+      const reviews = d.identityReviews || [], ids = new Set(reviews.map(x => x.id));
+      const other = approvals.filter(x => !ids.has(x.source_id));
+      body.innerHTML = `${engCard(`Identity reviews (${reviews.length})`, reviews.length ? `<div class="space-y-2.5">${reviews.map(cmdIdentityReviewCard).join('')}</div>` : `<div class="text-sm text-slate-400 py-5 text-center">No identity evidence needs review.</div>`)}<div class="mt-4"></div>${engCard('Other approvals', other.length ? `<div class="space-y-2.5">${other.map(cmdAttentionCard).join('')}</div>` : `<div class="text-sm text-slate-400 py-5 text-center">No other approvals need management action.</div>`)}`;
     },
-    automation(body) {
-      body.innerHTML = engCard('Automation', `<p class="text-[13px] text-slate-600 dark:text-slate-300">The workflow engine watches every department and raises the exceptions on the Needs Attention tab automatically. Configure cadences and follow-up rules in <button onclick="switchPage('automation')" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">Automation</button>, or see the full stream in <button onclick="switchPage('operations')" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">Operations</button>.</p>`);
+    forecast(body) {
+      body.innerHTML = engCard('Forecast', `<p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Forecasts use the existing sales pipeline and Accounting forecast. Unknown values remain unknown.</p><div class="flex flex-wrap gap-2"><button onclick="switchPage('crm')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">Sales pipeline</button><button onclick="switchPage('accounting')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">Accounting forecast</button></div>`);
     },
-    settings(body) {
-      body.innerHTML = engCard('Settings', `<p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Company-wide defaults and access live in Configuration and Administration.</p>
-        <div class="flex flex-wrap gap-2">
-          <button onclick="switchPage('config')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Configuration →</button>
-          <button onclick="switchPage('owner-users')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">All Users & Accounts →</button>
-        </div>`);
+    financials(body) {
+      body.innerHTML = engCard('Financials', `<p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Financial truth is read from the canonical Accounting ledger and close state.</p><button onclick="switchPage('accounting')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">Open Accounting financials</button>`);
     },
   },
 };
+function cmdOpenAttention(link) {
+  if (typeof link === 'string' && /^#\/w\/[a-z0-9-]+\/[a-z0-9-]+$/i.test(link)) location.hash = link;
+}
+function cmdAttentionCard(item) {
+  const link = encodeURIComponent(item.deep_link || '');
+  return `<button onclick="cmdOpenAttention(decodeURIComponent('${link}'))" class="w-full text-left rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 hover:border-indigo-300 dark:hover:border-indigo-700 transition"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="text-[11px] font-bold uppercase tracking-wide text-slate-400">${esc(item.department || item.source_label || 'Management')}</div><div class="text-sm font-bold text-slate-900 dark:text-white">${esc(item.title || item.subject || item.reason)}</div><div class="text-[12px] text-slate-500 dark:text-slate-400 mt-1">${esc(item.reason || '')}</div></div><span class="text-[11px] font-black text-indigo-600 dark:text-indigo-400 whitespace-nowrap">${esc(item.next_action || item.action || 'Review')}</span></div></button>`;
+}
+function cmdIdentityReviewCard(v) {
+  const evidence = [v.provider, v.purpose?.replace(/_/g,' '), `document ${v.document_result || 'unknown'}`, `liveness ${v.liveness_result || 'unknown'}`, v.face_match_score == null ? 'match score unavailable' : `match ${Number(v.face_match_score).toFixed(0)}/100`].filter(Boolean).join(' · ');
+  return `<div class="rounded-xl border border-amber-200 dark:border-amber-900 bg-white dark:bg-slate-900 px-4 py-3"><div class="flex flex-wrap items-start justify-between gap-3"><div class="min-w-0"><div class="text-[11px] font-bold uppercase tracking-wide text-amber-600">Identity manual review</div><div class="text-sm font-bold text-slate-900 dark:text-white">${esc(v.customer_name || 'Customer')}</div><div class="text-[12px] text-slate-500 mt-1">${esc(evidence)}</div><div class="text-[11px] text-slate-400 mt-1">Machine result: ${esc(v.machine_decision || 'unknown')} · Evidence: ${esc(v.evidence_reference || 'not supplied')}</div></div><div class="flex gap-2"><button onclick="cmdReviewIdentity('${v.id}','verified')" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[11px] font-bold">Verify</button><button onclick="cmdReviewIdentity('${v.id}','failed')" class="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-[11px] font-bold">Fail</button></div></div></div>`;
+}
+async function cmdReviewIdentity(id, decision) {
+  const reason = prompt(`${decision === 'verified' ? 'Verification' : 'Failure'} reason (required)`); if (!reason?.trim()) return;
+  try { await apiSendJson(`/identity/${id}/review`, 'POST', { decision, reason: reason.trim() }); showToast('Identity review recorded', 'success'); ENGINE_DATA.command = undefined; engineTab('command','approvals',true); }
+  catch (e) { showToast(e.message || 'Could not save identity review', 'error'); }
+}
 function loadCommandCenter() { renderEngine('command'); }
 async function cmdResolveException(id) {
-  try { await apiSendJson(`/exceptions/${id}/resolve`, 'POST'); showToast('Resolved ✓', 'success'); renderEngine('command'); }
+  try { await apiSendJson(`/exceptions/${id}/resolve`, 'POST'); showToast('Resolved ', 'success'); renderEngine('command'); }
   catch (e) { showToast(e.message, 'error'); }
 }
-Object.assign(window, { loadCommandCenter, cmdResolveException });
+Object.assign(window, { loadCommandCenter, cmdResolveException, cmdOpenAttention, cmdReviewIdentity });
 
 async function loadOperationsPage() {
   const root = document.getElementById('operations-root');

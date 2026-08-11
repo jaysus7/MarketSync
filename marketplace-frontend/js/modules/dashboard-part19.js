@@ -230,7 +230,7 @@ function renderCatalog() {
       <${tag} ${linkAttrs} class="relative bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3 flex flex-col gap-2 ${href ? 'hover:border-indigo-400 dark:hover:border-indigo-500 transition no-underline' : ''}">
         ${catalogIsMine(v) ? `<button onclick="event.preventDefault();event.stopPropagation();editVehicle('${v.id}')" title="Edit vehicle" class="absolute top-1.5 right-1.5 z-10 bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-700 rounded-md p-1 shadow border border-slate-200 dark:border-slate-700"><svg class="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 4H4a1 1 0 00-1 1v14a1 1 0 001 1h14a1 1 0 001-1v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`
           : `<div class="absolute top-1.5 right-1.5 z-10 flex items-center gap-1">
-              ${v.status === 'posted' ? `<span title="Live on Facebook Marketplace" class="bg-emerald-600 text-white rounded-md px-1.5 py-1 shadow text-[10px] font-bold flex items-center gap-0.5">✓ Posted</span>` : ''}
+              ${v.status === 'posted' ? `<span title="Live on Facebook Marketplace" class="bg-emerald-600 text-white rounded-md px-1.5 py-1 shadow text-[10px] font-bold flex items-center gap-0.5"> Posted</span>` : ''}
               <button type="button" onclick="event.preventDefault();event.stopPropagation();msPostVehicle('${v.id}',this)" title="${v.status === 'posted' ? 'Re-post this vehicle' : 'Post this vehicle on Facebook Marketplace'} — the MarketSync extension auto-fills the listing" class="bg-[#1877F2] hover:bg-[#0f6ae0] text-white rounded-md px-1.5 py-1 shadow text-[10px] font-bold flex items-center gap-1">${v.status === 'posted' ? 'Repost ↗' : 'Post ↗'}</button>
             </div>`}
         ${img}
@@ -246,7 +246,7 @@ function renderCatalog() {
             const gtag = 'inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-md border backdrop-blur-sm'
             const hotColdTag = __aiBoostActive
               ? (__hotMakeModels.has(makeModel) ? `<span class="${gtag} bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30" title="Hot — this make/model is selling fast off your lot; stock more / price with confidence">${svgIcon('flame', 'w-3 h-3 inline-block -mt-0.5')} Hot</span>`
-                : __coldMakeModels.has(makeModel) ? `<span class="${gtag} bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30" title="Cold — slow mover; consider sharper pricing or wholesaling">❄️ Cold</span>`
+                : __coldMakeModels.has(makeModel) ? `<span class="${gtag} bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30" title="Cold — slow mover; consider sharper pricing or wholesaling"> Cold</span>`
                 : '')
               : ''
             const healthScore = __aiBoostActive && __vehicleHealthScores[v.id] != null ? __vehicleHealthScores[v.id] : null
@@ -254,7 +254,7 @@ function renderCatalog() {
               const cls = healthScore >= 80 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
                 : healthScore >= 50 ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
                 : 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30'
-              return `<span class="${gtag} ${cls}" title="Merchandising health 0–100 (photos, price, mileage, description, days on lot). Open the unit to see the breakdown.">⚡ ${healthScore}/100</span>`
+              return `<span class="${gtag} ${cls}" title="Merchandising health 0–100 (photos, price, mileage, description, days on lot). Open the unit to see the breakdown."> ${healthScore}/100</span>`
             })() : ''
             // Pricing action verdict (from the AI market report): green = priced right,
             // amber = underpriced (raise), red = overpriced (lower). Hidden if the price
@@ -263,7 +263,7 @@ function renderCatalog() {
             const vFresh = vv && (vv.price_at_generation == null || Number(vv.price_at_generation) === Number(v.price))
             const verdictBadge = vFresh ? (() => {
               const map = {
-                ok:    { cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30', txt: '✓ Priced right' },
+                ok:    { cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30', txt: ' Priced right' },
                 raise: { cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30', txt: '↑ Underpriced' },
                 lower: { cls: 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30', txt: '↓ Overpriced' },
               }
@@ -273,7 +273,7 @@ function renderCatalog() {
             })() : ''
             const recallCount = Array.isArray(v.recalls) ? v.recalls.length : 0
             const recallBadge = recallCount > 0
-              ? `<span class="${gtag} bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30" title="${recallCount} open recall${recallCount > 1 ? 's' : ''} — open VIN Decode for details">⚠ ${recallCount} Recall${recallCount > 1 ? 's' : ''}</span>`
+              ? `<span class="${gtag} bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30" title="${recallCount} open recall${recallCount > 1 ? 's' : ''} — open VIN Decode for details"> ${recallCount} Recall${recallCount > 1 ? 's' : ''}</span>`
               : ''
             // "% to market" — used cars only, from the last Inventory Scan's market median.
             const mktMedian = __invIntelActive ? __marketPositions[v.id] : null
@@ -296,7 +296,7 @@ function renderCatalog() {
                 const matchTxt = m.trim_matched === true ? 'trim-matched' : m.trim_matched === false ? 'matched on model, NOT trim — verify' : 'match basis unknown';
                 const cntTxt = cnt != null ? `${cnt} comp${cnt === 1 ? '' : 's'}` : 'comp count n/a';
                 const tip = `Your price vs mileage-adjusted market value $${Number(mktMedian).toLocaleString()} (comps matched on make/model/year/trim, normalised to this car's km) · ${cntTxt} · ${matchTxt}`;
-                marketBadge = `<span class="${gtag} ${cls}" title="${tip}">${pct}% to market${cnt != null ? ` · ${cnt}` : ''}${shaky ? ' ⚠' : ''}</span>`;
+                marketBadge = `<span class="${gtag} ${cls}" title="${tip}">${pct}% to market${cnt != null ? ` · ${cnt}` : ''}${shaky ? ' ' : ''}</span>`;
               }
             }
             return hotColdTag + healthBadge + recallBadge + marketBadge + verdictBadge
@@ -320,9 +320,9 @@ function renderCatalog() {
           // Inventory Intelligence dealers (no separate page).
           const rc = Array.isArray(v.recalls) ? v.recalls.length : 0;
           const recallLine = rc > 0
-            ? `<div class="text-[11px] font-bold text-red-600 dark:text-red-400">⚠ ${rc} open recall${rc > 1 ? 's' : ''}</div>`
+            ? `<div class="text-[11px] font-bold text-red-600 dark:text-red-400"> ${rc} open recall${rc > 1 ? 's' : ''}</div>`
             : v.recalls_checked_at
-              ? `<div class="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">✓ No open recalls</div>`
+              ? `<div class="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400"> No open recalls</div>`
               : `<div class="text-[11px] text-slate-400 dark:text-slate-500">Recalls not checked yet</div>`;
           const b = 'text-[10px] font-bold px-2 py-1 rounded transition';
           const vinAttr = v.vin ? `data-vin="${v.vin}"` : '';
@@ -334,7 +334,7 @@ function renderCatalog() {
                 <button class="inv-vin-btn ${b} bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-700" data-id="${v.id}" ${vinAttr}>Decode VIN</button>
                 <button class="inv-sticker-btn ${b} bg-emerald-600 hover:bg-emerald-500 text-white" data-id="${v.id}" data-label="${lbl}" data-oem-url="${v.window_sticker_oem_url || ''}" data-gen-url="${v.window_sticker_gen_url || ''}">Sticker ▾</button>
                 <button class="inv-brochure-btn ${b} bg-indigo-600 hover:bg-indigo-500 text-white" data-id="${v.id}" data-label="${lbl}" data-oem-url="${v.brochure_oem_url || ''}" data-gen-url="${v.brochure_gen_url || ''}">Brochure ▾</button>
-                <button type="button" onclick="event.preventDefault();event.stopPropagation();openCarfax('${v.id}','${v.vin}')" class="${b} bg-[#0a1e3f] hover:bg-[#122a52] text-white flex items-center gap-1 tracking-tight" title="Pull the Carfax report for this VIN">CARFAX<span class="text-red-500 leading-none">🍁</span></button>
+                <button type="button" onclick="event.preventDefault();event.stopPropagation();openCarfax('${v.id}','${v.vin}')" class="${b} bg-[#0a1e3f] hover:bg-[#122a52] text-white flex items-center gap-1 tracking-tight" title="Pull the Carfax report for this VIN">CARFAX<span class="text-red-500 leading-none"></span></button>
                 <button type="button" onclick="event.preventDefault();event.stopPropagation();openVehicleHistory({inventory_id:'${v.id}',vin:'${esc(v.vin)}',label:'${esc(lbl)}'})" class="${b} bg-slate-600 hover:bg-slate-500 text-white" title="Carfax history & stored reports">History</button>
               </div>` : `<div class="text-[10px] text-slate-400 italic">No VIN on file — can't decode or build docs.</div>`}
             </div>`;
@@ -828,7 +828,7 @@ async function refreshMfaStatus() {
     const phoneMethod = (data.methods || []).find(method => method.factor_type === 'phone');
     if (data.enabled) {
       const methods = (data.methods || []).map(method => method.factor_type === 'phone' ? 'text message' : 'authenticator app').join(' or ');
-      statusText.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-semibold">✓ On</span> — protected by ${methods || 'a verified second factor'}.`;
+      statusText.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-semibold"> On</span> — protected by ${methods || 'a verified second factor'}.`;
       btn.textContent = 'Turn Off';
       btn.classList.remove('bg-indigo-600', 'hover:bg-indigo-500');
       btn.classList.add('bg-slate-200', 'dark:bg-slate-700', 'text-slate-900', 'dark:text-white', 'hover:bg-slate-300');
@@ -841,7 +841,7 @@ async function refreshMfaStatus() {
       regenBtn?.classList.add('hidden');
     }
     if (phoneStatus) phoneStatus.textContent = phoneMethod
-      ? `✓ Text-message MFA is on for ${phoneMethod.phone || 'your verified phone'}.`
+      ? ` Text-message MFA is on for ${phoneMethod.phone || 'your verified phone'}.`
       : 'Add a verified mobile number as another true MFA method.';
     btn.disabled = false;
   } catch (e) {
@@ -883,7 +883,7 @@ function showBackupCodes(codes) {
       await navigator.clipboard.writeText(codes.join('\n'));
       const btn = document.getElementById('backup-codes-copy');
       const original = btn.textContent;
-      btn.textContent = '✓ Copied!';
+      btn.textContent = ' Copied!';
       setTimeout(() => { btn.textContent = original; }, 1500);
     } catch { alert('Copy did not work — please write them down or download the file.'); }
   };
@@ -899,19 +899,19 @@ function showBackupCodes(codes) {
 // A plain-language view of the audit trail — who changed cost visibility, sent a
 // document for signature, exported the customer book, changed a teammate's role.
 const AUDIT_LABELS = {
-  'user.login': ['Signed in', '🔑'], 'user.login_failed': ['Failed sign-in', '⚠️'], 'user.logout': ['Signed out', '🔒'],
-  'user.register': ['Account created', '🆕'], 'user.password_changed': ['Password changed', '🔑'],
-  'user.mfa_enrolled': ['Turned on 2-step login', '🛡️'], 'user.mfa_disabled': ['Turned off 2-step login', '🛡️'],
-  'user.passkey_registered': ['Added a passkey', '🔐'], 'user.passkey_deleted': ['Removed a passkey', '🔐'],
-  'user.sessions_revoked': ['Signed out all devices', '🔒'],
-  'team.member_invited': ['Invited / changed a teammate', '👥'], 'team.member_removed': ['Removed a teammate', '👥'],
-  'profile.updated': ['Updated their profile', '✏️'], 'profile.avatar_uploaded': ['Changed their photo', '🖼️'],
-  'config.updated': ['Changed dealership settings', '⚙️'], 'config.cost_visibility_changed': ['Changed cost visibility', '💵'],
-  'esign.sent': ['Sent a document to e-sign', '✍️'],
-  'leads.exported': ['Exported the leads list', '📤'], 'inventory.exported': ['Exported inventory', '📤'],
-  'admin.data_export': ['Exported data', '📤'],
-  'billing.subscription_created': ['Started a subscription', '💳'], 'billing.subscription_cancelled': ['Cancelled a subscription', '💳'],
-  'billing.subscription_updated': ['Updated billing', '💳'],
+  'user.login': ['Signed in', ''], 'user.login_failed': ['Failed sign-in', ''], 'user.logout': ['Signed out', ''],
+  'user.register': ['Account created', '🆕'], 'user.password_changed': ['Password changed', ''],
+  'user.mfa_enrolled': ['Turned on 2-step login', ''], 'user.mfa_disabled': ['Turned off 2-step login', ''],
+  'user.passkey_registered': ['Added a passkey', ''], 'user.passkey_deleted': ['Removed a passkey', ''],
+  'user.sessions_revoked': ['Signed out all devices', ''],
+  'team.member_invited': ['Invited / changed a teammate', ''], 'team.member_removed': ['Removed a teammate', ''],
+  'profile.updated': ['Updated their profile', ''], 'profile.avatar_uploaded': ['Changed their photo', ''],
+  'config.updated': ['Changed dealership settings', ''], 'config.cost_visibility_changed': ['Changed cost visibility', ''],
+  'esign.sent': ['Sent a document to e-sign', ''],
+  'leads.exported': ['Exported the leads list', ''], 'inventory.exported': ['Exported inventory', ''],
+  'admin.data_export': ['Exported data', ''],
+  'billing.subscription_created': ['Started a subscription', ''], 'billing.subscription_cancelled': ['Cancelled a subscription', ''],
+  'billing.subscription_updated': ['Updated billing', ''],
 };
 function auditLabel(action) { return AUDIT_LABELS[action] || [action, '•']; }
 
@@ -1052,7 +1052,7 @@ async function registerNewPasskey() {
     if (!finishRes.ok) throw new Error(data.error || 'Could not save passkey.');
 
     await loadPasskeys();
-    alert('✓ Passkey saved! Next time you sign in, you can tap "Use fingerprint or face" instead of typing a password.');
+    alert(' Passkey saved! Next time you sign in, you can tap "Use fingerprint or face" instead of typing a password.');
   } catch (err) {
     const msg = err.name === 'NotAllowedError' || err.name === 'AbortError'
       ? 'Cancelled.'

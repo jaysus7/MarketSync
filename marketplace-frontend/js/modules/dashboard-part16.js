@@ -72,7 +72,7 @@ function applyCaptureState(state, reactToDone = true) {
     const label = state.total ? `Pulling… ${state.current || 0}/${state.total}` : 'Pulling inventory…';
     setPullUI(wrap, { status: label, pct: (state.pct != null ? state.pct : null), disabled: true });
   } else if (state.status === 'done') {
-    setPullUI(wrap, { status: `✓ Pulled ${state.count != null ? state.count + ' ' : ''}vehicles.`, pct: 100, disabled: false });
+    setPullUI(wrap, { status: ` Pulled ${state.count != null ? state.count + ' ' : ''}vehicles.`, pct: 100, disabled: false });
     // Only refresh the catalog/feeds when this 'done' is a fresh event — re-rendering
     // re-applies the persisted state with reactToDone=false, so no reload loop.
     if (reactToDone) {
@@ -277,7 +277,7 @@ async function deleteFeed(id) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Delete failed');
     const n = data.inventory_deleted || 0;
-    showSyncStatus(n > 0 ? `✓ Feed removed · ${n} vehicles cleared from catalog.` : '✓ Feed removed.', 'ok');
+    showSyncStatus(n > 0 ? ` Feed removed · ${n} vehicles cleared from catalog.` : ' Feed removed.', 'ok');
     loadInventoryFeeds();
     loadInventoryCatalog();   // refresh the catalog grid so deleted vehicles disappear
     loadInsights();           // update the metric strip counts
@@ -316,7 +316,7 @@ async function addFeed(feedUrl, feedType) {
     // auto-syncing (which would return nothing from the server).
     if (data.needs_extension_capture) {
       showSyncStatus(
-        `✓ Feed added${platform}. This dealer blocks server access (Cloudflare). Open the MarketSync browser extension and click "Connect dealer site" to pull inventory from your own browser session.`,
+        ` Feed added${platform}. This dealer blocks server access (Cloudflare). Open the MarketSync browser extension and click "Connect dealer site" to pull inventory from your own browser session.`,
         'ok'
       );
       loadInventoryFeeds();
@@ -324,7 +324,7 @@ async function addFeed(feedUrl, feedType) {
       return;
     }
 
-    showSyncStatus(`✓ Feed added${platform}. Pulling inventory now…`, 'ok');
+    showSyncStatus(` Feed added${platform}. Pulling inventory now…`, 'ok');
     loadInventoryFeeds();
     if (urlInput) urlInput.value = '';
 
@@ -338,7 +338,7 @@ async function addFeed(feedUrl, feedType) {
       const syncData = await syncRes.json();
       if (syncRes.ok && syncData.needs_extension_capture) {
         showSyncStatus(
-          `✓ Feed added. This dealer's site blocks server access (Cloudflare) — we've switched it to browser capture. Open the MarketSync extension and click "Pull Inventory" to pull from your own browser session.`,
+          ` Feed added. This dealer's site blocks server access (Cloudflare) — we've switched it to browser capture. Open the MarketSync extension and click "Pull Inventory" to pull from your own browser session.`,
           'ok'
         );
         loadInventoryFeeds();
@@ -353,16 +353,16 @@ async function addFeed(feedUrl, feedType) {
           ? ` · ${syncData.skipped} skipped (${reasons.join(', ') || 'misc'})`
           : ''
         showSyncStatus(
-          `✓ Feed added. Synced ${syncData.unique_vehicles} unique vehicles (${syncData.available_after_sync} available)${skipNote}.`,
+          ` Feed added. Synced ${syncData.unique_vehicles} unique vehicles (${syncData.available_after_sync} available)${skipNote}.`,
           'ok'
         );
         loadInsights?.()
         loadInventoryCatalog?.()
       } else {
-        showSyncStatus(`✓ Feed added. First sync had an issue — click Sync Now to retry.`, 'err');
+        showSyncStatus(` Feed added. First sync had an issue — click Sync Now to retry.`, 'err');
       }
     } catch (e) {
-      showSyncStatus(`✓ Feed added — click Sync Now to pull inventory.`, 'ok');
+      showSyncStatus(` Feed added — click Sync Now to pull inventory.`, 'ok');
     }
   } catch (err) {
     showSyncStatus(err.message, 'err');
@@ -488,7 +488,7 @@ async function openVehicleHistory(opts = {}) {
     <div class="p-5 space-y-4">
       <div class="flex flex-wrap items-center gap-2">
         <span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Pull Carfax</span>
-        <a href="https://www.carfax.ca/vehicle-history-reports?vin=${encodeURIComponent(vin)}" target="_blank" rel="noopener" class="text-xs font-bold bg-[#0a1e3f] hover:bg-[#122a52] text-white px-3 py-1.5 rounded-lg">Carfax Canada 🍁</a>
+        <a href="https://www.carfax.ca/vehicle-history-reports?vin=${encodeURIComponent(vin)}" target="_blank" rel="noopener" class="text-xs font-bold bg-[#0a1e3f] hover:bg-[#122a52] text-white px-3 py-1.5 rounded-lg">Carfax Canada </a>
         <a href="https://www.carfax.com/vehicle/${encodeURIComponent(vin)}" target="_blank" rel="noopener" class="text-xs font-bold bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-lg">Carfax US</a>
         <span class="text-[11px] text-slate-400">then attach the report below</span>
       </div>
@@ -630,16 +630,16 @@ function openVehicleForm(vehicle) {
     <div>
       <div class="flex items-center justify-between mb-1">
         <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">Description</label>
-        <button type="button" onclick="vehAiMenu(event,'description')" class="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500">✨ AI</button>
+        <button type="button" onclick="vehAiMenu(event,'description')" class="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500"> AI</button>
       </div>
       <textarea id="veh-desc" rows="3" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">${esc(v.description || '')}</textarea>
     </div>
     <div>
       <div class="flex items-center justify-between mb-1">
         <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">Sales pitch <span class="text-slate-400 font-normal">(shown on your website)</span></label>
-        <button type="button" onclick="vehAiMenu(event,'pitch')" class="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500">✨ AI</button>
+        <button type="button" onclick="vehAiMenu(event,'pitch')" class="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500"> AI</button>
       </div>
-      <textarea id="veh-pitch" rows="3" placeholder="A compelling pitch for this car. Click ✨ AI, or type your own." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">${esc(v.sales_pitch || '')}</textarea>
+      <textarea id="veh-pitch" rows="3" placeholder="A compelling pitch for this car. Click  AI, or type your own." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">${esc(v.sales_pitch || '')}</textarea>
     </div>
     <div class="border-t border-slate-200 dark:border-slate-700 pt-3">
       <div class="text-sm font-black text-slate-900 dark:text-white">Key specs</div>
@@ -732,7 +732,7 @@ async function vehDecode() {
       __vehDecodedVinData = (d.vin_data && typeof d.vin_data === 'object') ? d.vin_data : null;
       __vehDecodedRecalls = Array.isArray(ed.recalls) ? ed.recalls : null;
       const nRec = __vehDecodedRecalls ? __vehDecodedRecalls.length : 0;
-      showToast(nRec ? `VIN decoded — ⚠ ${nRec} open recall${nRec > 1 ? 's' : ''} flagged` : 'VIN decoded — full specs & recall check', 'success');
+      showToast(nRec ? `VIN decoded —  ${nRec} open recall${nRec > 1 ? 's' : ''} flagged` : 'VIN decoded — full specs & recall check', 'success');
       return;
     }
     // 403 = no Inventory Intelligence → fall back to the free lightweight decoder.
@@ -747,7 +747,7 @@ async function vehDecode() {
   } catch (e) { showToast(e.message, 'error'); }
   finally { if (btn) { btn.disabled = false; btn.textContent = orig; } }
 }
-// Collect the current form's vehicle facts so the ✨ AI writer has real context
+// Collect the current form's vehicle facts so the  AI writer has real context
 // even before the vehicle is saved (year/make/model + specs + decoded VIN data).
 function vehFormFacts() {
   const val = (i) => (document.getElementById(i)?.value || '').trim();
@@ -764,12 +764,12 @@ function vehFormFacts() {
     vin_data: __vehDecodedVinData || undefined,
   };
 }
-// ✨ AI menu for the vehicle Description / Sales-pitch fields — same modes as the
+//  AI menu for the vehicle Description / Sales-pitch fields — same modes as the
 // automation & website writers (boost / fresh / short / long / seo).
 function vehAiMenu(ev, field) {
   ev.stopPropagation();
   document.querySelectorAll('.ai-menu').forEach(m => m.remove());
-  const acts = [['boost', '✨ Boost what\'s here'], ['fresh', 'Rewrite fresh'], ['short', 'Shorter version'], ['long', 'Longer version'], ['seo', 'SEO rewrite']];
+  const acts = [['boost', ' Boost what\'s here'], ['fresh', 'Rewrite fresh'], ['short', 'Shorter version'], ['long', 'Longer version'], ['seo', 'SEO rewrite']];
   const m = document.createElement('div');
   m.className = 'ai-menu fixed z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-[170px]';
   const r = ev.currentTarget.getBoundingClientRect();
@@ -783,10 +783,10 @@ async function vehAiRun(field, task) {
   const ta = document.getElementById(taId); if (!ta) return;
   const facts = vehFormFacts();
   if (!facts.make || !facts.model) { showToast('Add at least the make and model first (or Decode a VIN).', 'info'); return; }
-  showToast('✨ Writing…', 'info');
+  showToast(' Writing…', 'info');
   try {
     const d = await apiSendJson('/ai/vehicle-copy', 'POST', { field, task, vehicle: facts, current: ta.value });
-    if (d.text) { ta.value = d.text; showToast('✨ Done — review & Save', 'success'); }
+    if (d.text) { ta.value = d.text; showToast(' Done — review & Save', 'success'); }
     else showToast('Could not generate copy', 'error');
   } catch (e) { showToast(e.message === 'AI Boost not active' ? `AI writing needs AI Boost (or your free trial).` : e.message, 'error'); }
 }
@@ -830,7 +830,7 @@ async function vehSave(btn, id) {
 }
 // Per-car: write an AI sales pitch and drop it into the form's textarea.
 async function vehGenPitch(id, btn) {
-  const orig = btn.textContent; btn.disabled = true; btn.textContent = '✨ Writing…';
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = ' Writing…';
   try {
     const d = await apiSendJson('/ai/sales-pitch', 'POST', { ids: [id] });
     const text = d.pitches && d.pitches[id];
@@ -849,7 +849,7 @@ async function generateAllPitches(btn) {
   if (!ids.length) { showToast('No available vehicles to write for.', 'info'); return; }
   const verb = missing.length ? `Write AI sales pitches for the ${ids.length} car${ids.length > 1 ? 's' : ''} without one?` : `Every car already has a pitch. Re-write all ${ids.length}?`;
   if (!confirm(`${verb} This uses AI Boost credits.`)) return;
-  const orig = btn.textContent; btn.disabled = true; btn.textContent = `✨ Writing ${ids.length}…`;
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = ` Writing ${ids.length}…`;
   try {
     const d = await apiSendJson('/ai/sales-pitch', 'POST', { ids });
     showToast(`Wrote ${d.count} sales pitch${d.count === 1 ? '' : 'es'}${d.limited ? ' — hit the monthly AI limit' : ''}`, d.count ? 'success' : 'error');

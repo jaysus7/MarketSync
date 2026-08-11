@@ -237,7 +237,7 @@ async function fniRenderWork(body, d) {
 ENGINES['fni-overview'] = {
   rootId: 'fni-overview-root', title: 'F&I', subtitle: 'Approvals, credit, products, contracts and delivery readiness',
   icon: 'shield', accent: 'indigo',
-  tabLabels: { overview: 'Today', work: 'Work' },
+  tabLabels: { overview: 'My Day', work: 'Work' },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     return mgr ? ['overview', 'work', 'insights', 'settings'] : ['overview', 'work'];

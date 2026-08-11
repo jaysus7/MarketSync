@@ -27,16 +27,16 @@ test('Sales uses the shared engine shell, not a bespoke one', () => {
     'Sales must not redefine a shared primitive')
 })
 
-test('tabs are role-aware: rep gets Today|Work, manager also gets Insights', () => {
+test('tabs are role-aware: rep gets My Day|Work, manager also gets Insights', () => {
   const block = sales.match(/get tabOrder\(\)\s*\{[\s\S]*?\n  \},/)?.[0] || ''
   assert.ok(block, 'tabOrder must be role-aware')
   assert.match(block, /\['overview', 'work'\]/, 'a salesperson sees Today | Work only')
   assert.match(block, /'insights'/, 'a manager additionally sees Insights')
-  assert.match(sales, /tabLabels:\s*\{\s*overview:\s*'Today'/, 'the overview tab must read "Today"')
+  assert.match(sales, /tabLabels:\s*\{\s*overview:\s*'My Day'/, 'the attention landing must read "My Day"')
 })
 
-test('Today is attention-first, not another analytics dashboard', () => {
-  assert.match(sales, /Needs attention/, 'Today must lead with a needs-attention queue')
+test('My Day is attention-first, not another analytics dashboard', () => {
+  assert.match(sales, /Needs attention/, 'My Day must lead with a needs-attention queue')
   assert.match(sales, /function salesAttention/, 'attention queue must be derived')
   // Attention items carry customer, reason, age and a specific primary action.
   assert.match(sales, /who:/); assert.match(sales, /why:/); assert.match(sales, /age:/); assert.match(sales, /action:/)
@@ -119,7 +119,7 @@ test('Sales page is wired into the shell and the registry', () => {
   assert.match(part2, /sales: 'os\.crm'/, 'the sales page must carry an entitlement key')
   // Sales leads with Today, and the existing pages remain reachable (no deletion).
   const block = registry.match(/sales: \{[\s\S]*?\n  \},/)?.[0] || ''
-  assert.match(block, /\{ page: 'sales', label: 'Today' \}/, 'Sales must lead with Today')
+  assert.match(block, /\{ page: 'sales', label: 'My Day' \}/, 'Sales must lead with My Day')
   for (const p of ['crm', 'appointments', 'tasks', 'leads', 'insights', 'commissions']) {
     assert.ok(block.includes(`page: '${p}'`), `existing Sales page "${p}" must stay reachable`)
   }

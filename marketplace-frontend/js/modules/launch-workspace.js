@@ -37,8 +37,26 @@ const launchStatus = (i) =>
   : i.status === 'unknown' ? 'Could not check'
   : (LAUNCH_TYPE[i.type]?.label || 'Outstanding')
 
+const LAUNCH_ACTIONS = {
+  legal_identity: ["engineTab('launch','work')", 'Edit dealership'],
+  timezone: ["engineTab('launch','work')", 'Set timezone'],
+  tax_registration: ["engineTab('launch','work')", 'Add tax registration'],
+  primary_location: ["engineTab('launch','insights')", 'Manage locations'],
+  branding: ["switchPage('profile')", 'Open branding'],
+  owner_account: ["switchPage('owner-users')", 'Manage access'],
+  employees: ["switchPage('people-overview');setTimeout(()=>engineTab('people-overview','work'),0)", 'Open Team'],
+  chart_of_accounts: ["switchPage('accounting-overview');setTimeout(()=>engineTab('accounting-overview','work'),0)", 'Open Accounting'],
+  inventory_source: ["switchPage('inventory-overview');setTimeout(()=>engineTab('inventory-overview','work'),0)", 'Add inventory'],
+  website_published: ["switchPage('website')", 'Open website'],
+  service_hours: ["switchPage('service-settings')", 'Set service hours'],
+  required_training: ["switchPage('academy')", 'Open Academy'],
+  policies_published: ["switchPage('people-overview');setTimeout(()=>engineTab('people-overview','insights'),0)", 'Open compliance'],
+  lead_routing: ["switchPage('sales');setTimeout(()=>engineTab('sales','settings'),0)", 'Set lead routing'],
+}
+
 function launchRow(i) {
   const blocked = i.status === 'outstanding' && i.blocks
+  const action = LAUNCH_ACTIONS[i.key]
   return `<div class="flex items-start gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
     <div class="min-w-0 flex-1">
       <div class="font-bold text-[13px] text-slate-900 dark:text-white">${esc(i.label)}</div>
@@ -46,6 +64,8 @@ function launchRow(i) {
       ${blocked ? `<div class="text-[12px] font-semibold mt-0.5 text-amber-600 dark:text-amber-400">${esc(i.blocks)} does not work until this is done</div>` : ''}
       ${i.actionable_by_you === false && i.status === 'outstanding'
         ? `<div class="text-[12px] text-slate-400 mt-0.5">Somebody with ${esc(i.permission)} has to do this</div>` : ''}
+      ${i.status === 'outstanding' && i.actionable_by_you !== false && action
+        ? `<button onclick="${action[0]}" class="mt-2 text-[12px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">${esc(action[1])}</button>` : ''}
     </div>
     <div class="shrink-0 text-right text-[12px] font-bold ${launchTone(i)}">${esc(launchStatus(i))}</div>
   </div>`
@@ -77,7 +97,8 @@ async function launchSaveConfig(form) {
   if (!Object.keys(body).length) { showToast('Nothing to save', 'error'); return }
   try {
     await apiSendJson('/launch/dealership', 'PATCH', body)
-    showToast('Saved ✓', 'success')
+    showToast('Saved ', 'success')
+    refreshSetupIndicator();
     ENGINE_DATA['launch'] = undefined
     engineTab('launch', ENGINE_STATE['launch'] || 'overview', true)
   } catch (e) { showToast(e.message, 'error') }
@@ -218,7 +239,8 @@ async function launchAddLocation() {
   if (!name) return
   try {
     await apiSendJson('/launch/locations', 'POST', { name })
-    showToast('Location added ✓', 'success')
+    showToast('Location added ', 'success')
+    refreshSetupIndicator();
     ENGINE_DATA['launch'] = undefined
     engineTab('launch', 'insights', true)
   } catch (e) { showToast(e.message, 'error') }

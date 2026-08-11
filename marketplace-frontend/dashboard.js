@@ -655,7 +655,7 @@ function setupStepsFor(role) {
   if (typeof DEPARTMENTS_CONFIG === 'object' && DEPARTMENTS_CONFIG) {
     return Object.values(DEPARTMENTS_CONFIG).map(config => ({
       id: config.id,
-      icon: config.badgeIcon || '🛡️',
+      icon: config.badgeIcon || '',
       label: config.title,
       desc: config.badgeDesc || `Configure ${config.title}`,
       roles: MGR_SET,
@@ -737,7 +737,7 @@ async function setupSaveForm(id, btn) {
     v[f.key] = f.type === 'checkbox' ? el.checked : (f.type === 'number' ? (parseInt(el.value) || undefined) : (el.value || '').trim());
   });
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
-  try { await w.save(v); showToast('Saved ✓', 'success'); await afterSetupStep(); }
+  try { await w.save(v); showToast('Saved ', 'success'); await afterSetupStep(); }
   catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not save', 'error'); }
 }
 // Integration steps: land the user EXACTLY on the right card, pulsed.

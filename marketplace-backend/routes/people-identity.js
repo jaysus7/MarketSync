@@ -60,7 +60,7 @@ export function transitionError(from, to) {
 // The legacy role label a login carries → the department an employee works in. Two vocabularies
 // that already exist; this is the join, not a third one.
 const ROLE_DEPARTMENT = {
-  MANAGER: 'Management', SALES_REP: 'Sales', FNI: 'F&I',
+  OWNER: 'Management', DEALER_ADMIN: 'Management', MANAGER: 'Management', SALES_REP: 'Sales', FNI: 'F&I',
   SERVICE: 'Service', ACCOUNTING: 'Accounting', CLEANUP: 'Recon',
 }
 export const departmentForRole = (role) => ROLE_DEPARTMENT[String(role || '').toUpperCase()] || null
@@ -77,8 +77,8 @@ export const departmentForRole = (role) => ROLE_DEPARTMENT[String(role || '').to
  * a login that has been working here for months is not waiting on an invitation.
  */
 export async function ensureStaffMember(dealershipId, userId, {
-  name = null, email = null, role = null, department = null, jobTitle = null,
-  createdBy = null, status = 'invited',
+  name = null, email = null, role = null, department = null, team = null, jobTitle = null,
+  startDate = null, createdBy = null, status = 'invited',
 } = {}) {
   if (!dealershipId || !userId) return { staff: null, created: false, error: 'A dealership and a user are required.' }
 
@@ -86,13 +86,39 @@ export async function ensureStaffMember(dealershipId, userId, {
     .select('*').eq('dealership_id', dealershipId).eq('user_id', userId).maybeSingle()
   if (existing) return { staff: existing, created: false, error: null }
 
+  // People can create employment before access is invited. Link that canonical row; never
+  // create a second employee merely because Auth arrived later.
+  if (email) {
+    const { data: uninvited, error: lookupError } = await supabaseAdmin.from('staff_members')
+      .select('id').eq('dealership_id', dealershipId).ilike('email', email)
+      .is('user_id', null).limit(2)
+    if (lookupError) return { staff: null, created: false, error: lookupError.message }
+    if ((uninvited || []).length > 1) {
+      return { staff: null, created: false, error: 'More than one uninvited employee has this email. Resolve the duplicate employment records first.' }
+    }
+    if (uninvited?.length === 1) {
+      const { data: linked, error: linkError } = await supabaseAdmin.from('staff_members')
+        .update({ user_id: userId, updated_by: createdBy })
+        .eq('id', uninvited[0].id).eq('dealership_id', dealershipId)
+        .is('user_id', null).select('*').maybeSingle()
+      if (linkError) return { staff: null, created: false, error: linkError.message }
+      if (linked) return { staff: linked, created: false, error: null }
+      return { staff: null, created: false, error: 'This employee was linked to another account while the invitation was being created.' }
+    }
+  }
+
+  const resolvedDepartment = department || departmentForRole(role)
   const insert = {
     dealership_id: dealershipId,
     user_id: userId,
     name: name || email || 'New employee',
     email: email || null,
-    department: department || departmentForRole(role),
+    department: resolvedDepartment,
+    // `team` predates the richer employment model and remains NOT NULL on staging. Omitting
+    // it made every canonical employee create fail even though department was present.
+    team: team || resolvedDepartment || 'General',
     job_title: jobTitle || null,
+    start_date: startDate || null,
     employment_status: EMPLOYMENT_STATES.includes(status) ? status : 'invited',
     onboarding_status: 'not_started',
     compliance_status: 'not_started',
@@ -180,16 +206,27 @@ export async function changeEmploymentStatus(dealershipId, staffMemberId, toStat
  * their own team list.
  */
 export async function teamDirectory(dealershipId) {
-  const [{ data: staff }, { data: people }] = await Promise.all([
+  const [{ data: staff }, { data: people }, { data: training, error: trainingError }] = await Promise.all([
     supabaseAdmin.from('staff_members')
-      .select('id, user_id, name, email, phone, department, job_title, team, location_name, manager_staff_id, employment_status, onboarding_status, compliance_status, employee_number, created_at')
+      .select('id, user_id, name, email, phone, department, job_title, team, location_name, manager_staff_id, start_date, employment_status, onboarding_status, compliance_status, employee_number, created_at')
       .eq('dealership_id', dealershipId).order('name'),
     supabaseAdmin.from('profiles')
       .select('id, full_name, role, department, active')
       .eq('dealership_id', dealershipId),
+    supabaseAdmin.from('staff_training_assignments')
+      .select('staff_member_id,status,due_at').eq('dealership_id', dealershipId),
   ])
 
   const byUser = new Map()
+  const staffById = new Map((staff || []).map(s => [s.id, s]))
+  const trainingByStaff = new Map()
+  for (const assignment of training || []) {
+    const summary = trainingByStaff.get(assignment.staff_member_id) || { total: 0, completed: 0, overdue: 0 }
+    summary.total += 1
+    if (assignment.status === 'completed') summary.completed += 1
+    if (assignment.status !== 'completed' && assignment.due_at && new Date(assignment.due_at) < new Date()) summary.overdue += 1
+    trainingByStaff.set(assignment.staff_member_id, summary)
+  }
   for (const s of staff || []) if (s.user_id) byUser.set(s.user_id, s)
 
   const rows = (staff || []).map(s => {
@@ -197,8 +234,13 @@ export async function teamDirectory(dealershipId) {
     return {
       ...s,
       linked: !!s.user_id,
+      has_employment: true,
+      has_account: !!s.user_id,
       login_role: p?.role || null,
       can_sign_in: p ? p.active !== false : false,
+      account_status: p ? (p.active === false ? 'Paused' : 'Active') : 'Not invited',
+      manager_name: staffById.get(s.manager_staff_id)?.name || null,
+      training_status: trainingError ? null : (trainingByStaff.get(s.id) || { total: 0, completed: 0, overdue: 0 }),
     }
   })
 
@@ -209,7 +251,10 @@ export async function teamDirectory(dealershipId) {
       id: null, user_id: p.id, name: p.full_name || 'Unnamed user', email: null,
       department: p.department || departmentForRole(p.role), job_title: null,
       employment_status: null, onboarding_status: null, compliance_status: null,
-      linked: false, login_role: p.role || null, can_sign_in: p.active !== false,
+      linked: false, has_employment: false, has_account: true,
+      login_role: p.role || null, can_sign_in: p.active !== false,
+      account_status: p.active === false ? 'Paused' : 'Active',
+      manager_name: null, training_status: trainingError ? null : { total: 0, completed: 0, overdue: 0 },
     })
   }
   return rows
@@ -224,7 +269,7 @@ export async function peopleAttention(dealershipId) {
   const items = []
 
   for (const r of rows) {
-    if (!r.linked) {
+    if (!r.has_employment) {
       items.push({
         kind: 'employee_record_missing', severity: 2,
         subject: r.name,
@@ -232,6 +277,14 @@ export async function peopleAttention(dealershipId) {
         owner: 'People', action: 'Create employment record', ref: r.user_id,
       })
       continue
+    }
+    if (!r.has_account && r.employment_status === 'active') {
+      items.push({
+        kind: 'employee_not_invited', severity: 1,
+        subject: r.name,
+        reason: 'This employee has no MarketSync account',
+        owner: 'People', action: 'Invite employee', ref: r.id,
+      })
     }
     if (r.employment_status === 'invited') {
       items.push({

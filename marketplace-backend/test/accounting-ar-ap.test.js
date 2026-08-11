@@ -226,7 +226,7 @@ test('Accounting is wired into the shell and leads with Today', () => {
   assert.match(part2, /if \(pageId === 'accounting-overview'\) loadAccountingWorkspace\(\)/)
   assert.match(part2, /'accounting-overview': 'os\.accounting'/, 'must carry an entitlement key')
   const block = registry.match(/\n  accounting: \{[\s\S]*?\n  \},/)?.[0] || ''
-  assert.match(block, /\{ page: 'accounting-overview', label: 'Today' \}/)
+  assert.match(block, /\{ page: 'accounting-overview', label: 'My Day' \}/)
   // The existing rich Accounting page stays reachable — KEEP over REPLACE.
   for (const p of ['accounting', 'commissions']) {
     assert.ok(block.includes(`page: '${p}'`), `existing page "${p}" must stay reachable`)

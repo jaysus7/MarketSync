@@ -689,7 +689,7 @@ function apptPickContact(id, name) {
   __apptPickedContact = { id, name };
   document.getElementById('appt-cust-results')?.classList.add('hidden');
   const s = document.getElementById('appt-cust-search'); if (s) s.value = name;
-  const p = document.getElementById('appt-cust-picked'); if (p) { p.textContent = '✓ ' + name; p.classList.remove('hidden'); }
+  const p = document.getElementById('appt-cust-picked'); if (p) { p.textContent = ' ' + name; p.classList.remove('hidden'); }
 }
 async function apptSaveNew(btn) {
   if (!__apptPickedContact) { showToast('Pick a customer first', 'error'); return; }

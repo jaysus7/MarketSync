@@ -419,7 +419,7 @@ function renderRecentListings(containerId, items, { canEditUrl = false } = {}) {
       : `Posted ${when} · <span class="text-indigo-500">Find on FB ↗</span>`;
     const meta = `<div class="text-xs text-slate-500 dark:text-slate-400">${subtext}</div>`;
     const linkBtn = canAdd
-      ? `<button class="set-fb-link flex-shrink-0 text-[10px] font-bold px-2 py-1 rounded border border-slate-300 dark:border-slate-700 ${hasFbLink ? 'text-slate-400' : 'text-amber-500'} hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Save the exact Facebook listing link">${hasFbLink ? '✎' : '+ Link'}</button>`
+      ? `<button class="set-fb-link flex-shrink-0 text-[10px] font-bold px-2 py-1 rounded border border-slate-300 dark:border-slate-700 ${hasFbLink ? 'text-slate-400' : 'text-amber-500'} hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Save the exact Facebook listing link">${hasFbLink ? '' : '+ Link'}</button>`
       : '';
     const rowContent = `
         ${thumb}
@@ -498,7 +498,7 @@ async function loadInventoryFeeds() {
 
       const orangeSteps = `
         <div class="text-sm leading-snug rounded bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 px-2 py-1.5">
-          🔒 <b>Cloudflare-protected</b> — our servers can't reach it, so it's pulled through your browser:
+           <b>Cloudflare-protected</b> — our servers can't reach it, so it's pulled through your browser:
           <div class="mt-1">1. Click <b>Pull Inventory</b>. &nbsp;2. A dealer tab opens, scans, and closes itself — don't close it. &nbsp;3. Wait ~1–2 min. &nbsp;4. This list and your catalog refresh automatically when done.</div>
         </div>`;
       // Only feeds that actually require the browser extension show the pull box.
@@ -660,7 +660,7 @@ function fniRowHtml(d) {
     <td class="py-2.5 px-3"><div class="text-sm font-semibold text-indigo-700 dark:text-indigo-300">${esc(d.customer)}</div><div class="text-[11px] text-slate-400">${d.deal_number ? 'Deal #' + esc(String(d.deal_number)) : ''}</div></td>
     <td class="py-2.5 px-3 text-sm text-slate-700 dark:text-slate-200">${esc(d.vehicle)}${d.stocknumber ? ` <span class="text-[11px] text-slate-400">#${esc(d.stocknumber)}</span>` : ''}</td>
     <td class="py-2.5 px-3 text-sm text-slate-600 dark:text-slate-300">${d.salesperson ? esc(d.salesperson) : '<span class="text-slate-400">—</span>'}</td>
-    <td class="py-2.5 px-3 whitespace-nowrap">${fniStatusPill(d.deal_status)}${approved ? ' <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">✓ Approved</span>' : ''}</td>
+    <td class="py-2.5 px-3 whitespace-nowrap">${fniStatusPill(d.deal_status)}${approved ? ' <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400"> Approved</span>' : ''}</td>
     <td class="py-2.5 px-3 text-sm whitespace-nowrap">${deliv}</td>
     <td class="py-2.5 px-3 text-right whitespace-nowrap">
       ${d.contact_id ? `<button data-fni-view="${esc(d.contact_id)}" class="text-slate-500 hover:text-indigo-500 text-xs font-bold">View deal</button>` : ''}
@@ -795,7 +795,7 @@ function openFniApprove(dealId) {
     </div>
     <div class="p-5 space-y-4">
       ${d.inventory_id ? '' : `<div class="rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 p-3 space-y-2">
-        <div class="flex items-start gap-2 text-[12.5px] text-amber-800 dark:text-amber-300"><span>⚠️</span><span>No stocked vehicle is linked to this deal. Attach the unit below so it goes to <strong>Cleanup</strong> when you approve.</span></div>
+        <div class="flex items-start gap-2 text-[12.5px] text-amber-800 dark:text-amber-300"><span></span><span>No stocked vehicle is linked to this deal. Attach the unit below so it goes to <strong>Cleanup</strong> when you approve.</span></div>
         <div class="relative">
           <input data-veh-search type="text" autocomplete="off" placeholder="Search inventory by VIN, stock # or name…" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white">
           <div data-veh-results class="absolute z-30 left-0 right-0 mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg overflow-hidden hidden max-h-56 overflow-y-auto"></div>
@@ -846,7 +846,7 @@ function openFniApprove(dealId) {
     vresults.addEventListener('click', (e) => {
       const b = e.target.closest('[data-pick]'); if (!b) return;
       chosenInv = b.dataset.pick;
-      vchosen.innerHTML = `✓ Will attach: ${esc(b.dataset.label)} <button type="button" data-veh-clear class="text-slate-400 hover:text-rose-500 underline font-normal ml-1">change</button>`;
+      vchosen.innerHTML = ` Will attach: ${esc(b.dataset.label)} <button type="button" data-veh-clear class="text-slate-400 hover:text-rose-500 underline font-normal ml-1">change</button>`;
       vchosen.classList.remove('hidden'); vchosen.classList.add('flex');
       vresults.classList.add('hidden'); vsearch.value = '';
     });
@@ -1165,7 +1165,7 @@ function openReconCard(inventoryId) {
       <label class="flex items-center gap-2 py-1.5 border-b border-slate-100 dark:border-slate-800/60">
         <input type="checkbox" data-chk="${i}" ${it.done ? 'checked' : ''} class="accent-emerald-600 w-4 h-4 flex-shrink-0">
         <span class="text-sm flex-1 ${it.done ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-200'}">${esc(it.label)}</span>
-        <button data-chk-del="${i}" class="text-slate-400 hover:text-red-500 text-xs px-1">✕</button>
+        <button data-chk-del="${i}" class="text-slate-400 hover:text-red-500 text-xs px-1"></button>
       </label>`).join('') || '<div class="text-xs text-slate-400 italic py-2">No items yet — add what this car needs.</div>';
     modal.querySelector('[data-chk-count]').textContent = checklist.length ? `${done}/${checklist.length} done` : '';
     chkBox.querySelectorAll('[data-chk]').forEach(cb => cb.addEventListener('change', () => { checklist[+cb.dataset.chk].done = cb.checked; dirty = true; saveChk(); renderChk(); }));

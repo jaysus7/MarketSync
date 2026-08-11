@@ -374,7 +374,9 @@ test('E2E — the People screen composes rather than derives', () => {
 
 test('E2E — a login with no employment record is shown, not hidden', () => {
   assert.match(ppl, /Can sign in, but not on the team/)
-  assert.match(ppl, /p\.linked === false/)
+  assert.match(ppl, /p\.has_employment === false/)
+  assert.match(ppl, /Not invited/)
+  assert.doesNotMatch(read('../marketplace-frontend/js/modules/dashboard-part24.js'), /DEFAULT_EMPLOYEES/)
 })
 
 test('E2E — compliance shows coverage, not just counts', () => {

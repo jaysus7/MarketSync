@@ -13,7 +13,7 @@ async function loadServicePartsPage() {
         <td class="px-3 py-2 font-bold text-slate-700 dark:text-slate-200">${esc(p.part_number)}</td>
         <td class="px-3 py-2 text-slate-600 dark:text-slate-300">${esc(p.description || '')}</td>
         <td class="px-3 py-2 text-slate-400">${esc(p.bin || '')}</td>
-        <td class="px-3 py-2 text-right ${low ? 'text-rose-600 font-black' : ''}">${Number(p.qty_on_hand)}${low ? ' ⚠' : ''}</td>
+        <td class="px-3 py-2 text-right ${low ? 'text-rose-600 font-black' : ''}">${Number(p.qty_on_hand)}${low ? ' ' : ''}</td>
         <td class="px-3 py-2 text-right">${svcMoney(p.cost)}</td>
         <td class="px-3 py-2 text-right">${svcMoney(p.price)}</td>
         <td class="px-3 py-2 text-right whitespace-nowrap">
@@ -58,24 +58,24 @@ async function svcAddPart() {
     reorder_point: Number(document.getElementById('svc-p-reorder').value) || 0,
   };
   if (!body.part_number) return showToast('Part # required', 'error');
-  try { await apiSendJson('/service-engine/parts', 'POST', body); showToast('Part saved ✓', 'success'); loadServicePartsPage(); }
+  try { await apiSendJson('/service-engine/parts', 'POST', body); showToast('Part saved ', 'success'); loadServicePartsPage(); }
   catch (e) { showToast(e.message, 'error'); }
 }
 async function svcReceive(id, num) {
   const qty = prompt(`Receive how many of ${num}?`, '1');
   if (qty == null) return;
-  try { await apiSendJson(`/service-engine/parts/${id}/receive`, 'POST', { qty: Number(qty) }); showToast('Received ✓', 'success'); loadServicePartsPage(); }
+  try { await apiSendJson(`/service-engine/parts/${id}/receive`, 'POST', { qty: Number(qty) }); showToast('Received ', 'success'); loadServicePartsPage(); }
   catch (e) { showToast(e.message, 'error'); }
 }
 async function svcAdjust(id, num) {
   const qty = prompt(`Adjust ${num} by (use a negative number to reduce):`, '0');
   if (qty == null) return;
-  try { await apiSendJson(`/service-engine/parts/${id}/adjust`, 'POST', { qty: Number(qty) }); showToast('Adjusted ✓', 'success'); loadServicePartsPage(); }
+  try { await apiSendJson(`/service-engine/parts/${id}/adjust`, 'POST', { qty: Number(qty) }); showToast('Adjusted ', 'success'); loadServicePartsPage(); }
   catch (e) { showToast(e.message, 'error'); }
 }
 Object.assign(window, {
   loadServiceRosPage, svcRoFilter, svcNewRoForm, svcCustSearch, svcPickCust, svcCreateRo, svcOpenRo,
-  svcLineTypeChanged, svcLinePartChanged, svcAddLine, svcRemoveLine, svcSetStatus, svcCloseRo,
+  svcLineTypeChanged, svcLinePartChanged, svcAddLine, svcRemoveLine, svcCloseRo,
   loadServicePartsPage, svcAddPartForm, svcAddPart, svcReceive, svcAdjust,
 });
 
@@ -246,7 +246,7 @@ async function ownerBill(kind, id, action) {
   if (action === 'block' && !confirm('Block this account? They will be locked out until reactivated.')) return;
   try {
     await apiSendJson(`/owner/${kind === 'user' ? 'user' : 'dealership'}/${id}/billing`, 'POST', body);
-    showToast('Updated ✓', 'success');
+    showToast('Updated ', 'success');
     loadOwnerUsersPage();
   } catch (e) { showToast(e.message, 'error'); }
 }
@@ -367,7 +367,7 @@ async function loadAiInbox() {
 }
 function aiCopyEmbed() {
   const el = document.getElementById('ai-embed-code'); if (!el) return;
-  navigator.clipboard?.writeText(el.textContent).then(() => showToast('Snippet copied ✓', 'success')).catch(() => showToast('Copy failed', 'error'));
+  navigator.clipboard?.writeText(el.textContent).then(() => showToast('Snippet copied ', 'success')).catch(() => showToast('Copy failed', 'error'));
 }
 // Mirrors the backend scoreConversation() so we can explain how a lead score was
 // reached. Keep in sync with routes/ai-runtime.js:scoreConversation.
@@ -434,14 +434,14 @@ async function aiOpenConversation(id) {
       <div class="flex items-center gap-2 flex-wrap">
         <span class="text-[11px] font-bold text-slate-500">Reply as:</span>
         <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 text-[11px] font-bold">
-          <button type="button" id="ai-as-rep" onclick="aiSetReplyAs('rep')" class="px-2.5 py-1 rounded transition">👤 You (rep)</button>
-          <button type="button" id="ai-as-ai" onclick="aiSetReplyAs('ai')" class="px-2.5 py-1 rounded transition">🤖 ${esc(convo.assistant_name || 'AI assistant')}</button>
+          <button type="button" id="ai-as-rep" onclick="aiSetReplyAs('rep')" class="px-2.5 py-1 rounded transition"> You (rep)</button>
+          <button type="button" id="ai-as-ai" onclick="aiSetReplyAs('ai')" class="px-2.5 py-1 rounded transition"> ${esc(convo.assistant_name || 'AI assistant')}</button>
         </div>
       </div>
       <textarea id="ai-reply-box" rows="2" placeholder="Type your reply to the customer…" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></textarea>
       <div class="flex items-center gap-2">
         <button onclick="aiSendReply('${id}',null,this)" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg">Send</button>
-        <button onclick="aiDraftReply('${id}',this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg" title="Draft a reply with AI into the box — edit it, then Send">✨ Draft with AI</button>
+        <button onclick="aiDraftReply('${id}',this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg" title="Draft a reply with AI into the box — edit it, then Send"> Draft with AI</button>
         ${handoff ? `<button onclick="aiSetConvStatus('${id}','active',this)" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">Hand back to AI</button>` : ''}
         <div class="flex-1"></div>
         <button onclick="aiRefreshConvo('${id}')" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2" title="Refresh">↻</button>
@@ -449,13 +449,13 @@ async function aiOpenConversation(id) {
       <p class="text-[11px] text-slate-400">Sending as <b>You</b> takes over the chat from the AI. Sending as the assistant keeps the AI persona.</p>
     </div>
     <div class="flex items-center gap-1 pt-1 border-t border-slate-100 dark:border-slate-800 flex-wrap">
-      <button onclick="aiPrintConversation()" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">🖨 Save / Print PDF</button>
+      <button onclick="aiPrintConversation()" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2"> Save / Print PDF</button>
       <div class="relative">
         <button onclick="document.getElementById('ai-share-menu').classList.toggle('hidden')" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">↗ Share</button>
         <div id="ai-share-menu" class="hidden absolute bottom-full left-0 mb-1 w-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg py-1 z-10">
-          <button onclick="aiShareConversation('email')" class="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-800">✉️ Email</button>
-          <button onclick="aiShareConversation('sms')" class="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-800">💬 Text</button>
-          <button onclick="aiShareConversation('copy')" class="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-800">🔗 Copy link</button>
+          <button onclick="aiShareConversation('email')" class="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-800"> Email</button>
+          <button onclick="aiShareConversation('sms')" class="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-800"> Text</button>
+          <button onclick="aiShareConversation('copy')" class="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-800"> Copy link</button>
         </div>
       </div>
       <div class="flex-1"></div>
@@ -481,21 +481,21 @@ async function aiSendReply(id, mode, btn) {
   try {
     await apiSendJson(`/ai/conversations/${id}/reply`, 'POST', { mode: sendMode, message });
     if (box) box.value = '';
-    showToast(sendMode === 'ai' ? 'Sent as the assistant ✓' : 'Sent as you ✓', 'success');
+    showToast(sendMode === 'ai' ? 'Sent as the assistant ' : 'Sent as you ', 'success');
     aiOpenConversation(id);   // refresh transcript
   } catch (e) { showToast(e.message || 'Failed', 'error'); if (btn) btn.disabled = false; }
 }
-// ✨ AI draft — generate a suggested reply and drop it in the box for the rep to
+//  AI draft — generate a suggested reply and drop it in the box for the rep to
 // edit and send (it does NOT send on its own).
 async function aiDraftReply(id, btn) {
-  if (btn) { btn.disabled = true; btn.textContent = '✨ Drafting…'; }
+  if (btn) { btn.disabled = true; btn.textContent = ' Drafting…'; }
   try {
     const d = await apiSendJson(`/ai/conversations/${id}/reply`, 'POST', { mode: 'draft' });
     const box = document.getElementById('ai-reply-box');
     if (box) { box.value = d.draft || ''; box.focus(); }
     showToast('Draft ready — edit, then Send', 'success');
   } catch (e) { showToast(e.message || 'Failed', 'error'); }
-  if (btn) { btn.disabled = false; btn.textContent = '✨ AI draft'; }
+  if (btn) { btn.disabled = false; btn.textContent = ' AI draft'; }
 }
 async function aiRefreshConvo(id) { aiOpenConversation(id); }
 async function aiSetConvStatus(id, status, btn) {
@@ -505,7 +505,7 @@ async function aiSetConvStatus(id, status, btn) {
 }
 async function aiSummarize(id, btn) {
   if (btn) { btn.disabled = true; btn.textContent = 'Summarizing…'; }
-  try { await apiSendJson(`/ai/conversations/${id}/summarize`, 'POST'); showToast('Summary saved ✓', 'success'); aiOpenConversation(id); }
+  try { await apiSendJson(`/ai/conversations/${id}/summarize`, 'POST'); showToast('Summary saved ', 'success'); aiOpenConversation(id); }
   catch (e) { showToast(e.message || 'Failed', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Summarize'; } }
 }
 function aiConvoTranscriptText() {
@@ -531,7 +531,7 @@ function aiShareConversation(how) {
   if (!__aiConvo) return;
   const link = `${location.origin}${location.pathname}#ai-convo=${__aiConvo.id}`;
   const body = aiConvoTranscriptText();
-  if (how === 'copy') { navigator.clipboard?.writeText(link).then(() => showToast('Link copied ✓', 'success')).catch(() => showToast('Copy failed', 'error')); return; }
+  if (how === 'copy') { navigator.clipboard?.writeText(link).then(() => showToast('Link copied ', 'success')).catch(() => showToast('Copy failed', 'error')); return; }
   if (how === 'email') { window.open(`mailto:?subject=${encodeURIComponent('AI Conversation')}&body=${encodeURIComponent(body + '\n\n' + link)}`); return; }
   if (how === 'sms') { window.open(`sms:?&body=${encodeURIComponent('AI Conversation — ' + link)}`); return; }
 }
@@ -616,7 +616,7 @@ async function acctLoadBank() {
     const st = await apiGetJson('/plaid/status');
     if (!st.configured) {
       body.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 max-w-2xl text-center">
-        <div class="w-12 h-12 mx-auto rounded-xl bg-teal-100 dark:bg-teal-950/40 flex items-center justify-center text-2xl mb-3">🏦</div>
+        <div class="w-12 h-12 mx-auto rounded-xl bg-teal-100 dark:bg-teal-950/40 flex items-center justify-center text-2xl mb-3"></div>
         <div class="text-lg font-black text-slate-900 dark:text-white">Connect your bank</div>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-3">Bank linking isn't switched on for this server yet. Once it is, link your dealership account here to add a bank cross-check to daily reconciliation.</p>
         <button disabled class="text-sm font-bold bg-slate-200 dark:bg-slate-800 text-slate-500 px-5 py-2.5 rounded-lg cursor-not-allowed">Connect with Plaid</button></div>`;
@@ -624,7 +624,7 @@ async function acctLoadBank() {
     }
     if (!st.connected) {
       body.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 max-w-2xl text-center">
-        <div class="w-12 h-12 mx-auto rounded-xl bg-teal-100 dark:bg-teal-950/40 flex items-center justify-center text-2xl mb-3">🏦</div>
+        <div class="w-12 h-12 mx-auto rounded-xl bg-teal-100 dark:bg-teal-950/40 flex items-center justify-center text-2xl mb-3"></div>
         <div class="text-lg font-black text-slate-900 dark:text-white">Connect your bank</div>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-4">Securely link your dealership bank via Plaid. We pull daily transactions and match money in against your recorded deposits — so reconciliation catches anything the books miss. Read-only; you can disconnect anytime.</p>
         <button onclick="plaidConnect(this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-lg">Connect with Plaid</button></div>`;
@@ -637,7 +637,7 @@ async function acctLoadBank() {
       <td class="px-3 py-2 text-right font-bold ${t.direction === 'in' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300'}">${t.direction === 'in' ? '+' : '-'}${commMoney(t.amount)}</td></tr>`).join('');
     body.innerHTML = `
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 mb-4 flex items-center justify-between gap-3 flex-wrap">
-        <div><div class="font-black text-slate-900 dark:text-white flex items-center gap-2">🏦 ${esc(st.institution_name || 'Bank connected')}</div>
+        <div><div class="font-black text-slate-900 dark:text-white flex items-center gap-2"> ${esc(st.institution_name || 'Bank connected')}</div>
           <div class="text-[12px] text-slate-500 dark:text-slate-400">${(st.accounts || []).map(a => esc(a.name) + (a.mask ? ` ••${esc(a.mask)}` : '')).join(' · ') || 'Linked'}${st.last_sync ? ` · synced ${new Date(st.last_sync).toLocaleString()}` : ''}</div></div>
         <div class="flex items-center gap-2">
           <button onclick="plaidSync(this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg">Sync now</button>
@@ -830,7 +830,7 @@ function loadCommissionsPage() {
       <input type="month" value="${commMonth()}" onchange="commSetMonth(this.value)" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200">
     </div>
     <div class="flex flex-wrap gap-2 pt-1 pb-1">
-      ${commIsMgr() ? tab('ai-importer', '🤖 AI Document Generator &amp; Engine Sync') : ''}
+      ${commIsMgr() ? tab('ai-importer', ' AI Document Generator &amp; Engine Sync') : ''}
       ${tab('mine', 'My commission')}
       ${tab('statements', 'My statements')}
       ${commIsMgr() ? tab('team', 'Team') : ''}
@@ -894,7 +894,7 @@ async function commLoadPeriods() {
     if (p.status === 'locked' && p.approved_at) acts.push(commBtn('Mark paid', `commPeriodStatus('${p.id}','paid')`, 'ok'));
     if (p.status === 'locked') acts.push(commBtn('Unlock', `commPeriodStatus('${p.id}','open')`, 'ghost'));
     acts.push(commBtn('Payroll CSV', `commDownloadCsv('/commissions/pay-periods/${p.id}/export.csv','payroll-${esc(p.name)}.csv')`, 'ghost'));
-    const gate = `${p.reviewed_at ? '✓ reviewed' : ''}${p.approved_at ? ' · ✓ approved' : ''}`;
+    const gate = `${p.reviewed_at ? ' reviewed' : ''}${p.approved_at ? ' ·  approved' : ''}`;
     return `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3.5">
       <div class="flex items-center justify-between gap-2 flex-wrap">
         <div><span class="font-bold text-slate-900 dark:text-white">${esc(p.name)}</span> ${commPeriodBadge(p.status)}
@@ -959,7 +959,7 @@ async function commLoadExceptions() {
       <div><span class="font-bold ${sev}">${esc(x.type.replace(/_/g,' '))}</span> <span class="text-[10px] uppercase tracking-wider text-slate-400">${esc(x.status)}</span>
         <div class="text-xs text-slate-500 dark:text-slate-400">${esc(x.detail || '')}</div></div>
       <div class="flex gap-1.5">${acts}</div></div>`;
-  }).join('') : '<div class="text-sm text-slate-400 py-6 text-center">No open exceptions. 🎉</div>';
+  }).join('') : '<div class="text-sm text-slate-400 py-6 text-center">No open exceptions. </div>';
   body.innerHTML = `
     <div class="flex justify-end mb-3">${commBtn('Scan now', 'commScanExceptions()', 'primary')}</div>
     <div class="space-y-2">${rows}</div>`;
@@ -1306,7 +1306,7 @@ function commBonusRow(bn) {
     <input type="number" class="cb-threshold w-24 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm" placeholder="10" value="${bn.threshold != null ? esc(bn.threshold) : ''}">
     <span class="text-sm text-slate-400">→ pay $</span>
     <input type="number" class="cb-amount w-28 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm" placeholder="500" value="${bn.amount != null ? esc(bn.amount) : ''}">
-    <button onclick="this.closest('.comm-bonus-row').remove()" class="text-rose-400 hover:text-rose-500 text-sm">✕</button>
+    <button onclick="this.closest('.comm-bonus-row').remove()" class="text-rose-400 hover:text-rose-500 text-sm"></button>
   </div>`;
 }
 function commAddBonusRow() { const w = document.getElementById('pl-bonuses'); if (w) w.insertAdjacentHTML('beforeend', commBonusRow({})); }
@@ -1350,7 +1350,7 @@ window.commLoadPlans = commLoadPlans; window.commEditPlan = commEditPlan; window
 window.commSavePlan = commSavePlan; window.commDeletePlan = commDeletePlan; window.commAssign = commAssign;
 
 // ═════════════════════════════════════════════════════════════════════════════
-// 🤖 AI DOCUMENT COMMISSION STRUCTURE GENERATOR & MULTI-ENGINE SYNC SYSTEM
+//  AI DOCUMENT COMMISSION STRUCTURE GENERATOR & MULTI-ENGINE SYNC SYSTEM
 // ═════════════════════════════════════════════════════════════════════════════
 
 const SAMPLE_COMMISSION_DOC_1 = `New Vehicle Commission Schedule for 2023 Calendar Year 
@@ -1582,7 +1582,7 @@ function commLoadAIImporter() {
         <div class="absolute -right-10 -bottom-10 w-60 h-60 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none"></div>
         <div class="flex flex-wrap items-center justify-between gap-4 relative z-10">
           <div class="flex items-center gap-4">
-            <div class="w-14 h-14 rounded-2xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center text-3xl shadow-inner">🤖</div>
+            <div class="w-14 h-14 rounded-2xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center text-3xl shadow-inner"></div>
             <div>
               <div class="flex items-center gap-2">
                 <h2 class="text-2xl font-black tracking-tight text-white">AI Commission Document Generator &amp; Engine Sync</h2>
@@ -1606,14 +1606,14 @@ function commLoadAIImporter() {
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
             <div class="flex items-center justify-between">
               <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-                <span>📄 Document Source</span>
+                <span> Document Source</span>
               </h3>
               <span class="text-[11px] font-bold text-slate-400">PDF / Word / TXT</span>
             </div>
 
             <div class="border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-400 rounded-2xl p-4 text-center bg-slate-50/50 dark:bg-slate-950/40 transition cursor-pointer" onclick="document.getElementById('ai-comm-file-input').click()">
               <input id="ai-comm-file-input" type="file" accept=".txt,.pdf,.docx,.doc" class="hidden" onchange="aiHandleDocFileUpload(event)">
-              <div class="text-2xl mb-1">📥</div>
+              <div class="text-2xl mb-1"></div>
               <div class="text-xs font-bold text-slate-700 dark:text-slate-200">Click to upload document file</div>
               <div class="text-[10px] text-slate-400 mt-0.5">Supports PDF, DOCX, Markdown, or plain text</div>
             </div>
@@ -1629,14 +1629,14 @@ function commLoadAIImporter() {
               <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Quick Test Examples:</div>
               <button onclick="aiLoadPresetDoc(1)" class="w-full text-left p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-400 bg-white dark:bg-slate-900 transition flex items-center justify-between group">
                 <div>
-                  <div class="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">📋 Preset 1: Falls Chevrolet (2023)</div>
+                  <div class="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400"> Preset 1: Falls Chevrolet (2023)</div>
                   <div class="text-[10px] text-slate-400">25% gross, $500 pack, CSI/OnStar/Training penalties, F&amp;I spiffs</div>
                 </div>
                 <span class="text-xs font-bold text-indigo-500">Load →</span>
               </button>
               <button onclick="aiLoadPresetDoc(2)" class="w-full text-left p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-400 bg-white dark:bg-slate-900 transition flex items-center justify-between group">
                 <div>
-                  <div class="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">📋 Preset 2: John Bear Buick GMC (2025)</div>
+                  <div class="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400"> Preset 2: John Bear Buick GMC (2025)</div>
                   <div class="text-[10px] text-slate-400">Tiered gross, EV Hummer $750 min, Q14/Q15 scoring bonuses</div>
                 </div>
                 <span class="text-xs font-bold text-indigo-500">Load →</span>
@@ -1644,7 +1644,7 @@ function commLoadAIImporter() {
             </div>
 
             <button onclick="aiProcessCommissionDocument()" class="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-black text-xs shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-2">
-              <span>✨ Analyze Document &amp; Generate Commission Plan</span>
+              <span> Analyze Document &amp; Generate Commission Plan</span>
             </button>
           </div>
         </div>
@@ -1653,7 +1653,7 @@ function commLoadAIImporter() {
           <div id="ai-comm-results-host">
             ${currentPlan ? renderSynthesizedPlanView(currentPlan) : `
               <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center space-y-4">
-                <div class="w-16 h-16 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto text-3xl">📄</div>
+                <div class="w-16 h-16 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto text-3xl"></div>
                 <div>
                   <h3 class="text-lg font-black text-slate-800 dark:text-slate-100">Ready to Analyze Commission Document</h3>
                   <p class="text-xs text-slate-400 max-w-md mx-auto mt-1">Upload a document file or click one of the preset example documents on the left to see the AI synthesize the rules and sync with all engines.</p>
@@ -1674,7 +1674,7 @@ function aiHandleDocFileUpload(event) {
   reader.onload = (e) => {
     const text = e.target.result;
     document.getElementById('ai-comm-doc-text').value = text;
-    showToast(`Loaded "${file.name}" ✓`, 'success');
+    showToast(`Loaded "${file.name}" `, 'success');
     aiProcessCommissionDocument();
   };
   reader.readAsText(file);
@@ -1684,7 +1684,7 @@ function aiLoadPresetDoc(num) {
   const text = num === 1 ? SAMPLE_COMMISSION_DOC_1 : SAMPLE_COMMISSION_DOC_2;
   const ta = document.getElementById('ai-comm-doc-text');
   if (ta) ta.value = text;
-  showToast(`Loaded Preset ${num} Document ✓`, 'success');
+  showToast(`Loaded Preset ${num} Document `, 'success');
   aiProcessCommissionDocument();
 }
 
@@ -1699,7 +1699,7 @@ function aiProcessCommissionDocument() {
   if (host) {
     host.innerHTML = `
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center space-y-4 shadow-sm">
-        <div class="w-16 h-16 rounded-2xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto text-3xl animate-bounce">🧠</div>
+        <div class="w-16 h-16 rounded-2xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto text-3xl animate-bounce"></div>
         <div>
           <h3 class="text-lg font-black text-slate-800 dark:text-slate-100">AI Synthesizing Document Rules…</h3>
           <p class="text-xs text-slate-400 mt-1">Extracting vehicle retail commission tiers, EV minimums, CSI qualifiers, OnStar rules, F&amp;I product spiffs, and payroll holdbacks.</p>
@@ -1715,7 +1715,7 @@ function aiProcessCommissionDocument() {
     const plan = parseCommissionDocumentText(rawText);
     __activeSynthesizedPlan = plan;
     if (host) host.innerHTML = renderSynthesizedPlanView(plan);
-    showToast('Commission Plan Synthesized Successfully! ✨', 'success');
+    showToast('Commission Plan Synthesized Successfully! ', 'success');
   }, 600);
 }
 
@@ -1854,7 +1854,7 @@ function renderSynthesizedPlanView(p) {
         </div>
 
         <button onclick="syncParsedPlanToAllEngines()" class="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-lg shadow-emerald-600/30 transition flex items-center gap-2">
-          <span>⚡ Sync Commission Plan Across All Engines</span>
+          <span> Sync Commission Plan Across All Engines</span>
         </button>
       </div>
 
@@ -1864,7 +1864,7 @@ function renderSynthesizedPlanView(p) {
         <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-3">
           <div class="flex items-center justify-between">
             <h4 class="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-              <span>🏎️ Retail Vehicle Commissions</span>
+              <span> Retail Vehicle Commissions</span>
             </h4>
             <span class="text-[10px] font-bold text-slate-400">Front-End</span>
           </div>
@@ -1888,7 +1888,7 @@ function renderSynthesizedPlanView(p) {
             </div>
 
             <div class="p-3 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-900">
-              <div class="font-bold text-indigo-700 dark:text-indigo-300">⚡ EV Special Minimum Commissions</div>
+              <div class="font-bold text-indigo-700 dark:text-indigo-300"> EV Special Minimum Commissions</div>
               <div class="text-[11px] text-slate-600 dark:text-slate-300 mt-1">Hummer EV: <b>$${p.retail_commission.ev_minimums.hummer_ev_min}</b> · 1/2 Ton EV Pickup: <b>$${p.retail_commission.ev_minimums.pickup_ev_min}</b></div>
             </div>
           </div>
@@ -1898,7 +1898,7 @@ function renderSynthesizedPlanView(p) {
         <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-3">
           <div class="flex items-center justify-between">
             <h4 class="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-              <span>🏆 Volume &amp; Year-End Tiers</span>
+              <span> Volume &amp; Year-End Tiers</span>
             </h4>
             <span class="text-[10px] font-bold text-slate-400">Bonuses</span>
           </div>
@@ -1924,7 +1924,7 @@ function renderSynthesizedPlanView(p) {
         <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-3">
           <div class="flex items-center justify-between">
             <h4 class="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-              <span>💼 F&amp;I Product Spiffs &amp; Awards</span>
+              <span> F&amp;I Product Spiffs &amp; Awards</span>
             </h4>
             <span class="text-[10px] font-bold text-slate-400">Back-End</span>
           </div>
@@ -1944,7 +1944,7 @@ function renderSynthesizedPlanView(p) {
         <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-3">
           <div class="flex items-center justify-between">
             <h4 class="text-xs font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
-              <span>🛡️ Qualifiers &amp; Penalty Engine</span>
+              <span> Qualifiers &amp; Penalty Engine</span>
             </h4>
             <span class="text-[10px] font-bold text-rose-500">Automated Audit</span>
           </div>
@@ -1972,10 +1972,10 @@ function renderSynthesizedPlanView(p) {
       <!-- Sync Status Footer -->
       <div class="pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
         <div class="flex items-center gap-4">
-          <span>⚡ <b>Deal Desk</b>: Active</span>
-          <span>⚡ <b>HR Engine</b>: Active</span>
-          <span>⚡ <b>Payroll Ledger</b>: Active</span>
-          <span>⚡ <b>SaaS Settings</b>: Active</span>
+          <span> <b>Deal Desk</b>: Active</span>
+          <span> <b>HR Engine</b>: Active</span>
+          <span> <b>Payroll Ledger</b>: Active</span>
+          <span> <b>SaaS Settings</b>: Active</span>
         </div>
         <button onclick="syncParsedPlanToAllEngines()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition">
           Sync Now →

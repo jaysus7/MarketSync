@@ -252,7 +252,7 @@ async function salesRenderWork(body, d) {
 ENGINES['sales'] = {
   rootId: 'sales-root', title: 'Sales', subtitle: 'Your customers, appointments and deals — what needs you first',
   icon: 'currency', accent: 'amber',
-  tabLabels: { overview: 'Today', work: 'Work' },
+  tabLabels: { overview: 'My Day', work: 'Work' },
 
   // Role-aware tabs. A salesperson gets Today | Work; a manager also gets Insights;
   // Automation/Settings are management-only. Server authorization stays

@@ -52,6 +52,49 @@ test('the employment record is created against a real dealership and user', () =
   assert.match(fn, /if \(!dealershipId \|\| !userId\)/)
 })
 
+test('the producer satisfies the live staff_members team constraint', () => {
+  const fn = identity.match(/export async function ensureStaffMember[\s\S]*?\n\}\n/)?.[0] || ''
+  assert.match(fn, /team: team \|\| resolvedDepartment \|\| 'General'/)
+})
+
+test('employment start date is canonical and never inferred from record creation', () => {
+  const migration = read('migrations/2026-08-10-phase8-employee-start-date.sql')
+  assert.match(migration, /add column if not exists start_date date/)
+  assert.match(identity, /start_date: startDate \|\| null/)
+  assert.doesNotMatch(identity, /start_date:.*created_at/)
+})
+
+test('inviting a pre-existing employee links it instead of duplicating identity', () => {
+  const fn = identity.match(/export async function ensureStaffMember[\s\S]*?\n\}\n/)?.[0] || ''
+  assert.match(fn, /\.ilike\('email', email\)/)
+  assert.match(fn, /\.is\('user_id', null\)/)
+  assert.match(fn, /update\(\{ user_id: userId/)
+  const migration = read('migrations/2026-08-10-phase8-employee-start-date.sql')
+  assert.match(migration, /staff_members_dealership_uninvited_email_uidx/)
+})
+
+test('registration creates the first dealership employee atomically', () => {
+  const auth = strip(read('routes/auth.js'))
+  const register = auth.match(/app\.post\('\/auth\/register'[\s\S]*?\n  \}\)/)?.[0] || ''
+  assert.match(register, /await ensureStaffMember\(createdDealershipId, createdUserId/)
+  assert.match(register, /if \(employment\.error\) throw/)
+})
+
+test('an invite never survives a failed employment create', () => {
+  const invite = profile.match(/app\.post\('\/admin\/users\/invite'[\s\S]*?\n  \}\)/)?.[0] || ''
+  assert.match(invite, /if \(staffError\)/)
+  assert.match(invite, /auth\.admin\.deleteUser\(newUser\.user\.id\)/)
+  assert.doesNotMatch(invite, /if \(staffError\) console\.error/)
+})
+
+test('Users & Access returns the canonical linked employee', () => {
+  const route = strip(read('routes/profile.js'))
+  const team = route.match(/app\.get\('\/dealership\/team'[\s\S]*?\n  \}\)/)?.[0] || ''
+  assert.match(team, /from\('staff_members'\)/)
+  assert.match(team, /linked_employee: employment/)
+  assert.match(team, /account_status/)
+})
+
 // ── The lifecycle the database already enforces ─────────────────────────────
 
 test('the states match the constraint the database already had', () => {
@@ -111,6 +154,10 @@ test('the directory joins the person to their employment rather than copying eit
   assert.match(fn, /from\('profiles'\)/)
   // A login with no employment record is shown and flagged, not hidden.
   assert.match(fn, /linked: false/)
+  assert.match(fn, /has_employment: false/)
+  assert.match(fn, /account_status/)
+  assert.match(fn, /training_status/)
+  assert.match(fn, /manager_name/)
   assert.match(identity, /can_sign_in/)
 })
 
@@ -118,6 +165,7 @@ test('the role→department map joins two existing vocabularies, it does not add
   assert.equal(departmentForRole('SALES_REP'), 'Sales')
   assert.equal(departmentForRole('ACCOUNTING'), 'Accounting')
   assert.equal(departmentForRole('FNI'), 'F&I')
+  assert.equal(departmentForRole('DEALER_ADMIN'), 'Management')
   assert.equal(departmentForRole('sales_rep'), 'Sales', 'case is not a different role')
   assert.equal(departmentForRole('NOPE'), null, 'an unknown role gets no department, not a guess')
   assert.equal(departmentForRole(null), null)

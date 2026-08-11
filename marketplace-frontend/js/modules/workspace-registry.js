@@ -1,5 +1,5 @@
 // ── DealerOS Workspace Registry ──────────────────────────────────────────────
-// ✅ SINGLE SOURCE OF TRUTH for dashboard navigation.
+//  SINGLE SOURCE OF TRUTH for dashboard navigation.
 //
 // Desktop sidebar, the local workspace tab-bar and the mobile bottom row all derive
 // from THIS file. To add / rename / reorder / gate a navigation entry, edit here —
@@ -23,15 +23,17 @@
 // container — Phase 1 moves access points, it does not add or remove pages.
 
 const MS_WORKSPACES = {
-  // ── Executive — what needs my attention across the whole store ─────────────
+  // ── Management My Day — one entry; the command engine owns its local tabs ──
   executive: {
-    label: 'Executive', icon: 'chart', accent: 'indigo', mgr: true,
+    label: 'My Day', icon: 'chart', accent: 'indigo', mgr: true,
     pages: [
-      { page: 'command', label: 'Overview' },
-      { page: 'leaderboard', label: 'Performance' },
-      { page: 'operations', label: 'Operations' },
-      { page: 'taskboard', label: 'Task Board' },
-      { page: 'reports', label: 'Reports' },
+      { page: 'command', label: 'My Day' },
+      // Deep-link identities retained for bookmarks and contextual actions. `legacy`
+      // keeps them out of the department header so Management has one nav system.
+      { page: 'leaderboard', label: 'Performance', legacy: true },
+      { page: 'operations', label: 'Operations', legacy: true },
+      { page: 'taskboard', label: 'Task Board', legacy: true },
+      { page: 'reports', label: 'Reports', legacy: true },
     ],
   },
 
@@ -46,7 +48,7 @@ const MS_WORKSPACES = {
   sales: {
     label: 'Sales', icon: 'currency', accent: 'amber',
     pages: [
-      { page: 'sales', label: 'Today' },
+      { page: 'sales', label: 'My Day' },
       { page: 'crm', label: 'Customers' },
       { page: 'appointments', label: 'Appointments' },
       { page: 'tasks', label: 'Tasks' },
@@ -67,13 +69,13 @@ const MS_WORKSPACES = {
   inventory: {
     label: 'Inventory', icon: 'gem', accent: 'sky',
     pages: [
-      { page: 'inventory-overview', label: 'Today' },
+      { page: 'inventory-overview', label: 'My Day' },
       { page: 'inventory', label: 'Vehicles', invmode: 'manual' },
       { page: 'appraisal', label: 'Acquire' },
       { page: 'equity', label: 'Equity Mining' },
       { page: 'recon', label: 'Recon' },
-      { page: 'inv-intel', label: 'Pricing', mgr: true },
-      { page: 'market', label: 'Market', mgr: true },
+      { page: 'inv-intel', label: 'Inventory Intelligence', mgr: true },
+      { page: 'market', label: 'Market & Competitors', mgr: true },
       { page: 'inventory', label: 'Syndication', invmode: 'facebook' },
     ],
   },
@@ -82,7 +84,7 @@ const MS_WORKSPACES = {
   fni: {
     label: 'F&I', icon: 'shield', accent: 'indigo', roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'],
     pages: [
-      { page: 'fni-overview', label: 'Today' },
+      { page: 'fni-overview', label: 'My Day' },
       { page: 'fni', label: 'Deals' },
       { page: 'delivery', label: 'Delivery', mgr: true },
     ],
@@ -91,7 +93,7 @@ const MS_WORKSPACES = {
   service: {
     label: 'Service', icon: 'wrench', accent: 'sky', mgr: true,
     pages: [
-      { page: 'service-overview', label: 'Today' },
+      { page: 'service-overview', label: 'My Day' },
       { page: 'service-appointments', label: 'Schedule' },
       { page: 'service-ros', label: 'Repair Orders' },
     ],
@@ -100,7 +102,7 @@ const MS_WORKSPACES = {
   parts: {
     label: 'Parts', icon: 'gem', accent: 'amber', mgr: true,
     pages: [
-      { page: 'parts-overview', label: 'Today' },
+      { page: 'parts-overview', label: 'My Day' },
       { page: 'service-parts', label: 'Catalogue' },
     ],
   },
@@ -110,7 +112,7 @@ const MS_WORKSPACES = {
   accounting: {
     label: 'Accounting', icon: 'currency', accent: 'emerald', probe: '#grp-accounting-wrap', mgr: true,
     pages: [
-      { page: 'accounting-overview', label: 'Today' },
+      { page: 'accounting-overview', label: 'My Day' },
       { page: 'accounting', label: 'Overview' },
       { page: 'commissions', label: 'Payroll' },
     ],
@@ -133,8 +135,10 @@ const MS_WORKSPACES = {
     label: 'People', icon: 'user', accent: 'emerald', mgr: true,
     pages: [
       { page: 'people-overview', label: 'My Day' },
-      { page: 'sales-team', label: 'Employees' },
-      { page: 'people-compliance', label: 'Compliance' },
+      // Retained as redirect/deep-link identities only. The People engine owns Team and
+      // Compliance, so these must never render a second department tab row.
+      { page: 'sales-team', label: 'Employees', legacy: true },
+      { page: 'people-compliance', label: 'Compliance', legacy: true },
     ],
   },
 
@@ -169,9 +173,9 @@ const MS_WORKSPACES = {
   settings: {
     label: 'Settings', icon: 'shield', accent: 'indigo', system: true, mgr: true,
     pages: [
-      { page: 'config', label: 'Configuration' },
-      { page: 'automation-builder', label: 'Automation' },
-      { page: 'api-keys', label: 'API Keys' },
+      { page: 'config', label: 'Settings' },
+      { page: 'automation-builder', label: 'Automation', legacy: true },
+      { page: 'api-keys', label: 'API Keys', legacy: true },
     ],
   },
 };
