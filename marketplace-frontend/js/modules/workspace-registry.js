@@ -73,10 +73,10 @@ const MS_WORKSPACES = {
       { page: 'inventory', label: 'Vehicles', invmode: 'manual' },
       { page: 'appraisal', label: 'Acquire' },
       { page: 'equity', label: 'Equity Mining' },
-      { page: 'recon', label: 'Recon' },
+      { page: 'recon', label: 'Cleanup' },
       { page: 'inv-intel', label: 'Inventory Intelligence', mgr: true },
       { page: 'market', label: 'Market & Competitors', mgr: true },
-      { page: 'inventory', label: 'Syndication', invmode: 'facebook' },
+      { page: 'inventory', label: 'Publish to Facebook', invmode: 'facebook' },
     ],
   },
 

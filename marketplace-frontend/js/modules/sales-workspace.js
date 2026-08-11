@@ -361,6 +361,9 @@ ENGINES['sales'] = {
     { label: '+ Customer', icon: 'user', onclick: 'crmOpenForm()' },
     { label: 'Book Appointment', icon: 'calendar', onclick: "switchPage('appointments')" },
     { label: 'Appraise Trade', icon: 'gem', onclick: "switchPage('appraisal')" },
+    // Customers already in the book who are in a position to trade — a Sales job, so it belongs
+    // in the Sales header rather than only inside Inventory.
+    { label: 'Equity Mining', icon: 'gem', onclick: "switchPage('equity')" },
     { label: 'Desk Deal', icon: 'currency', onclick: "switchPage('desk')" },
   ],
 

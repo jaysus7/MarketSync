@@ -36,7 +36,10 @@ for (const [name, src, id] of DEPTS) {
   test(`${name} tabs are role-aware and My Day-first`, () => {
     const block = src.match(/get tabOrder\(\)\s*\{[\s\S]*?\n  \},/)?.[0] || ''
     assert.ok(block, `${name} tabOrder must be role-aware`)
-    assert.match(block, /\['overview', 'work'\]/, `${name}: a non-manager sees Today | Work`)
+    // A non-manager's tabs must LEAD with the day and their work. Departments may add more
+    // beyond that (Inventory gives everyone Appraisals), so this pins the lead rather than the
+    // exact array — the property that matters is that nobody lands on analytics.
+    assert.match(block, /\['overview', 'work'/, `${name}: a non-manager leads with Today | Work`)
     assert.match(src, /tabLabels:\s*\{\s*overview:\s*'My Day'/, `${name} overview tab must read "My Day"`)
   })
 
