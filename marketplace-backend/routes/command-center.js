@@ -5,7 +5,7 @@
  * so it's a pure read API (kernel contract §4).
  */
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa, requirePermission } from '../middleware.js'
 
 const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString() }
 const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString()
@@ -20,7 +20,7 @@ async function countOf(table, build) {
 }
 
 export function registerCommandCenter(app) {
-  app.get('/command-center', requireAuth, async (req, res) => {
+  app.get('/command-center', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     const did = req.dealershipId
     if (!did) return res.status(403).json({ error: 'no dealership' })
     const today = startOfToday()

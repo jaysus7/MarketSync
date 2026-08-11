@@ -39,6 +39,7 @@ function loadRegistry() {
 
 const html = read('dashboard.html')
 const part2 = read('js/modules/dashboard-part2.js')
+const part11 = read('js/modules/dashboard-part11.js')
 const pageContainers = new Set([...html.matchAll(/data-page-content="([^"]+)"/g)].map(m => m[1]))
 
 // The nine target workspaces (project instructions §8 / Doc 21 §18).
@@ -175,6 +176,19 @@ test('engine workspaces and Settings render one primary header', () => {
   assert.equal(MS_WORKSPACES.settings.pages[0].label, 'Settings')
   assert.ok(MS_WORKSPACES.settings.pages.slice(1).every(page => page.legacy === true),
     'Automation and API remain deep links inside Settings, not competing primary tabs')
+})
+
+test('Management exposes one canonical six-tab command header', () => {
+  const { MS_WORKSPACES } = loadRegistry()
+  assert.equal(MS_WORKSPACES.executive.label, 'My Day')
+  assert.deepEqual(MS_WORKSPACES.executive.pages.filter(page => !page.legacy).map(page => page.page), ['command'],
+    'legacy Executive pages must not render a competing department tab row')
+  assert.match(part11, /tabOrder:\s*\['overview', 'pulse', 'exceptions', 'approvals', 'forecast', 'financials'\]/)
+  for (const label of ['My Day', 'Pulse', 'Exceptions', 'Approvals', 'Forecast', 'Financials']) {
+    assert.match(part11, new RegExp(`['"]${label}['"]`), `Management must expose ${label}`)
+  }
+  assert.doesNotMatch(part11.match(/ENGINES\['command'\][\s\S]*?function loadCommandCenter/)?.[0] || '', /☀️|🎓/,
+    'active Management output must use product icons, not emoji decoration')
 })
 
 test('the global header is identity, notifications and one menu instead of a CTA stack', () => {

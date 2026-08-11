@@ -1039,9 +1039,10 @@ window.renderDailyBriefingWorkstation = renderDailyBriefingWorkstation;
 
 // Executive department — the whole business at a glance; uses every engine.
 ENGINES['command'] = {
-  rootId: 'command-root', title: 'My Day', subtitle: 'Management attention across every department — priorities first',
-  icon: 'chart', accent: 'indigo', tabLabels: { overview: 'My Day', work: 'Exceptions' },
-  tabOrder: ['overview', 'work'],   // Insights/Automation/Settings removed per audit
+  rootId: 'command-root', title: 'Management', subtitle: 'Management attention across every department — priorities first',
+  icon: 'chart', accent: 'indigo',
+  tabLabels: { overview: 'My Day', pulse: 'Pulse', exceptions: 'Exceptions', approvals: 'Approvals', forecast: 'Forecast', financials: 'Financials' },
+  tabOrder: ['overview', 'pulse', 'exceptions', 'approvals', 'forecast', 'financials'],
 
   fetch: async () => {
     const [cc, ev] = await Promise.all([
@@ -1052,11 +1053,7 @@ ENGINES['command'] = {
     if (badge) { const n = cc.exception_count || 0; if (n) { badge.textContent = n; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
     return { cc, events: ev.events || [] };
   },
-  quickActions: [
-    { label: 'Reports', icon: 'chart', onclick: "switchPage('reports')" },
-    { label: 'Task Board', icon: 'clipboard', onclick: "switchPage('taskboard')" },
-    { label: 'Operations', icon: 'bolt', onclick: "switchPage('operations')" },
-  ],
+  quickActions: [{ label: 'Open source operations', icon: 'bolt', onclick: "switchPage('operations')" }],
   nextActions: (d) => (d.cc.exceptions || []).slice(0, 4).map(x => ({
     label: `${OPS_KIND_LABEL[x.kind] || x.kind}${x.department ? ' · ' + x.department : ''}`,
     icon: 'shield', tone: (OPS_SEV[x.severity] || {}).text || 'text-amber-500',
@@ -1073,12 +1070,8 @@ ENGINES['command'] = {
       };
       const hour = new Date().getHours();
       const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-      const workstationHtml = typeof renderDailyBriefingWorkstation === 'function' ? renderDailyBriefingWorkstation() : '';
       body.innerHTML = `
         <div class="text-lg font-black text-slate-900 dark:text-white mb-2">${greet}</div>
-        <div id="daily-briefing-workstation-host">
-          ${workstationHtml}
-        </div>
         <div>
           <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Today's operations</div>
           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -1089,9 +1082,20 @@ ENGINES['command'] = {
             ${tile('Service bottlenecks', t.service_bottlenecks ?? 0, 'service-ros', true)}
           </div>
         </div>
-        ${engCard('Needs attention', `<div class="text-[13px] text-slate-600 dark:text-slate-300">${(d.cc.exceptions || []).length ? `<b class="text-slate-900 dark:text-white">${(d.cc.exceptions || []).length}</b> item${(d.cc.exceptions || []).length === 1 ? '' : 's'} across departments — see the Needs Attention tab.` : 'Every workflow is on track.'}</div>`)}`;
+        ${engCard('Next actions', `<div class="text-[13px] text-slate-600 dark:text-slate-300">${(d.cc.exceptions || []).length ? `<b class="text-slate-900 dark:text-white">${(d.cc.exceptions || []).length}</b> management item${(d.cc.exceptions || []).length === 1 ? '' : 's'} need a next action.` : 'Nothing requires management action.'}</div>`)}`;
     },
-    work(body, d) {
+    pulse(body, d) {
+      const t = d.cc.tiles || {};
+      const rows = [
+        ['Sales', 'Leads waiting', t.leads_waiting ?? 0, 'leads'],
+        ['Sales & F&I', 'Deals in progress', t.deals_in_progress ?? 0, 'desk'],
+        ['Delivery', 'Deliveries today', t.deliveries_today ?? 0, 'fni'],
+        ['Inventory', 'Recon delays', t.recon_delays ?? 0, 'recon'],
+        ['Fixed Ops', 'Service bottlenecks', t.service_bottlenecks ?? 0, 'service-overview'],
+      ];
+      body.innerHTML = engCard('Store pulse', `<div class="divide-y divide-slate-100 dark:divide-slate-800">${rows.map(([department, label, value, page]) => `<button onclick="switchPage('${page}')" class="w-full flex items-center justify-between gap-3 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"><span><span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400">${esc(department)}</span><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200">${esc(label)}</span></span><span class="text-xl font-black text-slate-900 dark:text-white">${value}</span></button>`).join('')}</div>`);
+    },
+    exceptions(body, d) {
       const ex = d.cc.exceptions || [];
       const exCards = ex.length ? ex.slice(0, 20).map(execExceptionCard).join('') : `<div class="p-6 text-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl flex flex-col items-center gap-2">${svgIcon('check', 'w-6 h-6 text-emerald-400')}Nothing needs attention. Every workflow is on track.</div>`;
       const feed = (d.events || []).length ? d.events.map(e => `
@@ -1104,23 +1108,15 @@ ENGINES['command'] = {
         <div class="space-y-1"><div class="flex items-center gap-2 text-sm font-black text-slate-800 dark:text-slate-200 mb-1.5">${svgIcon('bolt', 'w-4 h-4 text-indigo-500')}Live activity</div><div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 max-h-[70vh] overflow-y-auto">${feed}</div></div>
       </div>`;
     },
-    insights(body) {
-      body.innerHTML = engCard('Executive insights', `
-        <p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Cross-department performance lives in Reports and the sales dashboard.</p>
-        <div class="flex flex-wrap gap-2">
-          <button onclick="switchPage('reports')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Open Reports →</button>
-          <button onclick="switchPage('insights')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Sales Dashboard →</button>
-        </div>`);
+    approvals(body, d) {
+      const approvals = (d.cc.exceptions || []).filter(x => /approv|review/i.test(`${x.kind || ''} ${x.description || ''}`));
+      body.innerHTML = engCard('Approvals', approvals.length ? `<div class="space-y-2.5">${approvals.map(execExceptionCard).join('')}</div>` : `<div class="text-sm text-slate-400 py-6 text-center">No approvals need management action.</div>`);
     },
-    automation(body) {
-      body.innerHTML = engCard('Automation', `<p class="text-[13px] text-slate-600 dark:text-slate-300">The workflow engine watches every department and raises the exceptions on the Needs Attention tab automatically. Configure cadences and follow-up rules in <button onclick="switchPage('automation')" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">Automation</button>, or see the full stream in <button onclick="switchPage('operations')" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">Operations</button>.</p>`);
+    forecast(body) {
+      body.innerHTML = engCard('Forecast', `<p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Forecasts use the existing sales pipeline and Accounting forecast. Unknown values remain unknown.</p><div class="flex flex-wrap gap-2"><button onclick="switchPage('crm')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">Sales pipeline</button><button onclick="switchPage('accounting')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">Accounting forecast</button></div>`);
     },
-    settings(body) {
-      body.innerHTML = engCard('Settings', `<p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Company-wide defaults and access live in Configuration and Administration.</p>
-        <div class="flex flex-wrap gap-2">
-          <button onclick="switchPage('config')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Configuration →</button>
-          <button onclick="switchPage('owner-users')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">All Users & Accounts →</button>
-        </div>`);
+    financials(body) {
+      body.innerHTML = engCard('Financials', `<p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Financial truth is read from the canonical Accounting ledger and close state.</p><button onclick="switchPage('accounting')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">Open Accounting financials</button>`);
     },
   },
 };

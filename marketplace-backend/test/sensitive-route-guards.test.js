@@ -263,6 +263,11 @@ test('dashboard management scope relies on lead-assignment permission', () => {
   assert.equal(dashboard.split("hasPermission(req, 'lead.assign')").length - 1 >= 2, true)
 })
 
+test('Management command centre requires MFA and management-grade financial visibility', () => {
+  const command = source('routes/command-center.js')
+  assert.match(command, /app\.get\('\/command-center', requireAuth, requireMfa, requirePermission\('accounting\.view'\)/)
+})
+
 test('team administration uses MFA and users.manage instead of legacy manager labels', () => {
   const profile = source('routes/profile.js')
   const guard = "requireAuth, requireMfa, requirePermission('users.manage')"

@@ -23,15 +23,17 @@
 // container — Phase 1 moves access points, it does not add or remove pages.
 
 const MS_WORKSPACES = {
-  // ── Executive — what needs my attention across the whole store ─────────────
+  // ── Management My Day — one entry; the command engine owns its local tabs ──
   executive: {
-    label: 'Executive', icon: 'chart', accent: 'indigo', mgr: true,
+    label: 'My Day', icon: 'chart', accent: 'indigo', mgr: true,
     pages: [
       { page: 'command', label: 'My Day' },
-      { page: 'leaderboard', label: 'Performance' },
-      { page: 'operations', label: 'Operations' },
-      { page: 'taskboard', label: 'Task Board' },
-      { page: 'reports', label: 'Reports' },
+      // Deep-link identities retained for bookmarks and contextual actions. `legacy`
+      // keeps them out of the department header so Management has one nav system.
+      { page: 'leaderboard', label: 'Performance', legacy: true },
+      { page: 'operations', label: 'Operations', legacy: true },
+      { page: 'taskboard', label: 'Task Board', legacy: true },
+      { page: 'reports', label: 'Reports', legacy: true },
     ],
   },
 
