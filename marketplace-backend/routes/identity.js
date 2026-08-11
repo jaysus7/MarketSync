@@ -140,6 +140,24 @@ const publicVerification = (v) => ({
   last_error: v.last_error, verified_at: v.decision === 'verified' ? v.completed_at : null,
 })
 
+export async function identityAttention(dealershipId) {
+  const { data, error } = await supabaseAdmin.from('identity_verifications')
+    .select('id, contact_id, purpose, provider, decision, requested_at, last_error, contacts(full_name)')
+    .eq('dealership_id', dealershipId).in('decision', ['manual_review', 'failed'])
+    .order('requested_at', { ascending: true }).limit(100)
+  if (error) throw error
+  return (data || []).map(v => ({
+    kind: v.decision === 'manual_review' ? 'identity_manual_review' : 'identity_failed',
+    severity: v.decision === 'manual_review' ? 2 : 3,
+    subject: `${v.contacts?.full_name || 'Customer'} · ${String(v.purpose).replace(/_/g, ' ')}`,
+    reason: v.decision === 'manual_review' ? 'Identity evidence requires an authorized decision.' : (v.last_error || 'Identity verification failed.'),
+    owner: 'Management', action: v.decision === 'manual_review' ? 'Review Identity' : 'Resolve Identity Failure',
+    ref: v.id, source_type: 'identity_verification', source_id: v.id,
+    department: 'Management', attention_type: v.decision === 'manual_review' ? 'approval' : 'exception',
+    due_at: v.requested_at, deep_link: '#/w/sales/crm',
+  }))
+}
+
 export function registerIdentity(app) {
   app.get('/identity/config', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     const available = availableProviders()
@@ -245,6 +263,14 @@ export function registerIdentity(app) {
       const result = publicVerification(verification)
       res.json({ ok: true, ...result, verification: result, error: e.message })
     }
+  })
+
+  app.get('/identity/reviews', requireAuth, requireMfa, requirePermission('identity.review'), async (req, res) => {
+    const { data, error } = await supabaseAdmin.from('identity_verifications').select('*')
+      .eq('dealership_id', req.dealershipId).eq('decision', 'manual_review')
+      .order('requested_at', { ascending: true }).limit(100)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ reviews: (data || []).map(publicVerification) })
   })
 
   app.post('/identity/:id/review', requireAuth, requireMfa, requirePermission('identity.review'), async (req, res) => {

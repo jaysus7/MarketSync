@@ -35,6 +35,7 @@ import { timeAttention } from './people-time.js'
 import { complianceAttention } from './people-compliance.js'
 import { launchAttention } from './launch-hub.js'
 import { serviceAttention, partsAttention, inventoryAttention, fniAttention } from './operational-attention.js'
+import { identityAttention } from './identity.js'
 
 /**
  * Every department that can answer for itself, and what a caller must hold to see it.
@@ -64,6 +65,7 @@ export const MY_DAY_SOURCES = [
   { key: 'parts', label: 'Parts', department: 'Parts', permission: 'service.view', deepLink: '#/w/parts/parts-overview', load: partsAttention },
   { key: 'inventory', label: 'Inventory', department: 'Inventory', permission: 'inventory.view', deepLink: '#/w/inventory/inventory-overview', load: inventoryAttention },
   { key: 'fni', label: 'F&I', department: 'F&I', permission: 'fni.credit_application.view', deepLink: '#/w/fni/fni-overview', load: fniAttention },
+  { key: 'identity', label: 'Identity & Trust', department: 'Management', permission: 'identity.review', deepLink: '#/w/sales/crm', load: identityAttention },
 ]
 
 /**
