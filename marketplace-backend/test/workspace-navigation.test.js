@@ -173,6 +173,14 @@ test('engine workspaces and Settings render one primary header', () => {
     'the registry tab bar must yield to the canonical engine or Settings header')
 })
 
+test('the global header is identity, notifications and one menu instead of a CTA stack', () => {
+  assert.match(html, /id="shell-menu-btn"/)
+  assert.match(html, /id="shell-menu"/)
+  for (const id of ['header-desk-btn', 'header-appraise-btn', 'fb-post-btn', 'idscan-btn', 'training-btn', 'header-settings', 'logout-btn']) {
+    assert.match(html, new RegExp(`#${id}[^}]*display:\\s*none\\s*!important`), `${id} must leave the global toolbar`)
+  }
+})
+
 test('registry loads before dashboard.js', () => {
   const reg = html.indexOf('workspace-registry.js')
   const dash = html.indexOf('src="dashboard.js')

@@ -5,6 +5,43 @@ let __canSeeLeaderboard = false;
 let __canSeeTeamInsights = false;
 let __canSeeSalesTeam = false;
 
+function msToggleShellMenu(force) {
+  const menu = document.getElementById('shell-menu');
+  const btn = document.getElementById('shell-menu-btn');
+  if (!menu || !btn) return;
+  const open = typeof force === 'boolean' ? force : menu.classList.contains('hidden');
+  menu.classList.toggle('hidden', !open);
+  btn.setAttribute('aria-expanded', String(open));
+}
+window.msToggleShellMenu = msToggleShellMenu;
+function msShellGo(page) { msToggleShellMenu(false); switchPage(page); }
+window.msShellGo = msShellGo;
+
+async function refreshSetupIndicator(role) {
+  const banner = document.getElementById('setup-status-banner');
+  role = role || window.__setupIndicatorRole;
+  if (!banner || !['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(role)) return;
+  window.__setupIndicatorRole = role;
+  try {
+    const response = await fetch(`${API}/launch`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!response.ok) return;
+    const launch = await response.json();
+    if (launch.fully_configured) { banner.classList.add('hidden'); return; }
+    const items = launch.items || [];
+    const required = items.filter(i => i.status === 'outstanding' && i.type === 'REQUIRED_TO_LAUNCH').length;
+    const remaining = items.filter(i => i.status !== 'done').length;
+    document.getElementById('setup-status-title').textContent = required
+      ? `Finish setup — ${required} required item${required === 1 ? '' : 's'}`
+      : `Setup ${items.length - remaining}/${items.length} complete`;
+    document.getElementById('setup-status-detail').textContent = required
+      ? `${remaining} total item${remaining === 1 ? '' : 's'} remain`
+      : `${remaining} recommended or optional item${remaining === 1 ? '' : 's'} remain`;
+    banner.classList.remove('hidden');
+    banner.classList.add('flex');
+  } catch { /* Setup status is useful context, never a reason to block the shell. */ }
+}
+window.refreshSetupIndicator = refreshSetupIndicator;
+
 // AI Boost — hot/cold segment cache (populated by renderIntel, read by renderCatalog)
 let __hotMakeModels = new Set();
 let __coldMakeModels = new Set();
@@ -130,6 +167,7 @@ async function initializeDashboardEcosystem() {
       ? 'Independent'
       : (profileContext.dealership?.name || 'Independent');
     const isAdminHeader = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext.role);
+    refreshSetupIndicator(profileContext.role);
 
     // Purple "Desk a deal" quick-launch — any admin/manager/F&I (including a solo
     // "Independent" account, which is still allowed to desk deals).

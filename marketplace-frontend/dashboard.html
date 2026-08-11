@@ -247,6 +247,9 @@
     /* Guided setup: pulse the integration card we sent the user to finish. */
     @keyframes setupFlash { 0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); } 30% { box-shadow: 0 0 0 4px rgba(99,102,241,.45); } }
     .setup-flash { animation: setupFlash 1.3s ease-in-out 2; border-radius: 0.5rem; }
+    #header-desk-btn, #header-appraise-btn, #fb-post-btn, #idscan-btn, #ext-header-btn,
+    #training-btn, #open-upgrades, #header-settings, #logout-btn, #ui-tier-chip,
+    #header-shift-clock-chip { display: none !important; }
   </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased h-[100dvh] flex flex-col overflow-hidden">
@@ -305,9 +308,25 @@
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"/></svg>
         <span id="notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none"></span>
       </button>
+      <div class="relative">
+        <button id="shell-menu-btn" onclick="msToggleShellMenu()" aria-expanded="false" aria-controls="shell-menu" class="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Menu">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <div id="shell-menu" class="hidden absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-1.5 z-50 text-sm">
+          <button onclick="msShellGo('academy')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Academy</button>
+          <button onclick="msShellGo('profile')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Settings</button>
+          <a href="https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada" target="_blank" rel="noopener" class="block px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Browser extension</a>
+          <button onclick="msSignOut()" class="w-full text-left px-3 py-2 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30">Sign out</button>
+        </div>
+      </div>
       <button id="logout-btn" onclick="msSignOut()" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-medium border border-slate-300 dark:border-slate-700 transition whitespace-nowrap">Sign Out</button>
     </div>
   </header>
+
+  <button id="setup-status-banner" onclick="switchPage('launch')" class="hidden flex-shrink-0 mx-3 sm:mx-6 mt-3 rounded-xl border border-amber-300/70 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/30 px-4 py-2.5 text-left items-center justify-between gap-3">
+    <span><span id="setup-status-title" class="block text-[13px] font-bold text-amber-900 dark:text-amber-200">Finish setup</span><span id="setup-status-detail" class="block text-[11px] text-amber-700 dark:text-amber-300"></span></span>
+    <span class="text-[12px] font-bold text-amber-800 dark:text-amber-200 whitespace-nowrap">Open Setup</span>
+  </button>
 
   <!-- Notification slideout panel -->
   <div id="notif-panel" class="fixed inset-0 z-50 hidden" aria-modal="true">
@@ -3614,7 +3633,7 @@
        mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
   <script src="js/modules/workspace-registry.js?v=20260810_p8team"></script>
   <script src="dashboard.js?v=20260809_ws"></script>
-  <script src="js/modules/dashboard-part2.js?v=20260810_p8shell"></script>
+  <script src="js/modules/dashboard-part2.js?v=20260810_p8setup"></script>
   <script src="js/modules/dashboard-part3.js?v=20260809_ws"></script>
   <script src="js/modules/dashboard-part4.js?v=20260809_ws"></script>
   <script src="js/modules/dashboard-part5.js?v=20260809_ws"></script>
@@ -3651,7 +3670,7 @@
   <script src="js/modules/accounting-workspace.js?v=20260810_myday"></script>
   <script src="js/modules/marketing-workspace.js?v=20260810_p8shell"></script>
   <script src="js/modules/academy-workspace.js?v=20260810_pr73"></script>
-  <script src="js/modules/launch-workspace.js?v=20260810_pr76"></script>
+  <script src="js/modules/launch-workspace.js?v=20260810_p8setup"></script>
   <script src="js/modules/people-workspace.js?v=20260810_p8team"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
