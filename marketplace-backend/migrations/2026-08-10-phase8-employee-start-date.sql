@@ -8,3 +8,9 @@ alter table public.staff_members
 
 comment on column public.staff_members.start_date is
   'Actual employment start date. Null means the dealership has not recorded it.';
+
+-- An employee may exist before login invitation, but one dealership cannot carry two
+-- uninvited employment identities for the same email. Inviting links that row to Auth.
+create unique index if not exists staff_members_dealership_uninvited_email_uidx
+  on public.staff_members (dealership_id, lower(email))
+  where user_id is null and email is not null;

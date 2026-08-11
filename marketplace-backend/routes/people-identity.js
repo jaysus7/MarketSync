@@ -86,6 +86,27 @@ export async function ensureStaffMember(dealershipId, userId, {
     .select('*').eq('dealership_id', dealershipId).eq('user_id', userId).maybeSingle()
   if (existing) return { staff: existing, created: false, error: null }
 
+  // People can create employment before access is invited. Link that canonical row; never
+  // create a second employee merely because Auth arrived later.
+  if (email) {
+    const { data: uninvited, error: lookupError } = await supabaseAdmin.from('staff_members')
+      .select('id').eq('dealership_id', dealershipId).ilike('email', email)
+      .is('user_id', null).limit(2)
+    if (lookupError) return { staff: null, created: false, error: lookupError.message }
+    if ((uninvited || []).length > 1) {
+      return { staff: null, created: false, error: 'More than one uninvited employee has this email. Resolve the duplicate employment records first.' }
+    }
+    if (uninvited?.length === 1) {
+      const { data: linked, error: linkError } = await supabaseAdmin.from('staff_members')
+        .update({ user_id: userId, updated_by: createdBy })
+        .eq('id', uninvited[0].id).eq('dealership_id', dealershipId)
+        .is('user_id', null).select('*').maybeSingle()
+      if (linkError) return { staff: null, created: false, error: linkError.message }
+      if (linked) return { staff: linked, created: false, error: null }
+      return { staff: null, created: false, error: 'This employee was linked to another account while the invitation was being created.' }
+    }
+  }
+
   const resolvedDepartment = department || departmentForRole(role)
   const insert = {
     dealership_id: dealershipId,

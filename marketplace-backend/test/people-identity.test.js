@@ -64,6 +64,15 @@ test('employment start date is canonical and never inferred from record creation
   assert.doesNotMatch(identity, /start_date:.*created_at/)
 })
 
+test('inviting a pre-existing employee links it instead of duplicating identity', () => {
+  const fn = identity.match(/export async function ensureStaffMember[\s\S]*?\n\}\n/)?.[0] || ''
+  assert.match(fn, /\.ilike\('email', email\)/)
+  assert.match(fn, /\.is\('user_id', null\)/)
+  assert.match(fn, /update\(\{ user_id: userId/)
+  const migration = read('migrations/2026-08-10-phase8-employee-start-date.sql')
+  assert.match(migration, /staff_members_dealership_uninvited_email_uidx/)
+})
+
 test('registration creates the first dealership employee atomically', () => {
   const auth = strip(read('routes/auth.js'))
   const register = auth.match(/app\.post\('\/auth\/register'[\s\S]*?\n  \}\)/)?.[0] || ''
