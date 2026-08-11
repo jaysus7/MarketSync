@@ -52,6 +52,25 @@ test('the employment record is created against a real dealership and user', () =
   assert.match(fn, /if \(!dealershipId \|\| !userId\)/)
 })
 
+test('the producer satisfies the live staff_members team constraint', () => {
+  const fn = identity.match(/export async function ensureStaffMember[\s\S]*?\n\}\n/)?.[0] || ''
+  assert.match(fn, /team: team \|\| resolvedDepartment \|\| 'General'/)
+})
+
+test('registration creates the first dealership employee atomically', () => {
+  const auth = strip(read('routes/auth.js'))
+  const register = auth.match(/app\.post\('\/auth\/register'[\s\S]*?\n  \}\)/)?.[0] || ''
+  assert.match(register, /await ensureStaffMember\(createdDealershipId, createdUserId/)
+  assert.match(register, /if \(employment\.error\) throw/)
+})
+
+test('an invite never survives a failed employment create', () => {
+  const invite = profile.match(/app\.post\('\/admin\/users\/invite'[\s\S]*?\n  \}\)/)?.[0] || ''
+  assert.match(invite, /if \(staffError\)/)
+  assert.match(invite, /auth\.admin\.deleteUser\(newUser\.user\.id\)/)
+  assert.doesNotMatch(invite, /if \(staffError\) console\.error/)
+})
+
 // ── The lifecycle the database already enforces ─────────────────────────────
 
 test('the states match the constraint the database already had', () => {

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 
-export const ACADEMY_DEMO_VERSION = '2026.08.05-dedicated-accounts-v1'
+export const ACADEMY_DEMO_VERSION = '2026.08.10-canonical-team-v2'
 
 const catalogUrls = [
   new URL('../marketplace-frontend/training/catalog.json', import.meta.url),

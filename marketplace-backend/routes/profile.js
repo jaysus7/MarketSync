@@ -314,7 +314,14 @@ export function registerRoutes(app) {
     const { error: staffError } = await ensureStaffMember(req.dealershipId, newUser.user.id, {
       name: full_name, email, role: newRole, createdBy: req.user.id, status: 'invited',
     })
-    if (staffError) console.error('[invite] employment record not created:', staffError)
+    if (staffError) {
+      // Identity is atomic: never leave a login operationally present while People/Academy
+      // cannot resolve it. Deleting Auth removes the just-created profile/role rows through
+      // their existing identity boundary; the explicit profile delete keeps older schemas safe.
+      await supabaseAdmin.from('profiles').delete().eq('id', newUser.user.id)
+      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
+      return res.status(500).json({ error: `Employment record could not be created: ${staffError}` })
+    }
 
     // Optionally confine this member to a single product (e.g. a rep hired for Facebook
     // only) and apply per-member permission overrides. Both are additive to the RBAC role.

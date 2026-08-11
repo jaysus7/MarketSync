@@ -77,7 +77,7 @@ export const departmentForRole = (role) => ROLE_DEPARTMENT[String(role || '').to
  * a login that has been working here for months is not waiting on an invitation.
  */
 export async function ensureStaffMember(dealershipId, userId, {
-  name = null, email = null, role = null, department = null, jobTitle = null,
+  name = null, email = null, role = null, department = null, team = null, jobTitle = null,
   createdBy = null, status = 'invited',
 } = {}) {
   if (!dealershipId || !userId) return { staff: null, created: false, error: 'A dealership and a user are required.' }
@@ -86,12 +86,16 @@ export async function ensureStaffMember(dealershipId, userId, {
     .select('*').eq('dealership_id', dealershipId).eq('user_id', userId).maybeSingle()
   if (existing) return { staff: existing, created: false, error: null }
 
+  const resolvedDepartment = department || departmentForRole(role)
   const insert = {
     dealership_id: dealershipId,
     user_id: userId,
     name: name || email || 'New employee',
     email: email || null,
-    department: department || departmentForRole(role),
+    department: resolvedDepartment,
+    // `team` predates the richer employment model and remains NOT NULL on staging. Omitting
+    // it made every canonical employee create fail even though department was present.
+    team: team || resolvedDepartment || 'General',
     job_title: jobTitle || null,
     employment_status: EMPLOYMENT_STATES.includes(status) ? status : 'invited',
     onboarding_status: 'not_started',
