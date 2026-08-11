@@ -49,6 +49,13 @@ test('dedicated demo accounts replace the old HQ workspace switch', async () => 
   assert.match(route, /productsForPlan/)
   assert.doesNotMatch(route, /from\('subscriptions'\)\.upsert|plan_id:\s*'os_pro'/)
   assert.match(route, /seedAcademyDemoData/)
+  assert.match(route, /export async function refreshDedicatedDemoAccounts/)
+})
+
+test('server refreshes versioned dedicated demo data after startup', async () => {
+  const server = await readFile(new URL('../server.js', import.meta.url), 'utf8')
+  assert.match(server, /refreshDedicatedDemoAccounts\(\)/)
+  assert.match(server, /startup refresh failed/)
 })
 
 test('lesson scenarios are limited to shared and purchased products', async () => {

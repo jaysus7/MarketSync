@@ -175,6 +175,38 @@ async function seedAccount({ dealership, ownerId, force = false }) {
   })
 }
 
+/** Refresh versioned demo data without requiring an interactive demo login. */
+export async function refreshDedicatedDemoAccounts() {
+  const { data: dealerships, error } = await supabaseAdmin.from('dealerships')
+    .select('id,name').ilike('name', '%demo%').order('name')
+  if (error) throw error
+  const targets = (dealerships || []).filter(row => !RETIRED_HQ_SANDBOXES.has(row.name) && isDedicatedDemoName(row.name))
+  if (!targets.length) return []
+  const { data: profiles, error: profilesError } = await supabaseAdmin.from('profiles')
+    .select('id,dealership_id,role,active').in('dealership_id', targets.map(row => row.id))
+  if (profilesError) throw profilesError
+  const rank = role => ({ DEALER_ADMIN: 0, OWNER: 1, MANAGER: 2 }[role] ?? 9)
+  const owners = new Map()
+  for (const profile of (profiles || []).filter(row => row.active !== false).sort((a, b) => rank(a.role) - rank(b.role))) {
+    if (!owners.has(profile.dealership_id)) owners.set(profile.dealership_id, profile.id)
+  }
+  const results = []
+  for (const dealership of targets) {
+    const ownerId = owners.get(dealership.id)
+    if (!ownerId) {
+      results.push({ id: dealership.id, name: dealership.name, status: 'skipped', reason: 'No active demo login' })
+      continue
+    }
+    try {
+      const summary = await seedAccount({ dealership, ownerId })
+      results.push({ id: dealership.id, name: dealership.name, status: summary.already_current ? 'current' : 'seeded', summary })
+    } catch (error) {
+      results.push({ id: dealership.id, name: dealership.name, status: 'skipped', reason: error.message })
+    }
+  }
+  return results
+}
+
 async function ownDemoAccount(req) {
   const id = req.dealershipId
   if (!id) return null

@@ -36,7 +36,7 @@ import { registerHistory } from './routes/history.js'
 import { registerDeposits } from './routes/deposits.js'
 import { registerPayments } from './routes/payments.js'
 import { registerSyndication } from './routes/syndication.js'
-import { registerDemo } from './routes/demo.js'
+import { refreshDedicatedDemoAccounts, registerDemo } from './routes/demo.js'
 import { registerMarketing } from './routes/marketing.js'
 import { registerBulk } from './routes/bulk.js'
 import { registerService } from './routes/service.js'
@@ -242,4 +242,12 @@ if (process.env.VALIDATE_STARTUP === 'true') {
   process.exit(0)
 }
 
-app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Secure Marketplace engine live on port ${PORT}`))
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Secure Marketplace engine live on port ${PORT}`)
+  refreshDedicatedDemoAccounts()
+    .then(results => {
+      const seeded = results.filter(row => row.status === 'seeded')
+      if (seeded.length) console.log(`[demo] refreshed ${seeded.length} dedicated demo account(s)`)
+    })
+    .catch(error => console.error('[demo] startup refresh failed:', error.message))
+})
