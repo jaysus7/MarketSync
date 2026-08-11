@@ -178,8 +178,14 @@ test('Today is an exception queue, not a wall of KPIs', () => {
   const tab = ws.match(/overview\(body, d\) \{[\s\S]*?\n    \},/)?.[0] || ''
   assert.match(tab, /Needs attention/)
   assert.match(tab, /accExceptionRow/)
-  const kpis = (tab.match(/engKpi\(/g) || []).length
+  // My Day now carries the whole day — deal posting, CIT, receivables, payables — as
+  // scrollable sections. The rule it still has to obey is that it LEADS with attention:
+  // the block above the first section is a short KPI strip and the exception queue, not
+  // a wall of numbers.
+  const lead = tab.split('engSection(')[0]
+  const kpis = (lead.match(/engKpi\(/g) || []).length
   assert.ok(kpis <= 4, `Today should lead with attention, not ${kpis} KPIs`)
+  assert.ok(lead.indexOf('Needs attention') > -1, 'the exception queue must be above the sections')
 })
 
 test('the workspace computes no financial truth of its own', () => {
@@ -202,19 +208,25 @@ test('it composes accounting endpoints and introduces none', () => {
   const KNOWN = ['/accounting/exceptions', '/accounting/receivables', '/accounting/payables',
                  '/accounting/contracts-in-transit', '/accounting/deal-posting',
                  '/accounting/journal', '/accounting/close-checklist', '/accounting/periods',
-                 '/plaid/transactions', '/commissions/pay-periods', '/commissions/exceptions']
+                 '/plaid/transactions', '/commissions/pay-periods', '/commissions/exceptions',
+                 // Settings and Budget hold the real settings and the real budget now,
+                 // so they read the endpoints that already store them.
+                 '/accounting/settings', '/accounting/budget', '/accounting/accounts',
+                 '/plaid/status', '/plaid/config', '/commissions/plans']
   for (const c of [...ws.matchAll(/apiGetJson\('([^'?]+)/g)].map(m => m[1])) {
     assert.ok(KNOWN.includes(c), `unexpected read endpoint: ${c}`)
   }
   // Both quoting styles, so a single-quoted write cannot slip past the allowlist.
-  const WRITES = ['/expenses/${id}/approve', '/expenses/${id}/pay', '/accounting/periods/advance']
+  const WRITES = ['/expenses/${id}/approve', '/expenses/${id}/pay', '/accounting/periods/advance',
+                  '/accounting/settings', '/accounting/budget',
+                  '/plaid/link-token', '/plaid/exchange', '/plaid/sync', '/plaid/disconnect']
   for (const w of [...ws.matchAll(/apiSendJson\([`']([^`']+)[`']/g)].map(m => m[1])) {
     assert.ok(WRITES.includes(w), `unexpected write target: ${w}`)
   }
 })
 
 test('Deal Posting shows CIT and customer AR as separate figures', () => {
-  const tab = ws.match(/if \(__accView === 'deal-posting'\)[\s\S]*?\n      \}/)?.[0] || ''
+  const tab = ws.slice(ws.indexOf('function accDealPostingView'), ws.indexOf('function accCitView'))
   assert.match(tab, /cit_balance/)
   assert.match(tab, /customer_ar/)
   assert.ok(!/cit_balance \+ .*customer_ar/.test(tab), 'they must never be summed into one number')
@@ -274,7 +286,7 @@ test('journal_lines still has exactly one read site', () => {
 })
 
 test('the Journal view shows drafts as non-authoritative and never edits a posting', () => {
-  const view = ws.match(/if \(__accView === 'journal'\)[\s\S]*?\n      \}/)?.[0] || ''
+  const view = ws.slice(ws.indexOf('function accJournalView'), ws.indexOf('function accBankingView'))
   assert.ok(view, 'the journal view must exist')
   assert.match(view, /Draft — not financial truth/)
   assert.match(view, /Debits = Credits/, 'an entry must show that it balances')
@@ -285,7 +297,7 @@ test('the Journal view shows drafts as non-authoritative and never edits a posti
 })
 
 test('Banking is presented as a feed, with no fabricated reconciled state', () => {
-  const view = ws.match(/if \(__accView === 'banking'\)[\s\S]*?\n      \}/)?.[0] || ''
+  const view = ws.slice(ws.indexOf('function accBankingView'), ws.indexOf('function accPayrollView'))
   assert.ok(view, 'the banking view must exist')
   assert.match(view, /Matching is not built yet/)
   assert.match(view, /no reconciliation model yet/i)
@@ -295,7 +307,7 @@ test('Banking is presented as a feed, with no fabricated reconciled state', () =
 })
 
 test('Payroll reviews commissions and never recalculates them', () => {
-  const view = ws.match(/if \(__accView === 'payroll'\)[\s\S]*?\n      \}/)?.[0] || ''
+  const view = ws.slice(ws.indexOf('function accPayrollView'), ws.indexOf('function accCloseView'))
   assert.ok(view, 'the payroll view must exist')
   assert.match(view, /not recomputed here/, 'it must say the Commission Engine owns the maths')
   // No commission arithmetic in the surface.
@@ -305,7 +317,7 @@ test('Payroll reviews commissions and never recalculates them', () => {
 })
 
 test('Close cannot be advanced while a blocking item stands', () => {
-  const view = ws.match(/if \(__accView === 'close'\)[\s\S]*?\n        \}\n      \}/)?.[0] || ''
+  const view = ws.slice(ws.indexOf('function accCloseView'), ws.indexOf('function accBudgetView'))
   assert.ok(view, 'the close view must exist')
   assert.match(view, /c\.can_close \? '' : 'disabled'/, 'the button must be disabled by real state')
   assert.match(view, /accAdvancePeriod\(/)

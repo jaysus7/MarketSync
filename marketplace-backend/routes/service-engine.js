@@ -576,23 +576,35 @@ export async function listPartRequests(dealershipId, { roId = null, status = nul
   return data || []
 }
 
-export async function requestPart(dealershipId, roId, { partId, qty = 1, roLineId = null, note = null, idempotencyKey = null, userId = null } = {}) {
+// Who the part is for. Parts serves the whole store, not only the shop: a counter
+// customer, a salesperson prepping a delivery, an internal job. `service` is the only
+// one that requires a repair order, and the database enforces that
+// (part_requests_service_needs_ro).
+export const PART_REQUEST_DEPARTMENTS = ['service', 'sales', 'customer', 'internal']
+
+export async function requestPart(dealershipId, roId, { partId, qty = 1, roLineId = null, note = null, idempotencyKey = null, userId = null, requestedFor = 'service' } = {}) {
   if (!partId) throw new Error('a part is required')
   if (n(qty) <= 0) throw new Error('quantity must be greater than zero')
+  const dept = PART_REQUEST_DEPARTMENTS.includes(requestedFor) ? requestedFor : 'service'
+  // Say which of the two is wrong rather than letting the check constraint surface as
+  // a raw Postgres error.
+  if (dept === 'service' && !roId) throw new Error('A Service request has to be against a repair order. Pick the department it is really for, or open the RO first.')
   if (idempotencyKey) {
     const { data: prior } = await supabaseAdmin.from('part_requests').select('*')
       .eq('dealership_id', dealershipId).eq('idempotency_key', idempotencyKey).maybeSingle()
     if (prior) return prior
   }
   const { data, error } = await supabaseAdmin.from('part_requests').insert({
-    dealership_id: dealershipId, ro_id: roId, ro_line_id: roLineId, part_id: partId,
+    dealership_id: dealershipId, ro_id: roId || null, ro_line_id: roLineId, part_id: partId,
     qty_requested: n(qty), note, requested_by: userId, idempotency_key: idempotencyKey,
+    requested_for: dept,
   }).select('*').single()
   if (error) throw new Error(error.message)
   emitEvent({
-    dealershipId, eventName: 'service.part_requested', entityType: 'repair_order', entityId: roId,
-    summary: `Parts requested — ${n(qty)}`, department: 'Service', createdBy: userId,
-    payload: { request_id: data.id, part_id: partId, qty: n(qty), ro_line_id: roLineId },
+    dealershipId, eventName: 'service.part_requested',
+    entityType: roId ? 'repair_order' : 'part_request', entityId: roId || data.id,
+    summary: `Parts requested — ${n(qty)} (${dept})`, department: 'Service', createdBy: userId,
+    payload: { request_id: data.id, part_id: partId, qty: n(qty), ro_line_id: roLineId, requested_for: dept },
   })
   return data
 }
@@ -812,6 +824,45 @@ export async function listRoReopenRequests(dealershipId, { status = null, roId =
 // with a message that says what has to happen first.
 const RO_CLOSABLE_FROM = ['delivered', 'customer_declined']
 
+// ── Once an RO is closed, call the customer ──────────────────────────────────
+// The follow-up is a REAL crm_tasks row written here, by the close itself. It is not a
+// button the Service screen draws over a closed list: a follow-up that only exists when
+// somebody happens to open the right tab is not a follow-up. Written this way it lands
+// in the advisor's task queue and My Day like any other work.
+//
+// crm_tasks.repair_order_id (2026-08-11-service-close-followup.sql) is the link, so
+// "has this customer been called?" is a lookup rather than a guess at the title text.
+//
+// `category` is deliberately NOT 'service': GET /service/appointments selects every
+// category='service' row and renders it as an appointment, so reusing that category
+// would post every follow-up call into the appointment book as a phantom booking.
+const RO_FOLLOWUP_HOURS = 24
+
+export async function ensureRoFollowUpCall(dealershipId, ro, { userId = null } = {}) {
+  if (!ro?.contact_id) return { created: false, reason: 'no_customer_on_this_ro' }
+
+  // One open call per repair order. A reopen → re-close should not stack a second.
+  const { data: existing, error: findErr } = await supabaseAdmin.from('crm_tasks')
+    .select('id').eq('dealership_id', dealershipId).eq('repair_order_id', ro.id).eq('done', false).limit(1)
+  if (findErr) return { created: false, reason: findErr.message }
+  if (existing?.length) return { created: false, reason: 'already_scheduled', task_id: existing[0].id }
+
+  let who = 'the customer'
+  try { const c = await getContact(dealershipId, ro.contact_id); if (c?.full_name) who = c.full_name } catch { /* name is cosmetic; the call is not */ }
+
+  const due = new Date(Date.now() + RO_FOLLOWUP_HOURS * 36e5).toISOString()
+  const { data, error } = await supabaseAdmin.from('crm_tasks').insert({
+    dealership_id: dealershipId, contact_id: ro.contact_id, repair_order_id: ro.id,
+    // The advisor who owns the RO owns the call; the person who closed it is the
+    // fallback so the task is never orphaned into nobody's queue.
+    assigned_to: ro.advisor_id || userId || null, created_by: userId || null,
+    title: `Call ${who} — ${ro.ro_number || 'repair order'} closed`,
+    type: 'call', category: 'service_followup', due_at: due,
+  }).select('id, due_at').single()
+  if (error) return { created: false, reason: error.message }
+  return { created: true, task_id: data.id, due_at: data.due_at }
+}
+
 export async function closeRepairOrder(dealershipId, roId, { userId = null, reason = null, disposition = null } = {}) {
   const { data: ro } = await supabaseAdmin.from('repair_orders').select('*').eq('id', roId).eq('dealership_id', dealershipId).maybeSingle()
   if (!ro) throw new Error('repair order not found')
@@ -859,7 +910,14 @@ export async function closeRepairOrder(dealershipId, roId, { userId = null, reas
       inventory_id: ro.inventory_id || null, contact_id: ro.contact_id || null,
     },
   })
-  return { ...ro, status: 'closed', closed_at: now, total: totals.total }
+  // The customer gets a call. This runs AFTER the close is committed and the journal
+  // event is emitted, and its failure is reported rather than thrown: a follow-up task
+  // that could not be written must not roll back a financial close. The caller passes
+  // `follow_up` on to the advisor so a silent miss is impossible.
+  const follow_up = await ensureRoFollowUpCall(dealershipId, ro, { userId })
+    .catch(e => ({ created: false, reason: e?.message || 'could not schedule the follow-up call' }))
+
+  return { ...ro, status: 'closed', closed_at: now, total: totals.total, follow_up }
 }
 
 // ── Parts stock (immutable ledger + on-hand) ──────────────────────────────────
@@ -1043,6 +1101,57 @@ export function registerServiceEngine(app) {
     catch (e) { res.status(400).json({ error: e.message }) }
   })
 
+  // The post-close follow-up calls, with the phone number needed to place them. The
+  // Closed list reads this to say which customers have been called and which have not
+  // — a question it cannot answer from repair_orders alone.
+  app.get('/service-engine/follow-up-calls', requireAuth, canRead, async (req, res) => {
+    if (!guard(req, res)) return
+    let q = supabaseAdmin.from('crm_tasks')
+      .select('id, repair_order_id, contact_id, assigned_to, title, due_at, done, done_at')
+      .eq('dealership_id', req.dealershipId).not('repair_order_id', 'is', null)
+      .order('due_at', { ascending: true }).limit(500)
+    if (String(req.query.scope || 'all') === 'open') q = q.eq('done', false)
+    const { data: rows, error } = await q
+    // Reported, not swallowed: an unreadable follow-up list must not look like a shop
+    // that has called everybody back.
+    if (error) return res.status(500).json({ error: error.message })
+    const cIds = [...new Set((rows || []).map(t => t.contact_id).filter(Boolean))]
+    let contacts = {}
+    if (cIds.length) {
+      const { data: cs } = await supabaseAdmin.from('contacts')
+        .select('id, full_name, first_name, last_name, phone, phone_mobile').in('id', cIds)
+      contacts = Object.fromEntries((cs || []).map(c => [c.id, {
+        name: c.full_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Customer',
+        phone: c.phone_mobile || c.phone || null,
+      }]))
+    }
+    res.json({
+      calls: (rows || []).map(t => ({
+        ...t,
+        customer: contacts[t.contact_id]?.name || null,
+        phone: contacts[t.contact_id]?.phone || null,
+      })),
+    })
+  })
+
+  // Completing the call from the Service surface. The task is a crm_task and is equally
+  // completable from Tasks — but a Service-only dealership does not own the CRM
+  // department, so the Service workspace must not reach into /crm/* to close its own
+  // work. Same gate as working a repair order: the advisor who owns the RO owns the call.
+  app.post('/service-engine/follow-up-calls/:id/complete', requireAuth, canWork, async (req, res) => {
+    if (!guard(req, res)) return
+    const now = new Date().toISOString()
+    const { data, error } = await supabaseAdmin.from('crm_tasks')
+      .update({ done: true, done_at: now })
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId)
+      .not('repair_order_id', 'is', null)     // this route completes FOLLOW-UPS, not arbitrary tasks
+      .select('id, repair_order_id, done, done_at').maybeSingle()
+    if (error) return res.status(500).json({ error: error.message })
+    if (!data) return res.status(404).json({ error: 'No follow-up call by that id in this dealership.' })
+    audit(req, 'service.follow_up_call_completed', { after_state: data })
+    res.json({ ok: true, call: data })
+  })
+
   // What this RO can legally do next, straight from controls.state_transitions. The
   // UI renders business actions from this rather than offering a free status dropdown
   // that can propose moves the dealership workflow forbids.
@@ -1099,6 +1208,25 @@ export function registerServiceEngine(app) {
       res.json({ ok: true, request: await requestPart(req.dealershipId, req.params.id, {
         partId: b.part_id, qty: b.qty, roLineId: b.ro_line_id || null, note: b.note || null,
         idempotencyKey: b.idempotency_key || null, userId: req.user?.id || null,
+        requestedFor: b.requested_for || 'service',
+      }) })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+
+  // A request that is NOT for a repair order — the counter customer, the salesperson
+  // prepping a delivery, an internal job. Same record, same fulfilment path; the
+  // department is stated rather than assumed.
+  app.post('/service-engine/part-requests', requireAuth, canWork, async (req, res) => {
+    if (!guard(req, res)) return
+    const b = req.body || {}
+    if (b.requested_for === 'service') {
+      return res.status(400).json({ error: 'A Service request belongs to a repair order — raise it on the RO.' })
+    }
+    try {
+      res.json({ ok: true, request: await requestPart(req.dealershipId, b.ro_id || null, {
+        partId: b.part_id, qty: b.qty, note: b.note || null,
+        idempotencyKey: b.idempotency_key || null, userId: req.user?.id || null,
+        requestedFor: b.requested_for,
       }) })
     } catch (e) { res.status(400).json({ error: e.message }) }
   })

@@ -82,13 +82,17 @@ for (const [name, src, id] of DEPTS) {
 }
 
 test('Inventory Work exposes the vehicle lifecycle', () => {
-  const views = inv.match(/const INV_WORK_VIEWS = \[[\s\S]*?\n\];/)?.[0] || ''
-  for (const v of ['vehicles', 'acquire', 'recon', 'merch', 'pricing']) {
-    assert.ok(views.includes(`'${v}'`), `Inventory Work must include ${v}`)
+  // These were a second row of tabs; they are sections of the Inventory tab now, so the
+  // whole lifecycle is one scroll rather than six clicks. Every stage must still be here.
+  const fn = inv.slice(inv.indexOf('async function invRenderWork'), inv.indexOf("ENGINES['inventory-overview']"))
+  for (const heading of ['Acquisition', 'Cleanup', 'Merchandising', 'Pricing and age', 'Vehicles']) {
+    assert.ok(fn.includes(heading), `Inventory must still cover ${heading}`)
   }
+  assert.match(fn, /engMountPage\(body, 'inventory'/, 'adding and removing vehicles happens here')
+  assert.doesNotMatch(inv, /INV_WORK_VIEWS|__invWorkView/, 'the sub-nav must not come back')
   // Facebook publishing is a marketing channel and now lives under Marketing. It must not be
   // stranded — the registry keeps it reachable — but it is no longer an Inventory view.
-  assert.ok(!views.includes("'syndication'"), 'Facebook publishing belongs to Marketing')
+  assert.ok(!fn.includes("'syndication'"), 'Facebook publishing belongs to Marketing')
   const reg = read('js/modules/workspace-registry.js')
   assert.match(reg, /marketing:[\s\S]*?invmode: 'facebook'/, 'and it must still be reachable from Marketing')
 })
@@ -203,8 +207,9 @@ test('Vehicle Record is wired into the shell after the department that feeds it'
 })
 
 test('F&I Deals is the deals it still owns; the rest moved to where the work happens', () => {
-  const views = fni.match(/const FNI_WORK_VIEWS = \[[\s\S]*?\n\];/)?.[0] || ''
-  assert.ok(views.includes("'queue'"), 'the deals list must remain')
+  const views = fni.slice(fni.indexOf('async function fniRenderWork'), fni.indexOf("ENGINES['fni-overview']"))
+  assert.ok(views.includes('In progress'), 'the deals list must remain')
+  assert.match(views, /engMountPage\(body, 'fni'/, 'the deals page itself belongs in the tab, not behind a link')
   // Credit and Menu are things you do ON a deal — the credit application opens from the deal
   // and the menu is part of desking one — so a department-level browse list of each was a
   // second way in to work that already has a home.

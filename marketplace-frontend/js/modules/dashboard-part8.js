@@ -80,7 +80,7 @@ let __settingsTab = 'account';
 // exactly one section (no repeated info), laid out in a 2–3 column grid. "My Account"
 // holds the per-user personal settings; the rest are dealership departments (admin).
 const SETTINGS_TAB_SECTIONS = {
-  account: ['profile-form', 'security-section', 'settings-language-card'],
+  account: ['profile-form', 'security-section', 'settings-my-record', 'settings-language-card'],
   admin: ['settings-team', 'billing-section', 'integrations-section', 'settings-texting-card', 'groups-settings-section', 'dealer-features-card', 'email-sending-card'],
   hr: ['settings-hr-card'],
   sales: ['crm-dms-card', 'desk-fees-card', 'dealer-docs-card', 'guardrail-settings-section'],
@@ -116,6 +116,10 @@ function settingsTab(tab) {
   });
   if (tab === 'hr') {
     if (typeof renderSettingsHrCard === 'function') renderSettingsHrCard();
+  }
+  // Your own employment record — everybody has one, so it lives in My Account.
+  if (tab === 'account') {
+    if (typeof renderMyRecordCard === 'function') renderMyRecordCard();
   }
   // Administration bundles team, billing, integrations, group, features + texting.
   if (tab === 'admin') {

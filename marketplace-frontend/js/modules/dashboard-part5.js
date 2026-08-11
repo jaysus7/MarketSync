@@ -859,6 +859,11 @@ window.apptRescheduleForm = apptRescheduleForm; window.apptReschedule = apptResc
 // in their own page wrappers. (Older code mirrored them into Insights as an overview,
 // which made the admin dashboard look cluttered. We now rely on sidebar nav instead.)
 function ensurePanelsInOriginalLocations() {
+  // Workspace tabs borrow real page panels (engMountPage). switchPage() calls this on
+  // every navigation, so this is where a borrowed page goes home — otherwise opening
+  // that page directly would find it parked inside a hidden workspace and show blank.
+  if (typeof engRestoreMountedPages === 'function') engRestoreMountedPages();
+
   const lb = document.getElementById('leaderboard-panel');
   const ti = document.getElementById('team-insights-panel');
   const st = document.getElementById('dealer-view-panel');

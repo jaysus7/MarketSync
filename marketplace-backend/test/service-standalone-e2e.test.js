@@ -95,11 +95,18 @@ test('the Service surface calls no other department', () => {
 test('Service still works for a shop that has not bought Parts', () => {
   // Parts demand is additive: if the parts endpoint is unavailable the workspace must
   // fall back to an empty list rather than failing to render the shop's day.
-  assert.match(svcWs, /apiGetJson\('\/service-engine\/part-requests'\)\.catch\(\(\) => \(\{ requests: \[\] \}\)\)/,
-    'a missing parts feed must degrade to empty, not break Today')
+  assert.match(svcWs, /grab\('parts demand', apiGetJson\('\/service-engine\/part-requests'\)\)/,
+    'the parts read must go through the catching wrapper')
+  assert.match(svcWs, /const grab = \(label, p\) => p\.catch\(\(\) => \{ miss\.push\(label\); return null; \}\)/,
+    'a missing parts feed must degrade rather than break Today')
+  assert.match(svcWs, /partRequests: reqs\?\.requests \|\| \[\]/,
+    'an absent parts response must resolve to an empty list')
   for (const guard of [/\(d\.partRequests \|\| \[\]\)/]) {
     assert.match(svcWs, guard, 'every parts read must tolerate absence')
   }
+  // Degrading is not the same as hiding: the shop is told the list is short.
+  assert.match(svcWs, /function svcUnavailableNote/,
+    'a parts feed that failed must be named, not silently rendered as no parts demand')
 })
 
 // ── Known deviation, recorded deliberately ───────────────────────────────────

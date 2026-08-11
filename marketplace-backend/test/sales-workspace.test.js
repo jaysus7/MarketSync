@@ -27,14 +27,16 @@ test('Sales uses the shared engine shell, not a bespoke one', () => {
     'Sales must not redefine a shared primitive')
 })
 
-test('four tabs, role-aware: a rep works in three, a manager also gets Settings', () => {
+test('four tabs, role-aware: a rep works in four, a manager also gets Settings', () => {
   // Was five (My Day | Work | Insights | Automation | Settings). Insights folded into My Day —
   // a number you only see by opening another tab is a number nobody acts on. Automation folded
   // into Settings — there is one workflow engine, so it is configuration. Work renamed to what
-  // it holds. Appointments promoted out of a sub-view.
+  // it holds. Appointments promoted out of a sub-view. Equity Mining promoted to the header:
+  // the customers already in the book who could trade today are a rep's easiest next sale.
   const block = sales.match(/get tabOrder\(\)\s*\{[\s\S]*?\n  \},/)?.[0] || ''
   assert.ok(block, 'tabOrder must be role-aware')
-  assert.match(block, /\['overview', 'work', 'appointments'\]/, 'a salesperson sees the three they work in')
+  assert.match(block, /\['overview', 'work', 'appointments', 'equity'\]/, 'a salesperson sees the four they work in')
+  assert.match(block, /equity/, 'Equity Mining is a rep surface, not a manager report')
   assert.match(block, /'settings'/, 'a manager additionally sees Settings')
   assert.ok(!/'insights'/.test(block) && !/'automation'/.test(block),
     'Insights and Automation must not be tabs of their own')

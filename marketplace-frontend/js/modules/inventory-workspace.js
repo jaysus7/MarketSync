@@ -56,7 +56,6 @@ function invMerchGaps(v) { return invMerchChecks(v).filter(c => !c.ok); }
 function invMerchThin(v) { const p = invMerchChecks(v)[0]; return p.ok && !p.strong; }
 
 let __invData = null;
-let __invWorkView = 'vehicles';
 let __invAppraisals = null;   // lazily fetched inside the Acquire view
 
 // Recon stage for a vehicle, if any (the recon engine owns this state).
@@ -158,15 +157,9 @@ window.invTakePossession = invTakePossession;
 
 // Work follows the vehicle lifecycle in order: what we have → what's coming in →
 // what's being fixed → what's ready to sell → what it's worth → where it's listed.
-const INV_WORK_VIEWS = [
-  // "Cleanup" is what a dealership calls it. "Syndication" was jargon for one specific thing:
-  // pushing vehicles out to Facebook Marketplace, which is the AutoPoster product — so it is
-  // named for what it does rather than removed.
-  ['vehicles', 'Vehicles'], ['acquire', 'Acquisition'], ['recon', 'Cleanup'],
-  ['merch', 'Merchandising'], ['pricing', 'Inventory Intelligence'], ['market', 'Market & Competitors'],
-];
-function invWorkView(v) { __invWorkView = v; engineTab('inventory-overview', 'work'); }
-window.invWorkView = invWorkView;
+// The six views that were a second row of tabs — Vehicles, Acquisition, Cleanup,
+// Merchandising, Inventory Intelligence, Market & Competitors — are now sections of
+// this one tab. You scroll the vehicle lifecycle instead of clicking through it.
 
 // ── Acquisition — the intake pipeline, in the order a unit actually arrives ───
 //
@@ -269,59 +262,43 @@ function invRenderMerch(d) {
 }
 
 async function invRenderWork(body, d) {
-  const nav = INV_WORK_VIEWS.map(([id, label]) => {
-    const on = __invWorkView === id;
-    return `<button onclick="invWorkView('${id}')" class="px-3 py-1.5 rounded-lg text-[13px] font-bold transition ${on ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}">${esc(label)}</button>`;
-  }).join('');
-  let inner = '';
-  const link = (page, label) => `<div class="mt-3"><button onclick="switchPage('${page}')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">${esc(label)} →</button></div>`;
-
-  if (__invWorkView === 'vehicles') {
-    inner = engCard('Vehicles', (d.vehicles || []).slice(0, 20).map(v => invRow(v, d)).join('') || engEmpty('No vehicles in stock.')) + link('inventory', 'Open full inventory');
-  } else if (__invWorkView === 'acquire') {
-    if (!__invAppraisals) {
-      body.innerHTML = `<div class="flex gap-1.5 mb-3">${nav}</div><div class="text-sm text-slate-400 py-10 text-center">Loading appraisals…</div>`;
-      try { __invAppraisals = await apiGetJson('/ai/appraisals'); } catch { __invAppraisals = { appraisals: [] }; }
-    }
-    inner = invRenderAcquisition(d, __invAppraisals.appraisals || []) + link('appraisal', 'Open appraisals');
-  } else if (__invWorkView === 'merch') {
-    inner = invRenderMerch(d);
-  } else if (__invWorkView === 'recon') {
-    // A sold unit still in recon is holding up a delivery, so it gets its own group.
-    const rows = d.recon || [];
-    const atRisk = (r) => !!r.deal_id && r.stage !== 'done';
-    const sold = rows.filter(atRisk), rest = rows.filter(r => !atRisk(r));
-    const reconRow = (r) => {
-      const v = (d.vehById || {})[r.inventory_id] || r.inventory || {};
-      const sub = `${esc(r.stage || 'in progress')}${r.deal_id ? ' · <span class="text-rose-500">sold — delivery is waiting</span>' : ''}`;
-      if (v.id) return invRow(v, d, sub);
-      return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-        <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(invName(v))}</div>
-          <div class="text-[12px] text-slate-400 truncate">${sub}</div></div>
-        <button onclick="switchPage('recon')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Open Recon</button>
-      </div>`;
-    };
-    inner = `<div class="space-y-3">
-      ${sold.length ? engCard(`Sold — still in recon (${sold.length})`, sold.slice(0, 20).map(reconRow).join('')) : ''}
-      ${engCard('In recon', rest.slice(0, 20).map(reconRow).join('') || engEmpty('Nothing in recon.'))}
-    </div>` + link('recon', 'Open recon board');
-  } else if (__invWorkView === 'pricing') {
-    const noPrice = (d.vehicles || []).filter(v => !Number(v.price));
-    const aged = (d.vehicles || []).filter(v => { const a = invDays(v.created_at); return a != null && a >= INV_AGED_DAYS; });
-    inner = (noPrice.length ? engCard(`No price (${noPrice.length})`, noPrice.slice(0, 10).map(v => invRow(v, d)).join('')) : '')
-      + engCard(`Aged ${INV_AGED_DAYS}+ days (${aged.length})`, aged.slice(0, 15).map(v => invRow(v, d)).join('') || engEmpty('Nothing aged.'), noPrice.length ? 'mt-3' : '')
-      + link('inv-intel', 'Open Inventory Intelligence');
-  } else if (__invWorkView === 'market') {
-    inner = `${engCard('Market & Competitors', `<div class="text-[13px] text-slate-600 dark:text-slate-300">Live market snapshots, nearby-lot pricing, competitor inventory and price-change monitoring live here as part of Inventory Intelligence.</div>`)}${link('market', 'Open Market & Competitors')}`;
-  } else if (__invWorkView === 'syndication') {
-    const noPhotos = (d.vehicles || []).filter(v => !invHasPhotos(v));
-    inner = engCard('Not publishable yet', noPhotos.slice(0, 15).map(v => invRow(v, d)).join('') || engEmpty('Every vehicle has photos.'))
-      + `<div class="mt-3 flex flex-wrap gap-3">
-           <button onclick="deptGo('inventory','facebook')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">Facebook Marketplace →</button>
-           <button onclick="switchPage('website')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">Website →</button>
-         </div>`;
+  // Acquisition needs the appraisal list, which is its own read.
+  if (!__invAppraisals) {
+    body.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading inventory…</div>`;
+    try { __invAppraisals = await apiGetJson('/ai/appraisals'); } catch { __invAppraisals = { appraisals: [] }; }
   }
-  body.innerHTML = `<div class="flex gap-1.5 mb-3 overflow-x-auto">${nav}</div>${inner}`;
+
+  const noPrice = (d.vehicles || []).filter(v => !Number(v.price));
+  const aged = (d.vehicles || []).filter(v => { const a = invDays(v.created_at); return a != null && a >= INV_AGED_DAYS; });
+
+  const reconRows = d.recon || [];
+  const atRisk = (r) => !!r.deal_id && r.stage !== 'done';
+  const sold = reconRows.filter(atRisk), rest = reconRows.filter(r => !atRisk(r));
+  const reconRow = (r) => {
+    const v = (d.vehById || {})[r.inventory_id] || r.inventory || {};
+    const sub = `${esc(r.stage || 'in progress')}${r.deal_id ? ' · <span class="text-rose-500">sold — delivery is waiting</span>' : ''}`;
+    if (v.id) return invRow(v, d, sub);
+    return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+      <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(invName(v))}</div>
+        <div class="text-[12px] text-slate-400 truncate">${sub}</div></div>
+    </div>`;
+  };
+
+  body.innerHTML = `
+    ${engSection('Acquisition', invRenderAcquisition(d, __invAppraisals.appraisals || []), 'What is coming in, and what you have taken possession of')}
+    ${engSection('Cleanup', `<div class="space-y-3">
+      ${sold.length ? engCard(`Sold — still in cleanup (${sold.length})`, sold.slice(0, 20).map(reconRow).join('')) : ''}
+      ${engCard('In cleanup', rest.slice(0, 20).map(reconRow).join('') || engEmpty('Nothing in cleanup.'))}
+    </div>`, 'A sold unit still being worked on is holding up a delivery')}
+    ${engSection('Merchandising', invRenderMerch(d), 'What is stopping a vehicle going on the front line')}
+    ${engSection('Pricing and age', (noPrice.length ? engCard(`No price (${noPrice.length})`, noPrice.slice(0, 10).map(v => invRow(v, d)).join('')) : '')
+      + engCard(`Aged ${INV_AGED_DAYS}+ days (${aged.length})`, aged.slice(0, 15).map(v => invRow(v, d)).join('') || engEmpty('Nothing aged.'), noPrice.length ? 'mt-3' : ''),
+      'Units carrying no price, and units carrying too much time')}
+    ${engSection('Vehicles', '', 'Every unit in stock — add one, edit one, publish one')}`;
+
+  // The inventory page itself, so adding and removing vehicles happens here rather
+  // than behind "Open full inventory →".
+  engMountPage(body, 'inventory', () => applyInventoryMode());
 }
 
 ENGINES['inventory-overview'] = {
@@ -352,12 +329,9 @@ ENGINES['inventory-overview'] = {
   },
 
   quickActions: [
-    // The old Inventory page led with this and the workspace lost it.
-    { label: '+ Add inventory', icon: 'gem', onclick: "switchPage('inventory')" },
-    { label: 'Appraise Trade', icon: 'gem', onclick: "switchPage('appraisal')" },
-    { label: 'Acquisition', icon: 'truck', onclick: "invWorkView('acquire')" },
-    { label: 'Merchandising', icon: 'camera', onclick: "invWorkView('merch')" },
-    { label: 'Cleanup board', icon: 'wrench', onclick: "switchPage('recon')" },
+    // Add inventory lands on the Inventory tab, which now holds the real page.
+    { label: '+ Add inventory', icon: 'gem', onclick: "engineTab('inventory-overview','work')" },
+    { label: 'Appraise Trade', icon: 'camera', onclick: "engineTab('inventory-overview','appraisals')" },
     { label: 'Inventory Intelligence', icon: 'chart', onclick: "switchPage('inv-intel')" },
     { label: 'Market & Competitors', icon: 'eye', onclick: "switchPage('market')" },
   ],
@@ -404,16 +378,11 @@ ENGINES['inventory-overview'] = {
     // "Appraise a car" is a job somebody does, so this tab is that page rather than a card
     // that sends them to it.
     appraisals(body) {
-      body.innerHTML = `
-        ${engCard('Appraise a vehicle', `
-          <p class="text-[12px] text-slate-500 mb-2">Take an appraisal, work the numbers, and hand it to Inventory as a unit.</p>
-          <button onclick="switchPage('appraisal')" class="px-4 py-2 rounded-xl bg-sky-600 text-white text-[13px] font-bold">Open the appraisal tool</button>
-        `)}
-        ${engCard('Equity mining', `
-          <p class="text-[12px] text-slate-500 mb-2">Customers already in your book who are in a position to trade.</p>
-          <button onclick="switchPage('equity')" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[13px] font-bold">Open equity mining</button>
-        `)}
-      `;
+      // The appraisal page ITSELF, moved in — VIN decode, the numbers, Save appraisal,
+      // the customer PDFs and the saved-appraisal list. It used to be two cards whose
+      // whole content was a button to the page you actually wanted.
+      body.innerHTML = '';
+      engMountPage(body, 'appraisal', () => { initAppraisal(); loadApprList(); apprEnsureBranding(); });
     },
     // The old Insights tab, now rendered INSIDE My Day. See overview().
     __insightsStrip(body, d) {
@@ -441,12 +410,13 @@ ENGINES['inventory-overview'] = {
         })(), 'mt-3')}`;
     },
     settings(body) {
-      body.innerHTML = engCard('Inventory settings',
-        `<p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Syndication destinations, pricing rules and recon stages.</p>
-         <div class="flex flex-wrap gap-2">
-           <button onclick="switchPage('recon')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Recon board</button>
-           <button onclick="switchPage('config')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Dealership configuration</button>
-         </div>`);
+      // The cleanup board is where recon stages actually live, so it is here rather
+      // than named in a sentence with a button beside it.
+      body.innerHTML = engSection('Cleanup stages', '', 'Where a vehicle is in reconditioning, and what is holding it up');
+      engMountPage(body, 'recon', () => loadReconPage());
+      body.insertAdjacentHTML('beforeend', engSection('Everything else',
+        engCard('', `<div class="text-[13px] text-slate-600 dark:text-slate-300 mb-2">Syndication destinations and pricing rules live in dealership configuration.</div>
+         <button onclick="switchPage('config')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Dealership configuration</button>`)));
     },
   },
 };

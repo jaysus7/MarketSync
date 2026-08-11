@@ -60,8 +60,10 @@
     },
     {
       target: '#idscan-btn',
+      // Add customer lives in the header menu now, so open it before pointing at it.
+      before: () => { try { msToggleShellMenu(true); } catch {} },
       title: 'Add a customer by scanning their licence',
-      body: `Tap <b>Add customer</b> up top to scan a driver's licence — it fills in the name, address and details for you. You can also run a full ID + selfie verification from the customer's record.`
+      body: `Open the <b>menu</b> at the top right and tap <b>Add customer</b> to scan a driver's licence — it fills in the name, address and details for you. You can also run a full ID + selfie verification from the customer's record.`
     },
     {
       target: '#header-desk-btn',
@@ -122,7 +124,7 @@
     command: [
       { target: '#dashboard-nav [data-page="command"]', before: () => goPage('command'), title: '1. Executive Overview', body: `Start on the <b>Left</b> with your real-time revenue, leads, and store velocity metrics.` },
       { target: '[data-page-content="command"]', before: () => goPage('command'), title: '2. Operational Flow', body: `Monitor department health across sales, inventory, service, and team performance.` },
-      { target: '#header-desk-btn', title: '3. Quick Action Launchpad', body: `Desk a deal, appraise a vehicle, or post to Facebook Marketplace right from the header.` }
+      { target: '#header-desk-btn', title: '3. Quick Action Launchpad', body: `Desk a deal or appraise a vehicle right from the header. Everything else — add a customer, post to Facebook, upgrades, settings — is under the menu beside the bell.` }
     ],
     inventory: [
       { target: '#feeds-panel', before: () => goPage('inventory'), title: '1. Ingest Inventory (Left)', body: `Your inventory <b>auto-syncs</b> from your website feed or CSV. Hit <b>Sync Now</b> to pull latest units.` },
@@ -142,7 +144,7 @@
     crm: [
       { target: '#dashboard-nav [data-page="crm"]', before: () => { openGroup('crm'); goPage('crm'); }, title: '1. Lead Ingestion (Left)', body: `All shopper leads from Facebook, Website AI Chat, and phone calls land directly here.` },
       { target: '[data-page-content="crm"]', before: () => goPage('crm'), title: '2. Pipeline & Touchpoints (Center)', body: `Drag customers through stages: <b>Uncontacted → Contacted → Appointment → Sold</b>.` },
-      { target: '#idscan-btn', title: '3. Customer Verification (Right)', body: `Scan driver's licences to instant-populate customer profiles and run ID verifications.` }
+      { target: '#idscan-btn', before: () => { try { msToggleShellMenu(true); } catch {} }, title: '3. Customer Verification', body: `<b>Add customer</b> in the header menu scans driver's licences to instant-populate customer profiles and run ID verifications.` }
     ],
     sales: [
       { target: '#header-desk-btn', before: () => goPage('desk'), title: '1. Vehicle & Trade Input (Left)', body: `Select the vehicle, trade-in, pay-off, and customer details on the deal desk.` },

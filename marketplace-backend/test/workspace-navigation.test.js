@@ -121,10 +121,16 @@ test('required UI moves landed in the right workspace', () => {
 
 test('Inventory Intelligence remains visibly discoverable inside Inventory', () => {
   const inv = readFileSync(new URL('../../marketplace-frontend/js/modules/inventory-workspace.js', import.meta.url), 'utf8')
-  assert.match(inv, /\['pricing', 'Inventory Intelligence'\]/)
-  assert.match(inv, /\['market', 'Market & Competitors'\]/)
+  // The sub-nav that used to list these is gone; discoverability now rests on the
+  // Pricing and age section plus the two rail shortcuts. Both still have to be there —
+  // an Inventory Intelligence nobody can find is an Inventory Intelligence nobody uses.
+  assert.match(inv, /engSection\('Pricing and age'/)
   assert.match(inv, /label: 'Inventory Intelligence'.*switchPage\('inv-intel'\)/s)
   assert.match(inv, /label: 'Market & Competitors'.*switchPage\('market'\)/s)
+  const reg = readFileSync(new URL('../../marketplace-frontend/js/modules/workspace-registry.js', import.meta.url), 'utf8')
+  for (const p of ['inv-intel', 'market']) {
+    assert.ok(reg.includes(`page: '${p}'`), `${p} must stay reachable from the registry`)
+  }
 })
 
 test('one inventory pool — the manual and Facebook views are the same page', () => {

@@ -329,6 +329,17 @@ export function registerLaunchHub(app) {
       const state = await gather(req.dealershipId)
       const features = req.access?.features || null
       const launch = buildLaunch(state, { features })
+      // The configuration the requirements were judged against, so the setup form can
+      // show what is already stored instead of an empty box next to "Not recorded yet".
+      // Same field list the PATCH accepts — nothing sensitive, it is the dealership's
+      // own address and registration numbers.
+      const d = state?.dealership || {}
+      launch.dealership = {
+        legal_name: d.legal_name ?? null, street_address: d.street_address ?? null,
+        city: d.city ?? null, province: d.province ?? null, country: d.country ?? null,
+        postal_code: d.postal_code ?? null, phone: d.phone ?? null,
+        timezone: d.timezone ?? null, hst_number: d.hst_number ?? null, omvic_reg: d.omvic_reg ?? null,
+      }
       res.json(launch)
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
