@@ -356,9 +356,10 @@ export function registerSocial(app) {
       const ids = (posts || []).map(p => p.id)
       let targets = []
       if (ids.length) {
-        const { data } = await supabaseAdmin.from('social_post_targets')
-          .select('id, post_id, social_account_id, status, external_post_id, published_at, error')
+        const { data, error } = await supabaseAdmin.from('social_post_targets')
+          .select('id, post_id, social_account_id, status, external_post_id, published_at, error, attempts, last_attempt_at, next_attempt_at')
           .in('post_id', ids)
+        if (error) return res.status(500).json({ error: error.message })
         targets = data || []
       }
       const byPost = {}

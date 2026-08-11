@@ -268,6 +268,16 @@ test('dealer-facing scheduler exposes calendar, queue, drafts, approvals, publis
   assert.match(ws, /mktCancelPost/)
 })
 
+test('published and failed views receive and display canonical provider evidence', () => {
+  const ws = readFileSync(new URL('../../marketplace-frontend/js/modules/marketing-workspace.js', import.meta.url), 'utf8')
+  assert.match(social, /external_post_id, published_at, error, attempts, last_attempt_at, next_attempt_at/)
+  assert.match(ws, /Provider ID \$\{esc\(t\.external_post_id\)\}/,
+    'published provider evidence must be visible to the dealer')
+  assert.match(ws, /Number\(t\.attempts\)/)
+  assert.match(ws, /last attempt \$\{esc\(attempted\)\}/)
+  assert.match(ws, /t\.account\?\.display_name/)
+})
+
 test('calendar modes render distinct calendar structures and reschedule through the server', () => {
   const ws = readFileSync(new URL('../../marketplace-frontend/js/modules/marketing-workspace.js', import.meta.url), 'utf8')
   assert.match(ws, /__socialCalendarMode === 'month'/)
