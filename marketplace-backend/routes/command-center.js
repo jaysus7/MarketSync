@@ -5,7 +5,8 @@
  * so it's a pure read API (kernel contract §4).
  */
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth, requireMfa, requirePermission } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
 
 const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString() }
 const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString()
