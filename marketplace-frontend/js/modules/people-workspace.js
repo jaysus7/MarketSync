@@ -515,5 +515,129 @@ function pplRenderSettings(body, d) {
       </div>`), 'Where each of these is authored')}`;
 }
 
+
+// ══ Your own record, on your profile ═════════════════════════════════════════
+// What HR holds about you, from GET /hr/me. Read-only on purpose: the two things an
+// employee changes about themselves are their password and their picture, and both
+// already live above this card. Everything else on your file is HR's to correct — an
+// employee who could edit their own start date or job title could edit their way out
+// of a compliance requirement.
+//
+// Documents are filtered SERVER-side to the ones marked visible to you, and each
+// download is a fresh 2-minute signed URL rather than a link that can be forwarded.
+async function renderMyRecordCard() {
+  const host = document.getElementById('settings-my-record');
+  if (!host) return;
+  host.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+    <div class="text-sm text-slate-400 py-6 text-center">Loading your record…</div></div>`;
+
+  let d;
+  try {
+    const r = await apiGetJson('/hr/me');
+    d = r.dossier;
+  } catch (e) {
+    host.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+      <h3 class="text-base font-bold text-slate-900 dark:text-white mb-1">Your record</h3>
+      <div class="text-[13px] text-slate-500 dark:text-slate-400">${esc(e?.message || 'Your record could not be loaded.')}</div>
+    </div>`;
+    return;
+  }
+
+  const p = d.person || {};
+  const field = (label, v) => `<div>
+    <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div>
+    <div class="text-[13px] text-slate-800 dark:text-slate-100">${esc(v == null || v === '' ? '—' : String(v))}</div>
+  </div>`;
+
+  const list = (sec, emptyMsg, rowFn) => sec?.items == null
+    ? `<div class="text-[13px] text-amber-600 dark:text-amber-400 py-2">${esc(sec?.unavailable || 'This could not be loaded.')}</div>`
+    : (sec.items.length ? sec.items.map(rowFn).join('') : `<div class="text-[13px] text-slate-400 py-2">${esc(emptyMsg)}</div>`);
+
+  const training = list(d.training, 'No training has been assigned to you.', t => `
+    <div class="flex items-center gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+      <div class="min-w-0 flex-1">
+        <div class="font-semibold text-[13px] text-slate-800 dark:text-slate-100 truncate">${esc(t.title)}</div>
+        <div class="text-[12px] text-slate-400">${esc(t.category || 'Course')}${t.due_at ? ` · due ${esc(pplDate(t.due_at))}` : ''}</div>
+      </div>
+      <div class="shrink-0 text-[12px] font-bold ${t.completed_at ? 'text-emerald-600 dark:text-emerald-400' : t.overdue ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}">${t.completed_at ? `Completed ${esc(pplDate(t.completed_at))}` : t.overdue ? 'Overdue' : `${t.progress_percent ?? 0}%`}</div>
+    </div>`);
+
+  const certs = list(d.certifications, 'You have no certifications on file.', c => {
+    const expired = c.expires_on && new Date(c.expires_on) < new Date();
+    return `<div class="flex items-center gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+      <div class="min-w-0 flex-1">
+        <div class="font-semibold text-[13px] text-slate-800 dark:text-slate-100 truncate">${esc(c.certification_name || c.certification_key || 'Certification')}</div>
+        <div class="text-[12px] text-slate-400 truncate">${esc([c.issuer, c.certificate_number].filter(Boolean).join(' · '))} · issued ${esc(pplDate(c.issued_on))}${c.expires_on ? ` · ${expired ? 'expired' : 'expires'} ${esc(pplDate(c.expires_on))}` : ''}</div>
+      </div>
+      <div class="shrink-0 text-[12px] font-bold ${expired ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}">${esc(c.status || (expired ? 'expired' : 'valid'))}</div>
+    </div>`;
+  });
+
+  const signed = list(d.policies, 'Nothing has been sent to you to sign.', a => {
+    const done = a.status === 'acknowledged' && a.acknowledged_at;
+    return `<div class="flex items-center gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+      <div class="min-w-0 flex-1">
+        <div class="font-semibold text-[13px] text-slate-800 dark:text-slate-100 truncate">${esc(a.title)}${a.version_number ? ` v${esc(String(a.version_number))}` : ''}</div>
+        <div class="text-[12px] text-slate-400">${esc(a.category || 'Policy')}${a.due_at && !done ? ` · due ${esc(pplDate(a.due_at))}` : ''}</div>
+      </div>
+      <div class="shrink-0 text-[12px] font-bold ${done ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}">${done ? `Signed ${esc(pplDate(a.acknowledged_at))}` : 'Waiting on you'}</div>
+    </div>`;
+  });
+
+  const docs = list(d.documents, 'No documents have been shared with you.', doc => `
+    <div class="flex items-center gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+      <div class="min-w-0 flex-1">
+        <div class="font-semibold text-[13px] text-slate-800 dark:text-slate-100 truncate">${esc(doc.title || doc.document_type)}</div>
+        <div class="text-[12px] text-slate-400">${esc(doc.document_type || '')} · ${esc(pplDate(doc.created_at))}${doc.expires_on ? ` · expires ${esc(pplDate(doc.expires_on))}` : ''}</div>
+      </div>
+      <button onclick="pplDownloadDoc('${esc(doc.id)}')" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Download</button>
+    </div>`);
+
+  const onboarding = list(d.lifecycle, 'You had no onboarding checklist.', t => `
+    <div class="flex items-center gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+      <div class="min-w-0 flex-1">
+        <div class="font-semibold text-[13px] text-slate-800 dark:text-slate-100 truncate">${esc(t.title)}</div>
+        <div class="text-[12px] text-slate-400">${esc(t.category || '')}${t.due_on ? ` · due ${esc(pplDate(t.due_on))}` : ''}</div>
+      </div>
+      <div class="shrink-0 text-[12px] font-bold ${t.status === 'complete' ? 'text-emerald-600 dark:text-emerald-400' : t.status === 'blocked' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}">${esc(t.status || 'open')}</div>
+    </div>`);
+
+  const sub = (title, inner) => `<div class="mt-4">
+    <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">${esc(title)}</div>${inner}</div>`;
+
+  host.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+    <h3 class="text-base font-bold text-slate-900 dark:text-white">Your record</h3>
+    <p class="text-[12px] text-slate-500 dark:text-slate-400 mb-3">What HR holds about you. To change your password or your picture, use the cards above — anything else on this page is corrected by HR.</p>
+    ${(d.unavailable || []).length ? `<div class="mb-3 rounded-lg border border-amber-300/70 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-[12px] text-amber-800 dark:text-amber-300">Parts of your record could not be loaded, so this is incomplete.</div>` : ''}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      ${field('Name', p.name)}
+      ${field('Employee number', p.employee_number)}
+      ${field('Job title', p.job_title)}
+      ${field('Department', p.department)}
+      ${field('Team', p.team)}
+      ${field('Location', p.location_name)}
+      ${field('Manager', p.manager_name)}
+      ${field('Employment', pplStatus(p.employment_status))}
+    </div>
+    ${sub('Onboarding', onboarding)}
+    ${sub('Your training', training)}
+    ${sub('Your certificates', certs)}
+    ${sub('What you have signed', signed)}
+    ${sub('Your documents', docs)}
+  </div>`;
+}
+window.renderMyRecordCard = renderMyRecordCard;
+
+// A fresh short-lived link each time, opened rather than embedded — the URL expires in
+// two minutes, so a copied link is not a lasting way to reach somebody's file.
+async function pplDownloadDoc(docId) {
+  try {
+    const r = await apiGetJson(`/hr/documents/${docId}/download`);
+    if (!r?.url) { showToast('No download link was returned.', 'error'); return; }
+    window.open(r.url, '_blank', 'noopener');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+window.pplDownloadDoc = pplDownloadDoc;
+
 function loadPeopleWorkspace() { renderEngine('people-overview') }
 window.loadPeopleWorkspace = loadPeopleWorkspace;

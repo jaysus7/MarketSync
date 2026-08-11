@@ -169,13 +169,90 @@ export function registerPeopleDossier(app) {
   // ── The whole record for one person ───────────────────────────────────────
   app.get('/hr/employees/:id/dossier', requireAuth, canView, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const staffId = req.params.id
+    const out = await assemble(req, req.params.id, { self: false })
+    if (out.error) return res.status(out.code).json({ error: out.error })
+    res.json({ dossier: out.dossier })
+  })
 
+  // ── Your own record ───────────────────────────────────────────────────────
+  // The same assembly, scoped to the caller and filtered to what an employee is
+  // allowed to see of their own file. It needs no manager permission — this is the
+  // person's own employment record, their own certificates and the contracts they
+  // themselves signed.
+  //
+  // The one difference that matters: documents are filtered to `employee_visible`.
+  // HR files things about a person that the person is not entitled to read, and that
+  // flag is the existing switch for it. Recommendations are dropped entirely — an
+  // action list written for a manager is not something to hand somebody about
+  // themselves.
+  app.get('/hr/me', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: staff } = await supabaseAdmin.from('staff_members')
+      .select('id').eq('dealership_id', req.dealershipId).eq('user_id', req.user.id).maybeSingle()
+    if (!staff) {
+      return res.status(404).json({
+        error: 'No employment record is linked to your account yet.',
+        hint: 'Somebody with staff.manage has to create one before your training, certificates and documents can be shown here.',
+      })
+    }
+    const out = await assemble(req, staff.id, { self: true })
+    if (out.error) return res.status(out.code).json({ error: out.error })
+    delete out.dossier.recommendations
+    res.json({ dossier: out.dossier })
+  })
+
+  // ── Download a document ───────────────────────────────────────────────────
+  // A short-lived signed URL, minted per request. The file is never public and the
+  // link cannot be shared usefully for long.
+  //
+  // Two different callers, two different rules: an employee may download their own
+  // documents and only the ones marked visible to them; somebody with staff.view may
+  // download any document in their dealership. Both are checked against the ROW, not
+  // against what the caller claims.
+  app.get('/hr/documents/:id/download', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: doc, error } = await supabaseAdmin.from('staff_documents')
+      .select('id, staff_member_id, title, document_type, storage_bucket, storage_path, employee_visible, deleted_at, quarantine_status')
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (error) return res.status(500).json({ error: error.message })
+    if (!doc || doc.deleted_at) return res.status(404).json({ error: 'Document not found' })
+    // A file still being scanned is not a file to hand out.
+    if (doc.quarantine_status && doc.quarantine_status !== 'clean') {
+      return res.status(409).json({ error: 'That document is still being scanned and cannot be downloaded yet.' })
+    }
+    if (!doc.storage_bucket || !doc.storage_path) {
+      return res.status(409).json({ error: 'That document has no file attached to it.' })
+    }
+
+    let mayRead = false
+    try { mayRead = await hasPermission(req, 'staff.view') } catch { mayRead = false }
+    if (!mayRead) {
+      const { data: staff } = await supabaseAdmin.from('staff_members')
+        .select('id').eq('dealership_id', req.dealershipId).eq('user_id', req.user.id).maybeSingle()
+      const isMine = staff && staff.id === doc.staff_member_id
+      if (!isMine) return res.status(403).json({ error: 'That is not your document.' })
+      if (doc.employee_visible === false) {
+        return res.status(403).json({ error: 'That document is on your file but is not shared with you. Ask HR.' })
+      }
+    }
+
+    const { data: signed, error: sErr } = await supabaseAdmin.storage
+      .from(doc.storage_bucket).createSignedUrl(doc.storage_path, 120)
+    if (sErr || !signed?.signedUrl) {
+      return res.status(502).json({ error: `The download link could not be created: ${sErr?.message || 'unknown'}` })
+    }
+    audit(req, 'hr.document_downloaded', { after_state: { document_id: doc.id, staff_member_id: doc.staff_member_id } })
+    res.json({ ok: true, url: signed.signedUrl, expires_in_seconds: 120, title: doc.title || doc.document_type })
+  })
+
+  // The assembly both of the above share. `self` narrows documents to what the
+  // employee is allowed to see of their own file.
+  async function assemble(req, staffId, { self = false } = {}) {
     const { data: person, error: pErr } = await supabaseAdmin
       .from('staff_profile_overview_v').select('*')
       .eq('dealership_id', req.dealershipId).eq('id', staffId).maybeSingle()
-    if (pErr) return res.status(500).json({ error: pErr.message })
-    if (!person) return res.status(404).json({ error: 'Employee not found' })
+    if (pErr) return { error: pErr.message, code: 500 }
+    if (!person) return { error: 'Employee not found', code: 404 }
 
     const [training, certifications, policies, documents, lifecycle] = await Promise.all([
       section('Training', async () => {
@@ -219,10 +296,14 @@ export function registerPeopleDossier(app) {
       }),
       // Only documents HR may see. `employee_visible` governs the EMPLOYEE's view of
       // their own file, not HR's, so it is deliberately not filtered here.
-      section('Documents', () => supabaseAdmin.from('staff_documents')
-        .select('id, document_type, title, status, expires_on, employee_visible, created_at')
-        .eq('dealership_id', req.dealershipId).eq('staff_member_id', staffId)
-        .is('deleted_at', null).order('created_at', { ascending: false })),
+      section('Documents', () => {
+        let q = supabaseAdmin.from('staff_documents')
+          .select('id, document_type, title, status, expires_on, employee_visible, created_at')
+          .eq('dealership_id', req.dealershipId).eq('staff_member_id', staffId)
+          .is('deleted_at', null).order('created_at', { ascending: false })
+        if (self) q = q.eq('employee_visible', true)
+        return q
+      }),
       section('Onboarding', () => supabaseAdmin.from('staff_lifecycle_tasks')
         .select('id, title, category, status, due_on, required, blocked_reason, completed_at')
         .eq('dealership_id', req.dealershipId).eq('staff_member_id', staffId).order('sort_order')),
@@ -252,10 +333,10 @@ export function registerPeopleDossier(app) {
     dossier.recommendations = recommend(dossier)
     // Everything the screen could not see, in one place, so it can say so once.
     dossier.unavailable = [training, certifications, policies, documents, lifecycle]
-      .map(s => s.unavailable).concat(stand.unavailable).filter(Boolean)
+      .map(x => x.unavailable).concat(stand.unavailable).filter(Boolean)
 
-    res.json({ dossier })
-  })
+    return { dossier }
+  }
 
   // ── Edit an employee after onboarding ─────────────────────────────────────
   // Creating an employee was possible; correcting one was not, so a typo at hire time

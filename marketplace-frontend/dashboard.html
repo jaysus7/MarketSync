@@ -321,10 +321,6 @@
     </div>
   </header>
 
-  <button id="setup-status-banner" onclick="switchPage('launch')" class="hidden flex-shrink-0 mx-3 sm:mx-6 mt-3 rounded-xl border border-amber-300/70 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/30 px-4 py-2.5 text-left items-center justify-between gap-3">
-    <span><span id="setup-status-title" class="block text-[13px] font-bold text-amber-900 dark:text-amber-200">Finish setup</span><span id="setup-status-detail" class="block text-[11px] text-amber-700 dark:text-amber-300"></span></span>
-    <span class="text-[12px] font-bold text-amber-800 dark:text-amber-200 whitespace-nowrap">Open Setup</span>
-  </button>
 
   <!-- Notification slideout panel -->
   <div id="notif-panel" class="fixed inset-0 z-50 hidden" aria-modal="true">
@@ -764,6 +760,12 @@
               <div id="ai-enrich-error" class="hidden text-sm text-red-500"></div>
             </div>
           </div>
+
+          <!-- Your employment record — read-only, and yours. Rendered by renderMyRecordCard()
+               from GET /hr/me. You can SEE what HR holds about you (onboarding, training,
+               certificates, the contracts you signed) and download the documents shared with
+               you; what you can CHANGE stays your password and your picture, above. -->
+          <div id="settings-my-record" data-full-width="true" class="stab-hide break-inside-avoid mb-5"></div>
 
           <div id="security-section" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
             <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">Multi-factor authentication (MFA) &amp; account security</h3>
@@ -3056,6 +3058,17 @@
 
     </section>
   </main>
+
+  <!-- ── Setup progress — one line, at the bottom, and only while it is unfinished ──
+       This used to be a banner between the header and the page, which meant every
+       department opened with a setup nag above it. It is one line at the foot of the
+       shell now, it opens a modal rather than navigating away from whatever you were
+       doing, and it removes itself the moment the dealership is fully configured. -->
+  <button id="setup-status-banner" onclick="msSetupModal()" class="hidden flex-shrink-0 items-center justify-center gap-2 w-full border-t border-amber-300/70 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/30 px-4 py-2 text-center hover:bg-amber-100 dark:hover:bg-amber-950/50 transition">
+    <span id="setup-status-title" class="text-[12px] font-bold text-amber-900 dark:text-amber-200">Finish setup</span>
+    <span id="setup-status-detail" class="text-[11px] text-amber-700 dark:text-amber-300"></span>
+    <span class="text-[11px] font-bold text-amber-800 dark:text-amber-300 underline">Open</span>
+  </button>
 
   <!-- ── Reports rail — fixed quick-access to every lot-wide report (II; shown via JS) ── -->
   <div id="report-rail" class="hidden fixed right-0 top-1/2 -translate-y-1/2 z-30 flex-col items-stretch gap-1 bg-white/95 dark:bg-slate-900/95 backdrop-blur border border-r-0 border-slate-200 dark:border-slate-800 rounded-l-2xl shadow-xl shadow-slate-900/10 py-2.5 pl-2 pr-2.5 max-h-[94vh] overflow-y-auto">

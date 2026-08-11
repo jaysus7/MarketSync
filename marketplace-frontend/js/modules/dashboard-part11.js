@@ -1041,6 +1041,50 @@ window.renderDailyBriefingWorkstation = renderDailyBriefingWorkstation;
 // ── Management: shared value rendering ───────────────────────────────────────
 // A management screen is only useful if its numbers are true. `cmdVal` is how that stays true:
 // a source that failed renders as "unknown", never as 0. Unknown is better than fabricated.
+// ── Academy, in the day ──────────────────────────────────────────────────────
+// Required training is a TODAY problem, so it belongs in the day rather than in a rail
+// nobody scrolls to. Each course leaves this list the moment it is completed, and a
+// newly assigned one appears here without anybody being told to go and look.
+//
+// It renders NOTHING when there is nothing outstanding — a permanent "0 courses" card
+// is furniture. But a path that could not be READ says so, because "no training due"
+// and "we could not check your training" are not the same message.
+function cmdAcademyStrip(d) {
+  const path = d.academy;
+  if (path === null || path === undefined) return '';          // not entitled, or unread
+  if (path.__unavailable) {
+    return engCard('Your training', `<div class="text-[13px] text-amber-600 dark:text-amber-400">Your training could not be loaded, so nothing is shown here.</div>`);
+  }
+  // buildPath groups into Required / Foundations / Advanced. Only what is still owed.
+  const groups = path.groups || path.path || [];
+  const outstanding = [];
+  for (const g of Array.isArray(groups) ? groups : []) {
+    for (const c of g.courses || g.items || []) {
+      if (c.completed_at || c.status === 'completed') continue;
+      outstanding.push({ ...c, group: g.label || g.title || g.key || '' });
+    }
+  }
+  if (!outstanding.length) return '';
+
+  const required = outstanding.filter(c => /required/i.test(c.group));
+  const rest = outstanding.filter(c => !/required/i.test(c.group));
+  const row = (c) => {
+    const overdue = c.due_at && new Date(c.due_at) < new Date();
+    return `<button onclick="switchPage('academy')" class="w-full text-left flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+      <div class="min-w-0 flex-1">
+        <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(c.title || 'Course')}</div>
+        <div class="text-[12px] text-slate-400 truncate">${esc([c.category, c.group].filter(Boolean).join(' · '))}${c.estimated_minutes ? ` · ${c.estimated_minutes} min` : ''}</div>
+      </div>
+      <div class="shrink-0 text-[12px] font-bold ${overdue ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}">${overdue ? 'Overdue' : c.due_at ? `Due ${esc(new Date(c.due_at).toLocaleDateString())}` : 'Not started'}</div>
+    </button>`;
+  };
+
+  return `<div class="mt-4">${engCard(`Your training (${outstanding.length})`,
+    (required.length ? `<div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Required</div>${required.slice(0, 6).map(row).join('')}` : '')
+    + (rest.length ? `<div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mt-3 mb-1">Recommended</div>${rest.slice(0, 4).map(row).join('')}` : '')
+    + `<button onclick="switchPage('academy')" class="mt-3 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition">Open Academy</button>`)}</div>`;
+}
+
 const cmdUnavailable = (x) => !x || x.__unavailable;
 const cmdMoney = (v) => {
   const n = Number(v);
@@ -1077,7 +1121,7 @@ ENGINES['command'] = {
     // rendered as "unknown", never as zero — a management screen that quietly shows $0 cash is
     // worse than one that says it could not read the ledger.
     const miss = (label) => (e) => ({ __unavailable: label, __reason: e?.message || 'could not be loaded' });
-    const [cc, ev, day, identityReviews, pipeline, acct, ar, ap, cit, close, campaigns, autoQueue] = await Promise.all([
+    const [cc, ev, day, identityReviews, pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy] = await Promise.all([
       apiGetJson('/command-center').catch(() => ({ tiles: {}, exceptions: [], exception_count: 0 })),
       apiGetJson('/events?limit=40').catch(() => ({ events: [] })),
       apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ label: 'My Day', reason: 'Could not be loaded' }], complete: false })),
@@ -1090,12 +1134,15 @@ ENGINES['command'] = {
       apiGetJson('/accounting/close-checklist').catch(miss('Close')),
       apiGetJson('/campaigns').catch(miss('Campaigns')),
       apiGetJson('/automation/queue').catch(miss('Automation')),
+      // Your own required training. null means it could not be read, which My Day
+      // renders differently from "nothing outstanding".
+      apiGetJson('/academy/my-path').catch(() => null),
     ]);
     const badge = document.getElementById('command-badge');
     const attentionCount = (day.needs_attention || []).length;
     if (badge) { if (attentionCount) { badge.textContent = attentionCount; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
     return { cc, events: ev.events || [], day, identityReviews: identityReviews.reviews || [],
-      pipeline, acct, ar, ap, cit, close, campaigns, autoQueue };
+      pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy };
   },
   quickActions: [{ label: 'Open source operations', icon: 'bolt', onclick: "switchPage('operations')" }],
   nextActions: (d) => (d.day.needs_attention || []).slice(0, 4).map(x => ({
@@ -1165,6 +1212,7 @@ ENGINES['command'] = {
           </div>
         </div>
         ${ranToday}
+        ${cmdAcademyStrip(d)}
         ${notCovered}
         `;
     },
