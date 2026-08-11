@@ -17,6 +17,16 @@ window.msToggleShellMenu = msToggleShellMenu;
 function msShellGo(page) { msToggleShellMenu(false); switchPage(page); }
 window.msShellGo = msShellGo;
 
+function dealerRoleLanding(role) {
+  const routes = {
+    DEALER_ADMIN: 'command', OWNER: 'command', MANAGER: 'command',
+    SALES_REP: 'sales', BDC: 'sales', FNI: 'fni-overview', SERVICE: 'service-overview',
+    ACCOUNTING: 'accounting-overview', CLEANUP: 'recon',
+  };
+  return routes[String(role || '').toUpperCase()] || 'insights';
+}
+window.dealerRoleLanding = dealerRoleLanding;
+
 async function refreshSetupIndicator(role) {
   const banner = document.getElementById('setup-status-banner');
   role = role || window.__setupIndicatorRole;
@@ -452,11 +462,11 @@ async function initializeDashboardEcosystem() {
     setupMobileMoreMenu();
     // DealerOS: managers/admins land on the Command Center (today's operations +
     // exceptions); reps keep the Dashboard as home.
-    const __mgrHome = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     // SaaS Admin in MarketSync mode → the company command center; otherwise the
-    // dealership Command Center (managers) or the rep Dashboard.
+    // dealership role's own My Day. This is a UX landing choice; route permissions remain
+    // authoritative and switchPage will refuse any destination the caller cannot open.
     if (__dashMode === 'marketsync' && (profileContext?.workspace === 'saas_admin' || document.documentElement.getAttribute('data-dash-owner') === '1')) switchPage('saas-command');
-    else switchPage(__mgrHome ? 'command' : 'insights');
+    else switchPage(dealerRoleLanding(profileContext?.role));
     applyFeatureFlags();   // hide nav for features the dealer switched off
     // Entitlement-driven front door. Prefer the normalized access context (composes
     // subscription tier + product membership + role) and fall back to the legacy

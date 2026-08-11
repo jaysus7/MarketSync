@@ -185,6 +185,15 @@ test('the global header is identity, notifications and one menu instead of a CTA
   }
 })
 
+test('dealer login lands on the My Day owned by the caller role', () => {
+  const landing = part2.match(/function dealerRoleLanding[\s\S]*?\n\}/)?.[0] || ''
+  for (const [role, page] of Object.entries({
+    SALES_REP: 'sales', FNI: 'fni-overview', SERVICE: 'service-overview',
+    ACCOUNTING: 'accounting-overview', CLEANUP: 'recon', MANAGER: 'command',
+  })) assert.match(landing, new RegExp(`${role}: '${page}'`))
+  assert.match(part2, /switchPage\(dealerRoleLanding\(profileContext\?\.role\)\)/)
+})
+
 test('registry loads before dashboard.js', () => {
   const reg = html.indexOf('workspace-registry.js')
   const dash = html.indexOf('src="dashboard.js')
