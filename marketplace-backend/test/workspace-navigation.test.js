@@ -111,12 +111,20 @@ test('required UI moves landed in the right workspace', () => {
   assert.equal(at('appraisal'), 'inventory', 'Appraisals → Inventory > Acquire')
   assert.equal(at('equity'), 'inventory', 'Equity Mining → Inventory > Acquire')
   assert.equal(at('recon'), 'inventory', 'Recon → Inventory (not Sales)')
-  assert.equal(at('inv-intel'), 'inventory', 'Inventory Intelligence → Inventory > Pricing')
+  assert.equal(at('inv-intel'), 'inventory', 'Inventory Intelligence stays visibly named inside Inventory')
   assert.equal(at('delivery'), 'fni', 'Delivery → F&I')
   assert.equal(at('sales-team'), 'people', 'Employees → People')
   assert.equal(at('people-compliance'), 'people', 'Compliance → People')
   assert.equal(at('automation-builder'), 'settings', 'Automation → Settings, not a department')
   assert.equal(at('config'), 'settings', 'Configuration → Settings')
+})
+
+test('Inventory Intelligence remains visibly discoverable inside Inventory', () => {
+  const inv = readFileSync(new URL('../../marketplace-frontend/js/modules/inventory-workspace.js', import.meta.url), 'utf8')
+  assert.match(inv, /\['pricing', 'Inventory Intelligence'\]/)
+  assert.match(inv, /\['market', 'Market & Competitors'\]/)
+  assert.match(inv, /label: 'Inventory Intelligence'.*switchPage\('inv-intel'\)/s)
+  assert.match(inv, /label: 'Market & Competitors'.*switchPage\('market'\)/s)
 })
 
 test('one inventory pool — Vehicles and Syndication are two views of one page', () => {
@@ -140,7 +148,9 @@ test('role gating is preserved on regrouped workspaces', () => {
   // Manager-only slices inside rep-visible workspaces keep their per-tab gate.
   const tab = (ws, page) => MS_WORKSPACES[ws].pages.find(p => p.page === page)
   assert.equal(tab('sales', 'leads').mgr, true, 'Pipeline stays manager-only')
-  assert.equal(tab('inventory', 'inv-intel').mgr, true, 'Pricing stays manager-only')
+  assert.equal(tab('inventory', 'inv-intel').mgr, true, 'Inventory Intelligence stays manager-only')
+  assert.equal(tab('inventory', 'inv-intel').label, 'Inventory Intelligence')
+  assert.equal(tab('inventory', 'market').label, 'Market & Competitors')
   assert.equal(tab('fni', 'delivery').mgr, true, 'Delivery stays manager-only')
 })
 

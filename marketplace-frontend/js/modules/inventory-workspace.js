@@ -160,7 +160,7 @@ window.invTakePossession = invTakePossession;
 // what's being fixed → what's ready to sell → what it's worth → where it's listed.
 const INV_WORK_VIEWS = [
   ['vehicles', 'Vehicles'], ['acquire', 'Acquisition'], ['recon', 'Recon'],
-  ['merch', 'Merchandising'], ['pricing', 'Pricing'], ['syndication', 'Syndication'],
+  ['merch', 'Merchandising'], ['pricing', 'Inventory Intelligence'], ['market', 'Market & Competitors'], ['syndication', 'Syndication'],
 ];
 function invWorkView(v) { __invWorkView = v; engineTab('inventory-overview', 'work'); }
 window.invWorkView = invWorkView;
@@ -307,7 +307,9 @@ async function invRenderWork(body, d) {
     const aged = (d.vehicles || []).filter(v => { const a = invDays(v.created_at); return a != null && a >= INV_AGED_DAYS; });
     inner = (noPrice.length ? engCard(`No price (${noPrice.length})`, noPrice.slice(0, 10).map(v => invRow(v, d)).join('')) : '')
       + engCard(`Aged ${INV_AGED_DAYS}+ days (${aged.length})`, aged.slice(0, 15).map(v => invRow(v, d)).join('') || engEmpty('Nothing aged.'), noPrice.length ? 'mt-3' : '')
-      + link('inv-intel', 'Open pricing intelligence');
+      + link('inv-intel', 'Open Inventory Intelligence');
+  } else if (__invWorkView === 'market') {
+    inner = `${engCard('Market & Competitors', `<div class="text-[13px] text-slate-600 dark:text-slate-300">Live market snapshots, nearby-lot pricing, competitor inventory and price-change monitoring live here as part of Inventory Intelligence.</div>`)}${link('market', 'Open Market & Competitors')}`;
   } else if (__invWorkView === 'syndication') {
     const noPhotos = (d.vehicles || []).filter(v => !invHasPhotos(v));
     inner = engCard('Not publishable yet', noPhotos.slice(0, 15).map(v => invRow(v, d)).join('') || engEmpty('Every vehicle has photos.'))
@@ -348,7 +350,8 @@ ENGINES['inventory-overview'] = {
     { label: 'Acquisition', icon: 'truck', onclick: "invWorkView('acquire')" },
     { label: 'Merchandising', icon: 'camera', onclick: "invWorkView('merch')" },
     { label: 'Recon board', icon: 'wrench', onclick: "switchPage('recon')" },
-    { label: 'Pricing', icon: 'chart', onclick: "switchPage('inv-intel')" },
+    { label: 'Inventory Intelligence', icon: 'chart', onclick: "switchPage('inv-intel')" },
+    { label: 'Market & Competitors', icon: 'eye', onclick: "switchPage('market')" },
     { label: 'Publish to Facebook', icon: 'megaphone', onclick: "deptGo('inventory','facebook')" },
   ],
   nextActions: (d) => invAttention(d || {}).slice(0, 5).map(it => ({
