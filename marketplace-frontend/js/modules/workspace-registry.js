@@ -23,11 +23,21 @@
 // container — Phase 1 moves access points, it does not add or remove pages.
 
 const MS_WORKSPACES = {
-  // ── Management My Day — one entry; the command engine owns its local tabs ──
+  // ── My Day — one entry; the command engine owns its local tabs ────────────
+  // Academy sits here now: required training is something you owe TODAY, so it belongs
+  // in the day rather than in a rail nobody scrolls to. Outstanding courses surface in
+  // My Day itself and disappear as they are completed.
   executive: {
     label: 'My Day', icon: 'chart', accent: 'indigo', mgr: true,
     pages: [
       { page: 'command', label: 'My Day' },
+      // Academy belongs to the day, but as `legacy` — a plain page here would draw a
+      // SECOND tab row above the command engine's own header, which is the exact
+      // duplicate-header problem this registry exists to prevent. What the user
+      // actually sees is the outstanding-courses list inside My Day itself
+      // (cmdAcademyStrip in dashboard-part11.js), which empties as courses are
+      // completed and fills again when new ones are assigned.
+      { page: 'academy', label: 'Academy', legacy: true },
       // Deep-link identities retained for bookmarks and contextual actions. `legacy`
       // keeps them out of the department header so Management has one nav system.
       { page: 'leaderboard', label: 'Performance', legacy: true },
@@ -57,7 +67,7 @@ const MS_WORKSPACES = {
       // "My commission" — a rep-facing page whose only access point lived in the
       // retired legacy tree, leaving it unreachable. Restored here (all roles);
       // managers also reach it via Accounting → Payroll.
-      { page: 'commissions', label: 'My Pay', legacy: true },
+      { page: 'commissions', label: 'My Commission' },
     ],
   },
 
@@ -69,19 +79,14 @@ const MS_WORKSPACES = {
   inventory: {
     label: 'Inventory', icon: 'gem', accent: 'sky',
     pages: [
-      { page: 'inventory', label: 'Inventory', invmode: 'manual' },
       { page: 'inventory-overview', label: 'My Day' },
-      { page: 'appraisal', label: 'Acquire', legacy: true },
-      { page: 'equity', label: 'Equity Mining', legacy: true },
-      { page: 'inv-intel', label: 'Inventory Intelligence', mgr: true, legacy: true },
-      { page: 'market', label: 'Market Comparison', mgr: true, legacy: true },
-      { page: 'inventory', label: 'Syndication', invmode: 'facebook', legacy: true },
+      { page: 'inventory', label: 'Vehicles', invmode: 'manual' },
+      { page: 'appraisal', label: 'Acquire' },
+      { page: 'equity', label: 'Equity Mining' },
+      { page: 'recon', label: 'Cleanup' },
+      { page: 'inv-intel', label: 'Inventory Intelligence', mgr: true },
+      { page: 'market', label: 'Market & Competitors', mgr: true },
     ],
-  },
-
-  cleanup: {
-    label: 'Cleanup', icon: 'sparkles', accent: 'sky', roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'CLEANUP'],
-    pages: [{ page: 'recon', label: 'Cleanup' }],
   },
 
   // ── F&I — first-class workspace. Desk-a-deal stays contextual (per customer).
@@ -94,12 +99,19 @@ const MS_WORKSPACES = {
     ],
   },
 
+  // ── Service — the Service engine owns its own header ──────────────────────
+  // My Day | Appointments | Repair Orders | Settings are tabs INSIDE the workspace
+  // (js/modules/service-workspace.js). Listing the same destinations here as well
+  // would draw a second department tab row above the engine's own — the duplicate-
+  // header problem. `legacy` keeps both pages reachable by deep link and bookmark
+  // (the engine links to the full appointment book from its Appointments tab) while
+  // Service, like Management, presents one nav system.
   service: {
     label: 'Service', icon: 'wrench', accent: 'sky', mgr: true,
     pages: [
       { page: 'service-overview', label: 'My Day' },
-      { page: 'service-appointments', label: 'Schedule' },
-      { page: 'service-ros', label: 'Repair Orders' },
+      { page: 'service-appointments', label: 'Schedule', legacy: true },
+      { page: 'service-ros', label: 'Repair Orders', legacy: true },
     ],
   },
 
@@ -131,29 +143,37 @@ const MS_WORKSPACES = {
       { page: 'ai-home', label: 'AI Chat' },
       // Same story as `commissions`: a working page whose access point was lost.
       { page: 'ai-inbox', label: 'AI Inbox' },
+      // Facebook Marketplace publishing is a marketing channel, so it lives here rather than
+      // in Inventory. It is the same inventory pool viewed in facebook mode.
+      { page: 'inventory', label: 'Publish to Facebook', invmode: 'facebook' },
     ],
   },
 
-  // ── People — the employee lifecycle (was "Administration") ────────────────
+  // ── HR — the employee lifecycle (was "People", and "Administration" before that) ──
+  // The workspace id stays `people` and the page stays `people-overview`: every deep
+  // link, entitlement key (os.team), permission string (staff.*) and mobile nav entry
+  // is keyed to those. Renaming the LABEL is what the dealership sees; renaming the
+  // identifiers would break all of it for no gain.
   people: {
-    label: 'People', icon: 'user', accent: 'emerald', mgr: true,
+    label: 'HR', icon: 'user', accent: 'emerald', mgr: true,
     pages: [
       { page: 'people-overview', label: 'My Day' },
-      // Retained as redirect/deep-link identities only. The People engine owns Team and
+      // Retained as redirect/deep-link identities only. The HR engine owns Staff and
       // Compliance, so these must never render a second department tab row.
       { page: 'sales-team', label: 'Employees', legacy: true },
       { page: 'people-compliance', label: 'Compliance', legacy: true },
     ],
   },
 
-  // ── Academy — system rail, NOT a tenth department and NOT inside People ────
-  // The nine departments are how a dealership is organised; learning is not one of them, so
-  // Academy carries `system: true` and renders below the divider next to Settings.
+  // ── Academy — still in the system rail, and that is deliberate ────────────
+  // It ALSO appears under My Day above, because required training is a today problem.
+  // This entry is what keeps it reachable for everybody: My Day (`executive`) is
+  // manager-gated, and a salesperson who cannot reach the courses they are required to
+  // complete is the same defect as having no courses at all. The two entries point at
+  // one page — this is a second door, never a second Academy.
   //
-  // It is deliberately not a page under People either: People is manager-only, and everybody
-  // has required training. A salesperson who cannot reach the courses they are required to
-  // complete is the same defect as having no courses at all. The manager view is the Team tab
-  // inside the workspace, which gates itself on `staff.training.view`.
+  // Academy is slated to become its own site rather than a page in the dashboard; when
+  // that lands, this entry becomes the link out and My Day keeps the outstanding list.
   academy: {
     label: 'Academy', icon: 'sparkles', accent: 'violet', system: true,
     pages: [
@@ -161,15 +181,11 @@ const MS_WORKSPACES = {
     ],
   },
 
-  // ── Setup — the ONE Launch Hub, in the system rail beside Settings ────────
-  // Manager-only because satisfying a requirement needs settings.manage; the hub itself gates
-  // nothing and blocks nobody. See js/modules/launch-workspace.js.
-  launch: {
-    label: 'Set up', icon: 'shield', accent: 'indigo', system: true, mgr: true,
-    pages: [
-      { page: 'launch', label: 'Set up your dealership' },
-    ],
-  },
+  // Setup is NOT in the sidebar. It is one line at the foot of the shell that opens a
+  // modal (msSetupModal in dashboard-part2.js) and removes itself once the dealership is
+  // configured — a permanent nav entry for a job you finish once is furniture. The
+  // `launch` PAGE still exists and is still reachable by deep link; it simply no longer
+  // occupies a slot in the navigation forever.
 
   // ── System — rendered in the bottom/system section, not as a department ────
   // Automation deliberately lives HERE, not in a department: contextual automation

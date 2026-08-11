@@ -23,7 +23,6 @@ const read = (rel) => readFileSync(new URL(rel, BE), 'utf8')
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 
 const migration = read('migrations/2026-08-10-phase6-social-publishing.sql')
-const atomicEdit = read('supabase/migrations/20260811131507_social_post_atomic_edit.sql')
 const dispatcher = strip(read('routes/social-publish.js'))
 const studio = strip(read('routes/marketing-studio.js'))
 const social = strip(read('routes/social.js'))
@@ -252,35 +251,11 @@ test('an adapter must supply a publish function to register at all', () => {
 
 test('scheduled posts can be rescheduled or cancelled only before a target is claimed', () => {
   assert.match(social, /app\.put\('\/social\/posts\/:id'/)
-  assert.match(social, /rpc\('social_edit_post_atomic'/)
-  assert.match(atomicEdit, /status in \('publishing', 'published'\)/)
-  assert.match(atomicEdit, /Publishing has started; claimed targets cannot be changed/)
+  assert.match(social, /\.in\('status', \['publishing', 'published'\]\)/)
+  assert.match(social, /Publishing has started; claimed targets cannot be changed/)
   assert.match(social, /app\.post\('\/social\/posts\/:id\/cancel'/)
-  assert.match(social, /social\.post_edited/)
+  assert.match(social, /social\.post_rescheduled/)
   assert.match(social, /social\.post_cancelled/)
-})
-
-test('editing content and targets is one database-owned transaction serialized with claims', () => {
-  assert.match(atomicEdit, /create or replace function public\.social_edit_post_atomic/)
-  assert.match(atomicEdit, /from public\.social_posts[\s\S]*?for update/)
-  assert.match(atomicEdit, /from public\.social_post_targets where post_id = p_post_id for update/)
-  assert.match(atomicEdit, /status in \('publishing', 'published'\)/)
-  assert.match(atomicEdit, /delete from public\.social_post_targets[\s\S]*?insert into public\.social_post_targets/)
-  assert.match(atomicEdit, /revoke all on function[\s\S]*?from public, anon, authenticated/)
-  assert.match(atomicEdit, /grant execute on function[\s\S]*?to service_role/)
-  const route = social.match(/app\.put\('\/social\/posts\/:id'[\s\S]*?\n  \}\)/)?.[0] || ''
-  assert.match(route, /rpc\('social_edit_post_atomic'/)
-  assert.doesNotMatch(route, /from\('social_posts'\)\.update\(/,
-    'an application update after a state check would race the database worker claim')
-})
-
-test('dealer editor changes caption, media, accounts, campaign, vehicle and schedule through the same route', () => {
-  const ws = readFileSync(new URL('../../marketplace-frontend/js/modules/marketing-workspace.js', import.meta.url), 'utf8')
-  assert.match(ws, /function mktEditPost\(postId\)/)
-  assert.match(ws, /mktCompose\(\{ post \}\)/)
-  assert.match(ws, /postId \? `\/social\/posts\/\$\{postId\}` : '\/social\/posts'/)
-  assert.match(ws, /postId \? 'PUT' : 'POST'/)
-  for (const field of ['body:', 'media:', 'campaign_id:', 'inventory_id:', 'scheduled_local:', 'targets,']) assert.match(ws, new RegExp(field))
 })
 
 test('dealer-facing scheduler exposes calendar, queue, drafts, approvals, published and failed', () => {

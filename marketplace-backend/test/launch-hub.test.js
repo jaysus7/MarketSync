@@ -298,8 +298,6 @@ const html = readFE('dashboard.html')
 const workspaceRaw = readFE('js/modules/launch-workspace.js')
 const workspace = strip(workspaceRaw)
 const part2 = readFE('js/modules/dashboard-part2.js')
-const dashboard = readFE('dashboard.js')
-const part24 = readFE('js/modules/dashboard-part24.js')
 
 test('the Launch Hub has a page container, a router entry and a script tag', () => {
   assert.match(html, /data-page-content="launch"/)
@@ -309,14 +307,18 @@ test('the Launch Hub has a page container, a router entry and a script tag', () 
   assert.match(workspace, /rootId: 'launch-root'/)
 })
 
-test('the Launch Hub is in the workspace registry, in the system rail', () => {
+test('setup is not a permanent nav entry — it is a bar that removes itself', () => {
+  // A navigation slot held forever by a job you finish once is furniture. Setup is one
+  // line at the foot of the shell that opens a modal and disappears when the dealership
+  // is configured. The PAGE stays reachable — deep links and bookmarks still work — it
+  // simply does not occupy the sidebar.
   const ctx = { window: {} }
   vm.createContext(ctx)
   vm.runInContext(readFE('js/modules/workspace-registry.js'), ctx)
   const reg = ctx.window.MS_WORKSPACES
-  assert.ok(reg.launch, 'the hub is not reachable from the nav')
-  assert.equal(reg.launch.system, true, 'setup is not a tenth department')
-  assert.ok(reg.launch.pages.some(p => p.page === 'launch'))
+  assert.ok(!reg.launch, 'setup must not hold a permanent sidebar slot')
+  assert.match(html, /data-page-content="launch"/, 'the page itself must stay reachable')
+  assert.match(part2, /pageId === 'launch'\) loadLaunchHub\(\)/)
 })
 
 test('setup is not entitlement-gated — a dealership can configure what it just bought', () => {
@@ -361,20 +363,18 @@ test('every launch requirement has a working contextual action', () => {
   assert.match(workspace, /i\.actionable_by_you !== false && action/)
 })
 
-test('incomplete setup is visible at the top and refreshes from canonical launch state', () => {
+test('incomplete setup shows once, at the bottom, from canonical launch state', () => {
   assert.match(html, /id="setup-status-banner"/)
-  assert.match(html, /Open Setup/)
+  // It opens a modal rather than navigating away from whatever you were doing.
+  assert.match(html, /onclick="msSetupModal\(\)"/)
+  assert.match(part2, /async function msSetupModal/)
   assert.match(part2, /fetch\(`\$\{API\}\/launch`/)
   assert.match(part2, /launch\.fully_configured/)
   assert.match(part2, /i\.type === 'REQUIRED_TO_LAUNCH'/)
   assert.match(workspace, /refreshSetupIndicator\(\)/)
-})
-
-test('page navigation never opens a legacy setup wizard', () => {
-  assert.ok(!/checkDepartmentOpen\(pageId\)/.test(part2))
-  assert.ok(!/checkDepartmentOpen\(id\)/.test(part2))
-  assert.ok(!/ms_setup_intro_/.test(part2), 'login must not auto-open setup')
-  assert.match(part24, /function checkDepartmentOpen\(pageId\)[\s\S]*?return pageId;/)
-  assert.match(dashboard, /function openSetupCenter\(\)\s*\{\s*switchPage\('launch'\)/)
-  assert.match(dashboard, /onclick="switchPage\('launch'\)" title="Open Setup"/)
+  // Done means gone — no leftover "0 remaining" strip to dismiss.
+  assert.match(part2, /if \(launch\.fully_configured\) \{ banner\.classList\.add\('hidden'\)/)
+  // And it must sit AFTER the page content, not between the header and every department.
+  assert.ok(html.indexOf('id="setup-status-banner"') > html.indexOf('</main>'),
+    'the setup bar must be at the foot of the shell, not above every page')
 })

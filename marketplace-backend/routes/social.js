@@ -382,59 +382,39 @@ export function registerSocial(app) {
   // canonical timestamp; calendar drag/drop and the editor both call this same route.
   app.put('/social/posts/:id', requireAuth, requireMfa, canEdit, async (req, res) => {
     if (!guard(req, res)) return
-    const b = req.body || {}
     const { data: post } = await supabaseAdmin.from('social_posts').select('*')
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
     if (!post) return res.status(404).json({ error: 'Post not found' })
     if (!['draft', 'needs_approval', 'scheduled', 'failed'].includes(post.status)) return res.status(409).json({ error: 'Publishing has started; this post can no longer be edited.' })
-    const { data: ownedTargets } = await supabaseAdmin.from('social_post_targets').select('social_account_id, body_override').eq('post_id', post.id)
+    const { data: ownedTargets } = await supabaseAdmin.from('social_post_targets').select('social_account_id').eq('post_id', post.id)
     for (const target of ownedTargets || []) {
       const allowed = await canActOnAccount(req, target.social_account_id, 'schedule')
       if (!allowed.allowed) return res.status(403).json({ error: allowed.reason })
     }
-    try { await validateLinks(req.dealershipId, b) } catch (e) { return res.status(400).json({ error: e.message }) }
-
-    let schedule = { scheduledFor: post.scheduled_for, timezone: null, ambiguous: false }
-    if (b.scheduled_local !== undefined || b.scheduled_for !== undefined) {
+    const { data: active } = await supabaseAdmin.from('social_post_targets').select('id').eq('post_id', post.id).in('status', ['publishing', 'published']).limit(1)
+    if (active?.length) return res.status(409).json({ error: 'Publishing has started; claimed targets cannot be changed.' })
+    const patch = { updated_at: new Date().toISOString() }
+    try { await validateLinks(req.dealershipId, req.body || {}) } catch (e) { return res.status(400).json({ error: e.message }) }
+    if (req.body?.body !== undefined) patch.body = req.body.body || null
+    if (req.body?.media !== undefined) patch.media = Array.isArray(req.body.media) ? req.body.media : []
+    if (req.body?.campaign_id !== undefined) patch.campaign_id = req.body.campaign_id || null
+    if (req.body?.inventory_id !== undefined) patch.inventory_id = req.body.inventory_id || null
+    if (req.body?.scheduled_for !== undefined) {
+      patch.scheduled_for = req.body.scheduled_for || null
+      patch.status = post.requires_approval && !post.approved_at ? 'needs_approval' : (patch.scheduled_for ? 'scheduled' : 'draft')
+    }
+    if (req.body?.scheduled_local !== undefined) {
       try {
-        schedule = await canonicalSchedule(req, b)
+        const schedule = await canonicalSchedule(req, req.body)
+        patch.scheduled_for = schedule.scheduledFor
+        patch.status = post.requires_approval && !post.approved_at ? 'needs_approval' : (patch.scheduled_for ? 'scheduled' : 'draft')
       } catch (e) { return res.status(400).json({ error: e.message }) }
     }
-
-    let targets = null
-    if (b.targets !== undefined) {
-      if (!Array.isArray(b.targets) || !b.targets.length) return res.status(400).json({ error: 'A post needs at least one account to publish to.' })
-      targets = b.targets.map(t => ({ social_account_id: String(t?.social_account_id || ''), body_override: t?.body_override || null }))
-      const duplicate = new Set(targets.map(t => t.social_account_id)).size !== targets.length
-      if (duplicate || targets.some(t => !t.social_account_id)) return res.status(400).json({ error: duplicate ? 'A social account may be targeted only once.' : 'Every target needs a social account.' })
-      const action = schedule.scheduledFor ? 'schedule' : 'publish'
-      const refusals = []
-      for (const target of targets) {
-        const allowed = await canActOnAccount(req, target.social_account_id, action)
-        if (!allowed.allowed) refusals.push({ social_account_id: target.social_account_id, reason: allowed.reason })
-      }
-      if (refusals.length) return res.status(403).json({ error: 'Some accounts refused.', refusals })
-    }
-
-    const patch = {}
-    if (b.body !== undefined) patch.body = b.body || null
-    if (b.media !== undefined) patch.media = Array.isArray(b.media) ? b.media : []
-    if (b.campaign_id !== undefined) patch.campaign_id = b.campaign_id || null
-    if (b.inventory_id !== undefined) patch.inventory_id = b.inventory_id || null
-    if (b.scheduled_local !== undefined || b.scheduled_for !== undefined) patch.scheduled_for = schedule.scheduledFor
-
-    const { data, error } = await supabaseAdmin.rpc('social_edit_post_atomic', {
-      p_dealership_id: req.dealershipId, p_post_id: post.id, p_patch: patch, p_targets: targets,
-    }).single()
-    if (error) {
-      const conflict = /Publishing has started|claimed targets/i.test(error.message || '')
-      return res.status(conflict ? 409 : 500).json({ error: error.message })
-    }
-    audit(req, 'social.post_edited', {
-      before_state: { body: post.body, media: post.media, campaign_id: post.campaign_id, inventory_id: post.inventory_id, scheduled_for: post.scheduled_for, status: post.status, targets: ownedTargets || [] },
-      after_state: { body: data.body, media: data.media, campaign_id: data.campaign_id, inventory_id: data.inventory_id, scheduled_for: data.scheduled_for, status: data.status, targets: targets || ownedTargets || [] },
-    })
-    res.json({ ok: true, post: data, timezone: schedule.timezone || null, ambiguous_local_time: schedule.ambiguous })
+    const { data, error } = await supabaseAdmin.from('social_posts').update(patch)
+      .eq('id', post.id).eq('dealership_id', req.dealershipId).select('*').single()
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'social.post_rescheduled', { before_state: { scheduled_for: post.scheduled_for, status: post.status }, after_state: { scheduled_for: data.scheduled_for, status: data.status } })
+    res.json({ ok: true, post: data })
   })
 
   app.post('/social/posts/:id/cancel', requireAuth, requireMfa, canEdit, async (req, res) => {

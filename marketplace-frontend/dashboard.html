@@ -254,54 +254,33 @@
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased h-[100dvh] flex flex-col overflow-hidden">
 
-  <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-wrap justify-between items-center gap-3 sm:gap-5 flex-shrink-0 sticky top-0 z-40">
+  <!-- ── The main heading ───────────────────────────────────────────────────────
+       Logo, then the role you are signed in as. On the right: appraise a vehicle,
+       desk a deal, the bell. Nothing else competes with those.
+
+       Everything that used to crowd this row still EXISTS — it moved into the menu
+       below, ids and classes intact, because live code drives each one (the shift
+       clock ticks into #header-shift-timer-display, entitlement code toggles
+       #fb-post-btn and #ext-header-btn, the tour points at #idscan-btn). Moving
+       them keeps every one of those working; deleting them would not. -->
+  <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex justify-between items-center gap-3 sm:gap-5 flex-shrink-0 sticky top-0 z-40">
     <div class="flex items-center gap-2 sm:gap-3 min-w-0">
       <div class="flex items-center gap-2 flex-shrink-0">
         <span class="w-1.5 h-6 bg-indigo-500 rounded-sm"></span>
         <span class="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white">Market<span class="text-indigo-600 dark:text-indigo-400">Sync</span></span>
       </div>
-      <span class="hidden sm:inline-block text-xs sm:text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 font-mono px-2 py-0.5 rounded" id="ui-role-pill">Loading...</span>
-      <!-- Desk a deal — prominent quick-launch on the LEFT (managers + F&I); revealed in JS -->
-      <button id="header-desk-btn" onclick="switchPage('desk')" title="Desk a deal" class="hidden items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm shadow-purple-500/40 transition whitespace-nowrap">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m3 6V7m3 10v-4M4 4h16v16H4z"/></svg>
-        <span class="hidden sm:inline">Desk a deal</span>
-      </button>
+      <!-- Who you are signed in AS. Was hidden below sm — the role is the point of the
+           header, so it shows on every screen size now. -->
+      <span class="inline-block text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 font-mono px-2 py-0.5 rounded truncate" id="ui-role-pill">Loading...</span>
+    </div>
+    <div class="flex items-center justify-end gap-2 sm:gap-3 min-w-0">
       <button id="header-appraise-btn" onclick="switchPage('appraisal')" title="Appraise a vehicle" class="hidden items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm shadow-indigo-500/40 transition whitespace-nowrap">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         <span class="hidden sm:inline">Appraise a vehicle</span>
       </button>
-    </div>
-    <div class="flex flex-wrap items-center justify-end gap-2 sm:gap-4 min-w-0 max-w-full">
-      <div class="text-right min-w-0">
-        <div class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate max-w-[120px] sm:max-w-none" id="ui-profile-name">---</div>
-        <div class="text-xs sm:text-xs text-slate-500 dark:text-slate-400 truncate max-w-[120px] sm:max-w-none" id="ui-dealership-name">---</div>
-      </div>
-      <!-- Live Running Shift Time Clock Badge -->
-      <button id="header-shift-clock-chip" onclick="switchPage('people-compliance')" title="Shift Time Clock — Click to view Workstation" class="hidden items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black transition border shadow-sm cursor-pointer whitespace-nowrap bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20">
-        <span class="relative flex h-2 w-2">
-          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-        </span>
-        <span class="font-mono text-xs font-bold" id="header-shift-timer-display"> SHIFT: 00:00:00</span>
-      </button>
-      <!-- Rank/tier chip — always-visible gamification status; opens the leaderboard -->
-      <button id="ui-tier-chip" onclick="openLeaderboardOnDash()" title="Your rank & badges — open the leaderboard" class="hidden items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition hover:brightness-110 whitespace-nowrap"></button>
-      <button id="fb-post-btn" onclick="postToFacebook()" title="Post inventory to Facebook Marketplace" class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-bold border border-blue-600 shadow-sm shadow-blue-500/40 transition whitespace-nowrap"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>Post to Facebook</button>
-      <button id="idscan-btn" onclick="identityScan()" title="Add a customer — scan their driver's licence to fill in all the details" class="inline-flex items-center gap-1.5 bg-teal-600 hover:bg-teal-500 text-white px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-bold border border-teal-600 shadow-sm shadow-teal-500/40 transition whitespace-nowrap"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM19 8v6M22 11h-6"/></svg>Add customer</button>
-      <a id="ext-header-btn" href="https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada" target="_blank" rel="noopener" class="hidden bg-purple-600 hover:bg-purple-500 text-white px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-bold border border-purple-600 shadow-sm shadow-purple-500/40 transition whitespace-nowrap">Install extension</a>
-      <!-- Role/plan-aware internal Training Academy -->
-      <a id="training-btn" href="/training.html" title="Training Academy — step-by-step help" aria-label="Training Academy" class="inline-flex items-center gap-1.5 p-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition">
-        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 640 512"><path d="M320 32c-8.1 0-16.1 1.4-23.7 4.1L15.8 137.4C6.3 140.9 0 149.9 0 160s6.3 19.1 15.8 22.6l57.9 20.9C57.3 229.3 48 259.8 48 292.6l0 3.4c0 28.6-8.9 57.1-25.1 82.9c-6.8 10.9-8.4 24.4-4.3 36.6c4 12.1 13.2 21.9 25.1 26.6l7 2.8c-3.5 27.6-13.3 51.9-26.5 71.6c-3.3 4.9-3.6 11.2-.8 16.4c2.8 5.2 8.2 8.5 14.2 8.5l72 0c6 0 11.4-3.3 14.2-8.5c2.8-5.2 2.5-11.5-.8-16.4c-13.2-19.7-23-44-26.5-71.6l7-2.8c11.9-4.7 21.1-14.5 25.1-26.6c4.1-12.2 2.5-25.7-4.3-36.6C121 353.1 112 324.6 112 296l0-3.4c0-27 7.6-52.5 20.9-74.4l163.4 59c7.6 2.7 15.6 4.1 23.7 4.1s16.1-1.4 23.7-4.1L624.2 182.6c9.5-3.5 15.8-12.5 15.8-22.6s-6.3-19.1-15.8-22.6L343.7 36.1C336.1 33.4 328.1 32 320 32zM178.3 315.9L160 320l0 80c0 44.2 71.6 80 160 80s160-35.8 160-80l0-80-18.3-4.1L343.7 356c-7.6 2.7-15.6 4.1-23.7 4.1s-16.1-1.4-23.7-4.1l-118-40.1z"/></svg>
-        <span class="hidden xl:inline text-xs font-bold">Training</span>
-      </a>
-      <!-- Upgrades / add-ons hub -->
-      <button id="open-upgrades" onclick="openUpgradesHub()" title="Upgrades & add-ons" aria-label="Upgrades and add-ons" class="relative p-1.5 rounded-lg text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/40 transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6 7 18.2l1.9-5.8L4 8.8h6.1L12 3z"/></svg>
-        <span id="upg-days-badge" class="hidden absolute -top-1 -right-1 min-w-[18px] h-4 bg-violet-600 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none border border-white dark:border-slate-900"></span>
-      </button>
-      <!-- Settings / profile — quick top-level access (also in the nav footer) -->
-      <button id="header-settings" onclick="switchPage('profile')" title="Profile & settings" aria-label="Profile and settings" class="relative p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      <button id="header-desk-btn" onclick="switchPage('desk')" title="Desk a deal" class="hidden items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm shadow-purple-500/40 transition whitespace-nowrap">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m3 6V7m3 10v-4M4 4h16v16H4z"/></svg>
+        <span class="hidden sm:inline">Desk a deal</span>
       </button>
       <!-- Notification bell -->
       <button id="notif-bell" aria-label="Notifications" class="relative p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
@@ -312,21 +291,36 @@
         <button id="shell-menu-btn" onclick="msToggleShellMenu()" aria-expanded="false" aria-controls="shell-menu" class="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Menu">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16"/></svg>
         </button>
-        <div id="shell-menu" class="hidden absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-1.5 z-50 text-sm">
+        <!-- Everything the header no longer shows. Each entry kept its id so the code
+             that fills, gates or hides it keeps working untouched. -->
+        <div id="shell-menu" class="hidden absolute right-0 mt-2 w-64 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-1.5 z-50 text-sm">
+          <div class="px-3 py-2.5 border-b border-slate-200 dark:border-slate-700 mb-1.5">
+            <div class="text-sm font-bold text-slate-900 dark:text-white truncate" id="ui-profile-name">---</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 truncate" id="ui-dealership-name">---</div>
+            <!-- Live Running Shift Time Clock Badge -->
+            <button id="header-shift-clock-chip" onclick="switchPage('people-compliance')" title="Shift Time Clock — Click to view Workstation" class="hidden mt-2 items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black transition border shadow-sm cursor-pointer whitespace-nowrap bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20">
+              <span class="relative flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span class="font-mono text-xs font-bold" id="header-shift-timer-display"> SHIFT: 00:00:00</span>
+            </button>
+            <!-- Rank/tier chip — opens the leaderboard -->
+            <button id="ui-tier-chip" onclick="openLeaderboardOnDash()" title="Your rank & badges — open the leaderboard" class="hidden items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition hover:brightness-110 whitespace-nowrap"></button>
+          </div>
+          <button id="idscan-btn" onclick="identityScan()" title="Add a customer — scan their driver's licence to fill in all the details" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Add customer</button>
+          <button id="fb-post-btn" onclick="postToFacebook()" title="Post inventory to Facebook Marketplace" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Post to Facebook</button>
+          <button id="open-upgrades" onclick="openUpgradesHub()" title="Upgrades & add-ons" class="relative w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Upgrades &amp; add-ons<span id="upg-days-badge" class="hidden absolute top-1.5 right-2 min-w-[18px] h-4 bg-violet-600 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none"></span></button>
+          <a id="training-btn" href="/training.html" title="Training Academy — step-by-step help" class="block px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Training</a>
           <button onclick="msShellGo('academy')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Academy</button>
-          <button onclick="msShellGo('profile')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Settings</button>
-          <a href="https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada" target="_blank" rel="noopener" class="block px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Browser extension</a>
-          <button onclick="msSignOut()" class="w-full text-left px-3 py-2 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30">Sign out</button>
+          <button id="header-settings" onclick="switchPage('profile')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Profile &amp; settings</button>
+          <a id="ext-header-btn" href="https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada" target="_blank" rel="noopener" class="hidden px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Install extension</a>
+          <button id="logout-btn" onclick="msSignOut()" class="w-full text-left px-3 py-2 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30">Sign out</button>
         </div>
       </div>
-      <button id="logout-btn" onclick="msSignOut()" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-medium border border-slate-300 dark:border-slate-700 transition whitespace-nowrap">Sign Out</button>
     </div>
   </header>
 
-  <button id="setup-status-banner" onclick="switchPage('launch')" class="hidden flex-shrink-0 mx-3 sm:mx-6 mt-3 rounded-xl border border-amber-300/70 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/30 px-4 py-2.5 text-left items-center justify-between gap-3">
-    <span><span id="setup-status-title" class="block text-[13px] font-bold text-amber-900 dark:text-amber-200">Finish setup</span><span id="setup-status-detail" class="block text-[11px] text-amber-700 dark:text-amber-300"></span></span>
-    <span class="text-[12px] font-bold text-amber-800 dark:text-amber-200 whitespace-nowrap">Open Setup</span>
-  </button>
 
   <!-- Notification slideout panel -->
   <div id="notif-panel" class="fixed inset-0 z-50 hidden" aria-modal="true">
@@ -410,15 +404,6 @@
             </div>
             <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded transition">Save Changes</button>
           </form>
-
-          <div id="profile-pay-card" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
-            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">My pay</h3>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">Review your commissions and issued pay statements from your profile.</p>
-            <div class="flex flex-wrap gap-2">
-              <button type="button" onclick="openMyPay('mine')" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">My commissions</button>
-              <button type="button" onclick="openMyPay('statements')" class="text-sm font-bold border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-lg text-slate-700 dark:text-slate-200">My statements</button>
-            </div>
-          </div>
 
           <!-- Email sending — how the CRM emails you send go out (per-person) -->
           <div id="email-sending-card" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
@@ -775,6 +760,12 @@
               <div id="ai-enrich-error" class="hidden text-sm text-red-500"></div>
             </div>
           </div>
+
+          <!-- Your employment record — read-only, and yours. Rendered by renderMyRecordCard()
+               from GET /hr/me. You can SEE what HR holds about you (onboarding, training,
+               certificates, the contracts you signed) and download the documents shared with
+               you; what you can CHANGE stays your password and your picture, above. -->
+          <div id="settings-my-record" data-full-width="true" class="stab-hide break-inside-avoid mb-5"></div>
 
           <div id="security-section" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
             <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">Multi-factor authentication (MFA) &amp; account security</h3>
@@ -1286,7 +1277,7 @@
         <!-- Settings sub-nav — each tab reveals only its own section(s). -->
         <div id="settings-tabs" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none -mx-1 px-1">
           <button data-stab="account" onclick="settingsTab('account')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">My Account</button>
-          <button data-stab="admin" data-admin-only onclick="settingsTab('admin')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Dealership Settings</button>
+          <button data-stab="admin" data-admin-only onclick="settingsTab('admin')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Administration</button>
           <button data-stab="hr" data-admin-only onclick="settingsTab('hr')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">HR &amp; Compliance</button>
           <button data-stab="sales" data-admin-only onclick="settingsTab('sales')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Sales</button>
           <button data-stab="marketing" data-admin-only onclick="settingsTab('marketing')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Marketing</button>
@@ -3068,6 +3059,17 @@
     </section>
   </main>
 
+  <!-- ── Setup progress — one line, at the bottom, and only while it is unfinished ──
+       This used to be a banner between the header and the page, which meant every
+       department opened with a setup nag above it. It is one line at the foot of the
+       shell now, it opens a modal rather than navigating away from whatever you were
+       doing, and it removes itself the moment the dealership is fully configured. -->
+  <button id="setup-status-banner" onclick="msSetupModal()" class="hidden flex-shrink-0 items-center justify-center gap-2 w-full border-t border-amber-300/70 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/30 px-4 py-2 text-center hover:bg-amber-100 dark:hover:bg-amber-950/50 transition">
+    <span id="setup-status-title" class="text-[12px] font-bold text-amber-900 dark:text-amber-200">Finish setup</span>
+    <span id="setup-status-detail" class="text-[11px] text-amber-700 dark:text-amber-300"></span>
+    <span class="text-[11px] font-bold text-amber-800 dark:text-amber-300 underline">Open</span>
+  </button>
+
   <!-- ── Reports rail — fixed quick-access to every lot-wide report (II; shown via JS) ── -->
   <div id="report-rail" class="hidden fixed right-0 top-1/2 -translate-y-1/2 z-30 flex-col items-stretch gap-1 bg-white/95 dark:bg-slate-900/95 backdrop-blur border border-r-0 border-slate-200 dark:border-slate-800 rounded-l-2xl shadow-xl shadow-slate-900/10 py-2.5 pl-2 pr-2.5 max-h-[94vh] overflow-y-auto">
     <div class="flex items-center justify-between gap-1 px-1 pb-1.5">
@@ -3677,7 +3679,7 @@
   <script src="js/modules/service-workspace.js?v=20260810_myday_noemoji"></script>
   <script src="js/modules/parts-workspace.js?v=20260810_myday_noemoji"></script>
   <script src="js/modules/accounting-workspace.js?v=20260810_myday_noemoji"></script>
-  <script src="js/modules/marketing-workspace.js?v=20260811_socialedit_noemoji"></script>
+  <script src="js/modules/marketing-workspace.js?v=20260811_socialfilters_noemoji"></script>
   <script src="js/modules/academy-workspace.js?v=20260810_pr73_noemoji"></script>
   <script src="js/modules/launch-workspace.js?v=20260810_p8actions_noemoji"></script>
   <script src="js/modules/people-workspace.js?v=20260810_p8team_noemoji"></script>
