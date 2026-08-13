@@ -454,7 +454,8 @@ function showSyncStatus(text, kind) {
 }
 
 window.syncNow = syncNow;
-window.addFeedFromInput = addFeedFromInput;
+window.addFeed = addFeed;
+window.addFeedFromInput = addFeed;
 window.showSyncStatus = showSyncStatus;
 
 // INVENTORY CATALOG: full vehicle browser
