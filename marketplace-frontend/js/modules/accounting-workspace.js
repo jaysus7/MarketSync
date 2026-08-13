@@ -284,10 +284,12 @@ ENGINES['accounting-overview'] = {
     },
 
     // ── Payroll ──────────────────────────────────────────────────────────────
-    // Took the old Insights slot. Commissions live here because a commission IS
-    // payroll; the amounts are the Commission Engine's and are not recomputed.
+    // Commissions & Pay Engine renders live right here in Accounting.
     payroll(body, d) {
-      body.innerHTML = accPayrollView(d);
+      body.innerHTML = `<div id="commissions-root" class="space-y-4"></div>`;
+      if (typeof window.loadCommissionsPage === 'function') {
+        window.loadCommissionsPage();
+      }
     },
 
     // ── Budget ───────────────────────────────────────────────────────────────
@@ -770,7 +772,7 @@ function accCommissionPlans(d) {
     sub: `${p.plan_type || p.type || 'plan'}${p.role ? ` · ${p.role}` : ''}${p.active === false ? ' · inactive' : ''}`,
     right: p.active === false ? 'inactive' : 'active',
     tone: p.active === false ? 'text-slate-400' : 'text-emerald-600 dark:text-emerald-400',
-  })).join('') + `<button onclick="switchPage('commissions')" class="mt-3 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Edit plans in Payroll</button>`);
+  })).join('') + `<button onclick="engineTab('accounting-overview','payroll')" class="mt-3 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Edit plans in Payroll</button>`);
 }
 
 async function accSaveSettings() {
