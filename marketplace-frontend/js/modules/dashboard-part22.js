@@ -1169,7 +1169,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Hot / Cold segments
     const hotEl = document.getElementById('inv-intel-hot')
     hotEl.innerHTML = hot_segments.length
-      ? hot_segments.map((s, i) => `<div class="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-700 last:border-0">
+      ? hot_segments.map((s, i) => `<div onclick="switchPage('inventory-overview'); setTimeout(() => { engineTab('inventory-overview', 'work'); const i = document.getElementById('catalog-search'); if(i) { i.value = '${s.make} ${s.model}'; renderCatalog(); } }, 50);" class="flex items-center justify-between py-1.5 px-2 -mx-2 border-b border-slate-100 dark:border-slate-700 last:border-0 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition rounded">
           <div class="flex items-center gap-2">
             <span class="text-[10px] font-bold text-slate-400 w-4 text-right">${i + 1}</span>
             <span class="font-medium text-slate-900 dark:text-white">${s.make} ${s.model}</span>
@@ -1183,7 +1183,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const coldEl = document.getElementById('inv-intel-cold')
     coldEl.innerHTML = cold_segments.length
-      ? cold_segments.map((s, i) => `<div class="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-700 last:border-0">
+      ? cold_segments.map((s, i) => `<div onclick="switchPage('inventory-overview'); setTimeout(() => { engineTab('inventory-overview', 'work'); const i = document.getElementById('catalog-search'); if(i) { i.value = '${s.make} ${s.model}'; renderCatalog(); } }, 50);" class="flex items-center justify-between py-1.5 px-2 -mx-2 border-b border-slate-100 dark:border-slate-700 last:border-0 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition rounded">
           <div class="flex items-center gap-2">
             <span class="text-[10px] font-bold text-slate-400 w-4 text-right">${i + 1}</span>
             <span class="font-medium text-slate-900 dark:text-white">${s.make} ${s.model}</span>
@@ -1199,7 +1199,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dupsWrap = document.getElementById('inv-intel-dups-wrap')
     const dupsEl = document.getElementById('inv-intel-dups')
     if (duplicate_vins.length) {
-      dupsEl.innerHTML = duplicate_vins.map(d => `<div class="bg-white dark:bg-slate-800 rounded-lg px-3 py-2">
+      dupsEl.innerHTML = duplicate_vins.map(d => `<div onclick="switchPage('inventory-overview'); setTimeout(() => { engineTab('inventory-overview', 'work'); const i = document.getElementById('catalog-search'); if(i) { i.value = '${d.vin}'; renderCatalog(); } }, 50);" class="bg-white dark:bg-slate-800 rounded-lg px-3 py-2 cursor-pointer hover:ring-2 hover:ring-indigo-500 transition">
         <div class="font-mono text-xs font-bold text-red-700 dark:text-red-400 mb-1">VIN: ${d.vin}</div>
         <div class="flex flex-wrap gap-2">${d.units.map(u => `<span class="text-xs bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 px-2 py-0.5 rounded">${u.year} ${u.make} ${u.model}${u.stock ? ' · ' + u.stock : ''}</span>`).join('')}</div>
       </div>`).join('')
@@ -1215,7 +1215,7 @@ document.addEventListener('DOMContentLoaded', () => {
       velWrap.parentElement.style.position = 'relative'
     }
     const tbody = document.getElementById('inv-intel-velocity-body')
-    tbody.innerHTML = velocity.map(s => `<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+    tbody.innerHTML = velocity.map(s => `<tr onclick="switchPage('inventory-overview'); setTimeout(() => { engineTab('inventory-overview', 'work'); const i = document.getElementById('catalog-search'); if(i) { i.value = '${s.make} ${s.model}'; renderCatalog(); } }, 50);" class="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
       <td class="px-4 py-2.5 font-medium text-slate-900 dark:text-white whitespace-nowrap">${s.make} ${s.model}</td>
       <td class="px-4 py-2.5 text-right tabular-nums">${s.sold_30d}</td>
       <td class="px-4 py-2.5 text-right tabular-nums font-bold">${s.sold_90d}</td>

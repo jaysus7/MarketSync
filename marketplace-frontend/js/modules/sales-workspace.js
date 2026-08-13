@@ -156,97 +156,35 @@ const SALES_TONE = { rose: 'text-rose-600 dark:text-rose-400', amber: 'text-ambe
 
 function salesAttentionRow(it) {
   const tone = SALES_TONE[it.action?.tone] || SALES_TONE.slate;
-  return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+  const onclick = it.id ? `crmOpenForm('${it.id}')` : (it.action?.onclick || '');
+  return `<button onclick="${onclick}" class="w-full text-left flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
     <div class="min-w-0 flex-1">
       <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(it.who)}</div>
       <div class="text-[12px] ${tone} truncate">${esc(it.why)}${it.sub ? ` · <span class="text-slate-400">${esc(it.sub)}</span>` : ''}</div>
     </div>
-    ${it.age ? `<div class="text-[11px] font-bold text-slate-400 tabular-nums shrink-0">${esc(it.age)}</div>` : ''}
-    <button onclick="${it.action?.onclick || ''}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">${esc(it.action?.label || 'Open')}</button>
-  </div>`;
+    ${it.age ? `<div class="text-[11px] font-bold text-slate-400 tabular-nums shrink-0 pr-2">${esc(it.age)}</div>` : ''}
+  </button>`;
 }
 
 function salesOppRow(c, d) {
   const na = salesNextAction(c, d);
   const appt = (d.apptByContact || {})[c.id];
-  return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-    <button onclick="crmOpenForm('${c.id}')" class="min-w-0 flex-1 text-left">
+  return `<button onclick="crmOpenForm('${c.id}')" class="w-full flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition text-left">
+    <div class="min-w-0 flex-1">
       <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(salesName(c))}</div>
       <div class="text-[12px] text-slate-400 truncate">
         <span class="font-semibold text-slate-500 dark:text-slate-300">${esc(salesLabel(c.status))}</span>
         ${c.source ? ` · ${esc(c.source)}` : ''}${appt ? ` · appt ${esc(new Date(appt.appointment_at).toLocaleDateString())}` : ''}
         ${c.last_activity_at ? ` · ${esc(salesAge(c.last_activity_at))} ago` : ''}
       </div>
-    </button>
-    <button onclick="${na.onclick}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">${esc(na.label)}</button>
-  </div>`;
+    </div>
+    <div class="shrink-0 px-2 py-1 text-[12px] font-bold text-slate-500">${esc(na.label)}</div>
+  </button>`;
 }
 
 // ── Work sub-views ───────────────────────────────────────────────────────────
-const SALES_WORK_VIEWS = [
-  ['opportunities', 'Opportunities'], ['appointments', 'Appointments'],
-  ['customers', 'Customers'], ['deals', 'Deals'], ['deliveries', 'Deliveries'],
-];
-
 function salesWorkView(v) { __salesWorkView = v; engineTab('sales', 'work'); }
 window.salesWorkView = salesWorkView;
-
-async function salesRenderWork(body, d) {
-  const nav = SALES_WORK_VIEWS.map(([id, label]) => {
-    const on = __salesWorkView === id;
-    return `<button onclick="salesWorkView('${id}')" class="px-3 py-1.5 rounded-lg text-[13px] font-bold transition ${on ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}">${esc(label)}</button>`;
-  }).join('');
-
-  let inner = '';
-  if (__salesWorkView === 'opportunities') {
-    const open = (d.contacts || []).filter(c => SALES_OPEN_STAGES.includes(c.status));
-    const byStage = SALES_OPEN_STAGES.map(s => {
-      const rows = open.filter(c => c.status === s);
-      if (!rows.length) return '';
-      return engCard(`${salesLabel(s)} (${rows.length})`, rows.slice(0, 12).map(c => salesOppRow(c, d)).join(''));
-    }).join('');
-    inner = byStage || engEmpty('No open opportunities.');
-  } else if (__salesWorkView === 'appointments') {
-    const now = Date.now(), day = 864e5;
-    const buckets = [['Today', a => { const t = new Date(a.appointment_at) - now; return t > -day / 2 && t < day / 2; }],
-                     ['Upcoming', a => new Date(a.appointment_at) - now >= day / 2],
-                     ['Missed / no outcome', a => new Date(a.appointment_at) - now <= -day / 2 && !a.outcome]];
-    inner = buckets.map(([label, fn]) => {
-      const rows = (d.appointments || []).filter(fn);
-      if (!rows.length) return '';
-      return engCard(`${label} (${rows.length})`, rows.slice(0, 15).map(a => `
-        <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-          <div class="text-[12px] font-bold text-slate-500 tabular-nums shrink-0 w-24">${esc(new Date(a.appointment_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</div>
-          <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(a.customer_name || '—')}</div>
-            <div class="text-[12px] text-slate-400 truncate">${esc(a.vehicle_label || '')}${a.rep_name ? ` · ${esc(a.rep_name)}` : ''}</div></div>
-          <button onclick="${a.contact_id ? `crmOpenForm('${a.contact_id}')` : `switchPage('appointments')`}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Open Customer</button>
-        </div>`).join(''));
-    }).join('') || engEmpty('No appointments.');
-    inner += `<div class="mt-3"><button onclick="switchPage('appointments')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">Open full calendar →</button></div>`;
-  } else if (__salesWorkView === 'customers') {
-    inner = engCard('Customers', (d.contacts || []).slice(0, 20).map(c => salesOppRow(c, d)).join('') || engEmpty('No customers yet.'))
-      + `<div class="mt-3"><button onclick="switchPage('crm')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">Open full CRM →</button></div>`;
-  } else if (__salesWorkView === 'deals') {
-    const working = (d.contacts || []).filter(c => ['sold', 'fni'].includes(c.status));
-    inner = engCard('Working deals', working.map(c => salesOppRow(c, d)).join('') || engEmpty('No deals in progress.'))
-      + `<div class="mt-3 flex gap-3"><button onclick="switchPage('fni')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">F&amp;I workspace →</button></div>`;
-  } else if (__salesWorkView === 'deliveries') {
-    // Lazily fetched: deliveries are NOT part of the Sales landing payload.
-    if (!__salesDeliveries) {
-      body.innerHTML = `<div class="flex gap-1.5 mb-3">${nav}</div><div class="text-sm text-slate-400 py-10 text-center">Loading deliveries…</div>`;
-      try { __salesDeliveries = await apiGetJson('/delivery/queue'); } catch { __salesDeliveries = { deals: [] }; }
-    }
-    const rows = __salesDeliveries.deals || __salesDeliveries.queue || [];
-    inner = engCard('Delivery queue', rows.slice(0, 20).map(x => `
-      <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-        <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(x.customer_name || x.contact_name || 'Customer')}</div>
-          <div class="text-[12px] text-slate-400 truncate">${esc(x.vehicle_label || [x.year, x.make, x.model].filter(Boolean).join(' '))}${x.blocker ? ` · <span class="text-rose-500">${esc(x.blocker)}</span>` : ''}</div></div>
-        <button onclick="switchPage('delivery')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Prepare Delivery</button>
-      </div>`).join('') || engEmpty('Nothing awaiting delivery.'))
-      + `<div class="mt-3"><button onclick="switchPage('delivery')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">Open delivery queue →</button></div>`;
-  }
-  body.innerHTML = `<div class="flex gap-1.5 mb-3 overflow-x-auto">${nav}</div>${inner}`;
-}
 
 
 // ── My Day: the numbers that used to live behind an Insights tab ─────────────
@@ -310,7 +248,7 @@ window.salesSaveRouting = salesSaveRouting;
 
 // ── Engine registration ──────────────────────────────────────────────────────
 ENGINES['sales'] = {
-  rootId: 'sales-root', title: 'Sales', subtitle: 'Your customers, appointments and deals — what needs you first',
+  rootId: 'sales-root', title: 'Sales', subtitle: 'Your customers, appointments and deals — what needs you first', hideHeader: true,
   icon: 'currency', accent: 'amber',
   // One primary Sales header. Insights folded into My Day (a number you only see by opening another tab is a
   // number nobody acts on), Automation folded into Settings (there is one workflow engine, so
@@ -388,10 +326,10 @@ ENGINES['sales'] = {
 
       body.innerHTML = `
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}
-          ${engKpi('New leads', newLeads.length, newLeads.length ? 'text-amber-600 dark:text-amber-400' : '')}
-          ${engKpi("Today's appointments", todays.length)}
-          ${engKpi('Overdue tasks', overdue.length, overdue.length ? 'text-rose-600 dark:text-rose-400' : '')}
+          ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '', "engineTab('sales', 'work')")}
+          ${engKpi('New leads', newLeads.length, newLeads.length ? 'text-amber-600 dark:text-amber-400' : '', "salesWorkView('opportunities')")}
+          ${engKpi("Today's appointments", todays.length, '', "engineTab('sales', 'appointments')")}
+          ${engKpi('Overdue tasks', overdue.length, overdue.length ? 'text-rose-600 dark:text-rose-400' : '', "engineTab('sales', 'work')")}
         </div>
         ${engCard('Needs attention', att.length ? att.map(salesAttentionRow).join('') : engEmpty('Nothing needs you right now.'))}
         ${salesPerformanceStrip(d)}

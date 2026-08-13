@@ -59,6 +59,8 @@ const MS_WORKSPACES = {
     label: 'Sales', icon: 'currency', accent: 'amber',
     pages: [
       { page: 'sales', label: 'My Day' },
+      { page: 'appraisal', label: 'Acquire', legacy: true },
+      { page: 'market', label: 'Market & Competitors', mgr: true, legacy: true },
       { page: 'crm', label: 'Customers', legacy: true },
       { page: 'appointments', label: 'Appointments', legacy: true },
       { page: 'tasks', label: 'Tasks', legacy: true },
@@ -81,11 +83,16 @@ const MS_WORKSPACES = {
     pages: [
       { page: 'inventory-overview', label: 'My Day' },
       { page: 'inventory', label: 'Vehicles', invmode: 'manual', legacy: true },
-      { page: 'appraisal', label: 'Acquire' },
       { page: 'equity', label: 'Equity Mining' },
-      { page: 'recon', label: 'Cleanup', legacy: true },
       { page: 'inv-intel', label: 'Inventory Intelligence', mgr: true, legacy: true },
-      { page: 'market', label: 'Market & Competitors', mgr: true, legacy: true },
+    ],
+  },
+
+  // ── Recon / Cleanup ────────────────────────────────────────────────────────
+  recon: {
+    label: 'Cleanup', icon: 'sparkles', accent: 'sky',
+    pages: [
+      { page: 'recon', label: 'Cleanup' },
     ],
   },
 
