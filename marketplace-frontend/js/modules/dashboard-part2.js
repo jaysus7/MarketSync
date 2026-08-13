@@ -1081,7 +1081,7 @@ function switchPage(pageId) {
 
   // Map legacy department page IDs directly to the single-source-of-truth workspace engines
   if (pageId === 'crm' || pageId === 'pipeline' || pageId === 'leads' || pageId === 'appointments') pageId = 'sales';
-  if (pageId === 'inventory' || pageId === 'recon') pageId = 'inventory-overview';
+  if (pageId === 'inventory') pageId = 'inventory-overview';
   if (pageId === 'fni') pageId = 'fni-overview';
   if (pageId === 'service' || pageId === 'service-ros' || pageId === 'service-appointments') pageId = 'service-overview';
   if (pageId === 'parts') pageId = 'parts-overview';

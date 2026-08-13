@@ -1170,7 +1170,7 @@ ENGINES['command'] = {
             ${tile('Leads waiting', t.leads_waiting ?? 0, 'sales', true)}
             ${tile('Deals in progress', t.deals_in_progress ?? 0, 'sales', false)}
             ${tile('Deliveries today', t.deliveries_today ?? 0, 'delivery', false)}
-            ${tile('Recon delays', t.recon_delays ?? 0, 'inventory-overview', true)}
+            ${tile('Recon delays', t.recon_delays ?? 0, 'recon', true)}
             ${tile('Service bottlenecks', t.service_bottlenecks ?? 0, 'service-overview', true)}
           </div>
         </div>
@@ -1187,7 +1187,7 @@ ENGINES['command'] = {
         ['Sales', 'Leads waiting', t.leads_waiting ?? 0, 'sales'],
         ['Sales & F&I', 'Deals in progress', t.deals_in_progress ?? 0, 'sales'],
         ['Delivery', 'Deliveries today', t.deliveries_today ?? 0, 'delivery'],
-        ['Inventory', 'Recon delays', t.recon_delays ?? 0, 'inventory-overview'],
+        ['Inventory', 'Recon delays', t.recon_delays ?? 0, 'recon'],
         ['Fixed Ops', 'Service bottlenecks', t.service_bottlenecks ?? 0, 'service-overview'],
       ];
       const pulseRows = `<div class="divide-y divide-slate-100 dark:divide-slate-800">${rows.map(([department, label, value, page]) => `<button onclick="switchPage('${page}')" class="w-full flex items-center justify-between gap-3 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"><span><span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400">${esc(department)}</span><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200">${esc(label)}</span></span><span class="text-xl font-black text-slate-900 dark:text-white">${value}</span></button>`).join('')}</div>`;
