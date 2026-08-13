@@ -254,8 +254,8 @@ ENGINES['sales'] = {
   // number nobody acts on), Automation folded into Settings (there is one workflow engine, so
   // it is configuration, not a department surface), Work renamed to what it actually holds, and
   // Opportunities, appointments, deals and deliveries are all composed into My Day.
-  tabOrder: ['overview', 'work', 'appraisal', 'equity', 'settings'],
-  tabLabels: { overview: 'My Day', work: 'Customers', appraisal: 'Appraise Trade', equity: 'Equity Mining', settings: 'Settings' },
+  tabOrder: ['overview', 'work', 'desk', 'appraisal', 'equity', 'settings'],
+  tabLabels: { overview: 'My Day', work: 'Customers', desk: 'Desk a Deal', appraisal: 'Appraise Trade', equity: 'Equity Mining', settings: 'Settings' },
 
   // ONE parallel round-trip for the landing view — no waterfall, and deliveries /
   // insights are deliberately excluded (they load inside their own tab).
@@ -292,11 +292,9 @@ ENGINES['sales'] = {
     { label: 'Opportunities', icon: 'flame', onclick: "engineTab('sales','overview')" },
     { label: '+ Customer', icon: 'user', onclick: 'crmOpenForm()' },
     { label: 'Book Appointment', icon: 'calendar', onclick: "switchPage('appointments')" },
+    { label: 'Desk a Deal', icon: 'currency', onclick: "engineTab('sales', 'desk')" },
     { label: 'Appraise Trade', icon: 'gem', onclick: "engineTab('sales', 'appraisal')" },
-    // Customers already in the book who are in a position to trade — a Sales job, so it belongs
-    // in the Sales header rather than only inside Inventory.
     { label: 'Equity Mining', icon: 'gem', onclick: "engineTab('sales', 'equity')" },
-    { label: 'Desk Deal', icon: 'currency', onclick: "switchPage('desk')" },
   ],
 
   nextActions: (d) => salesAttention(d || {}).slice(0, 5).map(it => ({
@@ -342,6 +340,17 @@ ENGINES['sales'] = {
         await crmLoadContacts(body);
       } else {
         body.innerHTML = engCard('Customers', (d.contacts || []).slice(0, 50).map(c => salesOppRow(c, d)).join('') || engEmpty('No customers yet.'));
+      }
+    },
+
+    // ── DESK A DEAL ──────────────────────────────────────────────────────────
+    desk(body, d) {
+      if (typeof engMountPage === 'function') {
+        engMountPage(body, 'desk', () => {
+          if (typeof loadDeskDeal === 'function') loadDeskDeal();
+        });
+      } else {
+        body.innerHTML = engCard('Desk a Deal', `<div class="p-4 text-center"><button onclick="switchPage('desk')" class="px-4 py-2 font-bold bg-amber-600 text-white rounded-lg">Open Desking Tool</button></div>`);
       }
     },
 
