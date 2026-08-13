@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#6366F1">
+    <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/favicon.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+    <script>
+      // Follow the OS light/dark setting (darkMode:'class' needs the class toggled).
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .sync-color { color: #6366F1; }
+        .gradient-text { background: linear-gradient(135deg, #A78BFA 0%, #6366F1 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        html { font-size: 17px; scroll-behavior: smooth; scroll-padding-top: 96px; }
+        @media (max-width:640px){ html { font-size: 16px; } }
+        .stage-img { box-shadow: 0 20px 45px -20px rgba(15,23,42,.45); }
+    </style>
+    <title>The MarketSync Workflow — One Car, From Lot-In to Lot-Out | MarketSync</title>
+    <meta name="description" content="See the whole MarketSync workflow: every stage a car travels from the moment it hits your lot to the moment it's delivered — appraise, stock, recon, merchandise, price, market, capture, sell, F&I, deliver, and mine equity. One platform, one database.">
+    <meta name="keywords" content="car dealership workflow software, vehicle lifecycle platform, dealership operating system, all-in-one dealer software, appraisal to delivery">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <link rel="canonical" href="https://marketsync.link/workflow.html">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="MarketSync">
+    <meta property="og:title" content="The MarketSync Workflow — One Car, From Lot-In to Lot-Out">
+    <meta property="og:description" content="Every stage a car travels — appraise, stock, recon, merchandise, price, market, capture, sell, F&I, deliver, mine equity. One platform, one database.">
+    <meta property="og:url" content="https://marketsync.link/workflow.html">
+    <meta property="og:image" content="https://marketsync.link/img/dashboard-overview.svg">
+    <meta name="twitter:card" content="summary_large_image">
+    <!-- Automatic OS dark/light before first paint (no flash) -->
+    <script>(function(){try{if(window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.classList.add('dark');}catch(e){}})();</script>
+    <script src="/assets/auth.js" defer></script>
+    <script src="/assets/public-shell.js" defer></script>
+</head>
+<body class="bg-slate-50 dark:bg-[#0B0F19] text-slate-900 dark:text-gray-200 antialiased">
+    <div id="ms-public-header"></div>
+
+<!-- HERO -->
+    <section class="max-w-4xl mx-auto px-6 pt-16 pb-10 text-center">
+        <span class="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full">The full workflow</span>
+        <h1 class="mt-5 text-4xl sm:text-6xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.05]">One car. <span class="gradient-text">One loop.</span> One platform.</h1>
+        <p class="mt-5 text-lg text-slate-600 dark:text-gray-400 max-w-2xl mx-auto">From the second a car hits your lot to the day it's delivered — and the day that customer comes back for the next one. Every stage below runs on the same database, so nothing is re-typed and nothing falls through the cracks.</p>
+        <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <a href="https://marketsync.link/register.html" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-7 py-3.5 rounded-xl transition shadow-lg shadow-indigo-500/30">Start your 30-day free trial</a>
+            <a href="#loop" class="w-full sm:w-auto font-semibold text-slate-700 dark:text-gray-300 px-7 py-3.5 rounded-xl border border-slate-300 dark:border-gray-700 hover:border-indigo-400 transition">See the 11 stages ↓</a>
+        </div>
+    </section>
+
+    <!-- THE LOOP -->
+    <section id="loop" class="max-w-6xl mx-auto px-6 py-8">
+      <div class="relative">
+        <!-- vertical spine (desktop) -->
+        <div class="hidden md:block absolute left-1/2 top-0 bottom-0 -translate-x-1/2 w-px bg-gradient-to-b from-indigo-300/0 via-indigo-400/50 to-indigo-300/0"></div>
+        <div id="stages" class="space-y-6 md:space-y-2"></div>
+      </div>
+    </section>
+
+    <!-- LOOP BACK -->
+    <section class="max-w-3xl mx-auto px-6 pb-4 text-center">
+        <div class="inline-flex items-center gap-3 text-indigo-600 dark:text-indigo-400 font-bold"><i class="fa-solid fa-arrows-rotate"></i> …and the loop starts again with their next car.</div>
+        <p class="mt-2 text-sm text-slate-500 dark:text-gray-500">Every delivered customer flows into equity mining and automated follow-ups — so your best source of the next sale is the last one.</p>
+    </section>
+
+    <!-- ADD-ONS -->
+    <section class="max-w-6xl mx-auto px-6 py-14">
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-center text-slate-900 dark:text-white">Add-ons that supercharge the loop</h2>
+        <p class="text-center text-slate-600 dark:text-gray-400 mt-2 max-w-2xl mx-auto">The core platform runs the whole workflow. Turn these on when you want more firepower.</p>
+        <div class="mt-8 grid sm:grid-cols-3 gap-5">
+            <a href="https://marketsync.link/ai-listing-copy.html" class="group block bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-2xl p-6 hover:border-indigo-400 transition">
+                <div class="w-11 h-11 rounded-xl bg-violet-500/15 text-violet-600 dark:text-violet-400 flex items-center justify-center text-lg"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                <h3 class="mt-4 font-bold text-slate-900 dark:text-white">AI Boost</h3>
+                <p class="mt-1.5 text-sm text-slate-600 dark:text-gray-400">Writes descriptions, sales pitches, SEO, meta and listing copy across every field. Boost / short / long / fresh / SEO — in your store's voice.</p>
+                <span class="mt-3 inline-block text-sm font-semibold text-indigo-600 dark:text-indigo-400 group-hover:underline">Learn more →</span>
+            </a>
+            <a href="https://marketsync.link/inventory-intelligence.html" class="group block bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-2xl p-6 hover:border-indigo-400 transition">
+                <div class="w-11 h-11 rounded-xl bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 flex items-center justify-center text-lg"><i class="fa-solid fa-chart-column"></i></div>
+                <h3 class="mt-4 font-bold text-slate-900 dark:text-white">Inventory Intelligence</h3>
+                <p class="mt-1.5 text-sm text-slate-600 dark:text-gray-400">Live price-to-market, health scores, turn rate and aging — plus the VIN decoder and factory window stickers.</p>
+                <span class="mt-3 inline-block text-sm font-semibold text-indigo-600 dark:text-indigo-400 group-hover:underline">Learn more →</span>
+            </a>
+            <a href="https://marketsync.link/vin-decoder-window-stickers.html" class="group block bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-2xl p-6 hover:border-indigo-400 transition">
+                <div class="w-11 h-11 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-lg"><i class="fa-solid fa-barcode"></i></div>
+                <h3 class="mt-4 font-bold text-slate-900 dark:text-white">VIN Decoder &amp; Stickers</h3>
+                <p class="mt-1.5 text-sm text-slate-600 dark:text-gray-400">Full VIN decode with recalls, plus authentic factory (OEM) window stickers and brochures on demand.</p>
+                <span class="mt-3 inline-block text-sm font-semibold text-indigo-600 dark:text-indigo-400 group-hover:underline">Learn more →</span>
+            </a>
+        </div>
+        <div class="mt-6 text-center">
+            <a href="https://marketsync.link/dealer-groups.html" class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-white transition">Running multiple rooftops? See MarketSync for Dealer Groups <i class="fa-solid fa-arrow-right text-xs"></i></a>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="max-w-4xl mx-auto px-6 py-16 text-center">
+        <div class="bg-gradient-to-br from-indigo-600 to-violet-600 rounded-3xl px-8 py-14 text-white">
+            <h2 class="text-3xl sm:text-4xl font-extrabold">Run the whole loop on one platform.</h2>
+            <p class="mt-3 text-indigo-100 max-w-xl mx-auto">Replace your website vendor, CRM, inventory tool, marketing tool and appraisal book with one login — and one database.</p>
+            <a href="https://marketsync.link/register.html" class="mt-8 inline-block bg-white text-indigo-700 font-bold px-8 py-3.5 rounded-xl hover:bg-indigo-50 transition">Start free — 30 days</a>
+        </div>
+    </section>
+
+    <div id="ms-public-footer"></div>
+
+<script>
+      
+      // The loop — one source of truth, rendered as an alternating timeline.
+      const STAGES = [
+        { n:'01', tag:'Acquire', icon:'fa-scale-balanced', color:'amber', title:'A car comes in', body:'Appraise the trade against the live market and decode the VIN for specs, options and open recalls. Every customer gets a unique customer number the moment they walk in.', img:'img/trade-appraisal.svg', link:'trade-appraisal.html', linkText:'Trade appraisal' },
+        { n:'02', tag:'Stock in', icon:'fa-warehouse', color:'sky', title:'It lands in your inventory', body:'Pull your existing feed or add it by VIN — MarketSync auto-fills specs, checks recalls and drops it into one clean catalog. Cloudflare-protected sites sync through the browser extension.', img:'img/dashboard-overview.svg', link:'dealer-inventory-sync.html', linkText:'Inventory sync' },
+        { n:'03', tag:'Recon &amp; Cleanup', icon:'fa-screwdriver-wrench', color:'orange', title:'You get it front-line ready', body:'Track recon and cleanup so nothing goes live half-done. Health scores flag the weakest units first, so your team knows exactly what to fix before it hits the lot.', img:'img/lot-health-report.svg', link:'inventory-intelligence.html', linkText:'Health &amp; aging' },
+        { n:'04', tag:'Merchandise', icon:'fa-wand-magic-sparkles', color:'violet', title:'It gets merchandised', body:'AI Vision scores every photo and picks the best hero. AI writes the description and sales pitch. Print a factory or branded window sticker and brochure in a click.', img:'img/window-sticker.svg', link:'ai-vision-photo-scoring.html', linkText:'AI Vision &amp; copy' },
+        { n:'05', tag:'Price', icon:'fa-chart-line', color:'cyan', title:'It gets priced to the live market', body:'Mileage-adjusted price-to-market on every car, with comparable listings, a health score, turn rate and aging buckets. Know exactly what to price, promote and cut.', img:'img/market-price-report.svg', link:'market-price-reports.html', linkText:'Market reports' },
+        { n:'06', tag:'Market', icon:'fa-bullhorn', color:'blue', title:'It goes everywhere at once', body:'It publishes to your own MarketSync website and posts to Facebook Marketplace with AI-written copy — SEO and lead forms wired straight to your CRM. One car, every channel.', img:'img/dealer-website.svg', link:'dealer-website.html', linkText:'Website builder' },
+        { n:'07', tag:'Capture', icon:'fa-inbox', color:'emerald', title:'Leads land in your CRM', body:'Every lead auto-assigns to a rep, an AI sales concierge answers shoppers from your live stock 24/7, and follow-up tasks fire so nothing goes cold.', img:'img/dashboard-crm.svg', link:'crm-lead-delivery.html', linkText:'CRM &amp; leads' },
+        { n:'08', tag:'Sell', icon:'fa-file-signature', color:'indigo', title:'You desk the deal', body:'Structure the full deal — retail, rebates, trade, taxes and payments — then print a clean estimate. A pipeline and a live leaderboard keep the floor moving and competitive.', img:'img/deal-desk.svg', link:'deal-desk.html', linkText:'Deal desk' },
+        { n:'09', tag:'F&amp;I', icon:'fa-shield-halved', color:'rose', title:'F&amp;I closes it', body:'Add F&I products, run the numbers, and print a 6-page OMVIC-style bill of sale with the rep’s registration and signature lines. Credit-app, cash and financed paths built in.', img:'img/deal-desk.svg', link:'deal-desk.html', linkText:'Bill of sale' },
+        { n:'10', tag:'Deliver', icon:'fa-key', color:'teal', title:'It leaves the lot', body:'Mark it Sold — then Delivered — and it flows to your Sold list, updates the car status automatically, and closes out the Facebook listing. Everything logged on the customer.', img:'img/dashboard-crm.svg', link:'sales-pipeline.html', linkText:'Sales pipeline' },
+        { n:'11', tag:'Retain &amp; mine equity', icon:'fa-arrows-rotate', color:'fuchsia', title:'They come back', body:'Automated follow-ups keep the relationship warm, and equity mining watches every delivered customer for the moment they can trade up — kicking off the loop again.', img:'img/equity-mining.svg', link:'equity-mining.html', linkText:'Equity mining' },
+      ];
+      const C = {
+        amber:'bg-amber-500/15 text-amber-600 dark:text-amber-400', sky:'bg-sky-500/15 text-sky-600 dark:text-sky-400',
+        orange:'bg-orange-500/15 text-orange-600 dark:text-orange-400', violet:'bg-violet-500/15 text-violet-600 dark:text-violet-400',
+        cyan:'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400', blue:'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+        emerald:'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400', indigo:'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400',
+        rose:'bg-rose-500/15 text-rose-600 dark:text-rose-400', teal:'bg-teal-500/15 text-teal-600 dark:text-teal-400',
+        fuchsia:'bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400',
+      };
+      document.getElementById('stages').innerHTML = STAGES.map((s, i) => {
+        const left = i % 2 === 0;
+        const card = `<div class="bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-2xl p-6 sm:p-7">
+            <div class="flex items-center gap-3">
+              <span class="w-10 h-10 rounded-xl ${C[s.color]} flex items-center justify-center text-lg"><i class="fa-solid ${s.icon}"></i></span>
+              <div><div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Stage ${s.n} · ${s.tag}</div>
+              <h3 class="text-lg font-extrabold text-slate-900 dark:text-white leading-tight">${s.title}</h3></div>
+            </div>
+            <p class="mt-3 text-[15px] text-slate-600 dark:text-gray-400 leading-relaxed">${s.body}</p>
+            <a href="https://marketsync.link/${s.link}" class="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">${s.linkText} <i class="fa-solid fa-arrow-right text-xs"></i></a>
+          </div>`;
+        const shot = `<div class="rounded-2xl overflow-hidden border border-slate-200 dark:border-gray-800 stage-img"><img src="${s.img}" alt="${s.tag} — MarketSync" loading="lazy" class="w-full h-full object-cover"></div>`;
+        return `<div class="relative md:grid md:grid-cols-2 md:gap-10 md:items-center py-6">
+            <span class="hidden md:flex absolute left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-indigo-600 text-white text-xs font-black items-center justify-center ring-4 ring-slate-50 dark:ring-[#0B0F19] z-10">${s.n}</span>
+            <div class="${left ? 'md:order-1' : 'md:order-2'} mb-4 md:mb-0">${card}</div>
+            <div class="${left ? 'md:order-2' : 'md:order-1'}">${shot}</div>
+          </div>`;
+      }).join('');
+    </script>
+
+    <!-- MarketSync render lightbox — click any product render to enlarge -->
+    <div id="ms-lb" class="ms-lb" hidden aria-hidden="true" role="dialog" aria-label="Enlarged screenshot"><button class="ms-lb-x" type="button" aria-label="Close">&times;</button><img alt=""></div>
+    <style>
+      .ms-lb{position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(2,6,23,.85);cursor:zoom-out}
+      .ms-lb[hidden]{display:none}
+      .ms-lb img{max-width:95vw;max-height:92vh;border-radius:14px;box-shadow:0 30px 90px -20px rgba(0,0,0,.7)}
+      .ms-lb-x{position:absolute;top:16px;right:20px;width:44px;height:44px;font-size:30px;line-height:1;color:#fff;background:rgba(255,255,255,.14);border:0;border-radius:12px;cursor:pointer}
+      img.ms-zoom{cursor:zoom-in}
+    </style>
+    <script>
+      (function(){
+        var lb=document.getElementById('ms-lb'),img=lb.querySelector('img');
+        function open(src,alt){img.src=src;img.alt=alt||'';lb.hidden=false;lb.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';}
+        function close(){lb.hidden=true;lb.setAttribute('aria-hidden','true');img.removeAttribute('src');document.body.style.overflow='';}
+        function tag(el){el.classList.add('ms-zoom');el.setAttribute('role','button');el.setAttribute('tabindex','0');
+          el.addEventListener('click',function(){open(el.currentSrc||el.src,el.alt);});
+          el.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();open(el.currentSrc||el.src,el.alt);}});}
+        document.querySelectorAll('img').forEach(function(el){var s=el.getAttribute('src')||'';if(/img\/[^"']+\.svg$/.test(s)||el.closest('.shot')){tag(el);}});
+        lb.addEventListener('click',close);
+        document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!lb.hidden){close();}});
+      })();
+    </script>
+
+    <!-- MarketSync sales assistant — grounded in the site knowledge base -->
+    <div id="msc-root">
+      <button id="msc-fab" type="button" aria-label="Chat with MarketSync" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        <span>Ask MarketSync</span>
+      </button>
+      <section id="msc-panel" hidden aria-label="MarketSync assistant">
+        <header id="msc-head">
+          <span class="msc-dot"></span>
+          <div><strong>MarketSync Assistant</strong><em>Sales &amp; product questions</em></div>
+          <button id="msc-close" type="button" aria-label="Close">&times;</button>
+        </header>
+        <div id="msc-msgs" role="log" aria-live="polite"></div>
+        <div id="msc-chips">
+          <button type="button" class="msc-chip">What is MarketSync?</button>
+          <button type="button" class="msc-chip">How much does it cost?</button>
+          <button type="button" class="msc-chip">Book a demo</button>
+        </div>
+        <form id="msc-lead" hidden>
+          <p class="msc-lead-t">Great — leave your details and the team will reach out.</p>
+          <input name="name" placeholder="Your name" autocomplete="name" required>
+          <input name="email" type="email" placeholder="Work email" autocomplete="email" required>
+          <input name="company" placeholder="Dealership name" autocomplete="organization">
+          <label class="msc-demo"><input type="checkbox" name="demo"> I'd like to book a demo</label>
+          <button type="submit">Send to MarketSync</button>
+        </form>
+        <form id="msc-form">
+          <input id="msc-input" autocomplete="off" placeholder="Ask about features, pricing, a demo…" aria-label="Message">
+          <button type="submit" aria-label="Send"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>
+        </form>
+        <div id="msc-foot">AI assistant · answers from marketsync.link</div>
+      </section>
+    </div>
+    <style>
+      #msc-root{position:fixed;right:20px;bottom:20px;z-index:130;font-family:Inter,system-ui,-apple-system,Segoe UI,Arial,sans-serif}
+      #msc-fab{display:inline-flex;align-items:center;gap:9px;padding:12px 18px;border:0;border-radius:999px;cursor:pointer;color:#fff;font-weight:700;font-size:14px;background:linear-gradient(135deg,#6366F1,#8B5CF6);box-shadow:0 12px 30px -8px rgba(99,102,241,.6)}
+      #msc-fab:hover{filter:brightness(1.05)}
+      #msc-panel{position:absolute;right:0;bottom:0;width:min(380px,calc(100vw - 32px));height:min(560px,calc(100vh - 96px));display:flex;flex-direction:column;border-radius:18px;overflow:hidden;background:#fff;color:#0f172a;border:1px solid #e2e8f0;box-shadow:0 30px 70px -20px rgba(2,6,23,.45)}
+      #msc-panel[hidden]{display:none}
+      #msc-head{display:flex;align-items:center;gap:10px;padding:14px 14px;color:#fff;background:linear-gradient(135deg,#6366F1,#8B5CF6)}
+      #msc-head strong{display:block;font-size:14px;line-height:1.1}
+      #msc-head em{font-style:normal;font-size:11.5px;opacity:.85}
+      #msc-head .msc-dot{width:9px;height:9px;border-radius:50%;background:#34d399;box-shadow:0 0 0 3px rgba(52,211,153,.3)}
+      #msc-close{margin-left:auto;background:rgba(255,255,255,.18);border:0;color:#fff;width:30px;height:30px;border-radius:9px;font-size:20px;line-height:1;cursor:pointer}
+      #msc-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:#f8fafc}
+      .msc-b{max-width:85%;padding:9px 12px;border-radius:14px;font-size:13.5px;line-height:1.45;white-space:pre-wrap;word-wrap:break-word}
+      .msc-a{align-self:flex-start;background:#fff;border:1px solid #e6ebf3;border-bottom-left-radius:5px;color:#0f172a}
+      .msc-u{align-self:flex-end;background:#6366F1;color:#fff;border-bottom-right-radius:5px}
+      .msc-typing{align-self:flex-start;color:#94a3b8;font-size:13px;padding:4px 6px}
+      #msc-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 10px;background:#f8fafc}
+      .msc-chip{border:1px solid #d5dbe6;background:#fff;color:#4f46e5;font-size:12px;font-weight:600;padding:6px 10px;border-radius:999px;cursor:pointer}
+      .msc-chip:hover{background:#eef2ff}
+      #msc-form{display:flex;gap:8px;padding:10px;border-top:1px solid #eef2f7;background:#fff}
+      #msc-input{flex:1;border:1px solid #d5dbe6;border-radius:12px;padding:10px 12px;font-size:13.5px;outline:none;color:#0f172a;background:#fff}
+      #msc-input:focus{border-color:#818cf8;box-shadow:0 0 0 3px rgba(129,140,248,.2)}
+      #msc-form button,#msc-lead button[type=submit]{border:0;border-radius:12px;background:#6366F1;color:#fff;font-weight:700;cursor:pointer}
+      #msc-form button{width:42px;display:flex;align-items:center;justify-content:center}
+      #msc-lead{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-top:1px solid #eef2f7;background:#fff}
+      #msc-lead[hidden]{display:none}
+      .msc-lead-t{margin:0 0 2px;font-size:12.5px;font-weight:600;color:#334155}
+      #msc-lead input[type=text],#msc-lead input[name=name],#msc-lead input[name=email],#msc-lead input[name=company]{border:1px solid #d5dbe6;border-radius:10px;padding:9px 11px;font-size:13px;color:#0f172a;background:#fff}
+      .msc-demo{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#475569}
+      #msc-lead button[type=submit]{padding:10px;font-size:13px}
+      #msc-foot{padding:8px 12px;text-align:center;font-size:10.5px;color:#94a3b8;background:#fff}
+      @media (prefers-color-scheme: dark){
+        #msc-panel{background:#0f1626;color:#e6edf7;border-color:#1f2a3d}
+        #msc-msgs,#msc-chips{background:#0b111e}
+        .msc-a{background:#131a2c;border-color:#22304a;color:#e6edf7}
+        .msc-chip{background:#131a2c;border-color:#2a3a57;color:#a5b4fc}
+        .msc-chip:hover{background:#1a2438}
+        #msc-form,#msc-lead,#msc-foot{background:#0f1626;border-color:#1f2a3d}
+        #msc-input,#msc-lead input{background:#0b111e;border-color:#2a3a57;color:#e6edf7}
+        .msc-lead-t{color:#cbd5e1}.msc-demo{color:#93a2bc}
+      }
+    </style>
+    <script>
+      (function(){
+        var API='https://vehicle-marketplace-s0e4.onrender.com';
+        var root=document.getElementById('msc-root'),fab=document.getElementById('msc-fab'),panel=document.getElementById('msc-panel'),
+            msgs=document.getElementById('msc-msgs'),form=document.getElementById('msc-form'),input=document.getElementById('msc-input'),
+            lead=document.getElementById('msc-lead'),chips=document.getElementById('msc-chips'),closeBtn=document.getElementById('msc-close');
+        var history=[],greeted=false,lastUser='';
+        function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+        function bubble(text,who){var b=document.createElement('div');b.className='msc-b '+(who==='user'?'msc-u':'msc-a');b.innerHTML=esc(text);msgs.appendChild(b);msgs.scrollTop=msgs.scrollHeight;return b;}
+        function typing(){var b=document.createElement('div');b.className='msc-typing';b.textContent='MarketSync is typing…';msgs.appendChild(b);msgs.scrollTop=msgs.scrollHeight;return b;}
+        function openPanel(){panel.hidden=false;fab.setAttribute('aria-expanded','true');if(!greeted){greeted=true;bubble("Hi! I'm the MarketSync assistant. Ask me anything about the platform — features, pricing, or how the workflow fits your store. I can also set up a demo.","bot");}setTimeout(function(){input.focus();},50);}
+        function closePanel(){panel.hidden=true;fab.setAttribute('aria-expanded','false');}
+        fab.addEventListener('click',function(){panel.hidden?openPanel():closePanel();});
+        closeBtn.addEventListener('click',closePanel);
+        async function send(text){
+          text=(text||'').trim();if(!text)return;
+          bubble(text,'user');lastUser=text;history.push({role:'user',content:text});
+          input.value='';chips.style.display='none';
+          var t=typing();
+          try{
+            var r=await fetch(API+'/marketsync/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history})});
+            var j=await r.json();t.remove();
+            var reply=(j&&j.reply)||"Sorry, I couldn't respond just now.";
+            bubble(reply,'bot');history.push({role:'assistant',content:reply});
+            if(j&&j.capture){lead.hidden=false;lead.scrollIntoView({behavior:'smooth',block:'nearest'});}
+          }catch(e){t.remove();bubble("I'm having trouble connecting. Leave your details and we'll reach out.","bot");lead.hidden=false;}
+        }
+        form.addEventListener('submit',function(e){e.preventDefault();send(input.value);});
+        chips.addEventListener('click',function(e){var c=e.target.closest('.msc-chip');if(c)send(c.textContent);});
+        lead.addEventListener('submit',async function(e){
+          e.preventDefault();
+          var fd=new FormData(lead);
+          var payload={name:fd.get('name'),email:fd.get('email'),company:fd.get('company'),demo:lead.querySelector('[name=demo]').checked,message:lastUser};
+          var btn=lead.querySelector('button[type=submit]');btn.disabled=true;btn.textContent='Sending…';
+          try{
+            var r=await fetch(API+'/marketsync/lead',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+            if(!r.ok)throw 0;
+            lead.hidden=true;bubble("Thanks, "+(payload.name.split(' ')[0]||'there')+"! The MarketSync team will be in touch shortly. Anything else I can answer?","bot");
+          }catch(e){btn.disabled=false;btn.textContent='Send to MarketSync';bubble("Hmm, that didn't go through — you can also email hello@marketsync.link.","bot");}
+        });
+      })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#6366F1">
+    <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/favicon.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode:'media' }</script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/site-marketing.css">
+    <style>
+        .sync-color { color: #6366F1; }
+        .gradient-text { background: linear-gradient(135deg, #A78BFA 0%, #6366F1 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .glass-panel { backdrop-filter: blur(12px); }
+        html { font-size: 17px; scroll-behavior: smooth; scroll-padding-top: 96px; }
+        @media (max-width:640px){ html { font-size: 16px; } }
+        .guide-body h3 { scroll-margin-top: 96px; }
+        .guide-phase { scroll-margin-top: 96px; }
+        .toc-link.active { color: #6366F1; font-weight: 700; }
+        /* ── Illustrative UI mockups (renders) — stylized, swap for a screenshot later ── */
+        .mock{border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 10px 30px -18px rgba(2,6,23,.4);margin:1.25rem 0}
+        .dark .mock{border-color:#1f2a3d;background:#0f1626;box-shadow:0 14px 34px -18px rgba(0,0,0,.7)}
+        .mock-bar{display:flex;align-items:center;gap:6px;padding:8px 12px;background:#f1f5f9;border-bottom:1px solid #e2e8f0}
+        .dark .mock-bar{background:#131a2c;border-color:#1f2a3d}
+        .mock-bar i{width:10px;height:10px;border-radius:50%;background:#cbd5e1;display:inline-block}
+        .dark .mock-bar i{background:#33415a}
+        .mock-bar b{margin-left:8px;font-size:11px;font-weight:600;color:#94a3b8;letter-spacing:.02em}
+        .mock-in{padding:14px}
+        .mock-cap{font-size:12px;font-style:italic;color:#94a3b8;margin:-0.4rem 0 1.4rem;padding-left:2px}
+        .mock-cap i{margin-right:5px}
+        .mk-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+        .mk-col{display:flex;flex-direction:column;gap:8px}
+        .mk-btn{font-size:12px;font-weight:700;padding:6px 12px;border-radius:8px;background:#eef2ff;color:#4f46e5;border:1px solid #e0e7ff;white-space:nowrap}
+        .dark .mk-btn{background:#1e1b3a;color:#a5b4fc;border-color:#312e63}
+        .mk-btn.p{background:#4f46e5;color:#fff;border-color:#4f46e5}
+        .mk-btn.g{background:#059669;color:#fff;border-color:#059669}
+        .mk-btn.o{background:#ea580c;color:#fff;border-color:#ea580c}
+        .mk-btn.t{background:#0d9488;color:#fff;border-color:#0d9488}
+        .mk-btn.gray{background:#f1f5f9;color:#475569;border-color:#e2e8f0}
+        .dark .mk-btn.gray{background:#131a2c;color:#9fb0cc;border-color:#22304a}
+        .mk-pill{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:999px;background:#e2e8f0;color:#475569}
+        .dark .mk-pill{background:#26314a;color:#9fb0cc}
+        .mk-pill.amber{background:#fef3c7;color:#b45309}.dark .mk-pill.amber{background:#3a2c12;color:#f0c266}
+        .mk-pill.green{background:#d1fae5;color:#047857}.dark .mk-pill.green{background:#0f2a1e;color:#4ade80}
+        .mk-pill.indigo{background:#e0e7ff;color:#4338ca}.dark .mk-pill.indigo{background:#221d47;color:#a5b4fc}
+        .mk-pill.rose{background:#ffe4e6;color:#be123c}.dark .mk-pill.rose{background:#3a1720;color:#fb7185}
+        .mk-card{border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;background:#fff}
+        .dark .mk-card{border-color:#22304a;background:#131a2c}
+        .mk-tile{border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;background:#f8fafc;text-align:center;flex:1;min-width:88px}
+        .dark .mk-tile{border-color:#22304a;background:#0b111e}
+        .mk-tile .n{font-size:20px;font-weight:800;color:#4f46e5;line-height:1.1}
+        .dark .mk-tile .n{color:#a5b4fc}
+        .mk-tile .n.g{color:#059669}.dark .mk-tile .n.g{color:#4ade80}
+        .mk-tile .n.r{color:#e11d48}.dark .mk-tile .n.r{color:#fb7185}
+        .mk-tile .l{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;font-weight:700;margin-top:2px}
+        .mk-mut{color:#94a3b8;font-size:12px}
+        .mk-nav{display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:600;min-width:120px}
+        .mk-nav span{padding:6px 10px;border-radius:7px;color:#475569}
+        .dark .mk-nav span{color:#9fb0cc}
+        .mk-nav span.on{background:#eef2ff;color:#4f46e5}
+        .dark .mk-nav span.on{background:#1e1b3a;color:#a5b4fc}
+        .mk-h{font-size:13px;font-weight:800;color:#0f172a;margin-bottom:6px}
+        .dark .mk-h{color:#e6edf7}
+        .mk-tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid #e2e8f0;padding-bottom:8px;margin-bottom:10px}
+        .dark .mk-tabs{border-color:#22304a}
+        .mk-tabs span{font-size:11px;font-weight:700;padding:4px 9px;border-radius:7px;color:#64748b}
+        .mk-tabs span.on{background:#4f46e5;color:#fff}
+        .mk-stage{flex:1;min-width:70px;border:1px solid #e2e8f0;border-radius:8px;padding:6px 4px;text-align:center;font-size:10px;font-weight:700;color:#475569;background:#f8fafc}
+        .dark .mk-stage{border-color:#22304a;background:#0b111e;color:#9fb0cc}
+        .mk-stage.on{border-color:#4f46e5;background:#eef2ff;color:#4338ca}
+        .dark .mk-stage.on{background:#1e1b3a;color:#a5b4fc}
+        .mk-stage.done{border-color:#059669;background:#ecfdf5;color:#047857}
+        .dark .mk-stage.done{background:#0f2a1e;color:#4ade80}
+        .mk-line{height:8px;border-radius:4px;background:#e2e8f0}.dark .mk-line{background:#22304a}
+        .mk-thumb{width:46px;height:34px;border-radius:6px;background:linear-gradient(135deg,#c7d2fe,#a5b4fc);flex:0 0 auto}
+        .dark .mk-thumb{background:linear-gradient(135deg,#312e63,#4338ca)}
+        .mk-av{width:30px;height:30px;border-radius:50%;background:#e0e7ff;color:#4338ca;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+        .dark .mk-av{background:#221d47;color:#a5b4fc}
+    </style>
+    <title>How to Use MarketSync — Complete Feature Guide for Car Dealers</title>
+    <meta name="description" content="Step-by-step guide to every MarketSync feature: Facebook Marketplace posting, inventory sync, AI listing copy, trade-in appraisals with disclosure PDFs, Carfax, VIN decoding, window stickers, Inventory Intelligence, Turn Rate, the Ask MarketSync AI assistant, multilingual listings, dealer groups, CRM, calendar sync, e-signature, marketing ROI and reporting.">
+    <meta name="keywords" content="how to use marketsync, marketsync guide, facebook marketplace posting tutorial, dealership software how-to, trade appraisal guide, vin decoder guide, marketsync ai assistant, calendar sync, e-signature, marketing roi">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <link rel="canonical" href="https://marketsync.link/guide.html">
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="MarketSync">
+    <meta property="og:title" content="How to Use MarketSync — Complete Feature Guide">
+    <meta property="og:description" content="A detailed, step-by-step walkthrough of every MarketSync feature for car dealers.">
+    <meta property="og:url" content="https://marketsync.link/guide.html">
+    <meta property="og:image" content="https://marketsync.link/og/home.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://marketsync.link/og/home.png">
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"How to Use MarketSync — Complete Feature Guide for Car Dealers","description":"Step-by-step guide to every MarketSync feature for car dealerships, from Facebook Marketplace posting to trade-in appraisals, Carfax, VIN decoding, Inventory Intelligence, the AI assistant, calendar sync, e-signature and reporting.","author":{"@type":"Organization","name":"MarketSync Technologies Inc."},"publisher":{"@type":"Organization","name":"MarketSync","logo":{"@type":"ImageObject","url":"https://marketsync.link/favicon.png"}},"mainEntityOfPage":"https://marketsync.link/guide.html","inLanguage":"en"}</script>
+  <!-- Automatic OS dark/light before first paint (no flash) -->
+  <script>(function(){try{if(window.matchMedia("(prefers-color-scheme: dark)").matches)document.documentElement.classList.add("dark");}catch(e){}})();</script>
+</head>
+<body class="bg-slate-50 dark:bg-[#0B0F19] text-slate-900 dark:text-gray-200 antialiased">
+    <div id="ms-public-header"></div>
+
+    <main>
+    <section class="max-w-4xl mx-auto px-6 pt-16 pb-6 text-center">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 mb-5"><i class="fa-solid fa-graduation-cap text-2xl"></i></div>
+        <p class="text-sm font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mb-3">Complete How-To Guide</p>
+        <h1 class="text-4xl sm:text-5xl font-black tracking-tight leading-[1.1] mb-5 text-slate-900 dark:text-white">How to use <span class="gradient-text">every MarketSync feature</span></h1>
+        <p class="text-lg text-slate-600 dark:text-gray-400 max-w-2xl mx-auto"><strong>Part One</strong> follows the rollout top to bottom — set up, fill your lot, get leads, close deals, keep customers, then measure it all. <strong>Part Two</strong> is the complete capability index, grouped by department the way your dashboard is. Your navigation is simply the departments you're responsible for; each runs on its own engine underneath.</p>
+        <p class="text-xs text-slate-400 dark:text-gray-500 max-w-2xl mx-auto mt-4"><i class="fa-solid fa-image mr-1.5"></i>The screen illustrations below are simplified renders to show layout &amp; where to click — your live screens carry your real dealership data.</p>
+    </section>
+
+    <div class="max-w-7xl mx-auto px-6 pb-20 grid lg:grid-cols-[260px_minmax(0,1fr)] gap-10">
+      <!-- Sticky table of contents -->
+      <aside class="hidden lg:block">
+        <nav class="sticky top-28 space-y-0.5 text-sm max-h-[calc(100vh-8rem)] overflow-y-auto pr-2" aria-label="Guide contents">
+          <p class="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">On this page</p>
+
+          <p class="text-[11px] font-black uppercase tracking-widest text-indigo-500 mt-3 mb-1">Set up</p>
+          <a href="#getting-started" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">1. Getting started</a>
+          <a href="#extension" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">2. Chrome extension</a>
+
+          <p class="text-[11px] font-black uppercase tracking-widest text-violet-500 mt-3 mb-1">Build your lot</p>
+          <a href="#inventory-sync" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">3. Inventory sync</a>
+          <a href="#vin" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">4. VIN decode, stickers &amp; brochures</a>
+          <a href="#plate" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">5. Scan a plate → VIN</a>
+          <a href="#carfax" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">6. Carfax on every car</a>
+          <a href="#ai-copy" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">7. AI listing copy &amp; languages</a>
+          <a href="#photos" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">8. Photo overlays &amp; AI Vision</a>
+
+          <p class="text-[11px] font-black uppercase tracking-widest text-blue-500 mt-3 mb-1">Get found</p>
+          <a href="#posting" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">9. Post to Facebook Marketplace</a>
+          <a href="#syndication" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">10. Syndication feed</a>
+          <a href="#website" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">11. Your dealer website</a>
+
+          <p class="text-[11px] font-black uppercase tracking-widest text-emerald-500 mt-3 mb-1">Work leads &amp; customers</p>
+          <a href="#crm-hub" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">12. CRM: contacts, leads, tasks</a>
+          <a href="#crm" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">13. CRM lead delivery (ADF/XML)</a>
+          <a href="#calendar" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">14. Two-way calendar sync</a>
+          <a href="#autoresponder" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">15. Instant AI lead auto-responder</a>
+          <a href="#bulk" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">16. Natural-language bulk outreach</a>
+
+          <p class="text-[11px] font-black uppercase tracking-widest text-amber-500 mt-3 mb-1">Close the deal</p>
+          <a href="#appraisal" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">17. Trade-in appraisal</a>
+          <a href="#desk" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">18. Desk a deal &amp; tax</a>
+          <a href="#cost" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">19. Vehicle cost &amp; gross</a>
+          <a href="#esign" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">20. Send docs for e-signature</a>
+          <a href="#deposits" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">21. Collect a deposit</a>
+          <a href="#identity" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">22. Verify a customer&#39;s ID</a>
+
+          <p class="text-[11px] font-black uppercase tracking-widest text-teal-500 mt-3 mb-1">Service &amp; retention</p>
+          <a href="#service" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">23. Service department</a>
+          <a href="#equity" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">24. Equity mining</a>
+          <a href="#automation" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">25. Automation &amp; follow-ups</a>
+
+          <p class="text-[11px] font-black uppercase tracking-widest text-violet-500 mt-3 mb-1">Price &amp; grow</p>
+          <a href="#intelligence" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">26. Inventory Intelligence &amp; Turn Rate</a>
+          <a href="#market" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">27. Price &amp; market (MarketCheck)</a>
+          <a href="#marketing" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">28. Marketing ROI &amp; ad-spend import</a>
+
+          <p class="text-[11px] font-black uppercase tracking-widest text-rose-500 mt-3 mb-1">Measure</p>
+          <a href="#reports" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">29. Reports hub &amp; builder</a>
+          <a href="#dash-insights" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">30. Dashboard insights</a>
+          <a href="#leaderboard" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">31. Sales leaderboard</a>
+          <a href="#assistant" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">32. AI assistant &amp; AI brain</a>
+
+          <p class="text-[11px] font-black uppercase tracking-widest text-slate-500 mt-3 mb-1">Run the business</p>
+          <a href="#team" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">33. Teams, roles &amp; groups</a>
+          <a href="#security" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">34. Security &amp; activity log</a>
+          <a href="#language" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">35. Change your language</a>
+          <a href="#features" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">36. Turn features on/off</a>
+
+          <p class="text-[11px] font-black uppercase tracking-widest text-green-600 dark:text-green-500 mt-3 mb-1">Money &amp; books</p>
+          <a href="#commissions" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">37. Commissions &amp; pay plans</a>
+          <a href="#accounting" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">38. Accounting</a>
+
+          <p class="text-[11px] font-black uppercase tracking-widest text-slate-900 dark:text-white mt-3 mb-1">Part Two</p>
+          <a href="#everything" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">Everything, by department</a>
+        </nav>
+      </aside>
+
+      <div class="guide-body min-w-0 space-y-12">
+
+        <!-- ═══════ PHASE 1 ═══════ -->
+        <div id="phase-setup" class="guide-phase flex items-center gap-3 border-l-4 border-indigo-500 pl-4 py-1">
+          <div><p class="text-[11px] font-black uppercase tracking-widest text-indigo-500">Phase 1</p><h2 class="text-xl font-black text-slate-900 dark:text-white">Set up your store</h2></div>
+        </div>
+
+        <section>
+          <h3 id="getting-started" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-indigo-500">1.</span> Getting started</h3>
+          <p class="text-slate-600 dark:text-gray-300 mb-5">Create your account and get the whole team into the dashboard.</p>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Go to <a href="https://marketsync.link/register.html" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">Sign up free</a>, create your account, and tick the box to accept the Terms &amp; Privacy Policy. No credit card for the 30-day trial.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">The first account at a rooftop becomes the <strong>Owner / Dealer Admin</strong>. From <strong>Profile &amp; Settings</strong> you can invite salespeople and managers by email.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Each teammate signs in at <a href="https://marketsync.link/login.html" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">the login page</a> and lands on their own dashboard. The left menu is your navigation; the top bar stays fixed as you scroll.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>MarketSync · Dashboard</b></div>
+            <div class="mock-in mk-row" style="align-items:flex-start;gap:16px">
+              <div class="mk-nav">
+                <span class="on"><i class="fa-solid fa-chart-column"></i> Dashboard</span><span><i class="fa-solid fa-users"></i> CRM</span><span><i class="fa-solid fa-car"></i> Sales</span><span><i class="fa-solid fa-wrench"></i> Service</span><span><i class="fa-solid fa-brain"></i> Inventory Intelligence</span><span><i class="fa-solid fa-globe"></i> Website</span><span><i class="fa-solid fa-gear"></i> Automation</span><span><i class="fa-solid fa-money-bill-wave"></i> Accounting</span><span><i class="fa-solid fa-arrow-trend-up"></i> Reports</span>
+              </div>
+              <div style="flex:1;min-width:180px">
+                <div class="mk-h">Good morning</div>
+                <div class="mk-row" style="margin-bottom:10px">
+                  <div class="mk-tile"><div class="n g">12</div><div class="l">Units MTD</div></div>
+                  <div class="mk-tile"><div class="n">37</div><div class="l">New leads</div></div>
+                  <div class="mk-tile"><div class="n">68%</div><div class="l">&lt;5-min reply</div></div>
+                </div>
+                <div class="mk-card"><div class="mk-h"><i class="fa-solid fa-trophy"></i> Leaderboard</div><div class="mk-row" style="justify-content:space-between"><span class="mk-mut"><i class="fa-solid fa-medal"></i> Dana · 6 units</span><span class="mk-mut"><i class="fa-solid fa-medal"></i> Sam · 4</span><span class="mk-mut"><i class="fa-solid fa-medal"></i> Alex · 3</span></div></div>
+              </div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>The left menu is your whole navigation — colour-coded by area, collapsed by default. It's the map for this entire guide.</p>
+          <div class="mt-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40 px-4 py-3 text-sm text-indigo-800 dark:text-indigo-200"><i class="fa-solid fa-circle-info mr-2"></i>Roles matter: <strong>Owner</strong>, <strong>Dealer Admin</strong> and <strong>Manager</strong> see team-wide tools (leaderboard, appraisals, reports, settings). Salespeople see their own work.</div>
+        </section>
+
+        <section>
+          <h3 id="extension" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-blue-500">2.</span> Install the Chrome extension</h3>
+          <p class="text-slate-600 dark:text-gray-300 mb-5">The extension is what fills out Facebook Marketplace for you. Install it once per computer.</p>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">In the dashboard top bar, click <strong>Install extension</strong> to open the Chrome Web Store listing, then click <em>Add to Chrome</em>.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Pin the MarketSync icon to your toolbar so it's always one click away.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Click the icon and log in with the same email/password. The popup now shows your live vehicle queue with a <strong>Post</strong> button and a safe-to-post indicator on each car.</span></li>
+          </ol>
+          <div class="mock" style="max-width:360px">
+            <div class="mock-bar"><i></i><i></i><i></i><b>MarketSync extension</b></div>
+            <div class="mock-in mk-col">
+              <div class="mk-card"><div class="mk-row" style="justify-content:space-between"><div class="mk-row"><div class="mk-thumb"></div><div><div style="font-weight:700;font-size:12px">2021 F-150 XLT</div><span class="mk-mut">$42,995</span></div></div><span class="mk-btn p">Post</span></div><div style="margin-top:6px"><span class="mk-pill green"><i class="fa-solid fa-check"></i> Safe to post</span></div></div>
+              <div class="mk-card"><div class="mk-row" style="justify-content:space-between"><div class="mk-row"><div class="mk-thumb"></div><div><div style="font-weight:700;font-size:12px">2020 Civic LX</div><span class="mk-mut">$24,500</span></div></div><span class="mk-btn gray">Post</span></div><div style="margin-top:6px"><span class="mk-pill amber">Rest 12 min</span></div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>The popup lists your live queue — one <strong>Post</strong> per car, with a safe-to-post indicator that paces you so Facebook stays happy.</p>
+          <div class="mt-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200"><i class="fa-solid fa-shield-halved mr-2"></i>MarketSync is not a Facebook API. It works through the real Marketplace page in your own browser, so you always stay in control and click <strong>Post</strong> yourself.</div>
+        </section>
+
+        <!-- ═══════ PHASE 2 ═══════ -->
+        <div class="guide-phase flex items-center gap-3 border-l-4 border-violet-500 pl-4 py-1 pt-4">
+          <div><p class="text-[11px] font-black uppercase tracking-widest text-violet-500">Phase 2</p><h2 class="text-xl font-black text-slate-900 dark:text-white">Build your inventory</h2></div>
+        </div>
+
+        <section>
+          <h3 id="inventory-sync" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-violet-500">3.</span> Sync your inventory automatically</h3>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">In <strong>Settings → Inventory</strong>, add your dealership website or inventory feed URL. You can also import a CSV, or add/edit a car by hand on the <strong>Inventory</strong> page.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">MarketSync pulls in every vehicle — photos, specs, price and description — and keeps it current.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">When a car sells or the price changes on your site, the queue updates so you never post a stale unit. Export the whole book to CSV anytime.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Inventory</b></div>
+            <div class="mock-in">
+              <div class="mk-row" style="justify-content:space-between;margin-bottom:10px"><span class="mk-mut">142 vehicles · avg $31,400</span><div class="mk-row"><span class="mk-btn gray">Import CSV</span><span class="mk-btn gray">Export</span><span class="mk-btn p">＋ Add vehicle</span></div></div>
+              <div class="mk-row">
+                <div class="mk-card" style="flex:1;min-width:130px"><div class="mk-thumb" style="width:100%;height:54px"></div><div style="font-weight:700;font-size:12px;margin-top:6px">2022 RAV4 XLE</div><div class="mk-row" style="margin-top:3px"><span class="mk-mut">$36,900</span><span class="mk-pill green"><i class="fa-solid fa-fire"></i> Hot</span></div></div>
+                <div class="mk-card" style="flex:1;min-width:130px"><div class="mk-thumb" style="width:100%;height:54px"></div><div style="font-weight:700;font-size:12px;margin-top:6px">2019 Cruze LT</div><div class="mk-row" style="margin-top:3px"><span class="mk-mut">$16,200</span><span class="mk-pill amber">92 days</span></div></div>
+                <div class="mk-card" style="flex:1;min-width:130px"><div class="mk-thumb" style="width:100%;height:54px"></div><div style="font-weight:700;font-size:12px;margin-top:6px">2023 CX-5 GT</div><div class="mk-row" style="margin-top:3px"><span class="mk-mut">$38,900</span><span class="mk-pill green"><i class="fa-solid fa-check"></i> Posted</span></div></div>
+              </div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>One synced book — feed, CSV or by hand. Hot/aging tags and a Post status show on every card once Inventory Intelligence is on.</p>
+        </section>
+
+        <section>
+          <h3 id="vin" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-violet-500">4.</span> Decode a VIN, window stickers &amp; brochures</h3>
+          <p class="text-slate-600 dark:text-gray-300 mb-5"><span class="inline-block text-[11px] font-bold uppercase tracking-wider bg-emerald-600/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full mb-2">Inventory Intelligence</span></p>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Open a vehicle and click <strong>Decode VIN</strong> for a rich breakdown — trim, engine, drivetrain, factory options and more (50+ fields).</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Generate the <strong>factory window sticker</strong> to see original MSRP and equipment.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Produce a <strong>branded dealer brochure</strong> <span class="text-[11px] font-bold uppercase tracking-wider bg-violet-600/10 text-violet-600 dark:text-violet-400 px-2 py-0.5 rounded-full">AI Boost</span> to hand to shoppers or print for the lot.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Decode VIN</b></div>
+            <div class="mock-in">
+              <div class="mk-row" style="margin-bottom:8px"><span class="mk-card" style="flex:1;font-family:monospace;font-size:12px;padding:7px 12px">1FTFW1E5XMKD12345</span><span class="mk-btn p">Decode</span></div>
+              <div class="mk-row"><span class="mk-pill">Trim · XLT</span><span class="mk-pill">5.0L V8</span><span class="mk-pill">4×4</span><span class="mk-pill">MSRP $54,120</span><span class="mk-pill rose">1 recall</span></div>
+              <div class="mk-row" style="margin-top:10px"><span class="mk-btn gray"><i class="fa-solid fa-window-maximize"></i> Window sticker</span><span class="mk-btn gray"><i class="fa-solid fa-book"></i> Brochure</span><span class="mk-btn gray"><i class="fa-solid fa-receipt"></i> Carfax</span></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>One VIN unlocks 50+ fields plus factory docs — and any open recalls surface right away.</p>
+        </section>
+
+        <section>
+          <h3 id="plate" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-violet-500">5.</span> Scan a licence plate → VIN <span class="text-sm font-bold text-emerald-500">New</span></h3>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">On your phone, open the appraisal or VIN tools and use <strong>Scan</strong> — point the camera at a licence plate or VIN barcode.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">A plate lookup returns the VIN, then MarketSync decodes the full build automatically — no typing 17 characters in the lane.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Works on modern mobile browsers (Chrome and Safari/WebKit), with a barcode-scanner fallback if the camera API isn't available.</span></li>
+          </ol>
+          <div class="mock" style="max-width:300px">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Scan (mobile)</b></div>
+            <div class="mock-in" style="text-align:center">
+              <div style="border:2px dashed #94a3b8;border-radius:10px;padding:22px;font-size:12px;color:#94a3b8"><i class="fa-solid fa-camera"></i> Point at plate / VIN barcode</div>
+              <div class="mk-row" style="justify-content:center;margin-top:8px"><span class="mk-pill green">VIN found → decoding…</span></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Snap a plate in the lane; the VIN and full build fill in — no typing 17 characters.</p>
+        </section>
+
+        <section>
+          <h3 id="carfax" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-violet-500">6.</span> Pull a Carfax on every car</h3>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">On the <strong>Inventory</strong> page, every car card has a branded <strong>Carfax</strong> button beside the brochure button.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Click it to open that vehicle's Carfax report directly — no hunting, no extra tabs.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Share it with a shopper on the spot to build trust and speed up the deal.</span></li>
+          </ol>
+          <div class="mock" style="max-width:400px">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Inventory card</b></div>
+            <div class="mock-in mk-row"><div class="mk-thumb"></div><div style="flex:1"><div style="font-weight:700;font-size:12px">2021 F-150 XLT</div><div class="mk-row" style="margin-top:4px"><span class="mk-btn gray"><i class="fa-solid fa-receipt"></i> Carfax</span><span class="mk-btn gray"><i class="fa-solid fa-book"></i> Brochure</span></div></div></div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>A branded Carfax button on every card — one click opens that vehicle's report.</p>
+        </section>
+
+        <section>
+          <h3 id="ai-copy" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-violet-500">7.</span> Generate AI listing copy — in any language</h3>
+          <p class="text-slate-600 dark:text-gray-300 mb-5"><span class="inline-block text-[11px] font-bold uppercase tracking-wider bg-violet-600/10 text-violet-600 dark:text-violet-400 px-2 py-0.5 rounded-full mb-2">AI Boost</span></p>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">On any vehicle, generate the AI description with one click — MarketSync writes a persuasive, Marketplace-ready listing from the car's specs. Pick SEO, short, long or "freshen" styles.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Prefer another language? Use the <strong>language selector</strong> in the extension to generate copy in French, Spanish or any of 14+ languages.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Your chosen language is remembered per rep, so every future listing comes out in it automatically.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>AI listing copy</b></div>
+            <div class="mock-in">
+              <div class="mk-row" style="margin-bottom:10px"><span class="mk-btn p"><i class="fa-solid fa-wand-magic-sparkles"></i> Boost</span><span class="mk-btn">Rewrite fresh</span><span class="mk-btn">Shorter</span><span class="mk-btn">Longer</span><span class="mk-btn">SEO</span><span class="mk-btn gray"><i class="fa-solid fa-globe"></i> Français</span></div>
+              <div class="mk-card"><div class="mk-line" style="width:92%"></div><div class="mk-line" style="width:100%;margin-top:7px"></div><div class="mk-line" style="width:74%;margin-top:7px"></div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>The same <i class="fa-solid fa-wand-magic-sparkles"></i> menu appears on every text field across the app — listings, website copy, page titles — in 14+ languages.</p>
+        </section>
+
+        <section>
+          <h3 id="photos" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-violet-500">8.</span> Photo overlays &amp; AI Vision scoring</h3>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Turn on <strong>photo overlays</strong> in settings to stamp your phone number or dealer logo onto listing photos automatically.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">With <strong>AI Vision</strong> <span class="text-[11px] font-bold uppercase tracking-wider bg-violet-600/10 text-violet-600 dark:text-violet-400 px-2 py-0.5 rounded-full">AI Boost</span>, MarketSync scores every photo for quality and coverage — exterior, interior, dash and engine all shown?</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">It picks the strongest <strong>hero image</strong> so your best shot leads the listing.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>AI Vision · Photo quality</b></div>
+            <div class="mock-in">
+              <div class="mk-row">
+                <div class="mk-card" style="text-align:center"><div class="mk-thumb" style="width:80px;height:56px"></div><div class="mk-pill green" style="margin-top:5px">Hero · 94</div></div>
+                <div class="mk-card" style="text-align:center"><div class="mk-thumb" style="width:80px;height:56px"></div><div class="mk-pill" style="margin-top:5px">82</div></div>
+                <div class="mk-card" style="text-align:center"><div class="mk-thumb" style="width:80px;height:56px"></div><div class="mk-pill amber" style="margin-top:5px">Dark · 41</div></div>
+              </div>
+              <div class="mk-card" style="margin-top:8px"><span class="mk-mut">Coverage: exterior <i class="fa-solid fa-check"></i> · interior <i class="fa-solid fa-check"></i> · dash <i class="fa-solid fa-check"></i> · <span style="color:#b45309">engine missing</span></span></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Every photo scored 0–100, gaps flagged, and the best shot auto-picked as the cover.</p>
+        </section>
+
+        <!-- ═══════ PHASE 3 ═══════ -->
+        <div class="guide-phase flex items-center gap-3 border-l-4 border-blue-500 pl-4 py-1 pt-4">
+          <div><p class="text-[11px] font-black uppercase tracking-widest text-blue-500">Phase 3</p><h2 class="text-xl font-black text-slate-900 dark:text-white">Post &amp; get found</h2></div>
+        </div>
+
+        <section>
+          <h3 id="posting" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-blue-500">9.</span> Post a vehicle to Facebook Marketplace</h3>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">In the dashboard, click <strong>Post to Facebook</strong> in the top bar (or open the extension popup). Pick the vehicle you want to list.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">On Facebook, go to <strong>Marketplace → Create new listing → Vehicle</strong>, then click <strong>Post</strong> in the popup.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">The extension fills every field — year, make, model, mileage, price, description and photos — from your inventory.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">4</span><span class="flex-1">Review, then click Facebook's <strong>Publish</strong>. Done in seconds instead of minutes.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Facebook · Create listing → Vehicle</b></div>
+            <div class="mock-in mk-row" style="align-items:flex-start;gap:14px">
+              <div class="mk-col" style="flex:1;min-width:160px">
+                <div class="mk-card"><span class="mk-mut">Year / Make / Model</span><div class="mk-line" style="margin-top:5px;width:80%"></div></div>
+                <div class="mk-card"><span class="mk-mut">Price · Mileage · Description</span><div class="mk-line" style="margin-top:5px"></div><div class="mk-line" style="margin-top:5px;width:60%"></div></div>
+              </div>
+              <div class="mk-col" style="flex:0 0 150px">
+                <div class="mk-card" style="text-align:center;background:#eff6ff;border-color:#bfdbfe"><div style="font-size:11px;font-weight:700;color:#1d4ed8">MarketSync</div><span class="mk-pill green" style="margin-top:4px"><i class="fa-solid fa-check"></i> Safe to post</span><div style="margin-top:8px"><span class="mk-btn p">Post <i class="fa-solid fa-arrow-right-long"></i> fills the form</span></div></div>
+              </div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>You click <strong>Post</strong>; the extension fills every field on the real Facebook form. You review and hit Facebook's Publish — always in control.</p>
+          <div class="mt-4 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 px-4 py-3 text-sm text-blue-800 dark:text-blue-200"><i class="fa-solid fa-gauge-high mr-2"></i><strong>Posting-safety guardrails:</strong> MarketSync spaces out posts and enforces a sensible daily cap so your Facebook account stays healthy. Safe-to-post cars are marked green.</div>
+        </section>
+
+        <section>
+          <h3 id="syndication" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-teal-500">10.</span> Syndication feed — AutoTrader, Kijiji, Google</h3>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-teal-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Open <strong>Settings → Integrations</strong> and find the <strong>Inventory feed</strong> card — one live CSV / XML / Google link that always holds your in-stock vehicles.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-teal-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Paste the link into AutoTrader, Trader.ca, Kijiji Autos, CarGurus or Google Merchant Center <em>once</em> — step-by-step guides are built in for each.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-teal-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">From then on they pull straight from MarketSync — every new car, price change and sold unit updates automatically. No re-listing.</span></li>
+          </ol>
+          <div class="mock" style="max-width:440px">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Settings · Inventory feed</b></div>
+            <div class="mock-in">
+              <div class="mk-row" style="margin-bottom:8px"><span class="mk-card" style="flex:1;font-family:monospace;font-size:11px;padding:7px 10px">marketsync.link/feed/your-store.xml</span><span class="mk-btn gray">Copy</span></div>
+              <div class="mk-row"><span class="mk-pill">AutoTrader</span><span class="mk-pill">Kijiji Autos</span><span class="mk-pill">CarGurus</span><span class="mk-pill">Google</span></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Paste one link into each site once — they pull live from MarketSync forever after.</p>
+        </section>
+
+        <section>
+          <h3 id="website" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-sky-500">11.</span> Build your dealer website</h3>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-sky-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Open <strong>Website</strong> in the menu. Use the drag-and-drop builder to arrange sections, set per-page brand colours, and pick your public address.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-sky-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Your synced inventory, Google reviews and an AI sales chat can all appear on the site. Hit <strong>Publish</strong> and it's live.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-sky-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Website enquiries and chatbot conversations become CRM leads automatically (see the auto-responder, below).</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Website builder</b></div>
+            <div class="mock-in mk-row" style="align-items:flex-start;gap:14px">
+              <div class="mk-col" style="flex:0 0 140px">
+                <div class="mk-h">Add a block</div>
+                <div class="mk-nav" style="min-width:0"><span class="on">Hero</span><span>Featured inventory</span><span>Specials ad</span><span>Reviews</span><span>Payment calc</span><span>Map + Contact</span></div>
+              </div>
+              <div class="mk-col" style="flex:1;min-width:160px">
+                <div class="mk-h">Live preview</div>
+                <div class="mk-card" style="text-align:center;background:linear-gradient(135deg,#e0e7ff,#c7d2fe);border:0;padding:18px"><div style="font-weight:800;color:#3730a3">Quality vehicles, priced to move</div><span class="mk-btn p" style="margin-top:6px">Get pre-approved</span></div>
+                <div class="mk-row"><div class="mk-card" style="flex:1"><div class="mk-thumb" style="width:100%;height:40px"></div></div><div class="mk-card" style="flex:1"><div class="mk-thumb" style="width:100%;height:40px"></div></div><div class="mk-card" style="flex:1"><div class="mk-thumb" style="width:100%;height:40px"></div></div></div>
+                <div class="mk-row" style="justify-content:flex-end"><span class="mk-btn gray">Address</span><span class="mk-btn p">Publish</span></div>
+              </div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Stack blocks, drag to reorder, edit with the <i class="fa-solid fa-wand-magic-sparkles"></i> AI writer, then Publish — your synced inventory and reviews appear automatically.</p>
+        </section>
+
+        <!-- ═══════ PHASE 4 ═══════ -->
+        <div class="guide-phase flex items-center gap-3 border-l-4 border-emerald-500 pl-4 py-1 pt-4">
+          <div><p class="text-[11px] font-black uppercase tracking-widest text-emerald-500">Phase 4</p><h2 class="text-xl font-black text-slate-900 dark:text-white">Work leads &amp; customers</h2></div>
+        </div>
+
+        <section>
+          <h3 id="crm-hub" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-emerald-500">12.</span> CRM: contacts, leads, tasks &amp; calendar</h3>
+          <p class="text-slate-600 dark:text-gray-300 mb-5">The <strong>CRM</strong> menu (green) opens the page; the arrow beside it expands its sub-items. Every lead, appraisal, sale and service visit lands on one customer record.</p>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1"><strong>Search Customers</strong> spans the whole store; <strong>My Customer Database</strong> is the rep's own book. A tag shows whether each contact is a <strong>sales</strong> and/or <strong>service</strong> customer.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1"><strong>Leads</strong> show the <strong>assigned salesperson</strong> and a <strong>hot-lead score</strong> so the list sorts by who to call first.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1"><strong>Appointments</strong> is a month calendar; book one from a customer's record and it shows here. <strong>Tasks</strong> is your follow-up queue — automation drops tasks here so nothing slips.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">4</span><span class="flex-1">On the activity timeline, tap <strong><i class="fa-solid fa-reply"></i> Reply</strong> on an inbound message to answer by email (sends) or log a text/call reply.</span></li>
+          </ol>
+          <p class="text-slate-600 dark:text-gray-300 mt-5 mb-2 font-semibold">The pipeline: every customer sits on one of these stages, and you nudge them right.</p>
+          <div class="mock"><div class="mock-in mk-row" style="gap:5px">
+            <div class="mk-stage on">Uncontacted</div><div class="mk-stage">Contacted</div><div class="mk-stage">Appointment</div><div class="mk-stage">Sold</div><div class="mk-stage">F&amp;I</div><div class="mk-stage done">Delivered</div>
+          </div></div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Sold and Delivered are set automatically when you finish the deal on the Sales side (§18) — the CRM stage always stays in sync.</p>
+          <p class="text-slate-600 dark:text-gray-300 mt-4 mb-2 font-semibold">One customer card holds the whole history:</p>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Customer · Jordan Lee</b></div>
+            <div class="mock-in">
+              <div class="mk-row" style="justify-content:space-between;margin-bottom:10px">
+                <div class="mk-row"><div class="mk-av">JL</div><div><div class="mk-h" style="margin:0">Jordan Lee</div><span class="mk-mut">jordan@email.com · (555) 200-1180</span></div></div>
+                <div class="mk-row"><span class="mk-pill amber">Appointment</span><span class="mk-pill indigo">Sales</span></div>
+              </div>
+              <div class="mk-row" style="margin-bottom:10px"><span class="mk-btn p"><i class="fa-solid fa-envelope"></i> Email</span><span class="mk-btn"><i class="fa-solid fa-phone"></i> Call</span><span class="mk-btn"><i class="fa-solid fa-comment"></i> Text</span><span class="mk-btn">＋ Task</span><span class="mk-btn"><i class="fa-solid fa-calendar-days"></i> Book appt</span><span class="mk-btn o"><i class="fa-solid fa-desktop"></i> Desk a deal</span></div>
+              <div class="mk-card" style="margin-bottom:8px"><div class="mk-h">Facts</div><div class="mk-mut">Trade: 2019 RAV4 · 78,000 km &nbsp;·&nbsp; Wants: 2023 CX-5 &nbsp;·&nbsp; Source: Facebook</div></div>
+              <div class="mk-card"><div class="mk-h">Activity timeline</div>
+                <div class="mk-mut"><i class="fa-solid fa-robot"></i> Website AI chat — 6 messages &nbsp;·&nbsp; today</div>
+                <div class="mk-mut"><i class="fa-solid fa-phone"></i> Called — left voicemail &nbsp;·&nbsp; 2h ago</div>
+                <div class="mk-mut"><i class="fa-solid fa-circle-check"></i> Task: follow up on financing &nbsp;·&nbsp; due tomorrow</div>
+              </div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Managers see a purple <strong>Desk a deal</strong> button here; the timeline even keeps full transcripts of any website/Facebook AI chat.</p>
+        </section>
+
+        <section>
+          <h3 id="crm" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-emerald-500">13.</span> Send leads to your CRM (ADF/XML)</h3>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">In <strong>Settings → CRM</strong>, add your CRM's lead email or endpoint.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">New Marketplace and website leads are delivered as standard <strong>ADF/XML</strong>, so they drop straight into your existing workflow.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Keep working leads in MarketSync, your CRM, or both — they stay in sync.</span></li>
+          </ol>
+          <div class="mock" style="max-width:440px">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Settings · CRM / DMS connection</b></div>
+            <div class="mock-in">
+              <div class="mk-row" style="margin-bottom:6px"><span class="mk-card" style="flex:1;font-family:monospace;font-size:11px;padding:7px 10px">leads@yourcrm-intake.com</span><span class="mk-btn p">Save</span></div>
+              <span class="mk-mut">New leads forwarded as ADF/XML → VinSolutions · DealerSocket · Elead · PBS</span>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Every captured lead also lands in your existing CRM automatically — nothing breaks.</p>
+        </section>
+
+        <section>
+          <h3 id="calendar" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-sky-500">14.</span> Two-way calendar sync <span class="text-sm font-bold text-emerald-500">New</span></h3>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-sky-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">In <strong>Settings → Integrations → Calendar sync</strong>, click <strong>Connect</strong> for Google Calendar or Outlook.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-sky-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Every appointment you book in MarketSync appears on the rep's calendar instantly; events they create on that calendar flow back in as appointments.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-sky-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Inbound events also sync every 30 minutes in the background, or hit <strong>Sync now</strong> anytime.</span></li>
+          </ol>
+          <div class="mock" style="max-width:400px">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Settings · Calendar sync</b></div>
+            <div class="mock-in mk-col">
+              <div class="mk-card"><div class="mk-row" style="justify-content:space-between"><span><i class="fa-solid fa-calendar-days"></i> Google Calendar</span><span class="mk-pill green">Connected</span></div></div>
+              <div class="mk-card"><div class="mk-row" style="justify-content:space-between"><span><i class="fa-solid fa-calendar-days"></i> Outlook</span><span class="mk-btn gray">Connect</span></div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Appointments booked here land on the rep's real calendar — and events created there flow back in.</p>
+        </section>
+
+        <section>
+          <h3 id="autoresponder" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-emerald-500">15.</span> Instant AI lead auto-responder <span class="text-sm font-bold text-emerald-500">New</span></h3>
+          <p class="text-slate-600 dark:text-gray-300 mb-5"><span class="inline-block text-[11px] font-bold uppercase tracking-wider bg-violet-600/10 text-violet-600 dark:text-violet-400 px-2 py-0.5 rounded-full mb-2">AI Boost</span></p>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">In <strong>Settings → AI</strong>, set the auto-responder to <strong>Off</strong>, <strong>Draft</strong> (writes a reply for the rep to send) or <strong>Auto</strong> (sends instantly), by email or SMS.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">When a website lead comes in, MarketSync answers in seconds with a friendly, on-brand reply — consent and budget rules are always enforced.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Speed-to-lead is tracked in the Leads report so you can see how fast leads get answered.</span></li>
+          </ol>
+          <div class="mock" style="max-width:400px">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Settings · AI auto-responder</b></div>
+            <div class="mock-in">
+              <div class="mk-row" style="margin-bottom:8px"><span class="mk-mut">Mode</span><span class="mk-btn gray">Off</span><span class="mk-btn">Draft</span><span class="mk-btn p">Auto</span></div>
+              <div class="mk-row"><span class="mk-mut">Channel</span><span class="mk-btn p">Email</span><span class="mk-btn gray">SMS</span></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Nervous about robots? Start on <strong>Draft</strong> — the AI writes it, a rep sends it. Flip to <strong>Auto</strong> once you trust it.</p>
+        </section>
+
+        <section>
+          <h3 id="bulk" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-emerald-500">16.</span> Natural-language bulk outreach <span class="text-sm font-bold text-emerald-500">New</span></h3>
+          <p class="text-slate-600 dark:text-gray-300 mb-5"><span class="inline-block text-[11px] font-bold uppercase tracking-wider bg-violet-600/10 text-violet-600 dark:text-violet-400 px-2 py-0.5 rounded-full mb-2">AI Boost</span></p>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Tell the assistant something like <em>"text everyone who looked at a truck in the last 30 days about our weekend sale."</em></span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">MarketSync turns that into a filtered list and a draft message, then shows you a preview to approve before anything sends.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Consent and opt-outs are enforced automatically, and sends are capped so you stay compliant.</span></li>
+          </ol>
+          <div class="mock" style="max-width:420px">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Bulk outreach</b></div>
+            <div class="mock-in mk-col">
+              <div class="mk-card" style="align-self:flex-end;background:#4f46e5;color:#fff;border-color:#4f46e5;max-width:88%">Text everyone who looked at a truck in the last 30 days about our weekend sale</div>
+              <div class="mk-card"><span class="mk-mut">Found 41 contacts · draft ready · <span style="color:#047857">consent checked</span></span><div class="mk-row" style="margin-top:6px"><span class="mk-btn gray">Preview</span><span class="mk-btn p">Send to 41</span></div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Plain-English request → filtered list + draft → you approve before anything sends.</p>
+        </section>
+
+        <!-- ═══════ PHASE 5 ═══════ -->
+        <div class="guide-phase flex items-center gap-3 border-l-4 border-amber-500 pl-4 py-1 pt-4">
+          <div><p class="text-[11px] font-black uppercase tracking-widest text-amber-500">Phase 5</p><h2 class="text-xl font-black text-slate-900 dark:text-white">Close the deal</h2></div>
+        </div>
+
+        <section>
+          <h3 id="appraisal" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-amber-500">17.</span> Appraise a trade-in (with disclosure &amp; summary PDFs)</h3>
+          <p class="text-slate-600 dark:text-gray-300 mb-5">The Trade Appraisal page turns a walk-around into a signed, branded paper trail. Use the <strong>Appraise a vehicle</strong> button beside <em>Desk a deal</em>, or <strong>Appraisals</strong> in the menu.</p>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Enter or scan the VIN — MarketSync decodes it to pre-fill year, make, model and full build.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Fill the <strong>Customer Information</strong> form and the <strong>disclosure</strong> — every condition question is on there.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Click <strong>Notify Appraiser</strong> to ping a manager for a number. The internal value range stays with the rep — nothing customer-facing shows the number.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">4</span><span class="flex-1">Save as PDF: a <strong>branded disclosure</strong> with signature areas, plus a <strong>Customer Summary Sheet</strong>. OEM brochure and window-sticker buttons sit right at the top.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Trade appraisal</b></div>
+            <div class="mock-in">
+              <div class="mk-row" style="justify-content:space-between;margin-bottom:8px"><span class="mk-mut">2019 RAV4 XLE · 78,000 km</span><span class="mk-btn gray">Notify appraiser</span></div>
+              <div class="mk-card" style="background:#eef2ff;border-color:#c7d2fe"><div class="mk-h" style="color:#4338ca">Internal value — rep only</div><div style="font-size:20px;font-weight:800;color:#4338ca">$17,500 – $19,000</div><span class="mk-mut">Never shown to the customer or on your site</span></div>
+              <div class="mk-row" style="margin-top:8px"><span class="mk-btn gray"><i class="fa-solid fa-file-lines"></i> Disclosure PDF</span><span class="mk-btn gray"><i class="fa-solid fa-receipt"></i> Summary sheet</span></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>The value range and notes stay internal; the customer only gets the offer you decide to make.</p>
+          <div class="mt-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200"><i class="fa-solid fa-user-lock mr-2"></i>Control appraisal visibility <strong>per rep</strong> in Settings. Won/acquired cars can flow to your website inventory on possession.</div>
+        </section>
+
+        <section>
+          <h3 id="desk" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-amber-500">18.</span> Desk a deal — estimate, bill of sale &amp; tax</h3>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Click <strong>Desk a deal</strong> in the top bar, or open it from any sold/delivered customer record. Search the customer and structure the deal.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Tax is auto-filled from the jurisdiction — Canadian HST/GST/PST or a US state base rate, with room to add <strong>local/county</strong> rates.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Print a clean <strong>estimate</strong> or a full <strong>bill of sale</strong>, add F&amp;I products, fees and commissions, and set delivery details.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">4</span><span class="flex-1">Saved values flow straight into the sold-deals report and its CSV export.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Desk a deal · Jordan Lee</b></div>
+            <div class="mock-in mk-row" style="align-items:flex-start;gap:14px">
+              <div class="mk-col" style="flex:1;min-width:180px">
+                <div class="mk-card"><div class="mk-h">Vehicle</div><div class="mk-mut">2023 Mazda CX-5 GT · $38,900</div></div>
+                <div class="mk-card"><div class="mk-h">Trade-in <span class="mk-pill">tax on difference <i class="fa-solid fa-check"></i></span></div><div class="mk-mut">2019 RAV4 · allowance $18,500</div></div>
+                <div class="mk-card"><div class="mk-h">Fees · Add-ons · F&amp;I</div><div class="mk-mut">Licensing, dealer fee · warranty, GAP</div></div>
+              </div>
+              <div class="mk-col" style="flex:0 0 180px">
+                <div class="mk-card" style="text-align:center;background:#4f46e5;color:#fff;border-color:#4f46e5"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;opacity:.85">Est. payment</div><div style="font-size:24px;font-weight:800">$412<span style="font-size:12px">/mo</span></div><div style="font-size:10px;opacity:.8">7.99% · 60 mo · OAC</div></div>
+                <div class="mk-row"><span class="mk-btn gray"><i class="fa-solid fa-print"></i> Estimate</span><span class="mk-btn gray"><i class="fa-solid fa-file-lines"></i> Bill of sale</span></div>
+                <span class="mk-btn g" style="text-align:center"><i class="fa-solid fa-signature"></i> Send for e-signature</span>
+              </div>
+            </div>
+            <div style="padding:0 14px 14px">
+              <div class="mk-h" style="margin-bottom:6px">Deal status — one button updates everything</div>
+              <div class="mk-row" style="gap:5px"><div class="mk-stage on">Working</div><div class="mk-stage">Pending credit</div><div class="mk-stage">Sold</div><div class="mk-stage done">Delivered <i class="fa-solid fa-check"></i></div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Marking <strong>Sold</strong> moves the customer to your Sold list and updates the car; marking <strong>Delivered</strong> posts the income to Accounting and pays the rep's commission — automatically.</p>
+        </section>
+
+        <section>
+          <h3 id="cost" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-amber-500">19.</span> Vehicle cost &amp; real gross <span class="text-sm font-bold text-emerald-500">New</span></h3>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">In <strong>Settings → AI/Dealer Management</strong>, switch on <strong>cost tracking</strong> and choose whether sales reps can see cost, or only managers.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">A cost field appears on the desk (internal only). Front gross then shows on the deal, the Executive ROI dashboard and the Sales report.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Cost is <strong>never</strong> shown to the customer — not on the estimate, bill of sale or any email.</span></li>
+          </ol>
+          <div class="mock" style="max-width:400px">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Desk · internal only</b></div>
+            <div class="mock-in mk-row" style="justify-content:space-between">
+              <div class="mk-tile"><div class="n">$34,100</div><div class="l">Cost</div></div>
+              <div class="mk-tile"><div class="n">$38,900</div><div class="l">Selling</div></div>
+              <div class="mk-tile"><div class="n g">$4,800</div><div class="l">Front gross</div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Cost &amp; gross show on the desk, Executive dashboard and Sales report — internal eyes only.</p>
+        </section>
+
+        <section>
+          <h3 id="esign" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-emerald-500">20.</span> Send documents for e-signature <span class="text-sm font-bold text-emerald-500">New</span></h3>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">On the deal desk, click <strong>Send for e-signature</strong>. It sends the exact bill of sale / estimate you generated — no DocuSign needed.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">The customer opens a secure link, reviews the document, draws and types their signature, and agrees to an e-sign consent — on phone or desktop.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">You get the signed copy with a <strong>signature certificate</strong> (time, IP, device). Track sent / viewed / signed from <strong>View signature status</strong> on the desk.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">4</span><span class="flex-1">Managers can see <strong>every</strong> signing request across the store in one place: <strong>F&amp;I → E-signatures</strong> shows the whole pipeline with awaiting / signed / declined counts and a jump straight to each deal.</span></li>
+          </ol>
+          <div class="mock" style="max-width:380px">
+            <div class="mock-bar"><i></i><i></i><i></i><b>E-signature status</b></div>
+            <div class="mock-in mk-col">
+              <div class="mk-card"><div class="mk-row" style="justify-content:space-between"><span>Bill of sale · Jordan Lee</span><span class="mk-pill green">Signed</span></div><span class="mk-mut"><i class="fa-solid fa-signature"></i> signed on iPhone · cert: time · IP · device</span></div>
+              <div class="mk-card"><div class="mk-row" style="justify-content:space-between"><span>Estimate · Priya S.</span><span class="mk-pill amber">Viewed</span></div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Send the exact document you generated; the signed copy returns with a certificate — no third-party e-sign account.</p>
+        </section>
+
+        <section>
+          <h3 id="deposits" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-amber-500">21.</span> Collect a deposit (Stripe, Square &amp; bank transfer) <span class="text-sm font-bold text-emerald-500">New</span></h3>
+          <p class="text-slate-600 dark:text-gray-300 mb-5">Take a real, refundable deposit that lands straight in <strong>your own</strong> payout account &mdash; on your website and right inside a deal. MarketSync never holds the money.</p>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">In <strong>Settings &rarr; Integrations &rarr; Payments</strong>, connect <strong>Online Deposits (Stripe)</strong> or <strong>Deposits (Square)</strong> &mdash; whichever you run your store on. Finish the provider&rsquo;s secure onboarding, then set your default deposit amount.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">On any deal, click <strong>Collect deposit</strong> &mdash; set the amount (or use your default) and you get a secure link to copy, text, or open to take payment. Once paid, the customer record auto-stamps &ldquo;deposit paid&rdquo; with a &ldquo;Deposit&rdquo; tag.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Shoppers can also pay a &ldquo;Reserve this vehicle&rdquo; deposit from your public site &mdash; it drops a lead + contact in the CRM instantly.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">4</span><span class="flex-1"><strong>Lower fees, optional:</strong> tick <strong>Also accept bank transfer</strong> on the Stripe deposits card to offer pre-authorized debit (Canada) or ACH (US) alongside card. Enable the method in your Stripe dashboard first; card is always offered as a fallback.</span></li>
+          </ol>
+          <div class="mock" style="max-width:380px">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Collect deposit</b></div>
+            <div class="mock-in">
+              <div class="mk-row" style="justify-content:space-between;margin-bottom:8px"><span class="mk-mut">Reserve 2023 CX-5 GT</span><b>$500</b></div>
+              <div class="mk-row"><span class="mk-btn p"><i class="fa-solid fa-credit-card"></i> Card</span><span class="mk-btn gray"><i class="fa-solid fa-building-columns"></i> Bank transfer</span></div>
+              <div class="mk-card" style="margin-top:8px"><span class="mk-mut">Secure link → paid straight into your own Stripe / Square. Customer tagged &ldquo;Deposit paid&rdquo;.</span></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Take a refundable deposit on the deal or from your website — MarketSync never holds the money.</p>
+        </section>
+
+        <section>
+          <h3 id="identity" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-amber-500">22.</span> Verify a customer&#39;s identity (ID + selfie) <span class="text-sm font-bold text-emerald-500">New</span></h3>
+          <p class="text-slate-600 dark:text-gray-300 mb-5">Confirm a buyer is who they say they are with a real government-ID + selfie/liveness check. The ID images stay with the verification provider &mdash; MarketSync only records the pass/fail result and a short summary.</p>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1"><strong>Quick add from a licence:</strong> the <strong>Identity scan</strong> button in the top bar opens a new contact and fires the licence camera scan &mdash; AI reads the licence and fills in the customer&rsquo;s details for you to confirm.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1"><strong>Full certification:</strong> open a saved customer record and, under <strong>Identity verification</strong>, click <strong>Start verification</strong>. Send the customer the secure link (or open it on your device) &mdash; they photograph their ID and take a selfie.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Press <strong>Refresh status</strong> to update the badge to <strong>ID verified</strong> (with name, DOB &amp; selfie-matched), <strong>Awaiting customer</strong>, or <strong>Needs another attempt</strong>.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">4</span><span class="flex-1"><strong>Choose your provider:</strong> MarketSync supports <strong>Stripe Identity</strong> and <strong>Persona</strong> (often cheaper / broader regional coverage). When both are set up, managers pick which one this store uses from the <strong>Provider</strong> dropdown on the customer&rsquo;s verification panel.</span></li>
+          </ol>
+          <div class="mock" style="max-width:380px">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Identity verification</b></div>
+            <div class="mock-in">
+              <div class="mk-row" style="justify-content:space-between"><span class="mk-mut">Jordan Lee</span><span class="mk-pill green"><i class="fa-solid fa-check"></i> ID verified</span></div>
+              <div class="mk-card" style="margin-top:8px"><span class="mk-mut">Name &amp; DOB matched · selfie matched · Provider: Persona</span></div>
+              <div class="mk-row" style="margin-top:8px"><span class="mk-btn gray">Start verification</span><span class="mk-btn gray">Refresh status</span></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>The ID images stay with the provider — MarketSync records only the pass/fail result and a short summary.</p>
+        </section>
+
+        <!-- ═══════ PHASE 6 ═══════ -->
+        <div class="guide-phase flex items-center gap-3 border-l-4 border-teal-500 pl-4 py-1 pt-4">
+          <div><p class="text-[11px] font-black uppercase tracking-widest text-teal-500">Phase 6</p><h2 class="text-xl font-black text-slate-900 dark:text-white">Service &amp; retention</h2></div>
+        </div>
+
+        <section>
+          <h3 id="service" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-teal-500">23.</span> Service department <span class="text-sm font-bold text-emerald-500">New</span></h3>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-teal-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Open <strong>Service</strong> in the menu for its settings, an appointments area, and equity mining.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-teal-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Book service appointments against the same customer records as sales — a contact can be tagged as a <strong>sales</strong> and/or <strong>service</strong> customer.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-teal-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Customers can book online, and bookings appear on the calendar (and sync to Google/Outlook if connected).</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-teal-600 text-white text-xs font-bold flex items-center justify-center">4</span><span class="flex-1">In <strong>Service → Settings</strong>, build your <strong>service menu</strong> (oil change, tires, brakes…), hours and desk email. Appointments switch between a <strong>Calendar</strong> and a <strong>List</strong>; tick jobs <strong>Done</strong> as they finish.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Service · Appointments</b></div>
+            <div class="mock-in">
+              <div class="mk-row" style="justify-content:space-between;margin-bottom:10px"><div class="mk-h" style="margin:0">This week</div><div class="mk-row"><span class="mk-btn t">Calendar</span><span class="mk-btn gray">List</span><span class="mk-btn t">＋ Book service</span></div></div>
+              <div class="mk-card" style="margin-bottom:6px"><div class="mk-row" style="justify-content:space-between"><span>Mon 9:00 · Jordan Lee</span><span class="mk-row"><span class="mk-pill green">Oil change</span><span class="mk-btn g">Done</span></span></div></div>
+              <div class="mk-card"><div class="mk-row" style="justify-content:space-between"><span>Tue 1:30 · Priya S.</span><span class="mk-row"><span class="mk-pill">Brakes</span><span class="mk-btn gray">View</span></span></div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Same customer record as their car purchase — a buyer becomes a service customer for years.</p>
+        </section>
+
+        <section>
+          <h3 id="equity" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-teal-500">24.</span> Equity mining</h3>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-teal-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Open <strong>Equity Mining</strong> to surface past customers who may be in a positive equity position and ready for an upgrade.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-teal-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Reach out from the customer record, or fold them into a bulk outreach campaign.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Equity mining</b></div>
+            <div class="mock-in mk-col">
+              <div class="mk-card"><div class="mk-row" style="justify-content:space-between"><span>Jordan Lee · 2021 F-150</span><span class="mk-row"><span class="mk-pill green">+$4,200 equity</span><span class="mk-btn p">Call</span></span></div></div>
+              <div class="mk-card"><div class="mk-row" style="justify-content:space-between"><span>Priya S. · 2020 CR-V</span><span class="mk-row"><span class="mk-pill green">+$2,800 equity</span><span class="mk-btn gray">Call</span></span></div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Past buyers likely sitting on positive equity — the easiest next sale, especially while their car's in for service.</p>
+        </section>
+
+        <section>
+          <h3 id="automation" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-rose-500">25.</span> Automation &amp; follow-up tasks</h3>
+          <p class="text-slate-600 dark:text-gray-300 mb-5">The <strong>Automation</strong> page is every automated text &amp; email in one place — flip them on, edit the wording, or rewrite with AI. Compliance kill-switches run behind the scenes.</p>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Toggle campaigns across the pipeline, post-delivery retention, reviews, referrals, equity and birthdays/holidays.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1"><strong>Sales-rep tasks</strong> — turn on Next-Day, 30-Day and 90-Day follow-ups. These drop a task on the lead's assigned rep (in CRM → Tasks) instead of messaging the customer. Off by default.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Set global bits (Google review link, referral bonus, service URL, house numbers, business hours) once and every template uses them.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Automation · Builder</b></div>
+            <div class="mock-in">
+              <div class="mk-tabs"><span class="on">New Lead Follow-ups</span><span>Delivery Follow-ups</span><span>Holidays</span></div>
+              <div class="mk-card" style="margin-bottom:6px"><div class="mk-row" style="justify-content:space-between"><span><i class="fa-solid fa-bolt"></i> Instant · Text — &ldquo;Thanks for reaching out, {{first_name}}!&rdquo;</span><span class="mk-pill green">On</span></div></div>
+              <div class="mk-card" style="margin-bottom:6px"><div class="mk-row" style="justify-content:space-between"><span>+1 day · Email — follow-up with the vehicle</span><span class="mk-pill green">On</span></div></div>
+              <div class="mk-card"><div class="mk-row" style="justify-content:space-between"><span>+3 days · Rep task — call the lead</span><span class="mk-pill amber">Task</span></div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Three buckets fire on real events — a new lead, a delivery, a holiday/birthday. Merge tags like <code>{{first_name}}</code> fill in each customer. Flip &ldquo;Engine on&rdquo; in Settings to run it all.</p>
+        </section>
+
+        <!-- ═══════ PHASE 7 ═══════ -->
+        <div class="guide-phase flex items-center gap-3 border-l-4 border-violet-500 pl-4 py-1 pt-4">
+          <div><p class="text-[11px] font-black uppercase tracking-widest text-violet-500">Phase 7</p><h2 class="text-xl font-black text-slate-900 dark:text-white">Price, market &amp; grow</h2></div>
+        </div>
+
+        <section>
+          <h3 id="intelligence" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-violet-500">26.</span> Inventory Intelligence &amp; Turn Rate</h3>
+          <p class="text-slate-600 dark:text-gray-300 mb-5"><span class="inline-block text-[11px] font-bold uppercase tracking-wider bg-emerald-600/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full mb-2">Inventory Intelligence</span></p>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Open <strong>Inventory Intelligence</strong> for health scores across your lot — what's fresh, what's aging, what needs a price move.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Each unit shows a <strong>Turn Rate</strong> based on days-on-lot, so you can act on slow movers before they cost you.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Run the <strong>Inventory Scan</strong> to refresh every car's "% to market" and flag mispriced units.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Inventory Intelligence · Scan</b></div>
+            <div class="mock-in">
+              <div class="mk-row" style="justify-content:space-between;margin-bottom:10px"><span class="mk-mut">142 scanned</span><span class="mk-btn p">Scan all inventory</span></div>
+              <div class="mk-row"><div class="mk-tile"><div class="n r">7</div><div class="l">Price flags</div></div><div class="mk-tile"><div class="n" style="color:#b45309">14</div><div class="l">Warnings</div></div><div class="mk-tile"><div class="n">2</div><div class="l">Dup VINs</div></div><div class="mk-tile"><div class="n g">63%</div><div class="l">Avg health</div></div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>One button grades the whole lot; red price flags are lost money, so you fix those first.</p>
+        </section>
+
+        <section>
+          <h3 id="market" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-violet-500">27.</span> Price prediction &amp; market snapshot (MarketCheck)</h3>
+          <p class="text-slate-600 dark:text-gray-300 mb-5"><span class="inline-block text-[11px] font-bold uppercase tracking-wider bg-emerald-600/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full mb-2">Inventory Intelligence</span></p>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">On a vehicle, open the <strong>Market Price Report</strong> / <strong>Lot Average</strong> for a live US &amp; Canada price-to-market read, powered by MarketCheck.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Open the <strong>Market Snapshot</strong> to see supply, average price and days-to-sell for that year/make/model in your area, with comparable listings.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Use <strong>AI price prediction</strong> during appraisal to land on a fair number fast. Live lookups have a fair-use daily cap to keep costs predictable.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Market snapshot · 2023 CX-5 GT</b></div>
+            <div class="mock-in">
+              <div class="mk-row" style="margin-bottom:10px"><div class="mk-tile"><div class="n">31</div><div class="l">For sale nearby</div></div><div class="mk-tile"><div class="n">$39,200</div><div class="l">Avg price</div></div><div class="mk-tile"><div class="n">34</div><div class="l">Days to sell</div></div><div class="mk-tile"><div class="n g">Priced right</div><div class="l">Your $38,900</div></div></div>
+              <div class="mk-card"><div class="mk-h">Comparable listings</div><div class="mk-mut">2023 CX-5 GT · 22k km · $39,900 &nbsp;·&nbsp; 2023 CX-5 GT · 18k km · $40,500</div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Real cars for sale near you — proof for the customer that your price is fair.</p>
+        </section>
+
+        <section>
+          <h3 id="marketing" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-fuchsia-500">28.</span> Marketing ROI &amp; ad-spend auto-import <span class="text-sm font-bold text-emerald-500">New</span></h3>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-fuchsia-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Open the <strong>Marketing ROI</strong> report to see leads, sales, cost-per-lead, cost-per-sale, revenue and ROI by channel — no tagging needed.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-fuchsia-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Enter spend by hand, or in <strong>Auto-import spend</strong> connect <strong>Meta Ads</strong> and <strong>Google Ads</strong> so monthly spend fills in automatically.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-fuchsia-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Spend lines up with the same channels your leads come from, so ROI is right out of the box.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Marketing ROI</b></div>
+            <div class="mock-in">
+              <div class="mk-card" style="margin-bottom:6px"><div class="mk-row" style="justify-content:space-between"><span>Facebook · $1,200 spend</span><span class="mk-row"><span class="mk-mut">18 leads · 4 sold</span><span class="mk-pill green">7.2× ROI</span></span></div></div>
+              <div class="mk-card" style="margin-bottom:6px"><div class="mk-row" style="justify-content:space-between"><span>Google Ads · $2,000 spend</span><span class="mk-row"><span class="mk-mut">22 leads · 3 sold</span><span class="mk-pill green">4.1× ROI</span></span></div></div>
+              <div class="mk-card"><div class="mk-row" style="justify-content:space-between"><span>Kijiji · $600 spend</span><span class="mk-row"><span class="mk-mut">9 leads · 0 sold</span><span class="mk-pill rose">0× ROI</span></span></div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Spend vs sold, per channel — the report that tells you which ad to cut. Connect Meta/Google to auto-fill spend.</p>
+        </section>
+
+        <!-- ═══════ PHASE 8 ═══════ -->
+        <div class="guide-phase flex items-center gap-3 border-l-4 border-rose-500 pl-4 py-1 pt-4">
+          <div><p class="text-[11px] font-black uppercase tracking-widest text-rose-500">Phase 8</p><h2 class="text-xl font-black text-slate-900 dark:text-white">Measure everything</h2></div>
+        </div>
+
+        <section>
+          <h3 id="reports" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-rose-500">29.</span> Reports hub &amp; custom builder</h3>
+          <p class="text-slate-600 dark:text-gray-300 mb-5">The <strong>Reports</strong> page is manager-only, with a full tab hub plus a quick-access rail on the right of the dashboard.</p>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Tabs cover <strong>Sales, F&amp;I, Leads &amp; sources, Rep scorecard, Appraisals, Appointments &amp; show-rate, Service, E-signatures, Marketing ROI, Activity</strong> and <strong>Customers</strong> — each range-filterable with CSV export.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">The <strong>Overview</strong> tab has the Executive ROI dashboard (with real gross when cost tracking is on), inventory mix &amp; aging, and a custom report builder.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">The right-side rail (Lot Average, Inventory Scan, Market Snapshot, Lot Health, Speed to Lead, and the rest) jumps straight to any report.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Reports</b></div>
+            <div class="mock-in">
+              <div class="mk-tabs"><span class="on">Overview</span><span>Sales</span><span>F&amp;I</span><span>Leads</span><span>Rep scorecard</span><span>Appraisals</span><span>Service</span><span>Marketing ROI</span><span>Customers</span></div>
+              <div class="mk-row"><div class="mk-tile"><div class="n g">$118k</div><div class="l">Front gross</div></div><div class="mk-tile"><div class="n">64%</div><div class="l">Show rate</div></div><div class="mk-tile"><div class="n">81%</div><div class="l">E-sign done</div></div><div class="mk-tile"><div class="n"><i class="fa-solid fa-arrow-down"></i></div><div class="l">Export CSV</div></div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>A deep report for every area — pick a range, read the charts, export. Manager-only.</p>
+        </section>
+
+        <section>
+          <h3 id="dash-insights" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-rose-500">30.</span> Dealership insights on your dashboard <span class="text-sm font-bold text-emerald-500">New</span></h3>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Managers see a <strong>Dealership insights</strong> block right on the Dashboard: units &amp; gross, appointment show-rate and e-sign completion tiles.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Below that: a Marketing-ROI snapshot and the full CRM/lead insights panel — lead volume &amp; trend, sources, pipeline funnel, conversion and a rep leaderboard.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">The <strong>Executive summary</strong> answers &ldquo;is this paying off?&rdquo; in one screen — pick 7 / 30 / 90 days or 1 year, and export to CSV. It includes a <strong>sales-by-salesperson</strong> table so you coach with facts.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Dashboard · Executive summary</b></div>
+            <div class="mock-in">
+              <div class="mk-row" style="justify-content:space-between;margin-bottom:10px"><div class="mk-h" style="margin:0">Last 30 days</div><div class="mk-row"><span class="mk-btn gray">7d</span><span class="mk-btn p">30d</span><span class="mk-btn gray">90d</span><span class="mk-btn gray">1y</span><span class="mk-btn gray"><i class="fa-solid fa-arrow-down"></i> CSV</span></div></div>
+              <div class="mk-row" style="margin-bottom:10px"><div class="mk-tile"><div class="n g">$412k</div><div class="l">Revenue</div></div><div class="mk-tile"><div class="n">37</div><div class="l">New leads</div></div><div class="mk-tile"><div class="n g">68%</div><div class="l">&lt;5-min reply</div></div><div class="mk-tile"><div class="n">14%</div><div class="l">Conversion</div></div></div>
+              <div class="mk-card"><div class="mk-h">Sales by salesperson</div><div class="mk-mut"><i class="fa-solid fa-medal"></i> Dana · 6 · 82% &lt;5min &nbsp;·&nbsp; <i class="fa-solid fa-medal"></i> Sam · 4 &nbsp;·&nbsp; <i class="fa-solid fa-medal"></i> Alex · 3</div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Two habits make these numbers honest: answer leads fast, and pick a &ldquo;sold source&rdquo; when you mark a deal delivered.</p>
+        </section>
+
+        <section>
+          <h3 id="leaderboard" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-amber-500">31.</span> Sales leaderboard</h3>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Your <strong>Dashboard</strong> shows the <strong>Sales performance</strong> board — reps ranked by the numbers that matter: units sold, F&amp;I gross and appraisals. Everyone sees where they stand at a glance.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">The full competitive board — podium, points &amp; badges, and the <strong>My Team</strong> / <strong>Global</strong> comparison — lives under <strong>Marketing → Leaderboard</strong> for week/month competitions. Your rank chip in the top bar jumps straight to it.</span></li>
+          </ol>
+        </section>
+
+        <section>
+          <h3 id="assistant" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-violet-500">32.</span> Ask MarketSync — the AI brain</h3>
+          <p class="text-slate-600 dark:text-gray-300 mb-5"><span class="inline-block text-[11px] font-bold uppercase tracking-wider bg-violet-600/10 text-violet-600 dark:text-violet-400 px-2 py-0.5 rounded-full">AI Boost</span> <span class="inline-block text-[11px] font-bold uppercase tracking-wider bg-emerald-600/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full">Inventory Intelligence</span></p>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Click the <strong>Ask MarketSync</strong> bubble. Ask real questions — <em>"Which units are aging 60+ days?"</em>, <em>"Anything priced off market?"</em>, <em>"How's the RAV4 market?"</em> — and it uses live tools to answer.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Ask about a <strong>specific customer or vehicle</strong> — <em>"What's the status on Jordan Lee?"</em>, <em>"How long has stock #A1234 been here?"</em> — and it pulls the real record. It can also <strong>do things</strong> with a confirm step: draft a task, send a bulk outreach, <strong>book an appointment</strong>, or <strong>reassign a lead</strong> to another salesperson — grounded in your <strong>dealer background</strong> and uploaded <strong>knowledge base</strong>.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">In <strong>Settings → AI</strong> you control the assistant: set its <strong>style</strong> (internal vs customer-facing), turn a <strong>proactive weekly briefing</strong> on, choose <strong>which capabilities</strong> it can use, decide whether <strong>sales reps</strong> can use it, watch <strong>usage</strong> against the daily/monthly caps, and review the <strong>chat history</strong> of what your team asked. Budget safeguards keep spend in check.</span></li>
+          </ol>
+          <div class="mock" style="max-width:400px">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Ask MarketSync</b></div>
+            <div class="mock-in mk-col">
+              <div class="mk-card" style="align-self:flex-end;background:#4f46e5;color:#fff;border-color:#4f46e5;max-width:80%">Which units are aging 60+ days?</div>
+              <div class="mk-card" style="max-width:88%">3 units past 60 days: 2019 Cruze (92d), 2020 Sonata (74d), 2018 Escape (66d). Want me to draft a price-drop plan?</div>
+              <div class="mk-row"><span class="mk-btn gray">How's the RAV4 market?</span><span class="mk-btn gray">Draft a follow-up</span></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Your private assistant answers from live data and can act with a confirm step. You name it and set its voice in Settings → AI.</p>
+        </section>
+
+        <!-- ═══════ PHASE 9 ═══════ -->
+        <div class="guide-phase flex items-center gap-3 border-l-4 border-slate-400 pl-4 py-1 pt-4">
+          <div><p class="text-[11px] font-black uppercase tracking-widest text-slate-500">Phase 9</p><h2 class="text-xl font-black text-slate-900 dark:text-white">Run the business</h2></div>
+        </div>
+
+        <section>
+          <h3 id="team" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-indigo-500">33.</span> Teams, roles &amp; dealer groups</h3>
+          <p class="text-slate-600 dark:text-gray-300 mb-5">Open <strong>Settings</strong> from the gear icon. Everything lives under tabs: Team, Account, Branding, Language, Billing, AI, Dealer Group, Dealer Management, Integrations, Security.</p>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1"><strong>Team</strong> — <em>Sales</em> and <em>Management</em> are login users; <em>Service</em>, <em>Admin</em>, <em>Cleanup</em> and <em>Lot</em> are simple name rosters you add and remove.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Running multiple rooftops? An Owner/Dealer Admin can manage several stores under one <strong>dealer group</strong>, with roles controlling what each person sees.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Settings</b></div>
+            <div class="mock-in">
+              <div class="mk-tabs"><span class="on">Team</span><span>Account</span><span>Branding</span><span>Language</span><span>Billing</span><span>AI</span><span>Dealer Group</span><span>Dealer Management</span><span>Integrations</span><span>Security</span></div>
+              <div class="mk-row"><div class="mk-card" style="flex:1"><div class="mk-row"><div class="mk-av">DA</div><div><div style="font-weight:700;font-size:12px">Dana A.</div><span class="mk-mut">Sales · login</span></div></div></div><div class="mk-card" style="flex:1"><div class="mk-row"><div class="mk-av">MG</div><div><div style="font-weight:700;font-size:12px">Morgan G.</div><span class="mk-mut">Management · login</span></div></div></div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>One tab row runs the whole store — Sales &amp; Management log in; Service/Admin/Cleanup/Lot are name rosters.</p>
+        </section>
+
+        <section>
+          <h3 id="security" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-rose-500">34.</span> Security &amp; activity log <span class="text-sm font-bold text-emerald-500">New</span></h3>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">In <strong>Settings → Security</strong>, turn on <strong>2-step login (2FA)</strong> with an authenticator app and save your backup codes.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Add a <strong>passkey</strong> (Face ID / Touch ID / Windows Hello) for passwordless sign-in, and review where you're signed in.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Admins get a <strong>Dealership activity log</strong> — who changed cost visibility, sent a document to sign, exported the customer book or changed a teammate's role, with time and IP.</span></li>
+          </ol>
+          <div class="mock" style="max-width:400px">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Settings · Security</b></div>
+            <div class="mock-in mk-col">
+              <div class="mk-card"><div class="mk-row" style="justify-content:space-between"><span>2-step login (2FA)</span><span class="mk-pill green">On</span></div></div>
+              <div class="mk-card"><div class="mk-row" style="justify-content:space-between"><span>Passkey · Face ID</span><span class="mk-btn gray">＋ Add</span></div></div>
+              <div class="mk-card"><span class="mk-mut">Activity log: Dana exported customers · 10:14 · IP 24.x</span></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Lock every account, and admins get a full log of sensitive actions.</p>
+        </section>
+
+        <section>
+          <h3 id="language" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-indigo-500">35.</span> Change your dashboard language</h3>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Go to <strong>Profile &amp; Settings → Language</strong> and pick your language — the whole dashboard switches instantly. It's <strong>per rep</strong>.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Your choice is saved and also drives the language of your AI-written Facebook listings.</span></li>
+          </ol>
+          <div class="mock" style="max-width:340px">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Settings · Language</b></div>
+            <div class="mock-in mk-row"><span class="mk-btn p">English</span><span class="mk-btn gray">Français</span><span class="mk-btn gray">Español</span><span class="mk-btn gray">+11 more</span></div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Switches the whole dashboard for you (per rep) — and sets your AI listing language.</p>
+        </section>
+
+        <section>
+          <h3 id="features" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-indigo-500">36.</span> Turn features on or off</h3>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Go to <strong>Settings → Dealer Management → Features</strong>.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Flip any feature (Website, Automation, Equity Mining, Inventory Intelligence, Appraisals, Service, Reports) off to hide it for your whole store — turn it back on anytime.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">The left menu is colour-coded by area and starts collapsed — click a section name to open its page, or the arrow to expand its items.</span></li>
+          </ol>
+          <div class="mock" style="max-width:420px">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Settings · Features</b></div>
+            <div class="mock-in mk-col">
+              <div class="mk-card"><div class="mk-row" style="justify-content:space-between"><span>Website</span><span class="mk-pill green">On</span></div></div>
+              <div class="mk-card"><div class="mk-row" style="justify-content:space-between"><span>Automation</span><span class="mk-pill green">On</span></div></div>
+              <div class="mk-card"><div class="mk-row" style="justify-content:space-between"><span>Service</span><span class="mk-pill">Off</span></div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Flip any paid area off to hide it store-wide — the menu stays clean. Turn it back on anytime.</p>
+        </section>
+
+        <!-- ═══════ PHASE 10 ═══════ -->
+        <div class="guide-phase flex items-center gap-3 border-l-4 border-green-500 pl-4 py-1 pt-4">
+          <div><p class="text-[11px] font-black uppercase tracking-widest text-green-600 dark:text-green-500">Phase 10</p><h2 class="text-xl font-black text-slate-900 dark:text-white">Money &amp; the books</h2></div>
+        </div>
+
+        <section>
+          <h3 id="commissions" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-green-600 dark:text-green-500">37.</span> Commissions &amp; pay plans</h3>
+          <p class="text-slate-600 dark:text-gray-300 mb-5">Pay is calculated from the deal automatically — no spreadsheets, no month-end arguments. Reps see their own; managers see the team.</p>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Set a <strong>pay plan</strong> — a % of gross, a flat amount, or the greater of the two — globally or per vehicle. Add F&amp;I pay for the F&amp;I manager, and <strong>split deals</strong> between two reps.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">When a deal is <strong>delivered</strong> (§18), MarketSync computes every commission line — salesperson, co-sell split, F&amp;I — and posts it to the rep's <strong>My commission</strong> page.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Commission is <strong>earned</strong> when the deal funds/pays, and can be <strong>clawed back</strong> if a deal unwinds. Bonuses and clawbacks show right on the rep's profile.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>My commission</b></div>
+            <div class="mock-in">
+              <div class="mk-row" style="margin-bottom:10px"><div class="mk-tile"><div class="n g">$4,820</div><div class="l">Earned MTD</div></div><div class="mk-tile"><div class="n">$1,150</div><div class="l">Pending</div></div><div class="mk-tile"><div class="n">6</div><div class="l">Deals</div></div></div>
+              <div class="mk-card"><div class="mk-row" style="justify-content:space-between"><span>2023 CX-5 · Jordan Lee</span><span class="mk-row"><span class="mk-pill green">Funded</span><b>$780</b></span></div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Reps watch their paycheque build in real time; managers get the whole team's numbers under Accounting.</p>
+        </section>
+
+        <section>
+          <h3 id="accounting" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-green-600 dark:text-green-500">38.</span> Accounting — it mostly runs itself</h3>
+          <p class="text-slate-600 dark:text-gray-300 mb-5">Delivered deals, F&amp;I income, tax and deposits <strong>post themselves</strong> to the ledger. Your team only types in expenses. Every day the books check themselves and email you if something's off.</p>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1"><strong>Reconciliation</strong> — a green &ldquo;Day balances&rdquo; or red &ldquo;Books don't reconcile&rdquo; banner, plus income, deposits, expenses and variance for the day.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1"><strong>Bank account</strong> — link your bank (read-only) via Plaid so the daily check runs against real money. <strong>Expenses</strong> — the one tab your team fills in.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1"><strong>Tax</strong> shows collected vs paid vs owing (auto-filled from deals). <strong>Reports</strong> gives the full ledger + CSV export. <strong>Settings</strong> sets alert emails, tolerance, and the auto-post switches.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Accounting</b></div>
+            <div class="mock-in">
+              <div class="mk-tabs"><span class="on">Reconciliation</span><span>Insights</span><span>Bank</span><span>Expenses</span><span>Tax</span><span>Reports</span><span>Settings</span></div>
+              <div class="mk-card" style="border-color:#059669;background:#ecfdf5;margin-bottom:10px"><div class="mk-h" style="color:#047857"><i class="fa-solid fa-check"></i> Day balances</div><span class="mk-mut">variance $0.00</span></div>
+              <div class="mk-row"><div class="mk-tile"><div class="n">3</div><div class="l">Delivered</div></div><div class="mk-tile"><div class="n g">$9,400</div><div class="l">Income</div></div><div class="mk-tile"><div class="n">$1,200</div><div class="l">Deposits</div></div><div class="mk-tile"><div class="n r">$640</div><div class="l">Expenses</div></div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Seven tabs run the back office — but the day-to-day is just glancing at the green banner and adding the odd bill.</p>
+        </section>
+
+        <!-- ═══════ PART TWO — full capability index ═══════ -->
+        <div id="everything" class="guide-phase flex items-center gap-3 border-l-4 border-slate-900 dark:border-white pl-4 py-1 mt-4">
+          <div><p class="text-[11px] font-black uppercase tracking-widest text-slate-500">Part Two</p><h2 class="text-xl font-black text-slate-900 dark:text-white">Everything MarketSync can do — by department</h2></div>
+        </div>
+        <section>
+          <p class="text-slate-600 dark:text-gray-300 mb-6 max-w-3xl">Part One walks the rollout in order. This is the complete checklist — every feature, grouped the way your dashboard is: by <strong>department</strong>. Your navigation is the list of departments you're responsible for; each one runs on its own engine underneath. What you see depends on who's logged in and which add-ons are on.</p>
+
+          <div class="grid sm:grid-cols-2 gap-4">
+            <!-- Executive -->
+            <div class="rounded-2xl border border-slate-200 dark:border-gray-800 p-5">
+              <h3 class="text-lg font-black text-slate-900 dark:text-white mb-1"><i class="fa-solid fa-chart-line text-indigo-500 mr-2"></i>Executive · Daily Briefing</h3>
+              <p class="text-xs text-slate-500 mb-3">A role-aware overview of the whole store.</p>
+              <ul class="space-y-1.5 text-sm text-slate-700 dark:text-gray-300 list-disc pl-5">
+                <li>Today's AI briefing — what needs attention right now</li>
+                <li>Store KPIs: units, gross, leads, response time, sold this month</li>
+                <li>Executive ROI dashboard, scoped per-rep or whole-dealer</li>
+                <li>Group roll-up across multiple rooftops</li>
+                <li>Exceptions &amp; SLA misses surfaced automatically</li>
+              </ul>
+            </div>
+
+            <!-- Sales -->
+            <div class="rounded-2xl border border-slate-200 dark:border-gray-800 p-5">
+              <h3 class="text-lg font-black text-slate-900 dark:text-white mb-1"><i class="fa-solid fa-handshake text-amber-500 mr-2"></i>Sales</h3>
+              <p class="text-xs text-slate-500 mb-3">Leads, customers, opportunities, deliveries.</p>
+              <ul class="space-y-1.5 text-sm text-slate-700 dark:text-gray-300 list-disc pl-5">
+                <li>Sales snapshot tiles that jump to the exact list</li>
+                <li>Leads with live speed-to-lead timers &amp; hot/warm/cold scoring</li>
+                <li>Auto lead assignment + manual reassign</li>
+                <li>Customer records: timeline, trade-in, wanted/bought vehicle, VDP links</li>
+                <li>Call/text/email logging with a call timer + required wrap-up note</li>
+                <li>Appointments with showed / no-show / reschedule outcomes</li>
+                <li>Follow-up tasks that sync to the calendar</li>
+                <li>CSV import/export of leads &amp; customers</li>
+                <li>Sales-performance board on the Dashboard — units, F&amp;I gross &amp; appraisals</li>
+                <li>Deliveries tracker</li>
+              </ul>
+            </div>
+
+            <!-- F&I -->
+            <div class="rounded-2xl border border-slate-200 dark:border-gray-800 p-5">
+              <h3 class="text-lg font-black text-slate-900 dark:text-white mb-1"><i class="fa-solid fa-file-signature text-indigo-500 mr-2"></i>F&amp;I</h3>
+              <p class="text-xs text-slate-500 mb-3">Desk, finance, products, documents.</p>
+              <ul class="space-y-1.5 text-sm text-slate-700 dark:text-gray-300 list-disc pl-5">
+                <li>Desk a deal: estimate, payment, tax by jurisdiction, bill of sale</li>
+                <li>Retail/MSRP auto-fills from the picked unit</li>
+                <li>F&amp;I product catalog with role-gated cost vs retail</li>
+                <li>Lender dropdown + add, rate-sorted, lowest-rate helper</li>
+                <li>Term dropdown 24–96 months; frequency monthly/bi-weekly/weekly</li>
+                <li>Vehicle &amp; F&amp;I commission auto-populate from the pay plan</li>
+                <li>Front / back-end gross breakdown (internal only)</li>
+                <li>Credit application incl. previous address; SIN/DOB encrypted</li>
+                <li>Deposit collection (Stripe / Square / bank), gated until connected</li>
+                <li>e-signature &amp; ID + selfie verification</li>
+                <li>E-signatures pipeline — every signing request across the store, one tab</li>
+                <li>Deal lifecycle: working → pending credit → sold → delivered</li>
+              </ul>
+            </div>
+
+            <!-- Service -->
+            <div class="rounded-2xl border border-slate-200 dark:border-gray-800 p-5">
+              <h3 class="text-lg font-black text-slate-900 dark:text-white mb-1"><i class="fa-solid fa-wrench text-sky-500 mr-2"></i>Service</h3>
+              <p class="text-xs text-slate-500 mb-3">Repair orders, bookings, retention.</p>
+              <ul class="space-y-1.5 text-sm text-slate-700 dark:text-gray-300 list-disc pl-5">
+                <li>Repair orders &amp; service appointments</li>
+                <li>Service customer flag + sales/service crossover view</li>
+                <li>Equity mining — cold-call tool for upgrade-ready owners</li>
+                <li>Service settings per department</li>
+              </ul>
+            </div>
+
+            <!-- Parts -->
+            <div class="rounded-2xl border border-slate-200 dark:border-gray-800 p-5">
+              <h3 class="text-lg font-black text-slate-900 dark:text-white mb-1"><i class="fa-solid fa-gears text-amber-500 mr-2"></i>Parts</h3>
+              <p class="text-xs text-slate-500 mb-3">Parts inventory &amp; ordering.</p>
+              <ul class="space-y-1.5 text-sm text-slate-700 dark:text-gray-300 list-disc pl-5">
+                <li>Parts inventory tracking</li>
+                <li>Order status: sold / on hold / for service</li>
+              </ul>
+            </div>
+
+            <!-- Detail / Cleanup -->
+            <div class="rounded-2xl border border-slate-200 dark:border-gray-800 p-5">
+              <h3 class="text-lg font-black text-slate-900 dark:text-white mb-1"><i class="fa-solid fa-droplet text-sky-500 mr-2"></i>Detail / Cleanup</h3>
+              <p class="text-xs text-slate-500 mb-3">Reconditioning to front-line.</p>
+              <ul class="space-y-1.5 text-sm text-slate-700 dark:text-gray-300 list-disc pl-5">
+                <li>Get-ready / reconditioning queue</li>
+                <li>Units flow here from F&amp;I get-ready on a linked deal</li>
+              </ul>
+            </div>
+
+            <!-- Inventory / Lot -->
+            <div class="rounded-2xl border border-slate-200 dark:border-gray-800 p-5">
+              <h3 class="text-lg font-black text-slate-900 dark:text-white mb-1"><i class="fa-solid fa-car text-violet-500 mr-2"></i>Inventory &amp; Lot</h3>
+              <p class="text-xs text-slate-500 mb-3">Stock, pricing, market position.</p>
+              <ul class="space-y-1.5 text-sm text-slate-700 dark:text-gray-300 list-disc pl-5">
+                <li>Auto-sync from website feed or CSV; manual add</li>
+                <li>Stock cards: days-in-stock aging (green/amber/orange/red)</li>
+                <li>Merchandising-gap flag (missing photos or price)</li>
+                <li>Health score, hot/cold, recalls, % to market</li>
+                <li>VIN decode, window stickers, brochures, plate → VIN, Carfax</li>
+                <li>AI listing copy in any language; AI Vision photo scoring</li>
+                <li>Inventory mix &amp; aging report; turn rate / days of supply</li>
+                <li>Stock recommendations; duplicate-VIN detection; repricing rules</li>
+                <li>Direct Competition monitoring</li>
+              </ul>
+            </div>
+
+            <!-- Marketing -->
+            <div class="rounded-2xl border border-slate-200 dark:border-gray-800 p-5">
+              <h3 class="text-lg font-black text-slate-900 dark:text-white mb-1"><i class="fa-solid fa-bullhorn text-fuchsia-500 mr-2"></i>Marketing</h3>
+              <p class="text-xs text-slate-500 mb-3">Website, posting, automation, AI chat.</p>
+              <ul class="space-y-1.5 text-sm text-slate-700 dark:text-gray-300 list-disc pl-5">
+                <li>Post to Facebook Marketplace (extension auto-fill)</li>
+                <li>Syndication feed — AutoTrader, Kijiji, Google</li>
+                <li>Drag-and-drop dealer website builder with branded pages</li>
+                <li>Google reviews, specials/ads, per-page colours &amp; icons</li>
+                <li>Customer-facing AI sales chat on your site</li>
+                <li>Automation cadences &amp; follow-up sequences</li>
+                <li>Team + Global competitive leaderboard, points &amp; badges</li>
+                <li>Marketing ROI + ad-spend import</li>
+              </ul>
+            </div>
+
+            <!-- Accounting -->
+            <div class="rounded-2xl border border-slate-200 dark:border-gray-800 p-5">
+              <h3 class="text-lg font-black text-slate-900 dark:text-white mb-1"><i class="fa-solid fa-coins text-emerald-500 mr-2"></i>Accounting</h3>
+              <p class="text-xs text-slate-500 mb-3">The books, mostly automatic.</p>
+              <ul class="space-y-1.5 text-sm text-slate-700 dark:text-gray-300 list-disc pl-5">
+                <li>Deals, F&amp;I income, tax &amp; deposits auto-post to the ledger</li>
+                <li>Daily self-reconciliation with alert emails</li>
+                <li>Bank link (Plaid, read-only); expenses; tax collected vs owing</li>
+                <li>Commissions &amp; pay plans; full ledger + CSV export</li>
+              </ul>
+            </div>
+
+            <!-- Administration -->
+            <div class="rounded-2xl border border-slate-200 dark:border-gray-800 p-5">
+              <h3 class="text-lg font-black text-slate-900 dark:text-white mb-1"><i class="fa-solid fa-shield-halved text-indigo-500 mr-2"></i>Administration &amp; Settings</h3>
+              <p class="text-xs text-slate-500 mb-3">Run the business.</p>
+              <ul class="space-y-1.5 text-sm text-slate-700 dark:text-gray-300 list-disc pl-5">
+                <li>Operations / next-action board &amp; task board</li>
+                <li>Teams, roles &amp; dealer groups; per-department permissions</li>
+                <li>Security &amp; activity log; API keys; integrations</li>
+                <li>Feature on/off toggles; dashboard language</li>
+                <li>Ask MarketSync — the AI brain across all your data</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- CTA -->
+        <div class="rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-600 px-8 py-12 text-center shadow-xl shadow-indigo-500/20">
+            <h2 class="text-3xl font-black tracking-tight text-white mb-3">Ready to put it to work?</h2>
+            <p class="text-indigo-100 max-w-xl mx-auto mb-7">Start your 30-day free trial — no credit card required. Or ask the in-app assistant anything you didn't find here.</p>
+            <a href="https://marketsync.link/register.html" class="inline-block px-7 py-3.5 bg-white text-indigo-700 font-bold rounded-xl hover:bg-indigo-50 transition">Start free trial</a>
+        </div>
+
+      </div>
+    </div>
+    </main>
+
+    <div id="ms-public-footer"></div>
+    <script>
+        // Highlight the current section in the table of contents while scrolling.
+        (function(){
+            const links = Array.from(document.querySelectorAll('.toc-link'));
+            const map = {}; links.forEach(l => { const id = l.getAttribute('href').slice(1); map[id] = l; });
+            const obs = new IntersectionObserver((entries)=>{
+                entries.forEach(e=>{ if(e.isIntersecting){ links.forEach(l=>l.classList.remove('active')); if(map[e.target.id]) map[e.target.id].classList.add('active'); } });
+            }, { rootMargin: '-96px 0px -70% 0px' });
+            document.querySelectorAll('.guide-body h3[id]').forEach(h=>obs.observe(h));
+        })();
+    </script>
+
+    <!-- MarketSync sales assistant — grounded in the site knowledge base -->
+    <div id="msc-root">
+      <button id="msc-fab" type="button" aria-label="Chat with MarketSync" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        <span>Ask MarketSync</span>
+      </button>
+      <section id="msc-panel" hidden aria-label="MarketSync assistant">
+        <header id="msc-head">
+          <span class="msc-dot"></span>
+          <div><strong>MarketSync Assistant</strong><em>Sales &amp; product questions</em></div>
+          <button id="msc-close" type="button" aria-label="Close">&times;</button>
+        </header>
+        <div id="msc-msgs" role="log" aria-live="polite"></div>
+        <div id="msc-chips">
+          <button type="button" class="msc-chip">What is MarketSync?</button>
+          <button type="button" class="msc-chip">How much does it cost?</button>
+          <button type="button" class="msc-chip">Book a demo</button>
+        </div>
+        <form id="msc-lead" hidden>
+          <p class="msc-lead-t">Great — leave your details and the team will reach out.</p>
+          <input name="name" placeholder="Your name" autocomplete="name" required>
+          <input name="email" type="email" placeholder="Work email" autocomplete="email" required>
+          <input name="company" placeholder="Dealership name" autocomplete="organization">
+          <label class="msc-demo"><input type="checkbox" name="demo"> I'd like to book a demo</label>
+          <button type="submit">Send to MarketSync</button>
+        </form>
+        <form id="msc-form">
+          <input id="msc-input" autocomplete="off" placeholder="Ask about features, pricing, a demo…" aria-label="Message">
+          <button type="submit" aria-label="Send"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>
+        </form>
+        <div id="msc-foot">AI assistant · answers from marketsync.link</div>
+      </section>
+    </div>
+    <style>
+      #msc-root{position:fixed;right:20px;bottom:20px;z-index:130;font-family:Inter,system-ui,-apple-system,Segoe UI,Arial,sans-serif}
+      #msc-fab{display:inline-flex;align-items:center;gap:9px;padding:12px 18px;border:0;border-radius:999px;cursor:pointer;color:#fff;font-weight:700;font-size:14px;background:linear-gradient(135deg,#6366F1,#8B5CF6);box-shadow:0 12px 30px -8px rgba(99,102,241,.6)}
+      #msc-fab:hover{filter:brightness(1.05)}
+      #msc-panel{position:absolute;right:0;bottom:0;width:min(380px,calc(100vw - 32px));height:min(560px,calc(100vh - 96px));display:flex;flex-direction:column;border-radius:18px;overflow:hidden;background:#fff;color:#0f172a;border:1px solid #e2e8f0;box-shadow:0 30px 70px -20px rgba(2,6,23,.45)}
+      #msc-panel[hidden]{display:none}
+      #msc-head{display:flex;align-items:center;gap:10px;padding:14px 14px;color:#fff;background:linear-gradient(135deg,#6366F1,#8B5CF6)}
+      #msc-head strong{display:block;font-size:14px;line-height:1.1}
+      #msc-head em{font-style:normal;font-size:11.5px;opacity:.85}
+      #msc-head .msc-dot{width:9px;height:9px;border-radius:50%;background:#34d399;box-shadow:0 0 0 3px rgba(52,211,153,.3)}
+      #msc-close{margin-left:auto;background:rgba(255,255,255,.18);border:0;color:#fff;width:30px;height:30px;border-radius:9px;font-size:20px;line-height:1;cursor:pointer}
+      #msc-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:#f8fafc}
+      .msc-b{max-width:85%;padding:9px 12px;border-radius:14px;font-size:13.5px;line-height:1.45;white-space:pre-wrap;word-wrap:break-word}
+      .msc-a{align-self:flex-start;background:#fff;border:1px solid #e6ebf3;border-bottom-left-radius:5px;color:#0f172a}
+      .msc-u{align-self:flex-end;background:#6366F1;color:#fff;border-bottom-right-radius:5px}
+      .msc-typing{align-self:flex-start;color:#94a3b8;font-size:13px;padding:4px 6px}
+      #msc-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 10px;background:#f8fafc}
+      .msc-chip{border:1px solid #d5dbe6;background:#fff;color:#4f46e5;font-size:12px;font-weight:600;padding:6px 10px;border-radius:999px;cursor:pointer}
+      .msc-chip:hover{background:#eef2ff}
+      #msc-form{display:flex;gap:8px;padding:10px;border-top:1px solid #eef2f7;background:#fff}
+      #msc-input{flex:1;border:1px solid #d5dbe6;border-radius:12px;padding:10px 12px;font-size:13.5px;outline:none;color:#0f172a;background:#fff}
+      #msc-input:focus{border-color:#818cf8;box-shadow:0 0 0 3px rgba(129,140,248,.2)}
+      #msc-form button,#msc-lead button[type=submit]{border:0;border-radius:12px;background:#6366F1;color:#fff;font-weight:700;cursor:pointer}
+      #msc-form button{width:42px;display:flex;align-items:center;justify-content:center}
+      #msc-lead{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-top:1px solid #eef2f7;background:#fff}
+      #msc-lead[hidden]{display:none}
+      .msc-lead-t{margin:0 0 2px;font-size:12.5px;font-weight:600;color:#334155}
+      #msc-lead input[type=text],#msc-lead input[name=name],#msc-lead input[name=email],#msc-lead input[name=company]{border:1px solid #d5dbe6;border-radius:10px;padding:9px 11px;font-size:13px;color:#0f172a;background:#fff}
+      .msc-demo{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#475569}
+      #msc-lead button[type=submit]{padding:10px;font-size:13px}
+      #msc-foot{padding:8px 12px;text-align:center;font-size:10.5px;color:#94a3b8;background:#fff}
+      @media (prefers-color-scheme: dark) and (min-width:100000px){
+        #msc-panel{background:#0f1626;color:#e6edf7;border-color:#1f2a3d}
+        #msc-msgs,#msc-chips{background:#0b111e}
+        .msc-a{background:#131a2c;border-color:#22304a;color:#e6edf7}
+        .msc-chip{background:#131a2c;border-color:#2a3a57;color:#a5b4fc}
+        .msc-chip:hover{background:#1a2438}
+        #msc-form,#msc-lead,#msc-foot{background:#0f1626;border-color:#1f2a3d}
+        #msc-input,#msc-lead input{background:#0b111e;border-color:#2a3a57;color:#e6edf7}
+        .msc-lead-t{color:#cbd5e1}.msc-demo{color:#93a2bc}
+      }
+    </style>
+    <script>
+      (function(){
+        var API=(location.hostname.includes('staging')?'https://marketsync-staging-backend.onrender.com':'https://vehicle-marketplace-s0e4.onrender.com');
+        var root=document.getElementById('msc-root'),fab=document.getElementById('msc-fab'),panel=document.getElementById('msc-panel'),
+            msgs=document.getElementById('msc-msgs'),form=document.getElementById('msc-form'),input=document.getElementById('msc-input'),
+            lead=document.getElementById('msc-lead'),chips=document.getElementById('msc-chips'),closeBtn=document.getElementById('msc-close');
+        var history=[],greeted=false,lastUser='';
+        function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+        function bubble(text,who){var b=document.createElement('div');b.className='msc-b '+(who==='user'?'msc-u':'msc-a');b.innerHTML=esc(text);msgs.appendChild(b);msgs.scrollTop=msgs.scrollHeight;return b;}
+        function typing(){var b=document.createElement('div');b.className='msc-typing';b.textContent='MarketSync is typing…';msgs.appendChild(b);msgs.scrollTop=msgs.scrollHeight;return b;}
+        function openPanel(){panel.hidden=false;fab.setAttribute('aria-expanded','true');if(!greeted){greeted=true;bubble("Hi! I'm the MarketSync assistant. Ask me anything about the platform — features, pricing, or how the workflow fits your store. I can also set up a demo.","bot");}setTimeout(function(){input.focus();},50);}
+        function closePanel(){panel.hidden=true;fab.setAttribute('aria-expanded','false');}
+        fab.addEventListener('click',function(){panel.hidden?openPanel():closePanel();});
+        closeBtn.addEventListener('click',closePanel);
+        async function send(text){
+          text=(text||'').trim();if(!text)return;
+          bubble(text,'user');lastUser=text;history.push({role:'user',content:text});
+          input.value='';chips.style.display='none';
+          var t=typing();
+          try{
+            var r=await fetch(API+'/marketsync/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history})});
+            var j=await r.json();t.remove();
+            var reply=(j&&j.reply)||"Sorry, I couldn't respond just now.";
+            bubble(reply,'bot');history.push({role:'assistant',content:reply});
+            if(j&&j.capture){lead.hidden=false;lead.scrollIntoView({behavior:'smooth',block:'nearest'});}
+          }catch(e){t.remove();bubble("I'm having trouble connecting. Leave your details and we'll reach out.","bot");lead.hidden=false;}
+        }
+        form.addEventListener('submit',function(e){e.preventDefault();send(input.value);});
+        chips.addEventListener('click',function(e){var c=e.target.closest('.msc-chip');if(c)send(c.textContent);});
+        lead.addEventListener('submit',async function(e){
+          e.preventDefault();
+          var fd=new FormData(lead);
+          var payload={name:fd.get('name'),email:fd.get('email'),company:fd.get('company'),demo:lead.querySelector('[name=demo]').checked,message:lastUser};
+          var btn=lead.querySelector('button[type=submit]');btn.disabled=true;btn.textContent='Sending…';
+          try{
+            var r=await fetch(API+'/marketsync/lead',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+            if(!r.ok)throw 0;
+            lead.hidden=true;bubble("Thanks, "+(payload.name.split(' ')[0]||'there')+"! The MarketSync team will be in touch shortly. Anything else I can answer?","bot");
+          }catch(e){btn.disabled=false;btn.textContent='Send to MarketSync';bubble("Hmm, that didn't go through — you can also email hello@marketsync.link.","bot");}
+        });
+      })();
+    </script>
+    <script src="/assets/auth.js" defer></script>
+  <script src="/assets/public-shell.js" defer></script>
+</body>
+</html>

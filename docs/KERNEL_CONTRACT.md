@@ -1,0 +1,172 @@
+# MarketSync Kernel Contract (v1 — frozen)
+
+This is the ruler. Every engine — existing or future — conforms to this. If a change
+would violate this contract, the design is wrong, not the contract.
+
+The kernel is stable and frozen at v1:
+**Event Bus · Workflow Engine · Action Executor · Timeline · Accounting Engine ·
+Exception Engine · Retry Engine · Configuration · Audit.**
+Everything else is an engine plugged into it.
+
+---
+
+## 1. The four laws
+
+1. **State changes flow through events.** When something happens (deal delivered,
+   deposit paid, RO closed), the owning engine calls `emitEvent(...)`. It does **not**
+   call other engines to tell them.
+2. **Queries flow through published read APIs.** When engine A needs engine B's data,
+   it calls B's exported `getX()` function. It **never** reads B's tables directly and
+   **never** reaches into B's private helpers.
+3. **An engine owns its tables.** Only the owning engine writes its tables. Others get
+   data through its read API or react to its events. The five core objects
+   (`contacts`, `inventory`, `deals`, `profiles`, `dealerships`) are owned by their
+   engines (Customer, Inventory, Deal, Identity, Core) and read-API'd to everyone else.
+4. **Side effects go through the Action Executor.** Anything external (email, SMS, VIN,
+   Carfax, webhook, accounting post) is a registered executor with a retry ledger —
+   never an ad-hoc call in a request handler.
+
+Events are for **write/notify**. Read APIs are for **query**. Do not route reads
+through the event bus (that buys eventual-consistency pain a single-Postgres app does
+not need). Do not route writes through direct calls (that recouples engines).
+
+---
+
+## 2. Event schema (the `events` table — do not change shape)
+
+```
+dealership_id  uuid    — tenant
+event_name     text    — dotted machine name: <domain>.<thing>[ _changed ]
+entity_type    text    — customer | vehicle | deal | task | ...
+entity_id      uuid
+summary        text    — human line (the timeline entry)
+from_state     text    — on transitions
+to_state       text    — on transitions
+department     text    — owning department
+payload        jsonb   — event-specific data (amounts, refs, ids)
+created_by     uuid
+created_at     timestamptz
+```
+
+Rules:
+- `event_name` is stable and namespaced (`deal.status_changed`, `deposit.paid`,
+  `ai.conversation`). Add new names; never repurpose an old one.
+- `payload.engine = true` marks an engine-originated note (timeline-only) so the bus
+  does not re-trigger workflows. Consumers must ignore `payload.engine` events for
+  business logic.
+- Every meaningful state change emits exactly one event. That row **is** the timeline
+  entry — there is no separate activity log.
+
+## 3. Emitting + subscribing
+
+- **Emit:** `emitEvent({...})` from `routes/events.js`. Non-throwing — a failed emit
+  never breaks the business action.
+- **Subscribe:** `onEvent(handlerFn)` at engine registration. Handlers run detached;
+  errors are swallowed and logged, never propagated to the emitter.
+- A subscriber that produces financial or external effects must be **idempotent**
+  (dedupe on a natural key) so replay is safe.
+
+### Durability (at-least-once across restarts)
+Delivery is best-effort in-process **plus** a durable catch-up layer. `emitEvent`
+inserts the `events` row, fans out to `onEvent` subscribers in-process (low latency),
+then stamps `events.dispatched_at`. A poller (`startEventDispatcher`, started once
+after all engines register) re-dispatches any row that was emitted but never stamped
+(the process crashed mid-flight), giving **at-least-once** delivery. Because
+subscribers with financial/external effects are idempotent (dedupe on a natural key),
+a replay is always safe. Existing history is backfilled with `dispatched_at` at
+migration time, so the poller only ever processes post-deploy events — it never
+re-runs the whole table. This is single-process; a multi-instance deployment needs
+`SELECT … FOR UPDATE SKIP LOCKED` claiming (the poller's query is the seam for it).
+
+## 4. Read APIs (how engines query each other)
+
+Each engine exports read functions from its module. Naming: `get<Entity>()`,
+`list<Entity>()`, `<entity>Summary()`. Examples an engine may rely on:
+- Customer Engine → `getContact(id)`, `getCustomerTimeline(id)`
+- Inventory Engine → `getVehicle(id)`, `searchInventory(q)`
+- Deal Engine → `getDeal(id)`
+- Commission Engine → `getCommissionResult(dealId)` (never read `deal_commissions` raw)
+- Configuration Engine → `getConfig(dealer, key)` (see §6)
+
+If a read API you need does not exist, **add it to the owning engine** — do not reach
+into its tables. This is the single most important conformance rule to enforce on the
+existing code.
+
+## 5. Tool registry (how the AI and external agents act)
+
+Every engine capability that an agent should be able to invoke is registered as a
+**tool**: `{ name, description, input_schema, handler }`. The handler calls the
+engine's own read/write functions (which emit events). The AI never touches the DB;
+it only calls tools. Same shape as the Action Executor registry. Design tools
+MCP-compatible so any LLM (Anthropic/OpenAI/Gemini) or external agent uses the same
+backend. Every tool call is auditable (emits an event / writes the audit log).
+
+## 6. Configuration (every engine reads config, never hardcodes)
+
+Dealer-specific behavior comes from the **Configuration Engine**, not code:
+`getConfig(dealershipId, key)` returns the dealer's value or the global default.
+Config domains include departments, commission/bonus plans, accounting rules,
+workflow templates, vehicle statuses, lead sources, sales process, required forms,
+tax rules, deal types, permissions, notification rules, AI personality, branding.
+Existing config-as-data (`accounting_rules`, `workflow_templates`, `state_ownership`,
+`commission_plans`, `dealerships.*_settings`) is unified behind this API.
+
+## 7. Audit
+
+Sensitive or money-moving actions write the `audit_log` (actor, action, before/after,
+reason, timestamp) in addition to emitting an event. Manager overrides, period locks,
+config changes, and payroll posts are always audited.
+
+---
+
+## 8. Definition of "an engine"
+
+A module is a conforming engine when it:
+1. **Subscribes** to the events it reacts to (`onEvent`).
+2. **Emits** events for every state change it owns.
+3. **Exposes read APIs** for its data and **tools** where an agent should act.
+4. **Owns only its tables** and reads everything else through other engines' APIs.
+5. **Reads configuration** instead of hardcoding dealer-specific behavior.
+
+New feature? First question: **which engine owns this, and what event does it emit?**
+If unclear, the architecture — not the feature — needs refinement.
+
+---
+
+## 9. Current conformance gaps (the punch-list this contract creates)
+
+Honest state of the code vs. this contract:
+- ✅ Events, workflow, executor, timeline, accounting, exceptions, retry, replay.
+- ✅ **Configuration Engine** built (`config-engine.js`, `getConfig`/`setConfig`,
+  catalog) — first consumer wired (site chat default tone).
+- ✅ **Commission Engine fully decoupled:** it SUBSCRIBES to `deal.saved` and
+  `deal.status_changed` (recompute/clawback + emit `commission.calculated`). The deal
+  desk (`dashboard.js`) no longer imports or calls the Commission Engine at all — it
+  only emits events. Published read API `getCommissionResult(dealer, dealId)` added.
+- ✅ **Accounting reads commission via API:** the accounting engine calls
+  `getCommissionResult()` instead of reading `deal_commissions` raw.
+- ✅ **Deal read API:** `getDeal(dealer, id)` published on the Deal Engine; the
+  accounting engine reads the delivered deal through it, not the `deals` table.
+- ✅ **Direct cross-engine calls retired:** `syncDealToAccounting()` is now an
+  **Integration Engine subscriber** to `deal.status_changed:delivered` (idempotent,
+  fire-and-forget) — the deal desk and the F&I delivery path no longer call it. The
+  F&I delivery path now emits `deal.status_changed:delivered` too, so accounting,
+  commissions, and external sync fire uniformly regardless of which UI delivered the
+  deal (previously F&I-delivered deals skipped the journal + commission).
+- ✅ **Accounting settings via Config:** the accounting engine reads
+  `getConfig(dealer,'accounting')` (auto_post / cost_tracking), falling back to the
+  legacy `dealerships` columns — no longer a primary raw-table read.
+- ✅ **Durable bus:** `events.dispatched_at` + a catch-up poller
+  (`startEventDispatcher`) give at-least-once delivery across restarts. The live
+  in-process path stays for latency and stamps `dispatched_at`; the poller
+  re-dispatches any row emitted but never stamped (crash mid-flight). History is
+  backfilled at migration time, so the poller only ever sees post-deploy events.
+- ✅ **Tool registry formalized:** `tool-registry.js` holds MCP-shaped tools
+  (`registerTool` / `toolDefs` / `callTool`), the agent-facing twin of the executor
+  registry. Tools are scoped to a `surface` (the sales chatbot runs on `sales_chat`);
+  `callTool` enforces the surface, never throws, and can audit to the timeline. The AI
+  runtime's six tools now register into it; `GET /ai/tools` introspects. Any engine
+  adds agent capabilities via `registerTool` — no bespoke dispatch.
+
+**All ◑ conformance items are now closed.** Conformance work closes ◑ items. No new
+engine ships until it meets §8.

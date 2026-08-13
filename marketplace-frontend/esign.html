@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Review &amp; sign</title>
+  <style>
+    :root { --ink:#0f172a; --mut:#64748b; --line:#e2e8f0; --brand:#1e3a8a; --ok:#16a34a; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:#f1f5f9; color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 16px; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:14px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+    .head { background:var(--brand); color:#fff; padding:16px 20px; display:flex; align-items:center; gap:12px; }
+    .head img { height:34px; width:auto; background:#fff; border-radius:6px; padding:3px; }
+    .head .t { font-size:18px; font-weight:800; }
+    .head .s { font-size:13px; opacity:.85; }
+    .body { padding:18px 20px; }
+    .docframe { width:100%; height:60vh; min-height:360px; border:1px solid var(--line); border-radius:10px; background:#fff; }
+    .lbl { font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--mut); margin:14px 0 6px; }
+    input[type=text] { width:100%; border:1px solid var(--line); border-radius:9px; padding:11px 12px; font-size:16px; }
+    .sigwrap { border:1px dashed #94a3b8; border-radius:10px; background:#fbfdff; position:relative; }
+    canvas { width:100%; height:180px; display:block; border-radius:10px; touch-action:none; cursor:crosshair; }
+    .sighint { position:absolute; left:12px; bottom:10px; color:#94a3b8; font-size:13px; pointer-events:none; }
+    .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px; }
+    .consent { display:flex; gap:10px; align-items:flex-start; margin:16px 0; font-size:13px; color:#334155; }
+    .consent input { margin-top:3px; width:18px; height:18px; }
+    .btn { border:0; border-radius:10px; padding:13px 20px; font-size:15px; font-weight:800; cursor:pointer; }
+    .btn-go { background:var(--ok); color:#fff; }
+    .btn-go[disabled] { opacity:.5; cursor:not-allowed; }
+    .btn-lite { background:#f1f5f9; color:#334155; }
+    .msg { padding:40px 20px; text-align:center; }
+    .msg .big { font-size:40px; }
+    .msg h2 { margin:10px 0 4px; }
+    .foot { font-size:11px; color:#94a3b8; text-align:center; margin-top:14px; line-height:1.5; }
+    .err { color:#dc2626; font-size:13px; margin-top:8px; }
+    @media (prefers-color-scheme: dark) {
+      body { background:#0b1220; color:#e2e8f0; } .card { background:#0f172a; border-color:#1e293b; }
+      input[type=text] { background:#0b1220; border-color:#1e293b; color:#e2e8f0; } .sigwrap { background:#0b1220; }
+      canvas { background:#0b1220; } .btn-lite { background:#1e293b; color:#e2e8f0; } .consent { color:#cbd5e1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" id="card">
+      <div class="msg"><div class="big">⏳</div><h2>Loading your document…</h2></div>
+    </div>
+    <div class="foot">Secured by MarketSync e-sign. Your signature, the time, and your device details are recorded to verify this signing.</div>
+  </div>
+
+  <script>
+    const API = 'https://vehicle-marketplace-s0e4.onrender.com';
+    const token = new URLSearchParams(location.search).get('t') || '';
+    const card = document.getElementById('card');
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    let sigPad = null;
+
+    function screen(html) { card.innerHTML = html; }
+    function done(icon, title, sub) { screen(`<div class="msg"><div class="big">${icon}</div><h2>${esc(title)}</h2><p style="color:var(--mut)">${esc(sub || '')}</p></div>`); }
+
+    async function load() {
+      if (!token) return done('⚠️', 'Invalid link', 'This signing link is missing its code.');
+      let d;
+      try { const r = await fetch(`${API}/esign/${encodeURIComponent(token)}`); d = await r.json(); if (!r.ok) throw new Error(d.error || 'This link is no longer valid.'); }
+      catch (e) { return done('⚠️', 'Can’t open this document', e.message); }
+      if (d.already_signed) return done('✅', 'Already signed', 'This document has already been signed — nothing more to do.');
+      if (d.declined) return done('🚫', 'This request was declined', 'Contact the dealership if this was a mistake.');
+      render(d);
+    }
+
+    function render(d) {
+      screen(`
+        <div class="head">${d.logo ? `<img src="${esc(d.logo)}" alt="">` : ''}<div><div class="t">${esc(d.dealership)}</div><div class="s">${esc(d.doc_title || 'Document')} — please review &amp; sign</div></div></div>
+        <div class="body">
+          <iframe class="docframe" id="doc" sandbox=""></iframe>
+          <div class="lbl">Type your full legal name</div>
+          <input type="text" id="name" value="${esc(d.signer_name || '')}" placeholder="e.g. Jordan Smith" autocomplete="name">
+          <div class="lbl">Draw your signature</div>
+          <div class="sigwrap"><canvas id="sig"></canvas><span class="sighint" id="sighint">Sign here with your finger or mouse</span></div>
+          <div class="row"><button class="btn btn-lite" id="clear" type="button">Clear</button></div>
+          <label class="consent"><input type="checkbox" id="agree"><span>${esc(d.consent_text)}</span></label>
+          <div class="row"><button class="btn btn-go" id="sign" disabled>Sign &amp; submit</button><button class="btn btn-lite" id="decline" type="button">Decline</button></div>
+          <div class="err" id="err"></div>
+        </div>`);
+      // Render the exact document inside a sandboxed frame (no scripts, isolated).
+      document.getElementById('doc').srcdoc = d.doc_html;
+      setupPad();
+      const nameEl = document.getElementById('name'), agreeEl = document.getElementById('agree'), signBtn = document.getElementById('sign');
+      const refresh = () => { signBtn.disabled = !(nameEl.value.trim() && agreeEl.checked && sigPad.hasInk); };
+      nameEl.oninput = refresh; agreeEl.onchange = refresh;
+      document.getElementById('clear').onclick = () => { sigPad.clear(); document.getElementById('sighint').style.display = ''; refresh(); };
+      sigPad.onInk = () => { document.getElementById('sighint').style.display = 'none'; refresh(); };
+      signBtn.onclick = () => submit(nameEl.value.trim());
+      document.getElementById('decline').onclick = decline;
+    }
+
+    function setupPad() {
+      const canvas = document.getElementById('sig');
+      const ratio = Math.max(1, window.devicePixelRatio || 1);
+      const resize = () => { const r = canvas.getBoundingClientRect(); canvas.width = r.width * ratio; canvas.height = r.height * ratio; const c = canvas.getContext('2d'); c.scale(ratio, ratio); c.lineWidth = 2.2; c.lineCap = 'round'; c.strokeStyle = getComputedStyle(document.body).color; };
+      resize();
+      const ctx = canvas.getContext('2d');
+      let drawing = false, hasInk = false;
+      const pos = (e) => { const r = canvas.getBoundingClientRect(); const p = e.touches ? e.touches[0] : e; return { x: p.clientX - r.left, y: p.clientY - r.top }; };
+      const start = (e) => { drawing = true; const { x, y } = pos(e); ctx.beginPath(); ctx.moveTo(x, y); e.preventDefault(); };
+      const move = (e) => { if (!drawing) return; const { x, y } = pos(e); ctx.lineTo(x, y); ctx.stroke(); if (!hasInk) { hasInk = true; sigPad.hasInk = true; sigPad.onInk && sigPad.onInk(); } e.preventDefault(); };
+      const end = () => { drawing = false; };
+      canvas.addEventListener('mousedown', start); canvas.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
+      canvas.addEventListener('touchstart', start, { passive: false }); canvas.addEventListener('touchmove', move, { passive: false }); canvas.addEventListener('touchend', end);
+      sigPad = { hasInk: false, onInk: null, clear() { ctx.clearRect(0, 0, canvas.width, canvas.height); hasInk = false; this.hasInk = false; }, data() { return canvas.toDataURL('image/png'); } };
+    }
+
+    async function submit(name) {
+      const err = document.getElementById('err'); err.textContent = '';
+      const btn = document.getElementById('sign'); btn.disabled = true; btn.textContent = 'Submitting…';
+      try {
+        const r = await fetch(`${API}/esign/${encodeURIComponent(token)}/sign`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ signature_name: name, signature_image: sigPad.data(), agree: true }) });
+        const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Could not submit.');
+        done('✅', 'Signed — thank you!', 'Your dealership has been notified and will follow up. You can close this page.');
+      } catch (e) { err.textContent = e.message; btn.disabled = false; btn.textContent = 'Sign & submit'; }
+    }
+    async function decline() {
+      if (!confirm('Decline to sign this document?')) return;
+      try { await fetch(`${API}/esign/${encodeURIComponent(token)}/decline`, { method: 'POST' }); } catch {}
+      done('🚫', 'Declined', 'You’ve declined to sign. Contact the dealership with any questions.');
+    }
+    load();
+  </script>
+</body>
+</html>
