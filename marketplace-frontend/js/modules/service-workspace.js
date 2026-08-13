@@ -78,13 +78,21 @@ function svcAttention(d) {
 
 function svcRoRow(r, d) {
   const blocked = (d.partRequests || []).some(q => q.ro_id === r.id && ['requested', 'backordered'].includes(q.status));
+  const isOverdue = r.promise_time && new Date(r.promise_time) < new Date() && !['ready', 'delivered', 'closed'].includes(r.status);
   return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
     <button onclick="svcOpenRecord('${r.id}')" class="min-w-0 flex-1 text-left">
-      <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(svcCustomer(r))}</div>
+      <div class="flex items-center gap-2">
+        <span class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(svcCustomer(r))}</span>
+        ${isOverdue ? '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-700 animate-pulse">SLA LATE</span>' : ''}
+      </div>
       <div class="text-[12px] text-slate-400 truncate">${svcVehicle(r) ? esc(svcVehicle(r)) : ''}${r.ro_number ? `${svcVehicle(r) ? ' · ' : ''}${esc(r.ro_number)}` : ''}</div>
-      <div class="text-[12px] text-slate-400"><span class="font-semibold text-slate-500 dark:text-slate-300">${esc(svcStatusLabel(r.status))}</span>${blocked ? ' · <span class="text-orange-500">waiting for parts</span>' : ''}${Number(r.total) ? ` · $${Number(r.total).toLocaleString()}` : ''}</div>
+      <div class="text-[12px] text-slate-400"><span class="font-semibold text-slate-500 dark:text-slate-300">${esc(svcStatusLabel(r.status))}</span>${blocked ? ' · <span class="text-orange-500 font-semibold">waiting for parts</span>' : ''}${Number(r.total) ? ` · $${Number(r.total).toLocaleString()}` : ''}</div>
     </button>
-    <button onclick="svcOpenRecord('${r.id}')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Open RO</button>
+    <div class="flex items-center gap-1.5 shrink-0">
+      <button onclick="svcOpenDviModal('${r.id}')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">DVI</button>
+      ${r.status === 'estimate_sent' ? `<button onclick="svcOpenEstimateDrawer('${r.id}')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-amber-600 text-white hover:bg-amber-500 transition">Estimate</button>` : ''}
+      <button onclick="svcOpenRecord('${r.id}')" class="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">Open RO</button>
+    </div>
   </div>`;
 }
 
@@ -492,6 +500,10 @@ ENGINES['service-overview'] = {
       const callbacks = d.followUps == null ? null : (d.followUps || []).filter(c => !c.done);
       body.innerHTML = `
         ${svcUnavailableNote(d)}
+        ${typeof window.svcRenderTriageBar === 'function' ? window.svcRenderTriageBar(d) : ''}
+        ${typeof window.svcRenderProactiveAiPanel === 'function' ? window.svcRenderProactiveAiPanel(d) : ''}
+        ${typeof window.svcRenderDispatchBoard === 'function' ? window.svcRenderDispatchBoard(d) : ''}
+
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}
           ${engKpi('Open ROs', ros.length)}
@@ -511,6 +523,7 @@ ENGINES['service-overview'] = {
           ${engCard(`Ready for the customer (${ready})`, ready ? ros.filter(r => r.status === 'ready').slice(0, 6).map(r => svcRoRow(r, d)).join('') : engEmpty('Nothing waiting for collection.'))}
           ${engCard('On the floor', ros.filter(r => ['in_progress', 'quality_check'].includes(r.status)).slice(0, 6).map(r => svcRoRow(r, d)).join('') || engEmpty('Nothing in progress.'))}
         </div>
+        ${typeof window.svcRenderPerformanceLayer === 'function' ? window.svcRenderPerformanceLayer(d) : ''}
         ${svcInsightsStrip(d)}`;
     },
     appointments: svcRenderAppointments,
