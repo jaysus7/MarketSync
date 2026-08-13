@@ -1140,7 +1140,7 @@ window.pulseSalesDeptSection = function(d) {
               <div class="font-bold text-sm text-slate-900 dark:text-white">${esc(c.full_name || c.name || 'Unassigned Lead')}</div>
               <div class="text-xs text-slate-400">${esc(c.source || 'Direct')} · ${esc(c.phone || c.email || '')}</div>
             </div>
-            <button onclick="switchPage('sales')" class="px-2.5 py-1 rounded text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">Open</button>
+            <button onclick="${c.id ? `openCrmContact('${c.id}')` : `switchPage('sales')`}" class="px-2.5 py-1 rounded text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">Open</button>
           </div>`).join('')}</div>` : engEmpty('No uncontacted leads waiting.')}
       </div>
 
@@ -1152,7 +1152,7 @@ window.pulseSalesDeptSection = function(d) {
               <div class="font-semibold text-xs text-slate-800 dark:text-slate-200 truncate">${esc(c.full_name || c.email || 'Website Contact')}</div>
               <div class="text-[11px] text-slate-400">Submitted via Website Form</div>
             </div>
-            <button onclick="switchPage('sales')" class="px-2 py-1 rounded text-[11px] font-bold bg-amber-600 text-white">Reply</button>
+            <button onclick="${c.id ? `openCrmContact('${c.id}')` : `switchPage('sales')`}" class="px-2 py-1 rounded text-[11px] font-bold bg-amber-600 text-white">Reply</button>
           </div>`).join('')}</div>` : engEmpty('All website e-leads responded to.')}
       </div>
 
@@ -1535,8 +1535,8 @@ window.pulseHrDeptSection = function(d) {
 ENGINES['command'] = {
   rootId: 'command-root', title: 'My Day', subtitle: 'This main page is the pulse of the dealership.',
   icon: 'chart', accent: 'indigo',
-  tabLabels: { overview: 'My Day', pulse: 'Pulse', forecast: 'Forecast', financials: 'Financials' },
-  tabOrder: ['overview', 'pulse', 'forecast', 'financials'],
+  tabLabels: { pulse: 'Pulse', forecast: 'Forecast', financials: 'Financials' },
+  tabOrder: ['pulse', 'forecast', 'financials'],
 
   fetch: async () => {
     // Every read fails on its own and reports itself. A number that could not be loaded is

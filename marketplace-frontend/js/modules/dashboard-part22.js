@@ -1161,184 +1161,190 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Stats
     const sa = summary.avg_score || 0
-    document.getElementById('inv-intel-stats').innerHTML = [
-      statCard('Total Units', summary.total || 0, 'available'),
-      statCard('Avg Health Score', sa + '/100', '', scoreColor(sa)),
-      statCard('Need Attention', summary.needs_attention || 0, 'score < 50', (summary.needs_attention || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'),
-      statCard('Duplicate VINs', summary.duplicate_vins || 0, duplicate_vins.length ? 'action required' : 'none found', duplicate_vins.length ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'),
-    ].join('')
+    const statsEl = document.getElementById('inv-intel-stats')
+    if (statsEl) {
+      statsEl.innerHTML = [
+        statCard('Total Units', summary.total || 0, 'available'),
+        statCard('Avg Health Score', sa + '/100', '', scoreColor(sa)),
+        statCard('Need Attention', summary.needs_attention || 0, 'score < 50', (summary.needs_attention || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'),
+        statCard('Duplicate VINs', summary.duplicate_vins || 0, duplicate_vins.length ? 'action required' : 'none found', duplicate_vins.length ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'),
+      ].join('')
+    }
 
     // Narrative is loaded async by loadNarrative() — hide until it arrives
     document.getElementById('inv-intel-narrative')?.classList.add('hidden')
 
     // Hot / Cold segments
     const hotEl = document.getElementById('inv-intel-hot')
-    hotEl.innerHTML = hot_segments.length
-      ? hot_segments.map((s, i) => `<div onclick="switchPage('inventory-overview'); setTimeout(() => { engineTab('inventory-overview', 'work'); const i = document.getElementById('catalog-search'); if(i) { i.value = '${s.make} ${s.model}'; renderCatalog(); } }, 50);" class="flex items-center justify-between py-1.5 px-2 -mx-2 border-b border-slate-100 dark:border-slate-700 last:border-0 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition rounded">
-          <div class="flex items-center gap-2">
-            <span class="text-[10px] font-bold text-slate-400 w-4 text-right">${i + 1}</span>
-            <span class="font-medium text-slate-900 dark:text-white">${s.make} ${s.model}</span>
-          </div>
-          <div class="text-right">
-            <div class="text-sm font-bold text-emerald-600 dark:text-emerald-400">${s.monthly_velocity}/mo</div>
-            <div class="text-sm text-slate-400">${s.current_stock} in stock</div>
-          </div>
-        </div>`).join('')
-      : '<p class="text-slate-400 text-sm">No hot vehicles detected</p>'
+    if (hotEl) {
+      hotEl.innerHTML = hot_segments.length
+        ? hot_segments.map((s, i) => `<div onclick="switchPage('inventory-overview'); setTimeout(() => { engineTab('inventory-overview', 'work'); const i = document.getElementById('catalog-search'); if(i) { i.value = '${s.make} ${s.model}'; renderCatalog(); } }, 50);" class="flex items-center justify-between py-1.5 px-2 -mx-2 border-b border-slate-100 dark:border-slate-700 last:border-0 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition rounded">
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] font-bold text-slate-400 w-4 text-right">${i + 1}</span>
+              <span class="font-medium text-slate-900 dark:text-white">${s.make} ${s.model}</span>
+            </div>
+            <div class="text-right">
+              <div class="text-sm font-bold text-emerald-600 dark:text-emerald-400">${s.monthly_velocity}/mo</div>
+              <div class="text-sm text-slate-400">${s.current_stock} in stock</div>
+            </div>
+          </div>`).join('')
+        : '<p class="text-slate-400 text-sm">No hot vehicles detected</p>'
+    }
 
     const coldEl = document.getElementById('inv-intel-cold')
-    coldEl.innerHTML = cold_segments.length
-      ? cold_segments.map((s, i) => `<div onclick="switchPage('inventory-overview'); setTimeout(() => { engineTab('inventory-overview', 'work'); const i = document.getElementById('catalog-search'); if(i) { i.value = '${s.make} ${s.model}'; renderCatalog(); } }, 50);" class="flex items-center justify-between py-1.5 px-2 -mx-2 border-b border-slate-100 dark:border-slate-700 last:border-0 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition rounded">
-          <div class="flex items-center gap-2">
-            <span class="text-[10px] font-bold text-slate-400 w-4 text-right">${i + 1}</span>
-            <span class="font-medium text-slate-900 dark:text-white">${s.make} ${s.model}</span>
-          </div>
-          <div class="text-right">
-            <div class="text-sm font-bold text-red-600 dark:text-red-400">${s.monthly_velocity}/mo sold</div>
-            <div class="text-sm text-slate-400">${s.current_stock} units in stock</div>
-          </div>
-        </div>`).join('')
-      : '<p class="text-slate-400 text-sm">No cold vehicles detected</p>'
+    if (coldEl) {
+      coldEl.innerHTML = cold_segments.length
+        ? cold_segments.map((s, i) => `<div onclick="switchPage('inventory-overview'); setTimeout(() => { engineTab('inventory-overview', 'work'); const i = document.getElementById('catalog-search'); if(i) { i.value = '${s.make} ${s.model}'; renderCatalog(); } }, 50);" class="flex items-center justify-between py-1.5 px-2 -mx-2 border-b border-slate-100 dark:border-slate-700 last:border-0 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition rounded">
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] font-bold text-slate-400 w-4 text-right">${i + 1}</span>
+              <span class="font-medium text-slate-900 dark:text-white">${s.make} ${s.model}</span>
+            </div>
+            <div class="text-right">
+              <div class="text-sm font-bold text-red-600 dark:text-red-400">${s.monthly_velocity}/mo sold</div>
+              <div class="text-sm text-slate-400">${s.current_stock} units in stock</div>
+            </div>
+          </div>`).join('')
+        : '<p class="text-slate-400 text-sm">No cold vehicles detected</p>'
+    }
 
     // Duplicates
     const dupsWrap = document.getElementById('inv-intel-dups-wrap')
     const dupsEl = document.getElementById('inv-intel-dups')
-    if (duplicate_vins.length) {
-      dupsEl.innerHTML = duplicate_vins.map(d => `<div onclick="switchPage('inventory-overview'); setTimeout(() => { engineTab('inventory-overview', 'work'); const i = document.getElementById('catalog-search'); if(i) { i.value = '${d.vin}'; renderCatalog(); } }, 50);" class="bg-white dark:bg-slate-800 rounded-lg px-3 py-2 cursor-pointer hover:ring-2 hover:ring-indigo-500 transition">
-        <div class="font-mono text-xs font-bold text-red-700 dark:text-red-400 mb-1">VIN: ${d.vin}</div>
-        <div class="flex flex-wrap gap-2">${(Array.isArray(d.units) ? d.units : []).map(u => `<span class="text-xs bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 px-2 py-0.5 rounded">${u.year} ${u.make} ${u.model}${u.stock ? ' · ' + u.stock : ''}</span>`).join('')}</div>
-      </div>`).join('')
-      dupsWrap.classList.remove('hidden')
-    } else {
-      dupsWrap.classList.add('hidden')
+    if (dupsWrap && dupsEl) {
+      if (duplicate_vins.length) {
+        dupsEl.innerHTML = duplicate_vins.map(d => `<div onclick="switchPage('inventory-overview'); setTimeout(() => { engineTab('inventory-overview', 'work'); const i = document.getElementById('catalog-search'); if(i) { i.value = '${d.vin}'; renderCatalog(); } }, 50);" class="bg-white dark:bg-slate-800 rounded-lg px-3 py-2 cursor-pointer hover:ring-2 hover:ring-indigo-500 transition">
+          <div class="font-mono text-xs font-bold text-red-700 dark:text-red-400 mb-1">VIN: ${d.vin}</div>
+          <div class="flex flex-wrap gap-2">${(Array.isArray(d.units) ? d.units : []).map(u => `<span class="text-xs bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 px-2 py-0.5 rounded">${u.year} ${u.make} ${u.model}${u.stock ? ' · ' + u.stock : ''}</span>`).join('')}</div>
+        </div>`).join('')
+        dupsWrap.classList.remove('hidden')
+      } else {
+        dupsWrap.classList.add('hidden')
+      }
     }
 
     // Velocity table — wrap parent in scroll container with fade edge
     const velWrap = document.getElementById('inv-intel-velocity-body')?.closest('.overflow-x-auto')
     if (velWrap) {
       velWrap.style.cssText = 'overflow-x:auto;-webkit-overflow-scrolling:touch;position:relative'
-      velWrap.parentElement.style.position = 'relative'
+      if (velWrap.parentElement) velWrap.parentElement.style.position = 'relative'
     }
     const tbody = document.getElementById('inv-intel-velocity-body')
-    tbody.innerHTML = velocity.map(s => `<tr onclick="switchPage('inventory-overview'); setTimeout(() => { engineTab('inventory-overview', 'work'); const i = document.getElementById('catalog-search'); if(i) { i.value = '${s.make} ${s.model}'; renderCatalog(); } }, 50);" class="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
-      <td class="px-4 py-2.5 font-medium text-slate-900 dark:text-white whitespace-nowrap">${s.make} ${s.model}</td>
-      <td class="px-4 py-2.5 text-right tabular-nums">${s.sold_30d}</td>
-      <td class="px-4 py-2.5 text-right tabular-nums font-bold">${s.sold_90d}</td>
-      <td class="px-4 py-2.5 text-right tabular-nums">${s.current_stock}</td>
-      <td class="px-4 py-2.5 text-right tabular-nums whitespace-nowrap ${supplyColor(s.months_of_supply)}">${s.months_of_supply != null ? s.months_of_supply + ' mo' : '—'}</td>
-    </tr>`).join('') || '<tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">No sell-through data yet</td></tr>'
+    if (tbody) {
+      tbody.innerHTML = velocity.map(s => `<tr onclick="switchPage('inventory-overview'); setTimeout(() => { engineTab('inventory-overview', 'work'); const i = document.getElementById('catalog-search'); if(i) { i.value = '${s.make} ${s.model}'; renderCatalog(); } }, 50);" class="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+        <td class="px-4 py-2.5 font-medium text-slate-900 dark:text-white whitespace-nowrap">${s.make} ${s.model}</td>
+        <td class="px-4 py-2.5 text-right tabular-nums">${s.sold_30d}</td>
+        <td class="px-4 py-2.5 text-right tabular-nums font-bold">${s.sold_90d}</td>
+        <td class="px-4 py-2.5 text-right tabular-nums">${s.current_stock}</td>
+        <td class="px-4 py-2.5 text-right tabular-nums whitespace-nowrap ${supplyColor(s.months_of_supply)}">${s.months_of_supply != null ? s.months_of_supply + ' mo' : '—'}</td>
+      </tr>`).join('') || '<tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">No sell-through data yet</td></tr>'
+    }
 
     // Health scores table — with score breakdown sub-row
     const hbody = document.getElementById('inv-intel-health-body')
-    hbody.innerHTML = vehicles.map((v, idx) => {
-      const b = v.breakdown || {}
-      const scoreColor = v.score >= 80 ? '#10b981' : v.score >= 60 ? '#f59e0b' : '#ef4444'
-      const issues = Array.isArray(v.issues) ? v.issues : []
-      const issueList = issues.length
-        ? issues.map(i => `<span class="inline-flex text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded">${i}</span>`).join(' ')
-        : '<span class="text-emerald-500 text-xs font-semibold"> Good</span>'
-      const stockNum = v.stock || v.id?.slice(0, 8) || '—'
-      const vehicleLine = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ')
+    if (hbody) {
+      hbody.innerHTML = vehicles.map((v, idx) => {
+        const b = v.breakdown || {}
+        const scoreColor = v.score >= 80 ? '#10b981' : v.score >= 60 ? '#f59e0b' : '#ef4444'
+        const issues = Array.isArray(v.issues) ? v.issues : []
+        const issueList = issues.length
+          ? issues.map(i => `<span class="inline-flex text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded">${i}</span>`).join(' ')
+          : '<span class="text-emerald-500 text-xs font-semibold"> Good</span>'
+        const stockNum = v.stock || v.id?.slice(0, 8) || '—'
+        const vehicleLine = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ')
 
-      // Score bar segments
-      // Human notes for the market-aware metrics.
-      const priceNote = v.price_vs_market_pct != null
-        ? (v.price_vs_market_pct >= -3 ? 'priced to market' : `${Math.abs(v.price_vs_market_pct)}% under market`)
-        : null;
-      const mileNote = v.mileage != null
-        ? Number(v.mileage).toLocaleString() + (v.mileage_ratio != null ? (v.mileage_ratio <= 1.0 ? ' · below avg' : v.mileage_ratio <= 1.25 ? ' · slightly high' : ' · high for age') : '')
-        : null;
-      // Each row shows the ACTUAL value (days, km, price…) + how much it's worth of
-      // the 100-pt score (its max = its weight), with the bar coloured by the score.
-      const money0 = (n) => n != null ? '$' + Number(n).toLocaleString() : '—';
-      const priceActual = v.price > 0 ? money0(v.price) + (priceNote ? ' · ' + priceNote : '') : 'No price';
-      const mileActual = v.mileage > 0 ? (mileNote || Number(v.mileage).toLocaleString()) : 'No mileage';
-      const segments = [
-        { label: 'Photos',      val: b.photos,      max: 30, icon: 'camera',   actual: `${v.photos || 0} photo${v.photos === 1 ? '' : 's'}` },
-        { label: 'Days on lot', val: b.days,         max: 25, icon: 'calendar', actual: `${v.days}d on lot` },
-        { label: 'Price',       val: b.price,        max: 15, icon: 'currency', actual: priceActual },
-        { label: 'Mileage',     val: b.mileage,      max: 10, icon: 'hashtag',  actual: mileActual },
-        { label: 'Description', val: b.description,  max: 10, icon: 'document', actual: b.description >= 10 ? 'Written' : 'Short / missing' },
-        { label: 'VIN decode',  val: b.fields,       max: 10, icon: 'check',    actual: b.fields >= 10 ? 'Decoded' : 'Incomplete' },
-      ].filter(s => s.val != null)
+        const priceNote = v.price_vs_market_pct != null
+          ? (v.price_vs_market_pct >= -3 ? 'priced to market' : `${Math.abs(v.price_vs_market_pct)}% under market`)
+          : null;
+        const mileNote = v.mileage != null
+          ? Number(v.mileage).toLocaleString() + (v.mileage_ratio != null ? (v.mileage_ratio <= 1.0 ? ' · below avg' : v.mileage_ratio <= 1.25 ? ' · slightly high' : ' · high for age') : '')
+          : null;
+        const money0 = (n) => n != null ? '$' + Number(n).toLocaleString() : '—';
+        const priceActual = v.price > 0 ? money0(v.price) + (priceNote ? ' · ' + priceNote : '') : 'No price';
+        const mileActual = v.mileage > 0 ? (mileNote || Number(v.mileage).toLocaleString()) : 'No mileage';
+        const segments = [
+          { label: 'Photos',      val: b.photos,      max: 30, icon: 'camera',   actual: `${v.photos || 0} photo${v.photos === 1 ? '' : 's'}` },
+          { label: 'Days on lot', val: b.days,         max: 25, icon: 'calendar', actual: `${v.days}d on lot` },
+          { label: 'Price',       val: b.price,        max: 15, icon: 'currency', actual: priceActual },
+          { label: 'Mileage',     val: b.mileage,      max: 10, icon: 'hashtag',  actual: mileActual },
+          { label: 'Description', val: b.description,  max: 10, icon: 'document', actual: b.description >= 10 ? 'Written' : 'Short / missing' },
+          { label: 'VIN decode',  val: b.fields,       max: 10, icon: 'check',    actual: b.fields >= 10 ? 'Decoded' : 'Incomplete' },
+        ].filter(s => s.val != null)
 
-      const breakdownId = `hbd-${idx}`
-      const breakdownHtml = `
-        <div id="${breakdownId}" class="hidden col-span-5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-700 px-6 py-4">
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
-            ${segments.map(s => {
-              const pct = Math.round((s.val / s.max) * 100)
-              const barColor = pct >= 80 ? 'bg-emerald-500' : pct >= 50 ? 'bg-amber-400' : 'bg-red-400'
-              const valColor = pct >= 80 ? 'text-emerald-600 dark:text-emerald-400' : pct >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500'
-              return `<div title="Worth ${s.max}% of the health score">
-                <div class="flex justify-between items-baseline text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1 gap-2">
-                  <span class="inline-flex items-center gap-1">${svgIcon(s.icon, 'w-3 h-3')}${s.label}</span>
-                  <span class="text-[9px] font-bold uppercase tracking-wide text-slate-300 dark:text-slate-600">worth ${s.max}%</span>
+        const breakdownId = `hbd-${idx}`
+        const breakdownHtml = `
+          <div id="${breakdownId}" class="hidden col-span-5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-700 px-6 py-4">
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+              ${segments.map(s => {
+                const pct = Math.round((s.val / s.max) * 100)
+                const barColor = pct >= 80 ? 'bg-emerald-500' : pct >= 50 ? 'bg-amber-400' : 'bg-red-400'
+                const valColor = pct >= 80 ? 'text-emerald-600 dark:text-emerald-400' : pct >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500'
+                return `<div title="Worth ${s.max}% of the health score">
+                  <div class="flex justify-between items-baseline text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1 gap-2">
+                    <span class="inline-flex items-center gap-1">${svgIcon(s.icon, 'w-3 h-3')}${s.label}</span>
+                    <span class="text-[9px] font-bold uppercase tracking-wide text-slate-300 dark:text-slate-600">worth ${s.max}%</span>
+                  </div>
+                  <div class="flex justify-between items-baseline mb-1 gap-2">
+                    <span class="text-[12px] font-bold ${valColor} truncate">${esc(s.actual)}</span>
+                  </div>
+                  <div class="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700">
+                    <div class="h-1.5 rounded-full ${barColor}" style="width:${pct}%"></div>
+                  </div>
+                </div>`
+              }).join('')}
+            </div>
+            ${(() => {
+              const flags0 = Array.isArray(v.photo_flags) ? v.photo_flags : [];
+              const staleNoPhotos = (v.photos > 0) && flags0.some(f => /no photos/i.test(f));
+              if ((v.photo_checked_at == null && v.photo_score == null) || staleNoPhotos) {
+                return `<div class="mb-3 text-[11px] text-slate-400 dark:text-slate-500">AI Vision: photos not scored yet — will score on the next sync, or click “Score photos”.</div>`;
+              }
+              const ps = Number(v.photo_score || 0);
+              const barColor = ps >= 80 ? 'bg-emerald-500' : ps >= 50 ? 'bg-amber-400' : 'bg-red-400';
+              const flags = Array.isArray(v.photo_flags) ? v.photo_flags : [];
+              return `<div class="mb-3 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 p-2.5">
+                <div class="flex justify-between text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                  <span class="flex items-center gap-1"><svg viewBox="0 0 24 24" width="12" height="12" class="inline-block flex-shrink-0" aria-hidden="true"><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg> AI Vision — Photo Quality</span>
+                  <span>${ps}%</span>
                 </div>
-                <div class="flex justify-between items-baseline mb-1 gap-2">
-                  <span class="text-[12px] font-bold ${valColor} truncate">${esc(s.actual)}</span>
-                </div>
-                <div class="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700">
-                  <div class="h-1.5 rounded-full ${barColor}" style="width:${pct}%"></div>
-                </div>
-              </div>`
-            }).join('')}
-          </div>
-          ${(() => {
-            // AI Vision photo quality — folded in here instead of a separate page.
-            const flags0 = Array.isArray(v.photo_flags) ? v.photo_flags : [];
-            const staleNoPhotos = (v.photos > 0) && flags0.some(f => /no photos/i.test(f));
-            if ((v.photo_checked_at == null && v.photo_score == null) || staleNoPhotos) {
-              // Never scored, OR scored "no photos" before the photos synced — either
-              // way the score is stale. It re-scores automatically on the next sync.
-              return `<div class="mb-3 text-[11px] text-slate-400 dark:text-slate-500">AI Vision: photos not scored yet — will score on the next sync, or click “Score photos”.</div>`;
-            }
-            const ps = Number(v.photo_score || 0);
-            const barColor = ps >= 80 ? 'bg-emerald-500' : ps >= 50 ? 'bg-amber-400' : 'bg-red-400';
-            const flags = Array.isArray(v.photo_flags) ? v.photo_flags : [];
-            return `<div class="mb-3 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 p-2.5">
-              <div class="flex justify-between text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                <span class="flex items-center gap-1"><svg viewBox="0 0 24 24" width="12" height="12" class="inline-block flex-shrink-0" aria-hidden="true"><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg> AI Vision — Photo Quality</span>
-                <span>${ps}%</span>
-              </div>
-              <div class="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-1.5 rounded-full ${barColor}" style="width:${ps}%"></div></div>
-              <div class="text-[10px] text-slate-400 mt-1">AI-rated photo quality (lighting, framing, clarity) — aim for 80%+. Click “Score photos” to (re)run it.</div>
-              ${flags.length ? `<div class="flex flex-wrap gap-1 mt-1.5">${flags.map(f => `<span class="text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded">${esc(f)}</span>`).join('')}</div>` : '<div class="text-[10px] text-emerald-500 font-semibold mt-1.5"> Photos look good</div>'}
-            </div>`;
-          })()}
-          ${v.issues.length ? `<div class="flex flex-wrap gap-1">${issueList}</div>` : '<div class="text-emerald-500 text-xs font-semibold"> No issues</div>'}
-          <div class="mt-3 flex justify-end">
-            <button onclick="event.stopPropagation(); editVehicle('${v.id}')" class="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 4H4a1 1 0 00-1 1v14a1 1 0 001 1h14a1 1 0 001-1v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Open stock card to fix →
-            </button>
-          </div>
-        </div>`
+                <div class="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-1.5 rounded-full ${barColor}" style="width:${ps}%"></div></div>
+                <div class="text-[10px] text-slate-400 mt-1">AI-rated photo quality (lighting, framing, clarity) — aim for 80%+. Click “Score photos” to (re)run it.</div>
+                ${flags.length ? `<div class="flex flex-wrap gap-1 mt-1.5">${flags.map(f => `<span class="text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded">${esc(f)}</span>`).join('')}</div>` : '<div class="text-[10px] text-emerald-500 font-semibold mt-1.5"> Photos look good</div>'}
+              </div>`;
+            })()}
+            ${v.issues.length ? `<div class="flex flex-wrap gap-1">${issueList}</div>` : '<div class="text-emerald-500 text-xs font-semibold"> No issues</div>'}
+            <div class="mt-3 flex justify-end">
+              <button onclick="event.stopPropagation(); editVehicle('${v.id}')" class="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 4H4a1 1 0 00-1 1v14a1 1 0 001 1h14a1 1 0 001-1v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Open stock card to fix →
+              </button>
+            </div>
+          </div>`
 
-      return `<tr class="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 transition border-t border-slate-100 dark:border-slate-800" onclick="
-        const bd = document.getElementById('${breakdownId}');
-        const row = this.nextElementSibling;
-        if (bd) { bd.classList.toggle('hidden'); this.querySelector('.hbd-arrow')?.classList.toggle('rotate-90'); }
-      ">
-        <td class="px-4 py-5">
-          <div class="font-semibold text-sm text-indigo-600 dark:text-indigo-400">${stockNum}</div>
-          <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${vehicleLine}</div>
-        </td>
-        <td class="px-4 py-5 text-center">
-          <div class="inline-flex items-baseline gap-1">
-            <span class="text-3xl font-black leading-none" style="color:${scoreColor}">${v.score}</span>
-            <span class="text-xs text-slate-400 font-semibold">/100</span>
-          </div>
-        </td>
-        <td class="px-4 py-5 text-center tabular-nums text-base text-slate-700 dark:text-slate-300">${v.photos}</td>
-        <td class="px-4 py-5 text-center tabular-nums text-base font-semibold ${v.days >= 60 ? 'text-red-500' : v.days >= 30 ? 'text-amber-500' : 'text-slate-700 dark:text-slate-300'}">${v.days}d</td>
-        <td class="px-4 py-5 text-right pr-2">
-          <svg class="hbd-arrow w-4 h-4 text-slate-400 inline transition-transform duration-150" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-        </td>
-      </tr>
-      <tr class="border-0"><td colspan="5" class="p-0">${breakdownHtml}</td></tr>`
-    }).join('') || '<tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">No vehicles found</td></tr>'
+        return `<tr class="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 transition border-t border-slate-100 dark:border-slate-800" onclick="
+          const bd = document.getElementById('${breakdownId}');
+          const row = this.nextElementSibling;
+          if (bd) { bd.classList.toggle('hidden'); this.querySelector('.hbd-arrow')?.classList.toggle('rotate-90'); }
+        ">
+          <td class="px-4 py-5">
+            <div class="font-semibold text-sm text-indigo-600 dark:text-indigo-400">${stockNum}</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${vehicleLine}</div>
+          </td>
+          <td class="px-4 py-5 text-center">
+            <div class="inline-flex items-baseline gap-1">
+              <span class="text-3xl font-black leading-none" style="color:${scoreColor}">${v.score}</span>
+              <span class="text-xs text-slate-400 font-semibold">/100</span>
+            </div>
+          </td>
+          <td class="px-4 py-5 text-center tabular-nums text-base text-slate-700 dark:text-slate-300">${v.photos}</td>
+          <td class="px-4 py-5 text-center tabular-nums text-base font-semibold ${v.days >= 60 ? 'text-red-500' : v.days >= 30 ? 'text-amber-500' : 'text-slate-700 dark:text-slate-300'}">${v.days}d</td>
+          <td class="px-4 py-5 text-right pr-2">
+            <svg class="hbd-arrow w-4 h-4 text-slate-400 inline transition-transform duration-150" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+          </td>
+        </tr>
+        <tr class="border-0"><td colspan="5" class="p-0">${breakdownHtml}</td></tr>`
+      }).join('') || '<tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">No vehicles found</td></tr>'
+    }
 
-    document.getElementById('inv-intel-content').classList.remove('hidden')
+    document.getElementById('inv-intel-content')?.classList.remove('hidden')
   }
 
   async function loadIntel(force = false) {

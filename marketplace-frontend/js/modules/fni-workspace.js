@@ -274,33 +274,83 @@ ENGINES['fni-overview'] = {
 
   tabs: {
     overview(body, d) {
-      if (typeof window.pulseFniDeptSection === 'function') {
-        body.innerHTML = window.pulseFniDeptSection(d);
-        return;
-      }
       const att = fniAttention(d);
       const deals = d.deals || [];
+      const now = Date.now();
+      const oneHourMs = 3600 * 1000;
+      
+      // Incoming deals desked within 1 hour (or recent deals)
+      const incomingDeals = deals.filter(x => {
+        const ts = new Date(x.desked_at || x.created_at || x.updated_at || 0).getTime();
+        return (now - ts) <= oneHourMs;
+      });
+      const deskedToShow = incomingDeals.length ? incomingDeals : deals.slice(0, 5);
+
       const pending = deals.filter(x => x.deal_status === 'pending').length;
       const inFni = deals.filter(x => x.deal_status === 'fni').length;
       const blocked = (d.blocked || []).length;
+
+      const formatTimeAgo = (tsStr) => {
+        if (!tsStr) return 'Just now';
+        const diffMs = Date.now() - new Date(tsStr).getTime();
+        const mins = Math.floor(diffMs / 60000);
+        if (mins < 1) return 'Just now';
+        if (mins < 60) return `${mins}m ago`;
+        const hrs = Math.floor(mins / 60);
+        if (hrs < 24) return `${hrs}h ago`;
+        return `${Math.floor(hrs / 24)}d ago`;
+      };
+
       body.innerHTML = `
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}
-          ${engKpi('Pending approval', pending, pending ? 'text-rose-600 dark:text-rose-400' : '')}
+          ${engKpi('Incoming (Last 1h)', incomingDeals.length, incomingDeals.length ? 'text-indigo-600 dark:text-indigo-400 font-bold' : '')}
+          ${engKpi('Pending approval', pending, pending ? 'text-amber-600 dark:text-amber-400' : '')}
           ${engKpi('In F&I', inFni)}
-          ${engKpi('Delivery blocked', blocked, blocked ? 'text-amber-600 dark:text-amber-400' : '')}
         </div>
-        ${engCard('Needs attention', att.length ? att.map(salesAttentionRow).join('') : engEmpty('No deals need you right now.'))}
+
+        <!-- Incoming Deals (Desked within 1 hour) -->
+        <div class="mb-4">
+          ${engCard('Incoming Desked Deals (Last 1 Hour)', deskedToShow.length ? deskedToShow.map(x => {
+            const timeAgoStr = formatTimeAgo(x.desked_at || x.created_at || x.updated_at);
+            return `<div class="flex items-center justify-between py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+              <div class="min-w-0 flex-1">
+                <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(fniCustomer(x))}</div>
+                <div class="text-[12px] text-slate-400 truncate">
+                  <span class="font-semibold text-slate-600 dark:text-slate-300">${esc(fniStage(x))}</span>
+                  ${fniVehicle(x) ? ` · ${esc(fniVehicle(x))}` : ''}
+                  ${x.selling_price ? ` · $${Number(x.selling_price).toLocaleString()}` : ''}
+                  · <span class="text-indigo-600 dark:text-indigo-400 font-semibold">${esc(timeAgoStr)}</span>
+                </div>
+              </div>
+              <button onclick="switchPage('fni')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition">Open Deal</button>
+            </div>`;
+          }).join('') : engEmpty('No deals desked in the last hour.'))}
+        </div>
+
+        <!-- F&I Worklist & Delivery Blockers -->
+        ${engCard('F&I Worklist', att.length ? att.map(salesAttentionRow).join('') : engEmpty('No deals need immediate attention.'))}
+
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
           ${engCard('Working deals', deals.length ? deals.slice(0, 8).map(fniRow).join('') : engEmpty('No deals in progress.'))}
           ${engCard('Delivery blockers', blocked ? (d.blocked || []).slice(0, 8).map(x => `
             <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-              <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(fniCustomer(x))}</div>
-                <div class="text-[12px] text-rose-500 truncate">${esc(x.blocker || '')}</div></div>
+              <div class="min-w-0 flex-1">
+                <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(fniCustomer(x))}</div>
+                <div class="text-[12px] text-rose-500 truncate">${esc(x.blocker || '')}</div>
+              </div>
               <button onclick="switchPage('delivery')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Prepare Delivery</button>
             </div>`).join('') : engEmpty('No delivery blockers.'))}
         </div>
+
         ${fniContractsAndFunding(d)}`;
+
+      const esignSection = document.createElement('div');
+      esignSection.className = 'mt-4';
+      body.appendChild(esignSection);
+      engMountPage(esignSection, 'fni-esignatures', () => {
+        if (typeof window.renderFniEsign === 'function') window.renderFniEsign();
+      });
     },
     work: fniRenderWork,
     insights(body, d) {

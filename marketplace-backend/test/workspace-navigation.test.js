@@ -207,8 +207,8 @@ test('Management exposes one canonical four-tab command header', () => {
   assert.equal(MS_WORKSPACES.executive.label, 'My Day')
   assert.deepEqual(MS_WORKSPACES.executive.pages.filter(page => !page.legacy).map(page => page.page), ['command'],
     'legacy Executive pages must not render a competing department tab row')
-  assert.match(part11, /tabOrder:\s*\['overview', 'pulse', 'forecast', 'financials'\]/)
-  for (const label of ['My Day', 'Pulse', 'Forecast', 'Financials']) {
+  assert.match(part11, /tabOrder:\s*\['pulse', 'forecast', 'financials'\]/)
+  for (const label of ['Pulse', 'Forecast', 'Financials']) {
     assert.match(part11, new RegExp(`['"]${label}['"]`), `Management must expose ${label}`)
   }
   assert.ok(!/exceptions:\s*'Exceptions'/.test(part11), 'Exceptions must not be a tab of its own')
