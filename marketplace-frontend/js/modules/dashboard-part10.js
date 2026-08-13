@@ -460,7 +460,7 @@ Object.assign(window, { loadAiHome, aiHomeSaveKnowledge, aiHomeSavePersonality, 
 // Engines declare WHAT each tab shows (a render fn); the shell owns the chrome.
 // ═══════════════════════════════════════════════════════════════════════════
 const ENGINE_TAB_ORDER = ['overview', 'work', 'insights', 'automation', 'settings'];
-const ENGINE_TAB_LABEL = { overview: 'Overview', work: 'Work', insights: 'Insights', automation: 'Automation', settings: 'Settings' };
+const ENGINE_TAB_LABEL = { overview: 'Overview', work: 'Work', desk: 'Desk a Deal', appraisal: 'Appraise Trade', equity: 'Equity Mining', insights: 'Insights', automation: 'Automation', settings: 'Settings' };
 const ENGINE_ACCENTS = {
   violet: { text: 'text-violet-700 dark:text-violet-300', bg: 'bg-violet-100 dark:bg-violet-950/50', solid: 'bg-violet-600 hover:bg-violet-700' },
   indigo:  { text: 'text-indigo-600 dark:text-indigo-400',   bg: 'bg-indigo-50 dark:bg-indigo-950/40',   solid: 'bg-indigo-600 hover:bg-indigo-500' },

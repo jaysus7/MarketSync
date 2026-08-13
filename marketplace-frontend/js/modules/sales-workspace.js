@@ -254,8 +254,8 @@ ENGINES['sales'] = {
   // number nobody acts on), Automation folded into Settings (there is one workflow engine, so
   // it is configuration, not a department surface), Work renamed to what it actually holds, and
   // Opportunities, appointments, deals and deliveries are all composed into My Day.
-  tabOrder: ['overview', 'work', 'desk', 'appraisal', 'equity', 'settings'],
-  tabLabels: { overview: 'My Day', work: 'Customers', desk: 'Desk a Deal', appraisal: 'Appraise Trade', equity: 'Equity Mining', settings: 'Settings' },
+  get tabOrder() { return ['overview', 'work', 'desk', 'appraisal', 'equity', 'settings']; },
+  get tabLabels() { return { overview: 'My Day', work: 'Customers', desk: 'Desk a Deal', appraisal: 'Appraise Trade', equity: 'Equity Mining', settings: 'Settings' }; },
 
   // ONE parallel round-trip for the landing view — no waterfall, and deliveries /
   // insights are deliberately excluded (they load inside their own tab).
