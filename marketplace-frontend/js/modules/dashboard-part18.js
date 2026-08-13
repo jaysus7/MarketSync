@@ -500,20 +500,107 @@ function autoRerenderCurrent() {
 
 // Automation Builder: one page, tabbed like the Website builder. Each tab's body
 // keeps its original root id, so the existing bucket loaders render unchanged.
-let __autoTab = 'leads';
+let __autoTab = 'templates';
 function autoTab(t) { __autoTab = t; loadAutoBuilderPage(); }
 window.autoTab = autoTab;
+
 async function loadAutoBuilderPage() {
   const tabsEl = document.getElementById('auto-builder-tabs');
   if (!tabsEl) return;
-  const tab = (id, label) => `<button onclick="autoTab('${id}')" class="px-4 py-2 text-sm font-bold border-b-2 transition ${__autoTab === id ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}">${label}</button>`;
-  tabsEl.innerHTML = tab('leads', 'New Lead Follow-ups') + tab('delivery', 'Delivery Follow-ups') + tab('holidays', 'Holidays')
-    + `<button onclick="switchPage('automation')" class="ml-auto px-3 py-2 text-sm font-bold text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 whitespace-nowrap"> Settings</button>`;
+  const tab = (id, label) => `<button onclick="autoTab('${id}')" class="px-4 py-2.5 text-xs font-bold border-b-2 transition ${__autoTab === id ? 'border-indigo-600 dark:border-indigo-400 text-indigo-700 dark:text-indigo-300 bg-indigo-50/50 dark:bg-indigo-950/30' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}">${label}</button>`;
+  
+  tabsEl.innerHTML = `
+    <div class="flex items-center gap-1 overflow-x-auto w-full border-b border-slate-200 dark:border-slate-800">
+      ${tab('templates', 'Templates')}
+      ${tab('active', 'Active Sequences')}
+      ${tab('leads', 'Lead Follow-ups')}
+      ${tab('delivery', 'Delivery & Reviews')}
+      ${tab('service', 'Service & Reminders')}
+      ${tab('custom', 'Custom Triggers')}
+      ${tab('settings', 'Automation Settings')}
+    </div>
+  `;
+
   const roots = { leads: 'auto-leads-root', delivery: 'auto-delivery-root', holidays: 'auto-holidays-root' };
-  Object.entries(roots).forEach(([k, id]) => document.getElementById(id)?.classList.toggle('hidden', k !== __autoTab));
-  if (__autoTab === 'delivery') await loadAutoDelivery();
-  else if (__autoTab === 'holidays') await loadAutoHolidays();
-  else await loadAutoLeads();
+  Object.entries(roots).forEach(([k, id]) => document.getElementById(id)?.classList.add('hidden'));
+
+  const leadRoot = document.getElementById('auto-leads-root');
+  if (leadRoot) {
+    leadRoot.classList.remove('hidden');
+    if (__autoTab === 'delivery') {
+      await loadAutoDelivery();
+    } else if (__autoTab === 'holidays') {
+      await loadAutoHolidays();
+    } else if (__autoTab === 'settings') {
+      leadRoot.innerHTML = `
+        <div class="space-y-6">
+          <div class="border border-slate-200 dark:border-slate-800 rounded-xl p-5 bg-white dark:bg-slate-900 shadow-sm">
+            <h3 class="text-base font-black text-slate-900 dark:text-white mb-1">Automation Engine Global Settings</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Configure sender identities, quiet hours, throttling, and AI response rules across all automation triggers.</p>
+            ${typeof autoEmailSetupHtml === 'function' ? autoEmailSetupHtml(__autoCfg || {}) : ''}
+          </div>
+        </div>
+      `;
+    } else if (__autoTab === 'templates' || __autoTab === 'custom' || __autoTab === 'active' || __autoTab === 'service') {
+      leadRoot.innerHTML = `
+        <div class="space-y-6">
+          <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-5 border border-indigo-500/20 shadow-md">
+            <div class="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 uppercase tracking-wider">Event-Driven Engine</span>
+                <h3 class="text-lg font-black text-white mt-1">Real-Time Dealership Automation Sequences</h3>
+                <p class="text-xs text-slate-300 mt-0.5">Triggers execute automatically when customer events occur in CRM, Service, or Sales.</p>
+              </div>
+              <button onclick="showToast('Event trigger wizard opened', 'info')" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-sm">+ Create Event Sequence</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm hover:border-indigo-400 transition">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Sales Lead Flow</span>
+                <span class="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 rounded-full">ACTIVE</span>
+              </div>
+              <h4 class="text-sm font-bold text-slate-900 dark:text-white">New Lead 90-Second Rapid Response</h4>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-3">New lead created → wait 90s → if no rep response → send SMS → assign rep → 3d follow-up → stop on appointment.</p>
+              <div class="flex items-center justify-between text-xs pt-3 border-t border-slate-100 dark:border-slate-800">
+                <span class="text-slate-400 font-semibold">1,420 executed this month</span>
+                <button onclick="autoTab('leads')" class="font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Configure →</button>
+              </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm hover:border-indigo-400 transition">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-black text-purple-600 dark:text-purple-400 uppercase tracking-wider">Delivery &amp; CX</span>
+                <span class="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 rounded-full">ACTIVE</span>
+              </div>
+              <h4 class="text-sm font-bold text-slate-900 dark:text-white">Delivery Thank-You &amp; Sentiment Check</h4>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-3">Vehicle delivered → wait 24h → thank you SMS → wait 5d → review request → if negative → alert GM task.</p>
+              <div class="flex items-center justify-between text-xs pt-3 border-t border-slate-100 dark:border-slate-800">
+                <span class="text-slate-400 font-semibold">312 executed this month</span>
+                <button onclick="autoTab('delivery')" class="font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Configure →</button>
+              </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm hover:border-indigo-400 transition">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider">Service Retention</span>
+                <span class="px-2 py-0.5 text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 rounded-full">READY</span>
+              </div>
+              <h4 class="text-sm font-bold text-slate-900 dark:text-white">Service RO 6-Month Maintenance Recall</h4>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-3">Service RO closed → wait 6 months or +5,000 miles → send service reminder with 1-click booking link.</p>
+              <div class="flex items-center justify-between text-xs pt-3 border-t border-slate-100 dark:border-slate-800">
+                <span class="text-slate-400 font-semibold">890 queued</span>
+                <button onclick="showToast('Service sequence opened', 'info')" class="font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Configure →</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      await loadAutoLeads();
+    }
+  }
 }
 window.loadAutoBuilderPage = loadAutoBuilderPage;
 // Professional email setup: from-name/address, reply-to, who we send as, tracking.

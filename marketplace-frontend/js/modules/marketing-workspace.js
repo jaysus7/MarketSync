@@ -306,10 +306,10 @@ ENGINES['marketing-overview'] = {
   icon: 'megaphone', accent: 'violet',
   // Marketing is the widest department, so it carries six. Each is a place a marketer
   // goes to do one job, and none of them opens onto another row of tabs.
-  tabLabels: { overview: 'My Day', chatbot: 'AI ChatBot', emails: 'Emails', studio: 'Studio', website: 'Website', settings: 'Settings' },
+  tabLabels: { overview: 'My Day', chatbot: 'AI ChatBot', emails: 'Emails', studio: 'Studio', website: 'Website', automations: 'Automations' },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    return mgr ? ['overview', 'chatbot', 'emails', 'studio', 'website', 'settings']
+    return mgr ? ['overview', 'chatbot', 'emails', 'studio', 'website', 'automations']
                : ['overview', 'chatbot', 'emails', 'studio'];
   },
 
@@ -436,10 +436,10 @@ ENGINES['marketing-overview'] = {
       engMountPage(body, 'website', () => loadWebsitePage());
     },
 
-    // ── Settings ─────────────────────────────────────────────────────────────
-    // Automations are marketing settings: they are the rules that send without you.
-    settings(body) {
-      body.innerHTML = engSection('Automations', '', 'The rules that follow up, remind and re-engage without you');
+    // ── Automations ─────────────────────────────────────────────────────────
+    // Marketing Automation Engine — event-driven rules that follow up, remind, and re-engage based on live events.
+    automations(body) {
+      body.innerHTML = engSection('Marketing Automation Engine', '', 'Event-driven workflows that follow up, remind and re-engage without human delay');
       engMountPage(body, 'automation-builder', () => loadAutoBuilderPage());
     },
   },
