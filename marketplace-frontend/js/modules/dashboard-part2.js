@@ -1213,60 +1213,63 @@ function switchPage(pageId) {
   if (pageId === 'people-compliance' || pageId === 'hr' || pageId === 'people') loadPeopleCompliance();
 
   __currentPage = pageId;
+  try { localStorage.setItem('ms_last_page', pageId); } catch {}
   renderDeptTabbar(pageId);
   highlightDeptNav(pageId);
   msSyncRoute(pageId);
 }
 
 // ── Workspace routing (additive) ─────────────────────────────────────────────
-// The dashboard is a single document that shows/hides [data-page-content] panels,
-// so before this there was no way to link to, refresh into, or press Back between
-// pages. A small hash route — #/w/<workspace>/<page> — fixes that WITHOUT changing
-// how pages render: it is a thin wrapper over switchPage().
-//
-// Deliberately hash-based (not pushState paths) so the static host needs no rewrite
-// rules and every existing query-param deep link (?calendar=, ?adspend=) and the
-// extension token bootstrap (#tk=, consumed and stripped before this ever runs) keep
-// working untouched. Gating is unchanged: a hash naming a page the user may not open
-// is bounced by switchPage()'s own guards exactly like any stale link.
 let __msRouting = false;   // suppress the popstate→switchPage→pushState loop
 
-function msHashFor(pageId) {
+function msHashFor(pageId, tabId) {
   const ws = (typeof msWorkspaceOfPage === 'function' && msWorkspaceOfPage(pageId, __deptRegistry)) || null;
-  return ws ? `#/w/${ws}/${pageId}` : `#/p/${pageId}`;
+  const subTab = tabId || (typeof ENGINE_STATE !== 'undefined' ? ENGINE_STATE[pageId] : null);
+  if (ws) {
+    return subTab ? `#/w/${ws}/${pageId}/${subTab}` : `#/w/${ws}/${pageId}`;
+  }
+  return subTab ? `#/p/${pageId}/${subTab}` : `#/p/${pageId}`;
 }
 
-function msSyncRoute(pageId) {
+function msSyncRoute(pageId, tabId) {
   if (__msRouting || !pageId) return;
   try {
-    const hash = msHashFor(pageId);
+    const hash = msHashFor(pageId, tabId);
     if (window.location.hash === hash) return;
-    history.pushState({ msPage: pageId }, '', hash);
+    history.replaceState({ msPage: pageId, msTab: tabId }, '', hash);
   } catch {}
 }
 
-// Parse #/w/<workspace>/<page> or #/p/<page> → page id (null when absent/foreign).
 function msRouteFromHash() {
-  const m = String(window.location.hash || '').match(/^#\/(?:w\/[^/]+\/|p\/)([\w-]+)$/);
-  return m ? m[1] : null;
+  const hash = String(window.location.hash || '').trim();
+  const m = hash.match(/^#\/(?:w\/[^/]+\/|p\/)([\w-]+)(?:\/([\w-]+))?$/);
+  if (m) {
+    return { page: m[1], tab: m[2] || null };
+  }
+  try {
+    const savedPage = localStorage.getItem('ms_last_page');
+    if (savedPage) {
+      const savedTab = localStorage.getItem('ms_last_tab_' + savedPage);
+      return { page: savedPage, tab: savedTab || null };
+    }
+  } catch {}
+  return null;
 }
 
 function msApplyRoute() {
-  const pageId = msRouteFromHash();
-  if (!pageId || pageId === __currentPage) return;
+  const target = msRouteFromHash();
+  if (!target || !target.page) return;
+  if (target.page === __currentPage && (!target.tab || (typeof ENGINE_STATE !== 'undefined' && ENGINE_STATE[target.page] === target.tab))) return;
   __msRouting = true;
-  try { switchPage(pageId); } finally { __msRouting = false; }
+  try {
+    switchPage(target.page);
+    if (target.tab && typeof engineTab === 'function' && typeof ENGINES !== 'undefined' && ENGINES[target.page]) {
+      engineTab(target.page, target.tab);
+    }
+  } finally { __msRouting = false; }
 }
 window.addEventListener('popstate', msApplyRoute);
 
-// Restore the routed page on a hard refresh (bookmark / shared link / reload).
-//
-// This is called from every point where the nav is (re)built, because entitlements
-// arrive asynchronously: on the first pass `/access/context` may not have landed yet,
-// so switchPage() correctly bounces a gated page to a safe home. We therefore keep
-// the request pending and retry as the context settles, giving up after a few
-// attempts so a genuinely forbidden link stops redirecting the user. If the page is
-// never permitted, the user simply stays on their safe home page — the gate wins.
 let __msBootTarget = msRouteFromHash();
 let __msBootTries = 0;
 function msBootRoute() {
@@ -1274,27 +1277,26 @@ function msBootRoute() {
   if (typeof switchPage !== 'function') return;
   __msBootTries++;
   __msRouting = true;
-  try { switchPage(__msBootTarget); } finally { __msRouting = false; }
-  // Landed where we asked → done. Otherwise a later attempt retries.
-  if (__currentPage === __msBootTarget) {
-    // Boot may have already navigated to a default landing page and pushed ITS hash
-    // before this restore ran. Route sync is suppressed while __msRouting is set, so
-    // re-assert the restored page's hash here — replaceState, not push, so the
-    // discarded landing page never becomes a Back-button stop.
-    try { history.replaceState({ msPage: __msBootTarget }, '', msHashFor(__msBootTarget)); } catch {}
+  const targetPage = typeof __msBootTarget === 'object' ? __msBootTarget.page : __msBootTarget;
+  const targetTab = typeof __msBootTarget === 'object' ? __msBootTarget.tab : null;
+  try {
+    if (targetPage) switchPage(targetPage);
+    const activeTab = targetTab || (targetPage ? localStorage.getItem('ms_last_tab_' + targetPage) : null);
+    if (targetPage && activeTab && typeof engineTab === 'function' && typeof ENGINES !== 'undefined' && ENGINES[targetPage]) {
+      engineTab(targetPage, activeTab);
+    }
+  } finally { __msRouting = false; }
+  if (__currentPage === targetPage) {
+    try { history.replaceState({ msPage: targetPage, msTab: targetTab }, '', msHashFor(targetPage, targetTab)); } catch {}
     __msBootTarget = null;
   }
 }
 window.msBootRoute = msBootRoute;
 
-// Self-scheduled attempts, so restoring a deep link never depends on which nav mode
-// the account resolves to (full DealerOS, a restricted product tier, or a staff
-// role). renderDeptNav() also calls msBootRoute() as entitlements settle; whichever
-// fires first wins and the rest are cheap no-ops.
 if (__msBootTarget) {
-  document.addEventListener('DOMContentLoaded', () => setTimeout(msBootRoute, 300));
-  setTimeout(msBootRoute, 1200);
-  setTimeout(msBootRoute, 2600);
+  document.addEventListener('DOMContentLoaded', () => setTimeout(msBootRoute, 100));
+  setTimeout(msBootRoute, 500);
+  setTimeout(msBootRoute, 1500);
 }
 
 // ── Trade Appraisal ──────────────────────────────────────────────────────────

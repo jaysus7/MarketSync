@@ -579,6 +579,10 @@ async function engineData(engineId, force) {
 async function engineTab(engineId, tab, force) {
   const eng = ENGINES[engineId]; if (!eng) return;
   ENGINE_STATE[engineId] = tab;
+  try {
+    localStorage.setItem('ms_last_tab_' + engineId, tab);
+    if (typeof msSyncRoute === 'function') msSyncRoute(engineId, tab);
+  } catch {}
   document.querySelectorAll(`[data-engine-tabbar="${engineId}"] [data-engine-tab]`).forEach(b => {
     const on = b.dataset.engineTab === tab;
     b.classList.toggle('border-current', on);
