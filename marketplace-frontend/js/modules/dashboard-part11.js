@@ -1214,18 +1214,19 @@ ENGINES['command'] = {
       }).join('<div class="mt-3"></div>') : engCard('Needs attention', engEmpty('Nothing requires management action today.'));
 
       // Running today
-      const campaignList = cmdUnavailable(d.campaigns) ? null : (d.campaigns.campaigns || []);
-      const liveCampaigns = campaignList ? campaignList.filter(c => c.status === 'active') : null;
-      const queue = cmdUnavailable(d.autoQueue) ? null : (d.autoQueue.queue || d.autoQueue.messages || []);
-      const sentToday = queue ? queue.filter(m => m.status === 'sent' && String(m.sent_at || '').slice(0, 10) === new Date().toISOString().slice(0, 10)).length : null;
+      const campaignList = Array.isArray(d.campaigns?.campaigns) ? d.campaigns.campaigns : (Array.isArray(d.campaigns) ? d.campaigns : []);
+      const liveCampaigns = campaignList.filter(c => c.status === 'active' || c.status === 'running' || c.is_active);
+      const queue = Array.isArray(d.autoQueue?.queue) ? d.autoQueue.queue : (Array.isArray(d.autoQueue?.messages) ? d.autoQueue.messages : []);
+      const sentToday = queue.filter(m => m.status === 'sent' && String(m.sent_at || '').slice(0, 10) === new Date().toISOString().slice(0, 10)).length;
+      const queuedCount = queue.filter(m => m.status === 'pending' || m.status === 'scheduled').length;
 
       const ranToday = engCard('Running today', `
         <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-          ${cmdStat('Campaigns live', liveCampaigns === null ? null : liveCampaigns.length)}
+          ${cmdStat('Campaigns live', liveCampaigns.length)}
           ${cmdStat('Automations sent today', sentToday)}
-          ${cmdStat('Queued to send', queue === null ? null : queue.filter(m => m.status === 'pending' || m.status === 'scheduled').length)}
+          ${cmdStat('Queued to send', queuedCount)}
         </div>
-        ${liveCampaigns && liveCampaigns.length ? `<div class="divide-y divide-slate-100 dark:divide-slate-800 mt-2">${liveCampaigns.slice(0, 6).map(c => `<button onclick="switchPage('marketing-overview')" class="w-full flex items-center justify-between py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(c.name)}</span><span class="text-[12px] text-slate-400">${esc(c.source_key || 'campaign')}</span></button>`).join('')}</div>` : ''}
+        ${liveCampaigns.length ? `<div class="divide-y divide-slate-100 dark:divide-slate-800 mt-2">${liveCampaigns.slice(0, 6).map(c => `<button onclick="switchPage('marketing-overview')" class="w-full flex items-center justify-between py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(c.name)}</span><span class="text-[12px] text-slate-400">${esc(c.source_key || 'campaign')}</span></button>`).join('')}</div>` : ''}
       `);
 
       // Forecast
@@ -1234,11 +1235,11 @@ ENGINES['command'] = {
       if (cmdUnavailable(p)) {
         forecastHtml = cmdUnavailableNote([p]) + engCard('Forecast', engEmpty('The sales pipeline could not be read, so no forecast can be shown.'));
       } else {
-        const deals = p.deals || p.pipeline || p.rows || [];
+        const deals = Array.isArray(p?.deals) ? p.deals : (Array.isArray(p?.pipeline) ? p.pipeline : (Array.isArray(p?.rows) ? p.rows : []));
         const stage = (name) => deals.filter(x => String(x.status || x.stage || '').toLowerCase() === name).length;
         const openDeals = deals.filter(x => !/sold|lost|delivered/i.test(String(x.status || x.stage || '')));
-        const gross = openDeals.reduce((a, x) => a + (Number(x.expected_gross ?? x.gross ?? 0) || 0), 0);
-        const weighted = (gross !== null && gross !== undefined) ? cmdMoney(gross) : null;
+        const gross = openDeals.reduce((a, x) => a + (Number(x.expected_gross ?? x.gross ?? x.amount ?? 0) || 0), 0);
+        const weighted = cmdMoney(gross);
   
         forecastHtml = `
           <div class="mb-6 space-y-4">
@@ -1247,7 +1248,7 @@ ENGINES['command'] = {
               ${cmdStat('Open deals', openDeals.length)}
               ${cmdStat('Appointments', stage('appointment'))}
               ${cmdStat('In F&I', stage('fni'))}
-              ${cmdStat('Open gross', weighted, { note: weighted ? 'From deals that carry an expected gross' : 'No deal carries an expected gross yet' })}
+              ${cmdStat('Open gross', weighted, { note: gross > 0 ? 'From deals carrying an expected gross' : 'No deal carries an expected gross yet' })}
             </div>
             ${engCard('Pipeline by stage', deals.length
               ? `<div class="divide-y divide-slate-100 dark:divide-slate-800">${
