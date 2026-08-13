@@ -534,6 +534,7 @@ function engMountPage(body, pageId, load) {
   if (!__engMountedPages.has(pageId)) {
     __engMountedPages.set(pageId, { home: panel.parentElement, before: panel.nextElementSibling });
   }
+  body.innerHTML = '';
   const host = document.createElement('div');
   host.dataset.engineMount = pageId;
   body.appendChild(host);
