@@ -105,19 +105,31 @@ ENGINES['accounting-overview'] = {
   rootId: 'accounting-overview-root', title: 'Accounting',
   subtitle: 'Financial control — what reached the books, what has not, and what is owed',
   icon: 'currency', accent: 'emerald',
-  tabLabels: { overview: 'My Day', journal: 'Journal', payroll: 'Payroll', budget: 'Budget', settings: 'Settings' },
+  tabLabels: {
+    overview: 'My Day',
+    money_in: 'Money In',
+    money_out: 'Money Out',
+    bank: 'Bank',
+    close: 'Close',
+    reports: 'Reports',
+    budget: 'Budget',
+    journal: 'Journal',
+    settings: 'Settings',
+  },
   get tabOrder() {
-    const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(profileContext?.role);
-    // Settings writes tax handling, auto-posting and who gets the alerts, and Budget
-    // connects the bank — both are controller acts.
-    return mgr ? ['overview', 'journal', 'payroll', 'budget', 'settings'] : ['overview', 'journal'];
+    const role = profileContext?.role;
+    const isOwner = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(role);
+    const isClerk = role === 'ACCOUNTING_CLERK';
+    if (isOwner) return ['overview', 'money_in', 'money_out', 'bank', 'close', 'reports', 'budget', 'journal', 'settings'];
+    if (isClerk) return ['overview', 'money_in', 'money_out', 'bank'];
+    return ['overview', 'money_in', 'money_out', 'bank', 'close', 'reports', 'budget'];
   },
 
   quickActions: [
-    { label: 'Journal', icon: 'clipboard', onclick: "engineTab('accounting-overview','journal')" },
-    { label: 'Payroll', icon: 'currency', onclick: "engineTab('accounting-overview','payroll')" },
-    { label: 'Budget', icon: 'chart', onclick: "engineTab('accounting-overview','budget')" },
-    { label: 'Full ledger', icon: 'chevronRight', onclick: "switchPage('accounting')" },
+    { label: 'Money In', icon: 'currency', onclick: "engineTab('accounting-overview','money_in')" },
+    { label: 'Money Out', icon: 'clipboard', onclick: "engineTab('accounting-overview','money_out')" },
+    { label: 'Bank', icon: 'chart', onclick: "engineTab('accounting-overview','bank')" },
+    { label: 'Close Period', icon: 'chevronRight', onclick: "engineTab('accounting-overview','close')" },
   ],
   // Every exception now lands on My Day, where its section already lives.
   nextActions: (d) => (d?.exceptions || []).slice(0, 5).map(x => ({
@@ -250,7 +262,26 @@ ENGINES['accounting-overview'] = {
               Trial balance, P&amp;L and balance sheet are computed from posted journals on the
               Accounting page.
             </div>
-            <button onclick="switchPage('accounting')" class="mt-2 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">Open statements</button>`)}`)}`;
+    },
+
+    money_in(body, d) {
+      if (typeof window.accRenderMoneyIn === 'function') window.accRenderMoneyIn(body, d);
+    },
+
+    money_out(body, d) {
+      if (typeof window.accRenderMoneyOut === 'function') window.accRenderMoneyOut(body, d);
+    },
+
+    bank(body, d) {
+      if (typeof window.accRenderBank === 'function') window.accRenderBank(body, d);
+    },
+
+    close(body, d) {
+      if (typeof window.accRenderClose === 'function') window.accRenderClose(body, d);
+    },
+
+    reports(body, d) {
+      if (typeof window.accRenderReports === 'function') window.accRenderReports(body, d);
     },
 
     // ── Journal ──────────────────────────────────────────────────────────────
