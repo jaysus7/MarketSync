@@ -194,17 +194,6 @@ const MS_WORKSPACES = {
   // `launch` PAGE still exists and is still reachable by deep link; it simply no longer
   // occupies a slot in the navigation forever.
 
-  // ── System — rendered in the bottom/system section, not as a department ────
-  // Automation deliberately lives HERE, not in a department: contextual automation
-  // belongs inside workspaces, global advanced automation belongs in Settings.
-  settings: {
-    label: 'Settings', icon: 'shield', accent: 'indigo', system: true, mgr: true,
-    pages: [
-      { page: 'config', label: 'Settings' },
-      { page: 'automation-builder', label: 'Automation', legacy: true },
-      { page: 'api-keys', label: 'API Keys', legacy: true },
-    ],
-  },
 };
 
 // Bottom/system rail. `profile` is the header gear (always reachable, every tier).
