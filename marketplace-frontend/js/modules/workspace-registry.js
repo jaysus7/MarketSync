@@ -88,14 +88,6 @@ const MS_WORKSPACES = {
     ],
   },
 
-  // ── Recon / Cleanup ────────────────────────────────────────────────────────
-  recon: {
-    label: 'Cleanup', icon: 'sparkles', accent: 'sky',
-    pages: [
-      { page: 'recon', label: 'Cleanup' },
-    ],
-  },
-
   // ── F&I — first-class workspace. Desk-a-deal stays contextual (per customer).
   fni: {
     label: 'F&I', icon: 'shield', accent: 'indigo', roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'],
@@ -103,6 +95,14 @@ const MS_WORKSPACES = {
       { page: 'fni-overview', label: 'My Day' },
       { page: 'fni', label: 'Deals' },
       { page: 'delivery', label: 'Delivery', mgr: true },
+    ],
+  },
+
+  // ── Recon / Cleanup ────────────────────────────────────────────────────────
+  recon: {
+    label: 'Cleanup', icon: 'sparkles', accent: 'sky',
+    pages: [
+      { page: 'recon', label: 'Cleanup' },
     ],
   },
 
