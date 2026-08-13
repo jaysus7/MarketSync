@@ -1653,6 +1653,7 @@ Object.assign(window, {
   crmOpenForm,
   crmLoadContacts,
   loadCrmPage,
+  loadLeadsPage,
   crmQuickLog,
   crmSaveContact,
   crmScanLicense,
