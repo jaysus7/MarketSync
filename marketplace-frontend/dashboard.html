@@ -247,8 +247,8 @@
     /* Guided setup: pulse the integration card we sent the user to finish. */
     @keyframes setupFlash { 0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); } 30% { box-shadow: 0 0 0 4px rgba(99,102,241,.45); } }
     .setup-flash { animation: setupFlash 1.3s ease-in-out 2; border-radius: 0.5rem; }
-    #header-desk-btn, #header-appraise-btn, #fb-post-btn, #idscan-btn, #ext-header-btn,
-    #training-btn, #open-upgrades, #header-settings, #logout-btn, #ui-tier-chip,
+    #fb-post-btn, #idscan-btn, #ext-header-btn,
+    #training-btn, #open-upgrades, #ui-tier-chip,
     #header-shift-clock-chip { display: none !important; }
   </style>
 </head>
@@ -263,7 +263,7 @@
        clock ticks into #header-shift-timer-display, entitlement code toggles
        #fb-post-btn and #ext-header-btn, the tour points at #idscan-btn). Moving
        them keeps every one of those working; deleting them would not. -->
-  <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex justify-between items-center gap-3 sm:gap-5 flex-shrink-0 sticky top-0 z-40">
+  <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-2 sm:px-6 lg:px-8 py-3 sm:py-5 flex justify-between items-center gap-1 sm:gap-5 flex-shrink-0 sticky top-0 z-40">
     <div class="flex items-center gap-2 sm:gap-3 min-w-0">
       <div class="flex items-center gap-2 flex-shrink-0">
         <span class="w-1.5 h-6 bg-indigo-500 rounded-sm"></span>
@@ -271,55 +271,43 @@
       </div>
       <!-- Who you are signed in AS. Was hidden below sm — the role is the point of the
            header, so it shows on every screen size now. -->
-      <span class="inline-block text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 font-mono px-2 py-0.5 rounded truncate" id="ui-role-pill">Loading...</span>
+      <span class="hidden sm:inline-block text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 font-mono px-2 py-0.5 rounded truncate" id="ui-role-pill">Loading...</span>
     </div>
-    <div class="flex items-center justify-end gap-2 sm:gap-3 min-w-0">
-      <button id="header-appraise-btn" onclick="switchPage('appraisal')" title="Appraise a vehicle" class="hidden items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm shadow-indigo-500/40 transition whitespace-nowrap">
+    <div class="flex items-center justify-end gap-1 sm:gap-3 min-w-0">
+      <button id="header-appraise-btn" onclick="switchPage('appraisal')" title="Appraise a car" aria-label="Appraise a car" class="hidden items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white p-1.5 lg:px-3 rounded-lg text-sm font-bold shadow-sm shadow-indigo-500/40 transition whitespace-nowrap">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-        <span class="hidden sm:inline">Appraise a vehicle</span>
+        <span class="hidden lg:inline">Appraise a car</span>
       </button>
-      <button id="header-desk-btn" onclick="switchPage('desk')" title="Desk a deal" class="hidden items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm shadow-purple-500/40 transition whitespace-nowrap">
+      <button id="header-desk-btn" onclick="switchPage('desk')" title="Desk a deal" aria-label="Desk a deal" class="hidden items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white p-1.5 lg:px-3 rounded-lg text-sm font-bold shadow-sm shadow-purple-500/40 transition whitespace-nowrap">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m3 6V7m3 10v-4M4 4h16v16H4z"/></svg>
-        <span class="hidden sm:inline">Desk a deal</span>
+        <span class="hidden lg:inline">Desk a deal</span>
+      </button>
+      <button id="header-profile-btn" onclick="switchPage('profile');settingsTab('account')" title="My profile" aria-label="My profile" class="inline-flex items-center justify-center p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.12a7.5 7.5 0 0115 0A17.93 17.93 0 0112 21.75a17.93 17.93 0 01-7.5-1.63z"/></svg>
+      </button>
+      <button id="header-settings" onclick="switchPage('profile');settingsTab('admin')" title="Settings" aria-label="Settings" class="inline-flex items-center justify-center p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.59 4.24A1.98 1.98 0 0111.5 2.75h1a1.98 1.98 0 011.91 1.49l.2.77a2 2 0 002.73 1.25l.72-.3a1.98 1.98 0 012.4.84l.5.87a1.98 1.98 0 01-.49 2.5l-.61.48a2 2 0 000 3.14l.61.48a1.98 1.98 0 01.49 2.5l-.5.87a1.98 1.98 0 01-2.4.84l-.72-.3a2 2 0 00-2.73 1.25l-.2.77a1.98 1.98 0 01-1.91 1.49h-1a1.98 1.98 0 01-1.91-1.49l-.2-.77a2 2 0 00-2.73-1.25l-.72.3a1.98 1.98 0 01-2.4-.84l-.5-.87a1.98 1.98 0 01.49-2.5l.61-.48a2 2 0 000-3.14l-.61-.48a1.98 1.98 0 01-.49-2.5l.5-.87a1.98 1.98 0 012.4-.84l.72.3a2 2 0 002.73-1.25l.2-.77z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
       </button>
       <!-- Notification bell -->
       <button id="notif-bell" aria-label="Notifications" class="relative p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"/></svg>
         <span id="notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none"></span>
       </button>
-      <div class="relative">
-        <button id="shell-menu-btn" onclick="msToggleShellMenu()" aria-expanded="false" aria-controls="shell-menu" class="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Menu">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16"/></svg>
-        </button>
-        <!-- Everything the header no longer shows. Each entry kept its id so the code
-             that fills, gates or hides it keeps working untouched. -->
-        <div id="shell-menu" class="hidden absolute right-0 mt-2 w-64 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-1.5 z-50 text-sm">
-          <div class="px-3 py-2.5 border-b border-slate-200 dark:border-slate-700 mb-1.5">
-            <div class="text-sm font-bold text-slate-900 dark:text-white truncate" id="ui-profile-name">---</div>
-            <div class="text-xs text-slate-500 dark:text-slate-400 truncate" id="ui-dealership-name">---</div>
-            <!-- Live Running Shift Time Clock Badge -->
-            <button id="header-shift-clock-chip" onclick="switchPage('people-compliance')" title="Shift Time Clock — Click to view Workstation" class="hidden mt-2 items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black transition border shadow-sm cursor-pointer whitespace-nowrap bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20">
-              <span class="relative flex h-2 w-2">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span class="font-mono text-xs font-bold" id="header-shift-timer-display"> SHIFT: 00:00:00</span>
-            </button>
-            <!-- Rank/tier chip — opens the leaderboard -->
-            <button id="ui-tier-chip" onclick="openLeaderboardOnDash()" title="Your rank & badges — open the leaderboard" class="hidden items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition hover:brightness-110 whitespace-nowrap"></button>
-          </div>
-          <button id="idscan-btn" onclick="identityScan()" title="Add a customer — scan their driver's licence to fill in all the details" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Add customer</button>
-          <button id="fb-post-btn" onclick="postToFacebook()" title="Post inventory to Facebook Marketplace" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Post to Facebook</button>
-          <button id="open-upgrades" onclick="openUpgradesHub()" title="Upgrades & add-ons" class="relative w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Upgrades &amp; add-ons<span id="upg-days-badge" class="hidden absolute top-1.5 right-2 min-w-[18px] h-4 bg-violet-600 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none"></span></button>
-          <a id="training-btn" href="/training.html" title="Training Academy — step-by-step help" class="block px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Training</a>
-          <button onclick="msShellGo('academy')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Academy</button>
-          <button id="header-settings" onclick="switchPage('profile')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Profile &amp; settings</button>
-          <a id="ext-header-btn" href="https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada" target="_blank" rel="noopener" class="hidden px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Install extension</a>
-          <button id="logout-btn" onclick="msSignOut()" class="w-full text-left px-3 py-2 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30">Sign out</button>
-        </div>
-      </div>
+      <button id="logout-btn" onclick="msSignOut()" title="Sign out" aria-label="Sign out" class="inline-flex items-center justify-center p-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M18 15l3-3m0 0l-3-3m3 3H9"/></svg>
+      </button>
     </div>
   </header>
+
+  <!-- Runtime compatibility targets for entitlement/profile code. These are not a
+       second menu and never render; their functions remain reachable in canonical
+       workspaces after the retired hamburger was removed. -->
+  <div class="hidden" aria-hidden="true">
+    <span id="ui-profile-name">---</span><span id="ui-dealership-name">---</span>
+    <button id="header-shift-clock-chip"><span id="header-shift-timer-display"></span></button>
+    <button id="ui-tier-chip"></button><button id="idscan-btn"></button><button id="fb-post-btn"></button>
+    <button id="open-upgrades"><span id="upg-days-badge"></span></button><a id="training-btn"></a><a id="ext-header-btn"></a>
+  </div>
 
 
   <!-- Notification slideout panel -->
@@ -3064,7 +3052,7 @@
        department opened with a setup nag above it. It is one line at the foot of the
        shell now, it opens a modal rather than navigating away from whatever you were
        doing, and it removes itself the moment the dealership is fully configured. -->
-  <button id="setup-status-banner" onclick="msSetupModal()" class="hidden flex-shrink-0 items-center justify-center gap-2 w-full border-t border-amber-300/70 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/30 px-4 py-2 text-center hover:bg-amber-100 dark:hover:bg-amber-950/50 transition">
+  <button id="setup-status-banner" onclick="switchPage('launch')" class="hidden flex-shrink-0 items-center justify-center gap-2 w-full border-t border-amber-300/70 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/30 px-4 py-2 text-center hover:bg-amber-100 dark:hover:bg-amber-950/50 transition">
     <span id="setup-status-title" class="text-[12px] font-bold text-amber-900 dark:text-amber-200">Finish setup</span>
     <span id="setup-status-detail" class="text-[11px] text-amber-700 dark:text-amber-300"></span>
     <span class="text-[11px] font-bold text-amber-800 dark:text-amber-300 underline">Open</span>
@@ -3642,47 +3630,47 @@
        cannot reuse an older bundle from its cache after a staging deployment. -->
   <!-- Workspace registry: SINGLE SOURCE OF TRUTH for sidebar, workspace tabs and
        mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
-  <script src="js/modules/workspace-registry.js?v=20260811_inventoryintel_noemoji"></script>
-  <script src="dashboard.js?v=20260809_ws_noemoji"></script>
-  <script src="js/modules/dashboard-part2.js?v=20260810_p8landing_noemoji"></script>
-  <script src="js/modules/dashboard-part3.js?v=20260809_ws_noemoji"></script>
-  <script src="js/modules/dashboard-part4.js?v=20260811_fitactions_noemoji"></script>
-  <script src="js/modules/dashboard-part5.js?v=20260809_ws_noemoji"></script>
-  <script src="js/modules/dashboard-part6.js?v=20260809_ws_noemoji"></script>
-  <script src="js/modules/dashboard-part7.js?v=20260809_ws_noemoji"></script>
-  <script src="js/modules/dashboard-part8.js?v=20260809_ws_noemoji"></script>
-  <script src="js/modules/dashboard-part9.js?v=20260810_p8shell_noemoji"></script>
-  <script src="js/modules/dashboard-part10.js?v=20260809_ws_noemoji"></script>
-  <script src="js/modules/dashboard-part11.js?v=20260811_identityreview_noemoji"></script>
-  <script src="js/modules/dashboard-part12.js?v=20260809_ws_noemoji"></script>
-  <script src="js/modules/dashboard-part13.js?v=20260809_ws_noemoji"></script>
-  <script src="js/modules/dashboard-part14.js?v=20260810_p8team_noemoji"></script>
-  <script src="js/modules/dashboard-part15.js?v=20260809_ws_noemoji"></script>
-  <script src="js/modules/dashboard-part16.js?v=20260809_ws_noemoji"></script>
-  <script src="js/modules/dashboard-part17.js?v=20260809_ws_noemoji"></script>
-  <script src="js/modules/dashboard-part18.js?v=20260809_ws_noemoji"></script>
-  <script src="js/modules/dashboard-part19.js?v=20260809_ws_noemoji"></script>
-  <script src="js/modules/dashboard-part20.js?v=20260809_ws_noemoji"></script>
-  <script src="js/modules/dashboard-part21.js?v=20260809_ws_noemoji"></script>
-  <script src="js/modules/dashboard-part22.js?v=20260809_ws_noemoji"></script>
-  <script src="js/modules/dashboard-part23.js?v=20260809_ws_noemoji"></script>
-  <script src="js/modules/dashboard-part24.js?v=20260810_p8team_noemoji"></script>
-  <script src="js/modules/dashboard-part25.js?v=20260809_ws_noemoji"></script>
-  <script src="js/modules/dashboard-part26.js?v=20260809_ws_noemoji"></script>
+  <script src="js/modules/workspace-registry.js?v=20260813_v6"></script>
+  <script src="dashboard.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part2.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part3.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part4.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part5.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part6.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part7.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part8.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part9.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part10.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part11.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part12.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part13.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part14.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part15.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part16.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part17.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part18.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part19.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part20.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part21.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part22.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part23.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part24.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part25.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part26.js?v=20260813_v6"></script>
   <!-- Sales workspace: registers ENGINES['sales']; must load after the parts. -->
-  <script src="js/modules/sales-workspace.js?v=20260810_myday_noemoji"></script>
-  <script src="js/modules/inventory-workspace.js?v=20260811_inventoryintel_noemoji"></script>
-  <script src="js/modules/fni-workspace.js?v=20260810_myday_noemoji"></script>
+  <script src="js/modules/sales-workspace.js?v=20260813_v6"></script>
+  <script src="js/modules/inventory-workspace.js?v=20260813_v6"></script>
+  <script src="js/modules/fni-workspace.js?v=20260813_v6"></script>
   <!-- Vehicle Record: one unit, one surface. Loads after inventory-workspace.js,
        whose merchandising/acquisition definitions it renders. -->
-  <script src="js/modules/vehicle-record.js?v=20260809_stage3b2_noemoji"></script>
-  <script src="js/modules/service-workspace.js?v=20260810_myday_noemoji"></script>
-  <script src="js/modules/parts-workspace.js?v=20260810_myday_noemoji"></script>
-  <script src="js/modules/accounting-workspace.js?v=20260810_myday_noemoji"></script>
-  <script src="js/modules/marketing-workspace.js?v=20260811_socialfilters_noemoji"></script>
-  <script src="js/modules/academy-workspace.js?v=20260810_pr73_noemoji"></script>
-  <script src="js/modules/launch-workspace.js?v=20260810_p8actions_noemoji"></script>
-  <script src="js/modules/people-workspace.js?v=20260810_p8team_noemoji"></script>
+  <script src="js/modules/vehicle-record.js?v=20260813_v6"></script>
+  <script src="js/modules/service-workspace.js?v=20260813_v6"></script>
+  <script src="js/modules/parts-workspace.js?v=20260813_v6"></script>
+  <script src="js/modules/accounting-workspace.js?v=20260813_v6"></script>
+  <script src="js/modules/marketing-workspace.js?v=20260813_v6"></script>
+  <script src="js/modules/academy-workspace.js?v=20260813_v6"></script>
+  <script src="js/modules/launch-workspace.js?v=20260813_v6"></script>
+  <script src="js/modules/people-workspace.js?v=20260813_v6"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
@@ -3690,7 +3678,6 @@
     };
   </script>
   <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async></script>
-  <script src="tour.js?v=20260805_hr30d_v3_noemoji"></script>
   <script src="table-sort.js?v=20260706a_noemoji"></script>
 </body>
 </html>

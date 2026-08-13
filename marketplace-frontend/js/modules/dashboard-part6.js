@@ -571,25 +571,10 @@ async function loadDeskDeal() {
         <div class="col-span-2 sm:col-span-3"><button onclick="deskSaveDealer(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-5 py-2 rounded-lg transition">Save dealer details</button></div>
       </div>
     </div>` : ''}
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 sm:p-5 mb-4">
-      <label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">Customer</label>
-      <div class="relative">
-        <input id="desk-search" type="text" autocomplete="off" placeholder="Search by name, email or phone…" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
-        <div id="desk-results" class="absolute z-20 left-0 right-0 mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg overflow-hidden hidden max-h-72 overflow-y-auto"></div>
-      </div>
-    </div>
+
     <div id="desk-form"></div>`;
-  const search = document.getElementById('desk-search');
-  search.addEventListener('input', () => {
-    clearTimeout(__deskSearchTimer);
-    __deskSearchTimer = setTimeout(() => deskCustomerSearch(search.value.trim()), 220);
-  });
-  search.addEventListener('focus', () => { if (!search.value.trim()) deskCustomerSearch(''); });
-  document.addEventListener('click', (e) => {
-    const box = document.getElementById('desk-results');
-    if (box && !box.contains(e.target) && e.target !== search) box.classList.add('hidden');
-  });
-  if (__deskContactId) { deskPickCustomer(__deskContactId); __deskContactId = null; }
+
+  if (__deskContactId) { deskPickCustomer(__deskContactId); __deskContactId = null; } else { deskRenderForm(null); }
 }
 
 async function deskCustomerSearch(q) {
@@ -598,15 +583,131 @@ async function deskCustomerSearch(q) {
   try {
     const d = await apiGetJson(`/deals/customers?q=${encodeURIComponent(q)}`, { retries: 1 });
     const rows = d?.rows || [];
-    if (!rows.length) { box.innerHTML = '<div class="px-3 py-2 text-xs text-slate-400 italic">No customers found. Add them in CRM first.</div>'; box.classList.remove('hidden'); return; }
-    box.innerHTML = rows.map(r => `
-      <button type="button" onclick="deskPickCustomer('${r.id}')" class="w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition border-b border-slate-100 dark:border-slate-800 last:border-0">
-        <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(r.name)}</div>
-        <div class="text-xs text-slate-500 dark:text-slate-400">${[r.email, r.phone, [r.city, r.province].filter(Boolean).join(', ')].filter(Boolean).map(esc).join(' · ')}</div>
+    let html = rows.map(r => `
+      <button type="button" onclick="deskPickCustomer('${r.id}')" class="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition border-b border-slate-100 dark:border-slate-800 last:border-0 flex items-center justify-between">
+        <div>
+          <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(r.name)}</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400">${[r.email, r.phone, [r.city, r.province].filter(Boolean).join(', ')].filter(Boolean).map(esc).join(' · ')}</div>
+        </div>
+        <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400">Select →</span>
       </button>`).join('');
+
+    html += `
+      <button type="button" onclick="deskOpenAddCustomerModal('${esc(q)}')" class="w-full text-left px-4 py-3 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 font-bold text-xs transition flex items-center gap-2 border-t border-indigo-100 dark:border-indigo-900">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        <span>+ Add New Customer ${q ? `"${esc(q)}"` : ''}</span>
+      </button>
+    `;
+    box.innerHTML = html;
     box.classList.remove('hidden');
-  } catch { box.classList.add('hidden'); }
+  } catch {
+    box.innerHTML = `
+      <button type="button" onclick="deskOpenAddCustomerModal('${esc(q)}')" class="w-full text-left px-4 py-3 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 font-bold text-xs transition flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        <span>+ Add New Customer</span>
+      </button>`;
+    box.classList.remove('hidden');
+  }
 }
+
+window.deskOpenAddCustomerModal = function(initialName = '') {
+  let modal = document.getElementById('desk-add-customer-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'desk-add-customer-modal';
+    document.body.appendChild(modal);
+  }
+  const parts = initialName.trim().split(' ');
+  const fname = parts[0] || '';
+  const lname = parts.slice(1).join(' ') || '';
+
+  modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm';
+  modal.innerHTML = `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+          <span class="p-1.5 rounded-lg bg-indigo-100 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+          </span>
+          Add New Customer
+        </h3>
+        <button onclick="document.getElementById('desk-add-customer-modal').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold text-lg">×</button>
+      </div>
+      <form onsubmit="deskSubmitNewCustomer(event)" class="p-6 space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">First Name *</label>
+            <input id="desk-new-fname" required value="${esc(fname)}" placeholder="Ava" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Last Name *</label>
+            <input id="desk-new-lname" required value="${esc(lname)}" placeholder="Thompson" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Email</label>
+            <input id="desk-new-email" type="email" placeholder="ava@example.com" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Phone</label>
+            <input id="desk-new-phone" type="tel" placeholder="(416) 555-0199" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm">
+          </div>
+        </div>
+        <div>
+          <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Street Address</label>
+          <input id="desk-new-street" placeholder="123 Main St" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm">
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">City</label>
+            <input id="desk-new-city" placeholder="Toronto" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Province</label>
+            <input id="desk-new-prov" placeholder="ON" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Postal Code</label>
+            <input id="desk-new-postal" placeholder="M5V 2T6" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm">
+          </div>
+        </div>
+        <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+          <button type="button" onclick="document.getElementById('desk-add-customer-modal').remove()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
+          <button type="submit" id="desk-add-cust-btn" class="px-5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition">Save & Select Customer</button>
+        </div>
+      </form>
+    </div>
+  `;
+};
+
+window.deskSubmitNewCustomer = async function(e) {
+  e.preventDefault();
+  const btn = document.getElementById('desk-add-cust-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  const first_name = document.getElementById('desk-new-fname').value.trim();
+  const last_name = document.getElementById('desk-new-lname').value.trim();
+  const email = document.getElementById('desk-new-email').value.trim();
+  const phone = document.getElementById('desk-new-phone').value.trim();
+  const street_address = document.getElementById('desk-new-street').value.trim();
+  const city = document.getElementById('desk-new-city').value.trim();
+  const province = document.getElementById('desk-new-prov').value.trim();
+  const postal_code = document.getElementById('desk-new-postal').value.trim();
+
+  try {
+    const res = await apiSendJson('/crm/contacts', 'POST', {
+      first_name, last_name, email, phone, street_address, city, province, postal_code, status: 'opportunity'
+    });
+    const contactId = res.contact?.id || res.id;
+    document.getElementById('desk-add-customer-modal')?.remove();
+    if (contactId) {
+      deskPickCustomer(contactId);
+    }
+  } catch (err) {
+    alert(err.message || 'Could not save customer');
+    if (btn) { btn.disabled = false; btn.textContent = 'Save & Select Customer'; }
+  }
+};
 
 async function deskPickCustomer(id) {
   document.getElementById('desk-results')?.classList.add('hidden');
@@ -617,70 +718,91 @@ async function deskPickCustomer(id) {
   try { const d = await apiGetJson(`/reports/deal?contact_id=${encodeURIComponent(id)}`, { retries: 1 }); __deskDeal = { ...__deskDeal, ...(d?.deal || {}) }; __deskCustomerNumber = d?.customer_number || __deskDeal.customer_number || null; __deskSalesperson = d?.salesperson || null; } catch {}
   const s = document.getElementById('desk-search');
   if (s && __deskBuyer) s.value = __deskBuyer.full_name || [__deskBuyer.first_name, __deskBuyer.last_name].filter(Boolean).join(' ') || '';
-  // Seed line-item arrays: saved deal first, else Ontario defaults on a fresh deal.
   const deal = __deskDeal;
   __deskAddons = Array.isArray(deal.addons) ? deal.addons.slice() : [];
   __deskFni = Array.isArray(deal.fni_items) ? deal.fni_items.slice() : [];
   __deskFees = Array.isArray(deal.fees) ? deskApplyFeeLocks(deal.fees.slice()) : (deal.id ? [] : deskDefaultFees());
-  // Prefill the vehicle block from a saved snapshot, else the customer's vehicle of interest.
   if (!deal.vehicle && deal.__vehicleOfInterest) {
     const v = deal.__vehicleOfInterest;
     deal.vehicle = { year: v.year, make: v.make, model: v.model, trim: v.trim, vin: v.vin, mileage: v.mileage, color: v.exterior_color, stock: v.stocknumber };
     if (deal.selling_price == null && v.price) deal.selling_price = v.price;
     if (!deal.inventory_id && v.id) deal.inventory_id = v.id;
   }
-  await crmEnsureLookups();   // reps for the F&I-manager / split-with pickers
+  await crmEnsureLookups();
   deskRenderForm(id);
 }
 
-// A dealership-roster dropdown for the desk (F&I manager, split-with). Stores the
-// rep's profile id so commission attributes correctly; the name is saved alongside
-// for the printed docs.
 function deskRepSelect(id, selectedId, blankLabel, filterFn) {
   const cls = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
   const reps = (__crmReps || []).filter(r => !filterFn || filterFn(r));
   return `<select id="${id}" class="${cls}"><option value="">${esc(blankLabel || '—')}</option>${reps.map(r => `<option value="${r.id}" ${selectedId === r.id ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select>`;
 }
-// F&I manager dropdown only lists people who can carry F&I (F&I role + managers/admins).
+
 const DESK_FNI_ROLES = ['FNI', 'DEALER_ADMIN', 'OWNER', 'MANAGER'];
 function deskRenderForm(contactId) {
   const wrap = document.getElementById('desk-form');
   if (!wrap) return;
-  __deskCommTouched = false;   // fresh render — let the plan auto-fill commission again
+  __deskCommTouched = false;
   const d = __deskDeal || {};
-  const b = __deskBuyer || {};
+  const b = __deskBuyer || null;
   const veh = d.vehicle || {};
   const ins = d.insurance || {};
   const onFile = !!d.id;
-  const buyerName = b.full_name || [b.first_name, b.last_name].filter(Boolean).join(' ') || 'Customer';
+  const buyerName = b ? (b.full_name || [b.first_name, b.last_name].filter(Boolean).join(' ') || 'Customer') : '';
   const rate = d.tax_rate != null ? d.tax_rate : deskTaxRate(__deskDealer?.province, __deskDealer?.country);
-  // New deals default their jurisdiction from the dealership's settings location.
   const _dealerCountry = (() => { const c = (__deskDealer?.country || '').trim().toUpperCase(); return (c === 'US' || c === 'USA' || c === 'UNITED STATES') ? 'US' : 'CA'; })();
   const dkCountry = d.tax_country || _dealerCountry;
   const _dealerProv = (__deskDealer?.province || '').trim().toUpperCase();
   const dkProvince = d.tax_province || (DESK_TAX[dkCountry]?.regions?.[_dealerProv] ? _dealerProv : '');
   const apr = d.apr != null ? d.apr : DESK_DEFAULT_APR;
-  const taxOnDiff = d.tax_on_difference !== false;   // default ON = tax on the difference
-  const iCls = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
+  const taxOnDiff = d.tax_on_difference !== false;
+  const iCls = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition';
   const fld = (label, html) => `<div><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">${label}</label>${html}</div>`;
   const txt = (id, v, ph = '', type = 'text', extra = '') => `<input id="${id}" type="${type}" value="${esc(v == null ? '' : String(v))}" placeholder="${ph}" ${extra} class="${iCls}">`;
   const money = (id, v, ph = '0.00') => `<input id="${id}" type="text" inputmode="decimal" data-money value="${v == null ? '' : msFmtMoney(v)}" placeholder="${ph}" oninput="deskRenderSummary()" class="${iCls}">`;
-  const card = (title, body, sub = '') => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden mb-4">
-    <div class="px-5 py-3 border-b border-slate-200 dark:border-slate-800"><h3 class="text-sm font-black text-slate-900 dark:text-white">${title}</h3>${sub ? `<p class="text-xs text-slate-400 mt-0.5">${sub}</p>` : ''}</div>
+  const card = (title, body, sub = '') => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden mb-4 shadow-sm">
+    <div class="px-5 py-3.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between"><h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">${title}</h3>${sub ? `<p class="text-xs text-slate-400">${sub}</p>` : ''}</div>
     <div class="p-5">${body}</div></div>`;
 
-  wrap.innerHTML = `
-    <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
-      <div>
-        <div class="text-lg font-black text-slate-900 dark:text-white">${esc(buyerName)}</div>
-        <div class="text-sm text-slate-500 dark:text-slate-400">${[b.email, b.phone || b.phone_mobile, [b.city, b.province].filter(Boolean).join(', ')].filter(Boolean).map(esc).join(' · ') || 'No contact details on file'}</div>
+  const customerHeaderHtml = b ? `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 mb-5 shadow-sm flex items-center justify-between gap-4 flex-wrap">
+      <div class="flex items-center gap-3.5">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-black text-lg flex items-center justify-center uppercase shadow-md">
+          ${esc((buyerName[0] || 'C'))}
+        </div>
+        <div>
+          <div class="text-lg font-black text-slate-900 dark:text-white">${esc(buyerName)}</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${[b.email, b.phone || b.phone_mobile, [b.city, b.province].filter(Boolean).join(', ')].filter(Boolean).map(esc).join(' · ') || 'No contact details on file'}</div>
+        </div>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
-        ${__deskCustomerNumber ? `<span class="text-[11px] font-bold px-2 py-1 rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 font-mono">Customer #${__deskCustomerNumber}</span>` : ''}
-        ${(__deskDeal.deal_number) ? `<span class="text-[11px] font-bold px-2 py-1 rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 font-mono">Deal #${__deskDeal.deal_number}</span>` : ''}
-        <span class="text-[11px] font-black uppercase tracking-wider px-2 py-1 rounded-full ${onFile ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}">${onFile ? 'On file' : 'New deal'}</span>
+        ${__deskCustomerNumber ? `<span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 font-mono">Customer #${__deskCustomerNumber}</span>` : ''}
+        ${(__deskDeal.deal_number) ? `<span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 font-mono">Deal #${__deskDeal.deal_number}</span>` : ''}
+        <span class="text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${onFile ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}">${onFile ? 'On file' : 'New deal'}</span>
+        <button type="button" onclick="__deskBuyer = null; deskRenderForm(null);" class="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Change Customer</button>
       </div>
     </div>
+  ` : `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 mb-5 shadow-sm">
+      <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+        <div>
+          <label class="text-xs uppercase tracking-wider text-slate-400 font-black block">Customer Selection</label>
+          <p class="text-xs text-slate-500">Search an existing customer or click below to add a new customer.</p>
+        </div>
+        <button type="button" onclick="deskOpenAddCustomerModal('')" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition flex items-center gap-1.5 shadow-md">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+          <span>+ Add New Customer</span>
+        </button>
+      </div>
+      <div class="relative">
+        <input id="desk-search" type="text" autocomplete="off" placeholder="Search customer by name, email or phone number…" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition">
+        <div id="desk-results" class="absolute z-20 left-0 right-0 mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl overflow-hidden hidden max-h-80 overflow-y-auto"></div>
+      </div>
+    </div>
+  `;
+
+  wrap.innerHTML = `
+    ${customerHeaderHtml}
 
     <div class="mb-4">
       <label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">Co-buyer <span class="font-normal normal-case">(optional)</span></label>

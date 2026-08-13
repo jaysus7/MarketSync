@@ -262,42 +262,9 @@ function invRenderMerch(d) {
 }
 
 async function invRenderWork(body, d) {
-  // Acquisition needs the appraisal list, which is its own read.
-  if (!__invAppraisals) {
-    body.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading inventory…</div>`;
-    try { __invAppraisals = await apiGetJson('/ai/appraisals'); } catch { __invAppraisals = { appraisals: [] }; }
-  }
-
-  const noPrice = (d.vehicles || []).filter(v => !Number(v.price));
-  const aged = (d.vehicles || []).filter(v => { const a = invDays(v.created_at); return a != null && a >= INV_AGED_DAYS; });
-
-  const reconRows = d.recon || [];
-  const atRisk = (r) => !!r.deal_id && r.stage !== 'done';
-  const sold = reconRows.filter(atRisk), rest = reconRows.filter(r => !atRisk(r));
-  const reconRow = (r) => {
-    const v = (d.vehById || {})[r.inventory_id] || r.inventory || {};
-    const sub = `${esc(r.stage || 'in progress')}${r.deal_id ? ' · <span class="text-rose-500">sold — delivery is waiting</span>' : ''}`;
-    if (v.id) return invRow(v, d, sub);
-    return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-      <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(invName(v))}</div>
-        <div class="text-[12px] text-slate-400 truncate">${sub}</div></div>
-    </div>`;
-  };
-
-  body.innerHTML = `
-    ${engSection('Acquisition', invRenderAcquisition(d, __invAppraisals.appraisals || []), 'What is coming in, and what you have taken possession of')}
-    ${engSection('Cleanup', `<div class="space-y-3">
-      ${sold.length ? engCard(`Sold — still in cleanup (${sold.length})`, sold.slice(0, 20).map(reconRow).join('')) : ''}
-      ${engCard('In cleanup', rest.slice(0, 20).map(reconRow).join('') || engEmpty('Nothing in cleanup.'))}
-    </div>`, 'A sold unit still being worked on is holding up a delivery')}
-    ${engSection('Merchandising', invRenderMerch(d), 'What is stopping a vehicle going on the front line')}
-    ${engSection('Pricing and age', (noPrice.length ? engCard(`No price (${noPrice.length})`, noPrice.slice(0, 10).map(v => invRow(v, d)).join('')) : '')
-      + engCard(`Aged ${INV_AGED_DAYS}+ days (${aged.length})`, aged.slice(0, 15).map(v => invRow(v, d)).join('') || engEmpty('Nothing aged.'), noPrice.length ? 'mt-3' : ''),
-      'Units carrying no price, and units carrying too much time')}
-    ${engSection('Vehicles', '', 'Every unit in stock — add one, edit one, publish one')}`;
-
-  // The inventory page itself, so adding and removing vehicles happens here rather
-  // than behind "Open full inventory →".
+  // The inventory page itself, so adding and removing vehicles happens here.
+  // The user requested: "Inventory should only show inventory cards; add inventory if role permits and search with filter."
+  body.innerHTML = '';
   engMountPage(body, 'inventory', () => applyInventoryMode());
 }
 
@@ -307,10 +274,10 @@ ENGINES['inventory-overview'] = {
   // Insights and Inventory Intelligence both folded into My Day — the numbers belong where the
   // day is read, not behind a tab. Work is named for what it holds. Appraisals takes the slot
   // Insights had, and is the appraisal page itself rather than a summary of it.
-  tabLabels: { overview: 'My Day', work: 'Inventory', appraisals: 'Appraisals', settings: 'Settings' },
+  tabLabels: { overview: 'My Day', work: 'Inventory', appraisals: 'Appraisals', cleanup: 'Cleanup', settings: 'Settings' },
   get tabOrder() {
-    const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    return mgr ? ['overview', 'work', 'appraisals', 'settings'] : ['overview', 'work', 'appraisals'];
+    const mgr = typeof profileContext !== 'undefined' ? ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role) : true;
+    return mgr ? ['work', 'overview', 'appraisals', 'cleanup', 'settings'] : ['work', 'overview', 'appraisals', 'settings'];
   },
 
   fetch: async () => {
@@ -331,9 +298,8 @@ ENGINES['inventory-overview'] = {
   quickActions: [
     // Add inventory lands on the Inventory tab, which now holds the real page.
     { label: '+ Add inventory', icon: 'gem', onclick: "engineTab('inventory-overview','work')" },
-    { label: 'Appraise Trade', icon: 'camera', onclick: "engineTab('inventory-overview','appraisals')" },
-    { label: 'Inventory Intelligence', icon: 'chart', onclick: "switchPage('inv-intel')" },
-    { label: 'Market & Competitors', icon: 'eye', onclick: "switchPage('market')" },
+    { label: 'Inventory Intelligence', icon: 'chart', onclick: "engineTab('inventory-overview','overview')" },
+    { label: 'Market & Competitors', icon: 'globe', onclick: "engineTab('inventory-overview','overview')" },
   ],
   nextActions: (d) => invAttention(d || {}).slice(0, 5).map(it => ({
     label: `${it.who} — ${it.action?.label || 'Open'}`, icon: 'flame',
@@ -342,6 +308,7 @@ ENGINES['inventory-overview'] = {
 
   tabs: {
     overview(body, d) {
+
       const att = invAttention(d);
       const veh = d.vehicles || [];
       const held = veh.filter(v => !v.awaiting_possession);
@@ -365,25 +332,28 @@ ENGINES['inventory-overview'] = {
               <button onclick="switchPage('recon')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Open Recon</button>
             </div>`; }).join('') : engEmpty('Nothing in cleanup.'))}
         </div>`;
+      
+      const noPrice = (d.vehicles || []).filter(v => !Number(v.price));
+      const aged = (d.vehicles || []).filter(v => { const a = invDays(v.created_at); return a != null && a >= INV_AGED_DAYS; });
+      
+      body.insertAdjacentHTML('beforeend', engSection('Merchandising', invRenderMerch(d), 'What is stopping a vehicle going on the front line'));
+      body.insertAdjacentHTML('beforeend', engSection('Pricing and age', (noPrice.length ? engCard(`No price (${noPrice.length})`, noPrice.slice(0, 10).map(v => invRow(v, d)).join('')) : '')
+        + engCard(`Aged ${INV_AGED_DAYS}+ days (${aged.length})`, aged.slice(0, 15).map(v => invRow(v, d)).join('') || engEmpty('Nothing aged.'), noPrice.length ? 'mt-3' : ''),
+        'Units carrying no price, and units carrying too much time'));
+
       // Insights and Inventory Intelligence live here now: aging, how units were acquired and
       // the frontline picture belong in the day, not behind a tab somebody has to remember.
       const strip = document.createElement('div');
       strip.className = 'mt-4';
       ENGINES['inventory-overview'].tabs.__insightsStrip(strip, d);
       body.appendChild(strip);
+      body.insertAdjacentHTML('beforeend', engSection('Inventory Intelligence', '', 'Pricing, aging and market comparison use the same canonical inventory shown above'));
+      engMountPage(body, 'inv-intel', () => loadInvIntelPage());
+      engMountPage(body, 'market', () => loadMarketPage());
     },
     work: invRenderWork,
 
-    // ── APPRAISALS — the appraisal page itself, not a summary of it ─────────
-    // "Appraise a car" is a job somebody does, so this tab is that page rather than a card
-    // that sends them to it.
-    appraisals(body) {
-      // The appraisal page ITSELF, moved in — VIN decode, the numbers, Save appraisal,
-      // the customer PDFs and the saved-appraisal list. It used to be two cards whose
-      // whole content was a button to the page you actually wanted.
-      body.innerHTML = '';
-      engMountPage(body, 'appraisal', () => { initAppraisal(); loadApprList(); apprEnsureBranding(); });
-    },
+
     // The old Insights tab, now rendered INSIDE My Day. See overview().
     __insightsStrip(body, d) {
       const veh = d.vehicles || [];
@@ -409,14 +379,18 @@ ENGINES['inventory-overview'] = {
           return src.length ? engBar(src.map(([l, n]) => ({ pct: Math.round((n / total) * 100), cls: CLS[l], label: `${l} (${n})` }))) : engEmpty('No vehicles in stock.');
         })(), 'mt-3')}`;
     },
+
+    appraisals(body) {
+      body.innerHTML = `<div id="inv-appraisals-root"></div>`;
+      if (typeof loadTradeAppraisals === 'function') loadTradeAppraisals();
+    },
+    cleanup(body) {
+      engMountPage(body, 'recon');
+    },
     settings(body) {
-      // The cleanup board is where recon stages actually live, so it is here rather
-      // than named in a sentence with a button beside it.
-      body.innerHTML = engSection('Cleanup stages', '', 'Where a vehicle is in reconditioning, and what is holding it up');
-      engMountPage(body, 'recon', () => loadReconPage());
-      body.insertAdjacentHTML('beforeend', engSection('Everything else',
+      body.innerHTML = engSection('Inventory settings',
         engCard('', `<div class="text-[13px] text-slate-600 dark:text-slate-300 mb-2">Syndication destinations and pricing rules live in dealership configuration.</div>
-         <button onclick="switchPage('config')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Dealership configuration</button>`)));
+         <button onclick="switchPage('config')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Dealership configuration</button>`));
     },
   },
 };

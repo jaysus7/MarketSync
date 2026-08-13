@@ -36,7 +36,7 @@ import { registerHistory } from './routes/history.js'
 import { registerDeposits } from './routes/deposits.js'
 import { registerPayments } from './routes/payments.js'
 import { registerSyndication } from './routes/syndication.js'
-import { registerDemo } from './routes/demo.js'
+import { refreshDedicatedDemoAccounts, registerDemo } from './routes/demo.js'
 import { registerMarketing } from './routes/marketing.js'
 import { registerBulk } from './routes/bulk.js'
 import { registerService } from './routes/service.js'
@@ -98,7 +98,8 @@ app.use(cors({ origin: corsOriginCheck, credentials: true }))
 // Fast, dependency-free health check. A scheduled ping to this keeps the
 // free-tier instance from spinning down (which caused ~50s cold-start hangs on
 // the first request to the dashboard, pipeline/leads, and the extension).
-app.get('/health', (req, res) => res.json({ ok: true, ts: Date.now() }))
+let startupDemoRefresh = { status: 'pending' }
+app.get('/health', (req, res) => res.json({ ok: true, ts: Date.now(), demo_refresh: startupDemoRefresh }))
 app.get('/ready', async (req, res) => {
   const { error } = await supabaseAdmin.from('dealerships').select('id', { head: true }).limit(1)
   const rate_limiting = rateLimitHealth()
@@ -242,4 +243,19 @@ if (process.env.VALIDATE_STARTUP === 'true') {
   process.exit(0)
 }
 
-app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Secure Marketplace engine live on port ${PORT}`))
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Secure Marketplace engine live on port ${PORT}`)
+  refreshDedicatedDemoAccounts()
+    .then(results => {
+      const seeded = results.filter(row => row.status === 'seeded')
+      const skipped = results.filter(row => row.status === 'skipped')
+      startupDemoRefresh = {
+        status: skipped.length ? 'partial' : 'complete', seeded: seeded.length,
+        current: results.filter(row => row.status === 'current').length, skipped: skipped.length,
+        failures: skipped.map(row => ({ name: row.name, step: String(row.reason || 'unknown').split(':')[0].slice(0, 80) })),
+      }
+      if (seeded.length) console.log(`[demo] refreshed ${seeded.length} dedicated demo account(s)`)
+      for (const row of skipped) console.error(`[demo] skipped ${row.name}: ${row.reason}`)
+    })
+    .catch(error => { startupDemoRefresh = { status: 'failed' }; console.error('[demo] startup refresh failed:', error.message) })
+})

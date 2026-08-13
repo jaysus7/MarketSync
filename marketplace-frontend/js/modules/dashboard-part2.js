@@ -514,18 +514,10 @@ async function initializeDashboardEcosystem() {
     // Overdue-task badge on the Task Board nav item.
     try { if (typeof taskUpdateBadge === 'function') taskUpdateBadge(); } catch (e) {}
 
-    // Guided setup: show the sidebar progress bar, and on the very first login for
-    // this dealership walk them straight into the Setup Center if anything's unset.
+    // Setup is user-initiated from the canonical Launch Hub. Never interrupt login
+    // or page navigation with a setup modal.
     try {
       renderSetupBar();
-      const introKey = `ms_setup_intro_${profileContext?.dealership?.id || 'x'}`;
-      if (!localStorage.getItem(introKey)) {
-        setTimeout(async () => {
-          const steps = setupStepsFor(role); if (!steps.length) return;
-          let snap; try { snap = await loadSetupSnapshot(); } catch { return; }
-          if (steps.some(s => !setupStepDone(s, snap))) { localStorage.setItem(introKey, '1'); openSetupCenter(); }
-        }, 900);
-      }
     } catch (e) {}
 
     // Daily Punch Clock Prompt (once per day on login)
@@ -588,8 +580,18 @@ async function initializeDashboardEcosystem() {
     // SaaS Admin in MarketSync mode → the company command center; otherwise the
     // dealership role's own My Day. This is a UX landing choice; route permissions remain
     // authoritative and switchPage will refuse any destination the caller cannot open.
-    if (__dashMode === 'marketsync' && (profileContext?.workspace === 'saas_admin' || document.documentElement.getAttribute('data-dash-owner') === '1')) switchPage('saas-command');
-    else switchPage(dealerRoleLanding(profileContext?.role));
+    const bootRoute = typeof msRouteFromHash === 'function' ? msRouteFromHash() : null;
+    const bootPage = (bootRoute && bootRoute.page) ? bootRoute.page : null;
+    if (bootPage) {
+      switchPage(bootPage);
+      if (bootRoute.tab && typeof engineTab === 'function' && typeof ENGINES !== 'undefined' && ENGINES[bootPage]) {
+        engineTab(bootPage, bootRoute.tab);
+      }
+    } else if (__dashMode === 'marketsync' && (profileContext?.workspace === 'saas_admin' || document.documentElement.getAttribute('data-dash-owner') === '1')) {
+      switchPage('saas-command');
+    } else {
+      switchPage(dealerRoleLanding(profileContext?.role));
+    }
     applyFeatureFlags();   // hide nav for features the dealer switched off
     // Entitlement-driven front door. Prefer the normalized access context (composes
     // subscription tier + product membership + role) and fall back to the legacy
@@ -609,11 +611,11 @@ async function initializeDashboardEcosystem() {
       document.getElementById('dealer-view-panel')?.classList.remove('hidden');
       // Team players + trend charts now live on the Insights page (admin only)
       document.getElementById('insights-team-section')?.classList.remove('hidden');
-      loadCharts();
-      loadDealerManagementMatrix();
+      if (typeof loadCharts === 'function') try { loadCharts(); } catch {}
+      if (typeof loadDealerManagementMatrix === 'function') try { loadDealerManagementMatrix(); } catch {}
     } else {
-      document.getElementById('rep-view-panel').classList.remove('hidden');
-      loadMyStats();
+      document.getElementById('rep-view-panel')?.classList.remove('hidden');
+      if (typeof loadMyStats === 'function') try { loadMyStats(); } catch {}
     }
 
 } catch (err) {
@@ -703,9 +705,6 @@ function toggleNavGroup(id) {
   if (!body) return;
   const collapsed = body.classList.toggle('hidden');
   chev?.classList.toggle('-rotate-90', collapsed);
-  if (!collapsed) {
-    checkDepartmentOpen(id);
-  }
 }
 window.toggleNavGroup = toggleNavGroup;
 
@@ -785,7 +784,7 @@ window.openLeaderboardOnDash = openLeaderboardOnDash;
 // registry file ever fails to load (nav is presentation; the API still enforces
 // permissions server-side).
 const DEPARTMENTS = (typeof MS_WORKSPACES !== 'undefined' && MS_WORKSPACES) || {
-  executive: { label: 'Executive', icon: 'chart', accent: 'indigo', mgr: true, pages: [{ page: 'command', label: 'Overview' }] },
+  executive: { label: 'MyDay', icon: 'chart', accent: 'indigo', mgr: true, pages: [{ page: 'command', label: 'Pulse' }] },
   sales: {
     label: 'Sales', icon: 'currency', accent: 'amber',
     pages: [
@@ -1087,8 +1086,15 @@ function switchPage(pageId) {
 
   ensurePanelsInOriginalLocations();
 
-  // Pipeline is retired — old deep links land on the Customers page.
-  if (pageId === 'pipeline') pageId = 'crm';
+  // Map legacy department page IDs directly to the single-source-of-truth workspace engines
+  if (pageId === 'crm' || pageId === 'pipeline' || pageId === 'leads' || pageId === 'appointments') pageId = 'sales';
+  if (pageId === 'inventory') pageId = 'inventory-overview';
+  if (pageId === 'fni') pageId = 'fni-overview';
+  if (pageId === 'service' || pageId === 'service-ros' || pageId === 'service-appointments') pageId = 'service-overview';
+  if (pageId === 'parts') pageId = 'parts-overview';
+  if (pageId === 'accounting') pageId = 'accounting-overview';
+  if (pageId === 'marketing') pageId = 'marketing-overview';
+  if (pageId === 'people' || pageId === 'hr') pageId = 'people-overview';
   // The three automation follow-up pages are now tabs inside one Builder page —
   // keep old deep links (notifications, mobile nav) working by mapping to the tab.
   if (pageId === 'auto-holidays' || pageId === 'auto-leads' || pageId === 'auto-delivery') {
@@ -1231,23 +1237,13 @@ function switchPage(pageId) {
   if (pageId === 'people-compliance' || pageId === 'hr' || pageId === 'people') loadPeopleCompliance();
 
   __currentPage = pageId;
-  checkDepartmentOpen(pageId);
+  try { localStorage.setItem('ms_last_page', pageId); } catch {}
   renderDeptTabbar(pageId);
   highlightDeptNav(pageId);
   msSyncRoute(pageId);
 }
 
 // ── Workspace routing (additive) ─────────────────────────────────────────────
-// The dashboard is a single document that shows/hides [data-page-content] panels,
-// so before this there was no way to link to, refresh into, or press Back between
-// pages. A small hash route — #/w/<workspace>/<page> — fixes that WITHOUT changing
-// how pages render: it is a thin wrapper over switchPage().
-//
-// Deliberately hash-based (not pushState paths) so the static host needs no rewrite
-// rules and every existing query-param deep link (?calendar=, ?adspend=) and the
-// extension token bootstrap (#tk=, consumed and stripped before this ever runs) keep
-// working untouched. Gating is unchanged: a hash naming a page the user may not open
-// is bounced by switchPage()'s own guards exactly like any stale link.
 let __msRouting = false;   // suppress the popstate→switchPage→pushState loop
 
 function msHashFor(pageId) {
@@ -1264,7 +1260,6 @@ function msSyncRoute(pageId) {
   } catch {}
 }
 
-// Parse #/w/<workspace>/<page> or #/p/<page> → page id (null when absent/foreign).
 function msRouteFromHash() {
   const m = String(window.location.hash || '').match(/^#\/(?:w\/[^/]+\/|p\/)([\w-]+)$/);
   return m ? m[1] : null;
@@ -1278,14 +1273,6 @@ function msApplyRoute() {
 }
 window.addEventListener('popstate', msApplyRoute);
 
-// Restore the routed page on a hard refresh (bookmark / shared link / reload).
-//
-// This is called from every point where the nav is (re)built, because entitlements
-// arrive asynchronously: on the first pass `/access/context` may not have landed yet,
-// so switchPage() correctly bounces a gated page to a safe home. We therefore keep
-// the request pending and retry as the context settles, giving up after a few
-// attempts so a genuinely forbidden link stops redirecting the user. If the page is
-// never permitted, the user simply stays on their safe home page — the gate wins.
 let __msBootTarget = msRouteFromHash();
 let __msBootTries = 0;
 function msBootRoute() {
@@ -1294,26 +1281,17 @@ function msBootRoute() {
   __msBootTries++;
   __msRouting = true;
   try { switchPage(__msBootTarget); } finally { __msRouting = false; }
-  // Landed where we asked → done. Otherwise a later attempt retries.
   if (__currentPage === __msBootTarget) {
-    // Boot may have already navigated to a default landing page and pushed ITS hash
-    // before this restore ran. Route sync is suppressed while __msRouting is set, so
-    // re-assert the restored page's hash here — replaceState, not push, so the
-    // discarded landing page never becomes a Back-button stop.
     try { history.replaceState({ msPage: __msBootTarget }, '', msHashFor(__msBootTarget)); } catch {}
     __msBootTarget = null;
   }
 }
 window.msBootRoute = msBootRoute;
 
-// Self-scheduled attempts, so restoring a deep link never depends on which nav mode
-// the account resolves to (full DealerOS, a restricted product tier, or a staff
-// role). renderDeptNav() also calls msBootRoute() as entitlements settle; whichever
-// fires first wins and the rest are cheap no-ops.
 if (__msBootTarget) {
-  document.addEventListener('DOMContentLoaded', () => setTimeout(msBootRoute, 300));
-  setTimeout(msBootRoute, 1200);
-  setTimeout(msBootRoute, 2600);
+  document.addEventListener('DOMContentLoaded', () => setTimeout(msBootRoute, 100));
+  setTimeout(msBootRoute, 500);
+  setTimeout(msBootRoute, 1500);
 }
 
 // ── Trade Appraisal ──────────────────────────────────────────────────────────

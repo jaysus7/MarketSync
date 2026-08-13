@@ -17,12 +17,12 @@ function applyInventoryMode() {
   const feeds = document.getElementById('feeds-panel');
   const title = document.getElementById('catalog-title');
   const sub = document.getElementById('catalog-sub');
-  // The feed/sync panel is a permanent fixture on the inventory view (both the
-  // Facebook Marketplace catalog and the Inventory list) so the "pull from your
-  // website feed" controls are always in reach — no need to hunt for a toggle.
-  if (feeds) feeds.classList.remove('hidden');
-  // Keep one shared inventory pool. Filtering Facebook to website-synced units made a
-  // vehicle disappear immediately after an owner added it manually or imported a CSV.
+  
+  if (feeds) {
+    if (facebook) feeds.classList.remove('hidden');
+    else feeds.classList.add('hidden'); // Only show inventory cards in manual mode
+  }
+  
   __catalogSourceFilter = 'all';
   if (title) title.textContent = facebook ? 'Inventory Catalog' : 'Inventory List';
   if (sub) sub.textContent = facebook

@@ -17,8 +17,10 @@
 
 // State wording and action wording already exist in dashboard-part12.js, which was
 // converted to the canonical vocabulary in PR 4.2a. Reuse them rather than keeping a
-// second copy that can drift: `svcStatusLabel()` for the state a user sees, and
-// `SVC_ACTION_LABEL` for what the advisor is DOING.
+// second copy that can drift:// `SVC_ACTION_LABEL` for what the advisor is DOING.
+if (typeof window.svcStatusLabel !== 'function') {
+  window.svcStatusLabel = (s) => (typeof SVC_STATUS_LABEL !== 'undefined' && SVC_STATUS_LABEL[s]) || s || '';
+}
 
 let __svcData = null;
 
@@ -461,6 +463,10 @@ ENGINES['service-overview'] = {
 
   tabs: {
     overview(body, d) {
+      if (typeof window.pulseServiceDeptSection === 'function') {
+        body.innerHTML = window.pulseServiceDeptSection(d);
+        return;
+      }
       if (svcIsTechnician()) {
         const jobs = svcMyJobs(d);
         const blocked = jobs.filter(j => j.line.line_status === 'blocked').length;

@@ -39,12 +39,13 @@ function loadRegistry() {
 
 const html = read('dashboard.html')
 const part2 = read('js/modules/dashboard-part2.js')
+const salesWorkspace = read('js/modules/sales-workspace.js')
 const part11 = read('js/modules/dashboard-part11.js')
 const pageContainers = new Set([...html.matchAll(/data-page-content="([^"]+)"/g)].map(m => m[1]))
 
-// The nine target workspaces (project instructions §8 / Doc 21 §18).
+// The ten target workspaces (project instructions §8 / Doc 21 §18).
 const EXPECTED_WORKSPACES = [
-  'executive', 'sales', 'inventory', 'fni', 'service', 'parts', 'accounting', 'marketing', 'people',
+  'executive', 'sales', 'inventory', 'fni', 'recon', 'service', 'parts', 'accounting', 'marketing', 'people',
 ]
 
 // Every page the PREVIOUS DEPARTMENTS registry could reach. Phase 1 is a
@@ -64,10 +65,11 @@ test('registry exposes the nine DealerOS workspaces in workflow order', () => {
     'departments must be exactly the nine target workspaces, in order')
 })
 
-test('every dealer department leads with one role-aware My Day', () => {
+test('every dealer department leads with one role-aware My Day (except Management which leads with Pulse)', () => {
   const { MS_WORKSPACES, msDepartmentIds } = loadRegistry()
   for (const id of msDepartmentIds(MS_WORKSPACES)) {
-    assert.equal(MS_WORKSPACES[id].pages[0]?.label, 'My Day', `${id} must lead with My Day`)
+    const expected = id === 'executive' ? 'Pulse' : 'My Day'
+    assert.equal(MS_WORKSPACES[id].pages[0]?.label, expected, `${id} must lead with ${expected}`)
   }
 })
 
@@ -108,9 +110,9 @@ test('the two orphaned pages are reachable again', () => {
 test('required UI moves landed in the right workspace', () => {
   const { MS_WORKSPACES, msWorkspaceOfPage } = loadRegistry()
   const at = (page) => msWorkspaceOfPage(page, MS_WORKSPACES)
-  assert.equal(at('appraisal'), 'inventory', 'Appraisals → Inventory > Acquire')
+  assert.equal(at('appraisal'), 'sales', 'Appraisals → Sales')
   assert.equal(at('equity'), 'inventory', 'Equity Mining → Inventory > Acquire')
-  assert.equal(at('recon'), 'inventory', 'Recon → Inventory (not Sales)')
+  assert.equal(at('recon'), 'recon', 'Recon → Cleanup (top-level)')
   assert.equal(at('inv-intel'), 'inventory', 'Inventory Intelligence stays visibly named inside Inventory')
   assert.equal(at('delivery'), 'fni', 'Delivery → F&I')
   assert.equal(at('sales-team'), 'people', 'Employees → People')
@@ -125,8 +127,10 @@ test('Inventory Intelligence remains visibly discoverable inside Inventory', () 
   // Pricing and age section plus the two rail shortcuts. Both still have to be there —
   // an Inventory Intelligence nobody can find is an Inventory Intelligence nobody uses.
   assert.match(inv, /engSection\('Pricing and age'/)
-  assert.match(inv, /label: 'Inventory Intelligence'.*switchPage\('inv-intel'\)/s)
-  assert.match(inv, /label: 'Market & Competitors'.*switchPage\('market'\)/s)
+  assert.match(inv, /label: 'Inventory Intelligence'.*engineTab\('inventory-overview','overview'\)/s)
+  assert.match(inv, /label: 'Market & Competitors'.*engineTab\('inventory-overview','overview'\)/s)
+  assert.match(inv, /engMountPage\(body, 'inv-intel'/)
+  assert.match(inv, /engMountPage\(body, 'market'/)
   const reg = readFileSync(new URL('../../marketplace-frontend/js/modules/workspace-registry.js', import.meta.url), 'utf8')
   for (const p of ['inv-intel', 'market']) {
     assert.ok(reg.includes(`page: '${p}'`), `${p} must stay reachable from the registry`)
@@ -219,12 +223,29 @@ test('Management exposes one canonical four-tab command header', () => {
     'active Management output must use product icons, not emoji decoration')
 })
 
-test('the global header is identity, notifications and one menu instead of a CTA stack', () => {
-  assert.match(html, /id="shell-menu-btn"/)
-  assert.match(html, /id="shell-menu"/)
-  for (const id of ['header-desk-btn', 'header-appraise-btn', 'fb-post-btn', 'idscan-btn', 'training-btn', 'header-settings', 'logout-btn']) {
-    assert.match(html, new RegExp(`#${id}[^}]*display:\\s*none\\s*!important`), `${id} must leave the global toolbar`)
+test('the global header keeps approved sales and account controls without a hamburger or tour', () => {
+  assert.doesNotMatch(html, /id="shell-menu-btn"|id="shell-menu"/)
+  assert.doesNotMatch(html, /src="tour\.js/)
+  for (const id of ['header-desk-btn', 'header-appraise-btn', 'header-profile-btn', 'header-settings', 'logout-btn']) {
+    assert.match(html, new RegExp(`id="${id}"`), `${id} must remain directly accessible on desktop`)
   }
+  assert.match(html, /id="header-profile-btn"[\s\S]*class="inline-flex/,
+    'profile must remain directly reachable in the phone header')
+  assert.match(html, /id="header-settings"[\s\S]*class="inline-flex/,
+    'settings must remain directly reachable in the phone header')
+  assert.match(html, /id="logout-btn"[\s\S]*class="inline-flex/,
+    'sign out must remain directly reachable in the phone header')
+  assert.doesNotMatch(html, /@media \(max-width: 767px\)[\s\S]*#header-desk-btn/,
+    'approved quick actions must not disappear on phones')
+})
+
+test('Sales uses one header and composes operational work into My Day', () => {
+  assert.match(salesWorkspace, /tabOrder[\s\S]*?\['overview', 'work', 'appraisals', 'desk', 'equity', 'settings'\]/)
+  assert.doesNotMatch(salesWorkspace, /tabLabels:\s*\{[^}]*appointments:/)
+  assert.match(salesWorkspace, /salesDealsAndDeliveries\(d\)/)
+  assert.match(salesWorkspace, /Today's appointments/)
+  assert.match(salesWorkspace, /Active opportunities/)
+  assert.match(salesWorkspace, /work\(body, d\)[\s\S]*engCard\('Customers'/)
 })
 
 test('dealer login lands on the My Day owned by the caller role', () => {
@@ -269,8 +290,19 @@ test('mobile navigation is role-aware and derives from the registry', () => {
   // dashboard. Leads is manager-gated, so it is not on a rep's bar.
   assert.deepEqual(msMobileNavForRole('SALES_REP'), ['sales', 'crm', 'appointments', 'tasks'])
   assert.deepEqual(msMobileNavForRole('SERVICE'), ['service-ros', 'service-appointments', 'crm', 'tasks'])
+  for (const role of ['MANAGER', 'OWNER', 'DEALER_ADMIN']) {
+    assert.ok(!msMobileNavForRole(role).includes('tasks'), `${role} Executive My Day must not duplicate Tasks in mobile nav`)
+  }
   // An unknown role still gets a usable default rather than an empty bar.
   assert.ok(msMobileNavForRole('SOMETHING_NEW').length > 0, 'unknown roles need a fallback row')
+})
+
+test('Inventory opens as a list and keeps intelligence in My Day with Cleanup in its header', () => {
+  const inv = read('js/modules/inventory-workspace.js')
+  assert.match(inv, /return mgr \? \['work', 'overview', 'appraisals', 'cleanup', 'settings'\]/)
+  assert.match(inv, /tabLabels:\s*\{ overview: 'My Day', work: 'Inventory', appraisals: 'Appraisals', cleanup: 'Cleanup'/)
+  assert.match(inv, /cleanup\(body\)[\s\S]*engMountPage\(body, 'recon'/)
+  assert.doesNotMatch(inv.match(/settings\(body\)[\s\S]*?\n\s*},\n\s*},/s)?.[0] || '', /engMountPage\(body, 'recon'/)
 })
 
 test('mobile row still renders through the shared gating helpers', () => {

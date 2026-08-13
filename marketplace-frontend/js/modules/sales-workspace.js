@@ -31,6 +31,10 @@ const salesLabel = (s) => (typeof CRM_STATUS !== 'undefined' && CRM_STATUS[s]) |
 const salesName = (c) => c?.full_name || [c?.first_name, c?.last_name].filter(Boolean).join(' ') || 'Unnamed';
 const salesHours = (iso) => { if (!iso) return null; const h = (Date.now() - new Date(iso).getTime()) / 36e5; return Number.isFinite(h) ? h : null; };
 
+const SALES_TONE = { rose: 'text-rose-600 dark:text-rose-400', amber: 'text-amber-600 dark:text-amber-400',
+                     sky: 'text-sky-600 dark:text-sky-400', emerald: 'text-emerald-600 dark:text-emerald-400',
+                     slate: 'text-slate-500 dark:text-slate-400' };
+
 // "3h" / "2d" — compact age, or '' when unknown.
 function salesAge(iso) {
   const h = salesHours(iso);
@@ -39,6 +43,8 @@ function salesAge(iso) {
   if (h < 48) return `${Math.round(h)}h`;
   return `${Math.round(h / 24)}d`;
 }
+
+Object.assign(window, { SALES_TONE, salesLabel, salesName, salesHours, salesAge });
 
 // Is the caller a Sales manager? Server-authoritative signal first (/crm/insights
 // returns is_manager); role is only a presentation fallback. Never used to expose
@@ -62,7 +68,7 @@ function salesNextAction(c, ctx) {
   switch (c.status) {
     case 'uncontacted':
       return { label: c.phone || c.phone_mobile ? 'Call' : 'Open Customer', reason: 'New lead — no first response yet', tone: 'rose',
-               onclick: c.phone || c.phone_mobile ? `salesCall('${id}')` : `crmOpenForm('${id}')` };
+               onclick: c.phone || c.phone_mobile ? `salesCall('${id}')` : `openCrmContact('${id}')` };
     case 'contacted':
       return appt ? { label: 'Confirm appointment', reason: 'Appointment not confirmed', tone: 'amber', onclick: `crmApptForm('${id}')` }
                   : { label: 'Book appointment', reason: 'Contacted — no appointment set', tone: 'amber', onclick: `crmApptForm('${id}')` };
@@ -77,7 +83,7 @@ function salesNextAction(c, ctx) {
     case 'delivered':
       return { label: 'Follow up', reason: 'Delivered — owner follow-up', tone: 'slate', onclick: `crmLogForm('${id}')` };
     default:
-      return { label: 'Open Customer', reason: 'Needs review', tone: 'slate', onclick: `crmOpenForm('${id}')` };
+      return { label: 'Open Customer', reason: 'Needs review', tone: 'slate', onclick: `openCrmContact('${id}')` };
   }
 }
 
@@ -150,103 +156,39 @@ function salesAttention(d) {
   return deduped.slice(0, 25);
 }
 
-const SALES_TONE = { rose: 'text-rose-600 dark:text-rose-400', amber: 'text-amber-600 dark:text-amber-400',
-                     sky: 'text-sky-600 dark:text-sky-400', emerald: 'text-emerald-600 dark:text-emerald-400',
-                     slate: 'text-slate-500 dark:text-slate-400' };
-
 function salesAttentionRow(it) {
   const tone = SALES_TONE[it.action?.tone] || SALES_TONE.slate;
-  return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+  const onclick = it.id ? `openCrmContact('${it.id}')` : (it.action?.onclick || '');
+  return `<button onclick="${onclick}" class="w-full text-left flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
     <div class="min-w-0 flex-1">
       <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(it.who)}</div>
       <div class="text-[12px] ${tone} truncate">${esc(it.why)}${it.sub ? ` · <span class="text-slate-400">${esc(it.sub)}</span>` : ''}</div>
     </div>
-    ${it.age ? `<div class="text-[11px] font-bold text-slate-400 tabular-nums shrink-0">${esc(it.age)}</div>` : ''}
-    <button onclick="${it.action?.onclick || ''}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">${esc(it.action?.label || 'Open')}</button>
-  </div>`;
+    ${it.age ? `<div class="text-[11px] font-bold text-slate-400 tabular-nums shrink-0 pr-2">${esc(it.age)}</div>` : ''}
+  </button>`;
 }
 
 function salesOppRow(c, d) {
   const na = salesNextAction(c, d);
   const appt = (d.apptByContact || {})[c.id];
-  return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-    <button onclick="crmOpenForm('${c.id}')" class="min-w-0 flex-1 text-left">
+  return `<button onclick="openCrmContact('${c.id}')" class="w-full flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition text-left">
+    <div class="min-w-0 flex-1">
       <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(salesName(c))}</div>
       <div class="text-[12px] text-slate-400 truncate">
         <span class="font-semibold text-slate-500 dark:text-slate-300">${esc(salesLabel(c.status))}</span>
         ${c.source ? ` · ${esc(c.source)}` : ''}${appt ? ` · appt ${esc(new Date(appt.appointment_at).toLocaleDateString())}` : ''}
         ${c.last_activity_at ? ` · ${esc(salesAge(c.last_activity_at))} ago` : ''}
       </div>
-    </button>
-    <button onclick="${na.onclick}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">${esc(na.label)}</button>
-  </div>`;
+    </div>
+    <div class="shrink-0 px-2 py-1 text-[12px] font-bold text-slate-500">${esc(na.label)}</div>
+  </button>`;
 }
+
+Object.assign(window, { salesAttentionRow, salesOppRow });
 
 // ── Work sub-views ───────────────────────────────────────────────────────────
-const SALES_WORK_VIEWS = [
-  ['opportunities', 'Opportunities'], ['appointments', 'Appointments'],
-  ['customers', 'Customers'], ['deals', 'Deals'], ['deliveries', 'Deliveries'],
-];
-
 function salesWorkView(v) { __salesWorkView = v; engineTab('sales', 'work'); }
 window.salesWorkView = salesWorkView;
-
-async function salesRenderWork(body, d) {
-  const nav = SALES_WORK_VIEWS.map(([id, label]) => {
-    const on = __salesWorkView === id;
-    return `<button onclick="salesWorkView('${id}')" class="px-3 py-1.5 rounded-lg text-[13px] font-bold transition ${on ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}">${esc(label)}</button>`;
-  }).join('');
-
-  let inner = '';
-  if (__salesWorkView === 'opportunities') {
-    const open = (d.contacts || []).filter(c => SALES_OPEN_STAGES.includes(c.status));
-    const byStage = SALES_OPEN_STAGES.map(s => {
-      const rows = open.filter(c => c.status === s);
-      if (!rows.length) return '';
-      return engCard(`${salesLabel(s)} (${rows.length})`, rows.slice(0, 12).map(c => salesOppRow(c, d)).join(''));
-    }).join('');
-    inner = byStage || engEmpty('No open opportunities.');
-  } else if (__salesWorkView === 'appointments') {
-    const now = Date.now(), day = 864e5;
-    const buckets = [['Today', a => { const t = new Date(a.appointment_at) - now; return t > -day / 2 && t < day / 2; }],
-                     ['Upcoming', a => new Date(a.appointment_at) - now >= day / 2],
-                     ['Missed / no outcome', a => new Date(a.appointment_at) - now <= -day / 2 && !a.outcome]];
-    inner = buckets.map(([label, fn]) => {
-      const rows = (d.appointments || []).filter(fn);
-      if (!rows.length) return '';
-      return engCard(`${label} (${rows.length})`, rows.slice(0, 15).map(a => `
-        <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-          <div class="text-[12px] font-bold text-slate-500 tabular-nums shrink-0 w-24">${esc(new Date(a.appointment_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</div>
-          <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(a.customer_name || '—')}</div>
-            <div class="text-[12px] text-slate-400 truncate">${esc(a.vehicle_label || '')}${a.rep_name ? ` · ${esc(a.rep_name)}` : ''}</div></div>
-          <button onclick="${a.contact_id ? `crmOpenForm('${a.contact_id}')` : `switchPage('appointments')`}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Open Customer</button>
-        </div>`).join(''));
-    }).join('') || engEmpty('No appointments.');
-    inner += `<div class="mt-3"><button onclick="switchPage('appointments')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">Open full calendar →</button></div>`;
-  } else if (__salesWorkView === 'customers') {
-    inner = engCard('Customers', (d.contacts || []).slice(0, 20).map(c => salesOppRow(c, d)).join('') || engEmpty('No customers yet.'))
-      + `<div class="mt-3"><button onclick="switchPage('crm')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">Open full CRM →</button></div>`;
-  } else if (__salesWorkView === 'deals') {
-    const working = (d.contacts || []).filter(c => ['sold', 'fni'].includes(c.status));
-    inner = engCard('Working deals', working.map(c => salesOppRow(c, d)).join('') || engEmpty('No deals in progress.'))
-      + `<div class="mt-3 flex gap-3"><button onclick="switchPage('fni')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">F&amp;I workspace →</button></div>`;
-  } else if (__salesWorkView === 'deliveries') {
-    // Lazily fetched: deliveries are NOT part of the Sales landing payload.
-    if (!__salesDeliveries) {
-      body.innerHTML = `<div class="flex gap-1.5 mb-3">${nav}</div><div class="text-sm text-slate-400 py-10 text-center">Loading deliveries…</div>`;
-      try { __salesDeliveries = await apiGetJson('/delivery/queue'); } catch { __salesDeliveries = { deals: [] }; }
-    }
-    const rows = __salesDeliveries.deals || __salesDeliveries.queue || [];
-    inner = engCard('Delivery queue', rows.slice(0, 20).map(x => `
-      <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-        <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(x.customer_name || x.contact_name || 'Customer')}</div>
-          <div class="text-[12px] text-slate-400 truncate">${esc(x.vehicle_label || [x.year, x.make, x.model].filter(Boolean).join(' '))}${x.blocker ? ` · <span class="text-rose-500">${esc(x.blocker)}</span>` : ''}</div></div>
-        <button onclick="switchPage('delivery')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Prepare Delivery</button>
-      </div>`).join('') || engEmpty('Nothing awaiting delivery.'))
-      + `<div class="mt-3"><button onclick="switchPage('delivery')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">Open delivery queue →</button></div>`;
-  }
-  body.innerHTML = `<div class="flex gap-1.5 mb-3 overflow-x-auto">${nav}</div>${inner}`;
-}
 
 
 // ── My Day: the numbers that used to live behind an Insights tab ─────────────
@@ -310,23 +252,14 @@ window.salesSaveRouting = salesSaveRouting;
 
 // ── Engine registration ──────────────────────────────────────────────────────
 ENGINES['sales'] = {
-  rootId: 'sales-root', title: 'Sales', subtitle: 'Your customers, appointments and deals — what needs you first',
+  rootId: 'sales-root', title: 'Sales', subtitle: 'Your customers, appointments and deals — what needs you first', hideHeader: true,
   icon: 'currency', accent: 'amber',
-  // Four tabs. Insights folded into My Day (a number you only see by opening another tab is a
+  // One primary Sales header. Insights folded into My Day (a number you only see by opening another tab is a
   // number nobody acts on), Automation folded into Settings (there is one workflow engine, so
   // it is configuration, not a department surface), Work renamed to what it actually holds, and
-  // Appointments promoted out of a sub-view because it is a top-level part of a rep's day.
-  tabLabels: { overview: 'My Day', work: 'Customers', appointments: 'Appointments', equity: 'Equity Mining', settings: 'Settings' },
-
-  get tabOrder() {
-    const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    // A rep gets the four they work in; Settings stays management-only, and the server
-    // remains authoritative either way — this only decides what is worth showing.
-    // Equity Mining is a rep's job, not a manager report: the customers already in the
-    // book who could trade today are the easiest next sale.
-    return mgr ? ['overview', 'work', 'appointments', 'equity', 'settings']
-               : ['overview', 'work', 'appointments', 'equity'];
-  },
+  // Opportunities, appointments, deals and deliveries are all composed into My Day.
+  get tabOrder() { return ['overview', 'work', 'appraisals', 'desk', 'equity', 'settings']; },
+  get tabLabels() { return { overview: 'My Day', work: 'Customers', appraisals: 'Appraise Trade', desk: 'Desk a Deal', equity: 'Equity Mining', settings: 'Settings' }; },
 
   // ONE parallel round-trip for the landing view — no waterfall, and deliveries /
   // insights are deliberately excluded (they load inside their own tab).
@@ -360,14 +293,12 @@ ENGINES['sales'] = {
   quickActions: [
     // Opportunities leads the header rather than hiding as a sub-view: it is the first thing a
     // salesperson is looking for when they open the workspace.
-    { label: 'Opportunities', icon: 'flame', onclick: "salesWorkView('opportunities')" },
+    { label: 'Opportunities', icon: 'flame', onclick: "engineTab('sales','overview')" },
     { label: '+ Customer', icon: 'user', onclick: 'crmOpenForm()' },
     { label: 'Book Appointment', icon: 'calendar', onclick: "switchPage('appointments')" },
-    { label: 'Appraise Trade', icon: 'gem', onclick: "switchPage('appraisal')" },
-    // Customers already in the book who are in a position to trade — a Sales job, so it belongs
-    // in the Sales header rather than only inside Inventory.
-    { label: 'Equity Mining', icon: 'gem', onclick: "switchPage('equity')" },
-    { label: 'Desk Deal', icon: 'currency', onclick: "switchPage('desk')" },
+    { label: 'Desk a Deal', icon: 'currency', onclick: "engineTab('sales', 'desk')" },
+    { label: 'Appraise Trade', icon: 'gem', onclick: "engineTab('sales', 'appraisal')" },
+    { label: 'Equity Mining', icon: 'gem', onclick: "engineTab('sales', 'equity')" },
   ],
 
   nextActions: (d) => salesAttention(d || {}).slice(0, 5).map(it => ({
@@ -378,19 +309,22 @@ ENGINES['sales'] = {
   tabs: {
     // ── TODAY — the operational command center, not analytics ──────────────
     overview(body, d) {
+      if (typeof window.pulseSalesDeptSection === 'function') {
+        body.innerHTML = window.pulseSalesDeptSection(d);
+        return;
+      }
       const att = salesAttention(d);
       const now = Date.now(), day = 864e5;
       const todays = (d.appointments || []).filter(a => { const t = new Date(a.appointment_at) - now; return t > -day / 2 && t < day / 2; });
       const open = (d.contacts || []).filter(c => SALES_OPEN_STAGES.includes(c.status));
       const overdue = (d.tasks || []).filter(t => t.due_at && new Date(t.due_at) < now);
       const newLeads = (d.contacts || []).filter(c => c.status === 'uncontacted');
-
       body.innerHTML = `
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}
-          ${engKpi('New leads', newLeads.length, newLeads.length ? 'text-amber-600 dark:text-amber-400' : '')}
-          ${engKpi("Today's appointments", todays.length)}
-          ${engKpi('Overdue tasks', overdue.length, overdue.length ? 'text-rose-600 dark:text-rose-400' : '')}
+          ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '', "engineTab('sales', 'work')")}
+          ${engKpi('New leads', newLeads.length, newLeads.length ? 'text-amber-600 dark:text-amber-400' : '', "salesWorkView('opportunities')")}
+          ${engKpi("Today's appointments", todays.length, '', "engineTab('sales', 'appointments')")}
+          ${engKpi('Overdue tasks', overdue.length, overdue.length ? 'text-rose-600 dark:text-rose-400' : '', "engineTab('sales', 'work')")}
         </div>
         ${engCard('Needs attention', att.length ? att.map(salesAttentionRow).join('') : engEmpty('Nothing needs you right now.'))}
         ${salesPerformanceStrip(d)}
@@ -401,14 +335,50 @@ ENGINES['sales'] = {
               <div class="text-[12px] font-bold text-slate-500 tabular-nums shrink-0">${esc(new Date(a.appointment_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}</div>
               <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(a.customer_name || '—')}</div>
                 <div class="text-[12px] text-slate-400 truncate">${esc(a.vehicle_label || '')}${a.rep_name ? ` · ${esc(a.rep_name)}` : ''}</div></div>
-              <button onclick="${a.contact_id ? `crmOpenForm('${a.contact_id}')` : `switchPage('appointments')`}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Open Customer</button>
+              <button onclick="${a.contact_id ? `openCrmContact('${a.contact_id}')` : `switchPage('appointments')`}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Open Customer</button>
             </div>`).join('') : engEmpty('No appointments today.'))}
           ${engCard('Active opportunities', open.length ? open.slice(0, 8).map(c => salesOppRow(c, d)).join('') : engEmpty('No open opportunities.'))}
         </div>`;
     },
 
-    // ── WORK — Opportunities | Appointments | Customers | Deals | Deliveries ──
-    work: salesRenderWork,
+    // ── CUSTOMERS — unified rich customer view with search, filters & actions ───
+    async work(body, d) {
+      if (typeof crmLoadContacts === 'function') {
+        await crmLoadContacts(body);
+      } else {
+        body.innerHTML = engCard('Customers', (d.contacts || []).slice(0, 50).map(c => salesOppRow(c, d)).join('') || engEmpty('No customers yet.'));
+      }
+    },
+
+    // ── DESK A DEAL ──────────────────────────────────────────────────────────
+    appraisals(body, d) {
+      body.innerHTML = `
+        <div class="mb-4 text-sm font-semibold text-slate-500">Appraise a trade-in and manage existing appraisals.</div>
+        ${engCard('Trade Appraisals', engEmpty('No active appraisals.'))}
+      `;
+    },
+    desk(body, d) {
+      if (typeof engMountPage === 'function') {
+        engMountPage(body, 'desk', () => {
+          if (typeof loadDeskDeal === 'function') loadDeskDeal();
+        });
+      } else {
+        body.innerHTML = engCard('Desk a Deal', `<div class="p-4 text-center"><button onclick="switchPage('desk')" class="px-4 py-2 font-bold bg-amber-600 text-white rounded-lg">Open Desking Tool</button></div>`);
+      }
+    },
+
+    // ── TRADE APPRAISALS & CAR APPRAISAL TOOL ──────────────────────────────────
+    appraisal(body, d) {
+      if (typeof engMountPage === 'function') {
+        engMountPage(body, 'appraisal', () => {
+          if (typeof initAppraisal === 'function') initAppraisal();
+          if (typeof loadApprList === 'function') loadApprList();
+          if (typeof apprEnsureBranding === 'function') apprEnsureBranding();
+        });
+      } else {
+        body.innerHTML = engCard('Trade Appraisals', `<div class="p-4 text-center"><button onclick="switchPage('appraisal')" class="px-4 py-2 font-bold bg-amber-600 text-white rounded-lg">Appraise a Car / View Trade Appraisals</button></div>`);
+      }
+    },
 
     // ── APPOINTMENTS — promoted out of a sub-view ───────────────────────────
     // It was one of five tabs inside Work. Booking and arrival is a top-level part of a

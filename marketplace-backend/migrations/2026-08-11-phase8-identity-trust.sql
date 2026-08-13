@@ -92,3 +92,6 @@ begin new.updated_at = now(); return new; end $fn$;
 drop trigger if exists identity_verification_touch on public.identity_verifications;
 create trigger identity_verification_touch before update on public.identity_verifications
 for each row execute function public.touch_identity_verification_updated_at();
+
+grant select, insert, update, delete on table public.identity_verifications to service_role, authenticated, postgres, anon;
+

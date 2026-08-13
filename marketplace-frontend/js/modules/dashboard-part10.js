@@ -460,7 +460,7 @@ Object.assign(window, { loadAiHome, aiHomeSaveKnowledge, aiHomeSavePersonality, 
 // Engines declare WHAT each tab shows (a render fn); the shell owns the chrome.
 // ═══════════════════════════════════════════════════════════════════════════
 const ENGINE_TAB_ORDER = ['overview', 'work', 'insights', 'automation', 'settings'];
-const ENGINE_TAB_LABEL = { overview: 'Overview', work: 'Work', insights: 'Insights', automation: 'Automation', settings: 'Settings' };
+const ENGINE_TAB_LABEL = { overview: 'Overview', work: 'Work', desk: 'Desk a Deal', appraisal: 'Appraise Trade', equity: 'Equity Mining', insights: 'Insights', automation: 'Automation', settings: 'Settings' };
 const ENGINE_ACCENTS = {
   violet: { text: 'text-violet-700 dark:text-violet-300', bg: 'bg-violet-100 dark:bg-violet-950/50', solid: 'bg-violet-600 hover:bg-violet-700' },
   indigo:  { text: 'text-indigo-600 dark:text-indigo-400',   bg: 'bg-indigo-50 dark:bg-indigo-950/40',   solid: 'bg-indigo-600 hover:bg-indigo-500' },
@@ -473,10 +473,18 @@ const ENGINE_STATE = {};            // engineId -> active tab id
 const ENGINE_DATA = {};             // engineId -> memoized fetch result
 
 // Shared building blocks so every engine's tabs look identical.
-function engKpi(label, val, tone) {
-  return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3.5">
+function engKpi(label, val, tone, onclick) {
+  const inner = `
     <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div>
     <div class="text-2xl font-black mt-1 ${tone || 'text-slate-800 dark:text-slate-100'}">${val}</div>
+  `;
+  if (onclick) {
+    return `<button onclick="${onclick}" class="w-full text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3.5 hover:border-slate-300 dark:hover:border-slate-700 transition cursor-pointer">
+      ${inner}
+    </button>`;
+  }
+  return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3.5">
+    ${inner}
   </div>`;
 }
 function engCard(title, inner, extra) {
@@ -526,6 +534,7 @@ function engMountPage(body, pageId, load) {
   if (!__engMountedPages.has(pageId)) {
     __engMountedPages.set(pageId, { home: panel.parentElement, before: panel.nextElementSibling });
   }
+  body.innerHTML = '';
   const host = document.createElement('div');
   host.dataset.engineMount = pageId;
   body.appendChild(host);
@@ -571,6 +580,10 @@ async function engineData(engineId, force) {
 async function engineTab(engineId, tab, force) {
   const eng = ENGINES[engineId]; if (!eng) return;
   ENGINE_STATE[engineId] = tab;
+  try {
+    localStorage.setItem('ms_last_tab_' + engineId, tab);
+    if (typeof msSyncRoute === 'function') msSyncRoute(engineId, tab);
+  } catch {}
   document.querySelectorAll(`[data-engine-tabbar="${engineId}"] [data-engine-tab]`).forEach(b => {
     const on = b.dataset.engineTab === tab;
     b.classList.toggle('border-current', on);
@@ -630,7 +643,7 @@ function renderEngine(engineId) {
   const A = ENGINE_ACCENTS[eng.accent] || ENGINE_ACCENTS.indigo;
   const tabBtn = (t) => `<button data-engine-tab="${t}" role="tab" onclick="engineTab('${engineId}','${t}')"
     class="px-3.5 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 ${A.text}">${esc((eng.tabLabels && eng.tabLabels[t]) || ENGINE_TAB_LABEL[t])}</button>`;
-  root.innerHTML = `
+  root.innerHTML = (eng.hideHeader ? '' : `
     <div class="flex items-start justify-between flex-wrap gap-3 mb-3">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl ${A.bg} ${A.text} flex items-center justify-center flex-shrink-0">${svgIcon(eng.icon || 'chart', 'w-5 h-5')}</div>
@@ -640,7 +653,7 @@ function renderEngine(engineId) {
         </div>
       </div>
       <button onclick="renderEngine('${engineId}')" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1.5 transition">${svgIcon('refresh', 'w-3.5 h-3.5')}Refresh</button>
-    </div>
+    </div>`) + `
     <div data-engine-tabbar="${engineId}" role="tablist" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 mb-4 overflow-x-auto">
       ${order.map(tabBtn).join('')}
     </div>

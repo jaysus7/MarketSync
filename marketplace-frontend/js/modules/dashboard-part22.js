@@ -1143,8 +1143,13 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>`
   }
 
-  function renderIntel(data) {
-    const { summary, velocity, hot_segments, cold_segments, duplicate_vins, vehicles } = data
+  function renderIntel(data = {}) {
+    const summary = data.summary || { total: 0, avg_score: 0, needs_attention: 0, duplicate_vins: 0 }
+    const velocity = Array.isArray(data.velocity) ? data.velocity : []
+    const hot_segments = Array.isArray(data.hot_segments) ? data.hot_segments : []
+    const cold_segments = Array.isArray(data.cold_segments) ? data.cold_segments : []
+    const duplicate_vins = Array.isArray(data.duplicate_vins) ? data.duplicate_vins : []
+    const vehicles = Array.isArray(data.vehicles) ? data.vehicles : []
 
     // Populate module-level caches so renderCatalog can show hot/cold tags and health scores
     __hotMakeModels = new Set(hot_segments.map(s => `${s.make} ${s.model}`.toLowerCase()))
@@ -1155,12 +1160,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Stats
-    const sa = summary.avg_score
+    const sa = summary.avg_score || 0
     document.getElementById('inv-intel-stats').innerHTML = [
-      statCard('Total Units', summary.total, 'available'),
+      statCard('Total Units', summary.total || 0, 'available'),
       statCard('Avg Health Score', sa + '/100', '', scoreColor(sa)),
-      statCard('Need Attention', summary.needs_attention, 'score < 50', summary.needs_attention > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'),
-      statCard('Duplicate VINs', summary.duplicate_vins, duplicate_vins.length ? 'action required' : 'none found', duplicate_vins.length ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'),
+      statCard('Need Attention', summary.needs_attention || 0, 'score < 50', (summary.needs_attention || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'),
+      statCard('Duplicate VINs', summary.duplicate_vins || 0, duplicate_vins.length ? 'action required' : 'none found', duplicate_vins.length ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'),
     ].join('')
 
     // Narrative is loaded async by loadNarrative() — hide until it arrives
@@ -1169,7 +1174,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Hot / Cold segments
     const hotEl = document.getElementById('inv-intel-hot')
     hotEl.innerHTML = hot_segments.length
-      ? hot_segments.map((s, i) => `<div class="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-700 last:border-0">
+      ? hot_segments.map((s, i) => `<div onclick="switchPage('inventory-overview'); setTimeout(() => { engineTab('inventory-overview', 'work'); const i = document.getElementById('catalog-search'); if(i) { i.value = '${s.make} ${s.model}'; renderCatalog(); } }, 50);" class="flex items-center justify-between py-1.5 px-2 -mx-2 border-b border-slate-100 dark:border-slate-700 last:border-0 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition rounded">
           <div class="flex items-center gap-2">
             <span class="text-[10px] font-bold text-slate-400 w-4 text-right">${i + 1}</span>
             <span class="font-medium text-slate-900 dark:text-white">${s.make} ${s.model}</span>
@@ -1183,7 +1188,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const coldEl = document.getElementById('inv-intel-cold')
     coldEl.innerHTML = cold_segments.length
-      ? cold_segments.map((s, i) => `<div class="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-700 last:border-0">
+      ? cold_segments.map((s, i) => `<div onclick="switchPage('inventory-overview'); setTimeout(() => { engineTab('inventory-overview', 'work'); const i = document.getElementById('catalog-search'); if(i) { i.value = '${s.make} ${s.model}'; renderCatalog(); } }, 50);" class="flex items-center justify-between py-1.5 px-2 -mx-2 border-b border-slate-100 dark:border-slate-700 last:border-0 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition rounded">
           <div class="flex items-center gap-2">
             <span class="text-[10px] font-bold text-slate-400 w-4 text-right">${i + 1}</span>
             <span class="font-medium text-slate-900 dark:text-white">${s.make} ${s.model}</span>
@@ -1199,9 +1204,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const dupsWrap = document.getElementById('inv-intel-dups-wrap')
     const dupsEl = document.getElementById('inv-intel-dups')
     if (duplicate_vins.length) {
-      dupsEl.innerHTML = duplicate_vins.map(d => `<div class="bg-white dark:bg-slate-800 rounded-lg px-3 py-2">
+      dupsEl.innerHTML = duplicate_vins.map(d => `<div onclick="switchPage('inventory-overview'); setTimeout(() => { engineTab('inventory-overview', 'work'); const i = document.getElementById('catalog-search'); if(i) { i.value = '${d.vin}'; renderCatalog(); } }, 50);" class="bg-white dark:bg-slate-800 rounded-lg px-3 py-2 cursor-pointer hover:ring-2 hover:ring-indigo-500 transition">
         <div class="font-mono text-xs font-bold text-red-700 dark:text-red-400 mb-1">VIN: ${d.vin}</div>
-        <div class="flex flex-wrap gap-2">${d.units.map(u => `<span class="text-xs bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 px-2 py-0.5 rounded">${u.year} ${u.make} ${u.model}${u.stock ? ' · ' + u.stock : ''}</span>`).join('')}</div>
+        <div class="flex flex-wrap gap-2">${(Array.isArray(d.units) ? d.units : []).map(u => `<span class="text-xs bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 px-2 py-0.5 rounded">${u.year} ${u.make} ${u.model}${u.stock ? ' · ' + u.stock : ''}</span>`).join('')}</div>
       </div>`).join('')
       dupsWrap.classList.remove('hidden')
     } else {
@@ -1215,7 +1220,7 @@ document.addEventListener('DOMContentLoaded', () => {
       velWrap.parentElement.style.position = 'relative'
     }
     const tbody = document.getElementById('inv-intel-velocity-body')
-    tbody.innerHTML = velocity.map(s => `<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+    tbody.innerHTML = velocity.map(s => `<tr onclick="switchPage('inventory-overview'); setTimeout(() => { engineTab('inventory-overview', 'work'); const i = document.getElementById('catalog-search'); if(i) { i.value = '${s.make} ${s.model}'; renderCatalog(); } }, 50);" class="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
       <td class="px-4 py-2.5 font-medium text-slate-900 dark:text-white whitespace-nowrap">${s.make} ${s.model}</td>
       <td class="px-4 py-2.5 text-right tabular-nums">${s.sold_30d}</td>
       <td class="px-4 py-2.5 text-right tabular-nums font-bold">${s.sold_90d}</td>
@@ -1228,8 +1233,9 @@ document.addEventListener('DOMContentLoaded', () => {
     hbody.innerHTML = vehicles.map((v, idx) => {
       const b = v.breakdown || {}
       const scoreColor = v.score >= 80 ? '#10b981' : v.score >= 60 ? '#f59e0b' : '#ef4444'
-      const issueList = v.issues.length
-        ? v.issues.map(i => `<span class="inline-flex text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded">${i}</span>`).join(' ')
+      const issues = Array.isArray(v.issues) ? v.issues : []
+      const issueList = issues.length
+        ? issues.map(i => `<span class="inline-flex text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded">${i}</span>`).join(' ')
         : '<span class="text-emerald-500 text-xs font-semibold"> Good</span>'
       const stockNum = v.stock || v.id?.slice(0, 8) || '—'
       const vehicleLine = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ')

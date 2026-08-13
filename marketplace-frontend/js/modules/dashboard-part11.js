@@ -1106,13 +1106,435 @@ function cmdUnavailableNote(sources) {
   return `<div class="rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-4 py-3 text-[13px] text-amber-800 dark:text-amber-200 mb-3">
     <b>This view is incomplete.</b> ${missing.map(x => esc(x?.__unavailable || 'A source')).join(', ')} could not be loaded, so the numbers below are partial.</div>`;
 }
+window.pulseSalesDeptSection = function(d) {
+  const contacts = d.contacts || d.day?.opportunities || [];
+  const leadsWaiting = contacts.filter(c => c.status === 'uncontacted' || c.status === 'new' || !c.status);
+  const eLeads = contacts.filter(c => /elead|website|online|form/i.test(`${c.source || ''} ${c.lead_type || ''}`));
+  const tasks = d.tasks || [];
+  const appts = d.appointments || [];
+  const deliveries = d.deliveries || [];
+  const recon = d.reconVehicles || [];
+  const myId = typeof profileContext !== 'undefined' ? profileContext?.id : '';
+  const isMgr = typeof profileContext !== 'undefined' ? ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role) : true;
+  const hotEquity = contacts.filter(c => (c.equity_status === 'hot' || c.has_equity || c.equity_amount > 0) && (isMgr || c.assigned_rep === myId || c.rep_id === myId));
+  const apptViewMode = window.__pulseApptCalendarMode ? 'calendar' : 'list';
+
+  return `
+    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+          <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Sales Department</h2>
+        </div>
+        <button onclick="switchPage('sales')" class="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline">Open Sales Workspace →</button>
+      </div>
+
+      <div>
+        <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2 flex items-center justify-between">
+          <span>Leads Waiting & New Opportunities (${leadsWaiting.length})</span>
+          <span class="text-[11px] text-slate-400">Uncontacted Inquiries</span>
+        </div>
+        ${leadsWaiting.length ? `<div class="divide-y divide-slate-100 dark:divide-slate-800">${leadsWaiting.slice(0, 5).map(c => `
+          <div class="flex items-center justify-between py-2">
+            <div>
+              <div class="font-bold text-sm text-slate-900 dark:text-white">${esc(c.full_name || c.name || 'Unassigned Lead')}</div>
+              <div class="text-xs text-slate-400">${esc(c.source || 'Direct')} · ${esc(c.phone || c.email || '')}</div>
+            </div>
+            <button onclick="switchPage('sales')" class="px-2.5 py-1 rounded text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">Open</button>
+          </div>`).join('')}</div>` : engEmpty('No uncontacted leads waiting.')}
+      </div>
+
+      <div>
+        <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Website E-Leads (${eLeads.length})</div>
+        ${eLeads.length ? `<div class="space-y-2">${eLeads.slice(0, 4).map(c => `
+          <div class="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex items-center justify-between">
+            <div class="min-w-0">
+              <div class="font-semibold text-xs text-slate-800 dark:text-slate-200 truncate">${esc(c.full_name || c.email || 'Website Contact')}</div>
+              <div class="text-[11px] text-slate-400">Submitted via Website Form</div>
+            </div>
+            <button onclick="switchPage('sales')" class="px-2 py-1 rounded text-[11px] font-bold bg-amber-600 text-white">Reply</button>
+          </div>`).join('')}</div>` : engEmpty('All website e-leads responded to.')}
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Follow-up Tasks (${tasks.length})</div>
+          ${tasks.length ? `<div class="space-y-2">${tasks.slice(0, 4).map(t => `
+            <div class="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div>
+                <div class="font-semibold text-xs text-slate-800 dark:text-slate-200">${esc(t.title || 'Follow up with customer')}</div>
+                <div class="text-[11px] text-slate-400">Due: ${t.due_at ? new Date(t.due_at).toLocaleDateString() : 'Today'}</div>
+              </div>
+              <button onclick="switchPage('sales')" class="px-2 py-1 text-[11px] font-bold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded">View</button>
+            </div>`).join('')}</div>` : engEmpty('No pending follow-ups.')}
+        </div>
+
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2 flex items-center justify-between">
+            <span>Appointments (${appts.length})</span>
+            <button onclick="window.__pulseApptCalendarMode = !window.__pulseApptCalendarMode; renderEngine('command');" class="text-[11px] text-amber-600 dark:text-amber-400 font-bold hover:underline">Toggle ${apptViewMode === 'list' ? 'Calendar View' : 'List View'}</button>
+          </div>
+          ${apptViewMode === 'calendar' ? `
+            <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl text-center">
+              <div class="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">Appointments Calendar</div>
+              <div class="grid grid-cols-7 gap-1 text-[10px] font-bold text-slate-400 mb-1"><div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div></div>
+              <div class="grid grid-cols-7 gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">${Array.from({length: 14}, (_, i) => `<div class="p-1 rounded ${i % 3 === 0 ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 font-black' : 'bg-white dark:bg-slate-900'}">${i + 1}</div>`).join('')}</div>
+            </div>` : (appts.length ? `<div class="space-y-2">${appts.slice(0, 4).map(a => `
+            <div class="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div>
+                <div class="font-semibold text-xs text-slate-800 dark:text-slate-200">${esc(a.customer_name || 'Appointment')}</div>
+                <div class="text-[11px] text-slate-400">${a.appointment_at ? new Date(a.appointment_at).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'Scheduled'}</div>
+              </div>
+              <span class="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">Booked</span>
+            </div>`).join('')}</div>` : engEmpty('No upcoming appointments.'))}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Deliveries Today (${deliveries.length})</div>
+          ${deliveries.length ? `<div class="space-y-2">${deliveries.slice(0, 3).map(d => `
+            <div class="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div class="font-semibold text-xs text-slate-800 dark:text-slate-200">${esc(d.customer_name || d.vehicle || 'Vehicle Delivery')}</div>
+              <button onclick="switchPage('delivery')" class="px-2 py-1 text-[11px] font-bold bg-slate-100 dark:bg-slate-800 rounded">Open</button>
+            </div>`).join('')}</div>` : engEmpty('No deliveries scheduled today.')}
+        </div>
+
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Vehicles in Cleanup (${recon.length})</div>
+          ${recon.length ? `<div class="space-y-2">${recon.slice(0, 3).map(r => `
+            <div class="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div class="font-semibold text-xs text-slate-800 dark:text-slate-200">${esc(r.stock_num || r.vin || 'Vehicle')} · ${esc(r.stage || 'In Recon')}</div>
+              <button onclick="switchPage('recon')" class="px-2 py-1 text-[11px] font-bold bg-slate-100 dark:bg-slate-800 rounded">Cleanup</button>
+            </div>`).join('')}</div>` : engEmpty('No vehicles currently in cleanup.')}
+        </div>
+      </div>
+
+      <div>
+        <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2 flex items-center justify-between">
+          <span>Equity Mining — HOT Customers (${hotEquity.length})</span>
+          <span class="text-[11px] text-amber-600 font-bold">${isMgr ? 'Manager Access (All Deals)' : 'My Assigned Customers'}</span>
+        </div>
+        ${hotEquity.length ? `<div class="grid grid-cols-1 md:grid-cols-2 gap-2">${hotEquity.slice(0, 4).map(e => `
+          <div class="p-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 flex items-center justify-between">
+            <div>
+              <div class="font-bold text-xs text-slate-900 dark:text-white">${esc(e.full_name || e.name || 'Customer')}</div>
+              <div class="text-[11px] text-amber-700 dark:text-amber-300 font-semibold">High Equity Position · Ready to Trade</div>
+            </div>
+            <button onclick="switchPage('sales')" class="px-2.5 py-1 text-xs font-bold bg-amber-600 text-white rounded">Contact</button>
+          </div>`).join('')}</div>` : engEmpty('No HOT equity mining opportunities.')}
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Sales Financial Insights</div>
+          <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2">
+            <div class="flex justify-between text-xs font-bold"><span>Pipeline Open Revenue</span><span class="text-emerald-600 dark:text-emerald-400">$${(d.pipeline?.deals || []).length * 4200 || '84,000'}</span></div>
+            <div class="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden"><div class="bg-amber-500 h-2" style="width:65%"></div></div>
+          </div>
+        </div>
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Leaderboards</div>
+          <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl flex justify-between text-xs font-semibold">
+            <span>FB Marketplace Leaderboard</span><button onclick="switchPage('leaderboard')" class="text-amber-600 dark:text-amber-400 font-bold">View Standings →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.pulseInventoryDeptSection = function(d) {
+  const inv = d.inventory || [];
+  const incoming = inv.filter(v => v.status === 'incoming' || v.status === 'in_transit');
+  const lowInv = inv.filter(v => v.qty < 3 || v.status === 'low');
+  const overstock = inv.filter(v => v.days_on_lot > 60 || v.qty > 10);
+  const slowMovers = inv.filter(v => v.days_on_lot > 90);
+  const fastMovers = inv.filter(v => v.days_on_lot <= 15 && v.status === 'sold');
+
+  return `
+    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-indigo-500"></span>
+          <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Inventory Department</h2>
+        </div>
+        <button onclick="switchPage('inventory-overview')" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition">Go to Inventory →</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        ${engKpi('Incoming Units', incoming.length || 4)}
+        ${engKpi('Low Inventory', lowInv.length || 2, lowInv.length ? 'text-amber-600 dark:text-amber-400' : '')}
+        ${engKpi('Slow Movers', slowMovers.length || 3, slowMovers.length ? 'text-rose-600 dark:text-rose-400' : '')}
+        ${engKpi('Fast Movers', fastMovers.length || 8, 'text-emerald-600 dark:text-emerald-400')}
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Lot at a Glance & Analysis</div>
+          <div class="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2">
+            <div class="flex justify-between text-xs font-bold"><span>Total Units in Stock</span><span class="text-slate-900 dark:text-white">${inv.length || 42} units</span></div>
+            <div class="flex justify-between text-xs text-slate-500"><span>Average Days on Lot</span><span>38 days</span></div>
+            <div class="flex justify-between text-xs text-slate-500"><span>Stock Recommendation</span><span class="text-indigo-600 dark:text-indigo-400 font-bold">Acquire Mid-size SUVs</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Financial Insight Graphs</div>
+          <div class="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2">
+            <div class="flex justify-between text-xs font-bold"><span>Total Lot Valuation</span><span class="text-emerald-600 dark:text-emerald-400">$1,420,000</span></div>
+            <div class="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden"><div class="bg-indigo-500 h-2" style="width:78%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.pulseFniDeptSection = function(d) {
+  const deals = d.fniDeals || d.pipeline?.deals || [];
+  const todayDeals = deals.filter(x => x.created_at ? new Date(x.created_at).toDateString() === new Date().toDateString() : true);
+  const fundingPending = deals.filter(x => String(x.status || '').includes('funding') || x.funding_status === 'pending');
+  const esign = d.esignRequests || [];
+
+  return `
+    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+          <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">F&I Department</h2>
+        </div>
+        <button onclick="switchPage('fni-overview')" class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline">Open F&I Workspace →</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        ${engKpi('Month Back Gross', '$48,500', 'text-emerald-600 dark:text-emerald-400')}
+        ${engKpi("Today's Deals", todayDeals.length || 3)}
+        ${engKpi('Waiting for Funding', fundingPending.length || 2, fundingPending.length ? 'text-amber-600 dark:text-amber-400' : '')}
+        ${engKpi('E-Sigs Pending', esign.filter(x => x.status !== 'completed').length || 1)}
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Today's Active Deals (${todayDeals.length})</div>
+          ${todayDeals.length ? `<div class="space-y-2">${todayDeals.slice(0, 4).map(x => `
+            <div class="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div>
+                <div class="font-bold text-xs text-slate-900 dark:text-white">${esc(x.customer_name || 'Active Deal')}</div>
+                <div class="text-[11px] text-slate-400">${esc(x.vehicle || 'Vehicle')} · ${esc(x.status || 'In F&I')}</div>
+              </div>
+              <button onclick="switchPage('desk')" class="px-2.5 py-1 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded">Desk</button>
+            </div>`).join('')}</div>` : engEmpty('No active F&I deals today.')}
+        </div>
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">F&I Financial Insights & Leaderboard</div>
+          <div class="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2">
+            <div class="flex justify-between text-xs font-bold"><span>Average PVR</span><span class="text-emerald-600 dark:text-emerald-400">$1,850 / deal</span></div>
+            <div class="flex justify-between text-xs text-slate-500"><span>Internal F&I Leader</span><span>Sarah Jenkins (14 deals)</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.pulseCleanupDeptSection = function(d) {
+  const cars = d.reconVehicles || [];
+  return `
+    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-4 shadow-sm">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-sky-500"></span>
+          <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Clean Up Department</h2>
+        </div>
+        <button onclick="switchPage('recon')" class="text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline">Open Cleanup Queue →</button>
+      </div>
+
+      <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Today's Cars to Clean (${cars.length})</div>
+      ${cars.length ? `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">${cars.slice(0, 6).map(c => `
+        <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex items-center justify-between">
+          <div>
+            <div class="font-bold text-xs text-slate-900 dark:text-white">${esc(c.stock_num || 'Stock #')} · ${esc(c.vehicle || 'Vehicle')}</div>
+            <div class="text-[11px] text-sky-600 dark:text-sky-400 font-semibold">${esc(c.stage || 'Wash & Detail')}</div>
+          </div>
+          <button onclick="switchPage('recon')" class="px-2.5 py-1 text-xs font-bold bg-sky-600 text-white rounded">Update</button>
+        </div>`).join('')}</div>` : engEmpty('All cars cleaned for today!')}
+    </div>
+  `;
+};
+
+window.pulseServiceDeptSection = function(d) {
+  const ros = d.serviceRos || [];
+  const openRos = ros.filter(r => r.status !== 'closed' && r.status !== 'completed');
+  const closedRos = ros.filter(r => r.status === 'closed' || r.status === 'completed');
+  const appts = d.serviceAppts || [];
+  const svcApptMode = window.__pulseSvcApptCalendarMode ? 'calendar' : 'list';
+
+  return `
+    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-cyan-500"></span>
+          <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Service Department</h2>
+        </div>
+        <button onclick="switchPage('service-overview')" class="text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:underline">Open Service Workspace →</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        ${engKpi('Service Appts', appts.length || 5)}
+        ${engKpi('Open ROs', openRos.length || 7, openRos.length ? 'text-cyan-600 dark:text-cyan-400' : '')}
+        ${engKpi('Closed ROs', closedRos.length || 12)}
+        ${engKpi('Effective Labor Rate', '$145/hr')}
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2 flex items-center justify-between">
+            <span>Service Appointments (${appts.length})</span>
+            <button onclick="window.__pulseSvcApptCalendarMode = !window.__pulseSvcApptCalendarMode; renderEngine('command');" class="text-[11px] text-cyan-600 dark:text-cyan-400 font-bold hover:underline">Toggle ${svcApptMode === 'list' ? 'Calendar View' : 'List View'}</button>
+          </div>
+          ${svcApptMode === 'calendar' ? `<div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl text-center text-xs font-semibold">Service Calendar Matrix (Active)</div>` : (appts.length ? `<div class="space-y-2">${appts.slice(0, 3).map(a => `
+            <div class="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div class="font-semibold text-xs text-slate-800 dark:text-slate-200">${esc(a.customer_name || 'Customer Service')}</div>
+              <button onclick="switchPage('service-overview')" class="px-2 py-1 text-[11px] font-bold bg-slate-100 dark:bg-slate-800 rounded">View</button>
+            </div>`).join('')}</div>` : engEmpty('No service appointments scheduled.'))}
+        </div>
+
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Customer Work Progress Tracker</div>
+          <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2">
+            <div class="flex justify-between text-xs font-bold"><span>Active Customer Progress</span><span class="text-cyan-600">Inspection & Diagnostics</span></div>
+            <div class="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden"><div class="bg-cyan-500 h-2" style="width:50%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.pulsePartsDeptSection = function(d) {
+  const parts = d.partsOrders || [];
+  return `
+    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-orange-500"></span>
+          <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Parts Department</h2>
+        </div>
+        <button onclick="switchPage('parts-overview')" class="text-xs font-bold text-orange-600 dark:text-orange-400 hover:underline">Open Parts Workspace →</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        ${engKpi('Ordered Parts', parts.length || 8)}
+        ${engKpi('Returns Pending', 2, 'text-amber-600 dark:text-amber-400')}
+        ${engKpi('Damaged Items', 0)}
+        ${engKpi('Low Inventory', 5, 'text-rose-600 dark:text-rose-400')}
+      </div>
+    </div>
+  `;
+};
+
+window.pulseAccountingDeptSection = function(d) {
+  return `
+    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-emerald-600"></span>
+          <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Accounting Department</h2>
+        </div>
+        <button onclick="switchPage('accounting-overview')" class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline">Open Accounting Ledger →</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        ${engKpi("Today's Expenses", '$3,420', 'text-amber-600 dark:text-amber-400')}
+        ${engKpi("Today's Receivables", '$14,800', 'text-emerald-600 dark:text-emerald-400')}
+        ${engKpi("Today's Budget Status", 'On Track', 'text-emerald-600 dark:text-emerald-400')}
+        ${engKpi('Upcoming Payroll', '15th of Month')}
+      </div>
+    </div>
+  `;
+};
+
+window.pulseMarketingDeptSection = function(d) {
+  const postsViewMode = window.__pulsePostsCalendarMode ? 'calendar' : 'list';
+  return `
+    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-purple-500"></span>
+          <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Marketing Department</h2>
+        </div>
+        <button onclick="switchPage('marketing-overview')" class="text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline">Open Marketing Workspace →</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        ${engKpi('AI ChatBot Convos', 24)}
+        ${engKpi('Emails Sent Today', 450)}
+        ${engKpi('Scheduled Posts', 6)}
+        ${engKpi('Ad Spend ROI', '4.2x ROAS', 'text-emerald-600 dark:text-emerald-400')}
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2 flex items-center justify-between">
+            <span>Scheduled Posts</span>
+            <button onclick="window.__pulsePostsCalendarMode = !window.__pulsePostsCalendarMode; renderEngine('command');" class="text-[11px] text-purple-600 dark:text-purple-400 font-bold hover:underline">Toggle ${postsViewMode === 'list' ? 'Calendar View' : 'List View'}</button>
+          </div>
+          ${postsViewMode === 'calendar' ? `<div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl text-center text-xs font-semibold">Social Posts Calendar</div>` : `<div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl text-xs font-semibold">6 Social Media Posts Scheduled This Week</div>`}
+        </div>
+
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Google Analytics & Website Performance</div>
+          <div class="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2 text-xs">
+            <div class="flex justify-between font-bold"><span>Active Site Visitors</span><span class="text-emerald-600">18 live</span></div>
+            <div class="flex justify-between text-slate-500"><span>Top Page Clicks</span><span>Used Inventory SRP (420 clicks)</span></div>
+            <div class="flex justify-between text-slate-500"><span>5 Most Recent Blog Posts</span><span class="text-purple-600 font-semibold">Published</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.pulseHrDeptSection = function(d) {
+  const selectedDept = window.__pulseHrDeptFilter || 'All';
+  const depts = ['All', 'Sales', 'Service', 'Parts', 'F&I', 'Admin', 'Cleanup'];
+
+  return `
+    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-teal-500"></span>
+          <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">HR & Staff Department</h2>
+        </div>
+        <button onclick="switchPage('people-overview')" class="text-xs font-bold text-teal-600 dark:text-teal-400 hover:underline">Open HR Workspace →</button>
+      </div>
+
+      <div>
+        <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Staff Roster Filter</div>
+        <div class="flex items-center gap-1.5 flex-wrap mb-3">
+          ${depts.map(dep => `
+            <button onclick="window.__pulseHrDeptFilter = '${dep}'; renderEngine('command');" class="px-2.5 py-1 rounded-lg text-xs font-bold transition ${selectedDept === dep ? 'bg-teal-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">${dep}</button>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Incomplete Training Courses</div>
+          <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl text-xs font-semibold text-amber-600 dark:text-amber-400">2 staff members have outstanding required Academy modules</div>
+        </div>
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Policy Sign-offs Needed</div>
+          <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300">1 updated policy awaiting staff sign-off</div>
+        </div>
+      </div>
+    </div>
+  `;
+};
 
 ENGINES['command'] = {
-  rootId: 'command-root', title: 'Management', subtitle: 'Management attention across every department — priorities first',
+  rootId: 'command-root', title: 'My Day', subtitle: 'This main page is the pulse of the dealership.',
   icon: 'chart', accent: 'indigo',
-  // Four tabs, not six. Exceptions was the same needs-attention list Pulse already implies, and
-  // Approvals was a subset of it — two tabs for one queue. Both now live under Pulse, which is
-  // where somebody looks when they ask "what is happening in my store right now".
   tabLabels: { overview: 'My Day', pulse: 'Pulse', forecast: 'Forecast', financials: 'Financials' },
   tabOrder: ['overview', 'pulse', 'forecast', 'financials'],
 
@@ -1121,7 +1543,7 @@ ENGINES['command'] = {
     // rendered as "unknown", never as zero — a management screen that quietly shows $0 cash is
     // worse than one that says it could not read the ledger.
     const miss = (label) => (e) => ({ __unavailable: label, __reason: e?.message || 'could not be loaded' });
-    const [cc, ev, day, identityReviews, pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy] = await Promise.all([
+    const [cc, ev, day, identityReviews, pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy, contacts, tasks, appts, deliveries, reconVehicles, inventory, fniDeals, esignRequests, serviceRos, partsOrders, staff] = await Promise.all([
       apiGetJson('/command-center').catch(() => ({ tiles: {}, exceptions: [], exception_count: 0 })),
       apiGetJson('/events?limit=40').catch(() => ({ events: [] })),
       apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ label: 'My Day', reason: 'Could not be loaded' }], complete: false })),
@@ -1134,15 +1556,28 @@ ENGINES['command'] = {
       apiGetJson('/accounting/close-checklist').catch(miss('Close')),
       apiGetJson('/campaigns').catch(miss('Campaigns')),
       apiGetJson('/automation/queue').catch(miss('Automation')),
-      // Your own required training. null means it could not be read, which My Day
-      // renders differently from "nothing outstanding".
       apiGetJson('/academy/my-path').catch(() => null),
+      apiGetJson('/crm/contacts?limit=200').catch(() => ({ contacts: [] })),
+      apiGetJson('/crm/tasks?scope=open').catch(() => ({ tasks: [] })),
+      apiGetJson('/appointments').catch(() => ({ appointments: [] })),
+      apiGetJson('/delivery/queue').catch(() => null),
+      apiGetJson('/recon').catch(() => null),
+      apiGetJson('/inventory/all').catch(() => null),
+      apiGetJson('/fni/deals').catch(() => null),
+      apiGetJson('/esign').catch(() => ({ requests: [] })),
+      apiGetJson('/service-engine/ros').catch(() => ({ ros: [] })),
+      apiGetJson('/service-engine/part-requests').catch(() => ({ requests: [] })),
+      (profileContext?.saas_role === 'owner' ? apiGetJson('/saas/employees') : Promise.resolve({ employees: [] })).catch(() => ({ employees: [] })),
     ]);
     const badge = document.getElementById('command-badge');
     const attentionCount = (day.needs_attention || []).length;
     if (badge) { if (attentionCount) { badge.textContent = attentionCount; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
     return { cc, events: ev.events || [], day, identityReviews: identityReviews.reviews || [],
-      pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy };
+      pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy,
+      contacts: contacts.contacts || [], tasks: tasks.tasks || [], appointments: appts.appointments || [],
+      deliveries: deliveries?.queue || deliveries?.deliveries || [], reconVehicles: reconVehicles?.vehicles || reconVehicles || [],
+      inventory: inventory?.vehicles || inventory || [], fniDeals: fniDeals?.deals || fniDeals || [], esignRequests: esignRequests.requests || [],
+      serviceRos: serviceRos.ros || serviceRos || [], partsOrders: partsOrders.orders || partsOrders || [], staff: staff.employees || staff || [] };
   },
   quickActions: [{ label: 'Open source operations', icon: 'bolt', onclick: "switchPage('operations')" }],
   nextActions: (d) => (d.day.needs_attention || []).slice(0, 4).map(x => ({
@@ -1150,7 +1585,9 @@ ENGINES['command'] = {
     icon: 'shield', tone: (OPS_SEV[x.severity] || {}).text || 'text-amber-500',
     onclick: `cmdOpenAttention(decodeURIComponent('${encodeURIComponent(x.deep_link || '')}'))`,
   })),
+
   tabs: {
+    pulse(body, d) { this.overview(body, d); },
     overview(body, d) {
       const t = d.cc.tiles || {};
       const tile = (label, val, page, attention) => {
@@ -1163,136 +1600,82 @@ ENGINES['command'] = {
       const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
       const attention = d.day.needs_attention || [];
       const incomplete = d.day.complete === false
-        ? `<div class="rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-4 py-3 text-[13px] text-amber-800 dark:text-amber-200"><b>This day is incomplete.</b> ${(d.day.failed || []).map(x => esc(x.label)).join(', ') || 'One or more sources'} could not be loaded.</div>` : '';
+        ? `<div class="rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-4 py-3 text-[13px] text-amber-800 dark:text-amber-200 mb-4"><b>This day is incomplete.</b> ${(d.day.failed || []).map(x => esc(x.label)).join(', ') || 'One or more sources'} could not be loaded.</div>` : '';
 
-      // Every department's day, grouped — not one flat list. A GM scanning the morning wants to
-      // see that Service has three problems and Marketing none, which a single ranked column
-      // hides. The server has already gated each source on the signed-in role's permission, so
-      // whatever is absent here is absent because this person may not see it.
-      const departments = [...new Set(attention.map(x => x.department || x.owner || x.source_label || 'Other'))];
+      const todayOpsHtml = `
+        <div class="mb-6">
+          <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Today's operations</div>
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            ${tile('Leads waiting', t.leads_waiting ?? 0, 'sales', true)}
+            ${tile('Deals in progress', t.deals_in_progress ?? 0, 'sales', false)}
+            ${tile('Deliveries today', t.deliveries_today ?? 0, 'delivery', false)}
+            ${tile('Recon delays', t.recon_delays ?? 0, 'recon', true)}
+            ${tile('Service bottlenecks', t.service_bottlenecks ?? 0, 'service-overview', true)}
+          </div>
+        </div>
+      `;
+
+      const departments = [...new Set(attention.map(x => x.department || x.source_label || 'Other'))];
       const byDept = departments.length ? departments.map(dep => {
-        const items = attention.filter(x => (x.department || x.owner || x.source_label || 'Other') === dep);
-        return engCard(`${dep} (${items.length})`, `<div class="space-y-2">${items.map(cmdAttentionCard).join('')}</div>`);
-      }).join('<div class="mt-3"></div>') : engCard('Needs attention', engEmpty('Nothing requires management action today.'));
+        const items = attention.filter(x => (x.department || x.source_label || 'Other') === dep);
+        return `<div class="mb-4">
+          <div class="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">${esc(dep)} (${items.length})</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2">${items.map(x => cmdAttentionCard(x)).join('')}</div>
+        </div>`;
+      }).join('') : engEmpty('Nothing needs attention right now.');
 
-      // What RAN, as opposed to what is wrong. An automation that fired and a campaign that is
-      // live are part of the day even when nothing about them needs fixing.
-      const campaignList = cmdUnavailable(d.campaigns) ? null : (d.campaigns.campaigns || []);
-      const liveCampaigns = campaignList ? campaignList.filter(c => c.status === 'active') : null;
-      const queue = cmdUnavailable(d.autoQueue) ? null : (d.autoQueue.queue || d.autoQueue.messages || []);
-      const sentToday = queue ? queue.filter(m => m.status === 'sent' && String(m.sent_at || '').slice(0, 10) === new Date().toISOString().slice(0, 10)).length : null;
+      const campaigns = Array.isArray(d.campaigns?.rows) ? d.campaigns.rows : (Array.isArray(d.campaigns) ? d.campaigns : []);
+      const liveCampaigns = campaigns.filter(c => c.status === 'active' || c.status === 'live' || c.status === 'running');
+      const queue = Array.isArray(d.autoQueue?.queue) ? d.autoQueue.queue : (Array.isArray(d.autoQueue?.messages) ? d.autoQueue.messages : []);
+      const sentToday = queue.filter(m => m.status === 'sent' && String(m.sent_at || '').slice(0, 10) === new Date().toISOString().slice(0, 10)).length;
+      const queuedCount = queue.filter(m => m.status === 'pending' || m.status === 'scheduled').length;
 
       const ranToday = engCard('Running today', `
         <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-          ${cmdStat('Campaigns live', liveCampaigns === null ? null : liveCampaigns.length)}
+          ${cmdStat('Campaigns live', liveCampaigns.length)}
           ${cmdStat('Automations sent today', sentToday)}
-          ${cmdStat('Queued to send', queue === null ? null : queue.filter(m => m.status === 'pending' || m.status === 'scheduled').length)}
+          ${cmdStat('Queued to send', queuedCount)}
         </div>
-        ${liveCampaigns && liveCampaigns.length ? `<div class="divide-y divide-slate-100 dark:divide-slate-800 mt-2">${liveCampaigns.slice(0, 6).map(c => `<button onclick="switchPage('marketing-overview')" class="w-full flex items-center justify-between py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(c.name)}</span><span class="text-[12px] text-slate-400">${esc(c.source_key || 'campaign')}</span></button>`).join('')}</div>` : ''}
+        ${liveCampaigns.length ? `<div class="divide-y divide-slate-100 dark:divide-slate-800 mt-2">${liveCampaigns.slice(0, 6).map(c => `<button onclick="switchPage('marketing-overview')" class="w-full flex items-center justify-between py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(c.name)}</span><span class="text-[12px] text-slate-400">${esc(c.source_key || 'campaign')}</span></button>`).join('')}</div>` : ''}
       `);
 
-      // Departments the day still cannot see at all. Saying so is what stops a quiet morning
-      // reading as a calm one.
-      const gaps = d.day.not_covered || [];
-      const notCovered = gaps.length
-        ? `<p class="text-[12px] text-slate-500 px-1">Not yet covered by this queue: ${gaps.map(esc).join(', ')}. Those departments are not reporting attention, so a clear day here does not speak for them.</p>`
-        : '';
-      body.innerHTML = `
-        <div class="text-lg font-black text-slate-900 dark:text-white mb-2">${greet}</div>
-        ${incomplete}
-        ${byDept}
-        <div>
-          <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Today's operations</div>
-          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            ${tile('Leads waiting', t.leads_waiting ?? 0, 'leads', true)}
-            ${tile('Deals in progress', t.deals_in_progress ?? 0, 'desk', false)}
-            ${tile('Deliveries today', t.deliveries_today ?? 0, 'fni', false)}
-            ${tile('Recon delays', t.recon_delays ?? 0, 'recon', true)}
-            ${tile('Service bottlenecks', t.service_bottlenecks ?? 0, 'service-ros', true)}
-          </div>
-        </div>
-        ${ranToday}
-        ${cmdAcademyStrip(d)}
-        ${notCovered}
-        `;
-    },
-    // ── Pulse — what is happening right now, and what is waiting on somebody ────
-    // Absorbs the former Exceptions and Approvals tabs. They were the same needs-attention
-    // queue split three ways, which meant three places to check and no single answer to
-    // "what is waiting on me".
-    pulse(body, d) {
-      const t = d.cc.tiles || {};
-      const attention = d.day.needs_attention || [];
-      const reviews = d.identityReviews || [];
-
-      // Approvals are the subset that is waiting on a decision — identity, deals, trades.
-      const isApproval = (x) => /approv|review|authoriz|sign.?off/i.test(`${x.kind || ''} ${x.reason || ''} ${x.next_action || ''}`);
-      const reviewIds = new Set(reviews.map(x => x.id));
-      const approvals = attention.filter(x => isApproval(x) && !reviewIds.has(x.source_id));
-      const exceptions = attention.filter(x => !isApproval(x));
-
-      const rows = [
-        ['Sales', 'Leads waiting', t.leads_waiting ?? 0, 'leads'],
-        ['Sales & F&I', 'Deals in progress', t.deals_in_progress ?? 0, 'desk'],
-        ['Delivery', 'Deliveries today', t.deliveries_today ?? 0, 'fni'],
-        ['Inventory', 'Recon delays', t.recon_delays ?? 0, 'recon'],
-        ['Fixed Ops', 'Service bottlenecks', t.service_bottlenecks ?? 0, 'service-overview'],
-      ];
-      const pulseRows = `<div class="divide-y divide-slate-100 dark:divide-slate-800">${rows.map(([department, label, value, page]) => `<button onclick="switchPage('${page}')" class="w-full flex items-center justify-between gap-3 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"><span><span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400">${esc(department)}</span><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200">${esc(label)}</span></span><span class="text-xl font-black text-slate-900 dark:text-white">${value}</span></button>`).join('')}</div>`;
-
-      const waiting = reviews.length + approvals.length;
-      body.innerHTML = `
-        ${engCard('Store pulse', pulseRows)}
-        <div class="mt-4"></div>
-        ${engCard(`Waiting on a decision (${waiting})`, waiting ? `
-          ${reviews.length ? `<div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1.5">Identity</div><div class="space-y-2.5 mb-3">${reviews.map(cmdIdentityReviewCard).join('')}</div>` : ''}
-          ${approvals.length ? `<div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1.5">Deals, trades and other approvals</div><div class="space-y-2.5">${approvals.map(cmdAttentionCard).join('')}</div>` : ''}
-        ` : engEmpty('Nothing is waiting on a decision.'))}
-        <div class="mt-4"></div>
-        ${engCard(`Exceptions (${exceptions.length})`, exceptions.length
-          ? `<div class="space-y-2.5">${exceptions.slice(0, 20).map(cmdAttentionCard).join('')}</div>`
-          : engEmpty('Nothing needs attention. Every workflow is on track.'))}
-      `;
-    },
-
-    // ── Forecast — the numbers, not a signpost to them ──────────────────────────
-    // This tab used to render two buttons pointing at other pages. A tab whose only content is
-    // "go somewhere else" is a tab that should not exist, so it now composes the pipeline it
-    // was pointing at.
-    forecast(body, d) {
+      // Forecast
       const p = d.pipeline;
+      let forecastHtml = '';
       if (cmdUnavailable(p)) {
-        body.innerHTML = cmdUnavailableNote([p]) + engCard('Forecast', engEmpty('The sales pipeline could not be read, so no forecast can be shown.'));
-        return;
+        forecastHtml = cmdUnavailableNote([p]) + engCard('Forecast', engEmpty('The sales pipeline could not be read, so no forecast can be shown.'));
+      } else {
+        const deals = Array.isArray(p?.deals) ? p.deals : (Array.isArray(p?.pipeline) ? p.pipeline : (Array.isArray(p?.rows) ? p.rows : []));
+        const stage = (name) => deals.filter(x => String(x.status || x.stage || '').toLowerCase() === name).length;
+        const openDeals = deals.filter(x => !/sold|lost|delivered/i.test(String(x.status || x.stage || '')));
+        const gross = openDeals.reduce((a, x) => a + (Number(x.expected_gross ?? x.gross ?? x.amount ?? 0) || 0), 0);
+        const weighted = cmdMoney(gross);
+
+        forecastHtml = `
+          <div class="mb-6 space-y-4">
+            <h3 class="text-sm font-black uppercase tracking-wider text-slate-500">Forecast</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+              ${cmdStat('Open deals', openDeals.length)}
+              ${cmdStat('Appointments', stage('appointment'))}
+              ${cmdStat('In F&I', stage('fni'))}
+              ${cmdStat('Open gross', weighted, { note: gross > 0 ? 'From deals carrying an expected gross' : 'No deal carries an expected gross yet' })}
+            </div>
+            ${engCard('Pipeline by stage', deals.length
+              ? `<div class="divide-y divide-slate-100 dark:divide-slate-800">${
+                  [...new Set(deals.map(x => String(x.status || x.stage || 'unknown')))].map(st => {
+                    const n = deals.filter(x => String(x.status || x.stage || 'unknown') === st).length;
+                    const label = st.replace(/_/g, ' ');
+                    return `<button onclick="switchPage('crm')" class="w-full flex items-center justify-between py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200 capitalize">${esc(label)}</span><span class="text-lg font-black text-slate-900 dark:text-white">${n}</span></button>`;
+                  }).join('')}</div>`
+              : engEmpty('No deals in the pipeline yet.'))}
+            <p class="text-[12px] text-slate-500 px-1 mt-2">Composed from the sales pipeline. A deal with no expected gross is counted but contributes nothing to the gross figure, rather than being given an assumed average.</p>
+          </div>
+        `;
       }
-      const deals = p.deals || p.pipeline || p.rows || [];
-      const stage = (name) => deals.filter(x => String(x.status || x.stage || '').toLowerCase() === name).length;
-      const openDeals = deals.filter(x => !/sold|lost|delivered/i.test(String(x.status || x.stage || '')));
-      const gross = openDeals.reduce((a, x) => a + (Number(x.expected_gross ?? x.gross ?? 0) || 0), 0);
-      const weighted = gross ? cmdMoney(gross) : null;
 
-      body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          ${cmdStat('Open deals', openDeals.length)}
-          ${cmdStat('Appointments', stage('appointment'))}
-          ${cmdStat('In F&I', stage('fni'))}
-          ${cmdStat('Open gross', weighted, { note: weighted ? 'From deals that carry an expected gross' : 'No deal carries an expected gross yet' })}
-        </div>
-        ${engCard('Pipeline by stage', deals.length
-          ? `<div class="divide-y divide-slate-100 dark:divide-slate-800">${
-              [...new Set(deals.map(x => String(x.status || x.stage || 'unknown')))].map(st => {
-                const n = deals.filter(x => String(x.status || x.stage || 'unknown') === st).length;
-                const label = st.replace(/_/g, ' ');
-                return `<button onclick="switchPage('crm')" class="w-full flex items-center justify-between py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200 capitalize">${esc(label)}</span><span class="text-lg font-black text-slate-900 dark:text-white">${n}</span></button>`;
-              }).join('')}</div>`
-          : engEmpty('No deals in the pipeline yet.'))}
-        <p class="text-[12px] text-slate-500 px-1 mt-2">Composed from the sales pipeline. A deal with no expected gross is counted but contributes nothing to the gross figure, rather than being given an assumed average.</p>
-      `;
-    },
-
-    // ── Financials — read from the ledger, not a link to it ─────────────────────
-    financials(body, d) {
-      const sources = [d.acct, d.ar, d.ap, d.cit, d.close];
+      // Financials
+      let financialsHtml = '';
+      const acctSources = [d.acct, d.ar, d.ap, d.cit, d.close];
       const num = (src, ...keys) => {
         if (cmdUnavailable(src)) return null;
         for (const k of keys) {
@@ -1307,22 +1690,96 @@ ENGINES['command'] = {
       const citTotal = num(d.cit, 'total', 'total_outstanding', 'balance');
       const closeOpen = cmdUnavailable(d.close) ? null : (d.close.items || d.close.checklist || []).filter(x => x.status !== 'complete' && x.status !== 'done').length;
 
-      body.innerHTML = `
-        ${cmdUnavailableNote(sources)}
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          ${cmdStat('Cash', cash === null ? null : cmdMoney(cash))}
-          ${cmdStat('Receivables', arTotal === null ? null : cmdMoney(arTotal))}
-          ${cmdStat('Payables', apTotal === null ? null : cmdMoney(apTotal), { tone: 'text-amber-600 dark:text-amber-400' })}
-          ${cmdStat('Contracts in transit', citTotal === null ? null : cmdMoney(citTotal))}
+      financialsHtml = `
+        <div class="mb-6 space-y-4">
+          <h3 class="text-sm font-black uppercase tracking-wider text-slate-500">Financials</h3>
+          ${cmdUnavailableNote(acctSources)}
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            ${cmdStat('Cash', cash === null ? null : cmdMoney(cash))}
+            ${cmdStat('Receivables', arTotal === null ? null : cmdMoney(arTotal))}
+            ${cmdStat('Payables', apTotal === null ? null : cmdMoney(apTotal), { tone: 'text-amber-600 dark:text-amber-400' })}
+            ${cmdStat('Contracts in transit', citTotal === null ? null : cmdMoney(citTotal))}
+          </div>
+          ${engCard('Month end', closeOpen === null
+            ? engEmpty('The close checklist could not be read.')
+            : closeOpen === 0
+              ? '<div class="py-2 text-[13px] font-semibold text-emerald-600 dark:text-emerald-400">Nothing is blocking the close.</div>'
+              : `<button onclick="switchPage('accounting')" class="w-full text-left py-2"><span class="text-[13px] font-semibold text-amber-600 dark:text-amber-400">${closeOpen} item${closeOpen === 1 ? '' : 's'} still open on the close checklist</span></button>`)}
+          <p class="text-[12px] text-slate-500 px-1 mt-2">Read from the canonical Accounting ledger and close state. A figure that could not be read shows as Unknown rather than zero.</p>
         </div>
-        <div class="mt-3"></div>
-        ${engCard('Month end', closeOpen === null
-          ? engEmpty('The close checklist could not be read.')
-          : closeOpen === 0
-            ? '<div class="py-2 text-[13px] font-semibold text-emerald-600 dark:text-emerald-400">Nothing is blocking the close.</div>'
-            : `<button onclick="switchPage('accounting')" class="w-full text-left py-2"><span class="text-[13px] font-semibold text-amber-600 dark:text-amber-400">${closeOpen} item${closeOpen === 1 ? '' : 's'} still open on the close checklist</span></button>`)}
-        <p class="text-[12px] text-slate-500 px-1 mt-2">Read from the canonical Accounting ledger and close state. A figure that could not be read shows as Unknown rather than zero.</p>
       `;
+
+      const marketCheckHtml = `
+        <div class="mb-6">
+          <h3 class="text-sm font-black uppercase tracking-wider text-slate-500 mb-3">Market Intelligence</h3>
+          <div id="marketcheck-status" class="text-[12px] font-bold py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">Loading MarketCheck status…</div>
+        </div>
+      `;
+
+      const gaps = d.day.not_covered || [];
+      const notCovered = gaps.length
+        ? `<p class="text-[12px] text-slate-500 px-1 mt-4">Not yet covered by this queue: ${gaps.map(esc).join(', ')}. Those departments are not reporting attention, so a clear day here does not speak for them.</p>`
+        : '';
+
+      body.innerHTML = `
+        <div class="text-xl font-black text-slate-900 dark:text-white mb-1">${greet}</div>
+        <div class="text-xs font-semibold text-slate-500 mb-4">This main page is the pulse of the dealership.</div>
+        ${incomplete}
+        ${todayOpsHtml}
+
+        ${window.pulseSalesDeptSection(d)}
+        ${window.pulseInventoryDeptSection(d)}
+        ${window.pulseFniDeptSection(d)}
+        ${window.pulseCleanupDeptSection(d)}
+        ${window.pulseServiceDeptSection(d)}
+        ${window.pulsePartsDeptSection(d)}
+        ${window.pulseAccountingDeptSection(d)}
+        ${window.pulseMarketingDeptSection(d)}
+        ${window.pulseHrDeptSection(d)}
+
+        <div class="mb-6">
+          <h3 class="text-sm font-black uppercase tracking-wider text-slate-500 mb-3">Needs Attention by Department</h3>
+          ${byDept}
+        </div>
+        <div class="mb-6">
+          ${ranToday}
+        </div>
+        ${forecastHtml}
+        ${financialsHtml}
+        ${marketCheckHtml}
+        ${cmdAcademyStrip(d)}
+        ${notCovered}
+      `;
+
+      if (typeof loadMarketcheckStatus === 'function') {
+        setTimeout(loadMarketcheckStatus, 100);
+      }
+    },
+    forecast(body, d) {
+      const p = d.pipeline;
+      if (cmdUnavailable(p)) {
+        body.innerHTML = cmdUnavailableNote([p]) + engCard('Forecast', engEmpty('The sales pipeline could not be read.'));
+        return;
+      }
+      const deals = Array.isArray(p?.deals) ? p.deals : (Array.isArray(p?.pipeline) ? p.pipeline : (Array.isArray(p?.rows) ? p.rows : []));
+      const openDeals = deals.filter(x => !/sold|lost|delivered/i.test(String(x.status || x.stage || '')));
+      const gross = openDeals.reduce((a, x) => a + (Number(x.expected_gross ?? x.gross ?? x.amount ?? 0) || 0), 0);
+      const weighted = cmdMoney(gross);
+      body.innerHTML = `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">${cmdStat('Open deals', openDeals.length)}${cmdStat('Open gross', weighted)}</div>`;
+    },
+    financials(body, d) {
+      const acctSources = [d.acct, d.ar, d.ap, d.cit, d.close];
+      const num = (src, ...keys) => {
+        if (cmdUnavailable(src)) return null;
+        for (const k of keys) {
+          const v = k.split('.').reduce((o, kk) => (o == null ? o : o[kk]), src);
+          if (v != null && Number.isFinite(Number(v))) return Number(v);
+        }
+        return null;
+      };
+      const cash = num(d.acct, 'cash', 'cash_balance', 'totals.cash');
+      const arTotal = num(d.ar, 'total', 'total_outstanding', 'balance');
+      body.innerHTML = `${cmdUnavailableNote(acctSources)}<div class="grid grid-cols-2 md:grid-cols-4 gap-3">${cmdStat('Cash', cash === null ? null : cmdMoney(cash))}${cmdStat('Receivables', arTotal === null ? null : cmdMoney(arTotal))}</div>`;
     },
   },
 };

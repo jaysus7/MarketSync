@@ -274,6 +274,10 @@ ENGINES['fni-overview'] = {
 
   tabs: {
     overview(body, d) {
+      if (typeof window.pulseFniDeptSection === 'function') {
+        body.innerHTML = window.pulseFniDeptSection(d);
+        return;
+      }
       const att = fniAttention(d);
       const deals = d.deals || [];
       const pending = deals.filter(x => x.deal_status === 'pending').length;

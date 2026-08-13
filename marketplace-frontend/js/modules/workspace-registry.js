@@ -30,7 +30,7 @@ const MS_WORKSPACES = {
   executive: {
     label: 'My Day', icon: 'chart', accent: 'indigo', mgr: true,
     pages: [
-      { page: 'command', label: 'My Day' },
+      { page: 'command', label: 'Pulse' },
       // Academy belongs to the day, but as `legacy` — a plain page here would draw a
       // SECOND tab row above the command engine's own header, which is the exact
       // duplicate-header problem this registry exists to prevent. What the user
@@ -59,15 +59,16 @@ const MS_WORKSPACES = {
     label: 'Sales', icon: 'currency', accent: 'amber',
     pages: [
       { page: 'sales', label: 'My Day' },
-      { page: 'crm', label: 'Customers' },
-      { page: 'appointments', label: 'Appointments' },
-      { page: 'tasks', label: 'Tasks' },
-      { page: 'leads', label: 'Leads', mgr: true },
-      { page: 'insights', label: 'Insights', mgr: true },
+      { page: 'appraisal', label: 'Acquire', legacy: true },
+      { page: 'crm', label: 'Customers', legacy: true },
+      { page: 'appointments', label: 'Appointments', legacy: true },
+      { page: 'tasks', label: 'Tasks', legacy: true },
+      { page: 'leads', label: 'Leads', mgr: true, legacy: true },
+      { page: 'insights', label: 'Insights', mgr: true, legacy: true },
       // "My commission" — a rep-facing page whose only access point lived in the
       // retired legacy tree, leaving it unreachable. Restored here (all roles);
       // managers also reach it via Accounting → Payroll.
-      { page: 'commissions', label: 'My Commission' },
+      { page: 'commissions', label: 'My Commission', legacy: true },
     ],
   },
 
@@ -80,12 +81,10 @@ const MS_WORKSPACES = {
     label: 'Inventory', icon: 'gem', accent: 'sky',
     pages: [
       { page: 'inventory-overview', label: 'My Day' },
-      { page: 'inventory', label: 'Vehicles', invmode: 'manual' },
-      { page: 'appraisal', label: 'Acquire' },
+      { page: 'inventory', label: 'Vehicles', invmode: 'manual', legacy: true },
       { page: 'equity', label: 'Equity Mining' },
-      { page: 'recon', label: 'Cleanup' },
-      { page: 'inv-intel', label: 'Inventory Intelligence', mgr: true },
-      { page: 'market', label: 'Market & Competitors', mgr: true },
+      { page: 'inv-intel', label: 'Inventory Intelligence', mgr: true, legacy: true },
+      { page: 'market', label: 'Market & Competitors', mgr: true, legacy: true },
     ],
   },
 
@@ -96,6 +95,14 @@ const MS_WORKSPACES = {
       { page: 'fni-overview', label: 'My Day' },
       { page: 'fni', label: 'Deals' },
       { page: 'delivery', label: 'Delivery', mgr: true },
+    ],
+  },
+
+  // ── Recon / Cleanup ────────────────────────────────────────────────────────
+  recon: {
+    label: 'Cleanup', icon: 'sparkles', accent: 'sky',
+    pages: [
+      { page: 'recon', label: 'My Day' },
     ],
   },
 
@@ -217,9 +224,9 @@ const MS_ROLE_MOBILE_NAV = {
   SERVICE:      ['service-ros', 'service-appointments', 'crm', 'tasks'],
   CLEANUP:      ['recon', 'taskboard'],
   ACCOUNTING:   ['accounting', 'commissions', 'crm', 'tasks'],
-  MANAGER:      ['command', 'sales', 'inventory-overview', 'tasks'],
-  OWNER:        ['command', 'sales', 'inventory-overview', 'tasks'],
-  DEALER_ADMIN: ['command', 'sales', 'inventory-overview', 'tasks'],
+  MANAGER:      ['command', 'sales', 'inventory-overview'],
+  OWNER:        ['command', 'sales', 'inventory-overview'],
+  DEALER_ADMIN: ['command', 'sales', 'inventory-overview'],
 };
 const MS_MOBILE_NAV_DEFAULT = ['insights', 'crm', 'tasks'];
 

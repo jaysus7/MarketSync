@@ -8,7 +8,7 @@ test('Academy demo manifest covers every course in catalog', async () => {
   const lessons = await loadAcademyDemoLessons()
   assert.ok(lessons.length >= 250, 'must load complete training catalog')
   assert.equal(new Set(lessons.map(lesson => lesson.id)).size, lessons.length)
-  assert.equal(ACADEMY_DEMO_VERSION, '2026.08.10-canonical-team-v2')
+  assert.equal(ACADEMY_DEMO_VERSION, '2026.08.11-department-workflows-v4')
 })
 
 test('Academy scenario entity IDs are stable unique UUIDs', async () => {
@@ -22,7 +22,7 @@ test('Academy scenario entity IDs are stable unique UUIDs', async () => {
 test('demo reset clears seeded business data but preserves identity and subscription boundaries', () => {
   const protectedTables = ['dealerships', 'profiles', 'subscriptions', 'organization_memberships', 'user_roles', 'security_events']
   for (const table of protectedTables) assert.ok(!ACADEMY_DEMO_WIPE_TABLES.includes(table), `${table} must never be reset`)
-  for (const table of ['contacts', 'inventory', 'listings', 'deals', 'events', 'repair_orders', 'parts', 'ai_conversations', 'commission_plans']) {
+  for (const table of ['contacts', 'inventory', 'listings', 'deals', 'events', 'repair_orders', 'parts', 'ai_conversations', 'commission_plans', 'customer_ownership_tracking']) {
     assert.ok(ACADEMY_DEMO_WIPE_TABLES.includes(table), `${table} demo data should reset`)
   }
 })
@@ -49,6 +49,69 @@ test('dedicated demo accounts replace the old HQ workspace switch', async () => 
   assert.match(route, /productsForPlan/)
   assert.doesNotMatch(route, /from\('subscriptions'\)\.upsert|plan_id:\s*'os_pro'/)
   assert.match(route, /seedAcademyDemoData/)
+  assert.match(route, /export async function refreshDedicatedDemoAccounts/)
+})
+
+test('server refreshes versioned dedicated demo data after startup', async () => {
+  const server = await readFile(new URL('../server.js', import.meta.url), 'utf8')
+  assert.match(server, /refreshDedicatedDemoAccounts\(\)/)
+  assert.match(server, /startup refresh failed/)
+  assert.match(server, /demo_refresh:\s*startupDemoRefresh/)
+  assert.match(server, /status:\s*skipped\.length \? 'partial' : 'complete'/)
+  assert.match(server, /failures:\s*skipped\.map/)
+})
+
+test('demo completion is marked only after every producer succeeds', async () => {
+  const source = await readFile(new URL('../academy-demo-data.js', import.meta.url), 'utf8')
+  const producer = source.indexOf('const [lessonScenarios, facebookListings, service, ai, business, workflows] = await Promise.all')
+  const marker = source.indexOf('await markDemoComplete', producer)
+  assert.ok(producer >= 0 && marker > producer)
+})
+
+test('Academy scenarios append idempotently to the canonical event log', async () => {
+  const source = await readFile(new URL('../academy-demo-data.js', import.meta.url), 'utf8')
+  assert.match(source, /find Academy scenario events/)
+  assert.match(source, /existingIds\.has\(row\.entity_id\)/)
+  assert.doesNotMatch(source, /clear Academy scenario events/)
+})
+
+test('demo inventory enters the canonical vehicle lifecycle', async () => {
+  const source = await readFile(new URL('../routes/demo.js', import.meta.url), 'utf8')
+  assert.match(source, /source: 'manual', status: 'published'/)
+  assert.doesNotMatch(source, /source: 'manual', status: 'available'/)
+})
+
+test('demo deals cover legal canonical workflow states', async () => {
+  const source = await readFile(new URL('../routes/demo.js', import.meta.url), 'utf8')
+  for (const state of ['draft', 'quoted', 'deposit_received', 'credit_approved', 'contract_signed', 'delivered']) {
+    assert.match(source, new RegExp(`deal_status: '${state}'`))
+  }
+  assert.doesNotMatch(source, /deal_status: '(?:working|sold)'/)
+})
+
+test('demo credit and RO lines use canonical write contracts', async () => {
+  const source = await readFile(new URL('../academy-demo-data.js', import.meta.url), 'utf8')
+  assert.match(source, /\['draft', 'consent_received', 'submitted', 'lender_review', 'approved'\]/)
+  assert.doesNotMatch(source, /\['draft', 'ready', 'submitted', 'conditioned'/)
+  assert.match(source, /seed demo labor RO line/)
+  assert.match(source, /seed demo part RO line/)
+  assert.match(source, /financial_disposition: status === 'closed' \? 'paid_in_full' : null/)
+  assert.match(source, /closed_at: status === 'closed' \? new Date\(now\)/)
+  assert.match(source, /opened_at: new Date\(now - \(i \+ 1\) \* 3600000\)/)
+  assert.match(source, /find demo accounting period/)
+})
+
+test('the backend can reach canonical commission periods', async () => {
+  const migration = await readFile(new URL('../migrations/2026-08-11-commission-pay-periods-service-role.sql', import.meta.url), 'utf8')
+  assert.match(migration, /GRANT SELECT, INSERT, UPDATE, DELETE[\s\S]*commission_pay_periods[\s\S]*service_role/)
+})
+
+test('the backend and publisher can reach the canonical Social engine', async () => {
+  const migration = await readFile(new URL('../migrations/2026-08-11-social-service-role-grants.sql', import.meta.url), 'utf8')
+  for (const table of ['social_accounts', 'social_account_grants', 'social_posts', 'social_post_targets']) {
+    assert.match(migration, new RegExp(table))
+  }
+  assert.match(migration, /TO service_role/)
 })
 
 test('lesson scenarios are limited to shared and purchased products', async () => {
@@ -68,4 +131,5 @@ test('lesson scenarios are limited to shared and purchased products', async () =
   assert.match(source, /products\.has\('facebook'\) \? seedFacebook/)
   assert.match(source, /features\.has\('os\.service'\) \? seedServiceAndParts/)
   assert.match(source, /products\.has\('ai_dealer'\) \? seedAi/)
+  assert.match(source, /seed demo equity opportunity/)
 })

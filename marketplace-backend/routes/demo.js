@@ -28,11 +28,11 @@ const isDedicatedDemoName = name => /(?:^|\b)demo(?:\b|$)/i.test(String(name || 
 const RETIRED_HQ_SANDBOXES = new Set(['MarketSync Demo', 'MarketSync Automotive'])
 
 const CUSTOMERS = [
-  { first: 'Ava', last: 'Thompson', email: 'ava.thompson@example.com', phone: '(416) 555-2201', status: 'uncontacted', source: 'Website', stock: 'DEMO-01', price: 32480, deal_status: 'working', num: 2001, note: 'Enquired on the RAV4 overnight — needs a first call.' },
-  { first: 'Liam', last: 'Rodriguez', email: 'liam.rodriguez@example.com', phone: '(647) 555-2202', status: 'contacted', source: 'Facebook Marketplace', stock: 'DEMO-02', price: 41900, deal_status: 'working', num: 2002, note: 'Called back — wants payment options on the F-150.' },
-  { first: 'Sophia', last: 'Nguyen', email: 'sophia.nguyen@example.com', phone: '(905) 555-2203', status: 'appointment', source: 'Website', stock: 'DEMO-03', price: 27650, deal_status: 'working', num: 2003, note: 'Booked a test drive Saturday on the Civic.' },
-  { first: 'Noah', last: 'Patel', email: 'noah.patel@example.com', phone: '(519) 555-2204', status: 'sold', source: 'Referral', stock: 'DEMO-04', price: 33200, deal_status: 'sold', num: 2004, note: 'Bought the Model 3 — in F&I.' },
-  { first: 'Emma', last: 'Wilson', email: 'emma.wilson@example.com', phone: '(613) 555-2205', status: 'fni', source: 'Walk-in', stock: 'DEMO-05', price: 29995, deal_status: 'sold', num: 2005, note: 'Signing warranty + protection on the CX-5.' },
+  { first: 'Ava', last: 'Thompson', email: 'ava.thompson@example.com', phone: '(416) 555-2201', status: 'uncontacted', source: 'Website', stock: 'DEMO-01', price: 32480, deal_status: 'draft', num: 2001, note: 'Enquired on the RAV4 overnight — needs a first call.' },
+  { first: 'Liam', last: 'Rodriguez', email: 'liam.rodriguez@example.com', phone: '(647) 555-2202', status: 'contacted', source: 'Facebook Marketplace', stock: 'DEMO-02', price: 41900, deal_status: 'quoted', num: 2002, note: 'Called back — wants payment options on the F-150.' },
+  { first: 'Sophia', last: 'Nguyen', email: 'sophia.nguyen@example.com', phone: '(905) 555-2203', status: 'appointment', source: 'Website', stock: 'DEMO-03', price: 27650, deal_status: 'deposit_received', num: 2003, note: 'Booked a test drive Saturday on the Civic.' },
+  { first: 'Noah', last: 'Patel', email: 'noah.patel@example.com', phone: '(519) 555-2204', status: 'sold', source: 'Referral', stock: 'DEMO-04', price: 33200, deal_status: 'credit_approved', num: 2004, note: 'Bought the Model 3 — in F&I.' },
+  { first: 'Emma', last: 'Wilson', email: 'emma.wilson@example.com', phone: '(613) 555-2205', status: 'fni', source: 'Walk-in', stock: 'DEMO-05', price: 29995, deal_status: 'contract_signed', num: 2005, note: 'Signing warranty + protection on the CX-5.' },
   { first: 'Oliver', last: 'Brooks', email: 'oliver.brooks@example.com', phone: '(250) 555-2206', status: 'delivered', source: 'Website', stock: 'DEMO-06', price: 38700, deal_status: 'delivered', num: 2006, note: 'Delivered the Sierra — schedule a 30-day check-in.' },
 ]
 
@@ -113,7 +113,7 @@ async function seedBase({ dealershipId, ownerId, products }) {
     // a stable fictional VIN so two demo accounts can never claim the same row.
     const vin = `MSDEM${createHash('sha256').update(`${dealershipId}:${vehicle.stock}`).digest('hex').slice(0, 12).toUpperCase()}`
     const { data, error } = await supabaseAdmin.from('inventory').insert({
-      dealership_id: dealershipId, source: 'manual', status: 'available',
+      dealership_id: dealershipId, source: 'manual', status: 'published',
       year: vehicle.year, make: vehicle.make, model: vehicle.model, trim: vehicle.trim,
       price: vehicle.price, mileage: vehicle.mileage, condition: 'used', stocknumber: vehicle.stock,
       exterior_color: vehicle.color, fuel_type: vehicle.fuel, drivetrain: vehicle.drive,
@@ -173,6 +173,38 @@ async function seedAccount({ dealership, ownerId, force = false }) {
     ownerId,
     ...access,
   })
+}
+
+/** Refresh versioned demo data without requiring an interactive demo login. */
+export async function refreshDedicatedDemoAccounts() {
+  const { data: dealerships, error } = await supabaseAdmin.from('dealerships')
+    .select('id,name').ilike('name', '%demo%').order('name')
+  if (error) throw error
+  const targets = (dealerships || []).filter(row => !RETIRED_HQ_SANDBOXES.has(row.name) && isDedicatedDemoName(row.name))
+  if (!targets.length) return []
+  const { data: profiles, error: profilesError } = await supabaseAdmin.from('profiles')
+    .select('id,dealership_id,role,active').in('dealership_id', targets.map(row => row.id))
+  if (profilesError) throw profilesError
+  const rank = role => ({ DEALER_ADMIN: 0, OWNER: 1, MANAGER: 2 }[role] ?? 9)
+  const owners = new Map()
+  for (const profile of (profiles || []).filter(row => row.active !== false).sort((a, b) => rank(a.role) - rank(b.role))) {
+    if (!owners.has(profile.dealership_id)) owners.set(profile.dealership_id, profile.id)
+  }
+  const results = []
+  for (const dealership of targets) {
+    const ownerId = owners.get(dealership.id)
+    if (!ownerId) {
+      results.push({ id: dealership.id, name: dealership.name, status: 'skipped', reason: 'No active demo login' })
+      continue
+    }
+    try {
+      const summary = await seedAccount({ dealership, ownerId })
+      results.push({ id: dealership.id, name: dealership.name, status: summary.already_current ? 'current' : 'seeded', summary })
+    } catch (error) {
+      results.push({ id: dealership.id, name: dealership.name, status: 'skipped', reason: error.message })
+    }
+  }
+  return results
 }
 
 async function ownDemoAccount(req) {
