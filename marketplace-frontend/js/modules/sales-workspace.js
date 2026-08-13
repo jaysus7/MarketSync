@@ -309,8 +309,12 @@ ENGINES['sales'] = {
         body.innerHTML = window.pulseSalesDeptSection(d);
         return;
       }
-
-      body.innerHTML = `
+      const att = salesAttention(d);
+      const now = Date.now(), day = 864e5;
+      const todays = (d.appointments || []).filter(a => { const t = new Date(a.appointment_at) - now; return t > -day / 2 && t < day / 2; });
+      const open = (d.contacts || []).filter(c => SALES_OPEN_STAGES.includes(c.status));
+      const overdue = (d.tasks || []).filter(t => t.due_at && new Date(t.due_at) < now);
+      const newLeads = (d.contacts || []).filter(c => c.status === 'uncontacted');
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '', "engineTab('sales', 'work')")}
           ${engKpi('New leads', newLeads.length, newLeads.length ? 'text-amber-600 dark:text-amber-400' : '', "salesWorkView('opportunities')")}

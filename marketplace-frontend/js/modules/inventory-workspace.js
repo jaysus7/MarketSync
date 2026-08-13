@@ -310,6 +310,11 @@ ENGINES['inventory-overview'] = {
         body.innerHTML = window.pulseInventoryDeptSection(d);
         return;
       }
+      const att = invAttention(d);
+      const veh = d.vehicles || [];
+      const held = veh.filter(v => !v.awaiting_possession);
+      const notReady = held.filter(v => invMerchGaps(v).length);
+      const awaiting = veh.filter(v => v.awaiting_possession).length;
       body.innerHTML = `
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}
