@@ -576,11 +576,14 @@ function accBudgetView(d) {
   const accounts = (d.accounts || []).filter(a => String(a.type || a.account_type || '').toLowerCase().includes('expense'));
   const budgets = b.budgets || {};
   const actuals = b.actuals || {};
-  // Accounts with a target OR spend this month. An account with neither is noise.
+  const incomeActuals = b.incomeActuals || {};
+  const totalIncome = Number(b.totalIncome) || Object.values(incomeActuals).reduce((s, v) => s + (Number(v) || 0), 0);
+  const totalBudget = Object.values(budgets).reduce((s, v) => s + (Number(v) || 0), 0);
+  const totalActual = Number(b.totalExpense) || Object.values(actuals).reduce((s, v) => s + (Number(v) || 0), 0);
+  const recentEntries = b.entries || [];
+
   const rows = (accounts.length ? accounts : Object.keys({ ...budgets, ...actuals }).map(id => ({ id, name: id })))
     .filter(a => budgets[a.id] != null || actuals[a.id] != null);
-  const totalBudget = Object.values(budgets).reduce((s, v) => s + (Number(v) || 0), 0);
-  const totalActual = Object.values(actuals).reduce((s, v) => s + (Number(v) || 0), 0);
 
   const list = rows.map(a => {
     const target = Number(budgets[a.id]) || 0;
@@ -598,18 +601,106 @@ function accBudgetView(d) {
     </div>`;
   }).join('');
 
-  return bank + engSection(`Budget vs actual — ${esc(b.month || '')}`, `
-    <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
-      ${engKpi('Budgeted', accMoney(totalBudget))}
-      ${engKpi('Actual', accMoney(totalActual), totalBudget > 0 && totalActual > totalBudget ? 'text-rose-600 dark:text-rose-400' : '')}
-      ${engKpi('Remaining', accMoney(totalBudget - totalActual), totalBudget - totalActual < 0 ? 'text-rose-600 dark:text-rose-400' : '')}
+  const manualFormCard = engCard('Manual Expense & Income Input', `
+    <div class="text-[12px] text-slate-400 mb-3">Manually record department expenses, vendor receipts, or additional income. Entries automatically update budget actuals and totals.</div>
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
+      <div>
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Type</label>
+        <select id="acc-entry-direction" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold">
+          <option value="out">Expense (Money Out)</option>
+          <option value="in">Income (Money In)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Amount ($)</label>
+        <input id="acc-entry-amount" type="number" step="0.01" min="0" placeholder="0.00" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold">
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Category / Account</label>
+        <input id="acc-entry-account" type="text" placeholder="e.g. Office Supplies, Parts" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs">
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Date</label>
+        <input id="acc-entry-date" type="date" value="${new Date().toISOString().slice(0, 10)}" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold">
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Description / Memo</label>
+        <input id="acc-entry-desc" type="text" placeholder="e.g. Printer paper, Detailing soap" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs">
+      </div>
     </div>
+    <div class="flex justify-end">
+      <button onclick="accAddManualBudgetEntry()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm flex items-center gap-1">
+        + Add Financial Entry
+      </button>
+    </div>
+  `);
+
+  const recentEntriesCard = engCard(`Logged Financial Entries (${recentEntries.length})`, recentEntries.length ? `
+    <div class="divide-y divide-slate-100 dark:divide-slate-800/60 max-h-60 overflow-y-auto">
+      ${recentEntries.map(e => `
+        <div class="flex items-center justify-between py-2 text-xs">
+          <div>
+            <span class="font-bold text-slate-900 dark:text-white">${esc(e.description || e.account_id || 'Financial Entry')}</span>
+            <span class="text-slate-400 ml-2">(${esc(e.entry_date || 'Today')})</span>
+          </div>
+          <div class="font-bold ${e.direction === 'in' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}">
+            ${e.direction === 'in' ? '+' : '-'}${accMoney(e.amount)}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  ` : engEmpty('No manual financial entries recorded this month.'));
+
+  return bank + engSection(`Budget & Financial Control — ${esc(b.month || '')}`, `
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      ${engKpi('Budgeted Target', accMoney(totalBudget))}
+      ${engKpi('Actual Expenses', accMoney(totalActual), totalBudget > 0 && totalActual > totalBudget ? 'text-rose-600 dark:text-rose-400' : '')}
+      ${engKpi('Recorded Income', accMoney(totalIncome), 'text-emerald-600 dark:text-emerald-400')}
+      ${engKpi('Net Operating Position', accMoney(totalIncome - totalActual), (totalIncome - totalActual) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')}
+    </div>
+    ${manualFormCard}
+    <div class="mt-4"></div>
+    ${recentEntriesCard}
+    <div class="mt-4"></div>
     ${engCard('Monthly target per expense account', list || engEmpty('No expense accounts with a target or spend this month.'))}
     <div class="flex flex-wrap items-center gap-2 mt-3">
       <button onclick="accSaveBudget()" class="px-3 py-2 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold hover:opacity-90 transition">Save targets</button>
-      <span class="text-[12px] text-slate-400">Actuals come from posted journal entries. A blank target means no budget is set.</span>
-    </div>`, 'What you planned to spend against what the ledger says you did');
+      <span class="text-[12px] text-slate-400">Actuals update automatically as manual entries or posted journals are saved.</span>
+    </div>`, 'Plan spending, record expenses & income manually, and track live actuals');
 }
+
+async function accAddManualBudgetEntry() {
+  const direction = document.getElementById('acc-entry-direction')?.value || 'out';
+  const amount = parseFloat(document.getElementById('acc-entry-amount')?.value || '0');
+  const description = document.getElementById('acc-entry-desc')?.value?.trim() || '';
+  const entryDate = document.getElementById('acc-entry-date')?.value || new Date().toISOString().slice(0, 10);
+  const accountId = document.getElementById('acc-entry-account')?.value || 'general';
+
+  if (!amount || amount <= 0) {
+    if (typeof showToast === 'function') showToast('Please enter a valid amount', 'warning');
+    return;
+  }
+  if (!description) {
+    if (typeof showToast === 'function') showToast('Please enter a description or note', 'warning');
+    return;
+  }
+
+  try {
+    await apiSendJson('/accounting/entries', 'POST', {
+      amount,
+      direction,
+      description,
+      entry_date: entryDate,
+      account_id: accountId,
+    });
+    if (typeof showToast === 'function') showToast(`Successfully added manual ${direction === 'in' ? 'income' : 'expense'}!`, 'success');
+    ENGINE_DATA['accounting-overview'] = undefined;
+    engineTab('accounting-overview', 'budget', true);
+  } catch (err) {
+    if (typeof showToast === 'function') showToast(err.message || 'Failed to add entry', 'error');
+  }
+}
+window.accAddManualBudgetEntry = accAddManualBudgetEntry;
 
 // The bank connection, stated honestly. `configured: false` means this MarketSync
 // deployment has no Plaid credentials — that is a different problem from a dealership

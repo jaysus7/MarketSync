@@ -437,15 +437,30 @@ export function registerAccounting(app) {
     const { data: row } = await supabaseAdmin.from('dealerships').select('accounting_settings').eq('id', req.dealershipId).maybeSingle()
     const raw = (row?.accounting_settings && typeof row.accounting_settings === 'object') ? row.accounting_settings : {}
     const budgets = (raw.budgets && typeof raw.budgets === 'object') ? raw.budgets : {}
-    // Actual expense spend for the month, grouped by account.
+    // Actual expense spend and income for the month, grouped by account.
     const from = month + '-01'
     const toEnd = new Date(new Date(from + 'T00:00:00Z').getTime() + 32 * 86400000).toISOString().slice(0, 7) + '-01'
     const { data: entries } = await supabaseAdmin.from('gl_entries')
-      .select('account_id, amount, direction').eq('dealership_id', req.dealershipId)
-      .eq('direction', 'out').gte('entry_date', from).lt('entry_date', toEnd).limit(5000)
+      .select('id, account_id, amount, direction, description, entry_date, created_at')
+      .eq('dealership_id', req.dealershipId)
+      .gte('entry_date', from).lt('entry_date', toEnd)
+      .order('entry_date', { ascending: false }).limit(5000)
     const actuals = {}
-    for (const e of (entries || [])) { const k = e.account_id || 'none'; actuals[k] = (actuals[k] || 0) + (Number(e.amount) || 0) }
-    res.json({ ok: true, month, budgets, actuals })
+    const incomeActuals = {}
+    let totalIncome = 0
+    let totalExpense = 0
+    for (const e of (entries || [])) {
+      const k = e.account_id || 'none'
+      const amt = Number(e.amount) || 0
+      if (e.direction === 'in') {
+        incomeActuals[k] = (incomeActuals[k] || 0) + amt
+        totalIncome += amt
+      } else {
+        actuals[k] = (actuals[k] || 0) + amt
+        totalExpense += amt
+      }
+    }
+    res.json({ ok: true, month, budgets, actuals, incomeActuals, totalIncome, totalExpense, entries: entries || [] })
   })
   app.put('/accounting/budget', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
