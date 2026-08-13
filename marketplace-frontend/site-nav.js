@@ -45,7 +45,7 @@
     var mobSol = SOLUTIONS.map(function (s) { return '<a href="' + s.href + '" class="ms-m-link">' + esc(s.title) + '</a>'; }).join('');
     var mobRes = RESOURCES.map(function (r) { return '<a href="' + r.href + '" class="ms-m-link">' + esc(r.title) + '</a>'; }).join('');
     return '' +
-      '<a href="/" class="ms-logo" aria-label="MarketSync home"><img src="assets/marketsync-logo-primary.svg" alt="MarketSync DealerOS" style="height:32px; width:auto;"></a>' +
+      '<a href="/" class="ms-logo" aria-label="MarketSync home"><img src="/logo.png" alt="MarketSync DealerOS" style="height:32px; width:auto;"></a>' +
       '<nav class="ms-nav-desktop" aria-label="Primary">' +
         '<div class="ms-nav-item"><button class="ms-nav-btn" aria-haspopup="true">Solutions <svg viewBox="0 0 20 20" fill="currentColor" class="ms-caret"><path d="M5.5 7.5 10 12l4.5-4.5"/></svg></button><div class="ms-dropdown ms-dd-wide">' + solItems + '</div></div>' +
         '<a href="/compare.html" class="ms-nav-link">Pricing</a>' +
@@ -78,7 +78,7 @@
         '<div class="ms-f-cta-note">No credit card required · Set up in a day</div>' +
       '</div>' +
       '<div class="ms-f-grid">' +
-        '<div class="ms-f-brand"><a href="/" class="ms-logo ms-logo-sm"><img src="assets/marketsync-logo-primary.svg" alt="MarketSync DealerOS" style="height:28px; width:auto;"></a><p>The complete operating system for automotive retail.</p></div>' +
+        '<div class="ms-f-brand"><a href="/" class="ms-logo ms-logo-sm"><img src="/logo.png" alt="MarketSync DealerOS" style="height:28px; width:auto;"></a><p>The complete operating system for automotive retail.</p></div>' +
         col('Solutions', [['DealerOS', '/dealer-os.html'], ['Facebook AutoPoster', '/facebook-autoposter.html'], ['AI ChatBot', '/ai-chatbot.html'], ['Pricing', '/compare.html']]) +
         col('Company', [['How-to Guide', '/guide.html'], ['Blog', '/blog.html'], ['FAQ', '/faq.html'], ['Support', '/support.html']]) +
         col('Trust', [['Security', '/security.html'], ['Privacy Policy', '/privacy-policy.html'], ['Terms', '/terms.html']]) +

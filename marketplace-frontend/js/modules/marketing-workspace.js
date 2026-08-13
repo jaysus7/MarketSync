@@ -250,24 +250,28 @@ async function mktUploadAsset(input) {
 }
 window.mktUploadAsset = mktUploadAsset;
 
-function mktStudioOpen(assetId = '', assetUrl = '') {
-  crmOverlay(`<div class="p-5">
-    <div class="flex items-start justify-between gap-3 mb-4"><div><h2 class="text-lg font-black text-slate-900 dark:text-white">Create in Studio</h2><p class="text-[12px] text-slate-500">Build a reusable social creative, then schedule it through the same Social composer.</p></div></div>
-    <div class="grid md:grid-cols-[1fr_260px] gap-4">
-      <div id="mkt-design-preview" class="relative overflow-hidden rounded-xl bg-violet-700 aspect-square bg-cover bg-center" style="${assetUrl ? `background-image:url('${esc(assetUrl)}')` : ''}">
-        <div data-shade class="absolute inset-0 bg-black/50"></div><div data-copy class="absolute inset-0 p-[7%] flex flex-col justify-end text-white"><div data-head class="text-2xl md:text-3xl font-black leading-tight">Your headline</div><div data-sub class="text-sm mt-2">Supporting details</div><div data-cta class="self-start mt-4 rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold">Learn more</div></div>
+function mktStudioOpen(designId = '', assetUrl = '') {
+  if (typeof window.openMarketSyncStudio === 'function') {
+    window.openMarketSyncStudio(designId || null, { assetUrl });
+  } else {
+    crmOverlay(`<div class="p-5">
+      <div class="flex items-start justify-between gap-3 mb-4"><div><h2 class="text-lg font-black text-slate-900 dark:text-white">Create in Studio</h2><p class="text-[12px] text-slate-500">Build a reusable social creative, then schedule it through the same Social composer.</p></div></div>
+      <div class="grid md:grid-cols-[1fr_260px] gap-4">
+        <div id="mkt-design-preview" class="relative overflow-hidden rounded-xl bg-violet-700 aspect-square bg-cover bg-center" style="${assetUrl ? `background-image:url('${esc(assetUrl)}')` : ''}">
+          <div data-shade class="absolute inset-0 bg-black/50"></div><div data-copy class="absolute inset-0 p-[7%] flex flex-col justify-end text-white"><div data-head class="text-2xl md:text-3xl font-black leading-tight">Your headline</div><div data-sub class="text-sm mt-2">Supporting details</div><div data-cta class="self-start mt-4 rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold">Learn more</div></div>
+        </div>
+        <div class="space-y-2">
+          <label class="block text-[11px] font-bold text-slate-500">Format<select id="mkt-design-format" class="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]" onchange="mktStudioPreview()"><option value="square">Square post</option><option value="portrait">Portrait post</option><option value="story">Story</option><option value="landscape">Landscape</option></select></label>
+          <label class="block text-[11px] font-bold text-slate-500">Headline<input id="mkt-design-head" maxlength="140" value="Your headline" class="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]" oninput="mktStudioPreview()"></label>
+          <label class="block text-[11px] font-bold text-slate-500">Supporting text<textarea id="mkt-design-sub" maxlength="220" rows="2" class="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]" oninput="mktStudioPreview()">Supporting details</textarea></label>
+          <label class="block text-[11px] font-bold text-slate-500">Button text<input id="mkt-design-cta" maxlength="60" value="Learn more" class="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]" oninput="mktStudioPreview()"></label>
+          <div class="grid grid-cols-2 gap-2"><label class="text-[11px] font-bold text-slate-500">Accent<input id="mkt-design-accent" type="color" value="#6d28d9" class="mt-1 block w-full h-9" oninput="mktStudioPreview()"></label><label class="text-[11px] font-bold text-slate-500">Text<input id="mkt-design-text" type="color" value="#ffffff" class="mt-1 block w-full h-9" oninput="mktStudioPreview()"></label></div>
+          <input id="mkt-design-asset" type="hidden" value="${esc(assetId)}">
+        </div>
       </div>
-      <div class="space-y-2">
-        <label class="block text-[11px] font-bold text-slate-500">Format<select id="mkt-design-format" class="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]" onchange="mktStudioPreview()"><option value="square">Square post</option><option value="portrait">Portrait post</option><option value="story">Story</option><option value="landscape">Landscape</option></select></label>
-        <label class="block text-[11px] font-bold text-slate-500">Headline<input id="mkt-design-head" maxlength="140" value="Your headline" class="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]" oninput="mktStudioPreview()"></label>
-        <label class="block text-[11px] font-bold text-slate-500">Supporting text<textarea id="mkt-design-sub" maxlength="220" rows="2" class="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]" oninput="mktStudioPreview()">Supporting details</textarea></label>
-        <label class="block text-[11px] font-bold text-slate-500">Button text<input id="mkt-design-cta" maxlength="60" value="Learn more" class="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]" oninput="mktStudioPreview()"></label>
-        <div class="grid grid-cols-2 gap-2"><label class="text-[11px] font-bold text-slate-500">Accent<input id="mkt-design-accent" type="color" value="#6d28d9" class="mt-1 block w-full h-9" oninput="mktStudioPreview()"></label><label class="text-[11px] font-bold text-slate-500">Text<input id="mkt-design-text" type="color" value="#ffffff" class="mt-1 block w-full h-9" oninput="mktStudioPreview()"></label></div>
-        <input id="mkt-design-asset" type="hidden" value="${esc(assetId)}">
-      </div>
-    </div>
-    <div class="flex flex-wrap gap-2 mt-5"><button onclick="mktStudioRender(this, false)" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[13px] font-bold">Save to library</button><button onclick="mktStudioRender(this, true)" class="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[13px] font-bold">Save & schedule</button><button onclick="this.closest('.fixed').remove()" class="px-4 py-2 text-[13px] font-bold text-slate-500">Cancel</button></div>
-  </div>`, 'max-w-3xl');
+      <div class="flex flex-wrap gap-2 mt-5"><button onclick="mktStudioRender(this, false)" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[13px] font-bold">Save to library</button><button onclick="mktStudioRender(this, true)" class="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[13px] font-bold">Save & schedule</button><button onclick="this.closest('.fixed').remove()" class="px-4 py-2 text-[13px] font-bold text-slate-500">Cancel</button></div>
+    </div>`, 'max-w-3xl');
+  }
 }
 function mktStudioPreview() {
   const root = document.querySelector('#mkt-design-preview')?.closest('.fixed'); if (!root) return;
@@ -481,25 +485,117 @@ function mktCampaignsView(d) {
 }
 
 function mktStudioView(d) {
-  let inner = '';
-      const assets = d.assets || [];
-      inner = `
-        <div class="flex items-center justify-between gap-3 mb-3">
-          <div class="text-[13px] text-slate-500">The dealership's own images, reusable across posts and campaigns.</div>
-          <div class="flex gap-2"><button onclick="mktStudioOpen()" class="shrink-0 px-3 py-1.5 rounded-lg bg-violet-600 text-white text-[12px] font-bold">Create design</button><label class="shrink-0 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[12px] font-bold cursor-pointer">
-            Upload<input type="file" accept="image/*" class="hidden" onchange="mktUploadAsset(this)">
-          </label></div>
+  const assets = d.assets || [];
+  return `
+    <div class="space-y-6">
+      <!-- Studio Hero Header & Quick Create Bar -->
+      <div class="rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 text-white border border-indigo-900/50 shadow-xl">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div>
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-bold uppercase tracking-wider mb-2">
+              ✨ Freeform Canva-Style Automotive Studio
+            </div>
+            <h2 class="text-2xl font-black tracking-tight text-white">Dealership Creative Studio</h2>
+            <p class="text-xs text-slate-300 mt-1 max-w-xl">
+              Build high-converting social posts, vehicle spotlight ads, price drop banners, and promotional graphics with dynamic inventory bindings.
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="openMarketSyncStudio()" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-lg transition flex items-center gap-2">
+              <span>🎨</span> Open Studio Editor
+            </button>
+            <label class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 cursor-pointer transition">
+              <span>📷</span> Upload Asset
+              <input type="file" accept="image/*" class="hidden" onchange="mktUploadAsset(this)">
+            </label>
+          </div>
         </div>
-        ${engCard(`Media library (${assets.length})`, assets.length ? `
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-            ${assets.map(a => `<div class="min-w-0">
-              <img src="${esc(a.public_url)}" alt="${esc(a.alt_text || '')}" loading="lazy"
-                   class="w-full aspect-square object-cover rounded-lg border border-slate-200 dark:border-slate-700">
-              <div class="text-[11px] text-slate-400 truncate mt-1">${esc(a.title || `${a.width || '?'}×${a.height || '?'}`)}</div>
-              <div class="flex gap-2 mt-1"><button onclick="mktStudioOpen('${esc(a.id)}','${esc(a.public_url)}')" class="text-[11px] font-bold text-violet-600">Use as background</button><button onclick="mktCompose({assetUrl:'${esc(a.public_url)}'})" class="text-[11px] font-bold text-slate-600 dark:text-slate-300">Schedule</button></div>
-            </div>`).join('')}
-          </div>` : engEmpty('Nothing in Studio yet. Create a design or upload a photo.'))}`;
-  return inner;
+
+        <!-- Design Format Presets -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-800">
+          <button onclick="openMarketSyncStudio(null, {formatKey:'square'})" class="p-3.5 rounded-xl bg-slate-800/80 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-500/50 text-left transition group">
+            <div class="text-lg mb-1">🟦</div>
+            <div class="text-xs font-bold text-white group-hover:text-indigo-300">Instagram Square</div>
+            <div class="text-[10px] text-slate-400">1080 × 1080 • Posts</div>
+          </button>
+          <button onclick="openMarketSyncStudio(null, {formatKey:'portrait'})" class="p-3.5 rounded-xl bg-slate-800/80 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-500/50 text-left transition group">
+            <div class="text-lg mb-1">📱</div>
+            <div class="text-xs font-bold text-white group-hover:text-indigo-300">Instagram Portrait</div>
+            <div class="text-[10px] text-slate-400">1080 × 1350 • Feeds</div>
+          </button>
+          <button onclick="openMarketSyncStudio(null, {formatKey:'story'})" class="p-3.5 rounded-xl bg-slate-800/80 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-500/50 text-left transition group">
+            <div class="text-lg mb-1">🎬</div>
+            <div class="text-xs font-bold text-white group-hover:text-indigo-300">Story / Reel Cover</div>
+            <div class="text-[10px] text-slate-400">1080 × 1920 • Mobile</div>
+          </button>
+          <button onclick="openMarketSyncStudio(null, {formatKey:'landscape'})" class="p-3.5 rounded-xl bg-slate-800/80 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-500/50 text-left transition group">
+            <div class="text-lg mb-1">🖼️</div>
+            <div class="text-xs font-bold text-white group-hover:text-indigo-300">Facebook Banner</div>
+            <div class="text-[10px] text-slate-400">1200 × 628 • Ads</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Stock Automotive Templates -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">Featured Automotive Templates</h3>
+          <span class="text-xs text-slate-400 font-semibold">Click any template to customize</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <div onclick="openMarketSyncStudio(null, {formatKey:'square'})" class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 cursor-pointer hover:border-indigo-500 transition group shadow-sm">
+            <div class="h-44 rounded-xl bg-slate-950 flex flex-col justify-between p-4 relative overflow-hidden mb-3">
+              <div class="px-2.5 py-1 rounded-full bg-indigo-600 text-white text-[10px] font-black self-start">JUST ARRIVED</div>
+              <div class="space-y-1">
+                <div class="text-sm font-black text-white">2024 Ford F-150 Lariat</div>
+                <div class="inline-block px-2 py-0.5 rounded bg-emerald-500 text-white text-[11px] font-black">$54,990</div>
+              </div>
+            </div>
+            <div class="text-xs font-bold text-slate-900 dark:text-white group-hover:text-indigo-600">Vehicle Spotlight (Square)</div>
+            <div class="text-[11px] text-slate-400">Auto-bound vehicle photo, price &amp; YMMT</div>
+          </div>
+
+          <div onclick="openMarketSyncStudio(null, {formatKey:'story'})" class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 cursor-pointer hover:border-indigo-500 transition group shadow-sm">
+            <div class="h-44 rounded-xl bg-red-950/80 border border-red-800/40 flex flex-col justify-between p-4 relative overflow-hidden mb-3">
+              <div class="px-2.5 py-1 rounded-full bg-red-600 text-white text-[10px] font-black self-start">🚨 PRICE DROP</div>
+              <div class="space-y-1">
+                <div class="text-sm font-black text-white">Special Price Reduction</div>
+                <div class="text-[11px] text-red-300 font-bold">Now $4,000 Below Market</div>
+              </div>
+            </div>
+            <div class="text-xs font-bold text-slate-900 dark:text-white group-hover:text-indigo-600">Price Drop Banner (Story)</div>
+            <div class="text-[11px] text-slate-400">1080×1920 • Mobile story special</div>
+          </div>
+
+          <div onclick="openMarketSyncStudio(null, {formatKey:'landscape'})" class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 cursor-pointer hover:border-indigo-500 transition group shadow-sm">
+            <div class="h-44 rounded-xl bg-indigo-950/80 border border-indigo-800/40 flex flex-col justify-between p-4 relative overflow-hidden mb-3">
+              <div class="px-2.5 py-1 rounded-full bg-indigo-600 text-white text-[10px] font-black self-start">TRADE-IN EVENT</div>
+              <div class="space-y-1">
+                <div class="text-sm font-black text-white">Top Dollar for Trades</div>
+                <div class="text-[11px] text-indigo-300 font-bold">120% KBB Value Guaranteed</div>
+              </div>
+            </div>
+            <div class="text-xs font-bold text-slate-900 dark:text-white group-hover:text-indigo-600">Trade-In Special (Banner)</div>
+            <div class="text-[11px] text-slate-400">1200×628 • Dealership promotion</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Media & Uploads Library -->
+      ${engCard(`Studio Media & Uploads (${assets.length})`, assets.length ? `
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          ${assets.map(a => `<div class="min-w-0 bg-slate-50 dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
+            <img src="${esc(a.public_url)}" alt="${esc(a.alt_text || '')}" loading="lazy"
+                 class="w-full aspect-square object-cover rounded-lg border border-slate-200 dark:border-slate-700">
+            <div class="text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate mt-1.5">${esc(a.title || `${a.width || '?'}×${a.height || '?'}`)}</div>
+            <div class="flex gap-2 mt-1.5">
+              <button onclick="openMarketSyncStudio(null, {assetUrl:'${esc(a.public_url)}'})" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Edit in Studio</button>
+              <button onclick="mktCompose({assetUrl:'${esc(a.public_url)}'})" class="text-[11px] font-bold text-slate-600 dark:text-slate-400 hover:underline">Schedule</button>
+            </div>
+          </div>`).join('')}
+        </div>` : engEmpty('No uploaded media assets yet. Click Upload Asset or Create Design above.'))}
+    </div>
+  `;
 }
 
 function mktSocialSection(d) {

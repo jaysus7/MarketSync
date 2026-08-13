@@ -56,7 +56,7 @@ const MS_WORKSPACES = {
   // The individual pages below stay in the tab-bar so every existing entry point,
   // deep link and bookmark keeps working; `sales` simply leads.
   sales: {
-    label: 'SalesOS', icon: 'currency', accent: 'amber',
+    label: 'Sales', icon: 'currency', accent: 'amber',
     pages: [
       { page: 'sales', label: 'Pulse' },
       { page: 'appraisal', label: 'Appraisals' },
@@ -70,7 +70,7 @@ const MS_WORKSPACES = {
   },
 
   inventory: {
-    label: 'InventoryOS', icon: 'gem', accent: 'sky',
+    label: 'Inventory', icon: 'gem', accent: 'sky',
     pages: [
       { page: 'inventory-overview', label: 'Pulse' },
       { page: 'appraisal', label: 'Appraisals' },
@@ -82,7 +82,7 @@ const MS_WORKSPACES = {
   },
 
   fni: {
-    label: 'F&IOS', icon: 'shield', accent: 'indigo', roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'],
+    label: 'F&I', icon: 'shield', accent: 'indigo', roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'],
     pages: [
       { page: 'fni-overview', label: 'Pulse' },
       { page: 'fni', label: 'Deals' },
@@ -91,14 +91,14 @@ const MS_WORKSPACES = {
   },
 
   recon: {
-    label: 'CleanupOS', icon: 'sparkles', accent: 'sky',
+    label: 'Cleanup', icon: 'sparkles', accent: 'sky',
     pages: [
       { page: 'recon', label: 'Pulse' },
     ],
   },
 
   service: {
-    label: 'ServiceOS', icon: 'wrench', accent: 'sky', mgr: true,
+    label: 'Service', icon: 'wrench', accent: 'sky', mgr: true,
     pages: [
       { page: 'service-overview', label: 'Pulse' },
       { page: 'service-appointments', label: 'Schedule', legacy: true },
@@ -107,7 +107,7 @@ const MS_WORKSPACES = {
   },
 
   parts: {
-    label: 'PartsOS', icon: 'gem', accent: 'amber', mgr: true,
+    label: 'Parts', icon: 'gem', accent: 'amber', mgr: true,
     pages: [
       { page: 'parts-overview', label: 'Pulse' },
       { page: 'service-parts', label: 'Catalogue' },
@@ -115,7 +115,7 @@ const MS_WORKSPACES = {
   },
 
   accounting: {
-    label: 'AccountingOS', icon: 'currency', accent: 'emerald', probe: '#grp-accounting-wrap', mgr: true,
+    label: 'Accounting', icon: 'currency', accent: 'emerald', probe: '#grp-accounting-wrap', mgr: true,
     pages: [
       { page: 'accounting-overview', label: 'Pulse' },
       { page: 'accounting', label: 'Overview' },
@@ -124,7 +124,7 @@ const MS_WORKSPACES = {
   },
 
   marketing: {
-    label: 'MarketingOS', icon: 'megaphone', accent: 'violet', mgr: true,
+    label: 'Marketing', icon: 'megaphone', accent: 'violet', mgr: true,
     pages: [
       { page: 'marketing-overview', label: 'Pulse' },
       { page: 'email-marketing', label: 'Campaigns' },
@@ -136,7 +136,7 @@ const MS_WORKSPACES = {
   },
 
   people: {
-    label: 'HROS', icon: 'user', accent: 'emerald', mgr: true,
+    label: 'HR', icon: 'user', accent: 'emerald', mgr: true,
     pages: [
       { page: 'people-overview', label: 'Pulse' },
       // Retained as redirect/deep-link identities only. The HR engine owns Staff and

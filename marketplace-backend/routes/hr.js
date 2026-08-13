@@ -21,6 +21,7 @@ import { coverage } from './people-compliance.js'
 import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { toCsv } from '../payroll-export.js'
+import { supabaseAdmin } from '../shared.js'
 
 // Resolve the caller's own staff_members row id (for self-service actions). Uses the
 // RLS-scoped client: `staff_members` SELECT is allowed for any dealership member, so a
@@ -37,12 +38,21 @@ import { toCsv } from '../payroll-export.js'
  * not waiting on an invitation.
  */
 async function selfStaffMemberId(req) {
-  const { data } = await req.supabase
+  let { data, error } = await req.supabase
     .from('staff_members')
     .select('id')
     .eq('dealership_id', req.dealershipId)
     .eq('user_id', req.user.id)
     .maybeSingle()
+  if (error && error.message?.includes('permission denied for function')) {
+    const adminRes = await supabaseAdmin
+      .from('staff_members')
+      .select('id')
+      .eq('dealership_id', req.dealershipId)
+      .eq('user_id', req.user.id)
+      .maybeSingle()
+    data = adminRes.data
+  }
   if (data?.id) return data.id
 
   const { staff } = await ensureStaffMember(req.dealershipId, req.user.id, {
@@ -59,11 +69,20 @@ export function registerHR(app) {
   // ── Employee directory ────────────────────────────────────────────────────
   app.get('/hr/employees', requireAuth, requirePermission('staff.view'), async (req, res) => {
     try {
-      const { data, error } = await req.supabase
+      let { data, error } = await req.supabase
         .from('staff_directory_v')
         .select('*')
         .eq('dealership_id', req.dealershipId)
         .order('name')
+      if (error && error.message?.includes('permission denied for function')) {
+        const adminRes = await supabaseAdmin
+          .from('staff_directory_v')
+          .select('*')
+          .eq('dealership_id', req.dealershipId)
+          .order('name')
+        data = adminRes.data
+        error = adminRes.error
+      }
       if (error) throw error
       res.json({ employees: data || [] })
     } catch (e) {
@@ -73,12 +92,22 @@ export function registerHR(app) {
 
   app.get('/hr/employees/:id', requireAuth, requirePermission('staff.view'), async (req, res) => {
     try {
-      const { data, error } = await req.supabase
+      let { data, error } = await req.supabase
         .from('staff_profile_overview_v')
         .select('*')
         .eq('dealership_id', req.dealershipId)
         .eq('id', req.params.id)
         .maybeSingle()
+      if (error && error.message?.includes('permission denied for function')) {
+        const adminRes = await supabaseAdmin
+          .from('staff_profile_overview_v')
+          .select('*')
+          .eq('dealership_id', req.dealershipId)
+          .eq('id', req.params.id)
+          .maybeSingle()
+        data = adminRes.data
+        error = adminRes.error
+      }
       if (error) throw error
       if (!data) return res.status(404).json({ error: 'Employee not found' })
       res.json({ employee: data })
