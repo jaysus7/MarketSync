@@ -258,8 +258,8 @@ ENGINES['sales'] = {
   // number nobody acts on), Automation folded into Settings (there is one workflow engine, so
   // it is configuration, not a department surface), Work renamed to what it actually holds, and
   // Opportunities, appointments, deals and deliveries are all composed into My Day.
-  get tabOrder() { return ['overview', 'work', 'desk', 'appraisal', 'equity', 'settings']; },
-  get tabLabels() { return { overview: 'My Day', work: 'Customers', desk: 'Desk a Deal', appraisal: 'Appraise Trade', equity: 'Equity Mining', settings: 'Settings' }; },
+  get tabOrder() { return ['overview', 'work', 'appraisals', 'desk', 'equity', 'settings']; },
+  get tabLabels() { return { overview: 'My Day', work: 'Customers', appraisals: 'Appraise Trade', desk: 'Desk a Deal', equity: 'Equity Mining', settings: 'Settings' }; },
 
   // ONE parallel round-trip for the landing view — no waterfall, and deliveries /
   // insights are deliberately excluded (they load inside their own tab).
@@ -319,6 +319,7 @@ ENGINES['sales'] = {
       const open = (d.contacts || []).filter(c => SALES_OPEN_STAGES.includes(c.status));
       const overdue = (d.tasks || []).filter(t => t.due_at && new Date(t.due_at) < now);
       const newLeads = (d.contacts || []).filter(c => c.status === 'uncontacted');
+      body.innerHTML = `
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '', "engineTab('sales', 'work')")}
           ${engKpi('New leads', newLeads.length, newLeads.length ? 'text-amber-600 dark:text-amber-400' : '', "salesWorkView('opportunities')")}
@@ -350,6 +351,12 @@ ENGINES['sales'] = {
     },
 
     // ── DESK A DEAL ──────────────────────────────────────────────────────────
+    appraisals(body, d) {
+      body.innerHTML = `
+        <div class="mb-4 text-sm font-semibold text-slate-500">Appraise a trade-in and manage existing appraisals.</div>
+        ${engCard('Trade Appraisals', engEmpty('No active appraisals.'))}
+      `;
+    },
     desk(body, d) {
       if (typeof engMountPage === 'function') {
         engMountPage(body, 'desk', () => {

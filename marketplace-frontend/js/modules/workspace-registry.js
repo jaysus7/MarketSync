@@ -28,7 +28,7 @@ const MS_WORKSPACES = {
   // in the day rather than in a rail nobody scrolls to. Outstanding courses surface in
   // My Day itself and disappear as they are completed.
   executive: {
-    label: 'MyDay', icon: 'chart', accent: 'indigo', mgr: true,
+    label: 'My Day', icon: 'chart', accent: 'indigo', mgr: true,
     pages: [
       { page: 'command', label: 'Pulse' },
       // Academy belongs to the day, but as `legacy` — a plain page here would draw a
@@ -60,7 +60,6 @@ const MS_WORKSPACES = {
     pages: [
       { page: 'sales', label: 'My Day' },
       { page: 'appraisal', label: 'Acquire', legacy: true },
-      { page: 'market', label: 'Market & Competitors', mgr: true, legacy: true },
       { page: 'crm', label: 'Customers', legacy: true },
       { page: 'appointments', label: 'Appointments', legacy: true },
       { page: 'tasks', label: 'Tasks', legacy: true },
@@ -85,6 +84,7 @@ const MS_WORKSPACES = {
       { page: 'inventory', label: 'Vehicles', invmode: 'manual', legacy: true },
       { page: 'equity', label: 'Equity Mining' },
       { page: 'inv-intel', label: 'Inventory Intelligence', mgr: true, legacy: true },
+      { page: 'market', label: 'Market & Competitors', mgr: true, legacy: true },
     ],
   },
 

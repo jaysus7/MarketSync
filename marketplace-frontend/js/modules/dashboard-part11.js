@@ -1106,60 +1106,6 @@ function cmdUnavailableNote(sources) {
   return `<div class="rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-4 py-3 text-[13px] text-amber-800 dark:text-amber-200 mb-3">
     <b>This view is incomplete.</b> ${missing.map(x => esc(x?.__unavailable || 'A source')).join(', ')} could not be loaded, so the numbers below are partial.</div>`;
 }
-
-ENGINES['command'] = {
-  rootId: 'command-root', title: 'MyDay', subtitle: 'This main page is the pulse of the dealership.',
-  icon: 'chart', accent: 'indigo',
-  tabLabels: { overview: 'Pulse' },
-  tabOrder: ['overview'],
-
-  fetch: async () => {
-    // Every read fails on its own and reports itself. A number that could not be loaded is
-    // rendered as "unknown", never as zero — a management screen that quietly shows $0 cash is
-    // worse than one that says it could not read the ledger.
-    const miss = (label) => (e) => ({ __unavailable: label, __reason: e?.message || 'could not be loaded' });
-    const [cc, ev, day, identityReviews, pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy, contacts, tasks, appts, deliveries, reconVehicles, inventory, fniDeals, esignRequests, serviceRos, partsOrders, staff] = await Promise.all([
-      apiGetJson('/command-center').catch(() => ({ tiles: {}, exceptions: [], exception_count: 0 })),
-      apiGetJson('/events?limit=40').catch(() => ({ events: [] })),
-      apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ label: 'My Day', reason: 'Could not be loaded' }], complete: false })),
-      apiGetJson('/identity/reviews').catch(() => ({ reviews: [] })),
-      apiGetJson('/pipeline').catch(miss('Sales pipeline')),
-      apiGetJson('/accounting/summary').catch(miss('Accounting summary')),
-      apiGetJson('/accounting/receivables').catch(miss('Receivables')),
-      apiGetJson('/accounting/payables').catch(miss('Payables')),
-      apiGetJson('/accounting/contracts-in-transit').catch(miss('Contracts in transit')),
-      apiGetJson('/accounting/close-checklist').catch(miss('Close')),
-      apiGetJson('/campaigns').catch(miss('Campaigns')),
-      apiGetJson('/automation/queue').catch(miss('Automation')),
-      apiGetJson('/academy/my-path').catch(() => null),
-      apiGetJson('/crm/contacts?limit=200').catch(() => ({ contacts: [] })),
-      apiGetJson('/crm/tasks?scope=open').catch(() => ({ tasks: [] })),
-      apiGetJson('/appointments').catch(() => ({ appointments: [] })),
-      apiGetJson('/delivery/queue').catch(() => null),
-      apiGetJson('/recon').catch(() => null),
-      apiGetJson('/inventory/all').catch(() => null),
-      apiGetJson('/fni/deals').catch(() => null),
-      apiGetJson('/esign').catch(() => ({ requests: [] })),
-      apiGetJson('/service/ros').catch(() => ({ ros: [] })),
-      apiGetJson('/parts/orders').catch(() => ({ orders: [] })),
-      apiGetJson('/saas/employees').catch(() => ({ employees: [] })),
-    ]);
-    const badge = document.getElementById('command-badge');
-    const attentionCount = (day.needs_attention || []).length;
-    if (badge) { if (attentionCount) { badge.textContent = attentionCount; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
-    return { cc, events: ev.events || [], day, identityReviews: identityReviews.reviews || [],
-      pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy,
-      contacts: contacts.contacts || [], tasks: tasks.tasks || [], appointments: appts.appointments || [],
-      deliveries: deliveries?.queue || deliveries?.deliveries || [], reconVehicles: reconVehicles?.vehicles || reconVehicles || [],
-      inventory: inventory?.vehicles || inventory || [], fniDeals: fniDeals?.deals || fniDeals || [], esignRequests: esignRequests.requests || [],
-      serviceRos: serviceRos.ros || serviceRos || [], partsOrders: partsOrders.orders || partsOrders || [], staff: staff.employees || staff || [] };
-  },
-  quickActions: [{ label: 'Open source operations', icon: 'bolt', onclick: "switchPage('operations')" }],
-  nextActions: (d) => (d.day.needs_attention || []).slice(0, 4).map(x => ({
-    label: `${x.next_action || 'Review'} · ${x.department || x.source_label}`,
-    icon: 'shield', tone: (OPS_SEV[x.severity] || {}).text || 'text-amber-500',
-    onclick: `cmdOpenAttention(decodeURIComponent('${encodeURIComponent(x.deep_link || '')}'))`,
-  })),
 window.pulseSalesDeptSection = function(d) {
   const contacts = d.contacts || d.day?.opportunities || [];
   const leadsWaiting = contacts.filter(c => c.status === 'uncontacted' || c.status === 'new' || !c.status);
@@ -1586,7 +1532,62 @@ window.pulseHrDeptSection = function(d) {
   `;
 };
 
+ENGINES['command'] = {
+  rootId: 'command-root', title: 'My Day', subtitle: 'This main page is the pulse of the dealership.',
+  icon: 'chart', accent: 'indigo',
+  tabLabels: { overview: 'Pulse', pulse: 'Pulse', forecast: 'Forecast', financials: 'Financials' },
+  tabOrder: ['overview', 'pulse', 'forecast', 'financials'],
+
+  fetch: async () => {
+    // Every read fails on its own and reports itself. A number that could not be loaded is
+    // rendered as "unknown", never as zero — a management screen that quietly shows $0 cash is
+    // worse than one that says it could not read the ledger.
+    const miss = (label) => (e) => ({ __unavailable: label, __reason: e?.message || 'could not be loaded' });
+    const [cc, ev, day, identityReviews, pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy, contacts, tasks, appts, deliveries, reconVehicles, inventory, fniDeals, esignRequests, serviceRos, partsOrders, staff] = await Promise.all([
+      apiGetJson('/command-center').catch(() => ({ tiles: {}, exceptions: [], exception_count: 0 })),
+      apiGetJson('/events?limit=40').catch(() => ({ events: [] })),
+      apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ label: 'My Day', reason: 'Could not be loaded' }], complete: false })),
+      apiGetJson('/identity/reviews').catch(() => ({ reviews: [] })),
+      apiGetJson('/pipeline').catch(miss('Sales pipeline')),
+      apiGetJson('/accounting/summary').catch(miss('Accounting summary')),
+      apiGetJson('/accounting/receivables').catch(miss('Receivables')),
+      apiGetJson('/accounting/payables').catch(miss('Payables')),
+      apiGetJson('/accounting/contracts-in-transit').catch(miss('Contracts in transit')),
+      apiGetJson('/accounting/close-checklist').catch(miss('Close')),
+      apiGetJson('/campaigns').catch(miss('Campaigns')),
+      apiGetJson('/automation/queue').catch(miss('Automation')),
+      apiGetJson('/academy/my-path').catch(() => null),
+      apiGetJson('/crm/contacts?limit=200').catch(() => ({ contacts: [] })),
+      apiGetJson('/crm/tasks?scope=open').catch(() => ({ tasks: [] })),
+      apiGetJson('/appointments').catch(() => ({ appointments: [] })),
+      apiGetJson('/delivery/queue').catch(() => null),
+      apiGetJson('/recon').catch(() => null),
+      apiGetJson('/inventory/all').catch(() => null),
+      apiGetJson('/fni/deals').catch(() => null),
+      apiGetJson('/esign').catch(() => ({ requests: [] })),
+      apiGetJson('/service/ros').catch(() => ({ ros: [] })),
+      apiGetJson('/parts/orders').catch(() => ({ orders: [] })),
+      apiGetJson('/saas/employees').catch(() => ({ employees: [] })),
+    ]);
+    const badge = document.getElementById('command-badge');
+    const attentionCount = (day.needs_attention || []).length;
+    if (badge) { if (attentionCount) { badge.textContent = attentionCount; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
+    return { cc, events: ev.events || [], day, identityReviews: identityReviews.reviews || [],
+      pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy,
+      contacts: contacts.contacts || [], tasks: tasks.tasks || [], appointments: appts.appointments || [],
+      deliveries: deliveries?.queue || deliveries?.deliveries || [], reconVehicles: reconVehicles?.vehicles || reconVehicles || [],
+      inventory: inventory?.vehicles || inventory || [], fniDeals: fniDeals?.deals || fniDeals || [], esignRequests: esignRequests.requests || [],
+      serviceRos: serviceRos.ros || serviceRos || [], partsOrders: partsOrders.orders || partsOrders || [], staff: staff.employees || staff || [] };
+  },
+  quickActions: [{ label: 'Open source operations', icon: 'bolt', onclick: "switchPage('operations')" }],
+  nextActions: (d) => (d.day.needs_attention || []).slice(0, 4).map(x => ({
+    label: `${x.next_action || 'Review'} · ${x.department || x.source_label}`,
+    icon: 'shield', tone: (OPS_SEV[x.severity] || {}).text || 'text-amber-500',
+    onclick: `cmdOpenAttention(decodeURIComponent('${encodeURIComponent(x.deep_link || '')}'))`,
+  })),
+
   tabs: {
+    pulse(body, d) { this.overview(body, d); },
     overview(body, d) {
       const t = d.cc.tiles || {};
       const tile = (label, val, page, attention) => {

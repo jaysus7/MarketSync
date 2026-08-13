@@ -261,7 +261,16 @@ export function registerAuthMfaPasskeyRoutes(app) {
     }
   })
 
-  app.post('/auth/passkeys/register/begin', requireAuth, rateLimit('passkey-reg-begin', 10, 60 * 60 * 1000), async (req, res) => {
+  app.get('/auth/passkey/list', requireAuth, async (req, res) => {
+    try {
+      const passkeys = await listUserPasskeys(req.user.id)
+      res.json({ passkeys })
+    } catch (err) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  app.post('/auth/passkey/register/begin', requireAuth, rateLimit('passkey-reg-begin', 10, 60 * 60 * 1000), async (req, res) => {
     try {
       const options = await beginPasskeyRegistration({ user: req.user, userAgent: req.headers['user-agent'] })
       res.json(options)
@@ -270,7 +279,7 @@ export function registerAuthMfaPasskeyRoutes(app) {
     }
   })
 
-  app.post('/auth/passkeys/register/finish', requireAuth, rateLimit('passkey-reg-finish', 10, 60 * 60 * 1000), async (req, res) => {
+  app.post('/auth/passkey/register/finish', requireAuth, rateLimit('passkey-reg-finish', 10, 60 * 60 * 1000), async (req, res) => {
     try {
       const result = await finishPasskeyRegistration({ user: req.user, body: req.body || {} })
       audit(req, AuditAction.PASSKEY_REGISTERED, { credential_id: result.passkey?.credential_id || null })
@@ -280,7 +289,7 @@ export function registerAuthMfaPasskeyRoutes(app) {
     }
   })
 
-  app.post('/auth/passkeys/login/begin', rateLimit('passkey-login-begin', 20, 60 * 60 * 1000), async (req, res) => {
+  app.post('/auth/passkey/login/begin', rateLimit('passkey-login-begin', 20, 60 * 60 * 1000), async (req, res) => {
     try {
       const email = String(req.body?.email || '').trim().toLowerCase()
       const options = await beginPasskeyLogin({ email })
@@ -290,7 +299,7 @@ export function registerAuthMfaPasskeyRoutes(app) {
     }
   })
 
-  app.post('/auth/passkeys/login/finish', rateLimit('passkey-login-finish', 20, 60 * 60 * 1000), async (req, res) => {
+  app.post('/auth/passkey/login/finish', rateLimit('passkey-login-finish', 20, 60 * 60 * 1000), async (req, res) => {
     try {
       const result = await finishPasskeyLogin({ body: req.body || {}, ip: getClientIp(req), userAgent: req.headers['user-agent'] })
       res.json(result)
@@ -299,7 +308,7 @@ export function registerAuthMfaPasskeyRoutes(app) {
     }
   })
 
-  app.delete('/auth/passkeys/:id', requireAuth, rateLimit('passkey-delete', 10, 60 * 60 * 1000), async (req, res) => {
+  app.delete('/auth/passkey/:id', requireAuth, rateLimit('passkey-delete', 10, 60 * 60 * 1000), async (req, res) => {
     try {
       const id = String(req.params.id || '')
       const deleted = await deletePasskey(req.user.id, id)
