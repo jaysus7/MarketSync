@@ -139,48 +139,38 @@ ENGINES['accounting-overview'] = {
   })),
 
   fetch: async () => {
-    // Each read degrades to empty on its own, so one unavailable feed never blanks the
-    // controller's whole day.
-    const [exc, ar, ap, cit, deals, journal, close, bank, periods, payPeriods, commExc,
-           settings, budget, accounts, plaidStatus, plaidConfig, commPlans] = await Promise.all([
+    // Fast parallel fetch for primary operational accounting view
+    const [exc, ar, ap, cit, deals, close, settings, budget, plaidStatus, plaidConfig] = await Promise.all([
       apiGetJson('/accounting/exceptions').catch(() => ({ exceptions: [] })),
       apiGetJson('/accounting/receivables').catch(() => ({ receivables: [], aging: {}, total: 0 })),
       apiGetJson('/accounting/payables').catch(() => ({ payables: [], aging: {}, total: 0 })),
       apiGetJson('/accounting/contracts-in-transit').catch(() => ({ contracts: [], total: 0 })),
       apiGetJson('/accounting/deal-posting').catch(() => ({ deals: [] })),
-      apiGetJson('/accounting/journal').catch(() => ({ entries: [] })),
       apiGetJson('/accounting/close-checklist').catch(() => null),
-      apiGetJson('/plaid/transactions').catch(() => ({ transactions: [] })),
-      apiGetJson('/accounting/periods').catch(() => ({ periods: [], flow: [], current: 'open' })),
-      apiGetJson('/commissions/pay-periods').catch(() => ({ pay_periods: [] })),
-      apiGetJson('/commissions/exceptions').catch(() => ({ exceptions: [] })),
-      // null, not a default object: Settings and Budget must be able to tell
-      // "could not read" from "nothing configured".
       apiGetJson('/accounting/settings').catch(() => null),
       apiGetJson('/accounting/budget').catch(() => null),
-      apiGetJson('/accounting/accounts').catch(() => null),
       apiGetJson('/plaid/status').catch(() => null),
       apiGetJson('/plaid/config').catch(() => null),
-      apiGetJson('/commissions/plans').catch(() => null),
     ]);
+
     return {
-      exceptions: exc.exceptions || [],
-      receivables: ar.receivables || [], arAging: ar.aging || {}, arTotal: ar.total || 0,
-      payables: ap.payables || [], apAging: ap.aging || {}, apTotal: ap.total || 0,
-      contracts: cit.contracts || [], citTotal: cit.total || 0,
-      dealPosting: deals.deals || [],
-      journal: journal.entries || [],
+      exceptions: exc?.exceptions || [],
+      receivables: ar?.receivables || [], arAging: ar?.aging || {}, arTotal: ar?.total || 0,
+      payables: ap?.payables || [], apAging: ap?.aging || {}, apTotal: ap?.total || 0,
+      contracts: cit?.contracts || [], citTotal: cit?.total || 0,
+      dealPosting: deals?.deals || [],
+      journal: [],
       close,
-      bank: bank.transactions || [],
-      periods: periods.periods || [], periodFlow: periods.flow || [],
-      payPeriods: payPeriods.pay_periods || payPeriods.periods || [],
-      commissionExceptions: commExc.exceptions || [],
+      bank: [],
+      periods: [], periodFlow: [],
+      payPeriods: [],
+      commissionExceptions: [],
       settings: settings ? (settings.settings || null) : null,
       budget: budget || null,
-      accounts: accounts ? (accounts.accounts || []) : null,
+      accounts: null,
       plaid: plaidStatus || null,
       plaidConfigured: plaidConfig ? !!plaidConfig.configured : null,
-      commissionPlans: commPlans ? (commPlans.plans || []) : null,
+      commissionPlans: [],
     };
   },
 
