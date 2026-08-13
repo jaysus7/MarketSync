@@ -1543,8 +1543,9 @@ window.pulseHrDeptSection = function(d) {
 ENGINES['command'] = {
   rootId: 'command-root', title: 'My Day', subtitle: 'This main page is the pulse of the dealership.',
   icon: 'chart', accent: 'indigo',
-  tabLabels: { pulse: 'Pulse', forecast: 'Forecast', financials: 'Financials' },
-  tabOrder: ['pulse', 'forecast', 'financials'],
+  hideTabBar: true,
+  tabLabels: { overview: 'My Day' },
+  tabOrder: ['overview'],
 
   fetch: async () => {
     // Every read fails on its own and reports itself. A number that could not be loaded is
@@ -1625,8 +1626,8 @@ ENGINES['command'] = {
             <p>• <strong>Active Campaign ROI:</strong> ${liveCampaigns.length} marketing campaign(s) generating leads at 4.2x ROAS.</p>
           </div>
           <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
-            <button onclick="engineTab('command','forecast')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">View Store Sales Forecast</button>
-            <button onclick="engineTab('command','financials')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">View Departmental Financials</button>
+            <button onclick="document.getElementById('cmd-forecast-section')?.scrollIntoView({ behavior: 'smooth' })" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">View Store Sales Forecast</button>
+            <button onclick="document.getElementById('cmd-financials-section')?.scrollIntoView({ behavior: 'smooth' })" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">View Departmental Financials</button>
           </div>
         </div>
       `;
@@ -1660,11 +1661,12 @@ ENGINES['command'] = {
       const sentToday = queue.filter(m => m.status === 'sent' && String(m.sent_at || '').slice(0, 10) === new Date().toISOString().slice(0, 10)).length;
       const queuedCount = queue.filter(m => m.status === 'pending' || m.status === 'scheduled').length;
 
-      const ranToday = engCard('Running today', `
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+      const ranToday = engCard('Store operations log', `
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
           ${cmdStat('Campaigns live', liveCampaigns.length)}
           ${cmdStat('Automations sent today', sentToday)}
-          ${cmdStat('Queued to send', queuedCount)}
+          ${cmdStat('In automation queue', queuedCount)}
+          ${cmdStat('Identity reviews', (d.identityReviews || []).length)}
         </div>
         ${liveCampaigns.length ? `<div class="divide-y divide-slate-100 dark:divide-slate-800 mt-2">${liveCampaigns.slice(0, 6).map(c => `<button onclick="switchPage('marketing-overview')" class="w-full flex items-center justify-between py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(c.name)}</span><span class="text-[12px] text-slate-400">${esc(c.source_key || 'campaign')}</span></button>`).join('')}</div>` : ''}
       `);
@@ -1682,7 +1684,7 @@ ENGINES['command'] = {
         const weighted = cmdMoney(gross);
 
         forecastHtml = `
-          <div class="mb-6 space-y-4">
+          <div id="cmd-forecast-section" class="mb-6 space-y-4">
             <h3 class="text-sm font-black uppercase tracking-wider text-slate-500">Forecast</h3>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
               ${cmdStat('Open deals', openDeals.length)}
@@ -1721,7 +1723,7 @@ ENGINES['command'] = {
       const closeOpen = cmdUnavailable(d.close) ? null : (d.close.items || d.close.checklist || []).filter(x => x.status !== 'complete' && x.status !== 'done').length;
 
       financialsHtml = `
-        <div class="mb-6 space-y-4">
+        <div id="cmd-financials-section" class="mb-6 space-y-4">
           <h3 class="text-sm font-black uppercase tracking-wider text-slate-500">Financials</h3>
           ${cmdUnavailableNote(acctSources)}
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3">

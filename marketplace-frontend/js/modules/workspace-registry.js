@@ -30,7 +30,7 @@ const MS_WORKSPACES = {
   executive: {
     label: 'My Day', icon: 'chart', accent: 'indigo', mgr: true,
     pages: [
-      { page: 'command', label: 'Pulse' },
+      { page: 'command', label: 'My Day' },
       // Academy belongs to the day, but as `legacy` — a plain page here would draw a
       // SECOND tab row above the command engine's own header, which is the exact
       // duplicate-header problem this registry exists to prevent. What the user
