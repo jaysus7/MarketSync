@@ -346,10 +346,13 @@ ENGINES['sales'] = {
         </div>`;
     },
 
-    // ── CUSTOMERS — one view, without another nested header ─────────────────
-    work(body, d) {
-      body.innerHTML = engCard('Customers', (d.contacts || []).slice(0, 50).map(c => salesOppRow(c, d)).join('') || engEmpty('No customers yet.'))
-        + `<div class="mt-3"><button onclick="switchPage('crm')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">Open full customer record search →</button></div>`;
+    // ── CUSTOMERS — unified rich customer view with search, filters & actions ───
+    async work(body, d) {
+      if (typeof crmLoadContacts === 'function') {
+        await crmLoadContacts(body);
+      } else {
+        body.innerHTML = engCard('Customers', (d.contacts || []).slice(0, 50).map(c => salesOppRow(c, d)).join('') || engEmpty('No customers yet.'));
+      }
     },
 
     // ── APPOINTMENTS — promoted out of a sub-view ───────────────────────────

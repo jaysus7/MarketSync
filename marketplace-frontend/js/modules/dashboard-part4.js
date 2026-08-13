@@ -3,11 +3,17 @@
 // CRM is now split into separate pages (Customers / Leads / Appointments /
 // Tasks). This page renders just the Customers (contacts) view.
 async function loadCrmPage() {
-  if (!document.getElementById('crm-body')) return;
-  await crmLoadContacts();
-  // "Add Customer" nav leaf → drop straight into the New-contact form.
+  if (typeof switchPage === 'function' && typeof engineTab === 'function') {
+    switchPage('sales');
+    setTimeout(() => engineTab('sales', 'work'), 50);
+    return;
+  }
+  const body = document.getElementById('crm-body');
+  if (!body) return;
+  await crmLoadContacts(body);
   if (__crmPendingAdd) { __crmPendingAdd = false; if (typeof crmOpenForm === 'function') crmOpenForm(); }
 }
+
 // Legacy shim: old callers that flipped a CRM tab now navigate to that page.
 function crmSetTab(t) { switchPage(t === 'contacts' ? 'crm' : t); }
 window.crmSetTab = crmSetTab;
@@ -109,18 +115,30 @@ function crmApplyPageChrome() {
 }
 // Renders the persistent toolbar (search + manager "by rep" filter) ONCE, then
 // only refreshes the list on search/filter so the search box keeps focus.
-async function crmLoadContacts() {
-  const body = document.getElementById('crm-body');
+async function crmLoadContacts(targetEl) {
+  const body = targetEl || document.getElementById('crm-body');
   if (!body) return;
   await crmEnsureLookups();   // reps for the "by rep" filter
   crmApplyPageChrome();
   body.innerHTML = `
-    <div class="flex flex-wrap items-center gap-2 mb-3">
-      <div class="relative flex-1 min-w-[200px] max-w-sm">
-        <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M21 21l-4-4"/></svg>
-        <input id="crm-search" placeholder="${crmIsSoldView() ? 'Search sold customers — name, email, phone…' : 'Search ALL contacts — name, email, phone…'}" oninput="crmSearchDebounced()" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div class="flex flex-wrap items-center gap-2 flex-1 min-w-[200px]">
+        <div class="relative flex-1 min-w-[200px] max-w-sm">
+          <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M21 21l-4-4"/></svg>
+          <input id="crm-search" placeholder="${crmIsSoldView() ? 'Search sold customers — name, email, phone…' : 'Search ALL contacts — name, email, phone…'}" oninput="crmSearchDebounced()" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm">
+        </div>
+        <span id="crm-repfilter"></span>
       </div>
-      <span id="crm-repfilter"></span>
+      <div class="flex items-center gap-2">
+        <button type="button" id="crm-bulk-btn" data-admin-only onclick="openBulkOutreach()" class="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold px-3 py-2 rounded-lg transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          Bulk message
+        </button>
+        <button type="button" onclick="openCrmContactModal()" class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-2 rounded-lg transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+          New contact
+        </button>
+      </div>
     </div>
     <div id="crm-list" class="py-10 text-center text-sm text-slate-400 italic">Loading contacts…</div>`;
   crmRefreshContacts();
