@@ -301,23 +301,192 @@ function crmRestoreModal() { const o = document.querySelector('.fixed[data-minim
 function crmCloseMinimized() { document.querySelector('.fixed[data-minimized="1"]')?.remove(); document.getElementById('crm-min-chip')?.remove(); }
 Object.assign(window, { crmMinimizeModal, crmRestoreModal, crmCloseMinimized });
 
-async function openCrmContact(id) {
-  const ov = crmOverlay(`<div class="p-10 text-center text-sm text-slate-400 italic">Loading…</div>`, 'max-w-4xl');
+async function openCrmContact(id, initialTab = 'timeline') {
+  const ov = crmOverlay(`<div class="p-10 text-center text-sm text-slate-400 italic">Loading customer card…</div>`, 'max-w-4xl');
   try {
-    const d = await apiGetJson(`/crm/contacts/${id}`);
-    ov.querySelector('div > div').innerHTML = crmDetailHtml(d);
+    const [d, eqData] = await Promise.all([
+      apiGetJson(`/crm/contacts/${id}`).catch(e => ({ contact: {}, timeline: [], tasks: [] })),
+      apiGetJson(`/equity/lease/by-contact/${id}`).catch(e => ({ lease: null, settings: {} }))
+    ]);
+    ov.querySelector('div > div').innerHTML = crmDetailHtml(d, eqData, initialTab);
     ov.__contactId = id;
-  } catch (e) { ov.querySelector('div > div').innerHTML = `<div class="p-8 text-center text-sm text-slate-500">Couldn't load: ${esc(e.message)}</div>`; }
+    if (d.contact?.id) {
+      setTimeout(() => { idvFillProvider(); idvRefresh(id); }, 100);
+    }
+  } catch (e) { ov.querySelector('div > div').innerHTML = `<div class="p-8 text-center text-sm text-slate-500">Couldn't load customer: ${esc(e.message)}</div>`; }
 }
-function crmDetailHtml(d) {
+
+function crmSwitchCardTab(tabName) {
+  ['timeline', 'equity', 'edit'].forEach(t => {
+    const btn = document.getElementById(`crm-tab-btn-${t}`);
+    const panel = document.getElementById(`crm-tab-panel-${t}`);
+    if (btn) {
+      if (t === tabName) {
+        btn.className = 'px-4 py-2 text-xs font-bold border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400 flex items-center gap-1.5';
+      } else {
+        btn.className = 'px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 border-b-2 border-transparent flex items-center gap-1.5';
+      }
+    }
+    if (panel) panel.classList.toggle('hidden', t !== tabName);
+  });
+}
+window.crmSwitchCardTab = crmSwitchCardTab;
+
+function crmEquityMiningTab(c, d, eqData) {
+  const lease = eqData?.lease || {};
+  const tv = c.trade_vehicle || {};
+  const vehLabel = lease.vehicle || [tv.year, tv.make, tv.model, tv.trim].filter(Boolean).join(' ') || 'No trade vehicle on file';
+  const vin = lease.vin || tv.vin || '—';
+  const payment = lease.monthly_payment || 0;
+  const payoff = lease.payoff_amount || lease.residual_value || 0;
+  const estVal = lease.estimated_market_value || lease.wholesale_value || (payoff ? payoff + 2500 : 0);
+  const netEq = lease.net_equity != null ? lease.net_equity : (estVal - payoff);
+
+  const isPos = netEq >= 0;
+  const eqBadge = (netEq !== 0 || payoff > 0)
+    ? `<span class="inline-flex items-center gap-1 text-xs font-black px-2.5 py-1 rounded-full ${isPos ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800' : 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800'}">${isPos ? '▲ +' : '▼ -'}$${Math.abs(netEq).toLocaleString()} ${isPos ? 'Positive Equity' : 'Negative Equity'}</span>`
+    : `<span class="text-xs font-bold text-slate-400">Equity calculation pending</span>`;
+
+  return `
+    <div class="space-y-4">
+      <div class="bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900 border border-indigo-500/30 rounded-xl p-4">
+        <div class="flex items-center justify-between gap-3 flex-wrap mb-2">
+          <div class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span class="text-sm font-bold text-white">Equity &amp; Lease Opportunity</span>
+          </div>
+          <div>${eqBadge}</div>
+        </div>
+        ${isPos ? `
+        <div class="text-xs text-indigo-200 bg-indigo-950/80 border border-indigo-800/60 rounded-lg p-2.5 mb-3">
+          ⚡ <b>Auto Alert:</b> Customer has <b>$${Math.abs(netEq).toLocaleString()}</b> in positive trade equity. Eligible to upgrade into a new vehicle with <b>$0 cash down</b> while keeping monthly payment at or under <b>$${payment ? payment : 'current'}/mo</b>.
+        </div>` : `
+        <div class="text-xs text-slate-300 bg-slate-950/80 border border-slate-800 rounded-lg p-2.5 mb-3">
+          Customer currently has negative equity position ($${Math.abs(netEq).toLocaleString()}). Review lender roll-over terms or appraisal adjustment.
+        </div>`}
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs mb-3">
+          <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
+            <div class="text-slate-400 font-medium">Trade Vehicle</div>
+            <div class="font-bold text-white truncate" title="${esc(vehLabel)}">${esc(vehLabel)}</div>
+            ${vin !== '—' ? `<div class="text-[10px] text-slate-500 font-mono">VIN ${esc(vin)}</div>` : ''}
+          </div>
+          <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
+            <div class="text-slate-400 font-medium">Est. Market Value</div>
+            <div class="font-bold text-emerald-400 text-sm">$${Number(estVal || 0).toLocaleString()}</div>
+          </div>
+          <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
+            <div class="text-slate-400 font-medium">Payoff / Residual</div>
+            <div class="font-bold text-slate-200 text-sm">$${Number(payoff || 0).toLocaleString()}</div>
+          </div>
+          <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
+            <div class="text-slate-400 font-medium">Monthly Payment</div>
+            <div class="font-bold text-indigo-300 text-sm">${payment ? '$' + Number(payment).toLocaleString() + '/mo' : '—'}</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button onclick="openDeskForContact('${c.id}')" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m3 6V7m3 10v-4M4 4h16v16H4z"/></svg>
+            Desk Deal with Equity
+          </button>
+          <button onclick="apprFromContact(${JSON.stringify({ id: c.id, full_name: c.full_name || '', first_name: c.first_name || '', last_name: c.last_name || '', email: c.email || '', phone: c.phone || '', address: c.address || '', postal_code: c.postal_code || '' }).replace(/'/g, "&#39;")})" class="text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Appraise Trade
+          </button>
+          ${c.email ? `<button onclick="crmEmailForm('${c.id}')" class="text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l9 6 9-6M4 6h16v12H4z"/></svg>
+            Send Equity Offer
+          </button>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+function crmEditFormContent(c) {
+  const id = c.id;
+  const inp = (id2, val, ph, cls = '') => `<input id="${id2}" value="${esc(val ?? '')}" placeholder="${esc(ph)}" class="${cls} bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">`;
+  const lbl = (t) => `<label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">${t}</label>`;
+  const repOpts = ['<option value="">— Unassigned —</option>'].concat((__crmReps || []).map(r => `<option value="${r.id}" ${c.assigned_rep === r.id ? 'selected' : ''}>${esc(r.name)}</option>`)).join('');
+  const statusOpts = Object.entries(CRM_STATUS).map(([k, l]) => `<option value="${k}" ${(c.status || 'uncontacted') === k ? 'selected' : ''}>${l}</option>`).join('');
+  const preInv = (__crmInventory || []).find(v => v.id === c.interest_inventory_id);
+  const isCo = c.contact_type === 'company';
+  const sect = (t) => `<div class="text-[11px] font-black uppercase tracking-wider text-indigo-500 pt-2 border-t border-slate-100 dark:border-slate-800">${t}</div>`;
+
+  return `
+    <div class="space-y-3 pt-2">
+      <div class="flex items-center justify-between gap-2">
+        <div class="text-sm font-bold text-slate-900 dark:text-white">Customer Record &amp; Identification</div>
+        <button type="button" onclick="crmScanLicense()" title="Scan driver's licence" class="inline-flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><circle cx="12" cy="13" r="3"/></svg>Scan licence
+        </button>
+      </div>
+      <input type="file" id="crm-license-file" accept="image/*" capture="environment" class="hidden">
+      <div id="crm-license-status" class="hidden text-xs rounded-lg px-3 py-2"></div>
+      <div class="flex gap-2">
+        <label class="flex-1"><input type="radio" name="crm-ctype" value="individual" ${!isCo ? 'checked' : ''} class="peer hidden" onchange="crmToggleCompany(false)"><span class="block text-center text-xs font-bold py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 peer-checked:bg-indigo-600 peer-checked:text-white peer-checked:border-indigo-600 cursor-pointer">Individual</span></label>
+        <label class="flex-1"><input type="radio" name="crm-ctype" value="company" ${isCo ? 'checked' : ''} class="peer hidden" onchange="crmToggleCompany(true)"><span class="block text-center text-xs font-bold py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 peer-checked:bg-indigo-600 peer-checked:text-white peer-checked:border-indigo-600 cursor-pointer">Company</span></label>
+      </div>
+      <div id="crm-company-row" class="${isCo ? '' : 'hidden'}">${lbl('Company name')}${inp('crm-f-company', c.company_name, 'Company name', 'w-full')}</div>
+      ${sect('Name')}
+      <div class="grid grid-cols-2 gap-2">
+        <div>${lbl('First name')}${inp('crm-f-first', c.first_name, 'First', 'w-full')}</div>
+        <div>${lbl('Last name')}${inp('crm-f-last', c.last_name, 'Last', 'w-full')}</div>
+        <div>${lbl('Middle name')}${inp('crm-f-middle', c.middle_name, 'Middle', 'w-full')}</div>
+        <div>${lbl('Suffix')}${inp('crm-f-suffix', c.suffix, 'Jr, Sr, III', 'w-full')}</div>
+      </div>
+      ${sect('Contact')}
+      <div>${lbl('Email')}${inp('crm-f-email', c.email, 'name@email.com', 'w-full')}</div>
+      <div class="grid grid-cols-3 gap-2">
+        <div>${lbl('Mobile #')}${inp('crm-f-mobile', c.phone_mobile || c.phone, 'Mobile', 'w-full')}</div>
+        <div>${lbl('Home #')}${inp('crm-f-home', c.phone_home, 'Home', 'w-full')}</div>
+        <div>${lbl('Work #')}${inp('crm-f-work', c.phone_work, 'Work', 'w-full')}</div>
+      </div>
+      ${sect('Address')}
+      <div>${lbl('Street address')}${inp('crm-f-address', c.address, 'Street address', 'w-full')}</div>
+      <div class="grid grid-cols-3 gap-2">
+        <div>${lbl('City')}${inp('crm-f-city', c.city, 'City', 'w-full')}</div>
+        <div>${lbl('Province / State')}${inp('crm-f-province', c.province || (window.__dealerLocale?.province || ''), 'ON', 'w-full')}</div>
+        <div>${lbl('Postal / ZIP')}${inp('crm-f-postal', c.postal_code, 'A1A 1A1', 'w-full')}</div>
+      </div>
+      ${sect('Identification')}
+      <div class="grid grid-cols-3 gap-2">
+        <div>${lbl('Birthday')}<input id="crm-f-birthday" type="date" value="${esc(c.birthday || '')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+        <div>${lbl("Driver's licence #")}${inp('crm-f-dl', c.dl_number, 'DL number', 'w-full')}</div>
+        <div>${lbl('DL expiry')}<input id="crm-f-dlexp" type="date" value="${esc(c.dl_expiry || '')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+      </div>
+      ${id ? idvBlock(c) : ''}
+      ${id ? vehicleFitBlock(c) : ''}
+      ${sect('Source & assignment')}
+      <div class="grid grid-cols-3 gap-2">
+        <div>${lbl('Source')}${(() => {
+          const cur = c.source || '';
+          const match = CRM_SOURCES.find(p => p.toLowerCase() === cur.toLowerCase());
+          const sel = match || (cur ? '__other' : '');
+          return `<select id="crm-f-source-sel" onchange="crmSourceOther(this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+            <option value="">— Where did they come from? —</option>
+            ${CRM_SOURCES.map(o => `<option value="${esc(o)}" ${sel === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+            <option value="__other" ${sel === '__other' ? 'selected' : ''}>Other (type your own)…</option>
+          </select>
+          <input id="crm-f-source" value="${esc(cur)}" placeholder="Type the source" class="w-full mt-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm ${sel === '__other' ? '' : 'hidden'}">`;
+        })()}</div>
+        <div>${lbl('Salesperson')}<select id="crm-f-rep" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">${repOpts}</select></div>
+        <div>${lbl('Status')}<select id="crm-f-status" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">${statusOpts}</select></div>
+      </div>
+      ${sect('Notes')}
+      <textarea id="crm-f-notes" rows="2" placeholder="Notes" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">${esc(c.notes || '')}</textarea>
+      <div class="flex gap-2 justify-end pt-2">
+        <button onclick="crmSaveContact(this, ${id ? `'${id}'` : 'null'})" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-lg">${id ? 'Save Changes' : 'Create Customer'}</button>
+      </div>
+    </div>`;
+}
+
+function crmDetailHtml(d, eqData = {}, initialTab = 'timeline') {
   const c = d.contact;
-  const canEdit = canEditContact(c);   // read-only for reps who aren't the assigned owner
-  // A callable number may live in any phone field — use the first one we find so
-  // Call/Text work even when the primary `phone` is blank (e.g. appraisal leads).
+  const canEdit = canEditContact(c);
   const phone = (c.phone || c.phone_mobile || c.phone_home || c.phone_work || '').trim();
-  crmIndexTranscripts(d.timeline);   // stash any saved AI/marketplace transcripts for the viewer
+  crmIndexTranscripts(d.timeline);
   const initials = (c.full_name || '?').split(/\s+/).map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
   const openTasks = (d.tasks || []).filter(t => !t.done);
+
   return `
   <div class="sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-5 py-4 flex items-start justify-between gap-3 z-10">
     <div class="flex items-center gap-3 min-w-0">
@@ -335,48 +504,62 @@ function crmDetailHtml(d) {
       <button onclick="this.closest('.fixed').remove()" title="Close" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
   </div>
-  <div class="p-5 space-y-4">
-    ${document.documentElement.getAttribute('data-dash-mode') === 'demo' ? `
-    <div class="flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-3 py-2">
-      <span class="text-[11px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">Demo</span>
-      <span class="text-xs text-slate-600 dark:text-slate-300">Walk this deal along the pipeline:</span>
-      <div class="ml-auto flex items-center gap-1.5">
-        <button onclick="demoStepStage('${c.id}','prev','${esc(c.status || 'uncontacted')}')" class="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-black text-slate-600 dark:text-slate-200" title="Previous stage">◀</button>
-        <span class="text-xs font-bold text-slate-700 dark:text-slate-200 min-w-[84px] text-center">${esc(crmChipText(c.status))}</span>
-        <button onclick="demoStepStage('${c.id}','next','${esc(c.status || 'uncontacted')}')" class="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-black text-slate-600 dark:text-slate-200" title="Next stage">▶</button>
+
+  <!-- Primary Operations Bar -->
+  <div class="px-5 pt-3 flex flex-wrap gap-2 ${!canEdit ? 'hidden' : ''}">
+    ${c.email && !c.dnc && c.consent_email !== false ? `<button onclick="crmEmailForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l9 6 9-6M4 6h16v12H4z"/></svg>Email</button>` : ''}
+    ${phone ? `<a href="tel:${esc(phone)}" onclick="crmQuickLog('${c.id}','call')" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/></svg>Call</a>` : ''}
+    ${phone ? `<a href="sms:${esc(phone)}" onclick="crmQuickLog('${c.id}','sms')" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h8M8 8h8m-8 8h4m5-13H3v14l4-3h14V3z"/></svg>Text</a>` : ''}
+    <button onclick="crmLogForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg">Log activity</button>
+    <button onclick="crmTaskForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg">Add task</button>
+    <button onclick="crmApptForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 hover:bg-violet-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z"/></svg>Book appointment</button>
+    ${SALES_ROLES.includes(profileContext?.role) ? `<button onclick="openDeskForContact('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m3 6V7m3 10v-4M4 4h16v16H4z"/></svg>${d.deal ? 'View deal' : 'Desk deal'}</button>` : ''}
+    ${SALES_ROLES.includes(profileContext?.role) ? `<button onclick='apprFromContact(${JSON.stringify({ id: c.id, full_name: c.full_name || '', first_name: c.first_name || '', last_name: c.last_name || '', email: c.email || '', phone: c.phone || '', address: c.address || '', postal_code: c.postal_code || '' }).replace(/'/g, "&#39;")})' class="flex items-center gap-1.5 text-xs font-bold bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Appraise vehicle</button>` : ''}
+  </div>
+
+  <!-- Unified Sub-Tabs Header -->
+  <div class="px-5 mt-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2">
+    <button id="crm-tab-btn-timeline" onclick="crmSwitchCardTab('timeline')" class="px-4 py-2 text-xs font-bold ${initialTab === 'timeline' ? 'border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 border-b-2 border-transparent'} flex items-center gap-1.5">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Activity &amp; Timeline
+    </button>
+    <button id="crm-tab-btn-equity" onclick="crmSwitchCardTab('equity')" class="px-4 py-2 text-xs font-bold ${initialTab === 'equity' ? 'border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 border-b-2 border-transparent'} flex items-center gap-1.5">
+      <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+      Equity Mining
+    </button>
+    <button id="crm-tab-btn-edit" onclick="crmSwitchCardTab('edit')" class="px-4 py-2 text-xs font-bold ${initialTab === 'edit' ? 'border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 border-b-2 border-transparent'} flex items-center gap-1.5">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+      Customer Record &amp; ID
+    </button>
+  </div>
+
+  <div class="p-5">
+    <!-- Tab 1: Timeline -->
+    <div id="crm-tab-panel-timeline" class="${initialTab === 'timeline' ? '' : 'hidden'} space-y-4">
+      ${c.notes ? `<div class="text-xs bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-950/40 rounded-lg p-3 text-slate-700 dark:text-slate-300">${esc(c.notes)}</div>` : ''}
+      ${crmVehicleCards(c, d)}
+      ${crmDetailFacts(c, d)}
+      ${openTasks.length ? `<div>
+        <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Open tasks</div>
+        <div class="space-y-1.5">${openTasks.map(t => crmTaskRow(t, c.id)).join('')}</div>
+      </div>` : ''}
+      ${crmAttachmentsHtml(c, d)}
+      <div id="crm-detail-form"></div>
+      <div>
+        <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Activity timeline</div>
+        ${(d.timeline || []).length ? `<div class="space-y-2.5">${d.timeline.map(t => crmTimelineItem(t, c.id)).join('')}</div>`
+          : '<div class="text-sm text-slate-400 italic py-4">No activity yet.</div>'}
       </div>
-    </div>` : ''}
-    ${!canEdit ? `<div class="rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 px-3 py-2 text-[12px] text-slate-500 dark:text-slate-400 flex items-center gap-2">${svgIcon('eye', 'w-4 h-4')}Read-only — you're not the assigned rep on this customer.</div>` : ''}
-    <div class="flex flex-wrap gap-2 ${!canEdit ? 'hidden' : ''}">
-      ${c.email && !c.dnc && c.consent_email !== false ? `<button onclick="crmEmailForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l9 6 9-6M4 6h16v12H4z"/></svg>Email</button>` : ''}
-      ${phone
-        ? `<a href="tel:${esc(phone)}" onclick="crmQuickLog('${c.id}','call')" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/></svg>Call</a>`
-        : `<button onclick="crmNeedPhone('${c.id}')" title="Add a phone number to call" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/></svg>Call</button>`}
-      ${phone
-        ? `<a href="sms:${esc(phone)}" onclick="crmQuickLog('${c.id}','sms')" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h8M8 8h8m-8 8h4m5-13H3v14l4-3h14V3z"/></svg>Text</a>`
-        : `<button onclick="crmNeedPhone('${c.id}')" title="Add a phone number to text" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h8M8 8h8m-8 8h4m5-13H3v14l4-3h14V3z"/></svg>Text</button>`}
-      <button onclick="crmLogForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg">Log activity</button>
-      <button onclick="crmTaskForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg">Add task</button>
-      <button onclick="crmOpenForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg">Edit</button>
-      <button onclick="crmApptForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 hover:bg-violet-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z"/></svg>Book appointment</button>
-      ${[...SALES_ROLES, 'SERVICE'].includes(profileContext?.role) ? `<button onclick='openServiceBooking(${JSON.stringify({ contact_id: c.id, name: c.full_name || '', email: c.email || '', phone: phone || '' }).replace(/'/g, "&#39;")})' class="flex items-center gap-1.5 text-xs font-bold bg-teal-100 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 hover:bg-teal-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63"/></svg>Book service</button>` : ''}
-      ${SALES_ROLES.includes(profileContext?.role) ? `<button onclick="openDeskForContact('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold ${d.deal ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-purple-600 hover:bg-purple-500'} text-white px-3 py-1.5 rounded-lg transition"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m3 6V7m3 10v-4M4 4h16v16H4z"/></svg>${d.deal ? 'View deal' + (d.deal.deal_number ? ' #' + d.deal.deal_number : '') : 'Desk a deal'}</button>` : ''}
-      ${(SALES_ROLES.includes(profileContext?.role) && __invIntelActive) ? `<button onclick='apprFromContact(${JSON.stringify({ id: c.id, full_name: c.full_name || '', first_name: c.first_name || '', last_name: c.last_name || '', email: c.email || '', phone: c.phone || '', phone_mobile: c.phone_mobile || '', phone_home: c.phone_home || '', address: c.address || '', postal_code: c.postal_code || '' }).replace(/'/g, "&#39;")})' class="flex items-center gap-1.5 text-xs font-bold bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Appraise a vehicle</button>` : ''}
-      ${c.status === 'delivered' && SALES_ROLES.includes(profileContext?.role) ? `<button onclick="crmLeaseForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l9-3 9 3M4 10v10h16V10M9 21v-6h6v6"/></svg>Deal / equity</button>` : ''}
     </div>
-    ${c.notes ? `<div class="text-xs bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-950/40 rounded-lg p-3 text-slate-700 dark:text-slate-300">${esc(c.notes)}</div>` : ''}
-    ${crmVehicleCards(c, d)}
-    ${crmDetailFacts(c, d)}
-    ${openTasks.length ? `<div>
-      <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Open tasks</div>
-      <div class="space-y-1.5">${openTasks.map(t => crmTaskRow(t, c.id)).join('')}</div>
-    </div>` : ''}
-    ${crmAttachmentsHtml(c, d)}
-    <div id="crm-detail-form"></div>
-    <div>
-      <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Activity timeline</div>
-      ${(d.timeline || []).length ? `<div class="space-y-2.5">${d.timeline.map(t => crmTimelineItem(t, c.id)).join('')}</div>`
-        : '<div class="text-sm text-slate-400 italic py-4">No activity yet.</div>'}
+
+    <!-- Tab 2: Equity Mining -->
+    <div id="crm-tab-panel-equity" class="${initialTab === 'equity' ? '' : 'hidden'}">
+      ${crmEquityMiningTab(c, d, eqData)}
+    </div>
+
+    <!-- Tab 3: Customer Record & Intake Form -->
+    <div id="crm-tab-panel-edit" class="${initialTab === 'edit' ? '' : 'hidden'}">
+      ${crmEditFormContent(c)}
     </div>
   </div>`;
 }
@@ -976,100 +1159,23 @@ function crmPickInterest(id) {
   document.getElementById('crm-interest-results')?.classList.add('hidden');
 }
 async function crmOpenForm(id) {
+  if (id) {
+    return openCrmContact(id, 'edit');
+  }
   await crmEnsureLookups();
-  let c = {};
-  if (id) { try { c = (await apiGetJson(`/crm/contacts/${id}`)).contact || {}; } catch (e) { showToast(e.message, 'error'); return; } }
-  __crmTradeDecoded = c.trade_vehicle || null;
-  const inp = (id2, val, ph, cls = '') => `<input id="${id2}" value="${esc(val ?? '')}" placeholder="${esc(ph)}" class="${cls} bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">`;
-  const lbl = (t) => `<label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">${t}</label>`;
-  const repOpts = ['<option value="">— Unassigned —</option>'].concat((__crmReps || []).map(r => `<option value="${r.id}" ${c.assigned_rep === r.id ? 'selected' : ''}>${esc(r.name)}</option>`)).join('');
-  const statusOpts = Object.entries(CRM_STATUS).map(([k, l]) => `<option value="${k}" ${(c.status || 'uncontacted') === k ? 'selected' : ''}>${l}</option>`).join('');
-  const preInv = (__crmInventory || []).find(v => v.id === c.interest_inventory_id);
-  const isCo = c.contact_type === 'company';
-  const sect = (t) => `<div class="text-[11px] font-black uppercase tracking-wider text-indigo-500 pt-1">${t}</div>`;
+  const c = {};
+  __crmTradeDecoded = null;
   crmOverlay(`<div class="p-5 space-y-3">
     <div class="flex items-center justify-between gap-2">
-      <div class="text-lg font-black text-slate-900 dark:text-white">${id ? 'Edit contact' : 'New contact'}</div>
+      <div class="text-lg font-black text-slate-900 dark:text-white">New contact</div>
       <div class="flex items-center gap-2">
         <button type="button" onclick="crmScanLicense()" title="Scan a driver's licence to fill this in" class="inline-flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><circle cx="12" cy="13" r="3"/></svg>Scan licence</button>
         <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
     </div>
-    <input type="file" id="crm-license-file" accept="image/*" capture="environment" class="hidden">
-    <div id="crm-license-status" class="hidden text-xs rounded-lg px-3 py-2"></div>
-    <div class="flex gap-2">
-      <label class="flex-1"><input type="radio" name="crm-ctype" value="individual" ${!isCo ? 'checked' : ''} class="peer hidden" onchange="crmToggleCompany(false)"><span class="block text-center text-sm font-bold py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 peer-checked:bg-indigo-600 peer-checked:text-white peer-checked:border-indigo-600 cursor-pointer">Individual</span></label>
-      <label class="flex-1"><input type="radio" name="crm-ctype" value="company" ${isCo ? 'checked' : ''} class="peer hidden" onchange="crmToggleCompany(true)"><span class="block text-center text-sm font-bold py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 peer-checked:bg-indigo-600 peer-checked:text-white peer-checked:border-indigo-600 cursor-pointer">Company</span></label>
-    </div>
-    <div id="crm-company-row" class="${isCo ? '' : 'hidden'}">${lbl('Company name')}${inp('crm-f-company', c.company_name, 'Company name', 'w-full')}</div>
-    ${sect('Name')}
-    <div class="grid grid-cols-2 gap-2">
-      <div>${lbl('First name')}${inp('crm-f-first', c.first_name, 'First', 'w-full')}</div>
-      <div>${lbl('Last name')}${inp('crm-f-last', c.last_name, 'Last', 'w-full')}</div>
-      <div>${lbl('Middle name')}${inp('crm-f-middle', c.middle_name, 'Middle', 'w-full')}</div>
-      <div>${lbl('Suffix')}${inp('crm-f-suffix', c.suffix, 'Jr, Sr, III', 'w-full')}</div>
-    </div>
-    ${sect('Contact')}
-    <div>${lbl('Email')}${inp('crm-f-email', c.email, 'name@email.com', 'w-full')}</div>
-    <div class="grid grid-cols-3 gap-2">
-      <div>${lbl('Mobile #')}${inp('crm-f-mobile', c.phone_mobile || c.phone, 'Mobile', 'w-full')}</div>
-      <div>${lbl('Home #')}${inp('crm-f-home', c.phone_home, 'Home', 'w-full')}</div>
-      <div>${lbl('Work #')}${inp('crm-f-work', c.phone_work, 'Work', 'w-full')}</div>
-    </div>
-    ${sect('Address')}
-    <div>${lbl('Street address')}${inp('crm-f-address', c.address, 'Street address', 'w-full')}</div>
-    <div class="grid grid-cols-3 gap-2">
-      <div>${lbl('City')}${inp('crm-f-city', c.city, 'City', 'w-full')}</div>
-      <div>${lbl('Province / State')}${inp('crm-f-province', c.province || (window.__dealerLocale?.province || ''), 'ON', 'w-full')}</div>
-      <div>${lbl('Postal / ZIP')}${inp('crm-f-postal', c.postal_code, 'A1A 1A1', 'w-full')}</div>
-    </div>
-    ${sect('Identification')}
-    <div class="grid grid-cols-3 gap-2">
-      <div>${lbl('Birthday')}<input id="crm-f-birthday" type="date" value="${esc(c.birthday || '')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
-      <div>${lbl("Driver's licence #")}${inp('crm-f-dl', c.dl_number, 'DL number', 'w-full')}</div>
-      <div>${lbl('DL expiry')}<input id="crm-f-dlexp" type="date" value="${esc(c.dl_expiry || '')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
-    </div>
-    ${id ? idvBlock(c) : ''}
-    ${id ? vehicleFitBlock(c) : ''}
-    ${sect('Source & assignment')}
-    <div class="grid grid-cols-3 gap-2">
-      <div>${lbl('Source')}${(() => {
-        const cur = c.source || '';
-        const match = CRM_SOURCES.find(p => p.toLowerCase() === cur.toLowerCase());
-        const sel = match || (cur ? '__other' : '');
-        return `<select id="crm-f-source-sel" onchange="crmSourceOther(this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
-          <option value="">— Where did they come from? —</option>
-          ${CRM_SOURCES.map(o => `<option value="${esc(o)}" ${sel === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
-          <option value="__other" ${sel === '__other' ? 'selected' : ''}>Other (type your own)…</option>
-        </select>
-        <input id="crm-f-source" value="${esc(cur)}" placeholder="Type the source" class="w-full mt-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm ${sel === '__other' ? '' : 'hidden'}">`;
-      })()}</div>
-      <div>${lbl('Salesperson')}<select id="crm-f-rep" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">${repOpts}</select></div>
-      <div>${lbl('Status')}<select id="crm-f-status" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">${statusOpts}</select></div>
-    </div>
-    ${sect('Trade vehicle (decode from VIN)')}
-    <div class="flex gap-2">
-      ${inp('crm-f-tradevin', __crmTradeDecoded?.vin, '17-char VIN', 'flex-1 uppercase')}
-      ${vinScanBtn('crm-f-tradevin', '() => crmDecodeTrade()')}
-      <button type="button" onclick="crmDecodeTrade()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 rounded-lg">Decode</button>
-    </div>
-    <div class="grid grid-cols-4 gap-2">
-      ${inp('crm-f-tradeyear', __crmTradeDecoded?.year, 'Year')}${inp('crm-f-trademake', __crmTradeDecoded?.make, 'Make')}${inp('crm-f-trademodel', __crmTradeDecoded?.model, 'Model')}${inp('crm-f-tradetrim', __crmTradeDecoded?.trim, 'Trim')}
-    </div>
-    <div>${lbl('Trade mileage')}${inp('crm-f-trademiles', __crmTradeDecoded?.mileage, 'e.g. 85000', 'w-full')}</div>
-    ${sect('New car of interest')}
-    <div class="relative">
-      <input id="crm-f-interest-q" value="${esc(preInv ? crmInvLabel(preInv) : '')}" placeholder="Search your stock — stock #, year, make, model…" autocomplete="off" oninput="crmInterestSearch()" onfocus="crmInterestSearch()" onblur="setTimeout(()=>document.getElementById('crm-interest-results')?.classList.add('hidden'),200)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
-      <input type="hidden" id="crm-f-interest" value="${esc(c.interest_inventory_id || '')}">
-      <div id="crm-interest-results" class="hidden absolute z-20 mt-1 w-full max-h-60 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl"></div>
-    </div>
-    <div class="text-[11px] text-slate-400">Clear the box to remove the pinned vehicle.</div>
-    ${sect('Notes')}
-    <textarea id="crm-f-notes" rows="2" placeholder="Notes" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">${esc(c.notes || '')}</textarea>
-    <div class="flex gap-2 justify-end pt-1"><button onclick="this.closest('.fixed').remove()" class="text-sm font-bold text-slate-500 px-4 py-2">Cancel</button>
-      <button onclick="crmSaveContact(this, ${id ? `'${id}'` : 'null'})" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">${id ? 'Save' : 'Create'}</button></div>
+    ${crmEditFormContent(c)}
   </div>`, 'max-w-2xl');
-  if (id) { idvFillProvider(); idvRefresh(id); }
+}
 }
 function crmToggleCompany(isCo) { const r = document.getElementById('crm-company-row'); if (r) r.classList.toggle('hidden', !isCo); }
 

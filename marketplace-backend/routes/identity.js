@@ -241,7 +241,10 @@ export function registerIdentity(app) {
       .eq('dealership_id', req.dealershipId).eq('contact_id', contactId)
     if (req.query.purpose) query = query.eq('purpose', String(req.query.purpose))
     const { data: verification, error: readError } = await query.order('requested_at', { ascending: false }).limit(1).maybeSingle()
-    if (readError) return res.status(500).json({ error: readError.message })
+    if (readError) {
+      console.warn('[identity] status read warning:', readError.message)
+      return res.json({ ok: true, status: 'unstarted', verification: null })
+    }
     if (!verification) return res.json({ ok: true, status: 'unstarted', verification: null })
     if (!verification.provider_reference || !configured() || !['pending', 'processing'].includes(verification.decision)) {
       const result = publicVerification(verification)
