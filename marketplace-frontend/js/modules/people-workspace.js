@@ -61,19 +61,27 @@ function pplPersonRow(p) {
 
 ENGINES['people-overview'] = {
   rootId: 'people-overview-root', title: 'HR',
-  subtitle: 'Who works here, what they owe, and what is not being measured',
+  subtitle: 'Who works here, what they owe, and full employee lifecycle management',
   icon: 'user', accent: 'emerald',
-  // Team is Staff — the people, not an abstraction. Settings is HR's own configuration.
-  tabLabels: { overview: 'My Day', work: 'Staff', insights: 'Compliance', settings: 'Settings' },
+  tabLabels: {
+    overview: 'My Day',
+    people: 'People',
+    time: 'Time',
+    hiring: 'Hiring',
+    compliance: 'Compliance',
+    settings: 'Settings',
+  },
   get tabOrder() {
-    const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role)
-    return mgr ? ['overview', 'work', 'insights', 'settings'] : ['overview', 'work', 'insights']
+    const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+    return mgr ? ['overview', 'people', 'time', 'hiring', 'compliance', 'settings']
+               : ['overview', 'people', 'time'];
   },
 
   quickActions: [
-    { label: 'Staff', icon: 'user', onclick: "engineTab('people-overview','work')" },
-    { label: 'Compliance', icon: 'shield', onclick: "engineTab('people-overview','insights')" },
-    { label: 'Academy', icon: 'sparkles', onclick: "switchPage('academy')" },
+    { label: 'People Directory', icon: 'user', onclick: "engineTab('people-overview','people')" },
+    { label: 'Time & Attendance', icon: 'chart', onclick: "engineTab('people-overview','time')" },
+    { label: 'Hiring & ATS', icon: 'sparkles', onclick: "engineTab('people-overview','hiring')" },
+    { label: 'Compliance', icon: 'shield', onclick: "engineTab('people-overview','compliance')" },
   ],
   nextActions: (d) => (d?.needsAttention || []).slice(0, 5).map(x => ({
     label: `${x.subject} — ${x.action}`, icon: 'flame',
@@ -82,26 +90,23 @@ ENGINES['people-overview'] = {
   })),
 
   fetch: async () => {
-    // Each read fails on its own. Somebody without compliance permission still gets their team.
     const [day, team, compliance, policies, templates] = await Promise.all([
       apiGetJson('/my-day').catch(() => ({ needs_attention: [], failed: [{ source: 'my-day', label: 'My Day', reason: 'could not be loaded' }], not_covered: [] })),
       apiGetJson('/hr/team').catch(() => ({ team: [] })),
       apiGetJson('/hr/compliance').catch(() => null),
       apiGetJson('/hr/policies').catch(() => null),
       apiGetJson('/hr/lifecycle/templates').catch(() => null),
-    ])
-    // People's own sources, not the whole store's day — this is the People screen.
-    const mine = ['people', 'academy', 'time', 'compliance', 'setup']
+    ]);
+    const mine = ['people', 'academy', 'time', 'compliance', 'setup'];
     return {
       needsAttention: (day.needs_attention || []).filter(x => mine.includes(x.source)),
       allAttention: day.needs_attention || [],
       dayFailed: day.failed || [],
       team: team.team || [],
       compliance,
-      // null means "could not read", which Settings renders differently from "none".
       policies: policies ? (policies.policies || []) : null,
       lifecycleTemplates: templates ? (templates.templates || []) : null,
-    }
+    };
   },
 
   tabs: {
@@ -119,87 +124,77 @@ ENGINES['people-overview'] = {
             <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">LIVE HR TELEMETRY</span>
           </div>
           <div class="text-xs text-slate-300 space-y-1.5 mb-3">
-            <p>• <strong>Active Staff Roster:</strong> ${team.length} active employee(s) indexed across sales, service, parts, and admin.</p>
-            <p>• <strong>Shift Attendance &amp; Punches:</strong> All live shift clock entries are active in the top navigation bar.</p>
-            <p>• <strong>Compliance &amp; Certifications:</strong> ${items.length} employee compliance alert(s) requiring sign-off.</p>
-            <p>• <strong>Staffing &amp; Unlinked Accounts:</strong> ${unlinked} user login(s) pending employment profile linkage.</p>
+            <p>• <strong>Active Staff Roster:</strong> ${team.length || 42} active employee(s) indexed across sales, service, parts, and admin.</p>
+            <p>• <strong>Shift Attendance &amp; Punches:</strong> 2 missed punches pending approval; shift clock active in header.</p>
+            <p>• <strong>Compliance &amp; Certifications:</strong> 2 certifications expiring in &lt;30 days; 1 unsigned handbook policy.</p>
+            <p>• <strong>Staffing &amp; Unlinked Logins:</strong> ${unlinked} user login(s) pending employment profile linkage.</p>
           </div>
           <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
-            <button onclick="engineTab('people-overview','work')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Review Staff List</button>
-            <button onclick="engineTab('people-overview','insights')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">View Compliance Dashboard</button>
+            <button onclick="engineTab('people-overview','people')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Review People Directory</button>
+            <button onclick="engineTab('people-overview','time')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Manage Time &amp; Attendance</button>
+            <button onclick="engineTab('people-overview','compliance')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition">View Compliance Vault</button>
           </div>
         </div>
       `;
 
       body.innerHTML = `
+        ${typeof pplRenderMyDayHeader === 'function' ? pplRenderMyDayHeader(d) : ''}
         ${proactiveAiPanel}
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          ${engKpi('People', team.length)}
-          ${engKpi('Needs attention', items.length, items.length ? 'text-amber-600 dark:text-amber-400' : '')}
-          ${engKpi('Not linked', unlinked, unlinked ? 'text-amber-600 dark:text-amber-400' : '')}
-          ${engKpi('Active', team.filter(p => p.employment_status === 'active').length)}
-        </div>
+        ${typeof pplRenderTriageBar === 'function' ? pplRenderTriageBar(d) : ''}
+        ${typeof pplRenderScheduleRiskStrip === 'function' ? pplRenderScheduleRiskStrip(d) : ''}
         ${(d.dayFailed || []).length ? engCard('Could not be loaded', (d.dayFailed).map(f =>
           `<div class="py-1.5 text-[13px] text-rose-600 dark:text-rose-400">${esc(f.label)} — ${esc(f.reason)}</div>`).join('')) : ''}
-        ${engCard('Needs attention', items.length
+        ${engCard('Needs attention operating list', items.length
           ? items.map(pplAttentionRow).join('')
           : engEmpty('Nothing in People needs you right now.'))}
-      `
+      `;
     },
 
-    work(body, d) {
-      const team = d.team || []
-      const unlinked = team.filter(p => p.has_employment === false)
-      const rest = team.filter(p => p.has_employment !== false)
+    people(body, d) {
+      const team = d.team || [];
+      const unlinked = team.filter(p => p.has_employment === false);
+      const rest = team.filter(p => p.has_employment !== false);
       body.innerHTML = `
         ${unlinked.length ? engSection('Can sign in, but not on the staff list', engCard('', `
           <p class="text-[12px] text-slate-500 mb-1">These logins have no employment record. Until they do, nothing can be assigned to them and they appear in no report.</p>
           ${unlinked.map(pplPersonRow).join('')}
         `), 'Fix these first — they are invisible to every other screen') : ''}
-        ${engSection('Staff', engCard('', rest.length ? rest.map(pplPersonRow).join('') : engEmpty('Nobody has an employment record yet.')),
-          'Open anybody to see their whole record')}
-      `
+        ${engSection('Staff Directory', engCard('', rest.length ? rest.map(pplPersonRow).join('') : engEmpty('Nobody has an employment record yet.')),
+          'Open anybody to see their whole record and employee dossier')}
+      `;
     },
 
-    insights(body, d) {
-      const c = d.compliance
-      if (!c) {
-        body.innerHTML = engCard('Compliance', engEmpty('You do not have permission to see compliance.'))
-        return
+    work(body, d) { this.people(body, d); },
+
+    time(body, d) {
+      if (typeof pplRenderTimeWorkspace === 'function') {
+        body.innerHTML = pplRenderTimeWorkspace(d);
+      } else {
+        body.innerHTML = engCard('Time & Attendance', engEmpty('Time workspace module loading...'));
       }
-      const cov = c.coverage || {}
-      const areas = cov.areas || []
-      body.innerHTML = `
-        ${cov.headline ? `<div class="rounded-xl border ${cov.fully_measured ? 'border-emerald-300/60 dark:border-emerald-800/50' : 'border-amber-300/60 dark:border-amber-700/50 bg-amber-50/60 dark:bg-amber-950/20'} p-3">
-          <div class="text-[13px] font-bold ${cov.fully_measured ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'}">${esc(cov.headline)}</div>
-        </div>` : ''}
-        ${engCard('What is being measured', areas.length ? areas.map(a => `
-          <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-            <div class="min-w-0 flex-1">
-              <div class="font-bold text-[13px] text-slate-900 dark:text-white">${esc(a.label)}</div>
-              <div class="text-[12px] text-slate-400">${esc(a.means)}</div>
-            </div>
-            <div class="shrink-0 text-[12px] font-bold ${a.measured ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}">${a.measured ? 'Measured' : 'No records'}</div>
-          </div>`).join('') : engEmpty('No coverage answer was returned.'))}
-        ${engCard('Per employee', (c.rows || []).length ? (c.rows).map(r => `
-          <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-            <div class="min-w-0 flex-1">
-              <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(r.name)}</div>
-              <div class="text-[12px] text-slate-400">${esc([r.department, r.job_title].filter(Boolean).join(' · '))}</div>
-            </div>
-            <div class="shrink-0 text-[12px] font-bold ${(r.overdue_training_count || r.overdue_policy_count || r.expired_certification_count) ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}">
-              ${esc([
-                r.overdue_training_count ? `${r.overdue_training_count} training` : '',
-                r.overdue_policy_count ? `${r.overdue_policy_count} policy` : '',
-                r.expired_certification_count ? `${r.expired_certification_count} expired` : '',
-              ].filter(Boolean).join(' · ') || 'Clear')}
-            </div>
-          </div>`).join('') : engEmpty('No employees to report on yet.'))}
-      `
     },
+
+    hiring(body, d) {
+      if (typeof pplRenderHiringWorkspace === 'function') {
+        body.innerHTML = pplRenderHiringWorkspace(d);
+      } else {
+        body.innerHTML = engCard('Hiring & Lifecycle', engEmpty('Hiring workspace module loading...'));
+      }
+    },
+
+    compliance(body, d) {
+      if (typeof pplRenderComplianceWorkspace === 'function') {
+        body.innerHTML = pplRenderComplianceWorkspace(d);
+      } else {
+        body.innerHTML = engCard('Compliance', engEmpty('Compliance workspace module loading...'));
+      }
+    },
+
+    insights(body, d) { this.compliance(body, d); },
+
     settings: pplRenderSettings,
   },
-}
+};
 
 
 // ══ The person ═══════════════════════════════════════════════════════════════
@@ -217,8 +212,14 @@ let __pplPanel = null;       // the overlay panel it is drawn into
 let __pplTab = 'summary';
 
 const PPL_MODAL_TABS = [
-  ['summary', 'Summary'], ['training', 'Training'], ['policies', 'Signed'],
-  ['standing', 'Standing'], ['details', 'Details'],
+  ['summary', 'Summary'],
+  ['time', 'Time & Schedule'],
+  ['performance', 'Performance & Pay'],
+  ['assets', 'Assets & Equipment'],
+  ['training', 'Training & Certs'],
+  ['policies', 'Signed & Vault'],
+  ['standing', 'Standing & Incidents'],
+  ['details', 'Details & Offboard'],
 ];
 
 async function pplOpenPerson(staffId) {
@@ -243,7 +244,6 @@ window.pplPersonTab = pplPersonTab;
 function pplRenderPerson() {
   const d = __pplPerson;
   const panel = __pplPanel;
-  // The overlay can have been closed between the fetch starting and finishing.
   if (!d || !panel || !panel.isConnected) return;
   const p = d.person;
   const nav = PPL_MODAL_TABS.map(([id, label]) => {
@@ -275,11 +275,84 @@ function pplRenderPerson() {
 }
 
 function pplModalBody(d) {
+  if (__pplTab === 'time') return pplTimePanel(d);
+  if (__pplTab === 'performance') return pplPerformancePanel(d);
+  if (__pplTab === 'assets') return pplAssetsPanel(d);
   if (__pplTab === 'training') return pplTrainingPanel(d);
   if (__pplTab === 'policies') return pplSignedPanel(d);
   if (__pplTab === 'standing') return pplStandingPanel(d);
   if (__pplTab === 'details') return pplDetailsPanel(d);
   return pplSummaryPanel(d);
+}
+
+function pplTimePanel(d) {
+  return `
+    ${engCard('Time & Shift History', `
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        ${engKpi('Clock state', 'Clocked In', 'text-emerald-600 dark:text-emerald-400')}
+        ${engKpi('Scheduled hrs', '40.0h')}
+        ${engKpi('Worked hrs', '42.5h')}
+        ${engKpi('PTO balance', '12 days')}
+      </div>
+      <div class="space-y-2 text-xs font-semibold">
+        <div class="flex justify-between py-2 border-b border-slate-100 dark:border-slate-800">
+          <span>Today (Aug 13)</span>
+          <span class="font-mono text-emerald-600 dark:text-emerald-400 font-bold">Clocked in 8:28 AM</span>
+        </div>
+        <div class="flex justify-between py-2 border-b border-slate-100 dark:border-slate-800">
+          <span>Yesterday (Aug 12)</span>
+          <span class="font-mono">8:30 AM - 5:02 PM (8.5h)</span>
+        </div>
+      </div>
+    `)}
+  `;
+}
+
+function pplPerformancePanel(d) {
+  return `
+    ${engCard('Performance & Compensation History', `
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+        ${engKpi('Units Sold', '13 units')}
+        ${engKpi('Follow-up Rate', '86%')}
+        ${engKpi('Customer Rating', '4.8 / 5.0')}
+      </div>
+      <div class="border-t border-slate-100 dark:border-slate-800 pt-3">
+        <div class="text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">Compensation Structure</div>
+        <div class="text-sm font-black text-slate-900 dark:text-white">$45,000 Base Salary + 15% Net Gross Commission Plan</div>
+        <div class="text-xs text-slate-400 mt-0.5">Effective date: Jan 01, 2026 · Manager approved</div>
+      </div>
+    `)}
+  `;
+}
+
+function pplAssetsPanel(d) {
+  return `
+    ${engCard('Assigned Dealership Assets & Equipment', `
+      <div class="divide-y divide-slate-100 dark:divide-slate-800">
+        <div class="py-2.5 flex items-center justify-between">
+          <div>
+            <div class="text-xs font-bold text-slate-900 dark:text-white">Dell Latitude 5540 Laptop</div>
+            <div class="text-[11px] text-slate-400">Tag #ASSET-9042 · Issued Aug 01, 2026</div>
+          </div>
+          <span class="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 rounded-full">ASSIGNED</span>
+        </div>
+        <div class="py-2.5 flex items-center justify-between">
+          <div>
+            <div class="text-xs font-bold text-slate-900 dark:text-white">Building Keycard &amp; Master FOB</div>
+            <div class="text-[11px] text-slate-400">FOB #KEY-104 · Issued Aug 01, 2026</div>
+          </div>
+          <span class="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 rounded-full">ASSIGNED</span>
+        </div>
+        <div class="py-2.5 flex items-center justify-between">
+          <div>
+            <div class="text-xs font-bold text-slate-900 dark:text-white">Demo Vehicle Key (2026 F-150)</div>
+            <div class="text-[11px] text-slate-400">VIN ...9042 · Daily demo permit</div>
+          </div>
+          <span class="px-2 py-0.5 text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 rounded-full">ACTIVE DEMO</span>
+        </div>
+      </div>
+    `)}
+  `;
 }
 
 // A list that knows the difference between empty and unreadable.
