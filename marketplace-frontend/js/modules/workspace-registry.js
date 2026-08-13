@@ -59,7 +59,7 @@ const MS_WORKSPACES = {
     label: 'Sales', icon: 'currency', accent: 'amber',
     pages: [
       { page: 'sales', label: 'Pulse' },
-      { page: 'appraisal', label: 'Acquire', legacy: true },
+      { page: 'appraisal', label: 'Appraisals' },
       { page: 'crm', label: 'Customers', legacy: true },
       { page: 'appointments', label: 'Appointments', legacy: true },
       { page: 'tasks', label: 'Tasks', legacy: true },
@@ -81,6 +81,7 @@ const MS_WORKSPACES = {
     label: 'Inventory', icon: 'gem', accent: 'sky',
     pages: [
       { page: 'inventory-overview', label: 'Pulse' },
+      { page: 'appraisal', label: 'Appraisals' },
       { page: 'inventory', label: 'Vehicles', invmode: 'manual', legacy: true },
       { page: 'equity', label: 'Equity Mining' },
       { page: 'inv-intel', label: 'Inventory Intelligence', mgr: true, legacy: true },
