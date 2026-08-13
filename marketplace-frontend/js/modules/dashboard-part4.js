@@ -1176,7 +1176,6 @@ async function crmOpenForm(id) {
     ${crmEditFormContent(c)}
   </div>`, 'max-w-2xl');
 }
-}
 function crmToggleCompany(isCo) { const r = document.getElementById('crm-company-row'); if (r) r.classList.toggle('hidden', !isCo); }
 
 // Scan a driver's licence → AI reads it → prefill the New-contact form. On mobile,
