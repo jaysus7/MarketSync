@@ -611,11 +611,11 @@ async function initializeDashboardEcosystem() {
       document.getElementById('dealer-view-panel')?.classList.remove('hidden');
       // Team players + trend charts now live on the Insights page (admin only)
       document.getElementById('insights-team-section')?.classList.remove('hidden');
-      loadCharts();
-      loadDealerManagementMatrix();
+      if (typeof loadCharts === 'function') try { loadCharts(); } catch {}
+      if (typeof loadDealerManagementMatrix === 'function') try { loadDealerManagementMatrix(); } catch {}
     } else {
-      document.getElementById('rep-view-panel').classList.remove('hidden');
-      loadMyStats();
+      document.getElementById('rep-view-panel')?.classList.remove('hidden');
+      if (typeof loadMyStats === 'function') try { loadMyStats(); } catch {}
     }
 
 } catch (err) {
