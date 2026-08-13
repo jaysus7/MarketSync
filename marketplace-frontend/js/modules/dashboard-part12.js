@@ -100,7 +100,7 @@ const SVC_STATUS_LABEL = {
   parts_ordered: 'Waiting for Parts', in_progress: 'In Progress', quality_check: 'Quality Check',
   ready: 'Ready', delivered: 'Delivered', closed: 'Closed',
 };
-const svcStatusLabel = (s) => SVC_STATUS_LABEL[s] || s;
+const svcStatusLabel = (s) => (typeof SVC_STATUS_LABEL !== 'undefined' && SVC_STATUS_LABEL[s]) || s || '';
 // What the advisor is DOING, phrased as the action rather than the resulting state.
 const SVC_ACTION_LABEL = {
   checked_in: 'Check In', inspection: 'Start Inspection', estimate_sent: 'Send Estimate',
@@ -108,6 +108,7 @@ const SVC_ACTION_LABEL = {
   parts_ordered: 'Mark Parts Ordered', in_progress: 'Start Work', quality_check: 'Send to QC',
   ready: 'Mark Ready', delivered: 'Deliver to Customer', closed: 'Close RO → post to accounting',
 };
+Object.assign(window, { svcStatusLabel, SVC_STATUS_LABEL, SVC_ACTION_LABEL });
 let __svcTransitions = [];
 const svcStatusChip = (s) => {
   const c = { appointment: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300', checked_in: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300', inspection: 'bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300', estimate_sent: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300', customer_approved: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300', customer_declined: 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300', parts_ordered: 'bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300', in_progress: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300', quality_check: 'bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300', ready: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300', delivered: 'bg-teal-100 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300', closed: 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400' }[s] || 'bg-slate-100 text-slate-600';

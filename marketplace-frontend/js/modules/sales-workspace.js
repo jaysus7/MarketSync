@@ -31,6 +31,10 @@ const salesLabel = (s) => (typeof CRM_STATUS !== 'undefined' && CRM_STATUS[s]) |
 const salesName = (c) => c?.full_name || [c?.first_name, c?.last_name].filter(Boolean).join(' ') || 'Unnamed';
 const salesHours = (iso) => { if (!iso) return null; const h = (Date.now() - new Date(iso).getTime()) / 36e5; return Number.isFinite(h) ? h : null; };
 
+const SALES_TONE = { rose: 'text-rose-600 dark:text-rose-400', amber: 'text-amber-600 dark:text-amber-400',
+                     sky: 'text-sky-600 dark:text-sky-400', emerald: 'text-emerald-600 dark:text-emerald-400',
+                     slate: 'text-slate-500 dark:text-slate-400' };
+
 // "3h" / "2d" — compact age, or '' when unknown.
 function salesAge(iso) {
   const h = salesHours(iso);
@@ -39,6 +43,8 @@ function salesAge(iso) {
   if (h < 48) return `${Math.round(h)}h`;
   return `${Math.round(h / 24)}d`;
 }
+
+Object.assign(window, { SALES_TONE, salesLabel, salesName, salesHours, salesAge });
 
 // Is the caller a Sales manager? Server-authoritative signal first (/crm/insights
 // returns is_manager); role is only a presentation fallback. Never used to expose
@@ -150,10 +156,6 @@ function salesAttention(d) {
   return deduped.slice(0, 25);
 }
 
-const SALES_TONE = { rose: 'text-rose-600 dark:text-rose-400', amber: 'text-amber-600 dark:text-amber-400',
-                     sky: 'text-sky-600 dark:text-sky-400', emerald: 'text-emerald-600 dark:text-emerald-400',
-                     slate: 'text-slate-500 dark:text-slate-400' };
-
 function salesAttentionRow(it) {
   const tone = SALES_TONE[it.action?.tone] || SALES_TONE.slate;
   const onclick = it.id ? `openCrmContact('${it.id}')` : (it.action?.onclick || '');
@@ -181,6 +183,8 @@ function salesOppRow(c, d) {
     <div class="shrink-0 px-2 py-1 text-[12px] font-bold text-slate-500">${esc(na.label)}</div>
   </button>`;
 }
+
+Object.assign(window, { salesAttentionRow, salesOppRow });
 
 // ── Work sub-views ───────────────────────────────────────────────────────────
 function salesWorkView(v) { __salesWorkView = v; engineTab('sales', 'work'); }

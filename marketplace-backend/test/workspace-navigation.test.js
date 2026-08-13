@@ -239,7 +239,7 @@ test('the global header keeps approved sales and account controls without a hamb
 })
 
 test('Sales uses one header and composes operational work into My Day', () => {
-  assert.match(salesWorkspace, /tabOrder:\s*\['overview', 'work', 'equity', 'settings'\]/)
+  assert.match(salesWorkspace, /tabOrder[\s\S]*?\['overview', 'work', 'appraisals', 'desk', 'equity', 'settings'\]/)
   assert.doesNotMatch(salesWorkspace, /tabLabels:\s*\{[^}]*appointments:/)
   assert.match(salesWorkspace, /salesDealsAndDeliveries\(d\)/)
   assert.match(salesWorkspace, /Today's appointments/)
