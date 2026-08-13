@@ -370,12 +370,6 @@ ENGINES['sales'] = {
     },
 
     // ── DESK A DEAL ──────────────────────────────────────────────────────────
-    appraisals(body, d) {
-      body.innerHTML = `
-        <div class="mb-4 text-sm font-semibold text-slate-500">Appraise a trade-in and manage existing appraisals.</div>
-        ${engCard('Trade Appraisals', engEmpty('No active appraisals.'))}
-      `;
-    },
     desk(body, d) {
       if (typeof engMountPage === 'function') {
         engMountPage(body, 'desk', () => {
@@ -387,7 +381,7 @@ ENGINES['sales'] = {
     },
 
     // ── TRADE APPRAISALS & CAR APPRAISAL TOOL ──────────────────────────────────
-    appraisal(body, d) {
+    appraisals(body, d) {
       if (typeof engMountPage === 'function') {
         engMountPage(body, 'appraisal', () => {
           if (typeof initAppraisal === 'function') initAppraisal();
@@ -397,6 +391,9 @@ ENGINES['sales'] = {
       } else {
         body.innerHTML = engCard('Trade Appraisals', `<div class="p-4 text-center"><button onclick="switchPage('appraisal')" class="px-4 py-2 font-bold bg-amber-600 text-white rounded-lg">Appraise a Car / View Trade Appraisals</button></div>`);
       }
+    },
+    appraisal(body, d) {
+      this.appraisals(body, d);
     },
 
     // ── APPOINTMENTS — promoted out of a sub-view ───────────────────────────
