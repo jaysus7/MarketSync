@@ -580,8 +580,18 @@ async function initializeDashboardEcosystem() {
     // SaaS Admin in MarketSync mode → the company command center; otherwise the
     // dealership role's own My Day. This is a UX landing choice; route permissions remain
     // authoritative and switchPage will refuse any destination the caller cannot open.
-    if (__dashMode === 'marketsync' && (profileContext?.workspace === 'saas_admin' || document.documentElement.getAttribute('data-dash-owner') === '1')) switchPage('saas-command');
-    else switchPage(dealerRoleLanding(profileContext?.role));
+    const bootRoute = typeof msRouteFromHash === 'function' ? msRouteFromHash() : null;
+    const bootPage = (bootRoute && bootRoute.page) ? bootRoute.page : null;
+    if (bootPage) {
+      switchPage(bootPage);
+      if (bootRoute.tab && typeof engineTab === 'function' && typeof ENGINES !== 'undefined' && ENGINES[bootPage]) {
+        engineTab(bootPage, bootRoute.tab);
+      }
+    } else if (__dashMode === 'marketsync' && (profileContext?.workspace === 'saas_admin' || document.documentElement.getAttribute('data-dash-owner') === '1')) {
+      switchPage('saas-command');
+    } else {
+      switchPage(dealerRoleLanding(profileContext?.role));
+    }
     applyFeatureFlags();   // hide nav for features the dealer switched off
     // Entitlement-driven front door. Prefer the normalized access context (composes
     // subscription tier + product membership + role) and fall back to the legacy
@@ -1069,8 +1079,15 @@ function highlightDeptNav(pageId) {
 function switchPage(pageId) {
   ensurePanelsInOriginalLocations();
 
-  // Pipeline is retired — old deep links land on the Customers page.
-  if (pageId === 'pipeline') pageId = 'crm';
+  // Map legacy department page IDs directly to the single-source-of-truth workspace engines
+  if (pageId === 'crm' || pageId === 'pipeline' || pageId === 'leads' || pageId === 'appointments') pageId = 'sales';
+  if (pageId === 'inventory' || pageId === 'recon') pageId = 'inventory-overview';
+  if (pageId === 'fni') pageId = 'fni-overview';
+  if (pageId === 'service' || pageId === 'service-ros' || pageId === 'service-appointments') pageId = 'service-overview';
+  if (pageId === 'parts') pageId = 'parts-overview';
+  if (pageId === 'accounting') pageId = 'accounting-overview';
+  if (pageId === 'marketing') pageId = 'marketing-overview';
+  if (pageId === 'people' || pageId === 'hr') pageId = 'people-overview';
   // The three automation follow-up pages are now tabs inside one Builder page —
   // keep old deep links (notifications, mobile nav) working by mapping to the tab.
   if (pageId === 'auto-holidays' || pageId === 'auto-leads' || pageId === 'auto-delivery') {
