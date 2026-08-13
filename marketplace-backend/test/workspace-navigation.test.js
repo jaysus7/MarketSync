@@ -43,9 +43,9 @@ const salesWorkspace = read('js/modules/sales-workspace.js')
 const part11 = read('js/modules/dashboard-part11.js')
 const pageContainers = new Set([...html.matchAll(/data-page-content="([^"]+)"/g)].map(m => m[1]))
 
-// The nine target workspaces (project instructions §8 / Doc 21 §18).
+// The ten target workspaces (project instructions §8 / Doc 21 §18).
 const EXPECTED_WORKSPACES = [
-  'executive', 'sales', 'inventory', 'fni', 'service', 'parts', 'accounting', 'marketing', 'people',
+  'executive', 'sales', 'inventory', 'fni', 'recon', 'service', 'parts', 'accounting', 'marketing', 'people',
 ]
 
 // Every page the PREVIOUS DEPARTMENTS registry could reach. Phase 1 is a

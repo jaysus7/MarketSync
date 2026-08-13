@@ -299,6 +299,7 @@ ENGINES['inventory-overview'] = {
     // Add inventory lands on the Inventory tab, which now holds the real page.
     { label: '+ Add inventory', icon: 'gem', onclick: "engineTab('inventory-overview','work')" },
     { label: 'Inventory Intelligence', icon: 'chart', onclick: "engineTab('inventory-overview','overview')" },
+    { label: 'Market & Competitors', icon: 'globe', onclick: "engineTab('inventory-overview','overview')" },
   ],
   nextActions: (d) => invAttention(d || {}).slice(0, 5).map(it => ({
     label: `${it.who} — ${it.action?.label || 'Open'}`, icon: 'flame',
@@ -351,7 +352,7 @@ ENGINES['inventory-overview'] = {
       body.appendChild(strip);
       body.insertAdjacentHTML('beforeend', engSection('Inventory Intelligence', '', 'Pricing, aging and market comparison use the same canonical inventory shown above'));
       engMountPage(body, 'inv-intel', () => loadInvIntelPage());
-      // Market & Competitors moved to Sales My Day
+      engMountPage(body, 'market', () => loadMarketPage());
     },
     work: invRenderWork,
 

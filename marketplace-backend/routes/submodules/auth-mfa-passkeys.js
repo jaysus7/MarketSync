@@ -221,7 +221,7 @@ export function registerAuthMfaPasskeyRoutes(app) {
         recoveryCodesRemaining = count || 0
       }
 
-      const passkeys = await listUserPasskeys(req.user.id)
+      const passkeys = await listUserPasskeys({ supabaseAdmin, userId: req.user.id })
 
       res.json({
         enabled,
@@ -263,7 +263,7 @@ export function registerAuthMfaPasskeyRoutes(app) {
 
   app.get('/auth/passkey/list', requireAuth, async (req, res) => {
     try {
-      const passkeys = await listUserPasskeys(req.user.id)
+      const passkeys = await listUserPasskeys({ supabaseAdmin, userId: req.user.id })
       res.json({ passkeys })
     } catch (err) {
       res.status(500).json({ error: err.message })
@@ -311,7 +311,7 @@ export function registerAuthMfaPasskeyRoutes(app) {
   app.delete('/auth/passkey/:id', requireAuth, rateLimit('passkey-delete', 10, 60 * 60 * 1000), async (req, res) => {
     try {
       const id = String(req.params.id || '')
-      const deleted = await deletePasskey(req.user.id, id)
+      const deleted = await deletePasskey({ supabaseAdmin, userId: req.user.id, passkeyId: id })
       if (!deleted) return res.status(404).json({ error: 'Passkey not found.' })
       audit(req, AuditAction.PASSKEY_DELETED, { passkey_id: id })
       res.json({ success: true })
