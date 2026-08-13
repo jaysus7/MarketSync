@@ -467,45 +467,40 @@ ENGINES['parts-overview'] = {
     overview(body, d) {
       const att = partsAttention(d);
       const reqs = d.requests || [];
-      const items = d.inventory || [];
+      const items = d.inventory || d.parts || [];
       const short = reqs.filter(q => q.status === 'backordered').length;
       const toIssue = reqs.filter(q => q.status === 'reserved').length;
       const low = items.filter(i => pwStatus(i) === 'low').length;
 
-      const proactiveAiPanel = `
-        <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg border border-slate-800">
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-sky-400">
-              <span>Proactive Parts &amp; Warehouse AI Assistant</span>
-            </div>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">LIVE PARTS TELEMETRY</span>
-          </div>
-          <div class="text-xs text-slate-300 space-y-1.5 mb-3">
-            <p>• <strong>Service RO Demand:</strong> ${toIssue ? `<span class="text-emerald-400 font-bold">${toIssue} line item(s) reserved and ready for counter issue to technicians.</span>` : 'No reserved parts waiting for counter issue.'}</p>
-            <p>• <strong>Shop Backorders:</strong> ${short ? `<span class="text-rose-400 font-bold">${short} RO part request(s) on backorder blocking active service jobs!</span>` : 'No active RO backorders blocking service.'}</p>
-            <p>• <strong>Low Stock Reorder Threshold:</strong> ${low} SKU(s) falling below safety stock reorder levels.</p>
-            <p>• <strong>Warehouse Inventory:</strong> ${items.length} total active part SKUs indexed on stock ledger.</p>
-          </div>
-          <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
-            <button onclick="engineTab('parts-overview','requests')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Fulfill RO Part Requests</button>
-            <button onclick="engineTab('parts-overview','work')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Reorder Low Stock Items</button>
-          </div>
-        </div>
-      `;
+      const triageBar = typeof pwRenderTriageBar === 'function' ? pwRenderTriageBar(d) : '';
+      const proactiveAiPanel = typeof pwRenderProactiveAiPanel === 'function' ? pwRenderProactiveAiPanel(d) : '';
+      const valuationStrip = typeof pwRenderInventoryValuationStrip === 'function' ? pwRenderInventoryValuationStrip(d) : '';
+      const poSection = typeof pwRenderPurchaseOrdersSection === 'function' ? pwRenderPurchaseOrdersSection(d) : '';
+      const specialOrdersSection = typeof pwRenderSpecialOrdersSection === 'function' ? pwRenderSpecialOrdersSection(d) : '';
 
       body.innerHTML = `
+        ${triageBar}
         ${proactiveAiPanel}
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}
-          ${engKpi('Open requests', reqs.filter(q => PW_ACTIONABLE.includes(q.status)).length)}
-          ${engKpi('Shop waiting', short, short ? 'text-rose-600 dark:text-rose-400' : '')}
-          ${engKpi('Low stock', low, low ? 'text-amber-600 dark:text-amber-400' : '')}
+        ${valuationStrip}
+
+        <div id="pw-blocked-ros-section" class="mb-4">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}
+            ${engKpi('Open requests', reqs.filter(q => PW_ACTIONABLE.includes(q.status)).length)}
+            ${engKpi('Shop waiting', short, short ? 'text-rose-600 dark:text-rose-400' : '')}
+            ${engKpi('Low stock', low, low ? 'text-amber-600 dark:text-amber-400' : '')}
+          </div>
+          ${engCard('Needs attention & RO Blockers', att.length ? att.map(salesAttentionRow).join('') : engEmpty('Nothing is waiting on Parts.'))}
         </div>
-        ${engCard('Needs attention', att.length ? att.map(salesAttentionRow).join('') : engEmpty('Nothing is waiting on Parts.'))}
+
+        ${poSection}
+        ${specialOrdersSection}
+
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
           ${engCard(`Ready to issue (${toIssue})`, toIssue ? reqs.filter(q => q.status === 'reserved').slice(0, 6).map(q => pwRequestRow(q, d)).join('') : engEmpty('Nothing reserved and waiting.'))}
-          ${engCard(`Short (${short})`, short ? reqs.filter(q => q.status === 'backordered').slice(0, 6).map(q => pwRequestRow(q, d)).join('') : engEmpty('Nothing on backorder.'))}
+          ${engCard(`Short / Backordered (${short})`, short ? reqs.filter(q => q.status === 'backordered').slice(0, 6).map(q => pwRequestRow(q, d)).join('') : engEmpty('Nothing on backorder.'))}
         </div>`;
+
       // Insights belong in the day, not behind a tab somebody has to remember.
       const strip = document.createElement('div');
       strip.className = 'mt-4';
