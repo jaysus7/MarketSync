@@ -423,7 +423,7 @@ ENGINES['service-overview'] = {
       grab('repair orders', apiGetJson('/service-engine/ros')),
       grab('the appointment book', apiGetJson('/service/appointments')),
       grab('parts demand', apiGetJson('/service-engine/part-requests')),
-      grab('closed repair orders', apiGetJson('/service-engine/ros?status=closed')),
+      grab('closed repair orders', apiGetJson('/service-engine/ros?status=closed&limit=30')),
       grab('follow-up calls', apiGetJson('/service-engine/follow-up-calls')),
       grab('service settings', apiGetJson('/service-engine/config')),
     ]);
@@ -471,10 +471,6 @@ ENGINES['service-overview'] = {
 
   tabs: {
     overview(body, d) {
-      if (typeof window.pulseServiceDeptSection === 'function') {
-        body.innerHTML = window.pulseServiceDeptSection(d);
-        return;
-      }
       if (svcIsTechnician()) {
         const jobs = svcMyJobs(d);
         const blocked = jobs.filter(j => j.line.line_status === 'blocked').length;
