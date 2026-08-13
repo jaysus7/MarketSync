@@ -1,0 +1,20 @@
+name: Accounting daily reconciliation
+
+# Reconciles yesterday's books for every dealership each morning and emails the
+# accounting team + GM/owner when a day doesn't balance. Runs 12:30 UTC (early
+# morning North America). The endpoint is idempotent per (dealership, date) and
+# only emails once per off day.
+on:
+  schedule:
+    - cron: '30 12 * * *'   # daily 12:30 UTC
+  workflow_dispatch: {}      # manual trigger from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call /cron/accounting-reconcile
+        run: |
+          curl -fsS -X POST \
+            "https://vehicle-marketplace-s0e4.onrender.com/cron/accounting-reconcile" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"
