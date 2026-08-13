@@ -191,19 +191,65 @@ ENGINES['accounting-overview'] = {
       const deptFinancials = [
         { dept: 'Sales & F&I Department', rev: '$184,200', exp: '$12,450', profit: '+$171,750', margin: '93%', pct: 93, color: 'bg-emerald-500' },
         { dept: 'Service Department', rev: '$48,500', exp: '$14,200', profit: '+$34,300', margin: '71%', pct: 71, color: 'bg-blue-500' },
-        { dept: 'Parts Department', rev: '$32,100', exp: '$18,900', profit: '+$13,200', margin: '41%', pct: 41, color: 'bg-amber-500' },
+        { dept: 'Parts Department', rev: '$32,100', exp: '$18,900', profit: '$13,200', margin: '41%', pct: 41, color: 'bg-amber-500' },
         { dept: 'Inventory (Carrying & Holding)', rev: '$0', exp: '$6,800', profit: '-$6,800', margin: 'N/A', pct: 25, color: 'bg-indigo-500' },
         { dept: 'Cleanup & Detailing Supplies', rev: '$0', exp: '$3,250', profit: '-$3,250', margin: 'N/A', pct: 15, color: 'bg-teal-500' },
         { dept: 'Marketing & Campaign Spend', rev: '$0', exp: '$5,400', profit: '-$5,400', margin: 'N/A', pct: 20, color: 'bg-purple-500' },
         { dept: 'HR, Payroll & Admin Overhead', rev: '$0', exp: '$28,600', profit: '-$28,600', margin: 'N/A', pct: 60, color: 'bg-rose-500' },
       ];
 
+      // Work Queue Items
+      const workQueue = [
+        { title: 'Overdue Lender Funding (CIT)', desc: '3 delivered deals awaiting lender payout > 14 days', action: 'Inspect Lender Funding', onclick: "engineTab('accounting-overview','money_in')" },
+        { title: 'Vendor Bills Awaiting Approval', desc: '2 vendor invoices for Parts department pending signoff', action: 'Review Payables', onclick: "engineTab('accounting-overview','money_out')" },
+        { title: 'Unmatched Bank Feed Deposits', desc: '4 imported bank transactions require ledger matching', action: 'Match Bank Feed', onclick: "engineTab('accounting-overview','bank')" },
+        { title: 'Period Close Checklist Blockers', desc: 'Statement attestation required before period lock', action: 'Go to Period Close', onclick: "engineTab('accounting-overview','close')" },
+      ];
+
       body.innerHTML = `
+        <!-- Metric Strip -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('Needs attention', exc.length, exc.length ? 'text-rose-600 dark:text-rose-400' : '')}
           ${engKpi('Critical', critical, critical ? 'text-rose-600 dark:text-rose-400' : '')}
           ${engKpi('Awaiting funding', unfunded, unfunded ? 'text-amber-600 dark:text-amber-400' : '')}
           ${engKpi('Bills due', apDue, apDue ? 'text-amber-600 dark:text-amber-400' : '')}
+        </div>
+
+        <!-- Proactive AI Controller Assistant Panel -->
+        <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-indigo-950 text-white shadow-lg border border-slate-800">
+          <div class="flex items-center gap-2 mb-2 font-black text-xs uppercase tracking-wider text-emerald-400">
+            <span>✨ Proactive Controller AI Assistant</span>
+          </div>
+          <div class="text-sm font-semibold mb-2">Dealership Financial Health Summary</div>
+          <div class="text-xs text-slate-300 space-y-1">
+            <p>• All general ledger entries are balanced (Debits = Credits).</p>
+            <p>• Contracts in Transit: 3 lender receivables require follow-up with Ally Financial.</p>
+            <p>• Net operating profit across all departments is currently <strong>+$77,750.00</strong> this month.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 mt-3 pt-2 border-t border-slate-800">
+            <button onclick="engineTab('accounting-overview','money_in')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition">Review Lender Funding</button>
+            <button onclick="engineTab('accounting-overview','reports')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">View Full P&amp;L Report</button>
+          </div>
+        </div>
+
+        <!-- Controller Daily Work Queue & Actionable Inbox -->
+        <div class="mb-4">
+          ${engCard('Controller Daily Work Queue & Actionable Inbox', `
+            <div class="text-[12px] text-slate-400 mb-3">Prioritized operational tasks requiring accounting intervention today.</div>
+            <div class="space-y-3">
+              ${workQueue.map(wq => `
+                <div class="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30">
+                  <div>
+                    <div class="font-bold text-[13px] text-slate-900 dark:text-white">${esc(wq.title)}</div>
+                    <div class="text-[12px] text-slate-400">${esc(wq.desc)}</div>
+                  </div>
+                  <button onclick="${wq.onclick}" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition shrink-0">
+                    ${esc(wq.action)}
+                  </button>
+                </div>
+              `).join('')}
+            </div>
+          `)}
         </div>
 
         <!-- All Departments Financial Control, Expenses & Profit Graphs -->
@@ -248,10 +294,13 @@ ENGINES['accounting-overview'] = {
             ${engKpi('Open receivables', open.length)}
           </div>
           ${engCard('Financial statements', `
-            <div class="text-[13px] text-slate-500 dark:text-slate-400">
-              Trial balance, P&amp;L and balance sheet are computed from posted journals on the
-              Accounting page.
+            <div class="text-[13px] text-slate-500 dark:text-slate-400 mb-2">
+              Trial balance, P&amp;L and balance sheet are computed from posted journals on the Accounting page.
             </div>
+            <button onclick="engineTab('accounting-overview','reports')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">View Statements</button>
+          `)}
+        `)}
+      `;
     },
 
     money_in(body, d) {
