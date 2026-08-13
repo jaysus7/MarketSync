@@ -1303,6 +1303,14 @@ async function idvRefresh(contactId) {
     if (r.status === 'verified') { showToast('Identity verified', 'success'); const l = document.getElementById('idv-link'); if (l) l.classList.add('hidden'); }
   } catch (e) { if (badge) badge.innerHTML = idvBadge('requires_input'); showToast(e.message || 'Could not check status', 'error'); }
 }
+
+async function idvVerifyInPerson(contactId) {
+  try {
+    await apiSendJson(`/crm/contacts/${contactId}`, 'PATCH', { id_verified_at: new Date().toISOString() });
+    showToast("Driver's licence verified in-person", 'success');
+    idvRefresh(contactId);
+  } catch (e) { showToast(e.message || 'Could not update verification', 'error'); }
+}
 // Verification-provider picker (managers only, shown when >1 provider is configured
 // server-side). Cached so opening a contact doesn't re-fetch every time.
 let __idvConfig = null;
