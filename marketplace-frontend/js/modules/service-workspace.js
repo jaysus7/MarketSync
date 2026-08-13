@@ -17,11 +17,10 @@
 
 // State wording and action wording already exist in dashboard-part12.js, which was
 // converted to the canonical vocabulary in PR 4.2a. Reuse them rather than keeping a
-// second copy that can drift: `svcStatusLabel()` for the state a user sees, and
+// second copy that can drift:// `SVC_ACTION_LABEL` for what the advisor is DOING.
 if (typeof window.svcStatusLabel !== 'function') {
   window.svcStatusLabel = (s) => (typeof SVC_STATUS_LABEL !== 'undefined' && SVC_STATUS_LABEL[s]) || s || '';
 }
-var svcStatusLabel = window.svcStatusLabel;
 
 let __svcData = null;
 
