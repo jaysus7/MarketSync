@@ -28,7 +28,11 @@ jobs:
       - name: Install (locked)
         run: npm ci
       - name: Audit — fail on high/critical
-        run: npm audit --audit-level=high --omit=dev
+        # Same bar as `npm audit --audit-level=high --omit=dev`, plus the ability to
+        # accept a specific advisory IN WRITING and only until a review date. See
+        # scripts/audit-gate.mjs — lowering the level instead would have silenced every
+        # future high advisory along with the one being accepted.
+        run: node scripts/audit-gate.mjs
       - name: Syntax-check all backend sources
         run: npm run check:syntax
       - name: Validate ESM module import resolution

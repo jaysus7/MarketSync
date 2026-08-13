@@ -18,7 +18,8 @@
     "check:startup": "SUPABASE_URL=${SUPABASE_URL:-https://dummy.supabase.co} SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-dummy-anon} SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-dummy-role} VALIDATE_STARTUP=true RUN_WORKERS=false node server.js",
     "validate:imports": "node scripts/validate-imports.js",
     "seed:jms": "node scripts/seed-jms.js",
-    "bootstrap:platform-staff": "node scripts/bootstrap-platform-staff.js"
+    "bootstrap:platform-staff": "node scripts/bootstrap-platform-staff.js",
+    "check:audit": "node scripts/audit-gate.mjs"
   },
   "keywords": [],
   "author": "",
