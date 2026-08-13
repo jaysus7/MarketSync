@@ -582,7 +582,7 @@ export async function listPartRequests(dealershipId, { roId = null, status = nul
 // (part_requests_service_needs_ro).
 export const PART_REQUEST_DEPARTMENTS = ['service', 'sales', 'customer', 'internal']
 
-export async function requestPart(dealershipId, roId, { partId, qty = 1, roLineId = null, note = null, idempotencyKey = null, userId = null, requestedFor = 'service' } = {}) {
+export async function requestPart(dealershipId, roId, { partId, qty = 1, roLineId = null, note = null, idempotencyKey = null, userId = null, requestedFor = 'service', contactId = null, dealId = null } = {}) {
   if (!partId) throw new Error('a part is required')
   if (n(qty) <= 0) throw new Error('quantity must be greater than zero')
   const dept = PART_REQUEST_DEPARTMENTS.includes(requestedFor) ? requestedFor : 'service'
@@ -594,17 +594,20 @@ export async function requestPart(dealershipId, roId, { partId, qty = 1, roLineI
       .eq('dealership_id', dealershipId).eq('idempotency_key', idempotencyKey).maybeSingle()
     if (prior) return prior
   }
-  const { data, error } = await supabaseAdmin.from('part_requests').insert({
+  const payload = {
     dealership_id: dealershipId, ro_id: roId || null, ro_line_id: roLineId, part_id: partId,
     qty_requested: n(qty), note, requested_by: userId, idempotency_key: idempotencyKey,
     requested_for: dept,
-  }).select('*').single()
+  }
+  if (contactId) payload.contact_id = contactId
+  if (dealId) payload.deal_id = dealId
+  const { data, error } = await supabaseAdmin.from('part_requests').insert(payload).select('*').single()
   if (error) throw new Error(error.message)
   emitEvent({
     dealershipId, eventName: 'service.part_requested',
     entityType: roId ? 'repair_order' : 'part_request', entityId: roId || data.id,
     summary: `Parts requested — ${n(qty)} (${dept})`, department: 'Service', createdBy: userId,
-    payload: { request_id: data.id, part_id: partId, qty: n(qty), ro_line_id: roLineId, requested_for: dept },
+    payload: { request_id: data.id, part_id: partId, qty: n(qty), ro_line_id: roLineId, requested_for: dept, contact_id: contactId, deal_id: dealId },
   })
   return data
 }
@@ -1209,6 +1212,8 @@ export function registerServiceEngine(app) {
         partId: b.part_id, qty: b.qty, roLineId: b.ro_line_id || null, note: b.note || null,
         idempotencyKey: b.idempotency_key || null, userId: req.user?.id || null,
         requestedFor: b.requested_for || 'service',
+        contactId: b.contact_id || b.customer_id || null,
+        dealId: b.deal_id || null,
       }) })
     } catch (e) { res.status(400).json({ error: e.message }) }
   })
@@ -1219,14 +1224,16 @@ export function registerServiceEngine(app) {
   app.post('/service-engine/part-requests', requireAuth, canWork, async (req, res) => {
     if (!guard(req, res)) return
     const b = req.body || {}
-    if (b.requested_for === 'service') {
+    if (b.requested_for === 'service' && !b.ro_id) {
       return res.status(400).json({ error: 'A Service request belongs to a repair order — raise it on the RO.' })
     }
     try {
       res.json({ ok: true, request: await requestPart(req.dealershipId, b.ro_id || null, {
         partId: b.part_id, qty: b.qty, note: b.note || null,
         idempotencyKey: b.idempotency_key || null, userId: req.user?.id || null,
-        requestedFor: b.requested_for,
+        requestedFor: b.requested_for || 'customer',
+        contactId: b.contact_id || b.customer_id || null,
+        dealId: b.deal_id || null,
       }) })
     } catch (e) { res.status(400).json({ error: e.message }) }
   })

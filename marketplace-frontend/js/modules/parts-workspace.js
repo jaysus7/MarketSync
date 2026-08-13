@@ -66,11 +66,20 @@ function pwRequestRow(q, d) {
   const part = d.partById?.[q.part_id] || {};
   const na = pwNextAction(q, d.availableByPart || {});
   const avail = d.availableByPart?.[q.part_id] ?? 0;
+  const contact = q.contact_id ? (d.contactById?.[q.contact_id] || { full_name: 'Customer' }) : null;
+  const deal = q.deal_id ? (d.dealById?.[q.deal_id] || { customer_name: 'Deal' }) : null;
+
   return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
     <div class="min-w-0 flex-1">
       <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(part.part_number || 'Part')}</div>
       <div class="text-[12px] text-slate-400 truncate">${esc(pwReqShort(q))}</div>
-      <div class="text-[12px] text-slate-400 truncate"><span class="${avail > 0 ? '' : 'text-rose-500'}">${avail} available</span>${q.eta ? ` · ETA ${esc(q.eta)}` : ''}${q.vendor ? ` · ${esc(q.vendor)}` : ''}</div>
+      <div class="text-[12px] text-slate-400 truncate flex flex-wrap items-center gap-1.5 mt-0.5">
+        <span class="${avail > 0 ? '' : 'text-rose-500'}">${avail} available</span>
+        ${q.eta ? ` · ETA ${esc(q.eta)}` : ''}
+        ${q.vendor ? ` · ${esc(q.vendor)}` : ''}
+        ${contact ? ` · <button onclick="openCrmContact('${q.contact_id}')" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">Customer: ${esc(contact.full_name || contact.name || 'View')}</button>` : ''}
+        ${deal ? ` · <button onclick="switchPage('desk')" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">Deal #${esc(q.deal_id.slice(0, 8))}</button>` : ''}
+      </div>
     </div>
     ${na.onclick ? `<button onclick="${na.onclick}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">${esc(na.label)}</button>` : ''}
   </div>`;
@@ -183,6 +192,9 @@ function pwNewRequestForm(d) {
   const parts = (d.parts || []).slice(0, 400)
     .map(p => `<option value="${esc(p.id)}">${esc(pwPartLabel(p))}</option>`).join('');
   const depts = PW_DEPARTMENTS.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('');
+  const contactsOptions = (d.contacts || []).map(c => `<option value="${esc(c.id)}">${esc(c.full_name || c.name || c.email || 'Customer')}</option>`).join('');
+  const dealsOptions = (d.deals || []).map(x => `<option value="${esc(x.id)}">${esc(x.customer_name || 'Deal')} — ${esc(x.vehicle_label || x.vehicle || x.id.slice(0, 8))}</option>`).join('');
+
   return engCard('', `
     <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
       <label class="block sm:col-span-2">
@@ -198,6 +210,25 @@ function pwNewRequestForm(d) {
         <input id="pw-req-qty" type="number" min="1" step="1" value="1" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
       </label>
     </div>
+
+    <!-- Customer & Deal Assignment -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+      <label class="block">
+        <span class="block text-[12px] font-bold text-slate-600 dark:text-slate-300">Customer Access</span>
+        <select id="pw-req-contact" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+          <option value="">-- Attach Customer (Optional) --</option>
+          ${contactsOptions}
+        </select>
+      </label>
+      <label class="block">
+        <span class="block text-[12px] font-bold text-slate-600 dark:text-slate-300">Deal Access</span>
+        <select id="pw-req-deal" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+          <option value="">-- Attach to Deal (Optional) --</option>
+          ${dealsOptions}
+        </select>
+      </label>
+    </div>
+
     <div id="pw-req-ro-wrap" class="mt-3">
       <label class="block">
         <span class="block text-[12px] font-bold text-slate-600 dark:text-slate-300">Repair order</span>
@@ -223,14 +254,18 @@ async function pwCreateRequest() {
   const partId = document.getElementById('pw-req-part')?.value;
   const qty = Number(document.getElementById('pw-req-qty')?.value) || 0;
   const roId = (document.getElementById('pw-req-ro')?.value || '').trim();
+  const contactId = document.getElementById('pw-req-contact')?.value || null;
+  const dealId = document.getElementById('pw-req-deal')?.value || null;
+
   if (!partId) { showToast('Pick a part.', 'error'); return; }
   if (qty <= 0) { showToast('Quantity has to be more than zero.', 'error'); return; }
   try {
+    const payload = { part_id: partId, qty, requested_for: dept, contact_id: contactId, deal_id: dealId };
     if (dept === 'service') {
       if (!roId) { showToast('A Service request needs the repair order it is for.', 'error'); return; }
-      await apiSendJson(`/service-engine/ros/${roId}/part-requests`, 'POST', { part_id: partId, qty, requested_for: 'service' });
+      await apiSendJson(`/service-engine/ros/${roId}/part-requests`, 'POST', payload);
     } else {
-      await apiSendJson('/service-engine/part-requests', 'POST', { part_id: partId, qty, requested_for: dept });
+      await apiSendJson('/service-engine/part-requests', 'POST', payload);
     }
     showToast(`Requested for ${PW_DEPT_LABEL[dept] || dept}`, 'success');
     pwRefresh();
@@ -390,16 +425,22 @@ ENGINES['parts-overview'] = {
   fetch: async () => {
     const miss = [];
     const grab = (label, p) => p.catch(() => { miss.push(label); return null; });
-    const [reqs, parts, cfg] = await Promise.all([
+    const [reqs, parts, cfg, contacts, deals] = await Promise.all([
       grab('parts demand', apiGetJson('/service-engine/part-requests')),
       grab('stock availability', apiGetJson('/service-engine/parts-availability')),
       grab('parts settings', apiGetJson('/service-engine/config')),
+      grab('crm contacts', apiGetJson('/crm/contacts?limit=200')),
+      grab('deals', apiGetJson('/fni/deals')),
     ]);
     const d = {
       requests: reqs?.requests || [], parts: parts?.parts || [],
       config: cfg ? (cfg.config || null) : null, unavailable: miss,
+      contacts: contacts?.contacts || [],
+      deals: deals?.deals || deals || [],
     };
     d.partById = {}; for (const p of d.parts) d.partById[p.id] = p;
+    d.contactById = {}; for (const c of d.contacts) d.contactById[c.id] = c;
+    d.dealById = {}; for (const x of d.deals) d.dealById[x.id] = x;
     // Availability is the SERVER's number. This only indexes it.
     d.availableByPart = {}; for (const p of d.parts) d.availableByPart[p.id] = Number(p.qty_available);
     __pwData = d;
