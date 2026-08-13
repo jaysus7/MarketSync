@@ -507,16 +507,18 @@ window.autoTab = autoTab;
 async function loadAutoBuilderPage() {
   const tabsEl = document.getElementById('auto-builder-tabs');
   if (!tabsEl) return;
-  const tab = (id, label) => `<button onclick="autoTab('${id}')" class="px-4 py-2.5 text-xs font-bold border-b-2 transition ${__autoTab === id ? 'border-indigo-600 dark:border-indigo-400 text-indigo-700 dark:text-indigo-300 bg-indigo-50/50 dark:bg-indigo-950/30' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}">${label}</button>`;
+  const tab = (id, label) => `<button onclick="autoTab('${id}')" class="px-3.5 py-2.5 text-xs font-bold border-b-2 transition whitespace-nowrap ${__autoTab === id ? 'border-indigo-600 dark:border-indigo-400 text-indigo-700 dark:text-indigo-300 bg-indigo-50/50 dark:bg-indigo-950/30' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}">${label}</button>`;
   
   tabsEl.innerHTML = `
     <div class="flex items-center gap-1 overflow-x-auto w-full border-b border-slate-200 dark:border-slate-800">
-      ${tab('templates', 'Templates')}
-      ${tab('active', 'Active Sequences')}
       ${tab('leads', 'Lead Follow-ups')}
-      ${tab('delivery', 'Delivery & Reviews')}
-      ${tab('service', 'Service & Reminders')}
-      ${tab('custom', 'Custom Triggers')}
+      ${tab('delivery', 'Delivery Follow-ups')}
+      ${tab('service', 'Service Follow-ups')}
+      ${tab('reviews', 'Review / Referral')}
+      ${tab('birthdays', 'Birthdays & Anniversaries')}
+      ${tab('holidays', 'Holidays')}
+      ${tab('winback', 'Win-back')}
+      ${tab('custom', 'Custom')}
       ${tab('settings', 'Automation Settings')}
     </div>
   `;
@@ -541,57 +543,107 @@ async function loadAutoBuilderPage() {
           </div>
         </div>
       `;
-    } else if (__autoTab === 'templates' || __autoTab === 'custom' || __autoTab === 'active' || __autoTab === 'service') {
+    } else if (['leads', 'service', 'reviews', 'birthdays', 'winback', 'custom'].includes(__autoTab)) {
+      const activeCategory = __autoTab === 'service' ? 'Service Follow-ups & Reminders'
+        : __autoTab === 'reviews' ? 'Review & Referral Generation'
+        : __autoTab === 'birthdays' ? 'Birthdays & Anniversaries'
+        : __autoTab === 'winback' ? 'Win-Back Lost Leads'
+        : __autoTab === 'custom' ? 'Custom Event Workflows'
+        : 'Sales Lead Follow-ups';
+
       leadRoot.innerHTML = `
         <div class="space-y-6">
           <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-5 border border-indigo-500/20 shadow-md">
             <div class="flex items-center justify-between flex-wrap gap-3">
               <div>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 uppercase tracking-wider">Event-Driven Engine</span>
-                <h3 class="text-lg font-black text-white mt-1">Real-Time Dealership Automation Sequences</h3>
-                <p class="text-xs text-slate-300 mt-0.5">Triggers execute automatically when customer events occur in CRM, Service, or Sales.</p>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 uppercase tracking-wider">Event-Driven Automation Engine</span>
+                <h3 class="text-lg font-black text-white mt-1">${esc(activeCategory)} Builder</h3>
+                <p class="text-xs text-slate-300 mt-0.5">Automated sequences trigger dynamically on real customer events in CRM, Sales, or Service.</p>
               </div>
-              <button onclick="showToast('Event trigger wizard opened', 'info')" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-sm">+ Create Event Sequence</button>
+              <button onclick="showToast('New sequence builder opened', 'success')" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-sm">+ Add New Workflow</button>
             </div>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm hover:border-indigo-400 transition">
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Sales Lead Flow</span>
-                <span class="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 rounded-full">ACTIVE</span>
+          <!-- Event-Driven Workflows Visual Cards -->
+          <div class="space-y-4">
+            <!-- Workflow 1: New Lead 90-Second Rapid Response -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
+              <div class="flex items-center justify-between flex-wrap gap-2">
+                <div class="flex items-center gap-2">
+                  <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                  <h4 class="text-sm font-black text-slate-900 dark:text-white">New Lead 90-Second Rapid Response &amp; SLA Routing</h4>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold text-slate-400">Status:</span>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" checked onchange="showToast('Automation sequence updated', 'info')" class="sr-only peer">
+                    <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                  </label>
+                </div>
               </div>
-              <h4 class="text-sm font-bold text-slate-900 dark:text-white">New Lead 90-Second Rapid Response</h4>
-              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-3">New lead created → wait 90s → if no rep response → send SMS → assign rep → 3d follow-up → stop on appointment.</p>
-              <div class="flex items-center justify-between text-xs pt-3 border-t border-slate-100 dark:border-slate-800">
-                <span class="text-slate-400 font-semibold">1,420 executed this month</span>
-                <button onclick="autoTab('leads')" class="font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Configure →</button>
+
+              <!-- Sequence Visual Step Map -->
+              <div class="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 text-xs font-mono space-y-1.5">
+                <div class="text-indigo-600 dark:text-indigo-400 font-bold">⚡ TRIGGER: New Lead Created in CRM</div>
+                <div class="text-slate-500 pl-4">└─ ⏱ Wait 90 seconds</div>
+                <div class="text-slate-500 pl-4">└─ ❓ IF no human rep response:</div>
+                <div class="text-slate-700 dark:text-slate-300 pl-8">├── 💬 Send SMS: "Hi {CUSTOMER_NAME}! This is {REP_NAME} at {STORE_NAME}..."</div>
+                <div class="text-slate-700 dark:text-slate-300 pl-8">├── 👤 Auto-assign round-robin salesperson</div>
+                <div class="text-slate-500 pl-8">└── ⏱ Wait 3 days → IF no response → ✉️ Send follow-up email</div>
+                <div class="text-emerald-600 dark:text-emerald-400 font-bold pl-4">🛑 STOP CONDITION: Customer books appointment or replies</div>
               </div>
             </div>
 
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm hover:border-indigo-400 transition">
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-black text-purple-600 dark:text-purple-400 uppercase tracking-wider">Delivery &amp; CX</span>
-                <span class="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 rounded-full">ACTIVE</span>
+            <!-- Workflow 2: Delivery Thank You & Sentiment Check -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
+              <div class="flex items-center justify-between flex-wrap gap-2">
+                <div class="flex items-center gap-2">
+                  <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                  <h4 class="text-sm font-black text-slate-900 dark:text-white">Vehicle Delivery Thank-You &amp; Google Review Router</h4>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold text-slate-400">Status:</span>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" checked onchange="showToast('Automation sequence updated', 'info')" class="sr-only peer">
+                    <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                  </label>
+                </div>
               </div>
-              <h4 class="text-sm font-bold text-slate-900 dark:text-white">Delivery Thank-You &amp; Sentiment Check</h4>
-              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-3">Vehicle delivered → wait 24h → thank you SMS → wait 5d → review request → if negative → alert GM task.</p>
-              <div class="flex items-center justify-between text-xs pt-3 border-t border-slate-100 dark:border-slate-800">
-                <span class="text-slate-400 font-semibold">312 executed this month</span>
-                <button onclick="autoTab('delivery')" class="font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Configure →</button>
+
+              <!-- Sequence Visual Step Map -->
+              <div class="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 text-xs font-mono space-y-1.5">
+                <div class="text-indigo-600 dark:text-indigo-400 font-bold">⚡ TRIGGER: Vehicle Delivery Completed</div>
+                <div class="text-slate-500 pl-4">└─ ⏱ Wait 24 hours</div>
+                <div class="text-slate-700 dark:text-slate-300 pl-4">└─ 💬 Send Thank-You SMS from assigned rep</div>
+                <div class="text-slate-500 pl-4">└─ ⏱ Wait 5 days</div>
+                <div class="text-slate-700 dark:text-slate-300 pl-4">└─ 💬 Send Review Request SMS with sentiment check</div>
+                <div class="text-amber-600 dark:text-amber-400 pl-8">├── IF negative sentiment: Create Urgent GM Manager Task (Do not send review link)</div>
+                <div class="text-emerald-600 dark:text-emerald-400 pl-8">└── IF positive sentiment: Redirect to 5-Star Google Review link</div>
               </div>
             </div>
 
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm hover:border-indigo-400 transition">
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider">Service Retention</span>
-                <span class="px-2 py-0.5 text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 rounded-full">READY</span>
+            <!-- Workflow 3: Service Maintenance Recall -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
+              <div class="flex items-center justify-between flex-wrap gap-2">
+                <div class="flex items-center gap-2">
+                  <span class="w-3 h-3 rounded-full bg-indigo-500"></span>
+                  <h4 class="text-sm font-black text-slate-900 dark:text-white">Service RO Closed 6-Month Maintenance Reminder</h4>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold text-slate-400">Status:</span>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" checked onchange="showToast('Automation sequence updated', 'info')" class="sr-only peer">
+                    <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                  </label>
+                </div>
               </div>
-              <h4 class="text-sm font-bold text-slate-900 dark:text-white">Service RO 6-Month Maintenance Recall</h4>
-              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-3">Service RO closed → wait 6 months or +5,000 miles → send service reminder with 1-click booking link.</p>
-              <div class="flex items-center justify-between text-xs pt-3 border-t border-slate-100 dark:border-slate-800">
-                <span class="text-slate-400 font-semibold">890 queued</span>
-                <button onclick="showToast('Service sequence opened', 'info')" class="font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Configure →</button>
+
+              <!-- Sequence Visual Step Map -->
+              <div class="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 text-xs font-mono space-y-1.5">
+                <div class="text-indigo-600 dark:text-indigo-400 font-bold">⚡ TRIGGER: Service Repair Order Closed</div>
+                <div class="text-slate-500 pl-4">└─ ⏱ Wait 6 months OR +5,000 miles</div>
+                <div class="text-slate-700 dark:text-slate-300 pl-4">└─ ✉️ Send Maintenance Reminder Email + SMS with 1-click booking link</div>
+                <div class="text-emerald-600 dark:text-emerald-400 font-bold pl-4">🛑 STOP CONDITION: Service appointment booked</div>
               </div>
             </div>
           </div>
