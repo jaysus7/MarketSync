@@ -81,6 +81,7 @@ function pwRequestRow(q, d) {
         ${deal ? ` · <button onclick="switchPage('desk')" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">Deal #${esc(q.deal_id.slice(0, 8))}</button>` : ''}
       </div>
     </div>
+    <button onclick="printPartsReceipt('${q.id}')" title="Print / Save Parts Receipt to Timeline" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 transition">Print Receipt</button>
     ${na.onclick ? `<button onclick="${na.onclick}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">${esc(na.label)}</button>` : ''}
   </div>`;
 }

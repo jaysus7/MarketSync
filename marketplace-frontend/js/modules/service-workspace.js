@@ -90,6 +90,7 @@ function svcRoRow(r, d) {
     </button>
     <div class="flex items-center gap-1.5 shrink-0">
       <button onclick="svcOpenDviModal('${r.id}')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">DVI</button>
+      <button onclick="printServiceReceipt('${r.id}')" title="Print / Save Receipt to Timeline" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 transition">Print Receipt</button>
       ${r.status === 'estimate_sent' ? `<button onclick="svcOpenEstimateDrawer('${r.id}')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-amber-600 text-white hover:bg-amber-500 transition">Estimate</button>` : ''}
       <button onclick="svcOpenRecord('${r.id}')" class="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">Open RO</button>
     </div>
@@ -143,7 +144,13 @@ async function svcOpenRecord(roId) {
     <div class="p-5 pt-3 space-y-4">
       <div>
         <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Next action</div>
-        <div class="flex flex-wrap gap-2">${actions}</div>
+        <div class="flex flex-wrap gap-2">
+          ${actions}
+          <button onclick="printServiceReceipt('${roId}')" class="px-3.5 py-2 rounded-lg text-[12px] font-black bg-blue-600 hover:bg-blue-500 text-white transition inline-flex items-center gap-1.5 shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+            Print / Save Customer Receipt
+          </button>
+        </div>
       </div>
       ${ro.complaint ? `<div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Customer concern</div>
         <div class="text-[13px] text-slate-700 dark:text-slate-200">${esc(ro.complaint)}</div></div>` : ''}
