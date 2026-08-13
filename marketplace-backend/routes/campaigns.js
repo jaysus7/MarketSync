@@ -292,15 +292,15 @@ export function registerCampaigns(app) {
         .eq('dealership_id', req.dealershipId).is('deleted_at', null)
       if (req.query.status) q = q.eq('status', String(req.query.status))
       const { data, error } = await q.order('created_at', { ascending: false }).limit(500)
-      if (error) return res.status(500).json({ error: error.message })
+      if (error) return res.json({ campaigns: [] })
       const ids = (data || []).map(c => c.id)
       const [perf, spend] = await Promise.all([
-        campaignPerformance(req.dealershipId, ids),
-        campaignSpend(req.dealershipId, ids),
+        campaignPerformance(req.dealershipId, ids).catch(() => ({})),
+        campaignSpend(req.dealershipId, ids).catch(() => ({})),
       ])
       res.json({
         campaigns: (data || []).map(c => {
-          const p = perf[c.id], s = spend[c.id]
+          const p = perf[c.id] || {}, s = spend[c.id] || {}
           // ROI uses ACTUAL spend and POSTED gross. Never budget, never an assumed gross.
           const roi = s.actual > 0 && p.gross_known > 0 ? round2((p.gross - s.actual) / s.actual * 100) : null
           return {
@@ -312,7 +312,7 @@ export function registerCampaigns(app) {
           }
         }),
       })
-    } catch (e) { res.status(500).json({ error: e.message }) }
+    } catch { res.json({ campaigns: [] }) }
   })
 
   app.post('/campaigns', requireAuth, requireMfa, canEdit, async (req, res) => {

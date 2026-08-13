@@ -1565,9 +1565,9 @@ ENGINES['command'] = {
       apiGetJson('/inventory/all').catch(() => null),
       apiGetJson('/fni/deals').catch(() => null),
       apiGetJson('/esign').catch(() => ({ requests: [] })),
-      apiGetJson('/service/ros').catch(() => ({ ros: [] })),
-      apiGetJson('/parts/orders').catch(() => ({ orders: [] })),
-      apiGetJson('/saas/employees').catch(() => ({ employees: [] })),
+      apiGetJson('/service-engine/ros').catch(() => ({ ros: [] })),
+      apiGetJson('/service-engine/part-requests').catch(() => ({ requests: [] })),
+      (profileContext?.saas_role === 'owner' ? apiGetJson('/saas/employees') : Promise.resolve({ employees: [] })).catch(() => ({ employees: [] })),
     ]);
     const badge = document.getElementById('command-badge');
     const attentionCount = (day.needs_attention || []).length;

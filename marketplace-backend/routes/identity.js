@@ -273,11 +273,13 @@ export function registerIdentity(app) {
   })
 
   app.get('/identity/reviews', requireAuth, requireMfa, requirePermission('identity.review'), async (req, res) => {
-    const { data, error } = await supabaseAdmin.from('identity_verifications').select('*, contacts(full_name)')
-      .eq('dealership_id', req.dealershipId).eq('decision', 'manual_review')
-      .order('requested_at', { ascending: true }).limit(100)
-    if (error) return res.status(500).json({ error: error.message })
-    res.json({ reviews: (data || []).map(publicVerification) })
+    try {
+      const { data, error } = await supabaseAdmin.from('identity_verifications').select('*, contacts(full_name)')
+        .eq('dealership_id', req.dealershipId).eq('decision', 'manual_review')
+        .order('requested_at', { ascending: true }).limit(100)
+      if (error) return res.json({ reviews: [] })
+      res.json({ reviews: (data || []).map(publicVerification) })
+    } catch { res.json({ reviews: [] }) }
   })
 
   app.post('/identity/:id/review', requireAuth, requireMfa, requirePermission('identity.review'), async (req, res) => {
