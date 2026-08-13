@@ -1441,7 +1441,6 @@ window.pulseAccountingDeptSection = function(d) {
           <span class="w-3 h-3 rounded-full bg-emerald-600"></span>
           <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Accounting Department</h2>
         </div>
-        <button onclick="switchPage('accounting-overview')" class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline">Open Accounting Ledger →</button>
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">

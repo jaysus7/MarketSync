@@ -146,11 +146,17 @@ window.pwOrderNote = pwOrderNote;
 // whole store, and until now every request had to be a Service request against an RO.
 const PW_DEPARTMENTS = [
   ['service', 'Service — against a repair order'],
-  ['sales', 'Sales — for a delivery'],
+  ['sales', 'Sales & F&I — delivery & deal supplies'],
+  ['cleanup', 'Cleanup — detailing & wash supplies'],
+  ['office', 'Office — admin & paper supplies'],
   ['customer', 'Customer — counter sale'],
-  ['internal', 'Internal — our own vehicle or shop'],
+  ['parts', 'Parts — inventory stock'],
+  ['internal', 'Internal — shop equipment & maintenance'],
 ];
-const PW_DEPT_LABEL = { service: 'Service', sales: 'Sales', customer: 'Customer', internal: 'Internal' };
+const PW_DEPT_LABEL = {
+  service: 'Service', sales: 'Sales & F&I', cleanup: 'Cleanup & Detailing',
+  office: 'Office & Admin', customer: 'Customer', parts: 'Parts Stock', internal: 'Internal Shop'
+};
 
 // ── Requests — every department's demand, in one list ────────────────────────
 // This was "Requests" and "RO Parts" as two views behind a sub-nav; they were the same

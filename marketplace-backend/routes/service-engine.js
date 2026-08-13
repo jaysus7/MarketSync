@@ -580,7 +580,7 @@ export async function listPartRequests(dealershipId, { roId = null, status = nul
 // customer, a salesperson prepping a delivery, an internal job. `service` is the only
 // one that requires a repair order, and the database enforces that
 // (part_requests_service_needs_ro).
-export const PART_REQUEST_DEPARTMENTS = ['service', 'sales', 'customer', 'internal']
+export const PART_REQUEST_DEPARTMENTS = ['service', 'sales', 'customer', 'internal', 'cleanup', 'office', 'parts']
 
 export async function requestPart(dealershipId, roId, { partId, qty = 1, roLineId = null, note = null, idempotencyKey = null, userId = null, requestedFor = 'service', contactId = null, dealId = null } = {}) {
   if (!partId) throw new Error('a part is required')
