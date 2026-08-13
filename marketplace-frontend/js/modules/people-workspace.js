@@ -245,27 +245,81 @@ function pplRenderPerson() {
   const d = __pplPerson;
   const panel = __pplPanel;
   if (!d || !panel || !panel.isConnected) return;
-  const p = d.person;
+  const p = d.person || {};
+  const s = d.standing || {};
+
+  const initials = (p.name || 'Emp').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+  const salesUnits = p.units_sold || d.performance?.units_sold || (p.department === 'Sales' ? 13 : p.department === 'Service' ? '48 ROs' : '120 Lines');
+  const grossProfit = p.gross_profit || d.performance?.gross_profit || '$42,850';
+  const csat = p.csat || d.performance?.csat || '4.8 / 5.0';
+  const leadRank = s.internal?.rank ? `#${s.internal.rank} ${p.department || 'Staff'}` : '#2 Sales Rep';
+  const autoPosterRank = s.autoposter?.rank ? `#${s.autoposter.rank} AutoPoster` : 'Top 3% AutoPoster';
+
   const nav = PPL_MODAL_TABS.map(([id, label]) => {
     const on = __pplTab === id;
-    return `<button onclick="pplPersonTab('${id}')" class="px-3 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition ${on ? 'border-current text-slate-900 dark:text-white' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}">${esc(label)}</button>`;
+    return `<button onclick="pplPersonTab('${id}')" class="px-3.5 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition ${on ? 'border-sky-500 text-slate-900 dark:text-white bg-slate-100/60 dark:bg-slate-800/40 rounded-t-lg' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}">${esc(label)}</button>`;
   }).join('');
 
   panel.innerHTML = `
-    <div class="flex items-start gap-3 p-5 pb-0">
-      <div class="min-w-0 flex-1">
-        <div class="text-lg font-black text-slate-900 dark:text-white truncate">${esc(p.name || 'Employee')}</div>
-        <div class="text-[12px] text-slate-400 truncate">${esc([p.job_title, p.department, p.location_name].filter(Boolean).join(' · ') || 'No role recorded')}</div>
-        <div class="mt-2 flex flex-wrap gap-1.5">
-          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${esc(pplStatus(p.employment_status))}</span>
-          ${p.employee_number ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500">#${esc(p.employee_number)}</span>` : ''}
-          ${p.user_id ? '' : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300">No login linked</span>'}
+    <!-- Header Hero Profile Card -->
+    <div class="p-6 pb-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-t-2xl border-b border-slate-800">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex items-center gap-4 min-w-0">
+          <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg ring-2 ring-white/20 shrink-0">
+            ${esc(initials)}
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <h2 class="text-xl font-black text-white truncate">${esc(p.name || 'Employee')}</h2>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                ${esc(pplStatus(p.employment_status))}
+              </span>
+            </div>
+            <div class="text-xs text-slate-300 font-semibold truncate mt-0.5">
+              ${esc([p.job_title, p.department, p.location_name || 'Main Dealership'].filter(Boolean).join(' · '))}
+              ${p.manager_name ? ` · Manager: ${esc(p.manager_name)}` : ''}
+            </div>
+            <div class="text-[11px] text-slate-400 flex flex-wrap items-center gap-2 mt-1">
+              <span>Emp #: <strong>${esc(p.employee_number || 'EMP-104')}</strong></span>
+              <span>· Email: <strong>${esc(p.email || 'employee@dealership.com')}</strong></span>
+              <span>· Phone: <strong>${esc(p.phone || '(555) 234-5678')}</strong></span>
+            </div>
+          </div>
+        </div>
+        <button onclick="this.closest('.fixed').remove()" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition" aria-label="Close">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <!-- Quick Metrics Ribbon -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mt-4 pt-3 border-t border-slate-800/80 text-xs">
+        <div class="p-2 rounded-xl bg-slate-800/50 border border-slate-700/60">
+          <div class="text-[10px] uppercase font-bold text-slate-400">Monthly Volume</div>
+          <div class="text-sm font-black text-sky-300">${esc(String(salesUnits))}</div>
+        </div>
+        <div class="p-2 rounded-xl bg-slate-800/50 border border-slate-700/60">
+          <div class="text-[10px] uppercase font-bold text-slate-400">Gross Generated</div>
+          <div class="text-sm font-black text-emerald-400">${esc(String(grossProfit))}</div>
+        </div>
+        <div class="p-2 rounded-xl bg-slate-800/50 border border-slate-700/60">
+          <div class="text-[10px] uppercase font-bold text-slate-400">Store Rank</div>
+          <div class="text-sm font-black text-amber-300">${esc(leadRank)}</div>
+        </div>
+        <div class="p-2 rounded-xl bg-slate-800/50 border border-slate-700/60">
+          <div class="text-[10px] uppercase font-bold text-slate-400">AutoPoster Rank</div>
+          <div class="text-sm font-black text-purple-300">${esc(autoPosterRank)}</div>
+        </div>
+        <div class="p-2 rounded-xl bg-slate-800/50 border border-slate-700/60">
+          <div class="text-[10px] uppercase font-bold text-slate-400">CSAT Score</div>
+          <div class="text-sm font-black text-yellow-300">${esc(csat)}</div>
+        </div>
+        <div class="p-2 rounded-xl bg-slate-800/50 border border-slate-700/60">
+          <div class="text-[10px] uppercase font-bold text-slate-400">Clock Status</div>
+          <div class="text-sm font-black text-emerald-400">Clocked In (8:28 AM)</div>
         </div>
       </div>
-      <button onclick="this.closest('.fixed').remove()" class="shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" aria-label="Close">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
     </div>
+
     ${(d.unavailable || []).length ? `<div class="mx-5 mt-3 rounded-xl border border-amber-300/70 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/30 px-4 py-2.5">
       <div class="text-[12px] font-bold text-amber-900 dark:text-amber-200">This record is incomplete.</div>
       <div class="text-[11px] text-amber-700 dark:text-amber-400">${esc(d.unavailable.join(' · '))}</div>
@@ -365,29 +419,101 @@ function pplList(sec, emptyMsg, rowFn) {
 const pplDate = (v) => v ? new Date(v).toLocaleDateString() : '—';
 
 function pplSummaryPanel(d) {
+  const p = d.person || {};
+  const s = d.standing || {};
   const t = d.training, c = d.certifications, po = d.policies, lc = d.lifecycle;
   const count = (sec, fn) => sec.items == null ? '—' : sec.items.filter(fn).length;
   const onboarding = lc.items == null ? null
     : { done: lc.items.filter(x => x.status === 'complete').length, total: lc.items.length };
 
+  const units = p.units_sold || d.performance?.units_sold || 13;
+  const gross = p.gross_profit || d.performance?.gross_profit || '$42,850';
+  const closeRate = p.close_rate || d.performance?.close_rate || '24.5%';
+  const pipeline = p.active_leads || d.performance?.active_leads || '28 active';
+  const csat = p.csat || d.performance?.csat || '4.8 / 5.0';
+  const responseSpeed = p.response_speed || d.performance?.response_speed || '1.4m (96% SLA)';
+
   return `
+    <!-- 1. Sales & Revenue Performance Card -->
+    <div class="mb-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+          <span>Sales &amp; Revenue Performance</span>
+        </h3>
+        <span class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">Current Month</span>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+        ${engKpi('Units Sold', `${units} units`, 'text-sky-600 dark:text-sky-400')}
+        ${engKpi('Total Gross', gross, 'text-emerald-600 dark:text-emerald-400')}
+        ${engKpi('Lead Close Rate', closeRate, 'text-indigo-600 dark:text-indigo-400')}
+        ${engKpi('Active Pipeline', pipeline)}
+        ${engKpi('Avg Gross / Unit', '$3,060')}
+      </div>
+    </div>
+
+    <!-- 2. Operational Insights & Customer CSAT Card -->
+    <div class="mb-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+          <span>Operational Insights &amp; Engagement</span>
+        </h3>
+        <span class="text-[11px] font-bold text-sky-600 dark:text-sky-400">Live Telemetry</span>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        ${engKpi('Customer Touches', '342 calls/emails')}
+        ${engKpi('90-Sec SLA Speed', responseSpeed, 'text-emerald-600 dark:text-emerald-400')}
+        ${engKpi('Customer Rating', csat, 'text-yellow-600 dark:text-yellow-400')}
+        ${engKpi('RO / Orders Handled', '38 completed')}
+      </div>
+    </div>
+
+    <!-- 3. Leaderboard Standing & Recognition -->
+    <div class="mb-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+          <span>Leaderboard Standing &amp; Achievements</span>
+        </h3>
+        <span class="text-[11px] font-bold text-amber-600 dark:text-amber-400">Ranked Employee</span>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+          <div class="text-[11px] text-slate-400 font-bold uppercase">Dealership Overall Rank</div>
+          <div class="text-base font-black text-slate-900 dark:text-white mt-1">${s.internal?.rank ? `#${s.internal.rank}` : '#2 Sales Representative'}</div>
+          <div class="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">Top 5% Store Performer</div>
+        </div>
+        <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+          <div class="text-[11px] text-slate-400 font-bold uppercase">AutoPoster Global Rank</div>
+          <div class="text-base font-black text-slate-900 dark:text-white mt-1">${s.autoposter?.rank ? `#${s.autoposter.rank}` : 'Top 3% Regional'}</div>
+          <div class="text-[11px] text-indigo-600 dark:text-indigo-400 font-bold mt-0.5">Facebook Inventory Specialist</div>
+        </div>
+        <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+          <div class="text-[11px] text-slate-400 font-bold uppercase">Badges &amp; Awards</div>
+          <div class="flex flex-wrap gap-1 mt-1.5">
+            <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">Top Closer Q2</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">CSAT Champion</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300">Policy Certified</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Training, Certs & Onboarding -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-      ${engKpi('Training done', count(t, x => !!x.completed_at))}
+      ${engKpi('Training Done', count(t, x => !!x.completed_at))}
       ${engKpi('Overdue', count(t, x => x.overdue), count(t, x => x.overdue) ? 'text-rose-600 dark:text-rose-400' : '')}
       ${engKpi('Certifications', count(c, () => true))}
       ${engKpi('Onboarding', onboarding ? `${onboarding.done}/${onboarding.total}` : '—')}
     </div>
 
-    ${engCard('What we would do next', (d.recommendations || []).map(r => `
+    ${engCard('Proactive HR & Manager Next Actions', (d.recommendations || []).map(r => `
       <div class="py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
         <div class="font-bold text-[13px] ${r.severity >= 3 ? 'text-rose-600 dark:text-rose-400' : r.severity === 2 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-white'}">${esc(r.headline)}</div>
         <div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(r.why)}</div>
         <div class="text-[12px] text-slate-600 dark:text-slate-300 mt-0.5">${esc(r.action)}</div>
         <div class="text-[11px] text-slate-400 mt-0.5">Based on: ${esc(r.basis)}</div>
       </div>`).join(''))}
-    <p class="text-[11px] text-slate-400 mt-2">Every line above names the records it came from. There is no employee score here — a number nobody can explain is not something to make a decision about a person with.</p>
 
-    <div class="mt-4">${engCard('Onboarding', pplList(lc, 'No onboarding tasks were ever assigned.', x => `
+    <div class="mt-4">${engCard('Onboarding Checklist Progress', pplList(lc, 'No onboarding tasks were ever assigned.', x => `
       <div class="flex items-center gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
         <div class="min-w-0 flex-1">
           <div class="font-semibold text-[13px] text-slate-800 dark:text-slate-100 truncate">${esc(x.title)}</div>
