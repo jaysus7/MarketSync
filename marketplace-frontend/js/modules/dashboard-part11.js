@@ -1441,6 +1441,15 @@ window.pulseAccountingDeptSection = function(d) {
           <span class="w-3 h-3 rounded-full bg-emerald-600"></span>
           <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Accounting Department</h2>
         </div>
+        <div class="flex items-center gap-2">
+          <button onclick="accOpenCustomEntryModal('in')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm">
+            + Record Incoming Money
+          </button>
+          <button onclick="accOpenCustomEntryModal('out')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white transition shadow-sm">
+            + Record Outgoing Money
+          </button>
+          <button onclick="switchPage('accounting')" class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline">Open Accounting Workspace →</button>
+        </div>
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">

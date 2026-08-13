@@ -126,9 +126,9 @@ ENGINES['accounting-overview'] = {
   },
 
   quickActions: [
-    { label: 'Money In', icon: 'currency', onclick: "engineTab('accounting-overview','money_in')" },
-    { label: 'Money Out', icon: 'clipboard', onclick: "engineTab('accounting-overview','money_out')" },
-    { label: 'Bank', icon: 'chart', onclick: "engineTab('accounting-overview','bank')" },
+    { label: '+ Record Incoming', icon: 'currency', onclick: "accOpenCustomEntryModal('in')" },
+    { label: '+ Record Outgoing', icon: 'clipboard', onclick: "accOpenCustomEntryModal('out')" },
+    { label: 'Bank Matching', icon: 'chart', onclick: "engineTab('accounting-overview','bank')" },
     { label: 'Close Period', icon: 'chevronRight', onclick: "engineTab('accounting-overview','close')" },
   ],
   // Every exception now lands on My Day, where its section already lives.

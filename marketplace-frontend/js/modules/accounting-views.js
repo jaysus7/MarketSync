@@ -45,14 +45,19 @@ window.accRenderMoneyIn = function(body, d) {
       ${engKpi('Overdue Receivables', accFmtInt(ar.filter(r => r.status === 'overdue').reduce((s, r) => s + r.balance, 0)), 'text-rose-600 dark:text-rose-400')}
     </div>
 
-    <!-- Category Filters -->
-    <div class="flex flex-wrap items-center gap-2 mb-4">
-      ${filterBtn('all', 'All Receivables', ar.length + cit.length)}
-      ${filterBtn('cit', 'Contracts in Transit (Lenders)', cit.length)}
-      ${filterBtn('customer', 'Customer AR', ar.filter(r => r.source === 'deal' || r.source === 'customer').length)}
-      ${filterBtn('service', 'Service AR', ar.filter(r => r.source === 'service' || r.source === 'repair_order').length)}
-      ${filterBtn('parts', 'Parts AR', ar.filter(r => r.source === 'parts').length)}
-      ${filterBtn('overdue', 'Overdue (>30 Days)', ar.filter(r => r.status === 'overdue' || (r.age_days || 0) > 30).length)}
+    <!-- Category Filters & Action Bar -->
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div class="flex flex-wrap items-center gap-2">
+        ${filterBtn('all', 'All Receivables', ar.length + cit.length)}
+        ${filterBtn('cit', 'Contracts in Transit (Lenders)', cit.length)}
+        ${filterBtn('customer', 'Customer AR', ar.filter(r => r.source === 'deal' || r.source === 'customer').length)}
+        ${filterBtn('service', 'Service AR', ar.filter(r => r.source === 'service' || r.source === 'repair_order').length)}
+        ${filterBtn('parts', 'Parts AR', ar.filter(r => r.source === 'parts').length)}
+        ${filterBtn('overdue', 'Overdue (>30 Days)', ar.filter(r => r.status === 'overdue' || (r.age_days || 0) > 30).length)}
+      </div>
+      <button onclick="accOpenCustomEntryModal('in')" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm flex items-center gap-1.5">
+        + Record Incoming Money (Income / Deposit)
+      </button>
     </div>
 
     <!-- Contracts in Transit (First-Class Automotive Lender Funding) -->
@@ -209,9 +214,14 @@ window.accRenderMoneyOut = function(body, d) {
         ${filterBtn('overdue', 'Overdue (>30d)', ap.filter(b => b.outstanding > 0 && (b.age_days || 0) > 30).length)}
         ${filterBtn('paid', 'Paid / Cleared', ap.filter(b => b.status === 'paid' || b.outstanding === 0).length)}
       </div>
-      <button onclick="engineTab('accounting-overview','settings')" class="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-        Manage Expenses &amp; Vendors
-      </button>
+      <div class="flex items-center gap-2">
+        <button onclick="accOpenCustomEntryModal('out')" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white transition shadow-sm flex items-center gap-1.5">
+          + Record Outgoing Money (Expense / Vendor Bill)
+        </button>
+        <button onclick="engineTab('accounting-overview','settings')" class="px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          Manage Vendors
+        </button>
+      </div>
     </div>
 
     <!-- Accounts Payable Table -->
@@ -593,4 +603,118 @@ window.accOpenDealModal = function(dealId) {
 window.accBalanceDeal = function(dealId) {
   showToast(`Adjusting entry created. Deal ${dealId} is fully balanced and posted to general ledger.`, 'success');
   document.getElementById('acc-deal-modal')?.remove();
+};
+
+// ── 7. CUSTOM FINANCIAL ENTRY MODAL (MANUAL INCOMING / OUTGOING MONEY) ───────
+window.accOpenCustomEntryModal = function(defaultDirection = 'in') {
+  let modal = document.getElementById('acc-custom-entry-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'acc-custom-entry-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm';
+    document.body.appendChild(modal);
+  }
+
+  const isIncome = defaultDirection === 'in';
+
+  modal.innerHTML = `
+    <div class="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-2xl space-y-4 border border-slate-200 dark:border-slate-800">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div>
+          <h3 class="text-base font-black text-slate-900 dark:text-white uppercase tracking-wider">Record Custom Financial Entry</h3>
+          <p class="text-xs text-slate-400">Add incoming cash/receivable or outgoing expense/vendor payable to dealership ledger.</p>
+        </div>
+        <button onclick="document.getElementById('acc-custom-entry-modal')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">✕</button>
+      </div>
+
+      <div class="space-y-3 text-xs font-bold">
+        <div>
+          <label class="block text-slate-500 uppercase text-[11px] mb-1">Entry Type</label>
+          <select id="acc-modal-direction" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs font-bold">
+            <option value="in" ${isIncome ? 'selected' : ''}>Incoming Money (+) — Customer Payment / Income / Deposit</option>
+            <option value="out" ${!isIncome ? 'selected' : ''}>Outgoing Money (-) — Vendor Bill / Expense / Supplies</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-500 uppercase text-[11px] mb-1">Amount ($)</label>
+            <input id="acc-modal-amount" type="number" step="0.01" min="0" placeholder="0.00" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs font-bold">
+          </div>
+          <div>
+            <label class="block text-slate-500 uppercase text-[11px] mb-1">Transaction Date</label>
+            <input id="acc-modal-date" type="date" value="${new Date().toISOString().slice(0, 10)}" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs font-bold">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-500 uppercase text-[11px] mb-1">Category / Account</label>
+            <input id="acc-modal-account" type="text" placeholder="e.g. Sales, Service, Office Supplies, Parts" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs">
+          </div>
+          <div>
+            <label class="block text-slate-500 uppercase text-[11px] mb-1">Owning Department</label>
+            <select id="acc-modal-dept" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs font-bold">
+              <option value="Sales">Sales &amp; F&amp;I</option>
+              <option value="Service">Service Department</option>
+              <option value="Parts">Parts Department</option>
+              <option value="Cleanup">Cleanup &amp; Detailing Supplies</option>
+              <option value="Marketing">Marketing &amp; Campaign</option>
+              <option value="Admin">HR, Payroll &amp; Admin</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-500 uppercase text-[11px] mb-1">Payer / Payee / Reference</label>
+          <input id="acc-modal-ref" type="text" placeholder="e.g. Customer Name, Vendor Name, Invoice #1094" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs">
+        </div>
+
+        <div>
+          <label class="block text-slate-500 uppercase text-[11px] mb-1">Description / Memo Notes</label>
+          <input id="acc-modal-desc" type="text" placeholder="e.g. Purchased detailing soaps for cleanup shop" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs">
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <button onclick="document.getElementById('acc-custom-entry-modal')?.remove()" class="px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Cancel</button>
+        <button onclick="accSubmitCustomFinancialEntry()" class="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-md">
+          Save &amp; Add Financial Entry
+        </button>
+      </div>
+    </div>
+  `;
+};
+
+window.accSubmitCustomFinancialEntry = async function() {
+  const direction = document.getElementById('acc-modal-direction')?.value || 'in';
+  const amount = parseFloat(document.getElementById('acc-modal-amount')?.value || '0');
+  const accountId = document.getElementById('acc-modal-account')?.value?.trim() || 'general';
+  const dept = document.getElementById('acc-modal-dept')?.value || 'Sales';
+  const ref = document.getElementById('acc-modal-ref')?.value?.trim() || '';
+  const desc = document.getElementById('acc-modal-desc')?.value?.trim() || '';
+  const entryDate = document.getElementById('acc-modal-date')?.value || new Date().toISOString().slice(0, 10);
+
+  if (!amount || amount <= 0) {
+    if (typeof showToast === 'function') showToast('Please enter a valid positive amount', 'warning');
+    return;
+  }
+
+  const memo = [ref, desc, `Dept: ${dept}`].filter(Boolean).join(' - ') || `${direction === 'in' ? 'Incoming Income' : 'Outgoing Expense'}`;
+
+  try {
+    await apiSendJson('/accounting/entries', 'POST', {
+      amount,
+      direction,
+      account_id: accountId,
+      description: memo,
+      entry_date: entryDate,
+    });
+    if (typeof showToast === 'function') showToast(`Recorded ${accFmtMoney(amount)} ${direction === 'in' ? 'Incoming Income' : 'Outgoing Expense'}!`, 'success');
+    document.getElementById('acc-custom-entry-modal')?.remove();
+    ENGINE_DATA['accounting-overview'] = undefined;
+    engineTab('accounting-overview', direction === 'in' ? 'money_in' : 'money_out', true);
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message || 'Failed to save entry', 'error');
+  }
 };
