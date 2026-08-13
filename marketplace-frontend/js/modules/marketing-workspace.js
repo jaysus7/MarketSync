@@ -355,10 +355,10 @@ ENGINES['marketing-overview'] = {
 
   tabs: {
     overview(body, d) {
-      const att = d.needsAttention || [], opp = d.opportunities || [];
-      const waiting = (d.conversations || []).filter(c => c.status === 'waiting_dealer').length;
-      const live = (d.campaigns || []).filter(c => c.status === 'active').length;
-      const failed = d.dayFailed || [], notCovered = d.dayNotCovered || [];
+      if (typeof window.pulseMarketingDeptSection === 'function') {
+        body.innerHTML = window.pulseMarketingDeptSection(d);
+        return;
+      }
       const caveat = (failed.length || notCovered.length) ? `
         <div class="mb-4 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-3">
           ${failed.length ? `<div class="text-[13px] font-bold text-amber-800 dark:text-amber-300">This day is incomplete.</div>

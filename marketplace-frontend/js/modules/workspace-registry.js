@@ -28,9 +28,9 @@ const MS_WORKSPACES = {
   // in the day rather than in a rail nobody scrolls to. Outstanding courses surface in
   // My Day itself and disappear as they are completed.
   executive: {
-    label: 'My Day', icon: 'chart', accent: 'indigo', mgr: true,
+    label: 'MyDay', icon: 'chart', accent: 'indigo', mgr: true,
     pages: [
-      { page: 'command', label: 'My Day' },
+      { page: 'command', label: 'Pulse' },
       // Academy belongs to the day, but as `legacy` — a plain page here would draw a
       // SECOND tab row above the command engine's own header, which is the exact
       // duplicate-header problem this registry exists to prevent. What the user

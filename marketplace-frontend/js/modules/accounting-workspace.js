@@ -179,11 +179,10 @@ ENGINES['accounting-overview'] = {
     // Deal Posting, Contracts in Transit, Receivables and Payables used to be four
     // clicks inside a second tab bar, which meant the day was never visible at once.
     overview(body, d) {
-      const exc = d.exceptions || [];
-      const critical = exc.filter(x => x.severity === 3).length;
-      const unfunded = (d.contracts || []).filter(c => c.balance > 0).length;
-      const apDue = (d.payables || []).filter(b => b.view === 'due').length;
-      const open = (d.receivables || []).filter(r => r.balance > 0);
+      if (typeof window.pulseAccountingDeptSection === 'function') {
+        body.innerHTML = window.pulseAccountingDeptSection(d);
+        return;
+      }
       body.innerHTML = `
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('Needs attention', exc.length, exc.length ? 'text-rose-600 dark:text-rose-400' : '')}

@@ -305,12 +305,10 @@ ENGINES['sales'] = {
   tabs: {
     // ── TODAY — the operational command center, not analytics ──────────────
     overview(body, d) {
-      const att = salesAttention(d);
-      const now = Date.now(), day = 864e5;
-      const todays = (d.appointments || []).filter(a => { const t = new Date(a.appointment_at) - now; return t > -day / 2 && t < day / 2; });
-      const open = (d.contacts || []).filter(c => SALES_OPEN_STAGES.includes(c.status));
-      const overdue = (d.tasks || []).filter(t => t.due_at && new Date(t.due_at) < now);
-      const newLeads = (d.contacts || []).filter(c => c.status === 'uncontacted');
+      if (typeof window.pulseSalesDeptSection === 'function') {
+        body.innerHTML = window.pulseSalesDeptSection(d);
+        return;
+      }
 
       body.innerHTML = `
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">

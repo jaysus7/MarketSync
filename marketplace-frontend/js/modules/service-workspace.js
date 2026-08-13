@@ -461,7 +461,10 @@ ENGINES['service-overview'] = {
 
   tabs: {
     overview(body, d) {
-      if (svcIsTechnician()) {
+      if (typeof window.pulseServiceDeptSection === 'function') {
+        body.innerHTML = window.pulseServiceDeptSection(d);
+        return;
+      }
         const jobs = svcMyJobs(d);
         const blocked = jobs.filter(j => j.line.line_status === 'blocked').length;
         const active = jobs.filter(j => j.line.line_status === 'in_progress').length;

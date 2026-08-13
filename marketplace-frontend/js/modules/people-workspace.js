@@ -106,9 +106,10 @@ ENGINES['people-overview'] = {
 
   tabs: {
     overview(body, d) {
-      const team = d.team || []
-      const unlinked = team.filter(p => p.has_employment === false).length
-      const items = d.needsAttention || []
+      if (typeof window.pulseHrDeptSection === 'function') {
+        body.innerHTML = window.pulseHrDeptSection(d);
+        return;
+      }
 
       body.innerHTML = `
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">

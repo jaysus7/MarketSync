@@ -274,11 +274,10 @@ ENGINES['fni-overview'] = {
 
   tabs: {
     overview(body, d) {
-      const att = fniAttention(d);
-      const deals = d.deals || [];
-      const pending = deals.filter(x => x.deal_status === 'pending').length;
-      const inFni = deals.filter(x => x.deal_status === 'fni').length;
-      const blocked = (d.blocked || []).length;
+      if (typeof window.pulseFniDeptSection === 'function') {
+        body.innerHTML = window.pulseFniDeptSection(d);
+        return;
+      }
       body.innerHTML = `
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}

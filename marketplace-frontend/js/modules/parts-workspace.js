@@ -418,11 +418,10 @@ ENGINES['parts-overview'] = {
 
   tabs: {
     overview(body, d) {
-      const att = pwAttention(d);
-      const reqs = d.requests || [];
-      const short = reqs.filter(q => q.status === 'backordered').length;
-      const toIssue = reqs.filter(q => q.status === 'reserved').length;
-      const low = (d.parts || []).filter(p => Number(p.reorder_point) && Number(p.qty_available) <= Number(p.reorder_point)).length;
+      if (typeof window.pulsePartsDeptSection === 'function') {
+        body.innerHTML = window.pulsePartsDeptSection(d);
+        return;
+      }
       body.innerHTML = `
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}
