@@ -359,7 +359,7 @@ function crmEquityMiningTab(c, d, eqData) {
         </div>
         ${isPos ? `
         <div class="text-xs text-indigo-200 bg-indigo-950/80 border border-indigo-800/60 rounded-lg p-2.5 mb-3">
-          ⚡ <b>Auto Alert:</b> Customer has <b>$${Math.abs(netEq).toLocaleString()}</b> in positive trade equity. Eligible to upgrade into a new vehicle with <b>$0 cash down</b> while keeping monthly payment at or under <b>$${payment ? payment : 'current'}/mo</b>.
+          <span class="text-amber-500 mr-2"><i data-lucide="zap" class="w-5 h-5 inline"></i></span> <b>Auto Alert:</b> Customer has <b>$${Math.abs(netEq).toLocaleString()}</b> in positive trade equity. Eligible to upgrade into a new vehicle with <b>$0 cash down</b> while keeping monthly payment at or under <b>$${payment ? payment : 'current'}/mo</b>.
         </div>` : `
         <div class="text-xs text-slate-300 bg-slate-950/80 border border-slate-800 rounded-lg p-2.5 mb-3">
           Customer currently has negative equity position ($${Math.abs(netEq).toLocaleString()}). Review lender roll-over terms or appraisal adjustment.

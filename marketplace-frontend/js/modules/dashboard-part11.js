@@ -1535,7 +1535,7 @@ window.pulseHrDeptSection = function(d) {
 ENGINES['command'] = {
   rootId: 'command-root', title: 'My Day', subtitle: 'This main page is the pulse of the dealership.',
   icon: 'chart', accent: 'indigo',
-  tabLabels: { overview: 'Pulse', pulse: 'Pulse', forecast: 'Forecast', financials: 'Financials' },
+  tabLabels: { overview: 'My Day', pulse: 'Pulse', forecast: 'Forecast', financials: 'Financials' },
   tabOrder: ['overview', 'pulse', 'forecast', 'financials'],
 
   fetch: async () => {

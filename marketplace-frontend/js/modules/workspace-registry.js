@@ -102,7 +102,7 @@ const MS_WORKSPACES = {
   recon: {
     label: 'Cleanup', icon: 'sparkles', accent: 'sky',
     pages: [
-      { page: 'recon', label: 'Cleanup' },
+      { page: 'recon', label: 'My Day' },
     ],
   },
 

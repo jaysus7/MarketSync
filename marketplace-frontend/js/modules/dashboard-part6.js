@@ -571,22 +571,7 @@ async function loadDeskDeal() {
         <div class="col-span-2 sm:col-span-3"><button onclick="deskSaveDealer(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-5 py-2 rounded-lg transition">Save dealer details</button></div>
       </div>
     </div>` : ''}
-    ${(isAdmin && needsSetup) ? `
-    <div id="desk-dealer-setup" class="bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-800 rounded-xl mb-4">
-      <div class="px-4 sm:px-5 py-3 text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-        Dealer details for documents <span class="text-[10px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">Setup needed</span>
-      </div>
-      <p class="px-4 sm:px-5 -mt-1 mb-2 text-xs text-slate-400">A one-time setup — this appears on the bill of sale. Once saved, it disappears from here and you can edit it anytime in Settings › Dealer Management.</p>
-      <div class="p-4 sm:p-5 pt-0 grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div class="col-span-2 sm:col-span-3"><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">Legal / trade name</label><input id="dlr-legal_name" value="${esc(__deskDealer.name || '')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
-        <div class="col-span-2 sm:col-span-3"><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">Street address</label><input id="dlr-street_address" value="${esc(__deskDealer.street || '')}" placeholder="915 Niagara St" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
-        <div><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">Phone</label><input id="dlr-phone" value="${esc(__deskDealer.phone || '')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
-        <div><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">Fax</label><input id="dlr-fax" value="${esc(__deskDealer.fax || '')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
-        <div><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">HST #</label><input id="dlr-hst_number" value="${esc(__deskDealer.hst || '')}" placeholder="R715748679" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
-        <div><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">OMVIC / dealer reg #</label><input id="dlr-omvic_reg" value="${esc(__deskDealer.omvic || '')}" placeholder="5686852" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
-        <div class="col-span-2 sm:col-span-3"><button onclick="deskSaveDealer(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-5 py-2 rounded-lg transition">Save dealer details</button></div>
-      </div>
-    </div>` : ''}
+
     <div id="desk-form"></div>`;
 
   if (__deskContactId) { deskPickCustomer(__deskContactId); __deskContactId = null; } else { deskRenderForm(null); }

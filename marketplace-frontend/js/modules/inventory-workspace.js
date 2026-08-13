@@ -308,10 +308,7 @@ ENGINES['inventory-overview'] = {
 
   tabs: {
     overview(body, d) {
-      if (typeof window.pulseInventoryDeptSection === 'function') {
-        body.innerHTML = window.pulseInventoryDeptSection(d);
-        return;
-      }
+
       const att = invAttention(d);
       const veh = d.vehicles || [];
       const held = veh.filter(v => !v.awaiting_possession);

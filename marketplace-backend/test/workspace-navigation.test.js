@@ -65,10 +65,11 @@ test('registry exposes the nine DealerOS workspaces in workflow order', () => {
     'departments must be exactly the nine target workspaces, in order')
 })
 
-test('every dealer department leads with one role-aware My Day', () => {
+test('every dealer department leads with one role-aware My Day (except Management which leads with Pulse)', () => {
   const { MS_WORKSPACES, msDepartmentIds } = loadRegistry()
   for (const id of msDepartmentIds(MS_WORKSPACES)) {
-    assert.equal(MS_WORKSPACES[id].pages[0]?.label, 'My Day', `${id} must lead with My Day`)
+    const expected = id === 'executive' ? 'Pulse' : 'My Day'
+    assert.equal(MS_WORKSPACES[id].pages[0]?.label, expected, `${id} must lead with ${expected}`)
   }
 })
 
@@ -109,9 +110,9 @@ test('the two orphaned pages are reachable again', () => {
 test('required UI moves landed in the right workspace', () => {
   const { MS_WORKSPACES, msWorkspaceOfPage } = loadRegistry()
   const at = (page) => msWorkspaceOfPage(page, MS_WORKSPACES)
-  assert.equal(at('appraisal'), 'inventory', 'Appraisals → Inventory > Acquire')
+  assert.equal(at('appraisal'), 'sales', 'Appraisals → Sales')
   assert.equal(at('equity'), 'inventory', 'Equity Mining → Inventory > Acquire')
-  assert.equal(at('recon'), 'inventory', 'Recon → Inventory (not Sales)')
+  assert.equal(at('recon'), 'recon', 'Recon → Cleanup (top-level)')
   assert.equal(at('inv-intel'), 'inventory', 'Inventory Intelligence stays visibly named inside Inventory')
   assert.equal(at('delivery'), 'fni', 'Delivery → F&I')
   assert.equal(at('sales-team'), 'people', 'Employees → People')
