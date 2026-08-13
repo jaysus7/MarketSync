@@ -257,16 +257,6 @@ ENGINES['sales'] = {
   tabOrder: ['overview', 'work', 'equity', 'settings'],
   tabLabels: { overview: 'My Day', work: 'Customers', equity: 'Equity Mining', settings: 'Settings' },
 
-  get tabOrder() {
-    const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    // A rep gets the four they work in; Settings stays management-only, and the server
-    // remains authoritative either way — this only decides what is worth showing.
-    // Equity Mining is a rep's job, not a manager report: the customers already in the
-    // book who could trade today are the easiest next sale.
-    return mgr ? ['overview', 'work', 'appointments', 'equity', 'settings']
-               : ['overview', 'work', 'appointments', 'equity'];
-  },
-
   // ONE parallel round-trip for the landing view — no waterfall, and deliveries /
   // insights are deliberately excluded (they load inside their own tab).
   fetch: async () => {
