@@ -28,9 +28,9 @@ const MS_WORKSPACES = {
   // in the day rather than in a rail nobody scrolls to. Outstanding courses surface in
   // My Day itself and disappear as they are completed.
   executive: {
-    label: 'My Day', icon: 'chart', accent: 'indigo', mgr: true,
+    label: 'Pulse', icon: 'chart', accent: 'indigo', mgr: true,
     pages: [
-      { page: 'command', label: 'My Day' },
+      { page: 'command', label: 'Pulse' },
       // Academy belongs to the day, but as `legacy` — a plain page here would draw a
       // SECOND tab row above the command engine's own header, which is the exact
       // duplicate-header problem this registry exists to prevent. What the user
@@ -58,7 +58,7 @@ const MS_WORKSPACES = {
   sales: {
     label: 'Sales', icon: 'currency', accent: 'amber',
     pages: [
-      { page: 'sales', label: 'My Day' },
+      { page: 'sales', label: 'Pulse' },
       { page: 'appraisal', label: 'Acquire', legacy: true },
       { page: 'crm', label: 'Customers', legacy: true },
       { page: 'appointments', label: 'Appointments', legacy: true },
@@ -80,7 +80,7 @@ const MS_WORKSPACES = {
   inventory: {
     label: 'Inventory', icon: 'gem', accent: 'sky',
     pages: [
-      { page: 'inventory-overview', label: 'My Day' },
+      { page: 'inventory-overview', label: 'Pulse' },
       { page: 'inventory', label: 'Vehicles', invmode: 'manual', legacy: true },
       { page: 'equity', label: 'Equity Mining' },
       { page: 'inv-intel', label: 'Inventory Intelligence', mgr: true, legacy: true },
@@ -92,7 +92,7 @@ const MS_WORKSPACES = {
   fni: {
     label: 'F&I', icon: 'shield', accent: 'indigo', roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'],
     pages: [
-      { page: 'fni-overview', label: 'My Day' },
+      { page: 'fni-overview', label: 'Pulse' },
       { page: 'fni', label: 'Deals' },
       { page: 'delivery', label: 'Delivery', mgr: true },
     ],
@@ -102,7 +102,7 @@ const MS_WORKSPACES = {
   recon: {
     label: 'Cleanup', icon: 'sparkles', accent: 'sky',
     pages: [
-      { page: 'recon', label: 'My Day' },
+      { page: 'recon', label: 'Pulse' },
     ],
   },
 
@@ -116,7 +116,7 @@ const MS_WORKSPACES = {
   service: {
     label: 'Service', icon: 'wrench', accent: 'sky', mgr: true,
     pages: [
-      { page: 'service-overview', label: 'My Day' },
+      { page: 'service-overview', label: 'Pulse' },
       { page: 'service-appointments', label: 'Schedule', legacy: true },
       { page: 'service-ros', label: 'Repair Orders', legacy: true },
     ],
@@ -125,7 +125,7 @@ const MS_WORKSPACES = {
   parts: {
     label: 'Parts', icon: 'gem', accent: 'amber', mgr: true,
     pages: [
-      { page: 'parts-overview', label: 'My Day' },
+      { page: 'parts-overview', label: 'Pulse' },
       { page: 'service-parts', label: 'Catalogue' },
     ],
   },
@@ -135,7 +135,7 @@ const MS_WORKSPACES = {
   accounting: {
     label: 'Accounting', icon: 'currency', accent: 'emerald', probe: '#grp-accounting-wrap', mgr: true,
     pages: [
-      { page: 'accounting-overview', label: 'My Day' },
+      { page: 'accounting-overview', label: 'Pulse' },
       { page: 'accounting', label: 'Overview' },
       { page: 'commissions', label: 'Payroll' },
     ],
@@ -144,7 +144,7 @@ const MS_WORKSPACES = {
   marketing: {
     label: 'Marketing', icon: 'megaphone', accent: 'violet', mgr: true,
     pages: [
-      { page: 'marketing-overview', label: 'My Day' },
+      { page: 'marketing-overview', label: 'Pulse' },
       { page: 'email-marketing', label: 'Campaigns' },
       { page: 'website', label: 'Website' },
       { page: 'ai-home', label: 'AI Chat' },
@@ -164,7 +164,7 @@ const MS_WORKSPACES = {
   people: {
     label: 'HR', icon: 'user', accent: 'emerald', mgr: true,
     pages: [
-      { page: 'people-overview', label: 'My Day' },
+      { page: 'people-overview', label: 'Pulse' },
       // Retained as redirect/deep-link identities only. The HR engine owns Staff and
       // Compliance, so these must never render a second department tab row.
       { page: 'sales-team', label: 'Employees', legacy: true },

@@ -1541,10 +1541,10 @@ window.pulseHrDeptSection = function(d) {
 };
 
 ENGINES['command'] = {
-  rootId: 'command-root', title: 'My Day', subtitle: 'This main page is the pulse of the dealership.',
+  rootId: 'command-root', title: 'Pulse', subtitle: 'This main page is the pulse of the dealership.',
   icon: 'chart', accent: 'indigo',
   hideTabBar: true,
-  tabLabels: { overview: 'My Day' },
+  tabLabels: { overview: 'Pulse' },
   tabOrder: ['overview'],
 
   fetch: async () => {
@@ -1555,7 +1555,7 @@ ENGINES['command'] = {
     const [cc, ev, day, identityReviews, pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy, contacts, tasks, appts, deliveries, reconVehicles, inventory, fniDeals, esignRequests, serviceRos, partsOrders, staff] = await Promise.all([
       apiGetJson('/command-center').catch(() => ({ tiles: {}, exceptions: [], exception_count: 0 })),
       apiGetJson('/events?limit=40').catch(() => ({ events: [] })),
-      apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ label: 'My Day', reason: 'Could not be loaded' }], complete: false })),
+      apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ label: 'Pulse', reason: 'Could not be loaded' }], complete: false })),
       apiGetJson('/identity/reviews').catch(() => ({ reviews: [] })),
       apiGetJson('/pipeline').catch(miss('Sales pipeline')),
       apiGetJson('/accounting/summary').catch(miss('Accounting summary')),
@@ -1611,6 +1611,9 @@ ENGINES['command'] = {
       const incomplete = d.day.complete === false
         ? `<div class="rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-4 py-3 text-[13px] text-amber-800 dark:text-amber-200 mb-4"><b>This day is incomplete.</b> ${(d.day.failed || []).map(x => esc(x.label)).join(', ') || 'One or more sources'} could not be loaded.</div>` : '';
 
+      const campaigns = Array.isArray(d.campaigns?.rows) ? d.campaigns.rows : (Array.isArray(d.campaigns) ? d.campaigns : []);
+      const liveCampaigns = campaigns.filter(c => c.status === 'active' || c.status === 'live' || c.status === 'running');
+
       const proactiveAiExecutivePanel = `
         <div class="mb-6 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg border border-slate-800">
           <div class="flex items-center justify-between mb-2">
@@ -1655,8 +1658,6 @@ ENGINES['command'] = {
         </div>`;
       }).join('') : engEmpty('Nothing needs attention right now.');
 
-      const campaigns = Array.isArray(d.campaigns?.rows) ? d.campaigns.rows : (Array.isArray(d.campaigns) ? d.campaigns : []);
-      const liveCampaigns = campaigns.filter(c => c.status === 'active' || c.status === 'live' || c.status === 'running');
       const queue = Array.isArray(d.autoQueue?.queue) ? d.autoQueue.queue : (Array.isArray(d.autoQueue?.messages) ? d.autoQueue.messages : []);
       const sentToday = queue.filter(m => m.status === 'sent' && String(m.sent_at || '').slice(0, 10) === new Date().toISOString().slice(0, 10)).length;
       const queuedCount = queue.filter(m => m.status === 'pending' || m.status === 'scheduled').length;

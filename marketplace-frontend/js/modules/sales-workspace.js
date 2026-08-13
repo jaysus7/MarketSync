@@ -259,7 +259,7 @@ ENGINES['sales'] = {
   // it is configuration, not a department surface), Work renamed to what it actually holds, and
   // Opportunities, appointments, deals and deliveries are all composed into My Day.
   get tabOrder() { return ['overview', 'work', 'appraisals', 'desk', 'equity', 'settings']; },
-  get tabLabels() { return { overview: 'My Day', work: 'Customers', appraisals: 'Appraise Trade', desk: 'Desk a Deal', equity: 'Equity Mining', settings: 'Settings' }; },
+  get tabLabels() { return { overview: 'Pulse', work: 'Customers', appraisals: 'Appraise Trade', desk: 'Desk a Deal', equity: 'Equity Mining', settings: 'Settings' }; },
 
   // ONE parallel round-trip for the landing view — no waterfall, and deliveries /
   // insights are deliberately excluded (they load inside their own tab).

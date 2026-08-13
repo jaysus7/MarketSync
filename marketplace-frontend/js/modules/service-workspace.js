@@ -410,8 +410,8 @@ ENGINES['service-overview'] = {
   rootId: 'service-overview-root', title: 'Service', subtitle: 'One repair order — check in, estimate, authorize, repair, deliver',
   icon: 'wrench', accent: 'sky',
   get tabLabels() {
-    return svcIsTechnician() ? { overview: 'My Day' }
-      : { overview: 'My Day', appointments: 'Appointments', ros: 'Repair Orders', settings: 'Settings' };
+    return svcIsTechnician() ? { overview: 'Pulse' }
+      : { overview: 'Pulse', appointments: 'Appointments', ros: 'Repair Orders', settings: 'Settings' };
   },
   get tabOrder() {
     if (svcIsTechnician()) return ['overview'];          // My Work is the whole job

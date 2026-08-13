@@ -64,7 +64,7 @@ ENGINES['people-overview'] = {
   subtitle: 'Who works here, what they owe, and full employee lifecycle management',
   icon: 'user', accent: 'emerald',
   tabLabels: {
-    overview: 'My Day',
+    overview: 'Pulse',
     people: 'People',
     time: 'Time',
     hiring: 'Hiring',

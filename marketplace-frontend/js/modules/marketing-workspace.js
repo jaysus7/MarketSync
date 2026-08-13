@@ -306,7 +306,7 @@ ENGINES['marketing-overview'] = {
   icon: 'megaphone', accent: 'violet',
   // Marketing is the widest department, so it carries six. Each is a place a marketer
   // goes to do one job, and none of them opens onto another row of tabs.
-  tabLabels: { overview: 'My Day', chatbot: 'AI ChatBot', emails: 'Emails', studio: 'Studio', website: 'Website', automations: 'Automations' },
+  tabLabels: { overview: 'Pulse', chatbot: 'AI ChatBot', emails: 'Emails', studio: 'Studio', website: 'Website', automations: 'Automations' },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     return mgr ? ['overview', 'chatbot', 'emails', 'studio', 'website', 'automations']

@@ -423,7 +423,7 @@ ENGINES['parts-overview'] = {
   icon: 'gem', accent: 'amber',
   // Insights folded into My Day. Work is named for what it holds, and Requests takes
   // the slot Insights had.
-  tabLabels: { overview: 'My Day', work: 'Inventory', requests: 'Requests', settings: 'Settings' },
+  tabLabels: { overview: 'Pulse', work: 'Inventory', requests: 'Requests', settings: 'Settings' },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     return mgr ? ['overview', 'work', 'requests', 'settings'] : ['overview', 'work', 'requests'];
