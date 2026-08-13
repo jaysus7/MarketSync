@@ -670,17 +670,9 @@ function setupCloseAll() { document.querySelectorAll('.fixed').forEach(el => { i
 
 // The compact progress bar at the top of the sidebar. Vanishes when all done.
 async function renderSetupBar() {
-  const host = document.getElementById('setup-bar-host'); if (!host) return;
-  const steps = setupStepsFor(profileContext?.role);
-  if (!steps.length) { host.innerHTML = ''; return; }
-  let snap; try { snap = await loadSetupSnapshot(); } catch { return; }
-  const done = steps.filter(s => setupStepDone(s, snap)).length, total = steps.length;
-  if (done >= total) { host.innerHTML = ''; return; }
-  const pct = Math.round(done / total * 100);
-  host.innerHTML = `<button onclick="switchPage('launch')" title="Open Setup" class="w-full text-left rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/30 px-3 py-2 mb-1.5 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition">
-    <div class="flex items-center justify-between gap-2"><span class="inline-flex items-center gap-1.5 text-[12px] font-black text-indigo-700 dark:text-indigo-300">${svgIcon('rocket', 'w-3.5 h-3.5')}Finish setup</span><span class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 shrink-0">${done}/${total}</span></div>
-    <div class="h-1.5 rounded-full bg-indigo-100 dark:bg-indigo-900/50 overflow-hidden mt-1.5"><div class="h-full bg-indigo-600 rounded-full transition-all duration-500" style="width:${pct}%"></div></div>
-  </button>`;
+  if (typeof refreshSetupIndicator === 'function') {
+    await refreshSetupIndicator();
+  }
 }
 
 // Compatibility entry point used by older buttons. All setup entry points now route
