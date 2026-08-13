@@ -282,6 +282,43 @@
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m3 6V7m3 10v-4M4 4h16v16H4z"/></svg>
         <span class="hidden lg:inline">Desk a deal</span>
       </button>
+      <!-- Main Nav Shift Clock Chip & Dropdown -->
+      <div class="relative inline-block text-left" id="header-shift-clock-wrapper">
+        <button id="header-shift-clock-chip" onclick="toggleShiftDropdown(event)" title="Shift Attendance Clock" aria-label="Shift Clock" class="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-black transition border shadow-sm cursor-pointer whitespace-nowrap bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20">
+          <span id="header-shift-status-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span id="header-shift-timer-display" class="font-mono font-bold">Shift: 00:00:00</span>
+        </button>
+
+        <!-- Dropdown Menu -->
+        <div id="header-shift-dropdown" class="hidden absolute right-0 mt-2 w-72 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-4 z-50 space-y-3 text-xs">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+            <div class="font-black text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">Shift Attendance</div>
+            <span id="shift-dropdown-status-badge" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-700">Clocked In</span>
+          </div>
+
+          <!-- Live Timers Breakdown -->
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-1.5">
+            <div class="flex justify-between text-slate-500">
+              <span>Shift Duration:</span>
+              <strong id="shift-dropdown-duration" class="text-slate-900 dark:text-white font-mono font-bold">00:00:00</strong>
+            </div>
+            <div class="flex justify-between text-slate-500">
+              <span>Started At:</span>
+              <strong id="shift-dropdown-start-time" class="text-slate-700 dark:text-slate-300">--:--</strong>
+            </div>
+            <div class="flex justify-between text-slate-500">
+              <span>Total Break Time:</span>
+              <strong id="shift-dropdown-break-time" class="text-slate-700 dark:text-slate-300">00:00:00</strong>
+            </div>
+          </div>
+
+          <!-- Action Buttons (Clock In / Take Break / End Shift) -->
+          <div class="space-y-1.5 pt-1" id="shift-dropdown-actions">
+            <!-- Dynamically filled by updateShiftClockUI() -->
+          </div>
+        </div>
+      </div>
+
       <button id="header-profile-btn" onclick="switchPage('profile');settingsTab('account')" title="My profile" aria-label="My profile" class="inline-flex items-center justify-center p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.12a7.5 7.5 0 0115 0A17.93 17.93 0 0112 21.75a17.93 17.93 0 01-7.5-1.63z"/></svg>
       </button>
