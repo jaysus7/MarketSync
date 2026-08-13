@@ -1239,74 +1239,30 @@ function switchPage(pageId) {
 // ── Workspace routing (additive) ─────────────────────────────────────────────
 let __msRouting = false;   // suppress the popstate→switchPage→pushState loop
 
-function msHashFor(pageId, tabId) {
+function msHashFor(pageId) {
   const ws = (typeof msWorkspaceOfPage === 'function' && msWorkspaceOfPage(pageId, __deptRegistry)) || null;
-  const subTab = tabId || (typeof ENGINE_STATE !== 'undefined' ? ENGINE_STATE[pageId] : null);
-  if (ws) {
-    return subTab ? `#/w/${ws}/${pageId}/${subTab}` : `#/w/${ws}/${pageId}`;
-  }
-  return subTab ? `#/p/${pageId}/${subTab}` : `#/p/${pageId}`;
+  return ws ? `#/w/${ws}/${pageId}` : `#/p/${pageId}`;
 }
 
-function msSyncRoute(pageId, tabId) {
+function msSyncRoute(pageId) {
   if (__msRouting || !pageId) return;
   try {
-    const hash = msHashFor(pageId, tabId);
+    const hash = msHashFor(pageId);
     if (window.location.hash === hash) return;
-    history.replaceState({ msPage: pageId, msTab: tabId }, '', hash);
+    history.pushState({ msPage: pageId }, '', hash);
   } catch {}
 }
 
 function msRouteFromHash() {
-  const rawHash = String(window.location.hash || '').trim();
-  const hashWithoutQuery = rawHash.split('?')[0];
-  const clean = hashWithoutQuery.replace(/^#\/?/, '').replace(/^(?:w\/[^/]+\/|p\/)/, '');
-
-  if (clean) {
-    const parts = clean.split('/').filter(Boolean);
-    let page = parts[0] || null;
-    let tab = parts[1] || null;
-
-    if (page === 'inventory') page = 'inventory-overview';
-    if (page === 'fni') page = 'fni-overview';
-    if (page === 'service') page = 'service-overview';
-    if (page === 'parts') page = 'parts-overview';
-    if (page === 'accounting') page = 'accounting-overview';
-    if (page === 'marketing') page = 'marketing-overview';
-    if (page === 'pipeline') page = 'crm';
-
-    if (page) return { page, tab };
-  }
-
-  try {
-    const savedPage = localStorage.getItem('ms_last_page');
-    if (savedPage) {
-      let page = savedPage;
-      if (page === 'inventory') page = 'inventory-overview';
-      if (page === 'fni') page = 'fni-overview';
-      if (page === 'service') page = 'service-overview';
-      if (page === 'parts') page = 'parts-overview';
-      if (page === 'accounting') page = 'accounting-overview';
-      if (page === 'marketing') page = 'marketing-overview';
-      if (page === 'pipeline') page = 'crm';
-      const savedTab = localStorage.getItem('ms_last_tab_' + page);
-      return { page, tab: savedTab || null };
-    }
-  } catch {}
-  return null;
+  const m = String(window.location.hash || '').match(/^#\/(?:w\/[^/]+\/|p\/)([\w-]+)$/);
+  return m ? m[1] : null;
 }
 
 function msApplyRoute() {
-  const target = msRouteFromHash();
-  if (!target || !target.page) return;
-  if (target.page === __currentPage && (!target.tab || (typeof ENGINE_STATE !== 'undefined' && ENGINE_STATE[target.page] === target.tab))) return;
+  const pageId = msRouteFromHash();
+  if (!pageId || pageId === __currentPage) return;
   __msRouting = true;
-  try {
-    switchPage(target.page);
-    if (target.tab && typeof engineTab === 'function' && typeof ENGINES !== 'undefined' && ENGINES[target.page]) {
-      engineTab(target.page, target.tab);
-    }
-  } finally { __msRouting = false; }
+  try { switchPage(pageId); } finally { __msRouting = false; }
 }
 window.addEventListener('popstate', msApplyRoute);
 
@@ -1317,17 +1273,9 @@ function msBootRoute() {
   if (typeof switchPage !== 'function') return;
   __msBootTries++;
   __msRouting = true;
-  const targetPage = typeof __msBootTarget === 'object' ? __msBootTarget.page : __msBootTarget;
-  const targetTab = typeof __msBootTarget === 'object' ? __msBootTarget.tab : null;
-  try {
-    if (targetPage) switchPage(targetPage);
-    const activeTab = targetTab || (targetPage ? localStorage.getItem('ms_last_tab_' + targetPage) : null);
-    if (targetPage && activeTab && typeof engineTab === 'function' && typeof ENGINES !== 'undefined' && ENGINES[targetPage]) {
-      engineTab(targetPage, activeTab);
-    }
-  } finally { __msRouting = false; }
-  if (__currentPage === targetPage) {
-    try { history.replaceState({ msPage: targetPage, msTab: targetTab }, '', msHashFor(targetPage, targetTab)); } catch {}
+  try { switchPage(__msBootTarget); } finally { __msRouting = false; }
+  if (__currentPage === __msBootTarget) {
+    try { history.replaceState({ msPage: __msBootTarget }, '', msHashFor(__msBootTarget)); } catch {}
     __msBootTarget = null;
   }
 }

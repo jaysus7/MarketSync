@@ -274,9 +274,10 @@ ENGINES['inventory-overview'] = {
   // Insights and Inventory Intelligence both folded into My Day — the numbers belong where the
   // day is read, not behind a tab. Work is named for what it holds. Appraisals takes the slot
   // Insights had, and is the appraisal page itself rather than a summary of it.
-  tabLabels: { overview: 'My Day', work: 'Inventory', settings: 'Settings' },
+  tabLabels: { overview: 'My Day', work: 'Inventory', appraisals: 'Appraisals', cleanup: 'Cleanup', settings: 'Settings' },
   get tabOrder() {
-    return ['work', 'overview', 'settings'];
+    const mgr = typeof profileContext !== 'undefined' ? ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role) : true;
+    return mgr ? ['work', 'overview', 'appraisals', 'cleanup', 'settings'] : ['work', 'overview', 'appraisals', 'settings'];
   },
 
   fetch: async () => {
@@ -381,6 +382,13 @@ ENGINES['inventory-overview'] = {
         })(), 'mt-3')}`;
     },
 
+    appraisals(body) {
+      body.innerHTML = `<div id="inv-appraisals-root"></div>`;
+      if (typeof loadTradeAppraisals === 'function') loadTradeAppraisals();
+    },
+    cleanup(body) {
+      engMountPage(body, 'recon');
+    },
     settings(body) {
       body.innerHTML = engSection('Inventory settings',
         engCard('', `<div class="text-[13px] text-slate-600 dark:text-slate-300 mb-2">Syndication destinations and pricing rules live in dealership configuration.</div>

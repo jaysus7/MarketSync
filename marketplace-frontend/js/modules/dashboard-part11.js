@@ -1614,6 +1614,112 @@ window.pulseHrDeptSection = function(d) {
         </div>
       `;
 
+      const departments = [...new Set(attention.map(x => x.department || x.source_label || 'Other'))];
+      const byDept = departments.length ? departments.map(dep => {
+        const items = attention.filter(x => (x.department || x.source_label || 'Other') === dep);
+        return `<div class="mb-4">
+          <div class="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">${esc(dep)} (${items.length})</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2">${items.map(x => cmdAttentionCard(x)).join('')}</div>
+        </div>`;
+      }).join('') : engEmpty('Nothing needs attention right now.');
+
+      const campaigns = Array.isArray(d.campaigns?.rows) ? d.campaigns.rows : (Array.isArray(d.campaigns) ? d.campaigns : []);
+      const liveCampaigns = campaigns.filter(c => c.status === 'active' || c.status === 'live' || c.status === 'running');
+      const queue = Array.isArray(d.autoQueue?.queue) ? d.autoQueue.queue : (Array.isArray(d.autoQueue?.messages) ? d.autoQueue.messages : []);
+      const sentToday = queue.filter(m => m.status === 'sent' && String(m.sent_at || '').slice(0, 10) === new Date().toISOString().slice(0, 10)).length;
+      const queuedCount = queue.filter(m => m.status === 'pending' || m.status === 'scheduled').length;
+
+      const ranToday = engCard('Running today', `
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+          ${cmdStat('Campaigns live', liveCampaigns.length)}
+          ${cmdStat('Automations sent today', sentToday)}
+          ${cmdStat('Queued to send', queuedCount)}
+        </div>
+        ${liveCampaigns.length ? `<div class="divide-y divide-slate-100 dark:divide-slate-800 mt-2">${liveCampaigns.slice(0, 6).map(c => `<button onclick="switchPage('marketing-overview')" class="w-full flex items-center justify-between py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(c.name)}</span><span class="text-[12px] text-slate-400">${esc(c.source_key || 'campaign')}</span></button>`).join('')}</div>` : ''}
+      `);
+
+      // Forecast
+      const p = d.pipeline;
+      let forecastHtml = '';
+      if (cmdUnavailable(p)) {
+        forecastHtml = cmdUnavailableNote([p]) + engCard('Forecast', engEmpty('The sales pipeline could not be read, so no forecast can be shown.'));
+      } else {
+        const deals = Array.isArray(p?.deals) ? p.deals : (Array.isArray(p?.pipeline) ? p.pipeline : (Array.isArray(p?.rows) ? p.rows : []));
+        const stage = (name) => deals.filter(x => String(x.status || x.stage || '').toLowerCase() === name).length;
+        const openDeals = deals.filter(x => !/sold|lost|delivered/i.test(String(x.status || x.stage || '')));
+        const gross = openDeals.reduce((a, x) => a + (Number(x.expected_gross ?? x.gross ?? x.amount ?? 0) || 0), 0);
+        const weighted = cmdMoney(gross);
+
+        forecastHtml = `
+          <div class="mb-6 space-y-4">
+            <h3 class="text-sm font-black uppercase tracking-wider text-slate-500">Forecast</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+              ${cmdStat('Open deals', openDeals.length)}
+              ${cmdStat('Appointments', stage('appointment'))}
+              ${cmdStat('In F&I', stage('fni'))}
+              ${cmdStat('Open gross', weighted, { note: gross > 0 ? 'From deals carrying an expected gross' : 'No deal carries an expected gross yet' })}
+            </div>
+            ${engCard('Pipeline by stage', deals.length
+              ? `<div class="divide-y divide-slate-100 dark:divide-slate-800">${
+                  [...new Set(deals.map(x => String(x.status || x.stage || 'unknown')))].map(st => {
+                    const n = deals.filter(x => String(x.status || x.stage || 'unknown') === st).length;
+                    const label = st.replace(/_/g, ' ');
+                    return `<button onclick="switchPage('crm')" class="w-full flex items-center justify-between py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200 capitalize">${esc(label)}</span><span class="text-lg font-black text-slate-900 dark:text-white">${n}</span></button>`;
+                  }).join('')}</div>`
+              : engEmpty('No deals in the pipeline yet.'))}
+            <p class="text-[12px] text-slate-500 px-1 mt-2">Composed from the sales pipeline. A deal with no expected gross is counted but contributes nothing to the gross figure, rather than being given an assumed average.</p>
+          </div>
+        `;
+      }
+
+      // Financials
+      let financialsHtml = '';
+      const acctSources = [d.acct, d.ar, d.ap, d.cit, d.close];
+      const num = (src, ...keys) => {
+        if (cmdUnavailable(src)) return null;
+        for (const k of keys) {
+          const v = k.split('.').reduce((o, kk) => (o == null ? o : o[kk]), src);
+          if (v != null && Number.isFinite(Number(v))) return Number(v);
+        }
+        return null;
+      };
+      const cash = num(d.acct, 'cash', 'cash_balance', 'totals.cash');
+      const arTotal = num(d.ar, 'total', 'total_outstanding', 'balance');
+      const apTotal = num(d.ap, 'total', 'total_outstanding', 'balance');
+      const citTotal = num(d.cit, 'total', 'total_outstanding', 'balance');
+      const closeOpen = cmdUnavailable(d.close) ? null : (d.close.items || d.close.checklist || []).filter(x => x.status !== 'complete' && x.status !== 'done').length;
+
+      financialsHtml = `
+        <div class="mb-6 space-y-4">
+          <h3 class="text-sm font-black uppercase tracking-wider text-slate-500">Financials</h3>
+          ${cmdUnavailableNote(acctSources)}
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            ${cmdStat('Cash', cash === null ? null : cmdMoney(cash))}
+            ${cmdStat('Receivables', arTotal === null ? null : cmdMoney(arTotal))}
+            ${cmdStat('Payables', apTotal === null ? null : cmdMoney(apTotal), { tone: 'text-amber-600 dark:text-amber-400' })}
+            ${cmdStat('Contracts in transit', citTotal === null ? null : cmdMoney(citTotal))}
+          </div>
+          ${engCard('Month end', closeOpen === null
+            ? engEmpty('The close checklist could not be read.')
+            : closeOpen === 0
+              ? '<div class="py-2 text-[13px] font-semibold text-emerald-600 dark:text-emerald-400">Nothing is blocking the close.</div>'
+              : `<button onclick="switchPage('accounting')" class="w-full text-left py-2"><span class="text-[13px] font-semibold text-amber-600 dark:text-amber-400">${closeOpen} item${closeOpen === 1 ? '' : 's'} still open on the close checklist</span></button>`)}
+          <p class="text-[12px] text-slate-500 px-1 mt-2">Read from the canonical Accounting ledger and close state. A figure that could not be read shows as Unknown rather than zero.</p>
+        </div>
+      `;
+
+      const marketCheckHtml = `
+        <div class="mb-6">
+          <h3 class="text-sm font-black uppercase tracking-wider text-slate-500 mb-3">Market Intelligence</h3>
+          <div id="marketcheck-status" class="text-[12px] font-bold py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">Loading MarketCheck status…</div>
+        </div>
+      `;
+
+      const gaps = d.day.not_covered || [];
+      const notCovered = gaps.length
+        ? `<p class="text-[12px] text-slate-500 px-1 mt-4">Not yet covered by this queue: ${gaps.map(esc).join(', ')}. Those departments are not reporting attention, so a clear day here does not speak for them.</p>`
+        : '';
+
       body.innerHTML = `
         <div class="text-xl font-black text-slate-900 dark:text-white mb-1">${greet}</div>
         <div class="text-xs font-semibold text-slate-500 mb-4">This main page is the pulse of the dealership.</div>
@@ -1630,12 +1736,49 @@ window.pulseHrDeptSection = function(d) {
         ${window.pulseMarketingDeptSection(d)}
         ${window.pulseHrDeptSection(d)}
 
+        <div class="mb-6">
+          <h3 class="text-sm font-black uppercase tracking-wider text-slate-500 mb-3">Needs Attention by Department</h3>
+          ${byDept}
+        </div>
+        <div class="mb-6">
+          ${ranToday}
+        </div>
+        ${forecastHtml}
+        ${financialsHtml}
+        ${marketCheckHtml}
         ${cmdAcademyStrip(d)}
+        ${notCovered}
       `;
 
       if (typeof loadMarketcheckStatus === 'function') {
         setTimeout(loadMarketcheckStatus, 100);
       }
+    },
+    forecast(body, d) {
+      const p = d.pipeline;
+      if (cmdUnavailable(p)) {
+        body.innerHTML = cmdUnavailableNote([p]) + engCard('Forecast', engEmpty('The sales pipeline could not be read.'));
+        return;
+      }
+      const deals = Array.isArray(p?.deals) ? p.deals : (Array.isArray(p?.pipeline) ? p.pipeline : (Array.isArray(p?.rows) ? p.rows : []));
+      const openDeals = deals.filter(x => !/sold|lost|delivered/i.test(String(x.status || x.stage || '')));
+      const gross = openDeals.reduce((a, x) => a + (Number(x.expected_gross ?? x.gross ?? x.amount ?? 0) || 0), 0);
+      const weighted = cmdMoney(gross);
+      body.innerHTML = `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">${cmdStat('Open deals', openDeals.length)}${cmdStat('Open gross', weighted)}</div>`;
+    },
+    financials(body, d) {
+      const acctSources = [d.acct, d.ar, d.ap, d.cit, d.close];
+      const num = (src, ...keys) => {
+        if (cmdUnavailable(src)) return null;
+        for (const k of keys) {
+          const v = k.split('.').reduce((o, kk) => (o == null ? o : o[kk]), src);
+          if (v != null && Number.isFinite(Number(v))) return Number(v);
+        }
+        return null;
+      };
+      const cash = num(d.acct, 'cash', 'cash_balance', 'totals.cash');
+      const arTotal = num(d.ar, 'total', 'total_outstanding', 'balance');
+      body.innerHTML = `${cmdUnavailableNote(acctSources)}<div class="grid grid-cols-2 md:grid-cols-4 gap-3">${cmdStat('Cash', cash === null ? null : cmdMoney(cash))}${cmdStat('Receivables', arTotal === null ? null : cmdMoney(arTotal))}</div>`;
     },
   },
 };
