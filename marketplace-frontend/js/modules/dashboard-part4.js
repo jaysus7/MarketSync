@@ -1648,3 +1648,27 @@ function startLeadTimers() {
   tick();
   __leadTimerInterval = setInterval(tick, 1000);
 }
+
+Object.assign(window, {
+  openCrmContact,
+  crmOpenForm,
+  crmLoadContacts,
+  loadCrmPage,
+  crmQuickLog,
+  crmSaveContact,
+  crmScanLicense,
+  crmTaskForm,
+  crmLogForm,
+  crmApptForm,
+  crmEmailForm,
+  crmLeaseForm,
+  crmDecodeTrade,
+  crmInterestSearch,
+  crmPickInterest,
+  crmToggleCompany,
+  crmSourceOther,
+  idvStart,
+  idvRefresh,
+  idvVerifyInPerson
+});
+

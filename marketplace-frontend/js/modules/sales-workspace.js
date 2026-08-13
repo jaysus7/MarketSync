@@ -62,7 +62,7 @@ function salesNextAction(c, ctx) {
   switch (c.status) {
     case 'uncontacted':
       return { label: c.phone || c.phone_mobile ? 'Call' : 'Open Customer', reason: 'New lead — no first response yet', tone: 'rose',
-               onclick: c.phone || c.phone_mobile ? `salesCall('${id}')` : `crmOpenForm('${id}')` };
+               onclick: c.phone || c.phone_mobile ? `salesCall('${id}')` : `openCrmContact('${id}')` };
     case 'contacted':
       return appt ? { label: 'Confirm appointment', reason: 'Appointment not confirmed', tone: 'amber', onclick: `crmApptForm('${id}')` }
                   : { label: 'Book appointment', reason: 'Contacted — no appointment set', tone: 'amber', onclick: `crmApptForm('${id}')` };
@@ -77,7 +77,7 @@ function salesNextAction(c, ctx) {
     case 'delivered':
       return { label: 'Follow up', reason: 'Delivered — owner follow-up', tone: 'slate', onclick: `crmLogForm('${id}')` };
     default:
-      return { label: 'Open Customer', reason: 'Needs review', tone: 'slate', onclick: `crmOpenForm('${id}')` };
+      return { label: 'Open Customer', reason: 'Needs review', tone: 'slate', onclick: `openCrmContact('${id}')` };
   }
 }
 
@@ -156,7 +156,7 @@ const SALES_TONE = { rose: 'text-rose-600 dark:text-rose-400', amber: 'text-ambe
 
 function salesAttentionRow(it) {
   const tone = SALES_TONE[it.action?.tone] || SALES_TONE.slate;
-  const onclick = it.id ? `crmOpenForm('${it.id}')` : (it.action?.onclick || '');
+  const onclick = it.id ? `openCrmContact('${it.id}')` : (it.action?.onclick || '');
   return `<button onclick="${onclick}" class="w-full text-left flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
     <div class="min-w-0 flex-1">
       <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(it.who)}</div>
@@ -169,7 +169,7 @@ function salesAttentionRow(it) {
 function salesOppRow(c, d) {
   const na = salesNextAction(c, d);
   const appt = (d.apptByContact || {})[c.id];
-  return `<button onclick="crmOpenForm('${c.id}')" class="w-full flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition text-left">
+  return `<button onclick="openCrmContact('${c.id}')" class="w-full flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition text-left">
     <div class="min-w-0 flex-1">
       <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(salesName(c))}</div>
       <div class="text-[12px] text-slate-400 truncate">
@@ -340,7 +340,7 @@ ENGINES['sales'] = {
               <div class="text-[12px] font-bold text-slate-500 tabular-nums shrink-0">${esc(new Date(a.appointment_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}</div>
               <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(a.customer_name || '—')}</div>
                 <div class="text-[12px] text-slate-400 truncate">${esc(a.vehicle_label || '')}${a.rep_name ? ` · ${esc(a.rep_name)}` : ''}</div></div>
-              <button onclick="${a.contact_id ? `crmOpenForm('${a.contact_id}')` : `switchPage('appointments')`}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Open Customer</button>
+              <button onclick="${a.contact_id ? `openCrmContact('${a.contact_id}')` : `switchPage('appointments')`}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Open Customer</button>
             </div>`).join('') : engEmpty('No appointments today.'))}
           ${engCard('Active opportunities', open.length ? open.slice(0, 8).map(c => salesOppRow(c, d)).join('') : engEmpty('No open opportunities.'))}
         </div>`;
