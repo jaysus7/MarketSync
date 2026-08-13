@@ -443,6 +443,7 @@ async function syncNow() {
 
 function showSyncStatus(text, kind) {
   const el = document.getElementById('sync-status');
+  if (!el) return;
   el.textContent = text;
   el.className = kind === 'ok'
     ? 'mb-3 p-2 text-xs rounded bg-emerald-100 dark:bg-emerald-900/50 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-200'
@@ -451,6 +452,10 @@ function showSyncStatus(text, kind) {
       : 'mb-3 p-2 text-xs rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300';
   el.classList.remove('hidden');
 }
+
+window.syncNow = syncNow;
+window.addFeedFromInput = addFeedFromInput;
+window.showSyncStatus = showSyncStatus;
 
 // INVENTORY CATALOG: full vehicle browser
 let __catalogCache = [];

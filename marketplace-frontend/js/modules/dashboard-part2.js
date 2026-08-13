@@ -1241,16 +1241,39 @@ function msSyncRoute(pageId, tabId) {
 }
 
 function msRouteFromHash() {
-  const hash = String(window.location.hash || '').trim();
-  const m = hash.match(/^#\/(?:w\/[^/]+\/|p\/)([\w-]+)(?:\/([\w-]+))?$/);
-  if (m) {
-    return { page: m[1], tab: m[2] || null };
+  const rawHash = String(window.location.hash || '').trim();
+  const hashWithoutQuery = rawHash.split('?')[0];
+  const clean = hashWithoutQuery.replace(/^#\/?/, '').replace(/^(?:w\/[^/]+\/|p\/)/, '');
+
+  if (clean) {
+    const parts = clean.split('/').filter(Boolean);
+    let page = parts[0] || null;
+    let tab = parts[1] || null;
+
+    if (page === 'inventory') page = 'inventory-overview';
+    if (page === 'fni') page = 'fni-overview';
+    if (page === 'service') page = 'service-overview';
+    if (page === 'parts') page = 'parts-overview';
+    if (page === 'accounting') page = 'accounting-overview';
+    if (page === 'marketing') page = 'marketing-overview';
+    if (page === 'pipeline') page = 'crm';
+
+    if (page) return { page, tab };
   }
+
   try {
     const savedPage = localStorage.getItem('ms_last_page');
     if (savedPage) {
-      const savedTab = localStorage.getItem('ms_last_tab_' + savedPage);
-      return { page: savedPage, tab: savedTab || null };
+      let page = savedPage;
+      if (page === 'inventory') page = 'inventory-overview';
+      if (page === 'fni') page = 'fni-overview';
+      if (page === 'service') page = 'service-overview';
+      if (page === 'parts') page = 'parts-overview';
+      if (page === 'accounting') page = 'accounting-overview';
+      if (page === 'marketing') page = 'marketing-overview';
+      if (page === 'pipeline') page = 'crm';
+      const savedTab = localStorage.getItem('ms_last_tab_' + page);
+      return { page, tab: savedTab || null };
     }
   } catch {}
   return null;
