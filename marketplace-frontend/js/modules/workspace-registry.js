@@ -56,7 +56,7 @@ const MS_WORKSPACES = {
   // The individual pages below stay in the tab-bar so every existing entry point,
   // deep link and bookmark keeps working; `sales` simply leads.
   sales: {
-    label: 'Sales', icon: 'currency', accent: 'amber',
+    label: 'SalesOS', icon: 'currency', accent: 'amber',
     pages: [
       { page: 'sales', label: 'Pulse' },
       { page: 'appraisal', label: 'Appraisals' },
@@ -65,20 +65,12 @@ const MS_WORKSPACES = {
       { page: 'tasks', label: 'Tasks', legacy: true },
       { page: 'leads', label: 'Leads', mgr: true, legacy: true },
       { page: 'insights', label: 'Insights', mgr: true, legacy: true },
-      // "My commission" — a rep-facing page whose only access point lived in the
-      // retired legacy tree, leaving it unreachable. Restored here (all roles);
-      // managers also reach it via Accounting → Payroll.
       { page: 'commissions', label: 'My Commission', legacy: true },
     ],
   },
 
-  // ── Inventory — one vehicle lifecycle: acquire → recon → price → publish ──
-  // Absorbs Appraisals + Equity Mining (were Sales), Cleanup/Recon (was its own
-  // department), Inventory Intelligence + Market (were Sales), and Facebook
-  // Marketplace publishing (was Marketing). ONE inventory pool — the Vehicles and
-  // Syndication tabs are two views of the same page via __inventoryMode.
   inventory: {
-    label: 'Inventory', icon: 'gem', accent: 'sky',
+    label: 'InventoryOS', icon: 'gem', accent: 'sky',
     pages: [
       { page: 'inventory-overview', label: 'Pulse' },
       { page: 'appraisal', label: 'Appraisals' },
@@ -89,9 +81,8 @@ const MS_WORKSPACES = {
     ],
   },
 
-  // ── F&I — first-class workspace. Desk-a-deal stays contextual (per customer).
   fni: {
-    label: 'F&I', icon: 'shield', accent: 'indigo', roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'],
+    label: 'F&IOS', icon: 'shield', accent: 'indigo', roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'],
     pages: [
       { page: 'fni-overview', label: 'Pulse' },
       { page: 'fni', label: 'Deals' },
@@ -99,23 +90,15 @@ const MS_WORKSPACES = {
     ],
   },
 
-  // ── Recon / Cleanup ────────────────────────────────────────────────────────
   recon: {
-    label: 'Cleanup', icon: 'sparkles', accent: 'sky',
+    label: 'CleanupOS', icon: 'sparkles', accent: 'sky',
     pages: [
       { page: 'recon', label: 'Pulse' },
     ],
   },
 
-  // ── Service — the Service engine owns its own header ──────────────────────
-  // My Day | Appointments | Repair Orders | Settings are tabs INSIDE the workspace
-  // (js/modules/service-workspace.js). Listing the same destinations here as well
-  // would draw a second department tab row above the engine's own — the duplicate-
-  // header problem. `legacy` keeps both pages reachable by deep link and bookmark
-  // (the engine links to the full appointment book from its Appointments tab) while
-  // Service, like Management, presents one nav system.
   service: {
-    label: 'Service', icon: 'wrench', accent: 'sky', mgr: true,
+    label: 'ServiceOS', icon: 'wrench', accent: 'sky', mgr: true,
     pages: [
       { page: 'service-overview', label: 'Pulse' },
       { page: 'service-appointments', label: 'Schedule', legacy: true },
@@ -124,17 +107,15 @@ const MS_WORKSPACES = {
   },
 
   parts: {
-    label: 'Parts', icon: 'gem', accent: 'amber', mgr: true,
+    label: 'PartsOS', icon: 'gem', accent: 'amber', mgr: true,
     pages: [
       { page: 'parts-overview', label: 'Pulse' },
       { page: 'service-parts', label: 'Catalogue' },
     ],
   },
 
-  // The Accounting page renders its own rich internal menu (Financials, Insights,
-  // Reconciliation, Tax…) — that menu IS its local nav, so Overview is one entry.
   accounting: {
-    label: 'Accounting', icon: 'currency', accent: 'emerald', probe: '#grp-accounting-wrap', mgr: true,
+    label: 'AccountingOS', icon: 'currency', accent: 'emerald', probe: '#grp-accounting-wrap', mgr: true,
     pages: [
       { page: 'accounting-overview', label: 'Pulse' },
       { page: 'accounting', label: 'Overview' },
@@ -143,27 +124,19 @@ const MS_WORKSPACES = {
   },
 
   marketing: {
-    label: 'Marketing', icon: 'megaphone', accent: 'violet', mgr: true,
+    label: 'MarketingOS', icon: 'megaphone', accent: 'violet', mgr: true,
     pages: [
       { page: 'marketing-overview', label: 'Pulse' },
       { page: 'email-marketing', label: 'Campaigns' },
       { page: 'website', label: 'Website' },
       { page: 'ai-home', label: 'AI Chat' },
-      // Same story as `commissions`: a working page whose access point was lost.
       { page: 'ai-inbox', label: 'AI Inbox' },
-      // Facebook Marketplace publishing is a marketing channel, so it lives here rather than
-      // in Inventory. It is the same inventory pool viewed in facebook mode.
       { page: 'inventory', label: 'Publish to Facebook', invmode: 'facebook' },
     ],
   },
 
-  // ── HR — the employee lifecycle (was "People", and "Administration" before that) ──
-  // The workspace id stays `people` and the page stays `people-overview`: every deep
-  // link, entitlement key (os.team), permission string (staff.*) and mobile nav entry
-  // is keyed to those. Renaming the LABEL is what the dealership sees; renaming the
-  // identifiers would break all of it for no gain.
   people: {
-    label: 'HR', icon: 'user', accent: 'emerald', mgr: true,
+    label: 'HROS', icon: 'user', accent: 'emerald', mgr: true,
     pages: [
       { page: 'people-overview', label: 'Pulse' },
       // Retained as redirect/deep-link identities only. The HR engine owns Staff and

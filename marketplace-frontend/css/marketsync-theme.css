@@ -1,0 +1,192 @@
+/**
+ * MarketSync Brand Identity & DealerOS Master Design System
+ * 
+ * Primary Colors:
+ *   Market Blue: #2563EB
+ *   Dealer Blue: #1F4ED8
+ *   Deep Blue:   #153AA6
+ *   Graphite:    #17191F
+ *   Warm White:  #F7F8FA
+ *   Steel:       #6B7280
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Brand Color Tokens */
+  --ms-market-blue: #2563EB;
+  --ms-market-blue-hover: #1D4ED8;
+  --ms-dealer-blue: #1F4ED8;
+  --ms-deep-blue: #153AA6;
+  --ms-graphite: #17191F;
+  --ms-warm-white: #F7F8FA;
+  --ms-steel: #6B7280;
+
+  /* Typography */
+  --ms-font-family: 'Manrope', 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Radii Tokens */
+  --ms-radius-sm: 8px;
+  --ms-radius-md: 10px;
+  --ms-radius-lg: 14px;
+  --ms-radius-xl: 18px;
+  --ms-radius-2xl: 24px;
+
+  /* Light Interface Surface Defaults */
+  --ms-bg: #F7F8FA;
+  --ms-surface-raised: #FFFFFF;
+  --ms-surface-overlay: #FFFFFF;
+  --ms-text-primary: #17191F;
+  --ms-text-secondary: #6B7280;
+  --ms-border: #D9DEE8;
+  --ms-border-subtle: #E5E9F0;
+  --ms-action-primary: #2563EB;
+  --ms-action-primary-hover: #1F4ED8;
+}
+
+html.dark, [data-theme="dark"] {
+  /* Dark Interface Surface Defaults */
+  --ms-bg: #121318;
+  --ms-surface-raised: #1A1D24;
+  --ms-surface-overlay: #222630;
+  --ms-text-primary: #F7F8FA;
+  --ms-text-secondary: #A5ACB8;
+  --ms-border: #2B303A;
+  --ms-border-subtle: #232832;
+  --ms-action-primary: #2563EB;
+  --ms-action-primary-hover: #3B82F6;
+}
+
+body {
+  font-family: var(--ms-font-family);
+  background-color: var(--ms-bg);
+  color: var(--ms-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Master Brand Typography Utility Classes */
+.font-manrope { font-family: var(--ms-font-family); }
+.ms-heading-display { font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 900; tracking: -0.04em; line-height: 1.05; }
+.ms-heading-1 { font-size: clamp(2rem, 3.5vw, 2.75rem); font-weight: 900; tracking: -0.03em; line-height: 1.1; }
+.ms-heading-2 { font-size: 1.5rem; font-weight: 800; tracking: -0.02em; line-height: 1.2; }
+.ms-heading-3 { font-size: 1.25rem; font-weight: 700; tracking: -0.01em; line-height: 1.3; }
+
+/* Primary Component System */
+.ms-btn-primary {
+  display: inline-flex;
+  items-center: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: var(--ms-action-primary);
+  color: #FFFFFF;
+  font-family: var(--ms-font-family);
+  font-weight: 800;
+  font-size: 0.875rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--ms-radius-md);
+  border: 1px solid transparent;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
+}
+
+.ms-btn-primary:hover {
+  background-color: var(--ms-action-primary-hover);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.ms-btn-secondary {
+  display: inline-flex;
+  items-center: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: var(--ms-surface-raised);
+  color: var(--ms-text-primary);
+  font-family: var(--ms-font-family);
+  font-weight: 700;
+  font-size: 0.875rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--ms-radius-md);
+  border: 1px solid var(--ms-border);
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+}
+
+.ms-btn-secondary:hover {
+  border-color: var(--ms-action-primary);
+  color: var(--ms-action-primary);
+}
+
+.ms-card {
+  background-color: var(--ms-surface-raised);
+  border: 1px solid var(--ms-border);
+  border-radius: var(--ms-radius-lg);
+  padding: 1.25rem;
+  transition: border-color 0.15s ease-in-out;
+}
+
+.ms-badge {
+  display: inline-flex;
+  items-center: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ms-badge-blue {
+  background-color: rgba(37, 99, 235, 0.1);
+  color: var(--ms-market-blue);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+}
+
+/* Form Input Consistency */
+.ms-input {
+  width: 100%;
+  background-color: var(--ms-bg);
+  border: 1px solid var(--ms-border);
+  border-radius: var(--ms-radius-md);
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  color: var(--ms-text-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ms-input:focus {
+  outline: none;
+  border-color: var(--ms-market-blue);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* Operational Table Styling */
+.ms-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.ms-table th {
+  background-color: var(--ms-bg);
+  color: var(--ms-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--ms-border);
+  text-align: left;
+}
+
+.ms-table td {
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--ms-border-subtle);
+  font-size: 0.875rem;
+  color: var(--ms-text-primary);
+}
+
+.ms-table tr:hover td {
+  background-color: rgba(37, 99, 235, 0.03);
+}

@@ -15,8 +15,13 @@
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard · MarketSync</title>
-  <script>tailwind = { config: { darkMode: 'media' } }</script>
+  <title>DealerOS by MarketSync · Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/marketsync-theme.css">
+  <link rel="stylesheet" href="css/dashboard-nav.css">
+  <script>tailwind = { config: { darkMode: 'class' } }</script>
   <script src="https://cdn.tailwindcss.com"></script>
   <meta name="color-scheme" content="light dark">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -265,20 +270,20 @@
        them keeps every one of those working; deleting them would not. -->
   <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-2 sm:px-6 lg:px-8 py-3 sm:py-5 flex justify-between items-center gap-1 sm:gap-5 flex-shrink-0 sticky top-0 z-40">
     <div class="flex items-center gap-2 sm:gap-3 min-w-0">
-      <div class="flex items-center gap-2 flex-shrink-0">
-        <span class="w-1.5 h-6 bg-indigo-500 rounded-sm"></span>
-        <span class="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white">Market<span class="text-indigo-600 dark:text-indigo-400">Sync</span></span>
-      </div>
+      <a href="#" onclick="switchPage('command'); return false;" class="flex items-center gap-2 flex-shrink-0">
+        <img src="assets/marketsync-logo-primary.svg" alt="MarketSync DealerOS" class="h-8 w-auto dark:hidden">
+        <img src="assets/marketsync-logo-white.svg" alt="MarketSync DealerOS" class="h-8 w-auto hidden dark:block">
+      </a>
       <!-- Who you are signed in AS. Was hidden below sm — the role is the point of the
            header, so it shows on every screen size now. -->
       <span class="hidden sm:inline-block text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 font-mono px-2 py-0.5 rounded truncate" id="ui-role-pill">Loading...</span>
     </div>
     <div class="flex items-center justify-end gap-1 sm:gap-3 min-w-0">
-      <button id="header-appraise-btn" onclick="switchPage('appraisal')" title="Appraise a car" aria-label="Appraise a car" class="hidden items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white p-1.5 lg:px-3 rounded-lg text-sm font-bold shadow-sm shadow-indigo-500/40 transition whitespace-nowrap">
+      <button id="header-appraise-btn" onclick="switchPage('appraisal')" title="Appraise a car" aria-label="Appraise a car" class="hidden items-center gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white p-1.5 lg:px-3 rounded-lg text-sm font-bold shadow-sm transition whitespace-nowrap">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         <span class="hidden lg:inline">Appraise a car</span>
       </button>
-      <button id="header-desk-btn" onclick="switchPage('desk')" title="Desk a deal" aria-label="Desk a deal" class="hidden items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white p-1.5 lg:px-3 rounded-lg text-sm font-bold shadow-sm shadow-purple-500/40 transition whitespace-nowrap">
+      <button id="header-desk-btn" onclick="switchPage('desk')" title="Desk a deal" aria-label="Desk a deal" class="hidden items-center gap-1.5 bg-slate-800 hover:bg-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 text-white p-1.5 lg:px-3 rounded-lg text-sm font-bold shadow-sm transition whitespace-nowrap">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m3 6V7m3 10v-4M4 4h16v16H4z"/></svg>
         <span class="hidden lg:inline">Desk a deal</span>
       </button>

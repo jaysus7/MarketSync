@@ -36,6 +36,7 @@
   var authLabel = authed ? 'Dashboard' : 'Log in';
 
   // ── Header ────────────────────────────────────────────────────────────────
+  // ── Header ────────────────────────────────────────────────────────────────
   function headerHTML() {
     var solItems = SOLUTIONS.map(function (s) {
       return '<a href="' + s.href + '" class="ms-dd-item"><span class="ms-dd-t">' + esc(s.title) + '</span><span class="ms-dd-d">' + esc(s.desc) + '</span></a>';
@@ -44,7 +45,7 @@
     var mobSol = SOLUTIONS.map(function (s) { return '<a href="' + s.href + '" class="ms-m-link">' + esc(s.title) + '</a>'; }).join('');
     var mobRes = RESOURCES.map(function (r) { return '<a href="' + r.href + '" class="ms-m-link">' + esc(r.title) + '</a>'; }).join('');
     return '' +
-      '<a href="/" class="ms-logo" aria-label="MarketSync home"><span class="ms-logo-bar"></span>Market<span class="ms-logo-accent">Sync</span></a>' +
+      '<a href="/" class="ms-logo" aria-label="MarketSync home"><img src="assets/marketsync-logo-primary.svg" alt="MarketSync DealerOS" style="height:32px; width:auto;"></a>' +
       '<nav class="ms-nav-desktop" aria-label="Primary">' +
         '<div class="ms-nav-item"><button class="ms-nav-btn" aria-haspopup="true">Solutions <svg viewBox="0 0 20 20" fill="currentColor" class="ms-caret"><path d="M5.5 7.5 10 12l4.5-4.5"/></svg></button><div class="ms-dropdown ms-dd-wide">' + solItems + '</div></div>' +
         '<a href="/compare.html" class="ms-nav-link">Pricing</a>' +
@@ -71,13 +72,13 @@
     };
     return '' +
       '<div class="ms-f-cta">' +
-        '<h2>Run your whole store from one login.</h2>' +
-        '<p>Replace vAuto, your CRM, PBS, DeskIt, eDealer and your Facebook posting tool — with one platform your team actually likes using.</p>' +
+        '<h2>One dealership. One system.</h2>' +
+        '<p>One customer. One VIN. One continuous record. Replace software fragmentation with DealerOS by MarketSync.</p>' +
         '<div class="ms-f-cta-btns"><a href="' + TRIAL + '" class="ms-btn ms-btn-primary ms-btn-lg">Start your free 30-day trial</a><a href="/compare.html" class="ms-btn ms-btn-ghost ms-btn-lg">See pricing</a></div>' +
         '<div class="ms-f-cta-note">No credit card required · Set up in a day</div>' +
       '</div>' +
       '<div class="ms-f-grid">' +
-        '<div class="ms-f-brand"><a href="/" class="ms-logo ms-logo-sm"><span class="ms-logo-bar"></span>Market<span class="ms-logo-accent">Sync</span></a><p>The all-in-one platform for modern car dealerships.</p></div>' +
+        '<div class="ms-f-brand"><a href="/" class="ms-logo ms-logo-sm"><img src="assets/marketsync-logo-primary.svg" alt="MarketSync DealerOS" style="height:28px; width:auto;"></a><p>The complete operating system for automotive retail.</p></div>' +
         col('Solutions', [['DealerOS', '/dealer-os.html'], ['Facebook AutoPoster', '/facebook-autoposter.html'], ['AI ChatBot', '/ai-chatbot.html'], ['Pricing', '/compare.html']]) +
         col('Company', [['How-to Guide', '/guide.html'], ['Blog', '/blog.html'], ['FAQ', '/faq.html'], ['Support', '/support.html']]) +
         col('Trust', [['Security', '/security.html'], ['Privacy Policy', '/privacy-policy.html'], ['Terms', '/terms.html']]) +

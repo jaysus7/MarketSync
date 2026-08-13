@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 48" fill="none">
+  <!-- Interlocking Angular M/S Monogram Logo Mark -->
+  <g transform="translate(4, 4)">
+    <!-- Outer Diamond Hex Frame -->
+    <path d="M20 2L36 11V29L20 38L4 29V11L20 2Z" stroke="#2563EB" stroke-width="3" stroke-linejoin="round"/>
+    <!-- Interlocking M Facet -->
+    <path d="M10 24V14L16 20L20 15L24 20L30 14V24" stroke="#1F4ED8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Interlocking S Angular Facet -->
+    <path d="M12 26C12 26 15 28 20 28C25 28 27 26 27 24C27 21 13 21 13 18C13 15 16 13 20 13C24 13 27 15 27 15" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round"/>
+  </g>
+  <!-- MarketSync Brand Typography -->
+  <text x="54" y="27" font-family="'Manrope', 'Inter', sans-serif" font-size="22" font-weight="900" letter-spacing="-0.03em" fill="#17191F">Market<tspan fill="#2563EB">Sync</tspan></text>
+  <text x="55" y="39" font-family="'Manrope', 'Inter', sans-serif" font-size="9" font-weight="800" letter-spacing="0.18em" fill="#6B7280" text-transform="uppercase">DealerOS</text>
+</svg>
