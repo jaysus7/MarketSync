@@ -106,13 +106,34 @@ ENGINES['people-overview'] = {
 
   tabs: {
     overview(body, d) {
-      if (typeof window.pulseHrDeptSection === 'function') {
-        body.innerHTML = window.pulseHrDeptSection(d);
-        return;
-      }
+      const items = d.needsAttention || [];
+      const team = d.team || [];
+      const unlinked = team.filter(p => p.has_employment === false).length;
+
+      const proactiveAiPanel = `
+        <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg border border-slate-800">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-sky-400">
+              <span>Proactive HR &amp; People Operations AI Assistant</span>
+            </div>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">LIVE HR TELEMETRY</span>
+          </div>
+          <div class="text-xs text-slate-300 space-y-1.5 mb-3">
+            <p>• <strong>Active Staff Roster:</strong> ${team.length} active employee(s) indexed across sales, service, parts, and admin.</p>
+            <p>• <strong>Shift Attendance &amp; Punches:</strong> All live shift clock entries are active in the top navigation bar.</p>
+            <p>• <strong>Compliance &amp; Certifications:</strong> ${items.length} employee compliance alert(s) requiring sign-off.</p>
+            <p>• <strong>Staffing &amp; Unlinked Accounts:</strong> ${unlinked} user login(s) pending employment profile linkage.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
+            <button onclick="engineTab('people-overview','work')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Review Staff List</button>
+            <button onclick="engineTab('people-overview','insights')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">View Compliance Dashboard</button>
+          </div>
+        </div>
+      `;
 
       body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        ${proactiveAiPanel}
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('People', team.length)}
           ${engKpi('Needs attention', items.length, items.length ? 'text-amber-600 dark:text-amber-400' : '')}
           ${engKpi('Not linked', unlinked, unlinked ? 'text-amber-600 dark:text-amber-400' : '')}

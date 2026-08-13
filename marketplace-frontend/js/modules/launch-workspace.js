@@ -157,8 +157,29 @@ ENGINES['launch'] = {
         <div class="text-[12px] text-slate-500 mt-0.5">${esc(note)}</div>
       </div>`
 
+      const proactiveAiPanel = `
+        <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg border border-slate-800">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-sky-400">
+              <span>Proactive Store Setup &amp; Launch AI Assistant</span>
+            </div>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">LIVE SETUP TELEMETRY</span>
+          </div>
+          <div class="text-xs text-slate-300 space-y-1.5 mb-3">
+            <p>• <strong>Operational Readiness:</strong> ${l.operational ? '<span class="text-emerald-400 font-bold">Dealership store configuration is fully operational!</span>' : `<span class="text-rose-400 font-bold">${l.outstanding_to_launch || 0} required setup item(s) pending completion.</span>`}</p>
+            <p>• <strong>Configuration Completion:</strong> ${l.outstanding_total || 0} total setup task(s) remaining for full feature activation.</p>
+            <p>• <strong>Multi-Location Provisioning:</strong> ${(d.locations || []).length} dealership location(s) active on workspace license.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
+            <button onclick="engineTab('launch','work')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Configure Dealership Profile</button>
+            <button onclick="engineTab('launch','insights')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Manage Locations</button>
+          </div>
+        </div>
+      `;
+
       body.innerHTML = `
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        ${proactiveAiPanel}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
           ${state(l.operational, 'Can you operate', l.operational
             ? 'Everything required to run the dealership is in place.'
             : `${l.outstanding_to_launch || 0} required item${l.outstanding_to_launch === 1 ? '' : 's'} outstanding`)}

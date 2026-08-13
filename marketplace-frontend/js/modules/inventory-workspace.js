@@ -308,13 +308,37 @@ ENGINES['inventory-overview'] = {
 
   tabs: {
     overview(body, d) {
-
       const att = invAttention(d);
       const veh = d.vehicles || [];
       const held = veh.filter(v => !v.awaiting_possession);
       const notReady = held.filter(v => invMerchGaps(v).length);
       const awaiting = veh.filter(v => v.awaiting_possession).length;
+      const agedCount = veh.filter(v => (v.age_days || 0) > 60).length;
+      const missingPhotos = veh.filter(v => !v.photo_urls || !v.photo_urls.length).length;
+
+      const proactiveAiPanel = `
+        <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg border border-slate-800">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-sky-400">
+              <span>Proactive Inventory &amp; Merchandising AI Assistant</span>
+            </div>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">LIVE INVENTORY TELEMETRY</span>
+          </div>
+          <div class="text-xs text-slate-300 space-y-1.5 mb-3">
+            <p>• <strong>Aged Inventory Warning:</strong> ${agedCount ? `<span class="text-rose-400 font-bold">${agedCount} unit(s) in stock over 60 days requiring price alignment.</span>` : 'All inventory is currently within normal age thresholds.'}</p>
+            <p>• <strong>Merchandising Gaps:</strong> ${missingPhotos} vehicle(s) missing photos or AI description notes before publication.</p>
+            <p>• <strong>Recon In-Progress:</strong> ${notReady.length} unit(s) currently undergoing detail, safety inspection, or reconditioning.</p>
+            <p>• <strong>Acquisition Pipeline:</strong> ${awaiting} vehicle(s) awaiting transport possession check-in.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
+            <button onclick="engineTab('inventory-overview','work')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Review Aged Inventory</button>
+            <button onclick="engineTab('inventory-overview','appraisals')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Appraise Trade-Ins</button>
+          </div>
+        </div>
+      `;
+
       body.innerHTML = `
+        ${proactiveAiPanel}
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}
           ${engKpi('In stock', veh.length)}

@@ -309,17 +309,36 @@ ENGINES['sales'] = {
   tabs: {
     // ── TODAY — the operational command center, not analytics ──────────────
     overview(body, d) {
-      if (typeof window.pulseSalesDeptSection === 'function') {
-        body.innerHTML = window.pulseSalesDeptSection(d);
-        return;
-      }
       const att = salesAttention(d);
       const now = Date.now(), day = 864e5;
       const todays = (d.appointments || []).filter(a => { const t = new Date(a.appointment_at) - now; return t > -day / 2 && t < day / 2; });
       const open = (d.contacts || []).filter(c => SALES_OPEN_STAGES.includes(c.status));
       const overdue = (d.tasks || []).filter(t => t.due_at && new Date(t.due_at) < now);
       const newLeads = (d.contacts || []).filter(c => c.status === 'uncontacted');
+
+      const proactiveAiPanel = `
+        <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg border border-slate-800">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-sky-400">
+              <span>Proactive Sales &amp; F&amp;I AI Assistant</span>
+            </div>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">LIVE SALES TELEMETRY</span>
+          </div>
+          <div class="text-xs text-slate-300 space-y-1.5 mb-3">
+            <p>• <strong>Uncontacted Leads:</strong> ${newLeads.length ? `<span class="text-amber-300 font-bold">${newLeads.length} new internet lead(s) waiting over 15 minutes for rep contact.</span>` : 'All incoming internet leads have been contacted.'}</p>
+            <p>• <strong>Overdue Follow-Up Tasks:</strong> ${overdue.length ? `<span class="text-rose-400 font-bold">${overdue.length} scheduled customer task(s) are past due today!</span>` : 'No overdue customer tasks outstanding.'}</p>
+            <p>• <strong>Deals Pending F&amp;I Approval:</strong> ${(d.deals || []).length} active deal(s) currently awaiting desk &amp; lender submit.</p>
+            <p>• <strong>Today's Appointments:</strong> ${todays.length} showroom customer appointment(s) scheduled today.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
+            <button onclick="engineTab('sales','work')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Prioritize Hot Leads</button>
+            <button onclick="engineTab('sales','desk')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Review Pending Deals</button>
+          </div>
+        </div>
+      `;
+
       body.innerHTML = `
+        ${proactiveAiPanel}
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '', "engineTab('sales', 'work')")}
           ${engKpi('New leads', newLeads.length, newLeads.length ? 'text-amber-600 dark:text-amber-400' : '', "salesWorkView('opportunities')")}

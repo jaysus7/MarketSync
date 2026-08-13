@@ -465,17 +465,36 @@ ENGINES['parts-overview'] = {
 
   tabs: {
     overview(body, d) {
-      if (typeof window.pulsePartsDeptSection === 'function') {
-        body.innerHTML = window.pulsePartsDeptSection(d);
-        return;
-      }
       const att = partsAttention(d);
       const reqs = d.requests || [];
       const items = d.inventory || [];
       const short = reqs.filter(q => q.status === 'backordered').length;
       const toIssue = reqs.filter(q => q.status === 'reserved').length;
       const low = items.filter(i => pwStatus(i) === 'low').length;
+
+      const proactiveAiPanel = `
+        <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg border border-slate-800">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-sky-400">
+              <span>Proactive Parts &amp; Warehouse AI Assistant</span>
+            </div>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">LIVE PARTS TELEMETRY</span>
+          </div>
+          <div class="text-xs text-slate-300 space-y-1.5 mb-3">
+            <p>• <strong>Service RO Demand:</strong> ${toIssue ? `<span class="text-emerald-400 font-bold">${toIssue} line item(s) reserved and ready for counter issue to technicians.</span>` : 'No reserved parts waiting for counter issue.'}</p>
+            <p>• <strong>Shop Backorders:</strong> ${short ? `<span class="text-rose-400 font-bold">${short} RO part request(s) on backorder blocking active service jobs!</span>` : 'No active RO backorders blocking service.'}</p>
+            <p>• <strong>Low Stock Reorder Threshold:</strong> ${low} SKU(s) falling below safety stock reorder levels.</p>
+            <p>• <strong>Warehouse Inventory:</strong> ${items.length} total active part SKUs indexed on stock ledger.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
+            <button onclick="engineTab('parts-overview','requests')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Fulfill RO Part Requests</button>
+            <button onclick="engineTab('parts-overview','work')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Reorder Low Stock Items</button>
+          </div>
+        </div>
+      `;
+
       body.innerHTML = `
+        ${proactiveAiPanel}
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}
           ${engKpi('Open requests', reqs.filter(q => PW_ACTIONABLE.includes(q.status)).length)}

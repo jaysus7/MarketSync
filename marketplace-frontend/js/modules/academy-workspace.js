@@ -226,8 +226,30 @@ ENGINES['academy'] = {
 
       const outstanding = p.outstanding_required || 0
       const overdue = p.overdue_required || 0
+
+      const proactiveAiPanel = `
+        <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg border border-slate-800">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-sky-400">
+              <span>Proactive Academy &amp; Compliance AI Assistant</span>
+            </div>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">LIVE LEARNING TELEMETRY</span>
+          </div>
+          <div class="text-xs text-slate-300 space-y-1.5 mb-3">
+            <p>• <strong>Required Course Status:</strong> ${outstanding ? `<span class="text-amber-300 font-bold">${outstanding} mandatory training module(s) currently assigned to your learning path.</span>` : 'All mandatory training modules are fully completed!'}</p>
+            <p>• <strong>Overdue Compliance:</strong> ${overdue ? `<span class="text-rose-400 font-bold">${overdue} compliance module(s) past completion deadline!</span>` : 'No overdue training modules.'}</p>
+            <p>• <strong>Active Credentials &amp; Badges:</strong> ${(d.held || []).length} active certification badge(s) earned.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
+            <button onclick="engineTab('academy','overview')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Start Next Course</button>
+            <button onclick="engineTab('academy','work')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">View Earned Certifications</button>
+          </div>
+        </div>
+      `;
+
       body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        ${proactiveAiPanel}
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('Required outstanding', outstanding, outstanding ? 'text-amber-600 dark:text-amber-400' : '')}
           ${engKpi('Overdue', overdue, overdue ? 'text-rose-600 dark:text-rose-400' : '')}
           ${engKpi('Foundations', (p.foundations || []).length)}

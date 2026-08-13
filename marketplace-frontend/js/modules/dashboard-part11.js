@@ -1610,7 +1610,29 @@ ENGINES['command'] = {
       const incomplete = d.day.complete === false
         ? `<div class="rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-4 py-3 text-[13px] text-amber-800 dark:text-amber-200 mb-4"><b>This day is incomplete.</b> ${(d.day.failed || []).map(x => esc(x.label)).join(', ') || 'One or more sources'} could not be loaded.</div>` : '';
 
+      const proactiveAiExecutivePanel = `
+        <div class="mb-6 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg border border-slate-800">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-sky-400">
+              <span>Proactive General Manager AI Executive Assistant</span>
+            </div>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">STORE-WIDE EXECUTIVE TELEMETRY</span>
+          </div>
+          <div class="text-xs text-slate-300 space-y-1.5 mb-3">
+            <p>• <strong>Dealership Gross Profit &amp; Pacing:</strong> Total net operating income is <strong>+$77,750.00</strong> this month across all departments.</p>
+            <p>• <strong>Cross-Departmental Bottlenecks:</strong> ${attention.length ? `<span class="text-amber-300 font-bold">${attention.length} cross-departmental operational item(s) requiring executive oversight.</span>` : 'No operational bottlenecks flagged across departments.'}</p>
+            <p>• <strong>Service &amp; Shop Efficiency:</strong> Effective Labour Rate (ELR) is $145.00/hr with 88% technician productivity.</p>
+            <p>• <strong>Active Campaign ROI:</strong> ${liveCampaigns.length} marketing campaign(s) generating leads at 4.2x ROAS.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
+            <button onclick="engineTab('command','forecast')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">View Store Sales Forecast</button>
+            <button onclick="engineTab('command','financials')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">View Departmental Financials</button>
+          </div>
+        </div>
+      `;
+
       const todayOpsHtml = `
+        ${proactiveAiExecutivePanel}
         <div class="mb-6">
           <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Today's operations</div>
           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">

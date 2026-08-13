@@ -301,7 +301,29 @@ ENGINES['fni-overview'] = {
         return `${Math.floor(hrs / 24)}d ago`;
       };
 
+      const proactiveAiPanel = `
+        <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg border border-slate-800">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-sky-400">
+              <span>Proactive F&amp;I Manager AI Assistant</span>
+            </div>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">LIVE F&amp;I TELEMETRY</span>
+          </div>
+          <div class="text-xs text-slate-300 space-y-1.5 mb-3">
+            <p>• <strong>Desked Deals Incoming:</strong> ${incomingDeals.length ? `<span class="text-emerald-400 font-bold">${incomingDeals.length} deal(s) desked in the last 60 minutes ready for lender submission.</span>` : 'No new deals desked in the past hour.'}</p>
+            <p>• <strong>Lender Approvals Pending:</strong> ${pending ? `<span class="text-amber-300 font-bold">${pending} deal(s) awaiting lender credit decision or stipulation check-in.</span>` : 'All submitted deals have received lender decisions.'}</p>
+            <p>• <strong>Delivery Queue Blockers:</strong> ${blocked ? `<span class="text-rose-400 font-bold">${blocked} delivery unit(s) blocked on missing insurance, stips, or funding approval!</span>` : 'No delivery queue blockers.'}</p>
+            <p>• <strong>F&amp;I Product Index:</strong> ${(d.products || []).length} active protection &amp; warranty products available for menu presentation.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
+            <button onclick="engineTab('fni-overview','work')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Review Desked Deals</button>
+            <button onclick="switchPage('delivery')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Check Delivery Blockers</button>
+          </div>
+        </div>
+      `;
+
       body.innerHTML = `
+        ${proactiveAiPanel}
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}
           ${engKpi('Incoming (Last 1h)', incomingDeals.length, incomingDeals.length ? 'text-indigo-600 dark:text-indigo-400 font-bold' : '')}
