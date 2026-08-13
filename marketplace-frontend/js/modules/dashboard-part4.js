@@ -972,23 +972,78 @@ async function crmSaveTask(id) {
   try { await apiSendJson('/crm/tasks', 'POST', { contact_id: id, title, type, due_at: due ? new Date(due).toISOString() : null }); showToast('Task added', 'success'); openCrmContact(id); }
   catch (e) { showToast(e.message, 'error'); }
 }
-async function crmToggleTask(taskId, done, contactId, fromList) {
-  // Completing a task requires a note — it posts to the customer's timeline so the
-  // record shows WHAT happened, not just a checkmark. Un-checking needs no note.
+function crmToggleTask(taskId, done, contactId, fromList, checkboxEl) {
   const refresh = () => { if (fromList) crmLoadTasks(); else if (contactId) openCrmContact(contactId); else crmLoadTasks(); };
-  let note = null;
-  if (done) {
-    note = prompt('Add a note about this task before completing it:', '');
-    if (note == null || !note.trim()) { refresh(); return; }   // cancelled/blank → don't complete
+  if (!done) {
+    apiSendJson(`/crm/tasks/${taskId}`, 'PUT', { done: false })
+      .then(() => refresh())
+      .catch((e) => showToast(e.message, 'error'));
+    return;
   }
-  try {
-    await apiSendJson(`/crm/tasks/${taskId}`, 'PUT', { done });
-    if (done && note && note.trim() && contactId) {
-      await apiSendJson(`/crm/contacts/${contactId}/log`, 'POST', { channel: 'note', direction: 'internal', subject: 'Task completed', body: note.trim() });
-    }
-    refresh();   // timeline / list reflects the note immediately (no manual refresh)
-  } catch (e) { showToast(e.message, 'error'); }
+
+  // Completing a task requires a note — display inline completion box right under task
+  if (checkboxEl) checkboxEl.checked = false;
+
+  const targetContainer = document.getElementById(`task-note-slot-${taskId}`) || checkboxEl?.closest('.task-item-row') || checkboxEl?.parentElement?.parentElement;
+  if (!targetContainer) {
+    showToast('Task element not found', 'error');
+    return;
+  }
+
+  document.querySelectorAll('.task-inline-note-box').forEach(el => el.remove());
+
+  const box = document.createElement('div');
+  box.id = `task-note-box-${taskId}`;
+  box.className = 'task-inline-note-box mt-2 mb-2 p-3 bg-slate-50 dark:bg-slate-800/90 border border-indigo-200 dark:border-indigo-800/80 rounded-xl space-y-2.5 transition-all shadow-sm';
+  box.innerHTML = `
+    <div class="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-200">
+      <span class="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        Complete Task — Add Note
+      </span>
+      <span class="text-[11px] text-slate-400 font-normal">Note is required</span>
+    </div>
+    <textarea id="task-note-input-${taskId}" rows="2" placeholder="Write a note about what was accomplished or discussed..." class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-normal text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none" oninput="crmCheckTaskNoteSubmit('${taskId}')"></textarea>
+    <div class="flex items-center justify-end gap-2">
+      <button onclick="crmCancelTaskNote('${taskId}')" class="px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg transition">Cancel</button>
+      <button id="task-note-submit-${taskId}" disabled onclick="crmSubmitTaskCompletion('${taskId}', '${contactId || ''}', ${fromList ? 'true' : 'false'})" class="px-3.5 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition shadow-sm">Complete Task</button>
+    </div>
+  `;
+
+  targetContainer.appendChild(box);
+  setTimeout(() => document.getElementById(`task-note-input-${taskId}`)?.focus(), 50);
 }
+
+function crmCheckTaskNoteSubmit(taskId) {
+  const val = (document.getElementById(`task-note-input-${taskId}`)?.value || '').trim();
+  const btn = document.getElementById(`task-note-submit-${taskId}`);
+  if (btn) btn.disabled = (val.length === 0);
+}
+
+function crmCancelTaskNote(taskId) {
+  const box = document.getElementById(`task-note-box-${taskId}`);
+  if (box) box.remove();
+}
+
+async function crmSubmitTaskCompletion(taskId, contactId, fromList) {
+  const note = (document.getElementById(`task-note-input-${taskId}`)?.value || '').trim();
+  if (!note) { showToast('A note is required to complete this task', 'error'); return; }
+  const btn = document.getElementById(`task-note-submit-${taskId}`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Completing…'; }
+  const refresh = () => { if (fromList) crmLoadTasks(); else if (contactId && contactId !== 'null' && contactId !== 'undefined') openCrmContact(contactId); else crmLoadTasks(); };
+  try {
+    await apiSendJson(`/crm/tasks/${taskId}`, 'PUT', { done: true });
+    if (contactId && contactId !== 'null' && contactId !== 'undefined') {
+      await apiSendJson(`/crm/contacts/${contactId}/log`, 'POST', { channel: 'note', direction: 'internal', subject: 'Task completed', body: note });
+    }
+    showToast('Task completed', 'success');
+    refresh();
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Complete Task'; }
+    showToast(e.message, 'error');
+  }
+}
+
 // ── Lease / equity details right on the delivered customer (managers) ────────
 async function crmLeaseForm(id) {
   crmDetailFormSlot(`<div class="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 rounded-lg p-3 text-sm text-slate-500">Loading lease details…</div>`);
@@ -1031,7 +1086,16 @@ function crmApptForm(id) {
   const now = new Date(Date.now() + 3600000);
   const defDate = now.toISOString().slice(0, 10), defTime = now.toTimeString().slice(0, 5);
   crmDetailFormSlot(`<div class="bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-900 rounded-lg p-3 space-y-2">
-    <div class="text-[11px] font-bold uppercase tracking-wider text-violet-500">Book appointment</div>
+    <div class="flex items-center justify-between gap-2 flex-wrap pb-1 border-b border-violet-100 dark:border-violet-900/50">
+      <div class="text-[11px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400">Book Appointment</div>
+      <div class="flex items-center gap-1.5">
+        <label class="text-xs font-semibold text-slate-600 dark:text-slate-300">Department:</label>
+        <select id="crm-appt-dept" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs font-bold text-violet-700 dark:text-violet-300 focus:ring-2 focus:ring-violet-500 focus:outline-none">
+          <option value="sales" selected>Sales Appointment</option>
+          <option value="service">Service Appointment</option>
+        </select>
+      </div>
+    </div>
     <input id="crm-appt-title" value="Appointment" placeholder="Title" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm">
     <div class="flex gap-2">
       <input id="crm-appt-date" type="date" value="${defDate}" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm">
@@ -1041,7 +1105,7 @@ function crmApptForm(id) {
     <input id="crm-appt-vehicle" placeholder="Vehicle / stock # (optional)" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm">
     <textarea id="crm-appt-note" rows="2" placeholder="Notes (optional) — added to the timeline" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm"></textarea>
     <div class="flex gap-2 justify-end"><button onclick="crmDetailFormSlot('')" class="text-xs font-bold text-slate-500 px-3 py-1.5">Cancel</button>
-      <button onclick="crmSaveAppt('${id}')" class="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded-lg">Book + get calendar links</button></div>
+      <button onclick="crmSaveAppt('${id}')" class="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white px-3.5 py-1.5 rounded-lg shadow-sm transition">Book + get calendar links</button></div>
   </div>`);
 }
 function crmCalLinks(title, startIso, mins, details) {
@@ -1053,7 +1117,8 @@ function crmCalLinks(title, startIso, mins, details) {
   return { g, o, ics };
 }
 async function crmSaveAppt(id) {
-  const title = document.getElementById('crm-appt-title')?.value || 'Appointment';
+  const dept = document.getElementById('crm-appt-dept')?.value || 'sales';
+  const rawTitle = (document.getElementById('crm-appt-title')?.value || '').trim();
   const date = document.getElementById('crm-appt-date')?.value;
   const time = document.getElementById('crm-appt-time')?.value || '09:00';
   const dur = Number(document.getElementById('crm-appt-dur')?.value || 60);
@@ -1061,26 +1126,32 @@ async function crmSaveAppt(id) {
   const note = (document.getElementById('crm-appt-note')?.value || '').trim();
   if (!date) { showToast('Pick a date', 'error'); return; }
   const startIso = new Date(`${date}T${time}`).toISOString();
-  const fullTitle = vehicle ? `${title} · ${vehicle}` : title;
-  const details = ['Booked via MarketSync CRM', vehicle ? `Vehicle: ${vehicle}` : '', note].filter(Boolean).join('\n');
+  const deptLabel = dept === 'service' ? 'Service' : 'Sales';
+  const baseTitle = rawTitle || `${deptLabel} Appointment`;
+  const fullTitle = vehicle ? `${baseTitle} · ${vehicle}` : baseTitle;
+  const details = [`Booked via MarketSync CRM (${deptLabel})`, vehicle ? `Vehicle: ${vehicle}` : '', note].filter(Boolean).join('\n');
   try {
-    await apiSendJson('/crm/tasks', 'POST', { contact_id: id, title: fullTitle, type: 'appointment', due_at: startIso });
-    await apiSendJson(`/crm/contacts/${id}/log`, 'POST', { channel: 'note', direction: 'internal', subject: 'Appointment booked', body: `${fullTitle} — ${new Date(startIso).toLocaleString()}` });
-    // A note typed on the appointment posts to the timeline as its own note.
-    if (note) await apiSendJson(`/crm/contacts/${id}/log`, 'POST', { channel: 'note', direction: 'internal', subject: 'Appointment note', body: note });
+    await apiSendJson('/crm/tasks', 'POST', { contact_id: id, title: fullTitle, type: dept === 'service' ? 'service_appointment' : 'appointment', due_at: startIso });
+    if (dept === 'service') {
+      try {
+        await apiSendJson('/appointments', 'POST', { contact_id: id, appointment_date: startIso, type: 'service', vehicle_info: vehicle, notes: note });
+      } catch {}
+    }
+    await apiSendJson(`/crm/contacts/${id}/log`, 'POST', { channel: 'note', direction: 'internal', subject: `${deptLabel} Appointment booked`, body: `${fullTitle} — ${new Date(startIso).toLocaleString()}` });
+    if (note) await apiSendJson(`/crm/contacts/${id}/log`, 'POST', { channel: 'note', direction: 'internal', subject: `${deptLabel} Appointment note`, body: note });
     await apiSendJson(`/crm/contacts/${id}`, 'PUT', { status: 'appointment' });
     const { g, o, ics } = crmCalLinks(fullTitle, startIso, dur, details);
     crmDetailFormSlot(`<div class="bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-900 rounded-lg p-3 space-y-2">
-      <div class="text-sm font-bold text-slate-800 dark:text-slate-100">Appointment booked for ${esc(new Date(startIso).toLocaleString())}</div>
+      <div class="text-sm font-bold text-slate-800 dark:text-slate-100">${deptLabel} Appointment booked for ${esc(new Date(startIso).toLocaleString())}</div>
       <div class="text-xs text-slate-500">Add it to your calendar:</div>
       <div class="flex flex-wrap gap-2">
         <a href="${g}" target="_blank" class="inline-flex items-center gap-1.5 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg">${msIco('calendar', 'w-3.5 h-3.5')} Google Calendar</a>
         <a href="${o}" target="_blank" class="inline-flex items-center gap-1.5 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg">${msIco('calendar', 'w-3.5 h-3.5')} Outlook</a>
         <a href="${ics}" download="appointment.ics" class="inline-flex items-center gap-1.5 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg">${msIco('download', 'w-3.5 h-3.5')} .ics file</a>
       </div>
-      <button onclick="openCrmContact('${id}')" class="text-xs font-bold text-indigo-500">Done</button>
+      <div class="flex justify-end pt-1"><button onclick="crmDetailFormSlot(''); openCrmContact('${id}');" class="text-xs font-bold text-violet-600 dark:text-violet-400 hover:underline">Done</button></div>
     </div>`);
-    showToast('Appointment booked', 'success');
+    showToast(`${deptLabel} appointment booked`, 'success');
   } catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -1677,6 +1748,10 @@ Object.assign(window, {
   crmSourceOther,
   idvStart,
   idvRefresh,
-  idvVerifyInPerson
+  idvVerifyInPerson,
+  crmToggleTask,
+  crmCheckTaskNoteSubmit,
+  crmCancelTaskNote,
+  crmSubmitTaskCompletion
 });
 
