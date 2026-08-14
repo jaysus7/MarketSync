@@ -105,31 +105,19 @@ ENGINES['accounting-overview'] = {
   rootId: 'accounting-overview-root', title: 'Accounting',
   subtitle: 'Financial control — what reached the books, what has not, and what is owed',
   icon: 'currency', accent: 'emerald',
-  tabLabels: {
-    overview: 'Today',
-    money_in: 'Money In',
-    money_out: 'Money Out',
-    bank: 'Bank',
-    close: 'Close',
-    reports: 'Reports',
-    budget: 'Budget',
-    journal: 'Journal',
-    settings: 'Settings',
-  },
+  tabLabels: { overview: 'My Day', journal: 'Journal', payroll: 'Payroll', budget: 'Budget', settings: 'Settings' },
   get tabOrder() {
-    const role = profileContext?.role;
-    const isOwner = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(role);
-    const isClerk = role === 'ACCOUNTING_CLERK';
-    if (isOwner) return ['overview', 'money_in', 'money_out', 'bank', 'close', 'reports', 'budget', 'journal', 'settings'];
-    if (isClerk) return ['overview', 'money_in', 'money_out', 'bank'];
-    return ['overview', 'money_in', 'money_out', 'bank', 'close', 'reports', 'budget'];
+    const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(profileContext?.role);
+    // Settings writes tax handling, auto-posting and who gets the alerts, and Budget
+    // connects the bank — both are controller acts.
+    return mgr ? ['overview', 'journal', 'payroll', 'budget', 'settings'] : ['overview', 'journal'];
   },
 
   quickActions: [
-    { label: '+ Record Incoming', icon: 'currency', onclick: "accOpenCustomEntryModal('in')" },
-    { label: '+ Record Outgoing', icon: 'clipboard', onclick: "accOpenCustomEntryModal('out')" },
-    { label: 'Bank Matching', icon: 'chart', onclick: "engineTab('accounting-overview','bank')" },
-    { label: 'Close Period', icon: 'chevronRight', onclick: "engineTab('accounting-overview','close')" },
+    { label: 'Journal', icon: 'clipboard', onclick: "engineTab('accounting-overview','journal')" },
+    { label: 'Payroll', icon: 'currency', onclick: "engineTab('accounting-overview','payroll')" },
+    { label: 'Budget', icon: 'chart', onclick: "engineTab('accounting-overview','budget')" },
+    { label: 'Full ledger', icon: 'chevronRight', onclick: "switchPage('accounting')" },
   ],
   // Every exception now lands on My Day, where its section already lives.
   nextActions: (d) => (d?.exceptions || []).slice(0, 5).map(x => ({
@@ -139,38 +127,48 @@ ENGINES['accounting-overview'] = {
   })),
 
   fetch: async () => {
-    // Fast parallel fetch for primary operational accounting view
-    const [exc, ar, ap, cit, deals, close, settings, budget, plaidStatus, plaidConfig] = await Promise.all([
+    // Each read degrades to empty on its own, so one unavailable feed never blanks the
+    // controller's whole day.
+    const [exc, ar, ap, cit, deals, journal, close, bank, periods, payPeriods, commExc,
+           settings, budget, accounts, plaidStatus, plaidConfig, commPlans] = await Promise.all([
       apiGetJson('/accounting/exceptions').catch(() => ({ exceptions: [] })),
       apiGetJson('/accounting/receivables').catch(() => ({ receivables: [], aging: {}, total: 0 })),
       apiGetJson('/accounting/payables').catch(() => ({ payables: [], aging: {}, total: 0 })),
       apiGetJson('/accounting/contracts-in-transit').catch(() => ({ contracts: [], total: 0 })),
       apiGetJson('/accounting/deal-posting').catch(() => ({ deals: [] })),
+      apiGetJson('/accounting/journal').catch(() => ({ entries: [] })),
       apiGetJson('/accounting/close-checklist').catch(() => null),
+      apiGetJson('/plaid/transactions').catch(() => ({ transactions: [] })),
+      apiGetJson('/accounting/periods').catch(() => ({ periods: [], flow: [], current: 'open' })),
+      apiGetJson('/commissions/pay-periods').catch(() => ({ pay_periods: [] })),
+      apiGetJson('/commissions/exceptions').catch(() => ({ exceptions: [] })),
+      // null, not a default object: Settings and Budget must be able to tell
+      // "could not read" from "nothing configured".
       apiGetJson('/accounting/settings').catch(() => null),
       apiGetJson('/accounting/budget').catch(() => null),
+      apiGetJson('/accounting/accounts').catch(() => null),
       apiGetJson('/plaid/status').catch(() => null),
       apiGetJson('/plaid/config').catch(() => null),
+      apiGetJson('/commissions/plans').catch(() => null),
     ]);
-
     return {
-      exceptions: exc?.exceptions || [],
-      receivables: ar?.receivables || [], arAging: ar?.aging || {}, arTotal: ar?.total || 0,
-      payables: ap?.payables || [], apAging: ap?.aging || {}, apTotal: ap?.total || 0,
-      contracts: cit?.contracts || [], citTotal: cit?.total || 0,
-      dealPosting: deals?.deals || [],
-      journal: [],
+      exceptions: exc.exceptions || [],
+      receivables: ar.receivables || [], arAging: ar.aging || {}, arTotal: ar.total || 0,
+      payables: ap.payables || [], apAging: ap.aging || {}, apTotal: ap.total || 0,
+      contracts: cit.contracts || [], citTotal: cit.total || 0,
+      dealPosting: deals.deals || [],
+      journal: journal.entries || [],
       close,
-      bank: [],
-      periods: [], periodFlow: [],
-      payPeriods: [],
-      commissionExceptions: [],
+      bank: bank.transactions || [],
+      periods: periods.periods || [], periodFlow: periods.flow || [],
+      payPeriods: payPeriods.pay_periods || payPeriods.periods || [],
+      commissionExceptions: commExc.exceptions || [],
       settings: settings ? (settings.settings || null) : null,
       budget: budget || null,
-      accounts: null,
+      accounts: accounts ? (accounts.accounts || []) : null,
       plaid: plaidStatus || null,
       plaidConfigured: plaidConfig ? !!plaidConfig.configured : null,
-      commissionPlans: [],
+      commissionPlans: commPlans ? (commPlans.plans || []) : null,
     };
   },
 
@@ -182,101 +180,17 @@ ENGINES['accounting-overview'] = {
     // clicks inside a second tab bar, which meant the day was never visible at once.
     overview(body, d) {
       const exc = d.exceptions || [];
-      const critical = exc.filter(x => x.severity === 0).length;
-      const unfunded = (d.contracts || []).filter(x => x.status === 'unfunded').length;
-      const apDue = (d.payables || []).filter(x => x.due_date && new Date(x.due_date) <= new Date()).length;
-      const open = (d.receivables || []).filter(x => x.status === 'open');
-
-      // Departmental financial summary breakdown for EVERY department
-      const deptFinancials = [
-        { dept: 'Sales & F&I Department', rev: '$184,200', exp: '$12,450', profit: '+$171,750', margin: '93%', pct: 93, color: 'bg-emerald-500' },
-        { dept: 'Service Department', rev: '$48,500', exp: '$14,200', profit: '+$34,300', margin: '71%', pct: 71, color: 'bg-blue-500' },
-        { dept: 'Parts Department', rev: '$32,100', exp: '$18,900', profit: '$13,200', margin: '41%', pct: 41, color: 'bg-amber-500' },
-        { dept: 'Inventory (Carrying & Holding)', rev: '$0', exp: '$6,800', profit: '-$6,800', margin: 'N/A', pct: 25, color: 'bg-indigo-500' },
-        { dept: 'Cleanup & Detailing Supplies', rev: '$0', exp: '$3,250', profit: '-$3,250', margin: 'N/A', pct: 15, color: 'bg-teal-500' },
-        { dept: 'Marketing & Campaign Spend', rev: '$0', exp: '$5,400', profit: '-$5,400', margin: 'N/A', pct: 20, color: 'bg-purple-500' },
-        { dept: 'HR, Payroll & Admin Overhead', rev: '$0', exp: '$28,600', profit: '-$28,600', margin: 'N/A', pct: 60, color: 'bg-rose-500' },
-      ];
-
-      // Work Queue Items
-      const workQueue = [
-        { title: 'Overdue Lender Funding (CIT)', desc: '3 delivered deals awaiting lender payout > 14 days', action: 'Inspect Lender Funding', onclick: "engineTab('accounting-overview','money_in')" },
-        { title: 'Vendor Bills Awaiting Approval', desc: '2 vendor invoices for Parts department pending signoff', action: 'Review Payables', onclick: "engineTab('accounting-overview','money_out')" },
-        { title: 'Unmatched Bank Feed Deposits', desc: '4 imported bank transactions require ledger matching', action: 'Match Bank Feed', onclick: "engineTab('accounting-overview','bank')" },
-        { title: 'Period Close Checklist Blockers', desc: 'Statement attestation required before period lock', action: 'Go to Period Close', onclick: "engineTab('accounting-overview','close')" },
-      ];
-
+      const critical = exc.filter(x => x.severity === 3).length;
+      const unfunded = (d.contracts || []).filter(c => c.balance > 0).length;
+      const apDue = (d.payables || []).filter(b => b.view === 'due').length;
+      const open = (d.receivables || []).filter(r => r.balance > 0);
       body.innerHTML = `
-        <!-- Metric Strip -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('Needs attention', exc.length, exc.length ? 'text-rose-600 dark:text-rose-400' : '')}
           ${engKpi('Critical', critical, critical ? 'text-rose-600 dark:text-rose-400' : '')}
           ${engKpi('Awaiting funding', unfunded, unfunded ? 'text-amber-600 dark:text-amber-400' : '')}
           ${engKpi('Bills due', apDue, apDue ? 'text-amber-600 dark:text-amber-400' : '')}
         </div>
-
-        <!-- Proactive AI Controller Assistant Panel -->
-        <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-indigo-950 text-white shadow-lg border border-slate-800">
-          <div class="flex items-center gap-2 mb-2 font-black text-xs uppercase tracking-wider text-emerald-400">
-            <span>Proactive Controller AI Assistant</span>
-          </div>
-          <div class="text-sm font-semibold mb-2">Dealership Financial Health Summary</div>
-          <div class="text-xs text-slate-300 space-y-1">
-            <p>• All general ledger entries are balanced (Debits = Credits).</p>
-            <p>• Contracts in Transit: 3 lender receivables require follow-up with Ally Financial.</p>
-            <p>• Net operating profit across all departments is currently <strong>+$77,750.00</strong> this month.</p>
-          </div>
-          <div class="flex flex-wrap gap-2 mt-3 pt-2 border-t border-slate-800">
-            <button onclick="engineTab('accounting-overview','money_in')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition">Review Lender Funding</button>
-            <button onclick="engineTab('accounting-overview','reports')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">View Full P&amp;L Report</button>
-          </div>
-        </div>
-
-        <!-- Controller Daily Work Queue & Actionable Inbox -->
-        <div class="mb-4">
-          ${engCard('Controller Daily Work Queue & Actionable Inbox', `
-            <div class="text-[12px] text-slate-400 mb-3">Prioritized operational tasks requiring accounting intervention today.</div>
-            <div class="space-y-3">
-              ${workQueue.map(wq => `
-                <div class="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30">
-                  <div>
-                    <div class="font-bold text-[13px] text-slate-900 dark:text-white">${esc(wq.title)}</div>
-                    <div class="text-[12px] text-slate-400">${esc(wq.desc)}</div>
-                  </div>
-                  <button onclick="${wq.onclick}" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition shrink-0">
-                    ${esc(wq.action)}
-                  </button>
-                </div>
-              `).join('')}
-            </div>
-          `)}
-        </div>
-
-        <!-- All Departments Financial Control, Expenses & Profit Graphs -->
-        <div class="mb-4">
-          ${engCard('Departmental Financial Control & P&L Breakdown', `
-            <div class="text-[12px] text-slate-400 mb-3">Live departmental expenses, revenue allocation, and net profit tracking across all dealership operations.</div>
-            <div class="space-y-4">
-              ${deptFinancials.map(df => `
-                <div class="p-3 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30">
-                  <div class="flex items-center justify-between font-bold text-[13px] text-slate-900 dark:text-white mb-1.5">
-                    <span>${esc(df.dept)}</span>
-                    <span class="${df.profit.startsWith('-') ? 'text-rose-500' : 'text-emerald-600 dark:text-emerald-400'}">Profit: ${esc(df.profit)}</span>
-                  </div>
-                  <div class="flex items-center justify-between text-[12px] text-slate-500 dark:text-slate-400 mb-2">
-                    <span>Revenue: <strong class="text-slate-700 dark:text-slate-200">${esc(df.rev)}</strong></span>
-                    <span>Expenses: <strong class="text-rose-500">${esc(df.exp)}</strong></span>
-                    <span>Margin: <strong class="text-slate-700 dark:text-slate-200">${esc(df.margin)}</strong></span>
-                  </div>
-                  <div class="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                    <div class="h-full ${df.color} transition-all duration-500" style="width: ${df.pct}%"></div>
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          `)}
-        </div>
-
         ${engCard(`Needs attention (${exc.length})`,
           exc.length ? exc.slice(0, 25).map(accExceptionRow).join('')
                      : engEmpty('Nothing needs Accounting right now.'))}
@@ -294,33 +208,11 @@ ENGINES['accounting-overview'] = {
             ${engKpi('Open receivables', open.length)}
           </div>
           ${engCard('Financial statements', `
-            <div class="text-[13px] text-slate-500 dark:text-slate-400 mb-2">
-              Trial balance, P&amp;L and balance sheet are computed from posted journals on the Accounting page.
+            <div class="text-[13px] text-slate-500 dark:text-slate-400">
+              Trial balance, P&amp;L and balance sheet are computed from posted journals on the
+              Accounting page.
             </div>
-            <button onclick="engineTab('accounting-overview','reports')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">View Statements</button>
-          `)}
-        `)}
-      `;
-    },
-
-    money_in(body, d) {
-      if (typeof window.accRenderMoneyIn === 'function') window.accRenderMoneyIn(body, d);
-    },
-
-    money_out(body, d) {
-      if (typeof window.accRenderMoneyOut === 'function') window.accRenderMoneyOut(body, d);
-    },
-
-    bank(body, d) {
-      if (typeof window.accRenderBank === 'function') window.accRenderBank(body, d);
-    },
-
-    close(body, d) {
-      if (typeof window.accRenderClose === 'function') window.accRenderClose(body, d);
-    },
-
-    reports(body, d) {
-      if (typeof window.accRenderReports === 'function') window.accRenderReports(body, d);
+            <button onclick="switchPage('accounting')" class="mt-2 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">Open statements</button>`)}`)}`;
     },
 
     // ── Journal ──────────────────────────────────────────────────────────────
@@ -333,12 +225,10 @@ ENGINES['accounting-overview'] = {
     },
 
     // ── Payroll ──────────────────────────────────────────────────────────────
-    // Commissions & Pay Engine renders live right here in Accounting.
+    // Took the old Insights slot. Commissions live here because a commission IS
+    // payroll; the amounts are the Commission Engine's and are not recomputed.
     payroll(body, d) {
-      body.innerHTML = `<div id="commissions-root" class="space-y-4"></div>`;
-      if (typeof window.loadCommissionsPage === 'function') {
-        window.loadCommissionsPage();
-      }
+      body.innerHTML = accPayrollView(d);
     },
 
     // ── Budget ───────────────────────────────────────────────────────────────
@@ -625,14 +515,11 @@ function accBudgetView(d) {
   const accounts = (d.accounts || []).filter(a => String(a.type || a.account_type || '').toLowerCase().includes('expense'));
   const budgets = b.budgets || {};
   const actuals = b.actuals || {};
-  const incomeActuals = b.incomeActuals || {};
-  const totalIncome = Number(b.totalIncome) || Object.values(incomeActuals).reduce((s, v) => s + (Number(v) || 0), 0);
-  const totalBudget = Object.values(budgets).reduce((s, v) => s + (Number(v) || 0), 0);
-  const totalActual = Number(b.totalExpense) || Object.values(actuals).reduce((s, v) => s + (Number(v) || 0), 0);
-  const recentEntries = b.entries || [];
-
+  // Accounts with a target OR spend this month. An account with neither is noise.
   const rows = (accounts.length ? accounts : Object.keys({ ...budgets, ...actuals }).map(id => ({ id, name: id })))
     .filter(a => budgets[a.id] != null || actuals[a.id] != null);
+  const totalBudget = Object.values(budgets).reduce((s, v) => s + (Number(v) || 0), 0);
+  const totalActual = Object.values(actuals).reduce((s, v) => s + (Number(v) || 0), 0);
 
   const list = rows.map(a => {
     const target = Number(budgets[a.id]) || 0;
@@ -650,106 +537,18 @@ function accBudgetView(d) {
     </div>`;
   }).join('');
 
-  const manualFormCard = engCard('Manual Expense & Income Input', `
-    <div class="text-[12px] text-slate-400 mb-3">Manually record department expenses, vendor receipts, or additional income. Entries automatically update budget actuals and totals.</div>
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
-      <div>
-        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Type</label>
-        <select id="acc-entry-direction" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold">
-          <option value="out">Expense (Money Out)</option>
-          <option value="in">Income (Money In)</option>
-        </select>
-      </div>
-      <div>
-        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Amount ($)</label>
-        <input id="acc-entry-amount" type="number" step="0.01" min="0" placeholder="0.00" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold">
-      </div>
-      <div>
-        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Category / Account</label>
-        <input id="acc-entry-account" type="text" placeholder="e.g. Office Supplies, Parts" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs">
-      </div>
-      <div>
-        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Date</label>
-        <input id="acc-entry-date" type="date" value="${new Date().toISOString().slice(0, 10)}" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold">
-      </div>
-      <div>
-        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Description / Memo</label>
-        <input id="acc-entry-desc" type="text" placeholder="e.g. Printer paper, Detailing soap" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs">
-      </div>
+  return bank + engSection(`Budget vs actual — ${esc(b.month || '')}`, `
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+      ${engKpi('Budgeted', accMoney(totalBudget))}
+      ${engKpi('Actual', accMoney(totalActual), totalBudget > 0 && totalActual > totalBudget ? 'text-rose-600 dark:text-rose-400' : '')}
+      ${engKpi('Remaining', accMoney(totalBudget - totalActual), totalBudget - totalActual < 0 ? 'text-rose-600 dark:text-rose-400' : '')}
     </div>
-    <div class="flex justify-end">
-      <button onclick="accAddManualBudgetEntry()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm flex items-center gap-1">
-        + Add Financial Entry
-      </button>
-    </div>
-  `);
-
-  const recentEntriesCard = engCard(`Logged Financial Entries (${recentEntries.length})`, recentEntries.length ? `
-    <div class="divide-y divide-slate-100 dark:divide-slate-800/60 max-h-60 overflow-y-auto">
-      ${recentEntries.map(e => `
-        <div class="flex items-center justify-between py-2 text-xs">
-          <div>
-            <span class="font-bold text-slate-900 dark:text-white">${esc(e.description || e.account_id || 'Financial Entry')}</span>
-            <span class="text-slate-400 ml-2">(${esc(e.entry_date || 'Today')})</span>
-          </div>
-          <div class="font-bold ${e.direction === 'in' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}">
-            ${e.direction === 'in' ? '+' : '-'}${accMoney(e.amount)}
-          </div>
-        </div>
-      `).join('')}
-    </div>
-  ` : engEmpty('No manual financial entries recorded this month.'));
-
-  return bank + engSection(`Budget & Financial Control — ${esc(b.month || '')}`, `
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-      ${engKpi('Budgeted Target', accMoney(totalBudget))}
-      ${engKpi('Actual Expenses', accMoney(totalActual), totalBudget > 0 && totalActual > totalBudget ? 'text-rose-600 dark:text-rose-400' : '')}
-      ${engKpi('Recorded Income', accMoney(totalIncome), 'text-emerald-600 dark:text-emerald-400')}
-      ${engKpi('Net Operating Position', accMoney(totalIncome - totalActual), (totalIncome - totalActual) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')}
-    </div>
-    ${manualFormCard}
-    <div class="mt-4"></div>
-    ${recentEntriesCard}
-    <div class="mt-4"></div>
     ${engCard('Monthly target per expense account', list || engEmpty('No expense accounts with a target or spend this month.'))}
     <div class="flex flex-wrap items-center gap-2 mt-3">
       <button onclick="accSaveBudget()" class="px-3 py-2 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold hover:opacity-90 transition">Save targets</button>
-      <span class="text-[12px] text-slate-400">Actuals update automatically as manual entries or posted journals are saved.</span>
-    </div>`, 'Plan spending, record expenses & income manually, and track live actuals');
+      <span class="text-[12px] text-slate-400">Actuals come from posted journal entries. A blank target means no budget is set.</span>
+    </div>`, 'What you planned to spend against what the ledger says you did');
 }
-
-async function accAddManualBudgetEntry() {
-  const direction = document.getElementById('acc-entry-direction')?.value || 'out';
-  const amount = parseFloat(document.getElementById('acc-entry-amount')?.value || '0');
-  const description = document.getElementById('acc-entry-desc')?.value?.trim() || '';
-  const entryDate = document.getElementById('acc-entry-date')?.value || new Date().toISOString().slice(0, 10);
-  const accountId = document.getElementById('acc-entry-account')?.value || 'general';
-
-  if (!amount || amount <= 0) {
-    if (typeof showToast === 'function') showToast('Please enter a valid amount', 'warning');
-    return;
-  }
-  if (!description) {
-    if (typeof showToast === 'function') showToast('Please enter a description or note', 'warning');
-    return;
-  }
-
-  try {
-    await apiSendJson('/accounting/entries', 'POST', {
-      amount,
-      direction,
-      description,
-      entry_date: entryDate,
-      account_id: accountId,
-    });
-    if (typeof showToast === 'function') showToast(`Successfully added manual ${direction === 'in' ? 'income' : 'expense'}!`, 'success');
-    ENGINE_DATA['accounting-overview'] = undefined;
-    engineTab('accounting-overview', 'budget', true);
-  } catch (err) {
-    if (typeof showToast === 'function') showToast(err.message || 'Failed to add entry', 'error');
-  }
-}
-window.accAddManualBudgetEntry = accAddManualBudgetEntry;
 
 // The bank connection, stated honestly. `configured: false` means this MarketSync
 // deployment has no Plaid credentials — that is a different problem from a dealership
@@ -912,7 +711,7 @@ function accCommissionPlans(d) {
     sub: `${p.plan_type || p.type || 'plan'}${p.role ? ` · ${p.role}` : ''}${p.active === false ? ' · inactive' : ''}`,
     right: p.active === false ? 'inactive' : 'active',
     tone: p.active === false ? 'text-slate-400' : 'text-emerald-600 dark:text-emerald-400',
-  })).join('') + `<button onclick="engineTab('accounting-overview','payroll')" class="mt-3 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Edit plans in Payroll</button>`);
+  })).join('') + `<button onclick="switchPage('commissions')" class="mt-3 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Edit plans in Payroll</button>`);
 }
 
 async function accSaveSettings() {

@@ -146,7 +146,7 @@ const publicVerification = (v) => ({
 
 export async function identityAttention(dealershipId) {
   const { data, error } = await supabaseAdmin.from('identity_verifications')
-    .select('id, contact_id, purpose, provider, decision, requested_at, last_error, contacts(full_name)')
+    .select('id, contact_id, purpose, provider, decision, requested_at, last_error, contacts!identity_verifications_contact_id_fkey(full_name)')
     .eq('dealership_id', dealershipId).in('decision', ['manual_review', 'failed'])
     .order('requested_at', { ascending: true }).limit(100)
   if (error) throw error
@@ -241,10 +241,7 @@ export function registerIdentity(app) {
       .eq('dealership_id', req.dealershipId).eq('contact_id', contactId)
     if (req.query.purpose) query = query.eq('purpose', String(req.query.purpose))
     const { data: verification, error: readError } = await query.order('requested_at', { ascending: false }).limit(1).maybeSingle()
-    if (readError) {
-      console.warn('[identity] status read warning:', readError.message)
-      return res.json({ ok: true, status: 'unstarted', verification: null })
-    }
+    if (readError) return res.status(500).json({ error: readError.message })
     if (!verification) return res.json({ ok: true, status: 'unstarted', verification: null })
     if (!verification.provider_reference || !configured() || !['pending', 'processing'].includes(verification.decision)) {
       const result = publicVerification(verification)
@@ -273,13 +270,11 @@ export function registerIdentity(app) {
   })
 
   app.get('/identity/reviews', requireAuth, requireMfa, requirePermission('identity.review'), async (req, res) => {
-    try {
-      const { data, error } = await supabaseAdmin.from('identity_verifications').select('*, contacts(full_name)')
-        .eq('dealership_id', req.dealershipId).eq('decision', 'manual_review')
-        .order('requested_at', { ascending: true }).limit(100)
-      if (error) return res.json({ reviews: [] })
-      res.json({ reviews: (data || []).map(publicVerification) })
-    } catch { res.json({ reviews: [] }) }
+    const { data, error } = await supabaseAdmin.from('identity_verifications').select('*, contacts!identity_verifications_contact_id_fkey(full_name)')
+      .eq('dealership_id', req.dealershipId).eq('decision', 'manual_review')
+      .order('requested_at', { ascending: true }).limit(100)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ reviews: (data || []).map(publicVerification) })
   })
 
   app.post('/identity/:id/review', requireAuth, requireMfa, requirePermission('identity.review'), async (req, res) => {

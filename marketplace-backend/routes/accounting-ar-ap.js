@@ -52,21 +52,18 @@ async function postedLinesFor(dealershipId, systemKey) {
   const { data: acct } = await supabaseAdmin.from('gl_accounts')
     .select('id').eq('dealership_id', dealershipId).eq('system_key', systemKey).maybeSingle()
   if (!acct?.id) return []
-
-  const { data: lines } = await supabaseAdmin.from('journal_lines')
-    .select('debit, credit, memo, ref_deal_id, ref_contact_id, ref_vendor_id, journal_entry_id, journal_entries!inner(id, entry_date, source, event_name, reference, posted, dealership_id)')
-    .eq('account_id', acct.id)
-    .eq('journal_entries.dealership_id', dealershipId)
-    .eq('journal_entries.posted', true)
-    .limit(5000)
-
-  if (!lines?.length) return []
-  return lines.map(l => ({
-    debit: l.debit, credit: l.credit, memo: l.memo,
-    ref_deal_id: l.ref_deal_id, ref_contact_id: l.ref_contact_id, ref_vendor_id: l.ref_vendor_id,
-    journal_entry_id: l.journal_entry_id,
-    entry: l.journal_entries,
-  })).filter(l => l.entry)
+  // Posted entries FIRST, then their lines — so an unposted entry's lines can never be
+  // fetched at all, rather than being fetched and filtered out afterwards.
+  const { data: entries } = await supabaseAdmin.from('journal_entries')
+    .select('id, entry_date, source, event_name, reference, posted')
+    .eq('dealership_id', dealershipId).eq('posted', true).limit(20000)
+  if (!entries?.length) return []
+  const byId = Object.fromEntries(entries.map(e => [e.id, e]))
+  const lines = await linesForEntries(
+    entries.map(e => e.id),
+    'debit, credit, memo, ref_deal_id, ref_contact_id, ref_vendor_id, journal_entry_id',
+    acct.id)
+  return lines.map(l => ({ ...l, entry: byId[l.journal_entry_id] })).filter(l => l.entry)
 }
 
 // ── Accounts Receivable ─────────────────────────────────────────────────────
