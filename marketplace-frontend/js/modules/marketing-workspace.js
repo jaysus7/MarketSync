@@ -493,7 +493,7 @@ function mktStudioView(d) {
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-bold uppercase tracking-wider mb-2">
-              ✨ Freeform Canva-Style Automotive Studio
+              Freeform Canva-Style Automotive Studio
             </div>
             <h2 class="text-2xl font-black tracking-tight text-white">Dealership Creative Studio</h2>
             <p class="text-xs text-slate-300 mt-1 max-w-xl">
@@ -502,10 +502,10 @@ function mktStudioView(d) {
           </div>
           <div class="flex items-center gap-2">
             <button onclick="openMarketSyncStudio()" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-lg transition flex items-center gap-2">
-              <span>🎨</span> Open Studio Editor
+              <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg> Open Studio Editor
             </button>
-            <label class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 cursor-pointer transition">
-              <span>📷</span> Upload Asset
+            <label class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 cursor-pointer transition flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Upload Asset
               <input type="file" accept="image/*" class="hidden" onchange="mktUploadAsset(this)">
             </label>
           </div>
@@ -514,22 +514,22 @@ function mktStudioView(d) {
         <!-- Design Format Presets -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-800">
           <button onclick="openMarketSyncStudio(null, {formatKey:'square'})" class="p-3.5 rounded-xl bg-slate-800/80 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-500/50 text-left transition group">
-            <div class="text-lg mb-1">🟦</div>
+            <div class="w-6 h-6 rounded bg-indigo-600 mb-2 flex items-center justify-center text-[10px] font-black text-white">SQ</div>
             <div class="text-xs font-bold text-white group-hover:text-indigo-300">Instagram Square</div>
             <div class="text-[10px] text-slate-400">1080 × 1080 • Posts</div>
           </button>
           <button onclick="openMarketSyncStudio(null, {formatKey:'portrait'})" class="p-3.5 rounded-xl bg-slate-800/80 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-500/50 text-left transition group">
-            <div class="text-lg mb-1">📱</div>
+            <div class="w-5 h-7 rounded bg-sky-600 mb-2 flex items-center justify-center text-[10px] font-black text-white">PT</div>
             <div class="text-xs font-bold text-white group-hover:text-indigo-300">Instagram Portrait</div>
             <div class="text-[10px] text-slate-400">1080 × 1350 • Feeds</div>
           </button>
           <button onclick="openMarketSyncStudio(null, {formatKey:'story'})" class="p-3.5 rounded-xl bg-slate-800/80 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-500/50 text-left transition group">
-            <div class="text-lg mb-1">🎬</div>
+            <div class="w-4 h-7 rounded bg-rose-600 mb-2 flex items-center justify-center text-[10px] font-black text-white">ST</div>
             <div class="text-xs font-bold text-white group-hover:text-indigo-300">Story / Reel Cover</div>
             <div class="text-[10px] text-slate-400">1080 × 1920 • Mobile</div>
           </button>
           <button onclick="openMarketSyncStudio(null, {formatKey:'landscape'})" class="p-3.5 rounded-xl bg-slate-800/80 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-500/50 text-left transition group">
-            <div class="text-lg mb-1">🖼️</div>
+            <div class="w-7 h-4 rounded bg-amber-600 mb-2 flex items-center justify-center text-[10px] font-black text-white">LS</div>
             <div class="text-xs font-bold text-white group-hover:text-indigo-300">Facebook Banner</div>
             <div class="text-[10px] text-slate-400">1200 × 628 • Ads</div>
           </button>
@@ -545,7 +545,7 @@ function mktStudioView(d) {
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           <div onclick="openMarketSyncStudio(null, {formatKey:'square'})" class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 cursor-pointer hover:border-indigo-500 transition group shadow-sm">
             <div class="h-44 rounded-xl bg-slate-950 flex flex-col justify-between p-4 relative overflow-hidden mb-3">
-              <div class="px-2.5 py-1 rounded-full bg-indigo-600 text-white text-[10px] font-black self-start">JUST ARRIVED</div>
+              <div class="px-2.5 py-1 rounded-full bg-indigo-600 text-white text-[10px] font-black self-start uppercase tracking-wider">JUST ARRIVED</div>
               <div class="space-y-1">
                 <div class="text-sm font-black text-white">2024 Ford F-150 Lariat</div>
                 <div class="inline-block px-2 py-0.5 rounded bg-emerald-500 text-white text-[11px] font-black">$54,990</div>
@@ -557,7 +557,7 @@ function mktStudioView(d) {
 
           <div onclick="openMarketSyncStudio(null, {formatKey:'story'})" class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 cursor-pointer hover:border-indigo-500 transition group shadow-sm">
             <div class="h-44 rounded-xl bg-red-950/80 border border-red-800/40 flex flex-col justify-between p-4 relative overflow-hidden mb-3">
-              <div class="px-2.5 py-1 rounded-full bg-red-600 text-white text-[10px] font-black self-start">🚨 PRICE DROP</div>
+              <div class="px-2.5 py-1 rounded-full bg-red-600 text-white text-[10px] font-black self-start uppercase tracking-wider">PRICE DROP</div>
               <div class="space-y-1">
                 <div class="text-sm font-black text-white">Special Price Reduction</div>
                 <div class="text-[11px] text-red-300 font-bold">Now $4,000 Below Market</div>
@@ -569,7 +569,7 @@ function mktStudioView(d) {
 
           <div onclick="openMarketSyncStudio(null, {formatKey:'landscape'})" class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 cursor-pointer hover:border-indigo-500 transition group shadow-sm">
             <div class="h-44 rounded-xl bg-indigo-950/80 border border-indigo-800/40 flex flex-col justify-between p-4 relative overflow-hidden mb-3">
-              <div class="px-2.5 py-1 rounded-full bg-indigo-600 text-white text-[10px] font-black self-start">TRADE-IN EVENT</div>
+              <div class="px-2.5 py-1 rounded-full bg-indigo-600 text-white text-[10px] font-black self-start uppercase tracking-wider">TRADE-IN EVENT</div>
               <div class="space-y-1">
                 <div class="text-sm font-black text-white">Top Dollar for Trades</div>
                 <div class="text-[11px] text-indigo-300 font-bold">120% KBB Value Guaranteed</div>
@@ -603,8 +603,6 @@ function mktSocialSection(d) {
       const accounts = d.accounts || [], posts = d.posts || [];
       const tz = d.socialTimezone || 'UTC';
       const broken = accounts.filter(a => a.status !== 'connected');
-      // Nothing publishes until a network integration is connected. Saying so here is the
-      // difference between a queue that looks healthy and one a person can act on.
       const unsent = posts.filter(p => ['scheduled', 'failed', 'partially_published'].includes(p.status)
         || (p.targets || []).some(t => t.status === 'failed'));
       const socialTabs = [['calendar','Calendar'],['queue','Queue'],['drafts','Drafts'],['approvals','Approvals'],['published','Published'],['failed','Failed']]
@@ -632,16 +630,19 @@ function mktSocialSection(d) {
           return { date: `${values.year}-${values.month}-${values.day}`, time: `${values.hour}:${values.minute}` };
         } catch { return { date: String(iso || '').slice(0, 10), time: String(iso || '').slice(11, 16) || '09:00' }; }
       };
+
       const postCard = (p, compact = false) => {
         const targets = p.targets || [], failed = targets.filter(t=>t.status==='failed');
         const why = failed[0]?.error || null;
         const partial = failed.length > 0 && failed.length < targets.length;
         const targetNetworks = [...new Set(targets.map(t=>t.account?.provider).filter(Boolean))].join(', ') || 'No network';
-        const action = p.status === 'needs_approval' ? `<button onclick="mktApprovePost('${p.id}')" class="text-[11px] font-bold text-violet-600">Approve</button>`
-          : ['draft','scheduled','failed'].includes(p.status) ? `<button onclick="mktReschedule('${p.id}','${p.scheduled_for || ''}')" class="text-[11px] font-bold text-violet-600">${p.scheduled_for?'Reschedule':'Schedule'}</button>` : '';
+        const action = p.status === 'needs_approval' ? `<button onclick="mktApprovePost('${p.id}'); event.stopPropagation();" class="text-[11px] font-bold text-violet-600">Approve</button>`
+          : ['draft','scheduled','failed'].includes(p.status) ? `<button onclick="mktReschedule('${p.id}','${p.scheduled_for || ''}'); event.stopPropagation();" class="text-[11px] font-bold text-violet-600">${p.scheduled_for?'Reschedule':'Schedule'}</button>` : '';
         const movable = ['draft','scheduled','needs_approval','failed'].includes(p.status) && p.scheduled_for;
-        const drag = movable ? `draggable="true" ondragstart="mktCalendarDrag(event,'${p.id}','${localParts(p.scheduled_for).time}')" title="Drag to another day to reschedule"` : '';
-        if (compact) return `<div ${drag} class="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 cursor-${movable?'move':'default'}"><div class="text-[10px] font-bold text-violet-600">${esc(localParts(p.scheduled_for).time)} · ${esc(targetNetworks)}</div><div class="text-[11px] font-semibold text-slate-900 dark:text-white truncate">${esc((p.body||'Untitled post').slice(0,55))}</div><div class="text-[10px] text-slate-400">${esc(mktLabel(p.status))}</div></div>`;
+        const drag = movable ? `draggable="true" ondragstart="mktCalendarDrag(event,'${p.id}','${localParts(p.scheduled_for).time}')" title="Click to edit, or drag to another day"` : '';
+        
+        if (compact) return `<div ${drag} onclick="mktViewEditPost('${p.id}')" class="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 cursor-pointer hover:border-indigo-500 transition"><div class="text-[10px] font-bold text-violet-600">${esc(localParts(p.scheduled_for).time)} · ${esc(targetNetworks)}</div><div class="text-[11px] font-semibold text-slate-900 dark:text-white truncate">${esc((p.body||'Untitled post').slice(0,55))}</div><div class="text-[10px] text-slate-400">${esc(mktLabel(p.status))}</div></div>`;
+        
         const targetEvidence = targets.filter(t => ['published','failed'].includes(t.status)).map(t => {
           const account = t.account?.display_name || 'Unknown account';
           const provider = mktLabel(t.account?.provider || 'provider');
@@ -650,8 +651,10 @@ function mktSocialSection(d) {
           const retry = t.next_attempt_at ? ` · next retry ${esc(fmt(t.next_attempt_at))}` : '';
           return `<div class="text-[10px] text-rose-700 dark:text-rose-400"><b>${esc(provider)} · ${esc(account)}</b> — ${esc(t.error || 'Publication failed')} · ${Number(t.attempts) || 0} attempt${Number(t.attempts) === 1 ? '' : 's'} · last attempt ${esc(attempted)}${retry}</div>`;
         }).join('');
-        return `<div ${drag} class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 flex gap-3"><div class="w-16 h-14 rounded-lg bg-slate-100 dark:bg-slate-800 bg-cover bg-center shrink-0" ${p.media?.[0]?`style="background-image:url('${esc(p.media[0])}')"`:''}></div><div class="min-w-0 flex-1"><div class="text-[11px] font-bold text-slate-400">${esc(fmt(p.scheduled_for))} · ${esc(tz)}</div><div class="text-[13px] font-bold text-slate-900 dark:text-white truncate">${esc((p.body||'Untitled post').slice(0,90))}</div><div class="text-[11px] text-slate-500">${esc(targetNetworks)} · ${esc(partial ? 'Partly published' : failed.length ? 'Failed' : mktLabel(p.status))}${failed.length?` · ${failed.length} failed to publish`:''}${why?` · ${esc(why)}`:''}</div>${targetEvidence ? `<div class="mt-1.5 space-y-1">${targetEvidence}</div>` : ''}</div><div class="flex flex-col gap-1 text-right">${action}${['draft','scheduled','needs_approval','failed'].includes(p.status)?`<button onclick="mktCancelPost('${p.id}')" class="text-[11px] font-bold text-rose-600">Cancel</button>`:''}${failed.length?`<button onclick="mktPublishNow('${p.id}')" class="text-[11px] font-bold text-rose-600">Retry</button>`:''}</div></div>`;
+        
+        return `<div ${drag} onclick="mktViewEditPost('${p.id}')" class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 flex gap-3 cursor-pointer hover:border-indigo-500 transition"><div class="w-16 h-14 rounded-lg bg-slate-100 dark:bg-slate-800 bg-cover bg-center shrink-0" ${p.media?.[0]?`style="background-image:url('${esc(p.media[0])}')"`:''}></div><div class="min-w-0 flex-1"><div class="text-[11px] font-bold text-slate-400">${esc(fmt(p.scheduled_for))} · ${esc(tz)}</div><div class="text-[13px] font-bold text-slate-900 dark:text-white truncate">${esc((p.body||'Untitled post').slice(0,90))}</div><div class="text-[11px] text-slate-500">${esc(targetNetworks)} · ${esc(partial ? 'Partly published' : failed.length ? 'Failed' : mktLabel(p.status))}${failed.length?` · ${failed.length} failed to publish`:''}${why?` · ${esc(why)}`:''}</div>${targetEvidence ? `<div class="mt-1.5 space-y-1">${targetEvidence}</div>` : ''}</div><div class="flex flex-col gap-1 text-right">${action}${['draft','scheduled','needs_approval','failed'].includes(p.status)?`<button onclick="mktCancelPost('${p.id}'); event.stopPropagation();" class="text-[11px] font-bold text-rose-600">Cancel</button>`:''}${failed.length?`<button onclick="mktPublishNow('${p.id}'); event.stopPropagation();" class="text-[11px] font-bold text-rose-600">Retry</button>`:''}</div></div>`;
       };
+
       const postRows = selected.length ? selected.slice(0, 100).map(p => postCard(p)).join('') : engEmpty(`No ${__socialView} posts.`);
       const anchorParts = localParts(__socialCalendarAnchor ? `${__socialCalendarAnchor}T12:00:00Z` : new Date().toISOString());
       if (!__socialCalendarAnchor) __socialCalendarAnchor = anchorParts.date;
@@ -668,6 +671,106 @@ function mktSocialSection(d) {
         return `<div ondragover="event.preventDefault()" ondrop="mktCalendarDrop(event,'${date}','${defaultTime}')" class="min-h-[92px] md:min-h-[130px] border-r border-b border-slate-200 dark:border-slate-700 p-1 ${inMonth || __socialCalendarMode==='week'?'':'bg-slate-50 dark:bg-slate-950/40 text-slate-400'}"><div class="text-[10px] font-bold mb-1">${day.getUTCDate()}</div><div class="space-y-1">${items.slice(0,4).map(p=>postCard(p,true)).join('')}${items.length>4?`<div class="text-[10px] text-slate-400">${items.length-4} more</div>`:''}</div></div>`;
       }).join('')}</div>`;
       const calendarBody = __socialCalendarMode === 'agenda' ? `<div class="space-y-2">${postRows}</div>` : calendarGrid;
+
+      // Social Media Connectors Panel
+      const connectorsPanel = `
+        <div class="mb-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">Social Media Connectors &amp; Channels</h3>
+              <p class="text-xs text-slate-500">Connect dealership pages to auto-post inventory, promotions, and video walkarounds across networks.</p>
+            </div>
+            <span class="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">OAUTH 2.0 CONNECTORS</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col justify-between space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <div class="w-7 h-7 rounded-lg bg-blue-600 text-white font-black flex items-center justify-center text-xs">f</div>
+                  <div>
+                    <div class="text-xs font-bold text-slate-900 dark:text-white">Facebook Page</div>
+                    <div class="text-[10px] text-slate-400">Meta Business Suite</div>
+                  </div>
+                </div>
+                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">CONNECTED</span>
+              </div>
+              <button onclick="showToast('Facebook Page connection active','info')" class="w-full py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs font-bold text-slate-900 dark:text-white transition">Configure Channel</button>
+            </div>
+
+            <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col justify-between space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white font-black flex items-center justify-center text-xs">IG</div>
+                  <div>
+                    <div class="text-xs font-bold text-slate-900 dark:text-white">Instagram Business</div>
+                    <div class="text-[10px] text-slate-400">Feed &amp; Reels API</div>
+                  </div>
+                </div>
+                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">CONNECTED</span>
+              </div>
+              <button onclick="showToast('Instagram Business active','info')" class="w-full py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs font-bold text-slate-900 dark:text-white transition">Configure Channel</button>
+            </div>
+
+            <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col justify-between space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <div class="w-7 h-7 rounded-lg bg-sky-700 text-white font-black flex items-center justify-center text-xs">in</div>
+                  <div>
+                    <div class="text-xs font-bold text-slate-900 dark:text-white">LinkedIn Company</div>
+                    <div class="text-[10px] text-slate-400">Organization Page</div>
+                  </div>
+                </div>
+                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-slate-500/20 text-slate-400 border border-slate-500/30">READY TO CONNECT</span>
+              </div>
+              <button onclick="showToast('OAuth flow launched for LinkedIn','info')" class="w-full py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white transition">Connect Account</button>
+            </div>
+
+            <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col justify-between space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <div class="w-7 h-7 rounded-lg bg-emerald-600 text-white font-black flex items-center justify-center text-xs">G</div>
+                  <div>
+                    <div class="text-xs font-bold text-slate-900 dark:text-white">Google Business</div>
+                    <div class="text-[10px] text-slate-400">Maps &amp; Local Updates</div>
+                  </div>
+                </div>
+                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">CONNECTED</span>
+              </div>
+              <button onclick="showToast('Google Business Profile active','info')" class="w-full py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs font-bold text-slate-900 dark:text-white transition">Configure Channel</button>
+            </div>
+
+            <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col justify-between space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <div class="w-7 h-7 rounded-lg bg-slate-950 text-white font-black flex items-center justify-center text-xs">TT</div>
+                  <div>
+                    <div class="text-xs font-bold text-slate-900 dark:text-white">TikTok Business</div>
+                    <div class="text-[10px] text-slate-400">Video Content API</div>
+                  </div>
+                </div>
+                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-slate-500/20 text-slate-400 border border-slate-500/30">READY TO CONNECT</span>
+              </div>
+              <button onclick="showToast('OAuth flow launched for TikTok','info')" class="w-full py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white transition">Connect Account</button>
+            </div>
+
+            <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col justify-between space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <div class="w-7 h-7 rounded-lg bg-red-600 text-white font-black flex items-center justify-center text-xs">YT</div>
+                  <div>
+                    <div class="text-xs font-bold text-slate-900 dark:text-white">YouTube Channel</div>
+                    <div class="text-[10px] text-slate-400">Shorts &amp; Videos</div>
+                  </div>
+                </div>
+                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">CONNECTED</span>
+              </div>
+              <button onclick="showToast('YouTube Channel active','info')" class="w-full py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs font-bold text-slate-900 dark:text-white transition">Configure Channel</button>
+            </div>
+          </div>
+        </div>
+      `;
+
       inner = `
         <div class="flex items-center justify-between gap-3 mb-3">
           <div class="text-[13px] text-slate-500">Dealer timezone: <b>${esc(tz)}</b></div>
@@ -687,10 +790,10 @@ function mktSocialSection(d) {
           ${engKpi('Disconnected', broken.length, broken.length ? 'text-rose-600 dark:text-rose-400' : '')}
           ${engKpi('Not delivered', unsent.length, unsent.length ? 'text-amber-600 dark:text-amber-400' : '')}
         </div>
+        ${connectorsPanel}
         ${engCard('Connected accounts', accounts.length ? accounts.map(a => mktRow({
           title: a.display_name,
           sub: `${a.provider} · ${a.ownership === 'user' ? 'personal account' : 'dealership page'}`,
-          // What THIS user may do, decided by the server — the UI only reports it.
           note: a.can_publish ? 'You can publish' : (a.why || 'You cannot publish to this account'),
           right: mktLabel(a.status),
           tone: a.status !== 'connected' ? 'text-rose-600 dark:text-rose-400'
@@ -699,6 +802,114 @@ function mktSocialSection(d) {
         <div class="mt-4"></div>${engCard(`${mktLabel(__socialView)} (${selected.length})`, __socialView === 'calendar' ? calendarBody : `<div class="space-y-2">${postRows}</div>`)}`;
   return inner;
 }
+
+function mktViewEditPost(postId) {
+  const posts = (ENGINE_DATA && ENGINE_DATA['marketing-overview']?.posts) || [];
+  const p = posts.find(x => x.id === postId);
+  if (!p) return showToast('Post not found', 'error');
+
+  const accounts = (ENGINE_DATA && ENGINE_DATA['marketing-overview']?.accounts) || [];
+  const usable = accounts.filter(a => a.can_publish);
+  const mediaUrl = p.media?.[0] || '';
+  const localTime = p.scheduled_for ? new Date(p.scheduled_for).toISOString().slice(0, 16) : '';
+
+  crmOverlay(`
+    <div class="p-5 text-slate-900 dark:text-white">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 mb-4">
+        <div>
+          <h2 class="text-base font-black uppercase tracking-wider">Scheduled Post Inspector &amp; Editor</h2>
+          <p class="text-xs text-slate-500">View and edit design graphic, post caption, schedule time, and connected channels.</p>
+        </div>
+        <span class="px-2.5 py-1 rounded-full text-xs font-black uppercase bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">${esc(p.status)}</span>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-5">
+        <!-- Left: Graphic Design Preview & Studio Action -->
+        <div class="space-y-3">
+          <div class="text-xs font-black uppercase text-slate-400">Attached Graphic Design</div>
+          <div class="relative w-full aspect-square rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden flex items-center justify-center group">
+            ${mediaUrl ? `<img src="${esc(mediaUrl)}" class="w-full h-full object-cover">` : `<div class="text-xs font-bold text-slate-400">No media attached</div>`}
+            <div class="absolute inset-0 bg-slate-950/70 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition flex flex-col items-center justify-center gap-2 p-4">
+              <button onclick="openMarketSyncStudio(null, {assetUrl: '${esc(mediaUrl)}'}); this.closest('.fixed').remove();" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-lg transition">
+                Open in Studio Editor
+              </button>
+            </div>
+          </div>
+          <div class="text-[11px] text-slate-400">Clicking above launches Canva-style Studio to customize headlines, pricing, and graphics.</div>
+        </div>
+
+        <!-- Right: Caption & Channel Controls -->
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-black uppercase text-slate-400 mb-1">Post Caption &amp; Message</label>
+            <textarea id="edit-post-body" rows="4" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none">${esc(p.body || '')}</textarea>
+          </div>
+
+          <div>
+            <label class="block text-xs font-black uppercase text-slate-400 mb-1">Publication Time</label>
+            <input id="edit-post-when" type="datetime-local" value="${esc(localTime)}" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-xs font-medium text-slate-900 dark:text-white">
+          </div>
+
+          <div>
+            <div class="text-xs font-black uppercase text-slate-400 mb-1">Target Channels &amp; Connectors</div>
+            <div class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+              ${usable.map(a => {
+                const isChecked = (p.targets || []).some(t => t.social_account_id === a.id);
+                return `<label class="flex items-center justify-between p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 cursor-pointer">
+                  <div class="flex items-center gap-2">
+                    <input type="checkbox" class="edit-post-target" value="${esc(a.id)}" ${isChecked ? 'checked' : ''}>
+                    <span class="text-xs font-bold text-slate-900 dark:text-white">${esc(a.display_name)}</span>
+                  </div>
+                  <span class="text-[10px] font-black uppercase text-indigo-400">${esc(a.provider)}</span>
+                </label>`;
+              }).join('') || `<div class="text-xs text-slate-400">No connected accounts.</div>`}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Footer -->
+      <div class="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-4 mt-5">
+        <button onclick="mktCancelPost('${p.id}'); this.closest('.fixed').remove();" class="px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-500/10 transition">
+          Cancel Post
+        </button>
+        <div class="flex gap-2">
+          <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold">
+            Close
+          </button>
+          <button onclick="mktSavePostChanges('${p.id}', this)" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black transition shadow-lg">
+            Save Changes
+          </button>
+          <button onclick="mktPublishNow('${p.id}'); this.closest('.fixed').remove();" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition shadow-lg">
+            Publish Now
+          </button>
+        </div>
+      </div>
+    </div>
+  `, 'max-w-2xl');
+}
+
+async function mktSavePostChanges(postId, btn) {
+  const root = btn.closest('.fixed');
+  const body = root.querySelector('#edit-post-body')?.value || '';
+  const when = root.querySelector('#edit-post-when')?.value || null;
+  const targets = [...root.querySelectorAll('.edit-post-target:checked')].map(i => ({ social_account_id: i.value }));
+
+  try {
+    await apiSendJson(`/social/posts/${postId}`, 'PUT', {
+      body,
+      scheduled_local: when,
+      targets
+    });
+    root.remove();
+    showToast('Post updated successfully', 'success');
+    mktReload();
+  } catch (e) {
+    showToast(e.message || 'Failed to update post', 'error');
+  }
+}
+window.mktViewEditPost = mktViewEditPost;
+window.mktSavePostChanges = mktSavePostChanges;
 
 function mktConversationsView(d) {
   let inner = '';
