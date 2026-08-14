@@ -169,20 +169,171 @@ function renderStudioWorkspaceHtml(designName, scene) {
   `;
 }
 
+const STUDIO_TEMPLATES_CATALOG = {
+  tmpl_spotlight_square: {
+    template_key: 'tmpl_spotlight_square',
+    name: 'Vehicle Spotlight (Square)',
+    desc: '1080×1080 • Bound Inventory Template',
+    format_key: 'square',
+    width: 1080,
+    height: 1080,
+    scene: {
+      version: 1,
+      format_key: 'square',
+      width: 1080,
+      height: 1080,
+      background: { color: '#0F172A' },
+      elements: [
+        { id: 'el-bg-photo', type: 'vehicle-image', x: 0, y: 0, width: 1080, height: 720, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
+        { id: 'el-grad-overlay', type: 'shape', shapeType: 'rect', x: 0, y: 580, width: 1080, height: 500, fill: '#0F172A', opacity: 0.95, z: 2, name: 'Bottom Panel' },
+        { id: 'el-badge', type: 'shape', shapeType: 'rect', x: 50, y: 50, width: 220, height: 50, fill: '#4F46E5', rx: 12, opacity: 1, z: 3, name: 'Badge Pill' },
+        { id: 'el-badge-txt', type: 'text', x: 75, y: 65, text: 'JUST ARRIVED', fontSize: 18, fontWeight: '800', fill: '#FFFFFF', z: 4, name: 'Badge Text' },
+        { id: 'el-title', type: 'text', x: 50, y: 630, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 44, fontWeight: '900', fill: '#F8FAFC', z: 5, name: 'Vehicle Name' },
+        { id: 'el-trim', type: 'text', x: 50, y: 695, text: '{{vehicle.trim}} • Stock #{{vehicle.stock_number}}', fontSize: 24, fontWeight: '600', fill: '#94A3B8', z: 6, name: 'Trim & Stock' },
+        { id: 'el-price-bg', type: 'shape', shapeType: 'rect', x: 50, y: 760, width: 340, height: 70, fill: '#10B981', rx: 16, opacity: 1, z: 7, name: 'Price Badge' },
+        { id: 'el-price-txt', type: 'text', x: 80, y: 780, text: '{{vehicle.price}}', fontSize: 32, fontWeight: '900', fill: '#FFFFFF', z: 8, name: 'Price Text' },
+        { id: 'el-cta-btn', type: 'shape', shapeType: 'rect', x: 50, y: 900, width: 980, height: 90, fill: '#2563EB', rx: 20, opacity: 1, z: 9, name: 'CTA Button' },
+        { id: 'el-cta-txt', type: 'text', x: 380, y: 930, text: 'SCHEDULE TEST DRIVE', fontSize: 24, fontWeight: '800', fill: '#FFFFFF', z: 10, name: 'CTA Text' }
+      ]
+    }
+  },
+  tmpl_pricedrop_story: {
+    template_key: 'tmpl_pricedrop_story',
+    name: 'Price Drop Banner (Story)',
+    desc: '1080×1920 • Special Reductions',
+    format_key: 'story',
+    width: 1080,
+    height: 1920,
+    scene: {
+      version: 1,
+      format_key: 'story',
+      width: 1080,
+      height: 1920,
+      background: { color: '#18181B' },
+      elements: [
+        { id: 'el-photo', type: 'vehicle-image', x: 0, y: 200, width: 1080, height: 1100, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
+        { id: 'el-top-banner', type: 'shape', shapeType: 'rect', x: 0, y: 0, width: 1080, height: 200, fill: '#EF4444', opacity: 1, z: 2, name: 'Price Reduction Banner' },
+        { id: 'el-top-txt', type: 'text', x: 320, y: 75, text: 'PRICE REDUCED!', fontSize: 44, fontWeight: '900', fill: '#FFFFFF', z: 3, name: 'Banner Text' },
+        { id: 'el-card', type: 'shape', shapeType: 'rect', x: 50, y: 1350, width: 980, height: 480, fill: '#27272A', rx: 32, opacity: 0.95, z: 4, name: 'Card Background' },
+        { id: 'el-ymmt', type: 'text', x: 100, y: 1410, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 48, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'Vehicle Title' },
+        { id: 'el-miles', type: 'text', x: 100, y: 1480, text: 'Mileage: {{vehicle.mileage}} miles', fontSize: 24, fontWeight: '600', fill: '#A1A1AA', z: 6, name: 'Mileage' },
+        { id: 'el-price', type: 'text', x: 100, y: 1560, text: 'NOW ONLY: {{vehicle.price}}', fontSize: 40, fontWeight: '900', fill: '#34D399', z: 7, name: 'Special Price' },
+        { id: 'el-store', type: 'text', x: 100, y: 1720, text: '{{dealership.name}} • {{dealership.phone}}', fontSize: 22, fontWeight: '700', fill: '#E4E4E7', z: 8, name: 'Store Contact' }
+      ]
+    }
+  },
+  tmpl_weekend_landscape: {
+    template_key: 'tmpl_weekend_landscape',
+    name: 'Weekend Sales Event (Landscape)',
+    desc: '1200×628 • Facebook & LinkedIn Ad',
+    format_key: 'landscape',
+    width: 1200,
+    height: 628,
+    scene: {
+      version: 1,
+      format_key: 'landscape',
+      width: 1200,
+      height: 628,
+      background: { color: '#0B0F19' },
+      elements: [
+        { id: 'el-photo', type: 'vehicle-image', x: 0, y: 0, width: 620, height: 628, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
+        { id: 'el-card', type: 'shape', shapeType: 'rect', x: 600, y: 0, width: 600, height: 628, fill: '#1E293B', opacity: 1, z: 2, name: 'Right Copy Panel' },
+        { id: 'el-badge', type: 'text', x: 650, y: 60, text: 'WEEKEND SPECIAL', fontSize: 20, fontWeight: '800', fill: '#F59E0B', z: 3, name: 'Badge' },
+        { id: 'el-title', type: 'text', x: 650, y: 110, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 36, fontWeight: '900', fill: '#FFFFFF', z: 4, name: 'Vehicle Name' },
+        { id: 'el-offer', type: 'text', x: 650, y: 220, text: '0% APR FOR 60 MONTHS AVAILABLE', fontSize: 22, fontWeight: '700', fill: '#94A3B8', z: 5, name: 'Offer Text' },
+        { id: 'el-price', type: 'text', x: 650, y: 300, text: 'PRICE: {{vehicle.price}}', fontSize: 38, fontWeight: '900', fill: '#10B981', z: 6, name: 'Price Text' },
+        { id: 'el-cta-btn', type: 'shape', shapeType: 'rect', x: 650, y: 440, width: 480, height: 75, fill: '#2563EB', rx: 16, opacity: 1, z: 7, name: 'CTA Button' },
+        { id: 'el-cta-txt', type: 'text', x: 790, y: 465, text: 'CLAIM THIS OFFER', fontSize: 22, fontWeight: '800', fill: '#FFFFFF', z: 8, name: 'CTA Text' }
+      ]
+    }
+  },
+  tmpl_cpo_portrait: {
+    template_key: 'tmpl_cpo_portrait',
+    name: 'Certified Pre-Owned (Portrait)',
+    desc: '1080×1350 • Instagram Post',
+    format_key: 'portrait',
+    width: 1080,
+    height: 1350,
+    scene: {
+      version: 1,
+      format_key: 'portrait',
+      width: 1080,
+      height: 1350,
+      background: { color: '#0F172A' },
+      elements: [
+        { id: 'el-top-pill', type: 'shape', shapeType: 'rect', x: 50, y: 40, width: 340, height: 50, fill: '#D97706', rx: 12, opacity: 1, z: 1, name: 'CPO Pill' },
+        { id: 'el-top-txt', type: 'text', x: 80, y: 55, text: 'CERTIFIED PRE-OWNED', fontSize: 18, fontWeight: '800', fill: '#FFFFFF', z: 2, name: 'CPO Text' },
+        { id: 'el-photo', type: 'vehicle-image', x: 0, y: 120, width: 1080, height: 780, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
+        { id: 'el-card', type: 'shape', shapeType: 'rect', x: 40, y: 920, width: 1000, height: 380, fill: '#1E293B', rx: 24, opacity: 0.95, z: 4, name: 'Bottom Details Card' },
+        { id: 'el-ymmt', type: 'text', x: 80, y: 970, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 42, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'Title' },
+        { id: 'el-insp', type: 'text', x: 80, y: 1040, text: '172-Point Inspection Passed • Low Mileage', fontSize: 22, fontWeight: '600', fill: '#94A3B8', z: 6, name: 'Inspection' },
+        { id: 'el-price', type: 'text', x: 80, y: 1120, text: '{{vehicle.price}} • 12-Month Warranty Included', fontSize: 28, fontWeight: '800', fill: '#34D399', z: 7, name: 'Price & Warranty' },
+        { id: 'el-phone', type: 'text', x: 80, y: 1210, text: 'Call Us Today: {{dealership.phone}}', fontSize: 22, fontWeight: '700', fill: '#38BDF8', z: 8, name: 'Phone' }
+      ]
+    }
+  },
+  tmpl_trade_square: {
+    template_key: 'tmpl_trade_square',
+    name: 'Trade-In Valuation Bonus (Square)',
+    desc: '1080×1080 • Top Market Appraisal',
+    format_key: 'square',
+    width: 1080,
+    height: 1080,
+    scene: {
+      version: 1,
+      format_key: 'square',
+      width: 1080,
+      height: 1080,
+      background: { color: '#064E3B' },
+      elements: [
+        { id: 'el-hdr', type: 'text', x: 60, y: 80, text: 'TOP MARKET TRADE VALUE', fontSize: 44, fontWeight: '900', fill: '#FFFFFF', z: 1, name: 'Header' },
+        { id: 'el-sub', type: 'text', x: 60, y: 150, text: 'We Need Used Inventory — Get Up to 120% KBB Value!', fontSize: 26, fontWeight: '700', fill: '#A7F3D0', z: 2, name: 'Subtitle' },
+        { id: 'el-photo', type: 'vehicle-image', x: 60, y: 220, width: 960, height: 560, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
+        { id: 'el-btn', type: 'shape', shapeType: 'rect', x: 60, y: 840, width: 960, height: 160, fill: '#10B981', rx: 24, opacity: 1, z: 4, name: 'CTA Card' },
+        { id: 'el-btn-txt', type: 'text', x: 180, y: 900, text: 'VALUE YOUR TRADE IN 60 SECONDS', fontSize: 32, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'CTA Text' }
+      ]
+    }
+  },
+  tmpl_ev_story: {
+    template_key: 'tmpl_ev_story',
+    name: 'Electric & Hybrid Showcase (Story)',
+    desc: '1080×1920 • EV & Clean Energy Ads',
+    format_key: 'story',
+    width: 1080,
+    height: 1920,
+    scene: {
+      version: 1,
+      format_key: 'story',
+      width: 1080,
+      height: 1920,
+      background: { color: '#0284C7' },
+      elements: [
+        { id: 'el-badge', type: 'shape', shapeType: 'rect', x: 60, y: 60, width: 360, height: 60, fill: '#06B6D4', rx: 16, opacity: 1, z: 1, name: 'EV Badge' },
+        { id: 'el-badge-txt', type: 'text', x: 90, y: 78, text: 'NEXT-GEN ELECTRIC', fontSize: 22, fontWeight: '900', fill: '#FFFFFF', z: 2, name: 'EV Text' },
+        { id: 'el-photo', type: 'vehicle-image', x: 0, y: 160, width: 1080, height: 1100, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
+        { id: 'el-card', type: 'shape', shapeType: 'rect', x: 50, y: 1300, width: 980, height: 520, fill: '#0F172A', rx: 32, opacity: 0.95, z: 4, name: 'Card' },
+        { id: 'el-title', type: 'text', x: 100, y: 1360, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 44, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'Title' },
+        { id: 'el-rebate', type: 'text', x: 100, y: 1430, text: 'Federal & State Rebates Up to $7,500 Available', fontSize: 24, fontWeight: '700', fill: '#38BDF8', z: 6, name: 'Rebate' },
+        { id: 'el-price', type: 'text', x: 100, y: 1510, text: 'NET PRICE: {{vehicle.price}}', fontSize: 40, fontWeight: '900', fill: '#34D399', z: 7, name: 'Price' },
+        { id: 'el-btn', type: 'shape', shapeType: 'rect', x: 100, y: 1620, width: 880, height: 100, fill: '#06B6D4', rx: 20, opacity: 1, z: 8, name: 'Button' },
+        { id: 'el-btn-txt', type: 'text', x: 340, y: 1655, text: 'EXPLORE EV OFFERS', fontSize: 26, fontWeight: '800', fill: '#FFFFFF', z: 9, name: 'Button Text' }
+      ]
+    }
+  }
+};
+
 function renderStudioToolPanelContent(tool) {
   if (tool === 'templates') {
     return `
       <div class="p-4 space-y-3">
         <h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Automotive Templates</h3>
         <div class="space-y-2">
-          <button onclick="loadStudioTemplate('tmpl_spotlight_square')" class="w-full text-left p-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 transition">
-            <div class="text-xs font-bold text-white">Vehicle Spotlight (Square)</div>
-            <div class="text-[11px] text-slate-400">1080×1080 • Bound Inventory Template</div>
-          </button>
-          <button onclick="loadStudioTemplate('tmpl_pricedrop_story')" class="w-full text-left p-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 transition">
-            <div class="text-xs font-bold text-white">Price Drop Banner (Story)</div>
-            <div class="text-[11px] text-slate-400">1080×1920 • Special Reductions</div>
-          </button>
+          ${Object.values(STUDIO_TEMPLATES_CATALOG).map(t => `
+            <button onclick="loadStudioTemplate('${t.template_key}')" class="w-full text-left p-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 transition space-y-1 group">
+              <div class="text-xs font-bold text-white group-hover:text-indigo-400 transition">${t.name}</div>
+              <div class="text-[11px] text-slate-400">${t.desc}</div>
+            </button>
+          `).join('')}
         </div>
       </div>
     `;
@@ -298,34 +449,14 @@ function setStudioTool(tool) {
 }
 
 async function loadStudioTemplate(tmplKey) {
-  let scene = window.msCreateDefaultScene ? window.msCreateDefaultScene(tmplKey === 'tmpl_pricedrop_story' ? 'story' : 'square') : {
-    format_key: tmplKey === 'tmpl_pricedrop_story' ? 'story' : 'square',
-    width: tmplKey === 'tmpl_pricedrop_story' ? 1080 : 1080,
-    height: tmplKey === 'tmpl_pricedrop_story' ? 1920 : 1080,
-    elements: []
-  };
-
-  if (tmplKey === 'tmpl_pricedrop_story') {
-    scene.background = { color: '#7F1D1D' };
-    scene.elements = [
-      { id: 'hd_1', type: 'text', text: 'SPECIAL REDUCTION', x: 80, y: 120, fontSize: 48, fontWeight: '900', fill: '#FFFFFF' },
-      { id: 'hd_2', type: 'text', text: '$4,000 BELOW MARKET', x: 80, y: 190, fontSize: 36, fontWeight: '800', fill: '#FCA5A5' },
-      { id: 'sh_1', type: 'shape', shapeType: 'badge', x: 80, y: 260, width: 300, height: 70, fill: '#DC2626' }
-    ];
-  } else {
-    scene.background = { color: '#0F172A' };
-    scene.elements = [
-      { id: 'hd_1', type: 'text', text: 'FEATURED VEHICLE', x: 60, y: 80, fontSize: 44, fontWeight: '900', fill: '#FFFFFF' },
-      { id: 'hd_2', type: 'text', text: '2024 Ford F-150 Lariat', x: 60, y: 140, fontSize: 32, fontWeight: '700', fill: '#38BDF8' },
-      { id: 'hd_3', type: 'text', text: '$54,990', x: 60, y: 210, fontSize: 52, fontWeight: '900', fill: '#34D399' }
-    ];
-  }
+  const tmpl = STUDIO_TEMPLATES_CATALOG[tmplKey] || STUDIO_TEMPLATES_CATALOG.tmpl_spotlight_square;
+  const scene = JSON.parse(JSON.stringify(tmpl.scene));
 
   if (window.__studioAdapter) {
     await window.__studioAdapter.renderScene(scene);
   }
   zoomStudioFit();
-  if (typeof showToast === 'function') showToast('Loaded template in Studio', 'success');
+  if (typeof showToast === 'function') showToast(`Loaded ${tmpl.name}`, 'success');
 }
 
 function searchStudioInventory(query) {

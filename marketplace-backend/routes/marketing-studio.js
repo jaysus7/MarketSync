@@ -14,6 +14,39 @@ import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { toWebp } from './inventory.js'
 import multer from 'multer'
+import fs from 'fs'
+import path from 'path'
+import crypto from 'crypto'
+
+const FALLBACK_FILE = path.resolve('data/studio_designs_fallback.json')
+
+function loadFallbackDesigns() {
+  try {
+    if (fs.existsSync(FALLBACK_FILE)) {
+      const raw = fs.readFileSync(FALLBACK_FILE, 'utf8')
+      return JSON.parse(raw) || []
+    }
+  } catch (e) {
+    console.error('Error reading studio designs fallback file:', e)
+  }
+  return []
+}
+
+function saveFallbackDesigns(designs) {
+  try {
+    const dir = path.dirname(FALLBACK_FILE)
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(FALLBACK_FILE, JSON.stringify(designs, null, 2), 'utf8')
+  } catch (e) {
+    console.error('Error saving studio designs fallback file:', e)
+  }
+}
+
+function isMissingTableError(e) {
+  if (!e) return false
+  const msg = (e.message || String(e)).toLowerCase()
+  return msg.includes('schema cache') || msg.includes('does not exist') || msg.includes('42p01') || e.code === 'PGRST204'
+}
 
 const assetUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024, files: 10 } })
 
@@ -73,7 +106,7 @@ const GLOBAL_TEMPLATES = [
       elements: [
         { id: 'el-photo', type: 'vehicle-image', x: 0, y: 200, width: 1080, height: 1100, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
         { id: 'el-top-banner', type: 'shape', shapeType: 'rect', x: 0, y: 0, width: 1080, height: 200, fill: '#EF4444', opacity: 1, z: 2, name: 'Price Reduction Banner' },
-        { id: 'el-top-txt', type: 'text', x: 280, y: 75, text: '🚨 PRICE REDUCED!', fontSize: 44, fontWeight: '900', fill: '#FFFFFF', z: 3, name: 'Banner Text' },
+        { id: 'el-top-txt', type: 'text', x: 280, y: 75, text: 'PRICE REDUCED!', fontSize: 44, fontWeight: '900', fill: '#FFFFFF', z: 3, name: 'Banner Text' },
         { id: 'el-card', type: 'shape', shapeType: 'rect', x: 50, y: 1350, width: 980, height: 480, fill: '#27272A', rx: 32, opacity: 0.95, z: 4, name: 'Card Background' },
         { id: 'el-ymmt', type: 'text', x: 100, y: 1410, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 48, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'Vehicle Title' },
         { id: 'el-miles', type: 'text', x: 100, y: 1480, text: 'Mileage: {{vehicle.mileage}} miles', fontSize: 24, fontWeight: '600', fill: '#A1A1AA', z: 6, name: 'Mileage' },
@@ -159,33 +192,66 @@ export function registerMarketingStudio(app) {
         .eq('dealership_id', req.dealershipId)
         .is('deleted_at', null)
         .order('updated_at', { ascending: false })
-      if (error) throw error
+      if (error) {
+        if (isMissingTableError(error)) {
+          const fallback = loadFallbackDesigns().filter(d => d.dealership_id === req.dealershipId && !d.deleted_at)
+          return res.json({ designs: fallback })
+        }
+        throw error
+      }
       res.json({ designs: data || [] })
-    } catch (e) { res.status(500).json({ error: e.message }) }
+    } catch (e) {
+      if (isMissingTableError(e)) {
+        const fallback = loadFallbackDesigns().filter(d => d.dealership_id === req.dealershipId && !d.deleted_at)
+        return res.json({ designs: fallback })
+      }
+      res.status(500).json({ error: e.message })
+    }
   })
 
   app.post('/marketing/studio/designs', requireAuth, requireMfa, canEdit, async (req, res) => {
     if (!guard(req, res)) return
+    const payload = {
+      id: `sd_${crypto.randomUUID()}`,
+      dealership_id: req.dealershipId,
+      owner_user_id: req.user?.id,
+      ownership: req.body?.ownership || 'dealership',
+      name: req.body?.name || 'Untitled Design',
+      format_key: req.body?.format_key || 'square',
+      width: Number(req.body?.width) || 1080,
+      height: Number(req.body?.height) || 1080,
+      scene: req.body?.scene || { version: 1, width: 1080, height: 1080, elements: [] },
+      vehicle_id: req.body?.vehicle_id || null,
+      campaign_id: req.body?.campaign_id || null,
+      template_id: req.body?.template_id || null,
+      created_by: req.user?.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
     try {
-      const payload = {
-        dealership_id: req.dealershipId,
-        owner_user_id: req.user?.id,
-        ownership: req.body?.ownership || 'dealership',
-        name: req.body?.name || 'Untitled Design',
-        format_key: req.body?.format_key || 'square',
-        width: Number(req.body?.width) || 1080,
-        height: Number(req.body?.height) || 1080,
-        scene: req.body?.scene || { version: 1, width: 1080, height: 1080, elements: [] },
-        vehicle_id: req.body?.vehicle_id || null,
-        campaign_id: req.body?.campaign_id || null,
-        template_id: req.body?.template_id || null,
-        created_by: req.user?.id
-      }
       const { data, error } = await supabaseAdmin.from('studio_designs').insert(payload).select('*').single()
-      if (error) throw error
+      if (error) {
+        if (isMissingTableError(error)) {
+          const designs = loadFallbackDesigns()
+          designs.unshift(payload)
+          saveFallbackDesigns(designs)
+          audit(req, 'marketing.studio_design_created', { after_state: { id: payload.id, name: payload.name } })
+          return res.json({ ok: true, design: payload })
+        }
+        throw error
+      }
       audit(req, 'marketing.studio_design_created', { after_state: { id: data.id, name: data.name } })
       res.json({ ok: true, design: data })
-    } catch (e) { res.status(500).json({ error: e.message }) }
+    } catch (e) {
+      if (isMissingTableError(e)) {
+        const designs = loadFallbackDesigns()
+        designs.unshift(payload)
+        saveFallbackDesigns(designs)
+        audit(req, 'marketing.studio_design_created', { after_state: { id: payload.id, name: payload.name } })
+        return res.json({ ok: true, design: payload })
+      }
+      res.status(500).json({ error: e.message })
+    }
   })
 
   app.get('/marketing/studio/designs/:id', requireAuth, requireMfa, canView, async (req, res) => {
@@ -197,26 +263,41 @@ export function registerMarketingStudio(app) {
         .eq('dealership_id', req.dealershipId)
         .is('deleted_at', null)
         .single()
-      if (error || !data) return res.status(404).json({ error: 'Design not found' })
+      if (error) {
+        if (isMissingTableError(error)) {
+          const found = loadFallbackDesigns().find(d => d.id === req.params.id && d.dealership_id === req.dealershipId && !d.deleted_at)
+          if (!found) return res.status(404).json({ error: 'Design not found' })
+          return res.json({ design: found })
+        }
+        return res.status(404).json({ error: 'Design not found' })
+      }
+      if (!data) return res.status(404).json({ error: 'Design not found' })
       res.json({ design: data })
-    } catch (e) { res.status(500).json({ error: e.message }) }
+    } catch (e) {
+      if (isMissingTableError(e)) {
+        const found = loadFallbackDesigns().find(d => d.id === req.params.id && d.dealership_id === req.dealershipId && !d.deleted_at)
+        if (!found) return res.status(404).json({ error: 'Design not found' })
+        return res.json({ design: found })
+      }
+      res.status(500).json({ error: e.message })
+    }
   })
 
   app.put('/marketing/studio/designs/:id', requireAuth, requireMfa, canEdit, async (req, res) => {
     if (!guard(req, res)) return
-    try {
-      const updates = {
-        name: req.body?.name,
-        format_key: req.body?.format_key,
-        width: req.body?.width,
-        height: req.body?.height,
-        scene: req.body?.scene,
-        vehicle_id: req.body?.vehicle_id,
-        campaign_id: req.body?.campaign_id,
-        updated_at: new Date().toISOString()
-      }
-      Object.keys(updates).forEach(k => updates[k] === undefined && delete updates[k])
+    const updates = {
+      name: req.body?.name,
+      format_key: req.body?.format_key,
+      width: req.body?.width,
+      height: req.body?.height,
+      scene: req.body?.scene,
+      vehicle_id: req.body?.vehicle_id,
+      campaign_id: req.body?.campaign_id,
+      updated_at: new Date().toISOString()
+    }
+    Object.keys(updates).forEach(k => updates[k] === undefined && delete updates[k])
 
+    try {
       const { data, error } = await supabaseAdmin.from('studio_designs')
         .update(updates)
         .eq('id', req.params.id)
@@ -224,9 +305,51 @@ export function registerMarketingStudio(app) {
         .is('deleted_at', null)
         .select('*')
         .single()
-      if (error) throw error
+      if (error) {
+        if (isMissingTableError(error)) {
+          const designs = loadFallbackDesigns()
+          let idx = designs.findIndex(d => d.id === req.params.id && d.dealership_id === req.dealershipId && !d.deleted_at)
+          if (idx === -1) {
+            const newDesign = {
+              id: req.params.id,
+              dealership_id: req.dealershipId,
+              owner_user_id: req.user?.id,
+              created_at: new Date().toISOString(),
+              ...updates
+            }
+            designs.unshift(newDesign)
+            saveFallbackDesigns(designs)
+            return res.json({ ok: true, design: newDesign })
+          }
+          Object.assign(designs[idx], updates)
+          saveFallbackDesigns(designs)
+          return res.json({ ok: true, design: designs[idx] })
+        }
+        throw error
+      }
       res.json({ ok: true, design: data })
-    } catch (e) { res.status(500).json({ error: e.message }) }
+    } catch (e) {
+      if (isMissingTableError(e)) {
+        const designs = loadFallbackDesigns()
+        let idx = designs.findIndex(d => d.id === req.params.id && d.dealership_id === req.dealershipId && !d.deleted_at)
+        if (idx === -1) {
+          const newDesign = {
+            id: req.params.id,
+            dealership_id: req.dealershipId,
+            owner_user_id: req.user?.id,
+            created_at: new Date().toISOString(),
+            ...updates
+          }
+          designs.unshift(newDesign)
+          saveFallbackDesigns(designs)
+          return res.json({ ok: true, design: newDesign })
+        }
+        Object.assign(designs[idx], updates)
+        saveFallbackDesigns(designs)
+        return res.json({ ok: true, design: designs[idx] })
+      }
+      res.status(500).json({ error: e.message })
+    }
   })
 
   app.delete('/marketing/studio/designs/:id', requireAuth, requireMfa, canEdit, async (req, res) => {
@@ -236,9 +359,31 @@ export function registerMarketingStudio(app) {
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', req.params.id)
         .eq('dealership_id', req.dealershipId)
-      if (error) throw error
+      if (error) {
+        if (isMissingTableError(error)) {
+          const designs = loadFallbackDesigns()
+          const idx = designs.findIndex(d => d.id === req.params.id && d.dealership_id === req.dealershipId)
+          if (idx !== -1) {
+            designs[idx].deleted_at = new Date().toISOString()
+            saveFallbackDesigns(designs)
+          }
+          return res.json({ ok: true })
+        }
+        throw error
+      }
       res.json({ ok: true })
-    } catch (e) { res.status(500).json({ error: e.message }) }
+    } catch (e) {
+      if (isMissingTableError(e)) {
+        const designs = loadFallbackDesigns()
+        const idx = designs.findIndex(d => d.id === req.params.id && d.dealership_id === req.dealershipId)
+        if (idx !== -1) {
+          designs[idx].deleted_at = new Date().toISOString()
+          saveFallbackDesigns(designs)
+        }
+        return res.json({ ok: true })
+      }
+      res.status(500).json({ error: e.message })
+    }
   })
 
   // ── Studio Templates ──────────────────────────────────────────────────────
