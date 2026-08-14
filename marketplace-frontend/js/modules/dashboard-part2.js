@@ -1003,6 +1003,14 @@ const DEPARTMENTS = (typeof MS_WORKSPACES !== 'undefined' && MS_WORKSPACES) || {
       { page: 'tasks', label: 'Tasks' },
     ],
   },
+  messaging: {
+    label: 'Messaging', icon: 'chat', accent: 'sky', system: true, always: true,
+    pages: [{ page: 'ai-inbox', label: 'Messaging' }],
+  },
+  settings: {
+    label: 'Settings', icon: 'shield', system: true, always: true,
+    pages: [{ page: 'profile', label: 'Settings' }],
+  },
 };
 // Role gate for a department or page spec: explicit `roles` list wins, else `mgr`
 // means managers/owners/admins only, else everyone in the dealership.
@@ -1034,12 +1042,12 @@ const PAGE_FEATURE = {
   delivery: 'os.sales', fni: 'os.sales',
   reports: 'os.reports',
   'inv-intel': 'os.inventory', market: 'os.inventory',
-  'ai-home': 'os.marketing', 'ai-inbox': 'os.marketing', 'video-studio': 'os.marketing',
+  'ai-home': 'os.marketing', 'video-studio': 'os.marketing',
   'api-keys': 'os.integrations',
   'owner-users': 'os.team', 'sales-team': 'os.team', 'people-compliance': 'os.team', hr: 'os.team', people: 'os.team',
   'people-overview': 'os.team',
-  // `academy` and `launch` are deliberately ABSENT: an unmapped page is always allowed.
-  // Required compliance training is not a plan upsell, and gating SETUP behind an entitlement
+  // `academy`, `launch`, and `ai-inbox` are deliberately ABSENT: an unmapped page is always allowed.
+  // Required compliance training and messaging are not plan upsells, and gating SETUP behind an entitlement
   // would stop a dealership configuring the product it just bought.
   config: 'os.settings',
 };
@@ -1156,7 +1164,8 @@ const SAAS_DEPARTMENTS = {
   accounts:   { label: 'All Users',        icon: 'user',     accent: 'violet', pages: [{ page: 'owner-users', label: 'Accounts' }] },
   affiliates: { label: 'Affiliates',       icon: 'trophy',   accent: 'amber',   pages: [{ page: 'affiliates-admin', label: 'Affiliates' }] },
   accounting: { label: 'Accounting',       icon: 'currency', accent: 'emerald', always: true, pages: [{ page: 'saas-accounting', label: 'Accounting' }] },
-  settings:   { label: 'Settings',         icon: 'user',     accent: 'indigo',  always: true, pages: [{ page: 'profile', label: 'Settings' }] },
+  messaging:  { label: 'Messaging',        icon: 'chat',     accent: 'sky',     system: true, always: true, pages: [{ page: 'ai-inbox', label: 'Messaging' }] },
+  settings:   { label: 'Settings',         icon: 'user',     accent: 'indigo',  system: true, always: true, pages: [{ page: 'profile', label: 'Settings' }] },
 };
 let __deptNavBuilt = false;
 let __deptRegistry = DEPARTMENTS;   // which department set the flat nav is showing
