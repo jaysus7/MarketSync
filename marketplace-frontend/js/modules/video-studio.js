@@ -531,26 +531,70 @@ function vidCloseStudio() {
  */
 async function sendCustomerVideo(contactId, channel) {
   const videoId = `v_${Math.floor(100000 + Math.random() * 900000)}`;
-  const videoUrl = `https://marketsync.dealership.com/video/${videoId}`;
+  const localUrl = window.__videoStudioState.lastRecordedUrl || '';
   const messageText = document.getElementById('vid-message-input')?.value || 'Here is your personalized video walkaround!';
+  const contact = window.__videoStudioState.currentContact || { full_name: 'Customer', first_name: 'Customer' };
+  const dept = window.__videoStudioState.activeDepartment || 'Sales';
+  const repName = profileContext?.name || window.__user?.name || 'Dave Miller';
 
-  // Register video in analytics store
-  window.__videoAnalyticsStore[videoId] = {
+  let serverPublicUrl = '';
+  if (window.__videoStudioState.lastRecordedBlob) {
+    try {
+      const formData = new FormData();
+      formData.append('file', window.__videoStudioState.lastRecordedBlob, `video-${Date.now()}.webm`);
+      formData.append('contact_id', contactId || '');
+      formData.append('title', `${contact.vehicle || 'Vehicle'} ${dept} Video`);
+      formData.append('department', dept);
+      formData.append('duration_seconds', window.__videoStudioState.seconds || 120);
+
+      const res = await apiSendFormData('/sales-videos', 'POST', formData).catch(() => null);
+      if (res?.video?.public_url) {
+        serverPublicUrl = res.video.public_url;
+      }
+    } catch (e) {
+      console.warn('Video backend upload warning:', e);
+    }
+  }
+
+  const finalVideoUrl = serverPublicUrl || localUrl || `https://marketsync.dealership.com/video/${videoId}`;
+
+  const videoRecord = {
     id: videoId,
-    opened_at: null,
-    watch_time_seconds: 0,
-    total_duration_seconds: window.__videoStudioState.seconds || 120,
-    times_watched: 0,
-    completion_rate: 0,
-    video_url: videoUrl
+    title: `${contact.vehicle || 'Vehicle'} ${dept} Walkaround`,
+    contact_name: contact.full_name || contact.first_name || 'Customer',
+    contact_phone: contact.phone || '',
+    contact_id: contactId,
+    vehicle: contact.vehicle_summary || contact.vehicle || '2024 Ford F-150',
+    sender: repName,
+    department: dept,
+    channel: channel,
+    status: 'sent',
+    duration_seconds: window.__videoStudioState.seconds || 120,
+    sent_at: new Date().toISOString(),
+    first_opened_at: null,
+    first_played_at: null,
+    total_views: 0,
+    watch_percent: 0,
+    share_token: videoId,
+    public_url: finalVideoUrl,
+    local_url: localUrl,
   };
+
+  window.__videoAnalyticsStore[videoId] = videoRecord;
+
+  if (Array.isArray(DEMO_SENT_VIDEOS)) {
+    DEMO_SENT_VIDEOS.unshift(videoRecord);
+    try {
+      localStorage.setItem('ms_sent_videos', JSON.stringify(DEMO_SENT_VIDEOS.slice(0, 30)));
+    } catch {}
+  }
 
   const payload = {
     contact_id: contactId,
     kind: 'video_walkaround',
     channel: channel,
-    subject: `Personalized Video Message from ${profileContext?.name || 'Your Dealership Representative'}`,
-    body: `${messageText}\n\nWatch Video Link: <a href="#" onclick="openPublicVideoLink('${videoId}', '${contactId}'); return false;" class="text-indigo-400 underline font-bold">▶ Play Customer Video (${videoUrl})</a>`,
+    subject: `Personalized ${dept} Video Message from ${repName}`,
+    body: `${messageText}\n\nWatch Video Link: <a href="#" onclick="openPublicVideoLink('${videoId}', '${contactId}'); return false;" class="text-indigo-400 underline font-bold">▶ Play Customer Video (${finalVideoUrl})</a>`,
     timestamp: new Date().toISOString()
   };
 
@@ -559,24 +603,25 @@ async function sendCustomerVideo(contactId, channel) {
       await apiSendJson(`/crm/contacts/${contactId}/log`, 'POST', payload).catch(() => null);
       await apiSendJson(`/crm/contacts/${contactId}/timeline`, 'POST', payload).catch(() => null);
     }
-  } catch {
-    /* non-blocking */
-  }
+  } catch {}
 
   if (typeof showToast === 'function') {
-    showToast(`Video sent via ${channel.toUpperCase()}! Click "Play Customer Video" to open player`, 'success');
+    showToast(`Video saved & sent via ${channel.toUpperCase()}! Ready to preview in library.`, 'success');
   }
 
-  // Update telemetry panel inside studio if open
   const container = document.getElementById('vid-telemetry-container');
   if (container) container.innerHTML = renderVideoTelemetryBadge(videoId);
+
+  if (document.getElementById('video-studio-root')) {
+    loadVideoStudioPage();
+  }
 }
 
 /**
  * Public Customer Video Player Viewport Modal & Real-Time Telemetry Tracking
  */
 function openPublicVideoLink(videoId, contactId) {
-  const data = window.__videoAnalyticsStore[videoId] || {
+  const data = window.__videoAnalyticsStore[videoId] || DEMO_SENT_VIDEOS.find(v => v.id === videoId || v.share_token === videoId) || {
     id: videoId,
     opened_at: new Date().toISOString(),
     watch_time_seconds: 0,
@@ -586,6 +631,9 @@ function openPublicVideoLink(videoId, contactId) {
     video_url: `https://marketsync.dealership.com/video/${videoId}`
   };
 
+  const videoSrc = data.local_url || data.public_url || data.video_url;
+  const isRealMedia = videoSrc && (videoSrc.startsWith('blob:') || videoSrc.startsWith('data:') || videoSrc.includes('.mp4') || videoSrc.includes('.webm') || videoSrc.includes('/sales-videos/'));
+
   let playerModal = document.getElementById('public-video-player-modal');
   if (!playerModal) {
     playerModal = document.createElement('div');
@@ -594,9 +642,9 @@ function openPublicVideoLink(videoId, contactId) {
     document.body.appendChild(playerModal);
   }
 
-  const repName = profileContext?.name || window.__user?.name || 'Dave Miller';
+  const repName = data.sender || profileContext?.name || window.__user?.name || 'Dave Miller';
   const storeName = window.__dealerConfig?.store_name || 'MarketSync Motors';
-  const custName = window.__videoStudioState.currentContact?.first_name || 'Customer';
+  const custName = data.contact_name || window.__videoStudioState.currentContact?.first_name || 'Customer';
   const vipDiscount = data.vip_discount || '$500 VIP Voucher';
 
   playerModal.innerHTML = `
@@ -616,30 +664,17 @@ function openPublicVideoLink(videoId, contactId) {
         </div>
       </div>
 
-      <!-- Video Player Canvas Screen -->
+      <!-- Video Player Canvas / HTML5 Screen -->
       <div class="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden group">
-        <canvas id="pub-video-canvas" width="640" height="360" class="w-full h-full object-cover"></canvas>
-        
-        <!-- Center Initial Play Overlay -->
-        <div id="pub-play-overlay" class="absolute inset-0 bg-black/40 flex flex-col items-center justify-center p-6 text-center cursor-pointer transition" onclick="startPublicVideoPlayback('${videoId}', '${contactId}')">
-          <div class="w-20 h-20 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center text-3xl shadow-2xl transition transform hover:scale-105">
-            ▶
+        ${isRealMedia ? `
+          <video id="pub-real-video" src="${escV(videoSrc)}" controls autoplay class="w-full h-full object-contain bg-black"></video>
+        ` : `
+          <canvas id="pub-video-canvas" width="640" height="360" class="w-full h-full object-cover"></canvas>
+          <div id="pub-play-overlay" class="absolute inset-0 bg-black/40 flex flex-col items-center justify-center p-6 text-center cursor-pointer transition" onclick="startPublicVideoPlayback('${videoId}', '${contactId}')">
+            <div class="w-20 h-20 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center text-3xl shadow-2xl transition transform hover:scale-105">▶</div>
+            <div class="mt-3 font-bold text-sm text-white">${escV(custName)}, click to play your personalized video</div>
           </div>
-          <div class="mt-3 font-bold text-sm text-white">${escV(custName)}, click to play your personalized video</div>
-        </div>
-
-        <div id="pub-playing-status" class="absolute top-4 left-4 text-xs font-extrabold uppercase tracking-widest text-emerald-400 bg-slate-900/90 border border-slate-800 px-3 py-1 rounded-full hidden">
-          LIVE PLAYBACK
-        </div>
-
-        <!-- Custom Player Scrubber Controls -->
-        <div class="absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-black/90 to-transparent flex items-center justify-between gap-3 text-xs font-mono">
-          <button id="pub-play-btn" onclick="togglePublicVideoPlayback('${videoId}', '${contactId}')" class="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition">Play</button>
-          <div class="flex-1 bg-slate-800 rounded-full h-2 overflow-hidden cursor-pointer" onclick="scrubPublicVideo(event, '${videoId}')">
-            <div id="pub-progress-bar" class="bg-indigo-500 h-full w-0 transition-all duration-150"></div>
-          </div>
-          <span id="pub-time-counter" class="text-slate-300">00:00 / 02:00</span>
-        </div>
+        `}
       </div>
 
       <!-- Action Call-to-Action Bar -->
@@ -662,8 +697,9 @@ function openPublicVideoLink(videoId, contactId) {
     </div>
   `;
 
-  // Draw initial poster frame on video canvas
-  drawPublicVideoCanvasFrame(0);
+  if (!isRealMedia) {
+    drawPublicVideoCanvasFrame(0);
+  }
 }
 
 let __pubVideoInterval = null;

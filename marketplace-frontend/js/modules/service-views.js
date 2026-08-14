@@ -79,42 +79,253 @@ window.svcRenderProactiveAiPanel = function(d) {
 
 // ── 3. TECHNICIAN & DISPATCHER CAPACITY BOARD ────────────────────────────────
 window.svcRenderDispatchBoard = function(d) {
-  const technicians = [
-    { id: 'tech_1', name: 'Mike Miller (Master Tech)', bay: 'Bay 1 (Lift A)', status: 'Active', capacity: '85%', clocked: '6.2h', sold: '7.5h', currentJob: 'RO-1094: Transmission Flush', blocked: false },
-    { id: 'tech_2', name: 'David Smith (Diagnostics)', bay: 'Bay 2 (Diag Hub)', status: 'Active', capacity: '100%', clocked: '7.0h', sold: '8.2h', currentJob: 'RO-1098: Electrical Harness Check', blocked: true, blockedReason: 'Waiting for Wiring Harness' },
-    { id: 'tech_3', name: 'Carlos Gomez (Brakes/Susp)', bay: 'Bay 3 (Lift B)', status: 'Available', capacity: '40%', clocked: '3.5h', sold: '4.0h', currentJob: 'RO-1102: Front Brake Pads', blocked: false },
-    { id: 'tech_4', name: 'Alex Johnson (Lube/Tires)', bay: 'Bay 4 (Express)', status: 'Available', capacity: '20%', clocked: '2.0h', sold: '2.5h', currentJob: 'RO-1106: Oil & Filter Service', blocked: false },
-  ];
+  if (!window.__svcTechnicians) {
+    window.__svcTechnicians = [
+      { id: 'tech_1', name: 'Mike Miller (Master Tech)', specialty: 'Transmission / Heavy Repair', bay: 'Bay 1 (Lift A)', status: 'Active', capacity: 85, clocked: 6.2, sold: 7.5, currentJob: 'RO-1094: Transmission Flush', blocked: false },
+      { id: 'tech_2', name: 'David Smith (Diagnostics)', specialty: 'Electrical / Engine Diag', bay: 'Bay 2 (Diag Hub)', status: 'Active', capacity: 100, clocked: 7.0, sold: 8.2, currentJob: 'RO-1098: Electrical Harness Check', blocked: true, blockedReason: 'Waiting for Wiring Harness' },
+      { id: 'tech_3', name: 'Carlos Gomez (Brakes/Susp)', specialty: 'Brakes & Suspension', bay: 'Bay 3 (Lift B)', status: 'Available', capacity: 40, clocked: 3.5, sold: 4.0, currentJob: 'RO-1102: Front Brake Pads', blocked: false },
+      { id: 'tech_4', name: 'Alex Johnson (Lube/Tires)', specialty: 'Express Lube & Maintenance', bay: 'Bay 4 (Express)', status: 'Available', capacity: 20, clocked: 2.0, sold: 2.5, currentJob: 'RO-1106: Oil & Filter Service', blocked: false },
+    ];
+  }
+
+  const technicians = window.__svcTechnicians;
 
   return `
-    <div class="mb-4">
+    <div class="mb-4" id="svc-dispatch-board-root">
       ${engCard('Technician Dispatch & Shop Capacity Board', `
-        <div class="text-[12px] text-slate-400 mb-3">Live bay allocation, technician sold vs. clocked hours, and real-time workload balancing.</div>
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-[12px] text-slate-400">Live bay allocation, technician sold vs. clocked hours, and real-time workload balancing.</div>
+          <button onclick="svcOpenAssignWorkModal()" class="px-3 py-1.5 rounded-lg text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition flex items-center gap-1.5 cursor-pointer">
+            + Assign Work to Technician
+          </button>
+        </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          ${technicians.map(t => `
-            <div class="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-800/30 space-y-2">
-              <div class="flex items-center justify-between">
-                <span class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(t.name)}</span>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${t.capacity === '100%' ? 'bg-rose-100 dark:bg-rose-950 text-rose-600' : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600'}">${esc(t.capacity)} Load</span>
+          ${technicians.map(t => {
+            const capVal = Number(t.capacity || 0);
+            const statusTone = capVal >= 100 ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' : capVal >= 75 ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
+            const capIndicator = capVal >= 100 ? '🔴 100% Load' : capVal >= 75 ? `🟠 ${capVal}% Load` : capVal >= 40 ? `🟡 ${capVal}% Load` : `🟢 ${capVal}% Load`;
+
+            return `
+              <div class="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-800/30 space-y-2.5">
+                <div class="flex items-center justify-between gap-1">
+                  <span class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(t.name)}</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-black border ${statusTone} shrink-0">${capIndicator}</span>
+                </div>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400">Location: <strong class="text-slate-700 dark:text-slate-200">${esc(t.bay)}</strong></div>
+                <div class="flex items-center justify-between text-[11px] text-slate-500">
+                  <span>Clocked: <strong class="text-slate-700 dark:text-slate-200">${t.clocked}h</strong></span>
+                  <span>Sold: <strong class="text-emerald-600 dark:text-emerald-400 font-bold">${t.sold}h</strong></span>
+                </div>
+                <div class="w-full bg-slate-200 dark:bg-slate-700/60 rounded-full h-1.5 overflow-hidden">
+                  <div class="h-full ${capVal >= 100 ? 'bg-rose-500' : capVal >= 75 ? 'bg-amber-500' : 'bg-emerald-500'}" style="width: ${Math.min(100, capVal)}%;"></div>
+                </div>
+                <div class="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 text-[11px]">
+                  <div class="font-semibold text-slate-700 dark:text-slate-300 truncate">${esc(t.currentJob)}</div>
+                  ${t.blocked ? `<div class="text-rose-500 font-bold mt-0.5">Blocked: ${esc(t.blockedReason)}</div>` : '<div class="text-emerald-600 font-medium mt-0.5">On Track</div>'}
+                </div>
+                <button onclick="svcOpenAssignWorkModal('${t.id}')" class="w-full py-1.5 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-indigo-600 dark:text-indigo-400">
+                  Assign Work
+                </button>
               </div>
-              <div class="text-[11px] text-slate-500 dark:text-slate-400">Location: <strong class="text-slate-700 dark:text-slate-200">${esc(t.bay)}</strong></div>
-              <div class="flex items-center justify-between text-[11px] text-slate-500">
-                <span>Clocked: <strong class="text-slate-700 dark:text-slate-200">${esc(t.clocked)}</strong></span>
-                <span>Sold: <strong class="text-emerald-600 font-bold">${esc(t.sold)}</strong></span>
-              </div>
-              <div class="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 text-[11px]">
-                <div class="font-semibold text-slate-700 dark:text-slate-300 truncate">${esc(t.currentJob)}</div>
-                ${t.blocked ? `<div class="text-rose-500 font-bold mt-0.5">Blocked: ${esc(t.blockedReason)}</div>` : '<div class="text-emerald-600 font-medium mt-0.5">On Track</div>'}
-              </div>
-              <button onclick="showToast('Re-assigning workload to ${esc(t.name)}...','info')" class="w-full py-1.5 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-                Assign Work
-              </button>
-            </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
       `)}
     </div>
   `;
+};
+
+window.svcOpenAssignWorkModal = function(targetTechId = null, targetRoId = null) {
+  if (!window.__svcTechnicians) {
+    window.__svcTechnicians = [
+      { id: 'tech_1', name: 'Mike Miller (Master Tech)', specialty: 'Transmission / Heavy Repair', bay: 'Bay 1 (Lift A)', capacity: 85, clocked: 6.2, sold: 7.5, currentJob: 'RO-1094: Transmission Flush', blocked: false },
+      { id: 'tech_2', name: 'David Smith (Diagnostics)', specialty: 'Electrical / Engine Diag', bay: 'Bay 2 (Diag Hub)', capacity: 100, clocked: 7.0, sold: 8.2, currentJob: 'RO-1098: Electrical Harness Check', blocked: true, blockedReason: 'Waiting for Wiring Harness' },
+      { id: 'tech_3', name: 'Carlos Gomez (Brakes/Susp)', specialty: 'Brakes & Suspension', bay: 'Bay 3 (Lift B)', capacity: 40, clocked: 3.5, sold: 4.0, currentJob: 'RO-1102: Front Brake Pads', blocked: false },
+      { id: 'tech_4', name: 'Alex Johnson (Lube/Tires)', specialty: 'Express Lube & Maintenance', bay: 'Bay 4 (Express)', capacity: 20, clocked: 2.0, sold: 2.5, currentJob: 'RO-1106: Oil & Filter Service', blocked: false },
+    ];
+  }
+
+  if (!window.__svcWorkOrders) {
+    window.__svcWorkOrders = [
+      { id: 'ro_1094', ro_number: 'RO-1094', title: 'Transmission Flush', customer: 'Jason Massie', vehicle: '2024 Ford F-150', est_hours: 1.5, tech_id: 'tech_1' },
+      { id: 'ro_1098', ro_number: 'RO-1098', title: 'Electrical Harness Check', customer: 'Sarah Connor', vehicle: '2022 Chevy Tahoe', est_hours: 2.0, tech_id: 'tech_2' },
+      { id: 'ro_1102', ro_number: 'RO-1102', title: 'Front Brake Pads & Rotors', customer: 'Robert Vance', vehicle: '2023 Ram 1500', est_hours: 1.2, tech_id: 'tech_3' },
+      { id: 'ro_1106', ro_number: 'RO-1106', title: 'Oil & Filter Express Service', customer: 'Emily Watson', vehicle: '2021 Toyota Camry', est_hours: 0.5, tech_id: 'tech_4' },
+      { id: 'ro_1110', ro_number: 'RO-1110', title: '30k Comprehensive Maintenance', customer: 'Marcus Brody', vehicle: '2023 Jeep Wrangler', est_hours: 2.5, tech_id: null },
+      { id: 'ro_1115', ro_number: 'RO-1115', title: 'HVAC AC Compressor Replacement', customer: 'Diana Prince', vehicle: '2022 Ford Explorer', est_hours: 3.0, tech_id: null },
+    ];
+  }
+
+  let modal = document.getElementById('svc-assign-work-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'svc-assign-work-modal';
+    modal.className = 'fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto';
+    document.body.appendChild(modal);
+  }
+
+  const selectedRo = window.__svcWorkOrders.find(r => r.id === targetRoId) || window.__svcWorkOrders.find(r => !r.tech_id) || window.__svcWorkOrders[0];
+  const defaultTechId = targetTechId || selectedRo?.tech_id || 'tech_4';
+
+  modal.innerHTML = `
+    <div class="relative w-full max-w-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto p-5 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div>
+          <h3 class="text-base font-black text-slate-900 dark:text-white">Assign Work Order to Technician</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Balance shop workload by technician capacity and skills.</p>
+        </div>
+        <button onclick="document.getElementById('svc-assign-work-modal')?.remove()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold">✕</button>
+      </div>
+
+      <!-- Work Order Selection -->
+      <div class="space-y-1">
+        <label class="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">1. Select Repair Order / Job</label>
+        <select id="svc-assign-ro-select" onchange="svcOnAssignRoChange(this.value)" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-semibold text-slate-900 dark:text-white">
+          ${window.__svcWorkOrders.map(ro => `
+            <option value="${ro.id}" ${ro.id === selectedRo.id ? 'selected' : ''}>
+              ${esc(ro.ro_number)}: ${esc(ro.title)} (${esc(ro.customer)} · ${ro.est_hours}h) ${ro.tech_id ? '— [Assigned]' : '— [UNASSIGNED]'}
+            </option>
+          `).join('')}
+        </select>
+      </div>
+
+      <!-- Technician Dropdown with Busy & Capacity Indicators -->
+      <div class="space-y-1">
+        <label class="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">2. Select Assignee Technician (With Workload Indicators)</label>
+        <select id="svc-assign-tech-select" onchange="svcUpdateAssignModalCapacityPreview()" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-semibold text-slate-900 dark:text-white">
+          ${window.__svcTechnicians.map(t => {
+            const cap = Number(t.capacity || 0);
+            const indicator = cap >= 100 ? '🔴 100% Load (AT CAPACITY)' : cap >= 75 ? `🟠 ${cap}% Load (Heavy)` : cap >= 40 ? `🟡 ${cap}% Load (Moderate)` : `🟢 ${cap}% Load (Available)`;
+            return `
+              <option value="${t.id}" ${t.id === defaultTechId ? 'selected' : ''}>
+                ${indicator} — ${esc(t.name)} (${t.sold}h sold | ${esc(t.bay)})
+              </option>
+            `;
+          }).join('')}
+        </select>
+      </div>
+
+      <!-- Live Projected Capacity Impact Preview Card -->
+      <div id="svc-assign-capacity-preview" class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-2">
+        <!-- Dynamically rendered via svcUpdateAssignModalCapacityPreview() -->
+      </div>
+
+      <!-- Estimated Labor Hours Adjustment -->
+      <div class="space-y-1">
+        <label class="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">3. Estimated Labor Time (Hours)</label>
+        <input id="svc-assign-hours-input" type="number" step="0.1" min="0.1" max="24" value="${selectedRo.est_hours || 1.5}" oninput="svcUpdateAssignModalCapacityPreview()" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+      </div>
+
+      <!-- Modal Footer Action Buttons -->
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <button onclick="document.getElementById('svc-assign-work-modal')?.remove()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
+        <button onclick="svcConfirmWorkAssignment()" class="px-5 py-2 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition">
+          Confirm Work Assignment
+        </button>
+      </div>
+    </div>
+  `;
+
+  svcUpdateAssignModalCapacityPreview();
+};
+
+window.svcOnAssignRoChange = function(roId) {
+  const ro = (window.__svcWorkOrders || []).find(r => r.id === roId);
+  if (ro) {
+    const hoursEl = document.getElementById('svc-assign-hours-input');
+    if (hoursEl) hoursEl.value = ro.est_hours || 1.5;
+    if (ro.tech_id) {
+      const techSelect = document.getElementById('svc-assign-tech-select');
+      if (techSelect) techSelect.value = ro.tech_id;
+    }
+  }
+  svcUpdateAssignModalCapacityPreview();
+};
+
+window.svcUpdateAssignModalCapacityPreview = function() {
+  const techSelect = document.getElementById('svc-assign-tech-select');
+  const roSelect = document.getElementById('svc-assign-ro-select');
+  const hoursInput = document.getElementById('svc-assign-hours-input');
+  const previewBox = document.getElementById('svc-assign-capacity-preview');
+  if (!techSelect || !previewBox) return;
+
+  const techId = techSelect.value;
+  const tech = (window.__svcTechnicians || []).find(t => t.id === techId);
+  if (!tech) return;
+
+  const roId = roSelect?.value;
+  const ro = (window.__svcWorkOrders || []).find(r => r.id === roId);
+  const addHours = parseFloat(hoursInput?.value || ro?.est_hours || 1.5);
+
+  const currentSold = parseFloat(tech.sold || 0);
+  const isReassigning = ro && ro.tech_id === tech.id;
+  const newSold = isReassigning ? currentSold : Number((currentSold + addHours).toFixed(1));
+  const newCap = Math.min(100, Math.round((newSold / 8.0) * 100));
+
+  const statusBadge = newCap >= 100 ? '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-rose-500/20 text-rose-400">🔴 AT CAPACITY (100%)</span>' : newCap >= 75 ? '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-500/20 text-amber-400">🟠 HEAVY LOAD (' + newCap + '%)</span>' : '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-500/20 text-emerald-400">🟢 AVAILABLE (' + newCap + '%)</span>';
+
+  previewBox.innerHTML = `
+    <div class="flex items-center justify-between text-xs">
+      <span class="font-bold text-slate-700 dark:text-slate-200">Selected Tech: ${esc(tech.name)}</span>
+      ${statusBadge}
+    </div>
+    <div class="text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
+      <div class="flex justify-between"><span>Location / Bay:</span><span class="font-semibold text-slate-700 dark:text-slate-200">${esc(tech.bay)}</span></div>
+      <div class="flex justify-between"><span>Current Sold Hours:</span><span class="font-semibold text-slate-700 dark:text-slate-200">${currentSold}h (${tech.capacity}% Load)</span></div>
+      <div class="flex justify-between text-indigo-600 dark:text-indigo-400 font-bold"><span>+ Adding Workload:</span><span>+${addHours}h</span></div>
+      <div class="flex justify-between pt-1 border-t border-slate-200 dark:border-slate-700 font-black text-slate-900 dark:text-white"><span>Projected Workload:</span><span>${newSold}h (${newCap}% Load)</span></div>
+    </div>
+    <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden mt-1">
+      <div class="h-full ${newCap >= 100 ? 'bg-rose-500' : newCap >= 75 ? 'bg-amber-500' : 'bg-emerald-500'} transition-all duration-300" style="width: ${newCap}%;"></div>
+    </div>
+  `;
+};
+
+window.svcConfirmWorkAssignment = function() {
+  const roSelect = document.getElementById('svc-assign-ro-select');
+  const techSelect = document.getElementById('svc-assign-tech-select');
+  const hoursInput = document.getElementById('svc-assign-hours-input');
+
+  const roId = roSelect?.value;
+  const techId = techSelect?.value;
+  const addHours = parseFloat(hoursInput?.value || 1.5);
+
+  const ro = (window.__svcWorkOrders || []).find(r => r.id === roId);
+  const targetTech = (window.__svcTechnicians || []).find(t => t.id === techId);
+
+  if (!ro || !targetTech) {
+    if (typeof showToast === 'function') showToast('Please select a valid work order and technician.', 'error');
+    return;
+  }
+
+  if (ro.tech_id && ro.tech_id !== techId) {
+    const prevTech = (window.__svcTechnicians || []).find(t => t.id === ro.tech_id);
+    if (prevTech) {
+      prevTech.sold = Math.max(0, Number((prevTech.sold - (ro.est_hours || addHours)).toFixed(1)));
+      prevTech.capacity = Math.min(100, Math.round((prevTech.sold / 8.0) * 100));
+    }
+  }
+
+  ro.tech_id = techId;
+  ro.est_hours = addHours;
+
+  targetTech.sold = Number((targetTech.sold + addHours).toFixed(1));
+  targetTech.capacity = Math.min(100, Math.round((targetTech.sold / 8.0) * 100));
+  targetTech.currentJob = `${ro.ro_number}: ${ro.title}`;
+
+  document.getElementById('svc-assign-work-modal')?.remove();
+
+  if (typeof showToast === 'function') {
+    showToast(`Work assigned to ${targetTech.name}! Capacity updated to ${targetTech.capacity}% Load (${targetTech.sold}h sold).`, 'success');
+  }
+
+  const root = document.getElementById('svc-dispatch-board-root');
+  if (root && typeof window.svcRenderDispatchBoard === 'function') {
+    const parent = root.parentElement;
+    if (parent) {
+      parent.innerHTML = window.svcRenderDispatchBoard(window.__svcData || {});
+    }
+  }
 };
 
 // ── 4. ESTIMATE & AUTHORIZATION COMMAND CENTRE DRAWER ───────────────────────
