@@ -11,7 +11,7 @@ import { emitWebhook, WEBHOOK_EVENTS } from '../webhooks.js'
 import { sendDealerSms, invalidateTwilioCache } from './automation.js'
 import { twilioProvisionConfigured, searchNumbers, provisionForDealer, releaseNumber } from '../providers/twilio-provision.js'
 import { qboConfigured, qboAuthorizeUrl, signState, verifyState, qboExchangeCode, qboEnsureToken, qboCompanyName } from '../providers/quickbooks.js'
-import { OAUTH_PROVIDERS, oauthConfigured, oauthAuthorizeUrl, oauthExchangeCode, oauthEnsureToken, oauthAfterToken, oauthTest, gbpCreatePost, signState as signOAuthState, verifyState as verifyOAuthState } from '../providers/oauth.js'
+import { OAUTH_PROVIDERS, oauthConfigured, oauthAuthorizeUrl, oauthRedirectUri, oauthExchangeCode, oauthEnsureToken, oauthAfterToken, oauthTest, gbpCreatePost, signState as signOAuthState, verifyState as verifyOAuthState } from '../providers/oauth.js'
 import { stripeDepositsConfigured } from './deposits.js'
 import { squareConfigured } from '../providers/square.js'
 import Anthropic from '@anthropic-ai/sdk'
@@ -291,6 +291,10 @@ export function registerIntegrations(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!oauthConfigured(provider)) return res.status(503).json({ error: `${CATALOG[provider]?.label || provider} isn’t enabled on this MarketSync account yet.` })
     if (!piiConfigured()) return res.status(400).json({ error: 'Set PII_ENCRYPTION_KEY before connecting.' })
+    const redirectUri = oauthRedirectUri(provider)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[oauth] ${provider} authorization redirect_uri:`, redirectUri)
+    }
     res.json({ url: oauthAuthorizeUrl(provider, signOAuthState(req.dealershipId, provider)) })
   })
 
@@ -300,6 +304,10 @@ export function registerIntegrations(app) {
     if (!OAUTH_PROVIDERS.includes(provider)) return backTo(false, 'Unknown provider')
     try {
       const { code, state } = req.query
+      const redirectUri = oauthRedirectUri(provider)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[oauth] ${provider} callback redirect_uri:`, redirectUri)
+      }
       const dealershipId = verifyOAuthState(state, provider)
       if (!dealershipId || !code) return backTo(false, 'Link expired — try connecting again.')
       const creds = await oauthExchangeCode(provider, String(code))

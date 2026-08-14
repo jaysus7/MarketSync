@@ -88,7 +88,16 @@ const REG = {
 export const OAUTH_PROVIDERS = Object.keys(REG)
 export function oauthProvider(p) { return REG[p] || null }
 export function oauthConfigured(p) { const c = REG[p]; return !!(c && c.clientId() && c.clientSecret()) }
-export function oauthRedirectUri(p) { return `${BACKEND_URL.replace(/\/$/, '')}/integrations/${p}/callback` }
+export function oauthRedirectUri(p) {
+  if (p === 'google_business' && process.env.GOOGLE_REDIRECT_URI) {
+    return process.env.GOOGLE_REDIRECT_URI.replace(/\/$/, '')
+  }
+  if (process.env.OAUTH_CALLBACK_BASE_URL) {
+    return `${process.env.OAUTH_CALLBACK_BASE_URL.replace(/\/$/, '')}/integrations/${p}/callback`
+  }
+  const base = (process.env.API_URL || process.env.RENDER_EXTERNAL_URL || BACKEND_URL || '').replace(/\/$/, '')
+  return `${base}/integrations/${p}/callback`
+}
 
 export function oauthAuthorizeUrl(p, state) {
   const c = REG[p]

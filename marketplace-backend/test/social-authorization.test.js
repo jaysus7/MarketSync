@@ -204,3 +204,40 @@ test('social tables carry row level security', () => {
       `${t} must have RLS enabled`)
   }
 })
+
+// ── Google OAuth Redirect URI Normalization ─────────────────────────────────
+
+test('constructs Google OAuth callback URI dynamically and strips trailing slashes', async () => {
+  const { oauthRedirectUri, oauthAuthorizeUrl, signState, verifyState } = await import('../providers/oauth.js')
+  const origApi = process.env.API_URL
+  const origGoogle = process.env.GOOGLE_REDIRECT_URI
+  const origOauthBase = process.env.OAUTH_CALLBACK_BASE_URL
+  const origClientId = process.env.GOOGLE_CLIENT_ID
+  const origSecret = process.env.OAUTH_STATE_SECRET
+  try {
+    process.env.OAUTH_STATE_SECRET = 'test-secret-key-1234567890'
+    delete process.env.GOOGLE_REDIRECT_URI
+    delete process.env.OAUTH_CALLBACK_BASE_URL
+    process.env.API_URL = 'https://api.marketsync.link/'
+
+    const uri = oauthRedirectUri('google_business')
+    assert.equal(uri, 'https://api.marketsync.link/integrations/google_business/callback')
+
+    process.env.GOOGLE_REDIRECT_URI = 'https://custom.marketsync.link/integrations/google_business/callback/'
+    assert.equal(oauthRedirectUri('google_business'), 'https://custom.marketsync.link/integrations/google_business/callback')
+
+    delete process.env.GOOGLE_REDIRECT_URI
+    process.env.GOOGLE_CLIENT_ID = 'test-client-id.apps.googleusercontent.com'
+    const state = signState('d_test123', 'google_business')
+    const authUrl = oauthAuthorizeUrl('google_business', state)
+    const url = new URL(authUrl)
+    assert.equal(url.searchParams.get('redirect_uri'), 'https://api.marketsync.link/integrations/google_business/callback')
+    assert.equal(verifyState(state, 'google_business'), 'd_test123')
+  } finally {
+    if (origSecret === undefined) delete process.env.OAUTH_STATE_SECRET; else process.env.OAUTH_STATE_SECRET = origSecret
+    if (origApi === undefined) delete process.env.API_URL; else process.env.API_URL = origApi
+    if (origGoogle === undefined) delete process.env.GOOGLE_REDIRECT_URI; else process.env.GOOGLE_REDIRECT_URI = origGoogle
+    if (origOauthBase === undefined) delete process.env.OAUTH_CALLBACK_BASE_URL; else process.env.OAUTH_CALLBACK_BASE_URL = origOauthBase
+    if (origClientId === undefined) delete process.env.GOOGLE_CLIENT_ID; else process.env.GOOGLE_CLIENT_ID = origClientId
+  }
+})

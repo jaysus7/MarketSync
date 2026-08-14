@@ -840,7 +840,64 @@ let __wsPaletteSearch = '';
 let __wsSelectedSecIdx = 0;
 let __wsActiveDeviceView = 'desktop'; // 'desktop' (100%), 'tablet' (768px), 'mobile' (375px)
 let __wsActiveLeftNav = 'layers'; // 'layers', 'blocks', 'pages', 'design', 'ai'
-let __wsInspectorTab = 'content'; // 'content', 'style', 'layout', 'advanced'
+let __wsLeftDockCollapsed = false;
+let __wsRightDockCollapsed = false;
+
+function toggleWsLeftDock() {
+  __wsLeftDockCollapsed = !__wsLeftDockCollapsed;
+  const drawer = document.getElementById('ws-left-drawer-content');
+  const btn = document.getElementById('ws-left-collapse-btn');
+  if (drawer) {
+    if (__wsLeftDockCollapsed) drawer.classList.add('hidden');
+    else drawer.classList.remove('hidden');
+  }
+  if (btn) btn.innerHTML = __wsLeftDockCollapsed ? '&gt;' : '&lt;';
+}
+window.toggleWsLeftDock = toggleWsLeftDock;
+
+function toggleWsRightDock() {
+  __wsRightDockCollapsed = !__wsRightDockCollapsed;
+  const inspector = document.getElementById('ws-inspector-panel');
+  const btn = document.getElementById('ws-right-collapse-btn');
+  if (inspector) {
+    if (__wsRightDockCollapsed) inspector.classList.add('hidden');
+    else inspector.classList.remove('hidden');
+  }
+  if (btn) btn.innerHTML = __wsRightDockCollapsed ? 'Inspector &laquo;' : 'Inspector &raquo;';
+}
+window.toggleWsRightDock = toggleWsRightDock;
+
+function makeWsPanelDraggable(handleEl, targetEl) {
+  if (!handleEl || !targetEl) return;
+  let isDragging = false, startX = 0, startY = 0, initialLeft = 0, initialTop = 0;
+  handleEl.style.cursor = 'grab';
+  handleEl.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    handleEl.style.cursor = 'grabbing';
+    startX = e.clientX;
+    startY = e.clientY;
+    const rect = targetEl.getBoundingClientRect();
+    initialLeft = rect.left;
+    initialTop = rect.top;
+    const onMouseMove = (ev) => {
+      if (!isDragging) return;
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      targetEl.style.left = `${initialLeft + dx}px`;
+      targetEl.style.top = `${initialTop + dy}px`;
+      targetEl.style.right = 'auto';
+    };
+    const onMouseUp = () => {
+      isDragging = false;
+      handleEl.style.cursor = 'grab';
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  });
+}
+window.makeWsPanelDraggable = makeWsPanelDraggable;
 
 const WIDGET_CATEGORIES = [
   ['all', 'All'],
