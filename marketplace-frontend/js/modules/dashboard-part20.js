@@ -423,7 +423,7 @@ async function openUpgradesHub() {
   const currentPlan = cfg.plan || null;
   // Match the currency the checkout will actually charge (dealer's country).
   const cur = String(cfg.country || '').toUpperCase() === 'US' ? 'USD' : (pk.currency || 'CAD');
-  const amountFor = (key) => { const row = (pk.packages || []).find(p => p.key === key); return row ? row.amount : ({ starter: 999, growth: 1499, pro: 1999 }[key]); };
+  const amountFor = (key) => { const row = (pk.packages || []).find(p => p.key === key); return row ? row.amount : ({ core: 1499, pro: 2499, complete: 3999, starter: 1499, growth: 2499 }[key] || 1499); };
   const check = '<svg class="w-3.5 h-3.5 text-violet-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>';
   const order = ['starter', 'growth', 'pro'];
   const cards = order.map(key => {

@@ -18,16 +18,28 @@
   try { authed = !!localStorage.getItem('token'); } catch (e) {}
 
   // The ONE navigation model. Real pages only — never #anchors.
+  var PRODUCTS = [
+    { href: '/facebook-autoposter.html', title: 'Facebook AutoPoster', desc: '$19 – $79 / mo · Rep & Dealer Marketplace Posting' },
+    { href: '/dealer-website.html', title: 'Dealer Website', desc: '$249 / mo · VDP Showroom & SEO Platform' },
+    { href: '/ai-chatbot.html', title: 'AI ChatBot', desc: '$299 / mo · 24/7 Automotive Sales Assistant' },
+    { href: '/pricing.html#standalone', title: 'Design Studio & Video', desc: '$5 – $99 / mo · Graphics, Walkarounds & Campaigns' },
+  ];
   var SOLUTIONS = [
-    { href: '/dealer-os.html', title: 'DealerOS', desc: 'The complete dealership operating system' },
-    { href: '/facebook-autoposter.html', title: 'Facebook AutoPoster', desc: 'One-click Marketplace posting' },
-    { href: '/ai-chatbot.html', title: 'AI ChatBot', desc: 'An AI salesperson on your website 24/7' },
+    { href: '/pricing.html#suites', title: 'Sales Marketing Suite', desc: '$249 / mo · Lead generation & content automation' },
+    { href: '/pricing.html#suites', title: 'Service Marketing Suite', desc: '$249 / mo · Fixed ops retention & service campaigns' },
+    { href: '/pricing.html#suites', title: 'Complete Marketing Suite', desc: '$399 / mo · All-in-one sales & service marketing' },
+    { href: '/pricing.html#digital', title: 'MarketSync Digital', desc: '$599 / mo · Complete Marketing + Website + AI ChatBot' },
+  ];
+  var DEALEROS = [
+    { href: '/dealer-os.html', title: 'DealerOS Core', desc: '$1,499 / mo · CRM, Sales & Inventory OS' },
+    { href: '/dealer-os.html', title: 'DealerOS Pro', desc: '$2,499 / mo · Fixed Ops, F&I, Desking & Digital' },
+    { href: '/dealer-os.html', title: 'DealerOS Complete', desc: '$3,999 / mo · Flagship Enterprise Operating System' },
   ];
   var RESOURCES = [
+    { href: '/features.html', title: 'Platform Features' },
     { href: '/guide.html', title: 'How-to Guide' },
-    { href: '/blog.html', title: 'Blog' },
-    { href: '/faq.html', title: 'FAQ' },
-    { href: '/security.html', title: 'Security' },
+    { href: '/faq.html', title: 'FAQ & Help' },
+    { href: '/security.html', title: 'Security & Trust' },
   ];
   var TRIAL = '/register.html';
 
@@ -36,32 +48,45 @@
   var authLabel = authed ? 'Dashboard' : 'Log in';
 
   // ── Header ────────────────────────────────────────────────────────────────
-  // ── Header ────────────────────────────────────────────────────────────────
   function headerHTML() {
+    var prodItems = PRODUCTS.map(function (s) {
+      return '<a href="' + s.href + '" class="ms-dd-item"><span class="ms-dd-t">' + esc(s.title) + '</span><span class="ms-dd-d">' + esc(s.desc) + '</span></a>';
+    }).join('');
     var solItems = SOLUTIONS.map(function (s) {
       return '<a href="' + s.href + '" class="ms-dd-item"><span class="ms-dd-t">' + esc(s.title) + '</span><span class="ms-dd-d">' + esc(s.desc) + '</span></a>';
     }).join('');
+    var osItems = DEALEROS.map(function (s) {
+      return '<a href="' + s.href + '" class="ms-dd-item"><span class="ms-dd-t">' + esc(s.title) + '</span><span class="ms-dd-d">' + esc(s.desc) + '</span></a>';
+    }).join('');
     var resItems = RESOURCES.map(function (r) { return '<a href="' + r.href + '" class="ms-dd-item"><span class="ms-dd-t">' + esc(r.title) + '</span></a>'; }).join('');
+
+    var mobProd = PRODUCTS.map(function (s) { return '<a href="' + s.href + '" class="ms-m-link">' + esc(s.title) + '</a>'; }).join('');
     var mobSol = SOLUTIONS.map(function (s) { return '<a href="' + s.href + '" class="ms-m-link">' + esc(s.title) + '</a>'; }).join('');
+    var mobOs = DEALEROS.map(function (s) { return '<a href="' + s.href + '" class="ms-m-link">' + esc(s.title) + '</a>'; }).join('');
     var mobRes = RESOURCES.map(function (r) { return '<a href="' + r.href + '" class="ms-m-link">' + esc(r.title) + '</a>'; }).join('');
+
     return '' +
       '<a href="/" class="ms-logo" aria-label="MarketSync home"><img src="/logo.png" alt="MarketSync DealerOS" class="dark:hidden" style="height:32px; width:auto;"><img src="/assets/marketsync-logo-white.svg" alt="MarketSync DealerOS" class="hidden dark:block" style="height:32px; width:auto;"></a>' +
       '<nav class="ms-nav-desktop" aria-label="Primary">' +
-        '<div class="ms-nav-item"><button class="ms-nav-btn" aria-haspopup="true">Solutions <svg viewBox="0 0 20 20" fill="currentColor" class="ms-caret"><path d="M5.5 7.5 10 12l4.5-4.5"/></svg></button><div class="ms-dropdown ms-dd-wide">' + solItems + '</div></div>' +
-        '<a href="/compare.html" class="ms-nav-link">Pricing</a>' +
+        '<div class="ms-nav-item"><button class="ms-nav-btn" aria-haspopup="true">Products <svg viewBox="0 0 20 20" fill="currentColor" class="ms-caret"><path d="M5.5 7.5 10 12l4.5-4.5"/></svg></button><div class="ms-dropdown ms-dd-wide">' + prodItems + '</div></div>' +
+        '<div class="ms-nav-item"><button class="ms-nav-btn" aria-haspopup="true">Suites <svg viewBox="0 0 20 20" fill="currentColor" class="ms-caret"><path d="M5.5 7.5 10 12l4.5-4.5"/></svg></button><div class="ms-dropdown ms-dd-wide">' + solItems + '</div></div>' +
+        '<div class="ms-nav-item"><button class="ms-nav-btn" aria-haspopup="true">DealerOS <svg viewBox="0 0 20 20" fill="currentColor" class="ms-caret"><path d="M5.5 7.5 10 12l4.5-4.5"/></svg></button><div class="ms-dropdown ms-dd-wide">' + osItems + '</div></div>' +
+        '<a href="/pricing.html" class="ms-nav-link">Pricing</a>' +
         '<div class="ms-nav-item"><button class="ms-nav-btn" aria-haspopup="true">Resources <svg viewBox="0 0 20 20" fill="currentColor" class="ms-caret"><path d="M5.5 7.5 10 12l4.5-4.5"/></svg></button><div class="ms-dropdown">' + resItems + '</div></div>' +
       '</nav>' +
       '<div class="ms-nav-cta">' +
         '<a href="' + authHref + '" class="ms-link-quiet">' + authLabel + '</a>' +
-        '<a href="' + TRIAL + '" class="ms-btn ms-btn-primary">Start free trial</a>' +
+        '<a href="/demo.html" class="ms-btn ms-btn-primary">Book a Demo</a>' +
         '<button class="ms-burger" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>' +
       '</div>' +
       '<div class="ms-mobile" hidden>' +
-        '<div class="ms-m-label">Solutions</div>' + mobSol +
-        '<a href="/compare.html" class="ms-m-link ms-m-top">Pricing</a>' +
+        '<div class="ms-m-label">Products</div>' + mobProd +
+        '<div class="ms-m-label">Suites</div>' + mobSol +
+        '<div class="ms-m-label">DealerOS</div>' + mobOs +
+        '<a href="/pricing.html" class="ms-m-link ms-m-top">Pricing</a>' +
         '<div class="ms-m-label">Resources</div>' + mobRes +
         '<div class="ms-m-actions"><a href="' + authHref + '" class="ms-btn ms-btn-ghost ms-btn-block">' + authLabel + '</a>' +
-        '<a href="' + TRIAL + '" class="ms-btn ms-btn-primary ms-btn-block">Start free trial</a></div>' +
+        '<a href="/demo.html" class="ms-btn ms-btn-primary ms-btn-block">Book a Demo</a></div>' +
       '</div>';
   }
 
@@ -72,19 +97,19 @@
     };
     return '' +
       '<div class="ms-f-cta">' +
-        '<h2>One dealership. One system.</h2>' +
-        '<p>One customer. One VIN. One continuous record. Replace software fragmentation with DealerOS by MarketSync.</p>' +
-        '<div class="ms-f-cta-btns"><a href="' + TRIAL + '" class="ms-btn ms-btn-primary ms-btn-lg">Start your free 30-day trial</a><a href="/compare.html" class="ms-btn ms-btn-ghost ms-btn-lg">See pricing</a></div>' +
-        '<div class="ms-f-cta-note">No credit card required · Set up in a day</div>' +
+        '<h2>One connected operating system for your dealership.</h2>' +
+        'replace software fragmentation with DealerOS by MarketSync. Connect sales, service, inventory, marketing, and intelligence in one platform.</p>' +
+        '<div class="ms-f-cta-btns"><a href="/demo.html" class="ms-btn ms-btn-primary ms-btn-lg">Book a Dealership Demo</a><a href="/pricing.html" class="ms-btn ms-btn-ghost ms-btn-lg">Explore Pricing</a></div>' +
+        '<div class="ms-f-cta-note">Tailored onboarding · Seamless migration from legacy CRMs</div>' +
       '</div>' +
       '<div class="ms-f-grid">' +
-        '<div class="ms-f-brand"><a href="/" class="ms-logo ms-logo-sm"><img src="/logo.png" alt="MarketSync DealerOS" class="dark:hidden" style="height:28px; width:auto;"><img src="/assets/marketsync-logo-white.svg" alt="MarketSync DealerOS" class="hidden dark:block" style="height:28px; width:auto;"></a><p>The complete operating system for automotive retail.</p></div>' +
-        col('Solutions', [['DealerOS', '/dealer-os.html'], ['Facebook AutoPoster', '/facebook-autoposter.html'], ['AI ChatBot', '/ai-chatbot.html'], ['Pricing', '/compare.html']]) +
-        col('Company', [['How-to Guide', '/guide.html'], ['Blog', '/blog.html'], ['FAQ', '/faq.html'], ['Support', '/support.html']]) +
-        col('Trust', [['Security', '/security.html'], ['Privacy Policy', '/privacy-policy.html'], ['Terms', '/terms.html']]) +
-        col('Get started', [['Start free trial', TRIAL], ['Log in', '/login.html']]) +
+        '<div class="ms-f-brand"><a href="/" class="ms-logo ms-logo-sm"><img src="/logo.png" alt="MarketSync DealerOS" class="dark:hidden" style="height:28px; width:auto;"><img src="/assets/marketsync-logo-white.svg" alt="MarketSync DealerOS" class="hidden dark:block" style="height:28px; width:auto;"></a><p>The intelligent automotive operating system &amp; digital growth platform.</p></div>' +
+        col('Products', [['Design Studio ($5)', '/pricing.html#standalone'], ['AutoPoster Rep ($19)', '/facebook-autoposter.html'], ['Social Scheduler ($59)', '/pricing.html#standalone'], ['AutoPoster Dealer ($79)', '/facebook-autoposter.html'], ['Video ($99)', '/pricing.html#standalone'], ['Campaigns ($129+)', '/pricing.html#standalone'], ['Dealer Website ($249)', '/dealer-website.html'], ['AI ChatBot ($299)', '/ai-chatbot.html']]) +
+        col('Suites & OS', [['Sales Marketing ($249)', '/pricing.html#suites'], ['Service Marketing ($249)', '/pricing.html#suites'], ['Complete Marketing ($399)', '/pricing.html#suites'], ['MarketSync Digital ($599)', '/pricing.html#digital'], ['DealerOS Core ($1,499)', '/dealer-os.html'], ['DealerOS Pro ($2,499)', '/dealer-os.html'], ['DealerOS Complete ($3,999)', '/dealer-os.html']]) +
+        col('Company & Trust', [['Features', '/features.html'], ['How-to Guide', '/guide.html'], ['FAQ', '/faq.html'], ['Security & Trust', '/security.html'], ['Privacy Policy', '/privacy-policy.html'], ['Terms of Service', '/terms.html']]) +
+        col('Get Started', [['Book a Demo', '/demo.html'], ['Log In', '/login.html'], ['Register', '/register.html']]) +
       '</div>' +
-      '<div class="ms-f-bottom"><span>© ' + new Date().getFullYear() + ' MarketSync Technologies Inc. All rights reserved.</span></div>';
+      '<div class="ms-f-bottom"><span>© ' + new Date().getFullYear() + ' MarketSync Technologies Inc. All rights reserved. Prices in CAD/month unless noted.</span></div>';
   }
 
   // ── Styles (scoped ms-* classes; Apple-ish type + motion) ───────────────────

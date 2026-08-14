@@ -246,7 +246,11 @@ window.pplPersonTab = pplPersonTab;
 function pplRenderPerson() {
   const d = __pplPerson;
   const panel = __pplPanel;
-  if (!d || !panel || !panel.isConnected) return;
+  if (!panel || !panel.isConnected) return;
+  if (!d) {
+    panel.innerHTML = `<div class="p-6">${engEmpty("Could not load employee details — no dossier record was returned from the server.")}</div>`;
+    return;
+  }
   const p = d.person || {};
   const s = d.standing || {};
 

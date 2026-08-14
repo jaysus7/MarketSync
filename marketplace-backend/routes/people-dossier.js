@@ -22,6 +22,7 @@ import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission, hasPermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { issuePasswordReset } from './auth.js'
+import { ensureStaffMember } from './people-identity.js'
 
 // A section that failed. Never an empty array — see the file header.
 const unread = (why) => ({ items: null, unavailable: why })
@@ -249,17 +250,37 @@ export function registerPeopleDossier(app) {
   // employee is allowed to see of their own file.
   async function assemble(req, staffId, { self = false } = {}) {
     let person = null, pErr = null
-    const res1 = await supabaseAdmin
-      .from('staff_profile_overview_v').select('*')
-      .eq('dealership_id', req.dealershipId).eq('id', staffId).maybeSingle()
-    if (!res1.error && res1.data) {
-      person = res1.data
-    } else {
+    try {
+      const res1 = await supabaseAdmin
+        .from('staff_profile_overview_v').select('*')
+        .eq('dealership_id', req.dealershipId).eq('id', staffId).maybeSingle()
+      if (!res1.error && res1.data) person = res1.data
+    } catch (_) {}
+
+    if (!person) {
       const res2 = await supabaseAdmin
         .from('staff_members').select('*')
         .eq('dealership_id', req.dealershipId).eq('id', staffId).maybeSingle()
-      if (res2.error) return { error: res2.error.message, code: 500 }
-      person = res2.data
+      if (res2.data) person = res2.data
+      else {
+        const res3 = await supabaseAdmin
+          .from('staff_members').select('*')
+          .eq('dealership_id', req.dealershipId).eq('user_id', staffId).maybeSingle()
+        if (res3.data) person = res3.data
+      }
+    }
+    if (!person) {
+      const { data: prof } = await supabaseAdmin.from('profiles')
+        .select('id, full_name, email, role, department').eq('dealership_id', req.dealershipId).eq('id', staffId).maybeSingle()
+      if (prof) {
+        const { staff } = await ensureStaffMember(req.dealershipId, prof.id, {
+          name: prof.full_name, email: prof.email, role: prof.role, department: prof.department, createdBy: req.user?.id
+        })
+        if (staff) {
+          staffId = staff.id
+          person = staff
+        }
+      }
     }
     if (!person) return { error: 'Employee not found', code: 404 }
 

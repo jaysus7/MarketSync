@@ -22,6 +22,19 @@ async function permissionLookup(req, permission) {
   if (hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)) return { allowed: true, error: null }
   const dealershipId = req.dealershipId
   if (!dealershipId) return { allowed: false, error: null }
+
+  // Dealer Admins, Store Owners, and Platform Admins implicitly have all dealership permissions
+  const role = req.profile?.role || req.user?.user_metadata?.role
+  const accountRole = req.profile?.account_role
+  const systemRole = req.profile?.system_role
+  if (
+    role === 'DEALER_ADMIN' || role === 'OWNER' ||
+    accountRole === 'dealer_admin' || accountRole === 'dealer_owner' ||
+    systemRole === 'platform_owner' || systemRole === 'platform_admin'
+  ) {
+    return { allowed: true, error: null }
+  }
+
   // `user_roles` and `role_permissions` both reference `roles`, but do not
   // directly reference one another. Querying them as an embedded PostgREST
   // relationship therefore fails in Supabase's schema cache. Resolve through

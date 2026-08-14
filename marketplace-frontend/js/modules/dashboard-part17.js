@@ -810,7 +810,10 @@ function wireLiveMessages() {
   window.addEventListener('message', (ev) => {
     const m = ev.data || {};
     if (m.type === 'ms-preview-ready') { __livePreviewReady = true; livePreviewPush(); }
-    else if (m.type === 'ms-preview-click' && typeof m.index === 'number') flashCard(m.index);
+    else if (m.type === 'ms-preview-click' && typeof m.index === 'number') {
+      selectWsSection(m.index);
+      flashCard(m.index);
+    }
     else if (m.type === 'ms-preview-reorder') {
       const { from, to } = m;
       if (typeof from === 'number' && typeof to === 'number' && from !== to && __siteSections[from]) {
@@ -822,7 +825,10 @@ function wireLiveMessages() {
       if (m.action === 'up') moveSection(m.index, -1);
       else if (m.action === 'down') moveSection(m.index, 1);
       else if (m.action === 'delete') delSection(m.index);
-      else if (m.action === 'edit') flashCard(m.index);
+      else if (m.action === 'edit') {
+        selectWsSection(m.index);
+        flashCard(m.index);
+      }
       else if (m.action === 'add-below') {
         __pendingInsertAt = m.index + 1;
         const hint = document.getElementById('ws-insert-hint');
@@ -1090,7 +1096,7 @@ function renderWsRightInspectorHtml() {
   const meta = sec ? (SEC_META[sec.type] || { label: sec.type }) : null;
   return `
     <div class="p-4 space-y-4">
-      <div id="ws-inspector-drag-header" class="flex items-center justify-between border-b border-slate-800 pb-3 cursor-grab select-none">
+      <div id="ws-inspector-drag-header" class="flex items-center justify-between border-b border-slate-800 pb-3 select-none">
         <div>
           <h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Property Inspector</h3>
           <p class="text-[11px] text-indigo-400 font-bold">${meta ? esc(meta.label) : 'Select Element'}</p>
@@ -1345,16 +1351,6 @@ function renderLiveBuilder(body) {
   `;
 
   renderWsLayersTree();
-
-  setTimeout(() => {
-    const leftWrap = document.getElementById('ws-left-dock-wrapper');
-    const leftHeader = document.getElementById('ws-left-drag-header') || document.getElementById('ws-left-drawer-content');
-    if (leftHeader && leftWrap) makeWsPanelDraggable(leftHeader, leftWrap);
-
-    const rightWrap = document.getElementById('ws-right-dock-wrapper');
-    const rightHeader = document.getElementById('ws-inspector-drag-header') || document.getElementById('ws-inspector-panel');
-    if (rightHeader && rightWrap) makeWsPanelDraggable(rightHeader, rightWrap);
-  }, 100);
 }
 function renderWsBody() {
   const body = document.getElementById('ws-body'); if (!body) return;

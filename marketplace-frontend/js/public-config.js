@@ -1,0 +1,310 @@
+/**
+ * MarketSync Public Platform & Pricing Configuration (Single Canonical Source of Truth)
+ *
+ * All CAD prices, product catalogs, suite definitions, and DealerOS tiers are defined here.
+ * Any public page rendering pricing or product cards MUST reference this configuration.
+ *
+ * RULES:
+ * 1. ALL prices are CAD per month.
+ * 2. NO emojis anywhere in copy or metadata.
+ * 3. Campaigns — Email + SMS is $129/mo + usage.
+ */
+
+const MARKETSYNC_PRICING = {
+  currency: 'CAD',
+  period: 'month',
+
+  // Layer 1: Standalone Products
+  standalone: [
+    {
+      id: 'design-studio',
+      name: 'Design Studio',
+      price: 5,
+      priceFormatted: '$5',
+      unit: '/month',
+      badge: 'Creative Workspace',
+      desc: 'Dealership design workspace for creating branded graphics, social assets, and marketing collateral.',
+      features: [
+        'Branded creative templates',
+        'Typography & logo asset vault',
+        'Social media graphics builder',
+        'Freeform design canvas',
+        'Intelligence by MarketSync asset suggestions'
+      ],
+      ctaText: 'Start Design Studio',
+      ctaUrl: '/register.html?plan=design-studio'
+    },
+    {
+      id: 'autoposter-salesperson',
+      name: 'Facebook AutoPoster — Salesperson',
+      price: 19,
+      priceFormatted: '$19',
+      unit: '/month',
+      badge: 'Sales Rep Essential',
+      desc: 'Individual inventory posting assistant for automotive sales representatives on Facebook Marketplace.',
+      features: [
+        'Salesperson inventory access',
+        'Facebook Marketplace workflow assistant',
+        'Automated listing copy generator',
+        'Salesperson activity tracking',
+        'Marketplace response templates'
+      ],
+      ctaText: 'Get AutoPoster Rep',
+      ctaUrl: '/register.html?plan=autoposter-salesperson'
+    },
+    {
+      id: 'social-scheduler',
+      name: 'Social Scheduler',
+      price: 59,
+      priceFormatted: '$59',
+      unit: '/month',
+      badge: 'Multi-Channel Calendar',
+      desc: 'Social content planning, scheduling, and multi-platform publishing calendar.',
+      features: [
+        'Multi-platform social calendar',
+        'Dealership & rep publishing queues',
+        'Scheduled post automation',
+        'Campaign media manager',
+        'Posting time recommendations'
+      ],
+      ctaText: 'Start Social Scheduler',
+      ctaUrl: '/register.html?plan=social-scheduler'
+    },
+    {
+      id: 'autoposter-dealer',
+      name: 'Facebook AutoPoster — Dealer',
+      price: 79,
+      priceFormatted: '$79',
+      unit: '/month',
+      badge: 'Dealership Hub',
+      desc: 'Centralized Facebook Marketplace inventory distribution for the whole sales team.',
+      features: [
+        'Full lot inventory syndication',
+        'Team-wide Marketplace management',
+        'Sales rep listing approval workflows',
+        'Centralized inventory lead routing',
+        'Salesperson leaderboard & tracking'
+      ],
+      ctaText: 'Get AutoPoster Dealer',
+      ctaUrl: '/register.html?plan=autoposter-dealer'
+    },
+    {
+      id: 'video',
+      name: 'Video',
+      price: 99,
+      priceFormatted: '$99',
+      unit: '/month',
+      badge: 'Video Marketing',
+      desc: 'Vehicle walkaround, customer presentation, and social video creation suite.',
+      features: [
+        'Vehicle walkaround recording assistant',
+        'Branded video overlays & lower thirds',
+        'Automated video captions',
+        'Video email & SMS delivery links',
+        'Video view engagement analytics'
+      ],
+      ctaText: 'Start Video Suite',
+      ctaUrl: '/register.html?plan=video'
+    },
+    {
+      id: 'campaigns-email-sms',
+      name: 'Campaigns — Email + SMS',
+      price: 129,
+      priceFormatted: '$129',
+      unit: '/month + usage',
+      badge: 'Automated Messaging',
+      desc: 'Targeted email and SMS marketing campaigns with intelligent audience segmentation.',
+      features: [
+        'Email campaign builder & templates',
+        'SMS broadcast & automated follow-ups',
+        'Audience segmentation engine',
+        'Open, click & conversion analytics',
+        'Intelligence by MarketSync timing'
+      ],
+      ctaText: 'Start Campaigns',
+      ctaUrl: '/register.html?plan=campaigns'
+    },
+    {
+      id: 'dealer-website',
+      name: 'Dealer Website',
+      price: 249,
+      priceFormatted: '$249',
+      unit: '/month',
+      badge: 'Digital Showroom',
+      desc: 'High-performance dealership website platform with live inventory VDPs and lead capture.',
+      features: [
+        'Live inventory & VDP showroom',
+        'Custom domain & SSL included',
+        'Mobile-first responsive UX',
+        'AI ChatBot integration ready',
+        'Automotive SEO optimization'
+      ],
+      ctaText: 'Get Dealer Website',
+      ctaUrl: '/register.html?plan=dealer-website'
+    },
+    {
+      id: 'ai-chatbot',
+      name: 'AI ChatBot',
+      price: 299,
+      priceFormatted: '$299',
+      unit: '/month',
+      badge: '24/7 Automotive Assistant',
+      desc: 'Automotive AI customer engagement assistant trained on your inventory and dealership info.',
+      features: [
+        'Real-time inventory lookup',
+        'Test drive & appointment scheduling',
+        'Trade appraisal intake',
+        '24/7 lead capture & CRM routing',
+        'Dealership knowledgebase responses'
+      ],
+      ctaText: 'Deploy AI ChatBot',
+      ctaUrl: '/register.html?plan=ai-chatbot'
+    }
+  ],
+
+  // Layer 2: Marketing Suites
+  suites: [
+    {
+      id: 'sales-marketing-suite',
+      name: 'Sales Marketing Suite',
+      price: 249,
+      priceFormatted: '$249',
+      unit: '/month',
+      badge: 'Sales Growth Pack',
+      desc: 'Connected marketing suite for dealership sales teams to capture, nurture, and close leads.',
+      includedItems: [
+        'Design Studio ($5/mo value)',
+        'Facebook AutoPoster Dealer ($79/mo value)',
+        'Social Scheduler ($59/mo value)',
+        'Campaigns — Email + SMS ($129/mo value)'
+      ],
+      idealFor: 'Dealership sales departments seeking high-volume lead generation.',
+      ctaText: 'Get Sales Suite',
+      ctaUrl: '/register.html?plan=sales-marketing-suite'
+    },
+    {
+      id: 'service-marketing-suite',
+      name: 'Service Marketing Suite',
+      price: 249,
+      priceFormatted: '$249',
+      unit: '/month',
+      badge: 'Fixed Ops Retention',
+      desc: 'Customer retention and service marketing platform for service drive revenue growth.',
+      includedItems: [
+        'Service reminder campaigns',
+        'Dormant customer reactivation SMS/email',
+        'Service promo landing pages',
+        'Customer satisfaction survey loops',
+        'Intelligence service recommendations'
+      ],
+      idealFor: 'Service departments driving customer retention and RO gross profit.',
+      ctaText: 'Get Service Suite',
+      ctaUrl: '/register.html?plan=service-marketing-suite'
+    },
+    {
+      id: 'complete-marketing-suite',
+      name: 'Complete Marketing Suite',
+      price: 399,
+      priceFormatted: '$399',
+      unit: '/month',
+      badge: 'All-In-One Marketing',
+      desc: 'Full-spectrum connected marketing platform combining Sales, Service, Video, and Social.',
+      includedItems: [
+        'Sales Marketing Suite ($249/mo value)',
+        'Service Marketing Suite ($249/mo value)',
+        'Video Suite ($99/mo value)',
+        'Intelligence by MarketSync Campaign AI'
+      ],
+      idealFor: 'Full dealerships replacing multiple standalone marketing tools.',
+      ctaText: 'Get Complete Marketing Suite',
+      ctaUrl: '/register.html?plan=complete-marketing-suite',
+      featured: true
+    },
+    {
+      id: 'marketsync-digital',
+      name: 'MarketSync Digital',
+      price: 599,
+      priceFormatted: '$599',
+      unit: '/month',
+      badge: 'Complete Digital Presence',
+      desc: 'Complete Marketing Suite + Dealer Website + AI ChatBot in one unified platform.',
+      includedItems: [
+        'Complete Marketing Suite ($399/mo value)',
+        'Dealer Website ($249/mo value)',
+        'AI ChatBot ($299/mo value)',
+        'Unified Digital Dashboard & CRM Lead Sync'
+      ],
+      idealFor: 'Dealerships seeking a modern website and 360-degree digital growth platform.',
+      ctaText: 'Get MarketSync Digital',
+      ctaUrl: '/register.html?plan=marketsync-digital',
+      flagshipBadge: 'Flagship Digital Package'
+    }
+  ],
+
+  // Layer 3: Flagship DealerOS Operating System
+  dealerOS: [
+    {
+      id: 'dealer-os-core',
+      name: 'DealerOS Core',
+      price: 1499,
+      priceFormatted: '$1,499',
+      unit: '/month',
+      badge: 'Connected OS Base',
+      desc: 'The connected dealership operating system bringing Sales, CRM, Inventory, and Workflows together.',
+      features: [
+        'Connected Automotive CRM & Pipeline',
+        'Inventory Management & VinSticker',
+        'Sales Marketing Suite Included',
+        'Desking & Trade Appraisals',
+        'Manager Command Center & Reporting',
+        'Standard Onboarding & Support'
+      ],
+      ctaText: 'Book Core Demo',
+      ctaUrl: '/demo.html?plan=dealer-os-core'
+    },
+    {
+      id: 'dealer-os-pro',
+      name: 'DealerOS Pro',
+      price: 2499,
+      priceFormatted: '$2,499',
+      unit: '/month',
+      badge: 'Expanded Departments',
+      desc: 'Comprehensive dealership operating system adding Fixed Ops, F&I, Parts, and MarketSync Digital.',
+      features: [
+        'All DealerOS Core Features',
+        'Service & Parts Department Workspaces',
+        'F&I Deal Structuring & Lender Submissions',
+        'MarketSync Digital Suite Included ($599/mo value)',
+        'HR Dossier & Staff Directory',
+        'Priority Phone & Dedicated Onboarding'
+      ],
+      ctaText: 'Book Pro Demo',
+      ctaUrl: '/demo.html?plan=dealer-os-pro',
+      recommended: true
+    },
+    {
+      id: 'dealer-os-complete',
+      name: 'DealerOS Complete',
+      price: 3999,
+      priceFormatted: '$3,999',
+      unit: '/month',
+      badge: 'Flagship Enterprise OS',
+      desc: 'The complete enterprise operating system for full dealership groups with unlimited intelligence.',
+      features: [
+        'Full DealerOS Pro Platform',
+        'Accounting Ledger & General Ledger Sync',
+        'Unlimited Intelligence by MarketSync AI',
+        'Multi-Store & Dealership Group Aggregation',
+        'Custom API Integrations & Webhooks',
+        '24/7 Executive Support & Dedicated Manager'
+      ],
+      ctaText: 'Book Enterprise Demo',
+      ctaUrl: '/demo.html?plan=dealer-os-complete',
+      flagship: true
+    }
+  ]
+};
+
+if (typeof window !== 'undefined') {
+  window.MARKETSYNC_PRICING = MARKETSYNC_PRICING;
+}
