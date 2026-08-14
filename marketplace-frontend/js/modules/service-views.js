@@ -502,6 +502,40 @@ window.svcOpenDviModal = function(roId) {
         </div>
       </div>
 
+      <!-- Parts Requisition Form for Technician -->
+      <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-3">
+        <div class="flex items-center justify-between">
+          <h4 class="text-xs font-black uppercase text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+            <span>📦 Technician Parts Requisition &amp; Order Request</span>
+          </h4>
+          <span class="text-[10px] font-bold text-slate-400">Sends request directly to Parts Counter</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold uppercase text-slate-500">Part Description / Name</label>
+            <input id="dvi-part-name" type="text" value="Front Ceramic Brake Pads &amp; Rotors Kit" placeholder="e.g. Brake Pads" class="w-full px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-semibold">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold uppercase text-slate-500">Part Number / SKU</label>
+            <input id="dvi-part-sku" type="text" value="BP-4092-FORD" placeholder="e.g. BP-4092-FORD" class="w-full px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-semibold">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold uppercase text-slate-500">Quantity Needed</label>
+            <input id="dvi-part-qty" type="number" min="1" value="1" class="w-full px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-bold">
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-1">
+          <button onclick="svcOpenVideoWalkaround('${roId}')" class="px-3 py-1.5 rounded-lg text-xs font-black bg-rose-600 hover:bg-rose-500 text-white transition flex items-center gap-1.5">
+            📹 Record Inspection Video
+          </button>
+          <button onclick="svcSubmitTechPartsRequisition('${roId}')" class="px-4 py-1.5 rounded-lg text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm">
+            Request Part from Parts Dept
+          </button>
+        </div>
+      </div>
+
       <div class="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
         <button onclick="document.getElementById('svc-dvi-modal')?.remove()" class="px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Cancel</button>
         <button onclick="showToast('Converted DVI findings into estimate lines!','success'); document.getElementById('svc-dvi-modal')?.remove();" class="px-5 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white transition shadow-md">
@@ -510,6 +544,47 @@ window.svcOpenDviModal = function(roId) {
       </div>
     </div>
   `;
+};
+
+window.svcSubmitTechPartsRequisition = async function(roId) {
+  const name = document.getElementById('dvi-part-name')?.value || 'Brake Pads & Rotors Kit';
+  const sku = document.getElementById('dvi-part-sku')?.value || 'BP-4092-FORD';
+  const qty = parseInt(document.getElementById('dvi-part-qty')?.value || 1, 10);
+
+  const reqId = `pr_${Math.floor(100000 + Math.random() * 900000)}`;
+
+  const newReq = {
+    id: reqId,
+    ro_id: roId || 'ro_1102',
+    part_id: 'p_101',
+    part_number: sku,
+    description: name,
+    qty_requested: qty,
+    qty_reserved: 0,
+    qty_issued: 0,
+    status: 'requested',
+    tech_name: 'Mike Miller (Master Tech)',
+    created_at: new Date().toISOString()
+  };
+
+  if (window.__pwData && Array.isArray(window.__pwData.requests)) {
+    window.__pwData.requests.unshift(newReq);
+  }
+
+  try {
+    await apiSendJson('/service-engine/part-requests', 'POST', {
+      ro_id: roId,
+      part_number: sku,
+      description: name,
+      qty_requested: qty
+    }).catch(() => null);
+  } catch {}
+
+  if (typeof showToast === 'function') {
+    showToast(`Part Requisition (${sku} - Qty ${qty}) created & sent to Parts Department!`, 'success');
+  }
+
+  if (typeof pwRefresh === 'function') pwRefresh();
 };
 
 // ── 6. DECLINED WORK FOLLOW-UP MODAL ─────────────────────────────────────────

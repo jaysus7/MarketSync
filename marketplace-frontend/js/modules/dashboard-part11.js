@@ -1464,38 +1464,238 @@ window.pulseAccountingDeptSection = function(d) {
 
 window.pulseMarketingDeptSection = function(d) {
   const postsViewMode = window.__pulsePostsCalendarMode ? 'calendar' : 'list';
+  const scheduledPosts = [
+    { title: '2024 Ford F-150 Lariat Special Offer', platform: 'Instagram & Facebook', time: 'Today @ 4:00 PM', status: 'Scheduled', badge: 'bg-purple-600' },
+    { title: 'Quick Maintenance Tip: Brake Inspection Walkaround', platform: 'TikTok & Shorts', time: 'Tomorrow @ 10:00 AM', status: 'Scheduled', badge: 'bg-rose-600' },
+    { title: 'MarketSync Motors Earns Excellence Award', platform: 'LinkedIn & X', time: 'Friday @ 9:00 AM', status: 'Scheduled', badge: 'bg-sky-600' },
+    { title: 'First Look: 2025 Bronco Raptor Walkaround', platform: 'YouTube', time: 'Saturday @ 12:00 PM', status: 'Scheduled', badge: 'bg-amber-600' },
+    { title: 'End-of-Month Vehicle Trade-in Bonus', platform: 'Facebook', time: 'Next Mon @ 8:00 AM', status: 'Scheduled', badge: 'bg-emerald-600' },
+    { title: 'Service Desk Express Check-In Promo', platform: 'SMS & Email', time: 'Next Tue @ 2:00 PM', status: 'Scheduled', badge: 'bg-indigo-600' },
+  ];
+
+  const publishedPosts = [
+    { title: 'Summer Clearance Sales Event - Up to $5,000 Off', platform: 'Facebook', date: 'Yesterday', stats: '2,450 Impressions · 142 Likes · 18 Shares' },
+    { title: 'Behind the Scenes with Master Tech Marcus', platform: 'Instagram Reel', date: '2 days ago', stats: '3,120 Views · 284 Likes · 32 Comments' },
+    { title: 'Flash Deal: Free Multi-Point Inspection Weekend', platform: 'X (Twitter)', date: '3 days ago', stats: '1,890 Impressions · 64 Retweets' },
+  ];
+
   return `
-    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-        <div class="flex items-center gap-2">
-          <span class="w-3 h-3 rounded-full bg-purple-500"></span>
-          <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Marketing Department</h2>
-        </div>
-        <button onclick="switchPage('marketing-overview')" class="text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline">Open Marketing Workspace →</button>
-      </div>
-
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        ${engKpi('AI ChatBot Convos', 24)}
-        ${engKpi('Emails Sent Today', 450)}
-        ${engKpi('Scheduled Posts', 6)}
-        ${engKpi('Ad Spend ROI', '4.2x ROAS', 'text-emerald-600 dark:text-emerald-400')}
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div>
-          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2 flex items-center justify-between">
-            <span>Scheduled Posts</span>
-            <button onclick="window.__pulsePostsCalendarMode = !window.__pulsePostsCalendarMode; renderEngine('command');" class="text-[11px] text-purple-600 dark:text-purple-400 font-bold hover:underline">Toggle ${postsViewMode === 'list' ? 'Calendar View' : 'List View'}</button>
+    <div class="mb-8 p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-6 shadow-sm">
+      <!-- Section Header (No redundant workspace link) -->
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+        <div class="flex items-center gap-3">
+          <span class="w-3.5 h-3.5 rounded-full bg-purple-500 animate-pulse"></span>
+          <div>
+            <h2 class="text-xl font-black text-slate-900 dark:text-white uppercase tracking-wider">Marketing Department &amp; Media Center</h2>
+            <p class="text-xs text-slate-400">Live Ad Spend ROAS, Website Traffic, AI Convos, Videos Sent &amp; Social Publishing</p>
           </div>
-          ${postsViewMode === 'calendar' ? `<div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl text-center text-xs font-semibold">Social Posts Calendar</div>` : `<div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl text-xs font-semibold">6 Social Media Posts Scheduled This Week</div>`}
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="px-3 py-1 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-xs font-black">
+            🟢 Marketing Engine Active
+          </span>
+        </div>
+      </div>
+
+      <!-- Top KPI Metric Cards (6 Cards) -->
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        ${engKpi('Monthly Ad Spend', '$14,250', 'text-slate-900 dark:text-white')}
+        ${engKpi('Ad Spend ROAS', '4.2x ROAS', 'text-emerald-600 dark:text-emerald-400')}
+        ${engKpi('Active Visitors', '18 Live', 'text-emerald-600 dark:text-emerald-400 animate-pulse')}
+        ${engKpi('AI Chat Convos', '1,280', 'text-purple-600 dark:text-purple-400')}
+        ${engKpi('Videos Sent', '342 Sent', 'text-rose-600 dark:text-rose-400')}
+        ${engKpi('Scheduled Posts', '6 Scheduled', 'text-sky-600 dark:text-sky-400')}
+      </div>
+
+      <!-- Grid Row 1: Ad Spend & Website Analytics -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <!-- 1. Ad Spend & Paid Campaign Performance -->
+        <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
+            <h3 class="text-xs font-black uppercase text-slate-900 dark:text-white tracking-wider flex items-center gap-1.5">
+              <span>🎯 Paid Ad Campaigns &amp; Spend ROI</span>
+            </h3>
+            <span class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">Total: $14,250 / mo</span>
+          </div>
+          <div class="space-y-2.5 text-xs">
+            <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div>
+                <div class="font-bold text-slate-900 dark:text-white">Meta / Facebook Retargeting Ads</div>
+                <div class="text-[11px] text-slate-400">142k Impressions · 4,850 Clicks</div>
+              </div>
+              <div class="text-right">
+                <div class="font-black text-emerald-600 dark:text-emerald-400">4.8x ROAS</div>
+                <div class="text-[11px] text-slate-400">$6,500 spend</div>
+              </div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div>
+                <div class="font-bold text-slate-900 dark:text-white">Google Search (Inventory &amp; Service)</div>
+                <div class="text-[11px] text-slate-400">88k Impressions · 3,120 Clicks</div>
+              </div>
+              <div class="text-right">
+                <div class="font-black text-purple-600 dark:text-purple-400">$16.40 / Lead</div>
+                <div class="text-[11px] text-slate-400">$5,250 spend</div>
+              </div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div>
+                <div class="font-bold text-slate-900 dark:text-white">YouTube &amp; TikTok Video Ads</div>
+                <div class="text-[11px] text-slate-400">64.5k Views · 68% Completion</div>
+              </div>
+              <div class="text-right">
+                <div class="font-black text-sky-600 dark:text-sky-400">$0.04 / View</div>
+                <div class="text-[11px] text-slate-400">$2,500 spend</div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Google Analytics & Website Performance</div>
-          <div class="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2 text-xs">
-            <div class="flex justify-between font-bold"><span>Active Site Visitors</span><span class="text-emerald-600">18 live</span></div>
-            <div class="flex justify-between text-slate-500"><span>Top Page Clicks</span><span>Used Inventory SRP (420 clicks)</span></div>
-            <div class="flex justify-between text-slate-500"><span>5 Most Recent Blog Posts</span><span class="text-purple-600 font-semibold">Published</span></div>
+        <!-- 2. Website Analytics & Live Traffic -->
+        <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
+            <h3 class="text-xs font-black uppercase text-slate-900 dark:text-white tracking-wider flex items-center gap-1.5">
+              <span>🌐 Website Analytics &amp; Live Traffic</span>
+            </h3>
+            <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[11px] animate-pulse">18 Visitors Online Now</span>
+          </div>
+          <div class="space-y-2 text-xs">
+            <div class="grid grid-cols-2 gap-2">
+              <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                <div class="text-[10px] font-bold uppercase text-slate-400">Monthly Visitors</div>
+                <div class="text-base font-black text-slate-900 dark:text-white">4,820</div>
+              </div>
+              <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                <div class="text-[10px] font-bold uppercase text-slate-400">Avg Time on Site</div>
+                <div class="text-base font-black text-slate-900 dark:text-white">3m 12s</div>
+              </div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1.5">
+              <div class="font-bold text-slate-900 dark:text-white">Top Page Clicks (Last 7 Days)</div>
+              <div class="flex justify-between text-slate-500 text-[11px]"><span>1. Used Trucks SRP</span><span class="font-bold text-slate-900 dark:text-white">1,420 clicks</span></div>
+              <div class="flex justify-between text-slate-500 text-[11px]"><span>2. 2024 Ford F-150 Lariat VDP</span><span class="font-bold text-slate-900 dark:text-white">850 clicks</span></div>
+              <div class="flex justify-between text-slate-500 text-[11px]"><span>3. Online Service Scheduler</span><span class="font-bold text-slate-900 dark:text-white">620 clicks</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grid Row 2: AI ChatBot & Customer Videos Sent -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <!-- 3. AI ChatBot Convos & Lead Capture -->
+        <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
+            <h3 class="text-xs font-black uppercase text-purple-600 dark:text-purple-400 tracking-wider flex items-center gap-1.5">
+              <span>🤖 AI ChatBot &amp; Lead Conversion</span>
+            </h3>
+            <span class="text-[11px] font-bold text-purple-600 dark:text-purple-400">184 Qualified Leads</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-center text-xs">
+            <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <div class="text-[10px] font-bold uppercase text-slate-400">Total Convos</div>
+              <div class="text-base font-black text-purple-600 dark:text-purple-400">1,280</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <div class="text-[10px] font-bold uppercase text-slate-400">Leads Captured</div>
+              <div class="text-base font-black text-emerald-600 dark:text-emerald-400">184</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <div class="text-[10px] font-bold uppercase text-slate-400">Response Speed</div>
+              <div class="text-base font-black text-sky-600 dark:text-sky-400">&lt; 1.8s</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Customer Videos Sent & Engagement -->
+        <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
+            <h3 class="text-xs font-black uppercase text-rose-600 dark:text-rose-400 tracking-wider flex items-center gap-1.5">
+              <span>📹 Customer Videos Sent Analytics</span>
+            </h3>
+            <span class="text-[11px] font-bold text-rose-600 dark:text-rose-400">78% Completion Rate</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-center text-xs">
+            <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <div class="text-[10px] font-bold uppercase text-slate-400">Videos Sent</div>
+              <div class="text-base font-black text-rose-600 dark:text-rose-400">342</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <div class="text-[10px] font-bold uppercase text-slate-400">View Rate</div>
+              <div class="text-base font-black text-emerald-600 dark:text-emerald-400">78%</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <div class="text-[10px] font-bold uppercase text-slate-400">Avg Watch Time</div>
+              <div class="text-base font-black text-amber-600 dark:text-amber-400">1m 45s</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grid Row 3: Scheduled & Published Social Media Posts -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <!-- 5. Scheduled Social Media Posts -->
+        <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
+            <h3 class="text-xs font-black uppercase text-sky-600 dark:text-sky-400 tracking-wider flex items-center gap-1.5">
+              <span>📅 Scheduled Social Posts (${scheduledPosts.length})</span>
+            </h3>
+            <button onclick="window.__pulsePostsCalendarMode = !window.__pulsePostsCalendarMode; renderEngine('command');" class="text-[11px] text-purple-600 dark:text-purple-400 font-bold hover:underline">
+              Toggle ${postsViewMode === 'list' ? 'Calendar View' : 'List View'}
+            </button>
+          </div>
+
+          ${postsViewMode === 'calendar' ? `
+            <div class="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs space-y-2">
+              <div class="flex justify-between font-bold text-slate-400 uppercase text-[10px]">
+                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+              </div>
+              <div class="grid grid-cols-7 gap-1 text-center font-bold">
+                <div class="p-2 rounded bg-slate-100 dark:bg-slate-800 text-slate-400">12</div>
+                <div class="p-2 rounded bg-slate-100 dark:bg-slate-800 text-slate-400">13</div>
+                <div class="p-2 rounded bg-purple-600 text-white shadow-sm">14</div>
+                <div class="p-2 rounded bg-sky-600 text-white">15</div>
+                <div class="p-2 rounded bg-indigo-600 text-white">16</div>
+                <div class="p-2 rounded bg-amber-600 text-white">17</div>
+                <div class="p-2 rounded bg-slate-100 dark:bg-slate-800 text-slate-400">18</div>
+              </div>
+            </div>
+          ` : `
+            <div class="space-y-2 text-xs">
+              ${scheduledPosts.map(p => `
+                <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                  <div class="min-w-0 flex-1">
+                    <div class="font-bold text-slate-900 dark:text-white truncate">${escHtml(p.title)}</div>
+                    <div class="text-[11px] text-slate-400">${escHtml(p.platform)} · ${escHtml(p.time)}</div>
+                  </div>
+                  <span class="px-2.5 py-1 rounded-full text-[10px] font-black text-white ${p.badge} shrink-0 ml-2">${escHtml(p.status)}</span>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+
+        <!-- 6. Published Social Posts & Engagement Feed -->
+        <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
+            <h3 class="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider flex items-center gap-1.5">
+              <span>🚀 Recently Published Posts &amp; Reach</span>
+            </h3>
+            <span class="text-[11px] font-bold text-slate-400">12.4k Total Engagements</span>
+          </div>
+
+          <div class="space-y-2 text-xs">
+            ${publishedPosts.map(p => `
+              <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
+                <div class="flex justify-between items-center">
+                  <span class="font-bold text-slate-900 dark:text-white truncate">${escHtml(p.title)}</span>
+                  <span class="text-[10px] font-bold text-slate-400 shrink-0">${escHtml(p.date)}</span>
+                </div>
+                <div class="flex justify-between items-center text-[11px] text-slate-400">
+                  <span>Platform: ${escHtml(p.platform)}</span>
+                  <span class="font-bold text-emerald-600 dark:text-emerald-400">${escHtml(p.stats)}</span>
+                </div>
+              </div>
+            `).join('')}
           </div>
         </div>
       </div>
