@@ -82,6 +82,10 @@
       <p class="text-[10px] text-center text-slate-500 dark:text-slate-400 -mt-2">
         Lost your phone? Enter one of your backup codes instead.
       </p>
+      <label class="flex items-center justify-center gap-2 text-xs text-slate-600 dark:text-slate-400 -mt-1 select-none cursor-pointer">
+        <input type="checkbox" id="mfa-remember-me" checked class="rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500">
+        Trust this browser for 30 days
+      </label>
       <button type="submit" id="mfa-submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded text-sm shadow transition">Verify &amp; Sign In</button>
     </form>
 
@@ -99,6 +103,7 @@
       localStorage.setItem('token', data.access_token);
       localStorage.setItem('user', JSON.stringify(data.user));
       if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
+      if (data.trusted_device_token) localStorage.setItem('ms_trusted_device', data.trusted_device_token);
       // Persist login session for 30 days — no passkey or password re-entry required
       localStorage.setItem('ms_remember_until', String(Date.now() + 30 * 86400000));
     }
@@ -121,13 +126,19 @@
       btn.disabled = true; btn.textContent = 'Verifying identity...';
       errBox.classList.add('hidden');
 
+      const trustedDevice = localStorage.getItem('ms_trusted_device');
+
       try {
         const res = await fetchWithRetry(`${API}/auth/login`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(trustedDevice ? { 'x-trusted-device': trustedDevice } : {})
+          },
           body: JSON.stringify({
             email: document.getElementById('email').value.trim(),
-            password: document.getElementById('password').value
+            password: document.getElementById('password').value,
+            trusted_device: trustedDevice
           })
         });
         const data = await res.json();
@@ -159,6 +170,8 @@
       btn.disabled = true; btn.textContent = 'Checking…';
       errBox.classList.add('hidden');
 
+      const rememberDevice = document.getElementById('mfa-remember-me')?.checked || document.getElementById('remember-me')?.checked || false;
+
       try {
         const res = await fetch(`${API}/auth/2fa/challenge`, {
           method: 'POST',
@@ -166,7 +179,8 @@
           body: JSON.stringify({
             factor_id: mfaState.factor_id,
             partial_token: mfaState.partial_token,
-            code: document.getElementById('mfa-code').value.trim()
+            code: document.getElementById('mfa-code').value.trim(),
+            remember_device: rememberDevice
           })
         });
         const data = await res.json();

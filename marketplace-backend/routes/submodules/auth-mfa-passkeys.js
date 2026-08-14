@@ -3,7 +3,7 @@ import { supabaseAdmin } from '../../shared.js'
 import { requireAuth } from '../../middleware.js'
 import { rateLimit, getClientIp, generateRecoveryCodes, hashRecoveryCode } from '../../security.js'
 import { audit, AuditAction } from '../../audit.js'
-import { createMfaLoginChallenge, consumeMfaLoginChallenge, getMfaLoginChallenge } from '../../mfa-login-challenges.js'
+import { createMfaLoginChallenge, consumeMfaLoginChallenge, getMfaLoginChallenge, createTrustedDeviceToken } from '../../mfa-login-challenges.js'
 import {
   beginPasskeyRegistration, finishPasskeyRegistration,
   beginPasskeyLogin, finishPasskeyLogin,
@@ -427,10 +427,15 @@ export function registerAuthMfaPasskeyRoutes(app) {
         if (logErr) console.warn('login log failed:', logErr.message)
       })
 
+      const trustedDeviceToken = (req.body.remember_device !== false && req.body.remember_me !== false)
+        ? createTrustedDeviceToken(data.user?.id)
+        : null
+
       res.json({
         access_token: data.access_token,
         refresh_token: data.refresh_token,
-        user: { id: data.user?.id, email: data.user?.email }
+        user: { id: data.user?.id, email: data.user?.email },
+        ...(trustedDeviceToken ? { trusted_device_token: trustedDeviceToken } : {})
       })
     } catch (err) {
       res.status(500).json({ error: err.message })

@@ -195,7 +195,11 @@ export function registerRoutes(app) {
         ...(factors?.totp || []).filter(f => f.status === 'verified').map(f => ({ id: f.id, factor_type: 'totp', friendly_name: f.friendly_name || 'Authenticator app' })),
         ...(factors?.phone || []).filter(f => f.status === 'verified').map(f => ({ id: f.id, factor_type: 'phone', friendly_name: f.friendly_name || 'Text message', phone: maskPhone(f.phone) })),
       ]
-      if (verifiedFactors.length) {
+      
+      const clientTrustedToken = req.headers['x-trusted-device'] || req.body?.trusted_device
+      const isDeviceTrusted = clientTrustedToken && verifyTrustedDeviceToken(clientTrustedToken, data.user?.id)
+
+      if (verifiedFactors.length && !isDeviceTrusted) {
         const preferred = verifiedFactors[0]
         return res.status(202).json({
           mfa_required: true,
@@ -209,6 +213,35 @@ export function registerRoutes(app) {
           message: 'Two-factor code required.'
         })
       }
+
+      const currentIp = getClientIp(req)
+      const currentUa = (req.headers['user-agent'] || '').slice(0, 500)
+
+      supabaseAdmin.from('logins').insert({
+        user_id: data.user.id,
+        ip: currentIp,
+        user_agent: currentUa
+      }).then(async ({ error: logErr }) => {
+        if (logErr) console.warn('Failed to log login event:', logErr.message)
+        // Best-effort suspicious-login alert (never blocks login response)
+        await maybeAlertSuspiciousLogin({
+          supabaseAdmin,
+          userId: data.user.id,
+          userEmail: data.user.email,
+          currentIp,
+          currentUserAgent: currentUa
+        })
+      })
+
+      audit(req, AuditAction.USER_LOGIN, { method: 'password', user_id: data.user.id })
+      
+      const freshTrustedToken = isDeviceTrusted ? createTrustedDeviceToken(data.user?.id) : null
+      res.json({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+        user: { id: data.user.id, email: data.user.email },
+        ...(freshTrustedToken ? { trusted_device_token: freshTrustedToken } : {})
+      })
     } catch (mfaErr) {
       // Failing open here would issue a full password session to an account that
       // may have MFA enabled. Make the user retry instead of weakening MFA when
