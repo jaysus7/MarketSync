@@ -185,6 +185,13 @@ const MS_WORKSPACES = {
   // `launch` PAGE still exists and is still reachable by deep link; it simply no longer
   // occupies a slot in the navigation forever.
 
+  messaging: {
+    label: 'Messaging', icon: 'chat', accent: 'sky', system: true,
+    pages: [
+      { page: 'ai-inbox', label: 'Messaging' },
+    ],
+  },
+
   // ── System — rendered in the bottom/system section, not as a department ────
   // Automation deliberately lives HERE, not in a department: contextual automation
   // belongs inside workspaces, global advanced automation belongs in Settings.
