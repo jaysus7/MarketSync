@@ -1,12 +1,12 @@
 /* dashboard.js split part 23/26 — contiguous, load-order-critical. Do not reorder the <script> tags in dashboard.html. */
 
-// Rename the "Ask MarketSync" dock (launcher, header, greeting) to the dealer's
-// chosen assistant name. Falls back to "MarketSync" when blank.
+// Rename the "Intelligence" dock (launcher, header, greeting) to the dealer's
+// chosen assistant name. Falls back to "Intelligence" when blank.
 function applyAssistantName(name) {
-  __aiAssistantName = (name || '').trim() || 'MarketSync';
-  const label = document.getElementById('ai-dock-btn-label'); if (label) label.textContent = `Ask ${__aiAssistantName}`;
-  const title = document.getElementById('ai-dock-title'); if (title) title.textContent = `Ask ${__aiAssistantName}`;
-  const btn = document.getElementById('ai-dock-btn'); if (btn) btn.setAttribute('aria-label', `Ask ${__aiAssistantName}`);
+  __aiAssistantName = (name || '').trim() || 'Intelligence';
+  const label = document.getElementById('ai-dock-btn-label'); if (label) label.textContent = __aiAssistantName;
+  const title = document.getElementById('ai-dock-title'); if (title) title.textContent = __aiAssistantName;
+  const btn = document.getElementById('ai-dock-btn'); if (btn) btn.setAttribute('aria-label', __aiAssistantName);
   if (!aiDockMessages.length) renderAiDockMessages();   // refresh the greeting if still on the intro
 }
 window.applyAssistantName = applyAssistantName;

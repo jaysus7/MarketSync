@@ -1434,7 +1434,7 @@ document.addEventListener('DOMContentLoaded', () => {
 let aiDockMessages = [];
 let aiDockBusy = false;
 let aiDockPendingCommissionImport = null;
-let __aiAssistantName = 'MarketSync';   // dealer-set internal assistant name
+let __aiAssistantName = 'Intelligence';   // dealer-set internal assistant name
 
 // Safe, small Markdown renderer for assistant replies. The previous textContent
 // rendering exposed **, #, and list markers to users. Escape first, then recognize

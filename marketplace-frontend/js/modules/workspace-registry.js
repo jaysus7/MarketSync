@@ -162,6 +162,13 @@ const MS_WORKSPACES = {
     ],
   },
 
+  messaging: {
+    label: 'Messaging', icon: 'chat', accent: 'sky', system: true, always: true,
+    pages: [
+      { page: 'ai-inbox', label: 'Messaging' },
+    ],
+  },
+
   settings: {
     label: 'Settings', icon: 'shield', system: true,
     pages: [
