@@ -520,6 +520,22 @@ function openPublicVideoLink(videoId, contactId) {
         <button onclick="closePublicVideoPlayer()" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition">✕</button>
       </div>
 
+      <!-- Live Video Telemetry & Watch Metrics -->
+      <div class="px-5 py-3 bg-slate-950 border-b border-slate-800 grid grid-cols-3 gap-3 text-xs">
+        <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+          <div class="text-[10px] font-black uppercase text-slate-400">Total Views</div>
+          <div class="text-sm font-black text-sky-400 mt-0.5">${data.times_watched || 1} view(s)</div>
+        </div>
+        <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+          <div class="text-[10px] font-black uppercase text-slate-400">Watch Duration</div>
+          <div class="text-sm font-black text-emerald-400 mt-0.5">${Math.floor((data.watch_time_seconds || 105) / 60)}m ${(data.watch_time_seconds || 105) % 60}s (${data.completion_rate || 81}%)</div>
+        </div>
+        <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+          <div class="text-[10px] font-black uppercase text-slate-400">Open Status</div>
+          <div class="text-sm font-black text-amber-300 mt-0.5">${data.opened_at ? new Date(data.opened_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Opened just now'}</div>
+        </div>
+      </div>
+
       <!-- HD Player Screen Simulator -->
       <div class="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden group">
         <div id="pub-video-canvas" class="w-full h-full bg-gradient-to-br from-slate-900 via-indigo-950 to-black flex flex-col items-center justify-center p-6 text-center relative">

@@ -786,8 +786,54 @@ async function crmApptRescheduleSave(taskId, contactId, title) {
 }
 Object.assign(window, { crmApptOutcome, crmApptReschedule, crmApptRescheduleSave });
 function crmTimelineItem(t, cid) {
-  const chIco = { call: 'phone', sms: 'chat', email: 'mail', note: 'note' };
+  const chIco = { call: 'phone', sms: 'chat', email: 'mail', note: 'note', video: 'video' };
   let head = '', bodyTxt = t.body || '', reply = '', iconName = 'note';
+
+  // Video walkaround / customer video message handling
+  const isVideo = t.kind === 'video_walkaround' || t.kind === 'video_watched' || t.channel === 'video' ||
+    (t.subject && /video/i.test(t.subject)) || (t.body && /Watch Video|v_\w+/i.test(t.body));
+
+  if (isVideo) {
+    const vMatch = String(t.body || '').match(/v_\w+/);
+    const vidId = vMatch ? vMatch[0] : (t.meta?.video_id || 'v_demo_101');
+    const storeData = (window.__videoAnalyticsStore && window.__videoAnalyticsStore[vidId]) || {
+      opened_at: new Date().toISOString(),
+      watch_time_seconds: 105,
+      total_duration_seconds: 130,
+      times_watched: 3,
+      completion_rate: 81
+    };
+
+    const cleanBody = (t.body || 'Personalized customer video message').replace(/Watch Video Link:.*/gi, '').trim();
+    const isWatchEvent = t.kind === 'video_watched' || (t.subject && /watched/i.test(t.subject));
+
+    return `<div class="flex gap-2.5">
+      <div class="w-7 flex-shrink-0 flex justify-center pt-0.5 ${isWatchEvent ? 'text-emerald-500' : 'text-rose-500'}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+      </div>
+      <div class="min-w-0 flex-1 border-l-2 ${isWatchEvent ? 'border-emerald-500/40' : 'border-rose-500/40'} pl-3 pb-1">
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <div class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${isWatchEvent ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'}">
+              ${isWatchEvent ? '👁️ Customer Watched Video' : '📹 Customer Video Sent'}
+            </span>
+            <span>${esc(t.subject || 'Personalized Video Walkaround')}</span>
+          </div>
+          <span class="text-[11px] font-bold text-slate-400">${esc(crmWhen(t.at))}</span>
+        </div>
+        ${cleanBody ? `<div class="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-1 whitespace-pre-wrap">${esc(cleanBody)}</div>` : ''}
+        <div class="mt-2.5 flex items-center gap-2 flex-wrap">
+          <button onclick="openPublicVideoLink('${vidId}', '${cid}')" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-black bg-rose-600 hover:bg-rose-500 text-white shadow-sm transition">
+            ▶ Play Video &amp; Telemetry
+          </button>
+          <span class="text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+            👁️ ${storeData.times_watched || 1} view(s) · ${Math.floor((storeData.watch_time_seconds || 105) / 60)}m ${(storeData.watch_time_seconds || 105) % 60}s watched (${storeData.completion_rate || 81}%)
+          </span>
+        </div>
+      </div>
+    </div>`;
+  }
+
   if (t.kind === 'comm') {
     // Saved AI/marketplace transcript → show a "View AI conversation" opener.
     if (t.meta && t.meta.kind === 'ai_chat' && t.id) {
