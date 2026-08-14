@@ -130,7 +130,6 @@ function updateShiftClockUI() {
       }
     }
   }
-  }
 
   const widgetLiveTimer = document.getElementById('workstation-live-timer');
   if (widgetLiveTimer) {
