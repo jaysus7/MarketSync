@@ -340,6 +340,32 @@ function vidToggleRecord() {
     // Start Recording
     window.__videoStudioState.recording = true;
     window.__videoStudioState.paused = false;
+    window.__videoStudioState.seconds = 0;
+    window.__videoStudioState.recordedChunks = [];
+
+    const stream = window.__videoStudioState.mediaStream;
+    if (stream && typeof MediaRecorder !== 'undefined') {
+      try {
+        let options = { mimeType: 'video/webm;codecs=vp9,opus' };
+        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+          options = { mimeType: 'video/webm' };
+        }
+        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+          options = { mimeType: 'video/mp4' };
+        }
+        const recorder = new MediaRecorder(stream, options);
+        window.__videoStudioState.mediaRecorder = recorder;
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) {
+            window.__videoStudioState.recordedChunks.push(e.data);
+          }
+        };
+        recorder.start(100);
+      } catch (err) {
+        console.warn('MediaRecorder recording fallback:', err);
+      }
+    }
+
     if (btn) { btn.innerHTML = 'Stop Recording'; btn.className = 'px-5 py-2.5 rounded-xl text-xs font-black bg-slate-800 text-white hover:bg-slate-700 transition flex items-center gap-2'; }
     if (pauseBtn) { pauseBtn.disabled = false; pauseBtn.className = 'px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white transition'; }
     if (indicator) indicator.classList.remove('hidden');
@@ -360,11 +386,25 @@ function vidToggleRecord() {
     // Stop Recording
     window.__videoStudioState.recording = false;
     clearInterval(window.__videoStudioState.timerInterval);
+
+    if (window.__videoStudioState.mediaRecorder && window.__videoStudioState.mediaRecorder.state !== 'inactive') {
+      try {
+        window.__videoStudioState.mediaRecorder.stop();
+        setTimeout(() => {
+          if (window.__videoStudioState.recordedChunks && window.__videoStudioState.recordedChunks.length > 0) {
+            const blob = new Blob(window.__videoStudioState.recordedChunks, { type: 'video/webm' });
+            window.__videoStudioState.lastRecordedBlob = blob;
+            window.__videoStudioState.lastRecordedUrl = URL.createObjectURL(blob);
+          }
+        }, 150);
+      } catch {}
+    }
+
     if (btn) { btn.innerHTML = 'Start Recording'; btn.className = 'px-5 py-2.5 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white transition flex items-center gap-2'; }
     if (pauseBtn) { pauseBtn.disabled = true; pauseBtn.className = 'px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-500 cursor-not-allowed transition'; }
     if (indicator) indicator.classList.add('hidden');
     if (statusBadge) statusBadge.classList.add('hidden');
-    if (typeof showToast === 'function') showToast('Video recorded and ready to send!', 'success');
+    if (typeof showToast === 'function') showToast('Video recorded & saved locally! Ready to preview or send.', 'success');
   }
 }
 
