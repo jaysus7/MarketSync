@@ -74,14 +74,7 @@ function pwRequestRow(q, d) {
   return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
     <div class="min-w-0 flex-1">
       <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(part.part_number || 'Part')}</div>
-      <div class="text-[12px] text-slate-400 truncate">${esc(pwReqShort(q))}</div>
-      <div class="text-[12px] text-slate-400 truncate flex flex-wrap items-center gap-1.5 mt-0.5">
-        <span class="${avail > 0 ? '' : 'text-rose-500'}">${avail} available</span>
-        ${q.eta ? ` · ETA ${esc(q.eta)}` : ''}
-        ${q.vendor ? ` · ${esc(q.vendor)}` : ''}
-        ${contact ? ` · <button onclick="openCrmContact('${q.contact_id}')" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">Customer: ${esc(contact.full_name || contact.name || 'View')}</button>` : ''}
-        ${deal ? ` · <button onclick="switchPage('desk')" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">Deal #${esc(q.deal_id.slice(0, 8))}</button>` : ''}
-      </div>
+      <div class="text-[12px] text-slate-400 truncate"><span class="${avail > 0 ? '' : 'text-rose-500'}">${avail} available</span>${q.eta ? ` · ETA ${esc(q.eta)}` : ''}${q.vendor ? ` · ${esc(q.vendor)}` : ''}</div>
     </div>
     <button onclick="printPartsReceipt('${q.id}')" title="Print / Save Parts Receipt to Timeline" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 transition">Print Receipt</button>
     ${na.onclick ? `<button onclick="${na.onclick}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">${esc(na.label)}</button>` : ''}
@@ -425,7 +418,7 @@ ENGINES['parts-overview'] = {
   icon: 'gem', accent: 'amber',
   // Insights folded into My Day. Work is named for what it holds, and Requests takes
   // the slot Insights had.
-  tabLabels: { overview: 'Pulse', work: 'Inventory', requests: 'Requests', settings: 'Settings' },
+  tabLabels: { overview: 'My Day', work: 'Inventory', requests: 'Requests', settings: 'Settings' },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     return mgr ? ['overview', 'work', 'requests', 'settings'] : ['overview', 'work', 'requests'];
@@ -434,22 +427,16 @@ ENGINES['parts-overview'] = {
   fetch: async () => {
     const miss = [];
     const grab = (label, p) => p.catch(() => { miss.push(label); return null; });
-    const [reqs, parts, cfg, contacts, deals] = await Promise.all([
+    const [reqs, parts, cfg] = await Promise.all([
       grab('parts demand', apiGetJson('/service-engine/part-requests')),
       grab('stock availability', apiGetJson('/service-engine/parts-availability')),
       grab('parts settings', apiGetJson('/service-engine/config')),
-      grab('crm contacts', apiGetJson('/crm/contacts?limit=200')),
-      grab('deals', apiGetJson('/fni/deals')),
     ]);
     const d = {
       requests: reqs?.requests || [], parts: parts?.parts || [],
       config: cfg ? (cfg.config || null) : null, unavailable: miss,
-      contacts: contacts?.contacts || [],
-      deals: deals?.deals || deals || [],
     };
     d.partById = {}; for (const p of d.parts) d.partById[p.id] = p;
-    d.contactById = {}; for (const c of d.contacts) d.contactById[c.id] = c;
-    d.dealById = {}; for (const x of d.deals) d.dealById[x.id] = x;
     // Availability is the SERVER's number. This only indexes it.
     d.availableByPart = {}; for (const p of d.parts) d.availableByPart[p.id] = Number(p.qty_available);
     __pwData = d;

@@ -1741,11 +1741,10 @@ window.pulseHrDeptSection = function(d) {
 };
 
 ENGINES['command'] = {
-  rootId: 'command-root', title: 'Pulse', subtitle: 'This main page is the pulse of the dealership.',
+  rootId: 'command-root', title: 'Management', subtitle: 'Management attention across every department — priorities first',
   icon: 'chart', accent: 'indigo',
-  hideTabBar: true,
-  tabLabels: { pulse: 'Pulse', forecast: 'Forecast', financials: 'Financials' },
-  tabOrder: ['pulse', 'forecast', 'financials'],
+  tabLabels: { overview: 'My Day', pulse: 'Pulse', forecast: 'Forecast', financials: 'Financials' },
+  tabOrder: ['overview', 'pulse', 'forecast', 'financials'],
 
   fetch: async () => {
     // Every read fails on its own and reports itself. A number that could not be loaded is

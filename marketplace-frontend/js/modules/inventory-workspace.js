@@ -300,9 +300,10 @@ async function invRenderWork(body, d) {
 ENGINES['inventory-overview'] = {
   rootId: 'inventory-overview-root', title: 'Inventory', subtitle: 'One vehicle lifecycle — acquire, recon, price, publish',
   icon: 'gem', accent: 'sky',
-  tabLabels: { overview: 'Pulse', work: 'Inventory', settings: 'Settings' },
+  tabLabels: { overview: 'My Day', work: 'Inventory', appraisals: 'Appraisals', cleanup: 'Cleanup', settings: 'Settings' },
   get tabOrder() {
-    return ['work', 'overview', 'settings'];
+    const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+    return mgr ? ['work', 'overview', 'appraisals', 'cleanup', 'settings'] : ['work', 'overview', 'appraisals', 'cleanup'];
   },
 
   fetch: async () => {
@@ -402,6 +403,22 @@ ENGINES['inventory-overview'] = {
     },
     work: invRenderWork,
 
+    // ── APPRAISALS — the appraisal page itself, not a summary of it ─────────
+    appraisals(body) {
+      body.innerHTML = '';
+      engMountPage(body, 'appraisal', () => {
+        if (typeof initAppraisal === 'function') initAppraisal();
+        if (typeof loadApprList === 'function') loadApprList();
+        if (typeof apprEnsureBranding === 'function') apprEnsureBranding();
+      });
+    },
+
+    cleanup(body) {
+      body.innerHTML = '';
+      engMountPage(body, 'recon', () => {
+        if (typeof loadReconPage === 'function') loadReconPage();
+      });
+    },
 
     // The old Insights tab, now rendered INSIDE My Day. See overview().
     __insightsStrip(body, d) {

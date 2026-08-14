@@ -106,7 +106,7 @@ ENGINES['accounting-overview'] = {
   subtitle: 'Financial control — what reached the books, what has not, and what is owed',
   icon: 'currency', accent: 'emerald',
   tabLabels: {
-    overview: 'Pulse',
+    overview: 'Today',
     money_in: 'Money In',
     money_out: 'Money Out',
     bank: 'Bank',

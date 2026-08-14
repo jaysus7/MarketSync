@@ -573,7 +573,7 @@ window.accOpenDealModal = function(dealId) {
           <h3 class="text-base font-black text-slate-900 dark:text-white uppercase">Deal Accounting Inspection &amp; Financial Jacket</h3>
           <p class="text-xs text-slate-400">Deal ID: ${esc(dealId)}</p>
         </div>
-        <button onclick="document.getElementById('acc-deal-modal')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">✕</button>
+        <button onclick="document.getElementById('acc-deal-modal')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">&times;</button>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-medium">

@@ -250,6 +250,72 @@ async function salesSaveRouting(mode) {
 }
 window.salesSaveRouting = salesSaveRouting;
 
+const SALES_WORK_VIEWS = [
+  ['opportunities', 'Opportunities'], ['appointments', 'Appointments'],
+  ['customers', 'Customers'], ['deals', 'Deals'], ['deliveries', 'Deliveries'],
+];
+
+let __salesWorkView = 'opportunities';
+let __salesDeliveries = null;
+function salesWorkView(v) { __salesWorkView = v; engineTab('sales', 'work'); }
+window.salesWorkView = salesWorkView;
+
+async function salesRenderWork(body, d) {
+  const nav = SALES_WORK_VIEWS.map(([id, label]) => {
+    const on = __salesWorkView === id;
+    return `<button onclick="salesWorkView('${id}')" class="px-3 py-1.5 rounded-lg text-[13px] font-bold transition ${on ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}">${esc(label)}</button>`;
+  }).join('');
+
+  let inner = '';
+  if (__salesWorkView === 'opportunities') {
+    const open = (d.contacts || []).filter(c => SALES_OPEN_STAGES.includes(c.status));
+    const byStage = SALES_OPEN_STAGES.map(s => {
+      const rows = open.filter(c => c.status === s);
+      if (!rows.length) return '';
+      return engCard(`${salesLabel(s)} (${rows.length})`, rows.slice(0, 12).map(c => salesOppRow(c, d)).join(''));
+    }).join('');
+    inner = byStage || engEmpty('No open opportunities.');
+  } else if (__salesWorkView === 'appointments') {
+    const now = Date.now(), day = 864e5;
+    const buckets = [['Today', a => { const t = new Date(a.appointment_at) - now; return t > -day / 2 && t < day / 2; }],
+                     ['Upcoming', a => new Date(a.appointment_at) - now >= day / 2],
+                     ['Missed / no outcome', a => new Date(a.appointment_at) - now <= -day / 2 && !a.outcome]];
+    inner = buckets.map(([label, fn]) => {
+      const rows = (d.appointments || []).filter(fn);
+      if (!rows.length) return '';
+      return engCard(`${label} (${rows.length})`, rows.slice(0, 15).map(a => `
+        <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+          <div class="text-[12px] font-bold text-slate-500 tabular-nums shrink-0 w-24">${esc(new Date(a.appointment_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</div>
+          <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(a.customer_name || '—')}</div>
+            <div class="text-[12px] text-slate-400 truncate">${esc(a.vehicle_label || '')}${a.rep_name ? ` · ${esc(a.rep_name)}` : ''}</div></div>
+          <button onclick="${a.contact_id ? `crmOpenForm('${a.contact_id}')` : `switchPage('appointments')`}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Open Customer</button>
+        </div>`).join(''));
+    }).join('') || engEmpty('No appointments.');
+    inner += `<div class="mt-3"><button onclick="switchPage('appointments')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">Open full calendar →</button></div>`;
+  } else if (__salesWorkView === 'customers') {
+    inner = engCard('Customers', (d.contacts || []).slice(0, 20).map(c => salesOppRow(c, d)).join('') || engEmpty('No customers yet.'))
+      + `<div class="mt-3"><button onclick="switchPage('crm')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">Open full CRM →</button></div>`;
+  } else if (__salesWorkView === 'deals') {
+    const working = (d.contacts || []).filter(c => ['sold', 'fni'].includes(c.status));
+    inner = engCard('Working deals', working.map(c => salesOppRow(c, d)).join('') || engEmpty('No deals in progress.'))
+      + `<div class="mt-3 flex gap-3"><button onclick="switchPage('fni')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">F&amp;I workspace →</button></div>`;
+  } else if (__salesWorkView === 'deliveries') {
+    if (!__salesDeliveries) {
+      body.innerHTML = `<div class="flex gap-1.5 mb-3">${nav}</div><div class="text-sm text-slate-400 py-10 text-center">Loading deliveries…</div>`;
+      try { __salesDeliveries = await apiGetJson('/delivery/queue'); } catch { __salesDeliveries = { deals: [] }; }
+    }
+    const rows = __salesDeliveries.deals || __salesDeliveries.queue || [];
+    inner = engCard('Delivery queue', rows.slice(0, 20).map(x => `
+      <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+        <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(x.customer_name || x.contact_name || 'Customer')}</div>
+          <div class="text-[12px] text-slate-400 truncate">${esc(x.vehicle_label || [x.year, x.make, x.model].filter(Boolean).join(' '))}${x.blocker ? ` · <span class="text-rose-500">${esc(x.blocker)}</span>` : ''}</div></div>
+        <button onclick="switchPage('delivery')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Prepare Delivery</button>
+      </div>`).join('') || engEmpty('Nothing awaiting delivery.'))
+      + `<div class="mt-3"><button onclick="switchPage('delivery')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">Open delivery queue →</button></div>`;
+  }
+  body.innerHTML = `<div class="flex gap-1.5 mb-3 overflow-x-auto">${nav}</div>${inner}`;
+}
+
 function salesTodayVideosCard() {
   const videos = (typeof DEMO_SENT_VIDEOS !== 'undefined') ? DEMO_SENT_VIDEOS : [];
   const rows = videos.slice(0, 5).map(v => {
@@ -293,9 +359,13 @@ window.salesTodayVideosCard = salesTodayVideosCard;
 // ── Engine registration ──────────────────────────────────────────────────────
 ENGINES['sales'] = {
   rootId: 'sales-root', title: 'Sales', subtitle: 'Your customers, appointments and deals — what needs you first', hideHeader: true,
-  icon: 'currency', accent: 'amber',
-  get tabOrder() { return ['overview', 'work', 'appraisals', 'desk', 'equity', 'settings']; },
-  get tabLabels() { return { overview: 'Pulse', work: 'Customers', appraisals: 'Appraise Trade', desk: 'Desk a Deal', equity: 'Equity Mining', settings: 'Settings' }; },
+  tabOrder: ['overview', 'work', 'equity', 'settings'],
+  get tabOrder() {
+    const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+    return mgr ? ['overview', 'work', 'appointments', 'equity', 'settings']
+               : ['overview', 'work', 'appointments', 'equity'];
+  },
+  tabLabels: { overview: 'My Day', work: 'Customers', equity: 'Equity Mining', settings: 'Settings' },
 
   fetch: async () => {
     const [contacts, tasks, appts, deals, deliveries, insights] = await Promise.all([
