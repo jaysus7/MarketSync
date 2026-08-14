@@ -44,16 +44,36 @@ const acadMins = (m) => m ? `${m} min` : '';
 const acadDate = (d) => d ? String(d).slice(0, 10) : '';
 
 function acadCourseRow(c) {
-  const due = c.due_at ? `Due ${acadDate(c.due_at)}` : ''
-  const meta = [c.department || 'Everyone', acadMins(c.estimated_minutes), due].filter(Boolean).join(' · ')
-  return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-    <div class="min-w-0 flex-1">
-      <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(c.title)}</div>
+  const due = c.due_at ? `Due ${acadDate(c.due_at)}` : '';
+  const isDone = c.status === 'completed' || c.status === 'waived';
+  const pct = isDone ? 100 : (c.status === 'in_progress' ? 45 : 0);
+  const meta = [c.department || 'Everyone', acadMins(c.estimated_minutes), due].filter(Boolean).join(' · ');
+
+  return `<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+    <div class="min-w-0 flex-1 space-y-1">
+      <div class="flex items-center gap-2">
+        <span class="font-black text-[13px] text-slate-900 dark:text-white truncate">${esc(c.title)}</span>
+        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">HD Video Included</span>
+      </div>
       <div class="text-[12px] text-slate-400 truncate">${esc(meta)}</div>
-      ${c.description ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5">${esc(c.description)}</div>` : ''}
+      ${c.description ? `<div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(c.description)}</div>` : ''}
+      
+      <!-- Progress Bar Graph -->
+      <div class="mt-2 flex items-center gap-2 max-w-xs">
+        <div class="h-1.5 flex-1 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+          <div class="h-full rounded-full ${isDone ? 'bg-emerald-500' : 'bg-indigo-600'}" style="width:${pct}%"></div>
+        </div>
+        <span class="text-[10px] font-extrabold ${isDone ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">${pct}%</span>
+      </div>
     </div>
-    <div class="shrink-0 text-right text-[12px] font-bold ${acadTone(c)}">${esc(acadStatus(c))}</div>
-  </div>`
+
+    <div class="shrink-0 flex items-center gap-2 text-right">
+      <span class="text-[12px] font-bold ${acadTone(c)}">${esc(acadStatus(c))}</span>
+      <a href="/training.html?lesson=${encodeURIComponent(c.course_key || c.id || '')}" target="_blank" class="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm">
+        ${isDone ? 'Review Lesson' : 'Start Course'}
+      </a>
+    </div>
+  </div>`;
 }
 
 /**
