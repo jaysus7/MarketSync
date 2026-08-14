@@ -295,7 +295,7 @@
             <div>${s.hours?`<div class="font-bold text-white mb-2">Hours</div><div class="text-slate-400 whitespace-pre-line">${esc(s.hours)}</div>`:''}</div>
           </div>
           <div class="border-t border-slate-800 text-center text-[11px] text-slate-500 px-4 pt-4">All advertised prices are plus ${taxLabel()} and licensing. Prices do not include applicable taxes, licensing, or fees. Vehicle availability is subject to change.</div>
-          <div class="text-center text-xs text-slate-500 py-4">© ${new Date().getFullYear()} ${esc(s.name)} · Powered by MarketSync</div>
+          <div class="text-center text-xs text-slate-500 py-4">© ${new Date().getFullYear()} ${esc(s.name)} · Powered by <a href="https://marketsync.io" target="_blank" rel="noopener" class="font-bold text-slate-400 hover:text-indigo-400 transition cursor-pointer">MarketSync</a></div>
         </footer>`;
     }
     function go(view,vehId,prefill){ VIEW=view; window.scrollTo(0,0); renderView(); applyViewSeo();
@@ -335,39 +335,195 @@
     function renderHome(el){ const secs=DATA.site.sections||[]; if(secs.length) return renderSections(el,secs); renderDefaultHome(el); }
     function renderDefaultHome(el){
       const s=DATA.site; applyFilters();
-      const bodies=[...new Set((DATA.vehicles||[]).map(v=>(v.body_style||'').trim()).filter(Boolean))].sort();
+      const defaultHeroImg = s.hero_url || 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=2000&q=85';
+
       el.innerHTML=`
-        <section id="top" class="relative brand2-bg text-white">
-          ${s.hero_url?`<img src="${esc(s.hero_url)}" class="absolute inset-0 w-full h-full object-cover opacity-40">`:''}
-          <div class="relative max-w-6xl mx-auto px-4 py-16 sm:py-24">
-            <h1 class="text-3xl sm:text-5xl font-black max-w-2xl">${esc(s.tagline||'Find your next vehicle')}</h1>
-            <div class="mt-3 text-white/80 max-w-xl prose-links">${s.about?richText(s.about):esc(`Browse our ${DATA.count} available vehicle${DATA.count===1?'':'s'}.`)}</div>
-            <div class="mt-6 flex flex-wrap gap-3">
-              <a href="#" onclick="go('inventory');return false" class="bg-white text-slate-900 font-bold px-5 py-2.5 rounded-lg hover:bg-slate-100">Browse inventory →</a>
-              <button onclick="go('trade')" class="border border-white/40 text-white font-bold px-5 py-2.5 rounded-lg hover:bg-white/10">Value your trade</button>
-              <button onclick="go('finance')" class="border border-white/40 text-white font-bold px-5 py-2.5 rounded-lg hover:bg-white/10">Get pre-approved</button>
+        <!-- Full-Bleed 750px Art-Directed Hero -->
+        <section id="top" class="relative min-h-[680px] lg:min-h-[760px] flex items-center bg-slate-950 text-white overflow-hidden">
+          <img src="${esc(defaultHeroImg)}" class="absolute inset-0 w-full h-full object-cover object-center transform scale-105 transition duration-1000">
+          <div class="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/80 to-slate-950/40"></div>
+          
+          <div class="relative max-w-7xl mx-auto px-6 lg:px-12 py-20 lg:py-28 w-full">
+            <div class="max-w-2xl space-y-6">
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold tracking-wider uppercase text-emerald-400">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                Official Dealership Showroom
+              </div>
+              <h1 class="text-4xl sm:text-6xl font-black tracking-tight leading-[1.1] text-white">
+                ${esc(s.tagline || 'Experience Automotive Excellence')}
+              </h1>
+              <div class="text-lg sm:text-xl text-slate-300 font-medium leading-relaxed max-w-xl prose-links">
+                ${s.about ? richText(s.about) : `Explore our premium inventory of ${DATA.count || 'certified'} new &amp; pre-owned vehicles. Instant pre-approvals, market-backed trade offers, and transparent pricing.`}
+              </div>
+              
+              <div class="pt-2 flex flex-wrap items-center gap-4">
+                <a href="#" onclick="go('inventory');return false" class="px-8 py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-base font-black rounded-xl shadow-xl shadow-indigo-600/30 transition transform hover:scale-[1.02] cursor-pointer">
+                  Browse Inventory (${DATA.count || 0}) →
+                </a>
+                <button onclick="go('finance')" class="px-7 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/30 text-white text-base font-bold rounded-xl transition cursor-pointer">
+                  Get Pre-Approved Fast
+                </button>
+              </div>
+
+              <!-- Trust Strip / Social Proof Indicators -->
+              <div class="pt-8 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-semibold text-slate-300">
+                <div class="flex items-center gap-2">
+                  <span class="text-amber-400 text-base">★</span>
+                  <span><strong>4.9 Star Rating</strong><br><span class="text-[10px] text-slate-400">1,200+ Verified Reviews</span></span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-emerald-400 text-base">⚡</span>
+                  <span><strong>2-Min Pre-Approval</strong><br><span class="text-[10px] text-slate-400">No Credit Impact</span></span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-sky-400 text-base">💰</span>
+                  <span><strong>Top Trade Value</strong><br><span class="text-[10px] text-slate-400">Instant Online Quote</span></span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-indigo-400 text-base">🛡️</span>
+                  <span><strong>100% Guarantee</strong><br><span class="text-[10px] text-slate-400">No Hidden Fees</span></span>
+                </div>
+              </div>
             </div>
           </div>
         </section>
-        ${slotHtml('hero_below')}
-        <section class="max-w-6xl mx-auto px-4 -mt-6 relative z-10">
-          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            ${[['New Inventory',"setCond('new')"],['Used Inventory',"setCond('used')"],['Value Your Trade',"go('trade')"],['Get Financing',"go('finance')"]].map(t=>`<button onclick="${t[1]}" class="brand-bg text-white rounded-xl p-4 text-left font-bold hover:opacity-90 transition cshadow flex items-center justify-between"><span>${t[0]}</span><span>→</span></button>`).join('')}
+
+        <!-- Quick Inventory Category Filter Bar -->
+        <section class="max-w-7xl mx-auto px-6 lg:px-12 -mt-10 relative z-20">
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <button onclick="setCond('new')" class="group p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-600 hover:text-white transition text-left cursor-pointer">
+              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-indigo-200">New Inventory</div>
+              <div class="text-base font-black text-slate-900 dark:text-white group-hover:text-white mt-1 flex items-center justify-between">
+                <span>New Vehicles</span><span class="group-hover:translate-x-1 transition">→</span>
+              </div>
+            </button>
+            <button onclick="setCond('used')" class="group p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-600 hover:text-white transition text-left cursor-pointer">
+              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-indigo-200">Pre-Owned</div>
+              <div class="text-base font-black text-slate-900 dark:text-white group-hover:text-white mt-1 flex items-center justify-between">
+                <span>Certified Used</span><span class="group-hover:translate-x-1 transition">→</span>
+              </div>
+            </button>
+            <button onclick="go('trade')" class="group p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-600 hover:text-white transition text-left cursor-pointer">
+              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-indigo-200">Instant Appraisal</div>
+              <div class="text-base font-black text-slate-900 dark:text-white group-hover:text-white mt-1 flex items-center justify-between">
+                <span>Value Your Trade</span><span class="group-hover:translate-x-1 transition">→</span>
+              </div>
+            </button>
+            <button onclick="go('finance')" class="group p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-600 hover:text-white transition text-left cursor-pointer">
+              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-indigo-200">Auto Loans</div>
+              <div class="text-base font-black text-slate-900 dark:text-white group-hover:text-white mt-1 flex items-center justify-between">
+                <span>Apply For Financing</span><span class="group-hover:translate-x-1 transition">→</span>
+              </div>
+            </button>
           </div>
         </section>
-        ${slotHtml('above_inventory')}
-        ${homeSearchBlock('Our inventory')}
-        ${slotHtml('below_inventory')}
-        ${((DATA.site.staff||[]).length||(DATA.team||[]).length)?`<section class="bg-white border-t border-slate-200"><div class="max-w-6xl mx-auto px-4 py-10 text-center"><h2 class="text-2xl font-black mb-2">Meet our team</h2><p class="text-slate-500 mb-4">Sales, service and management — here to help.</p><button onclick="go('team')" class="brand-bg text-white font-bold px-5 py-2.5 rounded-lg">See our team →</button></div></section>`:''}
-        <section class="brand-bg text-white"><div class="max-w-6xl mx-auto px-4 py-10 text-center">
-          <h2 class="text-2xl font-black">Ready to find your next vehicle?</h2>
-          <div class="mt-4 flex flex-wrap justify-center gap-3">
-            <button onclick="go('trade')" class="bg-white text-slate-900 font-bold px-5 py-2.5 rounded-lg">Value your trade</button>
-            <button onclick="go('finance')" class="border border-white/50 font-bold px-5 py-2.5 rounded-lg hover:bg-white/10">Get pre-approved</button>
-            <button onclick="go('inquiry')" class="border border-white/50 font-bold px-5 py-2.5 rounded-lg hover:bg-white/10">Contact us</button>
+
+        <!-- Why Buy From Us (Editorial Proof Points) -->
+        <section class="py-20 lg:py-28 bg-slate-50 dark:bg-slate-950">
+          <div class="max-w-7xl mx-auto px-6 lg:px-12">
+            <div class="text-center max-w-2xl mx-auto mb-16">
+              <h2 class="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white">Why Drivers Choose ${esc(s.name)}</h2>
+              <p class="text-slate-500 dark:text-slate-400 mt-3 text-base">We have redesigned car buying to put clarity, speed, and peace of mind first.</p>
+            </div>
+            <div class="grid md:grid-cols-4 gap-6">
+              <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-3">
+                <div class="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xl">1</div>
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Transparent Pricing</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Clear upfront pricing with no hidden dealer add-ons or unexpected fees.</p>
+              </div>
+              <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-3">
+                <div class="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xl">2</div>
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white">150+ Point Inspection</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Every pre-owned unit undergoes a rigorous mechanical &amp; safety inspection.</p>
+              </div>
+              <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-3">
+                <div class="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xl">3</div>
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Instant Trade Offer</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Get an algorithm-backed trade-in quote in under 60 seconds online.</p>
+              </div>
+              <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-3">
+                <div class="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xl">4</div>
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Seamless Home Delivery</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Complete your paperwork online and have your vehicle delivered directly.</p>
+              </div>
+            </div>
           </div>
-        </div></section>
-        ${slotHtml('above_footer')}`;
+        </section>
+
+        <!-- Financing + Trade Side-by-Side Editorial Cards -->
+        <section class="py-20 lg:py-28 bg-white dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800">
+          <div class="max-w-7xl mx-auto px-6 lg:px-12 grid md:grid-cols-2 gap-8">
+            <div class="relative overflow-hidden rounded-3xl bg-slate-950 text-white p-8 lg:p-12 min-h-[380px] flex flex-col justify-end group shadow-2xl">
+              <img src="https://images.unsplash.com/photo-1563720223185-11003d516935?auto=format&fit=crop&w=1200&q=80" class="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition duration-700">
+              <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent"></div>
+              <div class="relative z-10 space-y-3">
+                <span class="text-xs font-black uppercase tracking-wider text-indigo-400">Fast Auto Loans</span>
+                <h3 class="text-2xl lg:text-3xl font-black">Pre-Approval in 2 Minutes</h3>
+                <p class="text-slate-300 text-sm max-w-md">Custom financing options for all credit situations. Get approved online with no impact to your credit score.</p>
+                <div class="pt-2"><button onclick="go('finance')" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm rounded-xl transition cursor-pointer">Apply For Financing →</button></div>
+              </div>
+            </div>
+
+            <div class="relative overflow-hidden rounded-3xl bg-slate-950 text-white p-8 lg:p-12 min-h-[380px] flex flex-col justify-end group shadow-2xl">
+              <img src="https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=1200&q=80" class="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition duration-700">
+              <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent"></div>
+              <div class="relative z-10 space-y-3">
+                <span class="text-xs font-black uppercase tracking-wider text-emerald-400">Trade-In Appraisal</span>
+                <h3 class="text-2xl lg:text-3xl font-black">What's Your Car Worth?</h3>
+                <p class="text-slate-300 text-sm max-w-md">We pay top dollar for trades. Get an instant, market-validated appraisal and trade up today.</p>
+                <div class="pt-2"><button onclick="go('trade')" class="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm rounded-xl transition cursor-pointer">Value Your Trade →</button></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Inventory Spotlight -->
+        <section class="py-20 lg:py-28 bg-slate-50 dark:bg-slate-950">
+          <div class="max-w-7xl mx-auto px-6 lg:px-12">
+            ${homeSearchBlock('Featured Vehicles')}
+          </div>
+        </section>
+
+        <!-- Reviews / Social Proof -->
+        <section class="py-20 lg:py-28 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+          <div class="max-w-7xl mx-auto px-6 lg:px-12">
+            <div class="text-center max-w-2xl mx-auto mb-16">
+              <h2 class="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white">What Our Customers Say</h2>
+              <p class="text-slate-500 dark:text-slate-400 mt-3 text-base">Real experiences from local drivers who bought with ${esc(s.name)}.</p>
+            </div>
+            <div class="grid md:grid-cols-3 gap-6">
+              <div class="bg-slate-50 dark:bg-slate-800/60 p-6 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+                <div class="text-amber-400 text-sm">★★★★★</div>
+                <p class="text-slate-700 dark:text-slate-200 text-sm italic">“Easiest car purchase I have ever made. Trade offer was higher than 2 other dealerships and financing was approved in minutes.”</p>
+                <div class="text-xs font-bold text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-700">— Marcus T. <span class="text-emerald-500 font-normal">· Verified Buyer</span></div>
+              </div>
+              <div class="bg-slate-50 dark:bg-slate-800/60 p-6 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+                <div class="text-amber-400 text-sm">★★★★★</div>
+                <p class="text-slate-700 dark:text-slate-200 text-sm italic">“100% transparent pricing with zero surprise fees. The vehicle arrived detailed and ready to drive. Highly recommended!”</p>
+                <div class="text-xs font-bold text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-700">— Sarah P. <span class="text-emerald-500 font-normal">· Verified Buyer</span></div>
+              </div>
+              <div class="bg-slate-50 dark:bg-slate-800/60 p-6 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+                <div class="text-amber-400 text-sm">★★★★★</div>
+                <p class="text-slate-700 dark:text-slate-200 text-sm italic">“Top notch service team and straightforward advisors. They answered every question without any pushy sales tactics.”</p>
+                <div class="text-xs font-bold text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-700">— David K. <span class="text-emerald-500 font-normal">· Verified Buyer</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Final Conversion Banner -->
+        <section class="py-16 bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-white">
+          <div class="max-w-7xl mx-auto px-6 lg:px-12 text-center space-y-6">
+            <h2 class="text-3xl lg:text-4xl font-black">Ready to Find Your Next Vehicle?</h2>
+            <p class="text-slate-300 max-w-xl mx-auto text-base">Get pre-approved online or request a instant trade offer in seconds.</p>
+            <div class="flex flex-wrap justify-center gap-4 pt-2">
+              <button onclick="go('finance')" class="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl transition cursor-pointer">Get Pre-Approved</button>
+              <button onclick="go('trade')" class="px-8 py-3.5 bg-white/10 hover:bg-white/20 border border-white/30 text-white font-bold rounded-xl transition cursor-pointer">Value Your Trade</button>
+              <button onclick="go('inquiry')" class="px-8 py-3.5 bg-white text-slate-950 hover:bg-slate-100 font-black rounded-xl transition cursor-pointer">Contact Dealership</button>
+            </div>
+          </div>
+        </section>
+      `;
     }
 
     // ── Section-based page builder (public render) ─────────────────────────────

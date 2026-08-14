@@ -550,14 +550,15 @@ function PAGE_PRESETS() {
 function templateHome(ctx) {
   const name = ctx.name || ctxName(), cityTxt = ctx.city ? (' in ' + ctx.city) : ctxCity();
   return [
-    psHero(`Quality vehicles${cityTxt}`, `Shop, finance and drive away with confidence at ${name}.`, 'Get pre-approved', 'finance', 'g1'),
-    __psec('feature_cards', {}),
-    __psec('featured_inventory', { title: 'Featured inventory', condition: 'all', count: 6 }),
-    __psec('text_image', { headline: 'Drive more, spend less', body: `At ${name}${cityTxt}, we make it simple to get into a vehicle you’ll love at a price that makes sense. Every vehicle is inspected, competitively priced and ready for the road — backed by friendly, no-pressure service that makes buying easy.`, button_label: 'View inventory', button_target: 'inventory' }),
-    __psec('body_style', { title: 'Browse by body style' }),
-    __psec('reviews', { title: 'What our customers say' }),
-    __psec('map', { title: 'Visit us' }),
-    __psec('contact', { title: 'Get in touch' }),
+    psHero(`Experience Automotive Excellence${cityTxt}`, `Shop, finance, and trade with total transparency at ${name}. Explore certified pre-owned and new arrivals today.`, 'Browse inventory', 'inventory', 'g1'),
+    __psec('feature_cards', { title: `Why Drivers Choose ${name}` }),
+    __psec('body_style', { title: 'Explore Vehicles By Category' }),
+    __psec('featured_inventory', { title: 'Featured Inventory Spotlight', condition: 'all', count: 6 }),
+    __psec('text_image', { headline: `The ${name} Difference`, body: `At ${name}${cityTxt}, we make it simple to get into a vehicle you'll love at a price that makes sense. Every vehicle is thoroughly inspected, competitively priced, and backed by no-pressure service.`, button_label: 'Meet our team', button_target: 'team' }),
+    __psec('reviews', { title: 'What Our Buyers Say' }),
+    __psec('map', { title: 'Visit Our Showroom' }),
+    __psec('contact', { title: 'Get In Touch' }),
+    psCta('Ready to Find Your Next Vehicle?', 'Get pre-approved online or request an instant trade offer in seconds.', 'Get Pre-Approved', 'finance')
   ];
 }
 // Hero/intro pre-filled on every built-in page so nothing is empty after a template.
@@ -880,17 +881,17 @@ function setWsDeviceView(view) {
   const frameWrap = document.getElementById('ws-frame-wrapper');
   if (frameWrap) {
     if (view === 'mobile') {
-      frameWrap.className = 'w-[375px] h-[78vh] mx-auto rounded-3xl border-4 border-slate-700 bg-white shadow-2xl transition-all duration-300 overflow-hidden';
+      frameWrap.className = 'w-[375px] h-[82vh] mx-auto rounded-3xl border-4 border-slate-700 bg-white shadow-2xl transition-all duration-300 overflow-hidden relative z-0';
     } else if (view === 'tablet') {
-      frameWrap.className = 'w-[768px] h-[78vh] mx-auto rounded-2xl border-4 border-slate-700 bg-white shadow-2xl transition-all duration-300 overflow-hidden';
+      frameWrap.className = 'w-[768px] h-[82vh] mx-auto rounded-2xl border-4 border-slate-700 bg-white shadow-2xl transition-all duration-300 overflow-hidden relative z-0';
     } else {
-      frameWrap.className = 'w-full h-[78vh] rounded-xl border border-slate-200 dark:border-slate-800 bg-white shadow-sm transition-all duration-300 overflow-hidden';
+      frameWrap.className = 'w-full h-[82vh] rounded-xl border border-slate-800 bg-white shadow-sm transition-all duration-300 overflow-hidden relative z-0';
     }
   }
   const btns = document.querySelectorAll('.ws-device-btn');
   btns.forEach(b => {
     const isSel = b.dataset.view === view;
-    b.className = `ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg transition ${isSel ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`;
+    b.className = `ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg transition ${isSel ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800'} cursor-pointer`;
   });
 }
 window.setWsDeviceView = setWsDeviceView;
@@ -902,8 +903,9 @@ function setWsLeftNav(tab) {
   const btns = document.querySelectorAll('.ws-nav-rail-btn');
   btns.forEach(b => {
     const isSel = b.dataset.tab === tab;
-    b.className = `ws-nav-rail-btn w-10 h-10 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold transition ${isSel ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`;
+    b.className = `ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold transition ${isSel ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white hover:bg-slate-800'} cursor-pointer`;
   });
+  if (__wsLeftDockCollapsed) toggleWsLeftDock();
 }
 window.setWsLeftNav = setWsLeftNav;
 
@@ -924,6 +926,7 @@ function selectWsSection(idx) {
   const panel = document.getElementById('ws-inspector-panel');
   if (panel) panel.innerHTML = renderWsRightInspectorHtml();
   renderWsLayersTree();
+  if (__wsRightDockCollapsed) toggleWsRightDock();
 }
 window.selectWsSection = selectWsSection;
 
@@ -932,7 +935,10 @@ function renderWsLayersTree() {
   if (!treeEl) return;
   treeEl.innerHTML = `
     <div class="space-y-1 font-sans text-xs">
-      <div class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Hierarchical Layers Tree</div>
+      <div class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
+        <span>Hierarchical Layers Tree</span>
+        <span class="text-slate-500 font-normal text-[9px]">(Drag Header To Move)</span>
+      </div>
       <div onclick="selectWsSection(-1)" class="p-2.5 rounded-xl border ${__wsSelectedSecIdx === -1 ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-900/60 text-slate-300 hover:border-slate-700'} cursor-pointer flex items-center justify-between transition">
         <span>Header &amp; Navigation Bar</span>
         <span class="text-[10px] font-mono text-slate-400">Global</span>
@@ -995,7 +1001,7 @@ function renderWsLeftDrawerHtml() {
         <div class="p-3.5 rounded-xl bg-violet-600/10 border border-violet-500/30 space-y-2">
           <label class="block text-xs font-black text-white">Describe the website you want</label>
           <textarea id="ai-site-prompt" rows="3" placeholder="e.g. Build a premium Chevrolet dealership homepage focused on pre-owned trucks, instant trade appraisal, and easy financing..." class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-violet-500"></textarea>
-          <button onclick="aiBuildPageLayoutFromPrompt()" class="w-full py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-black transition shadow-lg">Generate Page Layout</button>
+          <button onclick="aiBuildPageLayoutFromPrompt()" class="w-full py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-black transition shadow-lg cursor-pointer">Generate Page Layout</button>
         </div>
       </div>
     `;
@@ -1014,7 +1020,7 @@ function renderWsRightInspectorHtml() {
   const meta = sec ? (SEC_META[sec.type] || { label: sec.type }) : null;
   return `
     <div class="p-4 space-y-4">
-      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+      <div id="ws-inspector-drag-header" class="flex items-center justify-between border-b border-slate-800 pb-3 cursor-grab select-none">
         <div>
           <h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Property Inspector</h3>
           <p class="text-[11px] text-indigo-400 font-bold">${meta ? esc(meta.label) : 'Select Element'}</p>
@@ -1202,10 +1208,10 @@ function renderLiveBuilder(body) {
 
   body.innerHTML = `
     <!-- Top Visual Workspace Action Bar -->
-    <div class="flex items-center justify-between gap-3 py-2 px-3 bg-slate-900 border border-slate-800 rounded-xl mt-3 mb-3 z-10 flex-wrap">
+    <div class="flex items-center justify-between gap-3 py-2 px-3 bg-slate-900 border border-slate-800 rounded-xl mt-3 mb-3 z-20 flex-wrap">
       <div class="flex items-center gap-2">
         <span class="text-xs font-bold text-slate-400">Editing Page:</span>
-        <select onchange="wsSetTarget(this.value)" class="text-xs font-bold bg-slate-950 text-white border border-slate-800 rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500">
+        <select onchange="wsSetTarget(this.value)" class="text-xs font-bold bg-slate-950 text-white border border-slate-800 rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer">
           <option value="home" ${__wsTarget === 'home' ? 'selected' : ''}>Home Page</option>
           ${(__sitePages || []).map((p, i) => `<option value="${i}" ${__wsTarget === i ? 'selected' : ''}>${esc(p.title || 'Untitled Page')}</option>`).join('')}
         </select>
@@ -1213,49 +1219,72 @@ function renderLiveBuilder(body) {
 
       <!-- Device Viewport Switcher -->
       <div class="flex items-center bg-slate-950 rounded-lg p-1 border border-slate-800">
-        <button onclick="setWsDeviceView('desktop')" data-view="desktop" class="ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'desktop' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}">Desktop</button>
-        <button onclick="setWsDeviceView('tablet')" data-view="tablet" class="ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'tablet' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}">Tablet</button>
-        <button onclick="setWsDeviceView('mobile')" data-view="mobile" class="ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'mobile' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}">Mobile</button>
+        <button onclick="setWsDeviceView('desktop')" data-view="desktop" class="ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'desktop' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'} cursor-pointer">Desktop</button>
+        <button onclick="setWsDeviceView('tablet')" data-view="tablet" class="ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'tablet' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'} cursor-pointer">Tablet</button>
+        <button onclick="setWsDeviceView('mobile')" data-view="mobile" class="ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'mobile' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'} cursor-pointer">Mobile</button>
       </div>
 
       <div class="flex items-center gap-2">
         <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">SAVED</span>
         <a href="${SITE_BASE}?d=${encodeURIComponent(slug)}" target="_blank" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition">Preview ↗</a>
-        <button onclick="saveWebsite(this)" class="px-4 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md transition">Publish Site</button>
+        <button onclick="saveWebsite(this)" class="px-4 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md transition cursor-pointer">Publish Site</button>
       </div>
     </div>
 
-    <!-- Main Visual Studio Grid (70-80% Canvas + Rail + Inspector) -->
-    <div class="flex gap-3 items-start overflow-hidden relative">
-      <!-- Left Tool Rail -->
-      <nav class="w-14 bg-slate-950 border border-slate-800 rounded-2xl flex flex-col items-center py-3 gap-2.5 shrink-0 z-10">
-        <button onclick="setWsLeftNav('layers')" data-tab="layers" class="ws-nav-rail-btn w-10 h-10 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'layers' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'}">Tree</button>
-        <button onclick="setWsLeftNav('blocks')" data-tab="blocks" class="ws-nav-rail-btn w-10 h-10 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'blocks' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'}">+Add</button>
-        <button onclick="setWsLeftNav('pages')" data-tab="pages" class="ws-nav-rail-btn w-10 h-10 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'pages' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'}">Pages</button>
-        <button onclick="setWsLeftNav('design')" data-tab="design" class="ws-nav-rail-btn w-10 h-10 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'design' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'}">Style</button>
-        <button onclick="setWsLeftNav('ai')" data-tab="ai" class="ws-nav-rail-btn w-10 h-10 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'ai' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'}">AI</button>
-      </nav>
-
-      <!-- Left Drawer Drawer -->
-      <aside id="ws-left-drawer-content" class="w-80 bg-slate-900 border border-slate-800 rounded-2xl shrink-0 overflow-y-auto max-h-[78vh] z-10">
-        ${renderWsLeftDrawerHtml()}
-      </aside>
-
-      <!-- Center Live Web Canvas (70-80% Available Width) -->
-      <main class="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-4 overflow-auto flex items-center justify-center min-h-[78vh] relative">
-        <div id="ws-frame-wrapper" class="w-full h-[78vh] rounded-xl border border-slate-800 bg-white shadow-2xl transition-all duration-300 overflow-hidden">
+    <!-- Main Full-Screen Visual Workspace with Floating Collapsible Panels -->
+    <div class="relative w-full min-h-[82vh] rounded-2xl bg-slate-950 border border-slate-800 overflow-hidden">
+      
+      <!-- Center Full-Screen Live Web Canvas (Takes 100% width on Desktop) -->
+      <main class="w-full h-full flex items-center justify-center p-0 overflow-auto relative z-0">
+        <div id="ws-frame-wrapper" class="${__wsActiveDeviceView === 'mobile' ? 'w-[375px]' : (__wsActiveDeviceView === 'tablet' ? 'w-[768px]' : 'w-full')} h-[82vh] ${__wsActiveDeviceView === 'desktop' ? 'rounded-xl border border-slate-800' : 'rounded-3xl border-4 border-slate-700'} bg-white shadow-2xl transition-all duration-300 overflow-hidden relative z-0">
           <iframe id="ws-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1" class="w-full h-full border-0" title="Live Website Canvas"></iframe>
         </div>
       </main>
 
-      <!-- Right Contextual Property Inspector -->
-      <aside id="ws-inspector-panel" class="w-80 bg-slate-900 border border-slate-800 rounded-2xl shrink-0 overflow-y-auto max-h-[78vh] z-10">
-        ${renderWsRightInspectorHtml()}
-      </aside>
+      <!-- Left Floating Dock (Nav Rail + Drawer) -->
+      <div id="ws-left-dock-wrapper" class="absolute left-3 top-3 z-30 flex items-start gap-2 max-h-[78vh]">
+        <!-- Nav Rail -->
+        <nav class="w-12 bg-slate-950/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl flex flex-col items-center py-2.5 gap-2 shrink-0 shadow-2xl">
+          <button onclick="setWsLeftNav('layers')" data-tab="layers" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'layers' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'} cursor-pointer" title="Layers Tree">Tree</button>
+          <button onclick="setWsLeftNav('blocks')" data-tab="blocks" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'blocks' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'} cursor-pointer" title="Add Blocks">+Add</button>
+          <button onclick="setWsLeftNav('pages')" data-tab="pages" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'pages' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'} cursor-pointer" title="Manage Pages">Pages</button>
+          <button onclick="setWsLeftNav('design')" data-tab="design" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'design' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'} cursor-pointer" title="Global Styling">Style</button>
+          <button onclick="setWsLeftNav('ai')" data-tab="ai" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'ai' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'} cursor-pointer" title="AI Copilot">AI</button>
+          <button id="ws-left-collapse-btn" onclick="toggleWsLeftDock()" class="w-9 h-9 mt-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white text-xs font-black transition flex items-center justify-center border border-slate-800 cursor-pointer" title="Toggle Sidebar Collapse">&lt;</button>
+        </nav>
+
+        <!-- Floating Drawer Content -->
+        <aside id="ws-left-drawer-content" class="w-80 bg-slate-950/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl overflow-y-auto max-h-[78vh] shadow-2xl ${__wsLeftDockCollapsed ? 'hidden' : ''}">
+          ${renderWsLeftDrawerHtml()}
+        </aside>
+      </div>
+
+      <!-- Right Floating Property Inspector Dock -->
+      <div id="ws-right-dock-wrapper" class="absolute right-3 top-3 z-30 flex flex-col items-end gap-2 max-h-[78vh]">
+        <div class="flex items-center gap-2">
+          <button id="ws-right-collapse-btn" onclick="toggleWsRightDock()" class="px-3 py-1.5 rounded-xl bg-slate-950/90 backdrop-blur-xl border border-slate-800/80 text-xs font-black text-slate-300 hover:text-white hover:bg-slate-900 transition shadow-xl cursor-pointer" title="Toggle Property Inspector">
+            ${__wsRightDockCollapsed ? 'Inspector &laquo;' : 'Inspector &raquo;'}
+          </button>
+        </div>
+        <aside id="ws-inspector-panel" class="w-80 bg-slate-950/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl overflow-y-auto max-h-[74vh] shadow-2xl ${__wsRightDockCollapsed ? 'hidden' : ''}">
+          ${renderWsRightInspectorHtml()}
+        </aside>
+      </div>
+
     </div>
   `;
 
   renderWsLayersTree();
+
+  setTimeout(() => {
+    const leftWrap = document.getElementById('ws-left-dock-wrapper');
+    const leftHeader = document.getElementById('ws-left-drawer-content');
+    if (leftHeader && leftWrap) makeWsPanelDraggable(leftHeader, leftWrap);
+
+    const rightWrap = document.getElementById('ws-right-dock-wrapper');
+    const rightHeader = document.getElementById('ws-inspector-drag-header');
+    if (rightHeader && rightWrap) makeWsPanelDraggable(rightHeader, rightWrap);
+  }, 100);
 }
 function renderWsBody() {
   const body = document.getElementById('ws-body'); if (!body) return;
@@ -1423,6 +1452,107 @@ const WS_FONTS = ['Inter', 'Poppins', 'Montserrat', 'Oswald', 'Bebas Neue', 'Ant
 function wsApplyPalette(p, s, a) { const g = id => document.getElementById(id); if (g('ws-c1')) g('ws-c1').value = p; if (g('ws-c2')) g('ws-c2').value = s; if (g('ws-c3')) g('ws-c3').value = a; showToast('Palette applied — Save to publish', 'info'); }
 function wsSetTheme(id) { __siteCfg.content = __siteCfg.content || {}; __siteCfg.content.theme = id; renderWsBody(); showToast('Theme selected — Save to publish', 'info'); }
 window.wsSetTheme = wsSetTheme;
+function openTemplatePicker() {
+  const templates = [
+    {
+      id: 'luxury',
+      name: 'Premier Luxury Dealership',
+      desc: 'Playfair Display serif hierarchy, obsidian & gold accents, pill buttons, 110px padding, glassmorphic cards.',
+      preset: 'luxury',
+      primary: '#0f172a', secondary: '#1e293b', accent: '#d97706', heading_font: 'Playfair Display', body_font: 'Inter'
+    },
+    {
+      id: 'modern',
+      name: 'Modern Omnichannel Showroom',
+      desc: 'Outfit & Inter typography, indigo/slate gradients, rounded-2xl cards, glowing primary buttons.',
+      preset: 'modern',
+      primary: '#1e3a8a', secondary: '#0f172a', accent: '#4f46e5', heading_font: 'Outfit', body_font: 'Inter'
+    },
+    {
+      id: 'bold',
+      name: 'Bold High-Volume Truck & SUV Hub',
+      desc: 'Oswald uppercase headlines, crimson & charcoal theme, sharp corners, dominant conversion CTAs.',
+      preset: 'bold',
+      primary: '#991b1b', secondary: '#0f172a', accent: '#dc2626', heading_font: 'Oswald', body_font: 'Inter'
+    },
+    {
+      id: 'minimal',
+      name: 'Minimalist Certified Pre-Owned',
+      desc: 'Monochrome precision grid, generous white space, subtle border lines, ultra-clean typography.',
+      preset: 'minimal',
+      primary: '#0f172a', secondary: '#334155', accent: '#2563eb', heading_font: 'Inter', body_font: 'Inter'
+    },
+    {
+      id: 'performance',
+      name: 'High-Performance Motorsport & EV',
+      desc: 'Syne bold italic font, carbon dark styling, neon cyan/amber accents, high-velocity conversion CTAs.',
+      preset: 'performance',
+      primary: '#0284c7', secondary: '#0f172a', accent: '#06b6d4', heading_font: 'Syne', body_font: 'Space Grotesk'
+    }
+  ];
+
+  const modalHtml = `
+    <div class="p-6 space-y-4 max-w-3xl">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-black text-slate-900 dark:text-white">Choose Complete Homepage Template</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Select an art-directed layout template — instantly configures typography, hero height, spacing, card styles, and section hierarchy.</p>
+        </div>
+        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4 pt-2">
+        ${templates.map(t => `
+          <button onclick="applyCompleteTemplate('${t.id}')" class="group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-lg hover:shadow-2xl transition duration-200 space-y-3 cursor-pointer">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900">${t.preset}</span>
+              <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition">Apply Template →</span>
+            </div>
+            <h3 class="text-base font-black text-slate-900 dark:text-white">${t.name}</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">${t.desc}</p>
+            <div class="flex items-center gap-1.5 pt-1">
+              <span class="w-4 h-4 rounded-full border border-slate-300" style="background:${t.primary}"></span>
+              <span class="w-4 h-4 rounded-full border border-slate-300" style="background:${t.secondary}"></span>
+              <span class="w-4 h-4 rounded-full border border-slate-300" style="background:${t.accent}"></span>
+              <span class="text-[10px] font-mono text-slate-400 ml-2">${t.heading_font} / ${t.body_font}</span>
+            </div>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  crmOverlay(modalHtml, 'max-w-3xl');
+}
+
+function applyCompleteTemplate(templateId) {
+  const c = __siteCfg.content || (__siteCfg.content = {});
+  const ctx = { name: c.name || ctxName(), city: c.city || '' };
+
+  const configs = {
+    luxury: { primary_color: '#0f172a', secondary_color: '#1e293b', accent_color: '#d97706', typography: 'luxury', heading_font: 'Playfair Display', body_font: 'Inter', preset: 'luxury' },
+    modern: { primary_color: '#1e3a8a', secondary_color: '#0f172a', accent_color: '#4f46e5', typography: 'modern', heading_font: 'Outfit', body_font: 'Inter', preset: 'modern' },
+    bold: { primary_color: '#991b1b', secondary_color: '#0f172a', accent_color: '#dc2626', typography: 'bold', heading_font: 'Oswald', body_font: 'Inter', preset: 'bold' },
+    minimal: { primary_color: '#0f172a', secondary_color: '#334155', accent_color: '#2563eb', typography: 'minimal', heading_font: 'Inter', body_font: 'Inter', preset: 'minimal' },
+    performance: { primary_color: '#0284c7', secondary_color: '#0f172a', accent_color: '#06b6d4', typography: 'modern', heading_font: 'Syne', body_font: 'Space Grotesk', preset: 'performance' }
+  };
+
+  const selConfig = configs[templateId] || configs.modern;
+  Object.assign(c, selConfig);
+
+  __homeSections = templateHome(ctx);
+  __siteSections = __homeSections;
+
+  document.querySelector('.fixed')?.remove();
+  renderWsBody();
+  showToast(`Applied ${templateId.toUpperCase()} Template! Click "Save" or "Publish" to set live.`, 'success');
+}
+
+window.openTemplatePicker = openTemplatePicker;
+window.applyCompleteTemplate = applyCompleteTemplate;
+
 function wsFontOpts(sel) { return `<option value="">— Use preset —</option>` + WS_FONTS.map(f => `<option value="${f}" ${sel === f ? 'selected' : ''}>${f}</option>`).join(''); }
 function wsDesign() {
   const c = __siteCfg.content || {};
@@ -1916,7 +2046,7 @@ async function wsRunScan(btn) {
 }
 window.wsRunScan = wsRunScan;
 
-Object.assign(window, { loadWebsitePage, wsTab, wsSetTarget, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto, collectMenu, renderMenuList, menuMove, menuIndent, wsCustomizeById, removeSitePageById, addSitePagePreset, wsApplyPalette, openWebsiteScannerModal, wsRunScan });
+Object.assign(window, { loadWebsitePage, wsTab, wsSetTarget, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto, collectMenu, renderMenuList, menuMove, menuIndent, wsCustomizeById, removeSitePageById, addSitePagePreset, wsApplyPalette, openWebsiteScannerModal, wsRunScan, toggleWsLeftDock, toggleWsRightDock, makeWsPanelDraggable });
 
 // ══ Website builder — Blog / News (per-dealer, RLS-scoped) ═════════════════════
 let __dealerBlog = [];

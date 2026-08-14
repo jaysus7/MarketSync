@@ -27,6 +27,160 @@ function dealerRoleLanding(role) {
 }
 window.dealerRoleLanding = dealerRoleLanding;
 
+// ── Header Real-Time & Shift Attendance Clock Engine ───────────────────────
+let __shiftState = (() => {
+  try { return JSON.parse(localStorage.getItem('ms_shift_state')) || { active: false, startTime: null, breakStart: null, totalBreakMs: 0 }; }
+  catch { return { active: false, startTime: null, breakStart: null, totalBreakMs: 0 }; }
+})();
+
+function saveShiftState() {
+  try { localStorage.setItem('ms_shift_state', JSON.stringify(__shiftState)); } catch {}
+}
+
+function fmtHHMMSS(ms) {
+  if (!ms || ms < 0) ms = 0;
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
+}
+
+function initHeaderClock() {
+  const updateClocks = () => {
+    // 1. Update Real-Time Clock
+    const dateEl = document.getElementById('header-clock-date');
+    const timeEl = document.getElementById('header-clock-time');
+    const now = new Date();
+    if (dateEl) dateEl.textContent = now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+    if (timeEl) timeEl.textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+
+    // 2. Update Shift Attendance Clock
+    const timerDisplay = document.getElementById('header-shift-timer-display');
+    const statusDot = document.getElementById('header-shift-status-dot');
+    const chipBtn = document.getElementById('header-shift-clock-chip');
+    const badge = document.getElementById('shift-dropdown-status-badge');
+    const durEl = document.getElementById('shift-dropdown-duration');
+    const startEl = document.getElementById('shift-dropdown-start-time');
+    const breakEl = document.getElementById('shift-dropdown-break-time');
+
+    if (__shiftState.active) {
+      const nowMs = Date.now();
+      let currentBreak = __shiftState.totalBreakMs || 0;
+      if (__shiftState.breakStart) {
+        currentBreak += (nowMs - __shiftState.breakStart);
+      }
+      const elapsed = nowMs - __shiftState.startTime - currentBreak;
+      const formatted = fmtHHMMSS(elapsed);
+
+      if (timerDisplay) timerDisplay.textContent = `Shift: ${formatted}`;
+      if (durEl) durEl.textContent = formatted;
+      if (startEl && __shiftState.startTime) startEl.textContent = new Date(__shiftState.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      if (breakEl) breakEl.textContent = fmtHHMMSS(currentBreak);
+
+      if (__shiftState.breakStart) {
+        if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
+        if (badge) { badge.textContent = 'On Break'; badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-700'; }
+        if (chipBtn) chipBtn.className = 'inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-black transition border shadow-sm cursor-pointer whitespace-nowrap bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20';
+      } else {
+        if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+        if (badge) { badge.textContent = 'Clocked In'; badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-700'; }
+        if (chipBtn) chipBtn.className = 'inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-black transition border shadow-sm cursor-pointer whitespace-nowrap bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20';
+      }
+    } else {
+      if (timerDisplay) timerDisplay.textContent = 'Clock In';
+      if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-slate-400';
+      if (badge) { badge.textContent = 'Clocked Out'; badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-600'; }
+      if (durEl) durEl.textContent = '00:00:00';
+      if (startEl) startEl.textContent = '--:--';
+      if (breakEl) breakEl.textContent = '00:00:00';
+      if (chipBtn) chipBtn.className = 'inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-black transition border shadow-sm cursor-pointer whitespace-nowrap bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700';
+    }
+    renderShiftDropdownActions();
+  };
+
+  updateClocks();
+  setInterval(updateClocks, 1000);
+}
+
+function toggleShiftDropdown(e) {
+  if (e) e.stopPropagation();
+  const dropdown = document.getElementById('header-shift-dropdown');
+  if (dropdown) dropdown.classList.toggle('hidden');
+}
+
+function renderShiftDropdownActions() {
+  const container = document.getElementById('shift-dropdown-actions');
+  if (!container) return;
+  if (!__shiftState.active) {
+    container.innerHTML = `
+      <button onclick="shiftClockIn()" class="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition shadow-md cursor-pointer">Clock In Now</button>
+    `;
+  } else if (__shiftState.breakStart) {
+    container.innerHTML = `
+      <button onclick="shiftEndBreak()" class="w-full py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black text-xs transition shadow-md cursor-pointer">End Break</button>
+      <button onclick="shiftClockOut()" class="w-full py-1.5 rounded-xl bg-rose-600/20 text-rose-400 hover:bg-rose-600/30 border border-rose-500/30 font-bold text-xs transition cursor-pointer">End Shift</button>
+    `;
+  } else {
+    container.innerHTML = `
+      <button onclick="shiftStartBreak()" class="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition border border-slate-700 cursor-pointer">Take Break</button>
+      <button onclick="shiftClockOut()" class="w-full py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs transition shadow-md cursor-pointer">Clock Out &amp; End Shift</button>
+    `;
+  }
+}
+
+function shiftClockIn() {
+  __shiftState = { active: true, startTime: Date.now(), breakStart: null, totalBreakMs: 0 };
+  saveShiftState();
+  if (typeof showToast === 'function') showToast('Clocked in successfully!', 'success');
+}
+
+function shiftStartBreak() {
+  if (!__shiftState.active) return;
+  __shiftState.breakStart = Date.now();
+  saveShiftState();
+  if (typeof showToast === 'function') showToast('Break started.', 'info');
+}
+
+function shiftEndBreak() {
+  if (!__shiftState.active || !__shiftState.breakStart) return;
+  __shiftState.totalBreakMs += (Date.now() - __shiftState.breakStart);
+  __shiftState.breakStart = null;
+  saveShiftState();
+  if (typeof showToast === 'function') showToast('Returned from break.', 'success');
+}
+
+function shiftClockOut() {
+  if (__shiftState.breakStart) {
+    __shiftState.totalBreakMs += (Date.now() - __shiftState.breakStart);
+  }
+  const totalDurationMs = Date.now() - __shiftState.startTime - __shiftState.totalBreakMs;
+  const formatted = fmtHHMMSS(totalDurationMs);
+  __shiftState = { active: false, startTime: null, breakStart: null, totalBreakMs: 0 };
+  saveShiftState();
+  if (typeof showToast === 'function') showToast('Clocked out. Total shift: ' + formatted, 'info');
+}
+
+document.addEventListener('click', (e) => {
+  const wrapper = document.getElementById('header-shift-clock-wrapper');
+  const dropdown = document.getElementById('header-shift-dropdown');
+  if (wrapper && dropdown && !wrapper.contains(e.target)) {
+    dropdown.classList.add('hidden');
+  }
+});
+
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initHeaderClock);
+  } else {
+    setTimeout(initHeaderClock, 0);
+  }
+}
+
+Object.assign(window, {
+  initHeaderClock, toggleShiftDropdown, shiftClockIn, shiftClockOut, shiftStartBreak, shiftEndBreak,
+});
+
 // ── Setup, in one line at the foot of the shell ──────────────────────────────
 // It shows a count, it opens a modal, and it removes itself the moment the dealership
 // is fully configured. It does not appear inside a department, it does not block

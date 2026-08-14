@@ -409,6 +409,12 @@ function aiSetReplyChannel(ch) {
 }
 window.aiSetReplyChannel = aiSetReplyChannel;
 
+function aiSetReplyAs(who, ch) {
+  if (who) aiSetReplySender(who);
+  if (ch) aiSetReplyChannel(ch);
+}
+window.aiSetReplyAs = aiSetReplyAs;
+
 async function aiOpenConversation(id) {
   const overlay = crmOverlay(`<div class="p-5"><div class="text-sm text-slate-400 py-16 text-center">Loading…</div></div>`, 'max-w-2xl');
   const panel = overlay.firstElementChild;
@@ -631,7 +637,7 @@ function aiCheckConvoHash() {
   if (m && typeof aiOpenConversation === 'function') aiOpenConversation(m[1]);
 }
 window.addEventListener('hashchange', aiCheckConvoHash);
-Object.assign(window, { loadAiInbox, aiCopyEmbed, aiOpenConversation, aiSetConvStatus, aiSummarize, aiSendReply, aiSetReplyAs, aiDraftReply, aiRefreshConvo, aiPrintConversation, aiShareConversation });
+Object.assign(window, { loadAiInbox, aiCopyEmbed, aiOpenConversation, aiSetConvStatus, aiSummarize, aiSendReply, aiSetReplySender, aiSetReplyChannel, aiSetReplyAs, aiDraftReply, aiRefreshConvo, aiPrintConversation, aiShareConversation });
 
 // Budget — a monthly spending target per expense category, tracked against actual spend.
 async function acctLoadBudget() {

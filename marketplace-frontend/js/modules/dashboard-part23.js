@@ -651,7 +651,7 @@ function apprPrintWindow(title, inner) {
       <button class="btn" style="background:#e2e8f0;color:#0f172a" onclick="window.close()">Close</button>
     </div>
     ${inner}
-    <div style="margin-top:24px;text-align:center;font-size:10px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:8px">Powered by Market<span style="color:#6366f1;font-weight:700">Sync</span></div>
+    <div style="margin-top:24px;text-align:center;font-size:10px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:8px">Powered by <a href="https://marketsync.io" target="_blank" style="color:#6366f1;font-weight:700;text-decoration:none">MarketSync</a></div>
   </body></html>`;
   const w = window.open('', '_blank');
   if (!w) { showToast('Allow pop-ups to open the PDF view', 'error'); return; }

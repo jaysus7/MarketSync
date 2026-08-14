@@ -109,30 +109,49 @@ async function apiRevokeKey(id) {
 }
 Object.assign(window, { loadApiKeys, apiGenerateKey, apiRevokeKey });
 
-// ══ AI Employee — AI Chatbot product home (stats · conversations · KB · settings) ══
-let __aiHomeTab = 'overview';
+// ══ AI Employee — AI Chatbot product home (conversations feed + knowledge & setup) ══
+let __aiHomeTab = 'conversations';
 async function loadAiHome(tab) {
   const root = document.getElementById('ai-home-root');
   if (!root) return;
   root.className = 'space-y-6 sm:space-y-8';
   if (tab) __aiHomeTab = tab;
   const t = __aiHomeTab;
-  const tabBtn = (key, label) => `<button onclick="loadAiHome('${key}')" class="px-3 py-1.5 rounded-lg text-[13px] font-bold transition ${t === key ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${esc(label)}</button>`;
-  const standalone = isAiChatbotOnlyWorkspace();
+  const activeTab = (t === 'setup' || t === 'knowledge' || t === 'settings') ? 'setup' : 'conversations';
+  const tabBtn = (key, label) => `<button onclick="loadAiHome('${key}')" class="px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${activeTab === key ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${esc(label)}</button>`;
+  
   root.innerHTML = `
     <div class="flex items-center justify-between flex-wrap gap-2">
-      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">MarketSync AI Employee Platform</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400">Configurable general business AI employee platform — industry packages, capability tools, role personas, goals &amp; knowledge base.</p></div>
+      <div>
+        <h1 class="text-2xl font-black text-slate-900 dark:text-white">MarketSync AI Employee Platform</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Configurable general business AI employee platform — industry packages, capability tools, role personas, goals &amp; knowledge base.</p>
+      </div>
     </div>
-    <div class="flex flex-wrap gap-2">${tabBtn('overview', 'Overview')}${tabBtn('conversations', 'AI Leads & Chats')}${tabBtn('knowledge', 'Knowledge & Industry')}${tabBtn('settings', 'Capabilities & Setup')}</div>
+    <div class="flex flex-wrap gap-2">
+      ${tabBtn('conversations', 'AI Leads & Chats')}
+      ${tabBtn('setup', 'AI Knowledge & Setup')}
+    </div>
     <div id="ai-home-body"><div class="text-sm text-slate-400 py-10 text-center">Loading…</div></div>`;
   const body = document.getElementById('ai-home-body');
   try {
-    if (t === 'knowledge') return aiHomeKnowledge(body);
-    if (t === 'settings') return aiHomeSettings(body);
-    return aiHomeOverview(body, t);   // overview + conversations share the data fetch
+    if (activeTab === 'setup') return aiHomeCombinedSetup(body);
+    return aiHomeOverviewAndFeed(body);
   } catch (e) { body.innerHTML = `<div class="text-rose-500 text-sm p-6">${esc(e.message)}</div>`; }
 }
+
+async function aiHomeCombinedSetup(body) {
+  body.innerHTML = `
+    <div class="space-y-8 max-w-4xl">
+      <div id="ai-setup-kb-wrapper"></div>
+      <div id="ai-setup-settings-wrapper" class="pt-6 border-t border-slate-200 dark:border-slate-800"></div>
+    </div>
+  `;
+  const kbW = document.getElementById('ai-setup-kb-wrapper');
+  const setW = document.getElementById('ai-setup-settings-wrapper');
+  if (kbW) await aiHomeKnowledge(kbW);
+  if (setW) await aiHomeSettings(setW);
+}
+
 // Human labels for the categorization taxonomy (matches ai-runtime.categorizeText).
 const AI_DEPT_LABELS = { sales: 'Sales', service: 'Service', parts: 'Parts', general: 'General' };
 const AI_TYPE_LABELS = {
@@ -147,15 +166,20 @@ const AI_DEPT_TONE = {
 };
 let __aiFeed = { department: '', type: '', flag: '', status: '' };
 
-async function aiHomeOverview(body, tab) {
-  if (tab === 'conversations') return aiHomeFeed(body);
+async function aiHomeOverviewAndFeed(body) {
   const d = await apiGetJson('/ai/home');
   const s = d.stats || {};
   const chatbot = d.chatbot || {};
   const byDept = d.by_department || {};
   const byType = d.by_type || {};
-  const tile = (label, val, accent) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-4"><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div><div class="text-3xl font-black mt-1 ${accent || 'text-slate-800 dark:text-slate-100'}">${(val ?? 0).toLocaleString()}</div></div>`;
-  // Insight tiles — what the chatbot did.
+
+  const tile = (label, val, accent) => `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-4">
+      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div>
+      <div class="text-3xl font-black mt-1 ${accent || 'text-slate-800 dark:text-slate-100'}">${(val ?? 0).toLocaleString()}</div>
+    </div>
+  `;
+
   const insights = `
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
       ${tile('Conversations', s.conversations, 'text-emerald-600 dark:text-emerald-400')}
@@ -168,40 +192,72 @@ async function aiHomeOverview(body, tab) {
       ${tile('Service', byDept.service, 'text-sky-600 dark:text-sky-400')}
       ${tile('Parts', byDept.parts, 'text-amber-600 dark:text-amber-400')}
       ${tile('Asked for a Rep', s.asked_for_rep, 'text-indigo-600 dark:text-indigo-400')}
-    </div>`;
-  // Breakdown bars.
+    </div>
+  `;
+
   const breakdown = (title, obj, labels, tone) => {
     const entries = Object.entries(obj || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
     const max = Math.max(1, ...entries.map(([, v]) => v));
     if (!entries.length) return '';
-    return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
-      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2.5">${esc(title)}</div>
-      <div class="space-y-2">${entries.map(([k, v]) => `
-        <div class="flex items-center gap-2">
-          <span class="w-28 flex-shrink-0 text-[12px] font-semibold text-slate-600 dark:text-slate-300 truncate">${esc((labels && labels[k]) || k)}</span>
-          <div class="flex-1 h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div class="h-full ${tone}" style="width:${Math.round(v / max * 100)}%"></div></div>
-          <span class="w-8 flex-shrink-0 text-right text-[12px] font-black text-slate-700 dark:text-slate-200">${v}</span>
-        </div>`).join('')}</div>
-    </div>`;
+    return `
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+        <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2.5">${esc(title)}</div>
+        <div class="space-y-2">
+          ${entries.map(([k, v]) => `
+            <div class="flex items-center gap-2">
+              <span class="w-28 flex-shrink-0 text-[12px] font-semibold text-slate-600 dark:text-slate-300 truncate">${esc((labels && labels[k]) || k)}</span>
+              <div class="flex-1 h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                <div class="h-full ${tone}" style="width:${Math.round(v / max * 100)}%"></div>
+              </div>
+              <span class="w-8 flex-shrink-0 text-right text-[12px] font-black text-slate-700 dark:text-slate-200">${v}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
   };
-  const conv = (d.recent || []).map(aiFeedRow).join('')
-    || '<div class="text-sm text-slate-400 py-6 text-center">No conversations yet — add the chatbot to your site (Settings).</div>';
+
+  const opt = (val, label, cur) => `<option value="${esc(val)}"${cur === val ? ' selected' : ''}>${esc(label)}</option>`;
+  const deptOpts = ['', ...Object.keys(AI_DEPT_LABELS)].map(v => opt(v, v ? AI_DEPT_LABELS[v] : 'All departments', __aiFeed.department)).join('');
+  const typeOpts = ['', ...Object.keys(AI_TYPE_LABELS)].map(v => opt(v, v ? AI_TYPE_LABELS[v] : 'All lead types', __aiFeed.type)).join('');
+  const flagOpts = [['', 'All conversations'], ['booked', 'Booked appointments'], ['captured', 'Leads captured'], ['asked_manager', 'Asked for a manager']].map(([v, l]) => opt(v, l, __aiFeed.flag)).join('');
+  const statusOpts = [['', 'Any chat status'], ['handoff', 'Needs a reply'], ['active', 'AI is handling'], ['closed', 'Closed chats']].map(([v, l]) => opt(v, l, __aiFeed.status || '')).join('');
+  const sel = 'px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px] font-semibold';
+
   body.innerHTML = `
     <div class="mb-4 flex items-center gap-2 rounded-xl border ${chatbot.active ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30' : 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30'} px-4 py-3">
       <span class="w-2.5 h-2.5 rounded-full ${chatbot.active ? 'bg-emerald-500' : 'bg-amber-500'}"></span>
       <span class="text-sm font-bold text-slate-800 dark:text-slate-100">${chatbot.active ? 'Chatbot is live' : 'Chatbot is not live'}</span>
-      <span class="text-xs text-slate-500 dark:text-slate-400">${chatbot.assistant_name ? '· ' + esc(chatbot.assistant_name) : '· Set your assistant name in Settings'}</span>
+      <span class="text-xs text-slate-500 dark:text-slate-400">${chatbot.assistant_name ? '· ' + esc(chatbot.assistant_name) : '· Set your assistant name in Setup'}</span>
     </div>
+
     ${insights}
-    <div class="grid md:grid-cols-2 gap-3 mb-4">
+
+    <div class="grid md:grid-cols-2 gap-3 mb-6">
       ${breakdown('By department', byDept, AI_DEPT_LABELS, 'bg-emerald-500')}
       ${breakdown('By lead type', byType, AI_TYPE_LABELS, 'bg-indigo-500')}
     </div>
-    <div class="flex items-center justify-between mb-2 gap-3">
-      <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">Recent AI leads & chats</div><div class="text-[11px] text-slate-400 mt-0.5">Open a chat to see the complete AI transcript and reply to the visitor.</div></div>
-      <button onclick="loadAiHome('conversations')" class="text-[12px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline">View all + filters →</button>
+
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4">
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 class="text-base font-black text-slate-900 dark:text-white uppercase tracking-wider">AI Leads &amp; Conversations</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Filter conversations or open any thread to take over live or send multi-channel replies.</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        <select id="ai-feed-dept" onchange="aiFeedApply()" class="${sel}">${deptOpts}</select>
+        <select id="ai-feed-type" onchange="aiFeedApply()" class="${sel}">${typeOpts}</select>
+        <select id="ai-feed-flag" onchange="aiFeedApply()" class="${sel}">${flagOpts}</select>
+        <select id="ai-feed-status" onchange="aiFeedApply()" class="${sel}">${statusOpts}</select>
+      </div>
+
+      <div id="ai-feed-list"><div class="text-sm text-slate-400 py-6 text-center">Loading feed…</div></div>
     </div>
-    <div class="space-y-1.5">${conv}</div>`;
+  `;
+
+  await aiFeedLoad();
 }
 
 // One row in the categorized feed. Works with the raw ai_conversations shape
@@ -527,7 +583,7 @@ function aiAddKbSection() {
 
 function aiSelectIndustryTemplate(key) {
   __activeAiIndustry = key;
-  loadAiHome('knowledge');
+  loadAiHome('setup');
 }
 // Ready-to-use assistant personas (name + friendly illustrated headshot). The dealer
 // can pick one as a starting point or upload their own real photo.
