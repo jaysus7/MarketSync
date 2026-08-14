@@ -501,7 +501,7 @@ async function aiHomeKnowledge(body) {
 }
 
 async function aiRunWebsiteScan(btn) {
-  const input = document.getElementById('ai-scan-url-input');
+  const input = document.getElementById('ai-scan-url-input') || document.querySelector('input[type="url"]');
   const url = (input?.value || '').trim();
   if (!url) return showToast('Enter a website URL first', 'error');
 

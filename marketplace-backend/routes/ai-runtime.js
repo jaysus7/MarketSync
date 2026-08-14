@@ -900,8 +900,9 @@ export function registerAiRuntime(app) {
         await setConfig(req.dealershipId, 'website_scanned_template', extractedWebsiteData, { actorId: req.user.id })
         
         // Save to AI Knowledge Base
-        const currentKb = (await getConfig(req.dealershipId, 'ai_knowledge_base')).value || []
-        const updatedKb = Array.isArray(currentKb) ? [...currentKb] : []
+        const kbObj = await getConfig(req.dealershipId, 'ai_knowledge_base', []);
+        const currentKb = Array.isArray(kbObj) ? kbObj : (kbObj?.value || []);
+        const updatedKb = Array.isArray(currentKb) ? [...currentKb] : [];
         for (const item of extractedKnowledge) {
           if (!updatedKb.some(k => k.topic === item.topic)) {
             updatedKb.push({ topic: item.topic, detail: item.detail, id: 'kb_' + Math.random().toString(36).slice(2, 9) })

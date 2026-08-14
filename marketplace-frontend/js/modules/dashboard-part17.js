@@ -838,6 +838,7 @@ function wireLiveMessages() {
 let __wsPaletteCat = 'all';
 let __wsPaletteSearch = '';
 let __wsSelectedSecIdx = 0;
+let __wsInspectorTab = 'content';
 let __wsActiveDeviceView = 'desktop'; // 'desktop' (100%), 'tablet' (768px), 'mobile' (375px)
 let __wsActiveLeftNav = 'layers'; // 'layers', 'blocks', 'pages', 'design', 'ai'
 let __wsLeftDockCollapsed = false;
@@ -2134,34 +2135,209 @@ function dealerBlogModal(p) {
   document.getElementById('blog-modal')?.remove();
   const el = document.createElement('div'); el.id = 'blog-modal';
   el.className = 'fixed inset-0 z-[96] flex items-center justify-center p-4';
-  el.innerHTML = `<div data-close class="absolute inset-0 bg-slate-950/50"></div>
-    <div class="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 shadow-2xl p-5">
-      <div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">${p.id ? 'Edit post' : 'New post'}</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
-      <div class="space-y-3">
-        <div class="flex items-center gap-3">
-          <div id="bp-cover-prev" class="w-24 h-16 rounded-lg bg-slate-100 dark:bg-slate-800 bg-cover bg-center flex-shrink-0" style="${p.cover_image_url ? `background-image:url('${esc(p.cover_image_url)}')` : ''}"></div>
-          <div><label class="text-xs font-bold text-slate-500">Cover image</label>
-            <div><input type="file" accept="image/*" onchange="dealerBlogUploadCover(this.files[0])" class="text-xs mt-1"></div>
-            <input type="hidden" id="bp-cover" value="${esc(p.cover_image_url || '')}"></div>
+  el.innerHTML = `<div data-close class="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"></div>
+    <div class="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 shadow-2xl p-6 border border-slate-200 dark:border-slate-800 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div>
+          <div class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">${p.id ? 'Edit Blog Article' : 'New Blog Article'}</div>
+          <p class="text-xs text-slate-400">Design and publish SEO-optimized articles with Visual WYSIWYG editor &amp; AI writer.</p>
         </div>
-        <label class="block text-xs font-bold text-slate-500">Title<input id="bp-title" value="${esc(p.title || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-        <div class="grid grid-cols-2 gap-3">
-          <label class="block text-xs font-bold text-slate-500">URL slug (optional)<input id="bp-slug" value="${esc(p.slug || '')}" placeholder="auto from title" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-          <label class="block text-xs font-bold text-slate-500">Tags (comma-separated)<input id="bp-tags" value="${esc((p.tags || []).join(', '))}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-        </div>
-        <label class="block text-xs font-bold text-slate-500">Excerpt <span class="text-slate-400 font-normal">— short summary for cards + SEO</span><textarea id="bp-excerpt" rows="2" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${esc(p.excerpt || '')}</textarea></label>
-        <label class="block text-xs font-bold text-slate-500">Body <span class="text-slate-400 font-normal">— HTML allowed (headings, paragraphs, images, links)</span><textarea id="bp-body" rows="11" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-mono">${esc(p.content_html || '')}</textarea></label>
+        <button data-close class="text-2xl leading-none text-slate-400 hover:text-slate-200">×</button>
       </div>
-      <div class="mt-5 flex justify-between gap-2">
-        ${p.id ? `<button onclick="dealerBlogDelete('${p.id}')" class="px-3 py-2 text-sm font-bold text-rose-500">Delete</button>` : '<span></span>'}
-        <div class="flex gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
-          <button onclick="dealerBlogSave('${p.id || ''}','draft')" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold">Save draft</button>
-          <button onclick="dealerBlogSave('${p.id || ''}','published')" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold">${p.status === 'published' ? 'Update (published)' : 'Publish'}</button></div>
+
+      <div class="space-y-4">
+        <div class="flex items-center gap-4 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60">
+          <div id="bp-cover-prev" class="w-28 h-18 rounded-lg bg-slate-200 dark:bg-slate-800 bg-cover bg-center flex-shrink-0 border border-slate-300 dark:border-slate-700" style="${p.cover_image_url ? `background-image:url('${esc(p.cover_image_url)}')` : ''}"></div>
+          <div class="flex-1 min-w-0">
+            <label class="text-xs font-extrabold uppercase tracking-wider text-slate-500 block mb-1">Article Cover Image</label>
+            <input type="file" accept="image/*" onchange="dealerBlogUploadCover(this.files[0])" class="text-xs font-semibold text-slate-600 dark:text-slate-300">
+            <input type="hidden" id="bp-cover" value="${esc(p.cover_image_url || '')}">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1">Article Title</label>
+          <input id="bp-title" value="${esc(p.title || '')}" placeholder="e.g. 5 Essential Brake Maintenance Tips Before Summer" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1">URL Slug (Optional)</label>
+            <input id="bp-slug" value="${esc(p.slug || '')}" placeholder="auto-generated-from-title" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1">Tags (Comma-Separated)</label>
+            <input id="bp-tags" value="${esc((p.tags || []).join(', '))}" placeholder="Service, Brakes, Maintenance" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1">Article Excerpt <span class="text-slate-400 font-normal text-[11px]">— Summary for search engines &amp; cards</span></label>
+          <textarea id="bp-excerpt" rows="2" placeholder="Brief summary of the article..." class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">${esc(p.excerpt || '')}</textarea>
+        </div>
+
+        <!-- Visual Article Builder -->
+        <div class="space-y-1.5 pt-1">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <label class="text-xs font-extrabold uppercase tracking-wider text-slate-500">Visual Article Body &amp; Layout</label>
+            <div class="flex items-center gap-1.5 text-xs">
+              <button type="button" onclick="blogSwitchEditorMode('visual')" id="blog-tab-visual" class="px-3 py-1 rounded-lg font-black bg-indigo-600 text-white transition shadow-sm">🎨 Visual Editor</button>
+              <button type="button" onclick="blogSwitchEditorMode('preview')" id="blog-tab-preview" class="px-3 py-1 rounded-lg font-black bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition">👁️ Live Preview</button>
+              <button type="button" onclick="blogSwitchEditorMode('html')" id="blog-tab-html" class="px-3 py-1 rounded-lg font-black bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition">Code HTML</button>
+            </div>
+          </div>
+
+          <!-- WYSIWYG Visual Toolbar -->
+          <div id="blog-visual-toolbar" class="flex flex-wrap items-center gap-1 p-2 rounded-t-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs">
+            <button type="button" onclick="blogExecCmd('bold')" title="Bold" class="px-2.5 py-1 rounded-lg font-black hover:bg-slate-200 dark:hover:bg-slate-700 transition">B</button>
+            <button type="button" onclick="blogExecCmd('italic')" title="Italic" class="px-2.5 py-1 rounded-lg italic font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition">I</button>
+            <button type="button" onclick="blogExecCmd('formatBlock', '<h2>')" title="Heading 2" class="px-2.5 py-1 rounded-lg font-black text-indigo-600 dark:text-indigo-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition">H2</button>
+            <button type="button" onclick="blogExecCmd('formatBlock', '<h3>')" title="Heading 3" class="px-2.5 py-1 rounded-lg font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition">H3</button>
+            <button type="button" onclick="blogExecCmd('insertUnorderedList')" title="Bullet List" class="px-2.5 py-1 rounded-lg font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition">• List</button>
+            <button type="button" onclick="blogExecCmd('insertOrderedList')" title="Numbered List" class="px-2.5 py-1 rounded-lg font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition">1. List</button>
+            <button type="button" onclick="blogExecCmd('formatBlock', '<blockquote>')" title="Quote" class="px-2.5 py-1 rounded-lg italic hover:bg-slate-200 dark:hover:bg-slate-700 transition">“Quote”</button>
+            <button type="button" onclick="blogInsertImage()" title="Insert Image URL" class="px-2.5 py-1 rounded-lg font-bold text-emerald-600 dark:text-emerald-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition">📷 Image</button>
+            <button type="button" onclick="blogInsertCallout()" title="Add Highlight Box" class="px-2.5 py-1 rounded-lg font-bold text-amber-600 dark:text-amber-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition">💡 Callout Box</button>
+            
+            <div class="ml-auto">
+              <button type="button" onclick="blogAiGenerateArticle()" class="px-3 py-1 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs transition shadow-sm cursor-pointer">
+                ✨ Generate Article with AI
+              </button>
+            </div>
+          </div>
+
+          <!-- WYSIWYG Editable Surface -->
+          <div id="blog-visual-editor" contenteditable="true" class="w-full min-h-[240px] max-h-[360px] overflow-y-auto rounded-b-xl border-x border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 p-4 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 leading-relaxed space-y-2">
+            ${p.content_html || '<p>Write your blog article here...</p>'}
+          </div>
+
+          <!-- Raw HTML Input (hidden by default) -->
+          <textarea id="bp-body" rows="11" class="hidden w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">${esc(p.content_html || '')}</textarea>
+
+          <!-- Live Preview Container (hidden by default) -->
+          <div id="blog-live-preview" class="hidden p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 min-h-[240px] max-h-[360px] overflow-y-auto text-sm text-slate-900 dark:text-slate-100 leading-relaxed space-y-3">
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+        ${p.id ? `<button onclick="dealerBlogDelete('${p.id}')" class="px-4 py-2 text-xs font-black text-rose-600 dark:text-rose-400 hover:underline">Delete Article</button>` : '<span></span>'}
+        <div class="flex items-center gap-2">
+          <button data-close class="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white transition">Cancel</button>
+          <button onclick="dealerBlogSave('${p.id || ''}','draft')" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-black hover:bg-slate-200 dark:hover:bg-slate-700 transition">Save Draft</button>
+          <button onclick="dealerBlogSave('${p.id || ''}','published')" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black transition shadow-md">${p.status === 'published' ? 'Update &amp; Publish' : 'Publish Article'}</button>
+        </div>
       </div>
     </div>`;
   el.querySelectorAll('[data-close]').forEach(x => x.onclick = () => el.remove());
   document.body.appendChild(el);
 }
+
+window.blogExecCmd = function(cmd, value = null) {
+  document.execCommand(cmd, false, value);
+};
+
+window.blogInsertImage = function() {
+  const url = prompt('Enter Image URL (or paste image link):');
+  if (url) document.execCommand('insertImage', false, url);
+};
+
+window.blogInsertCallout = function() {
+  const text = prompt('Enter Callout tip text:');
+  if (text) {
+    const html = `<div style="padding: 12px 16px; margin: 12px 0; background: #eef2ff; border-left: 4px solid #4f46e5; border-radius: 8px; font-weight: 600; color: #1e1b4b;">💡 <strong>Pro Tip:</strong> ${esc(text)}</div>`;
+    document.execCommand('insertHTML', false, html);
+  }
+};
+
+window.blogSwitchEditorMode = function(mode) {
+  const visualEl = document.getElementById('blog-visual-editor');
+  const toolbarEl = document.getElementById('blog-visual-toolbar');
+  const rawEl = document.getElementById('bp-body');
+  const previewEl = document.getElementById('blog-live-preview');
+
+  const tabVisual = document.getElementById('blog-tab-visual');
+  const tabPreview = document.getElementById('blog-tab-preview');
+  const tabHtml = document.getElementById('blog-tab-html');
+
+  if (mode === 'visual') {
+    if (rawEl && visualEl && !rawEl.classList.contains('hidden')) visualEl.innerHTML = rawEl.value;
+    visualEl?.classList.remove('hidden');
+    toolbarEl?.classList.remove('hidden');
+    rawEl?.classList.add('hidden');
+    previewEl?.classList.add('hidden');
+
+    if (tabVisual) tabVisual.className = 'px-3 py-1 rounded-lg font-black bg-indigo-600 text-white transition shadow-sm';
+    if (tabPreview) tabPreview.className = 'px-3 py-1 rounded-lg font-black bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition';
+    if (tabHtml) tabHtml.className = 'px-3 py-1 rounded-lg font-black bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition';
+  } else if (mode === 'preview') {
+    const currentHtml = (visualEl && !visualEl.classList.contains('hidden')) ? visualEl.innerHTML : (rawEl?.value || '');
+    if (previewEl) previewEl.innerHTML = currentHtml;
+
+    visualEl?.classList.add('hidden');
+    toolbarEl?.classList.add('hidden');
+    rawEl?.classList.add('hidden');
+    previewEl?.classList.remove('hidden');
+
+    if (tabPreview) tabPreview.className = 'px-3 py-1 rounded-lg font-black bg-indigo-600 text-white transition shadow-sm';
+    if (tabVisual) tabVisual.className = 'px-3 py-1 rounded-lg font-black bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition';
+    if (tabHtml) tabHtml.className = 'px-3 py-1 rounded-lg font-black bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition';
+  } else if (mode === 'html') {
+    if (visualEl && rawEl) rawEl.value = visualEl.innerHTML;
+    visualEl?.classList.add('hidden');
+    toolbarEl?.classList.add('hidden');
+    rawEl?.classList.remove('hidden');
+    previewEl?.classList.add('hidden');
+
+    if (tabHtml) tabHtml.className = 'px-3 py-1 rounded-lg font-black bg-indigo-600 text-white transition shadow-sm';
+    if (tabVisual) tabVisual.className = 'px-3 py-1 rounded-lg font-black bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition';
+    if (tabPreview) tabPreview.className = 'px-3 py-1 rounded-lg font-black bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition';
+  }
+};
+
+window.blogAiGenerateArticle = function() {
+  const topics = [
+    '5 Essential Brake Maintenance Tips Before Summer Driving',
+    'First Look: 2024 Ford F-150 Lariat Performance & Specs',
+    'How to Get the Highest Value for Your Vehicle Trade-In',
+    'Top 4 Reasons to Schedule Routine Oil & Filter Changes'
+  ];
+  const topic = prompt('What topic should AI write about?', topics[0]);
+  if (!topic) return;
+
+  const titleInput = document.getElementById('bp-title');
+  const excerptInput = document.getElementById('bp-excerpt');
+  const visualEl = document.getElementById('blog-visual-editor');
+  const rawEl = document.getElementById('bp-body');
+
+  if (titleInput) titleInput.value = topic;
+  if (excerptInput) excerptInput.value = `Explore expert insights on ${topic}. Discover key maintenance strategies, vehicle recommendations, and professional dealership advice.`;
+
+  const generatedArticleHtml = `
+    <h2 style="font-size: 1.25rem; font-weight: 800; color: #4f46e5; margin-bottom: 0.5rem;">Introduction to ${esc(topic)}</h2>
+    <p>Maintaining your vehicle is essential for long-term reliability, safety, and resale value. Whether you are driving daily or preparing for a long road trip, understanding key vehicle features and service checkpoints will keep your car running like new.</p>
+
+    <div style="padding: 12px 16px; margin: 16px 0; background: #eef2ff; border-left: 4px solid #4f46e5; border-radius: 8px; font-weight: 600; color: #1e1b4b;">
+      💡 <strong>Expert Advice:</strong> Regular certified maintenance prevents expensive repairs down the road. Schedule an inspection with our certified technicians today!
+    </div>
+
+    <h2 style="font-size: 1.25rem; font-weight: 800; color: #4f46e5; margin-bottom: 0.5rem;">Key Highlights &amp; Recommendations</h2>
+    <ul style="list-style-type: disc; padding-left: 1.25rem; margin-bottom: 1rem;">
+      <li><strong>Routine Inspections:</strong> Check fluid levels, tire pressures, and brake pad wear every 5,000 miles.</li>
+      <li><strong>OEM Quality Parts:</strong> Always use factory-grade OEM replacement parts for optimal performance.</li>
+      <li><strong>Seasonal Protection:</strong> Inspect battery health and climate controls before winter or summer seasons.</li>
+    </ul>
+
+    <h2 style="font-size: 1.25rem; font-weight: 800; color: #4f46e5; margin-bottom: 0.5rem;">Schedule Your Service Appointment</h2>
+    <p>Our dealership service center is equipped with factory-trained technicians ready to assist you. Visit our online scheduler or give our service desk a call today!</p>
+  `;
+
+  if (visualEl) visualEl.innerHTML = generatedArticleHtml;
+  if (rawEl) rawEl.value = generatedArticleHtml;
+
+  if (typeof showToast === 'function') showToast('AI generated full blog article!', 'success');
+};
+
 window.dealerBlogEdit = (id) => dealerBlogModal(id ? (__dealerBlog || []).find(x => x.id === id) : null);
 window.dealerBlogUploadCover = async (file) => {
   if (!file) return; showToast('Uploading…', 'info');
@@ -2174,12 +2350,17 @@ window.dealerBlogUploadCover = async (file) => {
     showToast('Cover uploaded', 'success');
   } catch (e) { showToast(e.message || 'Upload failed', 'error'); }
 };
+
 window.dealerBlogSave = async (id, status) => {
+  const visualEl = document.getElementById('blog-visual-editor');
+  const rawEl = document.getElementById('bp-body');
+  const contentHtml = (visualEl && !visualEl.classList.contains('hidden')) ? visualEl.innerHTML : (rawEl?.value || '');
+
   const payload = {
     title: document.getElementById('bp-title').value.trim(),
     slug: document.getElementById('bp-slug').value.trim(),
     excerpt: document.getElementById('bp-excerpt').value.trim(),
-    content_html: document.getElementById('bp-body').value,
+    content_html: contentHtml,
     cover_image_url: document.getElementById('bp-cover').value || null,
     tags: document.getElementById('bp-tags').value.split(',').map(s => s.trim()).filter(Boolean),
     status,
