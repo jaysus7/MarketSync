@@ -3125,6 +3125,15 @@
         <svg id="rr-chevron" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
       </button>
     </div>
+    <!-- Team Messages Trigger (Top of Right Rail) -->
+    <button type="button" data-report="messages" onclick="toggleTeamChatWidget()" title="Team Messages — direct chat with colleagues" class="group flex items-center justify-between gap-2.5 w-full text-left px-2.5 py-2 rounded-lg text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 font-bold transition mb-1 border border-sky-200 dark:border-sky-800/60">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <svg class="w-5 h-5 flex-shrink-0 text-sky-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 0 1-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        <span class="text-xs whitespace-nowrap">Messages</span>
+      </div>
+      <span id="rail-msg-badge" class="hidden bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full leading-none"></span>
+    </button>
+    <div class="h-px bg-slate-200 dark:bg-slate-800 mb-1"></div>
     <button type="button" data-report="lot" title="Lot Average Report — your whole lot vs the market" class="group flex items-center gap-2.5 w-full text-left px-2.5 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-violet-50 dark:hover:bg-violet-950/40 hover:text-violet-700 dark:hover:text-violet-300 transition">
       <svg class="w-5 h-5 flex-shrink-0 text-violet-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17V9m4 8V5m4 12v-4M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
       <span class="text-xs font-bold whitespace-nowrap">Lot Average</span>
@@ -3199,13 +3208,47 @@
     </button>
   </div>
 
-  <!-- ── Google Hangouts style Team Messaging Widget (Bottom Right) ── -->
-  <button id="team-chat-dock-btn" onclick="toggleTeamChatWidget()" type="button" aria-label="Team Messages" class="fixed bottom-5 right-5 z-40 flex items-center gap-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm pl-4 pr-5 py-3 rounded-full shadow-lg shadow-sky-600/40 transition">
-    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 0 1-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-    <span>Messages</span>
-    <span id="team-chat-badge" class="hidden bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full leading-none"></span>
+  <!-- ── Floating Intelligence Assistant (Bottom Right) ── -->
+  <button id="ai-dock-btn" onclick="toggleAiDock()" type="button" aria-label="Intelligence" class="fixed bottom-5 right-5 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm pl-4 pr-5 py-3 rounded-full shadow-lg shadow-indigo-600/40 transition">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z"/></svg>
+    <span id="ai-dock-btn-label">Intelligence</span>
   </button>
 
+  <div id="ai-dock-panel" class="hidden fixed z-50 bottom-4 right-4 left-4 sm:left-auto sm:w-[390px] max-h-[calc(100dvh-2rem)] h-[560px] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-600 text-white flex-shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z"/></svg>
+        </span>
+        <div class="min-w-0">
+          <div id="ai-dock-title" class="text-sm font-bold text-slate-900 dark:text-white leading-tight">Intelligence</div>
+          <div class="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">Answers from your live lot &amp; team data</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-1 flex-shrink-0">
+        <button id="ai-dock-clear" onclick="clearAiDockChat()" title="New chat" class="p-1.5 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <button id="ai-dock-close" onclick="closeAiDock()" title="Close" class="p-1.5 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+    <div id="ai-dock-messages" class="flex-1 overflow-y-auto px-3.5 py-3 space-y-3 text-sm"></div>
+    <div id="ai-dock-file-status" class="hidden border-t border-slate-200 dark:border-slate-800 px-3 py-2 text-xs text-slate-600 dark:text-slate-300 bg-indigo-50 dark:bg-indigo-950/30"></div>
+    <form id="ai-dock-form" onsubmit="sendAiDockMessage(event)" class="border-t border-slate-200 dark:border-slate-800 p-2.5 flex items-end gap-2">
+      <input id="ai-dock-file" type="file" accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.txt,.md,.csv,.json,.rtf" class="hidden">
+      <button id="ai-dock-attach" type="button" title="Attach a document" class="flex-shrink-0 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition" aria-label="Attach document">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m20.5 11.5-8.8 8.8a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>
+      </button>
+      <textarea id="ai-dock-input" rows="1" placeholder="Ask about lot, leads, pricing, or staff…" class="flex-1 resize-none max-h-28 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+      <button id="ai-dock-send" type="submit" class="flex-shrink-0 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white p-2 rounded-lg transition" aria-label="Send">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </form>
+  </div>
+
+  <!-- ── Google Hangouts style Team Messaging Widget Panel ── -->
   <div id="team-chat-dock-panel" class="hidden fixed z-50 bottom-4 right-4 left-4 sm:left-auto sm:w-[380px] max-h-[calc(100dvh-2rem)] h-[560px] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
     <!-- View 1: Roster View -->
     <div id="widget-roster-view" class="flex flex-col h-full">
@@ -3722,56 +3765,56 @@
        cannot reuse an older bundle from its cache after a staging deployment. -->
   <!-- Workspace registry: SINGLE SOURCE OF TRUTH for sidebar, workspace tabs and
        mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
-  <script src="js/modules/workspace-registry.js?v=20260814_v4"></script>
-  <script src="dashboard.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part2.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part3.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part4.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part5.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part6.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part7.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part8.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part9.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part10.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part11.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part12.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part13.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part14.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part15.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part16.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part17.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part18.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part19.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part20.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part21.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part22.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part23.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part24.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part25.js?v=20260814_v4"></script>
-  <script src="js/modules/dashboard-part26.js?v=20260814_v4"></script>
+  <script src="js/modules/workspace-registry.js?v=20260814_v5"></script>
+  <script src="dashboard.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part2.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part3.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part4.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part5.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part6.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part7.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part8.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part9.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part10.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part11.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part12.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part13.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part14.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part15.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part16.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part17.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part18.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part19.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part20.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part21.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part22.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part23.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part24.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part25.js?v=20260814_v5"></script>
+  <script src="js/modules/dashboard-part26.js?v=20260814_v5"></script>
   <!-- Sales workspace: registers ENGINES['sales']; must load after the parts. -->
-  <script src="js/modules/sales-workspace.js?v=20260814_v4"></script>
-  <script src="js/modules/inventory-workspace.js?v=20260814_v4"></script>
-  <script src="js/modules/fni-workspace.js?v=20260814_v4"></script>
+  <script src="js/modules/sales-workspace.js?v=20260814_v5"></script>
+  <script src="js/modules/inventory-workspace.js?v=20260814_v5"></script>
+  <script src="js/modules/fni-workspace.js?v=20260814_v5"></script>
   <!-- Vehicle Record: one unit, one surface. Loads after inventory-workspace.js,
        whose merchandising/acquisition definitions it renders. -->
-  <script src="js/modules/vehicle-record.js?v=20260814_v4"></script>
-  <script src="js/modules/receipt-engine.js?v=20260814_v4"></script>
-  <script src="js/modules/video-studio.js?v=20260814_v4"></script>
-  <script src="js/modules/service-views.js?v=20260814_v4"></script>
-  <script src="js/modules/service-workspace.js?v=20260814_v4"></script>
-  <script src="js/modules/parts-views.js?v=20260814_v4"></script>
-  <script src="js/modules/parts-workspace.js?v=20260814_v4"></script>
-  <script src="js/modules/accounting-views.js?v=20260814_v4"></script>
-  <script src="js/modules/accounting-workspace.js?v=20260814_v4"></script>
-  <script src="js/modules/studio/scene-model.js?v=20260814_v4"></script>
-  <script src="js/modules/studio/fabric-adapter.js?v=20260814_v4"></script>
-  <script src="js/modules/studio/studio-shell.js?v=20260814_v4"></script>
-  <script src="js/modules/marketing-workspace.js?v=20260814_v4"></script>
-  <script src="js/modules/academy-workspace.js?v=20260814_v4"></script>
-  <script src="js/modules/launch-workspace.js?v=20260814_v4"></script>
-  <script src="js/modules/people-views.js?v=20260814_v4"></script>
-  <script src="js/modules/people-workspace.js?v=20260814_v4"></script>
+  <script src="js/modules/vehicle-record.js?v=20260814_v5"></script>
+  <script src="js/modules/receipt-engine.js?v=20260814_v5"></script>
+  <script src="js/modules/video-studio.js?v=20260814_v5"></script>
+  <script src="js/modules/service-views.js?v=20260814_v5"></script>
+  <script src="js/modules/service-workspace.js?v=20260814_v5"></script>
+  <script src="js/modules/parts-views.js?v=20260814_v5"></script>
+  <script src="js/modules/parts-workspace.js?v=20260814_v5"></script>
+  <script src="js/modules/accounting-views.js?v=20260814_v5"></script>
+  <script src="js/modules/accounting-workspace.js?v=20260814_v5"></script>
+  <script src="js/modules/studio/scene-model.js?v=20260814_v5"></script>
+  <script src="js/modules/studio/fabric-adapter.js?v=20260814_v5"></script>
+  <script src="js/modules/studio/studio-shell.js?v=20260814_v5"></script>
+  <script src="js/modules/marketing-workspace.js?v=20260814_v5"></script>
+  <script src="js/modules/academy-workspace.js?v=20260814_v5"></script>
+  <script src="js/modules/launch-workspace.js?v=20260814_v5"></script>
+  <script src="js/modules/people-views.js?v=20260814_v5"></script>
+  <script src="js/modules/people-workspace.js?v=20260814_v5"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

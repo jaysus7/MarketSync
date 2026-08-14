@@ -1435,7 +1435,10 @@ function switchPage(pageId) {
   if (pageId === 'service-ros') loadServiceRosPage();
   if (pageId === 'service-parts') loadServicePartsPage();
   if (pageId === 'owner-users') loadOwnerUsersPage();
-  if (pageId === 'ai-inbox') loadAiInbox();
+  if (pageId === 'ai-inbox') {
+    if (typeof loadAiInbox === 'function') { try { loadAiInbox(); } catch {} }
+    else if (typeof openTeamChatWidget === 'function') { openTeamChatWidget(); }
+  }
   if (pageId === 'people-compliance' || pageId === 'hr' || pageId === 'people') loadPeopleCompliance();
 
   __currentPage = pageId;

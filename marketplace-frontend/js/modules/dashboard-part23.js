@@ -61,13 +61,14 @@ window.refreshWidgetRoster = refreshWidgetRoster;
 
 function updateWidgetBadge() {
   const badge = document.getElementById('team-chat-badge');
-  if (!badge) return;
+  const railBadge = document.getElementById('rail-msg-badge');
   const totalUnread = __widgetStaffMembers.reduce((sum, m) => sum + (m.unread_count || 0), 0);
   if (totalUnread > 0) {
-    badge.textContent = totalUnread;
-    badge.classList.remove('hidden');
+    if (badge) { badge.textContent = totalUnread; badge.classList.remove('hidden'); }
+    if (railBadge) { railBadge.textContent = totalUnread; railBadge.classList.remove('hidden'); }
   } else {
-    badge.classList.add('hidden');
+    if (badge) badge.classList.add('hidden');
+    if (railBadge) railBadge.classList.add('hidden');
   }
 }
 
@@ -306,7 +307,9 @@ function wireReportRail() {
     const btn = e.target.closest('[data-report]');
     if (!btn) return;
     const kind = btn.dataset.report;
-    if (kind === 'lot') {
+    if (kind === 'messages') {
+      toggleTeamChatWidget();
+    } else if (kind === 'lot') {
       // Lot Average Report opens as a modal — works from any page.
       if (typeof openLotReport === 'function') openLotReport();
     } else if (kind === 'scan') {
@@ -577,11 +580,21 @@ function openAiDock() {
   setTimeout(() => document.getElementById('ai-dock-input')?.focus(), 50);
 }
 
-function closeAiDock() {
-  document.getElementById('ai-dock-panel')?.classList.add('hidden');
-  updateAiDockVisibility();
-  updateReportRailVisibility();   // restore the reports rail
+function toggleAiDock() {
+  const p = document.getElementById('ai-dock-panel');
+  if (p && p.classList.contains('hidden')) openAiDock();
+  else closeAiDock();
 }
+window.toggleAiDock = toggleAiDock;
+
+function clearAiDockChat() {
+  aiDockMessages = [];
+  aiDockPendingCommissionImport = null;
+  setAiDockFileStatus('');
+  renderAiDockMessages();
+  document.getElementById('ai-dock-input')?.focus();
+}
+window.clearAiDockChat = clearAiDockChat;
 window.openAiDock = openAiDock;
 window.closeAiDock = closeAiDock;
 
