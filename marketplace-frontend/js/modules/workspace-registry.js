@@ -162,13 +162,6 @@ const MS_WORKSPACES = {
     ],
   },
 
-  messaging: {
-    label: 'Messaging', icon: 'chat', accent: 'sky', system: true,
-    pages: [
-      { page: 'ai-inbox', label: 'Messaging' },
-    ],
-  },
-
   settings: {
     label: 'Settings', icon: 'shield', system: true,
     pages: [
@@ -189,7 +182,7 @@ const MS_WORKSPACES = {
 
 // Bottom/system rail. `profile` is the header gear (always reachable, every tier).
 const MS_SYSTEM_NAV = [
-  { id: 'messaging', label: 'Messaging', icon: 'chat', page: 'ai-inbox' },
+  { id: 'ask', label: 'Ask MarketSync', icon: 'sparkles', action: 'msAskOpen' },
   { id: 'notifications', label: 'Notifications', icon: 'bolt', action: 'msNotificationsOpen' },
   { id: 'settings', label: 'Settings', icon: 'shield', page: 'profile' },
 ];
