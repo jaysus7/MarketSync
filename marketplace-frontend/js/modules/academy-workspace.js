@@ -334,6 +334,7 @@ ENGINES['academy'] = {
   rootId: 'academy-root', title: 'Academy',
   subtitle: 'What you need to know, and credentials that required the work',
   icon: 'sparkles', accent: 'violet',
+  hideHeader: true, hideTabBar: true, hideRail: true,
   tabLabels: { overview: 'Your Learning', work: 'Certifications' },
   get tabOrder() {
     return ['overview', 'work'];

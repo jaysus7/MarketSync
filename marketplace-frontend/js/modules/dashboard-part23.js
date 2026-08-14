@@ -272,7 +272,8 @@ function updateReportRailVisibility() {
   const panel = document.getElementById('ai-dock-panel');
   const panelOpen = panel && !panel.classList.contains('hidden');
   const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-  const show = !!__invIntelActive && isMgr && !panelOpen;   // reports are manager-only
+  const isAcademy = (typeof currentPage !== 'undefined' && currentPage === 'academy') || !document.querySelector('[data-page-content="academy"]')?.classList.contains('hidden');
+  const show = !!__invIntelActive && isMgr && !panelOpen && !isAcademy;   // reports are manager-only
   rail.classList.toggle('lg:flex', show);   // lg:flex + base `hidden` = desktop-only when shown
   if (__invIntelActive) wireReportRail();
 }
