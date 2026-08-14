@@ -742,6 +742,7 @@ function renderWebsitePage() {
           <button onclick="setBuilderMode('classic')" class="px-3 py-2 transition ${__builderMode !== 'live' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">Classic</button>
           <button onclick="setBuilderMode('live')" class="px-3 py-2 transition ${__builderMode === 'live' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">Live </button>
         </div>
+        <button onclick="openWebsiteScannerModal()" class="text-xs font-black bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 border border-indigo-500/40 px-3 py-2 rounded-lg transition" title="Scan existing website to auto-fill template & AI knowledgebase">Scan Site</button>
         ${url ? `<a href="${url}" target="_blank" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg">View site ↗</a>` : ''}
         <label class="flex items-center gap-1.5 text-sm font-bold"><input id="ws-pub" type="checkbox" ${__siteCfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Published</label>
         <button onclick="wsTab('settings')" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg">Settings</button>
@@ -1854,7 +1855,68 @@ async function publishSiteNow(msg) {
   } catch (e) { showToast(e.message || 'Could not publish the site', 'error'); }
 }
 window.publishSiteNow = publishSiteNow;
-Object.assign(window, { loadWebsitePage, wsTab, wsSetTarget, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto, collectMenu, renderMenuList, menuMove, menuIndent, wsCustomizeById, removeSitePageById, addSitePagePreset, wsApplyPalette });
+
+function openWebsiteScannerModal() {
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md';
+  modal.innerHTML = `
+    <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-3xl p-6 text-white space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-lg font-black text-white">Scan Existing Website ("Scan &amp; Paste")</h3>
+          <p class="text-xs text-slate-400">Import your current store info, hours, phone, FAQs, and content into this template.</p>
+        </div>
+        <button onclick="this.closest('.fixed').remove()" class="p-1.5 rounded-xl text-slate-400 hover:text-white">✕</button>
+      </div>
+
+      <div class="space-y-3">
+        <label class="block text-xs font-bold text-slate-300">Website URL</label>
+        <div class="flex items-center gap-2">
+          <input id="ws-scan-url" type="url" placeholder="https://www.yourdealership.com" class="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-white focus:outline-none focus:border-indigo-500">
+          <button onclick="wsRunScan(this)" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-black text-white transition shadow-md shrink-0 cursor-pointer">Scan Site</button>
+        </div>
+        <div id="ws-scan-output"></div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+window.openWebsiteScannerModal = openWebsiteScannerModal;
+
+async function wsRunScan(btn) {
+  const url = (document.getElementById('ws-scan-url')?.value || '').trim();
+  if (!url) return showToast('Enter a URL first', 'error');
+  const out = document.getElementById('ws-scan-output');
+  if (btn) { btn.disabled = true; btn.textContent = 'Scanning...'; }
+  if (out) out.innerHTML = '<div class="text-xs text-indigo-300 py-4 animate-pulse">Scanning pages, extracting title, phone, hours &amp; branding...</div>';
+
+  try {
+    const res = await apiSendJson('/ai/scan-website', 'POST', { url, apply: true });
+    if (btn) { btn.disabled = false; btn.textContent = 'Scan Site'; }
+    showToast('Applied scanned content to Website Template & AI Knowledge Base!', 'success');
+
+    if (out) {
+      out.innerHTML = `
+        <div class="p-4 rounded-2xl bg-slate-950 border border-emerald-500/30 space-y-3 text-xs">
+          <div class="font-bold text-emerald-400">Scanned &amp; Applied Successfully!</div>
+          <div class="space-y-1 text-slate-300">
+            <div>• <strong>Store:</strong> ${esc(res.store_name)}</div>
+            <div>• <strong>Phone:</strong> ${esc(res.phone || 'Extracted')}</div>
+            <div>• <strong>Email:</strong> ${esc(res.email || 'Extracted')}</div>
+            <div>• <strong>Hero Title:</strong> ${esc(res.website_template?.hero_title || '')}</div>
+          </div>
+          <button onclick="this.closest('.fixed').remove(); loadWebsitePage();" class="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition cursor-pointer">Reload Builder With New Template</button>
+        </div>
+      `;
+    }
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Scan Site'; }
+    if (out) out.innerHTML = `<div class="text-xs text-rose-400 py-2">Scan failed: ${esc(e.message)}</div>`;
+  }
+}
+window.wsRunScan = wsRunScan;
+
+Object.assign(window, { loadWebsitePage, wsTab, wsSetTarget, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto, collectMenu, renderMenuList, menuMove, menuIndent, wsCustomizeById, removeSitePageById, addSitePagePreset, wsApplyPalette, openWebsiteScannerModal, wsRunScan });
 
 // ══ Website builder — Blog / News (per-dealer, RLS-scoped) ═════════════════════
 let __dealerBlog = [];

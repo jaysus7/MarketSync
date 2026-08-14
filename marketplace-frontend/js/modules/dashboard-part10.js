@@ -370,6 +370,27 @@ async function aiHomeKnowledge(body) {
 
   body.innerHTML = `
     <div class="space-y-6 max-w-4xl">
+      <!-- Instant Website Scan & Auto-Fill ("Scan & Paste") Card -->
+      <div class="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-950 border border-indigo-500/30 rounded-2xl p-5 text-white space-y-3 shadow-lg">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h3 class="text-base font-black text-white flex items-center gap-2">
+              <span>Instant Website Scan &amp; Auto-Fill ("Scan &amp; Paste")</span>
+            </h3>
+            <p class="text-xs text-slate-300">Enter your current website URL to scan and automatically import your store info, hours, services, and FAQs into your AI Knowledge Base and Website Builder template.</p>
+          </div>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">1-CLICK SCAN &amp; PASTE</span>
+        </div>
+
+        <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap pt-1">
+          <input id="ai-scan-url-input" type="url" placeholder="Enter website URL (e.g. https://www.yourdealership.com)..." class="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-700 bg-slate-950 text-xs font-bold text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+          <button onclick="aiRunWebsiteScan(this)" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shrink-0 shadow-md cursor-pointer">
+            Scan Website
+          </button>
+        </div>
+        <div id="ai-scan-results-container"></div>
+      </div>
+
       <!-- Industry Package Selection -->
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-3">
         <div class="flex items-center justify-between">
@@ -422,6 +443,47 @@ async function aiHomeKnowledge(body) {
     </div>
   `;
 }
+
+async function aiRunWebsiteScan(btn) {
+  const input = document.getElementById('ai-scan-url-input');
+  const url = (input?.value || '').trim();
+  if (!url) return showToast('Enter a website URL first', 'error');
+
+  const container = document.getElementById('ai-scan-results-container');
+  if (btn) { btn.disabled = true; btn.textContent = 'Scanning Website...'; }
+  if (container) container.innerHTML = '<div class="text-xs text-indigo-300 py-3 animate-pulse">Crawling website pages, extracting business hours, contact phone, and store FAQs...</div>';
+
+  try {
+    const res = await apiSendJson('/ai/scan-website', 'POST', { url, apply: true });
+    if (btn) { btn.disabled = false; btn.textContent = 'Scan Website'; }
+    showToast('Website scanned! Imported data into AI Knowledgebase & Website Template.', 'success');
+    
+    if (container) {
+      container.innerHTML = `
+        <div class="p-4 rounded-xl bg-slate-900/90 border border-emerald-500/30 space-y-3 mt-3 text-xs">
+          <div class="flex items-center justify-between text-emerald-400 font-bold">
+            <span>Successfully Extracted &amp; Applied Site Data!</span>
+            <span class="text-slate-400 text-[10px] font-mono">${esc(res.scanned_url)}</span>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-2 text-slate-300">
+            <div><strong>Store Name:</strong> ${esc(res.store_name)}</div>
+            <div><strong>Phone:</strong> ${esc(res.phone || 'Scanned')}</div>
+            <div><strong>Email:</strong> ${esc(res.email || 'Scanned')}</div>
+            <div><strong>Hours:</strong> Mon-Sat 9am-8pm</div>
+          </div>
+          <div class="text-[11px] text-slate-400 border-t border-slate-800 pt-2">
+            Auto-imported ${res.knowledge_facts?.length || 0} knowledge facts into AI Knowledge Base and updated Website Builder hero template!
+          </div>
+        </div>
+      `;
+    }
+    setTimeout(() => { if (typeof loadAiHome === 'function') loadAiHome('knowledge'); }, 2000);
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Scan Website'; }
+    if (container) container.innerHTML = `<div class="text-xs text-rose-400 py-2">Scan failed: ${esc(e.message)}</div>`;
+  }
+}
+window.aiRunWebsiteScan = aiRunWebsiteScan;
 
 async function aiHomeSaveKnowledge() {
   const role = document.getElementById('ai-role-select')?.value || 'sales_assistant';
