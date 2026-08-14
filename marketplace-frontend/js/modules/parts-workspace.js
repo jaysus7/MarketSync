@@ -61,6 +61,8 @@ function pwAttention(d) {
   items.sort((a, b) => a.sev - b.sev);
   return items.slice(0, 25);
 }
+window.pwAttention = pwAttention;
+window.partsAttention = pwAttention;
 
 function pwRequestRow(q, d) {
   const part = d.partById?.[q.part_id] || {};
@@ -466,7 +468,7 @@ ENGINES['parts-overview'] = {
 
   tabs: {
     overview(body, d) {
-      const att = partsAttention(d);
+      const att = pwAttention(d || {});
       const reqs = d.requests || [];
       const items = d.inventory || d.parts || [];
       const short = reqs.filter(q => q.status === 'backordered').length;

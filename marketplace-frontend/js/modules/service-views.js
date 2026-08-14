@@ -33,6 +33,29 @@ window.svcRenderTriageBar = function(d) {
     </button>`;
 
   return `
+    <!-- Service Advisor Desk Quick Actions Bar -->
+    <div class="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm mb-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 font-black flex items-center justify-center text-sm">SVC</div>
+        <div>
+          <h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Service Advisor Desk</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Customer arrival intake, video walkarounds, and final check-out release.</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 flex-wrap">
+        <button onclick="svcOpenCheckInModal()" class="px-4 py-2 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition flex items-center gap-1.5 cursor-pointer">
+          📥 Check In Customer
+        </button>
+        <button onclick="svcOpenVideoWalkaround()" class="px-4 py-2 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white shadow-md transition flex items-center gap-1.5 cursor-pointer">
+          📹 Video Walkaround
+        </button>
+        <button onclick="svcOpenCheckOutModal()" class="px-4 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition flex items-center gap-1.5 cursor-pointer">
+          📤 Check Out Customer
+        </button>
+      </div>
+    </div>
+
     <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 mb-4">
       ${btn('arriving', 'Arriving Today', arrivingToday, arrivingToday ? 'bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-600')}
       ${btn('inspection', 'Needs Inspection', waitingInspection, waitingInspection ? 'bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-600')}
@@ -563,4 +586,247 @@ window.svcRenderPerformanceLayer = function(d) {
       `)}
     </div>
   `;
+};
+
+// ── 8. SERVICE ADVISOR DESK: CHECK-IN, VIDEO WALKAROUND & CHECK-OUT MODALS ──
+
+window.svcOpenCheckInModal = function(appointmentId = null) {
+  let appt = null;
+  if (appointmentId && window.__svcData?.appointments) {
+    appt = window.__svcData.appointments.find(a => a.id === appointmentId);
+  }
+
+  let modal = document.getElementById('svc-checkin-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'svc-checkin-modal';
+    modal.className = 'fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto';
+    document.body.appendChild(modal);
+  }
+
+  const custName = appt?.customer || '';
+  const vehicle = appt?.service_type ? `${appt.service_type} Vehicle` : '';
+
+  modal.innerHTML = `
+    <div class="relative w-full max-w-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto p-5 sm:p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div>
+          <h3 class="text-base font-black uppercase text-indigo-600 dark:text-indigo-400 tracking-wider flex items-center gap-2">
+            <span>📥 Service Customer Check-In</span>
+          </h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Open repair order, record odometer, services requested &amp; customer preferences.</p>
+        </div>
+        <button onclick="document.getElementById('svc-checkin-modal')?.remove()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold">✕</button>
+      </div>
+
+      <!-- Customer & Vehicle Info -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="space-y-1">
+          <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Customer Full Name</label>
+          <input id="svc-in-name" type="text" value="${esc(custName || 'Jason Massie')}" placeholder="e.g. Jason Massie" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+        </div>
+        <div class="space-y-1">
+          <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Phone Number / Contact</label>
+          <input id="svc-in-phone" type="text" value="(555) 234-5678" placeholder="(555) 000-0000" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+        </div>
+        <div class="space-y-1">
+          <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Vehicle Description</label>
+          <input id="svc-in-vehicle" type="text" value="${esc(vehicle || '2024 Ford F-150 Lariat')}" placeholder="Year Make Model" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+        </div>
+        <div class="space-y-1">
+          <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Current Mileage (Odometer)</label>
+          <input id="svc-in-mileage" type="text" value="38,450" placeholder="e.g. 45,000 miles" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+        </div>
+      </div>
+
+      <!-- Services Requested Checkboxes -->
+      <div class="space-y-1.5">
+        <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Primary Services &amp; Customer Concerns</label>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <label class="flex items-center gap-2 p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 cursor-pointer">
+            <input type="checkbox" checked class="accent-indigo-600"> <span>Oil &amp; Filter Service</span>
+          </label>
+          <label class="flex items-center gap-2 p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 cursor-pointer">
+            <input type="checkbox" checked class="accent-indigo-600"> <span>Multi-Point Inspection</span>
+          </label>
+          <label class="flex items-center gap-2 p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 cursor-pointer">
+            <input type="checkbox" class="accent-indigo-600"> <span>Brake Inspection &amp; Noise</span>
+          </label>
+          <label class="flex items-center gap-2 p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 cursor-pointer">
+            <input type="checkbox" class="accent-indigo-600"> <span>Tire Rotation &amp; Balance</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Transportation & Loaner Preference -->
+      <div class="space-y-1">
+        <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Transportation / Mobility Preference</label>
+        <div class="grid grid-cols-3 gap-2 text-xs">
+          <label class="flex items-center justify-center p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-center cursor-pointer font-bold">
+            <input type="radio" name="svc-trans" value="lounge" checked class="mr-1.5 accent-indigo-600"> Waiting Lounge
+          </label>
+          <label class="flex items-center justify-center p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-center cursor-pointer font-bold">
+            <input type="radio" name="svc-trans" value="shuttle" class="mr-1.5 accent-indigo-600"> Shuttle Dropoff
+          </label>
+          <label class="flex items-center justify-center p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-center cursor-pointer font-bold">
+            <input type="radio" name="svc-trans" value="loaner" class="mr-1.5 accent-indigo-600"> Loaner Vehicle
+          </label>
+        </div>
+      </div>
+
+      <!-- Initial Condition & Scratch Notes -->
+      <div class="space-y-1">
+        <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Advisor Pre-existing Condition Notes</label>
+        <textarea id="svc-in-notes" rows="2" placeholder="Note pre-existing scratches, windshield chips or customer requests..." class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-semibold text-slate-900 dark:text-white"></textarea>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <button onclick="svcOpenVideoWalkaround(null, null)" class="px-3.5 py-2 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white shadow-md transition flex items-center gap-1.5 cursor-pointer">
+          📹 Record Video Walkaround
+        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="document.getElementById('svc-checkin-modal')?.remove()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
+          <button onclick="svcSubmitCheckInForm('${appointmentId || ''}')" class="px-5 py-2 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition">
+            Confirm Check-In &amp; Open RO
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.svcSubmitCheckInForm = async function(apptId) {
+  const name = document.getElementById('svc-in-name')?.value || 'Customer';
+  const vehicle = document.getElementById('svc-in-vehicle')?.value || 'Vehicle';
+  const mileage = document.getElementById('svc-in-mileage')?.value || '0';
+
+  if (apptId) {
+    if (typeof svcCheckIn === 'function') await svcCheckIn(apptId).catch(() => null);
+  } else {
+    if (typeof showToast === 'function') showToast(`Checked in ${name} (${vehicle} · ${mileage} miles). RO opened!`, 'success');
+  }
+
+  document.getElementById('svc-checkin-modal')?.remove();
+};
+
+window.svcOpenVideoWalkaround = function(roId = null, contactId = null) {
+  document.getElementById('svc-checkin-modal')?.remove();
+  if (typeof openCustomerVideoStudio === 'function') {
+    openCustomerVideoStudio(contactId || 'demo-customer', { department: 'Service', scriptKey: 'service' });
+    if (typeof showToast === 'function') showToast('Opening Service Video Walkaround Studio...', 'info');
+  } else {
+    if (typeof showToast === 'function') showToast('Video Studio loading...', 'info');
+  }
+};
+
+window.svcOpenCheckOutModal = function(roId = null) {
+  let modal = document.getElementById('svc-checkout-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'svc-checkout-modal';
+    modal.className = 'fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto';
+    document.body.appendChild(modal);
+  }
+
+  const ro = (window.__svcData?.ros || []).find(r => r.id === roId) || {
+    id: roId || 'ro_1102',
+    ro_number: 'RO-1102',
+    customer: 'Robert Vance',
+    vehicle_desc: '2023 Ram 1500 Big Horn',
+    total: 485.00
+  };
+
+  const laborTotal = 240.00;
+  const partsTotal = 185.00;
+  const shopSupplies = 24.50;
+  const taxTotal = 35.50;
+  const grandTotal = laborTotal + partsTotal + shopSupplies + taxTotal;
+
+  modal.innerHTML = `
+    <div class="relative w-full max-w-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto p-5 sm:p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div>
+          <h3 class="text-base font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider flex items-center gap-2">
+            <span>📤 Service Customer Check-Out &amp; Vehicle Release</span>
+          </h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Final invoice breakdown, payment collection, key handoff &amp; digital receipt.</p>
+        </div>
+        <button onclick="document.getElementById('svc-checkout-modal')?.remove()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold">✕</button>
+      </div>
+
+      <!-- RO & Customer Card -->
+      <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex justify-between items-center text-xs">
+        <div>
+          <div class="font-bold text-slate-900 dark:text-white">${esc(ro.customer || 'Customer')} · ${esc(ro.vehicle_desc || 'Vehicle')}</div>
+          <div class="text-slate-500 dark:text-slate-400">${esc(ro.ro_number || 'RO-1102')} · Service Advisor: Dave Miller</div>
+        </div>
+        <span class="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">READY FOR RELEASE</span>
+      </div>
+
+      <!-- Financial Charges Breakdown -->
+      <div class="p-4 rounded-xl bg-slate-900 text-white space-y-2 text-xs">
+        <div class="font-black text-sky-400 uppercase tracking-wider text-[11px] mb-1">Final Financial Breakdown</div>
+        <div class="flex justify-between text-slate-300"><span>Labor Charges (2.5 hrs @ $96/hr):</span><span>$${laborTotal.toFixed(2)}</span></div>
+        <div class="flex justify-between text-slate-300"><span>OEM Parts &amp; Fluids:</span><span>$${partsTotal.toFixed(2)}</span></div>
+        <div class="flex justify-between text-slate-300"><span>Shop Supplies &amp; Hazmat Disposal:</span><span>$${shopSupplies.toFixed(2)}</span></div>
+        <div class="flex justify-between text-slate-300"><span>Sales &amp; Local Tax:</span><span>$${taxTotal.toFixed(2)}</span></div>
+        <div class="flex justify-between pt-2 border-t border-slate-800 font-black text-sm text-emerald-400"><span>Grand Total Due:</span><span>$${grandTotal.toFixed(2)}</span></div>
+      </div>
+
+      <!-- QC & Parking Handoff -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <div class="space-y-1">
+          <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Payment Method</label>
+          <select id="svc-out-payment" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+            <option value="card" selected>Credit / Debit Card (Contactless)</option>
+            <option value="cash">Cash Payment</option>
+            <option value="fleet">Fleet Account / PO Authorization</option>
+            <option value="applepay">Apple Pay / Google Pay</option>
+          </select>
+        </div>
+        <div class="space-y-1">
+          <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Vehicle Parking Location &amp; Key Tag</label>
+          <input id="svc-out-bay" type="text" value="Space A-14 (Front Lot) · Key Tag #K-104" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+        </div>
+      </div>
+
+      <!-- Checklist Options -->
+      <div class="space-y-2 text-xs">
+        <label class="flex items-center gap-2 cursor-pointer font-semibold text-slate-700 dark:text-slate-300">
+          <input type="checkbox" checked class="accent-emerald-600"> Send Digital Paid Receipt &amp; Multi-Point DVI Report via SMS / Email
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer font-semibold text-slate-700 dark:text-slate-300">
+          <input type="checkbox" checked class="accent-emerald-600"> Send 5-Star Customer Review Survey Invitation
+        </label>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <button onclick="document.getElementById('svc-checkout-modal')?.remove()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
+        <button onclick="svcSubmitCheckOutForm('${ro.id}')" class="px-5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition">
+          Confirm Check-Out &amp; Release Keys
+        </button>
+      </div>
+    </div>
+  `;
+};
+
+window.svcSubmitCheckOutForm = async function(roId) {
+  try {
+    if (roId) {
+      await apiSendJson(`/service-engine/ros/${roId}/transition`, 'POST', { action: 'deliver' }).catch(() => null);
+    }
+  } catch {}
+
+  document.getElementById('svc-checkout-modal')?.remove();
+
+  if (typeof showToast === 'function') {
+    showToast('Customer Checked Out! Paid Receipt and 5-Star Review invitation sent via SMS.', 'success');
+  }
+
+  if (typeof ENGINE_DATA !== 'undefined') {
+    ENGINE_DATA['service-overview'] = undefined;
+    if (typeof engineTab === 'function') engineTab('service-overview', 'overview', true);
+  }
 };

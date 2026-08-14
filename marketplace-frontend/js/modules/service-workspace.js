@@ -89,8 +89,10 @@ function svcRoRow(r, d) {
       <div class="text-[12px] text-slate-400"><span class="font-semibold text-slate-500 dark:text-slate-300">${esc(svcStatusLabel(r.status))}</span>${blocked ? ' · <span class="text-orange-500 font-semibold">waiting for parts</span>' : ''}${Number(r.total) ? ` · $${Number(r.total).toLocaleString()}` : ''}</div>
     </button>
     <div class="flex items-center gap-1.5 shrink-0">
+      <button onclick="svcOpenVideoWalkaround('${r.id}', '${r.customer_id || ''}')" title="Record Service Video Walkaround" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 hover:bg-rose-100 transition">📹 Walkaround</button>
       <button onclick="svcOpenDviModal('${r.id}')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">DVI</button>
       <button onclick="printServiceReceipt('${r.id}')" title="Print / Save Receipt to Timeline" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 transition">Print Receipt</button>
+      ${['ready', 'delivered'].includes(r.status) ? `<button onclick="svcOpenCheckOutModal('${r.id}')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-500 transition">Check Out</button>` : ''}
       ${r.status === 'estimate_sent' ? `<button onclick="svcOpenEstimateDrawer('${r.id}')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-amber-600 text-white hover:bg-amber-500 transition">Estimate</button>` : ''}
       <button onclick="svcOpenRecord('${r.id}')" class="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">Open RO</button>
     </div>
@@ -319,7 +321,7 @@ function svcApptRow(a) {
       <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(a.customer || 'Customer')}</div>
       <div class="text-[12px] text-slate-400 truncate">${a.when ? esc(new Date(a.when).toLocaleString()) : ''}${a.service_type ? ` · ${esc(a.service_type)}` : ''}</div>
     </div>
-    <button onclick="${a.repair_order_id ? `svcOpenRecord('${a.repair_order_id}')` : `svcCheckIn('${a.id}')`}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold ${a.repair_order_id ? 'border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800' : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90'} transition">${a.repair_order_id ? 'Open RO' : 'Check In'}</button>
+    <button onclick="${a.repair_order_id ? `svcOpenRecord('${a.repair_order_id}')` : `svcOpenCheckInModal('${a.id}')`}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold ${a.repair_order_id ? 'border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800' : 'bg-indigo-600 text-white hover:bg-indigo-500'} transition">${a.repair_order_id ? 'Open RO' : 'Check In'}</button>
   </div>`;
 }
 
