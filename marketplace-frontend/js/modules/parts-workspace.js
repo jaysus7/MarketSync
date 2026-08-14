@@ -645,7 +645,30 @@ ENGINES['parts-overview'] = {
       const proactiveAiPanel = typeof pwRenderProactiveAiPanel === 'function' ? pwRenderProactiveAiPanel(d) : '';
       const valuationStrip = typeof pwRenderInventoryValuationStrip === 'function' ? pwRenderInventoryValuationStrip(d) : '';
       const poSection = typeof pwRenderPurchaseOrdersSection === 'function' ? pwRenderPurchaseOrdersSection(d) : '';
-      const specialOrdersSection = typeof pwRenderSpecialOrdersSection === 'function' ? pwRenderSpecialOrdersSection(d) : '';
+      const groups = [['Short — the shop is waiting', 'backordered'], ['New requests', 'requested'],
+                      ['Reserved — ready to issue', 'reserved'], ['Issued', 'issued'], ['Fulfilled', 'fulfilled']];
+      const byStatus = groups.map(([title, st]) => {
+        const rows = (d.requests || []).filter(q => q.status === st);
+        return rows.length ? engCard(`${title} (${rows.length})`, rows.slice(0, 15).map(q => pwRequestRow(q, d)).join('')) : '';
+      }).join('') || engCard('', engEmpty('No parts demand right now.'));
+
+      // Service demand, grouped by the repair order that is waiting on it.
+      const byRo = {};
+      for (const q of d.requests || []) { if (q.ro_id) (byRo[q.ro_id] ||= []).push(q); }
+      const roIds = Object.keys(byRo);
+      const roSection = roIds.slice(0, 20).map(roId => {
+        const rows = byRo[roId];
+        const blocked = rows.some(q => ['requested', 'backordered'].includes(q.status));
+        return engCard(`Repair order ${roId.slice(0, 8)}${blocked ? ' — BLOCKED' : ''} (${rows.length})`,
+          rows.map(q => pwRequestRow(q, d)).join(''));
+      }).join('') || engCard('', engEmpty('No repair order is waiting on parts.'));
+
+      // Demand that is not Service at all — the counter, a delivery, an internal job.
+      const other = (d.requests || []).filter(q => (q.requested_for || 'service') !== 'service');
+      const otherSection = ['sales', 'customer', 'internal'].map(dept => {
+        const rows = other.filter(q => q.requested_for === dept);
+        return rows.length ? engCard(`${PW_DEPT_LABEL[dept] || dept} (${rows.length})`, rows.map(q => pwRequestRow(q, d)).join('')) : '';
+      }).join('') || engCard('', engEmpty('Nothing requested outside Service.'));
 
       body.innerHTML = `
         ${triageBar}
@@ -664,6 +687,10 @@ ENGINES['parts-overview'] = {
 
         ${poSection}
         ${specialOrdersSection}
+
+        ${engSection('By state', byStatus, 'What Parts has to do next, in the order it has to do it')}
+        ${engSection('Waiting repair orders', roSection, 'The same records, grouped by the job that is held up')}
+        ${engSection('Everyone else', otherSection, 'Sales, counter customers and internal jobs')}
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
           ${engCard(`Ready to issue (${toIssue})`, toIssue ? reqs.filter(q => q.status === 'reserved').slice(0, 6).map(q => pwRequestRow(q, d)).join('') : engEmpty('Nothing reserved and waiting.'))}

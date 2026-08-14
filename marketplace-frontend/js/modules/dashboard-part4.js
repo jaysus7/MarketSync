@@ -1144,7 +1144,7 @@ function crmOpenInAppSmsDrawer(contactId, name, phone) {
 
       <div class="flex items-center justify-between pt-1">
         <button type="button" onclick="crmAiGenerateSmsDraft('${esc(name)}')" class="px-3 py-1.5 rounded-xl bg-violet-100 dark:bg-violet-950/50 hover:bg-violet-200 text-violet-700 dark:text-violet-300 text-xs font-bold transition flex items-center gap-1 cursor-pointer">
-          <span>AI Response Draft</span>
+          <span>✨ AI Response Draft</span>
         </button>
         <div class="flex items-center gap-2">
           <button type="button" onclick="crmDetailFormSlot('')" class="text-xs font-bold text-slate-500 px-3 py-1.5 cursor-pointer">Cancel</button>
@@ -1167,7 +1167,7 @@ function crmAiGenerateSmsDraft(name) {
   if (input) {
     input.value = `Hi ${name}, thanks for reaching out to MarketSync Motors! I have all details on your inquiry ready. Would morning or afternoon work best for a quick chat?`;
   }
-  if (typeof showToast === 'function') showToast('AI response draft generated!', 'success');
+  if (typeof showToast === 'function') showToast('✨ AI response draft generated!', 'success');
 }
 
 async function crmSendInAppSms(contactId, name, phone) {

@@ -18,6 +18,7 @@
 //
 // GATING IS NOT DEFINED HERE. Role (`mgr`/`roles`), plan entitlement (PAGE_FEATURE /
 // PAGE_PRODUCT), dealer feature flags (PAGE_DEALER_FLAG) and product/staff tiers are
+// applied by dashboard-part2.js exactly as before. This registry only decides
 // GROUPING and LABELS. Every `page` value below is an existing [data-page-content]
 // container — Phase 1 moves access points, it does not add or remove pages.
 
@@ -58,35 +59,27 @@ const MS_WORKSPACES = {
     label: 'Sales', icon: 'currency', accent: 'amber',
     pages: [
       { page: 'sales', label: 'Pulse' },
+      { page: 'appraisal', label: 'Appraisals' },
       { page: 'crm', label: 'Customers', legacy: true },
       { page: 'appointments', label: 'Appointments', legacy: true },
       { page: 'tasks', label: 'Tasks', legacy: true },
-      { page: 'ai-inbox', label: 'Messaging', legacy: true },
       { page: 'leads', label: 'Leads', mgr: true, legacy: true },
       { page: 'insights', label: 'Insights', mgr: true, legacy: true },
       { page: 'commissions', label: 'My Commission', legacy: true },
     ],
   },
 
-  // ── Inventory — one vehicle lifecycle: acquire → recon → price → publish ──
-  // Absorbs Appraisals + Equity Mining (were Sales), Cleanup/Recon (was its own
-  // department), Inventory Intelligence + Market (were Sales), and Facebook
-  // Marketplace publishing (was Marketing). ONE inventory pool — the Vehicles and
-  // Syndication tabs are two views of the same page via __inventoryMode.
   inventory: {
     label: 'Inventory', icon: 'gem', accent: 'sky',
     pages: [
       { page: 'inventory-overview', label: 'Pulse' },
       { page: 'inventory', label: 'Vehicles', invmode: 'manual', legacy: true },
-      { page: 'appraisal', label: 'Acquire' },
       { page: 'equity', label: 'Equity Mining' },
-      { page: 'recon', label: 'Cleanup', legacy: true },
       { page: 'inv-intel', label: 'Inventory Intelligence', mgr: true, legacy: true },
       { page: 'market', label: 'Market & Competitors', mgr: true, legacy: true },
     ],
   },
 
-  // ── F&I — first-class workspace. Desk-a-deal stays contextual (per customer).
   fni: {
     label: 'F&I', icon: 'shield', accent: 'indigo', roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'],
     pages: [
@@ -96,13 +89,13 @@ const MS_WORKSPACES = {
     ],
   },
 
-  // ── Service — the Service engine owns its own header ──────────────────────
-  // My Day | Appointments | Repair Orders | Settings are tabs INSIDE the workspace
-  // (js/modules/service-workspace.js). Listing the same destinations here as well
-  // would draw a second department tab row above the engine's own — the duplicate-
-  // header problem. `legacy` keeps both pages reachable by deep link and bookmark
-  // (the engine links to the full appointment book from its Appointments tab) while
-  // Service, like Management, presents one nav system.
+  recon: {
+    label: 'Cleanup', icon: 'sparkles', accent: 'sky',
+    pages: [
+      { page: 'recon', label: 'Pulse' },
+    ],
+  },
+
   service: {
     label: 'Service', icon: 'wrench', accent: 'sky', mgr: true,
     pages: [
@@ -120,8 +113,6 @@ const MS_WORKSPACES = {
     ],
   },
 
-  // The Accounting page renders its own rich internal menu (Financials, Insights,
-  // Reconciliation, Tax…) — that menu IS its local nav, so Overview is one entry.
   accounting: {
     label: 'Accounting', icon: 'currency', accent: 'emerald', probe: '#grp-accounting-wrap', mgr: true,
     pages: [
@@ -139,19 +130,11 @@ const MS_WORKSPACES = {
       { page: 'website', label: 'Website' },
       { page: 'video-studio', label: 'Video Studio' },
       { page: 'ai-home', label: 'AI Chat' },
-      // Same story as `commissions`: a working page whose access point was lost.
       { page: 'ai-inbox', label: 'AI Inbox' },
-      // Facebook Marketplace publishing is a marketing channel, so it lives here rather than
-      // in Inventory. It is the same inventory pool viewed in facebook mode.
       { page: 'inventory', label: 'Publish to Facebook', invmode: 'facebook' },
     ],
   },
 
-  // ── HR — the employee lifecycle (was "People", and "Administration" before that) ──
-  // The workspace id stays `people` and the page stays `people-overview`: every deep
-  // link, entitlement key (os.team), permission string (staff.*) and mobile nav entry
-  // is keyed to those. Renaming the LABEL is what the dealership sees; renaming the
-  // identifiers would break all of it for no gain.
   people: {
     label: 'HR', icon: 'user', accent: 'emerald', mgr: true,
     pages: [
@@ -179,12 +162,6 @@ const MS_WORKSPACES = {
     ],
   },
 
-  // Setup is NOT in the sidebar. It is one line at the foot of the shell that opens a
-  // modal (msSetupModal in dashboard-part2.js) and removes itself once the dealership is
-  // configured — a permanent nav entry for a job you finish once is furniture. The
-  // `launch` PAGE still exists and is still reachable by deep link; it simply no longer
-  // occupies a slot in the navigation forever.
-
   messaging: {
     label: 'Messaging', icon: 'chat', accent: 'sky', system: true,
     pages: [
@@ -192,17 +169,22 @@ const MS_WORKSPACES = {
     ],
   },
 
-  // ── System — rendered in the bottom/system section, not as a department ────
-  // Automation deliberately lives HERE, not in a department: contextual automation
-  // belongs inside workspaces, global advanced automation belongs in Settings.
   settings: {
-    label: 'Settings', icon: 'shield', accent: 'indigo', system: true, mgr: true,
+    label: 'Settings', icon: 'shield', system: true,
     pages: [
-      { page: 'config', label: 'Settings' },
+      { page: 'profile', label: 'Settings' },
       { page: 'automation-builder', label: 'Automation', legacy: true },
+      { page: 'config', label: 'Configuration', legacy: true },
       { page: 'api-keys', label: 'API Keys', legacy: true },
     ],
   },
+
+  // Setup is NOT in the sidebar. It is one line at the foot of the shell that opens a
+  // modal (msSetupModal in dashboard-part2.js) and removes itself once the dealership is
+  // configured — a permanent nav entry for a job you finish once is furniture. The
+  // `launch` PAGE still exists and is still reachable by deep link; it simply no longer
+  // occupies a slot in the navigation forever.
+
 };
 
 // Bottom/system rail. `profile` is the header gear (always reachable, every tier).

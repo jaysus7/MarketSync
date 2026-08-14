@@ -224,12 +224,10 @@ let __msLaunch = null;      // the last /launch answer, so the modal need not re
 
 async function refreshSetupIndicator(role) {
   const host = document.getElementById('setup-bar-host');
-  const banner = document.getElementById('setup-status-banner');
   role = role || window.__setupIndicatorRole || profileContext?.role;
-  if (!host && !banner) return;
+  if (!host) return;
   if (role && !['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(role)) {
-    if (host) host.innerHTML = '';
-    if (banner) banner.classList.add('hidden');
+    host.innerHTML = '';
     return;
   }
   window.__setupIndicatorRole = role;
@@ -238,21 +236,15 @@ async function refreshSetupIndicator(role) {
     if (!response.ok) return;
     const launch = await response.json();
     __msLaunch = launch;
-    if (launch.fully_configured) { banner.classList.add('hidden'); if (host) host.innerHTML = ''; return; }
+    if (launch.fully_configured) {
+      host.innerHTML = '';
+      return;
+    }
     const items = launch.items || [];
     const done = items.filter(i => i.status === 'done').length;
     const total = items.length || 1;
     const required = items.filter(i => i.status === 'outstanding' && i.type === 'REQUIRED_TO_LAUNCH').length;
     const pct = Math.round((done / total) * 100);
-
-    if (banner) {
-      const titleEl = document.getElementById('setup-status-title');
-      const detailEl = document.getElementById('setup-status-detail');
-      if (titleEl) titleEl.textContent = `Setting up your dealership — ${done} of ${items.length}`;
-      if (detailEl) detailEl.textContent = required ? `${required} still required before you can operate` : 'the rest is recommended or optional';
-      banner.classList.remove('hidden');
-      banner.classList.add('flex');
-    }
 
     host.innerHTML = `
       <button onclick="switchPage('launch')" title="Setting up your dealership" aria-label="Setting up your dealership" class="w-full text-left rounded-xl border border-indigo-200 dark:border-indigo-800/80 bg-indigo-50/80 dark:bg-indigo-950/40 p-3 mb-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition shadow-sm group cursor-pointer">
@@ -614,7 +606,7 @@ async function initializeDashboardEcosystem() {
     ]);
 
     loadInsights();
-    try { if (typeof loadMyTierChip === 'function') loadMyTierChip(); } catch (e) {}
+    loadMyTierChip();
     initSecurityPanel();
 
     // If returning from Stripe checkout, verify payment then load AI config

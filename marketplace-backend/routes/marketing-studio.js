@@ -60,41 +60,6 @@ const FORMATS = {
 
 const HEX = /^#[0-9a-f]{6}$/i
 const xml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]))
-const lines = (s, max = 34) => {
-  const words = String(s || '').trim().split(/\s+/).filter(Boolean), out = []
-  for (const word of words) {
-    if (!out.length || `${out.at(-1)} ${word}`.length > max) out.push(word)
-    else out[out.length - 1] += ` ${word}`
-  }
-  return out.slice(0, 4)
-}
-
-export function studioDesignSpec(input = {}) {
-  const format = FORMATS[input.format] ? input.format : 'square'
-  const [width, height] = FORMATS[format]
-  return {
-    format, width, height,
-    headline: String(input.headline || '').trim().slice(0, 140),
-    subheadline: String(input.subheadline || '').trim().slice(0, 220),
-    cta: String(input.cta || '').trim().slice(0, 60),
-    textColor: HEX.test(input.text_color) ? input.text_color : '#ffffff',
-    accentColor: HEX.test(input.accent_color) ? input.accent_color : '#6d28d9',
-    overlay: Math.max(0, Math.min(85, Number(input.overlay ?? 48))),
-  }
-}
-
-export function studioOverlaySvg(spec) {
-  const headline = lines(spec.headline, spec.format === 'story' ? 25 : 32)
-  const sub = lines(spec.subheadline, spec.format === 'story' ? 34 : 48)
-  const baseY = Math.round(spec.height * .57), headlineSize = Math.round(spec.width * .064)
-  return `<svg width="${spec.width}" height="${spec.height}" xmlns="http://www.w3.org/2000/svg">
-    <rect width="100%" height="100%" fill="rgba(0,0,0,${spec.overlay / 100})"/>
-    <rect x="${Math.round(spec.width*.07)}" y="${Math.round(spec.height*.08)}" width="${Math.round(spec.width*.16)}" height="${Math.max(8,Math.round(spec.height*.009))}" rx="4" fill="${spec.accentColor}"/>
-    ${headline.map((l,i)=>`<text x="${Math.round(spec.width*.07)}" y="${baseY+i*headlineSize*1.08}" font-family="Arial,Helvetica,sans-serif" font-size="${headlineSize}" font-weight="700" fill="${spec.textColor}">${xml(l)}</text>`).join('')}
-    ${sub.map((l,i)=>`<text x="${Math.round(spec.width*.07)}" y="${baseY+headline.length*headlineSize*1.08+Math.round(spec.height*.045)+i*headlineSize*.58}" font-family="Arial,Helvetica,sans-serif" font-size="${Math.round(headlineSize*.42)}" fill="${spec.textColor}">${xml(l)}</text>`).join('')}
-    ${spec.cta ? `<rect x="${Math.round(spec.width*.07)}" y="${Math.round(spec.height*.86)}" width="${Math.min(Math.round(spec.width*.6), Math.max(Math.round(spec.width*.22), spec.cta.length*headlineSize*.28))}" height="${Math.round(spec.height*.065)}" rx="${Math.round(spec.height*.015)}" fill="${spec.accentColor}"/><text x="${Math.round(spec.width*.095)}" y="${Math.round(spec.height*.902)}" font-family="Arial,Helvetica,sans-serif" font-size="${Math.round(headlineSize*.36)}" font-weight="700" fill="#ffffff">${xml(spec.cta)}</text>` : ''}
-  </svg>`
-}
 
 /**
  * Default Stock Automotive Templates
@@ -492,17 +457,6 @@ export function registerMarketingStudio(app) {
     const width = Number(scene.width || req.body?.width) || 1080
     const height = Number(scene.height || req.body?.height) || 1080
     const elements = scene.elements || []
-
-    let background = null
-    const assetId = req.body?.asset_id || scene.background?.asset_id
-    if (assetId) {
-      const { data: source } = await supabaseAdmin.from('marketing_assets').select('id, storage_path')
-        .eq('id', assetId).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
-      if (source?.storage_path) {
-        const { data } = await supabaseAdmin.storage.from('vehicle-photos').download(source.storage_path)
-        if (data) background = Buffer.from(await data.arrayBuffer())
-      }
-    }
 
     try {
       const sharp = (await import('sharp')).default

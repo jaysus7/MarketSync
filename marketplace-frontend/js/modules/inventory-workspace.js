@@ -256,19 +256,39 @@ function invRenderMerch(d) {
   </div>`;
 }
 
-// ── Vehicles / Inventory Catalog ─────────────────────────────────────────────
-// Live inventory catalog and feed ingestion. The lifecycle stages (Acquisition,
-// Cleanup, Merchandising, Pricing and age, Vehicles) are monitored in Pulse.
 async function invRenderWork(body, d) {
-  // Vehicle lifecycle: Acquisition, Cleanup, Merchandising, Pricing and age, Vehicles
-  body.innerHTML = '';
+  if (!__invAppraisals) {
+    body.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading inventory…</div>`;
+    try { __invAppraisals = await apiGetJson('/ai/appraisals'); } catch { __invAppraisals = { appraisals: [] }; }
+  }
+
+  const noPrice = (d.vehicles || []).filter(v => !Number(v.price));
+  const aged = (d.vehicles || []).filter(v => { const a = invDays(v.created_at); return a != null && a >= INV_AGED_DAYS; });
+
+  const reconRows = d.recon || [];
+  const atRisk = (r) => !!r.deal_id && r.stage !== 'done';
+  const sold = reconRows.filter(atRisk), rest = reconRows.filter(r => !atRisk(r));
+  const reconRow = (r) => {
+    const v = (d.vehById || {})[r.inventory_id] || r.inventory || {};
+    const sub = `${esc(r.stage || 'in progress')}${r.deal_id ? ' · <span class="text-rose-500">sold — delivery is waiting</span>' : ''}`;
+    if (v.id) return invRow(v, d, sub);
+    return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+      <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(invName(v))}</div>
+        <div class="text-[12px] text-slate-400 truncate">${sub}</div></div>
+    </div>`;
+  };
+
+  body.innerHTML = `
+    ${engSection('Acquisition', invRenderAcquisition(d, (__invAppraisals && __invAppraisals.appraisals) || []), 'What is coming in, and what you have taken possession of')}
+    ${engSection('Merchandising', invRenderMerch(d), 'What is stopping a vehicle going on the front line')}
+    ${engSection('Pricing and age', (noPrice.length ? engCard(`No price (${noPrice.length})`, noPrice.slice(0, 10).map(v => invRow(v, d)).join('')) : '')
+      + engCard(`Aged ${INV_AGED_DAYS}+ days (${aged.length})`, aged.slice(0, 15).map(v => invRow(v, d)).join('') || engEmpty('Nothing aged.'), noPrice.length ? 'mt-3' : ''),
+      'Units carrying no price, and units carrying too much time')}
+    ${engSection('Vehicles', '', 'Every unit in stock — add one, edit one, publish one')}`;
+
   if (typeof engMountPage === 'function') {
     engMountPage(body, 'inventory', () => {
-      document.getElementById('feeds-panel')?.classList.remove('hidden');
-      document.getElementById('catalog-panel')?.classList.remove('hidden');
-      if (typeof loadInventoryFeeds === 'function') loadInventoryFeeds();
       if (typeof loadInventoryCatalog === 'function') loadInventoryCatalog();
-      if (typeof prefetchInvIntelTags === 'function') prefetchInvIntelTags();
     });
   }
 }
@@ -276,10 +296,9 @@ async function invRenderWork(body, d) {
 ENGINES['inventory-overview'] = {
   rootId: 'inventory-overview-root', title: 'Inventory', subtitle: 'One vehicle lifecycle — acquire, recon, price, publish',
   icon: 'gem', accent: 'sky',
-  tabLabels: { overview: 'Pulse', work: 'Inventory', appraisals: 'Appraisals', settings: 'Settings' },
+  tabLabels: { overview: 'Pulse', work: 'Inventory', settings: 'Settings' },
   get tabOrder() {
-    const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    return mgr ? ['work', 'overview', 'appraisals', 'settings'] : ['work', 'overview', 'appraisals'];
+    return ['work', 'overview', 'settings'];
   },
 
   fetch: async () => {
@@ -309,11 +328,7 @@ ENGINES['inventory-overview'] = {
   })),
 
   tabs: {
-    async overview(body, d) {
-      if (!__invAppraisals) {
-        try { __invAppraisals = await apiGetJson('/ai/appraisals'); } catch { __invAppraisals = { appraisals: [] }; }
-      }
-
+    overview(body, d) {
       const att = invAttention(d);
       const veh = d.vehicles || [];
       const held = veh.filter(v => !v.awaiting_possession);
@@ -321,22 +336,6 @@ ENGINES['inventory-overview'] = {
       const awaiting = veh.filter(v => v.awaiting_possession).length;
       const agedCount = veh.filter(v => (v.age_days || 0) > 60).length;
       const missingPhotos = veh.filter(v => !v.photo_urls || !v.photo_urls.length).length;
-
-      const noPrice = (d.vehicles || []).filter(v => !Number(v.price));
-      const aged = (d.vehicles || []).filter(v => { const a = invDays(v.created_at); return a != null && a >= INV_AGED_DAYS; });
-
-      const reconRows = d.recon || [];
-      const atRisk = (r) => !!r.deal_id && r.stage !== 'done';
-      const sold = reconRows.filter(atRisk), rest = reconRows.filter(r => !atRisk(r));
-      const reconRow = (r) => {
-        const v = (d.vehById || {})[r.inventory_id] || r.inventory || {};
-        const sub = `${esc(r.stage || 'in progress')}${r.deal_id ? ' · <span class="text-rose-500">sold — delivery is waiting</span>' : ''}`;
-        if (v.id) return invRow(v, d, sub);
-        return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-          <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(invName(v))}</div>
-            <div class="text-[12px] text-slate-400 truncate">${sub}</div></div>
-        </div>`;
-      };
 
       const proactiveAiPanel = `
         <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg border border-slate-800">
@@ -353,8 +352,8 @@ ENGINES['inventory-overview'] = {
             <p>• <strong>Acquisition Pipeline:</strong> ${awaiting} vehicle(s) awaiting transport possession check-in.</p>
           </div>
           <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
-            <button onclick="engineTab('inventory-overview','work')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Review Inventory Catalog</button>
-            <button onclick="engineTab('inventory-overview','appraisals')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Appraise Trade-Ins</button>
+            <button onclick="engineTab('inventory-overview','work')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Review Aged Inventory</button>
+            <button onclick="deptGo('sales','appraisals')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Appraise Trade-Ins</button>
           </div>
         </div>
       `;
@@ -368,17 +367,27 @@ ENGINES['inventory-overview'] = {
           ${engKpi('Not frontline ready', notReady.length, notReady.length ? 'text-rose-600 dark:text-rose-400' : '')}
         </div>
         ${engCard('Needs attention', att.length ? att.map(salesAttentionRow).join('') : engEmpty('Every vehicle is frontline ready.'))}
-        
-        <div class="mt-4 space-y-4">
-          ${engSection('Acquisition', invRenderAcquisition(d, (__invAppraisals && __invAppraisals.appraisals) || []), 'What is coming in, and what you have taken possession of')}
-          ${engSection('Merchandising', invRenderMerch(d), 'What is stopping a vehicle going on the front line')}
-          ${engSection('Pricing and age', (noPrice.length ? engCard(`No price (${noPrice.length})`, noPrice.slice(0, 10).map(v => invRow(v, d)).join('')) : '')
-            + engCard(`Aged ${INV_AGED_DAYS}+ days (${aged.length})`, aged.slice(0, 15).map(v => invRow(v, d)).join('') || engEmpty('Nothing aged.'), noPrice.length ? 'mt-3' : ''),
-            'Units carrying no price, and units carrying too much time')}
-        </div>
-      `;
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
+          ${engCard('Not frontline ready', notReady.length ? notReady.slice(0, 6).map(v => invRow(v, d, `<span class="text-rose-500">${esc(invMerchGaps(v).map(g => g.gap).join(' · '))}</span>`)).join('') : engEmpty('Every vehicle is merchandised.'))}
+          ${engCard('In recon', (d.recon || []).length ? (d.recon || []).slice(0, 6).map(r => {
+            const v = (d.vehById || {})[r.inventory_id] || r.inventory || {};
+            return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+              <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(invName(v))}</div>
+                <div class="text-[12px] text-slate-400 truncate">${esc(r.stage || 'in progress')}</div></div>
+              <button onclick="switchPage('recon')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Open Recon</button>
+            </div>`; }).join('') : engEmpty('Nothing in cleanup.'))}
+        </div>`;
+      
+      const noPrice = (d.vehicles || []).filter(v => !Number(v.price));
+      const aged = (d.vehicles || []).filter(v => { const a = invDays(v.created_at); return a != null && a >= INV_AGED_DAYS; });
+      
+      body.insertAdjacentHTML('beforeend', engSection('Merchandising', invRenderMerch(d), 'What is stopping a vehicle going on the front line'));
+      body.insertAdjacentHTML('beforeend', engSection('Pricing and age', (noPrice.length ? engCard(`No price (${noPrice.length})`, noPrice.slice(0, 10).map(v => invRow(v, d)).join('')) : '')
+        + engCard(`Aged ${INV_AGED_DAYS}+ days (${aged.length})`, aged.slice(0, 15).map(v => invRow(v, d)).join('') || engEmpty('Nothing aged.'), noPrice.length ? 'mt-3' : ''),
+        'Units carrying no price, and units carrying too much time'));
 
-      // Insights and Inventory Intelligence live here in Pulse
+      // Insights and Inventory Intelligence live here now: aging, how units were acquired and
+      // the frontline picture belong in the day, not behind a tab somebody has to remember.
       const strip = document.createElement('div');
       strip.className = 'mt-4';
       ENGINES['inventory-overview'].tabs.__insightsStrip(strip, d);
@@ -389,15 +398,6 @@ ENGINES['inventory-overview'] = {
     },
     work: invRenderWork,
 
-    // ── APPRAISALS — the appraisal page itself, not a summary of it ─────────
-    appraisals(body) {
-      body.innerHTML = '';
-      engMountPage(body, 'appraisal', () => {
-        if (typeof initAppraisal === 'function') initAppraisal();
-        if (typeof loadApprList === 'function') loadApprList();
-        if (typeof apprEnsureBranding === 'function') apprEnsureBranding();
-      });
-    },
 
     // The old Insights tab, now rendered INSIDE My Day. See overview().
     __insightsStrip(body, d) {

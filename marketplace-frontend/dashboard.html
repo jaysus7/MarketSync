@@ -338,11 +338,6 @@
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"/></svg>
         <span id="notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none"></span>
       </button>
-      <!-- Messaging / Multi-Channel Inbox button -->
-      <button id="header-messaging-btn" onclick="switchPage('ai-inbox')" title="Messaging & Multi-Channel Inbox" aria-label="Messaging & Multi-Channel Inbox" class="relative p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h.008v.008H8.625V12zm4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h.008v.008h-.008V12zm4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h.008v.008h-.008V12zM21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-        <span id="header-messaging-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-emerald-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none"></span>
-      </button>
       <button id="logout-btn" onclick="msSignOut()" title="Sign out" aria-label="Sign out" class="inline-flex items-center justify-center p-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M18 15l3-3m0 0l-3-3m3 3H9"/></svg>
       </button>
@@ -3120,13 +3115,6 @@
     </section>
   </main>
 
-  <!-- ── Setup progress — one line, at the bottom, and only while it is unfinished ── -->
-  <button id="setup-status-banner" onclick="switchPage('launch')" class="hidden flex-shrink-0 items-center justify-center gap-2 w-full border-t border-amber-300/70 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/30 px-4 py-2 text-center hover:bg-amber-100 dark:hover:bg-amber-950/50 transition">
-    <span id="setup-status-title" class="text-[12px] font-bold text-amber-900 dark:text-amber-200">Finish setup</span>
-    <span id="setup-status-detail" class="text-[11px] text-amber-700 dark:text-amber-300"></span>
-    <span class="text-[11px] font-bold text-amber-800 dark:text-amber-300 underline">Open</span>
-  </button>
-
 
 
   <!-- ── Reports rail — fixed quick-access to every lot-wide report (II; shown via JS) ── -->
@@ -3701,56 +3689,56 @@
        cannot reuse an older bundle from its cache after a staging deployment. -->
   <!-- Workspace registry: SINGLE SOURCE OF TRUTH for sidebar, workspace tabs and
        mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
-  <script src="js/modules/workspace-registry.js?v=20260814_v1"></script>
-  <script src="dashboard.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part2.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part3.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part4.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part5.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part6.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part7.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part8.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part9.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part10.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part11.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part12.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part13.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part14.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part15.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part16.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part17.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part18.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part19.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part20.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part21.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part22.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part23.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part24.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part25.js?v=20260814_v1"></script>
-  <script src="js/modules/dashboard-part26.js?v=20260814_v1"></script>
+  <script src="js/modules/workspace-registry.js?v=20260813_v6"></script>
+  <script src="dashboard.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part2.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part3.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part4.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part5.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part6.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part7.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part8.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part9.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part10.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part11.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part12.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part13.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part14.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part15.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part16.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part17.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part18.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part19.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part20.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part21.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part22.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part23.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part24.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part25.js?v=20260813_v6"></script>
+  <script src="js/modules/dashboard-part26.js?v=20260813_v6"></script>
   <!-- Sales workspace: registers ENGINES['sales']; must load after the parts. -->
-  <script src="js/modules/sales-workspace.js?v=20260814_v1"></script>
-  <script src="js/modules/inventory-workspace.js?v=20260814_v1"></script>
-  <script src="js/modules/fni-workspace.js?v=20260814_v1"></script>
+  <script src="js/modules/sales-workspace.js?v=20260813_v6"></script>
+  <script src="js/modules/inventory-workspace.js?v=20260813_v6"></script>
+  <script src="js/modules/fni-workspace.js?v=20260813_v6"></script>
   <!-- Vehicle Record: one unit, one surface. Loads after inventory-workspace.js,
        whose merchandising/acquisition definitions it renders. -->
-  <script src="js/modules/vehicle-record.js?v=20260814_v1"></script>
-  <script src="js/modules/receipt-engine.js?v=20260814_v1"></script>
-  <script src="js/modules/video-studio.js?v=20260814_v1"></script>
-  <script src="js/modules/service-views.js?v=20260814_v1"></script>
-  <script src="js/modules/service-workspace.js?v=20260814_v1"></script>
-  <script src="js/modules/parts-views.js?v=20260814_v1"></script>
-  <script src="js/modules/parts-workspace.js?v=20260814_v1"></script>
-  <script src="js/modules/accounting-views.js?v=20260814_v1"></script>
-  <script src="js/modules/accounting-workspace.js?v=20260814_v1"></script>
-  <script src="js/modules/studio/scene-model.js?v=20260814_v1"></script>
-  <script src="js/modules/studio/fabric-adapter.js?v=20260814_v1"></script>
-  <script src="js/modules/studio/studio-shell.js?v=20260814_v1"></script>
-  <script src="js/modules/marketing-workspace.js?v=20260814_v1"></script>
-  <script src="js/modules/academy-workspace.js?v=20260814_v1"></script>
-  <script src="js/modules/launch-workspace.js?v=20260814_v1"></script>
-  <script src="js/modules/people-views.js?v=20260814_v1"></script>
-  <script src="js/modules/people-workspace.js?v=20260814_v1"></script>
+  <script src="js/modules/vehicle-record.js?v=20260813_v6"></script>
+  <script src="js/modules/receipt-engine.js?v=20260813_v1"></script>
+  <script src="js/modules/video-studio.js?v=20260813_v1"></script>
+  <script src="js/modules/service-views.js?v=20260813_v6"></script>
+  <script src="js/modules/service-workspace.js?v=20260813_v6"></script>
+  <script src="js/modules/parts-views.js?v=20260813_v7"></script>
+  <script src="js/modules/parts-workspace.js?v=20260813_v6"></script>
+  <script src="js/modules/accounting-views.js?v=20260813_v6"></script>
+  <script src="js/modules/accounting-workspace.js?v=20260813_v6"></script>
+  <script src="js/modules/studio/scene-model.js?v=20260813_v1"></script>
+  <script src="js/modules/studio/fabric-adapter.js?v=20260813_v1"></script>
+  <script src="js/modules/studio/studio-shell.js?v=20260813_v1"></script>
+  <script src="js/modules/marketing-workspace.js?v=20260813_v6"></script>
+  <script src="js/modules/academy-workspace.js?v=20260813_v6"></script>
+  <script src="js/modules/launch-workspace.js?v=20260813_v6"></script>
+  <script src="js/modules/people-views.js?v=20260813_v7"></script>
+  <script src="js/modules/people-workspace.js?v=20260813_v6"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

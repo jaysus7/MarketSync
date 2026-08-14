@@ -324,7 +324,7 @@ ENGINES['marketing-overview'] = {
     { label: 'Studio', icon: 'image', onclick: "engineTab('marketing-overview','studio')" },
     { label: 'Website', icon: 'chart', onclick: "engineTab('marketing-overview','website')" },
   ],
-  nextActions: (d) => (d.needsAttention || []).slice(0, 5).map(x => ({
+  nextActions: (d) => (d?.needsAttention || []).slice(0, 5).map(x => ({
     label: `${x.subject} — ${x.action}`, icon: 'flame',
     tone: MKT_TONE[x.severity] || MKT_TONE[2], onclick: mktGo(x.kind),
   })),
@@ -360,10 +360,10 @@ ENGINES['marketing-overview'] = {
 
   tabs: {
     overview(body, d) {
-      const att = d.needsAttention || [], opp = d.opportunities || [];
-      const waiting = (d.conversations || []).filter(c => c.status === 'waiting_dealer').length;
-      const live = (d.campaigns || []).filter(c => c.status === 'active').length;
-      const failed = d.dayFailed || [], notCovered = d.dayNotCovered || [];
+      if (typeof window.pulseMarketingDeptSection === 'function') {
+        body.innerHTML = window.pulseMarketingDeptSection(d);
+        return;
+      }
       const caveat = (failed.length || notCovered.length) ? `
         <div class="mb-4 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-3">
           ${failed.length ? `<div class="text-[13px] font-bold text-amber-800 dark:text-amber-300">This day is incomplete.</div>
@@ -512,8 +512,8 @@ function mktStudioView(d) {
               <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg> Open Studio Editor
             </button>
             <label class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 cursor-pointer transition flex items-center gap-1.5">
-              <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Upload
-              <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden" onchange="mktUploadAsset(this)">
+              <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Upload Asset
+              <input type="file" accept="image/*" class="hidden" onchange="mktUploadAsset(this)">
             </label>
           </div>
         </div>
@@ -596,12 +596,11 @@ function mktStudioView(d) {
                  class="w-full aspect-square object-cover rounded-lg border border-slate-200 dark:border-slate-700">
             <div class="text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate mt-1.5">${esc(a.title || `${a.width || '?'}×${a.height || '?'}`)}</div>
             <div class="flex gap-2 mt-1.5">
-              <button onclick="mktStudioOpen('${esc(a.id)}','${esc(a.public_url)}')" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Use as background</button>
               <button onclick="openMarketSyncStudio(null, {assetUrl:'${esc(a.public_url)}'})" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Edit in Studio</button>
               <button onclick="mktCompose({assetUrl:'${esc(a.public_url)}'})" class="text-[11px] font-bold text-slate-600 dark:text-slate-400 hover:underline">Schedule</button>
             </div>
           </div>`).join('')}
-        </div>` : engEmpty('Nothing in Studio yet. Create a design or upload a photo.'))}
+        </div>` : engEmpty('No uploaded media assets yet. Click Upload Asset or Create Design above.'))}
     </div>
   `;
 }
@@ -1012,7 +1011,7 @@ function openSocialChannelConnectModal(providerKey) {
             <p class="text-xs text-slate-500">Authorize MarketSync to auto-post inventory and video updates.</p>
           </div>
         </div>
-        <button type="button" onclick="closeSocialChannelModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-lg font-bold">&times;</button>
+        <button type="button" onclick="closeSocialChannelModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-lg font-bold">✕</button>
       </div>
 
       <div class="space-y-4">
@@ -1080,7 +1079,7 @@ function openSocialChannelConfigModal(providerKey) {
             <p class="text-xs text-emerald-500 font-bold">CONNECTED · Sync Status Active</p>
           </div>
         </div>
-        <button type="button" onclick="closeSocialChannelModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-lg font-bold">&times;</button>
+        <button type="button" onclick="closeSocialChannelModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-lg font-bold">✕</button>
       </div>
 
       <div class="space-y-4">
@@ -1133,20 +1132,14 @@ async function submitSocialChannelConnect(providerKey) {
   const ownership = document.getElementById('sc-conn-ownership')?.value || 'dealership';
 
   try {
-    if (typeof apiSendJson === 'function') {
-      await fetch('/api/social/accounts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider: providerKey,
-          external_account_id: handle,
-          display_name: displayName,
-          handle: handle,
-          ownership: ownership
-        })
-      }).catch(() => null);
-    }
-  } catch (e) { }
+    await apiSendJson('/social/accounts', 'POST', {
+      provider: providerKey,
+      external_account_id: handle,
+      display_name: displayName,
+      handle: handle,
+      ownership: ownership
+    }).catch(() => null);
+  } catch (e) { /* fallback */ }
 
   window.__msSocialChannelStates[providerKey].connected = true;
   window.__msSocialChannelStates[providerKey].handle = handle;

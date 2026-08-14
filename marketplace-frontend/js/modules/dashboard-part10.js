@@ -736,7 +736,7 @@ Object.assign(window, { loadAiHome, aiHomeSaveKnowledge, aiHomeSavePersonality, 
 // ═══════════════════════════════════════════════════════════════════════════
 const ENGINE_TAB_ORDER = ['overview', 'work', 'insights', 'automation', 'settings'];
 const ENGINE_TAB_LABEL = {
-  overview: 'Overview', work: 'Work', appointments: 'Appointments', desk: 'Desk a Deal', appraisal: 'Appraise Trade', equity: 'Equity Mining',
+  overview: 'Overview', work: 'Work', desk: 'Desk a Deal', appraisal: 'Appraise Trade', equity: 'Equity Mining',
   money_in: 'Money In', money_out: 'Money Out', bank: 'Bank', close: 'Close', reports: 'Reports', budget: 'Budget',
   journal: 'Journal', payroll: 'Payroll', insights: 'Insights', automation: 'Automation', settings: 'Settings'
 };

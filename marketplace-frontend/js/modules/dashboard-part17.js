@@ -1023,7 +1023,7 @@ function renderWsLayersTree() {
               <div class="flex items-center gap-1 opacity-80 group-hover:opacity-100">
                 <button type="button" onclick="event.stopPropagation(); moveSection(${idx},-1)" ${idx === 0 ? 'disabled' : ''} class="p-1 text-slate-400 hover:text-white disabled:opacity-20" title="Move Up">↑</button>
                 <button type="button" onclick="event.stopPropagation(); moveSection(${idx},1)" ${idx === __siteSections.length - 1 ? 'disabled' : ''} class="p-1 text-slate-400 hover:text-white disabled:opacity-20" title="Move Down">↓</button>
-                <button type="button" onclick="event.stopPropagation(); delSection(${idx})" class="p-1 text-rose-400 hover:text-rose-300" title="Delete">&times;</button>
+                <button type="button" onclick="event.stopPropagation(); delSection(${idx})" class="p-1 text-rose-400 hover:text-rose-300" title="Delete">✕</button>
               </div>
             </div>
           `;
@@ -1233,7 +1233,7 @@ function renderElementorPalette() {
   });
 
   const cardsHtml = filteredSecs.map(t => {
-    const ext = WIDGET_META_EXT[t] || { icon: '+', category: 'content', name: SEC_META[t]?.label || t, desc: 'Add element section' };
+    const ext = WIDGET_META_EXT[t] || { icon: '✦', category: 'content', name: SEC_META[t]?.label || t, desc: 'Add element section' };
     return `
       <button onclick="addSection('${t}')" class="group p-2.5 bg-slate-900 border border-slate-800 hover:border-indigo-500 rounded-xl text-left transition flex flex-col justify-between">
         <div>
@@ -2062,7 +2062,7 @@ function openWebsiteScannerModal() {
           <h3 class="text-lg font-black text-white">Scan Existing Website ("Scan &amp; Paste")</h3>
           <p class="text-xs text-slate-400">Import your current store info, hours, phone, FAQs, and content into this template.</p>
         </div>
-        <button onclick="this.closest('.fixed').remove()" class="p-1.5 rounded-xl text-slate-400 hover:text-white">&times;</button>
+        <button onclick="this.closest('.fixed').remove()" class="p-1.5 rounded-xl text-slate-400 hover:text-white">✕</button>
       </div>
 
       <div class="space-y-3">
@@ -2187,10 +2187,10 @@ function dealerBlogModal(p) {
         <!-- Visual Article Builder -->
         <div class="space-y-1.5 pt-1">
           <div class="flex items-center justify-between flex-wrap gap-2">
-            <label class="text-xs font-extrabold uppercase tracking-wider text-slate-500">Visual Article Body & Layout</label>
+            <label class="text-xs font-extrabold uppercase tracking-wider text-slate-500">Visual Article Body &amp; Layout</label>
             <div class="flex items-center gap-1.5 text-xs">
               <button type="button" onclick="blogSwitchEditorMode('visual')" id="blog-tab-visual" class="px-3 py-1 rounded-lg font-black bg-indigo-600 text-white transition shadow-sm"> Visual Editor</button>
-              <button type="button" onclick="blogSwitchEditorMode('preview')" id="blog-tab-preview" class="px-3 py-1 rounded-lg font-black bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition"> Live Preview</button>
+              <button type="button" onclick="blogSwitchEditorMode('preview')" id="blog-tab-preview" class="px-3 py-1 rounded-lg font-black bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition">️ Live Preview</button>
               <button type="button" onclick="blogSwitchEditorMode('html')" id="blog-tab-html" class="px-3 py-1 rounded-lg font-black bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition">Code HTML</button>
             </div>
           </div>
@@ -2203,13 +2203,13 @@ function dealerBlogModal(p) {
             <button type="button" onclick="blogExecCmd('formatBlock', '<h3>')" title="Heading 3" class="px-2.5 py-1 rounded-lg font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition">H3</button>
             <button type="button" onclick="blogExecCmd('insertUnorderedList')" title="Bullet List" class="px-2.5 py-1 rounded-lg font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition">• List</button>
             <button type="button" onclick="blogExecCmd('insertOrderedList')" title="Numbered List" class="px-2.5 py-1 rounded-lg font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition">1. List</button>
-            <button type="button" onclick="blogExecCmd('formatBlock', '<blockquote>')" title="Quote" class="px-2.5 py-1 rounded-lg italic hover:bg-slate-200 dark:hover:bg-slate-700 transition">Quote</button>
+            <button type="button" onclick="blogExecCmd('formatBlock', '<blockquote>')" title="Quote" class="px-2.5 py-1 rounded-lg italic hover:bg-slate-200 dark:hover:bg-slate-700 transition">“Quote”</button>
             <button type="button" onclick="blogInsertImage()" title="Insert Image URL" class="px-2.5 py-1 rounded-lg font-bold text-emerald-600 dark:text-emerald-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition"> Image</button>
             <button type="button" onclick="blogInsertCallout()" title="Add Highlight Box" class="px-2.5 py-1 rounded-lg font-bold text-amber-600 dark:text-amber-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition"> Callout Box</button>
             
             <div class="ml-auto">
               <button type="button" onclick="blogAiGenerateArticle()" class="px-3 py-1 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs transition shadow-sm cursor-pointer">
-                Generate Article with AI
+                ✨ Generate Article with AI
               </button>
             </div>
           </div>

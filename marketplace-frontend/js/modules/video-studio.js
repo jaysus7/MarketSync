@@ -171,7 +171,7 @@ function renderStudioHtml(contact, options) {
               <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
               Flip Camera
             </button>
-            <button onclick="vidCloseStudio()" class="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition">&times;</button>
+            <button onclick="vidCloseStudio()" class="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition">✕</button>
           </div>
         </div>
 
@@ -660,7 +660,7 @@ function openPublicVideoLink(videoId, contactId) {
         </div>
         <div class="flex items-center gap-2">
           <button onclick="changeVipDiscountAmount('${videoId}')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-300 border border-slate-700 transition" title="Change VIP discount amount for this customer">Edit VIP Discount</button>
-          <button onclick="closePublicVideoPlayer()" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition">&times;</button>
+          <button onclick="closePublicVideoPlayer()" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition">✕</button>
         </div>
       </div>
 
@@ -831,7 +831,7 @@ function openScheduleTestDriveModal(videoId, contactId) {
     <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 text-white space-y-4 shadow-2xl">
       <div class="flex items-center justify-between">
         <h3 class="text-base font-black">Schedule Your Test Drive</h3>
-        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-white">&times;</button>
+        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-white">✕</button>
       </div>
       <p class="text-xs text-slate-400">Pick your preferred date and time to test drive with <strong>${escV(repName)}</strong>.</p>
       
@@ -889,7 +889,7 @@ function openClaimVipDiscountModal(videoId, contactId) {
     <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 text-white space-y-4 shadow-2xl text-center">
       <div class="flex items-center justify-between">
         <h3 class="text-base font-black text-indigo-400">Exclusive VIP Discount Claimed!</h3>
-        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-white">&times;</button>
+        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-white">✕</button>
       </div>
       <div class="p-4 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 space-y-1">
         <div class="text-xl font-black text-white">${escV(discount)}</div>

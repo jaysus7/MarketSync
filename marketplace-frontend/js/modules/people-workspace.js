@@ -187,34 +187,9 @@ ENGINES['people-overview'] = {
     compliance(body, d) {
       if (typeof pplRenderComplianceWorkspace === 'function') {
         body.innerHTML = pplRenderComplianceWorkspace(d);
-        return;
+      } else {
+        body.innerHTML = engCard('Compliance', engEmpty('Compliance workspace module loading...'));
       }
-      const c = d.compliance;
-      if (!c) {
-        body.innerHTML = engCard('Compliance', engEmpty('You do not have permission to see compliance.'));
-        return;
-      }
-      const cov = c.coverage || {};
-      const areas = cov.areas || [];
-      body.innerHTML = `
-        ${cov.headline ? `<div class="rounded-xl border ${cov.fully_measured ? 'border-emerald-300/60 dark:border-emerald-800/50' : 'border-amber-300/60 dark:border-amber-700/50 bg-amber-50/60 dark:bg-amber-950/20'} p-3">
-          <div class="text-[13px] font-bold ${cov.fully_measured ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'}">${esc(cov.headline)}</div>
-        </div>` : ''}
-        ${engCard('What is being measured', areas.length ? areas.map(a => `
-          <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-            <div class="min-w-0 flex-1">
-              <div class="font-bold text-[13px] text-slate-900 dark:text-white">${esc(a.label)}</div>
-              <div class="text-[12px] text-slate-400">${esc(a.means)}</div>
-            </div>
-            <div class="shrink-0 text-[12px] font-bold ${a.measured ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}">${a.measured ? 'Measured' : 'No records'}</div>
-          </div>`).join('') : engEmpty('No coverage answer was returned.'))}
-        ${engCard('Per employee', (c.rows || []).length ? (c.rows).map(r => `
-          <div class="flex items-center gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-            <div class="font-bold text-[13px] text-slate-900 dark:text-white w-40 truncate">${esc(r.employee_name || 'Staff member')}</div>
-            <div class="flex-1 text-[12px] text-slate-400 truncate">${esc(r.issues?.join(', ') || 'Compliant')}</div>
-            <div class="shrink-0 text-[12px] font-bold ${r.status === 'compliant' ? 'text-emerald-600' : 'text-amber-600'}">${esc(r.status || 'unknown')}</div>
-          </div>`).join('') : engEmpty('No employee records found.'))}
-      `;
     },
 
     insights(body, d) { this.compliance(body, d); },
