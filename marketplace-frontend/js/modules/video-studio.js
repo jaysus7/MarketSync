@@ -95,6 +95,8 @@ function renderStudioHtml(contact, options) {
   const custName = contact.first_name || contact.full_name || 'Customer';
   const vehLabel = contact.vehicle_summary || contact.trade_vehicle || contact.vehicle || '2024 Ford F-150';
 
+  const isViewingSent = !!options.isViewingSent || !!options.sentVideo || !!options.videoId;
+
   const scriptOptions = Object.keys(VIDEO_TEMPLATES).map(key => `
     <button onclick="vidSelectScript('${key}')" id="vid-script-btn-${key}"
       class="px-3 py-1.5 rounded-lg text-xs font-bold transition ${key === 'walkaround' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">
@@ -119,8 +121,9 @@ function renderStudioHtml(contact, options) {
             <span id="vid-timer-display" class="px-2 py-0.5 rounded-full text-xs font-mono font-extrabold bg-slate-800 text-sky-400 border border-slate-700">00:00 / 03:00</span>
           </div>
           <div class="flex items-center gap-2">
-            <button onclick="vidToggleCamera()" title="Flip Front / Back Camera" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition flex items-center gap-1">
-              📷 Flip Camera
+            <button onclick="vidToggleCamera()" title="Flip Front / Back Camera" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              Flip Camera
             </button>
             <button onclick="vidCloseStudio()" class="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition">✕</button>
           </div>
@@ -130,13 +133,13 @@ function renderStudioHtml(contact, options) {
         <div class="flex flex-wrap items-center justify-between gap-2 mb-2 bg-slate-950/80 p-2 rounded-xl border border-slate-800">
           <div class="flex flex-wrap items-center gap-1.5">
             <button onclick="vidToggleTeleprompter()" id="vid-tp-toggle-btn" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 transition flex items-center gap-1">
-              👁️ Hide Teleprompter
+              Hide Teleprompter
             </button>
             <button onclick="vidGenerateAiScript()" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1">
-              ✨ AI Teleprompter
+              AI Teleprompter
             </button>
             <button onclick="vidEnableCustomScript()" id="vid-tp-edit-btn" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1">
-              ✏️ Type Your Own
+              Type Your Own
             </button>
           </div>
           <span class="text-[10px] font-mono text-slate-400 uppercase hidden sm:inline">Live Prompter</span>
@@ -175,23 +178,23 @@ function renderStudioHtml(contact, options) {
           <!-- Main Recording Action Buttons -->
           <div class="flex items-center justify-center gap-2 sm:gap-3 pt-2 border-t border-slate-800">
             <button id="vid-rec-btn" onclick="vidToggleRecord()" class="px-4 sm:px-5 py-2.5 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white shadow-lg transition flex items-center gap-1.5 sm:gap-2">
-              🔴 Start Recording
+              <span class="w-2.5 h-2.5 rounded-full bg-white animate-pulse"></span> Start Recording
             </button>
             <button id="vid-pause-btn" onclick="vidPauseRecord()" disabled class="px-3 sm:px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-500 cursor-not-allowed transition">
-              ⏸ Pause
+              Pause
             </button>
             <button id="vid-reset-btn" onclick="vidResetRecord()" class="px-3 sm:px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">
-              🔄 Retake
+              Retake
             </button>
           </div>
         </div>
       </div>
 
-      <!-- Right Column: Scripts, Sharing & Live Telemetry -->
+      <!-- Right Column: Scripts & Sharing -->
       <div class="w-full lg:w-96 p-4 sm:p-5 bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-800 flex flex-col justify-between overflow-y-auto">
         <div class="space-y-4">
           <div>
-            <h3 class="text-sm font-black uppercase tracking-wider text-white">Send Video to Customer</h3>
+            <h3 class="text-sm font-black uppercase tracking-wider text-white">${isViewingSent ? 'Sent Video Details' : 'Send Video to Customer'}</h3>
             <p class="text-xs text-slate-400 mt-0.5">Recipient: <strong>${escV(contact.full_name || contact.first_name)}</strong> (${escV(contact.phone || contact.email)})</p>
           </div>
 
@@ -210,14 +213,17 @@ function renderStudioHtml(contact, options) {
           <!-- Send Action Buttons -->
           <div class="space-y-2 pt-2 border-t border-slate-800">
             <button onclick="sendCustomerVideo('${contact.id}', 'sms')" class="w-full py-2.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center justify-center gap-2 shadow-md">
-              💬 Send Video via SMS Text
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+              Send Video via SMS Text
             </button>
             <button onclick="sendCustomerVideo('${contact.id}', 'email')" class="w-full py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center justify-center gap-2">
-              ✉️ Send Video via Email
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+              Send Video via Email
             </button>
           </div>
 
-          <!-- Live Telemetry & View Tracker Panel -->
+          ${isViewingSent ? `
+          <!-- Live Telemetry & View Tracker Panel (ONLY shown when viewing an already sent video) -->
           <div class="p-3 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
             <div class="flex items-center justify-between">
               <span class="text-[11px] font-black uppercase text-sky-400">Live Video Analytics</span>
@@ -225,14 +231,14 @@ function renderStudioHtml(contact, options) {
             </div>
 
             <div id="vid-telemetry-container">
-              ${renderVideoTelemetryBadge('v_demo_101')}
+              ${renderVideoTelemetryBadge(options.videoId || 'v_demo_101')}
             </div>
 
-            <!-- Demo Simulation Button -->
-            <button onclick="simCustomerWatchVideo('v_demo_101', '${contact.id}')" class="w-full py-2 mt-1 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm flex items-center justify-center gap-1.5">
-              ▶ Play &amp; Watch Customer Video Link
+            <button onclick="simCustomerWatchVideo('${options.videoId || 'v_demo_101'}', '${contact.id}')" class="w-full py-2 mt-1 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm flex items-center justify-center gap-1.5">
+              Play &amp; Watch Customer Video Link
             </button>
           </div>
+          ` : ''}
         </div>
 
         <div class="pt-3 border-t border-slate-800 flex justify-end">
@@ -736,4 +742,235 @@ window.vidSyncScriptInput = vidSyncScriptInput;
 window.openPublicVideoLink = openPublicVideoLink;
 window.startPublicVideoPlayback = startPublicVideoPlayback;
 window.closePublicVideoPlayer = closePublicVideoPlayer;
+
+// ── MarketSync Video Standalone App & Sent Videos Library ────────────────────
+
+let __videoLibraryTab = 'videos';
+let __videoLibraryFilterStatus = 'all';
+let __videoLibraryFilterDept = 'all';
+let __videoLibrarySearch = '';
+
+const DEMO_SENT_VIDEOS = [
+  {
+    id: 'vid_101',
+    title: '2024 Ford F-150 Lariat Walkaround',
+    contact_name: 'Jason Massie',
+    contact_phone: '(555) 234-5678',
+    contact_id: 'c_101',
+    vehicle: '2024 Ford F-150 Lariat (VIN: 1FTFW1ED4P)',
+    sender: 'Dave Miller',
+    department: 'Sales',
+    channel: 'sms',
+    status: 'viewed',
+    duration_seconds: 135,
+    sent_at: new Date(Date.now() - 7200000).toISOString(),
+    first_opened_at: new Date(Date.now() - 5400000).toISOString(),
+    first_played_at: new Date(Date.now() - 5100000).toISOString(),
+    total_views: 3,
+    watch_percent: 88,
+    share_token: 'v_demo_101',
+    public_url: 'https://marketsync.dealership.com/v/v_demo_101',
+  },
+  {
+    id: 'vid_102',
+    title: 'Multi-Point Brake & Tire Inspection',
+    contact_name: 'Sarah Connor',
+    contact_phone: '(555) 876-5432',
+    contact_id: 'c_102',
+    vehicle: '2023 Toyota RAV4 XLE',
+    sender: 'Alex Vance',
+    department: 'Service',
+    channel: 'sms',
+    status: 'sent',
+    duration_seconds: 90,
+    sent_at: new Date(Date.now() - 14400000).toISOString(),
+    first_opened_at: null,
+    first_played_at: null,
+    total_views: 0,
+    watch_percent: 0,
+    share_token: 'v_demo_102',
+    public_url: 'https://marketsync.dealership.com/v/v_demo_102',
+  },
+  {
+    id: 'vid_103',
+    title: 'Trade Appraisal & Price Breakdown',
+    contact_name: 'Michael Scott',
+    contact_phone: '(555) 345-6789',
+    contact_id: 'c_103',
+    vehicle: '2022 Chevrolet Silverado 1500',
+    sender: 'Dave Miller',
+    department: 'Sales',
+    channel: 'email',
+    status: 'viewed',
+    duration_seconds: 160,
+    sent_at: new Date(Date.now() - 86400000).toISOString(),
+    first_opened_at: new Date(Date.now() - 82000000).toISOString(),
+    first_played_at: new Date(Date.now() - 81000000).toISOString(),
+    total_views: 5,
+    watch_percent: 96,
+    share_token: 'v_demo_103',
+    public_url: 'https://marketsync.dealership.com/v/v_demo_103',
+  }
+];
+
+async function loadVideoStudioPage() {
+  const root = document.getElementById('video-studio-root');
+  if (!root) return;
+
+  let videos = DEMO_SENT_VIDEOS;
+  try {
+    const res = await apiGetJson('/sales-videos').catch(() => null);
+    if (res?.videos && res.videos.length > 0) {
+      videos = res.videos.map(v => ({
+        id: v.id,
+        title: v.title || 'Personalized Video Message',
+        contact_name: v.contact_name || 'Customer',
+        contact_phone: v.contact_phone || '',
+        contact_id: v.contact_id,
+        vehicle: v.vehicle || 'Vehicle',
+        sender: v.sender_name || 'Sales Rep',
+        department: v.department || 'Sales',
+        channel: v.channel || 'link',
+        status: v.first_played_at ? 'viewed' : (v.sent_at ? 'sent' : 'draft'),
+        duration_seconds: v.duration_seconds || 120,
+        sent_at: v.sent_at,
+        first_opened_at: v.first_opened_at,
+        first_played_at: v.first_played_at,
+        total_views: v.play_count || (v.first_played_at ? 1 : 0),
+        watch_percent: v.watch_percent || 0,
+        share_token: v.share_token,
+        public_url: v.public_url || '',
+      }));
+    }
+  } catch {}
+
+  root.innerHTML = renderVideoStudioWorkspace(videos);
+}
+
+function renderVideoStudioWorkspace(videos) {
+  const filtered = videos.filter(v => {
+    if (__videoLibraryFilterStatus !== 'all' && v.status !== __videoLibraryFilterStatus) return false;
+    if (__videoLibraryFilterDept !== 'all' && v.department.toLowerCase() !== __videoLibraryFilterDept.toLowerCase()) return false;
+    if (__videoLibrarySearch) {
+      const q = __videoLibrarySearch.toLowerCase();
+      const match = (v.title || '').toLowerCase().includes(q) ||
+                    (v.contact_name || '').toLowerCase().includes(q) ||
+                    (v.vehicle || '').toLowerCase().includes(q) ||
+                    (v.sender || '').toLowerCase().includes(q);
+      if (!match) return false;
+    }
+    return true;
+  });
+
+  return `
+    <div class="space-y-6">
+      <!-- App Top Navigation Bar -->
+      <div class="flex items-center justify-between flex-wrap gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-violet-600/10 text-violet-600 dark:text-violet-400 flex items-center justify-center font-black">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+          </div>
+          <div>
+            <h1 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">MarketSync Video</h1>
+            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Canonical Customer Video Messaging & Sent Videos Library</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="openCustomerVideoStudio('demo-customer')" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition flex items-center gap-2 shadow-sm cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            Record Video
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Controls & Search -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Status:</span>
+            ${['all', 'draft', 'sent', 'viewed'].map(st => `
+              <button onclick="msFilterVideoStatus('${st}')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition capitalize ${__videoLibraryFilterStatus === st ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}">${st === 'all' ? 'All Videos' : st}</button>
+            `).join('')}
+          </div>
+
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Dept:</span>
+            ${['all', 'sales', 'service'].map(dp => `
+              <button onclick="msFilterVideoDept('${dp}')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition capitalize ${__videoLibraryFilterDept === dp ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}">${dp}</button>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="relative">
+          <input type="text" oninput="msSearchVideos(this.value)" value="${escV(__videoLibrarySearch)}" placeholder="Search by customer name, title, vehicle, or salesperson..." class="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-violet-500">
+          <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        </div>
+      </div>
+
+      <!-- Sent Videos Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        ${filtered.length > 0 ? filtered.map(v => renderVideoCardHtml(v)).join('') : `
+          <div class="col-span-full py-16 text-center text-slate-400 text-sm font-medium">
+            No customer videos match your filters.
+          </div>
+        `}
+      </div>
+    </div>
+  `;
+}
+
+function renderVideoCardHtml(v) {
+  const isPlayed = !!v.first_played_at;
+  const statusColor = isPlayed ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : (v.status === 'sent' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-slate-500/10 text-slate-400 border-slate-500/20');
+  const statusLabel = isPlayed ? `Watched (${v.watch_percent}%)` : (v.status === 'sent' ? 'Sent' : 'Draft');
+  const mins = Math.floor(v.duration_seconds / 60);
+  const secs = v.duration_seconds % 60;
+  const durationStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+
+  return `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-3 flex flex-col justify-between shadow-xs">
+      <div class="space-y-2.5">
+        <div class="flex items-center justify-between gap-2">
+          <span class="px-2.5 py-1 rounded-md text-[11px] font-black border uppercase tracking-wider ${statusColor}">${statusLabel}</span>
+          <span class="text-xs font-bold text-slate-400">${durationStr}</span>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-black text-slate-900 dark:text-white line-clamp-1">${escV(v.title)}</h3>
+          <p class="text-xs font-semibold text-violet-600 dark:text-violet-400 mt-0.5">${escV(v.customer || v.contact_name)} · ${escV(v.vehicle)}</p>
+        </div>
+
+        <div class="text-[11px] text-slate-500 dark:text-slate-400 space-y-1 bg-slate-50 dark:bg-slate-950/60 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800/80">
+          <div class="flex justify-between"><span>Sender:</span><span class="font-bold text-slate-700 dark:text-slate-300">${escV(v.sender)} (${v.department})</span></div>
+          <div class="flex justify-between"><span>Channel:</span><span class="font-bold uppercase text-slate-700 dark:text-slate-300">${escV(v.channel)}</span></div>
+          <div class="flex justify-between"><span>Views:</span><span class="font-black text-emerald-500">${v.total_views} view(s)</span></div>
+        </div>
+      </div>
+
+      <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
+        <button onclick="openPublicVideoLink('${v.share_token}')" class="flex-1 py-1.5 px-3 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 transition text-center">Preview</button>
+        <button onclick="simCustomerWatchVideo('${v.share_token}', '${v.contact_id}')" class="py-1.5 px-3 rounded-lg bg-violet-600 hover:bg-violet-700 text-xs font-bold text-white transition">Simulate View</button>
+      </div>
+    </div>
+  `;
+}
+
+function msFilterVideoStatus(status) {
+  __videoLibraryFilterStatus = status;
+  loadVideoStudioPage();
+}
+function msFilterVideoDept(dept) {
+  __videoLibraryFilterDept = dept;
+  loadVideoStudioPage();
+}
+function msSearchVideos(val) {
+  __videoLibrarySearch = val;
+  loadVideoStudioPage();
+}
+
+window.loadVideoStudioPage = loadVideoStudioPage;
+window.msFilterVideoStatus = msFilterVideoStatus;
+window.msFilterVideoDept = msFilterVideoDept;
+window.msSearchVideos = msSearchVideos;
 

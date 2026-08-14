@@ -1214,6 +1214,7 @@ function switchPage(pageId) {
   if (pageId === 'automation') loadAutomationPage();
   if (pageId === 'automation-builder') loadAutoBuilderPage();
   if (pageId === 'email-marketing' || pageId === 'email-campaigns') loadDealerEmail();
+  if (pageId === 'video-studio') loadVideoStudioPage();
   if (pageId === 'academy') loadAcademyWorkspace();
   if (pageId === 'launch') loadLaunchHub();
   if (pageId === 'people-overview') loadPeopleWorkspace();

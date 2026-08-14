@@ -162,56 +162,51 @@ function actHeaders() {
   } catch (e) {}
   return {};
 }
+const __apiInflight = new Map();
 async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}) {
-  let lastErr;
-  let triedRefresh = false;   // one silent token refresh per call on a 401
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-    try {
-      const r = await fetch(`${API}${path}`, {
-        headers: { 'Authorization': `Bearer ${token || localStorage.getItem('token') || ''}`, ...actHeaders() },
-        signal: ctrl.signal,
-        cache: 'no-store',   // avoid 304s that Response.ok treats as a failure
-      });
-      // 401 → the access token likely expired mid-session. Refresh ONCE and retry so a
-      // long-lived "keep me signed in" session self-heals instead of erroring. If the
-      // refresh fails we fall through and surface the error (we do NOT force a logout
-      // here — a transient backend hiccup must not eject a valid session).
-      if (r.status === 401 && !triedRefresh) {
-        triedRefresh = true;
+  if (__apiInflight.has(path)) return __apiInflight.get(path);
+  const reqPromise = (async () => {
+    let lastErr;
+    let triedRefresh = false;   // one silent token refresh per call on a 401
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+      try {
+        const r = await fetch(`${API}${path}`, {
+          headers: { 'Authorization': `Bearer ${token || localStorage.getItem('token') || ''}`, ...actHeaders() },
+          signal: ctrl.signal,
+          cache: 'no-store',   // avoid 304s that Response.ok treats as a failure
+        });
+        if (r.status === 401 && !triedRefresh) {
+          triedRefresh = true;
+          clearTimeout(timer);
+          const ok = await refreshSessionSilently();
+          if (ok) { attempt--; continue; }
+        }
+        if (r.ok) return await r.json();
+        if ([429, 500, 502, 503, 504].includes(r.status) && attempt < retries) {
+          lastErr = new Error(`HTTP ${r.status}`);
+        } else {
+          let msg = `HTTP ${r.status}`;
+          try { const b = await r.json(); if (b?.error) msg = b.error; } catch {}
+          throw new Error(msg);
+        }
+      } catch (e) {
+        if (e.name === 'AbortError') lastErr = new Error('Request timed out');
+        else lastErr = e;
+        if (attempt >= retries) throw lastErr;
+      } finally {
         clearTimeout(timer);
-        const ok = await refreshSessionSilently();
-        if (ok) { attempt--; continue; }
       }
-      // IMPORTANT: keep the abort timer armed across the body read too. Reading
-      // the body (r.json()) is a second network step — on a flaky mobile
-      // connection the server can send the 200 headers and then stall mid-body.
-      // If we clear the timer before r.json(), that read has no timeout and hangs
-      // forever: the page is stuck on "Loading…" with no retry and no error (the
-      // exact pipeline/leads "stuck loading" bug). Clearing the timer only after
-      // the body is fully read means a stalled body aborts → retries → surfaces.
-      if (r.ok) return await r.json();
-      // Transient (waking up / gateway) → retry; otherwise fail with the body.
-      if ([429, 500, 502, 503, 504].includes(r.status) && attempt < retries) {
-        lastErr = new Error(`HTTP ${r.status}`);
-      } else {
-        let msg = `HTTP ${r.status}`;
-        try { const b = await r.json(); if (b?.error) msg = b.error; } catch {}
-        throw new Error(msg);
-      }
-    } catch (e) {
-      if (e.name === 'AbortError') lastErr = new Error('Request timed out');
-      else lastErr = e;
-      if (attempt >= retries) throw lastErr;
-    } finally {
-      clearTimeout(timer);
+      if (typeof onRetry === 'function') try { onRetry(attempt + 1, retries + 1); } catch {}
+      await new Promise(res => setTimeout(res, Math.min(6000, 1000 * (attempt + 1))));
     }
-    if (typeof onRetry === 'function') try { onRetry(attempt + 1, retries + 1); } catch {}
-    // Backoff: 1s, 2s, 4s, 6s — ride out a cold start without long silent hangs.
-    await new Promise(res => setTimeout(res, Math.min(6000, 1000 * (attempt + 1))));
-  }
-  throw lastErr || new Error('Request failed');
+    throw lastErr || new Error('Request failed');
+  })().finally(() => {
+    __apiInflight.delete(path);
+  });
+  __apiInflight.set(path, reqPromise);
+  return reqPromise;
 }
 
 // Generic JSON write helper (POST/PUT/PATCH/DELETE). Throws Error(body.error) on
@@ -782,20 +777,32 @@ window.applyFbOnlyMode = applyFbOnlyMode;
 // each price point, powerful as they upgrade. The union applies when a dealer holds
 // several products (e.g. Facebook Dealer + AI Chatbot).
 const PRODUCT_PAGES = {
-  // Facebook Solo: EXACTLY two nav items — Leaderboard and Inventory. No Sales, no CRM.
-  // (Settings stays reachable from the header gear, not the left nav. The leaderboard IS
-  // the home — there's no separate dashboard.)
-  facebook_solo:   ['leaderboard', 'inventory'],
-  // Facebook Dealer: adds Sales Team (add reps, make managers) — where the team is
-  // controlled. Still no CRM / accounting / reports.
-  facebook_dealer: ['leaderboard', 'inventory', 'sales-team'],
-  // AI Chatbot: only the AI chatbot workspace (stats + conversations + KB).
-  ai_chatbot:      ['ai-home'],
-  dealer_os:       null,   // null = full access, no restriction
+  facebook_solo:      ['leaderboard', 'inventory'],
+  facebook_dealer:    ['leaderboard', 'inventory', 'sales-team'],
+  ai_chatbot:         ['ai-home'],
+  marketsync_video:   ['video-studio'],
+  video:              ['video-studio'],
+  marketsync_website: ['website'],
+  website:            ['website'],
+  marketsync_social:  ['marketing-overview'],
+  social:             ['marketing-overview'],
+  marketsync_email:   ['email-marketing'],
+  email_marketing:    ['email-marketing'],
+  dealer_os:          null,   // null = full access, no restriction
 };
-const PRODUCT_HOME = { facebook_solo: 'leaderboard', facebook_dealer: 'leaderboard', ai_chatbot: 'ai-home' };
-// Facebook products reuse the fb tier CSS so the Dashboard/Insights page renders as
-// just the leaderboard (no full dealer dashboard).
+const PRODUCT_HOME = {
+  facebook_solo: 'leaderboard',
+  facebook_dealer: 'leaderboard',
+  ai_chatbot: 'ai-home',
+  marketsync_video: 'video-studio',
+  video: 'video-studio',
+  marketsync_website: 'website',
+  website: 'website',
+  marketsync_social: 'marketing-overview',
+  social: 'marketing-overview',
+  marketsync_email: 'email-marketing',
+  email_marketing: 'email-marketing',
+};
 const FB_PRODUCTS = new Set(['facebook_solo', 'facebook_dealer']);
 let __productAllowedPages = null;   // Set of reachable pages under a restricted product, else null
 

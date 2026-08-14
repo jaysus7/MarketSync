@@ -572,12 +572,39 @@ function engBar(segments) {   // segments: [{pct,cls,label}]
   return `<div class="h-2.5 rounded-full overflow-hidden flex bg-slate-100 dark:bg-slate-800">${bar}</div><div class="flex flex-wrap gap-x-3 gap-y-1 mt-2">${legend}</div>`;
 }
 
+let ENGINE_DATA_TIME = {};
+
 async function engineData(engineId, force) {
   const eng = ENGINES[engineId];
   if (!eng || !eng.fetch) return null;
-  if (!force && ENGINE_DATA[engineId] !== undefined) return ENGINE_DATA[engineId];
-  ENGINE_DATA[engineId] = await eng.fetch();
-  return ENGINE_DATA[engineId];
+  const now = Date.now();
+  const cachedTime = ENGINE_DATA_TIME[engineId] || 0;
+  const isFresh = (now - cachedTime < 60000);
+  if (!force && isFresh && ENGINE_DATA[engineId] !== undefined) return ENGINE_DATA[engineId];
+  if (!force && ENGINE_DATA[engineId] !== undefined) {
+    eng.fetch().then(d => {
+      ENGINE_DATA[engineId] = d;
+      ENGINE_DATA_TIME[engineId] = Date.now();
+      const tab = ENGINE_STATE[engineId];
+      if (tab) {
+        const body = document.querySelector(`[data-engine-body="${engineId}"]`);
+        if (body && !body.querySelector('[data-engine-mount]')) {
+          try {
+            eng.tabs[tab]?.(body, d, eng);
+            const rail = document.querySelector(`[data-engine-rail="${engineId}"]`);
+            if (rail) rail.innerHTML = engineRail(eng, d);
+          } catch (e) {
+            console.warn('[SWR revalidate error]', engineId, e);
+          }
+        }
+      }
+    }).catch(e => console.warn('[SWR fetch error]', engineId, e));
+    return ENGINE_DATA[engineId];
+  }
+  const d = await eng.fetch();
+  ENGINE_DATA[engineId] = d;
+  ENGINE_DATA_TIME[engineId] = Date.now();
+  return d;
 }
 
 // Switch to a tab within an engine (re-uses cached data unless `force`).
@@ -605,7 +632,9 @@ async function engineTab(engineId, tab, force) {
   // A borrowed page panel may be sitting in here; hand it back before the wipe or
   // innerHTML deletes the real page out of the document.
   engRestoreMountedPages();
-  body.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading…</div>`;
+  if (ENGINE_DATA[engineId] === undefined && !force) {
+    body.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center flex items-center justify-center gap-2"><svg class="animate-spin w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>Loading…</span></div>`;
+  }
   try {
     const d = await engineData(engineId, force);
     await eng.tabs[tab]?.(body, d, eng);
@@ -640,7 +669,7 @@ function engineRail(eng, d) {
 }
 
 // Build the engine shell frame into its root, then render the active tab.
-function renderEngine(engineId) {
+function renderEngine(engineId, force = false) {
   const eng = ENGINES[engineId]; if (!eng) return;
   const root = document.getElementById(eng.rootId); if (!root) return;
   engRestoreMountedPages();          // see engMountPage — root.innerHTML below is a wipe
@@ -659,7 +688,7 @@ function renderEngine(engineId) {
           <p class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mt-1">${esc(eng.subtitle || '')}</p>
         </div>
       </div>
-      <button onclick="renderEngine('${engineId}')" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1.5 transition">${svgIcon('refresh', 'w-3.5 h-3.5')}Refresh</button>
+      <button onclick="renderEngine('${engineId}', true)" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1.5 transition">${svgIcon('refresh', 'w-3.5 h-3.5')}Refresh</button>
     </div>`) + `
     <div data-engine-tabbar="${engineId}" role="tablist" class="${(order.length <= 1 || eng.hideTabBar) ? 'hidden' : 'flex'} items-center gap-1 border-b border-slate-200 dark:border-slate-800 mb-4 overflow-x-auto">
       ${order.map(tabBtn).join('')}
@@ -668,7 +697,7 @@ function renderEngine(engineId) {
       <div data-engine-body="${engineId}" class="min-w-0 space-y-5"></div>
       <aside data-engine-rail="${engineId}" class="space-y-3 xl:sticky xl:top-4"></aside>
     </div>`;
-  engineTab(engineId, tab, true);   // full render always refetches
+  engineTab(engineId, tab, force);   // full render re-uses cached data unless `force` is explicitly requested
 }
 window.renderEngine = renderEngine;
 
