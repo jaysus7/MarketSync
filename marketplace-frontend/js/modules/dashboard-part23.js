@@ -1,5 +1,253 @@
 /* dashboard.js split part 23/26 — contiguous, load-order-critical. Do not reorder the <script> tags in dashboard.html. */
 
+// ── Google Hangouts style Team Messaging Widget Controller ────────────────────
+let __widgetStaffMembers = [];
+let __widgetActiveUserId = null;
+let __widgetFilter = 'all'; // 'all', 'online', 'unread'
+let __widgetSearch = '';
+let __widgetPollTimer = null;
+
+function toggleTeamChatWidget() {
+  const panel = document.getElementById('team-chat-dock-panel');
+  if (!panel) return;
+  const isHidden = panel.classList.contains('hidden');
+  if (isHidden) openTeamChatWidget();
+  else closeTeamChatWidget();
+}
+window.toggleTeamChatWidget = toggleTeamChatWidget;
+
+async function openTeamChatWidget() {
+  const panel = document.getElementById('team-chat-dock-panel');
+  const btn = document.getElementById('team-chat-dock-btn');
+  if (!panel) return;
+  panel.classList.remove('hidden');
+  if (btn) btn.classList.add('hidden');
+
+  await refreshWidgetRoster();
+  if (__widgetActiveUserId) {
+    await openWidgetChatThread(__widgetActiveUserId);
+  } else {
+    backToWidgetRoster();
+  }
+
+  if (!__widgetPollTimer) {
+    __widgetPollTimer = setInterval(pollWidgetChat, 3000);
+  }
+}
+window.openTeamChatWidget = openTeamChatWidget;
+window.msAskOpen = openTeamChatWidget;
+
+function closeTeamChatWidget() {
+  const panel = document.getElementById('team-chat-dock-panel');
+  const btn = document.getElementById('team-chat-dock-btn');
+  if (panel) panel.classList.add('hidden');
+  if (btn) btn.classList.remove('hidden');
+  if (__widgetPollTimer) {
+    clearInterval(__widgetPollTimer);
+    __widgetPollTimer = null;
+  }
+}
+window.closeTeamChatWidget = closeTeamChatWidget;
+
+async function refreshWidgetRoster() {
+  try {
+    const res = await apiGetJson('/team/chat/roster');
+    __widgetStaffMembers = res?.members || [];
+    renderWidgetRoster();
+    updateWidgetBadge();
+  } catch {}
+}
+window.refreshWidgetRoster = refreshWidgetRoster;
+
+function updateWidgetBadge() {
+  const badge = document.getElementById('team-chat-badge');
+  if (!badge) return;
+  const totalUnread = __widgetStaffMembers.reduce((sum, m) => sum + (m.unread_count || 0), 0);
+  if (totalUnread > 0) {
+    badge.textContent = totalUnread;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+function setWidgetFilter(flt) {
+  __widgetFilter = flt;
+  ['all', 'online', 'unread'].forEach(k => {
+    const b = document.getElementById(`wf-${k}`);
+    if (b) b.className = `flex-1 text-[11px] font-bold py-1 rounded-lg transition ${k === flt ? 'bg-sky-600 text-white' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`;
+  });
+  renderWidgetRoster();
+}
+window.setWidgetFilter = setWidgetFilter;
+
+function filterWidgetRoster(val) {
+  __widgetSearch = (val || '').toLowerCase().trim();
+  renderWidgetRoster();
+}
+window.filterWidgetRoster = filterWidgetRoster;
+
+function renderWidgetRoster() {
+  const listEl = document.getElementById('widget-roster-list');
+  if (!listEl) return;
+
+  const filtered = __widgetStaffMembers.filter(m => {
+    if (__widgetSearch && !m.name.toLowerCase().includes(__widgetSearch) && !m.role.toLowerCase().includes(__widgetSearch)) return false;
+    if (__widgetFilter === 'online' && !m.online) return false;
+    if (__widgetFilter === 'unread' && !m.unread_count) return false;
+    return true;
+  });
+
+  if (!filtered.length) {
+    listEl.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">No staff members found.</div>`;
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(m => {
+    const initial = (m.name || 'S').charAt(0).toUpperCase();
+    const lastSnippet = m.last_message ? (m.last_message.from_me ? 'You: ' : '') + m.last_message.content : 'No messages yet';
+    return `
+      <button onclick="openWidgetChatThread('${m.id}')" class="w-full text-left flex items-center gap-2.5 p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition border border-transparent hover:border-slate-200 dark:hover:border-slate-800">
+        <div class="relative flex-shrink-0">
+          <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold grid place-items-center text-xs">
+            ${m.avatar_url ? `<img src="${esc(m.avatar_url)}" class="w-full h-full rounded-full object-cover"/>` : initial}
+          </div>
+          <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-slate-900 ${m.online ? 'bg-emerald-500' : 'bg-slate-400'}"></span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-xs font-bold text-slate-900 dark:text-white truncate">${esc(m.name)}</span>
+            <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider truncate">${esc(m.role)}</span>
+          </div>
+          <div class="flex items-center justify-between gap-1 mt-0.5">
+            <span class="text-[11px] text-slate-400 truncate">${esc(lastSnippet)}</span>
+            ${m.unread_count ? `<span class="bg-sky-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full leading-none">${m.unread_count}</span>` : ''}
+          </div>
+        </div>
+      </button>
+    `;
+  }).join('');
+}
+
+function backToWidgetRoster() {
+  __widgetActiveUserId = null;
+  const rosterView = document.getElementById('widget-roster-view');
+  const chatView = document.getElementById('widget-chat-view');
+  if (rosterView) rosterView.classList.remove('hidden');
+  if (chatView) chatView.classList.add('hidden');
+  renderWidgetRoster();
+}
+window.backToWidgetRoster = backToWidgetRoster;
+
+async function openWidgetChatThread(userId) {
+  __widgetActiveUserId = userId;
+  const rosterView = document.getElementById('widget-roster-view');
+  const chatView = document.getElementById('widget-chat-view');
+  if (rosterView) rosterView.classList.add('hidden');
+  if (chatView) chatView.classList.remove('hidden');
+
+  const target = __widgetStaffMembers.find(m => m.id === userId);
+  if (target) {
+    const avatarEl = document.getElementById('widget-active-avatar');
+    const nameEl = document.getElementById('widget-active-name');
+    const statusEl = document.getElementById('widget-active-status');
+    const dotEl = document.getElementById('widget-active-dot');
+
+    const initial = (target.name || 'S').charAt(0).toUpperCase();
+    if (avatarEl) avatarEl.innerHTML = target.avatar_url ? `<img src="${esc(target.avatar_url)}" class="w-full h-full rounded-full object-cover"/>` : initial;
+    if (nameEl) nameEl.textContent = target.name;
+    if (statusEl) statusEl.textContent = target.online ? '🟢 Online' : '⚪ Offline';
+    if (dotEl) dotEl.className = `absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white dark:border-slate-900 ${target.online ? 'bg-emerald-500' : 'bg-slate-400'}`;
+
+    if (target.unread_count) {
+      target.unread_count = 0;
+      updateWidgetBadge();
+    }
+  }
+
+  await loadWidgetMessages(userId);
+  document.getElementById('widget-chat-input')?.focus();
+}
+window.openWidgetChatThread = openWidgetChatThread;
+
+async function loadWidgetMessages(userId) {
+  const box = document.getElementById('widget-msg-body');
+  if (!box) return;
+
+  try {
+    const res = await apiGetJson(`/team/chat/messages?with=${encodeURIComponent(userId)}`);
+    const messages = res?.messages || [];
+
+    if (!messages.length) {
+      box.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">No previous messages with this colleague. Say hello!</div>`;
+      return;
+    }
+
+    const isAtBottom = (box.scrollHeight - box.scrollTop) <= (box.clientHeight + 40);
+
+    box.innerHTML = messages.map(m => {
+      const fromMe = m.sender_id !== userId;
+      const timeStr = m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+      return `
+        <div class="flex flex-col ${fromMe ? 'items-end' : 'items-start'} space-y-0.5">
+          <div class="max-w-[82%] px-3 py-1.5 rounded-2xl ${fromMe ? 'bg-sky-600 text-white rounded-br-none' : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-bl-none'} text-xs leading-relaxed break-words">
+            ${esc(m.content)}
+          </div>
+          <span class="text-[9px] text-slate-400 px-1">${timeStr}</span>
+        </div>
+      `;
+    }).join('');
+
+    if (isAtBottom) box.scrollTop = box.scrollHeight;
+  } catch {}
+}
+
+async function sendWidgetMessage(e) {
+  if (e) e.preventDefault();
+  const input = document.getElementById('widget-chat-input');
+  if (!input) return;
+  const text = (input.value || '').trim();
+  if (!text || !__widgetActiveUserId) return;
+
+  input.value = '';
+  try {
+    await apiPostJson('/team/chat/messages', { recipient_id: __widgetActiveUserId, content: text });
+    await loadWidgetMessages(__widgetActiveUserId);
+    const box = document.getElementById('widget-msg-body');
+    if (box) box.scrollTop = box.scrollHeight;
+  } catch (err) {
+    showToast('Failed to send: ' + (err.message || 'Error'), 'error');
+  }
+}
+window.sendWidgetMessage = sendWidgetMessage;
+
+async function deleteWidgetChatHistory() {
+  if (!__widgetActiveUserId) return;
+  const target = __widgetStaffMembers.find(m => m.id === __widgetActiveUserId);
+  const name = target?.name || 'this colleague';
+  if (!confirm(`Are you sure you want to clear your message history with ${name}?`)) return;
+
+  try {
+    await apiDeleteJson(`/team/chat/history?with=${encodeURIComponent(__widgetActiveUserId)}`);
+    showToast('Chat history cleared', 'success');
+    await loadWidgetMessages(__widgetActiveUserId);
+    await refreshWidgetRoster();
+  } catch (err) {
+    showToast('Failed to clear chat: ' + (err.message || 'Error'), 'error');
+  }
+}
+window.deleteWidgetChatHistory = deleteWidgetChatHistory;
+
+async function pollWidgetChat() {
+  if (__widgetActiveUserId) {
+    await loadWidgetMessages(__widgetActiveUserId);
+  }
+  await refreshWidgetRoster();
+}
+
+// Auto-check unread badges on load
+setTimeout(() => refreshWidgetRoster(), 1200);
+
 // Rename the "Intelligence" dock (launcher, header, greeting) to the dealer's
 // chosen assistant name. Falls back to "Intelligence" when blank.
 function applyAssistantName(name) {
@@ -7,7 +255,7 @@ function applyAssistantName(name) {
   const label = document.getElementById('ai-dock-btn-label'); if (label) label.textContent = __aiAssistantName;
   const title = document.getElementById('ai-dock-title'); if (title) title.textContent = __aiAssistantName;
   const btn = document.getElementById('ai-dock-btn'); if (btn) btn.setAttribute('aria-label', __aiAssistantName);
-  if (!aiDockMessages.length) renderAiDockMessages();   // refresh the greeting if still on the intro
+  if (!aiDockMessages.length && typeof renderAiDockMessages === 'function') renderAiDockMessages();
 }
 window.applyAssistantName = applyAssistantName;
 

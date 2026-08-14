@@ -576,6 +576,12 @@ async function pollTeamChatMessages() {
     await loadTeamChatThread(__teamChatActiveUserId, false);
   }
 }
+function aiCopyEmbed() {
+  const el = document.getElementById('ai-embed-code') || document.getElementById('ai-embed-snippet');
+  if (!el) return;
+  navigator.clipboard?.writeText(el.textContent).then(() => showToast('Snippet copied ', 'success')).catch(() => showToast('Copy failed', 'error'));
+}
+window.aiCopyEmbed = aiCopyEmbed;
 // Mirrors the backend scoreConversation() so we can explain how a lead score was
 // reached. Keep in sync with routes/ai-runtime.js:scoreConversation.
 function aiScoreFactors(messages, captured, memory) {

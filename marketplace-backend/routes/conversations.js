@@ -341,6 +341,14 @@ export function registerConversations(app) {
   // ── Internal Staff / Team Chat Endpoints ────────────────────────────────────
   const teamMessagesStore = new Map()
 
+  const cleanupOldMessages = (dealershipId) => {
+    const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000
+    const list = teamMessagesStore.get(dealershipId) || []
+    const retained = list.filter(m => new Date(m.created_at).getTime() >= ninetyDaysAgo)
+    teamMessagesStore.set(dealershipId, retained)
+    return retained
+  }
+
   app.get('/team/chat/roster', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ members: [] })
     try {
@@ -348,7 +356,7 @@ export function registerConversations(app) {
         .select('id, full_name, display_name, role, avatar_url, active, updated_at')
         .eq('dealership_id', req.dealershipId)
 
-      const msgs = teamMessagesStore.get(req.dealershipId) || []
+      const msgs = cleanupOldMessages(req.dealershipId)
       const currentUserId = req.user.id
       const now = Date.now()
 
@@ -392,7 +400,7 @@ export function registerConversations(app) {
     const targetUserId = req.query.with
     if (!targetUserId) return res.status(400).json({ error: 'Missing target user ID' })
 
-    const msgs = teamMessagesStore.get(req.dealershipId) || []
+    const msgs = cleanupOldMessages(req.dealershipId)
     const currentUserId = req.user.id
 
     msgs.forEach(m => {
@@ -449,5 +457,21 @@ export function registerConversations(app) {
     }).catch(() => {})
 
     res.json({ ok: true, message: newMsg })
+  })
+
+  app.delete('/team/chat/history', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const targetUserId = req.query.with
+    if (!targetUserId) return res.status(400).json({ error: 'Missing target user ID' })
+
+    const currentUserId = req.user.id
+    const msgs = teamMessagesStore.get(req.dealershipId) || []
+
+    const remaining = msgs.filter(m =>
+      !( (m.sender_id === targetUserId && m.recipient_id === currentUserId) ||
+         (m.sender_id === currentUserId && m.recipient_id === targetUserId) )
+    )
+    teamMessagesStore.set(req.dealershipId, remaining)
+    res.json({ ok: true, deleted: msgs.length - remaining.length })
   })
 }

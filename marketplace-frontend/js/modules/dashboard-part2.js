@@ -1003,14 +1003,6 @@ const DEPARTMENTS = (typeof MS_WORKSPACES !== 'undefined' && MS_WORKSPACES) || {
       { page: 'tasks', label: 'Tasks' },
     ],
   },
-  messaging: {
-    label: 'Messaging', icon: 'chat', accent: 'sky', system: true, always: true,
-    pages: [{ page: 'ai-inbox', label: 'Messaging' }],
-  },
-  settings: {
-    label: 'Settings', icon: 'shield', system: true, always: true,
-    pages: [{ page: 'profile', label: 'Settings' }],
-  },
 };
 // Role gate for a department or page spec: explicit `roles` list wins, else `mgr`
 // means managers/owners/admins only, else everyone in the dealership.
@@ -1164,8 +1156,6 @@ const SAAS_DEPARTMENTS = {
   accounts:   { label: 'All Users',        icon: 'user',     accent: 'violet', pages: [{ page: 'owner-users', label: 'Accounts' }] },
   affiliates: { label: 'Affiliates',       icon: 'trophy',   accent: 'amber',   pages: [{ page: 'affiliates-admin', label: 'Affiliates' }] },
   accounting: { label: 'Accounting',       icon: 'currency', accent: 'emerald', always: true, pages: [{ page: 'saas-accounting', label: 'Accounting' }] },
-  messaging:  { label: 'Messaging',        icon: 'chat',     accent: 'sky',     system: true, always: true, pages: [{ page: 'ai-inbox', label: 'Messaging' }] },
-  settings:   { label: 'Settings',         icon: 'user',     accent: 'indigo',  system: true, always: true, pages: [{ page: 'profile', label: 'Settings' }] },
 };
 let __deptNavBuilt = false;
 let __deptRegistry = DEPARTMENTS;   // which department set the flat nav is showing
