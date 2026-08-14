@@ -1,5 +1,10 @@
-# Mandatory Walkthrough Approval Rule
+# Mandatory Pair-Programming Workflow Rules
 
-Before making any code changes, edits, or file creations:
-1. Always present a detailed walkthrough of the proposed solution, explaining the architecture, exact files to be edited or created, and step-by-step plan.
-2. Wait for explicit user confirmation/approval on the proposed walkthrough before executing any code modifications.
+1. **Walkthrough First**:
+   - Always present a detailed walkthrough of the proposed plan, architecture, and exact files to be modified/created before touching any code.
+   - Wait for explicit user confirmation/approval before executing any code modifications.
+
+2. **Branch & Commit Policy**:
+   - Always work directly on the `staging` branch.
+   - Automatically commit all completed changes to the `staging` branch with clean, descriptive commit messages once work is done.
+
