@@ -28,10 +28,15 @@
     { href: '/ai-chatbot.html', title: 'AI ChatBot', desc: '$299 / mo · 24/7 AI Automotive Salesperson' },
   ];
   var SOLUTIONS = [
-    { href: '/marketing-suites.html', title: 'Sales Marketing Suite', desc: '$249 / mo · Lead generation & content automation' },
-    { href: '/marketing-suites.html', title: 'Service Marketing Suite', desc: '$249 / mo · Fixed ops retention & service campaigns' },
-    { href: '/marketing-suites.html', title: 'Complete Marketing Suite', desc: '$399 / mo · All-in-one sales & service marketing' },
-    { href: '/marketing-suites.html', title: 'MarketSync Digital', desc: '$599 / mo · Complete Marketing + Website + AI ChatBot' },
+    { href: '/dealer-os.html', title: 'DealerOS Operating System', desc: 'CRM, Sales, Inventory, Desking & Fixed Ops ($1,499+)' },
+    { href: '/facebook-autoposter.html', title: 'Facebook AutoPoster', desc: '1-click Facebook Marketplace auto-posting ($19–$79)' },
+    { href: '/ai-chatbot.html', title: 'AI ChatBot', desc: '24/7 AI dealership salesperson ($299)' },
+    { href: '/design-studio.html', title: 'Design Studio', desc: 'Dealership graphic canvas & brand studio ($5)' },
+    { href: '/social-scheduler.html', title: 'Social Scheduler', desc: 'Multi-channel publishing calendar & queue ($59)' },
+    { href: '/video-studio.html', title: 'Video Suite', desc: 'Vehicle walkaround videos & customer messaging ($99)' },
+    { href: '/campaigns.html', title: 'Campaigns — Email + SMS', desc: 'Targeted customer email & SMS automation ($129+)' },
+    { href: '/dealer-website.html', title: 'Dealer Website', desc: 'High-performance VDP showroom & automotive SEO ($249)' },
+    { href: '/marketing-suites.html', title: 'Connected Marketing Suites', desc: 'Sales, Service, Complete & MarketSync Digital ($249–$599)' },
   ];
   var DEALEROS = [
     { href: '/dealer-os.html', title: 'DealerOS Core', desc: '$1,499 / mo · CRM, Sales & Inventory OS' },
@@ -63,6 +68,8 @@
     }).join('');
     var resItems = RESOURCES.map(function (r) { return '<a href="' + r.href + '" class="ms-dd-item"><span class="ms-dd-t">' + esc(r.title) + '</span></a>'; }).join('');
 
+    var mobProd = PRODUCTS.map(function (s) { return '<a href="' + s.href + '" class="ms-m-link">' + esc(s.title) + '</a>'; }).join('');
+    var mobSol = SOLUTIONS.map(function (s) { return '<a href="' + s.href + '" class="ms-m-link">' + esc(s.title) + '</a>'; }).join('');
     var mobOs = DEALEROS.map(function (s) { return '<a href="' + s.href + '" class="ms-m-link">' + esc(s.title) + '</a>'; }).join('');
     var mobRes = RESOURCES.map(function (r) { return '<a href="' + r.href + '" class="ms-m-link">' + esc(r.title) + '</a>'; }).join('');
 

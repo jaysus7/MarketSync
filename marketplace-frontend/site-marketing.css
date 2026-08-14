@@ -44,6 +44,12 @@ h1,h2,h3{letter-spacing:-.03em;line-height:1.05;margin:0;}
 .m-os{background:linear-gradient(140deg,#4f46e5,#7c3aed);}
 .m-fb{background:linear-gradient(140deg,#1d4ed8,#2563eb);}
 .m-ai{background:linear-gradient(140deg,#0f766e,#10b981);}
+.m-ds{background:linear-gradient(140deg,#6366f1,#a855f7);}
+.m-ss{background:linear-gradient(140deg,#d97706,#f59e0b);}
+.m-vs{background:linear-gradient(140deg,#db2777,#ec4899);}
+.m-cp{background:linear-gradient(140deg,#7c3aed,#8b5cf6);}
+.m-ws{background:linear-gradient(140deg,#0284c7,#06b6d4);}
+.m-ms{background:linear-gradient(140deg,#1e1b4b,#4338ca);}
 .prod-media .big{font-size:32px;font-weight:800;letter-spacing:-.02em;}
 .prod-media .stat{display:flex;gap:22px;margin-top:16px;flex-wrap:wrap;}
 .prod-media .stat div b{display:block;font-size:26px;font-weight:800;}

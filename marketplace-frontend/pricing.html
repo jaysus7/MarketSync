@@ -21,12 +21,24 @@
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">
   <link rel="stylesheet" href="/site-marketing.css">
+  <link rel="stylesheet" href="/assets/public-shell.css">
   <script src="/js/public-config.js" defer></script>
-  <script src="/site-nav.js" defer></script>
   <style>
     :root {
       --brand: #6366f1;
       --brand-glow: rgba(99,102,241,0.25);
+    }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+    }
+    @media (prefers-color-scheme: dark), html.dark {
+      body {
+        background: #0b1220;
+        color: #f8fafc;
+      }
     }
     .pricing-hero {
       padding: 80px 24px 40px;
@@ -56,9 +68,6 @@
       color: #0f172a;
       margin-bottom: 16px;
     }
-    @media (prefers-color-scheme: dark) {
-      .pricing-title { color: #ffffff; }
-    }
     .pricing-sub {
       font-size: 18px;
       color: #64748b;
@@ -74,6 +83,7 @@
       font-size: 26px;
       font-weight: 900;
       letter-spacing: -0.02em;
+      color: #0f172a;
     }
     .section-label p {
       font-size: 14px;
@@ -121,15 +131,6 @@
       padding: 4px 12px;
       border-radius: 999px;
     }
-    @media (prefers-color-scheme: dark) {
-      .price-card {
-        background: #0f172a;
-        border-color: rgba(255,255,255,0.08);
-      }
-      .price-card:hover {
-        border-color: rgba(99,102,241,0.4);
-      }
-    }
     .card-badge {
       font-size: 11px;
       font-weight: 800;
@@ -142,12 +143,14 @@
       font-size: 20px;
       font-weight: 800;
       margin-bottom: 8px;
+      color: #0f172a;
     }
     .card-price {
       font-size: 38px;
       font-weight: 900;
       letter-spacing: -0.03em;
       margin-bottom: 4px;
+      color: #0f172a;
     }
     .card-unit {
       font-size: 13px;
@@ -166,6 +169,7 @@
       padding: 0;
       margin: 0 0 24px;
       font-size: 13.5px;
+      color: #334155;
     }
     .card-features li {
       padding: 6px 0;
@@ -212,22 +216,42 @@
       border-bottom: 1px solid rgba(0,0,0,0.08);
       padding: 20px 0;
     }
-    @media (prefers-color-scheme: dark) {
-      .faq-item { border-color: rgba(255,255,255,0.08); }
-    }
     .faq-q {
       font-size: 17px;
       font-weight: 800;
       margin-bottom: 8px;
+      color: #0f172a;
     }
     .faq-a {
       font-size: 15px;
       color: #64748b;
       line-height: 1.6;
     }
+    @media (prefers-color-scheme: dark), html.dark {
+      .pricing-title { color: #ffffff; }
+      .pricing-sub { color: #94a3b8; }
+      .section-label h2 { color: #ffffff; }
+      .section-label p { color: #94a3b8; }
+      .price-card {
+        background: #0f172a;
+        border-color: rgba(255,255,255,0.08);
+      }
+      .price-card:hover {
+        border-color: rgba(99,102,241,0.4);
+      }
+      .card-name { color: #ffffff; }
+      .card-price { color: #ffffff; }
+      .card-unit { color: #94a3b8; }
+      .card-desc { color: #94a3b8; }
+      .card-features { color: #cbd5e1; }
+      .faq-item { border-color: rgba(255,255,255,0.08); }
+      .faq-q { color: #ffffff; }
+      .faq-a { color: #94a3b8; }
+    }
   </style>
 </head>
 <body>
+  <div id="ms-public-header"></div>
 
   <!-- Hero Section -->
   <section class="pricing-hero ms-reveal">
@@ -546,5 +570,8 @@
     </div>
   </section>
 
+  <div id="ms-public-footer"></div>
+  <script src="/assets/auth.js" defer></script>
+  <script src="/assets/public-shell.js" defer></script>
 </body>
 </html>
