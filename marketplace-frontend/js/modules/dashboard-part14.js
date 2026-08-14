@@ -1089,7 +1089,7 @@ async function loadMyTierChip() {
     const data = await res.json();
     const ranking = (data.ranking || []).map((r, i) => {
       const pts = r.points || ((r.total_listings || 0) * 100 + (r.sold_listings || 0) * 500);
-      return { ...r, id: r.rep_id || r.id, points: pts, rank: r.rank || (i + 1), tier: (typeof tierFor === 'function' ? tierFor(pts) : { name: 'Rookie', icon: '★', cls: 'border-slate-300 text-slate-600' }) };
+      return { ...r, id: r.rep_id || r.id, points: pts, rank: r.rank || (i + 1), tier: (typeof tierFor === 'function' ? tierFor(pts) : { name: 'Rookie', icon: 'R', cls: 'border-slate-300 text-slate-600' }) };
     });
     updateTierChip(ranking);
   } catch (e) { /* non-fatal — chip just stays hidden */ }

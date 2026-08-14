@@ -1012,7 +1012,7 @@ function openSocialChannelConnectModal(providerKey) {
             <p class="text-xs text-slate-500">Authorize MarketSync to auto-post inventory and video updates.</p>
           </div>
         </div>
-        <button type="button" onclick="closeSocialChannelModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-lg font-bold">✕</button>
+        <button type="button" onclick="closeSocialChannelModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-lg font-bold">&times;</button>
       </div>
 
       <div class="space-y-4">
@@ -1080,7 +1080,7 @@ function openSocialChannelConfigModal(providerKey) {
             <p class="text-xs text-emerald-500 font-bold">CONNECTED · Sync Status Active</p>
           </div>
         </div>
-        <button type="button" onclick="closeSocialChannelModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-lg font-bold">✕</button>
+        <button type="button" onclick="closeSocialChannelModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-lg font-bold">&times;</button>
       </div>
 
       <div class="space-y-4">

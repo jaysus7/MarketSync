@@ -218,7 +218,7 @@ ENGINES['accounting-overview'] = {
         <!-- Proactive AI Controller Assistant Panel -->
         <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-indigo-950 text-white shadow-lg border border-slate-800">
           <div class="flex items-center gap-2 mb-2 font-black text-xs uppercase tracking-wider text-emerald-400">
-            <span>✨ Proactive Controller AI Assistant</span>
+            <span>Proactive Controller AI Assistant</span>
           </div>
           <div class="text-sm font-semibold mb-2">Dealership Financial Health Summary</div>
           <div class="text-xs text-slate-300 space-y-1">
