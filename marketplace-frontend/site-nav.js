@@ -74,7 +74,7 @@
     var mobRes = RESOURCES.map(function (r) { return '<a href="' + r.href + '" class="ms-m-link">' + esc(r.title) + '</a>'; }).join('');
 
     return '' +
-      '<a href="/" class="ms-logo" aria-label="MarketSync home"><img src="/Logo 2.0.png" alt="MarketSync DealerOS" style="height:32px; width:auto;"></a>' +
+      '<a href="/" class="ms-logo" aria-label="MarketSync home"><img src="/Logo 2.0.png" alt="MarketSync DealerOS" class="dark:hidden" style="height:32px; width:auto;"><img src="/Logo 2.1.png" alt="MarketSync DealerOS" class="hidden dark:block" style="height:32px; width:auto;"></a>' +
       '<nav class="ms-nav-desktop" aria-label="Primary">' +
         '<div class="ms-nav-item"><button class="ms-nav-btn" aria-haspopup="true">Products <svg viewBox="0 0 20 20" fill="currentColor" class="ms-caret"><path d="M5.5 7.5 10 12l4.5-4.5"/></svg></button><div class="ms-dropdown ms-dd-wide">' + prodItems + '</div></div>' +
         '<div class="ms-nav-item"><button class="ms-nav-btn" aria-haspopup="true">Suites <svg viewBox="0 0 20 20" fill="currentColor" class="ms-caret"><path d="M5.5 7.5 10 12l4.5-4.5"/></svg></button><div class="ms-dropdown ms-dd-wide">' + solItems + '</div></div>' +
@@ -111,7 +111,7 @@
         '<div class="ms-f-cta-note">Tailored onboarding · Seamless migration from legacy CRMs</div>' +
       '</div>' +
       '<div class="ms-f-grid">' +
-        '<div class="ms-f-brand"><a href="/" class="ms-logo ms-logo-sm"><img src="/Logo 2.0.png" alt="MarketSync DealerOS" style="height:28px; width:auto;"></a><p>The intelligent automotive operating system &amp; digital growth platform.</p></div>' +
+        '<div class="ms-f-brand"><a href="/" class="ms-logo ms-logo-sm"><img src="/Logo 2.0.png" alt="MarketSync DealerOS" class="dark:hidden" style="height:28px; width:auto;"><img src="/Logo 2.1.png" alt="MarketSync DealerOS" class="hidden dark:block" style="height:28px; width:auto;"></a><p>The intelligent automotive operating system &amp; digital growth platform.</p></div>' +
         col('Products', [['Design Studio ($5)', '/pricing.html#standalone'], ['AutoPoster Rep ($19)', '/facebook-autoposter.html'], ['Social Scheduler ($59)', '/pricing.html#standalone'], ['AutoPoster Dealer ($79)', '/facebook-autoposter.html'], ['Video ($99)', '/pricing.html#standalone'], ['Campaigns ($129+)', '/pricing.html#standalone'], ['Dealer Website ($249)', '/dealer-website.html'], ['AI ChatBot ($299)', '/ai-chatbot.html']]) +
         col('Suites & OS', [['Sales Marketing ($249)', '/pricing.html#suites'], ['Service Marketing ($249)', '/pricing.html#suites'], ['Complete Marketing ($399)', '/pricing.html#suites'], ['MarketSync Digital ($599)', '/pricing.html#digital'], ['DealerOS Core ($1,499)', '/dealer-os.html'], ['DealerOS Pro ($2,499)', '/dealer-os.html'], ['DealerOS Complete ($3,999)', '/dealer-os.html']]) +
         col('Company & Trust', [['Features', '/features.html'], ['How-to Guide', '/guide.html'], ['FAQ', '/faq.html'], ['Security & Trust', '/security.html'], ['Privacy Policy', '/privacy-policy.html'], ['Terms of Service', '/terms.html']]) +
