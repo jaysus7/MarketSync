@@ -200,7 +200,7 @@ function salesPerformanceStrip(d) {
   if (!i) return engCard('Last 30 days', engEmpty('Performance could not be loaded, so this day is not showing your numbers.'));
   const f = i.funnel || {};
   const stat = (label, v) => `<div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2.5">
-    <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div>
+    <div class="text-[11px] uppercase tracking-wide text-slate-800 dark:text-slate-200 font-black">${esc(label)}</div>
     <div class="text-xl font-black ${v == null ? 'text-slate-400' : 'text-slate-900 dark:text-white'}">${esc(v == null ? 'Unknown' : v)}</div></div>`;
   return engCard('Last 30 days', `<div class="grid grid-cols-2 md:grid-cols-4 gap-2">
     ${stat('Leads', f.leads ?? i.leads?.total ?? null)}

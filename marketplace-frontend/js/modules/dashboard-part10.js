@@ -479,7 +479,7 @@ const ENGINE_DATA = {};             // engineId -> memoized fetch result
 // Shared building blocks so every engine's tabs look identical.
 function engKpi(label, val, tone, onclick) {
   const inner = `
-    <div class="text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-extrabold">${esc(label)}</div>
+    <div class="text-[11px] uppercase tracking-wider text-slate-800 dark:text-slate-200 font-black">${esc(label)}</div>
     <div class="text-2xl sm:text-3xl font-black mt-1 ${tone || 'text-slate-900 dark:text-white'}">${val}</div>
   `;
   if (onclick) {
@@ -493,9 +493,9 @@ function engKpi(label, val, tone, onclick) {
 }
 function engCard(title, inner, extra) {
   return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 ${extra || ''}">
-    ${title ? `<div class="text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300 font-black mb-2.5">${esc(title)}</div>` : ''}${inner}</div>`;
+    ${title ? `<div class="text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200 font-black mb-2.5">${esc(title)}</div>` : ''}${inner}</div>`;
 }
-function engEmpty(msg) { return `<div class="text-sm font-medium text-slate-500 dark:text-slate-400 py-8 text-center">${esc(msg)}</div>`; }
+function engEmpty(msg) { return `<div class="text-sm font-bold text-slate-700 dark:text-slate-300 py-8 text-center">${esc(msg)}</div>`; }
 
 // ── Sections you scroll to, instead of a second row of tabs ──────────────────
 // A workspace tab used to open onto ANOTHER tab bar (Inventory: My Day | Inventory |

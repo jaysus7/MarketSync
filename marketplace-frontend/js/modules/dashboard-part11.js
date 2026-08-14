@@ -1228,15 +1228,15 @@ window.pulseSalesDeptSection = function(d) {
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2 border-t border-slate-200 dark:border-slate-800">
         <div>
           <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">Sales Financial Insights</div>
-          <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2">
-            <div class="flex justify-between text-xs font-bold"><span>Pipeline Open Revenue</span><span class="text-emerald-600 dark:text-emerald-400">$${(d.pipeline?.deals || []).length * 4200 || '84,000'}</span></div>
+          <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2 border border-slate-200 dark:border-slate-800">
+            <div class="flex justify-between text-xs font-bold"><span>Pipeline Open Revenue</span><span class="text-emerald-700 dark:text-emerald-400">$${(d.pipeline?.deals || []).length * 4200 || '84,000'}</span></div>
             <div class="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden"><div class="bg-amber-500 h-2" style="width:65%"></div></div>
           </div>
         </div>
         <div>
-          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Leaderboards</div>
-          <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl flex justify-between text-xs font-semibold">
-            <span>FB Marketplace Leaderboard</span><button onclick="switchPage('leaderboard')" class="text-amber-600 dark:text-amber-400 font-bold">View Standings →</button>
+          <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">Leaderboards</div>
+          <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl flex justify-between text-xs font-bold border border-slate-200 dark:border-slate-800">
+            <span class="text-slate-800 dark:text-slate-200">FB Marketplace Leaderboard</span><button onclick="switchPage('leaderboard')" class="text-amber-700 dark:text-amber-400 font-extrabold hover:underline">View Standings →</button>
           </div>
         </div>
       </div>
@@ -1271,17 +1271,17 @@ window.pulseInventoryDeptSection = function(d) {
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div>
-          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Lot at a Glance & Analysis</div>
-          <div class="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2">
-            <div class="flex justify-between text-xs font-bold"><span>Total Units in Stock</span><span class="text-slate-900 dark:text-white">${inv.length || 42} units</span></div>
-            <div class="flex justify-between text-xs text-slate-500"><span>Average Days on Lot</span><span>38 days</span></div>
-            <div class="flex justify-between text-xs text-slate-500"><span>Stock Recommendation</span><span class="text-indigo-600 dark:text-indigo-400 font-bold">Acquire Mid-size SUVs</span></div>
+          <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">Lot at a Glance & Analysis</div>
+          <div class="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2 border border-slate-200 dark:border-slate-800">
+            <div class="flex justify-between text-xs font-bold"><span class="text-slate-800 dark:text-slate-200">Total Units in Stock</span><span class="text-slate-900 dark:text-white font-black">${inv.length || 42} units</span></div>
+            <div class="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300"><span>Average Days on Lot</span><span class="font-bold text-slate-900 dark:text-white">38 days</span></div>
+            <div class="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300"><span>Stock Recommendation</span><span class="text-indigo-700 dark:text-indigo-400 font-extrabold">Acquire Mid-size SUVs</span></div>
           </div>
         </div>
         <div>
-          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Financial Insight Graphs</div>
-          <div class="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2">
-            <div class="flex justify-between text-xs font-bold"><span>Total Lot Valuation</span><span class="text-emerald-600 dark:text-emerald-400">$1,420,000</span></div>
+          <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">Financial Insight Graphs</div>
+          <div class="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2 border border-slate-200 dark:border-slate-800">
+            <div class="flex justify-between text-xs font-bold"><span class="text-slate-800 dark:text-slate-200">Total Lot Valuation</span><span class="text-emerald-700 dark:text-emerald-400 font-black">$1,420,000</span></div>
             <div class="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden"><div class="bg-indigo-500 h-2" style="width:78%"></div></div>
           </div>
         </div>
@@ -1315,21 +1315,21 @@ window.pulseFniDeptSection = function(d) {
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div>
-          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Today's Active Deals (${todayDeals.length})</div>
+          <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">Today's Active Deals (${todayDeals.length})</div>
           ${todayDeals.length ? `<div class="space-y-2">${todayDeals.slice(0, 4).map(x => `
-            <div class="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <div>
                 <div class="font-bold text-xs text-slate-900 dark:text-white">${esc(x.customer_name || 'Active Deal')}</div>
-                <div class="text-[11px] text-slate-400">${esc(x.vehicle || 'Vehicle')} · ${esc(x.status || 'In F&I')}</div>
+                <div class="text-[11px] text-slate-700 dark:text-slate-300 font-semibold">${esc(x.vehicle || 'Vehicle')} · ${esc(x.status || 'In F&I')}</div>
               </div>
-              <button onclick="switchPage('desk')" class="px-2.5 py-1 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded">Desk</button>
+              <button onclick="switchPage('desk')" class="px-2.5 py-1 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded text-slate-800 dark:text-slate-200">Desk</button>
             </div>`).join('')}</div>` : engEmpty('No active F&I deals today.')}
         </div>
         <div>
-          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">F&I Financial Insights & Leaderboard</div>
-          <div class="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2">
-            <div class="flex justify-between text-xs font-bold"><span>Average PVR</span><span class="text-emerald-600 dark:text-emerald-400">$1,850 / deal</span></div>
-            <div class="flex justify-between text-xs text-slate-500"><span>Internal F&I Leader</span><span>Sarah Jenkins (14 deals)</span></div>
+          <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">F&I Financial Insights & Leaderboard</div>
+          <div class="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2 border border-slate-200 dark:border-slate-800">
+            <div class="flex justify-between text-xs font-bold"><span class="text-slate-800 dark:text-slate-200">Average PVR</span><span class="text-emerald-700 dark:text-emerald-400 font-black">$1,850 / deal</span></div>
+            <div class="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300"><span>Internal F&I Leader</span><span class="font-bold text-slate-900 dark:text-white">Sarah Jenkins (14 deals)</span></div>
           </div>
         </div>
       </div>
@@ -1349,12 +1349,12 @@ window.pulseCleanupDeptSection = function(d) {
         <button onclick="switchPage('recon')" class="text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline">Open Cleanup Queue →</button>
       </div>
 
-      <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Today's Cars to Clean (${cars.length})</div>
+      <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">Today's Cars to Clean (${cars.length})</div>
       ${cars.length ? `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">${cars.slice(0, 6).map(c => `
         <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex items-center justify-between">
           <div>
             <div class="font-bold text-xs text-slate-900 dark:text-white">${esc(c.stock_num || 'Stock #')} · ${esc(c.vehicle || 'Vehicle')}</div>
-            <div class="text-[11px] text-sky-600 dark:text-sky-400 font-semibold">${esc(c.stage || 'Wash & Detail')}</div>
+            <div class="text-[11px] text-sky-700 dark:text-sky-400 font-bold">${esc(c.stage || 'Wash & Detail')}</div>
           </div>
           <button onclick="switchPage('recon')" class="px-2.5 py-1 text-xs font-bold bg-sky-600 text-white rounded">Update</button>
         </div>`).join('')}</div>` : engEmpty('All cars cleaned for today!')}
