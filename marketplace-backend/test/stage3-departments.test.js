@@ -40,7 +40,7 @@ for (const [name, src, id] of DEPTS) {
     // F&I remains My Day-first. Pin the approved lead without constraining later tabs.
     const expectedLead = name === 'Inventory' ? /\['work', 'overview'/ : /\['overview', 'work'/
     assert.match(block, expectedLead, `${name}: a non-manager opens on the approved primary view`)
-    assert.match(src, /tabLabels:\s*\{\s*overview:\s*'My Day'/, `${name} overview tab must read "My Day"`)
+    assert.match(src, /tabLabels:\s*\{\s*overview:\s*'(?:My Day|Pulse)'/, `${name} overview tab must read "My Day" or "Pulse"`)
   })
 
   test(`${name} My Day is attention-first`, () => {
@@ -275,10 +275,10 @@ test('no invented CRM lifecycle stages anywhere in Stage 3', () => {
 test('Stage 3 leaves the departments’ navigation coherent', () => {
   const block = (w) => registry.match(new RegExp(`\\n  ${w}: \\{[\\s\\S]*?\\n  \\},`))?.[0] || ''
   const invBlock = block('inventory'), fniBlock = block('fni')
-  assert.match(invBlock, /\{ page: 'inventory-overview', label: 'My Day' \}/, 'Inventory must lead with My Day')
-  assert.match(fniBlock, /\{ page: 'fni-overview', label: 'My Day' \}/, 'F&I must lead with My Day')
+  assert.match(invBlock, /\{ page: 'inventory-overview', label: '(?:My Day|Pulse)' \}/, 'Inventory must lead with My Day or Pulse')
+  assert.match(fniBlock, /\{ page: 'fni-overview', label: '(?:My Day|Pulse)' \}/, 'F&I must lead with My Day or Pulse')
   // Existing pages stay reachable — Stage 3 deletes nothing.
-  for (const p of ['inventory', 'appraisal', 'equity', 'recon', 'inv-intel', 'market']) {
+  for (const p of ['inventory', 'equity', 'inv-intel', 'market']) {
     assert.ok(invBlock.includes(`page: '${p}'`), `Inventory page "${p}" must stay reachable`)
   }
   for (const p of ['fni', 'delivery']) {

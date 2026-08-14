@@ -3115,6 +3115,13 @@
     </section>
   </main>
 
+  <!-- ── Setup progress — one line, at the bottom, and only while it is unfinished ── -->
+  <button id="setup-status-banner" onclick="switchPage('launch')" class="hidden flex-shrink-0 items-center justify-center gap-2 w-full border-t border-amber-300/70 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/30 px-4 py-2 text-center hover:bg-amber-100 dark:hover:bg-amber-950/50 transition">
+    <span id="setup-status-title" class="text-[12px] font-bold text-amber-900 dark:text-amber-200">Finish setup</span>
+    <span id="setup-status-detail" class="text-[11px] text-amber-700 dark:text-amber-300"></span>
+    <span class="text-[11px] font-bold text-amber-800 dark:text-amber-300 underline">Open</span>
+  </button>
+
 
 
   <!-- ── Reports rail — fixed quick-access to every lot-wide report (II; shown via JS) ── -->
@@ -3689,56 +3696,56 @@
        cannot reuse an older bundle from its cache after a staging deployment. -->
   <!-- Workspace registry: SINGLE SOURCE OF TRUTH for sidebar, workspace tabs and
        mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
-  <script src="js/modules/workspace-registry.js?v=20260813_v6"></script>
-  <script src="dashboard.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part2.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part3.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part4.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part5.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part6.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part7.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part8.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part9.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part10.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part11.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part12.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part13.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part14.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part15.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part16.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part17.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part18.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part19.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part20.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part21.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part22.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part23.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part24.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part25.js?v=20260813_v6"></script>
-  <script src="js/modules/dashboard-part26.js?v=20260813_v6"></script>
+  <script src="js/modules/workspace-registry.js?v=20260814_v1"></script>
+  <script src="dashboard.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part2.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part3.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part4.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part5.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part6.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part7.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part8.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part9.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part10.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part11.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part12.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part13.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part14.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part15.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part16.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part17.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part18.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part19.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part20.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part21.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part22.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part23.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part24.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part25.js?v=20260814_v1"></script>
+  <script src="js/modules/dashboard-part26.js?v=20260814_v1"></script>
   <!-- Sales workspace: registers ENGINES['sales']; must load after the parts. -->
-  <script src="js/modules/sales-workspace.js?v=20260813_v6"></script>
-  <script src="js/modules/inventory-workspace.js?v=20260813_v6"></script>
-  <script src="js/modules/fni-workspace.js?v=20260813_v6"></script>
+  <script src="js/modules/sales-workspace.js?v=20260814_v1"></script>
+  <script src="js/modules/inventory-workspace.js?v=20260814_v1"></script>
+  <script src="js/modules/fni-workspace.js?v=20260814_v1"></script>
   <!-- Vehicle Record: one unit, one surface. Loads after inventory-workspace.js,
        whose merchandising/acquisition definitions it renders. -->
-  <script src="js/modules/vehicle-record.js?v=20260813_v6"></script>
-  <script src="js/modules/receipt-engine.js?v=20260813_v1"></script>
-  <script src="js/modules/video-studio.js?v=20260813_v1"></script>
-  <script src="js/modules/service-views.js?v=20260813_v6"></script>
-  <script src="js/modules/service-workspace.js?v=20260813_v6"></script>
-  <script src="js/modules/parts-views.js?v=20260813_v7"></script>
-  <script src="js/modules/parts-workspace.js?v=20260813_v6"></script>
-  <script src="js/modules/accounting-views.js?v=20260813_v6"></script>
-  <script src="js/modules/accounting-workspace.js?v=20260813_v6"></script>
-  <script src="js/modules/studio/scene-model.js?v=20260813_v1"></script>
-  <script src="js/modules/studio/fabric-adapter.js?v=20260813_v1"></script>
-  <script src="js/modules/studio/studio-shell.js?v=20260813_v1"></script>
-  <script src="js/modules/marketing-workspace.js?v=20260813_v6"></script>
-  <script src="js/modules/academy-workspace.js?v=20260813_v6"></script>
-  <script src="js/modules/launch-workspace.js?v=20260813_v6"></script>
-  <script src="js/modules/people-views.js?v=20260813_v7"></script>
-  <script src="js/modules/people-workspace.js?v=20260813_v6"></script>
+  <script src="js/modules/vehicle-record.js?v=20260814_v1"></script>
+  <script src="js/modules/receipt-engine.js?v=20260814_v1"></script>
+  <script src="js/modules/video-studio.js?v=20260814_v1"></script>
+  <script src="js/modules/service-views.js?v=20260814_v1"></script>
+  <script src="js/modules/service-workspace.js?v=20260814_v1"></script>
+  <script src="js/modules/parts-views.js?v=20260814_v1"></script>
+  <script src="js/modules/parts-workspace.js?v=20260814_v1"></script>
+  <script src="js/modules/accounting-views.js?v=20260814_v1"></script>
+  <script src="js/modules/accounting-workspace.js?v=20260814_v1"></script>
+  <script src="js/modules/studio/scene-model.js?v=20260814_v1"></script>
+  <script src="js/modules/studio/fabric-adapter.js?v=20260814_v1"></script>
+  <script src="js/modules/studio/studio-shell.js?v=20260814_v1"></script>
+  <script src="js/modules/marketing-workspace.js?v=20260814_v1"></script>
+  <script src="js/modules/academy-workspace.js?v=20260814_v1"></script>
+  <script src="js/modules/launch-workspace.js?v=20260814_v1"></script>
+  <script src="js/modules/people-views.js?v=20260814_v1"></script>
+  <script src="js/modules/people-workspace.js?v=20260814_v1"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

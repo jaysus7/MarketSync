@@ -1064,6 +1064,38 @@ function renderDepartmentRankingTable(ranking, deptKey) {
   }).join('');
 }
 
+// ── Badges everywhere: the always-on header rank/tier chip ────────────────────
+// Reflects the signed-in rep's live tier + rank on every page. Fed from a ranking
+// array when the leaderboard is open (free), or self-fetched once at startup.
+function updateTierChip(ranking) {
+  const chip = document.getElementById('ui-tier-chip');
+  if (!chip) return;
+  const selfId = (typeof user !== 'undefined' && user) ? user.id : null;
+  const me = (ranking || []).find(r => r.id === selfId);
+  if (!me || !me.tier) { chip.classList.add('hidden'); return; }
+  chip.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition hover:brightness-110 whitespace-nowrap ${me.tier.cls || ''}`;
+  chip.classList.remove('hidden');
+  const rankTxt = me.rank ? `#${me.rank}` : '';
+  chip.innerHTML = `<span>${me.tier.icon || ''}</span><span>${me.tier.name || ''}</span>${rankTxt ? `<span class="opacity-70 font-mono">${rankTxt}</span>` : ''}`;
+}
+window.updateTierChip = updateTierChip;
+
+async function loadMyTierChip() {
+  const chip = document.getElementById('ui-tier-chip');
+  if (!chip) return;
+  try {
+    const res = await fetch(`${API}/dealership/leaderboard`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) return;
+    const data = await res.json();
+    const ranking = (data.ranking || []).map((r, i) => {
+      const pts = r.points || ((r.total_listings || 0) * 100 + (r.sold_listings || 0) * 500);
+      return { ...r, id: r.rep_id || r.id, points: pts, rank: r.rank || (i + 1), tier: (typeof tierFor === 'function' ? tierFor(pts) : { name: 'Rookie', icon: '★', cls: 'border-slate-300 text-slate-600' }) };
+    });
+    updateTierChip(ranking);
+  } catch (e) { /* non-fatal — chip just stays hidden */ }
+}
+window.loadMyTierChip = loadMyTierChip;
+
 // ── Achievements (gamification badges to be won) ──────────────────────────────────
 async function loadAchievements() {
   const wrap = document.getElementById('lb-achievements');
