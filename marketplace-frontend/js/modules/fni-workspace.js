@@ -234,7 +234,7 @@ ENGINES['fni-overview'] = {
   rootId: 'fni-overview-root', title: 'F&I', subtitle: 'Approvals, credit, products, contracts and delivery readiness',
   icon: 'shield', accent: 'indigo',
   // Insights folded into My Day. Work renamed to Deals, which is what F&I actually works.
-  tabLabels: { overview: 'My Day', work: 'Deals', settings: 'Settings' },
+  tabLabels: { overview: 'Pulse', work: 'Deals', settings: 'Settings' },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     return mgr ? ['overview', 'work', 'settings'] : ['overview', 'work'];

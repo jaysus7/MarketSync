@@ -105,7 +105,7 @@ ENGINES['accounting-overview'] = {
   rootId: 'accounting-overview-root', title: 'Accounting',
   subtitle: 'Financial control — what reached the books, what has not, and what is owed',
   icon: 'currency', accent: 'emerald',
-  tabLabels: { overview: 'My Day', journal: 'Journal', payroll: 'Payroll', budget: 'Budget', settings: 'Settings' },
+  tabLabels: { overview: 'Pulse', journal: 'Journal', payroll: 'Payroll', budget: 'Budget', settings: 'Settings' },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(profileContext?.role);
     // Settings writes tax handling, auto-posting and who gets the alerts, and Budget

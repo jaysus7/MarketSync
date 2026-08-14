@@ -363,7 +363,7 @@ ENGINES['sales'] = {
     return mgr ? ['overview', 'work', 'appointments', 'equity', 'settings']
                : ['overview', 'work', 'appointments', 'equity'];
   },
-  tabLabels: { overview: 'My Day', work: 'Customers', equity: 'Equity Mining', settings: 'Settings' },
+  tabLabels: { overview: 'Pulse', work: 'Customers', equity: 'Equity Mining', settings: 'Settings' },
 
   fetch: async () => {
     const [contacts, tasks, appts, deals, deliveries, insights] = await Promise.all([
