@@ -106,15 +106,15 @@ class StudioFabricAdapter {
     this.fabricCanvas.clear();
     this.fabricCanvas.setBackgroundColor(scene.background?.color || '#0F172A', () => this.fabricCanvas.renderAll());
 
-    const elements = scene.elements || [];
+    const elements = scene.elements || scene.layers || [];
     for (const el of elements) {
       if (el.type === 'text') {
-        const textVal = window.msResolveTemplateVars(el.text, { vehicle: this.currentVehicle });
+        const textVal = window.msResolveTemplateVars ? window.msResolveTemplateVars(el.text, { vehicle: this.currentVehicle }) : (el.text || '');
         const txt = new fabric.Textbox(textVal, {
-          left: el.x || 0,
-          top: el.y || 0,
-          width: el.width || 300,
-          fontSize: el.fontSize || 28,
+          left: el.x ?? el.left ?? 100,
+          top: el.y ?? el.top ?? 100,
+          width: el.width || 400,
+          fontSize: el.fontSize || 36,
           fontWeight: el.fontWeight || '700',
           fill: el.fill || '#FFFFFF',
           angle: el.rotation || 0,
@@ -126,35 +126,46 @@ class StudioFabricAdapter {
       } else if (el.type === 'shape') {
         let shapeObj;
         if (el.shapeType === 'circle') {
-          shapeObj = new fabric.Circle({ radius: (el.width || 100) / 2, fill: el.fill || '#2563EB' });
+          shapeObj = new fabric.Circle({
+            radius: (el.width || 200) / 2,
+            fill: el.fill || '#2563EB',
+            left: el.x ?? el.left ?? 100,
+            top: el.y ?? el.top ?? 100
+          });
         } else {
           shapeObj = new fabric.Rect({
-            width: el.width || 200,
-            height: el.height || 100,
+            left: el.x ?? el.left ?? 100,
+            top: el.y ?? el.top ?? 100,
+            width: el.width || 300,
+            height: el.height || 150,
             fill: el.fill || '#2563EB',
-            rx: el.rx || 0,
-            ry: el.rx || 0
+            rx: el.rx || 16,
+            ry: el.rx || 16
           });
         }
-        shapeObj.set({ left: el.x || 0, top: el.y || 0, angle: el.rotation || 0, opacity: el.opacity ?? 1 });
+        shapeObj.set({ angle: el.rotation || 0, opacity: el.opacity ?? 1 });
         shapeObj.msData = el;
         this.fabricCanvas.add(shapeObj);
       } else if ((el.type === 'vehicle-image' || el.type === 'image') && (el.src || this.currentVehicle?.primary_photo_url)) {
         const imgSrc = el.src || this.currentVehicle?.primary_photo_url;
         await new Promise((resolve) => {
           fabric.Image.fromURL(imgSrc, (img) => {
-            img.set({
-              left: el.x || 0,
-              top: el.y || 0,
-              angle: el.rotation || 0,
-              opacity: el.opacity ?? 1
-            });
-            if (el.width && el.height) {
-              img.scaleToWidth(el.width);
-              img.scaleToHeight(el.height);
+            if (img) {
+              img.set({
+                left: el.x ?? el.left ?? 100,
+                top: el.y ?? el.top ?? 100,
+                angle: el.rotation || 0,
+                opacity: el.opacity ?? 1
+              });
+              if (el.width && el.height) {
+                img.scaleToWidth(el.width);
+                img.scaleToHeight(el.height);
+              } else if (img.width > 500) {
+                img.scaleToWidth(500);
+              }
+              img.msData = el;
+              this.fabricCanvas.add(img);
             }
-            img.msData = el;
-            this.fabricCanvas.add(img);
             resolve();
           }, { crossOrigin: 'anonymous' });
         });
@@ -203,9 +214,11 @@ class StudioFabricAdapter {
   addText(text = 'New Text', options = {}) {
     if (!this.fabricCanvas) return;
     const fabric = window.fabric;
+    const center = this.fabricCanvas.getCenter();
     const txt = new fabric.Textbox(text, {
-      left: options.x || 100,
-      top: options.y || 100,
+      left: options.x || options.left || center.left - 150,
+      top: options.y || options.top || center.top - 25,
+      width: options.width || 350,
       fontSize: options.fontSize || 36,
       fontWeight: options.fontWeight || '800',
       fill: options.fill || '#FFFFFF',
@@ -215,36 +228,65 @@ class StudioFabricAdapter {
     this.fabricCanvas.add(txt);
     this.fabricCanvas.setActiveObject(txt);
     this.fabricCanvas.renderAll();
+    this.saveHistory();
   }
 
   addShape(shapeType = 'rect', fill = '#2563EB') {
     if (!this.fabricCanvas) return;
     const fabric = window.fabric;
-    const shape = new fabric.Rect({
-      left: 150,
-      top: 150,
-      width: 300,
-      height: 150,
-      fill: fill,
-      rx: 16,
-      ry: 16
-    });
-    shape.msData = { type: 'shape', shapeType: 'rect', name: 'Rectangle' };
+    const center = this.fabricCanvas.getCenter();
+    let shape;
+    if (shapeType === 'circle') {
+      shape = new fabric.Circle({
+        left: center.left - 100,
+        top: center.top - 100,
+        radius: 100,
+        fill: fill
+      });
+    } else if (shapeType === 'badge') {
+      shape = new fabric.Rect({
+        left: center.left - 140,
+        top: center.top - 35,
+        width: 280,
+        height: 70,
+        fill: fill,
+        rx: 35,
+        ry: 35
+      });
+    } else {
+      shape = new fabric.Rect({
+        left: center.left - 150,
+        top: center.top - 100,
+        width: 300,
+        height: 200,
+        fill: fill,
+        rx: 16,
+        ry: 16
+      });
+    }
+    shape.msData = { type: 'shape', shapeType, name: shapeType.toUpperCase() };
     this.fabricCanvas.add(shape);
     this.fabricCanvas.setActiveObject(shape);
     this.fabricCanvas.renderAll();
+    this.saveHistory();
   }
 
   addImage(url, name = 'Image') {
     if (!this.fabricCanvas) return;
     const fabric = window.fabric;
+    const center = this.fabricCanvas.getCenter();
     fabric.Image.fromURL(url, (img) => {
-      img.set({ left: 100, top: 100 });
-      img.scaleToWidth(400);
+      if (!img) return;
+      img.set({
+        left: center.left - 200,
+        top: center.top - 150
+      });
+      if (img.width > 400) img.scaleToWidth(400);
       img.msData = { type: 'image', src: url, name };
       this.fabricCanvas.add(img);
       this.fabricCanvas.setActiveObject(img);
       this.fabricCanvas.renderAll();
+      this.saveHistory();
     }, { crossOrigin: 'anonymous' });
   }
 
@@ -255,17 +297,18 @@ class StudioFabricAdapter {
       active.forEach(obj => this.fabricCanvas.remove(obj));
       this.fabricCanvas.discardActiveObject();
       this.fabricCanvas.renderAll();
+      this.saveHistory();
     }
   }
 
   bringForward() {
     const active = this.fabricCanvas?.getActiveObject();
-    if (active) { this.fabricCanvas.bringForward(active); this.fabricCanvas.renderAll(); }
+    if (active) { this.fabricCanvas.bringForward(active); this.fabricCanvas.renderAll(); this.saveHistory(); }
   }
 
   sendBackwards() {
     const active = this.fabricCanvas?.getActiveObject();
-    if (active) { this.fabricCanvas.sendBackwards(active); this.fabricCanvas.renderAll(); }
+    if (active) { this.fabricCanvas.sendBackwards(active); this.fabricCanvas.renderAll(); this.saveHistory(); }
   }
 }
 

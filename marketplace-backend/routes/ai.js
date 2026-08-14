@@ -30,9 +30,114 @@ import { registerAiReportsCronRoutes } from './submodules/ai-reports-cron.js'
 import { SMART_MODEL } from '../aiModels.js'
 import { normalizeCommissionImport, commissionImportSummary } from '../commission-plan-import.js'
 
-// Friendly labels for the assistant's tools, for the AI management page toggles.
-// Names must match ASSISTANT_TOOLS; unknown names are ignored by the PUT validator.
+// ── MarketSync AI Employee Platform Catalogs ─────────────────────────────────
+
+export const BUSINESS_CAPABILITIES = Object.freeze([
+  { id: 'business.lookup_product', name: 'business.lookup_product', label: 'Lookup Products & Items', desc: 'Search and display available products, items, or inventory listings.' },
+  { id: 'business.lookup_service', name: 'business.lookup_service', label: 'Lookup Services & Pricing', desc: 'Provide details on offered services, treatments, packages, and fee rules.' },
+  { id: 'business.lookup_contact', name: 'business.lookup_contact', label: 'Lookup Customer Record', desc: 'Identify returning customers and retrieve CRM profile history.' },
+  { id: 'business.book_appointment', name: 'business.book_appointment', label: 'Book Appointments & Calls', desc: 'Check schedule availability and book consultations or service visits.' },
+  { id: 'business.capture_lead', name: 'business.capture_lead', label: 'Capture & Qualify Leads', desc: 'Collect contact details, purchase timeframe, and customer intent.' },
+  { id: 'business.create_quote_request', name: 'business.create_quote_request', label: 'Generate Quote Estimates', desc: 'Collect project details to generate instant price quotes.' },
+  { id: 'business.send_message', name: 'business.send_message', label: 'Send SMS & Email Follow-ups', desc: 'Dispatch confirmation texts, emails, or summary updates.' },
+  { id: 'business.escalate_to_human', name: 'business.escalate_to_human', label: 'Escalate to Human Staff', desc: 'Hand off live conversations to staff, managers, or duty reps.' },
+  { id: 'business.lookup_order', name: 'business.lookup_order', label: 'Lookup Orders & Status', desc: 'Check status of pending orders, tickets, or reservations.' },
+  { id: 'business.lookup_inventory', name: 'business.lookup_inventory', label: 'Lookup Automotive Inventory', desc: 'Search real-time vehicle lot inventory, VINs, and pricing.' },
+  { id: 'business.lookup_availability', name: 'business.lookup_availability', label: 'Lookup Operating Hours', desc: 'Answer questions on business hours, locations, and staff schedules.' },
+  { id: 'business.take_action', name: 'business.take_action', label: 'Execute Custom Actions', desc: 'Run industry-specific actions and workflow triggers.' },
+])
+
+export const INDUSTRY_TEMPLATES = Object.freeze({
+  automotive: {
+    id: 'automotive',
+    label: 'Automotive Dealership',
+    desc: 'Sales, vehicle inventory, VIN decoding, trade appraisals, service appointments & finance.',
+    defaultRole: 'sales_assistant',
+    defaultGoals: ['capture_leads', 'book_appointments', 'qualify_prospects', 'sell_products', 'handoff_staff'],
+    defaultCapabilities: ['business.lookup_inventory', 'business.book_appointment', 'business.capture_lead', 'business.create_quote_request', 'business.escalate_to_human', 'business.send_message'],
+  },
+  home_services: {
+    id: 'home_services',
+    label: 'Home Services & Contractors',
+    desc: 'Quote requests, service area verification, project qualification, photo uploads & bookings.',
+    defaultRole: 'lead_qualifier',
+    defaultGoals: ['capture_leads', 'generate_quotes', 'book_appointments', 'qualify_prospects'],
+    defaultCapabilities: ['business.create_quote_request', 'business.book_appointment', 'business.capture_lead', 'business.lookup_service', 'business.send_message', 'business.escalate_to_human'],
+  },
+  medical_dental: {
+    id: 'medical_dental',
+    label: 'Medical, Dental & Healthcare',
+    desc: 'Patient appointment booking, insurance verification FAQs, service details & intake.',
+    defaultRole: 'receptionist',
+    defaultGoals: ['book_appointments', 'answer_faqs', 'collect_intake', 'route_support'],
+    defaultCapabilities: ['business.book_appointment', 'business.lookup_service', 'business.collect_intake', 'business.lookup_availability', 'business.escalate_to_human'],
+  },
+  professional_services: {
+    id: 'professional_services',
+    label: 'Professional Services',
+    desc: 'Legal, accounting, financial advice, consultation booking & client intake.',
+    defaultRole: 'booking_assistant',
+    defaultGoals: ['book_appointments', 'qualify_prospects', 'collect_intake', 'answer_faqs'],
+    defaultCapabilities: ['business.book_appointment', 'business.capture_lead', 'business.lookup_service', 'business.collect_intake', 'business.escalate_to_human'],
+  },
+  retail: {
+    id: 'retail',
+    label: 'Retail & E-Commerce',
+    desc: 'Product recommendations, order tracking, returns policy & store hours.',
+    defaultRole: 'sales_assistant',
+    defaultGoals: ['sell_products', 'answer_faqs', 'route_support'],
+    defaultCapabilities: ['business.lookup_product', 'business.lookup_order', 'business.capture_lead', 'business.lookup_availability', 'business.send_message'],
+  },
+  real_estate: {
+    id: 'real_estate',
+    label: 'Real Estate & Property',
+    desc: 'Property listings, tour scheduling, buyer/seller qualification & market inquiries.',
+    defaultRole: 'lead_qualifier',
+    defaultGoals: ['capture_leads', 'book_appointments', 'qualify_prospects'],
+    defaultCapabilities: ['business.lookup_product', 'business.book_appointment', 'business.capture_lead', 'business.create_quote_request', 'business.escalate_to_human'],
+  },
+  hospitality: {
+    id: 'hospitality',
+    label: 'Hospitality & Restaurants',
+    desc: 'Table reservations, menu questions, catering leads, dietary FAQs & event inquiries.',
+    defaultRole: 'receptionist',
+    defaultGoals: ['book_appointments', 'answer_faqs', 'capture_leads'],
+    defaultCapabilities: ['business.book_appointment', 'business.lookup_service', 'business.capture_lead', 'business.lookup_availability'],
+  },
+  other: {
+    id: 'other',
+    label: 'General Business',
+    desc: 'Custom business configurations for any company or service.',
+    defaultRole: 'custom',
+    defaultGoals: ['answer_faqs', 'capture_leads', 'book_appointments'],
+    defaultCapabilities: ['business.capture_lead', 'business.book_appointment', 'business.lookup_service', 'business.escalate_to_human'],
+  },
+})
+
+export const AI_EMPLOYEE_ROLES = Object.freeze({
+  sales_assistant: { id: 'sales_assistant', label: 'Sales Assistant', desc: 'Friendly, persuasive, focuses on qualifying & converting prospects.' },
+  support_assistant: { id: 'support_assistant', label: 'Support Assistant', desc: 'Helpful, patient, resolves inquiries & routes technical issues.' },
+  receptionist: { id: 'receptionist', label: 'Front Desk & Receptionist', desc: 'Warm, welcoming, manages scheduling, hours & greetings.' },
+  booking_assistant: { id: 'booking_assistant', label: 'Booking Specialist', desc: 'Efficient, scheduling-focused, secures time slots & consultations.' },
+  lead_qualifier: { id: 'lead_qualifier', label: 'Lead Qualifier', desc: 'Asks targeted questions, collects contact details & evaluates intent.' },
+  service_advisor: { id: 'service_advisor', label: 'Service Advisor', desc: 'Detail-oriented, books maintenance, repairs & estimates.' },
+  custom: { id: 'custom', label: 'Custom AI Employee', desc: 'Fully custom persona and system instructions.' },
+})
+
+export const AI_CHATBOT_GOALS = Object.freeze({
+  capture_leads: { id: 'capture_leads', label: 'Capture Leads', desc: 'Collect names, emails, phones, and purchase intent.' },
+  book_appointments: { id: 'book_appointments', label: 'Book Appointments', desc: 'Schedule time slots, consultations, or service visits.' },
+  answer_faqs: { id: 'answer_faqs', label: 'Answer FAQs', desc: 'Answer questions about hours, location, policies, and services.' },
+  qualify_prospects: { id: 'qualify_prospects', label: 'Qualify Prospects', desc: 'Score and evaluate leads based on budget, urgency, and fit.' },
+  sell_products: { id: 'sell_products', label: 'Sell Products / Items', desc: 'Recommend products, vehicle inventory, or services.' },
+  route_support: { id: 'route_support', label: 'Route Support Inquiries', desc: 'Help existing customers and route tickets to staff.' },
+  generate_quotes: { id: 'generate_quotes', label: 'Generate Quotes / Estimates', desc: 'Collect details needed to prepare price quotes.' },
+  collect_intake: { id: 'collect_intake', label: 'Collect Intake Details', desc: 'Gather new patient or client intake information.' },
+  handoff_staff: { id: 'handoff_staff', label: 'Hand Off to Human Staff', desc: 'Connect high-intent visitors directly to human staff.' },
+})
+
 const ASSISTANT_TOOL_CATALOG = [
+  ...BUSINESS_CAPABILITIES.map(c => ({ name: c.id, label: c.label, desc: c.desc })),
   { name: 'dealership_report', label: 'Dealership data & reports', desc: "Answer from the store's own numbers — sales, gross, F&I, per-rep, leads, aging, priorities, pricing, equity, marketing ROI." },
   { name: 'customer_lookup', label: 'Customer lookup', desc: "Find a specific customer by name/phone/email and summarize their status, rep, interest, last activity and deal." },
   { name: 'inventory_lookup', label: 'Inventory lookup', desc: "Find a specific unit by stock #/VIN/description — price, mileage, days on lot, photo health and price-vs-market." },

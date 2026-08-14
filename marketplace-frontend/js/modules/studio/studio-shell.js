@@ -10,10 +10,45 @@ window.__studioAdapter = null;
 window.__studioActiveTool = 'templates';
 window.__studioCurrentDesign = null;
 window.__studioCurrentVehicle = null;
+window.__studioZoomLevel = 0.55;
 
 function escS(str) {
   if (str == null) return '';
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function zoomStudioIn() {
+  window.__studioZoomLevel = Math.min(2.5, (window.__studioZoomLevel || 0.55) + 0.15);
+  applyStudioZoom();
+}
+
+function zoomStudioOut() {
+  window.__studioZoomLevel = Math.max(0.2, (window.__studioZoomLevel || 0.55) - 0.15);
+  applyStudioZoom();
+}
+
+function zoomStudioFit() {
+  const mainEl = document.querySelector('#ms-studio-master-modal main');
+  if (!mainEl) return;
+  const availW = mainEl.clientWidth - 64;
+  const availH = mainEl.clientHeight - 64;
+  const canvasW = window.__studioAdapter?.currentScene?.width || 1080;
+  const canvasH = window.__studioAdapter?.currentScene?.height || 1080;
+  const scaleW = availW / canvasW;
+  const scaleH = availH / canvasH;
+  window.__studioZoomLevel = Math.max(0.2, Math.min(1.0, Math.min(scaleW, scaleH)));
+  applyStudioZoom();
+}
+
+function applyStudioZoom() {
+  const container = document.getElementById('studio-artboard-container');
+  const display = document.getElementById('studio-zoom-display');
+  if (container) {
+    container.style.transform = `scale(${window.__studioZoomLevel || 0.55})`;
+  }
+  if (display) {
+    display.textContent = `${Math.round((window.__studioZoomLevel || 0.55) * 100)}%`;
+  }
 }
 
 window.openMarketSyncStudio = async function(designId = null, initialOptions = {}) {
@@ -42,6 +77,7 @@ window.openMarketSyncStudio = async function(designId = null, initialOptions = {
 
   modal.innerHTML = renderStudioWorkspaceHtml(designName, scene);
   initStudioAdapter(scene);
+  setTimeout(zoomStudioFit, 100);
 };
 
 function renderStudioWorkspaceHtml(designName, scene) {
@@ -59,6 +95,16 @@ function renderStudioWorkspaceHtml(designName, scene) {
       </div>
 
       <div class="flex items-center gap-2">
+        <!-- Zoom Controls -->
+        <div class="flex items-center bg-slate-800 rounded-xl p-1 border border-slate-700">
+          <button onclick="zoomStudioOut()" title="Zoom Out" class="px-2.5 py-1 rounded-lg hover:bg-slate-700 text-xs font-black text-slate-300 hover:text-white transition">-</button>
+          <span id="studio-zoom-display" class="px-2 text-xs font-mono font-bold text-sky-400">55%</span>
+          <button onclick="zoomStudioIn()" title="Zoom In" class="px-2.5 py-1 rounded-lg hover:bg-slate-700 text-xs font-black text-slate-300 hover:text-white transition">+</button>
+          <button onclick="zoomStudioFit()" title="Fit to Screen" class="px-2.5 py-1 ml-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-[11px] font-bold text-white transition">Fit</button>
+        </div>
+
+        <div class="h-5 w-px bg-slate-800"></div>
+
         <button onclick="if(window.__studioAdapter) window.__studioAdapter.undo()" title="Undo" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6-6m-6 6l6 6"/></svg>Undo</button>
         <button onclick="if(window.__studioAdapter) window.__studioAdapter.redo()" title="Redo" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 10H11a8 8 0 00-8 8v2m18-10l-6-6m6 6l-6 6"/></svg>Redo</button>
         <div class="h-5 w-px bg-slate-800"></div>
@@ -109,8 +155,8 @@ function renderStudioWorkspaceHtml(designName, scene) {
       </aside>
 
       <!-- Center Artboard Viewport Canvas -->
-      <main class="flex-1 bg-slate-950 overflow-auto flex items-center justify-center p-8 relative">
-        <div class="relative shadow-2xl rounded-xl overflow-hidden border border-slate-800 bg-slate-900" style="width:${scene.width}px; height:${scene.height}px;">
+      <main class="flex-1 bg-slate-950 overflow-auto flex items-center justify-center p-12 relative">
+        <div id="studio-artboard-container" class="relative shadow-2xl rounded-2xl overflow-hidden border-4 border-indigo-500/60 dark:border-slate-700 bg-slate-900 ring-4 ring-indigo-500/20 transition-transform duration-200 origin-center" style="width:${scene.width}px; height:${scene.height}px; transform: scale(0.55);">
           <canvas id="studio-main-canvas"></canvas>
         </div>
       </main>
@@ -256,27 +302,29 @@ async function loadStudioTemplate(tmplKey) {
     format_key: tmplKey === 'tmpl_pricedrop_story' ? 'story' : 'square',
     width: tmplKey === 'tmpl_pricedrop_story' ? 1080 : 1080,
     height: tmplKey === 'tmpl_pricedrop_story' ? 1920 : 1080,
-    layers: []
+    elements: []
   };
 
   if (tmplKey === 'tmpl_pricedrop_story') {
     scene.background = { color: '#7F1D1D' };
-    scene.layers = [
-      { id: 'hd_1', type: 'text', text: 'SPECIAL REDUCTION', left: 80, top: 120, fontSize: 42, fontWeight: '900', fill: '#FFFFFF' },
-      { id: 'hd_2', type: 'text', text: '$4,000 BELOW MARKET', left: 80, top: 180, fontSize: 32, fontWeight: '800', fill: '#FCA5A5' }
+    scene.elements = [
+      { id: 'hd_1', type: 'text', text: 'SPECIAL REDUCTION', x: 80, y: 120, fontSize: 48, fontWeight: '900', fill: '#FFFFFF' },
+      { id: 'hd_2', type: 'text', text: '$4,000 BELOW MARKET', x: 80, y: 190, fontSize: 36, fontWeight: '800', fill: '#FCA5A5' },
+      { id: 'sh_1', type: 'shape', shapeType: 'badge', x: 80, y: 260, width: 300, height: 70, fill: '#DC2626' }
     ];
   } else {
     scene.background = { color: '#0F172A' };
-    scene.layers = [
-      { id: 'hd_1', type: 'text', text: 'FEATURED VEHICLE', left: 60, top: 80, fontSize: 44, fontWeight: '900', fill: '#FFFFFF' },
-      { id: 'hd_2', type: 'text', text: '2024 Ford F-150 Lariat', left: 60, top: 140, fontSize: 30, fontWeight: '700', fill: '#38BDF8' },
-      { id: 'hd_3', type: 'text', text: '$54,990', left: 60, top: 200, fontSize: 48, fontWeight: '900', fill: '#34D399' }
+    scene.elements = [
+      { id: 'hd_1', type: 'text', text: 'FEATURED VEHICLE', x: 60, y: 80, fontSize: 44, fontWeight: '900', fill: '#FFFFFF' },
+      { id: 'hd_2', type: 'text', text: '2024 Ford F-150 Lariat', x: 60, y: 140, fontSize: 32, fontWeight: '700', fill: '#38BDF8' },
+      { id: 'hd_3', type: 'text', text: '$54,990', x: 60, y: 210, fontSize: 52, fontWeight: '900', fill: '#34D399' }
     ];
   }
 
   if (window.__studioAdapter) {
     await window.__studioAdapter.renderScene(scene);
   }
+  zoomStudioFit();
   if (typeof showToast === 'function') showToast('Loaded template in Studio', 'success');
 }
 
@@ -305,8 +353,12 @@ async function bindVehicleToStudio(vehicleId) {
   const v = inv.find(x => x.id === vehicleId) || { year: 2024, make: 'Ford', model: 'F-150 Lariat', price: 54990, stocknumber: 'F9041' };
   window.__studioCurrentVehicle = v;
   if (window.__studioAdapter) {
-    await window.__studioAdapter.addText(`${v.year || ''} ${v.make || ''} ${v.model || ''}`.trim(), { fontSize: 36, fontWeight: '900', fill: '#FFFFFF', top: 100 });
-    await window.__studioAdapter.addText(`$${Number(v.price || 0).toLocaleString()}`, { fontSize: 44, fontWeight: '900', fill: '#10B981', top: 160 });
+    if (v.primary_photo_url || v.photo_url || v.image_url) {
+      window.__studioAdapter.addImage(v.primary_photo_url || v.photo_url || v.image_url, `${v.year} ${v.make} ${v.model}`);
+    }
+    window.__studioAdapter.addShape('badge', '#10B981');
+    window.__studioAdapter.addText(`${v.year || ''} ${v.make || ''} ${v.model || ''}`.trim(), { fontSize: 40, fontWeight: '900', fill: '#FFFFFF', y: 120 });
+    window.__studioAdapter.addText(`$${Number(v.price || 0).toLocaleString()}`, { fontSize: 48, fontWeight: '900', fill: '#10B981', y: 180 });
   }
   if (typeof showToast === 'function') showToast(`Bound ${v.year || ''} ${v.make || ''} ${v.model || ''} to design!`, 'success');
 }
@@ -325,9 +377,20 @@ function addLibraryImageToCanvas(url) {
 function changeStudioFormat(formatKey) {
   const SIZES = { square: { w: 1080, h: 1080 }, portrait: { w: 1080, h: 1350 }, story: { w: 1080, h: 1920 }, landscape: { w: 1200, h: 628 } };
   const sz = SIZES[formatKey] || SIZES.square;
+  const container = document.getElementById('studio-artboard-container');
+  if (container) {
+    container.style.width = `${sz.w}px`;
+    container.style.height = `${sz.h}px`;
+  }
   if (window.__studioAdapter && window.__studioAdapter.fabricCanvas) {
     window.__studioAdapter.fabricCanvas.setDimensions({ width: sz.w, height: sz.h });
+    if (window.__studioAdapter.currentScene) {
+      window.__studioAdapter.currentScene.width = sz.w;
+      window.__studioAdapter.currentScene.height = sz.h;
+      window.__studioAdapter.currentScene.format_key = formatKey;
+    }
   }
+  zoomStudioFit();
   if (typeof showToast === 'function') showToast(`Format set to ${formatKey.toUpperCase()}`, 'info');
 }
 
@@ -398,3 +461,7 @@ window.changeStudioFormat = changeStudioFormat;
 window.saveStudioDesign = saveStudioDesign;
 window.renderStudioDesignAndPublish = renderStudioDesignAndPublish;
 window.closeMarketSyncStudio = closeMarketSyncStudio;
+window.zoomStudioIn = zoomStudioIn;
+window.zoomStudioOut = zoomStudioOut;
+window.zoomStudioFit = zoomStudioFit;
+window.applyStudioZoom = applyStudioZoom;

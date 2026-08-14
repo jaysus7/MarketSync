@@ -18,6 +18,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import multer from 'multer'
 import { supabaseAdmin, FRONTEND_URL } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { BUSINESS_CAPABILITIES, INDUSTRY_TEMPLATES, AI_EMPLOYEE_ROLES, AI_CHATBOT_GOALS } from './ai.js'
 import { emitEvent } from './events.js'
 import { getConfig, setConfig } from './config-engine.js'
 import { getContact, findOrCreateContact } from './crm.js'
@@ -380,23 +381,39 @@ async function rescoreLead(ctx, messages, memory) {
   return score
 }
 
-// ── System prompt (grounded in dealer + config personality) ──────────────────
+// ── System prompt (grounded in dealer + config personality + industry template) ──
 async function buildSystem(dealershipId, ctx, contextBundle) {
   const { data: d } = await supabaseAdmin.from('dealerships').select('name, city, province, country, phone, street_address').eq('id', dealershipId).maybeSingle()
   const persona = await getConfig(dealershipId, 'ai_personality', {})
   const kb = await getConfig(dealershipId, 'ai_knowledge', {})
-  const mem = (contextBundle.memory || []).map(m => `- ${m.memory_type}: ${m.value}`).join('\n')
-  const profile = contextBundle.profile ? `Known customer: ${contextBundle.profile.full_name || ''} (${contextBundle.profile.status || 'lead'}).` : 'Visitor not yet identified.'
-  // Dealer-authored knowledge base — the AI answers hours/policies/financing/etc. from this.
-  const kbLines = [
-    kb?.hours && `Hours: ${kb.hours}`, kb?.financing && `Financing: ${kb.financing}`,
-    kb?.trade_in && `Trade-ins: ${kb.trade_in}`, kb?.specials && `Current specials: ${kb.specials}`,
-    kb?.policies && `Policies: ${kb.policies}`,
-  ].filter(Boolean).join('\n')
+  const cfg = await getConfig(dealershipId, 'ai_config', {})
+
+  const industryKey = kb.industry || 'automotive'
+  const roleKey = kb.role || 'sales_assistant'
+  const goals = Array.isArray(kb.goals) ? kb.goals : ['capture_leads', 'book_appointments']
+  const industryLabel = (INDUSTRY_TEMPLATES[industryKey] || INDUSTRY_TEMPLATES.automotive).label
+  const roleLabel = (AI_EMPLOYEE_ROLES[roleKey] || AI_EMPLOYEE_ROLES.sales_assistant).label
+
+  // Format Knowledge Sections (dynamic array vs legacy fallback)
+  let kbLines = ''
+  if (Array.isArray(kb.sections) && kb.sections.length > 0) {
+    kbLines = kb.sections.map(s => `${s.title}: ${s.content}`).filter(Boolean).join('\n')
+  } else {
+    kbLines = [
+      kb?.hours && `Hours: ${kb.hours}`, kb?.financing && `Financing: ${kb.financing}`,
+      kb?.trade_in && `Trade-ins: ${kb.trade_in}`, kb?.specials && `Current specials: ${kb.specials}`,
+      kb?.policies && `Policies: ${kb.policies}`,
+    ].filter(Boolean).join('\n')
+  }
+
   const contact = [
     d?.phone && `Phone: ${d.phone}`,
     (d?.street_address || d?.city) && `Address: ${[d.street_address, d.city, d.province].filter(Boolean).join(', ')}`,
   ].filter(Boolean).join('\n')
+
+  const mem = (contextBundle.memory || []).map(m => `- ${m.memory_type}: ${m.value}`).join('\n')
+  const profile = contextBundle.profile ? `Known customer: ${contextBundle.profile.full_name || ''} (${contextBundle.profile.status || 'lead'}).` : 'Visitor not yet identified.'
+
   // Team roster (first names) so the assistant can speak to who's on staff.
   let team = ''
   try {
@@ -404,42 +421,42 @@ async function buildSystem(dealershipId, ctx, contextBundle) {
     const names = (reps || []).map(r => String(r.display_name || r.full_name || '').trim().split(/\s+/)[0]).filter(Boolean)
     if (names.length) team = `On our team: ${[...new Set(names)].slice(0, 12).join(', ')}.`
   } catch {}
-  // A quick live inventory pulse so it can answer "how big is your lot / anything new" instantly.
-  let invLine = ''
-  try {
-    const now = Date.now()
-    const { data: inv } = await supabaseAdmin.from('inventory').select('status, lot_date, created_at').eq('dealership_id', dealershipId).is('archived_at', null).limit(5000)
-    const list = inv || []; const avail = list.filter(v => v.status === 'available')
-    const arrivals = avail.filter(v => (v.lot_date || v.created_at) && (now - new Date(v.lot_date || v.created_at)) < 14 * 86400000).length
-    invLine = `Inventory right now: ${avail.length} available${arrivals ? `, ${arrivals} new in the last 2 weeks` : ''}. Use search_inventory for the actual vehicles.`
-  } catch {}
-  const who = persona?.name ? `You are ${persona.name}, a real member of the sales team at ${d?.name || 'the dealership'}` : `You are the online sales concierge for ${d?.name || 'the dealership'}`
-  return `${who}${d?.city ? ' in ' + d.city : ''}. Talk like a warm, sharp human — never a bot. ${persona?.tone ? 'Tone: ' + persona.tone + '.' : 'Friendly, casual and natural.'}
 
-YOUR #1 JOB: get the customer IN THE DOOR. You are not here to close the sale over chat — you are here to book the appointment (test drive or a quick visit) and capture their contact info. Everything you do points at that.
+  // A quick live inventory pulse if automotive
+  let invLine = ''
+  if (industryKey === 'automotive') {
+    try {
+      const now = Date.now()
+      const { data: inv } = await supabaseAdmin.from('inventory').select('status, lot_date, created_at').eq('dealership_id', dealershipId).is('archived_at', null).limit(5000)
+      const list = inv || []; const avail = list.filter(v => v.status === 'available')
+      const arrivals = avail.filter(v => (v.lot_date || v.created_at) && (now - new Date(v.lot_date || v.created_at)) < 14 * 86400000).length
+      invLine = `Inventory right now: ${avail.length} available${arrivals ? `, ${arrivals} new in the last 2 weeks` : ''}. Use search_inventory for the actual vehicles.`
+    } catch {}
+  }
+
+  const who = persona?.name ? `You are ${persona.name}, an AI Employee (${roleLabel}) at ${d?.name || 'the business'}` : `You are the AI Employee (${roleLabel}) for ${d?.name || 'the business'}`
+  return `${who}${d?.city ? ' in ' + d.city : ''}. Industry: ${industryLabel}. Talk like a warm, sharp human — never a bot. ${persona?.tone ? 'Tone: ' + persona.tone + '.' : 'Friendly, casual and natural.'}
+
+PRIMARY GOALS: ${goals.join(', ')}.
+Your #1 priority is to assist the visitor, answer questions accurately from business knowledge, capture contact details, and secure an appointment or next-step commitment.
 
 HOW YOU TALK:
-- Short. One or two sentences per message, like texting. No long paragraphs, no walls of bullets, no dumping the whole inventory.
+- Short. One or two sentences per message, like texting. No long paragraphs or walls of text.
 - One question at a time. Keep it moving naturally.
 - Warm and human — a little personality, not scripted or robotic. Never say you're an AI.
 
 PLAYBOOK:
-- Get their name early, casually ("Who do I have the pleasure of chatting with?"). Then get a phone or email so a product advisor can lock in a time.
-- When they describe what they want, pull 2-3 great matches with search_inventory and show them — then immediately steer to a visit: "Want me to set up a time to come see it?"
-- You KNOW the prices (search_inventory is live) — but don't negotiate or talk monthly numbers in chat. If they push on price/payment, say the best numbers come from sitting down for a few minutes, and offer to book it: "Our team can get you the sharpest number in person — when works for you?"
-- The moment you have a name + phone/email, call create_lead. As soon as they'll commit to a time, call book_appointment and confirm it warmly.
-- Complicated parts/service questions → request_human (right department). Remember useful facts with save_memory.
-- Always be closing — on the APPOINTMENT, not the car. Every reply should nudge toward "let's get you in."
+- Get their name early, casually ("Who do I have the pleasure of chatting with?"). Then get a phone or email so a team member can follow up.
+- Answer questions using the Business Knowledge & Policies below. Never invent pricing, hours, or policies not in the data.
+- The moment you have a name + phone/email, capture the lead. As soon as they commit to a time, book the appointment and confirm it warmly.
+- Complicated or urgent inquiries → escalate to human staff.
 
-Never invent stock, prices, or specs — only what search_inventory / dealership_info return. The chat renders **bold** and links, so bold a name or a date when it helps, but keep it minimal and conversational — never show raw asterisks. Don't paste vehicle specs as long text; the app shows the vehicles you find as cards automatically.
-
-CONDITION — be exact: describe a vehicle ONLY by its listed condition (New, Used, or Demo). NEVER imply newness from mileage or say things like "basically brand new", "only a few km", or "practically new" — a brand-new vehicle can legally carry delivery kilometres, so that's misleading. Don't quote kilometres on New vehicles at all; just say it's new. For Used/Demo you may mention the km. If a car's condition isn't in the data, don't guess.
 ${contact ? '\n' + contact : ''}
-${kbLines ? `\nDealership info (answer from this, don't invent):\n${kbLines}` : ''}
+${kbLines ? `\nBusiness Knowledge & Policies (answer strictly from this):\n${kbLines}` : ''}
 ${invLine ? '\n' + invLine : ''}
 ${team ? '\n' + team : ''}
 ${profile}${mem ? `\nWhat we remember about them:\n${mem}` : ''}
-When booking, compute the exact ISO 8601 date-time from what they say relative to today. Today: ${new Date().toISOString().slice(0, 10)}.`
+Today's date: ${new Date().toISOString().slice(0, 10)}.`
 }
 
 // ── The chat runtime — persist, assemble, agentic tool loop, score ───────────
@@ -642,18 +659,66 @@ export function registerAiRuntime(app) {
     })
   })
 
-  // Knowledge base the AI answers from (hours/policies/financing/trade/specials).
+  // Industry package templates, roles, goals, and capability catalog.
+  app.get('/ai/industry-templates', requireAuth, async (req, res) => {
+    res.json({
+      templates: INDUSTRY_TEMPLATES,
+      roles: AI_EMPLOYEE_ROLES,
+      goals: AI_CHATBOT_GOALS,
+      capabilities: BUSINESS_CAPABILITIES,
+    })
+  })
+
+  // Knowledge base the AI answers from (hours/policies/financing/services/dynamic sections).
   app.get('/ai/knowledge', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    res.json({ knowledge: await getConfig(req.dealershipId, 'ai_knowledge', {}) })
+    const k = await getConfig(req.dealershipId, 'ai_knowledge', {})
+    const industry = k.industry || 'automotive'
+    const role = k.role || 'sales_assistant'
+    const goals = Array.isArray(k.goals) ? k.goals : ['capture_leads', 'book_appointments', 'answer_faqs']
+    let sections = Array.isArray(k.sections) ? k.sections : []
+
+    if (sections.length === 0) {
+      // Legacy fallback conversion
+      sections = [
+        { id: 'hours', title: 'Hours & Locations', content: k.hours || '' },
+        { id: 'financing', title: 'Pricing & Financing', content: k.financing || '' },
+        { id: 'trade_in', title: 'Trade-ins & Valuations', content: k.trade_in || '' },
+        { id: 'specials', title: 'Current Specials & Offers', content: k.specials || '' },
+        { id: 'policies', title: 'Policies & Warranties', content: k.policies || '' },
+      ].filter(s => s.content || s.id === 'hours')
+    }
+
+    res.json({
+      knowledge: {
+        ...k,
+        industry,
+        role,
+        goals,
+        sections,
+      }
+    })
   })
+
   app.put('/ai/knowledge', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const b = req.body || {}
+    const sections = Array.isArray(b.sections) ? b.sections.map(s => ({
+      id: String(s.id || 'sec_' + Math.random().toString(36).slice(2, 8)),
+      title: String(s.title || 'Knowledge Section').slice(0, 100),
+      content: String(s.content || '').slice(0, 4000),
+    })) : []
+
     const value = {
-      hours: String(b.hours || '').slice(0, 2000), financing: String(b.financing || '').slice(0, 2000),
-      trade_in: String(b.trade_in || '').slice(0, 2000), specials: String(b.specials || '').slice(0, 2000),
-      policies: String(b.policies || '').slice(0, 4000),
+      industry: String(b.industry || 'automotive'),
+      role: String(b.role || 'sales_assistant'),
+      goals: Array.isArray(b.goals) ? b.goals.map(String) : [],
+      sections,
+      hours: String(b.hours || sections.find(s => s.id === 'hours')?.content || '').slice(0, 2000),
+      financing: String(b.financing || sections.find(s => s.id === 'financing' || s.id === 'pricing')?.content || '').slice(0, 2000),
+      trade_in: String(b.trade_in || sections.find(s => s.id === 'trade_in')?.content || '').slice(0, 2000),
+      specials: String(b.specials || sections.find(s => s.id === 'specials' || s.id === 'promotions')?.content || '').slice(0, 2000),
+      policies: String(b.policies || sections.find(s => s.id === 'policies')?.content || '').slice(0, 4000),
     }
     try { await setConfig(req.dealershipId, 'ai_knowledge', value, req); res.json({ ok: true, knowledge: value }) }
     catch (e) { res.status(500).json({ error: e.message }) }

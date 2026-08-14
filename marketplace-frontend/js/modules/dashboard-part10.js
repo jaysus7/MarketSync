@@ -121,10 +121,10 @@ async function loadAiHome(tab) {
   const standalone = isAiChatbotOnlyWorkspace();
   root.innerHTML = `
     <div class="flex items-center justify-between flex-wrap gap-2">
-      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">${standalone ? 'AI Chatbot Dashboard' : 'Your AI Employee'}</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400">${standalone ? 'Everything your website chatbot is doing — conversations, leads, knowledge and setup.' : 'Your website chatbot — capturing and qualifying leads around the clock.'}</p></div>
+      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">MarketSync AI Employee Platform</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Configurable general business AI employee platform — industry packages, capability tools, role personas, goals &amp; knowledge base.</p></div>
     </div>
-    <div class="flex flex-wrap gap-2">${tabBtn('overview', 'Overview')}${tabBtn('conversations', 'AI Leads & Chats')}${tabBtn('knowledge', 'Knowledge Base')}${tabBtn('settings', 'Chatbot Settings')}</div>
+    <div class="flex flex-wrap gap-2">${tabBtn('overview', 'Overview')}${tabBtn('conversations', 'AI Leads & Chats')}${tabBtn('knowledge', 'Knowledge & Industry')}${tabBtn('settings', 'Capabilities & Setup')}</div>
     <div id="ai-home-body"><div class="text-sm text-slate-400 py-10 text-center">Loading…</div></div>`;
   const body = document.getElementById('ai-home-body');
   try {
@@ -287,28 +287,185 @@ async function aiFeedLoad() {
       : '<div class="text-sm text-slate-400 py-10 text-center">No conversations match these filters.</div>';
   } catch (e) { list.innerHTML = `<div class="text-rose-500 text-sm p-6">${esc(e.message)}</div>`; }
 }
+const FRONTEND_INDUSTRY_TEMPLATES = {
+  automotive: { label: 'Automotive Dealership', desc: 'Vehicles, Trades, Service, Finance' },
+  home_services: { label: 'Home Services & Contractors', desc: 'Quotes, Service Area, Projects, Photo Uploads' },
+  medical_dental: { label: 'Medical, Dental & Healthcare', desc: 'Appointments, Insurance FAQs, Patient Intake' },
+  professional_services: { label: 'Professional Services', desc: 'Legal, Accounting, Consultations & Fees' },
+  retail: { label: 'Retail & E-Commerce', desc: 'Product Catalog, Order Status, Returns & Policies' },
+  real_estate: { label: 'Real Estate & Property', desc: 'Listings, Tour Scheduling, Buyer/Seller Qualification' },
+  hospitality: { label: 'Hospitality & Restaurants', desc: 'Reservations, Menu Questions, Catering Leads' },
+  other: { label: 'General Business', desc: 'Custom Business Setup' },
+};
+
+const FRONTEND_AI_ROLES = {
+  sales_assistant: 'Sales Assistant',
+  support_assistant: 'Support Assistant',
+  receptionist: 'Front Desk & Receptionist',
+  booking_assistant: 'Booking Specialist',
+  lead_qualifier: 'Lead Qualifier',
+  service_advisor: 'Service Advisor',
+  custom: 'Custom AI Employee',
+};
+
+const FRONTEND_AI_GOALS = [
+  { id: 'capture_leads', label: 'Capture Leads' },
+  { id: 'book_appointments', label: 'Book Appointments' },
+  { id: 'answer_faqs', label: 'Answer FAQs' },
+  { id: 'qualify_prospects', label: 'Qualify Prospects' },
+  { id: 'sell_products', label: 'Sell Products' },
+  { id: 'route_support', label: 'Route Support' },
+  { id: 'generate_quotes', label: 'Generate Quotes' },
+  { id: 'collect_intake', label: 'Collect Intake' },
+  { id: 'handoff_staff', label: 'Handoff to Staff' },
+];
+
+let __activeAiIndustry = 'automotive';
+
 async function aiHomeKnowledge(body) {
   const { knowledge: k } = await apiGetJson('/ai/knowledge');
-  const field = (id, label, val, ph) => `<div><label class="text-[12px] font-bold text-slate-500">${esc(label)}</label><textarea id="${id}" rows="2" placeholder="${esc(ph)}" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">${esc(val || '')}</textarea></div>`;
+  const indKey = k?.industry || __activeAiIndustry || 'automotive';
+  __activeAiIndustry = indKey;
+  const roleKey = k?.role || 'sales_assistant';
+  const goalsSet = new Set(Array.isArray(k?.goals) ? k.goals : ['capture_leads', 'book_appointments']);
+  const sections = Array.isArray(k?.sections) && k.sections.length > 0 ? k.sections : [
+    { id: 'hours', title: 'Hours & Locations', content: k?.hours || '' },
+    { id: 'financing', title: 'Pricing & Rules', content: k?.financing || '' },
+    { id: 'trade_in', title: 'Products & Services', content: k?.trade_in || '' },
+    { id: 'specials', title: 'Promotions & Offers', content: k?.specials || '' },
+    { id: 'policies', title: 'Policies & Guarantees', content: k?.policies || '' },
+  ];
+
+  const indButtons = Object.keys(FRONTEND_INDUSTRY_TEMPLATES).map(key => {
+    const item = FRONTEND_INDUSTRY_TEMPLATES[key];
+    const isSel = indKey === key;
+    return `
+      <button type="button" onclick="aiSelectIndustryTemplate('${key}')" class="text-left p-3 rounded-xl border transition cursor-pointer ${isSel ? 'border-emerald-500 bg-emerald-500/10 text-slate-900 dark:text-white font-bold' : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:border-slate-300'}">
+        <div class="text-xs font-black">${esc(item.label)}</div>
+        <div class="text-[10px] text-slate-400 mt-0.5">${esc(item.desc)}</div>
+      </button>
+    `;
+  }).join('');
+
+  const roleOptions = Object.keys(FRONTEND_AI_ROLES).map(r => `
+    <option value="${r}" ${roleKey === r ? 'selected' : ''}>${esc(FRONTEND_AI_ROLES[r])}</option>
+  `).join('');
+
+  const goalCheckboxes = FRONTEND_AI_GOALS.map(g => `
+    <label class="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer">
+      <input type="checkbox" value="${g.id}" ${goalsSet.has(g.id) ? 'checked' : ''} class="ai-goal-cb accent-emerald-600 w-3.5 h-3.5">
+      ${esc(g.label)}
+    </label>
+  `).join('');
+
+  const renderSectionField = (sec) => `
+    <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 space-y-2 ai-kb-section-card" data-sec-id="${esc(sec.id)}">
+      <div class="flex items-center justify-between gap-2">
+        <input type="text" value="${esc(sec.title)}" placeholder="Section Title (e.g. Hours, Services, FAQs)" class="ai-kb-sec-title font-bold text-xs bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white flex-1 focus:outline-none focus:border-emerald-500">
+        <button type="button" onclick="this.closest('.ai-kb-section-card').remove()" class="px-2 py-1 text-[11px] font-bold text-rose-500 hover:bg-rose-500/10 rounded-lg transition">Remove</button>
+      </div>
+      <textarea rows="3" placeholder="Enter details, rules, hours, or policies..." class="ai-kb-sec-content w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">${esc(sec.content || '')}</textarea>
+    </div>
+  `;
+
   body.innerHTML = `
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3 max-w-2xl">
-      <p class="text-[13px] text-slate-500">The AI answers customer questions from this — keep it accurate.</p>
-      ${field('ai-kb-hours', 'Hours', k?.hours, 'Mon–Fri 9–6, Sat 10–4, closed Sunday')}
-      ${field('ai-kb-financing', 'Financing', k?.financing, 'We work with all credit types; $0 down options available.')}
-      ${field('ai-kb-trade', 'Trade-ins', k?.trade_in, 'We appraise any trade — bring it by or send photos.')}
-      ${field('ai-kb-specials', 'Current specials', k?.specials, 'This month: 0% APR on select models.')}
-      ${field('ai-kb-policies', 'Policies', k?.policies, 'Return policy, warranty, delivery, etc.')}
-      <button onclick="aiHomeSaveKnowledge()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition">Save knowledge</button>
-    </div>`;
+    <div class="space-y-6 max-w-4xl">
+      <!-- Industry Package Selection -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-3">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">Select Industry Package</h3>
+            <p class="text-xs text-slate-400">Loads prebuilt knowledge sections, default capability tools, and role persona.</p>
+          </div>
+          <span class="px-2.5 py-1 rounded-md text-[11px] font-extrabold uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">${esc(FRONTEND_INDUSTRY_TEMPLATES[indKey]?.label || 'Automotive')}</span>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+          ${indButtons}
+        </div>
+      </div>
+
+      <!-- AI Role Persona & Goals -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-3">
+          <label class="block text-xs font-black uppercase tracking-wider text-slate-400">AI Employee Role Persona</label>
+          <select id="ai-role-select" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+            ${roleOptions}
+          </select>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-3">
+          <label class="block text-xs font-black uppercase tracking-wider text-slate-400">AI Employee Goals</label>
+          <div class="flex flex-wrap gap-1.5">
+            ${goalCheckboxes}
+          </div>
+        </div>
+      </div>
+
+      <!-- Dynamic Knowledge Base Sections -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">Business Knowledge Base</h3>
+            <p class="text-xs text-slate-400">The AI answers customer inquiries strictly from these verified sections.</p>
+          </div>
+          <button type="button" onclick="aiAddKbSection()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-bold text-slate-800 dark:text-slate-200 transition">+ Add Custom Section</button>
+        </div>
+
+        <div id="ai-kb-sections-list" class="space-y-3">
+          ${sections.map((s) => renderSectionField(s)).join('')}
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+          <button type="button" onclick="aiHomeSaveKnowledge()" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition shadow-sm">Save Knowledge Base &amp; Setup</button>
+        </div>
+      </div>
+    </div>
+  `;
 }
+
 async function aiHomeSaveKnowledge() {
-  const body = {
-    hours: document.getElementById('ai-kb-hours').value, financing: document.getElementById('ai-kb-financing').value,
-    trade_in: document.getElementById('ai-kb-trade').value, specials: document.getElementById('ai-kb-specials').value,
-    policies: document.getElementById('ai-kb-policies').value,
-  };
-  try { await apiSendJson('/ai/knowledge', 'PUT', body); showToast('Knowledge saved ', 'success'); }
-  catch (e) { showToast(e.message, 'error'); }
+  const role = document.getElementById('ai-role-select')?.value || 'sales_assistant';
+  const goals = [...document.querySelectorAll('.ai-goal-cb:checked')].map(el => el.value);
+  const secCards = document.querySelectorAll('.ai-kb-section-card');
+  const sections = [];
+  secCards.forEach(card => {
+    const secId = card.dataset.secId || 'sec_' + Math.random().toString(36).slice(2, 8);
+    const title = card.querySelector('.ai-kb-sec-title')?.value || 'General Info';
+    const content = card.querySelector('.ai-kb-sec-content')?.value || '';
+    if (title || content) {
+      sections.push({ id: secId, title, content });
+    }
+  });
+
+  const body = { industry: __activeAiIndustry, role, goals, sections };
+  try {
+    await apiSendJson('/ai/knowledge', 'PUT', body);
+    showToast('AI Employee Knowledge & Industry setup saved!', 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+function aiAddKbSection() {
+  const container = document.getElementById('ai-kb-sections-list');
+  if (!container) return;
+  const secId = 'sec_' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 space-y-2 ai-kb-section-card';
+  div.dataset.secId = secId;
+  div.innerHTML = `
+    <div class="flex items-center justify-between gap-2">
+      <input type="text" value="New Knowledge Section" placeholder="Section Title (e.g. Services, Pricing)" class="ai-kb-sec-title font-bold text-xs bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white flex-1 focus:outline-none focus:border-emerald-500">
+      <button type="button" onclick="this.closest('.ai-kb-section-card').remove()" class="px-2 py-1 text-[11px] font-bold text-rose-500 hover:bg-rose-500/10 rounded-lg transition">Remove</button>
+    </div>
+    <textarea rows="3" placeholder="Enter information for the AI employee..." class="ai-kb-sec-content w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"></textarea>
+  `;
+  container.appendChild(div);
+}
+
+function aiSelectIndustryTemplate(key) {
+  __activeAiIndustry = key;
+  loadAiHome('knowledge');
 }
 // Ready-to-use assistant personas (name + friendly illustrated headshot). The dealer
 // can pick one as a starting point or upload their own real photo.
@@ -446,7 +603,7 @@ async function aiHomeSaveControls(btn) {
   } catch (e) { showToast(e.message, 'error'); }
   if (btn) btn.disabled = false;
 }
-Object.assign(window, { loadAiHome, aiHomeSaveKnowledge, aiHomeSavePersonality, aiHomeSaveControls, aiFeedApply, aiPickPreset, aiUploadAvatar, aiClearAvatar });
+Object.assign(window, { loadAiHome, aiHomeSaveKnowledge, aiHomeSavePersonality, aiHomeSaveControls, aiFeedApply, aiPickPreset, aiUploadAvatar, aiClearAvatar, aiAddKbSection, aiSelectIndustryTemplate });
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Engine UI Framework — every engine renders inside one reusable shell that

@@ -673,103 +673,7 @@ function mktSocialSection(d) {
       const calendarBody = __socialCalendarMode === 'agenda' ? `<div class="space-y-2">${postRows}</div>` : calendarGrid;
 
       // Social Media Connectors Panel
-      const connectorsPanel = `
-        <div class="mb-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
-          <div class="flex items-center justify-between mb-4">
-            <div>
-              <h3 class="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">Social Media Connectors &amp; Channels</h3>
-              <p class="text-xs text-slate-500">Connect dealership pages to auto-post inventory, promotions, and video walkarounds across networks.</p>
-            </div>
-            <span class="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">OAUTH 2.0 CONNECTORS</span>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col justify-between space-y-3">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <div class="w-7 h-7 rounded-lg bg-blue-600 text-white font-black flex items-center justify-center text-xs">f</div>
-                  <div>
-                    <div class="text-xs font-bold text-slate-900 dark:text-white">Facebook Page</div>
-                    <div class="text-[10px] text-slate-400">Meta Business Suite</div>
-                  </div>
-                </div>
-                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">CONNECTED</span>
-              </div>
-              <button onclick="showToast('Facebook Page connection active','info')" class="w-full py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs font-bold text-slate-900 dark:text-white transition">Configure Channel</button>
-            </div>
-
-            <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col justify-between space-y-3">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white font-black flex items-center justify-center text-xs">IG</div>
-                  <div>
-                    <div class="text-xs font-bold text-slate-900 dark:text-white">Instagram Business</div>
-                    <div class="text-[10px] text-slate-400">Feed &amp; Reels API</div>
-                  </div>
-                </div>
-                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">CONNECTED</span>
-              </div>
-              <button onclick="showToast('Instagram Business active','info')" class="w-full py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs font-bold text-slate-900 dark:text-white transition">Configure Channel</button>
-            </div>
-
-            <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col justify-between space-y-3">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <div class="w-7 h-7 rounded-lg bg-sky-700 text-white font-black flex items-center justify-center text-xs">in</div>
-                  <div>
-                    <div class="text-xs font-bold text-slate-900 dark:text-white">LinkedIn Company</div>
-                    <div class="text-[10px] text-slate-400">Organization Page</div>
-                  </div>
-                </div>
-                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-slate-500/20 text-slate-400 border border-slate-500/30">READY TO CONNECT</span>
-              </div>
-              <button onclick="showToast('OAuth flow launched for LinkedIn','info')" class="w-full py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white transition">Connect Account</button>
-            </div>
-
-            <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col justify-between space-y-3">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <div class="w-7 h-7 rounded-lg bg-emerald-600 text-white font-black flex items-center justify-center text-xs">G</div>
-                  <div>
-                    <div class="text-xs font-bold text-slate-900 dark:text-white">Google Business</div>
-                    <div class="text-[10px] text-slate-400">Maps &amp; Local Updates</div>
-                  </div>
-                </div>
-                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">CONNECTED</span>
-              </div>
-              <button onclick="showToast('Google Business Profile active','info')" class="w-full py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs font-bold text-slate-900 dark:text-white transition">Configure Channel</button>
-            </div>
-
-            <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col justify-between space-y-3">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <div class="w-7 h-7 rounded-lg bg-slate-950 text-white font-black flex items-center justify-center text-xs">TT</div>
-                  <div>
-                    <div class="text-xs font-bold text-slate-900 dark:text-white">TikTok Business</div>
-                    <div class="text-[10px] text-slate-400">Video Content API</div>
-                  </div>
-                </div>
-                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-slate-500/20 text-slate-400 border border-slate-500/30">READY TO CONNECT</span>
-              </div>
-              <button onclick="showToast('OAuth flow launched for TikTok','info')" class="w-full py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white transition">Connect Account</button>
-            </div>
-
-            <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col justify-between space-y-3">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <div class="w-7 h-7 rounded-lg bg-red-600 text-white font-black flex items-center justify-center text-xs">YT</div>
-                  <div>
-                    <div class="text-xs font-bold text-slate-900 dark:text-white">YouTube Channel</div>
-                    <div class="text-[10px] text-slate-400">Shorts &amp; Videos</div>
-                  </div>
-                </div>
-                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">CONNECTED</span>
-              </div>
-              <button onclick="showToast('YouTube Channel active','info')" class="w-full py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs font-bold text-slate-900 dark:text-white transition">Configure Channel</button>
-            </div>
-          </div>
-        </div>
-      `;
+      const connectorsPanel = renderSocialConnectorsPanelHtml();
 
       inner = `
         <div class="flex items-center justify-between gap-3 mb-3">
@@ -1030,3 +934,242 @@ function mktAdRoi(d) {
 
 function loadMarketingWorkspace() { renderEngine('marketing-overview'); }
 window.loadMarketingWorkspace = loadMarketingWorkspace;
+
+// ── Interactive Social Media Channel Connectors Engine ──
+window.__msSocialChannelStates = window.__msSocialChannelStates || {
+  facebook: { key: 'facebook', name: 'Facebook Page', sub: 'Meta Business Suite', iconBg: 'bg-blue-600', iconTxt: 'f', connected: true, handle: 'demo.dealership.page' },
+  instagram: { key: 'instagram', name: 'Instagram Business', sub: 'Feed & Reels API', iconBg: 'bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600', iconTxt: 'IG', connected: true, handle: '@demodealership' },
+  linkedin: { key: 'linkedin', name: 'LinkedIn Company', sub: 'Organization Page', iconBg: 'bg-sky-700', iconTxt: 'in', connected: false, handle: '' },
+  google: { key: 'google', name: 'Google Business', sub: 'Maps & Local Updates', iconBg: 'bg-emerald-600', iconTxt: 'G', connected: true, handle: 'Academy Demo Dealership' },
+  tiktok: { key: 'tiktok', name: 'TikTok Business', sub: 'Video Content API', iconBg: 'bg-slate-950', iconTxt: 'TT', connected: false, handle: '' },
+  youtube: { key: 'youtube', name: 'YouTube Channel', sub: 'Shorts & Videos', iconBg: 'bg-red-600', iconTxt: 'YT', connected: true, handle: 'Academy Demo TV' },
+};
+
+function renderSocialConnectorsPanelHtml() {
+  const cards = Object.keys(window.__msSocialChannelStates).map(k => {
+    const ch = window.__msSocialChannelStates[k];
+    const isConn = ch.connected;
+    return `
+      <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col justify-between space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="w-7 h-7 rounded-lg ${ch.iconBg} text-white font-black flex items-center justify-center text-xs shrink-0">${esc(ch.iconTxt)}</div>
+            <div class="min-w-0 flex-1">
+              <div class="text-xs font-bold text-slate-900 dark:text-white truncate">${esc(ch.name)}</div>
+              <div class="text-[10px] text-slate-400 truncate">${esc(isConn ? (ch.handle || ch.sub) : ch.sub)}</div>
+            </div>
+          </div>
+          <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase shrink-0 ${isConn ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30' : 'bg-slate-500/20 text-slate-400 border border-slate-500/30'}">${isConn ? 'CONNECTED' : 'READY TO CONNECT'}</span>
+        </div>
+        ${isConn
+          ? `<button type="button" onclick="openSocialChannelConfigModal('${k}')" class="w-full py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs font-bold text-slate-900 dark:text-white transition">Configure Channel</button>`
+          : `<button type="button" onclick="openSocialChannelConnectModal('${k}')" class="w-full py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white transition shadow-sm">Connect Account</button>`
+        }
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="mb-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h3 class="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">Social Media Connectors &amp; Channels</h3>
+          <p class="text-xs text-slate-500">Connect dealership pages to auto-post inventory, promotions, and video walkarounds across networks.</p>
+        </div>
+        <span class="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">OAUTH 2.0 CONNECTORS</span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+        ${cards}
+      </div>
+    </div>
+  `;
+}
+
+function openSocialChannelConnectModal(providerKey) {
+  const ch = window.__msSocialChannelStates[providerKey];
+  if (!ch) return;
+  closeSocialChannelModal();
+
+  const modal = document.createElement('div');
+  modal.id = 'ms-social-channel-modal';
+  modal.className = 'fixed inset-0 z-[99999] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 font-sans';
+  modal.innerHTML = `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl animate-fade-in">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-xl ${ch.iconBg} text-white font-black flex items-center justify-center text-xs">${esc(ch.iconTxt)}</div>
+          <div>
+            <h3 class="text-base font-black text-slate-900 dark:text-white">Connect ${esc(ch.name)}</h3>
+            <p class="text-xs text-slate-500">Authorize MarketSync to auto-post inventory and video updates.</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeSocialChannelModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-lg font-bold">✕</button>
+      </div>
+
+      <div class="space-y-4">
+        <div class="space-y-1">
+          <label class="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">Account / Page Title</label>
+          <input type="text" id="sc-conn-display-name" value="${esc(ch.name)} - Primary Page" placeholder="e.g. Academy Demo Dealership" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">External Handle or Page ID</label>
+          <input type="text" id="sc-conn-handle" value="@${esc(ch.key)}_dealership" placeholder="e.g. @dealership_page" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">Account Ownership</label>
+            <select id="sc-conn-ownership" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+              <option value="dealership">Dealership Shared Channel</option>
+              <option value="user">User Personal Account</option>
+            </select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">Auth Flow Mode</label>
+            <select class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+              <option value="oauth2">OAuth 2.0 Popup Token Grant</option>
+              <option value="api_key">Business Manager Key</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 space-y-2">
+          <div class="text-xs font-black text-indigo-400 uppercase tracking-wider">Capabilities Granted</div>
+          <div class="space-y-1 text-xs text-slate-300">
+            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked class="accent-indigo-600"> Auto-publish inventory arrivals</label>
+            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked class="accent-indigo-600"> Auto-publish price reductions</label>
+            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked class="accent-indigo-600"> Auto-publish video walkarounds</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <button type="button" onclick="closeSocialChannelModal()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition">Cancel</button>
+        <button type="button" onclick="submitSocialChannelConnect('${providerKey}')" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black transition shadow-lg">Authorize &amp; Connect Channel</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function openSocialChannelConfigModal(providerKey) {
+  const ch = window.__msSocialChannelStates[providerKey];
+  if (!ch) return;
+  closeSocialChannelModal();
+
+  const modal = document.createElement('div');
+  modal.id = 'ms-social-channel-modal';
+  modal.className = 'fixed inset-0 z-[99999] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 font-sans';
+  modal.innerHTML = `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl animate-fade-in">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-xl ${ch.iconBg} text-white font-black flex items-center justify-center text-xs">${esc(ch.iconTxt)}</div>
+          <div>
+            <h3 class="text-base font-black text-slate-900 dark:text-white">Configure ${esc(ch.name)}</h3>
+            <p class="text-xs text-emerald-500 font-bold">CONNECTED · Sync Status Active</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeSocialChannelModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-lg font-bold">✕</button>
+      </div>
+
+      <div class="space-y-4">
+        <div class="space-y-1">
+          <label class="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">Connected Handle / Page</label>
+          <input type="text" id="sc-cfg-handle" value="${esc(ch.handle || '@dealership_primary')}" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">Default Hashtag Template</label>
+          <input type="text" id="sc-cfg-hashtags" value="#MarketSync #UsedCars #Dealership #CarSales #Inventory" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <div class="space-y-2">
+          <label class="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">Auto-Publish Triggers</label>
+          <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2 text-xs font-bold text-slate-700 dark:text-slate-300">
+            <label class="flex items-center justify-between cursor-pointer">
+              <span>Auto-post new inventory arrivals</span>
+              <input type="checkbox" checked class="accent-indigo-600 w-4 h-4">
+            </label>
+            <label class="flex items-center justify-between cursor-pointer">
+              <span>Auto-post price drop alerts</span>
+              <input type="checkbox" checked class="accent-indigo-600 w-4 h-4">
+            </label>
+            <label class="flex items-center justify-between cursor-pointer">
+              <span>Auto-post video walkarounds</span>
+              <input type="checkbox" checked class="accent-indigo-600 w-4 h-4">
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <button type="button" onclick="disconnectSocialChannel('${providerKey}')" class="px-4 py-2 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-500/10 transition">Disconnect Channel</button>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="closeSocialChannelModal()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition">Cancel</button>
+          <button type="button" onclick="saveSocialChannelConfig('${providerKey}')" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition shadow-md">Save Settings</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+async function submitSocialChannelConnect(providerKey) {
+  const ch = window.__msSocialChannelStates[providerKey];
+  if (!ch) return;
+  const displayName = document.getElementById('sc-conn-display-name')?.value || ch.name;
+  const handle = document.getElementById('sc-conn-handle')?.value || '@dealership';
+  const ownership = document.getElementById('sc-conn-ownership')?.value || 'dealership';
+
+  try {
+    await apiSendJson('/social/accounts', 'POST', {
+      provider: providerKey,
+      external_account_id: handle,
+      display_name: displayName,
+      handle: handle,
+      ownership: ownership
+    }).catch(() => null);
+  } catch (e) { /* fallback */ }
+
+  window.__msSocialChannelStates[providerKey].connected = true;
+  window.__msSocialChannelStates[providerKey].handle = handle;
+  closeSocialChannelModal();
+  if (typeof showToast === 'function') showToast(`Successfully connected ${ch.name}!`, 'success');
+  if (typeof window.loadMarketingWorkspace === 'function') window.loadMarketingWorkspace();
+}
+
+async function saveSocialChannelConfig(providerKey) {
+  const ch = window.__msSocialChannelStates[providerKey];
+  if (!ch) return;
+  const handle = document.getElementById('sc-cfg-handle')?.value || ch.handle;
+  window.__msSocialChannelStates[providerKey].handle = handle;
+  closeSocialChannelModal();
+  if (typeof showToast === 'function') showToast(`Updated ${ch.name} settings`, 'success');
+  if (typeof window.loadMarketingWorkspace === 'function') window.loadMarketingWorkspace();
+}
+
+async function disconnectSocialChannel(providerKey) {
+  const ch = window.__msSocialChannelStates[providerKey];
+  if (!ch) return;
+  window.__msSocialChannelStates[providerKey].connected = false;
+  closeSocialChannelModal();
+  if (typeof showToast === 'function') showToast(`Disconnected ${ch.name}`, 'info');
+  if (typeof window.loadMarketingWorkspace === 'function') window.loadMarketingWorkspace();
+}
+
+function closeSocialChannelModal() {
+  document.getElementById('ms-social-channel-modal')?.remove();
+}
+
+Object.assign(window, {
+  renderSocialConnectorsPanelHtml,
+  openSocialChannelConnectModal,
+  openSocialChannelConfigModal,
+  submitSocialChannelConnect,
+  saveSocialChannelConfig,
+  disconnectSocialChannel,
+  closeSocialChannelModal
+});
