@@ -276,10 +276,10 @@ async function invRenderWork(body, d) {
 ENGINES['inventory-overview'] = {
   rootId: 'inventory-overview-root', title: 'Inventory', subtitle: 'One vehicle lifecycle — acquire, recon, price, publish',
   icon: 'gem', accent: 'sky',
-  tabLabels: { overview: 'Pulse', work: 'Inventory', appraisals: 'Appraisals', cleanup: 'Cleanup', settings: 'Settings' },
+  tabLabels: { overview: 'Pulse', work: 'Inventory', appraisals: 'Appraisals', settings: 'Settings' },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    return mgr ? ['work', 'overview', 'appraisals', 'cleanup', 'settings'] : ['work', 'overview', 'appraisals', 'cleanup'];
+    return mgr ? ['work', 'overview', 'appraisals', 'settings'] : ['work', 'overview', 'appraisals'];
   },
 
   fetch: async () => {
@@ -371,10 +371,6 @@ ENGINES['inventory-overview'] = {
         
         <div class="mt-4 space-y-4">
           ${engSection('Acquisition', invRenderAcquisition(d, (__invAppraisals && __invAppraisals.appraisals) || []), 'What is coming in, and what you have taken possession of')}
-          ${engSection('Cleanup', `<div class="space-y-3">
-            ${sold.length ? engCard(`Sold — still in cleanup (${sold.length})`, sold.slice(0, 20).map(reconRow).join('')) : ''}
-            ${engCard('In cleanup', rest.slice(0, 20).map(reconRow).join('') || engEmpty('Nothing in cleanup.'))}
-          </div>`, 'A sold unit still being worked on is holding up a delivery')}
           ${engSection('Merchandising', invRenderMerch(d), 'What is stopping a vehicle going on the front line')}
           ${engSection('Pricing and age', (noPrice.length ? engCard(`No price (${noPrice.length})`, noPrice.slice(0, 10).map(v => invRow(v, d)).join('')) : '')
             + engCard(`Aged ${INV_AGED_DAYS}+ days (${aged.length})`, aged.slice(0, 15).map(v => invRow(v, d)).join('') || engEmpty('Nothing aged.'), noPrice.length ? 'mt-3' : ''),
@@ -400,13 +396,6 @@ ENGINES['inventory-overview'] = {
         if (typeof initAppraisal === 'function') initAppraisal();
         if (typeof loadApprList === 'function') loadApprList();
         if (typeof apprEnsureBranding === 'function') apprEnsureBranding();
-      });
-    },
-
-    cleanup(body) {
-      body.innerHTML = '';
-      engMountPage(body, 'recon', () => {
-        if (typeof loadReconPage === 'function') loadReconPage();
       });
     },
 
