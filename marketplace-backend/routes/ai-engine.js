@@ -69,21 +69,27 @@ async function createConversation(dealershipId, { contactId, visitorToken, websi
   return data
 }
 
-export async function saveMessage(conversationId, dealershipId, role, message, { tokens = null, attachments = [], senderType = null } = {}) {
+export async function saveMessage(conversationId, dealershipId, role, message, { tokens = null, attachments = [], senderType = null, channel = 'chat' } = {}) {
   if (!conversationId || !dealershipId || !role) return null
+  const payload = { conversation_id: conversationId, dealership_id: dealershipId, role, message: String(message || ''), tokens, attachments, sender_type: senderType, channel }
   const { data, error } = await supabaseAdmin.from('ai_messages')
-    .insert({ conversation_id: conversationId, dealership_id: dealershipId, role, message: String(message || ''), tokens, attachments, sender_type: senderType })
-    .select('id, created_at').single()
-  if (error) { console.warn('[ai-engine] saveMessage failed:', error.message); return null }
+    .insert(payload)
+    .select('id, created_at, channel, sender_type').single()
+  if (error) {
+    // Fallback if channel column doesn't exist yet
+    delete payload.channel
+    const { data: d2, error: err2 } = await supabaseAdmin.from('ai_messages').insert(payload).select('id, created_at').single()
+    if (err2) { console.warn('[ai-engine] saveMessage failed:', err2.message); return null }
+    await supabaseAdmin.from('ai_conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conversationId)
+    return d2 || null
+  }
   await supabaseAdmin.from('ai_conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conversationId)
-  // Returns { id, created_at } — the timestamp lets chat clients poll for new
-  // messages (rep take-over) without re-rendering ones they already have.
   return data || null
 }
 
 export async function getHistory(conversationId, limit = 50) {
   const { data } = await supabaseAdmin.from('ai_messages')
-    .select('role, message, created_at, sender_type').eq('conversation_id', conversationId)
+    .select('role, message, created_at, sender_type, channel').eq('conversation_id', conversationId)
     .order('created_at', { ascending: true }).limit(limit)
   return data || []
 }

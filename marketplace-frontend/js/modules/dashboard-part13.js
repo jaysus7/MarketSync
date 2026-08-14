@@ -385,26 +385,83 @@ function aiScoreFactors(messages, captured, memory) {
   ];
 }
 let __aiConvo = null;   // last opened conversation cache (for print / share)
+let __aiReplySender = 'rep'; // 'rep' or 'ai'
+let __aiReplyChannel = 'chat'; // 'chat', 'sms', 'email'
+
+function aiSetReplySender(who) {
+  __aiReplySender = who === 'ai' ? 'ai' : 'rep';
+  const on = 'bg-indigo-600 text-white shadow-sm', off = 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white';
+  const rep = document.getElementById('ai-sender-rep'), ai = document.getElementById('ai-sender-ai');
+  if (rep) rep.className = `px-3 py-1 rounded-lg font-bold transition text-xs ${__aiReplySender === 'rep' ? on : off}`;
+  if (ai) ai.className = `px-3 py-1 rounded-lg font-bold transition text-xs ${__aiReplySender === 'ai' ? on : off}`;
+}
+window.aiSetReplySender = aiSetReplySender;
+
+function aiSetReplyChannel(ch) {
+  __aiReplyChannel = ['chat', 'sms', 'email'].includes(ch) ? ch : 'chat';
+  const on = 'bg-indigo-600 text-white shadow-sm', off = 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white';
+  const chat = document.getElementById('ai-chan-chat');
+  const sms = document.getElementById('ai-chan-sms');
+  const email = document.getElementById('ai-chan-email');
+  if (chat) chat.className = `px-3 py-1 rounded-lg font-bold transition text-xs ${__aiReplyChannel === 'chat' ? on : off}`;
+  if (sms) sms.className = `px-3 py-1 rounded-lg font-bold transition text-xs ${__aiReplyChannel === 'sms' ? on : off}`;
+  if (email) email.className = `px-3 py-1 rounded-lg font-bold transition text-xs ${__aiReplyChannel === 'email' ? on : off}`;
+}
+window.aiSetReplyChannel = aiSetReplyChannel;
+
 async function aiOpenConversation(id) {
   const overlay = crmOverlay(`<div class="p-5"><div class="text-sm text-slate-400 py-16 text-center">Loading…</div></div>`, 'max-w-2xl');
   const panel = overlay.firstElementChild;
   let convo = null, messages = [], memory = [];
   try { const d = await apiGetJson(`/ai/conversations/${id}`); convo = d.conversation; messages = d.messages || []; memory = d.memory || []; } catch { if (panel) panel.innerHTML = '<div class="p-6 text-rose-500 text-sm">Could not load.</div>'; return; }
   if (!panel || !overlay.isConnected) return;
-  // Persona name for the "Reply as" toggle (cached).
+  
+  // Persona name for the assistant (cached).
   if (window.__aiAssistantName === undefined) { try { const pr = await apiGetJson('/ai/personality'); window.__aiAssistantName = pr.personality?.name || ''; } catch { window.__aiAssistantName = ''; } }
-  convo.assistant_name = window.__aiAssistantName || 'AI assistant';
+  convo.assistant_name = window.__aiAssistantName || 'Avery (AI)';
   __aiConvo = { id, convo, messages, memory };
+
+  // Calculate live presence status
+  const lastMsgTime = convo.last_message_at ? new Date(convo.last_message_at).getTime() : 0;
+  const now = Date.now();
+  const minsDiff = (now - lastMsgTime) / 60000;
+  const isOnline = minsDiff < 5;
+  const isAway = minsDiff >= 5 && minsDiff < 15;
+  const isOffline = !isOnline && !isAway;
+
+  // Auto-route default channel
+  if (isOnline) __aiReplyChannel = 'chat';
+  else if (convo.contact_phone) __aiReplyChannel = 'sms';
+  else if (convo.contact_email) __aiReplyChannel = 'email';
+  else __aiReplyChannel = 'chat';
+
+  const presenceBadge = isOnline 
+    ? `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>Online on Website</span>`
+    : isAway
+    ? `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20"><span class="w-2 h-2 rounded-full bg-amber-500"></span>Away (Tab Hidden)</span>`
+    : `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-500/10 text-slate-400 border border-slate-500/20"><span class="w-2 h-2 rounded-full bg-slate-400"></span>Offline (Left Site)</span>`;
+
   const bubbles = messages.map(m => {
     const isUser = m.role === 'user';
     const isHuman = !isUser && m.sender_type === 'human';   // a rep's reply, not the AI
-    const label = isUser ? '' : (isHuman ? 'You' : 'AI');
+    const channelTag = m.channel === 'sms' ? 'SMS' : m.channel === 'email' ? 'Email' : 'Website Chat';
+    const label = isUser ? 'Customer' : (isHuman ? 'You' : (convo.assistant_name || 'AI'));
     const tone = isUser ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
       : isHuman ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white';
-    return `<div class="flex flex-col ${isUser ? 'items-start' : 'items-end'}">
-      ${label ? `<span class="text-[10px] font-bold mb-0.5 px-1 ${isHuman ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-500 dark:text-indigo-400'}">${label}</span>` : ''}
-      <div class="max-w-[80%] px-3 py-2 rounded-2xl text-[13px] whitespace-pre-wrap ${tone}">${esc(m.message)}</div></div>`;
+    
+    return `
+      <div class="flex flex-col ${isUser ? 'items-start' : 'items-end'} mb-2">
+        <div class="flex items-center gap-1.5 mb-1 px-1 text-[10px] font-bold text-slate-400">
+          <span>${esc(label)}</span>
+          <span>·</span>
+          <span class="px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono">${esc(channelTag)}</span>
+          ${m.created_at ? `<span>· ${new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>` : ''}
+        </div>
+        <div class="max-w-[82%] px-3.5 py-2.5 rounded-2xl text-[13px] whitespace-pre-wrap ${tone}">${esc(m.message)}</div>
+      </div>
+    `;
   }).join('');
+
   const memHtml = memory.length ? `<div class="flex flex-wrap gap-1.5 mb-3">${memory.map(m => `<span class="text-[11px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${esc(m.memory_type)}: ${esc(m.value)}</span>`).join('')}</div>` : '';
   const score = convo.lead_score || 0;
   const factors = aiScoreFactors(messages, !!convo.contact_id, memory);
@@ -412,76 +469,109 @@ async function aiOpenConversation(id) {
     <span class="flex items-center gap-1.5 ${f.on ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 line-through'}">${f.on ? svgIcon('dot', 'w-3 h-3 text-emerald-500') : ''}${esc(f.label)}</span>
     <span class="font-bold ${f.on ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-slate-600'}">+${f.pts}</span></div>`).join('');
   const handoff = convo.status === 'handoff';
-  panel.innerHTML = `<div class="p-5 space-y-3">
-    <div class="flex items-center justify-between">
+
+  panel.innerHTML = `<div class="p-5 space-y-4">
+    <div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
-        <div class="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2 truncate">${convo.contact_name ? esc(convo.contact_name) : 'AI Conversation'}
+        <div class="flex items-center gap-2 flex-wrap">
+          <h2 class="text-lg font-black text-slate-900 dark:text-white truncate">${convo.contact_name ? esc(convo.contact_name) : 'AI Conversation'}</h2>
+          ${presenceBadge}
           <button onclick="document.getElementById('ai-score-explain').classList.toggle('hidden')" title="How is this scored?" class="text-[11px] font-bold px-2 py-0.5 rounded-lg flex-shrink-0 ${AI_SCORE_TONE(score)}">score ${score} ⓘ</button>
         </div>
-        ${(convo.contact_phone || convo.contact_email) ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(convo.contact_phone || '')}${convo.contact_phone && convo.contact_email ? ' · ' : ''}${esc(convo.contact_email || '')}</div>` : ''}
+        ${(convo.contact_phone || convo.contact_email) ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">${esc(convo.contact_phone || '')}${convo.contact_phone && convo.contact_email ? ' · ' : ''}${esc(convo.contact_email || '')}</div>` : ''}
       </div>
       <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
+
     <div id="ai-score-explain" class="hidden bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg p-3">
       <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1.5">Lead score — how it's calculated (0–100)</div>
       ${factorRows}
       <div class="text-[11px] text-slate-400 mt-2">Higher = hotter. 80+ triggers a hot-lead alert to the team.</div>
     </div>
-    ${convo.summary ? `<div class="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg p-2"><div class="text-[10px] uppercase tracking-wide text-slate-400 font-bold mb-1">AI summary</div><div class="text-[12px] text-slate-600 dark:text-slate-300 whitespace-pre-wrap">${esc(convo.summary)}</div></div>` : ''}
+
+    ${convo.summary ? `<div class="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-3"><div class="text-[10px] uppercase tracking-wide text-slate-400 font-bold mb-1">AI summary</div><div class="text-[12px] text-slate-600 dark:text-slate-300 whitespace-pre-wrap">${esc(convo.summary)}</div></div>` : ''}
     ${memHtml}
-    <div id="ai-convo-log" class="space-y-2 max-h-72 overflow-y-auto p-1">${bubbles || '<div class="text-sm text-slate-400 text-center py-6">No messages.</div>'}</div>
-    <div class="border border-slate-200 dark:border-slate-800 rounded-xl p-2 space-y-2">
-      <div class="flex items-center gap-2 flex-wrap">
-        <span class="text-[11px] font-bold text-slate-500">Reply as:</span>
-        <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 text-[11px] font-bold">
-          <button type="button" id="ai-as-rep" onclick="aiSetReplyAs('rep')" class="px-2.5 py-1 rounded transition"> You (rep)</button>
-          <button type="button" id="ai-as-ai" onclick="aiSetReplyAs('ai')" class="px-2.5 py-1 rounded transition"> ${esc(convo.assistant_name || 'AI assistant')}</button>
+
+    <div id="ai-convo-log" class="space-y-2 max-h-72 overflow-y-auto p-1 border-t border-b border-slate-100 dark:border-slate-800 py-3">${bubbles || '<div class="text-sm text-slate-400 text-center py-6">No messages.</div>'}</div>
+
+    <!-- Offline Visitor Fallback Alert -->
+    ${!isOnline ? `
+      <div class="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs space-y-1.5">
+        <div class="font-bold text-amber-600 dark:text-amber-300 flex items-center justify-between">
+          <span>Website visitor is offline</span>
+          <span class="text-[10px] font-mono text-slate-400">Omnichannel Fallback</span>
+        </div>
+        <p class="text-slate-500 dark:text-slate-400 leading-relaxed">Replying via Website Chat will be received when the visitor returns to your site. Select <b>SMS</b> or <b>Email</b> to reach them immediately.</p>
+        <div class="flex items-center gap-2 pt-1">
+          ${convo.contact_phone ? `<button type="button" onclick="aiSetReplyChannel('sms')" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition">Continue by SMS</button>` : ''}
+          ${convo.contact_email ? `<button type="button" onclick="aiSetReplyChannel('email')" class="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold text-[11px] transition">Continue by Email</button>` : ''}
         </div>
       </div>
-      <textarea id="ai-reply-box" rows="2" placeholder="Type your reply to the customer…" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></textarea>
-      <div class="flex items-center gap-2">
-        <button onclick="aiSendReply('${id}',null,this)" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg">Send</button>
-        <button onclick="aiDraftReply('${id}',this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg" title="Draft a reply with AI into the box — edit it, then Send"> Draft with AI</button>
-        ${handoff ? `<button onclick="aiSetConvStatus('${id}','active',this)" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">Hand back to AI</button>` : ''}
-        <div class="flex-1"></div>
-        <button onclick="aiRefreshConvo('${id}')" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2" title="Refresh">↻</button>
+    ` : ''}
+
+    <!-- Reply Box with Independent Sender & Channel Selectors -->
+    <div class="border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 rounded-2xl p-3 space-y-3">
+      <div class="grid sm:grid-cols-2 gap-3 pb-1 border-b border-slate-200 dark:border-slate-800">
+        <!-- Sender Selector -->
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Send as (Sender)</label>
+          <div class="inline-flex rounded-xl bg-slate-200 dark:bg-slate-800 p-1 text-xs">
+            <button type="button" id="ai-sender-rep" onclick="aiSetReplySender('rep')" class="px-3 py-1 rounded-lg font-bold transition text-xs ${__aiReplySender === 'rep' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400'}">You (rep)</button>
+            <button type="button" id="ai-sender-ai" onclick="aiSetReplySender('ai')" class="px-3 py-1 rounded-lg font-bold transition text-xs ${__aiReplySender === 'ai' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400'}">${esc(convo.assistant_name)}</button>
+          </div>
+        </div>
+
+        <!-- Channel Selector -->
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Channel (Transport)</label>
+          <div class="inline-flex rounded-xl bg-slate-200 dark:bg-slate-800 p-1 text-xs">
+            <button type="button" id="ai-chan-chat" onclick="aiSetReplyChannel('chat')" class="px-3 py-1 rounded-lg font-bold transition text-xs ${__aiReplyChannel === 'chat' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400'}">Website Chat</button>
+            <button type="button" id="ai-chan-sms" onclick="aiSetReplyChannel('sms')" ${!convo.contact_phone ? 'disabled' : ''} class="px-3 py-1 rounded-lg font-bold transition text-xs ${__aiReplyChannel === 'sms' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 disabled:opacity-30'}" title="${convo.contact_phone ? 'Send via SMS' : 'No phone number available'}">SMS</button>
+            <button type="button" id="ai-chan-email" onclick="aiSetReplyChannel('email')" ${!convo.contact_email ? 'disabled' : ''} class="px-3 py-1 rounded-lg font-bold transition text-xs ${__aiReplyChannel === 'email' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 disabled:opacity-30'}" title="${convo.contact_email ? 'Send via Email' : 'No email available'}">Email</button>
+          </div>
+        </div>
       </div>
-      <p class="text-[11px] text-slate-400">Sending as <b>You</b> takes over the chat from the AI. Sending as the assistant keeps the AI persona.</p>
+
+      <textarea id="ai-reply-box" rows="3" placeholder="Type your message to the customer..." class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"></textarea>
+
+      <div class="flex items-center gap-2 flex-wrap">
+        <button onclick="aiSendReply('${id}',this)" class="text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl shadow-md transition">Send Message</button>
+        <button onclick="aiDraftReply('${id}',this)" class="text-xs font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-xl hover:bg-slate-300 transition" title="Draft a reply with AI into the box — edit it, then Send">Draft with AI</button>
+        ${handoff ? `<button onclick="aiSetConvStatus('${id}','active',this)" class="text-xs font-bold text-slate-400 hover:text-slate-200 px-2 py-2">Hand back to AI</button>` : ''}
+        <div class="flex-1"></div>
+        <button onclick="aiRefreshConvo('${id}')" class="text-xs font-bold text-slate-400 hover:text-slate-200 px-2 py-2" title="Refresh">↻ Refresh</button>
+      </div>
     </div>
+
     <div class="flex items-center gap-1 pt-1 border-t border-slate-100 dark:border-slate-800 flex-wrap">
-      <button onclick="aiPrintConversation()" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2"> Save / Print PDF</button>
+      <button onclick="aiPrintConversation()" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">Save / Print PDF</button>
       <div class="relative">
         <button onclick="document.getElementById('ai-share-menu').classList.toggle('hidden')" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">↗ Share</button>
         <div id="ai-share-menu" class="hidden absolute bottom-full left-0 mb-1 w-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg py-1 z-10">
-          <button onclick="aiShareConversation('email')" class="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-800"> Email</button>
-          <button onclick="aiShareConversation('sms')" class="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-800"> Text</button>
-          <button onclick="aiShareConversation('copy')" class="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-800"> Copy link</button>
+          <button onclick="aiShareConversation('email')" class="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-800">Email</button>
+          <button onclick="aiShareConversation('sms')" class="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-800">Text</button>
+          <button onclick="aiShareConversation('copy')" class="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-800">Copy link</button>
         </div>
       </div>
       <div class="flex-1"></div>
       <button onclick="this.closest('.fixed').remove()" class="text-sm font-bold text-slate-500 px-3 py-2">Close</button>
     </div></div>`;
-  aiSetReplyAs(__aiReplyAs);   // paint the "Reply as" toggle's active state
+
+  aiSetReplySender(__aiReplySender);
+  aiSetReplyChannel(__aiReplyChannel);
 }
-let __aiReplyAs = 'rep';   // who the typed reply is attributed to: 'rep' or 'ai'
-function aiSetReplyAs(who) {
-  __aiReplyAs = who === 'ai' ? 'ai' : 'rep';
-  const on = 'bg-indigo-600 text-white', off = 'text-slate-600 dark:text-slate-300';
-  const rep = document.getElementById('ai-as-rep'), ai = document.getElementById('ai-as-ai');
-  if (rep) rep.className = `px-2.5 py-1 rounded transition ${__aiReplyAs === 'rep' ? on : off}`;
-  if (ai) ai.className = `px-2.5 py-1 rounded transition ${__aiReplyAs === 'ai' ? on : off}`;
-}
-async function aiSendReply(id, mode, btn) {
-  // mode null → use the "Reply as" toggle (rep = human, ai = AI avatar).
-  const sendMode = mode || (__aiReplyAs === 'ai' ? 'ai' : 'human');
+
+async function aiSendReply(id, btn) {
   const box = document.getElementById('ai-reply-box');
   const message = (box?.value || '').trim();
   if (!message) { showToast('Type a reply first', 'error'); return; }
   if (btn) btn.disabled = true;
   try {
-    await apiSendJson(`/ai/conversations/${id}/reply`, 'POST', { mode: sendMode, message });
+    const mode = __aiReplySender === 'ai' ? 'ai' : 'human';
+    const channel = __aiReplyChannel || 'chat';
+    await apiSendJson(`/ai/conversations/${id}/reply`, 'POST', { mode, channel, message });
     if (box) box.value = '';
-    showToast(sendMode === 'ai' ? 'Sent as the assistant ' : 'Sent as you ', 'success');
+    showToast(`Sent as ${mode === 'ai' ? 'AI' : 'You'} via ${channel.toUpperCase()}`, 'success');
     aiOpenConversation(id);   // refresh transcript
   } catch (e) { showToast(e.message || 'Failed', 'error'); if (btn) btn.disabled = false; }
 }

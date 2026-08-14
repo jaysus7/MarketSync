@@ -129,6 +129,7 @@ const MS_WORKSPACES = {
       { page: 'marketing-overview', label: 'Pulse' },
       { page: 'email-marketing', label: 'Campaigns' },
       { page: 'website', label: 'Website' },
+      { page: 'video-studio', label: 'Video Studio' },
       { page: 'ai-home', label: 'AI Chat' },
       { page: 'ai-inbox', label: 'AI Inbox' },
       { page: 'inventory', label: 'Publish to Facebook', invmode: 'facebook' },

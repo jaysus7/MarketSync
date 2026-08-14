@@ -832,43 +832,276 @@ function wireLiveMessages() {
     }
   });
 }
-// ── Elementor-Style Simplified Visual Palette ─────────────────────────────────
+// ── MarketSync Visual Editor Engine ──────────────────────────────────────────
 let __wsPaletteCat = 'all';
 let __wsPaletteSearch = '';
+let __wsSelectedSecIdx = 0;
+let __wsActiveDeviceView = 'desktop'; // 'desktop' (100%), 'tablet' (768px), 'mobile' (375px)
+let __wsActiveLeftNav = 'layers'; // 'layers', 'blocks', 'pages', 'design', 'ai'
+let __wsInspectorTab = 'content'; // 'content', 'style', 'layout', 'advanced'
 
 const WIDGET_CATEGORIES = [
-  ['all', ' All'],
-  ['banners', ' Banners'],
-  ['inventory', ' Inventory'],
-  ['content', ' Content'],
-  ['trust', '⭐ Trust'],
-  ['contact', ' Contact']
+  ['all', 'All'],
+  ['banners', 'Banners'],
+  ['inventory', 'Inventory'],
+  ['content', 'Content'],
+  ['trust', 'Trust & Reviews'],
+  ['contact', 'Contact & Forms']
 ];
 
 const WIDGET_META_EXT = {
-  hero: { icon: '', category: 'banners', name: 'Hero Showcase', desc: 'Full-width top header banner with background style & call to action.' },
-  feature_cards: { icon: '', category: 'inventory', name: 'Feature Cards', desc: 'Quick links to Inventory, Financing, and Service departments.' },
-  featured_inventory: { icon: '', category: 'inventory', name: 'Featured Inventory', desc: 'Highlight top new & pre-owned vehicles on your lot.' },
-  inventory_grid: { icon: '', category: 'inventory', name: 'Inventory Grid', desc: 'Complete searchable vehicle grid with filtering.' },
-  text_image: { icon: '', category: 'content', name: 'Text + Image Split', desc: 'Side-by-side content block for dealership stories or announcements.' },
-  two_col: { icon: '', category: 'content', name: 'Two Columns', desc: '2-column responsive layout for custom features and text.' },
-  cards: { icon: '', category: 'content', name: 'Card Grid', desc: 'Grid of feature cards with custom titles & descriptions.' },
-  body_style: { icon: '', category: 'inventory', name: 'Body Styles', desc: 'Browse vehicles by Sedan, SUV, Truck, Coupe.' },
-  payment_calc: { icon: '', category: 'inventory', name: 'Payment Calculator', desc: 'Interactive monthly payment estimator for buyers.' },
-  ad_banner: { icon: '', category: 'banners', name: 'Specials Banner', desc: 'Promotional ad banner for sales events & discount offers.' },
-  trade_cta: { icon: '', category: 'banners', name: 'Trade-In Banner', desc: 'Instant trade valuation banner for lead generation.' },
-  finance_cta: { icon: '', category: 'banners', name: 'Finance Banner', desc: 'Credit pre-approval CTA banner.' },
-  service_cta: { icon: '', category: 'banners', name: 'Service Banner', desc: 'Service appointment scheduling CTA banner.' },
-  cta_banner: { icon: '', category: 'banners', name: 'CTA Banner', desc: 'Bold full-width call to action banner.' },
-  staff: { icon: '', category: 'trust', name: 'Meet The Team', desc: 'Showcase sales reps, managers, and staff photos.' },
-  reviews: { icon: '⭐', category: 'trust', name: 'Customer Reviews', desc: 'Google reviews carousel & rating badge.' },
-  faq: { icon: '', category: 'trust', name: 'FAQ Accordion', desc: 'Frequently asked questions dropdown accordion.' },
-  blog: { icon: '', category: 'content', name: 'Latest Articles', desc: 'Recent blog posts and news updates.' },
-  gallery: { icon: '', category: 'content', name: 'Photo Gallery', desc: 'Showroom & vehicle photo grid gallery.' },
-  map: { icon: '', category: 'contact', name: 'Location Map', desc: 'Interactive map & dealership address.' },
-  contact: { icon: '', category: 'contact', name: 'Contact Form', desc: 'Lead inquiry form with instant CRM notification.' },
-  html: { icon: '', category: 'content', name: 'Custom HTML', desc: 'Embed custom HTML code or external widgets.' },
+  hero: { icon: 'H', category: 'banners', name: 'Hero Showcase', desc: 'Full-width top header banner with background style & call to action.' },
+  feature_cards: { icon: 'C', category: 'inventory', name: 'Feature Cards', desc: 'Quick links to Inventory, Financing, and Service departments.' },
+  featured_inventory: { icon: 'V', category: 'inventory', name: 'Featured Inventory', desc: 'Highlight top new & pre-owned vehicles on your lot.' },
+  inventory_grid: { icon: 'G', category: 'inventory', name: 'Inventory Grid', desc: 'Complete searchable vehicle grid with filtering.' },
+  text_image: { icon: 'T', category: 'content', name: 'Text + Image Split', desc: 'Side-by-side content block for dealership stories or announcements.' },
+  two_col: { icon: '2', category: 'content', name: 'Two Columns', desc: '2-column responsive layout for custom features and text.' },
+  cards: { icon: 'K', category: 'content', name: 'Card Grid', desc: 'Grid of feature cards with custom titles & descriptions.' },
+  body_style: { icon: 'B', category: 'inventory', name: 'Body Styles', desc: 'Browse vehicles by Sedan, SUV, Truck, Coupe.' },
+  payment_calc: { icon: '$', category: 'inventory', name: 'Payment Calculator', desc: 'Interactive monthly payment estimator for buyers.' },
+  ad_banner: { icon: 'S', category: 'banners', name: 'Specials Banner', desc: 'Promotional ad banner for sales events & discount offers.' },
+  trade_cta: { icon: 'T', category: 'banners', name: 'Trade-In Banner', desc: 'Instant trade valuation banner for lead generation.' },
+  finance_cta: { icon: 'F', category: 'banners', name: 'Finance Banner', desc: 'Credit pre-approval CTA banner.' },
+  service_cta: { icon: 'W', category: 'banners', name: 'Service Banner', desc: 'Service appointment scheduling CTA banner.' },
+  cta_banner: { icon: 'A', category: 'banners', name: 'CTA Banner', desc: 'Bold full-width call to action banner.' },
+  staff: { icon: 'P', category: 'trust', name: 'Meet The Team', desc: 'Showcase sales reps, managers, and staff photos.' },
+  reviews: { icon: 'R', category: 'trust', name: 'Customer Reviews', desc: 'Google reviews carousel & rating badge.' },
+  faq: { icon: 'Q', category: 'trust', name: 'FAQ Accordion', desc: 'Frequently asked questions dropdown accordion.' },
+  blog: { icon: 'N', category: 'content', name: 'Latest Articles', desc: 'Recent blog posts and news updates.' },
+  gallery: { icon: 'I', category: 'content', name: 'Photo Gallery', desc: 'Showroom & vehicle photo grid gallery.' },
+  map: { icon: 'M', category: 'contact', name: 'Location Map', desc: 'Interactive map & dealership address.' },
+  contact: { icon: 'F', category: 'contact', name: 'Contact Form', desc: 'Lead inquiry form with instant CRM notification.' },
+  html: { icon: 'C', category: 'content', name: 'Custom HTML', desc: 'Embed custom HTML code or external widgets.' },
 };
+
+function setWsDeviceView(view) {
+  __wsActiveDeviceView = view;
+  const frameWrap = document.getElementById('ws-frame-wrapper');
+  if (frameWrap) {
+    if (view === 'mobile') {
+      frameWrap.className = 'w-[375px] h-[78vh] mx-auto rounded-3xl border-4 border-slate-700 bg-white shadow-2xl transition-all duration-300 overflow-hidden';
+    } else if (view === 'tablet') {
+      frameWrap.className = 'w-[768px] h-[78vh] mx-auto rounded-2xl border-4 border-slate-700 bg-white shadow-2xl transition-all duration-300 overflow-hidden';
+    } else {
+      frameWrap.className = 'w-full h-[78vh] rounded-xl border border-slate-200 dark:border-slate-800 bg-white shadow-sm transition-all duration-300 overflow-hidden';
+    }
+  }
+  const btns = document.querySelectorAll('.ws-device-btn');
+  btns.forEach(b => {
+    const isSel = b.dataset.view === view;
+    b.className = `ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg transition ${isSel ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`;
+  });
+}
+window.setWsDeviceView = setWsDeviceView;
+
+function setWsLeftNav(tab) {
+  __wsActiveLeftNav = tab;
+  const panel = document.getElementById('ws-left-drawer-content');
+  if (panel) panel.innerHTML = renderWsLeftDrawerHtml();
+  const btns = document.querySelectorAll('.ws-nav-rail-btn');
+  btns.forEach(b => {
+    const isSel = b.dataset.tab === tab;
+    b.className = `ws-nav-rail-btn w-10 h-10 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold transition ${isSel ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`;
+  });
+}
+window.setWsLeftNav = setWsLeftNav;
+
+function setWsInspectorTab(tab) {
+  __wsInspectorTab = tab;
+  const panel = document.getElementById('ws-inspector-content');
+  if (panel) panel.innerHTML = renderWsRightInspectorContent();
+  const btns = document.querySelectorAll('.ws-insp-tab');
+  btns.forEach(b => {
+    const isSel = b.dataset.tab === tab;
+    b.className = `ws-insp-tab px-3 py-1.5 text-xs font-bold border-b-2 transition ${isSel ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`;
+  });
+}
+window.setWsInspectorTab = setWsInspectorTab;
+
+function selectWsSection(idx) {
+  __wsSelectedSecIdx = idx;
+  const panel = document.getElementById('ws-inspector-panel');
+  if (panel) panel.innerHTML = renderWsRightInspectorHtml();
+  renderWsLayersTree();
+}
+window.selectWsSection = selectWsSection;
+
+function renderWsLayersTree() {
+  const treeEl = document.getElementById('ws-layers-tree');
+  if (!treeEl) return;
+  treeEl.innerHTML = `
+    <div class="space-y-1 font-sans text-xs">
+      <div class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Hierarchical Layers Tree</div>
+      <div onclick="selectWsSection(-1)" class="p-2.5 rounded-xl border ${__wsSelectedSecIdx === -1 ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-900/60 text-slate-300 hover:border-slate-700'} cursor-pointer flex items-center justify-between transition">
+        <span>Header &amp; Navigation Bar</span>
+        <span class="text-[10px] font-mono text-slate-400">Global</span>
+      </div>
+      <div class="pl-2 space-y-1 border-l-2 border-slate-800 ml-2 my-1">
+        ${(__siteSections || []).map((sec, idx) => {
+          const isSel = __wsSelectedSecIdx === idx;
+          const meta = SEC_META[sec.type] || {};
+          return `
+            <div onclick="selectWsSection(${idx})" class="p-2.5 rounded-xl border ${isSel ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-950 text-slate-300 hover:border-slate-700'} cursor-pointer flex items-center justify-between transition group">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="w-4 text-[10px] font-mono text-slate-500">${idx + 1}</span>
+                <span class="truncate">${esc(meta.label || sec.type)}</span>
+              </div>
+              <div class="flex items-center gap-1 opacity-80 group-hover:opacity-100">
+                <button type="button" onclick="event.stopPropagation(); moveSection(${idx},-1)" ${idx === 0 ? 'disabled' : ''} class="p-1 text-slate-400 hover:text-white disabled:opacity-20" title="Move Up">↑</button>
+                <button type="button" onclick="event.stopPropagation(); moveSection(${idx},1)" ${idx === __siteSections.length - 1 ? 'disabled' : ''} class="p-1 text-slate-400 hover:text-white disabled:opacity-20" title="Move Down">↓</button>
+                <button type="button" onclick="event.stopPropagation(); delSection(${idx})" class="p-1 text-rose-400 hover:text-rose-300" title="Delete">✕</button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <div onclick="selectWsSection(-2)" class="p-2.5 rounded-xl border ${__wsSelectedSecIdx === -2 ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-900/60 text-slate-300 hover:border-slate-700'} cursor-pointer flex items-center justify-between transition">
+        <span>Footer &amp; Copyright</span>
+        <span class="text-[10px] font-mono text-slate-400">Global</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderWsLeftDrawerHtml() {
+  if (__wsActiveLeftNav === 'layers') {
+    return `<div id="ws-layers-tree" class="p-4"></div>`;
+  } else if (__wsActiveLeftNav === 'blocks') {
+    return renderElementorPalette();
+  } else if (__wsActiveLeftNav === 'pages') {
+    return `
+      <div class="p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Pages &amp; Structure</h3>
+          <button type="button" onclick="wsTab('pages')" class="text-xs font-bold text-indigo-400 hover:underline">+ Add Page</button>
+        </div>
+        <div class="space-y-1.5">
+          <button onclick="wsSetTarget('home')" class="w-full text-left p-2.5 rounded-xl border transition ${__wsTarget === 'home' ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-950 text-slate-300 hover:border-slate-700'}">Home Page</button>
+          ${(__sitePages || []).map((p, i) => `
+            <button onclick="wsSetTarget(${i})" class="w-full text-left p-2.5 rounded-xl border transition ${__wsTarget === i ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-950 text-slate-300 hover:border-slate-700'}">${esc(p.title || 'Untitled Page')}</button>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  } else if (__wsActiveLeftNav === 'design') {
+    return `<div class="p-4 space-y-3">${wsDesign()}</div>`;
+  } else if (__wsActiveLeftNav === 'ai') {
+    return `
+      <div class="p-4 space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-black uppercase tracking-wider text-violet-400">AI Site Copilot</h3>
+        </div>
+        <div class="p-3.5 rounded-xl bg-violet-600/10 border border-violet-500/30 space-y-2">
+          <label class="block text-xs font-black text-white">Describe the website you want</label>
+          <textarea id="ai-site-prompt" rows="3" placeholder="e.g. Build a premium Chevrolet dealership homepage focused on pre-owned trucks, instant trade appraisal, and easy financing..." class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-violet-500"></textarea>
+          <button onclick="aiBuildPageLayoutFromPrompt()" class="w-full py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-black transition shadow-lg">Generate Page Layout</button>
+        </div>
+      </div>
+    `;
+  }
+  return '';
+}
+
+async function aiBuildPageLayoutFromPrompt() {
+  const promptVal = document.getElementById('ai-site-prompt')?.value || '';
+  await aiBuildPageLayout();
+}
+window.aiBuildPageLayoutFromPrompt = aiBuildPageLayoutFromPrompt;
+
+function renderWsRightInspectorHtml() {
+  const sec = __siteSections[__wsSelectedSecIdx];
+  const meta = sec ? (SEC_META[sec.type] || { label: sec.type }) : null;
+  return `
+    <div class="p-4 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div>
+          <h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Property Inspector</h3>
+          <p class="text-[11px] text-indigo-400 font-bold">${meta ? esc(meta.label) : 'Select Element'}</p>
+        </div>
+        ${sec ? `<button onclick="delSection(${__wsSelectedSecIdx})" class="text-xs font-bold text-rose-500 hover:bg-rose-500/10 px-2 py-1 rounded">Delete</button>` : ''}
+      </div>
+
+      <div class="flex items-center gap-1 border-b border-slate-800">
+        <button onclick="setWsInspectorTab('content')" data-tab="content" class="ws-insp-tab px-3 py-1.5 text-xs font-bold border-b-2 ${__wsInspectorTab === 'content' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400'}">Content</button>
+        <button onclick="setWsInspectorTab('style')" data-tab="style" class="ws-insp-tab px-3 py-1.5 text-xs font-bold border-b-2 ${__wsInspectorTab === 'style' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400'}">Style</button>
+        <button onclick="setWsInspectorTab('layout')" data-tab="layout" class="ws-insp-tab px-3 py-1.5 text-xs font-bold border-b-2 ${__wsInspectorTab === 'layout' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400'}">Layout</button>
+        <button onclick="setWsInspectorTab('advanced')" data-tab="advanced" class="ws-insp-tab px-3 py-1.5 text-xs font-bold border-b-2 ${__wsInspectorTab === 'advanced' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400'}">Advanced</button>
+      </div>
+
+      <div id="ws-inspector-content" class="space-y-3">
+        ${renderWsRightInspectorContent()}
+      </div>
+    </div>
+  `;
+}
+
+function renderWsRightInspectorContent() {
+  const sec = __siteSections[__wsSelectedSecIdx];
+  if (!sec) {
+    return `<div class="text-xs text-slate-400 italic py-8 text-center">Click any section or element on the canvas to inspect &amp; edit its properties.</div>`;
+  }
+  const i = __wsSelectedSecIdx;
+  const meta = SEC_META[sec.type] || {};
+
+  if (__wsInspectorTab === 'content') {
+    return (meta.fields || []).map(f => wsField(i, sec, f)).join('');
+  } else if (__wsInspectorTab === 'style') {
+    return `
+      <div class="space-y-3 text-xs">
+        <div class="space-y-1">
+          <label class="font-bold text-slate-400">Background Color / Overlay</label>
+          <input type="color" value="${sec.settings?.bg_color || '#0F172A'}" oninput="setSec(${i},'bg_color',this.value)" class="w-full h-8 rounded border border-slate-800 bg-transparent cursor-pointer">
+        </div>
+        <div class="space-y-1">
+          <label class="font-bold text-slate-400">Text Color Accent</label>
+          <input type="color" value="${sec.settings?.text_color || '#FFFFFF'}" oninput="setSec(${i},'text_color',this.value)" class="w-full h-8 rounded border border-slate-800 bg-transparent cursor-pointer">
+        </div>
+        <div class="space-y-1">
+          <label class="font-bold text-slate-400">Border Radius</label>
+          <select onchange="setSec(${i},'border_radius',this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white">
+            <option value="none">Square (0px)</option>
+            <option value="md" selected>Curved (12px)</option>
+            <option value="full">Pill (999px)</option>
+          </select>
+        </div>
+      </div>
+    `;
+  } else if (__wsInspectorTab === 'layout') {
+    return `
+      <div class="space-y-3 text-xs">
+        <div class="space-y-1">
+          <label class="font-bold text-slate-400">Section Height</label>
+          <select onchange="setSec(${i},'height',this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white">
+            <option value="sm">Short</option>
+            <option value="md" selected>Medium</option>
+            <option value="lg">Tall</option>
+            <option value="screen">Full Screen</option>
+          </select>
+        </div>
+        <div class="space-y-1">
+          <label class="font-bold text-slate-400">Container Alignment</label>
+          <select onchange="setSec(${i},'align',this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white">
+            <option value="left">Left Aligned</option>
+            <option value="center" selected>Center Aligned</option>
+            <option value="right">Right Aligned</option>
+          </select>
+        </div>
+      </div>
+    `;
+  } else if (__wsInspectorTab === 'advanced') {
+    return `
+      <div class="space-y-3 text-xs">
+        <div class="space-y-2 p-3 rounded-xl bg-slate-950 border border-slate-800">
+          <div class="font-bold text-slate-300">Device Visibility</div>
+          <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked class="accent-indigo-600"> Show on Desktop</label>
+          <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked class="accent-indigo-600"> Show on Tablet</label>
+          <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked class="accent-indigo-600"> Show on Mobile</label>
+        </div>
+      </div>
+    `;
+  }
+  return '';
+}
 
 function setWsPaletteCat(cat) {
   __wsPaletteCat = cat;
@@ -887,24 +1120,24 @@ window.setWsPaletteSearch = setWsPaletteSearch;
 async function aiBuildPageLayout() {
   if (__siteSections.length > 0 && !confirm('Replace current sections with an AI-generated high-converting layout?')) return;
   const bBrand = typeof getDealerBranding === 'function' ? getDealerBranding() : { name: 'MarketSync Motors' };
-  if (typeof showToast === 'function') showToast(' AI Copilot generating custom dealership layout…', 'info');
+  if (typeof showToast === 'function') showToast('AI Copilot generating custom dealership layout…', 'info');
   
   __siteSections = [
     { id: 'sec_' + Math.random().toString(36).slice(2,8), type: 'hero', settings: { herobg: 'g1', headline: `Welcome to ${bBrand.name}`, subheadline: 'Explore our premium selection of new & certified pre-owned vehicles.', button_label: 'View Inventory →', button_target: 'inventory' } },
-    { id: 'sec_' + Math.random().toString(36).slice(2,8), type: 'featured_inventory', settings: { title: ' Featured Vehicles This Week', count: 6 } },
+    { id: 'sec_' + Math.random().toString(36).slice(2,8), type: 'featured_inventory', settings: { title: 'Featured Vehicles This Week', count: 6 } },
     { id: 'sec_' + Math.random().toString(36).slice(2,8), type: 'trade_cta', settings: { title: 'What Is Your Trade Worth?', subtitle: 'Get an instant market-backed valuation in under 2 minutes.', button_label: 'Value My Trade →' } },
     { id: 'sec_' + Math.random().toString(36).slice(2,8), type: 'reviews', settings: { title: 'Why Drivers Choose Us', google_rating: '4.9' } },
     { id: 'sec_' + Math.random().toString(36).slice(2,8), type: 'contact', settings: { title: 'Visit Our Showroom & Schedule a Test Drive' } }
   ];
   
   renderWsSections();
-  if (typeof showToast === 'function') showToast(' AI Layout Generated! Click Save to publish.', 'success');
+  if (typeof showToast === 'function') showToast('AI Layout Generated! Click Save to publish.', 'success');
 }
 window.aiBuildPageLayout = aiBuildPageLayout;
 
 function renderElementorPalette() {
   const catNav = WIDGET_CATEGORIES.map(([id, label]) => `
-    <button onclick="setWsPaletteCat('${id}')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition ${__wsPaletteCat === id ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>
+    <button onclick="setWsPaletteCat('${id}')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition ${__wsPaletteCat === id ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'}">${label}</button>
   `).join('');
 
   const searchQ = (__wsPaletteSearch || '').toLowerCase().trim();
@@ -917,48 +1150,41 @@ function renderElementorPalette() {
   });
 
   const cardsHtml = filteredSecs.map(t => {
-    const ext = WIDGET_META_EXT[t] || { icon: '', category: 'content', name: SEC_META[t]?.label || t, desc: 'Add element section' };
+    const ext = WIDGET_META_EXT[t] || { icon: '✦', category: 'content', name: SEC_META[t]?.label || t, desc: 'Add element section' };
     return `
-      <button onclick="addSection('${t}')" class="group p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md rounded-xl text-left transition flex flex-col justify-between">
+      <button onclick="addSection('${t}')" class="group p-2.5 bg-slate-900 border border-slate-800 hover:border-indigo-500 rounded-xl text-left transition flex flex-col justify-between">
         <div>
           <div class="flex items-center gap-2 mb-1">
-            <span class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xs shrink-0">${ext.icon}</span>
-            <span class="font-bold text-xs text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition truncate">${esc(ext.name)}</span>
+            <span class="w-6 h-6 rounded-lg bg-indigo-950 text-indigo-400 flex items-center justify-center font-bold text-xs shrink-0">${ext.icon}</span>
+            <span class="font-bold text-xs text-slate-100 group-hover:text-indigo-400 transition truncate">${esc(ext.name)}</span>
           </div>
-          <p class="text-[10px] text-slate-500 dark:text-slate-400 leading-snug line-clamp-2">${esc(ext.desc)}</p>
+          <p class="text-[10px] text-slate-400 leading-snug line-clamp-2">${esc(ext.desc)}</p>
         </div>
-        <div class="mt-2 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-          ＋ Add Widget
+        <div class="mt-2 text-[10px] font-bold text-indigo-400 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+          + Add Section
         </div>
       </button>
     `;
   }).join('');
 
   return `
-    <div class="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3">
+    <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-3">
       <div class="flex items-center justify-between">
-        <div class="text-xs font-black uppercase tracking-wider text-slate-400">Elementor Widget Panel</div>
-        <button onclick="aiBuildPageLayout()" class="text-[11px] font-extrabold text-violet-600 dark:text-violet-400 hover:text-violet-500 flex items-center gap-1"> AI Build Layout</button>
+        <div class="text-xs font-black uppercase tracking-wider text-slate-400">MarketSync Block Library</div>
+        <button onclick="aiBuildPageLayout()" class="text-[11px] font-extrabold text-violet-400 hover:text-violet-300 flex items-center gap-1">AI Build</button>
       </div>
 
       <!-- Search Bar -->
       <div class="relative">
-        <input type="text" value="${esc(__wsPaletteSearch)}" oninput="setWsPaletteSearch(this.value)" placeholder="Search widgets (e.g. hero, inventory, reviews)..." class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200">
-        <span class="absolute left-2.5 top-2 text-slate-400 text-xs"></span>
+        <input type="text" value="${esc(__wsPaletteSearch)}" oninput="setWsPaletteSearch(this.value)" placeholder="Search blocks (e.g. hero, inventory, reviews)..." class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
       </div>
 
       <!-- Category Filter Pills -->
       <div class="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">${catNav}</div>
 
-      <!-- Insert Hint -->
-      <div id="ws-insert-hint" class="hidden text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-lg p-2 flex items-center justify-between">
-        <span>Inserting at highlighted spot — pick a widget:</span>
-        <button onclick="cancelInsert()" class="underline font-extrabold">cancel</button>
-      </div>
-
       <!-- Widget Grid -->
-      <div class="grid grid-cols-2 gap-2 max-h-[340px] overflow-y-auto pr-1 scrollbar-thin">
-        ${cardsHtml || '<div class="col-span-2 text-center text-xs text-slate-400 italic py-4">No widgets match your search.</div>'}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[360px] overflow-y-auto pr-1 scrollbar-thin">
+        ${cardsHtml || '<div class="col-span-2 text-center text-xs text-slate-400 italic py-4">No blocks match your search.</div>'}
       </div>
     </div>
   `;
@@ -969,32 +1195,66 @@ function renderLiveBuilder(body) {
   __livePreviewReady = false;
   const slug = __siteCfg?.site_slug;
   if (!slug) {
-    body.innerHTML = `<div class="mt-6 text-sm text-slate-500 dark:text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-8 text-center">Name your site address first (Settings → site address) to use the live preview.<br>You can keep building now in <button onclick="setBuilderMode('classic')" class="text-indigo-600 font-bold">Classic mode ↩</button>.</div>`;
+    body.innerHTML = `<div class="mt-6 text-sm text-slate-500 dark:text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-8 text-center">Name your site address first (Settings → site address) to use the visual builder.<br>You can keep building now in <button onclick="setBuilderMode('classic')" class="text-indigo-600 font-bold">Classic mode ↩</button>.</div>`;
     return;
   }
-  const pageOpts = (__sitePages || []).map((p, i) => `<option value="${i}" ${__wsTarget === i ? 'selected' : ''}> ${esc(p.title || 'Untitled page')}</option>`).join('');
-  const builtinOpts = BUILTIN_META.filter(([k]) => (__siteBuiltins[k]?.enabled !== false)).map(([k, label]) => `<option value="b:${k}" ${__wsTarget === 'b:' + k ? 'selected' : ''}> ${esc((__siteBuiltins[k] && __siteBuiltins[k].label) || label)} — top section</option>`).join('');
+
   body.innerHTML = `
-    <div class="flex items-center gap-2 mt-4 mb-2 flex-wrap">
-      <span class="text-xs font-bold text-slate-500 dark:text-slate-400">Editing:</span>
-      <select onchange="wsSetTarget(this.value)" class="text-sm font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5">
-        <option value="home" ${__wsTarget === 'home' ? 'selected' : ''}>Home page</option>${pageOpts}${builtinOpts ? `<optgroup label="Built-in pages">${builtinOpts}</optgroup>` : ''}
-      </select>
-      <span class="text-[11px] text-indigo-500 dark:text-indigo-400 font-semibold flex-1">Live preview — click a section in the preview to jump to its editor. Edits show instantly; hit <b>Save</b> to publish.</span>
+    <!-- Top Visual Workspace Action Bar -->
+    <div class="flex items-center justify-between gap-3 py-2 px-3 bg-slate-900 border border-slate-800 rounded-xl mt-3 mb-3 z-10 flex-wrap">
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-bold text-slate-400">Editing Page:</span>
+        <select onchange="wsSetTarget(this.value)" class="text-xs font-bold bg-slate-950 text-white border border-slate-800 rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500">
+          <option value="home" ${__wsTarget === 'home' ? 'selected' : ''}>Home Page</option>
+          ${(__sitePages || []).map((p, i) => `<option value="${i}" ${__wsTarget === i ? 'selected' : ''}>${esc(p.title || 'Untitled Page')}</option>`).join('')}
+        </select>
+      </div>
+
+      <!-- Device Viewport Switcher -->
+      <div class="flex items-center bg-slate-950 rounded-lg p-1 border border-slate-800">
+        <button onclick="setWsDeviceView('desktop')" data-view="desktop" class="ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'desktop' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}">Desktop</button>
+        <button onclick="setWsDeviceView('tablet')" data-view="tablet" class="ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'tablet' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}">Tablet</button>
+        <button onclick="setWsDeviceView('mobile')" data-view="mobile" class="ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'mobile' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}">Mobile</button>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">SAVED</span>
+        <a href="${SITE_BASE}?d=${encodeURIComponent(slug)}" target="_blank" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition">Preview ↗</a>
+        <button onclick="saveWebsite(this)" class="px-4 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md transition">Publish Site</button>
+      </div>
     </div>
-    <div class="grid lg:grid-cols-[minmax(0,1fr)_380px] gap-4 items-start">
-      <div class="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white shadow-sm" style="height:78vh">
-        <iframe id="ws-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1" class="w-full h-full border-0" title="Live site preview"></iframe>
-      </div>
-      <div class="lg:sticky lg:top-4 self-start space-y-3" style="max-height:78vh;overflow:auto">
-        <div id="ws-palette-container">${renderElementorPalette()}</div>
-        <div>
-          <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Active Sections — drag to reorder</div>
-          <div id="ws-sections" class="space-y-2"></div>
+
+    <!-- Main Visual Studio Grid (70-80% Canvas + Rail + Inspector) -->
+    <div class="flex gap-3 items-start overflow-hidden relative">
+      <!-- Left Tool Rail -->
+      <nav class="w-14 bg-slate-950 border border-slate-800 rounded-2xl flex flex-col items-center py-3 gap-2.5 shrink-0 z-10">
+        <button onclick="setWsLeftNav('layers')" data-tab="layers" class="ws-nav-rail-btn w-10 h-10 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'layers' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'}">Tree</button>
+        <button onclick="setWsLeftNav('blocks')" data-tab="blocks" class="ws-nav-rail-btn w-10 h-10 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'blocks' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'}">+Add</button>
+        <button onclick="setWsLeftNav('pages')" data-tab="pages" class="ws-nav-rail-btn w-10 h-10 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'pages' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'}">Pages</button>
+        <button onclick="setWsLeftNav('design')" data-tab="design" class="ws-nav-rail-btn w-10 h-10 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'design' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'}">Style</button>
+        <button onclick="setWsLeftNav('ai')" data-tab="ai" class="ws-nav-rail-btn w-10 h-10 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'ai' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'}">AI</button>
+      </nav>
+
+      <!-- Left Drawer Drawer -->
+      <aside id="ws-left-drawer-content" class="w-80 bg-slate-900 border border-slate-800 rounded-2xl shrink-0 overflow-y-auto max-h-[78vh] z-10">
+        ${renderWsLeftDrawerHtml()}
+      </aside>
+
+      <!-- Center Live Web Canvas (70-80% Available Width) -->
+      <main class="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-4 overflow-auto flex items-center justify-center min-h-[78vh] relative">
+        <div id="ws-frame-wrapper" class="w-full h-[78vh] rounded-xl border border-slate-800 bg-white shadow-2xl transition-all duration-300 overflow-hidden">
+          <iframe id="ws-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1" class="w-full h-full border-0" title="Live Website Canvas"></iframe>
         </div>
-      </div>
-    </div>`;
-  renderWsSections();
+      </main>
+
+      <!-- Right Contextual Property Inspector -->
+      <aside id="ws-inspector-panel" class="w-80 bg-slate-900 border border-slate-800 rounded-2xl shrink-0 overflow-y-auto max-h-[78vh] z-10">
+        ${renderWsRightInspectorHtml()}
+      </aside>
+    </div>
+  `;
+
+  renderWsLayersTree();
 }
 function renderWsBody() {
   const body = document.getElementById('ws-body'); if (!body) return;

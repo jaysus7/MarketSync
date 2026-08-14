@@ -440,6 +440,12 @@ ENGINES['marketing-overview'] = {
       engMountPage(body, 'website', () => loadWebsitePage());
     },
 
+    // ── Video Studio ─────────────────────────────────────────────────────────
+    'video-studio'(body) {
+      body.innerHTML = engSection('Video Studio', '', 'Customer video walkaround recorder & sent video telemetry');
+      engMountPage(body, 'video-studio', () => { if (typeof loadVideoStudioPage === 'function') loadVideoStudioPage(); });
+    },
+
     // ── Automations ─────────────────────────────────────────────────────────
     // Marketing Automation Engine — event-driven rules that follow up, remind, and re-engage based on live events.
     automations(body) {

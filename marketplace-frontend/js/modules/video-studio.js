@@ -511,76 +511,64 @@ function openPublicVideoLink(videoId, contactId) {
   const repName = profileContext?.name || window.__user?.name || 'Dave Miller';
   const storeName = window.__dealerConfig?.store_name || 'MarketSync Motors';
   const custName = window.__videoStudioState.currentContact?.first_name || 'Customer';
+  const vipDiscount = data.vip_discount || '$500 VIP Voucher';
 
   playerModal.innerHTML = `
     <div class="relative w-full max-w-3xl bg-slate-900 text-white rounded-3xl shadow-2xl border border-slate-800 overflow-hidden my-auto">
-      <!-- Top Branding Bar -->
+      <!-- Top Clean Branding Bar -->
       <div class="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <img src="/logo.png" alt="MarketSync" class="h-7 w-auto">
-          <div>
-            <div class="text-xs font-black uppercase text-sky-400">${escV(storeName)}</div>
-            <div class="text-xs text-slate-300 font-medium">Personalized Video Message from <strong>${escV(repName)}</strong></div>
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-9 h-9 rounded-xl bg-indigo-600/20 text-indigo-400 font-black flex items-center justify-center text-sm shrink-0">MS</div>
+          <div class="min-w-0">
+            <div class="text-xs font-black uppercase tracking-wider text-sky-400 truncate">${escV(storeName)}</div>
+            <div class="text-xs text-slate-300 font-semibold truncate">Personalized Video Message from <strong>${escV(repName)}</strong></div>
           </div>
         </div>
-        <button onclick="closePublicVideoPlayer()" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition">✕</button>
-      </div>
-
-      <!-- Live Video Telemetry & Watch Metrics -->
-      <div class="px-5 py-3 bg-slate-950 border-b border-slate-800 grid grid-cols-3 gap-3 text-xs">
-        <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-          <div class="text-[10px] font-black uppercase text-slate-400">Total Views</div>
-          <div class="text-sm font-black text-sky-400 mt-0.5">${data.times_watched || 1} view(s)</div>
-        </div>
-        <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-          <div class="text-[10px] font-black uppercase text-slate-400">Watch Duration</div>
-          <div class="text-sm font-black text-emerald-400 mt-0.5">${Math.floor((data.watch_time_seconds || 105) / 60)}m ${(data.watch_time_seconds || 105) % 60}s (${data.completion_rate || 81}%)</div>
-        </div>
-        <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-          <div class="text-[10px] font-black uppercase text-slate-400">Open Status</div>
-          <div class="text-sm font-black text-amber-300 mt-0.5">${data.opened_at ? new Date(data.opened_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Opened just now'}</div>
+        <div class="flex items-center gap-2">
+          <button onclick="changeVipDiscountAmount('${videoId}')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-300 border border-slate-700 transition" title="Change VIP discount amount for this customer">Edit VIP Discount</button>
+          <button onclick="closePublicVideoPlayer()" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition">✕</button>
         </div>
       </div>
 
-      <!-- HD Player Screen Simulator -->
+      <!-- Video Player Canvas Screen -->
       <div class="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden group">
-        <div id="pub-video-canvas" class="w-full h-full bg-gradient-to-br from-slate-900 via-indigo-950 to-black flex flex-col items-center justify-center p-6 text-center relative">
-          <!-- Animated Play Indicator -->
-          <div id="pub-play-overlay" class="w-20 h-20 rounded-full bg-indigo-600/90 text-white flex items-center justify-center text-3xl shadow-2xl cursor-pointer hover:scale-105 transition transform" onclick="startPublicVideoPlayback('${videoId}', '${contactId}')">
+        <canvas id="pub-video-canvas" width="640" height="360" class="w-full h-full object-cover"></canvas>
+        
+        <!-- Center Initial Play Overlay -->
+        <div id="pub-play-overlay" class="absolute inset-0 bg-black/40 flex flex-col items-center justify-center p-6 text-center cursor-pointer transition" onclick="startPublicVideoPlayback('${videoId}', '${contactId}')">
+          <div class="w-20 h-20 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center text-3xl shadow-2xl transition transform hover:scale-105">
             ▶
           </div>
-          <div id="pub-playing-status" class="mt-4 text-xs font-extrabold uppercase tracking-widest text-sky-300 hidden animate-pulse">
-            🔴 Streaming HD Video Preview...
-          </div>
-          <div class="absolute bottom-4 left-4 text-left text-xs bg-slate-900/80 p-2 rounded-xl border border-slate-800">
-            <div class="font-bold text-white">${escV(custName)}, here is your VIP walkaround!</div>
-            <div class="text-[11px] text-slate-400">Recorded specifically for you by ${escV(repName)}</div>
-          </div>
+          <div class="mt-3 font-bold text-sm text-white">${escV(custName)}, click to play your personalized video</div>
         </div>
 
-        <!-- Custom Scrubber Controls -->
+        <div id="pub-playing-status" class="absolute top-4 left-4 text-xs font-extrabold uppercase tracking-widest text-emerald-400 bg-slate-900/90 border border-slate-800 px-3 py-1 rounded-full hidden">
+          LIVE PLAYBACK
+        </div>
+
+        <!-- Custom Player Scrubber Controls -->
         <div class="absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-black/90 to-transparent flex items-center justify-between gap-3 text-xs font-mono">
-          <button id="pub-play-btn" onclick="startPublicVideoPlayback('${videoId}', '${contactId}')" class="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold">▶ Play</button>
+          <button id="pub-play-btn" onclick="togglePublicVideoPlayback('${videoId}', '${contactId}')" class="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition">Play</button>
           <div class="flex-1 bg-slate-800 rounded-full h-2 overflow-hidden cursor-pointer" onclick="scrubPublicVideo(event, '${videoId}')">
-            <div id="pub-progress-bar" class="bg-indigo-500 h-full w-0 transition-all duration-300"></div>
+            <div id="pub-progress-bar" class="bg-indigo-500 h-full w-0 transition-all duration-150"></div>
           </div>
           <span id="pub-time-counter" class="text-slate-300">00:00 / 02:00</span>
         </div>
       </div>
 
-      <!-- Video Action Call-to-Action Bar -->
+      <!-- Action Call-to-Action Bar -->
       <div class="p-5 bg-slate-900 border-t border-slate-800 space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div class="text-sm font-black text-white">Interested in this vehicle?</div>
-            <div class="text-xs text-slate-400">Lock in your price quote or schedule a test drive in 1 click.</div>
+            <div class="text-xs text-slate-400">Schedule a test drive or claim your exclusive discount offer.</div>
           </div>
-          <div class="flex items-center gap-2">
-            <button onclick="if(typeof showToast==='function') showToast('Test drive request sent to ${escV(repName)}!', 'success');" class="px-4 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition">
-              📅 Schedule Test Drive
+          <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="openScheduleTestDriveModal('${videoId}', '${contactId}')" class="px-4 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition cursor-pointer">
+              Schedule Test Drive
             </button>
-            <button onclick="if(typeof showToast==='function') showToast('Price quote request sent to ${escV(repName)}!', 'success');" class="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition">
-              💰 Claim VIP Discount
+            <button id="pub-vip-btn" onclick="openClaimVipDiscountModal('${videoId}', '${contactId}')" class="px-4 py-2 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition cursor-pointer">
+              Claim ${escV(vipDiscount)}
             </button>
           </div>
         </div>
@@ -588,21 +576,68 @@ function openPublicVideoLink(videoId, contactId) {
     </div>
   `;
 
-  // Increment open counter automatically
-  simCustomerWatchVideo(videoId, contactId);
+  // Draw initial poster frame on video canvas
+  drawPublicVideoCanvasFrame(0);
 }
 
 let __pubVideoInterval = null;
+let __pubVideoPlaying = false;
+
+function drawPublicVideoCanvasFrame(progressPercent) {
+  const canvas = document.getElementById('pub-video-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const w = canvas.width;
+  const h = canvas.height;
+
+  // Render animated background gradient simulating camera stream
+  const grad = ctx.createLinearGradient(0, 0, w, h);
+  const offset = (progressPercent * 3.6) % 360;
+  grad.addColorStop(0, '#0f172a');
+  grad.addColorStop(0.5, '#1e1b4b');
+  grad.addColorStop(1, '#020617');
+
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  // Draw animated vehicle silhouette & camera grid
+  ctx.strokeStyle = 'rgba(99, 102, 241, 0.2)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = 0; x < w; x += 40) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+  for (let y = 0; y < h; y += 40) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+  ctx.stroke();
+
+  // Draw simulated vehicle motion graphic
+  const posX = (w * 0.2) + ((progressPercent / 100) * (w * 0.6));
+  ctx.fillStyle = '#6366f1';
+  ctx.beginPath();
+  ctx.arc(posX, h * 0.5, 40, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 16px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('MARKETSYNC VIDEO WALK-AROUND', w / 2, h / 2 - 10);
+  ctx.font = '12px sans-serif';
+  ctx.fillStyle = '#94a3b8';
+  ctx.fillText(`PLAYING FRAME · ${Math.round(progressPercent)}%`, w / 2, h / 2 + 15);
+}
 
 function startPublicVideoPlayback(videoId, contactId) {
+  __pubVideoPlaying = true;
   const data = window.__videoAnalyticsStore[videoId] || {
     id: videoId,
-    opened_at: new Date().toISOString(),
     watch_time_seconds: 0,
     total_duration_seconds: 120,
-    times_watched: 1,
     completion_rate: 0
   };
+
+  if (data.watch_time_seconds >= data.total_duration_seconds) {
+    data.watch_time_seconds = 0;
+  }
 
   const playOverlay = document.getElementById('pub-play-overlay');
   const playingStatus = document.getElementById('pub-playing-status');
@@ -610,12 +645,14 @@ function startPublicVideoPlayback(videoId, contactId) {
 
   if (playOverlay) playOverlay.classList.add('hidden');
   if (playingStatus) playingStatus.classList.remove('hidden');
-  if (playBtn) playBtn.textContent = '⏸ Pause';
+  if (playBtn) playBtn.textContent = 'Pause';
 
   clearInterval(__pubVideoInterval);
   __pubVideoInterval = setInterval(() => {
+    if (!__pubVideoPlaying) return;
+
     if (data.watch_time_seconds < data.total_duration_seconds) {
-      data.watch_time_seconds += 2;
+      data.watch_time_seconds += 1;
       data.completion_rate = Math.min(100, Math.round((data.watch_time_seconds / data.total_duration_seconds) * 100));
       window.__videoAnalyticsStore[videoId] = data;
 
@@ -629,18 +666,141 @@ function startPublicVideoPlayback(videoId, contactId) {
       if (counter) counter.textContent = `${mins}:${secs} / ${totalMins}:${totalSecs}`;
       if (bar) bar.style.width = `${data.completion_rate}%`;
 
-      // Update rep's studio analytics in real time
-      const container = document.getElementById('vid-telemetry-container');
-      if (container) container.innerHTML = renderVideoTelemetryBadge(videoId);
+      drawPublicVideoCanvasFrame(data.completion_rate);
     } else {
+      __pubVideoPlaying = false;
       clearInterval(__pubVideoInterval);
-      if (playBtn) playBtn.textContent = '🔄 Replay';
-      if (playingStatus) playingStatus.textContent = '✅ Video Playback Complete!';
+      if (playBtn) playBtn.textContent = 'Replay';
+      if (playingStatus) playingStatus.textContent = 'Playback Complete';
     }
   }, 1000);
 }
 
+function togglePublicVideoPlayback(videoId, contactId) {
+  if (__pubVideoPlaying) {
+    __pubVideoPlaying = false;
+    const playBtn = document.getElementById('pub-play-btn');
+    if (playBtn) playBtn.textContent = 'Play';
+  } else {
+    startPublicVideoPlayback(videoId, contactId);
+  }
+}
+window.togglePublicVideoPlayback = togglePublicVideoPlayback;
+
+function changeVipDiscountAmount(videoId) {
+  const data = window.__videoAnalyticsStore[videoId] || {};
+  const current = data.vip_discount || '$500 VIP Voucher';
+  const val = prompt('Enter the VIP Discount amount for this customer video (e.g. "$500 VIP Voucher", "$1,000 Trade Bonus"):', current);
+  if (val && val.trim()) {
+    data.vip_discount = val.trim();
+    window.__videoAnalyticsStore[videoId] = data;
+    const btn = document.getElementById('pub-vip-btn');
+    if (btn) btn.textContent = `Claim ${val.trim()}`;
+    if (typeof showToast === 'function') showToast(`VIP Discount updated to ${val.trim()}`, 'success');
+  }
+}
+window.changeVipDiscountAmount = changeVipDiscountAmount;
+
+function openScheduleTestDriveModal(videoId, contactId) {
+  const repName = profileContext?.name || window.__user?.name || 'Dave Miller';
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md';
+  modal.innerHTML = `
+    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 text-white space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-black">Schedule Your Test Drive</h3>
+        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-white">✕</button>
+      </div>
+      <p class="text-xs text-slate-400">Pick your preferred date and time to test drive with <strong>${escV(repName)}</strong>.</p>
+      
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-bold text-slate-300 mb-1">Preferred Date</label>
+          <input id="td-date" type="date" value="${new Date(Date.now() + 86400000).toISOString().slice(0, 10)}" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-bold focus:outline-none focus:border-emerald-500">
+        </div>
+        <div>
+          <label class="block font-bold text-slate-300 mb-1">Preferred Time</label>
+          <select id="td-time" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-bold focus:outline-none focus:border-emerald-500">
+            <option value="10:00 AM">10:00 AM</option>
+            <option value="11:30 AM">11:30 AM</option>
+            <option value="02:00 PM" selected>02:00 PM</option>
+            <option value="04:30 PM">04:30 PM</option>
+          </select>
+        </div>
+      </div>
+
+      <button onclick="confirmScheduleTestDrive('${contactId}', this)" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition shadow-lg">
+        Confirm Test Drive Appointment
+      </button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+window.openScheduleTestDriveModal = openScheduleTestDriveModal;
+
+function confirmScheduleTestDrive(contactId, btn) {
+  const date = document.getElementById('td-date')?.value || '';
+  const time = document.getElementById('td-time')?.value || '';
+  btn.closest('.fixed')?.remove();
+  
+  if (contactId) {
+    apiSendJson(`/crm/contacts/${contactId}/timeline`, 'POST', {
+      kind: 'test_drive_scheduled',
+      subject: `Test Drive Scheduled for ${date} at ${time}`,
+      body: `Customer scheduled a test drive via video message for ${date} at ${time}.`,
+      timestamp: new Date().toISOString()
+    }).catch(() => null);
+  }
+
+  if (typeof showToast === 'function') {
+    showToast(`Test drive confirmed for ${date} at ${time}!`, 'success');
+  }
+}
+window.confirmScheduleTestDrive = confirmScheduleTestDrive;
+
+function openClaimVipDiscountModal(videoId, contactId) {
+  const data = window.__videoAnalyticsStore[videoId] || {};
+  const discount = data.vip_discount || '$500 VIP Voucher';
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md';
+  modal.innerHTML = `
+    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 text-white space-y-4 shadow-2xl text-center">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-black text-indigo-400">Exclusive VIP Discount Claimed!</h3>
+        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-white">✕</button>
+      </div>
+      <div class="p-4 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 space-y-1">
+        <div class="text-xl font-black text-white">${escV(discount)}</div>
+        <div class="text-[11px] font-mono text-indigo-300">VOUCHER CODE: VIP-MARKETSYNC-${Math.floor(1000 + Math.random() * 9000)}</div>
+      </div>
+      <p class="text-xs text-slate-400">This voucher is now locked to your customer profile and will be automatically applied at final vehicle checkout.</p>
+      <button onclick="confirmClaimVipDiscount('${contactId}', '${escV(discount)}', this)" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black transition shadow-lg">
+        Apply Discount to My Profile
+      </button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+window.openClaimVipDiscountModal = openClaimVipDiscountModal;
+
+function confirmClaimVipDiscount(contactId, discount, btn) {
+  btn.closest('.fixed')?.remove();
+  if (contactId) {
+    apiSendJson(`/crm/contacts/${contactId}/timeline`, 'POST', {
+      kind: 'vip_discount_claimed',
+      subject: `Claimed ${discount}`,
+      body: `Customer claimed ${discount} via personalized video message.`,
+      timestamp: new Date().toISOString()
+    }).catch(() => null);
+  }
+  if (typeof showToast === 'function') {
+    showToast(`${discount} applied to customer profile!`, 'success');
+  }
+}
+window.confirmClaimVipDiscount = confirmClaimVipDiscount;
+
 function closePublicVideoPlayer() {
+  __pubVideoPlaying = false;
   clearInterval(__pubVideoInterval);
   document.getElementById('public-video-player-modal')?.remove();
 }

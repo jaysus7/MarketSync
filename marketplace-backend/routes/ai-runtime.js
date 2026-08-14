@@ -765,6 +765,7 @@ export function registerAiRuntime(app) {
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!convo) return res.status(404).json({ error: 'not found' })
     const mode = String(req.body?.mode || 'human')
+    const targetChannel = ['chat', 'sms', 'email'].includes(req.body?.channel) ? req.body.channel : 'chat'
     let text = String(req.body?.message || '').trim().slice(0, 4000)
     // 'draft' generates a suggested reply into the rep's box (not sent). 'human' and
     // 'ai' both SEND the rep's typed text — the only difference is who it's attributed
@@ -792,9 +793,9 @@ export function registerAiRuntime(app) {
     // 'human' → the rep is speaking (tagged so the console shows it as the rep, and it
     // flips the conversation into take-over); 'ai' → sent as the AI.
     const senderType = mode === 'human' ? 'human' : 'ai'
-    const saved = await saveMessage(convo.id, req.dealershipId, 'assistant', text, { senderType })
-    if (mode === 'human') await supabaseAdmin.from('ai_conversations').update({ status: 'handoff', assigned_salesperson: req.user?.id || null }).eq('id', convo.id)
-    res.json({ ok: true, message: text, at: saved?.created_at || new Date().toISOString(), mode })
+    const saved = await saveMessage(convo.id, req.dealershipId, 'assistant', text, { senderType, channel: targetChannel })
+    if (mode === 'human') await supabaseAdmin.from('ai_conversations').update({ status: 'handoff', assigned_salesperson: req.user?.id || null, channel: targetChannel }).eq('id', convo.id)
+    res.json({ ok: true, message: text, at: saved?.created_at || new Date().toISOString(), mode, channel: targetChannel })
   })
 
   // Public poller — the customer widget fetches assistant messages it hasn't seen
