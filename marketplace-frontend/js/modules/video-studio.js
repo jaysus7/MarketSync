@@ -294,7 +294,7 @@ function vidToggleRecord() {
     // Start Recording
     window.__videoStudioState.recording = true;
     window.__videoStudioState.paused = false;
-    if (btn) { btn.innerHTML = '🛑 Stop Recording'; btn.className = 'px-5 py-2.5 rounded-xl text-xs font-black bg-slate-800 text-white hover:bg-slate-700 transition flex items-center gap-2'; }
+    if (btn) { btn.innerHTML = 'Stop Recording'; btn.className = 'px-5 py-2.5 rounded-xl text-xs font-black bg-slate-800 text-white hover:bg-slate-700 transition flex items-center gap-2'; }
     if (pauseBtn) { pauseBtn.disabled = false; pauseBtn.className = 'px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white transition'; }
     if (indicator) indicator.classList.remove('hidden');
     if (statusBadge) statusBadge.classList.remove('hidden');
@@ -314,7 +314,7 @@ function vidToggleRecord() {
     // Stop Recording
     window.__videoStudioState.recording = false;
     clearInterval(window.__videoStudioState.timerInterval);
-    if (btn) { btn.innerHTML = '🔴 Start Recording'; btn.className = 'px-5 py-2.5 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white transition flex items-center gap-2'; }
+    if (btn) { btn.innerHTML = 'Start Recording'; btn.className = 'px-5 py-2.5 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white transition flex items-center gap-2'; }
     if (pauseBtn) { pauseBtn.disabled = true; pauseBtn.className = 'px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-500 cursor-not-allowed transition'; }
     if (indicator) indicator.classList.add('hidden');
     if (statusBadge) statusBadge.classList.add('hidden');
@@ -326,7 +326,7 @@ function vidPauseRecord() {
   const pauseBtn = document.getElementById('vid-pause-btn');
   window.__videoStudioState.paused = !window.__videoStudioState.paused;
   if (pauseBtn) {
-    pauseBtn.textContent = window.__videoStudioState.paused ? '▶ Resume' : '⏸ Pause';
+    pauseBtn.textContent = window.__videoStudioState.paused ? 'Resume' : 'Pause';
   }
   if (typeof showToast === 'function') showToast(window.__videoStudioState.paused ? 'Recording paused' : 'Recording resumed', 'info');
 }
@@ -352,11 +352,11 @@ function vidToggleTeleprompter() {
   const isHidden = box.classList.contains('hidden');
   if (isHidden) {
     box.classList.remove('hidden');
-    if (btn) btn.innerHTML = '👁️ Hide Teleprompter';
+    if (btn) btn.innerHTML = 'Hide Teleprompter';
     if (typeof showToast === 'function') showToast('Teleprompter overlay visible', 'info');
   } else {
     box.classList.add('hidden');
-    if (btn) btn.innerHTML = '👁️ Show Teleprompter';
+    if (btn) btn.innerHTML = 'Show Teleprompter';
     if (typeof showToast === 'function') showToast('Teleprompter overlay hidden', 'info');
   }
 }
@@ -384,7 +384,7 @@ function vidGenerateAiScript() {
   const box = document.getElementById('vid-teleprompter-box');
   if (box && box.classList.contains('hidden')) vidToggleTeleprompter();
 
-  if (typeof showToast === 'function') showToast('✨ AI generated personalized video script!', 'success');
+  if (typeof showToast === 'function') showToast('AI generated personalized video script!', 'success');
 }
 
 function vidEnableCustomScript() {

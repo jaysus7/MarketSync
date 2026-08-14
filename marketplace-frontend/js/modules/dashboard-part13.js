@@ -82,7 +82,7 @@ Object.assign(window, {
 // ══ Owner / Platform console — all accounts + billing/engine controls ═════════
 let __ownerAccounts = [];
 let __ownerFlags = [];
-let __ownerProductLabels = { facebook_solo: 'Facebook Solo', facebook_dealer: 'Facebook Dealer', ai_chatbot: 'AI Chatbot', dealer_os: 'DealerOS' };
+let __ownerProductLabels = { facebook_solo: 'Facebook Solo', facebook_dealer: 'Facebook Dealer', ai_chatbot: 'AI Chatbot', marketsync_video: 'MarketSync Video', dealer_os: 'DealerOS' };
 let __ownerSearch = '';
 const ownerBillChip = (s) => {
   const map = { ACTIVE: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300', TRIALING: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300', INACTIVE: 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300', PAST_DUE: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300' };

@@ -250,22 +250,54 @@ async function salesSaveRouting(mode) {
 }
 window.salesSaveRouting = salesSaveRouting;
 
+function salesTodayVideosCard() {
+  const videos = (typeof DEMO_SENT_VIDEOS !== 'undefined') ? DEMO_SENT_VIDEOS : [];
+  const rows = videos.slice(0, 5).map(v => {
+    const isPlayed = !!v.first_played_at;
+    const badgeTone = isPlayed ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20';
+    const statusTxt = isPlayed ? `Watched (${v.watch_percent}%)` : 'Sent (Unopened)';
+    return `
+      <div class="flex items-center justify-between gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(v.contact_name)}</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-black border uppercase ${badgeTone}">${statusTxt}</span>
+          </div>
+          <div class="text-[12px] text-slate-400 truncate mt-0.5">
+            <span>${esc(v.vehicle)}</span>
+            <span> · </span>
+            <span class="font-mono text-indigo-500 dark:text-indigo-400">${v.channel.toUpperCase()}</span>
+            <span> · ${new Date(v.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button onclick="openPublicVideoLink('${v.share_token}', '${v.contact_id}')" class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition">Play Video</button>
+          <button onclick="sendCustomerVideo('${v.id}', 'sms')" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition">Resend</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return engCard("Today's Sent Customer Videos", `
+    <div class="space-y-1">
+      ${rows || engEmpty('No customer videos sent today. Record one on any CRM contact card!')}
+      <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-xs">
+        <span class="text-slate-400 font-medium">MarketSync Video Product Feed</span>
+        <button onclick="switchPage('video-studio')" class="text-indigo-500 hover:text-indigo-400 font-bold">Open Full Video Studio -></button>
+      </div>
+    </div>
+  `);
+}
+window.salesTodayVideosCard = salesTodayVideosCard;
+
 // ── Engine registration ──────────────────────────────────────────────────────
 ENGINES['sales'] = {
   rootId: 'sales-root', title: 'Sales', subtitle: 'Your customers, appointments and deals — what needs you first', hideHeader: true,
   icon: 'currency', accent: 'amber',
-  // One primary Sales header. Insights folded into My Day (a number you only see by opening another tab is a
-  // number nobody acts on), Automation folded into Settings (there is one workflow engine, so
-  // it is configuration, not a department surface), Work renamed to what it actually holds, and
-  // Opportunities, appointments, deals and deliveries are all composed into My Day.
   get tabOrder() { return ['overview', 'work', 'appraisals', 'desk', 'equity', 'settings']; },
   get tabLabels() { return { overview: 'Pulse', work: 'Customers', appraisals: 'Appraise Trade', desk: 'Desk a Deal', equity: 'Equity Mining', settings: 'Settings' }; },
 
-  // ONE parallel round-trip for the landing view — no waterfall, and deliveries /
-  // insights are deliberately excluded (they load inside their own tab).
   fetch: async () => {
-    // Deals, deliveries and insights are now part of the landing view, so they load with it.
-    // Each fails on its own: a rep without deal.approve still gets their day.
     const [contacts, tasks, appts, deals, deliveries, insights] = await Promise.all([
       apiGetJson('/crm/contacts?limit=200').catch(() => ({ contacts: [] })),
       apiGetJson('/crm/tasks?scope=open').catch(() => ({ tasks: [] })),
@@ -291,8 +323,6 @@ ENGINES['sales'] = {
   },
 
   quickActions: [
-    // Opportunities leads the header rather than hiding as a sub-view: it is the first thing a
-    // salesperson is looking for when they open the workspace.
     { label: 'Opportunities', icon: 'flame', onclick: "engineTab('sales','overview')" },
     { label: '+ Customer', icon: 'user', onclick: 'crmOpenForm()' },
     { label: 'Book Appointment', icon: 'calendar', onclick: "switchPage('appointments')" },
@@ -307,7 +337,6 @@ ENGINES['sales'] = {
   })),
 
   tabs: {
-    // ── TODAY — the operational command center, not analytics ──────────────
     overview(body, d) {
       const att = salesAttention(d);
       const now = Date.now(), day = 864e5;
@@ -348,6 +377,9 @@ ENGINES['sales'] = {
         ${engCard('Needs attention', att.length ? att.map(salesAttentionRow).join('') : engEmpty('Nothing needs you right now.'))}
         ${salesPerformanceStrip(d)}
         ${salesDealsAndDeliveries(d)}
+        <div class="mt-3">
+          ${salesTodayVideosCard()}
+        </div>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
           ${engCard("Today's appointments", todays.length ? todays.map(a => `
             <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
