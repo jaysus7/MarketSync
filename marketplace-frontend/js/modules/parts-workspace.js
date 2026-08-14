@@ -622,6 +622,7 @@ ENGINES['parts-overview'] = {
   },
 
   quickActions: [
+    { label: 'Parts Training (Academy)', icon: 'sparkles', onclick: "openMarketSyncAcademy('parts')" },
     { label: '+ Add Part', icon: 'plus', onclick: "engineTab('parts-overview','work')" },
     { label: '+ Request Part', icon: 'clipboard', onclick: "engineTab('parts-overview','work')" },
     { label: 'Export Parts CSV', icon: 'download', onclick: "pwExportCsv(this)" },

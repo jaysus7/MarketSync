@@ -30,9 +30,8 @@ async function openTeamChatWidget() {
     backToWidgetRoster();
   }
 
-  if (!__widgetPollTimer) {
-    __widgetPollTimer = setInterval(pollWidgetChat, 3000);
-  }
+  if (__widgetPollTimer) clearInterval(__widgetPollTimer);
+  __widgetPollTimer = setInterval(pollWidgetChat, 8000);
 }
 window.openTeamChatWidget = openTeamChatWidget;
 window.msAskOpen = openTeamChatWidget;
@@ -240,6 +239,9 @@ async function deleteWidgetChatHistory() {
 window.deleteWidgetChatHistory = deleteWidgetChatHistory;
 
 async function pollWidgetChat() {
+  if (document.hidden) return;
+  const panel = document.getElementById('team-chat-dock-panel');
+  if (!panel || panel.classList.contains('hidden')) return;
   if (__widgetActiveUserId) {
     await loadWidgetMessages(__widgetActiveUserId);
   }

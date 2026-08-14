@@ -317,7 +317,7 @@ ENGINES['inventory-overview'] = {
   },
 
   quickActions: [
-    // Add inventory lands on the Inventory tab, which now holds the real page.
+    { label: 'Inventory Training (Academy)', icon: 'sparkles', onclick: "openMarketSyncAcademy('inventory')" },
     { label: '+ Add inventory', icon: 'gem', onclick: "engineTab('inventory-overview','work')" },
     { label: 'Inventory Intelligence', icon: 'chart', onclick: "engineTab('inventory-overview','overview')" },
     { label: 'Market & Competitors', icon: 'globe', onclick: "engineTab('inventory-overview','overview')" },

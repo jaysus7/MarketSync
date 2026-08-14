@@ -296,6 +296,12 @@ ENGINES['sales'] = {
   icon: 'currency', accent: 'amber',
   get tabOrder() { return ['overview', 'work', 'appraisals', 'desk', 'equity', 'settings']; },
   get tabLabels() { return { overview: 'Pulse', work: 'Customers', appraisals: 'Appraise Trade', desk: 'Desk a Deal', equity: 'Equity Mining', settings: 'Settings' }; },
+  quickActions: [
+    { label: 'Sales Training (Academy)', icon: 'sparkles', onclick: "openMarketSyncAcademy('sales')" },
+    { label: 'Add Customer', icon: 'user', onclick: "openCrmAddModal()" },
+    { label: 'Desk a Deal', icon: 'currency', onclick: "switchPage('desk')" },
+    { label: 'Appraise Trade', icon: 'currency', onclick: "switchPage('appraisal')" },
+  ],
 
   fetch: async () => {
     const [contacts, tasks, appts, deals, deliveries, insights] = await Promise.all([

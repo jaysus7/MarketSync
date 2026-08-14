@@ -42,6 +42,7 @@ let __shiftState = (() => {
 
 function saveShiftState() {
   try { localStorage.setItem('ms_shift_state', JSON.stringify(__shiftState)); } catch {}
+  renderShiftDropdownActions();
 }
 
 function fmtHHMMSS(ms) {
@@ -74,8 +75,10 @@ async function syncLiveShiftState() {
 
 function initHeaderClock() {
   syncLiveShiftState();
+  renderShiftDropdownActions();
 
   const updateClocks = () => {
+    if (document.hidden) return;
     // 1. Update Real-Time Clock
     const dateEl = document.getElementById('header-clock-date');
     const timeEl = document.getElementById('header-clock-time');
@@ -124,7 +127,6 @@ function initHeaderClock() {
       if (breakEl) breakEl.textContent = '00:00:00';
       if (chipBtn) chipBtn.className = 'flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-100 dark:bg-slate-800/90 text-xs font-mono font-bold text-slate-700 dark:text-slate-200 shadow-xs hover:bg-slate-200 dark:hover:bg-slate-700/80 transition cursor-pointer';
     }
-    renderShiftDropdownActions();
   };
 
   updateClocks();

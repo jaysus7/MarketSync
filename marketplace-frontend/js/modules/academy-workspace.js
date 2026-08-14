@@ -320,8 +320,11 @@ function acadCopy(text) {
 window.acadCopy = acadCopy;
 
 // ── Full-Screen Master Launcher ──────────────────────────────────────────────
-window.openMarketSyncAcademy = function() {
+window.openMarketSyncAcademy = function(deptFilter = 'all') {
   switchPage('academy');
+  if (deptFilter && typeof setAcadDeptFilter === 'function') {
+    setTimeout(() => { setAcadDeptFilter(deptFilter); }, 40);
+  }
 };
 
 window.closeMarketSyncAcademy = function() {

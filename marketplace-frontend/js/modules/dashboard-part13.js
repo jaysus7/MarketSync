@@ -378,7 +378,8 @@ async function loadAiInbox() {
   `;
 
   await refreshTeamChat();
-  __teamChatPollTimer = setInterval(pollTeamChatMessages, 4000);
+  if (__teamChatPollTimer) clearInterval(__teamChatPollTimer);
+  __teamChatPollTimer = setInterval(pollTeamChatMessages, 8000);
 }
 window.loadAiInbox = loadAiInbox;
 
@@ -570,6 +571,7 @@ async function sendTeamChatMessage(e) {
 window.sendTeamChatMessage = sendTeamChatMessage;
 
 async function pollTeamChatMessages() {
+  if (document.hidden) return;
   const activePage = document.querySelector('[data-page-content="ai-inbox"]');
   if (!activePage || activePage.classList.contains('hidden')) return;
   if (__teamChatActiveUserId) {

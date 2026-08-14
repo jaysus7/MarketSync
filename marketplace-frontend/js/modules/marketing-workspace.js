@@ -318,6 +318,7 @@ ENGINES['marketing-overview'] = {
   },
 
   quickActions: [
+    { label: 'Marketing Training (Academy)', icon: 'sparkles', onclick: "openMarketSyncAcademy('marketing')" },
     { label: 'Video Studio', icon: 'video', onclick: "engineTab('marketing-overview','video-studio')" },
     { label: 'AI ChatBot', icon: 'chat', onclick: "engineTab('marketing-overview','chatbot')" },
     { label: 'Emails', icon: 'megaphone', onclick: "engineTab('marketing-overview','emails')" },

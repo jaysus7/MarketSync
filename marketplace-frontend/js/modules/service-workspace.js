@@ -461,8 +461,12 @@ ENGINES['service-overview'] = {
   // The desk shortcuts jump to tabs a technician does not have — so the rail follows
   // the same split as the tabs.
   get quickActions() {
-    if (svcIsTechnician()) return [{ label: 'Parts', icon: 'gem', onclick: "switchPage('service-parts')" }];
+    if (svcIsTechnician()) return [
+      { label: 'Service Training (Academy)', icon: 'sparkles', onclick: "openMarketSyncAcademy('service')" },
+      { label: 'Parts', icon: 'gem', onclick: "switchPage('service-parts')" },
+    ];
     return [
+      { label: 'Service Training (Academy)', icon: 'sparkles', onclick: "openMarketSyncAcademy('service')" },
       { label: 'Appointments', icon: 'calendar', onclick: "engineTab('service-overview','appointments')" },
       { label: 'Repair Orders', icon: 'clipboard', onclick: "engineTab('service-overview','ros')" },
       { label: 'Parts', icon: 'gem', onclick: "switchPage('service-parts')" },
