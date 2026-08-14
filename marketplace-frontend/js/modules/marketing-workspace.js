@@ -310,7 +310,7 @@ ENGINES['marketing-overview'] = {
   icon: 'megaphone', accent: 'violet',
   // Marketing is the widest department, so it carries six. Each is a place a marketer
   // goes to do one job, and none of them opens onto another row of tabs.
-  tabLabels: { overview: 'Pulse', 'video-studio': 'Video Studio', chatbot: 'AI ChatBot', emails: 'Emails', studio: 'Studio', website: 'Website', automations: 'Automations' },
+  tabLabels: { overview: 'Pulse', 'video-studio': 'Video Studio', chatbot: 'AI ChatBot', emails: 'Emails', studio: 'Design Studio', website: 'Website', automations: 'Automations' },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     return mgr ? ['overview', 'video-studio', 'chatbot', 'emails', 'studio', 'website', 'automations']
@@ -322,7 +322,7 @@ ENGINES['marketing-overview'] = {
     { label: 'Video Studio', icon: 'video', onclick: "engineTab('marketing-overview','video-studio')" },
     { label: 'AI ChatBot', icon: 'chat', onclick: "engineTab('marketing-overview','chatbot')" },
     { label: 'Emails', icon: 'megaphone', onclick: "engineTab('marketing-overview','emails')" },
-    { label: 'Studio', icon: 'image', onclick: "engineTab('marketing-overview','studio')" },
+    { label: 'Design Studio', icon: 'image', onclick: "engineTab('marketing-overview','studio')" },
     { label: 'Website', icon: 'chart', onclick: "engineTab('marketing-overview','website')" },
   ],
   nextActions: (d) => (d?.needsAttention || []).slice(0, 5).map(x => ({
