@@ -89,7 +89,7 @@ function svcRoRow(r, d) {
       <div class="text-[12px] text-slate-400"><span class="font-semibold text-slate-500 dark:text-slate-300">${esc(svcStatusLabel(r.status))}</span>${blocked ? ' · <span class="text-orange-500 font-semibold">waiting for parts</span>' : ''}${Number(r.total) ? ` · $${Number(r.total).toLocaleString()}` : ''}</div>
     </button>
     <div class="flex items-center gap-1.5 shrink-0">
-      <button onclick="svcOpenVideoWalkaround('${r.id}', '${r.customer_id || ''}')" title="Record Service Video Walkaround" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 hover:bg-rose-100 transition">📹 Walkaround</button>
+      <button onclick="svcOpenVideoWalkaround('${r.id}', '${r.customer_id || ''}')" title="Record Service Video Walkaround" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 hover:bg-rose-100 transition">Video Walkaround</button>
       <button onclick="svcOpenDviModal('${r.id}')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">DVI</button>
       <button onclick="printServiceReceipt('${r.id}')" title="Print / Save Receipt to Timeline" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 transition">Print Receipt</button>
       ${['ready', 'delivered'].includes(r.status) ? `<button onclick="svcOpenCheckOutModal('${r.id}')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-500 transition">Check Out</button>` : ''}
@@ -136,8 +136,12 @@ async function svcOpenRecord(roId) {
     <div class="flex items-start gap-3 p-5 pb-0">
       <div class="min-w-0 flex-1">
         <div class="text-lg font-black text-slate-900 dark:text-white truncate">${esc(svcCustomer(ro))}</div>
-        <div class="text-[12px] text-slate-400 truncate">${esc(ro.ro_number || '')}${svcVehicle(ro) ? ` · ${esc(svcVehicle(ro))}` : ''}${ro.odometer ? ` · ${Number(ro.odometer).toLocaleString()} km` : ''}</div>
-        <div class="mt-2"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${esc(svcStatusLabel(ro.status))}</span></div>
+        <div class="text-[12px] text-slate-400 truncate">${esc(ro.ro_number || '')}${svcVehicle(ro) ? ` · ${esc(svcVehicle(ro))}` : ''}${(ro.mileage_in || ro.odometer) ? ` · Mileage In: ${Number(ro.mileage_in || ro.odometer).toLocaleString()} mi` : ''}${ro.fuel_in ? ` · Fuel In: ${esc(ro.fuel_in)}` : ''}</div>
+        <div class="mt-2 flex flex-wrap gap-2 items-center">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${esc(svcStatusLabel(ro.status))}</span>
+          ${(ro.mileage_in || ro.odometer) ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">Mileage In: ${Number(ro.mileage_in || ro.odometer).toLocaleString()} mi</span>` : ''}
+          ${ro.fuel_in ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">Fuel In: ${esc(ro.fuel_in)}</span>` : ''}
+        </div>
       </div>
       <button onclick="this.closest('.fixed').remove()" class="shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" aria-label="Close">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
@@ -202,9 +206,13 @@ async function svcMove(roId, toState, needsReason) {
 window.svcMove = svcMove;
 
 // Check-in is idempotent server-side: a double click resolves to the same RO.
-async function svcCheckIn(appointmentId) {
+async function svcCheckIn(appointmentId, options = {}) {
   try {
-    const r = await apiSendJson(`/service/appointments/${appointmentId}/check-in`, 'POST', {});
+    const payload = {};
+    if (options.mileage_in != null) payload.mileage_in = options.mileage_in;
+    if (options.fuel_in != null) payload.fuel_in = options.fuel_in;
+    if (options.odometer != null) payload.odometer = options.odometer;
+    const r = await apiSendJson(`/service/appointments/${appointmentId}/check-in`, 'POST', payload);
     showToast(r.created ? `Checked in — ${r.ro?.ro_number || 'RO opened'}` : 'Already checked in', 'success');
     ENGINE_DATA['service-overview'] = undefined;
     engineTab('service-overview', ENGINE_STATE['service-overview'] || 'overview', true);
@@ -412,8 +420,8 @@ ENGINES['service-overview'] = {
   rootId: 'service-overview-root', title: 'Service', subtitle: 'One repair order — check in, estimate, authorize, repair, deliver',
   icon: 'wrench', accent: 'sky',
   get tabLabels() {
-    return svcIsTechnician() ? { overview: 'Pulse' }
-      : { overview: 'Pulse', appointments: 'Appointments', ros: 'Repair Orders', settings: 'Settings' };
+    return svcIsTechnician() ? { overview: 'My Day' }
+      : { overview: 'My Day', appointments: 'Appointments', ros: 'Repair Orders', settings: 'Settings' };
   },
   get tabOrder() {
     if (svcIsTechnician()) return ['overview'];          // My Work is the whole job
@@ -432,7 +440,7 @@ ENGINES['service-overview'] = {
       grab('repair orders', apiGetJson('/service-engine/ros')),
       grab('the appointment book', apiGetJson('/service/appointments')),
       grab('parts demand', apiGetJson('/service-engine/part-requests')),
-      grab('closed repair orders', apiGetJson('/service-engine/ros?status=closed&limit=30')),
+      grab('closed repair orders', apiGetJson('/service-engine/ros?status=closed')),
       grab('follow-up calls', apiGetJson('/service-engine/follow-up-calls')),
       grab('service settings', apiGetJson('/service-engine/config')),
     ]);
@@ -507,7 +515,6 @@ ENGINES['service-overview'] = {
         ${svcUnavailableNote(d)}
         ${typeof window.svcRenderTriageBar === 'function' ? window.svcRenderTriageBar(d) : ''}
         ${typeof window.svcRenderProactiveAiPanel === 'function' ? window.svcRenderProactiveAiPanel(d) : ''}
-        ${typeof window.svcRenderDispatchBoard === 'function' ? window.svcRenderDispatchBoard(d) : ''}
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}

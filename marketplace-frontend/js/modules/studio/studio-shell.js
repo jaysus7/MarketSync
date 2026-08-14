@@ -150,7 +150,11 @@ function renderStudioWorkspaceHtml(designName, scene) {
       </nav>
 
       <!-- Left Tool Panel Drawer -->
-      <aside class="w-80 bg-slate-900 border-r border-slate-800 flex flex-col flex-shrink-0 z-10 overflow-y-auto" id="studio-tool-panel">
+      <aside class="w-60 bg-slate-900 border-r border-slate-800 flex flex-col flex-shrink-0 z-10 overflow-y-auto transition-all duration-200" id="studio-tool-panel">
+        <div class="flex items-center justify-between p-2.5 border-b border-slate-800 bg-slate-950/50">
+          <span class="text-[11px] font-black uppercase tracking-wider text-slate-400">Tool Drawer</span>
+          <button type="button" onclick="toggleStudioToolPanel()" class="text-slate-400 hover:text-white text-xs font-bold px-1.5 py-0.5 rounded hover:bg-slate-800" title="Collapse Tool Panel">&lt;</button>
+        </div>
         ${renderStudioToolPanelContent(window.__studioActiveTool)}
       </aside>
 
@@ -162,7 +166,11 @@ function renderStudioWorkspaceHtml(designName, scene) {
       </main>
 
       <!-- Right Property Inspector & Layer Controls -->
-      <aside class="w-72 bg-slate-900 border-l border-slate-800 flex flex-col flex-shrink-0 p-4 z-10 overflow-y-auto" id="studio-inspector-panel">
+      <aside class="w-60 bg-slate-900 border-l border-slate-800 flex flex-col flex-shrink-0 p-3 z-10 overflow-y-auto transition-all duration-200" id="studio-inspector-panel">
+        <div class="flex items-center justify-between pb-2.5 mb-2 border-b border-slate-800">
+          <span class="text-[11px] font-black uppercase tracking-wider text-slate-400">Inspector</span>
+          <button type="button" onclick="toggleStudioInspectorPanel()" class="text-slate-400 hover:text-white text-xs font-bold px-1.5 py-0.5 rounded hover:bg-slate-800" title="Collapse Inspector">&gt;</button>
+        </div>
         ${renderStudioInspectorHtml(null)}
       </aside>
     </div>
@@ -581,6 +589,17 @@ function closeMarketSyncStudio() {
   document.getElementById('ms-studio-master-modal')?.remove();
 }
 
+function toggleStudioToolPanel() {
+  const panel = document.getElementById('studio-tool-panel');
+  if (panel) panel.classList.toggle('hidden');
+}
+function toggleStudioInspectorPanel() {
+  const panel = document.getElementById('studio-inspector-panel');
+  if (panel) panel.classList.toggle('hidden');
+}
+
+window.toggleStudioToolPanel = toggleStudioToolPanel;
+window.toggleStudioInspectorPanel = toggleStudioInspectorPanel;
 window.openMarketSyncStudio = openMarketSyncStudio;
 window.setStudioTool = setStudioTool;
 window.loadStudioTemplate = loadStudioTemplate;

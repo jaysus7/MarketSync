@@ -737,13 +737,13 @@
           <div class="flex items-center gap-2">
             <button onclick="invToggleFilters()" class="lg:hidden text-sm font-bold border border-slate-300 rounded-lg px-3 py-2">Filters${active?` (${active})`:''}</button>
             <label class="text-sm text-slate-500 hidden sm:block">Sort by</label>
-            <select onchange="invSort(this.value)" class="border border-slate-300 rounded-lg px-3 py-2 text-sm">${[['newest','Newest'],['price-asc','Price ↑'],['price-desc','Price ↓'],['miles-asc','Lowest km'],['year-desc','Year']].map(o=>`<option value="${o[0]}" ${INV.sort===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select>
+            <select onchange="invSort(this.value)" class="border border-slate-300 rounded-lg px-3 py-2 text-sm">${[['newest','Newest'],['price-asc','Price Low-High'],['price-desc','Price High-Low'],['miles-asc','Lowest Mileage'],['year-desc','Year']].map(o=>`<option value="${o[0]}" ${INV.sort===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select>
           </div>
         </div>
-        <div class="grid lg:grid-cols-[280px_minmax(0,1fr)] gap-6 items-start">
+        <div class="grid lg:grid-cols-[230px_minmax(0,1fr)] gap-6 items-start">
           <aside id="inv-sidebar" class="${INV.showFilters?'':'hidden'} lg:block lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto bg-white rounded-xl cshadow p-4">
             <div class="flex items-center justify-between mb-2"><div class="font-black">Search</div><button onclick="invClear()" class="text-xs font-bold brand-text">Clear all</button></div>
-            <div class="relative mb-1"><input id="inv-q" value="${esc(INV.q)}" oninput="invSearch(this.value)" placeholder="Make, model, or keyword" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm pr-9"><span class="absolute right-3 top-2.5 text-slate-400">🔍</span></div>
+            <div class="relative mb-1"><input id="inv-q" value="${esc(INV.q)}" oninput="invSearch(this.value)" placeholder="Make, model, or keyword" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm pr-9"><span class="absolute right-3 top-2.5 text-slate-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></span></div>
             <div id="inv-facets"></div>
           </aside>
           <div>
@@ -764,7 +764,7 @@
       const rows=shown.map(([val,cnt])=>`<label class="flex items-center gap-2 py-1 cursor-pointer text-sm"><input type="checkbox" data-facet="${f}" data-value="${attr(val)}" ${sel.has(val)?'checked':''} class="w-4 h-4 shrink-0" style="accent-color:var(--brand)"><span class="uppercase text-[13px] tracking-wide flex-1 truncate">${esc(val)}</span><span class="text-slate-400 text-xs">(${cnt})</span></label>`).join('');
       const moreBtn=(!collapsed&&!showAll&&entries.length>LIMIT)?`<button onclick="invMore('${f}')" class="text-sm font-bold brand-text mt-1">+ View more</button>`:'';
       return `<div class="border-t border-slate-100 py-3">
-        <button onclick="invCollapse('${f}')" class="w-full flex items-center justify-between font-black text-slate-800"><span>${esc(label)}</span><span class="text-slate-400 text-xs">${collapsed?'▾':'▴'}</span></button>
+        <button onclick="invCollapse('${f}')" class="w-full flex items-center justify-between font-black text-slate-800"><span>${esc(label)}</span><span class="text-slate-400 text-xs font-bold">${collapsed?'+':'-'}</span></button>
         ${collapsed?'':`<div class="mt-2">${rows||'<div class="text-xs text-slate-400 italic">None</div>'}${moreBtn}</div>`}</div>`;
     }
     function invRefresh(){

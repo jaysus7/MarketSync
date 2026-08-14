@@ -873,15 +873,18 @@ function makeWsPanelDraggable(handleEl, targetEl) {
   let isDragging = false, startX = 0, startY = 0, initialLeft = 0, initialTop = 0;
   handleEl.style.cursor = 'grab';
   handleEl.addEventListener('mousedown', (e) => {
+    if (e.target.closest('button, input, select, textarea, a, label, [contenteditable]')) return;
     isDragging = true;
     handleEl.style.cursor = 'grabbing';
     startX = e.clientX;
     startY = e.clientY;
+    const parentRect = targetEl.offsetParent ? targetEl.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
     const rect = targetEl.getBoundingClientRect();
-    initialLeft = rect.left;
-    initialTop = rect.top;
+    initialLeft = rect.left - parentRect.left;
+    initialTop = rect.top - parentRect.top;
     const onMouseMove = (ev) => {
       if (!isDragging) return;
+      ev.preventDefault();
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
       targetEl.style.left = `${initialLeft + dx}px`;
@@ -1029,12 +1032,21 @@ function renderWsLayersTree() {
 }
 
 function renderWsLeftDrawerHtml() {
+  const headerHtml = `
+    <div id="ws-left-drag-header" class="flex items-center justify-between p-3 border-b border-slate-800 bg-slate-900/80 rounded-t-2xl cursor-grab select-none">
+      <div class="flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h16M4 16h16"/></svg>
+        <span class="text-[11px] font-black uppercase tracking-wider text-slate-300">Tool Drawer</span>
+      </div>
+      <button type="button" onclick="toggleWsLeftDock()" class="text-slate-400 hover:text-white text-xs font-bold px-1.5 py-0.5 rounded hover:bg-slate-800 transition" title="Collapse Drawer">&times;</button>
+    </div>
+  `;
   if (__wsActiveLeftNav === 'layers') {
-    return `<div id="ws-layers-tree" class="p-4"></div>`;
+    return headerHtml + `<div id="ws-layers-tree" class="p-4"></div>`;
   } else if (__wsActiveLeftNav === 'blocks') {
-    return renderElementorPalette();
+    return headerHtml + renderElementorPalette();
   } else if (__wsActiveLeftNav === 'pages') {
-    return `
+    return headerHtml + `
       <div class="p-4 space-y-3">
         <div class="flex items-center justify-between">
           <h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Pages &amp; Structure</h3>
@@ -1049,9 +1061,9 @@ function renderWsLeftDrawerHtml() {
       </div>
     `;
   } else if (__wsActiveLeftNav === 'design') {
-    return `<div class="p-4 space-y-3">${wsDesign()}</div>`;
+    return headerHtml + `<div class="p-4 space-y-3">${wsDesign()}</div>`;
   } else if (__wsActiveLeftNav === 'ai') {
-    return `
+    return headerHtml + `
       <div class="p-4 space-y-4">
         <div class="flex items-center justify-between">
           <h3 class="text-xs font-black uppercase tracking-wider text-violet-400">AI Site Copilot</h3>
@@ -1064,7 +1076,7 @@ function renderWsLeftDrawerHtml() {
       </div>
     `;
   }
-  return '';
+  return headerHtml;
 }
 
 async function aiBuildPageLayoutFromPrompt() {
@@ -1312,7 +1324,7 @@ function renderLiveBuilder(body) {
         </nav>
 
         <!-- Floating Drawer Content -->
-        <aside id="ws-left-drawer-content" class="w-80 bg-slate-950/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl overflow-y-auto max-h-[78vh] shadow-2xl ${__wsLeftDockCollapsed ? 'hidden' : ''}">
+        <aside id="ws-left-drawer-content" class="w-64 bg-slate-950/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl overflow-y-auto max-h-[78vh] shadow-2xl transition-all duration-200 ${__wsLeftDockCollapsed ? 'hidden' : ''}">
           ${renderWsLeftDrawerHtml()}
         </aside>
       </div>
@@ -1324,7 +1336,7 @@ function renderLiveBuilder(body) {
             ${__wsRightDockCollapsed ? 'Inspector &laquo;' : 'Inspector &raquo;'}
           </button>
         </div>
-        <aside id="ws-inspector-panel" class="w-80 bg-slate-950/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl overflow-y-auto max-h-[74vh] shadow-2xl ${__wsRightDockCollapsed ? 'hidden' : ''}">
+        <aside id="ws-inspector-panel" class="w-64 bg-slate-950/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl overflow-y-auto max-h-[74vh] shadow-2xl transition-all duration-200 ${__wsRightDockCollapsed ? 'hidden' : ''}">
           ${renderWsRightInspectorHtml()}
         </aside>
       </div>
@@ -1336,11 +1348,11 @@ function renderLiveBuilder(body) {
 
   setTimeout(() => {
     const leftWrap = document.getElementById('ws-left-dock-wrapper');
-    const leftHeader = document.getElementById('ws-left-drawer-content');
+    const leftHeader = document.getElementById('ws-left-drag-header') || document.getElementById('ws-left-drawer-content');
     if (leftHeader && leftWrap) makeWsPanelDraggable(leftHeader, leftWrap);
 
     const rightWrap = document.getElementById('ws-right-dock-wrapper');
-    const rightHeader = document.getElementById('ws-inspector-drag-header');
+    const rightHeader = document.getElementById('ws-inspector-drag-header') || document.getElementById('ws-inspector-panel');
     if (rightHeader && rightWrap) makeWsPanelDraggable(rightHeader, rightWrap);
   }, 100);
 }

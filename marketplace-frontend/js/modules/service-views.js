@@ -506,7 +506,7 @@ window.svcOpenDviModal = function(roId) {
       <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-3">
         <div class="flex items-center justify-between">
           <h4 class="text-xs font-black uppercase text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
-            <span>📦 Technician Parts Requisition &amp; Order Request</span>
+            <span>Technician Parts Requisition &amp; Order Request</span>
           </h4>
           <span class="text-[10px] font-bold text-slate-400">Sends request directly to Parts Counter</span>
         </div>
@@ -792,7 +792,7 @@ window.svcSubmitCheckInForm = async function(apptId) {
   const fuel = document.getElementById('svc-in-fuel')?.value || '3/4';
 
   if (apptId) {
-    if (typeof svcCheckIn === 'function') await svcCheckIn(apptId).catch(() => null);
+    if (typeof svcCheckIn === 'function') await svcCheckIn(apptId, { mileage_in: mileage, fuel_in: fuel, odometer: mileage }).catch(() => null);
   } else {
     if (typeof showToast === 'function') showToast(`Checked in ${name} (${vehicle} · Mileage In: ${mileage} mi · Fuel In: ${fuel}). RO opened!`, 'success');
   }

@@ -76,7 +76,8 @@ async function printServiceReceipt(ro) {
 
   const veh = ro.vehicle_summary || `${ro.year || '2022'} ${ro.make || 'Ford'} ${ro.model || 'F-150'}`;
   const vin = ro.vin || '1FTFW1ED4MFC90421';
-  const mileageIn = ro.mileage_in || ro.mileage || '42,150 km';
+  const mileageIn = ro.mileage_in ? `${Number(ro.mileage_in).toLocaleString()} mi` : (ro.odometer ? `${Number(ro.odometer).toLocaleString()} mi` : (ro.mileage || '42,150 mi'));
+  const fuelIn = ro.fuel_in || '3/4 Tank';
   const advisor = ro.advisor_name || ro.advisor || 'Dave Miller';
   const tech = ro.technician_name || ro.tech || 'Marcus Vance';
   const dateStr = new Date(ro.closed_at || ro.created_at || Date.now()).toLocaleDateString();
@@ -227,7 +228,8 @@ async function printServiceReceipt(ro) {
             <h4>Vehicle &amp; Work Order Details</h4>
             <p><strong>${escHtml(veh)}</strong></p>
             <p>VIN: <span style="font-family:monospace;font-weight:700;">${escHtml(vin)}</span></p>
-            <p>Mileage: ${escHtml(mileageIn)} · Advisor: ${escHtml(advisor)}</p>
+            <p>Mileage In: ${escHtml(mileageIn)} · Fuel Level In: ${escHtml(fuelIn)}</p>
+            <p>Advisor: ${escHtml(advisor)} · Tech: ${escHtml(tech)}</p>
           </div>
         </div>
 

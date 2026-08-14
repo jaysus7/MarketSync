@@ -185,14 +185,16 @@ async function nextRoNumber(dealershipId, prefix) {
 // used to insert 'open', which `repair_orders_status_valid` rejects — so opening a
 // repair order failed outright. A unit opened at the drive is `checked_in`; one staged
 // from a future booking is `appointment`.
-export async function openRepairOrder(dealershipId, { contactId = null, inventoryId = null, customerVehicleId = null, vehicleDesc = null, vin = null, odometer = null, advisorId = null, complaint = null, appointmentTaskId = null, createdBy = null, status = 'checked_in' } = {}) {
+export async function openRepairOrder(dealershipId, { contactId = null, inventoryId = null, customerVehicleId = null, vehicleDesc = null, vin = null, odometer = null, mileage_in = null, fuel_in = null, advisorId = null, complaint = null, appointmentTaskId = null, createdBy = null, status = 'checked_in' } = {}) {
   const openStatus = RO_STATUSES.includes(status) ? status : 'checked_in'
   const cfg = await svcConfig(dealershipId)
   const ro_number = await nextRoNumber(dealershipId, cfg.ro_prefix)
+  const parsedMileageIn = mileage_in != null ? Math.trunc(n(mileage_in)) : (odometer != null ? Math.trunc(n(odometer)) : null)
   const { data: ro, error } = await supabaseAdmin.from('repair_orders').insert({
     dealership_id: dealershipId, ro_number, contact_id: contactId, inventory_id: inventoryId,
     customer_vehicle_id: customerVehicleId,
-    vehicle_desc: vehicleDesc, vin, odometer: odometer != null ? Math.trunc(n(odometer)) : null,
+    vehicle_desc: vehicleDesc, vin, odometer: parsedMileageIn, mileage_in: parsedMileageIn,
+    fuel_in: fuel_in ? String(fuel_in).trim() : null,
     advisor_id: advisorId, complaint, appointment_task_id: appointmentTaskId, status: openStatus, created_by: createdBy,
   }).select('*').single()
   if (error) throw new Error(error.message)
@@ -707,7 +709,7 @@ function dispositionError(disposition, balance) {
 // advisors checking the same customer in simultaneously all resolve to the SAME RO.
 // Nothing about this relies on the interface remembering anything.
 export async function checkInAppointment(dealershipId, taskId, {
-  vin = null, odometer = null, customerVehicleId = null, complaint = null,
+  vin = null, odometer = null, mileage_in = null, fuel_in = null, customerVehicleId = null, complaint = null,
   year = null, make = null, model = null, trim = null, plate = null,
   advisorId = null, userId = null,
 } = {}) {
@@ -724,10 +726,11 @@ export async function checkInAppointment(dealershipId, taskId, {
   // Resolve the canonical vehicle. An explicit id wins; otherwise the VIN resolves to
   // the car we already know, or creates it once.
   let vehicle = null
+  const effectiveOdometer = mileage_in != null ? mileage_in : odometer
   if (customerVehicleId) vehicle = await getCustomerVehicle(dealershipId, customerVehicleId)
   if (!vehicle && (cleanVin(vin) || year || make || model)) {
     vehicle = await findOrCreateCustomerVehicle(dealershipId, {
-      vin, contactId: task.contact_id, year, make, model, trim, plate, odometer,
+      vin, contactId: task.contact_id, year, make, model, trim, plate, odometer: effectiveOdometer,
     })
   }
 
@@ -739,7 +742,8 @@ export async function checkInAppointment(dealershipId, taskId, {
     ro = await openRepairOrder(dealershipId, {
       contactId: task.contact_id, customerVehicleId: vehicle?.id || null,
       vehicleDesc: vehicle ? customerVehicleLabel(vehicle) : null,
-      vin: vehicle?.vin || cleanVin(vin), odometer,
+      vin: vehicle?.vin || cleanVin(vin), odometer: effectiveOdometer,
+      mileage_in: effectiveOdometer, fuel_in,
       advisorId: advisorId || task.assigned_to || userId || null,
       complaint: concern, appointmentTaskId: taskId, createdBy: userId,
     })

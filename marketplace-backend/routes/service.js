@@ -123,7 +123,9 @@ export function registerService(app) {
     const b = req.body || {}
     try {
       const result = await checkInAppointment(req.dealershipId, req.params.id, {
-        vin: b.vin || null, odometer: b.odometer ?? null, customerVehicleId: b.customer_vehicle_id || null,
+        vin: b.vin || null, odometer: b.odometer ?? b.mileage_in ?? null,
+        mileage_in: b.mileage_in ?? b.odometer ?? null, fuel_in: b.fuel_in || null,
+        customerVehicleId: b.customer_vehicle_id || null,
         complaint: b.complaint || null, year: b.year ?? null, make: b.make || null, model: b.model || null,
         trim: b.trim || null, plate: b.plate || null, advisorId: b.advisor_id || req.user?.id || null,
         userId: req.user?.id || null,
