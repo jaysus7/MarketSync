@@ -75,6 +75,22 @@ async function openCustomerVideoStudio(contactId, options = {}) {
     }
   }
 
+  // Automatic Department Auto-Detection (Sales vs Service)
+  let autoDept = options.department || options.dept;
+  if (!autoDept) {
+    const currentWorkspace = (window.__activeWorkspace || localStorage.getItem('ms_active_workspace') || '').toLowerCase();
+    const userRole = (window.profileContext?.role || window.__user?.role || '').toLowerCase();
+    const userDept = (window.profileContext?.department || window.__user?.department || '').toLowerCase();
+
+    if (currentWorkspace.includes('service') || userRole.includes('tech') || userRole.includes('service') || userDept.includes('service')) {
+      autoDept = 'Service';
+    } else {
+      autoDept = 'Sales';
+    }
+  }
+
+  window.__videoStudioState.activeDepartment = autoDept;
+  window.__videoStudioState.activeScriptKey = options.scriptKey || (autoDept === 'Service' ? 'service' : 'walkaround');
   window.__videoStudioState.currentContact = contact;
 
   let modal = document.getElementById('video-studio-modal');
@@ -89,22 +105,38 @@ async function openCustomerVideoStudio(contactId, options = {}) {
   initCameraFeed();
 }
 
+function vidSwitchDepartment(dept) {
+  window.__videoStudioState.activeDepartment = dept;
+  const scriptKey = dept === 'Service' ? 'service' : 'walkaround';
+  window.__videoStudioState.activeScriptKey = scriptKey;
+  const modal = document.getElementById('video-studio-modal');
+  if (modal && window.__videoStudioState.currentContact) {
+    modal.innerHTML = renderStudioHtml(window.__videoStudioState.currentContact, {});
+    initCameraFeed();
+  }
+}
+window.vidSwitchDepartment = vidSwitchDepartment;
+
 function renderStudioHtml(contact, options) {
   const repName = profileContext?.name || window.__user?.name || 'Dave Miller';
   const storeName = window.__dealerConfig?.store_name || 'MarketSync Motors';
   const custName = contact.first_name || contact.full_name || 'Customer';
   const vehLabel = contact.vehicle_summary || contact.trade_vehicle || contact.vehicle || '2024 Ford F-150';
 
+  const activeDept = window.__videoStudioState.activeDepartment || 'Sales';
+  const activeKey = window.__videoStudioState.activeScriptKey || (activeDept === 'Service' ? 'service' : 'walkaround');
+  const isService = activeDept === 'Service';
   const isViewingSent = !!options.isViewingSent || !!options.sentVideo || !!options.videoId;
 
   const scriptOptions = Object.keys(VIDEO_TEMPLATES).map(key => `
     <button onclick="vidSelectScript('${key}')" id="vid-script-btn-${key}"
-      class="px-3 py-1.5 rounded-lg text-xs font-bold transition ${key === 'walkaround' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">
+      class="px-3 py-1.5 rounded-lg text-xs font-bold transition ${key === activeKey ? (isService ? 'bg-emerald-600 text-white shadow-sm' : 'bg-indigo-600 text-white shadow-sm') : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">
       ${escV(VIDEO_TEMPLATES[key].title)}
     </button>
   `).join('');
 
-  const formattedScript = VIDEO_TEMPLATES.walkaround.text
+  const currentTemplateText = VIDEO_TEMPLATES[activeKey]?.text || VIDEO_TEMPLATES.walkaround.text;
+  const formattedScript = currentTemplateText
     .replace(/{CUSTOMER_NAME}/g, custName)
     .replace(/{REP_NAME}/g, repName)
     .replace(/{STORE_NAME}/g, storeName)
@@ -114,10 +146,24 @@ function renderStudioHtml(contact, options) {
     <div class="relative w-full max-w-5xl bg-slate-900 text-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-800 overflow-hidden flex flex-col lg:flex-row max-h-[95vh] my-auto">
       <!-- Left Column: Camera Viewfinder & Recording Controls -->
       <div class="flex-1 p-4 sm:p-5 flex flex-col justify-between bg-black/60 relative min-w-0">
+        <!-- Classification Header & Department Switcher -->
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2 p-2.5 rounded-xl border ${isService ? 'bg-emerald-950/80 border-emerald-800/80 text-emerald-300' : 'bg-indigo-950/80 border-indigo-800/80 text-indigo-300'}">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${isService ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40' : 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'}">
+              Auto-Classified: ${isService ? 'SERVICE Inspection' : 'SALES Presentation'}
+            </span>
+            <span class="text-xs font-bold text-slate-300 hidden sm:inline">• ${isService ? 'Tech DVI Inspection Walkaround' : 'Vehicle Presentation & Deal Quote'}</span>
+          </div>
+          <div class="inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-800 text-xs font-bold">
+            <button onclick="vidSwitchDepartment('Sales')" class="px-2.5 py-1 rounded-md transition ${!isService ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'}">Sales</button>
+            <button onclick="vidSwitchDepartment('Service')" class="px-2.5 py-1 rounded-md transition ${isService ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'}">Service</button>
+          </div>
+        </div>
+
         <div class="flex items-center justify-between z-10 mb-2 sm:mb-3">
           <div class="flex items-center gap-2">
             <span class="w-3 h-3 rounded-full bg-rose-500 animate-ping hidden" id="vid-rec-indicator"></span>
-            <span class="text-xs font-black uppercase tracking-wider text-slate-300">HD Video Studio</span>
+            <span class="text-xs font-black uppercase tracking-wider text-slate-300">${isService ? 'Service DVI Studio' : 'Sales Video Studio'}</span>
             <span id="vid-timer-display" class="px-2 py-0.5 rounded-full text-xs font-mono font-extrabold bg-slate-800 text-sky-400 border border-slate-700">00:00 / 03:00</span>
           </div>
           <div class="flex items-center gap-2">

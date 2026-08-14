@@ -750,7 +750,7 @@ function renderWebsitePage() {
         <button onclick="saveWebsite(this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">Save</button>
       </div>
     </div>
-    <div class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 flex-wrap">${tab('builder', 'Builder')}${tab('design', 'Design')}${tab('pages', 'Pages')}${tab('blog', 'Blog')}${tab('settings', 'Settings')}</div>
+    <div class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 flex-wrap">${tab('builder', 'Builder')}${tab('blog', 'Blog')}${tab('settings', 'Settings')}</div>
     <div id="ws-body"></div>`;
   renderWsBody();
 }
