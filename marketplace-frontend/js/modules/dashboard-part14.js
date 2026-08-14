@@ -931,6 +931,34 @@ const tierFor = (points) => {
 };
 const nextTierFor = (points) => LB_TIERS.find(t => t.min > points) || null;
 
+function updateTierChip(ranking) {
+  const chip = document.getElementById('ui-tier-chip');
+  if (!chip) return;
+  const me = (ranking || []).find(r => r.id === (typeof user !== 'undefined' ? user?.id : profileContext?.user?.id));
+  if (!me || !me.tier) { chip.classList.add('hidden'); return; }
+  chip.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition hover:brightness-110 whitespace-nowrap ${me.tier.cls}`;
+  chip.classList.remove('hidden');
+  const rankTxt = me.rank ? `#${me.rank}` : '';
+  chip.innerHTML = `<span>${me.tier.icon}</span><span>${me.tier.name}</span>${rankTxt ? `<span class="opacity-70 font-mono">${rankTxt}</span>` : ''}`;
+}
+window.updateTierChip = updateTierChip;
+
+async function loadMyTierChip() {
+  const chip = document.getElementById('ui-tier-chip');
+  if (!chip) return;
+  try {
+    const res = await fetch(`${API}/dealership/leaderboard`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) return;
+    const data = await res.json();
+    const ranking = (data.ranking || []).map(r => {
+      const points = calcPoints(r);
+      return { ...r, points, tier: tierFor(points) };
+    });
+    updateTierChip(ranking);
+  } catch (e) { /* non-fatal — chip just stays hidden */ }
+}
+window.loadMyTierChip = loadMyTierChip;
+
 window.__activeLbDept = 'facebook';
 
 function switchLeaderboardDept(deptKey) {

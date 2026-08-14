@@ -605,9 +605,9 @@ async function initializeDashboardEcosystem() {
       fetchMetrics('/listings')
     ]);
 
-    loadInsights();
-    loadMyTierChip();
-    initSecurityPanel();
+    if (typeof loadInsights === 'function') try { loadInsights(); } catch {}
+    if (typeof loadMyTierChip === 'function') try { loadMyTierChip(); } catch {}
+    if (typeof initSecurityPanel === 'function') try { initSecurityPanel(); } catch {}
 
     // If returning from Stripe checkout, verify payment then load AI config
     const aiSessionId = new URLSearchParams(window.location.search).get('ai_boost_session');
@@ -616,10 +616,10 @@ async function initializeDashboardEcosystem() {
       await verifyAIBoostSession(aiSessionId);
     }
 
-    loadAIBoostSection();
-    setupAIBoostListeners();
-    setupInvIntelListeners();
-    setupAiVisionListeners();
+    if (typeof loadAIBoostSection === 'function') try { loadAIBoostSection(); } catch {}
+    if (typeof setupAIBoostListeners === 'function') try { setupAIBoostListeners(); } catch {}
+    if (typeof setupInvIntelListeners === 'function') try { setupInvIntelListeners(); } catch {}
+    if (typeof setupAiVisionListeners === 'function') try { setupAiVisionListeners(); } catch {}
 
     const isAdmin = role === 'DEALER_ADMIN' || role === 'OWNER' || role === 'MANAGER';
     const inDealership = !!profileContext.dealership?.id;
@@ -630,10 +630,10 @@ async function initializeDashboardEcosystem() {
 
     // Feeds + Catalog visible to anyone with a dealership (team or personal)
     if (inDealership) {
-      document.getElementById('feeds-panel').classList.remove('hidden');
-      document.getElementById('catalog-panel').classList.remove('hidden');
+      document.getElementById('feeds-panel')?.classList.remove('hidden');
+      document.getElementById('catalog-panel')?.classList.remove('hidden');
       // Defer the actual data loads until the Inventory page is first opened.
-      __pageInit.inventory = () => { loadInventoryFeeds(); loadInventoryCatalog(); prefetchInvIntelTags(); };
+      __pageInit.inventory = () => { if (typeof loadInventoryFeeds === 'function') loadInventoryFeeds(); if (typeof loadInventoryCatalog === 'function') loadInventoryCatalog(); if (typeof prefetchInvIntelTags === 'function') prefetchInvIntelTags(); };
     }
 
     if (!canManageFeeds) {
