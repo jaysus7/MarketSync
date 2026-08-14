@@ -69,7 +69,7 @@ window.accRenderMoneyIn = function(body, d) {
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-400 font-bold uppercase text-[11px]">
+                  <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-extrabold uppercase tracking-wider text-[11px]">
                     <th class="py-2.5 px-3">Deal #</th>
                     <th class="py-2.5 px-3">Lender / Source</th>
                     <th class="py-2.5 px-3">Delivered</th>
@@ -117,7 +117,7 @@ window.accRenderMoneyIn = function(body, d) {
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse text-xs">
             <thead>
-              <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-400 font-bold uppercase text-[11px]">
+              <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-extrabold uppercase tracking-wider text-[11px]">
                 <th class="py-2.5 px-3">Reference / Source</th>
                 <th class="py-2.5 px-3">Category</th>
                 <th class="py-2.5 px-3">Opened Date</th>
@@ -234,7 +234,7 @@ window.accRenderMoneyOut = function(body, d) {
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse text-xs">
             <thead>
-              <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-400 font-bold uppercase text-[11px]">
+              <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-extrabold uppercase tracking-wider text-[11px]">
                 <th class="py-2.5 px-3">Vendor</th>
                 <th class="py-2.5 px-3">Department</th>
                 <th class="py-2.5 px-3">Date</th>
@@ -360,7 +360,7 @@ window.accRenderBank = function(body, d) {
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse text-xs">
               <thead>
-                <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-400 font-bold uppercase text-[11px]">
+                <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-extrabold uppercase tracking-wider text-[11px]">
                   <th class="py-2.5 px-3">Date</th>
                   <th class="py-2.5 px-3">Bank Transaction</th>
                   <th class="py-2.5 px-3">Suggested Match</th>

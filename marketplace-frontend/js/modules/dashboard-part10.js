@@ -479,8 +479,8 @@ const ENGINE_DATA = {};             // engineId -> memoized fetch result
 // Shared building blocks so every engine's tabs look identical.
 function engKpi(label, val, tone, onclick) {
   const inner = `
-    <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div>
-    <div class="text-2xl font-black mt-1 ${tone || 'text-slate-800 dark:text-slate-100'}">${val}</div>
+    <div class="text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-extrabold">${esc(label)}</div>
+    <div class="text-2xl sm:text-3xl font-black mt-1 ${tone || 'text-slate-900 dark:text-white'}">${val}</div>
   `;
   if (onclick) {
     return `<button onclick="${onclick}" class="w-full text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3.5 hover:border-slate-300 dark:hover:border-slate-700 transition cursor-pointer">
@@ -493,9 +493,9 @@ function engKpi(label, val, tone, onclick) {
 }
 function engCard(title, inner, extra) {
   return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 ${extra || ''}">
-    ${title ? `<div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">${esc(title)}</div>` : ''}${inner}</div>`;
+    ${title ? `<div class="text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300 font-black mb-2.5">${esc(title)}</div>` : ''}${inner}</div>`;
 }
-function engEmpty(msg) { return `<div class="text-sm text-slate-400 py-8 text-center">${esc(msg)}</div>`; }
+function engEmpty(msg) { return `<div class="text-sm font-medium text-slate-500 dark:text-slate-400 py-8 text-center">${esc(msg)}</div>`; }
 
 // ── Sections you scroll to, instead of a second row of tabs ──────────────────
 // A workspace tab used to open onto ANOTHER tab bar (Inventory: My Day | Inventory |
@@ -508,8 +508,8 @@ function engEmpty(msg) { return `<div class="text-sm text-slate-400 py-8 text-ce
 // engCard is still the right thing for a single panel inside one.
 function engSection(title, inner, sub) {
   return `<section class="mt-7 first:mt-0">
-    <h3 class="text-[15px] font-black text-slate-900 dark:text-white">${esc(title)}</h3>
-    ${sub ? `<p class="text-[12px] text-slate-400 mt-0.5 mb-2">${esc(sub)}</p>` : '<div class="mb-2"></div>'}
+    <h3 class="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight">${esc(title)}</h3>
+    ${sub ? `<p class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mt-1 mb-3">${esc(sub)}</p>` : '<div class="mb-2"></div>'}
     ${inner}
   </section>`;
 }
@@ -593,8 +593,11 @@ async function engineTab(engineId, tab, force) {
     b.classList.toggle('border-current', on);
     b.classList.toggle('text-slate-900', on);
     b.classList.toggle('dark:text-white', on);
+    b.classList.toggle('font-extrabold', on);
     b.classList.toggle('border-transparent', !on);
-    b.classList.toggle('text-slate-400', !on);
+    b.classList.toggle('text-slate-600', !on);
+    b.classList.toggle('dark:text-slate-400', !on);
+    b.classList.toggle('font-semibold', !on);
     b.setAttribute('aria-selected', on ? 'true' : 'false');
   });
   const body = document.querySelector(`[data-engine-body="${engineId}"]`);
@@ -619,20 +622,20 @@ window.engineTab = engineTab;
 // wired actions are shown (no fabricated timelines).
 function engineRail(eng, d) {
   const A = ENGINE_ACCENTS[eng.accent] || ENGINE_ACCENTS.indigo;
-  const sec = (title, icon, inner) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3">
-    <div class="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide text-slate-400 mb-2">${svgIcon(icon, 'w-3.5 h-3.5')}${esc(title)}</div>${inner}</div>`;
+  const sec = (title, icon, inner) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5">
+    <div class="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 mb-2.5">${svgIcon(icon, 'w-3.5 h-3.5')}${esc(title)}</div>${inner}</div>`;
   const ai = sec('AI Assistant', 'sparkles',
-    `<p class="text-[12px] text-slate-500 dark:text-slate-400 mb-2">Ask about ${esc(eng.title)} — trends, next steps, anything.</p>
-     <button onclick="openAiDock()" class="w-full text-[13px] font-bold ${A.solid} text-white rounded-lg px-3 py-1.5 transition">Ask AI</button>`);
+    `<p class="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2.5">Ask about ${esc(eng.title)} — trends, next steps, anything.</p>
+     <button onclick="openAiDock()" class="w-full text-xs font-bold ${A.solid} text-white rounded-lg px-3 py-2 transition shadow-sm cursor-pointer">Ask AI</button>`);
   const na = (eng.nextActions ? eng.nextActions(d) : []) || [];
   const naHtml = na.length
     ? na.map(a => `<button onclick="${a.onclick || ''}" class="w-full text-left flex items-start gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-        <span class="mt-0.5 ${a.tone || 'text-slate-400'}">${svgIcon(a.icon || 'chevronRight', 'w-3.5 h-3.5')}</span>
-        <span class="text-[12px] font-semibold text-slate-700 dark:text-slate-200">${esc(a.label)}</span></button>`).join('')
-    : `<div class="text-[12px] text-slate-400">Nothing needs attention.</div>`;
+        <span class="mt-0.5 ${a.tone || 'text-slate-500'}">${svgIcon(a.icon || 'chevronRight', 'w-3.5 h-3.5')}</span>
+        <span class="text-xs font-semibold text-slate-800 dark:text-slate-100">${esc(a.label)}</span></button>`).join('')
+    : `<div class="text-xs font-medium text-slate-500 dark:text-slate-400 py-1">Nothing needs attention.</div>`;
   const qa = (eng.quickActions || []).map(q =>
-    `<button onclick="${q.onclick}" class="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">${svgIcon(q.icon || 'bolt', 'w-3.5 h-3.5 ' + A.text)}${esc(q.label)}</button>`
-  ).join('') || '<div class="text-[12px] text-slate-400">—</div>';
+    `<button onclick="${q.onclick}" class="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">${svgIcon(q.icon || 'bolt', 'w-3.5 h-3.5 ' + A.text)}${esc(q.label)}</button>`
+  ).join('') || '<div class="text-xs text-slate-400">—</div>';
   return ai + sec('Next Actions', 'check', naHtml) + sec('Quick Actions', 'bolt', qa);
 }
 
@@ -646,14 +649,14 @@ function renderEngine(engineId) {
   if (!order.includes(tab)) tab = order[0];          // stored tab may have been removed
   const A = ENGINE_ACCENTS[eng.accent] || ENGINE_ACCENTS.indigo;
   const tabBtn = (t) => `<button data-engine-tab="${t}" role="tab" onclick="engineTab('${engineId}','${t}')"
-    class="px-3.5 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 ${A.text}">${esc((eng.tabLabels && eng.tabLabels[t]) || ENGINE_TAB_LABEL[t])}</button>`;
+    class="px-4 py-2.5 -mb-px border-b-2 text-xs font-bold whitespace-nowrap transition border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white ${A.text}">${esc((eng.tabLabels && eng.tabLabels[t]) || ENGINE_TAB_LABEL[t])}</button>`;
   root.innerHTML = (eng.hideHeader ? '' : `
-    <div class="flex items-start justify-between flex-wrap gap-3 mb-3">
+    <div class="flex items-start justify-between flex-wrap gap-3 mb-4">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl ${A.bg} ${A.text} flex items-center justify-center flex-shrink-0">${svgIcon(eng.icon || 'chart', 'w-5 h-5')}</div>
+        <div class="w-11 h-11 rounded-xl ${A.bg} ${A.text} flex items-center justify-center flex-shrink-0 shadow-xs">${svgIcon(eng.icon || 'chart', 'w-5.5 h-5.5')}</div>
         <div>
-          <h1 class="text-xl font-black text-slate-900 dark:text-white leading-tight">${esc(eng.title)}</h1>
-          <p class="text-[13px] text-slate-500 dark:text-slate-400">${esc(eng.subtitle || '')}</p>
+          <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">${esc(eng.title)}</h1>
+          <p class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mt-1">${esc(eng.subtitle || '')}</p>
         </div>
       </div>
       <button onclick="renderEngine('${engineId}')" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1.5 transition">${svgIcon('refresh', 'w-3.5 h-3.5')}Refresh</button>
