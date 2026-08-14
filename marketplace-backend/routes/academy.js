@@ -430,4 +430,40 @@ export function registerAcademy(app) {
       res.json(publicCredential(cert, holder?.name || null))
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
+
+  // ── Contextual Help & Searchable Guides ────────────────────────────────────
+  app.get('/guide/contextual', requireAuth, canViewSelf, async (req, res) => {
+    const route = String(req.query.context || req.query.page || 'home').toLowerCase()
+    try {
+      const { data: guides } = await supabaseAdmin.from('academy_guides')
+        .select('*').limit(20)
+      res.json({ route, guides: guides || [] })
+    } catch (e) { res.json({ route, guides: [] }) }
+  })
+
+  // ── Video Pipeline Metadata ────────────────────────────────────────────────
+  app.get('/academy/videos/:courseKey', requireAuth, canViewSelf, async (req, res) => {
+    try {
+      const { data: video } = await supabaseAdmin.from('academy_videos')
+        .select('*').eq('course_key', req.params.courseKey).order('created_at', { ascending: false }).limit(1).maybeSingle()
+      res.json({ video: video || null })
+    } catch (e) { res.json({ video: null }) }
+  })
+
+  // ── Guided Page Tour Progress ──────────────────────────────────────────────
+  app.post('/academy/tours/:pageRoute/finish', requireAuth, canViewSelf, async (req, res) => {
+    try {
+      const { pageRoute } = req.params
+      const version = Number(req.body?.version) || 1
+      const state = req.body?.state || 'done'
+      await supabaseAdmin.from('academy_tour_progress').upsert({
+        user_id: req.user.id,
+        page_route: pageRoute,
+        tour_version: version,
+        status: state,
+        completed_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,page_route' })
+      res.json({ ok: true })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
 }

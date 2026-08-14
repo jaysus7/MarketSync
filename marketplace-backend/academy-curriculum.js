@@ -20,18 +20,21 @@
  */
 
 export const DEPARTMENTS = [
-  'Sales', 'Inventory', 'F&I', 'Service', 'Parts', 'Accounting', 'Marketing', 'Management',
+  'Sales', 'Inventory', 'F&I', 'Service', 'Parts', 'Accounting', 'Marketing', 'Management', 'HR', 'Products', 'MarketSync HQ',
 ]
 
 // Role → the department whose curriculum they get. Same two vocabularies people-identity.js
 // already joins; this does not invent a third.
 export const ROLE_CURRICULUM = {
-  MANAGER: ['Management', 'Sales'],
-  SALES_REP: ['Sales'],
-  FNI: ['F&I'],
-  SERVICE: ['Service'],
+  MANAGER: ['Management', 'Sales', 'Products'],
+  SALES_REP: ['Sales', 'Products'],
+  FNI: ['F&I', 'Sales'],
+  SERVICE: ['Service', 'Parts'],
+  SERVICE_TECH: ['Service', 'Parts'],
   ACCOUNTING: ['Accounting'],
   CLEANUP: ['Inventory'],
+  MARKETER: ['Marketing', 'Products'],
+  HQ_STAFF: ['MarketSync HQ', 'Products', 'Management'],
 }
 
 const c = (course_key, title, department, level, estimated_minutes, description, sort) => ({
@@ -39,7 +42,7 @@ const c = (course_key, title, department, level, estimated_minutes, description,
 })
 
 export const COURSES = [
-  // ── Everyone, regardless of department ────────────────────────────────────
+  // ── Level 1: Start Here (Everyone, regardless of department) ─────────────
   c('ms_getting_started', 'Getting around MarketSync', null, 'required', 12,
     'Where your work lives: My Day, your workspace, and how to find a customer or a vehicle.', 10),
   c('ms_privacy_basics', 'Customer privacy and consent', null, 'required', 15,
@@ -101,15 +104,23 @@ export const COURSES = [
   c('acct_reconciliation', 'Reconciliation in practice', 'Accounting', 'advanced', 20,
     'Matching what the bank says against what the ledger says, and what to do when they disagree.', 210),
 
-  // ── Marketing ─────────────────────────────────────────────────────────────
+  // ── Marketing & Products ──────────────────────────────────────────────────
   c('mkt_campaigns', 'Campaigns that can be measured', 'Marketing', 'required', 18,
     'Why a campaign needs an id, how spend is recorded, and what "attributed" honestly means.', 100),
   c('mkt_social', 'Social accounts and publishing', 'Marketing', 'foundation', 16,
     'Connecting accounts, who may publish as whom, and reading a publication that failed.', 110),
-  c('mkt_attribution', 'Attribution and ROI', 'Marketing', 'advanced', 24,
-    'Linked versus inferred, gross from the posted ledger, and why an incomplete number is said out loud.', 200),
-  c('mkt_automation', 'Automation and segmentation', 'Marketing', 'advanced', 20,
-    'Building an audience that respects consent, and automation that does not embarrass you.', 210),
+  c('prod_design_studio', 'Design Studio ($5/mo)', 'Products', 'foundation', 15,
+    'Creating dealership graphics, logo asset vaults, and branded social assets.', 120),
+  c('prod_autoposter', 'Facebook AutoPoster ($19-$79/mo)', 'Products', 'foundation', 18,
+    'Salesperson and dealer Marketplace posting workflows, posting caps, and Chrome extension.', 130),
+  c('prod_social_scheduler', 'Social Scheduler ($59/mo)', 'Products', 'foundation', 16,
+    'Multi-channel calendar scheduling, team publishing queues, and post analytics.', 140),
+  c('prod_video_suite', 'Video Suite ($99/mo)', 'Products', 'foundation', 16,
+    'Recording 1080p vehicle walkarounds, branded overlays, and video SMS delivery.', 150),
+  c('prod_dealer_website', 'Dealer Website & VDP Showroom ($249/mo)', 'Products', 'foundation', 20,
+    'VDP showroom builder, lead capture forms, custom domains, and automotive SEO.', 160),
+  c('prod_ai_chatbot', 'AI ChatBot ($299/mo)', 'Products', 'foundation', 18,
+    '24/7 AI inventory assistant, test drive booking, lead routing, and human takeover.', 170),
 
   // ── Management ────────────────────────────────────────────────────────────
   c('mgmt_my_day', 'Running the day', 'Management', 'required', 16,
@@ -120,6 +131,12 @@ export const COURSES = [
     'What needs your approval, why some things refuse to proceed, and how to read an audit trail.', 120),
   c('mgmt_analytics', 'Reading the dealership', 'Management', 'advanced', 24,
     'Cross-department numbers, what they are derived from, and which ones cannot be trusted yet.', 200),
+
+  // ── MarketSync HQ ─────────────────────────────────────────────────────────
+  c('hq_platform_overview', 'MarketSync Platform Architecture', 'MarketSync HQ', 'required', 25,
+    'Internal architecture: DealerOS, Marketing Products, RLS security, and positioning.', 300),
+  c('hq_customer_success', 'Customer Onboarding & Retention', 'MarketSync HQ', 'foundation', 20,
+    'Guiding a store from single products to DealerOS, preventing churn, and support escalation.', 310),
 ]
 
 /**
@@ -165,7 +182,7 @@ export const CERTIFICATIONS = [
   { certification_key: 'ms_certified_marketer', name: 'MarketSync Certified Automotive Marketer',
     department: 'Marketing', validity_months: 24,
     description: 'Campaigns that can be measured, publishing that is authorized, attribution that is honest.',
-    courses: ['ms_getting_started', 'ms_privacy_basics', 'mkt_campaigns', 'mkt_social', 'mkt_attribution'] },
+    courses: ['ms_getting_started', 'ms_privacy_basics', 'mkt_campaigns', 'mkt_social', 'prod_design_studio', 'prod_autoposter'] },
 
   { certification_key: 'ms_certified_operator', name: 'MarketSync Certified Dealer Operator',
     department: 'Management', validity_months: 24,
