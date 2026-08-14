@@ -45,7 +45,7 @@
     var mobSol = SOLUTIONS.map(function (s) { return '<a href="' + s.href + '" class="ms-m-link">' + esc(s.title) + '</a>'; }).join('');
     var mobRes = RESOURCES.map(function (r) { return '<a href="' + r.href + '" class="ms-m-link">' + esc(r.title) + '</a>'; }).join('');
     return '' +
-      '<a href="/" class="ms-logo" aria-label="MarketSync home"><img src="/logo.png" alt="MarketSync DealerOS" style="height:32px; width:auto;"></a>' +
+      '<a href="/" class="ms-logo" aria-label="MarketSync home"><img src="/logo.png" alt="MarketSync DealerOS" class="dark:hidden" style="height:32px; width:auto;"><img src="/assets/marketsync-logo-white.svg" alt="MarketSync DealerOS" class="hidden dark:block" style="height:32px; width:auto;"></a>' +
       '<nav class="ms-nav-desktop" aria-label="Primary">' +
         '<div class="ms-nav-item"><button class="ms-nav-btn" aria-haspopup="true">Solutions <svg viewBox="0 0 20 20" fill="currentColor" class="ms-caret"><path d="M5.5 7.5 10 12l4.5-4.5"/></svg></button><div class="ms-dropdown ms-dd-wide">' + solItems + '</div></div>' +
         '<a href="/compare.html" class="ms-nav-link">Pricing</a>' +
@@ -78,7 +78,7 @@
         '<div class="ms-f-cta-note">No credit card required · Set up in a day</div>' +
       '</div>' +
       '<div class="ms-f-grid">' +
-        '<div class="ms-f-brand"><a href="/" class="ms-logo ms-logo-sm"><img src="/logo.png" alt="MarketSync DealerOS" style="height:28px; width:auto;"></a><p>The complete operating system for automotive retail.</p></div>' +
+        '<div class="ms-f-brand"><a href="/" class="ms-logo ms-logo-sm"><img src="/logo.png" alt="MarketSync DealerOS" class="dark:hidden" style="height:28px; width:auto;"><img src="/assets/marketsync-logo-white.svg" alt="MarketSync DealerOS" class="hidden dark:block" style="height:28px; width:auto;"></a><p>The complete operating system for automotive retail.</p></div>' +
         col('Solutions', [['DealerOS', '/dealer-os.html'], ['Facebook AutoPoster', '/facebook-autoposter.html'], ['AI ChatBot', '/ai-chatbot.html'], ['Pricing', '/compare.html']]) +
         col('Company', [['How-to Guide', '/guide.html'], ['Blog', '/blog.html'], ['FAQ', '/faq.html'], ['Support', '/support.html']]) +
         col('Trust', [['Security', '/security.html'], ['Privacy Policy', '/privacy-policy.html'], ['Terms', '/terms.html']]) +
@@ -95,7 +95,8 @@
     '.ms-hd.ms-scrolled{box-shadow:0 1px 20px rgba(0,0,0,.08);}' +
     '.ms-hd-in{max-width:1600px;margin:0 auto;height:56px;display:flex;align-items:center;gap:24px;padding:0 32px;}' +
     '.ms-logo{display:inline-flex;align-items:center;gap:9px;font-weight:800;font-size:19px;letter-spacing:-.02em;color:#0b1220;text-decoration:none;}' +
-    '@media (prefers-color-scheme:dark){.ms-logo{color:#fff;}}' +
+    '@media (prefers-color-scheme:dark){.ms-logo{color:#fff;}.ms-logo img[src*="logo.png"]{filter:brightness(0) invert(1);}}' +
+    'html.dark .ms-logo img[src*="logo.png"], .dark .ms-logo img[src*="logo.png"]{filter:brightness(0) invert(1);}' +
     '.ms-logo-bar{width:6px;height:22px;border-radius:3px;background:var(--ms-accent);}' +
     '.ms-logo-accent{color:var(--ms-accent);}' +
     '.ms-nav-desktop{display:none;align-items:center;gap:4px;margin-right:auto;}' +

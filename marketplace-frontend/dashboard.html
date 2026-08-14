@@ -208,7 +208,7 @@
     #reports-overview > div:empty { display: none; }
   </style>
   <style id="ms-font-bump">html{font-size:17px}@media (max-width:640px){html{font-size:16px}}</style>
-  <style>.chip{display:inline-flex;align-items:center;font-size:0.7rem;padding:1px 7px;border-radius:999px;background:rgb(241 245 249);color:rgb(71 85 105);border:1px solid rgb(226 232 240);white-space:nowrap}.dark .chip{background:rgb(30 41 59);color:rgb(148 163 184);border-color:rgb(51 65 85)}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}.scrollbar-none::-webkit-scrollbar{display:none}</style>
+  <style>.chip{display:inline-flex;align-items:center;font-size:0.7rem;padding:1px 7px;border-radius:999px;background:rgb(241 245 249);color:rgb(71 85 105);border:1px solid rgb(226 232 240);white-space:nowrap}.dark .chip{background:rgb(30 41 59);color:rgb(148 163 184);border-color:rgb(51 65 85)}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}.scrollbar-none::-webkit-scrollbar{display:none}.dark img[src*="logo.png"]{filter:brightness(0) invert(1);}</style>
   <!-- DealerOS department layer: order the desktop sidebar top-to-bottom by department
        and give each a color stripe. Pure CSS over the flex column (#nav-desktop) — it
        reorders without moving any DOM, so all role-gating / feature-flag / group-toggle
@@ -268,13 +268,14 @@
        clock ticks into #header-shift-timer-display, entitlement code toggles
        #fb-post-btn and #ext-header-btn, the tour points at #idscan-btn). Moving
        them keeps every one of those working; deleting them would not. -->
-  <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-2 sm:px-6 lg:px-8 py-3 sm:py-5 flex justify-between items-center gap-1 sm:gap-5 flex-shrink-0 sticky top-0 z-40">
-    <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+  <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 sm:px-4 lg:px-4 py-2.5 sm:py-3 flex justify-between items-center gap-1 sm:gap-4 flex-shrink-0 sticky top-0 z-40">
+    <!-- LEFT SIDE: Logo + Role Pill + Live Shift Punch Clock -->
+    <div class="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
       <a href="#" onclick="switchPage('command'); return false;" class="flex items-center gap-2 flex-shrink-0">
-        <img src="/logo.png" alt="MarketSync DealerOS" class="h-8 w-auto">
+        <img src="/logo.png" alt="MarketSync DealerOS" class="h-8 w-auto dark:hidden">
+        <img src="/assets/marketsync-logo-white.svg" alt="MarketSync DealerOS" class="h-8 w-auto hidden dark:block">
       </a>
-      <!-- Who you are signed in AS. Was hidden below sm — the role is the point of the
-           header, so it shows on every screen size now. -->
+      <!-- Who you are signed in AS -->
       <span class="hidden sm:inline-block text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 font-mono px-2 py-0.5 rounded truncate" id="ui-role-pill">Loading...</span>
       
       <!-- Unified Live Real-Time & Punch Time Clock Widget -->
@@ -290,7 +291,7 @@
         </button>
 
         <!-- Punch Clock Dropdown Menu -->
-        <div id="header-shift-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-4 z-50 space-y-3 text-xs">
+        <div id="header-shift-dropdown" class="hidden absolute left-0 mt-2 w-80 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-4 z-50 space-y-3 text-xs">
           <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
             <div class="font-black text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">Employee Punch Attendance</div>
             <span id="shift-dropdown-status-badge" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-600">Clocked Out</span>
@@ -318,6 +319,12 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- RIGHT SIDE: Dealership Social Media Links + Action Icons (Profile, Settings, Notifications, Logout) -->
+    <div class="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
+      <!-- Dealership / Company Social Media Profiles -->
+      <div id="header-social-icons" class="flex items-center gap-1 sm:gap-1.5 mr-1 border-r border-slate-200 dark:border-slate-800 pr-2"></div>
 
       <button id="header-profile-btn" onclick="switchPage('profile');settingsTab('account')" title="My profile" aria-label="My profile" class="inline-flex items-center justify-center p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.12a7.5 7.5 0 0115 0A17.93 17.93 0 0112 21.75a17.93 17.93 0 01-7.5-1.63z"/></svg>
@@ -367,7 +374,7 @@
     </aside>
   </div>
 
-  <main class="flex-1 w-full p-5 sm:p-7 lg:p-10 flex flex-col md:grid md:grid-cols-[248px_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] gap-5 md:gap-10 min-h-0 overflow-hidden">
+  <main class="flex-1 w-full p-3 sm:p-4 lg:p-4 flex flex-col md:grid md:grid-cols-[248px_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] gap-3 md:gap-4 min-h-0 overflow-hidden">
 
     <section class="flex flex-col shrink-0 md:col-span-1 md:h-full md:min-h-0 md:overflow-y-auto">
 
@@ -1268,7 +1275,7 @@
     <section class="w-full md:col-span-1 min-w-0 flex-1 md:flex-none min-h-0 overflow-y-auto md:h-full md:overflow-y-auto">
       <!-- Full-width scroll region (scrollbar hugs the screen edge); an inner
            wrapper caps the readable content width so nothing sprawls edge-to-edge. -->
-      <div class="w-full md:max-w-[1450px] pt-3 sm:pt-5 lg:pt-6 pb-4">
+      <div class="w-full pt-1 pb-4">
 
       <!-- Department tab-bar — when the active page belongs to a multi-page
            department (Sales, Service, …), its sibling pages appear here as tabs.

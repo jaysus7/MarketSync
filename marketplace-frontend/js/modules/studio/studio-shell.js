@@ -89,7 +89,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
           ← Back to Marketing
         </button>
         <div class="h-5 w-px bg-slate-800"></div>
-        <img src="/logo.png" alt="MarketSync" class="h-6 w-auto">
+        <img src="/assets/marketsync-logo-white.svg" alt="MarketSync" class="h-6 w-auto">
         <input type="text" id="studio-design-name" value="${escS(designName)}" onchange="saveStudioDesignName(this.value)" class="bg-transparent text-sm font-black text-white focus:bg-slate-800 px-2 py-1 rounded-lg border border-transparent hover:border-slate-700 transition">
         <span id="studio-save-status" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">SAVED</span>
       </div>

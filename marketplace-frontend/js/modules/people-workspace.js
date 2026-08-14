@@ -66,6 +66,8 @@ ENGINES['people-overview'] = {
   tabLabels: {
     overview: 'Pulse',
     people: 'People',
+    work: 'Staff',
+    insights: 'Insights',
     time: 'Time',
     hiring: 'Hiring',
     compliance: 'Compliance',
@@ -73,8 +75,8 @@ ENGINES['people-overview'] = {
   },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    return mgr ? ['overview', 'people', 'time', 'hiring', 'compliance', 'settings']
-               : ['overview', 'people', 'time'];
+    return mgr ? ['overview', 'work', 'insights', 'settings']
+               : ['overview', 'work', 'insights'];
   },
 
   quickActions: [
@@ -511,7 +513,7 @@ function pplSummaryPanel(d) {
         <div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(r.why)}</div>
         <div class="text-[12px] text-slate-600 dark:text-slate-300 mt-0.5">${esc(r.action)}</div>
         <div class="text-[11px] text-slate-400 mt-0.5">Based on: ${esc(r.basis)}</div>
-      </div>`).join(''))}
+      </div>`).join('') + `<p class="text-[11px] text-slate-400 mt-2">Every line above names the records it came from. There is no employee score here — a number nobody can explain is not something to make a decision about a person with.</p>`)}
 
     <div class="mt-4">${engCard('Onboarding Checklist Progress', pplList(lc, 'No onboarding tasks were ever assigned.', x => `
       <div class="flex items-center gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">

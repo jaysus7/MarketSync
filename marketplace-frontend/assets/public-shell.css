@@ -44,9 +44,10 @@ letter-spacing:-.02em;
 color:#0b1220;
 text-decoration:none;
 }
-@media (prefers-color-scheme:dark){.ms-logo{color:#fff;
+@media (prefers-color-scheme:dark){.ms-logo{color:#fff;}
+.ms-logo img[src*="logo.png"]{filter:brightness(0) invert(1);}
 }
-}
+.dark img[src*="logo.png"], html.dark img[src*="logo.png"] { filter: brightness(0) invert(1); }
 .ms-logo-bar{width:6px;
 height:22px;
 border-radius:3px;

@@ -956,7 +956,7 @@ function renderPeopleCompliance() {
   `;
 
   root.innerHTML = `
-    <div class="space-y-6 max-w-7xl mx-auto">
+    <div class="space-y-6 w-full">
       <!-- Header Bar -->
       <div class="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm">
         <div class="flex items-center gap-3.5">

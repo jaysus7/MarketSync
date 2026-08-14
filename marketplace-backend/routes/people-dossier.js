@@ -248,10 +248,19 @@ export function registerPeopleDossier(app) {
   // The assembly both of the above share. `self` narrows documents to what the
   // employee is allowed to see of their own file.
   async function assemble(req, staffId, { self = false } = {}) {
-    const { data: person, error: pErr } = await supabaseAdmin
+    let person = null, pErr = null
+    const res1 = await supabaseAdmin
       .from('staff_profile_overview_v').select('*')
       .eq('dealership_id', req.dealershipId).eq('id', staffId).maybeSingle()
-    if (pErr) return { error: pErr.message, code: 500 }
+    if (!res1.error && res1.data) {
+      person = res1.data
+    } else {
+      const res2 = await supabaseAdmin
+        .from('staff_members').select('*')
+        .eq('dealership_id', req.dealershipId).eq('id', staffId).maybeSingle()
+      if (res2.error) return { error: res2.error.message, code: 500 }
+      person = res2.data
+    }
     if (!person) return { error: 'Employee not found', code: 404 }
 
     const [training, certifications, policies, documents, lifecycle] = await Promise.all([

@@ -208,7 +208,8 @@ export function registerRoutes(app) {
       .from('dealerships').select('branding').eq('id', req.dealershipId).single()
     const branding = { ...(current?.branding || {}) }
     for (const k of ['primary_color', 'secondary_color', 'tagline', 'logo_url',
-                     'overlay_enabled', 'overlay_phone', 'overlay_position', 'overlay_logo']) {
+                     'overlay_enabled', 'overlay_phone', 'overlay_position', 'overlay_logo',
+                     'facebook_url', 'instagram_url', 'twitter_url', 'linkedin_url', 'youtube_url', 'tiktok_url']) {
       if (b[k] !== undefined) branding[k] = b[k]
     }
 

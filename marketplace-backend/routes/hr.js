@@ -74,7 +74,7 @@ export function registerHR(app) {
         .select('*')
         .eq('dealership_id', req.dealershipId)
         .order('name')
-      if (error && error.message?.includes('permission denied for function')) {
+      if (error) {
         const adminRes = await supabaseAdmin
           .from('staff_directory_v')
           .select('*')
@@ -83,7 +83,14 @@ export function registerHR(app) {
         data = adminRes.data
         error = adminRes.error
       }
-      if (error) throw error
+      if (error || !data || !data.length) {
+        const fallback = await supabaseAdmin
+          .from('staff_members')
+          .select('*')
+          .eq('dealership_id', req.dealershipId)
+          .order('name')
+        if (fallback.data) data = fallback.data
+      }
       res.json({ employees: data || [] })
     } catch (e) {
       res.status(500).json({ error: e.message })
@@ -98,7 +105,7 @@ export function registerHR(app) {
         .eq('dealership_id', req.dealershipId)
         .eq('id', req.params.id)
         .maybeSingle()
-      if (error && error.message?.includes('permission denied for function')) {
+      if (error) {
         const adminRes = await supabaseAdmin
           .from('staff_profile_overview_v')
           .select('*')
@@ -108,7 +115,16 @@ export function registerHR(app) {
         data = adminRes.data
         error = adminRes.error
       }
-      if (error) throw error
+      if (error || !data) {
+        const fallback = await supabaseAdmin
+          .from('staff_members')
+          .select('*')
+          .eq('dealership_id', req.dealershipId)
+          .eq('id', req.params.id)
+          .maybeSingle()
+        data = fallback.data
+        error = fallback.error
+      }
       if (!data) return res.status(404).json({ error: 'Employee not found' })
       res.json({ employee: data })
     } catch (e) {

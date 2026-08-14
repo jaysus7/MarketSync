@@ -313,11 +313,19 @@ async function loadProfileBranding() {
       if (ovPos) ovPos.value = b.overlay_position === 'top' ? 'top' : 'bottom';
       const ovLogo = document.getElementById('prof-overlay-logo');
       if (ovLogo) ovLogo.checked = b.overlay_logo !== false;
+
+      // Populate social fields
+      for (const soc of ['facebook', 'instagram', 'twitter', 'linkedin', 'youtube', 'tiktok']) {
+        const el = document.getElementById(`prof-social-${soc}`);
+        if (el) el.value = b[`${soc}_url`] || '';
+      }
+
       if (b.logo_url) {
         const preview = document.getElementById('prof-brand-logo-preview');
         if (preview) preview.innerHTML = `<img src="${b.logo_url}" class="max-h-16 max-w-full object-contain p-1" alt="logo">`;
       }
       _syncProfBrandSwatch();
+      renderHeaderSocialIcons(b);
     }
 
     // Load AI tone
@@ -353,7 +361,7 @@ async function saveProfileBranding() {
   const msg = document.getElementById('prof-brand-save-msg');
   const tone = document.getElementById('prof-ai-tone')?.value || 'professional';
 
-  // Save branding colours + tagline
+  // Save branding colours + tagline + social URLs
   const brandPayload = {
     primary_color:   document.getElementById('prof-brand-primary-hex')?.value || '',
     secondary_color: document.getElementById('prof-brand-accent-hex')?.value || '',
@@ -362,6 +370,12 @@ async function saveProfileBranding() {
     overlay_phone:    document.getElementById('prof-overlay-phone')?.value || '',
     overlay_position: document.getElementById('prof-overlay-position')?.value || 'bottom',
     overlay_logo:     document.getElementById('prof-overlay-logo')?.checked !== false,
+    facebook_url:     document.getElementById('prof-social-facebook')?.value || '',
+    instagram_url:    document.getElementById('prof-social-instagram')?.value || '',
+    twitter_url:      document.getElementById('prof-social-twitter')?.value || '',
+    linkedin_url:     document.getElementById('prof-social-linkedin')?.value || '',
+    youtube_url:      document.getElementById('prof-social-youtube')?.value || '',
+    tiktok_url:       document.getElementById('prof-social-tiktok')?.value || '',
   };
   try {
     const [brandRes, toneRes] = await Promise.all([
@@ -369,6 +383,7 @@ async function saveProfileBranding() {
       fetch(`${API}/ai/config`, { method: 'POST', headers: { 'Authorization': `Bearer ${t}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ tone }) }),
     ]);
     const ok = brandRes.ok && toneRes.ok;
+    if (ok) renderHeaderSocialIcons(brandPayload);
     // Mirror tone into AI Boost settings element if visible
     const aiToneEl = document.getElementById('ai-tone');
     if (aiToneEl) aiToneEl.value = tone;
@@ -1466,4 +1481,12 @@ function aiDockRichText(text) {
   }
   flushPara(); closeList();
   return out.join('') || aiDockInline(text);
+}
+
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => loadProfileBranding());
+  } else {
+    setTimeout(() => loadProfileBranding(), 0);
+  }
 }
