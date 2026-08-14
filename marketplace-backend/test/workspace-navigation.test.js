@@ -296,10 +296,10 @@ test('mobile navigation is role-aware and derives from the registry', () => {
   assert.ok(msMobileNavForRole('SOMETHING_NEW').length > 0, 'unknown roles need a fallback row')
 })
 
-test('Inventory opens as a list and keeps intelligence in My Day with Cleanup in its header', () => {
+test('Inventory opens as a list and keeps intelligence in Pulse/My Day with Cleanup in its header', () => {
   const inv = read('js/modules/inventory-workspace.js')
   assert.match(inv, /return mgr \? \['work', 'overview', 'appraisals', 'cleanup', 'settings'\]/)
-  assert.match(inv, /tabLabels:\s*\{ overview: 'My Day', work: 'Inventory', appraisals: 'Appraisals', cleanup: 'Cleanup'/)
+  assert.match(inv, /tabLabels:\s*\{ overview: '(?:My Day|Pulse)', work: 'Inventory', appraisals: 'Appraisals', cleanup: 'Cleanup'/)
   assert.match(inv, /cleanup\(body\)[\s\S]*engMountPage\(body, 'recon'/)
   assert.doesNotMatch(inv.match(/settings\(body\)[\s\S]*?\n\s*},\n\s*},/s)?.[0] || '', /engMountPage\(body, 'recon'/)
 })

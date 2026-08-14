@@ -255,8 +255,6 @@ const SALES_WORK_VIEWS = [
   ['customers', 'Customers'], ['deals', 'Deals'], ['deliveries', 'Deliveries'],
 ];
 
-let __salesWorkView = 'opportunities';
-let __salesDeliveries = null;
 function salesWorkView(v) { __salesWorkView = v; engineTab('sales', 'work'); }
 window.salesWorkView = salesWorkView;
 
