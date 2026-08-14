@@ -73,7 +73,6 @@ const MS_WORKSPACES = {
     label: 'Inventory', icon: 'gem', accent: 'sky',
     pages: [
       { page: 'inventory-overview', label: 'My Day' },
-      { page: 'appraisal', label: 'Appraisals' },
       { page: 'inventory', label: 'Vehicles', invmode: 'manual', legacy: true },
       { page: 'equity', label: 'Equity Mining' },
       { page: 'inv-intel', label: 'Inventory Intelligence', mgr: true, legacy: true },

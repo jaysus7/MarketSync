@@ -172,112 +172,12 @@ window.invTakePossession = invTakePossession;
 // a customer trade records its receipt through the appraisal. Offering the wrong one
 // would be rejected server-side, so each group offers only the action that belongs
 // to it — the grouping IS the guard rail.
-function invRenderAcquisition(d, appraisals) {
-  const veh = d.vehicles || [];
-  const awaiting = veh.filter(v => v.awaiting_possession);
-  const nonTrade = awaiting.filter(invCanTakePossession);
-  const tradeAwaiting = awaiting.filter(v => v.source_appraisal_id);
-  const recent = veh.filter(v => !v.awaiting_possession && (invDays(v.created_at) ?? 1e9) <= INV_RECENT_DAYS);
-  const byChannel = { trade: [], purchased: [], feed: [] };
-  for (const v of recent) byChannel[invAcqChannel(v)].push(v);
-  const tradeShare = recent.length ? Math.round((byChannel.trade.length / recent.length) * 100) : null;
-
-  const cost = (v) => v.invoice_amount ? ` · cost $${Number(v.invoice_amount).toLocaleString()}` : '';
-  const cards = [];
-
-  cards.push(`<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-    ${engKpi('Appraisals waiting', appraisals.length)}
-    ${engKpi('Awaiting possession', awaiting.length, awaiting.length ? 'text-amber-600 dark:text-amber-400' : '')}
-    ${engKpi(`Acquired ${INV_RECENT_DAYS}d`, recent.length)}
-    ${engKpi('Trade share', tradeShare == null ? '—' : tradeShare + '%')}
-  </div>`);
-
-  cards.push(engCard(`1 · Appraised — not yet ours (${appraisals.length})`, appraisals.slice(0, 15).map(a => `
-    <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-      <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc([a.year, a.make, a.model].filter(Boolean).join(' ') || a.vin || 'Appraisal')}</div>
-        <div class="text-[12px] text-slate-400 truncate">${esc(a.status || 'pending')}${a.customer_name ? ` · ${esc(a.customer_name)}` : ''}</div></div>
-      <button onclick="switchPage('appraisal')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">View Appraisal</button>
-    </div>`).join('') || engEmpty('No appraisals waiting.')));
-
-  if (nonTrade.length) {
-    cards.push(engCard(`2 · Awaiting possession — purchased (${nonTrade.length})`,
-      nonTrade.slice(0, 12).map(v => invRow(v, d, `${esc(v.source || 'purchased')}${cost(v)}`)).join('')));
-  }
-  if (tradeAwaiting.length) {
-    cards.push(engCard(`2 · Awaiting possession — customer trade (${tradeAwaiting.length})`,
-      tradeAwaiting.slice(0, 12).map(v => invRow(v, d, `<span class="text-indigo-500">from Sales appraisal</span>${cost(v)}`)).join('')));
-  }
-  if (!awaiting.length) cards.push(engCard('2 · Awaiting possession', engEmpty('Everything bought has been received.')));
-
-  const channelCard = (key) => {
-    const list = byChannel[key];
-    return list.length ? engCard(`3 · In your possession — ${INV_ACQ_LABEL[key].toLowerCase()} (${list.length})`,
-      list.slice(0, 10).map(v => invRow(v, d)).join('')) : '';
-  };
-  const possession = ['trade', 'purchased', 'feed'].map(channelCard).filter(Boolean);
-  cards.push(possession.length ? possession.join('')
-    : engCard(`3 · In your possession — last ${INV_RECENT_DAYS} days`, engEmpty('Nothing acquired in the last 30 days.')));
-
-  return `<div class="space-y-3">${cards.join('')}</div>`;
-}
-
-// ── Merchandising — what stands between a unit and the front line ────────────
-// Scored off the canonical vehicle record with invMerchChecks(); nothing here is
-// stored, and the Vehicle Record shows the identical checks. A unit that isn't in
-// our possession yet is excluded — that's an Acquisition problem, not a
-// merchandising one.
-function invRenderMerch(d) {
-  const scored = (d.vehicles || []).filter(v => !v.awaiting_possession)
-    .map(v => ({ v, gaps: invMerchGaps(v), thin: invMerchThin(v) }));
-  const blocked = scored.filter(s => s.gaps.length).sort((a, b) => b.gaps.length - a.gaps.length);
-  const thin = scored.filter(s => !s.gaps.length && s.thin);
-  const ready = scored.filter(s => !s.gaps.length && !s.thin);
-  const missing = (key) => scored.filter(s => s.gaps.some(g => g.key === key)).length;
-  const pct = (n) => scored.length ? Math.round((n / scored.length) * 100) : 0;
-
-  const gapRow = (s) => invRow(s.v, d, `<span class="text-rose-500">${esc(s.gaps.map(g => g.gap).join(' · '))}</span>`);
-
-  return `<div class="space-y-3">
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-      ${engKpi('Frontline ready', ready.length, ready.length ? 'text-emerald-600 dark:text-emerald-400' : '')}
-      ${engKpi('No photos', missing('photos'), missing('photos') ? 'text-rose-600 dark:text-rose-400' : '')}
-      ${engKpi('No description', missing('description'), missing('description') ? 'text-amber-600 dark:text-amber-400' : '')}
-      ${engKpi('No window sticker', missing('sticker'), missing('sticker') ? 'text-amber-600 dark:text-amber-400' : '')}
-    </div>
-    ${engCard('Front line readiness', scored.length ? engBar([
-      { pct: pct(ready.length), cls: 'bg-emerald-500', label: `Ready (${ready.length})` },
-      { pct: pct(thin.length), cls: 'bg-amber-500', label: `Thin photo set (${thin.length})` },
-      { pct: pct(blocked.length), cls: 'bg-rose-500', label: `Blocked (${blocked.length})` },
-    ]) : engEmpty('No vehicles in your possession yet.'))}
-    ${blocked.length ? engCard(`Blocked from the front line (${blocked.length})`, blocked.slice(0, 20).map(gapRow).join('')) : ''}
-    ${thin.length ? engCard(`Listable, but thin — under ${INV_STRONG_PHOTOS} photos (${thin.length})`,
-      thin.slice(0, 12).map(s => invRow(s.v, d, `<span class="text-amber-600 dark:text-amber-400">${esc(invMerchChecks(s.v)[0].gap)}</span>`)).join('')) : ''}
-    ${!blocked.length && !thin.length && scored.length ? engCard('Merchandising', engEmpty('Every vehicle is fully merchandised.')) : ''}
-    <div class="flex flex-wrap gap-3">
-      <button onclick="deptGo('inventory','facebook')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">Facebook Marketplace →</button>
-      <button onclick="switchPage('vin-sticker')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">Window stickers →</button>
-      <button onclick="switchPage('website')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">Website →</button>
-    </div>
-  </div>`;
-}
-
-async function invRenderWork(body, d) {
-  // The inventory page itself, so adding and removing vehicles happens here.
-  // The user requested: "Inventory should only show inventory cards; add inventory if role permits and search with filter."
-  body.innerHTML = '';
-  engMountPage(body, 'inventory', () => applyInventoryMode());
-}
-
 ENGINES['inventory-overview'] = {
   rootId: 'inventory-overview-root', title: 'Inventory', subtitle: 'One vehicle lifecycle — acquire, recon, price, publish',
   icon: 'gem', accent: 'sky',
-  // Insights and Inventory Intelligence both folded into My Day — the numbers belong where the
-  // day is read, not behind a tab. Work is named for what it holds. Appraisals takes the slot
-  // Insights had, and is the appraisal page itself rather than a summary of it.
-  tabLabels: { overview: 'My Day', work: 'Inventory', appraisals: 'Appraisals', cleanup: 'Cleanup', settings: 'Settings' },
+  tabLabels: { overview: 'My Day', work: 'Inventory', settings: 'Settings' },
   get tabOrder() {
-    const mgr = typeof profileContext !== 'undefined' ? ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role) : true;
-    return mgr ? ['work', 'overview', 'appraisals', 'cleanup', 'settings'] : ['work', 'overview', 'appraisals', 'settings'];
+    return ['work', 'overview', 'settings'];
   },
 
   fetch: async () => {
@@ -332,7 +232,7 @@ ENGINES['inventory-overview'] = {
           </div>
           <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
             <button onclick="engineTab('inventory-overview','work')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Review Aged Inventory</button>
-            <button onclick="engineTab('inventory-overview','appraisals')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Appraise Trade-Ins</button>
+            <button onclick="deptGo('sales','appraisals')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Appraise Trade-Ins</button>
           </div>
         </div>
       `;
@@ -404,13 +304,6 @@ ENGINES['inventory-overview'] = {
         })(), 'mt-3')}`;
     },
 
-    appraisals(body) {
-      body.innerHTML = `<div id="inv-appraisals-root"></div>`;
-      if (typeof loadTradeAppraisals === 'function') loadTradeAppraisals();
-    },
-    cleanup(body) {
-      engMountPage(body, 'recon');
-    },
     settings(body) {
       body.innerHTML = engSection('Inventory settings',
         engCard('', `<div class="text-[13px] text-slate-600 dark:text-slate-300 mb-2">Syndication destinations and pricing rules live in dealership configuration.</div>

@@ -45,13 +45,13 @@ window.svcRenderTriageBar = function(d) {
 
       <div class="flex items-center gap-2 flex-wrap">
         <button onclick="svcOpenCheckInModal()" class="px-4 py-2 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition flex items-center gap-1.5 cursor-pointer">
-          📥 Check In Customer
+          Check In Customer
         </button>
         <button onclick="svcOpenVideoWalkaround()" class="px-4 py-2 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white shadow-md transition flex items-center gap-1.5 cursor-pointer">
-          📹 Video Walkaround
+          Video Walkaround
         </button>
         <button onclick="svcOpenCheckOutModal()" class="px-4 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition flex items-center gap-1.5 cursor-pointer">
-          📤 Check Out Customer
+          Check Out Customer
         </button>
       </div>
     </div>
@@ -126,7 +126,7 @@ window.svcRenderDispatchBoard = function(d) {
           ${technicians.map(t => {
             const capVal = Number(t.capacity || 0);
             const statusTone = capVal >= 100 ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' : capVal >= 75 ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
-            const capIndicator = capVal >= 100 ? '🔴 100% Load' : capVal >= 75 ? `🟠 ${capVal}% Load` : capVal >= 40 ? `🟡 ${capVal}% Load` : `🟢 ${capVal}% Load`;
+            const capIndicator = capVal >= 100 ? '100% Load' : capVal >= 75 ? `${capVal}% Load` : capVal >= 40 ? `${capVal}% Load` : `${capVal}% Load`;
 
             return `
               <div class="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-800/30 space-y-2.5">
@@ -197,7 +197,7 @@ window.svcOpenAssignWorkModal = function(targetTechId = null, targetRoId = null)
           <h3 class="text-base font-black text-slate-900 dark:text-white">Assign Work Order to Technician</h3>
           <p class="text-xs text-slate-500 dark:text-slate-400">Balance shop workload by technician capacity and skills.</p>
         </div>
-        <button onclick="document.getElementById('svc-assign-work-modal')?.remove()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold">✕</button>
+        <button onclick="document.getElementById('svc-assign-work-modal')?.remove()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold">X</button>
       </div>
 
       <!-- Work Order Selection -->
@@ -218,7 +218,7 @@ window.svcOpenAssignWorkModal = function(targetTechId = null, targetRoId = null)
         <select id="svc-assign-tech-select" onchange="svcUpdateAssignModalCapacityPreview()" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-semibold text-slate-900 dark:text-white">
           ${window.__svcTechnicians.map(t => {
             const cap = Number(t.capacity || 0);
-            const indicator = cap >= 100 ? '🔴 100% Load (AT CAPACITY)' : cap >= 75 ? `🟠 ${cap}% Load (Heavy)` : cap >= 40 ? `🟡 ${cap}% Load (Moderate)` : `🟢 ${cap}% Load (Available)`;
+            const indicator = cap >= 100 ? '100% Load (AT CAPACITY)' : cap >= 75 ? `${cap}% Load (Heavy)` : cap >= 40 ? `${cap}% Load (Moderate)` : `${cap}% Load (Available)`;
             return `
               <option value="${t.id}" ${t.id === defaultTechId ? 'selected' : ''}>
                 ${indicator} — ${esc(t.name)} (${t.sold}h sold | ${esc(t.bay)})
@@ -285,7 +285,7 @@ window.svcUpdateAssignModalCapacityPreview = function() {
   const newSold = isReassigning ? currentSold : Number((currentSold + addHours).toFixed(1));
   const newCap = Math.min(100, Math.round((newSold / 8.0) * 100));
 
-  const statusBadge = newCap >= 100 ? '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-rose-500/20 text-rose-400">🔴 AT CAPACITY (100%)</span>' : newCap >= 75 ? '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-500/20 text-amber-400">🟠 HEAVY LOAD (' + newCap + '%)</span>' : '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-500/20 text-emerald-400">🟢 AVAILABLE (' + newCap + '%)</span>';
+  const statusBadge = newCap >= 100 ? '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-rose-500/20 text-rose-400">AT CAPACITY (100%)</span>' : newCap >= 75 ? '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-500/20 text-amber-400">HEAVY LOAD (' + newCap + '%)</span>' : '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-500/20 text-emerald-400">AVAILABLE (' + newCap + '%)</span>';
 
   previewBox.innerHTML = `
     <div class="flex items-center justify-between text-xs">
@@ -368,7 +368,7 @@ window.svcOpenEstimateDrawer = function(roId) {
           <h3 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Estimate Authorization Command Centre</h3>
           <p class="text-xs text-slate-400">RO ID: ${esc(roId)} · Customer Approval Queue</p>
         </div>
-        <button onclick="document.getElementById('svc-estimate-drawer')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">✕</button>
+        <button onclick="document.getElementById('svc-estimate-drawer')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">X</button>
       </div>
 
       <!-- Customer Wait & Contact Telemetry -->
@@ -464,7 +464,7 @@ window.svcOpenDviModal = function(roId) {
           <h3 class="text-base font-black text-slate-900 dark:text-white uppercase tracking-wider">Digital Vehicle Inspection (DVI)</h3>
           <p class="text-xs text-slate-400">Concern / Cause / Correction &amp; Multi-Point Inspection Findings</p>
         </div>
-        <button onclick="document.getElementById('svc-dvi-modal')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">✕</button>
+        <button onclick="document.getElementById('svc-dvi-modal')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">X</button>
       </div>
 
       <!-- Concern / Cause / Correction Form -->
@@ -528,7 +528,7 @@ window.svcOpenDviModal = function(roId) {
 
         <div class="flex items-center justify-between pt-1">
           <button onclick="svcOpenVideoWalkaround('${roId}')" class="px-3 py-1.5 rounded-lg text-xs font-black bg-rose-600 hover:bg-rose-500 text-white transition flex items-center gap-1.5">
-            📹 Record Inspection Video
+            Record Inspection Video
           </button>
           <button onclick="svcSubmitTechPartsRequisition('${roId}')" class="px-4 py-1.5 rounded-lg text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm">
             Request Part from Parts Dept
@@ -604,7 +604,7 @@ window.svcOpenDeclinedWorkModal = function() {
           <h3 class="text-base font-black text-slate-900 dark:text-white uppercase tracking-wider">Declined Work &amp; Future Revenue Tracker</h3>
           <p class="text-xs text-slate-400">Re-engage customers with previously declined maintenance recommendations.</p>
         </div>
-        <button onclick="document.getElementById('svc-declined-modal')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">✕</button>
+        <button onclick="document.getElementById('svc-declined-modal')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">X</button>
       </div>
 
       <div class="space-y-3">
@@ -687,11 +687,11 @@ window.svcOpenCheckInModal = function(appointmentId = null) {
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div>
           <h3 class="text-base font-black uppercase text-indigo-600 dark:text-indigo-400 tracking-wider flex items-center gap-2">
-            <span>📥 Service Customer Check-In</span>
+            <span>Service Customer Check-In</span>
           </h3>
-          <p class="text-xs text-slate-500 dark:text-slate-400">Open repair order, record odometer, services requested &amp; customer preferences.</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Open repair order, record mileage in, fuel level in, services requested &amp; customer preferences.</p>
         </div>
-        <button onclick="document.getElementById('svc-checkin-modal')?.remove()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold">✕</button>
+        <button onclick="document.getElementById('svc-checkin-modal')?.remove()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold">X</button>
       </div>
 
       <!-- Customer & Vehicle Info -->
@@ -704,13 +704,27 @@ window.svcOpenCheckInModal = function(appointmentId = null) {
           <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Phone Number / Contact</label>
           <input id="svc-in-phone" type="text" value="(555) 234-5678" placeholder="(555) 000-0000" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
         </div>
-        <div class="space-y-1">
+        <div class="space-y-1 sm:col-span-2">
           <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Vehicle Description</label>
           <input id="svc-in-vehicle" type="text" value="${esc(vehicle || '2024 Ford F-150 Lariat')}" placeholder="Year Make Model" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
         </div>
         <div class="space-y-1">
-          <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Current Mileage (Odometer)</label>
+          <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Check-In Mileage (Odometer)</label>
           <input id="svc-in-mileage" type="text" value="38,450" placeholder="e.g. 45,000 miles" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+        </div>
+        <div class="space-y-1">
+          <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Fuel Level In</label>
+          <select id="svc-in-fuel" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+            <option value="Full">Full Tank (100%)</option>
+            <option value="7/8">7/8 Tank (87%)</option>
+            <option value="3/4" selected>3/4 Tank (75%)</option>
+            <option value="5/8">5/8 Tank (62%)</option>
+            <option value="1/2">1/2 Tank (50%)</option>
+            <option value="3/8">3/8 Tank (37%)</option>
+            <option value="1/4">1/4 Tank (25%)</option>
+            <option value="1/8">1/8 Tank (12%)</option>
+            <option value="Empty">Empty (0%)</option>
+          </select>
         </div>
       </div>
 
@@ -758,7 +772,7 @@ window.svcOpenCheckInModal = function(appointmentId = null) {
       <!-- Action Buttons -->
       <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
         <button onclick="svcOpenVideoWalkaround(null, null)" class="px-3.5 py-2 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white shadow-md transition flex items-center gap-1.5 cursor-pointer">
-          📹 Record Video Walkaround
+          Record Video Walkaround
         </button>
         <div class="flex items-center gap-2">
           <button onclick="document.getElementById('svc-checkin-modal')?.remove()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
@@ -775,11 +789,12 @@ window.svcSubmitCheckInForm = async function(apptId) {
   const name = document.getElementById('svc-in-name')?.value || 'Customer';
   const vehicle = document.getElementById('svc-in-vehicle')?.value || 'Vehicle';
   const mileage = document.getElementById('svc-in-mileage')?.value || '0';
+  const fuel = document.getElementById('svc-in-fuel')?.value || '3/4';
 
   if (apptId) {
     if (typeof svcCheckIn === 'function') await svcCheckIn(apptId).catch(() => null);
   } else {
-    if (typeof showToast === 'function') showToast(`Checked in ${name} (${vehicle} · ${mileage} miles). RO opened!`, 'success');
+    if (typeof showToast === 'function') showToast(`Checked in ${name} (${vehicle} · Mileage In: ${mileage} mi · Fuel In: ${fuel}). RO opened!`, 'success');
   }
 
   document.getElementById('svc-checkin-modal')?.remove();
@@ -823,11 +838,11 @@ window.svcOpenCheckOutModal = function(roId = null) {
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div>
           <h3 class="text-base font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider flex items-center gap-2">
-            <span>📤 Service Customer Check-Out &amp; Vehicle Release</span>
+            <span>Service Customer Check-Out &amp; Vehicle Release</span>
           </h3>
-          <p class="text-xs text-slate-500 dark:text-slate-400">Final invoice breakdown, payment collection, key handoff &amp; digital receipt.</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Final invoice breakdown, mileage out, fuel level out, payment collection &amp; key release.</p>
         </div>
-        <button onclick="document.getElementById('svc-checkout-modal')?.remove()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold">✕</button>
+        <button onclick="document.getElementById('svc-checkout-modal')?.remove()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold">X</button>
       </div>
 
       <!-- RO & Customer Card -->
@@ -849,7 +864,7 @@ window.svcOpenCheckOutModal = function(roId = null) {
         <div class="flex justify-between pt-2 border-t border-slate-800 font-black text-sm text-emerald-400"><span>Grand Total Due:</span><span>$${grandTotal.toFixed(2)}</span></div>
       </div>
 
-      <!-- QC & Parking Handoff -->
+      <!-- QC, Parking & Mileage/Fuel Handoff -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
         <div class="space-y-1">
           <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Payment Method</label>
@@ -863,6 +878,24 @@ window.svcOpenCheckOutModal = function(roId = null) {
         <div class="space-y-1">
           <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Vehicle Parking Location &amp; Key Tag</label>
           <input id="svc-out-bay" type="text" value="Space A-14 (Front Lot) · Key Tag #K-104" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+        </div>
+        <div class="space-y-1">
+          <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Check-Out Mileage (Odometer)</label>
+          <input id="svc-out-mileage" type="text" value="38,454" placeholder="e.g. 38,454 miles" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+        </div>
+        <div class="space-y-1">
+          <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Fuel Level Out</label>
+          <select id="svc-out-fuel" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+            <option value="Full">Full Tank (100%)</option>
+            <option value="7/8">7/8 Tank (87%)</option>
+            <option value="3/4" selected>3/4 Tank (75%)</option>
+            <option value="5/8">5/8 Tank (62%)</option>
+            <option value="1/2">1/2 Tank (50%)</option>
+            <option value="3/8">3/8 Tank (37%)</option>
+            <option value="1/4">1/4 Tank (25%)</option>
+            <option value="1/8">1/8 Tank (12%)</option>
+            <option value="Empty">Empty (0%)</option>
+          </select>
         </div>
       </div>
 
@@ -888,16 +921,19 @@ window.svcOpenCheckOutModal = function(roId = null) {
 };
 
 window.svcSubmitCheckOutForm = async function(roId) {
+  const mileageOut = document.getElementById('svc-out-mileage')?.value || '38,454';
+  const fuelOut = document.getElementById('svc-out-fuel')?.value || '3/4';
+
   try {
     if (roId) {
-      await apiSendJson(`/service-engine/ros/${roId}/transition`, 'POST', { action: 'deliver' }).catch(() => null);
+      await apiSendJson(`/service-engine/ros/${roId}/transition`, 'POST', { action: 'deliver', mileage_out: mileageOut, fuel_out: fuelOut }).catch(() => null);
     }
   } catch {}
 
   document.getElementById('svc-checkout-modal')?.remove();
 
   if (typeof showToast === 'function') {
-    showToast('Customer Checked Out! Paid Receipt and 5-Star Review invitation sent via SMS.', 'success');
+    showToast(`Customer Checked Out! Mileage Out: ${mileageOut} mi · Fuel Out: ${fuelOut}. Paid Receipt and 5-Star Review invitation sent via SMS.`, 'success');
   }
 
   if (typeof ENGINE_DATA !== 'undefined') {

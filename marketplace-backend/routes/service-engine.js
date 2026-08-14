@@ -20,6 +20,7 @@ import { registerTool } from './tool-registry.js'
 import { raiseException } from './workflow.js'
 import { audit } from '../audit.js'
 import { paymentsForSubject } from './payments.js'
+import { registerLoanerRoutes } from './submodules/service-loaners.js'
 
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100
@@ -1405,4 +1406,7 @@ export function registerServiceEngine(app) {
     try { await setConfig(req.dealershipId, 'service', value, req); res.json({ ok: true, config: value }) }
     catch (e) { res.status(500).json({ error: e.message }) }
   })
+
+  registerLoanerRoutes(app, { guard, canRead, canWork, canDesk })
 }
+
