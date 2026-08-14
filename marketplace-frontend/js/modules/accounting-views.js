@@ -217,7 +217,7 @@ window.accRenderMoneyOut = function(body, d) {
       <div class="flex items-center gap-2">
         <button onclick="accOpenReceiptScanModal()" class="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm flex items-center gap-1.5">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M68 9a2 2 0 00-2 2v2H4a2 2 0 00-2 2v8a2 2 0 002 2h16a2 2 0 002-2v-8a2 2 0 00-2-2h-2.172a2 2 0 01-1.414-.586l-.828-.828A2 2 0 0014.172 9H9.828z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-          📷 Scan &amp; Decode Receipt (AI OCR)
+           Scan &amp; Decode Receipt (AI OCR)
         </button>
         <button onclick="accOpenCustomEntryModal('out')" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white transition shadow-sm flex items-center gap-1.5">
           + Record Outgoing Money (Expense / Vendor Bill)
@@ -272,7 +272,7 @@ window.accRenderMoneyOut = function(body, d) {
                     <div class="flex items-center justify-end gap-1.5">
                       ${(b.receipt_image || (window.__accDigitalReceipts && window.__accDigitalReceipts[b.id])) ? `
                         <button onclick="accViewDigitalReceiptModal('${esc(b.id)}')" title="View Digital Receipt Copy" class="px-2.5 py-1 rounded text-[11px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20 transition flex items-center gap-1">
-                          📄 Receipt
+                           Receipt
                         </button>
                       ` : ''}
                       ${b.view === 'needs_review' ? `
@@ -675,7 +675,7 @@ window.accOpenReceiptScanModal = function() {
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div>
           <h3 class="text-base font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-            <span>📷</span> AI Receipt Scanner &amp; Decoder
+            <span></span> AI Receipt Scanner &amp; Decoder
           </h3>
           <p class="text-xs text-slate-400">Capture photo or upload expense receipt to auto-fill financial form.</p>
         </div>
@@ -685,7 +685,7 @@ window.accOpenReceiptScanModal = function() {
       <div id="acc-receipt-upload-dropzone" onclick="document.getElementById('acc-receipt-file-input').click()"
            class="border-2 border-dashed border-indigo-400/50 dark:border-indigo-600/50 hover:border-indigo-600 dark:hover:border-indigo-400 bg-indigo-50/30 dark:bg-indigo-950/20 rounded-2xl p-8 text-center cursor-pointer transition space-y-3">
         <div class="w-14 h-14 mx-auto rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-2xl font-bold">
-          📷
+          
         </div>
         <div>
           <div class="font-black text-slate-900 dark:text-white text-sm">Take Photo or Drop Receipt Here</div>
@@ -1042,7 +1042,7 @@ window.accViewDigitalReceiptModal = function(expId) {
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div>
           <h3 class="text-base font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-            <span>📄</span> Digital Receipt Copy Vault
+            <span></span> Digital Receipt Copy Vault
           </h3>
           <p class="text-xs text-slate-400">Stored digital copy attached to expense transaction ${esc(expId)}.</p>
         </div>
@@ -1057,10 +1057,10 @@ window.accViewDigitalReceiptModal = function(expId) {
         <span class="text-xs font-semibold text-slate-400">Status: Verified Digital Copy</span>
         <div class="flex gap-2">
           <a href="${imgData}" download="MarketSync-Receipt-${expId}.png" class="px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5">
-            📥 Download Copy
+             Download Copy
           </a>
           <button onclick="const win = window.open(); win.document.write('<img src=\\'${imgData}\\' style=\\'max-width:100%\\'>'); win.print();" class="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-500 transition shadow-sm flex items-center gap-1.5">
-            🖨️ Print Receipt
+            ️ Print Receipt
           </button>
         </div>
       </div>

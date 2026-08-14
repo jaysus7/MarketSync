@@ -300,7 +300,7 @@ async function invRenderWork(body, d) {
 ENGINES['inventory-overview'] = {
   rootId: 'inventory-overview-root', title: 'Inventory', subtitle: 'One vehicle lifecycle — acquire, recon, price, publish',
   icon: 'gem', accent: 'sky',
-  tabLabels: { overview: 'My Day', work: 'Inventory', settings: 'Settings' },
+  tabLabels: { overview: 'Pulse', work: 'Inventory', settings: 'Settings' },
   get tabOrder() {
     return ['work', 'overview', 'settings'];
   },

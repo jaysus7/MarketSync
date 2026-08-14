@@ -1492,7 +1492,7 @@ window.pulseMarketingDeptSection = function(d) {
         </div>
         <div class="flex items-center gap-2">
           <span class="px-3 py-1 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-xs font-black">
-            🟢 Marketing Engine Active
+             Marketing Engine Active
           </span>
         </div>
       </div>
@@ -1513,7 +1513,7 @@ window.pulseMarketingDeptSection = function(d) {
         <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
           <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
             <h3 class="text-xs font-black uppercase text-slate-900 dark:text-white tracking-wider flex items-center gap-1.5">
-              <span>🎯 Paid Ad Campaigns &amp; Spend ROI</span>
+              <span> Paid Ad Campaigns &amp; Spend ROI</span>
             </h3>
             <span class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">Total: $14,250 / mo</span>
           </div>
@@ -1555,7 +1555,7 @@ window.pulseMarketingDeptSection = function(d) {
         <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
           <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
             <h3 class="text-xs font-black uppercase text-slate-900 dark:text-white tracking-wider flex items-center gap-1.5">
-              <span>🌐 Website Analytics &amp; Live Traffic</span>
+              <span> Website Analytics &amp; Live Traffic</span>
             </h3>
             <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[11px] animate-pulse">18 Visitors Online Now</span>
           </div>
@@ -1586,7 +1586,7 @@ window.pulseMarketingDeptSection = function(d) {
         <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
           <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
             <h3 class="text-xs font-black uppercase text-purple-600 dark:text-purple-400 tracking-wider flex items-center gap-1.5">
-              <span>🤖 AI ChatBot &amp; Lead Conversion</span>
+              <span> AI ChatBot &amp; Lead Conversion</span>
             </h3>
             <span class="text-[11px] font-bold text-purple-600 dark:text-purple-400">184 Qualified Leads</span>
           </div>
@@ -1610,7 +1610,7 @@ window.pulseMarketingDeptSection = function(d) {
         <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
           <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
             <h3 class="text-xs font-black uppercase text-rose-600 dark:text-rose-400 tracking-wider flex items-center gap-1.5">
-              <span>📹 Customer Videos Sent Analytics</span>
+              <span> Customer Videos Sent Analytics</span>
             </h3>
             <span class="text-[11px] font-bold text-rose-600 dark:text-rose-400">78% Completion Rate</span>
           </div>
@@ -1637,7 +1637,7 @@ window.pulseMarketingDeptSection = function(d) {
         <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
           <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
             <h3 class="text-xs font-black uppercase text-sky-600 dark:text-sky-400 tracking-wider flex items-center gap-1.5">
-              <span>📅 Scheduled Social Posts (${scheduledPosts.length})</span>
+              <span> Scheduled Social Posts (${scheduledPosts.length})</span>
             </h3>
             <button onclick="window.__pulsePostsCalendarMode = !window.__pulsePostsCalendarMode; renderEngine('command');" class="text-[11px] text-purple-600 dark:text-purple-400 font-bold hover:underline">
               Toggle ${postsViewMode === 'list' ? 'Calendar View' : 'List View'}
@@ -1678,7 +1678,7 @@ window.pulseMarketingDeptSection = function(d) {
         <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
           <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
             <h3 class="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider flex items-center gap-1.5">
-              <span>🚀 Recently Published Posts &amp; Reach</span>
+              <span> Recently Published Posts &amp; Reach</span>
             </h3>
             <span class="text-[11px] font-bold text-slate-400">12.4k Total Engagements</span>
           </div>

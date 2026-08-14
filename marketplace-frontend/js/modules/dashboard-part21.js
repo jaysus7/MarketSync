@@ -859,19 +859,15 @@ function loadInvIntelPage() {
   const active = document.getElementById('inv-intel-active-content');
   if (!upsell || !active) return;
 
-  if (__invIntelActive) {
-    upsell.classList.add('hidden');
-    active.classList.remove('hidden');
-    if (typeof window._loadIntel === 'function') window._loadIntel();
-    loadStockingRecommendations(false);
-    loadMarketcheckStatus();
-    loadAIActivity();   // Inventory Scan now lives on this page
-    loadLotOverview();  // Your Lot at a Glance
-    loadDigestToggle(); // Daily briefing email opt-in
-  } else {
-    upsell.classList.remove('hidden');
-    active.classList.add('hidden');
-  }
+  upsell.classList.add('hidden');
+  active.classList.remove('hidden');
+  if (typeof window._loadIntel === 'function') window._loadIntel();
+  if (typeof prefetchInvIntelTags === 'function') prefetchInvIntelTags();
+  loadStockingRecommendations(false);
+  loadMarketcheckStatus();
+  loadAIActivity();   // Inventory Scan now lives on this page
+  loadLotOverview();  // Your Lot at a Glance
+  loadDigestToggle(); // Daily briefing email opt-in
 }
 
 // Show whether the licensed MarketCheck feed is connected & live, so the dealer can

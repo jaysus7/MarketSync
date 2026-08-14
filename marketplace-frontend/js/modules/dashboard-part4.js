@@ -403,7 +403,7 @@ function crmEquityMiningTab(c, d, eqData) {
             Send Equity Offer
           </button>` : ''}
         </div>
-        ${!allowQuickAdd ? `<div class="mt-2 text-[11px] text-amber-400 font-semibold flex items-center gap-1">🔒 Note: Quick Add Trade without appraisal is disabled by management policy. Full appraisal required.</div>` : ''}
+        ${!allowQuickAdd ? `<div class="mt-2 text-[11px] text-amber-400 font-semibold flex items-center gap-1"> Note: Quick Add Trade without appraisal is disabled by management policy. Full appraisal required.</div>` : ''}
       </div>
     </div>`;
 }
@@ -839,7 +839,7 @@ function crmTimelineItem(t, cid) {
         <div class="flex items-center justify-between gap-2 flex-wrap">
           <div class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
             <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${isWatchEvent ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'}">
-              ${isWatchEvent ? '👁️ Customer Watched Video' : '📹 Customer Video Sent'}
+              ${isWatchEvent ? '️ Customer Watched Video' : ' Customer Video Sent'}
             </span>
             <span>${esc(t.subject || 'Personalized Video Walkaround')}</span>
           </div>
@@ -851,7 +851,7 @@ function crmTimelineItem(t, cid) {
             ▶ Play Video &amp; Telemetry
           </button>
           <span class="text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
-            👁️ ${storeData.times_watched || 1} view(s) · ${Math.floor((storeData.watch_time_seconds || 105) / 60)}m ${(storeData.watch_time_seconds || 105) % 60}s watched (${storeData.completion_rate || 81}%)
+            ️ ${storeData.times_watched || 1} view(s) · ${Math.floor((storeData.watch_time_seconds || 105) / 60)}m ${(storeData.watch_time_seconds || 105) % 60}s watched (${storeData.completion_rate || 81}%)
           </span>
         </div>
       </div>
@@ -1031,7 +1031,7 @@ function crmStartInAppCall(contactId, name, phone) {
       <div class="flex items-center justify-between pt-2">
         <div class="flex items-center gap-2">
           <button type="button" onclick="crmToggleMuteState(this)" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 transition">
-            🎤 <span id="crm-mute-label">Mute</span>
+             <span id="crm-mute-label">Mute</span>
           </button>
           <button type="button" onclick="crmInsertCallTemplate('Customer requested vehicle pricing and availability confirmation.')" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 transition">
             + Quick Note
@@ -1128,13 +1128,13 @@ function crmOpenInAppSmsDrawer(contactId, name, phone) {
 
       <div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
         <button type="button" onclick="crmSetSmsTemplate('Hi ${esc(name)}, confirming our appointment for tomorrow at MarketSync Motors. See you soon!')" class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition border border-indigo-200/50 dark:border-indigo-800/40 cursor-pointer">
-          📅 Confirm Appt
+           Confirm Appt
         </button>
         <button type="button" onclick="crmSetSmsTemplate('Hi ${esc(name)}, I recorded a quick walkaround video of the vehicle for you! Let me know if you would like me to text the link.')" class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition border border-rose-200/50 dark:border-rose-800/40 cursor-pointer">
-          📹 Walkaround Video
+           Walkaround Video
         </button>
         <button type="button" onclick="crmSetSmsTemplate('Hi ${esc(name)}, I have the updated price quote and spec sheet ready for you. Let me know when is best to connect!')" class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition border border-emerald-200/50 dark:border-emerald-800/40 cursor-pointer">
-          💰 Price Quote
+           Price Quote
         </button>
       </div>
 

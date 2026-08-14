@@ -41,8 +41,7 @@ export function registerAiPricing(app) {
     const { data: dealer } = await supabaseAdmin
       .from('dealerships').select('inv_intel_active').eq('id', req.dealershipId).maybeSingle()
     const isOwner = isPlatformOwner(req)
-    if (!isOwner && !dealer?.inv_intel_active) return res.json({ positions: {}, active: false })
-
+    // Inventory Intelligence is included in package
     const { data: acts } = await supabaseAdmin
       .from('ai_activity')
       .select('inventory_id, price_median, comp_count, trim_matched, created_at')
@@ -93,10 +92,7 @@ export function registerAiPricing(app) {
     const { data: dealer } = await supabaseAdmin
       .from('dealerships').select('inv_intel_active').eq('id', req.dealershipId).single()
     const isOwner = isPlatformOwner(req)
-    // Lot Average Report is part of the Inventory Scan → Inventory Intelligence.
-    if (!isOwner && !dealer?.inv_intel_active) {
-      return res.status(403).json({ error: 'Inventory Intelligence add-on required' })
-    }
+    // Lot Average Report is included in package
 
     // Latest scan result per vehicle that produced a (reliable) market median.
     const { data: acts, error: aErr } = await supabaseAdmin
@@ -595,7 +591,6 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
       .single()
 
     const isOwner = isPlatformOwner(req)
-    if (!isOwner && !dealer?.inv_intel_active) return res.status(403).json({ error: 'Inventory Intelligence not active' })
 
     const rules = dealer.repricing_rules || { enabled: false, days_on_lot_threshold: 45, price_drop_pct: 5, overprice_threshold_pct: 20 }
     const { days_on_lot_threshold, price_drop_pct, overprice_threshold_pct } = rules
@@ -696,7 +691,6 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
       .single()
 
     const isOwner = isPlatformOwner(req)
-    if (!isOwner && !dealer?.inv_intel_active) return res.status(403).json({ error: 'Inventory Intelligence not active' })
 
     // Serve the cached set for 24h unless a refresh is explicitly requested. Keeps the
     // panel instant and always populated, and caps Claude spend to ~once/day/dealer.

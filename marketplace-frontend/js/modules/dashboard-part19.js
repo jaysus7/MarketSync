@@ -244,12 +244,12 @@ function renderCatalog() {
           ${(() => {
             const makeModel = `${v.make} ${v.model}`.toLowerCase()
             const gtag = 'inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-md border backdrop-blur-sm'
-            const hotColdTag = __aiBoostActive
-              ? (__hotMakeModels.has(makeModel) ? `<span class="${gtag} bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30" title="Hot — this make/model is selling fast off your lot; stock more / price with confidence">${svgIcon('flame', 'w-3 h-3 inline-block -mt-0.5')} Hot</span>`
+            const hotColdTag = __invIntelActive
+              ? (__hotMakeModels.has(makeModel) ? `<span class="${gtag} bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30" title="Hot — this make/model is selling fast off your lot; stock more / price with confidence"> Hot</span>`
                 : __coldMakeModels.has(makeModel) ? `<span class="${gtag} bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30" title="Cold — slow mover; consider sharper pricing or wholesaling"> Cold</span>`
                 : '')
               : ''
-            const healthScore = __aiBoostActive && __vehicleHealthScores[v.id] != null ? __vehicleHealthScores[v.id] : null
+            const healthScore = __invIntelActive && __vehicleHealthScores[v.id] != null ? __vehicleHealthScores[v.id] : null
             const healthBadge = healthScore != null ? (() => {
               const cls = healthScore >= 80 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
                 : healthScore >= 50 ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'

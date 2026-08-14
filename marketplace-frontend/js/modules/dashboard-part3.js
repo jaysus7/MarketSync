@@ -152,8 +152,24 @@ function initAppraisal() {
   const custSearch = $('appr-cust-search');
   if (custSearch) {
     let t = null;
-    custSearch.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => apprSearchCustomers(custSearch.value), 220); });
-    custSearch.addEventListener('focus', () => { if (custSearch.value.trim().length >= 2) apprSearchCustomers(custSearch.value); });
+    custSearch.addEventListener('input', () => {
+      clearTimeout(t);
+      const q = custSearch.value.trim();
+      if (q.length < 2) {
+        const box = $('appr-cust-results');
+        if (box) { box.classList.add('hidden'); box.innerHTML = ''; }
+        return;
+      }
+      t = setTimeout(() => apprSearchCustomers(q), 220);
+    });
+    custSearch.addEventListener('focus', () => {
+      const q = custSearch.value.trim();
+      if (q.length >= 2) apprSearchCustomers(q);
+      else {
+        const box = $('appr-cust-results');
+        if (box) { box.classList.add('hidden'); box.innerHTML = ''; }
+      }
+    });
     document.addEventListener('click', (e) => {
       const box = $('appr-cust-results');
       if (box && !box.contains(e.target) && e.target !== custSearch) box.classList.add('hidden');

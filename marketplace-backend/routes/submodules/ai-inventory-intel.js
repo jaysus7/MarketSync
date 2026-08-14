@@ -14,7 +14,6 @@ export function registerAiInventoryIntelRoutes(app) {
       .single()
 
     const isOwner = isPlatformOwner(req)
-    if (!isOwner && !dealer?.inv_intel_active) return res.status(403).json({ error: 'Inventory Intelligence not active' })
 
     const cRaw = (dealer?.country || '').trim().toUpperCase()
     const isUsMkt = cRaw === 'US' || cRaw === 'USA' || cRaw === 'UNITED STATES'
@@ -185,7 +184,6 @@ export function registerAiInventoryIntelRoutes(app) {
       .select('inv_intel_active')
       .eq('id', req.dealershipId)
       .single()
-    if (!isOwner && !dealer?.inv_intel_active) return res.status(403).json({ error: 'Inventory Intelligence not active' })
     if (!process.env.ANTHROPIC_API_KEY) return res.json({ narrative: null })
 
     const { total, avg_score, needs_attention, duplicate_vins, hot, cold, top_movers, no_photos, stale } = req.body

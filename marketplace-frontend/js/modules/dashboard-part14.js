@@ -931,27 +931,66 @@ const tierFor = (points) => {
 };
 const nextTierFor = (points) => LB_TIERS.find(t => t.min > points) || null;
 
+window.__activeLbDept = 'facebook';
+
+function switchLeaderboardDept(deptKey) {
+  window.__activeLbDept = deptKey || 'facebook';
+  ['facebook', 'sales', 'service', 'fni'].forEach(k => {
+    const btn = document.getElementById(`lb-dept-${k}`);
+    if (!btn) return;
+    const active = k === window.__activeLbDept;
+    btn.className = `lb-dept-btn px-3.5 py-2 rounded-xl text-xs font-extrabold transition shrink-0 ${active
+      ? 'bg-indigo-600 text-white shadow-sm'
+      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`;
+  });
+  loadLeaderboard();
+  loadAchievements();
+}
+window.switchLeaderboardDept = switchLeaderboardDept;
+
 async function loadLeaderboard() {
   const body = document.getElementById('leaderboard-body');
   if (!body) return;
   applyLeaderboardProductPresentation();
-  body.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-500 italic">Loading leaderboard...</td></tr>`;
+  body.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-500 italic">Loading ${window.__activeLbDept || 'department'} leaderboard...</td></tr>`;
   try {
-    const res = await fetch(`${API}/dealership/leaderboard`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const res = await fetch(`${API}/gamification`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (!res.ok) throw new Error('Leaderboard failed');
     const data = await res.json();
 
+    const currentDeptKey = window.__activeLbDept || 'facebook';
+    const dept = (data.departments && data.departments[currentDeptKey]) ? data.departments[currentDeptKey] : null;
+
     const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
-    setText('lb-conv', data.team_conversion_rate ?? 0);
-    setText('lb-team-sold', data.team_total_sold ?? 0);
-    setText('lb-team-total', data.team_total_listings ?? 0);
+    
+    if (dept) {
+      setText('lb-title', dept.title || 'Department Leaderboard');
+      setText('lb-rankings-title', `${dept.title} rankings`);
+      if (dept.totals) {
+        setText('lb-conv', dept.totals.sales_30d || dept.totals.posted || 0);
+        setText('lb-team-sold', dept.totals.sold || dept.totals.ro_closed || dept.totals.fni_deals || 0);
+        setText('lb-team-total', dept.totals.posted || dept.totals.total_sold || 0);
+      }
+    }
 
-    const ranking = leaderboardRanking(data.ranking);
+    const leaderboardList = dept ? dept.leaderboard : [];
+    const formattedRanking = leaderboardList.map((r, i) => {
+      const pts = r.score || (r.metrics?.sold_30d * 500) || 0;
+      return {
+        id: r.rep_id,
+        name: r.full_name,
+        rank: r.rank || (i + 1),
+        title: r.title || 'Team Member',
+        points: pts,
+        tier: tierFor(pts),
+        metrics: r.metrics || {},
+      };
+    });
 
-    renderPodium(ranking);
-    renderYourPosition(ranking);
-    renderRankingTable(ranking);
-    updateTierChip(ranking);
+    renderPodium(formattedRanking);
+    renderYourPosition(formattedRanking);
+    renderDepartmentRankingTable(formattedRanking, currentDeptKey);
+    updateTierChip(formattedRanking);
     loadActivity();
     loadAchievements();
   } catch (e) {
@@ -960,92 +999,72 @@ async function loadLeaderboard() {
   }
 }
 
-// ── Internal sales-performance board (Dashboard) ─────────────────────────────
-// The SECOND, internal leaderboard: ranks reps by REAL deals — units sold, F&I
-// gross, and appraisals. No Facebook-posting points (that competitive/teaser
-// board lives under Marketing). Rendered into the dashboard's leaderboard slot.
-async function loadInternalBoard() {
-  const slot = document.getElementById('dash-leaderboard-slot');
-  if (!slot) return;
-  slot.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6"><div class="text-center text-sm text-slate-400 italic py-8">Loading sales performance…</div></div>`;
-  let data;
-  try {
-    const res = await fetch(`${API}/dealership/leaderboard`, { headers: { 'Authorization': `Bearer ${token}` } });
-    if (!res.ok) throw new Error('failed');
-    data = await res.json();
-  } catch { slot.innerHTML = ''; return; }
-  const soldOf = (r) => (r.units_sold || r.deals_closed || 0);
-  const scoreOf = (r) => soldOf(r) * 500 + (r.appraisals || 0) * 50 + Math.round((r.fni_gross || 0) / 100);
-  const ranking = (data.ranking || []).slice()
-    .map(r => ({ ...r, _sold: soldOf(r), _score: scoreOf(r) }))
-    .sort((a, b) => b._score - a._score || b._sold - a._sold || (b.fni_gross || 0) - (a.fni_gross || 0) || String(a.name || '').localeCompare(String(b.name || '')))
-    .map((r, i) => ({ ...r, _rank: i + 1 }));
+function renderDepartmentRankingTable(ranking, deptKey) {
+  const body = document.getElementById('leaderboard-body');
+  if (!body) return;
+  if (!ranking.length) {
+    body.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-400 italic">No activity recorded for this department yet.</td></tr>`;
+    return;
+  }
+
   const money = (n) => '$' + Number(n || 0).toLocaleString();
-  const stat = (label, val) => `<div class="flex-1 min-w-[110px]"><div class="text-2xl font-black text-slate-900 dark:text-white tabular-nums">${val}</div><div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">${label}</div></div>`;
-  const medal = (rank) => rank === 1 ? '' : rank === 2 ? '' : rank === 3 ? '' : `<span class="text-slate-400 font-mono">${rank}</span>`;
   const selfId = (typeof user !== 'undefined' && user) ? user.id : null;
-  const rows = ranking.length ? ranking.map(r => {
-    const me = r.id === selfId;
-    return `<tr class="border-b border-slate-100 dark:border-slate-800/60 ${me ? 'bg-indigo-50/60 dark:bg-indigo-950/30' : ''}">
-      <td class="py-2.5 px-3 text-center w-12">${medal(r._rank)}</td>
-      <td class="py-2.5 px-3"><span class="text-sm font-semibold text-slate-800 dark:text-slate-100">${esc(r.name || '—')}</span>${me ? '<span class="ml-1.5 text-[10px] font-bold text-indigo-500">YOU</span>' : ''}</td>
-      <td class="py-2.5 px-3 text-right tabular-nums font-bold text-slate-900 dark:text-white">${r._sold}</td>
-      <td class="py-2.5 px-3 text-right tabular-nums text-slate-700 dark:text-slate-200">${money(r.fni_gross)}</td>
-      <td class="py-2.5 px-3 text-right tabular-nums text-slate-700 dark:text-slate-200">${r.appraisals || 0}</td>
-      <td class="py-2.5 px-3 text-right tabular-nums font-bold text-indigo-600 dark:text-indigo-400">${r._score.toLocaleString()}</td>
-    </tr>`;
-  }).join('') : '<tr><td colspan="6" class="py-10 text-center text-sm text-slate-400 italic">No sales activity yet.</td></tr>';
-  slot.innerHTML = `
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-      <div class="flex items-start justify-between gap-3 flex-wrap px-5 py-4 border-b border-slate-200 dark:border-slate-800">
-        <div>
-          <div class="flex items-center gap-2"><span class="text-amber-500">${svgIcon('trophy', 'w-5 h-5')}</span><h3 class="text-base font-black text-slate-900 dark:text-white">Sales performance</h3></div>
-          <p class="text-xs text-slate-400 mt-0.5">Real deals — units sold, F&amp;I gross, and appraisals.</p>
-        </div>
-        <button onclick="switchPage('leaderboard')" class="text-xs font-bold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 whitespace-nowrap">Full leaderboard →</button>
-      </div>
-      <div class="flex flex-wrap gap-4 px-5 py-4 border-b border-slate-100 dark:border-slate-800/60">
-        ${stat('Units sold', data.team_total_units ?? 0)}
-        ${stat('F&amp;I gross', money(data.team_total_fni_gross))}
-        ${stat('Appraisals', data.team_total_appraisals ?? 0)}
-      </div>
-      <div class="overflow-x-auto"><table class="w-full text-left min-w-[520px]">
-        <thead><tr class="text-slate-500 dark:text-slate-400 uppercase text-[11px] tracking-wider border-b border-slate-200 dark:border-slate-800">
-          <th class="py-2.5 px-3 text-center w-12">#</th><th class="py-2.5 px-3">Rep</th><th class="py-2.5 px-3 text-right">Sold</th><th class="py-2.5 px-3 text-right">F&amp;I gross</th><th class="py-2.5 px-3 text-right">Appraisals</th><th class="py-2.5 px-3 text-right">Score</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>
-    </div>`;
-}
-window.loadInternalBoard = loadInternalBoard;
 
-// ── Badges everywhere: the always-on header rank/tier chip ────────────────────
-// Reflects the signed-in rep's live tier + rank on every page. Fed from a ranking
-// array when the leaderboard is open (free), or self-fetched once at startup.
-function updateTierChip(ranking) {
-  const chip = document.getElementById('ui-tier-chip');
-  if (!chip) return;
-  const me = (ranking || []).find(r => r.id === user.id);
-  if (!me || !me.tier) { chip.classList.add('hidden'); return; }
-  // Hidden on the crowded mobile header; shows from sm up (badges live on the
-  // leaderboard for phones). Icon-only until md, full tier + rank on md+.
-  chip.className = `hidden sm:inline-flex items-center gap-1.5 px-2 md:px-2.5 py-1 rounded-full text-xs font-bold border transition hover:brightness-110 whitespace-nowrap ${me.tier.cls}`;
-  const rankTxt = me.rank ? `#${me.rank}` : '';
-  chip.innerHTML = `<span>${me.tier.icon}</span><span class="hidden md:inline">${me.tier.name}</span>${rankTxt ? `<span class="opacity-70 font-mono">${rankTxt}</span>` : ''}`;
-}
-async function loadMyTierChip() {
-  const chip = document.getElementById('ui-tier-chip');
-  if (!chip) return;
-  try {
-    const res = await fetch(`${API}/dealership/leaderboard`, { headers: { 'Authorization': `Bearer ${token}` } });
-    if (!res.ok) return;
-    const data = await res.json();
-    const ranking = leaderboardRanking(data.ranking);
-    updateTierChip(ranking);
-  } catch (e) { /* non-fatal — chip just stays hidden */ }
+  body.innerHTML = ranking.map(r => {
+    const isMe = r.id === selfId;
+    const m = r.metrics || {};
+
+    let metricCols = '';
+    if (deptKey === 'facebook') {
+      metricCols = `
+        <td class="py-3 px-3 text-right font-mono font-bold">${m.posted || 0}</td>
+        <td class="py-3 px-3 text-right font-mono">${m.leads || 0}</td>
+        <td class="py-3 px-3 text-right font-mono">${m.resp_time_min ? m.resp_time_min + 'm' : '—'}</td>
+        <td class="py-3 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">${m.sold || 0}</td>
+      `;
+    } else if (deptKey === 'sales') {
+      metricCols = `
+        <td class="py-3 px-3 text-right font-mono font-bold">${m.sold_30d || 0}</td>
+        <td class="py-3 px-3 text-right font-mono">${m.total_sold || 0}</td>
+        <td class="py-3 px-3 text-right font-mono">${m.appraisals || 0}</td>
+        <td class="py-3 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">${money(m.gross_profit)}</td>
+      `;
+    } else if (deptKey === 'service') {
+      metricCols = `
+        <td class="py-3 px-3 text-right font-mono font-bold">${m.ro_closed || 0}</td>
+        <td class="py-3 px-3 text-right font-mono">${m.tech_eff_pct ? m.tech_eff_pct + '%' : '—'}</td>
+        <td class="py-3 px-3 text-right font-mono">${m.csi_score ? m.csi_score + '%' : '—'}</td>
+        <td class="py-3 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">${money(m.service_rev)}</td>
+      `;
+    } else if (deptKey === 'fni') {
+      metricCols = `
+        <td class="py-3 px-3 text-right font-mono font-bold">${m.fni_deals || 0}</td>
+        <td class="py-3 px-3 text-right font-mono font-bold text-indigo-600 dark:text-indigo-400">${money(m.pvr_avg)}</td>
+        <td class="py-3 px-3 text-right font-mono">${m.vsc_pct ? m.vsc_pct + '%' : '—'}</td>
+        <td class="py-3 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">${money(m.fni_gross)}</td>
+      `;
+    }
+
+    return `
+      <tr class="border-b border-slate-100 dark:border-slate-800/60 ${isMe ? 'bg-indigo-50/60 dark:bg-indigo-950/30' : ''}">
+        <td class="py-3 px-3 font-mono font-bold text-slate-500">#${r.rank}</td>
+        <td class="py-3 px-3">
+          <div class="font-bold text-slate-900 dark:text-white">${esc(r.name)}${isMe ? ' <span class="text-xs text-indigo-600 dark:text-indigo-400 font-normal">(you)</span>' : ''}</div>
+          <div class="text-[11px] text-slate-400">${esc(r.title)}</div>
+        </td>
+        <td class="py-3 px-3">
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${r.tier?.cls || ''}">
+            ${r.tier?.name || 'Rookie'}
+          </span>
+        </td>
+        ${metricCols}
+        <td class="py-3 px-3 text-right font-mono font-black text-indigo-600 dark:text-indigo-400">${(r.points || 0).toLocaleString()}</td>
+      </tr>
+    `;
+  }).join('');
 }
 
-// ── Achievements (gamification badges) ───────────────────────────────────────
+// ── Achievements (gamification badges to be won) ──────────────────────────────────
 async function loadAchievements() {
   const wrap = document.getElementById('lb-achievements');
   if (!wrap) return;
@@ -1053,25 +1072,26 @@ async function loadAchievements() {
     const res = await fetch(`${API}/gamification`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (!res.ok) throw new Error('gamification failed');
     const d = await res.json();
-    if (!d.me && !d.dealership) { wrap.innerHTML = ''; return; }
-    const facebook = facebookLeaderboardActive();
-    const facebookBadge = (badge) => {
-      if (!facebook) return badge;
-      if (badge.key === 'closer') return { ...badge, label: 'Facebook Closer', description: 'Cars you sold through Facebook Marketplace' };
-      return badge;
-    };
-    const onlyFacebook = (badges) => (badges || [])
-      .filter(b => !facebook || ['closer', 'mover', 'speed', 'coverage', 'fastlot', 'sellthrough'].includes(b.key))
-      .map(facebookBadge);
+    
+    const currentDeptKey = window.__activeLbDept || 'facebook';
+    const deptInfo = d.departments ? d.departments[currentDeptKey] : null;
+
+    const myRep = deptInfo ? deptInfo.me : d.me;
+    const myBadges = myRep ? myRep.badges : [];
+
     wrap.innerHTML = `
-      ${d.me ? `<div class="mb-4">
-        <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">${facebook ? 'Your Facebook achievements' : 'Your achievements'}</div>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${onlyFacebook(d.me.badges).map(badgeCard).join('')}</div>
-      </div>` : ''}
-      ${d.dealership ? `<div>
-        <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">${esc(d.dealership.name || 'Dealership')} ${facebook ? 'Facebook achievements' : 'achievements'}</div>
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">${onlyFacebook(d.dealership.badges).map(badgeCard).join('')}</div>
-      </div>` : ''}`;
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">
+            ${deptInfo ? deptInfo.title : 'Department'} Badges to be Won
+          </div>
+          <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400">${myBadges.filter(b => b.level > 0).length} of ${myBadges.length} unlocked</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          ${myBadges.length ? myBadges.map(badgeCard).join('') : '<div class="text-xs text-slate-400 italic">No badges for this department yet.</div>'}
+        </div>
+      </div>
+    `;
   } catch (e) {
     console.warn('Achievements failed:', e.message);
     wrap.innerHTML = '';

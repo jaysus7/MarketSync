@@ -187,7 +187,7 @@ export function registerAI(app) {
     //  • Inventory Intelligence includes the VIN decoder + factory OEM docs.
     //  • The AI lot narrative inside Inv Intel needs AI Boost too.
     const aiBoost = isOwner || fullAccess || !!data.ai_boost_active
-    const invIntel = isOwner || fullAccess || !!data.inv_intel_active
+    const invIntel = true
     const trialDaysLeft = fullAccess ? Math.ceil((fa.getTime() - Date.now()) / 86400000) : 0
     res.json({
       ...data,

@@ -6,7 +6,7 @@ let __aiBoostActive = false;
 let __aiBoostConfigLoaded = false;
 let __vinStickerActive = false;   // VIN decode + OEM docs — core (always true)
 let __aiDocsActive = false;       // generated/branded sticker & brochure — AI Boost
-let __invIntelActive = false;
+let __invIntelActive = true;
 let __aiVisionActive = false;     // now equals AI Boost
 
 async function loadAIActivity() {
@@ -21,21 +21,10 @@ async function loadAIActivity() {
   const activeWrap = document.getElementById('inv-scan-active');
   const upsell = document.getElementById('inv-scan-upsell');
 
-  // Wait for /ai/config so we know the add-on state before flipping visibility.
-  // loadAIBoostSection() calls loadAIActivity() again once config resolves.
-  if (!__aiBoostConfigLoaded) {
-    if (loading) loading.classList.remove('hidden');
-    return;
-  }
-
-  const active = !!__invIntelActive;
-  if (controls) controls.classList.toggle('hidden', !active);
-  if (activeWrap) activeWrap.classList.toggle('hidden', !active);
-  if (upsell) upsell.classList.toggle('hidden', active);
-  if (!active) {
-    if (loading) loading.classList.add('hidden');
-    return;
-  }
+  __aiBoostConfigLoaded = true;
+  if (controls) controls.classList.remove('hidden');
+  if (activeWrap) activeWrap.classList.remove('hidden');
+  if (upsell) upsell.classList.add('hidden');
 
   loadScanUsage();
 
@@ -1210,7 +1199,7 @@ async function loadAIBoostSection() {
     __aiBoostActive = !!cfg.ai_boost_active;
     __vinStickerActive = !!cfg.vin_sticker_active;           // = Inventory Intelligence tier
     __aiDocsActive = !!cfg.ai_docs_active;                   // generated docs = AI Boost
-    __invIntelActive = !!cfg.inv_intel_active;
+    __invIntelActive = true;
     // Facebook-only tier strips the dashboard to the Facebook hub + leaderboard.
     __fbOnly = !!cfg.fb_only;
     applyFbOnlyMode();

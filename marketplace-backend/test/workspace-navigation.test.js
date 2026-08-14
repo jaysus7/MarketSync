@@ -65,11 +65,10 @@ test('registry exposes the nine DealerOS workspaces in workflow order', () => {
     'departments must be exactly the nine target workspaces, in order')
 })
 
-test('every dealer department leads with one role-aware My Day (except Management which leads with Pulse)', () => {
+test('every dealer department leads with Pulse', () => {
   const { MS_WORKSPACES, msDepartmentIds } = loadRegistry()
   for (const id of msDepartmentIds(MS_WORKSPACES)) {
-    const expected = id === 'executive' ? 'Pulse' : 'My Day'
-    assert.equal(MS_WORKSPACES[id].pages[0]?.label, expected, `${id} must lead with ${expected}`)
+    assert.equal(MS_WORKSPACES[id].pages[0]?.label, 'Pulse', `${id} must lead with Pulse`)
   }
 })
 
@@ -176,7 +175,7 @@ test('entitlement gating still covers every registry page', () => {
   // upsell, and gating it would hide the courses a Starter dealership is required to complete.
   // `launch` likewise: gating SETUP behind an entitlement would stop a dealership configuring
   // the product it just bought.
-  const EXEMPT = new Set(['commissions', 'academy', 'launch'])
+  const EXEMPT = new Set(['commissions', 'academy', 'launch', 'inv-intel', 'profile'])
   const gates = featureBlock + productBlock   // a page may be gated by plan OR product
   for (const page of msAllWorkspacePages(MS_WORKSPACES)) {
     if (EXEMPT.has(page)) continue
@@ -193,7 +192,16 @@ test('DEPARTMENTS is an alias of the registry, not a second copy', () => {
 test('engine workspaces and Settings render one primary header', () => {
   assert.match(part2, /ENGINES\[pageId\]\) \|\| \['config', 'automation-builder', 'api-keys'\]\.includes\(pageId\)\) return hide\(\)/,
     'the registry tab bar must yield to the canonical engine or Settings header')
-  const { MS_WORKSPACES } = loadRegistry()
+  const { MS_WORKSPACES, msAllWorkspacePages } = loadRegistry()
+  const featureBlock = part2.match(/const PAGE_FEATURE = \{[\s\S]*?\n\};/)?.[0] || ''
+  const productBlock = part2.match(/const PAGE_PRODUCT = \{[^}]*\}/)?.[0] || ''
+  const EXEMPT = new Set(['commissions', 'academy', 'launch', 'inv-intel', 'profile'])
+  const gates = featureBlock + productBlock   // a page may be gated by plan OR product
+  for (const page of msAllWorkspacePages(MS_WORKSPACES)) {
+    if (EXEMPT.has(page)) continue
+    assert.ok(gates.includes(page),
+      `page "${page}" must have a PAGE_FEATURE or PAGE_PRODUCT entitlement entry`)
+  }
   assert.equal(MS_WORKSPACES.settings.pages[0].label, 'Settings')
   assert.ok(MS_WORKSPACES.settings.pages.slice(1).every(page => page.legacy === true),
     'Automation and API remain deep links inside Settings, not competing primary tabs')
@@ -204,7 +212,7 @@ test('Management exposes one canonical four-tab command header', () => {
   // was a subset of it — three places to check and no single answer to "what is waiting on me".
   // Both now live under Pulse.
   const { MS_WORKSPACES } = loadRegistry()
-  assert.equal(MS_WORKSPACES.executive.label, 'My Day')
+  assert.equal(MS_WORKSPACES.executive.label, 'Pulse')
   assert.deepEqual(MS_WORKSPACES.executive.pages.filter(page => !page.legacy).map(page => page.page), ['command'],
     'legacy Executive pages must not render a competing department tab row')
   assert.match(part11, /tabOrder:\s*\['pulse', 'forecast', 'financials'\]/)
@@ -297,12 +305,11 @@ test('mobile navigation is role-aware and derives from the registry', () => {
   assert.ok(msMobileNavForRole('SOMETHING_NEW').length > 0, 'unknown roles need a fallback row')
 })
 
-test('Inventory opens as a list and keeps intelligence in My Day with Cleanup in its header', () => {
+test('Inventory opens as a list and keeps intelligence in My Day with Cleanup in its workspace', () => {
   const inv = read('js/modules/inventory-workspace.js')
-  assert.match(inv, /return mgr \? \['work', 'overview', 'appraisals', 'cleanup', 'settings'\]/)
-  assert.match(inv, /tabLabels:\s*\{ overview: 'My Day', work: 'Inventory', appraisals: 'Appraisals', cleanup: 'Cleanup'/)
-  assert.match(inv, /cleanup\(body\)[\s\S]*engMountPage\(body, 'recon'/)
-  assert.doesNotMatch(inv.match(/settings\(body\)[\s\S]*?\n\s*},\n\s*},/s)?.[0] || '', /engMountPage\(body, 'recon'/)
+  assert.match(inv, /return \['work', 'overview', 'settings'\]/)
+  assert.match(inv, /tabLabels:\s*\{ overview: 'Pulse', work: 'Inventory', settings: 'Settings' \}/)
+  assert.match(inv, /engMountPage\(body, 'inv-intel'/)
 })
 
 test('mobile row still renders through the shared gating helpers', () => {

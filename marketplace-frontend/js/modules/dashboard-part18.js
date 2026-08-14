@@ -587,10 +587,10 @@ async function loadAutoBuilderPage() {
                 <div class="text-indigo-600 dark:text-indigo-400 font-bold">⚡ TRIGGER: New Lead Created in CRM</div>
                 <div class="text-slate-500 pl-4">└─ ⏱ Wait 90 seconds</div>
                 <div class="text-slate-500 pl-4">└─ ❓ IF no human rep response:</div>
-                <div class="text-slate-700 dark:text-slate-300 pl-8">├── 💬 Send SMS: "Hi {CUSTOMER_NAME}! This is {REP_NAME} at {STORE_NAME}..."</div>
-                <div class="text-slate-700 dark:text-slate-300 pl-8">├── 👤 Auto-assign round-robin salesperson</div>
+                <div class="text-slate-700 dark:text-slate-300 pl-8">├──  Send SMS: "Hi {CUSTOMER_NAME}! This is {REP_NAME} at {STORE_NAME}..."</div>
+                <div class="text-slate-700 dark:text-slate-300 pl-8">├──  Auto-assign round-robin salesperson</div>
                 <div class="text-slate-500 pl-8">└── ⏱ Wait 3 days → IF no response → ✉️ Send follow-up email</div>
-                <div class="text-emerald-600 dark:text-emerald-400 font-bold pl-4">🛑 STOP CONDITION: Customer books appointment or replies</div>
+                <div class="text-emerald-600 dark:text-emerald-400 font-bold pl-4"> STOP CONDITION: Customer books appointment or replies</div>
               </div>
             </div>
 
@@ -614,9 +614,9 @@ async function loadAutoBuilderPage() {
               <div class="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 text-xs font-mono space-y-1.5">
                 <div class="text-indigo-600 dark:text-indigo-400 font-bold">⚡ TRIGGER: Vehicle Delivery Completed</div>
                 <div class="text-slate-500 pl-4">└─ ⏱ Wait 24 hours</div>
-                <div class="text-slate-700 dark:text-slate-300 pl-4">└─ 💬 Send Thank-You SMS from assigned rep</div>
+                <div class="text-slate-700 dark:text-slate-300 pl-4">└─  Send Thank-You SMS from assigned rep</div>
                 <div class="text-slate-500 pl-4">└─ ⏱ Wait 5 days</div>
-                <div class="text-slate-700 dark:text-slate-300 pl-4">└─ 💬 Send Review Request SMS with sentiment check</div>
+                <div class="text-slate-700 dark:text-slate-300 pl-4">└─  Send Review Request SMS with sentiment check</div>
                 <div class="text-amber-600 dark:text-amber-400 pl-8">├── IF negative sentiment: Create Urgent GM Manager Task (Do not send review link)</div>
                 <div class="text-emerald-600 dark:text-emerald-400 pl-8">└── IF positive sentiment: Redirect to 5-Star Google Review link</div>
               </div>
@@ -643,7 +643,7 @@ async function loadAutoBuilderPage() {
                 <div class="text-indigo-600 dark:text-indigo-400 font-bold">⚡ TRIGGER: Service Repair Order Closed</div>
                 <div class="text-slate-500 pl-4">└─ ⏱ Wait 6 months OR +5,000 miles</div>
                 <div class="text-slate-700 dark:text-slate-300 pl-4">└─ ✉️ Send Maintenance Reminder Email + SMS with 1-click booking link</div>
-                <div class="text-emerald-600 dark:text-emerald-400 font-bold pl-4">🛑 STOP CONDITION: Service appointment booked</div>
+                <div class="text-emerald-600 dark:text-emerald-400 font-bold pl-4"> STOP CONDITION: Service appointment booked</div>
               </div>
             </div>
           </div>

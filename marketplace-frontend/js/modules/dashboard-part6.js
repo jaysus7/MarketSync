@@ -580,6 +580,8 @@ async function loadDeskDeal() {
 async function deskCustomerSearch(q) {
   const box = document.getElementById('desk-results');
   if (!box) return;
+  q = (q || '').trim();
+  if (q.length < 2) { box.classList.add('hidden'); box.innerHTML = ''; return; }
   try {
     const d = await apiGetJson(`/deals/customers?q=${encodeURIComponent(q)}`, { retries: 1 });
     const rows = d?.rows || [];
@@ -932,6 +934,29 @@ function deskRenderForm(contactId) {
         </div>
       </div>
     </div>`;
+
+  // Wire customer search for the desking block.
+  const ds = document.getElementById('desk-search');
+  if (ds) {
+    ds.addEventListener('input', () => {
+      clearTimeout(__deskSearchTimer);
+      const q = ds.value.trim();
+      if (q.length < 2) {
+        const box = document.getElementById('desk-results');
+        if (box) { box.classList.add('hidden'); box.innerHTML = ''; }
+        return;
+      }
+      __deskSearchTimer = setTimeout(() => deskCustomerSearch(q), 220);
+    });
+    ds.addEventListener('focus', () => {
+      const q = ds.value.trim();
+      if (q.length >= 2) deskCustomerSearch(q);
+      else {
+        const box = document.getElementById('desk-results');
+        if (box) { box.classList.add('hidden'); box.innerHTML = ''; }
+      }
+    });
+  }
 
   // Wire inventory search for the vehicle block.
   const vs = document.getElementById('desk-veh-search');

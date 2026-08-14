@@ -993,7 +993,7 @@ window.openLeaderboardOnDash = openLeaderboardOnDash;
 // registry file ever fails to load (nav is presentation; the API still enforces
 // permissions server-side).
 const DEPARTMENTS = (typeof MS_WORKSPACES !== 'undefined' && MS_WORKSPACES) || {
-  executive: { label: 'MyDay', icon: 'chart', accent: 'indigo', mgr: true, pages: [{ page: 'command', label: 'Pulse' }] },
+  executive: { label: 'Pulse', icon: 'chart', accent: 'indigo', mgr: true, pages: [{ page: 'command', label: 'Pulse' }] },
   sales: {
     label: 'Sales', icon: 'currency', accent: 'amber',
     pages: [

@@ -1980,6 +1980,21 @@
             </div>
           </div>
         </div>
+        <!-- Department Selector Tabs -->
+        <div class="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800">
+          <button type="button" onclick="switchLeaderboardDept('facebook')" id="lb-dept-facebook" class="lb-dept-btn px-3.5 py-2 rounded-xl text-xs font-extrabold transition bg-indigo-600 text-white shadow-sm flex items-center gap-1.5 shrink-0">
+            <span>Facebook AutoPoster</span>
+          </button>
+          <button type="button" onclick="switchLeaderboardDept('sales')" id="lb-dept-sales" class="lb-dept-btn px-3.5 py-2 rounded-xl text-xs font-bold transition bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 shrink-0">
+            <span>Internal Sales</span>
+          </button>
+          <button type="button" onclick="switchLeaderboardDept('service')" id="lb-dept-service" class="lb-dept-btn px-3.5 py-2 rounded-xl text-xs font-bold transition bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 shrink-0">
+            <span>Service Department</span>
+          </button>
+          <button type="button" onclick="switchLeaderboardDept('fni')" id="lb-dept-fni" class="lb-dept-btn px-3.5 py-2 rounded-xl text-xs font-bold transition bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 shrink-0">
+            <span>F&amp;I Finance</span>
+          </button>
+        </div>
 
         <!-- ── Legend (compact, always visible at top) ── -->
         <div class="lb-legend border-b border-slate-200 dark:border-slate-800 pb-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -2289,7 +2304,7 @@
         </div>
 
         <!-- ── Active content ─────────────────────────────────────────────── -->
-        <div id="inv-intel-active-content" class="hidden space-y-5">
+        <div id="inv-intel-active-content" class="space-y-5">
 
           <!-- MarketCheck live-data status — tells the dealer if the licensed feed is on -->
           <div id="marketcheck-status" class="hidden text-xs font-semibold px-3 py-2 rounded-lg border flex items-center gap-2"></div>
