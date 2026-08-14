@@ -27,9 +27,9 @@ const MS_WORKSPACES = {
   // in the day rather than in a rail nobody scrolls to. Outstanding courses surface in
   // My Day itself and disappear as they are completed.
   executive: {
-    label: 'My Day', icon: 'chart', accent: 'indigo', mgr: true,
+    label: 'Pulse', icon: 'chart', accent: 'indigo', mgr: true,
     pages: [
-      { page: 'command', label: 'My Day' },
+      { page: 'command', label: 'Pulse' },
       // Academy belongs to the day, but as `legacy` — a plain page here would draw a
       // SECOND tab row above the command engine's own header, which is the exact
       // duplicate-header problem this registry exists to prevent. What the user
@@ -61,6 +61,7 @@ const MS_WORKSPACES = {
       { page: 'crm', label: 'Customers', legacy: true },
       { page: 'appointments', label: 'Appointments', legacy: true },
       { page: 'tasks', label: 'Tasks', legacy: true },
+      { page: 'ai-inbox', label: 'Messaging', legacy: true },
       { page: 'leads', label: 'Leads', mgr: true, legacy: true },
       { page: 'insights', label: 'Insights', mgr: true, legacy: true },
       { page: 'commissions', label: 'My Commission', legacy: true },
@@ -199,7 +200,7 @@ const MS_WORKSPACES = {
 
 // Bottom/system rail. `profile` is the header gear (always reachable, every tier).
 const MS_SYSTEM_NAV = [
-  { id: 'ask', label: 'Ask MarketSync', icon: 'sparkles', action: 'msAskOpen' },
+  { id: 'messaging', label: 'Messaging', icon: 'chat', page: 'ai-inbox' },
   { id: 'notifications', label: 'Notifications', icon: 'bolt', action: 'msNotificationsOpen' },
   { id: 'settings', label: 'Settings', icon: 'shield', page: 'profile' },
 ];

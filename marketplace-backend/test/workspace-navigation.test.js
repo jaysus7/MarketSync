@@ -203,7 +203,7 @@ test('Management exposes one canonical four-tab command header', () => {
   // was a subset of it — three places to check and no single answer to "what is waiting on me".
   // Both now live under Pulse.
   const { MS_WORKSPACES } = loadRegistry()
-  assert.equal(MS_WORKSPACES.executive.label, 'My Day')
+  assert.equal(MS_WORKSPACES.executive.label, 'Pulse')
   assert.deepEqual(MS_WORKSPACES.executive.pages.filter(page => !page.legacy).map(page => page.page), ['command'],
     'legacy Executive pages must not render a competing department tab row')
   assert.match(part11, /tabOrder:\s*\['overview', 'pulse', 'forecast', 'financials'\]/)

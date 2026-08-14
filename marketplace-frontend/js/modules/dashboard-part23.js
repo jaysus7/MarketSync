@@ -90,11 +90,9 @@ function updateAiDockVisibility() {
   const btn = document.getElementById('ai-dock-btn');
   const panel = document.getElementById('ai-dock-panel');
   if (!btn) return;
-  const show = !!(__aiBoostActive || __invIntelActive);
   const panelOpen = panel && !panel.classList.contains('hidden');
-  // Launcher hides while the panel is open, or when not entitled.
-  btn.classList.toggle('hidden', !show || panelOpen);
-  if (!show && panel) panel.classList.add('hidden');
+  // Launcher hides while the panel is open; otherwise floating bubble on bottom right is visible.
+  btn.classList.toggle('hidden', panelOpen);
   const attach = document.getElementById('ai-dock-attach');
   const canImportCommission = profileContext?.workspace !== 'saas_admin' && ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(profileContext?.role);
   if (attach) attach.classList.toggle('hidden', !canImportCommission);
