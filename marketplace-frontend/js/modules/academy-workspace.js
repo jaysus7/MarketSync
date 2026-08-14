@@ -1,24 +1,9 @@
 /**
  * Academy — Your Learning, and credentials that required the work (Phase 7 PR 7.3).
  *
- * WHAT THIS REPLACES: five hard-coded courses and a "Complete Course & Issue Diploma" button
- * that issued a certificate because somebody clicked it. Nothing was assigned, nothing was
- * tracked, and the diploma meant nothing — which is worse than having no diploma, because the
- * dealership was publishing a claim about a person that nobody had checked.
- *
- * Three rules carried through from the backend:
- *
- *   • **Your Learning is what YOU need.** Required, then your department's foundations, then
- *     advanced material offered rather than pushed. The full library is searchable on demand
- *     and is never the default view — a wall of courses is not a learning experience.
- *
- *   • **Progress is the server's answer, not this file's.** Nothing here marks a course
- *     complete or a credential earned. `issueCertification` refuses unless every required
- *     course is actually completed, and this screen renders that refusal rather than routing
- *     around it.
- *
- *   • **A credential page is public.** The verification link is shared on LinkedIn, so it
- *     carries the credential and nothing about the employment record behind it.
+ * Unified single-page experience: courses show their associated certifications directly
+ * under each module, progress is tracked deterministically by the server, and credentials
+ * are verified publicly.
  */
 
 const ACAD_LEVELS = [
@@ -34,7 +19,6 @@ const acadTone = (c) => c.overdue ? 'text-rose-600 dark:text-rose-400'
   : c.status === 'completed' ? 'text-emerald-600 dark:text-emerald-400'
   : c.status === 'in_progress' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500';
 
-// Storage states are written for a database, not for somebody standing at a desk.
 const ACAD_STATUS = {
   not_started: 'Not started', assigned: 'Not started', in_progress: 'In progress',
   completed: 'Completed', waived: 'Waived', failed: 'Not passed', overdue: 'Overdue',
@@ -43,11 +27,37 @@ const acadStatus = (c) => c.overdue ? 'Overdue' : (ACAD_STATUS[c.status] || 'Not
 const acadMins = (m) => m ? `${m} min` : '';
 const acadDate = (d) => d ? String(d).slice(0, 10) : '';
 
-function acadCourseRow(c) {
+/**
+ * Course row with embedded certification path badges rendered directly beneath the course description.
+ */
+function acadCourseRow(c, certsMap = new Map(), heldByKey = new Map(), doneSet = new Set()) {
   const due = c.due_at ? `Due ${acadDate(c.due_at)}` : '';
   const isDone = c.status === 'completed' || c.status === 'waived';
   const pct = isDone ? 100 : (c.status === 'in_progress' ? 45 : 0);
   const meta = [c.department || 'Everyone', acadMins(c.estimated_minutes), due].filter(Boolean).join(' · ');
+  const courseKey = c.course_key || c.id;
+
+  // Find all certifications that require this course
+  const relatedCerts = certsMap.get(courseKey) || [];
+  const certHtml = relatedCerts.length ? `
+    <div class="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/40 flex flex-wrap items-center gap-2">
+      <span class="text-[10px] font-black uppercase tracking-wider text-slate-400">Certification Path:</span>
+      ${relatedCerts.map(cert => {
+        const held = heldByKey.get(cert.certification_key);
+        const totalReq = (cert.courses || []).length;
+        const completedReq = (cert.courses || []).filter(k => doneSet.has(k)).length;
+        if (held) {
+          return `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-extrabold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            <span>Certification Earned: ${esc(cert.name)}</span>
+            <button onclick="acadOpenCredential('${esc(held.credential_id)}')" class="underline hover:opacity-80 font-bold ml-1">View Credential</button>
+          </span>`;
+        }
+        return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+          ${esc(cert.name)} (${completedReq}/${totalReq} completed)
+        </span>`;
+      }).join('')}
+    </div>
+  ` : '';
 
   return `<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
     <div class="min-w-0 flex-1 space-y-1">
@@ -65,6 +75,8 @@ function acadCourseRow(c) {
         </div>
         <span class="text-[10px] font-extrabold ${isDone ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">${pct}%</span>
       </div>
+
+      ${certHtml}
     </div>
 
     <div class="shrink-0 flex items-center gap-2 text-right">
@@ -76,23 +88,13 @@ function acadCourseRow(c) {
   </div>`;
 }
 
-/**
- * A certification, and honestly how far off it is.
- *
- * The outstanding count is what the server would refuse on, so the button and the refusal can
- * never disagree.
- */
 function acadCertRow(cert, held, outstanding) {
-  const earned = !!held
-  const tone = earned ? 'text-emerald-600 dark:text-emerald-400' : outstanding ? 'text-slate-500' : 'text-amber-600 dark:text-amber-400'
-  const right = earned ? (held.valid === false ? 'Expired' : 'Earned') : outstanding ? `${outstanding} left` : 'Ready'
-  // The credential ID is deliberately NOT in this row. Found by rendering at 390px: it landed
-  // in a truncating line and came out as "Credential MS-SALES-8fJq2…", which reads as a whole
-  // identifier and is not one. An ID somebody might read out or paste has to be shown in full
-  // or not at all, so it lives in the credential modal where it can wrap.
+  const earned = !!held;
+  const tone = earned ? 'text-emerald-600 dark:text-emerald-400' : outstanding ? 'text-slate-500' : 'text-amber-600 dark:text-amber-400';
+  const right = earned ? (held.valid === false ? 'Expired' : 'Earned') : outstanding ? `${outstanding} left` : 'Ready';
   const sub = earned
     ? (held.expires_on ? `Expires ${acadDate(held.expires_on)}` : 'Does not expire')
-    : `${cert.department || 'MarketSync'}${cert.validity_months ? ` · valid ${cert.validity_months} months` : ''}`
+    : `${cert.department || 'MarketSync'}${cert.validity_months ? ` · valid ${cert.validity_months} months` : ''}`;
 
   return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
     <div class="min-w-0 flex-1">
@@ -102,7 +104,7 @@ function acadCertRow(cert, held, outstanding) {
     </div>
     <div class="shrink-0 text-right text-[12px] font-bold ${tone}">${esc(right)}</div>
     ${earned ? `<button onclick="acadOpenCredential('${esc(held.credential_id)}')" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Credential</button>` : ''}
-  </div>`
+  </div>`;
 }
 
 function acadLibrarySearch(v) { __acadLibraryQuery = v; }
@@ -110,38 +112,29 @@ window.acadLibrarySearch = acadLibrarySearch;
 function acadLibraryDept(v) { __acadLibraryDept = v; acadRunLibrary(); }
 window.acadLibraryDept = acadLibraryDept;
 
-/**
- * The library is fetched only when somebody asks for it. Loading 189 courses to render a path
- * of nine is how the old screen became a wall.
- */
 async function acadRunLibrary() {
-  const out = document.getElementById('acad-library-results')
-  if (!out) return
-  out.innerHTML = '<div class="py-6 text-center text-[13px] text-slate-400">Searching…</div>'
+  const out = document.getElementById('acad-library-results');
+  if (!out) return;
+  out.innerHTML = '<div class="py-6 text-center text-[13px] text-slate-400">Searching…</div>';
   try {
-    const qs = new URLSearchParams()
-    if (__acadLibraryQuery) qs.set('q', __acadLibraryQuery)
-    if (__acadLibraryDept) qs.set('department', __acadLibraryDept)
-    const d = await apiGetJson(`/academy/library${qs.toString() ? `?${qs}` : ''}`)
-    const courses = d.courses || []
+    const qs = new URLSearchParams();
+    if (__acadLibraryQuery) qs.set('q', __acadLibraryQuery);
+    if (__acadLibraryDept) qs.set('department', __acadLibraryDept);
+    const d = await apiGetJson(`/academy/library${qs.toString() ? `?${qs}` : ''}`);
+    const courses = d.courses || [];
     out.innerHTML = courses.length
       ? courses.map(c => acadCourseRow({ ...c, status: 'not_started' })).join('')
-      : engEmpty('No course matches that search.')
+      : engEmpty('No course matches that search.');
   } catch (e) {
-    out.innerHTML = engEmpty(`The library could not be loaded — ${esc(e.message)}`)
+    out.innerHTML = engEmpty(`The library could not be loaded — ${esc(e.message)}`);
   }
 }
 window.acadRunLibrary = acadRunLibrary;
 
-/**
- * The credential. Rendered from the PUBLIC verification endpoint, deliberately: what the
- * holder sees here is exactly what anybody following the link sees, so nobody shares a URL
- * expecting it to show more or less than it does.
- */
 async function acadOpenCredential(credentialId) {
   try {
-    const cred = await apiGetJson(`/verify/${encodeURIComponent(credentialId)}`)
-    const url = `${window.location.origin}/verify.html?id=${encodeURIComponent(credentialId)}`
+    const cred = await apiGetJson(`/verify/${encodeURIComponent(credentialId)}`);
+    const url = `${window.location.origin}/verify.html?id=${encodeURIComponent(credentialId)}`;
     const linkedin = 'https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME'
       + `&name=${encodeURIComponent(cred.name)}`
       + '&organizationName=MarketSync'
@@ -149,7 +142,7 @@ async function acadOpenCredential(credentialId) {
       + `&issueMonth=${Number(String(cred.issued_on || '').slice(5, 7)) || 1}`
       + `&certUrl=${encodeURIComponent(url)}`
       + `&certId=${encodeURIComponent(credentialId)}`
-      + (cred.expires_on ? `&expirationYear=${String(cred.expires_on).slice(0, 4)}&expirationMonth=${Number(String(cred.expires_on).slice(5, 7)) || 1}` : '')
+      + (cred.expires_on ? `&expirationYear=${String(cred.expires_on).slice(0, 4)}&expirationMonth=${Number(String(cred.expires_on).slice(5, 7)) || 1}` : '');
 
     automationModal(`
       <div class="space-y-4">
@@ -174,14 +167,14 @@ async function acadOpenCredential(credentialId) {
           <button onclick="acadCopy('${esc(url)}')" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[13px] font-bold">Copy link</button>
         </div>
       </div>
-    `, 'max-w-lg')
-  } catch (e) { showToast(e.message, 'error') }
+    `, 'max-w-lg');
+  } catch (e) { showToast(e.message, 'error'); }
 }
 window.acadOpenCredential = acadOpenCredential;
 
 function acadCopy(text) {
-  try { navigator.clipboard.writeText(text); showToast('Link copied ', 'success') }
-  catch { showToast('Copy is not available in this browser', 'error') }
+  try { navigator.clipboard.writeText(text); showToast('Link copied ', 'success'); }
+  catch { showToast('Copy is not available in this browser', 'error'); }
 }
 window.acadCopy = acadCopy;
 
@@ -189,10 +182,9 @@ ENGINES['academy'] = {
   rootId: 'academy-root', title: 'Academy',
   subtitle: 'What you need to know, and credentials that required the work',
   icon: 'sparkles', accent: 'violet',
-  tabLabels: { overview: 'Your Learning', work: 'Certifications', insights: 'Team' },
+  tabLabels: { overview: 'Your Learning', work: 'Certifications' },
   get tabOrder() {
-    const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role)
-    return mgr ? ['overview', 'work', 'insights'] : ['overview', 'work']
+    return ['overview', 'work'];
   },
 
   quickActions: [
@@ -210,42 +202,52 @@ ENGINES['academy'] = {
     })),
 
   fetch: async () => {
-    // Each read is allowed to fail on its own. A person without `staff.training.view` has no
-    // team data, and that is not an error worth blanking their own path over.
-    const [path, certs, mine, attention] = await Promise.all([
+    const [path, certs, mine] = await Promise.all([
       apiGetJson('/academy/my-path').catch(e => ({ error: e.message })),
       apiGetJson('/academy/certifications').catch(() => ({ certifications: [] })),
       apiGetJson('/academy/my-credentials').catch(() => ({ certifications: [] })),
-      apiGetJson('/academy/attention').catch(() => null),
-    ])
+    ]);
     return {
       path, error: path?.error || null,
       certifications: certs.certifications || [],
       held: (mine.certifications || []).filter(c => c.credential_id),
-      attention: attention?.items || null,
-    }
+    };
   },
 
   tabs: {
-    /** Your Learning — Required, then your department's foundations, then advanced. */
+    /** Your Learning — Unified single page with certifications under each course */
     overview(body, d) {
       if (d.error) {
         body.innerHTML = engCard('Your learning', engEmpty(
-          `Your path could not be loaded — ${esc(d.error)}`))
-        return
+          `Your path could not be loaded — ${esc(d.error)}`));
+        return;
       }
-      const p = d.path || {}
+      const p = d.path || {};
+
+      // Map each course key to certifications that require it
+      const certsMap = new Map();
+      (d.certifications || []).forEach(cert => {
+        (cert.courses || []).forEach(courseKey => {
+          if (!certsMap.has(courseKey)) certsMap.set(courseKey, []);
+          certsMap.get(courseKey).push(cert);
+        });
+      });
+
+      const heldByKey = new Map((d.held || []).map(c => [c.certification_key, c]));
+      const doneSet = new Set([...(p.required || []), ...(p.foundations || []), ...(p.advanced || [])]
+        .filter(c => c.status === 'completed' || c.status === 'waived').map(c => c.course_key));
+
       const sections = ACAD_LEVELS.map(([key, label, blurb]) => {
-        const list = p[key] || []
+        const list = p[key] || [];
         return engCard(label, list.length
-          ? `<p class="text-[12px] text-slate-500 mb-1">${esc(blurb)}</p>${list.map(acadCourseRow).join('')}`
+          ? `<p class="text-[12px] text-slate-500 mb-1">${esc(blurb)}</p>${list.map(c => acadCourseRow(c, certsMap, heldByKey, doneSet)).join('')}`
           : engEmpty(key === 'required'
             ? 'Nothing is required of you right now.'
-            : 'Nothing here for your role and department yet.'))
-      }).join('')
+            : 'Nothing here for your role and department yet.'));
+      }).join('');
 
-      const outstanding = p.outstanding_required || 0
-      const overdue = p.overdue_required || 0
+      const outstanding = p.outstanding_required || 0;
+      const overdue = p.overdue_required || 0;
 
       const proactiveAiPanel = `
         <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg border border-slate-800">
@@ -267,6 +269,23 @@ ENGINES['academy'] = {
         </div>
       `;
 
+      // Certifications summary on main page
+      const mine = (d.certifications || []).filter(c => heldByKey.has(c.certification_key));
+      const available = (d.certifications || []).filter(c => !heldByKey.has(c.certification_key));
+      const outstandingFor = (cert) => (cert.courses || []).filter(k => !doneSet.has(k)).length;
+
+      const certsOverviewCard = engCard('MarketSync Certifications & Credentials', `
+        <p class="text-[12px] text-slate-500 mb-3">Certifications are issued automatically once all required courses are completed.</p>
+        ${mine.length ? `<div class="mb-3">
+          <div class="text-[11px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">Earned Credentials</div>
+          ${mine.map(c => acadCertRow(c, heldByKey.get(c.certification_key), 0)).join('')}
+        </div>` : ''}
+        ${available.length ? `<div>
+          <div class="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-1">Available Certifications</div>
+          ${available.map(c => acadCertRow(c, null, outstandingFor(c))).join('')}
+        </div>` : ''}
+      `);
+
       body.innerHTML = `
         ${proactiveAiPanel}
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
@@ -276,6 +295,7 @@ ENGINES['academy'] = {
           ${engKpi('Advanced', (p.advanced || []).length)}
         </div>
         ${sections}
+        ${certsOverviewCard}
         ${engCard('Reference library', `
           <p class="text-[12px] text-slate-500 mb-2">Everything else MarketSync has written, searchable. It is not part of your path — nothing here is required of you.</p>
           <div class="flex flex-wrap gap-2 mb-2">
@@ -286,24 +306,22 @@ ENGINES['academy'] = {
           </div>
           <div id="acad-library-results"></div>
         `)}
-      `
+      `;
     },
 
-    /** What you hold, and what you could earn — with the work each one still needs. */
+    /** Certifications tab */
     work(body, d) {
-      const heldByKey = new Map((d.held || []).map(c => [c.certification_key, c]))
-      const p = d.path || {}
-      // Everything still outstanding on this person's path, by key — the same fact the server
-      // refuses on, so the screen never promises a credential the API would decline.
+      const heldByKey = new Map((d.held || []).map(c => [c.certification_key, c]));
+      const p = d.path || {};
       const done = new Set([...(p.required || []), ...(p.foundations || []), ...(p.advanced || [])]
-        .filter(c => c.status === 'completed' || c.status === 'waived').map(c => c.course_key))
+        .filter(c => c.status === 'completed' || c.status === 'waived').map(c => c.course_key));
 
-      const mine = (d.certifications || []).filter(c => heldByKey.has(c.certification_key))
-      const available = (d.certifications || []).filter(c => !heldByKey.has(c.certification_key))
-      const outstandingFor = (cert) => (cert.courses || []).filter(k => !done.has(k)).length
+      const mine = (d.certifications || []).filter(c => heldByKey.has(c.certification_key));
+      const available = (d.certifications || []).filter(c => !heldByKey.has(c.certification_key));
+      const outstandingFor = (cert) => (cert.courses || []).filter(k => !done.has(k)).length;
 
       body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('Credentials held', mine.length)}
           ${engKpi('Available', available.length)}
         </div>
@@ -313,35 +331,11 @@ ENGINES['academy'] = {
         ${engCard('Available certifications', available.length
           ? available.map(c => acadCertRow(c, null, outstandingFor(c))).join('')
           : engEmpty('No certifications are published yet.'))}
-        <p class="text-[12px] text-slate-500 px-1">A MarketSync credential is issued only when every required course behind it is complete. It is a claim your dealership makes in public, so it is not something that can be granted on request.</p>
-      `
-    },
-
-    /** Team — required training that is late, and credentials about to lapse. */
-    insights(body, d) {
-      if (!d.attention) {
-        body.innerHTML = engCard('Team', engEmpty('You do not have permission to see team training.'))
-        return
-      }
-      const items = d.attention
-      const overdue = items.filter(x => x.kind === 'training_overdue')
-      const expiring = items.filter(x => x.kind === 'certification_expiring')
-      body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          ${engKpi('Training overdue', overdue.length, overdue.length ? 'text-rose-600 dark:text-rose-400' : '')}
-          ${engKpi('Credentials expiring', expiring.length, expiring.length ? 'text-amber-600 dark:text-amber-400' : '')}
-        </div>
-        ${engCard('Needs attention', items.length
-          ? items.map(x => `<div class="py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-              <div class="font-bold text-[13px] text-slate-900 dark:text-white">${esc(x.subject)}</div>
-              <div class="text-[12px] text-slate-400">${esc(x.reason || '')}</div>
-              <div class="text-[12px] font-semibold mt-0.5 text-amber-600 dark:text-amber-400">${esc(x.action || 'Review')}</div>
-            </div>`).join('')
-          : engEmpty('Nobody is behind on required training.'))}
-      `
+        <p class="text-[12px] text-slate-500 px-1 mt-2">A MarketSync credential is issued only when every required course behind it is complete. It is a claim your dealership makes in public, so it is not something that can be granted on request.</p>
+      `;
     },
   },
-}
+};
 
 function loadAcademyWorkspace() { renderEngine('academy') }
 window.loadAcademyWorkspace = loadAcademyWorkspace;

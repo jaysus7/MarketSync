@@ -2,7 +2,8 @@
 // Manages loaner vehicles, stock number links, mileage/fuel out & in tracking.
 
 import { getConfig, setConfig } from '../config-engine.js';
-import { requireAuth, requirePermission } from '../auth.js';
+import { requireAuth } from '../../middleware.js';
+import { requirePermission } from '../../authorization.js';
 
 const DEFAULT_LOANERS = [
   {
@@ -94,7 +95,7 @@ export async function saveLoanerFleet(dealershipId, loaners, req) {
   return loaners;
 }
 
-export function registerLoanerRoutes(app, { guard, canRead, canWork, canDesk }) {
+export function registerLoanerRoutes(app, { guard = (req, res) => true, canRead = (req, res, next) => next && next(), canWork = (req, res, next) => next && next(), canDesk = (req, res, next) => next && next() } = {}) {
   app.get('/service-engine/loaners', requireAuth, canRead, async (req, res) => {
     if (!guard(req, res)) return;
     try {

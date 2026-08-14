@@ -8,6 +8,7 @@
   <link rel="canonical" href="https://marketsync.link/affiliates.html">
   <link rel="icon" type="image/png" href="/favicon.png">
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="password-toggle.js" defer></script>
   <script>tailwind = { config: { darkMode: 'media' } }</script>
     <!-- Automatic OS dark/light before first paint (no flash) -->
     <script>(function(){try{if(window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.classList.add('dark');}catch(e){}})();</script>
@@ -70,7 +71,9 @@
         <div><label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Email</label>
           <input id="s-email" type="email" required class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
         <div><label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Password</label>
-          <input id="s-password" type="password" required minlength="12" placeholder="At least 12 characters" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+          <div class="relative w-full">
+            <input id="s-password" type="password" required minlength="12" placeholder="At least 12 characters" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+          </div></div>
         <button type="submit" id="s-submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-lg transition">Create affiliate account</button>
       </form>
       <p class="text-center text-xs text-slate-500 dark:text-slate-400 mt-4">Already an affiliate? <a href="affiliate.html" class="text-indigo-600 dark:text-indigo-400 hover:underline">Sign in</a></p>

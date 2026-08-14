@@ -632,13 +632,15 @@ function fniCredsCard(p) {
   const cfg = p.lender_code_map || {};
   const fields = (p.fields || []).map(f => {
     const id = `fni-${p.provider}-${f.key}`;
-    if (f.secret) {
-      const ph = p.configured ? '•••••••• (saved — leave blank to keep)' : (f.placeholder || '');
-      return `<div>
-        <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">${esc(f.label)}</label>
-        <input id="${id}" data-secret="1" type="password" autocomplete="off" placeholder="${esc(ph)}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
-      </div>`;
-    }
+      if (f.secret) {
+        const ph = p.configured ? '•••••••• (saved — leave blank to keep)' : (f.placeholder || '');
+        return `<div>
+          <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">${esc(f.label)}</label>
+          <div class="relative w-full">
+            <input id="${id}" data-secret="1" type="password" autocomplete="off" placeholder="${esc(ph)}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+          </div>
+        </div>`;
+      }
     return `<div>
       <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">${esc(f.label)}</label>
       <input id="${id}" data-secret="0" type="text" autocomplete="off" value="${esc(cfg[f.key] || '')}" placeholder="${esc(f.placeholder || '')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
@@ -720,7 +722,9 @@ function webhookCard(p, events) {
       </div>
       <div>
         <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Signing secret <span class="font-normal text-slate-400">(optional — signs each request as <code>X-MarketSync-Signature</code>)</span></label>
-        <input id="wh-secret" type="password" placeholder="${p.configured ? '•••••••• (saved — leave blank to keep)' : 'Leave blank for none'}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+        <div class="relative w-full">
+          <input id="wh-secret" type="password" placeholder="${p.configured ? '•••••••• (saved — leave blank to keep)' : 'Leave blank for none'}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+        </div>
       </div>
       <div>
         <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Events to send</label>
@@ -790,7 +794,9 @@ function twilioCard(p) {
       </div>
       <div>
         <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Auth Token</label>
-        <input id="tw-token" type="password" autocomplete="off" placeholder="${p.configured ? '•••••••• (saved — leave blank to keep)' : 'Your Twilio auth token'}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+        <div class="relative w-full">
+          <input id="tw-token" type="password" autocomplete="off" placeholder="${p.configured ? '•••••••• (saved — leave blank to keep)' : 'Your Twilio auth token'}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+        </div>
       </div>
       <div>
         <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">From number <span class="font-normal text-slate-400">(your Twilio number, E.164)</span></label>

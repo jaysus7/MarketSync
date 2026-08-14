@@ -27,6 +27,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@simplewebauthn/browser@11/dist/bundle/index.umd.min.js"></script>
+  <script src="password-toggle.js" defer></script>
   <style>
     /* Role-gated UI (dealer/admin/team links) stays hidden until the signed-in
        user's role is resolved, so a solo rep never sees dealer links flash on load.
@@ -423,7 +424,9 @@
             </div>
             <div>
               <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">New Password</label>
-              <input type="password" id="prof-password" placeholder="Leave blank to keep current" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+              <div class="relative w-full">
+                <input type="password" id="prof-password" placeholder="Leave blank to keep current" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+              </div>
             </div>
             <div data-dealer-only>
               <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">Dealership Name</label>
@@ -2138,7 +2141,9 @@
             <input type="text" id="invite-name" required placeholder="Full name" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
             <input type="email" id="invite-email" required placeholder="rep@dealership.com" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
           </div>
-          <input type="password" id="invite-password" placeholder="Temporary password (leave blank to auto-generate)" class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+          <div class="relative w-full">
+            <input type="password" id="invite-password" placeholder="Temporary password (leave blank to auto-generate)" class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+          </div>
           <div class="flex gap-2 justify-end">
             <button type="button" id="invite-cancel-btn" class="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white dark:hover:text-slate-700 dark:text-slate-200 px-3 py-2">Cancel</button>
             <button type="submit" id="invite-submit-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition">Create Rep</button>

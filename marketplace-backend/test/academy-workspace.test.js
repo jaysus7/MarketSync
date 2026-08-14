@@ -134,17 +134,11 @@ test('the library is fetched on demand, never rendered by default', () => {
 })
 
 test('the path tabs are labelled for a person, not for the engine', () => {
-  assert.match(workspace, /tabLabels: \{ overview: 'Your Learning', work: 'Certifications', insights: 'Team' \}/)
-  // Every tab the getter can return must have a label — a raw key leaks the engine's vocabulary.
+  assert.match(workspace, /tabLabels: \{ overview: 'Your Learning', work: 'Certifications' \}/)
   const labels = workspace.match(/tabLabels: \{([^}]+)\}/)[1]
-  for (const key of ['overview', 'work', 'insights']) {
+  for (const key of ['overview', 'work']) {
     assert.ok(labels.includes(`${key}:`), `tab ${key} has no label`)
   }
-})
-
-test('the Team tab is manager-only and says so when the data is not permitted', () => {
-  assert.match(workspace, /mgr \? \['overview', 'work', 'insights'\] : \['overview', 'work'\]/)
-  assert.match(workspace, /You do not have permission to see team training/)
 })
 
 test('a failed path is reported rather than rendered as an empty one', () => {
