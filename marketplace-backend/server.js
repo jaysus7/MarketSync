@@ -87,6 +87,7 @@ import { registerPublicApi } from './routes/public-api.js'
 import { registerPlaid } from './routes/plaid.js'
 import { registerAffiliate } from './routes/affiliate.js'
 import { registerHR } from './routes/hr.js'
+import { registerStaffChat } from './routes/staff-chat.js'
 
 const app = express()
 const PORT = process.env.PORT || 10000
@@ -219,6 +220,7 @@ registerPublicApi(app)
 registerPlaid(app)
 registerAffiliate(app)
 registerHR(app)
+registerStaffChat(app)
 registerWebhookRoutes(app)
 
 // Background event dispatcher and webhook retry worker: start only on dedicated worker instances (RUN_WORKERS=true)
