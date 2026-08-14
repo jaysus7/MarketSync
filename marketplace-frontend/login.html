@@ -96,10 +96,23 @@
     const API = 'https://vehicle-marketplace-s0e4.onrender.com';
     let mfaState = null;  // { factor_id, partial_token } when MFA challenge is pending
 
+    // Auto-bypass login and passkey prompt for 30 days on trusted computers
+    (function autoBypassIfRemembered() {
+      try {
+        const token = localStorage.getItem('token');
+        const until = Number(localStorage.getItem('ms_remember_until') || '0');
+        const loggedOut = sessionStorage.getItem('ms_logged_out');
+        if (token && until && Date.now() <= until && !loggedOut) {
+          window.location.replace('dashboard.html');
+        }
+      } catch (e) {}
+    })();
+
     // Persist the session. "Keep me signed in" stores a refresh token + a 30-day
     // window the dashboard uses to silently refresh the access token; unchecked
     // falls back to a 12-hour window.
     function storeSession(data) {
+      try { sessionStorage.removeItem('ms_logged_out'); } catch {}
       localStorage.setItem('token', data.access_token);
       localStorage.setItem('user', JSON.stringify(data.user));
       if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);

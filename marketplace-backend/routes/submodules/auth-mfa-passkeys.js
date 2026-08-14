@@ -302,6 +302,10 @@ export function registerAuthMfaPasskeyRoutes(app) {
   app.post('/auth/passkey/login/finish', rateLimit('passkey-login-finish', 20, 60 * 60 * 1000), async (req, res) => {
     try {
       const result = await finishPasskeyLogin({ body: req.body || {}, ip: getClientIp(req), userAgent: req.headers['user-agent'] })
+      if (result.ok && (result.userId || result.user?.id)) {
+        const uid = result.userId || result.user?.id
+        result.trusted_device_token = createTrustedDeviceToken(uid)
+      }
       res.json(result)
     } catch (err) {
       res.status(400).json({ error: err.message })
