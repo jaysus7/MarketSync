@@ -736,7 +736,77 @@ window.accHandleReceiptFileSelect = function(e) {
   reader.readAsDataURL(file);
 };
 
-// ── CUSTOM FINANCIAL ENTRY MODAL WITH RECEIPT REVIEW ───────────────────────
+window.accHandleProofPhotoSelected = function(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    const dataUrl = evt.target.result;
+    const imgHidden = document.getElementById('acc-modal-receipt-image');
+    const previewImg = document.getElementById('acc-proof-preview-img');
+    const previewBox = document.getElementById('acc-proof-preview-box');
+    const uploadBtns = document.getElementById('acc-proof-upload-btns');
+    const fileNameEl = document.getElementById('acc-proof-filename');
+    const statusEl = document.getElementById('acc-proof-status');
+
+    if (imgHidden) imgHidden.value = dataUrl;
+    if (previewImg) previewImg.src = dataUrl;
+    if (fileNameEl) fileNameEl.textContent = file.name || 'Proof Photo Attached';
+    if (previewBox) previewBox.classList.remove('hidden');
+    if (uploadBtns) uploadBtns.classList.add('hidden');
+
+    // Decode receipt details & auto-populate modal fields
+    const decoded = accDecodeReceiptImageData(dataUrl);
+
+    const amountInput = document.getElementById('acc-modal-amount');
+    const dateInput = document.getElementById('acc-modal-date');
+    const accountInput = document.getElementById('acc-modal-account');
+    const refInput = document.getElementById('acc-modal-ref');
+    const descInput = document.getElementById('acc-modal-desc');
+    const deptSelect = document.getElementById('acc-modal-dept');
+    const dirSelect = document.getElementById('acc-modal-direction');
+
+    if (amountInput && decoded.amount) amountInput.value = decoded.amount.toFixed(2);
+    if (dateInput && decoded.date) dateInput.value = decoded.date;
+    if (accountInput && decoded.account) accountInput.value = decoded.account;
+    if (refInput && decoded.vendor) refInput.value = decoded.vendor;
+    if (descInput && decoded.description) descInput.value = decoded.description;
+    if (deptSelect && decoded.department) {
+      const opt = Array.from(deptSelect.options).find(o => o.value === decoded.department || o.text.includes(decoded.department));
+      if (opt) deptSelect.value = opt.value;
+    }
+    if (dirSelect) dirSelect.value = 'out';
+
+    if (statusEl) {
+      statusEl.textContent = `✨ AI Extracted: ${accFmtMoney(decoded.amount)} (${decoded.vendor})`;
+      statusEl.className = 'text-[10px] text-emerald-600 dark:text-emerald-400 font-extrabold';
+    }
+
+    if (typeof showToast === 'function') {
+      showToast(`✨ AI decoded receipt! Auto-filled $${decoded.amount.toFixed(2)} for ${decoded.vendor}.`, 'success');
+    }
+  };
+  reader.readAsDataURL(file);
+};
+
+window.accRemoveProofPhoto = function() {
+  const imgHidden = document.getElementById('acc-modal-receipt-image');
+  const previewImg = document.getElementById('acc-proof-preview-img');
+  const previewBox = document.getElementById('acc-proof-preview-box');
+  const uploadBtns = document.getElementById('acc-proof-upload-btns');
+  const statusEl = document.getElementById('acc-proof-status');
+
+  if (imgHidden) imgHidden.value = '';
+  if (previewImg) previewImg.src = '';
+  if (previewBox) previewBox.classList.add('hidden');
+  if (uploadBtns) uploadBtns.classList.remove('hidden');
+  if (statusEl) {
+    statusEl.textContent = 'Ready to save with entry';
+    statusEl.className = 'text-[10px] text-emerald-600 dark:text-emerald-400 font-extrabold';
+  }
+};
+
+// ── CUSTOM FINANCIAL ENTRY MODAL WITH RECEIPT & PROOF REVIEW ───────────────────────
 window.accOpenCustomEntryModal = function(defaultDirection = 'in', initialData = null) {
   let modal = document.getElementById('acc-custom-entry-modal');
   if (!modal) {
@@ -779,7 +849,7 @@ window.accOpenCustomEntryModal = function(defaultDirection = 'in', initialData =
 
         <!-- Right Column (or Main): Expense / Income Form -->
         <div class="${hasReceipt ? 'md:col-span-7 space-y-3' : 'space-y-3'} text-xs font-bold">
-          ${hasReceipt ? `<input type="hidden" id="acc-modal-receipt-image" value="${esc(initialData.receipt_image)}">` : ''}
+          <input type="hidden" id="acc-modal-receipt-image" value="${esc(initialData?.receipt_image || '')}">
 
           <div>
             <label class="block text-slate-500 uppercase text-[11px] mb-1">Entry Type</label>
@@ -835,6 +905,40 @@ window.accOpenCustomEntryModal = function(defaultDirection = 'in', initialData =
           <div>
             <label class="block text-slate-500 uppercase text-[11px] mb-1">Description / Memo Notes</label>
             <input id="acc-modal-desc" type="text" value="${esc(initialData?.description || '')}" placeholder="e.g. Purchased detailing soaps for cleanup shop" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs">
+          </div>
+
+          <!-- Proof / Photo Attachment Container -->
+          <div class="space-y-1.5 p-3 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-950/50">
+            <div class="flex items-center justify-between">
+              <label class="block text-slate-500 uppercase text-[11px] font-bold">Proof / Receipt Photo Attachment</label>
+              <span class="text-[10px] text-slate-400 font-semibold">Snap photo or select file</span>
+            </div>
+
+            <!-- Hidden File & Camera Inputs -->
+            <input type="file" id="acc-proof-camera-input" accept="image/*" capture="environment" class="hidden" onchange="accHandleProofPhotoSelected(event)">
+            <input type="file" id="acc-proof-file-input" accept="image/*,.pdf" class="hidden" onchange="accHandleProofPhotoSelected(event)">
+
+            <!-- Preview Box -->
+            <div id="acc-proof-preview-box" class="${initialData?.receipt_image ? '' : 'hidden'} flex items-center gap-3 p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <img id="acc-proof-preview-img" src="${esc(initialData?.receipt_image || '')}" alt="Proof Attachment" class="h-14 w-14 object-cover rounded-lg border border-slate-200 dark:border-slate-700 shadow-xs">
+              <div class="flex-1 min-w-0">
+                <div class="font-bold text-slate-800 dark:text-slate-200 text-xs truncate" id="acc-proof-filename">Proof Photo Attached</div>
+                <div id="acc-proof-status" class="text-[10px] text-emerald-600 dark:text-emerald-400 font-extrabold">Ready to save with entry</div>
+              </div>
+              <button type="button" onclick="accRemoveProofPhoto()" class="px-2.5 py-1 text-[11px] font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg border border-rose-200 dark:border-rose-800 transition">Remove</button>
+            </div>
+
+            <!-- Action Buttons -->
+            <div id="acc-proof-upload-btns" class="${initialData?.receipt_image ? 'hidden' : ''} grid grid-cols-2 gap-2">
+              <button type="button" onclick="document.getElementById('acc-proof-camera-input').click()" class="flex items-center justify-center gap-2 py-2 px-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20 font-bold text-xs transition cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                <span>Take Photo</span>
+              </button>
+              <button type="button" onclick="document.getElementById('acc-proof-file-input').click()" class="flex items-center justify-center gap-2 py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold text-xs transition cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                <span>Upload File</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

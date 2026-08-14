@@ -28,7 +28,7 @@ const MS_WORKSPACES = {
   // in the day rather than in a rail nobody scrolls to. Outstanding courses surface in
   // My Day itself and disappear as they are completed.
   executive: {
-    label: 'Pulse', icon: 'chart', accent: 'indigo', mgr: true,
+    label: 'My Day', icon: 'chart', accent: 'indigo', mgr: true,
     pages: [
       { page: 'command', label: 'Pulse' },
       // Academy belongs to the day, but as `legacy` — a plain page here would draw a
@@ -58,7 +58,7 @@ const MS_WORKSPACES = {
   sales: {
     label: 'Sales', icon: 'currency', accent: 'amber',
     pages: [
-      { page: 'sales', label: 'Pulse' },
+      { page: 'sales', label: 'My Day' },
       { page: 'appraisal', label: 'Appraisals' },
       { page: 'crm', label: 'Customers', legacy: true },
       { page: 'appointments', label: 'Appointments', legacy: true },
@@ -72,7 +72,7 @@ const MS_WORKSPACES = {
   inventory: {
     label: 'Inventory', icon: 'gem', accent: 'sky',
     pages: [
-      { page: 'inventory-overview', label: 'Pulse' },
+      { page: 'inventory-overview', label: 'My Day' },
       { page: 'appraisal', label: 'Appraisals' },
       { page: 'inventory', label: 'Vehicles', invmode: 'manual', legacy: true },
       { page: 'equity', label: 'Equity Mining' },
@@ -84,7 +84,7 @@ const MS_WORKSPACES = {
   fni: {
     label: 'F&I', icon: 'shield', accent: 'indigo', roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'],
     pages: [
-      { page: 'fni-overview', label: 'Pulse' },
+      { page: 'fni-overview', label: 'My Day' },
       { page: 'fni', label: 'Deals' },
       { page: 'delivery', label: 'Delivery', mgr: true },
     ],
@@ -93,14 +93,14 @@ const MS_WORKSPACES = {
   recon: {
     label: 'Cleanup', icon: 'sparkles', accent: 'sky',
     pages: [
-      { page: 'recon', label: 'Pulse' },
+      { page: 'recon', label: 'My Day' },
     ],
   },
 
   service: {
     label: 'Service', icon: 'wrench', accent: 'sky', mgr: true,
     pages: [
-      { page: 'service-overview', label: 'Pulse' },
+      { page: 'service-overview', label: 'My Day' },
       { page: 'service-appointments', label: 'Schedule', legacy: true },
       { page: 'service-ros', label: 'Repair Orders', legacy: true },
     ],
@@ -109,7 +109,7 @@ const MS_WORKSPACES = {
   parts: {
     label: 'Parts', icon: 'gem', accent: 'amber', mgr: true,
     pages: [
-      { page: 'parts-overview', label: 'Pulse' },
+      { page: 'parts-overview', label: 'My Day' },
       { page: 'service-parts', label: 'Catalogue' },
     ],
   },
@@ -117,7 +117,7 @@ const MS_WORKSPACES = {
   accounting: {
     label: 'Accounting', icon: 'currency', accent: 'emerald', probe: '#grp-accounting-wrap', mgr: true,
     pages: [
-      { page: 'accounting-overview', label: 'Pulse' },
+      { page: 'accounting-overview', label: 'My Day' },
       { page: 'accounting', label: 'Overview' },
       { page: 'commissions', label: 'Payroll' },
     ],
@@ -126,7 +126,7 @@ const MS_WORKSPACES = {
   marketing: {
     label: 'Marketing', icon: 'megaphone', accent: 'violet', mgr: true,
     pages: [
-      { page: 'marketing-overview', label: 'Pulse' },
+      { page: 'marketing-overview', label: 'My Day' },
       { page: 'email-marketing', label: 'Campaigns' },
       { page: 'website', label: 'Website' },
       { page: 'video-studio', label: 'Video Studio' },
@@ -139,7 +139,7 @@ const MS_WORKSPACES = {
   people: {
     label: 'HR', icon: 'user', accent: 'emerald', mgr: true,
     pages: [
-      { page: 'people-overview', label: 'Pulse' },
+      { page: 'people-overview', label: 'My Day' },
       // Retained as redirect/deep-link identities only. The HR engine owns Staff and
       // Compliance, so these must never render a second department tab row.
       { page: 'sales-team', label: 'Employees', legacy: true },
@@ -160,6 +160,16 @@ const MS_WORKSPACES = {
     label: 'Academy', icon: 'sparkles', accent: 'violet', system: true,
     pages: [
       { page: 'academy', label: 'Your Learning' },
+    ],
+  },
+
+  settings: {
+    label: 'Settings', icon: 'shield', system: true,
+    pages: [
+      { page: 'profile', label: 'Settings' },
+      { page: 'automation-builder', label: 'Automation', legacy: true },
+      { page: 'config', label: 'Configuration', legacy: true },
+      { page: 'api-keys', label: 'API Keys', legacy: true },
     ],
   },
 

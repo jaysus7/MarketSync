@@ -274,7 +274,7 @@ ENGINES['inventory-overview'] = {
   // Insights and Inventory Intelligence both folded into My Day — the numbers belong where the
   // day is read, not behind a tab. Work is named for what it holds. Appraisals takes the slot
   // Insights had, and is the appraisal page itself rather than a summary of it.
-  tabLabels: { overview: 'Pulse', work: 'Inventory', appraisals: 'Appraisals', cleanup: 'Cleanup', settings: 'Settings' },
+  tabLabels: { overview: 'My Day', work: 'Inventory', appraisals: 'Appraisals', cleanup: 'Cleanup', settings: 'Settings' },
   get tabOrder() {
     const mgr = typeof profileContext !== 'undefined' ? ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role) : true;
     return mgr ? ['work', 'overview', 'appraisals', 'cleanup', 'settings'] : ['work', 'overview', 'appraisals', 'settings'];

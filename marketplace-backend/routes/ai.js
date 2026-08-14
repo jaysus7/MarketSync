@@ -158,7 +158,7 @@ export function registerAI(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { data, error } = await supabaseAdmin
       .from('dealerships')
-      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, vin_sticker_active, inv_intel_active, ai_vision_active, ai_boost_paid, inv_intel_paid, full_access_until, photo_background_url, country, province, city, postal_code, daily_digest_enabled, legal_name, street_address, phone, fax, hst_number, omvic_reg, plan, fb_only, desk_fees, ai_assistant_name, ai_internal_style, ai_customer_style, ai_knowledge, ai_knowledge_name, ai_tools_disabled, ai_assistant_reps, cost_tracking_enabled, cost_rep_visible, autoresponder_mode, autoresponder_channel, appraisal_recon_default, appraisal_gross_default')
+      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, vin_sticker_active, inv_intel_active, ai_vision_active, ai_boost_paid, inv_intel_paid, full_access_until, photo_background_url, country, province, city, postal_code, daily_digest_enabled, legal_name, street_address, phone, fax, hst_number, omvic_reg, plan, fb_only, desk_fees, ai_assistant_name, ai_internal_style, ai_customer_style, ai_knowledge, ai_knowledge_name, ai_tools_disabled, ai_assistant_reps, cost_tracking_enabled, cost_rep_visible, autoresponder_mode, autoresponder_channel, appraisal_recon_default, appraisal_gross_default, allow_quick_add_trade')
       .eq('id', req.dealershipId)
       .single()
     if (error) return res.status(500).json({ error: error.message })
@@ -191,6 +191,7 @@ export function registerAI(app) {
     const trialDaysLeft = fullAccess ? Math.ceil((fa.getTime() - Date.now()) / 86400000) : 0
     res.json({
       ...data,
+      allow_quick_add_trade: data.allow_quick_add_trade !== false,
       ai_boost_active: aiBoost,
       inv_intel_active: invIntel,
       vin_sticker_active: invIntel,      // VIN decoder is part of Inventory Intelligence
@@ -259,6 +260,8 @@ export function registerAI(app) {
     // Vehicle-cost tracking (internal gross): on/off + whether sales reps can see it.
     if (req.body.cost_tracking_enabled !== undefined) update.cost_tracking_enabled = !!req.body.cost_tracking_enabled
     if (req.body.cost_rep_visible !== undefined) update.cost_rep_visible = !!req.body.cost_rep_visible
+    // Management policy: allow quick add trade-in without full appraisal
+    if (req.body.allow_quick_add_trade !== undefined) update.allow_quick_add_trade = !!req.body.allow_quick_add_trade
     // Instant AI lead auto-responder: off / draft / auto, email or SMS.
     if (req.body.autoresponder_mode !== undefined) update.autoresponder_mode = ['off', 'draft', 'auto'].includes(req.body.autoresponder_mode) ? req.body.autoresponder_mode : 'off'
     if (req.body.autoresponder_channel !== undefined) update.autoresponder_channel = req.body.autoresponder_channel === 'sms' ? 'sms' : 'email'

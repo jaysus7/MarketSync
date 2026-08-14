@@ -277,34 +277,23 @@
            header, so it shows on every screen size now. -->
       <span class="hidden sm:inline-block text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 font-mono px-2 py-0.5 rounded truncate" id="ui-role-pill">Loading...</span>
       
-      <!-- Live Header Real-Time Clock -->
-      <div id="header-realtime-clock" class="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold text-slate-700 dark:text-slate-200 shadow-xs">
-        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-        <span id="header-clock-date" class="text-slate-400 font-sans text-[11px]">Date</span>
-        <span id="header-clock-time" class="font-bold text-slate-900 dark:text-white">12:00:00 PM</span>
-      </div>
-    </div>
-    <div class="flex items-center justify-end gap-1 sm:gap-3 min-w-0">
-      <button id="header-appraise-btn" onclick="switchPage('appraisal')" title="Appraise a car" aria-label="Appraise a car" class="hidden items-center gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white p-1.5 lg:px-3 rounded-lg text-sm font-bold shadow-sm transition whitespace-nowrap">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-        <span class="hidden lg:inline">Appraise a car</span>
-      </button>
-      <button id="header-desk-btn" onclick="switchPage('desk')" title="Desk a deal" aria-label="Desk a deal" class="hidden items-center gap-1.5 bg-slate-800 hover:bg-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 text-white p-1.5 lg:px-3 rounded-lg text-sm font-bold shadow-sm transition whitespace-nowrap">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m3 6V7m3 10v-4M4 4h16v16H4z"/></svg>
-        <span class="hidden lg:inline">Desk a deal</span>
-      </button>
-      <!-- Main Nav Shift Clock Chip & Dropdown -->
+      <!-- Unified Live Real-Time & Punch Time Clock Widget -->
       <div class="relative inline-block text-left" id="header-shift-clock-wrapper">
-        <button id="header-shift-clock-chip" onclick="toggleShiftDropdown(event)" title="Shift Attendance Clock" aria-label="Shift Clock" class="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-black transition border shadow-sm cursor-pointer whitespace-nowrap bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20">
-          <span id="header-shift-status-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span id="header-shift-timer-display" class="font-mono font-bold">Shift: 00:00:00</span>
+        <button id="header-shift-clock-chip" onclick="toggleShiftDropdown(event)" title="Live Clock &amp; Shift Attendance Punch Clock" aria-label="Shift Punch Clock" class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-100 dark:bg-slate-800/90 text-xs font-mono font-bold text-slate-700 dark:text-slate-200 shadow-xs hover:bg-slate-200 dark:hover:bg-slate-700/80 transition cursor-pointer">
+          <span id="header-clock-date" class="text-slate-500 dark:text-slate-400 font-sans text-[11px]">Date</span>
+          <span id="header-clock-time" class="font-bold text-slate-900 dark:text-white">12:00:00 PM</span>
+          <span class="h-3.5 w-px bg-slate-300 dark:bg-slate-700 mx-0.5"></span>
+          <div class="flex items-center gap-1.5">
+            <span id="header-shift-status-dot" class="w-2 h-2 rounded-full bg-slate-400"></span>
+            <span id="header-shift-timer-display" class="font-sans font-bold text-[11px]">Clock In</span>
+          </div>
         </button>
 
-        <!-- Dropdown Menu -->
-        <div id="header-shift-dropdown" class="hidden absolute right-0 mt-2 w-72 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-4 z-50 space-y-3 text-xs">
+        <!-- Punch Clock Dropdown Menu -->
+        <div id="header-shift-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-4 z-50 space-y-3 text-xs">
           <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
-            <div class="font-black text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">Shift Attendance</div>
-            <span id="shift-dropdown-status-badge" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-700">Clocked In</span>
+            <div class="font-black text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">Employee Punch Attendance</div>
+            <span id="shift-dropdown-status-badge" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-600">Clocked Out</span>
           </div>
 
           <!-- Live Timers Breakdown -->
@@ -314,7 +303,7 @@
               <strong id="shift-dropdown-duration" class="text-slate-900 dark:text-white font-mono font-bold">00:00:00</strong>
             </div>
             <div class="flex justify-between text-slate-500">
-              <span>Started At:</span>
+              <span>Clock-In Time:</span>
               <strong id="shift-dropdown-start-time" class="text-slate-700 dark:text-slate-300">--:--</strong>
             </div>
             <div class="flex justify-between text-slate-500">
@@ -352,7 +341,7 @@
        workspaces after the retired hamburger was removed. -->
   <div class="hidden" aria-hidden="true">
     <span id="ui-profile-name">---</span><span id="ui-dealership-name">---</span>
-    <button id="header-shift-clock-chip"><span id="header-shift-timer-display"></span></button>
+    <button id="header-shift-clock-chip"><span id="header-shift-timer-display"></span></button><button id="header-desk-btn"></button><button id="header-appraise-btn"></button>
     <button id="ui-tier-chip"></button><button id="idscan-btn"></button><button id="fb-post-btn"></button>
     <button id="open-upgrades"><span id="upg-days-badge"></span></button><a id="training-btn"></a><a id="ext-header-btn"></a>
   </div>

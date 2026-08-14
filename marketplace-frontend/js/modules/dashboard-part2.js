@@ -46,7 +46,28 @@ function fmtHHMMSS(ms) {
   return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
 }
 
+async function syncLiveShiftState() {
+  try {
+    const res = await apiGetJson('/hr/time/me').catch(() => null);
+    if (res && res.open) {
+      __shiftState.active = true;
+      __shiftState.startTime = new Date(res.open.clock_in).getTime();
+      __shiftState.totalBreakMs = (Number(res.open.break_minutes) || 0) * 60000;
+      __shiftState.entryId = res.open.id;
+    } else if (res && res.open === null) {
+      __shiftState.active = false;
+      __shiftState.startTime = null;
+      __shiftState.breakStart = null;
+      __shiftState.totalBreakMs = 0;
+      __shiftState.entryId = null;
+    }
+    saveShiftState();
+  } catch {}
+}
+
 function initHeaderClock() {
+  syncLiveShiftState();
+
   const updateClocks = () => {
     // 1. Update Real-Time Clock
     const dateEl = document.getElementById('header-clock-date');
@@ -81,11 +102,11 @@ function initHeaderClock() {
       if (__shiftState.breakStart) {
         if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
         if (badge) { badge.textContent = 'On Break'; badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-700'; }
-        if (chipBtn) chipBtn.className = 'inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-black transition border shadow-sm cursor-pointer whitespace-nowrap bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20';
+        if (chipBtn) chipBtn.className = 'flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs font-mono font-bold text-amber-600 dark:text-amber-400 shadow-xs hover:bg-amber-500/20 transition cursor-pointer';
       } else {
         if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
         if (badge) { badge.textContent = 'Clocked In'; badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-700'; }
-        if (chipBtn) chipBtn.className = 'inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-black transition border shadow-sm cursor-pointer whitespace-nowrap bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20';
+        if (chipBtn) chipBtn.className = 'flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 shadow-xs hover:bg-emerald-500/20 transition cursor-pointer';
       }
     } else {
       if (timerDisplay) timerDisplay.textContent = 'Clock In';
@@ -94,7 +115,7 @@ function initHeaderClock() {
       if (durEl) durEl.textContent = '00:00:00';
       if (startEl) startEl.textContent = '--:--';
       if (breakEl) breakEl.textContent = '00:00:00';
-      if (chipBtn) chipBtn.className = 'inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-black transition border shadow-sm cursor-pointer whitespace-nowrap bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700';
+      if (chipBtn) chipBtn.className = 'flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-100 dark:bg-slate-800/90 text-xs font-mono font-bold text-slate-700 dark:text-slate-200 shadow-xs hover:bg-slate-200 dark:hover:bg-slate-700/80 transition cursor-pointer';
     }
     renderShiftDropdownActions();
   };
@@ -129,10 +150,18 @@ function renderShiftDropdownActions() {
   }
 }
 
-function shiftClockIn() {
-  __shiftState = { active: true, startTime: Date.now(), breakStart: null, totalBreakMs: 0 };
-  saveShiftState();
-  if (typeof showToast === 'function') showToast('Clocked in successfully!', 'success');
+async function shiftClockIn() {
+  try {
+    const res = await apiSendJson('/hr/time/clock-in', 'POST', {}).catch(() => null);
+    const clockInTime = (res && res.entry?.clock_in) ? new Date(res.entry.clock_in).getTime() : Date.now();
+    __shiftState = { active: true, startTime: clockInTime, breakStart: null, totalBreakMs: 0, entryId: res?.entry?.id || null };
+    saveShiftState();
+    if (typeof showToast === 'function') showToast('Clocked in successfully!', 'success');
+  } catch (e) {
+    __shiftState = { active: true, startTime: Date.now(), breakStart: null, totalBreakMs: 0 };
+    saveShiftState();
+    if (typeof showToast === 'function') showToast('Clocked in!', 'success');
+  }
 }
 
 function shiftStartBreak() {
@@ -150,13 +179,19 @@ function shiftEndBreak() {
   if (typeof showToast === 'function') showToast('Returned from break.', 'success');
 }
 
-function shiftClockOut() {
+async function shiftClockOut() {
   if (__shiftState.breakStart) {
     __shiftState.totalBreakMs += (Date.now() - __shiftState.breakStart);
   }
-  const totalDurationMs = Date.now() - __shiftState.startTime - __shiftState.totalBreakMs;
+  const breakMinutes = Math.round(__shiftState.totalBreakMs / 60000);
+  const totalDurationMs = Date.now() - (__shiftState.startTime || Date.now()) - __shiftState.totalBreakMs;
   const formatted = fmtHHMMSS(totalDurationMs);
-  __shiftState = { active: false, startTime: null, breakStart: null, totalBreakMs: 0 };
+  
+  try {
+    await apiSendJson('/hr/time/clock-out', 'POST', { break_minutes: breakMinutes }).catch(() => null);
+  } catch {}
+
+  __shiftState = { active: false, startTime: null, breakStart: null, totalBreakMs: 0, entryId: null };
   saveShiftState();
   if (typeof showToast === 'function') showToast('Clocked out. Total shift: ' + formatted, 'info');
 }
@@ -999,7 +1034,7 @@ const PAGE_FEATURE = {
   delivery: 'os.sales', fni: 'os.sales',
   reports: 'os.reports',
   'inv-intel': 'os.inventory', market: 'os.inventory',
-  'ai-home': 'os.marketing', 'ai-inbox': 'os.marketing',
+  'ai-home': 'os.marketing', 'ai-inbox': 'os.marketing', 'video-studio': 'os.marketing',
   'api-keys': 'os.integrations',
   'owner-users': 'os.team', 'sales-team': 'os.team', 'people-compliance': 'os.team', hr: 'os.team', people: 'os.team',
   'people-overview': 'os.team',

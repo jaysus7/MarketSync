@@ -1744,8 +1744,8 @@ ENGINES['command'] = {
   rootId: 'command-root', title: 'Pulse', subtitle: 'This main page is the pulse of the dealership.',
   icon: 'chart', accent: 'indigo',
   hideTabBar: true,
-  tabLabels: { overview: 'Pulse' },
-  tabOrder: ['overview'],
+  tabLabels: { pulse: 'Pulse', forecast: 'Forecast', financials: 'Financials' },
+  tabOrder: ['pulse', 'forecast', 'financials'],
 
   fetch: async () => {
     // Every read fails on its own and reports itself. A number that could not be loaded is
@@ -1838,7 +1838,7 @@ ENGINES['command'] = {
       const todayOpsHtml = `
         ${proactiveAiExecutivePanel}
         <div class="mb-6">
-          <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Today's operations</div>
+          <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Running today</div>
           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             ${tile('Leads waiting', t.leads_waiting ?? 0, 'sales', true)}
             ${tile('Deals in progress', t.deals_in_progress ?? 0, 'sales', false)}
@@ -1850,6 +1850,7 @@ ENGINES['command'] = {
       `;
 
       const departments = [...new Set(attention.map(x => x.department || x.source_label || 'Other'))];
+      const not_covered = (d.day.not_covered || []);
       const byDept = departments.length ? departments.map(dep => {
         const items = attention.filter(x => (x.department || x.source_label || 'Other') === dep);
         return `<div class="mb-4">

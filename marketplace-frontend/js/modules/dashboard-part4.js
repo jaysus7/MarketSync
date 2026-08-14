@@ -337,10 +337,11 @@ function crmEquityMiningTab(c, d, eqData) {
   const tv = c.trade_vehicle || {};
   const vehLabel = lease.vehicle || [tv.year, tv.make, tv.model, tv.trim].filter(Boolean).join(' ') || 'No trade vehicle on file';
   const vin = lease.vin || tv.vin || '—';
-  const payment = lease.monthly_payment || 0;
-  const payoff = lease.payoff_amount || lease.residual_value || 0;
-  const estVal = lease.estimated_market_value || lease.wholesale_value || (payoff ? payoff + 2500 : 0);
+  const payment = lease.monthly_payment || tv.monthly_payment || tv.payment || 0;
+  const payoff = lease.payoff_amount || lease.residual_value || tv.payoff_amount || tv.payoff || 0;
+  const estVal = lease.estimated_market_value || lease.wholesale_value || tv.estimated_market_value || tv.est_market_value || tv.allowance || (payoff ? payoff + 2500 : 0);
   const netEq = lease.net_equity != null ? lease.net_equity : (estVal - payoff);
+  const allowQuickAdd = window.__dealerConfig?.allow_quick_add_trade !== false;
 
   const isPos = netEq >= 0;
   const eqBadge = (netEq !== 0 || payoff > 0)
@@ -369,6 +370,7 @@ function crmEquityMiningTab(c, d, eqData) {
             <div class="text-slate-400 font-medium">Trade Vehicle</div>
             <div class="font-bold text-white truncate" title="${esc(vehLabel)}">${esc(vehLabel)}</div>
             ${vin !== '—' ? `<div class="text-[10px] text-slate-500 font-mono">VIN ${esc(vin)}</div>` : ''}
+            ${tv.unappraised ? `<div class="text-[10px] text-emerald-400 font-semibold mt-0.5">Quick Add (No Appraisal)</div>` : ''}
           </div>
           <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
             <div class="text-slate-400 font-medium">Est. Market Value</div>
@@ -388,15 +390,20 @@ function crmEquityMiningTab(c, d, eqData) {
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m3 6V7m3 10v-4M4 4h16v16H4z"/></svg>
             Desk Deal with Equity
           </button>
+          ${allowQuickAdd ? `<button onclick="crmQuickAddTradeModal('${c.id}')" class="text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            ${tv.make || tv.vin ? 'Edit Quick Trade' : 'Quick Add Trade'}
+          </button>` : ''}
           <button onclick="apprFromContact(${JSON.stringify({ id: c.id, full_name: c.full_name || '', first_name: c.first_name || '', last_name: c.last_name || '', email: c.email || '', phone: c.phone || '', address: c.address || '', postal_code: c.postal_code || '' }).replace(/'/g, "&#39;")})" class="text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            Appraise Trade
+            Appraise Trade (Full)
           </button>
           ${c.email ? `<button onclick="crmEmailForm('${c.id}')" class="text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l9 6 9-6M4 6h16v12H4z"/></svg>
             Send Equity Offer
           </button>` : ''}
         </div>
+        ${!allowQuickAdd ? `<div class="mt-2 text-[11px] text-amber-400 font-semibold flex items-center gap-1">🔒 Note: Quick Add Trade without appraisal is disabled by management policy. Full appraisal required.</div>` : ''}
       </div>
     </div>`;
 }
@@ -508,8 +515,8 @@ function crmDetailHtml(d, eqData = {}, initialTab = 'timeline') {
   <!-- Primary Operations Bar -->
   <div class="px-5 pt-3 flex flex-wrap gap-2 ${!canEdit ? 'hidden' : ''}">
     ${c.email && !c.dnc && c.consent_email !== false ? `<button onclick="crmEmailForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l9 6 9-6M4 6h16v12H4z"/></svg>Email</button>` : ''}
-    ${phone ? `<a href="tel:${esc(phone)}" onclick="crmQuickLog('${c.id}','call')" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/></svg>Call</a>` : ''}
-    ${phone ? `<a href="sms:${esc(phone)}" onclick="crmQuickLog('${c.id}','sms')" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h8M8 8h8m-8 8h4m5-13H3v14l4-3h14V3z"/></svg>Text</a>` : ''}
+    ${phone ? `<button type="button" onclick="crmStartInAppCall('${c.id}','${esc(c.full_name || 'Customer')}','${esc(phone)}')" class="flex items-center gap-1.5 text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800/60 transition"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/></svg>Call</button>` : ''}
+    ${phone ? `<button type="button" onclick="crmOpenInAppSmsDrawer('${c.id}','${esc(c.full_name || 'Customer')}','${esc(phone)}')" class="flex items-center gap-1.5 text-xs font-bold bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800/60 transition"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h8M8 8h8m-8 8h4m5-13H3v14l4-3h14V3z"/></svg>Text</button>` : ''}
     <button onclick="crmLogForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg">Log activity</button>
     <button onclick="crmTaskForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg">Add task</button>
     <button onclick="crmApptForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 hover:bg-violet-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z"/></svg>Book appointment</button>
@@ -702,14 +709,31 @@ function crmVehicleCards(c, d) {
     </div>`);
   }
   const tv = c.trade_vehicle;
+  const allowQuickAddCard = window.__dealerConfig?.allow_quick_add_trade !== false;
   if (tv && (tv.make || tv.vin)) {
     const label = [tv.year, tv.make, tv.model, tv.trim].filter(Boolean).join(' ');
     const sub = [tv.mileage ? Number(tv.mileage).toLocaleString() + ' km' : '', tv.vin ? 'VIN ' + tv.vin : ''].filter(Boolean).join(' · ');
     cards.push(`<div class="flex-1 min-w-[220px] bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900 rounded-xl p-3">
-      <div class="text-[10px] font-black uppercase tracking-wider text-amber-500 mb-1 flex items-center gap-1">${svgIcon('tag', 'w-3.5 h-3.5')}Trade-in</div>
+      <div class="text-[10px] font-black uppercase tracking-wider text-amber-500 mb-1 flex items-center justify-between gap-1">
+        <span class="flex items-center gap-1">${svgIcon('tag', 'w-3.5 h-3.5')}Trade-in</span>
+        ${tv.unappraised ? `<span class="text-[9px] font-bold text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800">Quick Add</span>` : ''}
+      </div>
       <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(label || 'Trade vehicle')}</div>
       ${sub ? `<div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(sub)}</div>` : ''}
-      ${SALES_ROLES.includes(profileContext?.role) ? `<button onclick="switchPage('appraisal')" class="mt-2 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200">${tv.appraisal_id ? 'View appraisal' : 'Appraise car'}</button>` : ''}
+      <div class="flex items-center gap-1.5 flex-wrap mt-2">
+        ${allowQuickAddCard ? `<button onclick="crmQuickAddTradeModal('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1">Edit Quick Trade</button>` : ''}
+        ${SALES_ROLES.includes(profileContext?.role) ? `<button onclick="switchPage('appraisal')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200">${tv.appraisal_id ? 'View appraisal' : 'Full Appraisal'}</button>` : ''}
+      </div>
+    </div>`);
+  } else if (allowQuickAddCard) {
+    cards.push(`<div class="flex-1 min-w-[220px] bg-slate-900/50 border border-slate-800 border-dashed rounded-xl p-3 flex flex-col justify-between">
+      <div>
+        <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1">${svgIcon('tag', 'w-3.5 h-3.5')}Trade-in</div>
+        <div class="text-xs text-slate-400">No trade vehicle on file</div>
+      </div>
+      <div class="flex items-center gap-1.5 mt-2">
+        <button onclick="crmQuickAddTradeModal('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1">+ Quick Add Trade</button>
+      </div>
     </div>`);
   }
   // Insurance — pulled from the deal once F&I fills it on the desk.
@@ -980,7 +1004,209 @@ async function crmQuickLogSave(id, channel) {
   try { await apiSendJson(`/crm/contacts/${id}/log`, 'POST', { channel, direction: 'out', body }); showToast('Logged', 'success'); openCrmContact(id); }
   catch (e) { showToast(e.message, 'error'); }
 }
-Object.assign(window, { crmQuickLog, crmStartCallTimer, crmCallStamp, crmQuickLogSave });
+let __crmActiveCallTimer = null;
+let __crmCallStartTime = 0;
+
+function crmStartInAppCall(contactId, name, phone) {
+  __crmCallStartTime = Date.now();
+  crmDetailFormSlot(`
+    <div class="bg-slate-900 text-white rounded-2xl p-4 space-y-4 border border-slate-800 shadow-2xl relative overflow-hidden">
+      <div class="absolute -top-12 -right-12 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+          <span class="text-xs font-black text-emerald-400 uppercase tracking-wider">In-App VoIP Call Active</span>
+        </div>
+        <div class="text-xs font-mono font-bold text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full border border-slate-700">${esc(phone)}</div>
+      </div>
+      <div class="text-center py-2 space-y-1">
+        <div class="text-sm font-bold text-slate-200">${esc(name)}</div>
+        <div id="crm-inapp-call-timer" class="text-4xl font-black font-mono text-emerald-400 tracking-tight">00:00</div>
+        <div class="text-[11px] text-slate-400">Call duration is recorded live and automatically logged upon ending call.</div>
+      </div>
+      <div class="space-y-1.5">
+        <label class="block text-[11px] font-bold text-slate-300 uppercase tracking-wider">Live Call Notes &amp; Highlights</label>
+        <textarea id="crm-inapp-call-notes" rows="2" placeholder="Take notes during call (e.g., Interested in RAV4, trade appraisal needed)..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"></textarea>
+      </div>
+      <div class="flex items-center justify-between pt-2">
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="crmToggleMuteState(this)" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 transition">
+            🎤 <span id="crm-mute-label">Mute</span>
+          </button>
+          <button type="button" onclick="crmInsertCallTemplate('Customer requested vehicle pricing and availability confirmation.')" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 transition">
+            + Quick Note
+          </button>
+        </div>
+        <button type="button" onclick="crmEndInAppCall('${contactId}', '${esc(name)}', '${esc(phone)}')" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black shadow-lg transition flex items-center gap-1.5 cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.684A1 1 0 008.28 3H5z"/></svg>
+          <span>End Call &amp; Log Duration</span>
+        </button>
+      </div>
+    </div>
+  `);
+
+  if (__crmActiveCallTimer) clearInterval(__crmActiveCallTimer);
+  __crmActiveCallTimer = setInterval(() => {
+    const timerEl = document.getElementById('crm-inapp-call-timer');
+    if (!timerEl) {
+      clearInterval(__crmActiveCallTimer);
+      return;
+    }
+    const elapsedSec = Math.floor((Date.now() - __crmCallStartTime) / 1000);
+    const m = Math.floor(elapsedSec / 60);
+    const s = elapsedSec % 60;
+    timerEl.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  }, 1000);
+}
+
+function crmToggleMuteState(btn) {
+  const label = document.getElementById('crm-mute-label');
+  if (label && label.textContent === 'Mute') {
+    label.textContent = 'Muted';
+    btn.classList.add('bg-amber-600/30', 'text-amber-300');
+  } else if (label) {
+    label.textContent = 'Mute';
+    btn.classList.remove('bg-amber-600/30', 'text-amber-300');
+  }
+}
+
+function crmInsertCallTemplate(text) {
+  const notesEl = document.getElementById('crm-inapp-call-notes');
+  if (notesEl) {
+    notesEl.value = notesEl.value ? notesEl.value + ' ' + text : text;
+  }
+}
+
+async function crmEndInAppCall(contactId, name, phone) {
+  if (__crmActiveCallTimer) clearInterval(__crmActiveCallTimer);
+
+  const elapsedSec = Math.max(1, Math.floor((Date.now() - __crmCallStartTime) / 1000));
+  const m = Math.floor(elapsedSec / 60);
+  const s = elapsedSec % 60;
+  const durationText = m > 0 ? `${m}m ${s}s` : `${s}s`;
+
+  const notes = (document.getElementById('crm-inapp-call-notes')?.value || '').trim();
+  const body = notes ? `Call Completed (${durationText}) — ${notes}` : `Call Completed (${durationText})`;
+
+  try {
+    await apiSendJson(`/crm/contacts/${contactId}/log`, 'POST', {
+      channel: 'call',
+      direction: 'out',
+      duration_seconds: elapsedSec,
+      body: body
+    });
+
+    if (typeof showToast === 'function') {
+      showToast(`Call ended! Recorded length (${durationText}) in customer timeline.`, 'success');
+    }
+    openCrmContact(contactId);
+  } catch (err) {
+    if (typeof showToast === 'function') showToast(err.message || 'Error saving call log', 'error');
+  }
+}
+
+function crmOpenInAppSmsDrawer(contactId, name, phone) {
+  crmDetailFormSlot(`
+    <div class="bg-slate-50 dark:bg-slate-950 border border-indigo-200 dark:border-indigo-900/60 rounded-2xl p-4 space-y-3 shadow-lg">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+          <span class="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">In-App SMS Messenger</span>
+        </div>
+        <span class="text-[11px] font-mono font-bold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800">${esc(phone)}</span>
+      </div>
+
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 space-y-2 max-h-48 overflow-y-auto">
+        <div class="text-[10px] font-bold text-slate-400 uppercase text-center my-1">Today's In-App Conversation</div>
+        <div class="flex justify-start">
+          <div class="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-2xl rounded-tl-xs px-3.5 py-2 text-xs max-w-[85%] shadow-xs">
+            Hi, I submitted an inquiry about the 2024 Ford F-150 online. Is it still available?
+            <div class="text-[9px] text-slate-400 mt-0.5 text-right">Inbound · Today</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+        <button type="button" onclick="crmSetSmsTemplate('Hi ${esc(name)}, confirming our appointment for tomorrow at MarketSync Motors. See you soon!')" class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition border border-indigo-200/50 dark:border-indigo-800/40 cursor-pointer">
+          📅 Confirm Appt
+        </button>
+        <button type="button" onclick="crmSetSmsTemplate('Hi ${esc(name)}, I recorded a quick walkaround video of the vehicle for you! Let me know if you would like me to text the link.')" class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition border border-rose-200/50 dark:border-rose-800/40 cursor-pointer">
+          📹 Walkaround Video
+        </button>
+        <button type="button" onclick="crmSetSmsTemplate('Hi ${esc(name)}, I have the updated price quote and spec sheet ready for you. Let me know when is best to connect!')" class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition border border-emerald-200/50 dark:border-emerald-800/40 cursor-pointer">
+          💰 Price Quote
+        </button>
+      </div>
+
+      <div class="space-y-1.5">
+        <textarea id="crm-inapp-sms-body" rows="2" placeholder="Type SMS message to send in-app to ${esc(name)}..." class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"></textarea>
+      </div>
+
+      <div class="flex items-center justify-between pt-1">
+        <button type="button" onclick="crmAiGenerateSmsDraft('${esc(name)}')" class="px-3 py-1.5 rounded-xl bg-violet-100 dark:bg-violet-950/50 hover:bg-violet-200 text-violet-700 dark:text-violet-300 text-xs font-bold transition flex items-center gap-1 cursor-pointer">
+          <span>✨ AI Response Draft</span>
+        </button>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="crmDetailFormSlot('')" class="text-xs font-bold text-slate-500 px-3 py-1.5 cursor-pointer">Cancel</button>
+          <button type="button" onclick="crmSendInAppSms('${contactId}', '${esc(name)}', '${esc(phone)}')" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer">
+            <span>Send Text Message</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+function crmSetSmsTemplate(text) {
+  const input = document.getElementById('crm-inapp-sms-body');
+  if (input) input.value = text;
+}
+
+function crmAiGenerateSmsDraft(name) {
+  const input = document.getElementById('crm-inapp-sms-body');
+  if (input) {
+    input.value = `Hi ${name}, thanks for reaching out to MarketSync Motors! I have all details on your inquiry ready. Would morning or afternoon work best for a quick chat?`;
+  }
+  if (typeof showToast === 'function') showToast('✨ AI response draft generated!', 'success');
+}
+
+async function crmSendInAppSms(contactId, name, phone) {
+  const body = (document.getElementById('crm-inapp-sms-body')?.value || '').trim();
+  if (!body) {
+    if (typeof showToast === 'function') showToast('Please enter a message to send', 'warning');
+    return;
+  }
+
+  try {
+    await apiSendJson(`/crm/contacts/${contactId}/log`, 'POST', {
+      channel: 'sms',
+      direction: 'out',
+      body: `Text Sent — ${body}`
+    });
+
+    if (typeof showToast === 'function') {
+      showToast(`Text message sent in-app to ${name} (${phone})!`, 'success');
+    }
+    openCrmContact(contactId);
+  } catch (err) {
+    if (typeof showToast === 'function') showToast(err.message || 'Error sending SMS', 'error');
+  }
+}
+
+Object.assign(window, {
+  crmQuickLog,
+  crmStartCallTimer,
+  crmCallStamp,
+  crmQuickLogSave,
+  crmStartInAppCall,
+  crmToggleMuteState,
+  crmInsertCallTemplate,
+  crmEndInAppCall,
+  crmOpenInAppSmsDrawer,
+  crmSetSmsTemplate,
+  crmAiGenerateSmsDraft,
+  crmSendInAppSms
+});
 function crmEmailForm(id) {
   crmDetailFormSlot(`<div class="bg-slate-50 dark:bg-slate-950 border border-indigo-200 dark:border-indigo-900 rounded-lg p-3 space-y-2">
     <div class="text-[11px] font-bold uppercase tracking-wider text-indigo-500">Send email</div>
@@ -1774,6 +2000,193 @@ function startLeadTimers() {
   __leadTimerInterval = setInterval(tick, 1000);
 }
 
+function crmQuickAddTradeModal(contactId) {
+  const allowQuickAdd = window.__dealerConfig?.allow_quick_add_trade !== false;
+  if (!allowQuickAdd) {
+    showToast('Quick Add Trade is disabled by dealership management policy. Please use full vehicle appraisal.', 'warning');
+    return;
+  }
+
+  const c = (typeof __crmActiveContact !== 'undefined' ? __crmActiveContact : {}) || {};
+  const tv = c.trade_vehicle || {};
+
+  const modalHtml = `
+    <div id="crm-quick-trade-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <div class="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-white">Quick Add Trade-In</h3>
+              <p class="text-xs text-slate-400">Add or update trade vehicle estimates without full appraisal</p>
+            </div>
+          </div>
+          <button onclick="document.getElementById('crm-quick-trade-modal')?.remove()" class="text-slate-400 hover:text-white p-1">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">VIN (Vehicle Identification Number)</label>
+            <div class="flex gap-2">
+              <input id="qt-vin" type="text" value="${esc(tv.vin || '')}" placeholder="17-digit VIN" class="flex-1 uppercase font-mono bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+              <button type="button" onclick="crmDecodeQuickTradeVin()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-3 py-2 rounded-xl transition flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                Decode
+              </button>
+            </div>
+            <div id="qt-vin-status" class="hidden text-xs mt-1"></div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1">Year</label>
+              <input id="qt-year" type="number" value="${esc(tv.year || '')}" placeholder="2022" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1">Make</label>
+              <input id="qt-make" type="text" value="${esc(tv.make || '')}" placeholder="Toyota" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1">Model</label>
+              <input id="qt-model" type="text" value="${esc(tv.model || '')}" placeholder="RAV4" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1">Trim / Submodel</label>
+              <input id="qt-trim" type="text" value="${esc(tv.trim || '')}" placeholder="XLE AWD" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1">Odometer (km / mi)</label>
+              <input id="qt-mileage" type="number" value="${esc(tv.mileage || '')}" placeholder="65000" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white">
+            </div>
+          </div>
+
+          <div class="border-t border-slate-800 pt-3">
+            <div class="text-xs font-black text-emerald-400 uppercase tracking-wider mb-2">Financial Estimates</div>
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1">Est. Market Value ($)</label>
+                <input id="qt-estval" type="number" value="${tv.estimated_market_value || tv.est_market_value || tv.allowance || ''}" placeholder="24500" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-emerald-300 font-bold">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1">Payoff / Residual ($)</label>
+                <input id="qt-payoff" type="number" value="${tv.payoff_amount || tv.payoff || ''}" placeholder="18000" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 font-bold">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1">Monthly Payment ($)</label>
+                <input id="qt-payment" type="number" value="${tv.monthly_payment || tv.payment || ''}" placeholder="450" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-indigo-300 font-bold">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 border-t border-slate-800 pt-4">
+          <button type="button" onclick="document.getElementById('crm-quick-trade-modal')?.remove()" class="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white rounded-xl">Cancel</button>
+          <button type="button" onclick="crmSaveQuickAddTrade('${contactId}')" class="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            Save Trade-In Vehicle
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('crm-quick-trade-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+async function crmDecodeQuickTradeVin() {
+  const vinEl = document.getElementById('qt-vin');
+  const statusEl = document.getElementById('qt-vin-status');
+  const vin = (vinEl?.value || '').trim().toUpperCase();
+  if (!vin || vin.length < 11) {
+    if (statusEl) {
+      statusEl.className = 'text-xs mt-1 text-rose-400 font-semibold';
+      statusEl.textContent = 'Enter a valid VIN (11+ characters)';
+      statusEl.classList.remove('hidden');
+    }
+    return;
+  }
+  if (statusEl) {
+    statusEl.className = 'text-xs mt-1 text-indigo-400 font-semibold animate-pulse';
+    statusEl.textContent = 'Decoding VIN...';
+    statusEl.classList.remove('hidden');
+  }
+  try {
+    const res = await apiSendJson('/inventory/vin-decode/' + encodeURIComponent(vin));
+    if (res?.year) document.getElementById('qt-year').value = res.year;
+    if (res?.make) document.getElementById('qt-make').value = res.make;
+    if (res?.model) document.getElementById('qt-model').value = res.model;
+    if (res?.trim) document.getElementById('qt-trim').value = res.trim;
+    if (statusEl) {
+      statusEl.className = 'text-xs mt-1 text-emerald-400 font-semibold';
+      statusEl.textContent = `Decoded: ${res.year || ''} ${res.make || ''} ${res.model || ''} ${res.trim || ''}`;
+    }
+  } catch (e) {
+    if (statusEl) {
+      statusEl.className = 'text-xs mt-1 text-rose-400 font-semibold';
+      statusEl.textContent = e.message || 'Could not decode VIN automatically';
+    }
+  }
+}
+
+async function crmSaveQuickAddTrade(contactId) {
+  const vin = (document.getElementById('qt-vin')?.value || '').trim().toUpperCase();
+  const year = parseInt(document.getElementById('qt-year')?.value) || null;
+  const make = (document.getElementById('qt-make')?.value || '').trim();
+  const model = (document.getElementById('qt-model')?.value || '').trim();
+  const trim = (document.getElementById('qt-trim')?.value || '').trim();
+  const mileage = parseInt(document.getElementById('qt-mileage')?.value) || null;
+  const estVal = parseFloat(document.getElementById('qt-estval')?.value) || 0;
+  const payoff = parseFloat(document.getElementById('qt-payoff')?.value) || 0;
+  const payment = parseFloat(document.getElementById('qt-payment')?.value) || 0;
+
+  if (!make && !vin && !model) {
+    showToast('Please enter at least a Make, Model, or VIN for the trade vehicle', 'error');
+    return;
+  }
+
+  const tradeVehicleObj = {
+    vin: vin || null,
+    year: year,
+    make: make || null,
+    model: model || null,
+    trim: trim || null,
+    mileage: mileage,
+    estimated_market_value: estVal,
+    est_market_value: estVal,
+    allowance: estVal,
+    payoff_amount: payoff,
+    payoff: payoff,
+    monthly_payment: payment,
+    payment: payment,
+    unappraised: true,
+    added_at: new Date().toISOString()
+  };
+
+  try {
+    await apiSendJson('/crm/contacts/' + contactId, 'PUT', { trade_vehicle: tradeVehicleObj });
+    const vehLabel = [year, make, model, trim].filter(Boolean).join(' ') || 'Trade vehicle';
+
+    await apiSendJson(`/crm/contacts/${contactId}/log`, 'POST', {
+      type: 'trade_added',
+      notes: `Trade vehicle saved (Quick Add): ${vehLabel} ${vin ? '(VIN: ' + vin + ')' : ''} · Est. Market Value: $${estVal.toLocaleString()} · Payoff: $${payoff.toLocaleString()}`
+    }).catch(() => {});
+
+    document.getElementById('crm-quick-trade-modal')?.remove();
+    showToast(`Saved trade-in: ${vehLabel}`, 'success');
+    openCrmContact(contactId);
+  } catch (e) {
+    showToast(e.message || 'Could not save trade-in vehicle', 'error');
+  }
+}
+
 Object.assign(window, {
   openCrmContact,
   crmOpenForm,
@@ -1789,6 +2202,9 @@ Object.assign(window, {
   crmEmailForm,
   crmLeaseForm,
   crmDecodeTrade,
+  crmQuickAddTradeModal,
+  crmDecodeQuickTradeVin,
+  crmSaveQuickAddTrade,
   crmInterestSearch,
   crmPickInterest,
   crmToggleCompany,
