@@ -1145,89 +1145,89 @@ window.pulseSalesDeptSection = function(d) {
       </div>
 
       <div>
-        <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Website E-Leads (${eLeads.length})</div>
+        <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">Website E-Leads (${eLeads.length})</div>
         ${eLeads.length ? `<div class="space-y-2">${eLeads.slice(0, 4).map(c => `
-          <div class="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex items-center justify-between">
+          <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex items-center justify-between">
             <div class="min-w-0">
-              <div class="font-semibold text-xs text-slate-800 dark:text-slate-200 truncate">${esc(c.full_name || c.email || 'Website Contact')}</div>
-              <div class="text-[11px] text-slate-400">Submitted via Website Form</div>
+              <div class="font-bold text-xs text-slate-900 dark:text-white truncate">${esc(c.full_name || c.email || 'Website Contact')}</div>
+              <div class="text-[11px] text-slate-700 dark:text-slate-300 font-semibold">Submitted via Website Form</div>
             </div>
-            <button onclick="${c.id ? `openCrmContact('${c.id}')` : `switchPage('sales')`}" class="px-2 py-1 rounded text-[11px] font-bold bg-amber-600 text-white">Reply</button>
+            <button onclick="${c.id ? `openCrmContact('${c.id}')` : `switchPage('sales')`}" class="px-2.5 py-1 rounded text-[11px] font-extrabold bg-amber-600 hover:bg-amber-700 text-white shadow-xs">Reply</button>
           </div>`).join('')}</div>` : engEmpty('All website e-leads responded to.')}
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div>
-          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Follow-up Tasks (${tasks.length})</div>
+          <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">Follow-up Tasks (${tasks.length})</div>
           ${tasks.length ? `<div class="space-y-2">${tasks.slice(0, 4).map(t => `
-            <div class="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <div>
-                <div class="font-semibold text-xs text-slate-800 dark:text-slate-200">${esc(t.title || 'Follow up with customer')}</div>
-                <div class="text-[11px] text-slate-400">Due: ${t.due_at ? new Date(t.due_at).toLocaleDateString() : 'Today'}</div>
+                <div class="font-bold text-xs text-slate-900 dark:text-white">${esc(t.title || 'Follow up with customer')}</div>
+                <div class="text-[11px] text-slate-700 dark:text-slate-300 font-semibold">Due: ${t.due_at ? new Date(t.due_at).toLocaleDateString() : 'Today'}</div>
               </div>
-              <button onclick="switchPage('sales')" class="px-2 py-1 text-[11px] font-bold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded">View</button>
+              <button onclick="switchPage('sales')" class="px-2.5 py-1 text-[11px] font-extrabold text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-800">View</button>
             </div>`).join('')}</div>` : engEmpty('No pending follow-ups.')}
         </div>
 
         <div>
-          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2 flex items-center justify-between">
+          <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2 flex items-center justify-between">
             <span>Appointments (${appts.length})</span>
-            <button onclick="window.__pulseApptCalendarMode = !window.__pulseApptCalendarMode; renderEngine('command');" class="text-[11px] text-amber-600 dark:text-amber-400 font-bold hover:underline">Toggle ${apptViewMode === 'list' ? 'Calendar View' : 'List View'}</button>
+            <button onclick="window.__pulseApptCalendarMode = !window.__pulseApptCalendarMode; renderEngine('command');" class="text-[11px] text-amber-700 dark:text-amber-400 font-extrabold hover:underline">Toggle ${apptViewMode === 'list' ? 'Calendar View' : 'List View'}</button>
           </div>
           ${apptViewMode === 'calendar' ? `
-            <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl text-center">
-              <div class="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">Appointments Calendar</div>
-              <div class="grid grid-cols-7 gap-1 text-[10px] font-bold text-slate-400 mb-1"><div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div></div>
-              <div class="grid grid-cols-7 gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">${Array.from({length: 14}, (_, i) => `<div class="p-1 rounded ${i % 3 === 0 ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 font-black' : 'bg-white dark:bg-slate-900'}">${i + 1}</div>`).join('')}</div>
+            <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl text-center border border-slate-200 dark:border-slate-800">
+              <div class="text-xs font-extrabold text-slate-900 dark:text-white mb-2">Appointments Calendar</div>
+              <div class="grid grid-cols-7 gap-1 text-[10px] font-black text-slate-700 dark:text-slate-300 mb-1"><div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div></div>
+              <div class="grid grid-cols-7 gap-1 text-xs font-bold text-slate-800 dark:text-slate-200">${Array.from({length: 14}, (_, i) => `<div class="p-1 rounded ${i % 3 === 0 ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 font-black' : 'bg-white dark:bg-slate-900'}">${i + 1}</div>`).join('')}</div>
             </div>` : (appts.length ? `<div class="space-y-2">${appts.slice(0, 4).map(a => `
-            <div class="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <div>
-                <div class="font-semibold text-xs text-slate-800 dark:text-slate-200">${esc(a.customer_name || 'Appointment')}</div>
-                <div class="text-[11px] text-slate-400">${a.appointment_at ? new Date(a.appointment_at).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'Scheduled'}</div>
+                <div class="font-bold text-xs text-slate-900 dark:text-white">${esc(a.customer_name || 'Appointment')}</div>
+                <div class="text-[11px] text-slate-700 dark:text-slate-300 font-semibold">${a.appointment_at ? new Date(a.appointment_at).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'Scheduled'}</div>
               </div>
-              <span class="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">Booked</span>
+              <span class="px-2 py-0.5 text-[10px] font-extrabold rounded bg-emerald-100 text-emerald-900 dark:bg-emerald-900/50 dark:text-emerald-200">Booked</span>
             </div>`).join('')}</div>` : engEmpty('No upcoming appointments.'))}
         </div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div>
-          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Deliveries Today (${deliveries.length})</div>
+          <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">Deliveries Today (${deliveries.length})</div>
           ${deliveries.length ? `<div class="space-y-2">${deliveries.slice(0, 3).map(d => `
-            <div class="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <div class="font-semibold text-xs text-slate-800 dark:text-slate-200">${esc(d.customer_name || d.vehicle || 'Vehicle Delivery')}</div>
-              <button onclick="switchPage('delivery')" class="px-2 py-1 text-[11px] font-bold bg-slate-100 dark:bg-slate-800 rounded">Open</button>
+            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div class="font-bold text-xs text-slate-900 dark:text-white">${esc(d.customer_name || d.vehicle || 'Vehicle Delivery')}</div>
+              <button onclick="switchPage('delivery')" class="px-2.5 py-1 text-[11px] font-extrabold bg-slate-100 dark:bg-slate-800 rounded text-slate-800 dark:text-slate-200">Open</button>
             </div>`).join('')}</div>` : engEmpty('No deliveries scheduled today.')}
         </div>
 
         <div>
-          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Vehicles in Cleanup (${recon.length})</div>
+          <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">Vehicles in Cleanup (${recon.length})</div>
           ${recon.length ? `<div class="space-y-2">${recon.slice(0, 3).map(r => `
-            <div class="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <div class="font-semibold text-xs text-slate-800 dark:text-slate-200">${esc(r.stock_num || r.vin || 'Vehicle')} · ${esc(r.stage || 'In Recon')}</div>
-              <button onclick="switchPage('recon')" class="px-2 py-1 text-[11px] font-bold bg-slate-100 dark:bg-slate-800 rounded">Cleanup</button>
+            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div class="font-bold text-xs text-slate-900 dark:text-white">${esc(r.stock_num || r.vin || 'Vehicle')} · ${esc(r.stage || 'In Recon')}</div>
+              <button onclick="switchPage('recon')" class="px-2.5 py-1 text-[11px] font-extrabold bg-slate-100 dark:bg-slate-800 rounded text-slate-800 dark:text-slate-200">Cleanup</button>
             </div>`).join('')}</div>` : engEmpty('No vehicles currently in cleanup.')}
         </div>
       </div>
 
       <div>
-        <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2 flex items-center justify-between">
+        <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2 flex items-center justify-between">
           <span>Equity Mining — HOT Customers (${hotEquity.length})</span>
-          <span class="text-[11px] text-amber-600 font-bold">${isMgr ? 'Manager Access (All Deals)' : 'My Assigned Customers'}</span>
+          <span class="text-[11px] text-amber-700 dark:text-amber-400 font-extrabold">${isMgr ? 'Manager Access (All Deals)' : 'My Assigned Customers'}</span>
         </div>
         ${hotEquity.length ? `<div class="grid grid-cols-1 md:grid-cols-2 gap-2">${hotEquity.slice(0, 4).map(e => `
           <div class="p-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 flex items-center justify-between">
             <div>
               <div class="font-bold text-xs text-slate-900 dark:text-white">${esc(e.full_name || e.name || 'Customer')}</div>
-              <div class="text-[11px] text-amber-700 dark:text-amber-300 font-semibold">High Equity Position · Ready to Trade</div>
+              <div class="text-[11px] text-amber-800 dark:text-amber-300 font-bold">High Equity Position · Ready to Trade</div>
             </div>
             <button onclick="switchPage('sales')" class="px-2.5 py-1 text-xs font-bold bg-amber-600 text-white rounded">Contact</button>
           </div>`).join('')}</div>` : engEmpty('No HOT equity mining opportunities.')}
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2 border-t border-slate-200 dark:border-slate-800">
         <div>
-          <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Sales Financial Insights</div>
+          <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">Sales Financial Insights</div>
           <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2">
             <div class="flex justify-between text-xs font-bold"><span>Pipeline Open Revenue</span><span class="text-emerald-600 dark:text-emerald-400">$${(d.pipeline?.deals || []).length * 4200 || '84,000'}</span></div>
             <div class="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden"><div class="bg-amber-500 h-2" style="width:65%"></div></div>

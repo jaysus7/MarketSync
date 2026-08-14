@@ -130,9 +130,9 @@
   --color-surface: var(--ms-white);
   --color-surface-raised: var(--ms-white);
   --color-surface-hover: var(--ms-gray-50);
-  --color-text: #0F172A;
-  --color-text-secondary: #475569;
-  --color-text-muted: #64748B;
+  --color-text: #17191F;
+  --color-text-secondary: #334155;
+  --color-text-muted: #475569;
   --color-border: #D9DEE8;
   --color-border-strong: #C4C9D4;
 
