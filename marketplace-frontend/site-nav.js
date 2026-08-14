@@ -19,16 +19,19 @@
 
   // The ONE navigation model. Real pages only — never #anchors.
   var PRODUCTS = [
+    { href: '/design-studio.html', title: 'Design Studio', desc: '$5 / mo · Creative & Brand Canvas' },
     { href: '/facebook-autoposter.html', title: 'Facebook AutoPoster', desc: '$19 – $79 / mo · Rep & Dealer Marketplace Posting' },
-    { href: '/dealer-website.html', title: 'Dealer Website', desc: '$249 / mo · VDP Showroom & SEO Platform' },
-    { href: '/ai-chatbot.html', title: 'AI ChatBot', desc: '$299 / mo · 24/7 Automotive Sales Assistant' },
-    { href: '/pricing.html#standalone', title: 'Design Studio & Video', desc: '$5 – $99 / mo · Graphics, Walkarounds & Campaigns' },
+    { href: '/social-scheduler.html', title: 'Social Scheduler', desc: '$59 / mo · Multi-Channel Publishing Calendar' },
+    { href: '/video-studio.html', title: 'Video Suite', desc: '$99 / mo · Walkarounds & Video Messaging' },
+    { href: '/campaigns.html', title: 'Campaigns — Email + SMS', desc: '$129 / mo + usage · Automated Customer Messaging' },
+    { href: '/dealer-website.html', title: 'Dealer Website', desc: '$249 / mo · VDP Showroom & Automotive SEO' },
+    { href: '/ai-chatbot.html', title: 'AI ChatBot', desc: '$299 / mo · 24/7 AI Automotive Salesperson' },
   ];
   var SOLUTIONS = [
-    { href: '/pricing.html#suites', title: 'Sales Marketing Suite', desc: '$249 / mo · Lead generation & content automation' },
-    { href: '/pricing.html#suites', title: 'Service Marketing Suite', desc: '$249 / mo · Fixed ops retention & service campaigns' },
-    { href: '/pricing.html#suites', title: 'Complete Marketing Suite', desc: '$399 / mo · All-in-one sales & service marketing' },
-    { href: '/pricing.html#digital', title: 'MarketSync Digital', desc: '$599 / mo · Complete Marketing + Website + AI ChatBot' },
+    { href: '/marketing-suites.html', title: 'Sales Marketing Suite', desc: '$249 / mo · Lead generation & content automation' },
+    { href: '/marketing-suites.html', title: 'Service Marketing Suite', desc: '$249 / mo · Fixed ops retention & service campaigns' },
+    { href: '/marketing-suites.html', title: 'Complete Marketing Suite', desc: '$399 / mo · All-in-one sales & service marketing' },
+    { href: '/marketing-suites.html', title: 'MarketSync Digital', desc: '$599 / mo · Complete Marketing + Website + AI ChatBot' },
   ];
   var DEALEROS = [
     { href: '/dealer-os.html', title: 'DealerOS Core', desc: '$1,499 / mo · CRM, Sales & Inventory OS' },
@@ -60,13 +63,11 @@
     }).join('');
     var resItems = RESOURCES.map(function (r) { return '<a href="' + r.href + '" class="ms-dd-item"><span class="ms-dd-t">' + esc(r.title) + '</span></a>'; }).join('');
 
-    var mobProd = PRODUCTS.map(function (s) { return '<a href="' + s.href + '" class="ms-m-link">' + esc(s.title) + '</a>'; }).join('');
-    var mobSol = SOLUTIONS.map(function (s) { return '<a href="' + s.href + '" class="ms-m-link">' + esc(s.title) + '</a>'; }).join('');
     var mobOs = DEALEROS.map(function (s) { return '<a href="' + s.href + '" class="ms-m-link">' + esc(s.title) + '</a>'; }).join('');
     var mobRes = RESOURCES.map(function (r) { return '<a href="' + r.href + '" class="ms-m-link">' + esc(r.title) + '</a>'; }).join('');
 
     return '' +
-      '<a href="/" class="ms-logo" aria-label="MarketSync home"><img src="/logo.png" alt="MarketSync DealerOS" class="dark:hidden" style="height:32px; width:auto;"><img src="/assets/marketsync-logo-white.svg" alt="MarketSync DealerOS" class="hidden dark:block" style="height:32px; width:auto;"></a>' +
+      '<a href="/" class="ms-logo" aria-label="MarketSync home"><img src="/Logo 2.0.png" alt="MarketSync DealerOS" style="height:32px; width:auto;"></a>' +
       '<nav class="ms-nav-desktop" aria-label="Primary">' +
         '<div class="ms-nav-item"><button class="ms-nav-btn" aria-haspopup="true">Products <svg viewBox="0 0 20 20" fill="currentColor" class="ms-caret"><path d="M5.5 7.5 10 12l4.5-4.5"/></svg></button><div class="ms-dropdown ms-dd-wide">' + prodItems + '</div></div>' +
         '<div class="ms-nav-item"><button class="ms-nav-btn" aria-haspopup="true">Suites <svg viewBox="0 0 20 20" fill="currentColor" class="ms-caret"><path d="M5.5 7.5 10 12l4.5-4.5"/></svg></button><div class="ms-dropdown ms-dd-wide">' + solItems + '</div></div>' +
@@ -103,12 +104,12 @@
         '<div class="ms-f-cta-note">Tailored onboarding · Seamless migration from legacy CRMs</div>' +
       '</div>' +
       '<div class="ms-f-grid">' +
-        '<div class="ms-f-brand"><a href="/" class="ms-logo ms-logo-sm"><img src="/logo.png" alt="MarketSync DealerOS" class="dark:hidden" style="height:28px; width:auto;"><img src="/assets/marketsync-logo-white.svg" alt="MarketSync DealerOS" class="hidden dark:block" style="height:28px; width:auto;"></a><p>The intelligent automotive operating system &amp; digital growth platform.</p></div>' +
+        '<div class="ms-f-brand"><a href="/" class="ms-logo ms-logo-sm"><img src="/Logo 2.0.png" alt="MarketSync DealerOS" style="height:28px; width:auto;"></a><p>The intelligent automotive operating system &amp; digital growth platform.</p></div>' +
         col('Products', [['Design Studio ($5)', '/pricing.html#standalone'], ['AutoPoster Rep ($19)', '/facebook-autoposter.html'], ['Social Scheduler ($59)', '/pricing.html#standalone'], ['AutoPoster Dealer ($79)', '/facebook-autoposter.html'], ['Video ($99)', '/pricing.html#standalone'], ['Campaigns ($129+)', '/pricing.html#standalone'], ['Dealer Website ($249)', '/dealer-website.html'], ['AI ChatBot ($299)', '/ai-chatbot.html']]) +
         col('Suites & OS', [['Sales Marketing ($249)', '/pricing.html#suites'], ['Service Marketing ($249)', '/pricing.html#suites'], ['Complete Marketing ($399)', '/pricing.html#suites'], ['MarketSync Digital ($599)', '/pricing.html#digital'], ['DealerOS Core ($1,499)', '/dealer-os.html'], ['DealerOS Pro ($2,499)', '/dealer-os.html'], ['DealerOS Complete ($3,999)', '/dealer-os.html']]) +
         col('Company & Trust', [['Features', '/features.html'], ['How-to Guide', '/guide.html'], ['FAQ', '/faq.html'], ['Security & Trust', '/security.html'], ['Privacy Policy', '/privacy-policy.html'], ['Terms of Service', '/terms.html']]) +
         col('Get Started', [['Book a Demo', '/demo.html'], ['Log In', '/login.html'], ['Register', '/register.html']]) +
-      '</div>' +
+        '</div>' +
       '<div class="ms-f-bottom"><span>© ' + new Date().getFullYear() + ' MarketSync Technologies Inc. All rights reserved. Prices in CAD/month unless noted.</span></div>';
   }
 
@@ -120,8 +121,7 @@
     '.ms-hd.ms-scrolled{box-shadow:0 1px 20px rgba(0,0,0,.08);}' +
     '.ms-hd-in{max-width:1600px;margin:0 auto;height:56px;display:flex;align-items:center;gap:24px;padding:0 32px;}' +
     '.ms-logo{display:inline-flex;align-items:center;gap:9px;font-weight:800;font-size:19px;letter-spacing:-.02em;color:#0b1220;text-decoration:none;}' +
-    '@media (prefers-color-scheme:dark){.ms-logo{color:#fff;}.ms-logo img[src*="logo.png"]{filter:brightness(0) invert(1);}}' +
-    'html.dark .ms-logo img[src*="logo.png"], .dark .ms-logo img[src*="logo.png"]{filter:brightness(0) invert(1);}' +
+    '@media (prefers-color-scheme:dark){.ms-logo{color:#fff;}}' +
     '.ms-logo-bar{width:6px;height:22px;border-radius:3px;background:var(--ms-accent);}' +
     '.ms-logo-accent{color:var(--ms-accent);}' +
     '.ms-nav-desktop{display:none;align-items:center;gap:4px;margin-right:auto;}' +
