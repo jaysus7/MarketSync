@@ -17,6 +17,13 @@ window.msToggleShellMenu = msToggleShellMenu;
 function msShellGo(page) { msToggleShellMenu(false); switchPage(page); }
 window.msShellGo = msShellGo;
 
+// Early safety stubs for widgets so early clicks before later parts load never throw
+if (typeof window.openAiDock !== 'function') window.openAiDock = function() { const p = document.getElementById('ai-dock-panel'); if (p) p.classList.remove('hidden'); };
+if (typeof window.closeAiDock !== 'function') window.closeAiDock = function() { const p = document.getElementById('ai-dock-panel'); if (p) p.classList.add('hidden'); };
+if (typeof window.toggleAiDock !== 'function') window.toggleAiDock = function() { const p = document.getElementById('ai-dock-panel'); if (p) p.classList.toggle('hidden'); };
+if (typeof window.openTeamChatWidget !== 'function') window.openTeamChatWidget = function() { const p = document.getElementById('team-chat-dock-panel'); if (p) p.classList.remove('hidden'); };
+if (typeof window.toggleTeamChatWidget !== 'function') window.toggleTeamChatWidget = function() { const p = document.getElementById('team-chat-dock-panel'); if (p) p.classList.toggle('hidden'); };
+
 function dealerRoleLanding(role) {
   const routes = {
     DEALER_ADMIN: 'command', OWNER: 'command', MANAGER: 'command',

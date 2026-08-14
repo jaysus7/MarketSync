@@ -662,12 +662,12 @@
                 <div>
                   <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1 tracking-wider">Assistant name</label>
                   <input id="ai-assistant-name" type="text" maxlength="60" placeholder="MarketSync" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
-                  <p class="text-[11px] text-slate-400 mt-1">What your team's AI assistant calls itself (the “Ask MarketSync” dock). Leave blank for “MarketSync”.</p>
+                  <p class="text-[11px] text-slate-400 mt-1">What your team's Intelligence assistant calls itself. Leave blank for “MarketSync”.</p>
                 </div>
                 <div>
                   <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1 tracking-wider">Internal assistant style</label>
                   <textarea id="ai-internal-style" rows="2" placeholder="e.g. Talk like a sharp GM. Blunt, numbers first, no fluff. Use our lingo (units, gross, ups)." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"></textarea>
-                  <p class="text-[11px] text-slate-400 mt-1">How “Ask MarketSync” talks to your team.</p>
+                  <p class="text-[11px] text-slate-400 mt-1">How Intelligence talks to your team.</p>
                 </div>
                 <div>
                   <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1 tracking-wider">Customer-facing chat style</label>
@@ -682,14 +682,14 @@
                     <button type="button" id="ai-kb-upload-btn" class="text-[11px] font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg transition">Upload a file</button>
                     <span id="ai-kb-name" class="text-[11px] text-slate-400"></span>
                   </div>
-                  <p class="text-[11px] text-slate-400 mt-1">Used by both the internal assistant and your website chat. .txt/.md/.csv/.json, or a text-based PDF.</p>
+                  <p class="text-[11px] text-slate-400 mt-1">Used by both Intelligence and your website chat. .txt/.md/.csv/.json, or a text-based PDF.</p>
                 </div>
               </div>
 
               <!-- AI assistant — capabilities & access (management controls) -->
               <div id="ai-assistant-mgmt" class="pt-3 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-3 hidden">
                 <label class="block text-[11px] uppercase font-bold text-slate-400 tracking-wider">Assistant access</label>
-                <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200"><input type="checkbox" id="ai-assistant-reps" class="accent-indigo-600 w-4 h-4">Let sales reps use “Ask MarketSync” (managers always can)</label>
+                <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200"><input type="checkbox" id="ai-assistant-reps" class="accent-indigo-600 w-4 h-4">Let sales reps use Intelligence (managers always can)</label>
                 <div>
                   <div class="text-[11px] uppercase font-bold text-slate-400 tracking-wider mb-1.5">Assistant capabilities</div>
                   <p class="text-[11px] text-slate-400 mb-2">Turn off any tool the assistant shouldn't use. With everything off it still answers from your live data and knowledge base.</p>
@@ -3765,56 +3765,56 @@
        cannot reuse an older bundle from its cache after a staging deployment. -->
   <!-- Workspace registry: SINGLE SOURCE OF TRUTH for sidebar, workspace tabs and
        mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
-  <script src="js/modules/workspace-registry.js?v=20260814_v6"></script>
-  <script src="dashboard.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part2.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part3.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part4.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part5.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part6.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part7.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part8.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part9.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part10.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part11.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part12.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part13.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part14.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part15.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part16.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part17.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part18.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part19.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part20.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part21.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part22.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part23.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part24.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part25.js?v=20260814_v6"></script>
-  <script src="js/modules/dashboard-part26.js?v=20260814_v6"></script>
+  <script src="js/modules/workspace-registry.js?v=20260814_v7"></script>
+  <script src="dashboard.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part2.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part3.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part4.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part5.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part6.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part7.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part8.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part9.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part10.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part11.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part12.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part13.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part14.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part15.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part16.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part17.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part18.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part19.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part20.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part21.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part22.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part23.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part24.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part25.js?v=20260814_v7"></script>
+  <script src="js/modules/dashboard-part26.js?v=20260814_v7"></script>
   <!-- Sales workspace: registers ENGINES['sales']; must load after the parts. -->
-  <script src="js/modules/sales-workspace.js?v=20260814_v6"></script>
-  <script src="js/modules/inventory-workspace.js?v=20260814_v6"></script>
-  <script src="js/modules/fni-workspace.js?v=20260814_v6"></script>
+  <script src="js/modules/sales-workspace.js?v=20260814_v7"></script>
+  <script src="js/modules/inventory-workspace.js?v=20260814_v7"></script>
+  <script src="js/modules/fni-workspace.js?v=20260814_v7"></script>
   <!-- Vehicle Record: one unit, one surface. Loads after inventory-workspace.js,
        whose merchandising/acquisition definitions it renders. -->
-  <script src="js/modules/vehicle-record.js?v=20260814_v6"></script>
-  <script src="js/modules/receipt-engine.js?v=20260814_v6"></script>
-  <script src="js/modules/video-studio.js?v=20260814_v6"></script>
-  <script src="js/modules/service-views.js?v=20260814_v6"></script>
-  <script src="js/modules/service-workspace.js?v=20260814_v6"></script>
-  <script src="js/modules/parts-views.js?v=20260814_v6"></script>
-  <script src="js/modules/parts-workspace.js?v=20260814_v6"></script>
-  <script src="js/modules/accounting-views.js?v=20260814_v6"></script>
-  <script src="js/modules/accounting-workspace.js?v=20260814_v6"></script>
-  <script src="js/modules/studio/scene-model.js?v=20260814_v6"></script>
-  <script src="js/modules/studio/fabric-adapter.js?v=20260814_v6"></script>
-  <script src="js/modules/studio/studio-shell.js?v=20260814_v6"></script>
-  <script src="js/modules/marketing-workspace.js?v=20260814_v6"></script>
-  <script src="js/modules/academy-workspace.js?v=20260814_v6"></script>
-  <script src="js/modules/launch-workspace.js?v=20260814_v6"></script>
-  <script src="js/modules/people-views.js?v=20260814_v6"></script>
-  <script src="js/modules/people-workspace.js?v=20260814_v6"></script>
+  <script src="js/modules/vehicle-record.js?v=20260814_v7"></script>
+  <script src="js/modules/receipt-engine.js?v=20260814_v7"></script>
+  <script src="js/modules/video-studio.js?v=20260814_v7"></script>
+  <script src="js/modules/service-views.js?v=20260814_v7"></script>
+  <script src="js/modules/service-workspace.js?v=20260814_v7"></script>
+  <script src="js/modules/parts-views.js?v=20260814_v7"></script>
+  <script src="js/modules/parts-workspace.js?v=20260814_v7"></script>
+  <script src="js/modules/accounting-views.js?v=20260814_v7"></script>
+  <script src="js/modules/accounting-workspace.js?v=20260814_v7"></script>
+  <script src="js/modules/studio/scene-model.js?v=20260814_v7"></script>
+  <script src="js/modules/studio/fabric-adapter.js?v=20260814_v7"></script>
+  <script src="js/modules/studio/studio-shell.js?v=20260814_v7"></script>
+  <script src="js/modules/marketing-workspace.js?v=20260814_v7"></script>
+  <script src="js/modules/academy-workspace.js?v=20260814_v7"></script>
+  <script src="js/modules/launch-workspace.js?v=20260814_v7"></script>
+  <script src="js/modules/people-views.js?v=20260814_v7"></script>
+  <script src="js/modules/people-workspace.js?v=20260814_v7"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

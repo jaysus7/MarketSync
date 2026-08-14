@@ -580,6 +580,14 @@ function openAiDock() {
   setTimeout(() => document.getElementById('ai-dock-input')?.focus(), 50);
 }
 
+function closeAiDock() {
+  const p = document.getElementById('ai-dock-panel');
+  if (p) p.classList.add('hidden');
+  document.getElementById('ai-dock-btn')?.classList.remove('hidden');
+  if (typeof updateReportRailVisibility === 'function') updateReportRailVisibility();
+}
+window.closeAiDock = closeAiDock;
+
 function toggleAiDock() {
   const p = document.getElementById('ai-dock-panel');
   if (p && p.classList.contains('hidden')) openAiDock();
@@ -596,7 +604,6 @@ function clearAiDockChat() {
 }
 window.clearAiDockChat = clearAiDockChat;
 window.openAiDock = openAiDock;
-window.closeAiDock = closeAiDock;
 
 function initAiDock() {
   const btn = document.getElementById('ai-dock-btn');
