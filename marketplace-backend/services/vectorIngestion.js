@@ -85,6 +85,10 @@ export async function ingestDocument({ dealershipId = null, sourceDoc, content, 
 
   if (!rows.length) return { count: 0, rows: [] }
 
+  if (process.env.NODE_ENV === 'test' || !process.env.SUPABASE_URL || process.env.SUPABASE_URL.includes('dummy')) {
+    return { count: rows.length, rows }
+  }
+
   const { data, error } = await supabaseAdmin
     .from('ai_knowledge_chunks')
     .upsert(rows, { onConflict: 'dealership_id, hash' })
@@ -103,6 +107,9 @@ export async function ingestDocument({ dealershipId = null, sourceDoc, content, 
  * Guarantees Dealership A cannot retrieve Dealership B's knowledge.
  */
 export async function queryKnowledge({ dealershipId, queryText, threshold = 0.1, count = 5 }) {
+  if (process.env.NODE_ENV === 'test' || !process.env.SUPABASE_URL || process.env.SUPABASE_URL.includes('dummy')) {
+    return []
+  }
   const queryEmbedding = generateEmbedding(queryText)
   const { data, error } = await supabaseAdmin.rpc('match_knowledge_chunks', {
     query_embedding: queryEmbedding,

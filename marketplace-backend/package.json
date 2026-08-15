@@ -9,6 +9,7 @@
     "build": "npm install && npm run build:kb",
     "build:kb": "node scripts/build-kb.js",
     "build:training": "node scripts/build-training-expanded.js && node scripts/build-training-visuals.js",
+    "ingest:vector": "node scripts/ingest-all-knowledge.js",
     "test": "NODE_ENV=test node --test test/*.test.js",
     "test:e2e": "npx playwright test e2e/smoke.spec.js e2e/crawler.spec.js e2e/performance.spec.js",
     "test:smoke": "npx playwright test e2e/smoke.spec.js",

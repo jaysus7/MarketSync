@@ -19,7 +19,7 @@ const MANDATORY_SYSTEMS = [
   { key: 'chatbot', title: 'AI ChatBot' },
   { key: 'website', title: 'Website Builder' },
   { key: 'academy', title: 'Academy' },
-  { key: 'people', title: 'People & HR' },
+  { key: 'people-overview', title: 'People & HR' },
   { key: 'settings', title: 'Settings' },
 ];
 

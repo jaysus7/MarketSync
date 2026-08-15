@@ -60,43 +60,43 @@ export const ROLE_PERMISSIONS = {
 
 /**
  * Authenticates a Playwright page as a specific staging role.
- * Sets local session context and verifies logged-in state.
+ * Injects local session context via addInitScript before initial navigation.
  */
 export async function loginAsRole(page, role = STAGING_ROLES.OWNER_ADMIN) {
   const creds = getRoleCredentials(role);
   const baseURL = page.context()._options.baseURL || 'http://localhost:3000';
 
-  // Navigate to login/dashboard
-  await page.goto(`${baseURL}/dashboard.html`, { waitUntil: 'domcontentloaded' });
+  const userRole = role === 'owner_admin' ? 'DEALER_ADMIN'
+    : role === 'manager' ? 'MANAGER'
+    : role === 'salesperson' ? 'SALES_REP'
+    : role === 'service_tech' ? 'SERVICE' : 'CLEANUP';
 
-  // Inject session state into localStorage/sessionStorage
-  await page.evaluate(({ role, email }) => {
-    const userRole = role === 'owner_admin' ? 'DEALER_ADMIN'
-      : role === 'manager' ? 'MANAGER'
-      : role === 'salesperson' ? 'SALES_REP'
-      : role === 'service_tech' ? 'SERVICE' : 'CLEANUP';
+  const sessionObj = {
+    user: {
+      id: `qa-user-${role}`,
+      email: creds.email,
+      user_metadata: { full_name: `Staging QA ${role}`, role: userRole },
+    },
+    access_token: `qa-mock-token-${role}`,
+    role: userRole,
+  };
 
-    const sessionObj = {
-      user: {
-        id: `qa-user-${role}`,
-        email: email,
-        user_metadata: { full_name: `Staging QA ${role}`, role: userRole },
-      },
-      access_token: `qa-mock-token-${role}`,
-      role: userRole,
-    };
-
+  // Pre-populate localStorage before document load
+  await page.addInitScript(({ sessionObj, userRole }) => {
     localStorage.setItem('ms_session', JSON.stringify(sessionObj));
     localStorage.setItem('ms_user_role', userRole);
     localStorage.setItem('ms_active_user', JSON.stringify(sessionObj.user));
     window.__activeRole = userRole;
+  }, { sessionObj, userRole });
 
+  // Navigate directly to dashboard with pre-authenticated storage
+  await page.goto(`${baseURL}/dashboard.html`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(200);
+
+  // Apply staff role navigation in browser context
+  await page.evaluate((roleStr) => {
     if (typeof window.applyStaffRoleNav === 'function') {
-      window.applyStaffRoleNav(userRole);
+      window.applyStaffRoleNav(roleStr);
     }
-  }, { role, email: creds.email });
-
-  // Reload to apply injected role session
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(150);
+  }, userRole);
 }
