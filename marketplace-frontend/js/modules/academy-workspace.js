@@ -276,7 +276,7 @@ async function acadOpenCredential(credentialId) {
 
           <div class="mt-8 pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
             <div class="text-left font-mono">
-              <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Credential Identifier</span>
+              <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Credential ID</span>
               <span class="font-bold text-slate-800 break-all">${esc(cred.credential_id)}</span>
             </div>
             <div class="flex items-center gap-2">
