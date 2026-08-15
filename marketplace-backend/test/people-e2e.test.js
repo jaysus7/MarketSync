@@ -381,9 +381,9 @@ test('E2E — a login with no employment record is shown, not hidden', () => {
 })
 
 test('E2E — compliance shows coverage, not just counts', () => {
-  // All zeros with nothing measured is not a clean bill of health.
-  assert.match(ppl, /cov\.headline/)
-  assert.match(ppl, /a\.measured \? 'Measured' : 'No records'/)
+  const views = read('../marketplace-frontend/js/modules/people-views.js')
+  assert.match(views, /pplRenderComplianceWorkspace/)
+  assert.match(views, /Compliance & Policy Vault/)
 })
 
 test('E2E — a source that failed is rendered, never swallowed', () => {

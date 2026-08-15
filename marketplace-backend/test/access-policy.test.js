@@ -51,7 +51,7 @@ test('the real Pro bundle resolves every DealerOS, Facebook, and AI feature', ()
     subscriptions, features, planFeatures,
   })
 
-  assert.deepEqual(new Set(ctx.products), new Set(['dealer_os', 'facebook', 'ai_dealer']))
+  assert.deepEqual(new Set(ctx.products), new Set(['dealer_os', 'facebook', 'ai_dealer', 'marketsync_video', 'marketsync_website', 'marketsync_social', 'marketsync_email']))
   for (const featureId of PLAN_CATALOG.os_pro.features) {
     assert.ok(hasFeature(ctx, featureId), `Pro access context missing ${featureId}`)
   }

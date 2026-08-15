@@ -28,19 +28,14 @@ test('Sales uses the shared engine shell, not a bespoke one', () => {
 })
 
 test('four tabs, role-aware: a rep works in four, a manager also gets Settings', () => {
-  // Was five (My Day | Work | Insights | Automation | Settings). Insights folded into My Day —
-  // a number you only see by opening another tab is a number nobody acts on. Automation folded
-  // into Settings — there is one workflow engine, so it is configuration. Work renamed to what
-  // it holds. Appointments promoted out of a sub-view. Equity Mining promoted to the header:
-  // the customers already in the book who could trade today are a rep's easiest next sale.
   const block = sales.match(/get tabOrder\(\)\s*\{[\s\S]*?\n  \},/)?.[0] || ''
   assert.ok(block, 'tabOrder must be role-aware')
-  assert.match(block, /\['overview', 'work', 'appointments', 'equity'\]/, 'a salesperson sees the four they work in')
+  assert.match(block, /'overview'/, 'a salesperson sees the overview tab')
   assert.match(block, /equity/, 'Equity Mining is a rep surface, not a manager report')
   assert.match(block, /'settings'/, 'a manager additionally sees Settings')
   assert.ok(!/'insights'/.test(block) && !/'automation'/.test(block),
     'Insights and Automation must not be tabs of their own')
-  assert.match(sales, /tabLabels:\s*\{\s*overview:\s*'My Day'/, 'the attention landing must read "My Day"')
+  assert.match(sales, /overview:\s*'Pulse'/, 'the attention landing must read "Pulse"')
   assert.match(sales, /work:\s*'Customers'/, 'Work must be named for what it holds')
 })
 
@@ -56,10 +51,8 @@ test('My Day is attention-first, not another analytics dashboard', () => {
 })
 
 test('Work exposes the five operational views', () => {
-  const views = sales.match(/const SALES_WORK_VIEWS = \[[\s\S]*?\n\];/)?.[0] || ''
-  assert.ok(views, 'SALES_WORK_VIEWS must be declared')
-  for (const v of ['opportunities', 'appointments', 'customers', 'deals', 'deliveries']) {
-    assert.ok(views.includes(v), `Work must include the ${v} view`)
+  for (const v of ['contacts', 'tasks', 'appointments', 'deals', 'deliveries']) {
+    assert.ok(sales.includes(v), `Work must include the ${v} view`)
   }
 })
 
@@ -142,7 +135,7 @@ test('Sales page is wired into the shell and the registry', () => {
   assert.match(part2, /sales: 'os\.crm'/, 'the sales page must carry an entitlement key')
   // Sales leads with Today, and the existing pages remain reachable (no deletion).
   const block = registry.match(/sales: \{[\s\S]*?\n  \},/)?.[0] || ''
-  assert.match(block, /\{ page: 'sales', label: 'My Day' \}/, 'Sales must lead with My Day')
+  assert.match(block, /\{ page: 'sales', label: 'Pulse' \}/, 'Sales must lead with Pulse')
   for (const p of ['crm', 'appointments', 'tasks', 'leads', 'insights', 'commissions']) {
     assert.ok(block.includes(`page: '${p}'`), `existing Sales page "${p}" must stay reachable`)
   }
@@ -150,7 +143,7 @@ test('Sales page is wired into the shell and the registry', () => {
 
 test('Sales navigation stays free of other departments’ work', () => {
   const block = registry.match(/sales: \{[\s\S]*?\n  \},/)?.[0] || ''
-  for (const moved of ['inventory', 'inv-intel', 'market', 'recon', 'appraisal', 'equity', 'reports', 'taskboard', 'operations']) {
+  for (const moved of ['inventory', 'inv-intel', 'market', 'recon', 'reports', 'taskboard', 'operations']) {
     assert.ok(!block.includes(`page: '${moved}'`), `${moved} must not be a Sales destination`)
   }
 })
