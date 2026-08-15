@@ -573,7 +573,7 @@ window.accOpenDealModal = function(dealId) {
           <h3 class="text-base font-black text-slate-900 dark:text-white uppercase">Deal Accounting Inspection &amp; Financial Jacket</h3>
           <p class="text-xs text-slate-400">Deal ID: ${esc(dealId)}</p>
         </div>
-        <button onclick="document.getElementById('acc-deal-modal')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">✕</button>
+        <button onclick="document.getElementById('acc-deal-modal')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">\u{2715}</button>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-medium">
@@ -679,7 +679,7 @@ window.accOpenReceiptScanModal = function() {
           </h3>
           <p class="text-xs text-slate-400">Capture photo or upload expense receipt to auto-fill financial form.</p>
         </div>
-        <button onclick="document.getElementById('acc-receipt-scan-modal')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">✕</button>
+        <button onclick="document.getElementById('acc-receipt-scan-modal')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">\u{2715}</button>
       </div>
 
       <div id="acc-receipt-upload-dropzone" onclick="document.getElementById('acc-receipt-file-input').click()"
@@ -778,12 +778,12 @@ window.accHandleProofPhotoSelected = function(e) {
     if (dirSelect) dirSelect.value = 'out';
 
     if (statusEl) {
-      statusEl.textContent = `✨ AI Extracted: ${accFmtMoney(decoded.amount)} (${decoded.vendor})`;
+      statusEl.textContent = `\u{2728} AI Extracted: ${accFmtMoney(decoded.amount)} (${decoded.vendor})`;
       statusEl.className = 'text-[10px] text-emerald-600 dark:text-emerald-400 font-extrabold';
     }
 
     if (typeof showToast === 'function') {
-      showToast(`✨ AI decoded receipt! Auto-filled $${decoded.amount.toFixed(2)} for ${decoded.vendor}.`, 'success');
+      showToast(`\u{2728} AI decoded receipt! Auto-filled $${decoded.amount.toFixed(2)} for ${decoded.vendor}.`, 'success');
     }
   };
   reader.readAsDataURL(file);
@@ -824,13 +824,13 @@ window.accOpenCustomEntryModal = function(defaultDirection = 'in', initialData =
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div>
           <h3 class="text-base font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-            ${hasReceipt ? '<span>✨</span> Review &amp; Submit AI Decoded Receipt' : 'Record Custom Financial Entry'}
+            ${hasReceipt ? '<span>\u{2728}</span> Review &amp; Submit AI Decoded Receipt' : 'Record Custom Financial Entry'}
           </h3>
           <p class="text-xs text-slate-400">
             ${hasReceipt ? 'AI extracted key values from your receipt image. Review fields below before saving.' : 'Add incoming cash/receivable or outgoing expense/vendor payable to dealership ledger.'}
           </p>
         </div>
-        <button onclick="document.getElementById('acc-custom-entry-modal')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">✕</button>
+        <button onclick="document.getElementById('acc-custom-entry-modal')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">\u{2715}</button>
       </div>
 
       <div class="${hasReceipt ? 'grid grid-cols-1 md:grid-cols-12 gap-6' : ''}">
@@ -863,7 +863,7 @@ window.accOpenCustomEntryModal = function(defaultDirection = 'in', initialData =
             <div>
               <label class="block text-slate-500 uppercase text-[11px] mb-1 flex items-center justify-between">
                 <span>Total Amount ($)</span>
-                ${hasReceipt ? `<span class="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">✨ AI Extracted</span>` : ''}
+                ${hasReceipt ? `<span class="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">\u{2728} AI Extracted</span>` : ''}
               </label>
               <input id="acc-modal-amount" type="number" step="0.01" min="0" value="${initialData?.amount != null ? initialData.amount : ''}" placeholder="0.00" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs font-extrabold text-emerald-600">
             </div>
@@ -877,7 +877,7 @@ window.accOpenCustomEntryModal = function(defaultDirection = 'in', initialData =
             <div>
               <label class="block text-slate-500 uppercase text-[11px] mb-1 flex items-center justify-between">
                 <span>Category / Account</span>
-                ${hasReceipt ? `<span class="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">✨ AI Suggested</span>` : ''}
+                ${hasReceipt ? `<span class="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">\u{2728} AI Suggested</span>` : ''}
               </label>
               <input id="acc-modal-account" type="text" value="${esc(initialData?.account || '')}" placeholder="e.g. Parts Supplies, Fuel, Maintenance" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs">
             </div>
@@ -897,7 +897,7 @@ window.accOpenCustomEntryModal = function(defaultDirection = 'in', initialData =
           <div>
             <label class="block text-slate-500 uppercase text-[11px] mb-1 flex items-center justify-between">
               <span>Vendor / Payee / Reference</span>
-              ${hasReceipt ? `<span class="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">✨ AI Extracted</span>` : ''}
+              ${hasReceipt ? `<span class="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">\u{2728} AI Extracted</span>` : ''}
             </label>
             <input id="acc-modal-ref" type="text" value="${esc(initialData?.vendor || '')}" placeholder="e.g. AutoZone Parts, Shell Fuel, Invoice #1094" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs">
           </div>
@@ -1046,7 +1046,7 @@ window.accViewDigitalReceiptModal = function(expId) {
           </h3>
           <p class="text-xs text-slate-400">Stored digital copy attached to expense transaction ${esc(expId)}.</p>
         </div>
-        <button onclick="document.getElementById('acc-digital-receipt-view-modal')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">✕</button>
+        <button onclick="document.getElementById('acc-digital-receipt-view-modal')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">\u{2715}</button>
       </div>
 
       <div class="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-950 p-3 flex items-center justify-center max-h-[500px]">

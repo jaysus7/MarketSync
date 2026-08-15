@@ -1023,7 +1023,7 @@ function renderWsLayersTree() {
               <div class="flex items-center gap-1 opacity-80 group-hover:opacity-100">
                 <button type="button" onclick="event.stopPropagation(); moveSection(${idx},-1)" ${idx === 0 ? 'disabled' : ''} class="p-1 text-slate-400 hover:text-white disabled:opacity-20" title="Move Up">↑</button>
                 <button type="button" onclick="event.stopPropagation(); moveSection(${idx},1)" ${idx === __siteSections.length - 1 ? 'disabled' : ''} class="p-1 text-slate-400 hover:text-white disabled:opacity-20" title="Move Down">↓</button>
-                <button type="button" onclick="event.stopPropagation(); delSection(${idx})" class="p-1 text-rose-400 hover:text-rose-300" title="Delete">✕</button>
+                <button type="button" onclick="event.stopPropagation(); delSection(${idx})" class="p-1 text-rose-400 hover:text-rose-300" title="Delete">\u{2715}</button>
               </div>
             </div>
           `;
@@ -1233,7 +1233,7 @@ function renderElementorPalette() {
   });
 
   const cardsHtml = filteredSecs.map(t => {
-    const ext = WIDGET_META_EXT[t] || { icon: '✦', category: 'content', name: SEC_META[t]?.label || t, desc: 'Add element section' };
+    const ext = WIDGET_META_EXT[t] || { icon: '\u{2725}', category: 'content', name: SEC_META[t]?.label || t, desc: 'Add element section' };
     return `
       <button onclick="addSection('${t}')" class="group p-2.5 bg-slate-900 border border-slate-800 hover:border-indigo-500 rounded-xl text-left transition flex flex-col justify-between">
         <div>
@@ -2062,7 +2062,7 @@ function openWebsiteScannerModal() {
           <h3 class="text-lg font-black text-white">Scan Existing Website ("Scan &amp; Paste")</h3>
           <p class="text-xs text-slate-400">Import your current store info, hours, phone, FAQs, and content into this template.</p>
         </div>
-        <button onclick="this.closest('.fixed').remove()" class="p-1.5 rounded-xl text-slate-400 hover:text-white">✕</button>
+        <button onclick="this.closest('.fixed').remove()" class="p-1.5 rounded-xl text-slate-400 hover:text-white">\u{2715}</button>
       </div>
 
       <div class="space-y-3">
@@ -2209,7 +2209,7 @@ function dealerBlogModal(p) {
             
             <div class="ml-auto">
               <button type="button" onclick="blogAiGenerateArticle()" class="px-3 py-1 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs transition shadow-sm cursor-pointer">
-                ✨ Generate Article with AI
+                \u{2728} Generate Article with AI
               </button>
             </div>
           </div>

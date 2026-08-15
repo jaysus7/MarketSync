@@ -10,7 +10,7 @@
   let pollInterval = null;
   let activeEmojiPicker = null;
 
-  const EMOJI_LIST = ['👍', '❤️', '🔥', '😂', '👏', '🚀', '🎉', '🚗', '💯', '🙏', '✅', '👀', '⭐', '💡', '💪', '🤝', '⚡', '🎯'];
+  const EMOJI_LIST = ['\u{1F44D}', '\u{2764}', '\u{1F525}', '\u{1F602}', '\u{1F44F}', '\u{1F680}', '\u{1F389}', '\u{1F697}', '\u{1F4AF}', '\u{1F64F}', '\u{2705}', '\u{1F440}', '\u{2B50}', '\u{1F4A1}', '\u{1F4AA}', '\u{1F91D}', '\u{26A1}', '\u{1F3AF}'];
 
   // Initialize Desktop/Browser Notification permissions
   if ('Notification' in window && Notification.permission === 'default') {
@@ -214,7 +214,7 @@
         </div>
         <div class="flex items-center gap-1.5 text-slate-300" onclick="event.stopPropagation()">
           <button type="button" onclick="window.toggleStaffChatMinimize('${targetId}')" class="hover:text-white p-1 text-xs">_</button>
-          <button type="button" onclick="window.closeStaffChatWindow('${targetId}')" class="hover:text-white p-1 text-xs">✕</button>
+          <button type="button" onclick="window.closeStaffChatWindow('${targetId}')" class="hover:text-white p-1 text-xs">\u{2715}</button>
         </div>
       </div>
 
@@ -226,7 +226,7 @@
       <!-- Footer & Input Bar -->
       <div class="p-2 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 relative">
         <form onsubmit="window.sendStaffChatMessage(event, '${targetId}')" class="flex items-center gap-1.5">
-          <button type="button" onclick="window.toggleEmojiPicker(event, '${targetId}')" class="p-1.5 text-slate-400 hover:text-indigo-500 rounded transition text-base" title="Add emoji">😀</button>
+          <button type="button" onclick="window.toggleEmojiPicker(event, '${targetId}')" class="p-1.5 text-slate-400 hover:text-indigo-500 rounded transition text-base" title="Add emoji">\u{1F600}</button>
           <input type="text" id="staff-chat-input-${targetId}" placeholder="Type a message…" autocomplete="off" class="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white text-xs px-3 py-2 rounded-lg border-0 focus:ring-2 focus:ring-indigo-500 outline-none" />
           <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-3 py-2 rounded-lg transition">Send</button>
         </form>
@@ -266,7 +266,7 @@
           ${rxHtml}
           <div class="flex items-center gap-1 text-[9px] text-slate-400 mt-0.5 px-1">
             <span>${new Date(m.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-            <button type="button" onclick="window.reactStaffMessage('${targetId}', '${m.id}', '👍')" class="hover:text-indigo-500 font-bold ml-1">+👍</button>
+            <button type="button" onclick="window.reactStaffMessage('${targetId}', '${m.id}', '\u{1F44D}')" class="hover:text-indigo-500 font-bold ml-1">+\u{1F44D}</button>
           </div>
         </div>
       `;
@@ -386,7 +386,7 @@
             <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
             Internal Staff Chat
           </div>
-          <button type="button" onclick="window.toggleStaffDirectoryPopover()" class="text-slate-400 hover:text-white text-xs p-1">✕</button>
+          <button type="button" onclick="window.toggleStaffDirectoryPopover()" class="text-slate-400 hover:text-white text-xs p-1">\u{2715}</button>
         </div>
         <div id="staff-chat-directory-list" class="max-h-80 overflow-y-auto p-2">
           <div class="text-center py-4 text-xs text-slate-400">Loading team...</div>
