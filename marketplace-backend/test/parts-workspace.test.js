@@ -17,11 +17,11 @@ const part2 = read('js/modules/dashboard-part2.js')
 test('Parts registers as its own department on the shared shell', () => {
   assert.match(ws, /ENGINES\['parts-overview'\]\s*=/)
   assert.match(ws, /rootId: 'parts-overview-root'/)
-  assert.match(ws, /tabLabels: \{ overview: 'My Day'/)
+  assert.match(ws, /tabLabels: \{ overview: 'Pulse'/)
   assert.doesNotMatch(ws, /function (engKpi|engCard|engEmpty|renderEngine|engineTab)\b/,
     'must not redefine a shared primitive')
   const block = registry.match(/\n  parts: \{[\s\S]*?\n  \},/)?.[0] || ''
-  assert.match(block, /\{ page: 'parts-overview', label: 'My Day' \}/, 'Parts must lead with its own My Day')
+  assert.match(block, /\{ page: 'parts-overview', label: 'Pulse' \}/, 'Parts must lead with its own Pulse')
   assert.ok(block.includes("page: 'service-parts'"), 'the existing catalogue must stay reachable')
 })
 
@@ -56,7 +56,7 @@ test('every quantity change goes through a canonical server path', () => {
   const seen = [...ws.matchAll(/apiSendJson\(`([^`]+)`/g)].map(m => m[1])
   for (const w of seen) assert.ok(WRITES.includes(w), `unexpected write target: ${w}`)
   assert.ok(seen.length >= 4, 'reserve, issue, receive and return must all be reachable')
-  const PLAIN = ['/service-engine/part-requests', '/service-engine/parts', '/service-engine/config']
+  const PLAIN = ['/service-engine/part-requests', '/service-engine/parts', '/service-engine/parts/import', '/service-engine/config']
   for (const w of [...ws.matchAll(/apiSendJson\('([^']+)'/g)].map(m => m[1])) {
     assert.ok(PLAIN.includes(w), `unexpected write target: ${w}`)
   }

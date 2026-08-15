@@ -323,52 +323,267 @@ ENGINES['affiliates-admin'] = {
 };
 window.loadAffiliatesAdmin = loadAffiliatesAdmin;
 
-// ══ AI Chat inbox — live AI conversations + the embeddable widget snippet ═════
-const AI_SCORE_TONE = (s) => s >= 80 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300' : s >= 50 ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
+// ══ Staff / Team Messaging App ══════════════════════════════════════════════
+let __teamChatMembers = [];
+let __teamChatActiveUserId = null;
+let __teamChatFilter = 'all'; // 'all', 'online', 'unread'
+let __teamChatSearch = '';
+let __teamChatPollTimer = null;
+
 async function loadAiInbox() {
   const root = document.getElementById('ai-inbox-root'); if (!root) return;
-  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading…</div>`;
-  let convos = [], embed = null;
-  try {
-    const [c, e] = await Promise.all([
-      apiGetJson('/ai/conversations').catch(() => ({ conversations: [] })),
-      apiGetJson('/ai/widget/embed').catch(() => null),
-    ]);
-    convos = c.conversations || []; embed = e;
-  } catch { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">Could not load AI chat.</div>`; return; }
+  if (__teamChatPollTimer) clearInterval(__teamChatPollTimer);
 
-  const rows = convos.length ? convos.map(c => `
-    <button onclick="aiOpenConversation('${c.id}')" class="w-full text-left flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-sm transition">
-      <span class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 grid place-items-center text-slate-500">${svgIcon('chat','w-5 h-5')}</span>
-      <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2"><span class="text-sm font-bold text-slate-900 dark:text-white truncate">${esc(c.summary ? c.summary.split('\n')[0].slice(0,60) : (c.source || 'Website chat'))}</span>
-          ${c.status === 'handoff' ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">needs human</span>' : ''}</div>
-        <div class="text-[11px] text-slate-400 mt-0.5">${esc(c.website || c.source || '')} · ${opsRelTime(c.last_message_at)}</div>
-      </div>
-      <span class="text-[11px] font-bold px-2 py-1 rounded-lg ${AI_SCORE_TONE(c.lead_score||0)}">${c.lead_score||0}</span>
-    </button>`).join('') : `<div class="p-6 text-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">No AI conversations yet. Add the widget to your site to start capturing leads 24/7.</div>`;
-
-  const snippet = embed?.snippet || '';
   root.innerHTML = `
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">AI Chat</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400">Live AI conversations from your website + widget. The AI answers from inventory, captures leads, and hands off when needed.</p></div>
-      <button onclick="loadAiInbox()" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1">${svgIcon('refresh','w-4 h-4')}Refresh</button>
-    </div>
-    ${snippet ? `<div class="rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/30 p-4">
-      <div class="text-sm font-black text-slate-800 dark:text-slate-200 mb-1">Add the chatbot to any site</div>
-      <p class="text-[12px] text-slate-500 dark:text-slate-400 mb-2">Paste this one line into your LeadBox, eDealer, WordPress, or any website (before &lt;/body&gt;).</p>
-      <div class="flex items-center gap-2">
-        <code id="ai-embed-code" class="flex-1 text-[11px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 overflow-x-auto whitespace-nowrap">${esc(snippet)}</code>
-        <button onclick="aiCopyEmbed()" class="text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg flex-shrink-0">Copy</button>
+    <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
+      <div>
+        <h1 class="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+          <span>${svgIcon('chat', 'w-6 h-6 text-sky-500')}</span>
+          <span>Team Messaging</span>
+        </h1>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Directly message staff members across sales, service, parts, F&amp;I, and accounting. See who is online or leave a message for when they log in.</p>
       </div>
-    </div>` : ''}
-    <div class="grid gap-2">${rows}</div>`;
+      <button onclick="refreshTeamChat()" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        ${svgIcon('refresh', 'w-3.5 h-3.5')} Refresh
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-4 h-[calc(100vh-14rem)] min-h-[500px]">
+      <!-- Left Column: Staff Roster -->
+      <div class="md:col-span-4 flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+        <div class="p-3 border-b border-slate-200 dark:border-slate-800 space-y-2 bg-slate-50 dark:bg-slate-950/50">
+          <input type="text" id="team-chat-search" placeholder="Search staff members…" oninput="filterTeamChatRoster(this.value)" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500" />
+          <div class="flex items-center gap-1">
+            <button onclick="setTeamChatFilter('all')" id="tc-flt-all" class="flex-1 text-[11px] font-bold py-1 rounded-lg bg-sky-600 text-white transition">All</button>
+            <button onclick="setTeamChatFilter('online')" id="tc-flt-online" class="flex-1 text-[11px] font-bold py-1 rounded-lg text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition">Online</button>
+            <button onclick="setTeamChatFilter('unread')" id="tc-flt-unread" class="flex-1 text-[11px] font-bold py-1 rounded-lg text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition">Unread</button>
+          </div>
+        </div>
+        <div id="team-chat-roster-list" class="flex-1 overflow-y-auto p-2 space-y-1">
+          <div class="p-4 text-center text-xs text-slate-400">Loading staff roster…</div>
+        </div>
+      </div>
+
+      <!-- Right Column: Direct Message Thread -->
+      <div id="team-chat-thread-container" class="md:col-span-8 flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+        <div class="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
+          <div class="w-12 h-12 rounded-2xl bg-sky-50 dark:bg-sky-950/50 text-sky-500 grid place-items-center mb-3">
+            ${svgIcon('chat', 'w-6 h-6')}
+          </div>
+          <div class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Select a colleague to start messaging</div>
+          <p class="text-xs max-w-sm text-slate-400">Colleagues will receive an instant notification. If they are offline, your messages will be ready for them when they sign back on.</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  await refreshTeamChat();
+  if (__teamChatPollTimer) clearInterval(__teamChatPollTimer);
+  __teamChatPollTimer = setInterval(pollTeamChatMessages, 8000);
+}
+window.loadAiInbox = loadAiInbox;
+
+async function refreshTeamChat() {
+  try {
+    const res = await apiGetJson('/team/chat/roster');
+    __teamChatMembers = res?.members || [];
+    renderTeamChatRoster();
+    if (__teamChatActiveUserId) {
+      await loadTeamChatThread(__teamChatActiveUserId, false);
+    }
+  } catch (e) {
+    const rosterList = document.getElementById('team-chat-roster-list');
+    if (rosterList) rosterList.innerHTML = `<div class="p-4 text-center text-xs text-rose-500">Could not load staff list.</div>`;
+  }
+}
+window.refreshTeamChat = refreshTeamChat;
+
+function setTeamChatFilter(flt) {
+  __teamChatFilter = flt;
+  ['all', 'online', 'unread'].forEach(k => {
+    const b = document.getElementById(`tc-flt-${k}`);
+    if (b) b.className = `flex-1 text-[11px] font-bold py-1 rounded-lg transition ${k === flt ? 'bg-sky-600 text-white' : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800'}`;
+  });
+  renderTeamChatRoster();
+}
+window.setTeamChatFilter = setTeamChatFilter;
+
+function filterTeamChatRoster(val) {
+  __teamChatSearch = (val || '').toLowerCase().trim();
+  renderTeamChatRoster();
+}
+window.filterTeamChatRoster = filterTeamChatRoster;
+
+function renderTeamChatRoster() {
+  const el = document.getElementById('team-chat-roster-list');
+  if (!el) return;
+
+  let filtered = __teamChatMembers.filter(m => {
+    if (__teamChatSearch && !m.name.toLowerCase().includes(__teamChatSearch) && !m.role.toLowerCase().includes(__teamChatSearch)) return false;
+    if (__teamChatFilter === 'online' && !m.online) return false;
+    if (__teamChatFilter === 'unread' && !m.unread_count) return false;
+    return true;
+  });
+
+  if (!filtered.length) {
+    el.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">No staff members found matching criteria.</div>`;
+    return;
+  }
+
+  el.innerHTML = filtered.map(m => {
+    const active = m.id === __teamChatActiveUserId;
+    const initial = (m.name || 'S').charAt(0).toUpperCase();
+    const lastSnippet = m.last_message ? (m.last_message.from_me ? 'You: ' : '') + m.last_message.content : 'No messages yet';
+    return `
+      <button onclick="selectTeamChatUser('${m.id}')" class="w-full text-left flex items-center gap-3 p-2.5 rounded-xl transition ${active ? 'bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent'}">
+        <div class="relative flex-shrink-0">
+          <div class="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-black grid place-items-center text-xs">
+            ${m.avatar_url ? `<img src="${esc(m.avatar_url)}" class="w-full h-full rounded-full object-cover"/>` : initial}
+          </div>
+          <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-slate-900 ${m.online ? 'bg-emerald-500' : 'bg-slate-400'}"></span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-xs font-bold text-slate-900 dark:text-white truncate">${esc(m.name)}</span>
+            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">${esc(m.role)}</span>
+          </div>
+          <div class="flex items-center justify-between gap-1 mt-0.5">
+            <span class="text-[11px] text-slate-400 truncate">${esc(lastSnippet)}</span>
+            ${m.unread_count ? `<span class="bg-sky-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full leading-none">${m.unread_count}</span>` : ''}
+          </div>
+        </div>
+      </button>
+    `;
+  }).join('');
+}
+
+async function selectTeamChatUser(userId) {
+  __teamChatActiveUserId = userId;
+  renderTeamChatRoster();
+  await loadTeamChatThread(userId, true);
+}
+window.selectTeamChatUser = selectTeamChatUser;
+
+async function loadTeamChatThread(userId, initialLoad = false) {
+  const container = document.getElementById('team-chat-thread-container');
+  if (!container) return;
+
+  const target = __teamChatMembers.find(m => m.id === userId);
+  if (!target) return;
+
+  let messages = [];
+  try {
+    const res = await apiGetJson(`/team/chat/messages?with=${encodeURIComponent(userId)}`);
+    messages = res?.messages || [];
+  } catch { /* keep last */ }
+
+  if (target.unread_count) {
+    target.unread_count = 0;
+    renderTeamChatRoster();
+  }
+
+  const initial = (target.name || 'S').charAt(0).toUpperCase();
+
+  const msgListHtml = messages.length ? messages.map(m => {
+    const fromMe = m.sender_id !== target.id;
+    const timeStr = m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    return `
+      <div class="flex flex-col ${fromMe ? 'items-end' : 'items-start'} space-y-1">
+        <div class="max-w-[78%] px-3.5 py-2 rounded-2xl ${fromMe ? 'bg-sky-600 text-white rounded-br-none' : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-bl-none'} text-xs leading-relaxed break-words">
+          ${esc(m.content)}
+        </div>
+        <span class="text-[10px] text-slate-400 px-1">${timeStr}</span>
+      </div>
+    `;
+  }).join('') : `
+    <div class="flex-1 flex flex-col items-center justify-center p-6 text-center text-slate-400">
+      <p class="text-xs">No previous messages with ${esc(target.name)}. Say hello!</p>
+    </div>
+  `;
+
+  if (initialLoad || !document.getElementById('team-chat-msg-body')) {
+    container.innerHTML = `
+      <!-- Header -->
+      <div class="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950/50">
+        <div class="flex items-center gap-3">
+          <div class="relative">
+            <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold grid place-items-center text-xs">
+              ${target.avatar_url ? `<img src="${esc(target.avatar_url)}" class="w-full h-full rounded-full object-cover"/>` : initial}
+            </div>
+            <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-slate-900 ${target.online ? 'bg-emerald-500' : 'bg-slate-400'}"></span>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span>${esc(target.name)}</span>
+              <span class="text-[10px] font-normal text-slate-400">(${esc(target.role)})</span>
+            </div>
+            <div class="text-[11px] ${target.online ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-slate-400'}">
+              ${target.online ? '🟢 Online now' : '⚪ Offline — replies saved for when they log in'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Messages Body -->
+      <div id="team-chat-msg-body" class="flex-1 overflow-y-auto p-4 space-y-3">
+        ${msgListHtml}
+      </div>
+
+      <!-- Input Footer -->
+      <form id="team-chat-form" onsubmit="sendTeamChatMessage(event)" class="p-3 border-t border-slate-200 dark:border-slate-800 flex items-center gap-2 bg-white dark:bg-slate-900">
+        <input type="text" id="team-chat-input" placeholder="Message ${esc(target.name)}… (Enter to send)" class="flex-1 text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500" autocomplete="off" />
+        <button type="submit" class="px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition flex items-center gap-1.5">
+          <span>Send</span>
+          <svg class="w-3.5 h-3.5 rotate-90" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m-7 7l7-7 7 7"/></svg>
+        </button>
+      </form>
+    `;
+    const box = document.getElementById('team-chat-msg-body');
+    if (box) box.scrollTop = box.scrollHeight;
+    document.getElementById('team-chat-input')?.focus();
+  } else {
+    const box = document.getElementById('team-chat-msg-body');
+    if (box) {
+      const isAtBottom = (box.scrollHeight - box.scrollTop) <= (box.clientHeight + 60);
+      box.innerHTML = msgListHtml;
+      if (isAtBottom) box.scrollTop = box.scrollHeight;
+    }
+  }
+}
+
+async function sendTeamChatMessage(e) {
+  if (e) e.preventDefault();
+  const input = document.getElementById('team-chat-input');
+  if (!input) return;
+  const text = (input.value || '').trim();
+  if (!text || !__teamChatActiveUserId) return;
+
+  input.value = '';
+  try {
+    await apiPostJson('/team/chat/messages', { recipient_id: __teamChatActiveUserId, content: text });
+    await loadTeamChatThread(__teamChatActiveUserId, false);
+    const box = document.getElementById('team-chat-msg-body');
+    if (box) box.scrollTop = box.scrollHeight;
+  } catch (err) {
+    showToast('Failed to send message: ' + (err.message || 'Error'), 'error');
+  }
+}
+window.sendTeamChatMessage = sendTeamChatMessage;
+
+async function pollTeamChatMessages() {
+  if (document.hidden) return;
+  const activePage = document.querySelector('[data-page-content="ai-inbox"]');
+  if (!activePage || activePage.classList.contains('hidden')) return;
+  if (__teamChatActiveUserId) {
+    await loadTeamChatThread(__teamChatActiveUserId, false);
+  }
 }
 function aiCopyEmbed() {
-  const el = document.getElementById('ai-embed-code'); if (!el) return;
+  const el = document.getElementById('ai-embed-code') || document.getElementById('ai-embed-snippet');
+  if (!el) return;
   navigator.clipboard?.writeText(el.textContent).then(() => showToast('Snippet copied ', 'success')).catch(() => showToast('Copy failed', 'error'));
 }
+window.aiCopyEmbed = aiCopyEmbed;
 // Mirrors the backend scoreConversation() so we can explain how a lead score was
 // reached. Keep in sync with routes/ai-runtime.js:scoreConversation.
 function aiScoreFactors(messages, captured, memory) {

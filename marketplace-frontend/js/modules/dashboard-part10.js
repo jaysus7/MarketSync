@@ -930,9 +930,9 @@ function engineRail(eng, d) {
   const A = ENGINE_ACCENTS[eng.accent] || ENGINE_ACCENTS.indigo;
   const sec = (title, icon, inner) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5">
     <div class="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 mb-2.5">${svgIcon(icon, 'w-3.5 h-3.5')}${esc(title)}</div>${inner}</div>`;
-  const ai = sec('AI Assistant', 'sparkles',
-    `<p class="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2.5">Ask about ${esc(eng.title)} — trends, next steps, anything.</p>
-     <button onclick="openAiDock()" class="w-full text-xs font-bold ${A.solid} text-white rounded-lg px-3 py-2 transition shadow-sm cursor-pointer">Ask AI</button>`);
+  const msg = sec('Team Messages', 'chat',
+    `<p class="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2.5">Message colleagues &amp; department staff live.</p>
+     <button onclick="toggleTeamChatWidget()" class="w-full text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white rounded-lg px-3 py-2 transition shadow-sm cursor-pointer flex items-center justify-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 0 1-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>Messages</button>`);
   const na = (eng.nextActions ? eng.nextActions(d) : []) || [];
   const naHtml = na.length
     ? na.map(a => `<button onclick="${a.onclick || ''}" class="w-full text-left flex items-start gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition">
@@ -942,7 +942,7 @@ function engineRail(eng, d) {
   const qa = (eng.quickActions || []).map(q =>
     `<button onclick="${q.onclick}" class="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">${svgIcon(q.icon || 'bolt', 'w-3.5 h-3.5 ' + A.text)}${esc(q.label)}</button>`
   ).join('') || '<div class="text-xs text-slate-400">—</div>';
-  return ai + sec('Next Actions', 'check', naHtml) + sec('Quick Actions', 'bolt', qa);
+  return msg + sec('Next Actions', 'check', naHtml) + sec('Quick Actions', 'bolt', qa);
 }
 
 // Build the engine shell frame into its root, then render the active tab.
@@ -970,9 +970,9 @@ function renderEngine(engineId, force = false) {
     <div data-engine-tabbar="${engineId}" role="tablist" class="${(order.length <= 1 || eng.hideTabBar) ? 'hidden' : 'flex'} items-center gap-1 border-b border-slate-200 dark:border-slate-800 mb-4 overflow-x-auto">
       ${order.map(tabBtn).join('')}
     </div>
-    <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-5 items-start">
+    <div class="grid grid-cols-1 ${eng.hideRail ? '' : 'xl:grid-cols-[minmax(0,1fr)_300px]'} gap-5 items-start">
       <div data-engine-body="${engineId}" class="min-w-0 space-y-5"></div>
-      <aside data-engine-rail="${engineId}" class="space-y-3 xl:sticky xl:top-4"></aside>
+      ${eng.hideRail ? '' : `<aside data-engine-rail="${engineId}" class="space-y-3 xl:sticky xl:top-4"></aside>`}
     </div>`;
   engineTab(engineId, tab, force);   // full render re-uses cached data unless `force` is explicitly requested
 }

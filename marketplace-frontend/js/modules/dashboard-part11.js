@@ -1788,7 +1788,10 @@ ENGINES['command'] = {
       inventory: inventory?.vehicles || inventory || [], fniDeals: fniDeals?.deals || fniDeals || [], esignRequests: esignRequests.requests || [],
       serviceRos: serviceRos.ros || serviceRos || [], partsOrders: partsOrders.orders || partsOrders || [], staff: staff.employees || staff || [] };
   },
-  quickActions: [{ label: 'Open source operations', icon: 'bolt', onclick: "switchPage('operations')" }],
+  quickActions: [
+    { label: 'Academy (282 Courses)', icon: 'sparkles', onclick: "openMarketSyncAcademy('all')" },
+    { label: 'Open source operations', icon: 'bolt', onclick: "switchPage('operations')" },
+  ],
   nextActions: (d) => (d.day.needs_attention || []).slice(0, 4).map(x => ({
     label: `${x.next_action || 'Review'} · ${x.department || x.source_label}`,
     icon: 'shield', tone: (OPS_SEV[x.severity] || {}).text || 'text-amber-500',

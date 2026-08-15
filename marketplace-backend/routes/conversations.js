@@ -337,4 +337,141 @@ export function registerConversations(app) {
     try { res.json({ items: await conversationAttention(req.dealershipId) }) }
     catch (e) { res.status(500).json({ error: e.message }) }
   })
+
+  // ── Internal Staff / Team Chat Endpoints ────────────────────────────────────
+  const teamMessagesStore = new Map()
+
+  const cleanupOldMessages = (dealershipId) => {
+    const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000
+    const list = teamMessagesStore.get(dealershipId) || []
+    const retained = list.filter(m => new Date(m.created_at).getTime() >= ninetyDaysAgo)
+    teamMessagesStore.set(dealershipId, retained)
+    return retained
+  }
+
+  app.get('/team/chat/roster', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.json({ members: [] })
+    try {
+      const { data: profiles } = await supabaseAdmin.from('profiles')
+        .select('id, full_name, display_name, role, avatar_url, active, updated_at')
+        .eq('dealership_id', req.dealershipId)
+
+      const msgs = cleanupOldMessages(req.dealershipId)
+      const currentUserId = req.user.id
+      const now = Date.now()
+
+      const members = (profiles || [])
+        .filter(p => p.id !== currentUserId)
+        .map(p => {
+          const userMsgs = msgs.filter(m =>
+            (m.sender_id === p.id && m.recipient_id === currentUserId) ||
+            (m.sender_id === currentUserId && m.recipient_id === p.id)
+          ).sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
+          const lastMsg = userMsgs[0] || null
+          const unreadCount = msgs.filter(m => m.sender_id === p.id && m.recipient_id === currentUserId && !m.read).length
+          const isOnline = p.active !== false && (p.updated_at && (now - new Date(p.updated_at).getTime() < 15 * 60 * 1000))
+
+          return {
+            id: p.id,
+            name: p.full_name || p.display_name || 'Staff Member',
+            role: (p.role || 'Staff').replace('_', ' '),
+            avatar_url: p.avatar_url || null,
+            online: !!isOnline,
+            last_message: lastMsg ? { content: lastMsg.content, created_at: lastMsg.created_at, from_me: lastMsg.sender_id === currentUserId } : null,
+            unread_count: unreadCount,
+          }
+        })
+        .sort((a, b) => {
+          if (a.online !== b.online) return a.online ? -1 : 1
+          const aTime = a.last_message?.created_at ? new Date(a.last_message.created_at).getTime() : 0
+          const bTime = b.last_message?.created_at ? new Date(b.last_message.created_at).getTime() : 0
+          return bTime - aTime || a.name.localeCompare(b.name)
+        })
+
+      res.json({ ok: true, members })
+    } catch (e) {
+      res.status(500).json({ error: e.message })
+    }
+  })
+
+  app.get('/team/chat/messages', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.json({ messages: [] })
+    const targetUserId = req.query.with
+    if (!targetUserId) return res.status(400).json({ error: 'Missing target user ID' })
+
+    const msgs = cleanupOldMessages(req.dealershipId)
+    const currentUserId = req.user.id
+
+    msgs.forEach(m => {
+      if (m.sender_id === targetUserId && m.recipient_id === currentUserId) {
+        m.read = true
+      }
+    })
+
+    const thread = msgs.filter(m =>
+      (m.sender_id === targetUserId && m.recipient_id === currentUserId) ||
+      (m.sender_id === currentUserId && m.recipient_id === targetUserId)
+    ).sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+
+    res.json({ ok: true, messages: thread })
+  })
+
+  app.post('/team/chat/messages', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { recipient_id, content } = req.body || {}
+    if (!recipient_id || !content || !content.trim()) {
+      return res.status(400).json({ error: 'Recipient and content required' })
+    }
+
+    if (!teamMessagesStore.has(req.dealershipId)) {
+      teamMessagesStore.set(req.dealershipId, [])
+    }
+
+    const { data: sender } = await supabaseAdmin.from('profiles')
+      .select('full_name, display_name').eq('id', req.user.id).maybeSingle()
+    const senderName = sender?.full_name || sender?.display_name || 'A teammate'
+
+    const newMsg = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      dealership_id: req.dealershipId,
+      sender_id: req.user.id,
+      sender_name: senderName,
+      recipient_id,
+      content: content.trim(),
+      read: false,
+      created_at: new Date().toISOString()
+    }
+
+    teamMessagesStore.get(req.dealershipId).push(newMsg)
+
+    await supabaseAdmin.from('notifications').insert({
+      dealership_id: req.dealershipId,
+      target_user_id: recipient_id,
+      type: 'team_message',
+      title: `Message from ${senderName}`,
+      body: content.length > 120 ? content.slice(0, 117) + '...' : content,
+      link_page: 'ai-inbox',
+      read: false,
+      created_at: new Date().toISOString()
+    }).catch(() => {})
+
+    res.json({ ok: true, message: newMsg })
+  })
+
+  app.delete('/team/chat/history', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const targetUserId = req.query.with
+    if (!targetUserId) return res.status(400).json({ error: 'Missing target user ID' })
+
+    const currentUserId = req.user.id
+    const msgs = teamMessagesStore.get(req.dealershipId) || []
+
+    const remaining = msgs.filter(m =>
+      !( (m.sender_id === targetUserId && m.recipient_id === currentUserId) ||
+         (m.sender_id === currentUserId && m.recipient_id === targetUserId) )
+    )
+    teamMessagesStore.set(req.dealershipId, remaining)
+    res.json({ ok: true, deleted: msgs.length - remaining.length })
+  })
 }

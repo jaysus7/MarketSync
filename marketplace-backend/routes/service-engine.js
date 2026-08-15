@@ -26,6 +26,26 @@ const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100
 
 const CONFIG_DEFAULT = { labor_rate: 149, tax_rate: 0, shop_supplies_pct: 0, part_markup_pct: 40, ro_prefix: 'RO-' }
+const PARTS_CSV_COLS = ['part_number', 'description', 'bin', 'cost', 'price', 'reorder_point', 'qty_on_hand', 'qty_reserved', 'qty_available']
+function partsCsvCell(v) { if (v == null) return ''; let s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
+function toPartsCsv(rows) {
+  const body = rows.map(r => PARTS_CSV_COLS.map(c => partsCsvCell(r[c])).join(',')).join('\n')
+  return PARTS_CSV_COLS.join(',') + '\n' + body + '\n'
+}
+function parsePartsCsv(text) {
+  const s = String(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  const rows = []; let field = '', row = [], inq = false
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]
+    if (inq) { if (ch === '"') { if (s[i + 1] === '"') { field += '"'; i++ } else inq = false } else field += ch; continue }
+    if (ch === '"') inq = true
+    else if (ch === ',') { row.push(field); field = '' }
+    else if (ch === '\n') { row.push(field); rows.push(row); field = ''; row = [] }
+    else field += ch
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row) }
+  return rows.filter(r => r.length && r.some(c => String(c).trim() !== ''))
+}
 async function svcConfig(dealershipId) {
   const c = await getConfig(dealershipId, 'service', {})
   return { ...CONFIG_DEFAULT, ...(c && typeof c === 'object' ? c : {}) }
@@ -1366,6 +1386,85 @@ export function registerServiceEngine(app) {
       })
       res.json({ ok: true, vehicle })
     } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+
+  app.get('/service-engine/parts/export.csv', requireAuth, canRead, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data } = await supabaseAdmin.from('parts')
+      .select('part_number, description, bin, cost, price, reorder_point, qty_on_hand, qty_reserved, qty_available')
+      .eq('dealership_id', req.dealershipId)
+      .order('part_number', { ascending: true })
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="parts-inventory-${new Date().toISOString().slice(0, 10)}.csv"`)
+    res.send(toPartsCsv(data || []))
+  })
+
+  app.post('/service-engine/parts/import', requireAuth, canWork, async (req, res) => {
+    if (!guard(req, res)) return
+    const csv = req.body && req.body.csv
+    if (!csv || typeof csv !== 'string') return res.status(400).json({ error: 'Provide CSV text as { csv }' })
+    const rows = parsePartsCsv(csv)
+    if (rows.length < 2) return res.status(400).json({ error: 'No data rows found (need a header row + at least one part).' })
+    const header = rows[0].map(h => h.trim().toLowerCase().replace(/[\s_-]+/g, '_'))
+    const idx = Object.fromEntries(PARTS_CSV_COLS.map(c => [c, header.indexOf(c)]))
+    if (idx.part_number < 0) idx.part_number = header.findIndex(h => ['part', 'sku', 'part_no', 'partnum', 'number'].includes(h))
+    if (idx.description < 0) idx.description = header.findIndex(h => ['desc', 'name', 'title'].includes(h))
+    if (idx.qty_on_hand < 0) idx.qty_on_hand = header.findIndex(h => ['qty', 'quantity', 'on_hand', 'stock'].includes(h))
+    if (idx.reorder_point < 0) idx.reorder_point = header.findIndex(h => ['reorder', 'min', 'min_reorder', 'min_reorder_level'].includes(h))
+    
+    if (idx.part_number < 0) return res.status(400).json({ error: 'CSV needs at least a "part_number" column. Export a file first to see the format.' })
+
+    const { data: existing } = await supabaseAdmin.from('parts').select('id, part_number, qty_on_hand').eq('dealership_id', req.dealershipId)
+    const byPartNum = {}
+    for (const p of (existing || [])) { if (p.part_number) byPartNum[String(p.part_number).toLowerCase()] = p }
+
+    let created = 0, updated = 0, skipped = 0; const errors = []
+    for (let r = 1; r < rows.length; r++) {
+      const cells = rows[r]
+      const get = c => idx[c] >= 0 ? String(cells[idx[c]] || '').trim() : ''
+      const partNumber = get('part_number')
+      if (!partNumber) { skipped++; continue }
+      const cost = Number(get('cost')) || 0
+      const price = Number(get('price')) || 0
+      const reorderPoint = Number(get('reorder_point')) || 0
+      const bin = get('bin') || null
+      const description = get('description') || null
+      const qtyOnHand = Number(get('qty_on_hand')) || 0
+
+      const existingPart = byPartNum[partNumber.toLowerCase()]
+      try {
+        if (existingPart) {
+          const { error } = await supabaseAdmin.from('parts').update({
+            description: description || existingPart.description,
+            bin: bin || existingPart.bin,
+            cost: cost || existingPart.cost,
+            price: price || existingPart.price,
+            reorder_point: reorderPoint || existingPart.reorder_point,
+            updated_at: new Date().toISOString(),
+          }).eq('id', existingPart.id)
+          if (error) throw new Error(error.message)
+          updated++
+        } else {
+          const { data: ins, error } = await supabaseAdmin.from('parts').insert({
+            dealership_id: req.dealershipId,
+            part_number: partNumber,
+            description,
+            bin,
+            cost,
+            price,
+            reorder_point: reorderPoint,
+            qty_on_hand: qtyOnHand,
+            qty_available: qtyOnHand,
+            qty_reserved: 0,
+            updated_at: new Date().toISOString(),
+          }).select('*').single()
+          if (error) throw new Error(error.message)
+          byPartNum[partNumber.toLowerCase()] = ins
+          created++
+        }
+      } catch (e) { errors.push(`Row ${r + 1}: ${e.message}`) }
+    }
+    res.json({ ok: true, created, updated, skipped, errors: errors.slice(0, 20) })
   })
 
   app.get('/service-engine/parts', requireAuth, canRead, async (req, res) => {

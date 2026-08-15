@@ -126,6 +126,7 @@ ENGINES['accounting-overview'] = {
   },
 
   quickActions: [
+    { label: 'Accounting Training (Academy)', icon: 'sparkles', onclick: "openMarketSyncAcademy('accounting')" },
     { label: '+ Record Incoming', icon: 'currency', onclick: "accOpenCustomEntryModal('in')" },
     { label: '+ Record Outgoing', icon: 'clipboard', onclick: "accOpenCustomEntryModal('out')" },
     { label: 'Bank Matching', icon: 'chart', onclick: "engineTab('accounting-overview','bank')" },
