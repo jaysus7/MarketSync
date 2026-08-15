@@ -480,6 +480,7 @@ let __staffHome = null;           // landing page for a staff role
 // (after the generic role hides), so its reveal of an otherwise admin-only group
 // (Service / Accounting) is the final word. Returns true if a staff role applied.
 function applyStaffRoleNav(role) {
+  window.applyStaffRoleNav = applyStaffRoleNav;
   const cfg = STAFF_ROLE_NAV[role];
   if (!cfg) return false;
   const allowGroups = new Set(cfg.groups);

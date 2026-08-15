@@ -10,6 +10,10 @@
     "build:kb": "node scripts/build-kb.js",
     "build:training": "node scripts/build-training-expanded.js && node scripts/build-training-visuals.js",
     "test": "NODE_ENV=test node --test test/*.test.js",
+    "test:e2e": "npx playwright test e2e/smoke.spec.js e2e/crawler.spec.js e2e/performance.spec.js",
+    "test:smoke": "npx playwright test e2e/smoke.spec.js",
+    "test:links": "npx playwright test e2e/crawler.spec.js",
+    "test:performance": "npx playwright test e2e/performance.spec.js",
     "check:syntax": "find . -path ./node_modules -prune -o -name '*.js' -print0 | xargs -0 -n20 node --check",
     "check:imports": "node scripts/check-imports.js",
     "check:exports": "node scripts/check-exports.js",
@@ -41,6 +45,9 @@
     "sharp": "^0.35.3",
     "stripe": "^15.12.0",
     "ws": "^8.20.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
   },
   "overrides": {
     "@puppeteer/browsers": "3.2.0"

@@ -114,10 +114,15 @@ app.get('/ready', async (req, res) => {
   res.json({ ok: true, ts: Date.now(), database: 'ready', rate_limiting })
 })
 
-// Bounce any stale *.html requests to the canonical frontend
-app.get(/\.html$/, (req, res) => {
-  res.redirect(302, `${CANONICAL_FRONTEND}${req.originalUrl}`)
-})
+// Serve frontend static files when running locally or in test QA mode
+if (process.env.SERVE_STATIC === 'true' || process.env.NODE_ENV === 'test') {
+  app.use(express.static('../marketplace-frontend'))
+} else {
+  // Bounce any stale *.html requests to the canonical frontend
+  app.get(/\.html$/, (req, res) => {
+    res.redirect(302, `${CANONICAL_FRONTEND}${req.originalUrl}`)
+  })
+}
 
 // Stripe webhook must be raw before express.json
 registerBilling(app)
@@ -247,8 +252,9 @@ if (process.env.VALIDATE_STARTUP === 'true') {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Secure Marketplace engine live on port ${PORT}`)
-  refreshDedicatedDemoAccounts()
-    .then(results => {
+  if (process.env.SKIP_DEMO_REFRESH !== 'true') {
+    refreshDedicatedDemoAccounts()
+      .then(results => {
       const seeded = results.filter(row => row.status === 'seeded')
       const skipped = results.filter(row => row.status === 'skipped')
       startupDemoRefresh = {
@@ -260,4 +266,5 @@ app.listen(PORT, '0.0.0.0', () => {
       for (const row of skipped) console.error(`[demo] skipped ${row.name}: ${row.reason}`)
     })
     .catch(error => { startupDemoRefresh = { status: 'failed' }; console.error('[demo] startup refresh failed:', error.message) })
+  }
 })
