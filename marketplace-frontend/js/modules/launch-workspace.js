@@ -49,7 +49,7 @@ const LAUNCH_ACTIONS = {
   inventory_source: ["switchPage('inventory-overview');setTimeout(()=>engineTab('inventory-overview','work'),0)", 'Add inventory'],
   website_published: ["switchPage('website')", 'Open website'],
   service_hours: ["switchPage('service-settings')", 'Set service hours'],
-  required_training: ["switchPage('academy')", 'Open Academy'],
+  required_training: ["openMarketSyncAcademy('hr')", 'Complete HR Training in Academy'],
   policies_published: ["switchPage('people-overview');setTimeout(()=>engineTab('people-overview','insights'),0)", 'Open compliance'],
   lead_routing: ["switchPage('sales');setTimeout(()=>engineTab('sales','settings'),0)", 'Set lead routing'],
 }

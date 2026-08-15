@@ -131,12 +131,25 @@
   // Tables can be inserted after load (tab panels, lazy sections). A light
   // observer picks up any new <table> and wires it up automatically.
   if ('MutationObserver' in window) {
+    let tTimer = null;
     const mo = new MutationObserver(muts => {
+      let hasTable = false;
       for (const m of muts) {
         for (const node of m.addedNodes) {
           if (node.nodeType !== 1) continue;
-          if (node.tagName === 'TABLE') initTable(node);
-          else if (node.querySelectorAll) node.querySelectorAll('table').forEach(initTable);
+          if (node.tagName === 'TABLE' || (node.querySelector && node.querySelector('table'))) {
+            hasTable = true;
+            break;
+          }
+        }
+        if (hasTable) break;
+      }
+      if (hasTable) {
+        if (!tTimer) {
+          tTimer = requestAnimationFrame(() => {
+            tTimer = null;
+            initAll();
+          });
         }
       }
     });

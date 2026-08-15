@@ -162,27 +162,11 @@ const MS_WORKSPACES = {
     ],
   },
 
-  settings: {
-    label: 'Settings', icon: 'shield', system: true,
-    pages: [
-      { page: 'profile', label: 'Settings' },
-      { page: 'automation-builder', label: 'Automation', legacy: true },
-      { page: 'config', label: 'Configuration', legacy: true },
-      { page: 'api-keys', label: 'API Keys', legacy: true },
-    ],
-  },
-
-  // Setup is NOT in the sidebar. It is one line at the foot of the shell that opens a
-  // modal (msSetupModal in dashboard-part2.js) and removes itself once the dealership is
-  // configured — a permanent nav entry for a job you finish once is furniture. The
-  // `launch` PAGE still exists and is still reachable by deep link; it simply no longer
-  // occupies a slot in the navigation forever.
-
 };
 
 // Bottom/system rail. `profile` is the header gear (always reachable, every tier).
 const MS_SYSTEM_NAV = [
-  { id: 'ask', label: 'Ask MarketSync', icon: 'sparkles', action: 'msAskOpen' },
+  { id: 'messaging', label: 'Messaging', icon: 'chat', page: 'ai-inbox' },
   { id: 'notifications', label: 'Notifications', icon: 'bolt', action: 'msNotificationsOpen' },
   { id: 'settings', label: 'Settings', icon: 'shield', page: 'profile' },
 ];

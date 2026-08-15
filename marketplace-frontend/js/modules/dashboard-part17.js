@@ -972,6 +972,7 @@ function setWsLeftNav(tab) {
     const isSel = b.dataset.tab === tab;
     b.className = `ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold transition ${isSel ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white hover:bg-slate-800'} cursor-pointer`;
   });
+  if (tab === 'layers') renderWsLayersTree();
   if (__wsLeftDockCollapsed) toggleWsLeftDock();
 }
 window.setWsLeftNav = setWsLeftNav;
@@ -997,44 +998,53 @@ function selectWsSection(idx) {
 }
 window.selectWsSection = selectWsSection;
 
-function renderWsLayersTree() {
-  const treeEl = document.getElementById('ws-layers-tree');
-  if (!treeEl) return;
-  treeEl.innerHTML = `
-    <div class="space-y-1 font-sans text-xs">
-      <div class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
-        <span>Hierarchical Layers Tree</span>
-        <span class="text-slate-500 font-normal text-[9px]">(Drag Header To Move)</span>
-      </div>
-      <div onclick="selectWsSection(-1)" class="p-2.5 rounded-xl border ${__wsSelectedSecIdx === -1 ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-900/60 text-slate-300 hover:border-slate-700'} cursor-pointer flex items-center justify-between transition">
-        <span>Header &amp; Navigation Bar</span>
-        <span class="text-[10px] font-mono text-slate-400">Global</span>
-      </div>
-      <div class="pl-2 space-y-1 border-l-2 border-slate-800 ml-2 my-1">
-        ${(__siteSections || []).map((sec, idx) => {
-          const isSel = __wsSelectedSecIdx === idx;
-          const meta = SEC_META[sec.type] || {};
-          return `
-            <div onclick="selectWsSection(${idx})" class="p-2.5 rounded-xl border ${isSel ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-950 text-slate-300 hover:border-slate-700'} cursor-pointer flex items-center justify-between transition group">
-              <div class="flex items-center gap-2 min-w-0">
-                <span class="w-4 text-[10px] font-mono text-slate-500">${idx + 1}</span>
-                <span class="truncate">${esc(meta.label || sec.type)}</span>
+function renderWsLayersTreeHtml() {
+  return `
+    <div id="ws-layers-tree" class="p-4">
+      <div class="space-y-1 font-sans text-xs">
+        <div class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
+          <span>Hierarchical Layers Tree</span>
+          <span class="text-slate-500 font-normal text-[9px]">(Drag Header To Move)</span>
+        </div>
+        <div onclick="selectWsSection(-1)" class="p-2.5 rounded-xl border ${__wsSelectedSecIdx === -1 ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-900/60 text-slate-300 hover:border-slate-700'} cursor-pointer flex items-center justify-between transition">
+          <span>Header &amp; Navigation Bar</span>
+          <span class="text-[10px] font-mono text-slate-400">Global</span>
+        </div>
+        <div class="pl-2 space-y-1 border-l-2 border-slate-800 ml-2 my-1">
+          ${(__siteSections || []).map((sec, idx) => {
+            const isSel = __wsSelectedSecIdx === idx;
+            const meta = SEC_META[sec.type] || {};
+            return `
+              <div onclick="selectWsSection(${idx})" class="p-2.5 rounded-xl border ${isSel ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-950 text-slate-300 hover:border-slate-700'} cursor-pointer flex items-center justify-between transition group">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="w-4 text-[10px] font-mono text-slate-500">${idx + 1}</span>
+                  <span class="truncate">${esc(meta.label || sec.type)}</span>
+                </div>
+                <div class="flex items-center gap-1 opacity-80 group-hover:opacity-100">
+                  <button type="button" onclick="event.stopPropagation(); moveSection(${idx},-1)" ${idx === 0 ? 'disabled' : ''} class="p-1 text-slate-400 hover:text-white disabled:opacity-20" title="Move Up">↑</button>
+                  <button type="button" onclick="event.stopPropagation(); moveSection(${idx},1)" ${idx === __siteSections.length - 1 ? 'disabled' : ''} class="p-1 text-slate-400 hover:text-white disabled:opacity-20" title="Move Down">↓</button>
+                  <button type="button" onclick="event.stopPropagation(); delSection(${idx})" class="p-1 text-rose-400 hover:text-rose-300" title="Delete">✕</button>
+                </div>
               </div>
-              <div class="flex items-center gap-1 opacity-80 group-hover:opacity-100">
-                <button type="button" onclick="event.stopPropagation(); moveSection(${idx},-1)" ${idx === 0 ? 'disabled' : ''} class="p-1 text-slate-400 hover:text-white disabled:opacity-20" title="Move Up">↑</button>
-                <button type="button" onclick="event.stopPropagation(); moveSection(${idx},1)" ${idx === __siteSections.length - 1 ? 'disabled' : ''} class="p-1 text-slate-400 hover:text-white disabled:opacity-20" title="Move Down">↓</button>
-                <button type="button" onclick="event.stopPropagation(); delSection(${idx})" class="p-1 text-rose-400 hover:text-rose-300" title="Delete">\u{2715}</button>
-              </div>
-            </div>
-          `;
-        }).join('')}
-      </div>
-      <div onclick="selectWsSection(-2)" class="p-2.5 rounded-xl border ${__wsSelectedSecIdx === -2 ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-900/60 text-slate-300 hover:border-slate-700'} cursor-pointer flex items-center justify-between transition">
-        <span>Footer &amp; Copyright</span>
-        <span class="text-[10px] font-mono text-slate-400">Global</span>
+            `;
+          }).join('')}
+        </div>
+        <div onclick="selectWsSection(-2)" class="p-2.5 rounded-xl border ${__wsSelectedSecIdx === -2 ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-900/60 text-slate-300 hover:border-slate-700'} cursor-pointer flex items-center justify-between transition">
+          <span>Footer &amp; Copyright</span>
+          <span class="text-[10px] font-mono text-slate-400">Global</span>
+        </div>
       </div>
     </div>
   `;
+}
+
+function renderWsLayersTree() {
+  const treeEl = document.getElementById('ws-layers-tree');
+  if (!treeEl) return;
+  const temp = document.createElement('div');
+  temp.innerHTML = renderWsLayersTreeHtml();
+  const inner = temp.firstElementChild?.innerHTML;
+  if (inner) treeEl.innerHTML = inner;
 }
 
 function renderWsLeftDrawerHtml() {
@@ -1048,7 +1058,7 @@ function renderWsLeftDrawerHtml() {
     </div>
   `;
   if (__wsActiveLeftNav === 'layers') {
-    return headerHtml + `<div id="ws-layers-tree" class="p-4"></div>`;
+    return headerHtml + renderWsLayersTreeHtml();
   } else if (__wsActiveLeftNav === 'blocks') {
     return headerHtml + renderElementorPalette();
   } else if (__wsActiveLeftNav === 'pages') {

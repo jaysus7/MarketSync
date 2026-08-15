@@ -875,7 +875,7 @@ function loadConfigHub() {
       ${section('Marketing & Communications', 'Brand, campaigns, social, website, email and AI.', [
         { label: 'Marketing settings', go: "settingsGo('marketing-overview','marketing-overview','settings')" },
         { label: 'Website', go: "settingsGo('marketing-overview','marketing-overview','website')" },
-        { label: 'Studio', go: "settingsGo('marketing-overview','marketing-overview','studio')" },
+        { label: 'Design Studio', go: "settingsGo('marketing-overview','marketing-overview','studio')" },
       ])}
       ${section('People & Academy', 'Employment policy, training, schedules and compliance.', [
         { label: 'People', go: "switchPage('people-overview')" },

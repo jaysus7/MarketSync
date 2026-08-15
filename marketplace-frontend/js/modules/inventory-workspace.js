@@ -280,10 +280,6 @@ async function invRenderWork(body, d) {
 
   body.innerHTML = `
     ${engSection('Acquisition', invRenderAcquisition(d, (__invAppraisals && __invAppraisals.appraisals) || []), 'What is coming in, and what you have taken possession of')}
-    ${engSection('Cleanup', `<div class="space-y-3">
-      ${sold.length ? engCard(`Sold — still in cleanup (${sold.length})`, sold.slice(0, 20).map(reconRow).join('')) : ''}
-      ${engCard('In cleanup', rest.slice(0, 20).map(reconRow).join('') || engEmpty('Nothing in cleanup.'))}
-    </div>`, 'A sold unit still being worked on is holding up a delivery')}
     ${engSection('Merchandising', invRenderMerch(d), 'What is stopping a vehicle going on the front line')}
     ${engSection('Pricing and age', (noPrice.length ? engCard(`No price (${noPrice.length})`, noPrice.slice(0, 10).map(v => invRow(v, d)).join('')) : '')
       + engCard(`Aged ${INV_AGED_DAYS}+ days (${aged.length})`, aged.slice(0, 15).map(v => invRow(v, d)).join('') || engEmpty('Nothing aged.'), noPrice.length ? 'mt-3' : ''),
@@ -321,7 +317,7 @@ ENGINES['inventory-overview'] = {
   },
 
   quickActions: [
-    // Add inventory lands on the Inventory tab, which now holds the real page.
+    { label: 'Inventory Training (Academy)', icon: 'sparkles', onclick: "openMarketSyncAcademy('inventory')" },
     { label: '+ Add inventory', icon: 'gem', onclick: "engineTab('inventory-overview','work')" },
     { label: 'Inventory Intelligence', icon: 'chart', onclick: "engineTab('inventory-overview','overview')" },
     { label: 'Market & Competitors', icon: 'globe', onclick: "engineTab('inventory-overview','overview')" },

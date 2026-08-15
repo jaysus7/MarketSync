@@ -73,8 +73,13 @@
   }
 
   if (typeof MutationObserver !== 'undefined') {
+    var timer = null;
     var observer = new MutationObserver(function () {
-      scanPasswordInputs();
+      if (timer) return;
+      timer = requestAnimationFrame(function () {
+        timer = null;
+        scanPasswordInputs();
+      });
     });
     observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
   }

@@ -263,6 +263,7 @@ ENGINES['fni-overview'] = {
   },
 
   quickActions: [
+    { label: 'F&I Training (Academy)', icon: 'sparkles', onclick: "openMarketSyncAcademy('fni')" },
     { label: 'Desk Deal', icon: 'currency', onclick: "switchPage('desk')" },
     { label: 'Deals', icon: 'shield', onclick: "engineTab('fni-overview','work')" },
     { label: 'Delivery queue', icon: 'bolt', onclick: "switchPage('delivery')" },

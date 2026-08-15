@@ -80,6 +80,7 @@ ENGINES['people-overview'] = {
   },
 
   quickActions: [
+    { label: 'Mandatory HR Training (Academy)', icon: 'sparkles', onclick: "openMarketSyncAcademy('hr')" },
     { label: 'People Directory', icon: 'user', onclick: "engineTab('people-overview','people')" },
     { label: 'Time & Attendance', icon: 'chart', onclick: "engineTab('people-overview','time')" },
     { label: 'Hiring & ATS', icon: 'sparkles', onclick: "engineTab('people-overview','hiring')" },

@@ -17,6 +17,13 @@ window.msToggleShellMenu = msToggleShellMenu;
 function msShellGo(page) { msToggleShellMenu(false); switchPage(page); }
 window.msShellGo = msShellGo;
 
+// Early safety stubs for widgets so early clicks before later parts load never throw
+if (typeof window.openAiDock !== 'function') window.openAiDock = function() { const p = document.getElementById('ai-dock-panel'); if (p) p.classList.remove('hidden'); };
+if (typeof window.closeAiDock !== 'function') window.closeAiDock = function() { const p = document.getElementById('ai-dock-panel'); if (p) p.classList.add('hidden'); };
+if (typeof window.toggleAiDock !== 'function') window.toggleAiDock = function() { const p = document.getElementById('ai-dock-panel'); if (p) p.classList.toggle('hidden'); };
+if (typeof window.openTeamChatWidget !== 'function') window.openTeamChatWidget = function() { const p = document.getElementById('team-chat-dock-panel'); if (p) p.classList.remove('hidden'); };
+if (typeof window.toggleTeamChatWidget !== 'function') window.toggleTeamChatWidget = function() { const p = document.getElementById('team-chat-dock-panel'); if (p) p.classList.toggle('hidden'); };
+
 function dealerRoleLanding(role) {
   const routes = {
     DEALER_ADMIN: 'command', OWNER: 'command', MANAGER: 'command',
@@ -35,6 +42,7 @@ let __shiftState = (() => {
 
 function saveShiftState() {
   try { localStorage.setItem('ms_shift_state', JSON.stringify(__shiftState)); } catch {}
+  renderShiftDropdownActions();
 }
 
 function fmtHHMMSS(ms) {
@@ -67,8 +75,10 @@ async function syncLiveShiftState() {
 
 function initHeaderClock() {
   syncLiveShiftState();
+  renderShiftDropdownActions();
 
   const updateClocks = () => {
+    if (document.hidden) return;
     // 1. Update Real-Time Clock
     const dateEl = document.getElementById('header-clock-date');
     const timeEl = document.getElementById('header-clock-time');
@@ -117,7 +127,6 @@ function initHeaderClock() {
       if (breakEl) breakEl.textContent = '00:00:00';
       if (chipBtn) chipBtn.className = 'flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-100 dark:bg-slate-800/90 text-xs font-mono font-bold text-slate-700 dark:text-slate-200 shadow-xs hover:bg-slate-200 dark:hover:bg-slate-700/80 transition cursor-pointer';
     }
-    renderShiftDropdownActions();
   };
 
   updateClocks();
@@ -605,9 +614,9 @@ async function initializeDashboardEcosystem() {
       fetchMetrics('/listings')
     ]);
 
-    loadInsights();
-    loadMyTierChip();
-    initSecurityPanel();
+    if (typeof loadInsights === 'function') try { loadInsights(); } catch {}
+    if (typeof loadMyTierChip === 'function') try { loadMyTierChip(); } catch {}
+    if (typeof initSecurityPanel === 'function') try { initSecurityPanel(); } catch {}
 
     // If returning from Stripe checkout, verify payment then load AI config
     const aiSessionId = new URLSearchParams(window.location.search).get('ai_boost_session');
@@ -616,10 +625,10 @@ async function initializeDashboardEcosystem() {
       await verifyAIBoostSession(aiSessionId);
     }
 
-    loadAIBoostSection();
-    setupAIBoostListeners();
-    setupInvIntelListeners();
-    setupAiVisionListeners();
+    if (typeof loadAIBoostSection === 'function') try { loadAIBoostSection(); } catch {}
+    if (typeof setupAIBoostListeners === 'function') try { setupAIBoostListeners(); } catch {}
+    if (typeof setupInvIntelListeners === 'function') try { setupInvIntelListeners(); } catch {}
+    if (typeof setupAiVisionListeners === 'function') try { setupAiVisionListeners(); } catch {}
 
     const isAdmin = role === 'DEALER_ADMIN' || role === 'OWNER' || role === 'MANAGER';
     const inDealership = !!profileContext.dealership?.id;
@@ -630,10 +639,10 @@ async function initializeDashboardEcosystem() {
 
     // Feeds + Catalog visible to anyone with a dealership (team or personal)
     if (inDealership) {
-      document.getElementById('feeds-panel').classList.remove('hidden');
-      document.getElementById('catalog-panel').classList.remove('hidden');
+      document.getElementById('feeds-panel')?.classList.remove('hidden');
+      document.getElementById('catalog-panel')?.classList.remove('hidden');
       // Defer the actual data loads until the Inventory page is first opened.
-      __pageInit.inventory = () => { loadInventoryFeeds(); loadInventoryCatalog(); prefetchInvIntelTags(); };
+      __pageInit.inventory = () => { if (typeof loadInventoryFeeds === 'function') loadInventoryFeeds(); if (typeof loadInventoryCatalog === 'function') loadInventoryCatalog(); if (typeof prefetchInvIntelTags === 'function') prefetchInvIntelTags(); };
     }
 
     if (!canManageFeeds) {
@@ -1034,12 +1043,12 @@ const PAGE_FEATURE = {
   delivery: 'os.sales', fni: 'os.sales',
   reports: 'os.reports',
   'inv-intel': 'os.inventory', market: 'os.inventory',
-  'ai-home': 'os.marketing', 'ai-inbox': 'os.marketing', 'video-studio': 'os.marketing',
+  'ai-home': 'os.marketing', 'video-studio': 'os.marketing',
   'api-keys': 'os.integrations',
   'owner-users': 'os.team', 'sales-team': 'os.team', 'people-compliance': 'os.team', hr: 'os.team', people: 'os.team',
   'people-overview': 'os.team',
-  // `academy` and `launch` are deliberately ABSENT: an unmapped page is always allowed.
-  // Required compliance training is not a plan upsell, and gating SETUP behind an entitlement
+  // `academy`, `launch`, and `ai-inbox` are deliberately ABSENT: an unmapped page is always allowed.
+  // Required compliance training and messaging are not plan upsells, and gating SETUP behind an entitlement
   // would stop a dealership configuring the product it just bought.
   config: 'os.settings',
 };
@@ -1156,7 +1165,6 @@ const SAAS_DEPARTMENTS = {
   accounts:   { label: 'All Users',        icon: 'user',     accent: 'violet', pages: [{ page: 'owner-users', label: 'Accounts' }] },
   affiliates: { label: 'Affiliates',       icon: 'trophy',   accent: 'amber',   pages: [{ page: 'affiliates-admin', label: 'Affiliates' }] },
   accounting: { label: 'Accounting',       icon: 'currency', accent: 'emerald', always: true, pages: [{ page: 'saas-accounting', label: 'Accounting' }] },
-  settings:   { label: 'Settings',         icon: 'user',     accent: 'indigo',  always: true, pages: [{ page: 'profile', label: 'Settings' }] },
 };
 let __deptNavBuilt = false;
 let __deptRegistry = DEPARTMENTS;   // which department set the flat nav is showing
@@ -1436,7 +1444,10 @@ function switchPage(pageId) {
   if (pageId === 'service-ros') loadServiceRosPage();
   if (pageId === 'service-parts') loadServicePartsPage();
   if (pageId === 'owner-users') loadOwnerUsersPage();
-  if (pageId === 'ai-inbox') loadAiInbox();
+  if (pageId === 'ai-inbox') {
+    if (typeof loadAiInbox === 'function') { try { loadAiInbox(); } catch {} }
+    else if (typeof openTeamChatWidget === 'function') { openTeamChatWidget(); }
+  }
   if (pageId === 'people-compliance' || pageId === 'hr' || pageId === 'people') loadPeopleCompliance();
 
   __currentPage = pageId;
