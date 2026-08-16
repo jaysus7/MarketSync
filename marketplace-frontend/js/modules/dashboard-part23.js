@@ -156,7 +156,7 @@ async function openWidgetChatThread(userId) {
     const initial = (target.name || 'S').charAt(0).toUpperCase();
     if (avatarEl) avatarEl.innerHTML = target.avatar_url ? `<img src="${esc(target.avatar_url)}" class="w-full h-full rounded-full object-cover"/>` : initial;
     if (nameEl) nameEl.textContent = target.name;
-    if (statusEl) statusEl.textContent = target.online ? '🟢 Online' : '⚪ Offline';
+    if (statusEl) statusEl.textContent = target.online ? '<span class="inline-block w-2 h-2 rounded-full bg-emerald-500 align-middle mr-1"></span>Online' : '<span class="inline-block w-2 h-2 rounded-full bg-slate-400 align-middle mr-1"></span>Offline';
     if (dotEl) dotEl.className = `absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white dark:border-slate-900 ${target.online ? 'bg-emerald-500' : 'bg-slate-400'}`;
 
     if (target.unread_count) {

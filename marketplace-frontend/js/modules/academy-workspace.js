@@ -96,7 +96,7 @@ function acadCourseRow(c, certsMap = new Map(), heldByKey = new Map(), doneSet =
   // Level badge styling
   const isMandatoryHr = c.is_hr_mandatory || c.department === 'HR';
   const levelBadge = isMandatoryHr
-    ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-200">🚨 Mandatory HR</span>`
+    ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-200">Mandatory HR</span>`
     : c.level === 'required'
     ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">Required</span>`
     : c.level === 'foundation' || c.level === 'foundations'
@@ -161,7 +161,7 @@ function acadCourseRow(c, certsMap = new Map(), heldByKey = new Map(), doneSet =
 function acadCertRow(cert, held, outstanding) {
   const earned = !!held;
   const tone = earned ? 'text-emerald-700' : outstanding ? 'text-slate-500' : 'text-amber-700';
-  const right = earned ? (held.valid === false ? 'Expired' : 'Earned ✅') : outstanding ? `${outstanding} left` : 'Ready to Issue';
+  const right = earned ? (held.valid === false ? 'Expired' : 'Earned') : outstanding ? `${outstanding} left` : 'Ready to Issue';
   const sub = earned
     ? (held.expires_on ? `Expires ${acadDate(held.expires_on)}` : 'Valid indefinitely')
     : `${cert.department || 'MarketSync'}${cert.validity_months ? ` · valid ${cert.validity_months} months` : ''}`;
@@ -502,7 +502,7 @@ ENGINES['academy'] = {
             <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
               <div class="text-[10px] font-black uppercase tracking-wider text-slate-500">Mandatory HR Status</div>
               <div class="text-sm font-black ${outstanding > 0 ? 'text-amber-700' : 'text-emerald-700'} flex items-center gap-1.5 mt-0.5">
-                <span>${outstanding > 0 ? `${outstanding} Pending` : '100% Compliant ✅'}</span>
+                <span>${outstanding > 0 ? `${outstanding} Pending` : '100% Compliant'}</span>
               </div>
             </div>
             <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
@@ -542,7 +542,7 @@ ENGINES['academy'] = {
         <div data-course-dept="hr" data-course-is-hr="true" class="mb-8 space-y-3">
           <div class="flex items-center justify-between p-4 rounded-2xl bg-rose-50/70 border border-rose-200">
             <div class="flex items-center gap-3">
-              <span class="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 border border-rose-300 flex items-center justify-center font-bold text-base">🚨</span>
+              <span class="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 border border-rose-300 flex items-center justify-center font-bold text-base"><svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg></span>
               <div>
                 <h2 class="text-base font-black text-rose-950">Mandatory HR &amp; New Hire Onboarding Training</h2>
                 <p class="text-xs text-rose-800">Required compliance, OSHA lot safety, anti-harassment &amp; privacy training to start your position</p>
