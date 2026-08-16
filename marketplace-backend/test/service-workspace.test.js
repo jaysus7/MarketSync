@@ -21,7 +21,7 @@ test('Service registers on the shared engine shell', () => {
   for (const prim of ['engKpi', 'engCard', 'engEmpty']) assert.ok(ws.includes(prim), `must reuse ${prim}`)
   assert.doesNotMatch(ws, /function (engKpi|engCard|engEmpty|renderEngine|engineTab)\b/,
     'must not redefine a shared primitive')
-  assert.match(ws, /overview: 'My Day'/)
+  assert.match(ws, /overview: 'Pulse'/)
 })
 
 test('the frontend asks the backend which moves are legal', () => {
@@ -98,7 +98,7 @@ test('Service is wired into the shell and the registry', () => {
   assert.match(part2, /if \(pageId === 'service-overview'\) loadServiceWorkspace\(\)/)
   assert.match(part2, /'service-overview': 'os\.service'/, 'must carry an entitlement key')
   const block = registry.match(/\n  service: \{[\s\S]*?\n  \},/)?.[0] || ''
-  assert.match(block, /\{ page: 'service-overview', label: 'My Day' \}/, 'Service must lead with My Day')
+  assert.match(block, /\{ page: 'service-overview', label: 'Pulse' \}/, 'Service must lead with My Day')
   for (const p of ['service-appointments', 'service-ros']) {
     assert.ok(block.includes(`page: '${p}'`), `existing page "${p}" must stay reachable`)
   }
@@ -135,7 +135,7 @@ test('an unavailable access context lands on the advisor surface, not the tech o
 test('a technician gets one tab and none of the desk tabs', () => {
   assert.match(ws, /if \(svcIsTechnician\(\)\) return \['overview'\]/)
   const labels = ws.match(/get tabLabels\(\)[\s\S]*?\n  \},/)?.[0] || ''
-  assert.match(labels, /svcIsTechnician\(\) \? \{ overview: 'My Day' \}/)
+  assert.match(labels, /svcIsTechnician\(\) \? \{ overview: 'Pulse' \}/)
   // appointments/ros/settings are desk surfaces — they stay behind the desk branch.
   const order = ws.match(/get tabOrder\(\)[\s\S]*?\n  \},/)?.[0] || ''
   assert.ok(order.indexOf("return ['overview']") < order.indexOf("'settings'"),
@@ -158,7 +158,7 @@ test('the rail follows the same split as the tabs', () => {
 // ── The header the owner asked for: My Day | Appointments | Repair Orders | Settings
 test('Service leads with My Day and carries no Work or Insights tab', () => {
   const labels = ws.match(/get tabLabels\(\)[\s\S]*?\n  \},/)?.[0] || ''
-  for (const [key, label] of [['overview', 'My Day'], ['appointments', 'Appointments'],
+  for (const [key, label] of [['overview', 'Pulse'], ['appointments', 'Appointments'],
                               ['ros', 'Repair Orders'], ['settings', 'Settings']]) {
     assert.ok(labels.includes(`${key}: '${label}'`), `the header must carry ${label}`)
   }
