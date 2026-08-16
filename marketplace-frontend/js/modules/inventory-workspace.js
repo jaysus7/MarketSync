@@ -296,9 +296,10 @@ async function invRenderWork(body, d) {
 ENGINES['inventory-overview'] = {
   rootId: 'inventory-overview-root', title: 'Inventory', subtitle: 'One vehicle lifecycle — acquire, recon, price, publish',
   icon: 'gem', accent: 'sky',
-  tabLabels: { overview: 'Pulse', work: 'Inventory', settings: 'Settings' },
+  tabLabels: { overview: 'Pulse', work: 'Inventory', appraisals: 'Appraisals', cleanup: 'Cleanup', settings: 'Settings' },
   get tabOrder() {
-    return ['work', 'overview', 'settings'];
+    const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+    return mgr ? ['work', 'overview', 'appraisals', 'cleanup', 'settings'] : ['work', 'overview'];
   },
 
   fetch: async () => {
@@ -397,6 +398,28 @@ ENGINES['inventory-overview'] = {
       engMountPage(body, 'market', () => loadMarketPage());
     },
     work: invRenderWork,
+
+    // Appraisals live in Inventory > Acquire (trade appraisal feeds acquisition).
+    appraisals(body, d) {
+      if (typeof engMountPage === 'function') {
+        engMountPage(body, 'appraisal', () => {
+          if (typeof initAppraisal === 'function') initAppraisal();
+          if (typeof loadApprList === 'function') loadApprList();
+          if (typeof apprEnsureBranding === 'function') apprEnsureBranding();
+        });
+      } else {
+        body.innerHTML = engCard('Trade Appraisals', `<div class="p-4 text-center"><button onclick="switchPage('appraisal')" class="px-4 py-2 font-bold bg-amber-600 text-white rounded-lg">Appraise a Car / View Trade Appraisals</button></div>`);
+      }
+    },
+
+    // Cleanup (recon) is part of the inventory lifecycle; it mounts the recon board here.
+    cleanup(body) {
+      if (typeof engMountPage === 'function') {
+        engMountPage(body, 'recon', () => { if (typeof loadReconPage === 'function') loadReconPage(); });
+      } else {
+        body.innerHTML = engCard('Cleanup / Recon', `<div class="p-4 text-center"><button onclick="switchPage('recon')" class="px-4 py-2 font-bold bg-sky-600 text-white rounded-lg">Open Recon Board</button></div>`);
+      }
+    },
 
 
     // The old Insights tab, now rendered INSIDE My Day. See overview().

@@ -243,7 +243,9 @@ test('the global header keeps approved sales and account controls without a hamb
 })
 
 test('Sales uses one header and composes operational work into My Day', () => {
-  assert.match(salesWorkspace, /tabOrder:\s*\['overview', 'work', 'equity', 'settings'\]/)
+  // Role-aware getter (see sales-workspace.test.js) returning exactly the 4-tab set —
+  // no appraisals (moved to Inventory) or desk (reached from the global header).
+  assert.match(salesWorkspace, /get tabOrder\(\)\s*\{\s*return \['overview', 'work', 'equity', 'settings'\]/)
   assert.doesNotMatch(salesWorkspace, /tabLabels:\s*\{[^}]*appointments:/)
   assert.match(salesWorkspace, /salesDealsAndDeliveries\(d\)/)
   assert.match(salesWorkspace, /Today's appointments/)

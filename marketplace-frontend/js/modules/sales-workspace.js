@@ -294,7 +294,9 @@ window.salesTodayVideosCard = salesTodayVideosCard;
 ENGINES['sales'] = {
   rootId: 'sales-root', title: 'Sales', subtitle: 'Your customers, appointments and deals — what needs you first', hideHeader: true,
   icon: 'currency', accent: 'amber',
-  get tabOrder() { return ['overview', 'work', 'appraisals', 'desk', 'equity', 'settings']; },
+  // Appraisals moved to Inventory > Acquire; desking is reached from the global header.
+  // Sales composes operational work into the Work tab and leads with its Pulse/My Day.
+  get tabOrder() { return ['overview', 'work', 'equity', 'settings']; },
   get tabLabels() { return { overview: 'Pulse', work: 'Customers', appraisals: 'Appraise Trade', desk: 'Desk a Deal', equity: 'Equity Mining', settings: 'Settings' }; },
   quickActions: [
     { label: 'Sales Training (Academy)', icon: 'sparkles', onclick: "openMarketSyncAcademy('sales')" },
