@@ -146,7 +146,7 @@ const publicVerification = (v) => ({
 
 export async function identityAttention(dealershipId) {
   const { data, error } = await supabaseAdmin.from('identity_verifications')
-    .select('id, contact_id, purpose, provider, decision, requested_at, last_error, contacts(full_name)')
+    .select('id, contact_id, purpose, provider, decision, requested_at, last_error, contacts!identity_verifications_contact_id_fkey(full_name)')
     .eq('dealership_id', dealershipId).in('decision', ['manual_review', 'failed'])
     .order('requested_at', { ascending: true }).limit(100)
   if (error) throw error
@@ -274,7 +274,7 @@ export function registerIdentity(app) {
 
   app.get('/identity/reviews', requireAuth, requireMfa, requirePermission('identity.review'), async (req, res) => {
     try {
-      const { data, error } = await supabaseAdmin.from('identity_verifications').select('*, contacts(full_name)')
+      const { data, error } = await supabaseAdmin.from('identity_verifications').select('*, contacts!identity_verifications_contact_id_fkey(full_name)')
         .eq('dealership_id', req.dealershipId).eq('decision', 'manual_review')
         .order('requested_at', { ascending: true }).limit(100)
       if (error) return res.json({ reviews: [] })

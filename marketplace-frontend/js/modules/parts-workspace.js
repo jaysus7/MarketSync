@@ -391,11 +391,7 @@ function pwRenderInventory(body, d) {
       <div class="pw-request-row flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0" data-search="${esc(searchKey)}">
         <div class="min-w-0 flex-1">
           <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(part.part_number || 'Part')} ${part.description ? `<span class="font-normal text-slate-400">· ${esc(part.description)}</span>` : ''}</div>
-          <div class="text-[12px] text-slate-400 truncate">
-            <span class="${avail > 0 ? 'text-emerald-600 font-bold' : 'text-rose-500 font-bold'}">${avail} in stock</span> · 
-            ${q.qty_requested} requested (${PW_DEPT_LABEL[q.requested_for] || q.requested_for || 'Service'})
-            ${q.ro_id ? ` · <span class="text-indigo-600 dark:text-indigo-400 font-bold">RO #${esc(q.ro_id.slice(0, 8))}</span>` : ''}
-          </div>
+          <div class="text-[12px] text-slate-400 truncate"><span class="${avail > 0 ? 'text-emerald-600 font-bold' : 'text-rose-500 font-bold'}">${avail} available</span> · ${q.qty_requested} requested (${PW_DEPT_LABEL[q.requested_for] || q.requested_for || 'Service'})${q.ro_id ? ` · <span class="text-indigo-600 dark:text-indigo-400 font-bold">RO #${esc(q.ro_id.slice(0, 8))}</span>` : ''}</div>
         </div>
         <button onclick="printPartsReceipt('${q.id}')" title="Print / Save Parts Receipt" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 transition">Print Receipt</button>
         ${na.onclick ? `<button onclick="${na.onclick}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">${esc(na.label)}</button>` : ''}
