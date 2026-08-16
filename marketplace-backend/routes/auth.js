@@ -574,6 +574,45 @@ export function registerRoutes(app) {
     res.json({ success: true })
   })
 
+  // "Book a demo" lead from the public marketing site (demo.html). Platform-level,
+  // not tied to any dealership — captured for sales follow-up and emailed straight
+  // to admin@marketsync.link so a real human sees it, same day.
+  app.post('/public/demo-request', rateLimit('demo-request', 5, 60 * 60 * 1000, { email: true }), async (req, res) => {
+    const name = String(req.body?.name || '').trim().slice(0, 120)
+    const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 254)
+    const phone = String(req.body?.phone || '').trim().slice(0, 40) || null
+    const dealership_name = String(req.body?.dealership_name || '').trim().slice(0, 160) || null
+    const plan = String(req.body?.plan || '').trim().slice(0, 80) || null
+    const message = String(req.body?.message || '').trim().slice(0, 2000) || null
+    if (!name || !email) return res.status(400).json({ error: 'name and email are required' })
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'A valid email address is required' })
+
+    const { error } = await supabaseAdmin
+      .from('demo_requests')
+      .insert({ name, email, phone, dealership_name, plan, message })
+    if (error) {
+      console.error('Demo request insert failed:', error.message)
+      return res.status(500).json({ error: 'Could not submit your request. Please try again.' })
+    }
+    console.log('🚗 Demo request:', { name, email, dealership_name, plan })
+    if (resend) {
+      const escapeHtml = (s) => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+      const lines = [
+        `<p><strong>${escapeHtml(name)}</strong> asked for a demo.</p>`,
+        `<p>Email: ${escapeHtml(email)}${phone ? ' &middot; Phone: ' + escapeHtml(phone) : ''}</p>`,
+        dealership_name ? `<p>Dealership: ${escapeHtml(dealership_name)}</p>` : '',
+        plan ? `<p>Plan interest: ${escapeHtml(plan)}</p>` : '',
+        message ? `<p>Message: ${escapeHtml(message)}</p>` : '',
+      ].filter(Boolean).join('\n')
+      resend.emails.send({
+        from: EMAIL_FROM, to: 'admin@marketsync.link', replyTo: email,
+        subject: `New demo request — ${name}${dealership_name ? ' (' + dealership_name + ')' : ''}`,
+        html: lines,
+      }).catch(e => console.error('Demo request email failed:', e?.message || e))
+    }
+    res.json({ success: true })
+  })
+
   // ──────────────────────────────────────────────────────────────────────────────
   // PASSWORD RESET (custom flow — bypasses Supabase Auth's built-in email)
   // ──────────────────────────────────────────────────────────────────────────────
