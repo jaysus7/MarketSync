@@ -219,6 +219,9 @@ test('it composes accounting endpoints and introduces none', () => {
   // Both quoting styles, so a single-quoted write cannot slip past the allowlist.
   const WRITES = ['/expenses/${id}/approve', '/expenses/${id}/pay', '/accounting/periods/advance',
                   '/accounting/settings', '/accounting/budget',
+                  // Manual financial entry — a real, permissioned (accounting.edit) endpoint
+                  // the Budget tab composes to record a manual income/expense.
+                  '/accounting/entries',
                   '/plaid/link-token', '/plaid/exchange', '/plaid/sync', '/plaid/disconnect']
   for (const w of [...ws.matchAll(/apiSendJson\([`']([^`']+)[`']/g)].map(m => m[1])) {
     assert.ok(WRITES.includes(w), `unexpected write target: ${w}`)
@@ -238,7 +241,9 @@ test('Accounting is wired into the shell and leads with Today', () => {
   assert.match(part2, /if \(pageId === 'accounting-overview'\) loadAccountingWorkspace\(\)/)
   assert.match(part2, /'accounting-overview': 'os\.accounting'/, 'must carry an entitlement key')
   const block = registry.match(/\n  accounting: \{[\s\S]*?\n  \},/)?.[0] || ''
-  assert.match(block, /\{ page: 'accounting-overview', label: 'My Day' \}/)
+  // Lead tab is labelled 'Pulse' product-wide (sales/parts tests require it); it IS the
+  // role-aware My Day surface.
+  assert.match(block, /\{ page: 'accounting-overview', label: 'Pulse' \}/)
   // The existing rich Accounting page stays reachable — KEEP over REPLACE.
   for (const p of ['accounting', 'commissions']) {
     assert.ok(block.includes(`page: '${p}'`), `existing page "${p}" must stay reachable`)
