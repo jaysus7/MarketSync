@@ -310,7 +310,7 @@ ENGINES['marketing-overview'] = {
   icon: 'megaphone', accent: 'violet',
   // Marketing is the widest department, so it carries six. Each is a place a marketer
   // goes to do one job, and none of them opens onto another row of tabs.
-  tabLabels: { overview: 'Pulse', 'video-studio': 'Video Studio', chatbot: 'AI ChatBot', emails: 'Emails', studio: 'Design Studio', website: 'Website', automations: 'Automations' },
+  tabLabels: { overview: 'Pulse', 'video-studio': 'Video Studio', chatbot: 'AI ChatBot', emails: 'Emails', studio: 'Studio', website: 'Website', automations: 'Automations' },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     return mgr ? ['overview', 'video-studio', 'chatbot', 'emails', 'studio', 'website', 'automations']
@@ -322,7 +322,7 @@ ENGINES['marketing-overview'] = {
     { label: 'Video Studio', icon: 'video', onclick: "engineTab('marketing-overview','video-studio')" },
     { label: 'AI ChatBot', icon: 'chat', onclick: "engineTab('marketing-overview','chatbot')" },
     { label: 'Emails', icon: 'megaphone', onclick: "engineTab('marketing-overview','emails')" },
-    { label: 'Design Studio', icon: 'image', onclick: "engineTab('marketing-overview','studio')" },
+    { label: 'Studio', icon: 'image', onclick: "engineTab('marketing-overview','studio')" },
     { label: 'Website', icon: 'chart', onclick: "engineTab('marketing-overview','website')" },
   ],
   nextActions: (d) => (d?.needsAttention || []).slice(0, 5).map(x => ({
@@ -521,7 +521,7 @@ function mktStudioView(d) {
             </button>
             <label class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 cursor-pointer transition flex items-center gap-1.5">
               <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Upload Asset
-              <input type="file" accept="image/*" class="hidden" onchange="mktUploadAsset(this)">
+              <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden" onchange="mktUploadAsset(this)">
             </label>
           </div>
         </div>
@@ -604,11 +604,11 @@ function mktStudioView(d) {
                  class="w-full aspect-square object-cover rounded-lg border border-slate-200 dark:border-slate-700">
             <div class="text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate mt-1.5">${esc(a.title || `${a.width || '?'}×${a.height || '?'}`)}</div>
             <div class="flex gap-2 mt-1.5">
-              <button onclick="openMarketSyncStudio(null, {assetUrl:'${esc(a.public_url)}'})" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Edit in Studio</button>
+              <button onclick="mktStudioOpen('', '${esc(a.public_url)}')" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Edit in Studio</button>
               <button onclick="mktCompose({assetUrl:'${esc(a.public_url)}'})" class="text-[11px] font-bold text-slate-600 dark:text-slate-400 hover:underline">Schedule</button>
             </div>
           </div>`).join('')}
-        </div>` : engEmpty('No uploaded media assets yet. Click Upload Asset or Create Design above.'))}
+        </div>` : engEmpty('Nothing in Studio yet — click Upload Asset or Create Design above.'))}
     </div>
   `;
 }

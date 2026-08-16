@@ -113,7 +113,9 @@ test('it composes existing endpoints and introduces none', () => {
   }
   const WRITES = ['/campaigns/${id}/status', '/conversations/${conversationId}/takeover',
                   '/social/posts', '/social/posts/${postId}/publish', '/social/posts/${postId}',
-                  '/social/posts/${postId}/approve', '/social/posts/${postId}/cancel', '/marketing/studio/render']
+                  '/social/posts/${postId}/approve', '/social/posts/${postId}/cancel', '/marketing/studio/render',
+                  // Connecting a social account is a real, permissioned write the composer offers.
+                  '/social/accounts']
   for (const w of [...ws.matchAll(/apiSendJson\([`']([^`']+)[`']/g)].map(m => m[1])) {
     assert.ok(WRITES.includes(w), `unexpected write target: ${w}`)
   }
