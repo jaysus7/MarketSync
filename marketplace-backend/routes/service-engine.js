@@ -121,6 +121,13 @@ export async function findOrCreateCustomerVehicle(dealershipId, {
   const VIN = cleanVin(vin)
   const odo = odometer != null && Number.isFinite(Number(odometer)) ? Math.trunc(Number(odometer)) : null
 
+  // Whenever we resolve/create the vehicle for a known customer, record (or advance)
+  // ownership history so a former owner is never erased from the vehicle or the customer.
+  const finalize = async (veh) => {
+    if (veh && contactId) await recordVehicleOwnership(dealershipId, veh.id, contactId)
+    return veh
+  }
+
   const patchExisting = async (row) => {
     const patch = {}
     // Ownership can move; the vehicle record follows the current customer.
@@ -139,7 +146,7 @@ export async function findOrCreateCustomerVehicle(dealershipId, {
   if (VIN) {
     const { data: existing } = await supabaseAdmin.from('customer_vehicles').select('*')
       .eq('dealership_id', dealershipId).ilike('vin', VIN).maybeSingle()
-    if (existing) return patchExisting(existing)
+    if (existing) return finalize(await patchExisting(existing))
   }
 
   // First time we have seen this car. If it came off our own lot, keep the thread.
@@ -157,20 +164,77 @@ export async function findOrCreateCustomerVehicle(dealershipId, {
     dealership_id: dealershipId, contact_id: contactId, vin: VIN, year, make, model, trim,
     plate, color, current_odometer: odo, origin_inventory_id: origin,
   }).select('*').single()
-  if (!error) return created
+  if (!error) return finalize(created)
 
   // Lost a race on the (dealership_id, upper(vin)) unique index — the other writer's
   // row is the canonical one. Re-read it rather than retrying the insert.
   if (VIN) {
     const { data: raced } = await supabaseAdmin.from('customer_vehicles').select('*')
       .eq('dealership_id', dealershipId).ilike('vin', VIN).maybeSingle()
-    if (raced) return patchExisting(raced)
+    if (raced) return finalize(await patchExisting(raced))
   }
   throw new Error(error.message)
 }
 
 export const customerVehicleLabel = (v) =>
   [v?.year, v?.make, v?.model, v?.trim].filter(Boolean).join(' ') || v?.plate || v?.vin || 'Vehicle'
+
+// ── Ownership history ─────────────────────────────────────────────────────────
+// A vehicle keeps EVERY owner and a customer keeps EVERY vehicle (current + former).
+// customer_vehicles.contact_id is the denormalized CURRENT owner; customer_vehicle_owners
+// is the full history. When ownership moves we close the prior period and open a new one,
+// never erasing that a former owner once had the car.
+export async function recordVehicleOwnership(dealershipId, customerVehicleId, contactId) {
+  if (!customerVehicleId || !contactId) return
+  const { data: current } = await supabaseAdmin.from('customer_vehicle_owners')
+    .select('id, contact_id').eq('dealership_id', dealershipId)
+    .eq('customer_vehicle_id', customerVehicleId).eq('is_current', true).maybeSingle()
+
+  if (current && current.contact_id === contactId) return // already the current owner
+
+  const now = new Date().toISOString()
+  if (current) {
+    // Close the outgoing owner's period.
+    await supabaseAdmin.from('customer_vehicle_owners')
+      .update({ is_current: false, owned_until: now, updated_at: now })
+      .eq('id', current.id).eq('dealership_id', dealershipId)
+  }
+  // Open the new owner's period (idempotent on the partial unique index).
+  const { error } = await supabaseAdmin.from('customer_vehicle_owners').insert({
+    dealership_id: dealershipId, customer_vehicle_id: customerVehicleId,
+    contact_id: contactId, is_current: true, owned_from: now,
+  })
+  if (error && !/duplicate key|unique/i.test(error.message)) {
+    console.error('[service-engine] recordVehicleOwnership failed:', error.message)
+  }
+}
+
+// Every owner a vehicle has had (most recent first), current first.
+export async function getVehicleOwners(dealershipId, customerVehicleId) {
+  const { data } = await supabaseAdmin.from('customer_vehicle_owners')
+    .select('contact_id, is_current, owned_from, owned_until')
+    .eq('dealership_id', dealershipId).eq('customer_vehicle_id', customerVehicleId)
+    .order('is_current', { ascending: false }).order('owned_from', { ascending: false })
+  return data || []
+}
+
+// Every vehicle a customer owns OR once owned (via ownership history, not just the
+// denormalized current-owner pointer). Returns the vehicle plus this customer's period.
+export async function listCustomerVehiclesEver(dealershipId, contactId) {
+  const { data: periods } = await supabaseAdmin.from('customer_vehicle_owners')
+    .select('customer_vehicle_id, is_current, owned_from, owned_until')
+    .eq('dealership_id', dealershipId).eq('contact_id', contactId)
+    .order('is_current', { ascending: false }).order('owned_from', { ascending: false })
+  if (!periods || !periods.length) return []
+  const ids = [...new Set(periods.map(p => p.customer_vehicle_id))]
+  const { data: vehicles } = await supabaseAdmin.from('customer_vehicles')
+    .select('*').eq('dealership_id', dealershipId).in('id', ids)
+  const byId = new Map((vehicles || []).map(v => [v.id, v]))
+  return periods.map(p => ({
+    ...(byId.get(p.customer_vehicle_id) || { id: p.customer_vehicle_id }),
+    owns_now: p.is_current, owned_from: p.owned_from, owned_until: p.owned_until,
+  }))
+}
 
 // ── RO totals ─────────────────────────────────────────────────────────────────
 async function recomputeRoTotals(dealershipId, roId) {
