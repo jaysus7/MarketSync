@@ -8,8 +8,10 @@ const read = (rel) => readFileSync(new URL(rel, FE), 'utf8')
 const exists = (rel) => existsSync(fileURLToPath(new URL(rel, FE)))
 
 // Public marketing pages that MUST use the shared shell.
+// compare.html is intentionally a redirect stub to the canonical pricing.html (the
+// pricing-compare page was consolidated there), so it is NOT a shared-shell content page.
 const PUBLIC_PAGES = [
-  'index.html', 'features.html', 'workflow.html', 'compare.html', 'faq.html', 'blog.html',
+  'index.html', 'features.html', 'workflow.html', 'faq.html', 'blog.html',
   'guide.html', 'support.html', 'security.html', 'privacy-policy.html', 'terms.html', 'affiliates.html',
   'ai-chatbot.html', 'dealer-os.html', 'facebook-autoposter.html',
   'ai-listing-copy.html', 'ai-vision-photo-scoring.html', 'automation-followups.html',
@@ -121,7 +123,7 @@ test('legacy shell pages keep their content stylesheet and scroll-reveal', () =>
 })
 
 test('canonical + Open Graph metadata preserved on migrated pages', () => {
-  for (const page of ['features.html', 'compare.html', 'security.html', 'faq.html']) {
+  for (const page of ['features.html', 'security.html', 'faq.html']) {
     const s = read(page)
     assert.match(s, /rel="canonical"/, `${page} lost canonical link`)
     assert.match(s, /property="og:title"/, `${page} lost Open Graph title`)

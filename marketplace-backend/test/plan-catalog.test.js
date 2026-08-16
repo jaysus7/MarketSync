@@ -6,10 +6,19 @@ import {
 } from '../plan-catalog.js'
 
 test('the sold plans exist with correct prices', () => {
-  assert.deepEqual(PLAN_IDS, ['fb_solo', 'fb_dealership', 'ai_standard', 'os_starter', 'os_growth', 'os_pro'])
+  assert.deepEqual(PLAN_IDS, [
+    'fb_solo', 'fb_dealership', 'ai_standard',
+    'marketsync_video', 'marketsync_website', 'marketsync_social', 'marketsync_email',
+    'os_starter', 'os_growth', 'os_pro',
+  ])
   assert.equal(PLAN_CATALOG.fb_solo.monthly, 79)
   assert.equal(PLAN_CATALOG.fb_dealership.monthly, 499)
   assert.equal(PLAN_CATALOG.ai_standard.monthly, 499)
+  // À la carte MarketSync product plans.
+  assert.equal(PLAN_CATALOG.marketsync_video.monthly, 199)
+  assert.equal(PLAN_CATALOG.marketsync_website.monthly, 299)
+  assert.equal(PLAN_CATALOG.marketsync_social.monthly, 299)
+  assert.equal(PLAN_CATALOG.marketsync_email.monthly, 199)
   assert.equal(PLAN_CATALOG.os_starter.monthly, 999)
   assert.equal(PLAN_CATALOG.os_growth.monthly, 1799)
   assert.equal(PLAN_CATALOG.os_pro.monthly, 2499)
@@ -28,8 +37,9 @@ test('org type + owner role come from the plan', () => {
   assert.equal(PLAN_CATALOG.os_pro.org_type, 'dealership')
 })
 
-test('Dealer OS Pro is the bundle: grants all three products', () => {
-  assert.deepEqual(productsForPlan('os_pro'), ['dealer_os', 'facebook', 'ai_dealer'])
+test('Dealer OS Pro is the bundle: grants every product', () => {
+  assert.deepEqual(productsForPlan('os_pro'),
+    ['dealer_os', 'facebook', 'ai_dealer', 'marketsync_video', 'marketsync_website', 'marketsync_social', 'marketsync_email'])
   // point plans grant only their own product
   assert.deepEqual(productsForPlan('fb_solo'), ['facebook'])
   assert.deepEqual(productsForPlan('os_starter'), ['dealer_os'])

@@ -59,7 +59,6 @@ const MS_WORKSPACES = {
     label: 'Sales', icon: 'currency', accent: 'amber',
     pages: [
       { page: 'sales', label: 'Pulse' },
-      { page: 'appraisal', label: 'Appraisals' },
       { page: 'crm', label: 'Customers', legacy: true },
       { page: 'appointments', label: 'Appointments', legacy: true },
       { page: 'tasks', label: 'Tasks', legacy: true },
@@ -74,6 +73,11 @@ const MS_WORKSPACES = {
     pages: [
       { page: 'inventory-overview', label: 'Pulse' },
       { page: 'inventory', label: 'Vehicles', invmode: 'manual', legacy: true },
+      // Recon/Cleanup is part of the inventory lifecycle (a unit is not frontline until
+      // it is through cleanup), not a primary department — see docs/DEALEROS_UI_AUDIT.md.
+      { page: 'recon', label: 'Cleanup' },
+      // Acquire group: appraisals and equity mining feed inventory acquisition.
+      { page: 'appraisal', label: 'Appraisals' },
       { page: 'equity', label: 'Equity Mining' },
       { page: 'inv-intel', label: 'Inventory Intelligence', mgr: true, legacy: true },
       { page: 'market', label: 'Market & Competitors', mgr: true, legacy: true },
@@ -86,13 +90,6 @@ const MS_WORKSPACES = {
       { page: 'fni-overview', label: 'Pulse' },
       { page: 'fni', label: 'Deals' },
       { page: 'delivery', label: 'Delivery', mgr: true },
-    ],
-  },
-
-  recon: {
-    label: 'Cleanup', icon: 'sparkles', accent: 'sky',
-    pages: [
-      { page: 'recon', label: 'Pulse' },
     ],
   },
 
@@ -159,6 +156,22 @@ const MS_WORKSPACES = {
     label: 'Academy', icon: 'sparkles', accent: 'violet', system: true,
     pages: [
       { page: 'academy', label: 'Your Learning' },
+    ],
+  },
+
+  // ── Settings — system workspace on the bottom rail, NEVER a department ─────
+  // Configuration, Automations and Integrations are shared platform services that
+  // power the departments; they live here, not in the workflow. `system: true` keeps
+  // Settings off the department rail (msDepartmentIds excludes it) while keeping these
+  // pages reachable. `profile` stays the always-on header gear in MS_SYSTEM_NAV.
+  settings: {
+    label: 'Settings', icon: 'shield', accent: 'slate', system: true,
+    pages: [
+      // The primary Settings surface is Configuration; Automations and Integrations
+      // remain deep links (legacy) so they don't render competing primary tabs.
+      { page: 'config', label: 'Settings' },
+      { page: 'automation-builder', label: 'Automations', mgr: true, legacy: true },
+      { page: 'api-keys', label: 'Integrations', mgr: true, legacy: true },
     ],
   },
 
