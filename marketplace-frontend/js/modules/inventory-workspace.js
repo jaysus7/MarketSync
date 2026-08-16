@@ -280,6 +280,7 @@ async function invRenderWork(body, d) {
 
   body.innerHTML = `
     ${engSection('Acquisition', invRenderAcquisition(d, (__invAppraisals && __invAppraisals.appraisals) || []), 'What is coming in, and what you have taken possession of')}
+    ${engSection('Cleanup', engCard('Reconditioning', `<div class="text-[13px] text-slate-600 dark:text-slate-300 mb-2">${reconRows.length ? `${rest.length} in recon${sold.length ? ` · ${sold.length} sold and waiting on cleanup` : ''}.` : 'Nothing in cleanup right now.'}</div><button onclick="engineTab('inventory-overview','cleanup')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Open Cleanup</button>`), 'Reconditioning lives in the Cleanup tab — this is the summary and the way in')}
     ${engSection('Merchandising', invRenderMerch(d), 'What is stopping a vehicle going on the front line')}
     ${engSection('Pricing and age', (noPrice.length ? engCard(`No price (${noPrice.length})`, noPrice.slice(0, 10).map(v => invRow(v, d)).join('')) : '')
       + engCard(`Aged ${INV_AGED_DAYS}+ days (${aged.length})`, aged.slice(0, 15).map(v => invRow(v, d)).join('') || engEmpty('Nothing aged.'), noPrice.length ? 'mt-3' : ''),
@@ -354,7 +355,7 @@ ENGINES['inventory-overview'] = {
           </div>
           <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
             <button onclick="engineTab('inventory-overview','work')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Review Aged Inventory</button>
-            <button onclick="deptGo('sales','appraisals')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Appraise Trade-Ins</button>
+            <button onclick="engineTab('inventory-overview','appraisals')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Appraise Trade-Ins</button>
           </div>
         </div>
       `;
