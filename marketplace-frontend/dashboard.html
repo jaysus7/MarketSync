@@ -3127,7 +3127,10 @@
     </section>
   </main>
 
-
+  <!-- ── Setup status banner — foot of the shell, below all page content. Routes to the
+       canonical Launch Hub and removes itself the moment the dealership is fully configured.
+       Populated + toggled by refreshSetupIndicator() in dashboard-part2.js. ── -->
+  <div id="setup-status-banner" onclick="switchPage('launch')" role="button" tabindex="0" aria-label="Finish dealership setup" class="hidden fixed bottom-0 inset-x-0 z-30 px-3 pb-3 cursor-pointer"></div>
 
   <!-- ── Reports rail — fixed quick-access to every lot-wide report (II; shown via JS) ── -->
   <div id="report-rail" class="hidden fixed right-0 top-1/2 -translate-y-1/2 z-30 flex-col items-stretch gap-1 bg-white/95 dark:bg-slate-900/95 backdrop-blur border border-r-0 border-slate-200 dark:border-slate-800 rounded-l-2xl shadow-xl shadow-slate-900/10 py-2.5 pl-2 pr-2.5 max-h-[94vh] overflow-y-auto">

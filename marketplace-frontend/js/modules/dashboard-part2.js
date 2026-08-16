@@ -232,11 +232,12 @@ Object.assign(window, {
 let __msLaunch = null;      // the last /launch answer, so the modal need not refetch
 
 async function refreshSetupIndicator(role) {
-  const host = document.getElementById('setup-bar-host');
+  const banner = document.getElementById('setup-status-banner');
   role = role || window.__setupIndicatorRole || profileContext?.role;
-  if (!host) return;
+  if (!banner) return;
   if (role && !['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(role)) {
-    host.innerHTML = '';
+    banner.classList.add('hidden');
+    banner.innerHTML = '';
     return;
   }
   window.__setupIndicatorRole = role;
@@ -245,18 +246,16 @@ async function refreshSetupIndicator(role) {
     if (!response.ok) return;
     const launch = await response.json();
     __msLaunch = launch;
-    if (launch.fully_configured) {
-      host.innerHTML = '';
-      return;
-    }
+    if (launch.fully_configured) { banner.classList.add('hidden'); banner.innerHTML = ''; return; }
     const items = launch.items || [];
     const done = items.filter(i => i.status === 'done').length;
     const total = items.length || 1;
     const required = items.filter(i => i.status === 'outstanding' && i.type === 'REQUIRED_TO_LAUNCH').length;
     const pct = Math.round((done / total) * 100);
 
-    host.innerHTML = `
-      <button onclick="switchPage('launch')" title="Setting up your dealership" aria-label="Setting up your dealership" class="w-full text-left rounded-xl border border-indigo-200 dark:border-indigo-800/80 bg-indigo-50/80 dark:bg-indigo-950/40 p-3 mb-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition shadow-sm group cursor-pointer">
+    banner.classList.remove('hidden');
+    banner.innerHTML = `
+      <div title="Setting up your dealership" class="max-w-3xl mx-auto text-left rounded-xl border border-indigo-200 dark:border-indigo-800/80 bg-indigo-50/95 dark:bg-indigo-950/70 backdrop-blur p-3 shadow-lg group cursor-pointer">
         <div class="flex items-center justify-between gap-1 mb-1">
           <span class="inline-flex items-center gap-1.5 text-xs font-black text-indigo-700 dark:text-indigo-300 truncate">
             <svg class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.58-5.84l4.13-4.13"/></svg>
@@ -270,7 +269,7 @@ async function refreshSetupIndicator(role) {
         <div class="h-1.5 rounded-full bg-indigo-100 dark:bg-indigo-900/50 overflow-hidden">
           <div class="h-full bg-indigo-600 dark:bg-indigo-500 rounded-full transition-all duration-500" style="width:${pct}%"></div>
         </div>
-      </button>
+      </div>
     `;
   } catch { /* Setup status is useful context, never a reason to block shell. */ }
 }
