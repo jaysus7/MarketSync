@@ -26,7 +26,10 @@ jobs:
       run:
         working-directory: marketplace-backend
     env:
-      STAGING_URL: ${{ secrets.STAGING_URL || 'http://localhost:3000' }}
+      # No silent localhost fallback: real staging QA must run against the deployed site.
+      # The "Verify staging configuration" step below fails loudly if these are unset.
+      STAGING_URL: ${{ secrets.STAGING_URL }}
+      STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
       STAGING_TEST_OWNER_USER: ${{ secrets.STAGING_TEST_OWNER_USER }}
       STAGING_TEST_OWNER_PASS: ${{ secrets.STAGING_TEST_OWNER_PASS }}
       STAGING_TEST_MANAGER_USER: ${{ secrets.STAGING_TEST_MANAGER_USER }}
@@ -54,6 +57,27 @@ jobs:
 
       - name: Install Playwright Chromium Browser
         run: npx playwright install --with-deps chromium
+
+      # Fail clearly when the deployed-staging target or QA credentials are missing,
+      # instead of silently passing against a dead localhost.
+      - name: Verify staging configuration
+        run: |
+          missing=""
+          case "$STAGING_URL" in
+            "" ) missing="$missing STAGING_URL" ;;
+            http://localhost*|http://127.0.0.1* )
+              echo "::error::STAGING_URL points at localhost ($STAGING_URL). Configure the deployed staging origin as a repository secret." ; exit 1 ;;
+          esac
+          [ -z "$STAGING_TEST_OWNER_USER" ] && missing="$missing STAGING_TEST_OWNER_USER"
+          [ -z "$STAGING_TEST_OWNER_PASS" ] && missing="$missing STAGING_TEST_OWNER_PASS"
+          [ -z "$STAGING_TEST_RESTRICTED_USER" ] && missing="$missing STAGING_TEST_RESTRICTED_USER"
+          [ -z "$STAGING_TEST_RESTRICTED_PASS" ] && missing="$missing STAGING_TEST_RESTRICTED_PASS"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required staging QA secrets:$missing"
+            echo "Set these repository secrets so the suite authenticates against real staging QA accounts."
+            exit 1
+          fi
+          echo "Staging QA target: $STAGING_URL"
 
       - name: Run Staging Fast Smoke Tests (Push Event)
         if: github.event_name == 'push'
