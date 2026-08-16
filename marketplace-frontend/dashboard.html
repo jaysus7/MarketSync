@@ -3127,7 +3127,10 @@
     </section>
   </main>
 
-
+  <!-- ── Setup status banner — foot of the shell, below all page content. Routes to the
+       canonical Launch Hub and removes itself the moment the dealership is fully configured.
+       Populated + toggled by refreshSetupIndicator() in dashboard-part2.js. ── -->
+  <div id="setup-status-banner" onclick="switchPage('launch')" role="button" tabindex="0" aria-label="Finish dealership setup" class="hidden fixed bottom-0 inset-x-0 z-30 px-3 pb-3 cursor-pointer"></div>
 
   <!-- ── Reports rail — fixed quick-access to every lot-wide report (II; shown via JS) ── -->
   <div id="report-rail" class="hidden fixed right-0 top-1/2 -translate-y-1/2 z-30 flex-col items-stretch gap-1 bg-white/95 dark:bg-slate-900/95 backdrop-blur border border-r-0 border-slate-200 dark:border-slate-800 rounded-l-2xl shadow-xl shadow-slate-900/10 py-2.5 pl-2 pr-2.5 max-h-[94vh] overflow-y-auto">
@@ -3302,7 +3305,7 @@
           </div>
           <div class="min-w-0">
             <div id="widget-active-name" class="text-xs font-bold text-slate-900 dark:text-white truncate">Staff Member</div>
-            <div id="widget-active-status" class="text-[10px] text-slate-400">🟢 Online</div>
+            <div id="widget-active-status" class="text-[10px] text-slate-400"><span class="inline-block w-2 h-2 rounded-full bg-emerald-500 align-middle mr-1"></span>Online</div>
           </div>
         </div>
         <div class="flex items-center gap-1">

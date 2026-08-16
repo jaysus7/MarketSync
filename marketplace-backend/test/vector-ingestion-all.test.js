@@ -1,7 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { runIngestion } from '../scripts/ingest-all-knowledge.js'
-import { queryKnowledge, generateEmbedding, chunkText } from '../services/vectorIngestion.js'
+import {
+  queryKnowledge,
+  deterministicEmbedding,
+  chunkText,
+  EMBEDDING_DIM,
+  GLOBAL_KNOWLEDGE_DEALERSHIP_ID,
+} from '../services/vectorIngestion.js'
 
 test('Vector Ingestion & Multi-Chatbot RAG Knowledge Test Suite', async (t) => {
 
@@ -13,11 +19,9 @@ test('Vector Ingestion & Multi-Chatbot RAG Knowledge Test Suite', async (t) => {
     assert.ok(chunks[0].includes('MarketSync'))
   })
 
-  await t.test('generateEmbedding produces normalized 1536-dimensional vector', () => {
-    const vec = generateEmbedding('Dealership CRM follow-up automation')
-    assert.equal(vec.length, 1536)
-
-    // Verify L2 norm equals 1 (or within floating-point tolerance)
+  await t.test('deterministicEmbedding produces normalized 1536-dimensional vector', () => {
+    const vec = deterministicEmbedding('Dealership CRM follow-up automation')
+    assert.equal(vec.length, EMBEDDING_DIM)
     const norm = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0))
     assert.ok(Math.abs(norm - 1.0) < 0.01)
   })
@@ -29,21 +33,17 @@ test('Vector Ingestion & Multi-Chatbot RAG Knowledge Test Suite', async (t) => {
     assert.ok(res.dealerConcierge)
 
     assert.ok(typeof res.marketsyncSales.count === 'number')
-    assert.ok(typeof res.dealerosCopilot.count === 'number')
-    assert.ok(typeof res.dealerConcierge.count === 'number')
-
     assert.ok(res.dealerosCopilot.count > 0, 'DealerOS Copilot should yield knowledge chunks')
     assert.ok(res.dealerConcierge.count > 0, 'Dealership Concierge should yield knowledge chunks')
   })
 
-  await t.test('queryKnowledge returns matching vector knowledge chunks', async () => {
+  await t.test('queryKnowledge is tenant-scoped and returns an array', async () => {
     const chunks = await queryKnowledge({
-      dealershipId: null,
+      dealershipId: GLOBAL_KNOWLEDGE_DEALERSHIP_ID,
       queryText: 'How do trade-in appraisals work?',
       threshold: 0.05,
       count: 5,
     })
-
     assert.ok(Array.isArray(chunks))
   })
 

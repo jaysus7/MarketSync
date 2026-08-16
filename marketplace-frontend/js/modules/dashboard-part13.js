@@ -518,7 +518,7 @@ async function loadTeamChatThread(userId, initialLoad = false) {
               <span class="text-[10px] font-normal text-slate-400">(${esc(target.role)})</span>
             </div>
             <div class="text-[11px] ${target.online ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-slate-400'}">
-              ${target.online ? '🟢 Online now' : '⚪ Offline — replies saved for when they log in'}
+              ${target.online ? '<span class="inline-block w-2 h-2 rounded-full bg-emerald-500 align-middle mr-1"></span>Online now' : '<span class="inline-block w-2 h-2 rounded-full bg-slate-400 align-middle mr-1"></span>Offline — replies saved for when they log in'}
             </div>
           </div>
         </div>

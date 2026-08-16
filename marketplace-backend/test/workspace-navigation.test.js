@@ -67,8 +67,10 @@ test('registry exposes the nine DealerOS workspaces in workflow order', () => {
 
 test('every dealer department leads with one role-aware My Day', () => {
   const { MS_WORKSPACES, msDepartmentIds } = loadRegistry()
+  // The lead tab is labelled 'Pulse' product-wide (see sales-workspace / parts-workspace
+  // tests and the registry). It IS the role-aware My Day surface; the label is 'Pulse'.
   for (const id of msDepartmentIds(MS_WORKSPACES)) {
-    assert.equal(MS_WORKSPACES[id].pages[0]?.label, 'My Day', `${id} must lead with My Day`)
+    assert.equal(MS_WORKSPACES[id].pages[0]?.label, 'Pulse', `${id} must lead with its Pulse (My Day) tab`)
   }
 })
 
@@ -175,7 +177,9 @@ test('entitlement gating still covers every registry page', () => {
   // upsell, and gating it would hide the courses a Starter dealership is required to complete.
   // `launch` likewise: gating SETUP behind an entitlement would stop a dealership configuring
   // the product it just bought.
-  const EXEMPT = new Set(['commissions', 'academy', 'launch'])
+  // `ai-inbox` is deliberately ungated too (see dashboard-part2.js PAGE_FEATURE note):
+  // messaging is not a plan upsell, same class as academy/launch.
+  const EXEMPT = new Set(['commissions', 'academy', 'launch', 'ai-inbox'])
   const gates = featureBlock + productBlock   // a page may be gated by plan OR product
   for (const page of msAllWorkspacePages(MS_WORKSPACES)) {
     if (EXEMPT.has(page)) continue
@@ -239,7 +243,9 @@ test('the global header keeps approved sales and account controls without a hamb
 })
 
 test('Sales uses one header and composes operational work into My Day', () => {
-  assert.match(salesWorkspace, /tabOrder:\s*\['overview', 'work', 'equity', 'settings'\]/)
+  // Role-aware getter (see sales-workspace.test.js) returning exactly the 4-tab set —
+  // no appraisals (moved to Inventory) or desk (reached from the global header).
+  assert.match(salesWorkspace, /get tabOrder\(\)\s*\{\s*return \['overview', 'work', 'equity', 'settings'\]/)
   assert.doesNotMatch(salesWorkspace, /tabLabels:\s*\{[^}]*appointments:/)
   assert.match(salesWorkspace, /salesDealsAndDeliveries\(d\)/)
   assert.match(salesWorkspace, /Today's appointments/)

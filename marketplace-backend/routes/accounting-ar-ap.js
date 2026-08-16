@@ -53,19 +53,26 @@ async function postedLinesFor(dealershipId, systemKey) {
     .select('id').eq('dealership_id', dealershipId).eq('system_key', systemKey).maybeSingle()
   if (!acct?.id) return []
 
-  const { data: lines } = await supabaseAdmin.from('journal_lines')
-    .select('debit, credit, memo, ref_deal_id, ref_contact_id, ref_vendor_id, journal_entry_id, journal_entries!inner(id, entry_date, source, event_name, reference, posted, dealership_id)')
-    .eq('account_id', acct.id)
-    .eq('journal_entries.dealership_id', dealershipId)
-    .eq('journal_entries.posted', true)
+  // Posted entries only — the `posted` filter is the whole reason this helper exists.
+  const { data: entries } = await supabaseAdmin.from('journal_entries')
+    .select('id, entry_date, source, event_name, reference, posted, dealership_id')
+    .eq('dealership_id', dealershipId)
+    .eq('posted', true)
     .limit(5000)
+  const entryById = new Map((entries || []).map(e => [e.id, e]))
+  const postedIds = [...entryById.keys()]
+  if (!postedIds.length) return []
 
-  if (!lines?.length) return []
+  // journal_lines is read ONLY through linesForEntries, so the posted restriction (the
+  // ids passed here are already posted) can never be bypassed at a call site.
+  const lines = await linesForEntries(postedIds,
+    'debit, credit, memo, ref_deal_id, ref_contact_id, ref_vendor_id, journal_entry_id, account_id', acct.id)
+
   return lines.map(l => ({
     debit: l.debit, credit: l.credit, memo: l.memo,
     ref_deal_id: l.ref_deal_id, ref_contact_id: l.ref_contact_id, ref_vendor_id: l.ref_vendor_id,
     journal_entry_id: l.journal_entry_id,
-    entry: l.journal_entries,
+    entry: entryById.get(l.journal_entry_id),
   })).filter(l => l.entry)
 }
 

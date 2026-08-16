@@ -6,7 +6,11 @@ process.env.SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'dummy-anon-key
 process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'dummy-service-role-key'
 process.env.NODE_ENV = 'test'
 
-const EXCLUDE_DIRS = ['node_modules', 'scripts', 'test', 'migrations', '.git']
+// `e2e` holds Playwright specs. They call test.describe()/test() at module top level,
+// which throws ("Playwright Test did not expect test.describe() to be called here")
+// when imported outside the Playwright runner. They are not application modules, so the
+// ESM import sanity check must skip them — exactly like `test` and `scripts`.
+const EXCLUDE_DIRS = ['node_modules', 'scripts', 'test', 'e2e', 'migrations', '.git']
 const EXCLUDE_FILES = ['server.js'] // server.js starts HTTP listener immediately on import
 
 function findJsFiles(dir) {

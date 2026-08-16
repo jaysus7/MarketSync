@@ -84,7 +84,7 @@ test('Marketing registers on the shared engine shell', () => {
   for (const prim of ['engKpi', 'engCard', 'engEmpty']) assert.ok(ws.includes(prim), `must reuse ${prim}`)
   assert.doesNotMatch(ws, /function (engKpi|engCard|engEmpty|renderEngine|engineTab)\b/,
     'must not redefine a shared primitive')
-  assert.match(ws, /tabLabels: \{ overview: 'My Day'/)
+  assert.match(ws, /tabLabels: \{ overview: 'Pulse'/)
   // Every tab the getter can return needs a label, or the shell prints the raw key.
   const order = ws.match(/get tabOrder\(\)[\s\S]*?\n  \},/)?.[0] || ''
   const labels = ws.match(/tabLabels: \{[^}]*\}/)?.[0] || ''
@@ -113,7 +113,9 @@ test('it composes existing endpoints and introduces none', () => {
   }
   const WRITES = ['/campaigns/${id}/status', '/conversations/${conversationId}/takeover',
                   '/social/posts', '/social/posts/${postId}/publish', '/social/posts/${postId}',
-                  '/social/posts/${postId}/approve', '/social/posts/${postId}/cancel', '/marketing/studio/render']
+                  '/social/posts/${postId}/approve', '/social/posts/${postId}/cancel', '/marketing/studio/render',
+                  // Connecting a social account is a real, permissioned write the composer offers.
+                  '/social/accounts']
   for (const w of [...ws.matchAll(/apiSendJson\([`']([^`']+)[`']/g)].map(m => m[1])) {
     assert.ok(WRITES.includes(w), `unexpected write target: ${w}`)
   }
@@ -211,7 +213,7 @@ test('Marketing is wired into the shell and leads with My Day', () => {
   assert.match(part2, /if \(pageId === 'marketing-overview'\) loadMarketingWorkspace\(\)/)
   assert.match(part2, /'marketing-overview': 'os\.marketing'/, 'must carry an entitlement key')
   const block = registry.match(/\n  marketing: \{[\s\S]*?\n  \},/)?.[0] || ''
-  assert.match(block, /\{ page: 'marketing-overview', label: 'My Day' \}/)
+  assert.match(block, /\{ page: 'marketing-overview', label: 'Pulse' \}/)
   // The existing pages stay reachable — KEEP over REPLACE.
   for (const p of ['email-marketing', 'website', 'ai-home', 'ai-inbox']) {
     assert.ok(block.includes(`page: '${p}'`), `existing page "${p}" must stay reachable`)

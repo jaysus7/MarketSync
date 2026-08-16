@@ -110,8 +110,8 @@ test('the same VIN resolves to the same vehicle instead of a new one each visit'
     'the constraint must be partial — a VIN is not always known')
   const fn = eng.match(/export async function findOrCreateCustomerVehicle[\s\S]*?\n\}\n/)?.[0] || ''
   assert.ok(fn, 'a resolver must exist')
-  assert.match(fn, /if \(VIN\) \{[\s\S]{0,300}?if \(existing\) return patchExisting\(existing\)/,
-    'a known VIN must return the existing record')
+  assert.match(fn, /if \(VIN\) \{[\s\S]{0,300}?if \(existing\) return finalize\(await patchExisting\(existing\)\)/,
+    'a known VIN must return the existing record (and finalize ownership history)')
   assert.match(fn, /const \{ data: raced \}[\s\S]{0,200}?ilike\('vin', VIN\)/,
     'losing the unique-index race must re-read the winner, not retry the insert')
 })

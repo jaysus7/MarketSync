@@ -62,6 +62,51 @@ const HEX = /^#[0-9a-f]{6}$/i
 const xml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]))
 
 /**
+ * Normalizes untrusted Studio input into a safe design spec. Every style field a dealer
+ * can supply is validated or clamped here so nothing unsafe reaches the SVG renderer:
+ *   - format  → one of the approved social aspect ratios (unknown → square)
+ *   - colors  → strict #rrggbb hex only (anything else → the brand default)
+ *   - overlay → an integer 0–100 (a scrim strength), clamped
+ */
+export function studioDesignSpec(input = {}) {
+  const format = FORMATS[input?.format] ? input.format : 'square'
+  const [width, height] = FORMATS[format]
+  const hex = (v, fallback) => (typeof v === 'string' && HEX.test(v.trim())) ? v.trim().toLowerCase() : fallback
+  const overlayNum = Number(input?.overlay)
+  const overlay = Number.isFinite(overlayNum) ? Math.max(0, Math.min(100, Math.round(overlayNum))) : 0
+  return {
+    format, width, height,
+    accentColor: hex(input?.accent_color, '#6d28d9'),
+    textColor: hex(input?.text_color, '#ffffff'),
+    overlay,
+    headline: input?.headline == null ? '' : String(input.headline),
+    cta: input?.cta == null ? '' : String(input.cta),
+  }
+}
+
+/**
+ * Renders the dealer-authored overlay (scrim + headline + CTA) as an SVG string. ALL
+ * dealer text is XML-escaped, so a headline like `<script>` becomes inert `&lt;script&gt;`
+ * text rather than executable markup composited into the image.
+ */
+export function studioOverlaySvg(spec = {}) {
+  const s = (spec && spec.width && spec.height) ? spec : studioDesignSpec(spec)
+  const scrim = (Math.max(0, Math.min(100, Number(s.overlay) || 0)) / 100).toFixed(3)
+  const pad = Math.round(s.width * 0.06)
+  const headline = xml(s.headline)
+  const cta = xml(s.cta)
+  const ctaBlock = cta
+    ? `<rect x="${pad}" y="${Math.round(s.height * 0.88)}" width="${Math.round(s.width * 0.55)}" height="${Math.round(s.height * 0.08)}" rx="16" fill="${s.accentColor}"/>`
+      + `<text x="${Math.round(s.width * 0.09)}" y="${Math.round(s.height * 0.936)}" font-family="Arial, sans-serif" font-size="${Math.round(s.width * 0.032)}" font-weight="800" fill="${s.textColor}">${cta}</text>`
+    : ''
+  return `<svg width="${s.width}" height="${s.height}" xmlns="http://www.w3.org/2000/svg">`
+    + `<rect width="100%" height="100%" fill="#000000" opacity="${scrim}"/>`
+    + `<text x="${pad}" y="${Math.round(s.height * 0.82)}" font-family="Arial, sans-serif" font-size="${Math.round(s.width * 0.06)}" font-weight="900" fill="${s.textColor}">${headline}</text>`
+    + ctaBlock
+    + `</svg>`
+}
+
+/**
  * Default Stock Automotive Templates
  */
 const GLOBAL_TEMPLATES = [
@@ -453,13 +498,37 @@ export function registerMarketingStudio(app) {
   // ── Server Scene Renderer ─────────────────────────────────────────────────
   app.post('/marketing/studio/render', requireAuth, requireMfa, canEdit, async (req, res) => {
     if (!guard(req, res)) return
+    const spec = studioDesignSpec(req.body || {})
     const scene = req.body?.scene || {}
-    const width = Number(scene.width || req.body?.width) || 1080
-    const height = Number(scene.height || req.body?.height) || 1080
+    const width = Number(scene.width || req.body?.width) || spec.width
+    const height = Number(scene.height || req.body?.height) || spec.height
     const elements = scene.elements || []
 
     try {
       const sharp = (await import('sharp')).default
+
+      // Backgrounds are tenant-scoped canonical assets from marketing_assets, downloaded
+      // from OUR storage. A dealer may pick one of THEIR own assets by id; the renderer
+      // never fetches an arbitrary URL out of the request body.
+      let base
+      const bgId = req.body?.background_asset_id || null
+      if (bgId) {
+        const { data: source, error: srcErr } = await supabaseAdmin.from('marketing_assets')
+          .select('id, storage_path')
+          .eq('id', bgId)
+          .eq('dealership_id', req.dealershipId)
+          .is('deleted_at', null)
+          .maybeSingle()
+        if (srcErr) return res.status(500).json({ error: srcErr.message })
+        if (!source) return res.status(404).json({ error: 'Background asset not found for this dealership' })
+        const { data: file, error: dlErr } = await supabaseAdmin.storage.from('vehicle-photos').download(source.storage_path)
+        if (dlErr || !file) return res.status(404).json({ error: 'Background asset file is unavailable' })
+        const bgBuffer = Buffer.from(await file.arrayBuffer())
+        base = sharp(bgBuffer).resize(width, height, { fit: 'cover' })
+      } else {
+        base = sharp({ create: { width, height, channels: 4, background: scene.background?.color || '#0F172A' } })
+      }
+
       const svgElements = elements.map(el => {
         if (el.type === 'text') {
           return `<text x="${el.x || 0}" y="${(el.y || 0) + (el.fontSize || 24)}" font-family="Arial, sans-serif" font-size="${el.fontSize || 24}" font-weight="${el.fontWeight || '700'}" fill="${el.fill || '#FFFFFF'}">${xml(el.text || '')}</text>`
@@ -469,10 +538,14 @@ export function registerMarketingStudio(app) {
         return ''
       }).join('\n')
 
-      const fullSvg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="${scene.background?.color || '#0F172A'}"/>${svgElements}</svg>`
+      const sceneSvg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">${svgElements}</svg>`
+      const overlaySvg = studioOverlaySvg({ ...spec, width, height })
 
-      const webp = await sharp({ create: { width, height, channels: 4, background: '#0F172A' } })
-        .composite([{ input: Buffer.from(fullSvg), top: 0, left: 0 }])
+      const webp = await base
+        .composite([
+          { input: Buffer.from(overlaySvg), top: 0, left: 0 },
+          { input: Buffer.from(sceneSvg), top: 0, left: 0 },
+        ])
         .webp({ quality: 90 })
         .toBuffer()
 

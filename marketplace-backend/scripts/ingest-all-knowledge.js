@@ -9,10 +9,15 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { ingestDocument } from '../services/vectorIngestion.js'
+import { ingestDocument, GLOBAL_KNOWLEDGE_DEALERSHIP_ID } from '../services/vectorIngestion.js'
+import { supabaseAdmin } from '../shared.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const KB_PATH = path.resolve(__dirname, '../data/marketsync-kb.md')
+
+// All three chatbots are MarketSync-owned, cross-dealer knowledge → the global sentinel.
+// required_permission stays null: this is public product/concierge/copilot knowledge.
+const GLOBAL = GLOBAL_KNOWLEDGE_DEALERSHIP_ID
 
 /**
  * Dealership Concierge Knowledge Base (Chatbot 3)
@@ -112,8 +117,10 @@ export async function runIngestion() {
   if (marketsyncKbText) {
     console.log('[ingest-all-knowledge] Ingesting Chatbot 1: MarketSync Marketing KB...')
     const res1 = await ingestDocument({
-      dealershipId: null,
-      sourceDoc: 'marketsync-marketing-kb',
+      dealershipId: GLOBAL,
+      sourceType: 'marketsync_sales_assistant',
+      sourceKey: 'marketsync-marketing-kb',
+      sourceName: 'MarketSync Marketing & Sales Assistant',
       content: marketsyncKbText,
       metadata: { chatbot: 'marketsync_sales_assistant', scope: 'global' },
     })
@@ -124,8 +131,10 @@ export async function runIngestion() {
   // 2. Chatbot 2: DealerOS Employee Copilot
   console.log('[ingest-all-knowledge] Ingesting Chatbot 2: DealerOS Employee Copilot KB...')
   const res2 = await ingestDocument({
-    dealershipId: null,
-    sourceDoc: 'dealeros-training-curriculum',
+    dealershipId: GLOBAL,
+    sourceType: 'dealeros_employee_copilot',
+    sourceKey: 'dealeros-training-curriculum',
+    sourceName: 'DealerOS Employee Copilot',
     content: DEALEROS_COPILOT_KNOWLEDGE,
     metadata: { chatbot: 'dealeros_employee_copilot', scope: 'global' },
   })
@@ -135,8 +144,10 @@ export async function runIngestion() {
   // 3. Chatbot 3: Dealership Customer Concierge
   console.log('[ingest-all-knowledge] Ingesting Chatbot 3: Dealership Customer Concierge Standards...')
   const res3 = await ingestDocument({
-    dealershipId: null,
-    sourceDoc: 'dealership-concierge-standards',
+    dealershipId: GLOBAL,
+    sourceType: 'dealership_customer_concierge',
+    sourceKey: 'dealership-concierge-standards',
+    sourceName: 'Dealership Customer Concierge',
     content: CONCIERGE_KNOWLEDGE,
     metadata: { chatbot: 'dealership_customer_concierge', scope: 'global' },
   })
@@ -148,10 +159,32 @@ export async function runIngestion() {
   return results
 }
 
+/**
+ * Reads back the persisted state directly from the database so the CLI proves the
+ * rows and embeddings actually landed (rather than trusting the in-process counts).
+ */
+async function verifyGlobalKnowledge() {
+  const { data, error } = await supabaseAdmin
+    .from('ai_knowledge_chunks')
+    .select('id, embedding, embedding_model', { count: 'exact' })
+    .eq('dealership_id', GLOBAL)
+  if (error) throw new Error(`Verification query failed: ${error.message}`)
+  const total = (data || []).length
+  const embedded = (data || []).filter(r => r.embedding != null).length
+  const model = (data || [])[0]?.embedding_model || '(none)'
+  console.log(`[ingest-all-knowledge] Verified global knowledge: total_chunks=${total}, embedded_chunks=${embedded}, model=${model}`)
+  if (total === 0 || embedded === 0) {
+    throw new Error(`Post-ingest verification failed: total_chunks=${total}, embedded_chunks=${embedded}`)
+  }
+  return { total, embedded, model }
+}
+
 // Execute if run directly from CLI
 if (process.argv[1] && process.argv[1].endsWith('ingest-all-knowledge.js')) {
-  runIngestion().catch((err) => {
-    console.error('[ingest-all-knowledge] Ingestion failed:', err)
-    process.exit(1)
-  })
+  runIngestion()
+    .then(() => verifyGlobalKnowledge())
+    .catch((err) => {
+      console.error('[ingest-all-knowledge] Ingestion failed:', err)
+      process.exit(1)
+    })
 }

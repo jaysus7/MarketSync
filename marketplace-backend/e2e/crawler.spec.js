@@ -3,14 +3,11 @@ import { loginAsRole, STAGING_ROLES } from './helpers/auth.js';
 
 test.describe('Automated Full-Site Staging Link Crawler & Route Validator', () => {
 
-  test('Crawls public landing pages and validates links, assets, and JS error boundaries', async ({ page }) => {
+  test('Crawls public pages, follows internal links, and checks assets & JS errors', async ({ page, baseURL }) => {
     const jsErrors = [];
     const failedRequests = [];
 
-    page.on('pageerror', (err) => {
-      jsErrors.push(`Uncaught Exception: ${err.message}`);
-    });
-
+    page.on('pageerror', (err) => jsErrors.push(`Uncaught Exception: ${err.message}`));
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
         const text = msg.text();
@@ -19,104 +16,107 @@ test.describe('Automated Full-Site Staging Link Crawler & Route Validator', () =
         }
       }
     });
-
     page.on('response', (res) => {
       if (res.status() >= 400 && res.status() !== 401 && res.status() !== 403) {
         failedRequests.push({ url: res.url(), status: res.status() });
       }
     });
 
-    // 1. Visit public entry
     const res = await page.goto('/index.html', { waitUntil: 'domcontentloaded' });
     expect(res.status()).toBeLessThan(400);
 
-    // 2. Discover all internal hrefs
-    const anchors = await page.locator('a[href]').all();
-    const hrefs = [];
-    for (const a of anchors) {
-      const href = await a.getAttribute('href');
-      if (href) hrefs.push(href);
-    }
+    // Discover internal, same-origin page links (skip anchors, mailto, tel, assets).
+    const origin = new URL(baseURL || page.url()).origin;
+    const rawHrefs = await page.$$eval('a[href]', (as) => as.map(a => a.getAttribute('href')));
+    const hrefs = rawHrefs.filter(Boolean);
 
-    // 3. Verify no dead hrefs (# or javascript:void(0) without action)
+    // Dead-link guard: bare "#" or javascript:void(0) with no behavior.
     const deadHrefs = hrefs.filter(h => h === '#' || h.startsWith('javascript:void(0)'));
     expect(deadHrefs.length, `Found ${deadHrefs.length} dead links`).toBe(0);
 
-    // 4. Verify primary content is non-empty
-    const bodyText = await page.innerText('body');
-    expect(bodyText.trim().length).toBeGreaterThan(50);
+    const internal = new Set();
+    for (const h of hrefs) {
+      try {
+        const u = new URL(h, page.url());
+        if (u.origin !== origin) continue;
+        if (/\.(png|jpe?g|svg|gif|webp|css|js|ico|pdf|woff2?)$/i.test(u.pathname)) continue;
+        u.hash = '';
+        internal.add(u.pathname + u.search);
+      } catch (_) { /* ignore malformed */ }
+    }
 
-    // 5. Verify no uncaught JS errors
-    expect(jsErrors.length, `JS errors found: ${jsErrors.join('; ')}`).toBe(0);
-    expect(failedRequests.length, `Failed network requests: ${JSON.stringify(failedRequests)}`).toBe(0);
+    // Actually visit each internal route (no artificial cap) and assert it loads.
+    const brokenRoutes = [];
+    for (const routePath of internal) {
+      const r = await page.goto(routePath, { waitUntil: 'domcontentloaded' }).catch(() => null);
+      if (!r || r.status() >= 400) {
+        brokenRoutes.push({ routePath, status: r ? r.status() : 'no-response' });
+        continue;
+      }
+      const bodyText = await page.innerText('body').catch(() => '');
+      if (bodyText.trim().length < 50) brokenRoutes.push({ routePath, status: 'blank' });
+    }
+
+    expect(brokenRoutes, `Broken internal routes: ${JSON.stringify(brokenRoutes)}`).toEqual([]);
+    expect(jsErrors, `JS errors found: ${jsErrors.join('; ')}`).toEqual([]);
+    expect(failedRequests, `Failed network requests: ${JSON.stringify(failedRequests)}`).toEqual([]);
   });
 
-  test('Crawls authenticated SPA dashboard routes, workspace navigation, and drawer links', async ({ page }, testInfo) => {
+  test('Crawls ALL authenticated SPA workspace routes (no cap), asserts clean render', async ({ page }, testInfo) => {
     const jsErrors = [];
     const failedApis = [];
     const brokenImages = [];
 
-    page.on('pageerror', (err) => {
-      jsErrors.push(`Uncaught Exception: ${err.message}`);
-    });
-
+    page.on('pageerror', (err) => jsErrors.push(`Uncaught Exception: ${err.message}`));
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
         const text = msg.text();
-        if (!text.includes('401') && !text.includes('403') && !text.includes('ERR_CONNECTION_REFUSED') && !text.includes('Failed to load resource') && !text.includes('CORS') && !text.includes('Content Security Policy')) {
+        if (!/401|403|ERR_CONNECTION_REFUSED|Failed to load resource|CORS|Content Security Policy/.test(text)) {
           jsErrors.push(`Console Error: ${text}`);
         }
       }
     });
-
     page.on('response', (res) => {
-      if (res.status() >= 500) {
-        failedApis.push({ url: res.url(), status: res.status() });
-      }
+      if (res.status() >= 500) failedApis.push({ url: res.url(), status: res.status() });
     });
 
-    // Authenticate as owner_admin
     await loginAsRole(page, STAGING_ROLES.OWNER_ADMIN);
-    await page.waitForTimeout(300);
 
-    // Discover all SPA workspace pages registered in DOM via [data-page] or window.ENGINES
     const registeredEngines = await page.evaluate(() => {
       const engines = window.ENGINES ? Object.keys(window.ENGINES) : [];
+      const workspaces = window.MS_WORKSPACES ? Object.keys(window.MS_WORKSPACES) : [];
       const dataPages = Array.from(document.querySelectorAll('[data-page]')).map(el => el.dataset.page).filter(Boolean);
-      return Array.from(new Set([...engines, ...dataPages]));
+      return Array.from(new Set([...engines, ...workspaces, ...dataPages]));
     });
 
     testInfo.annotations.push({
       type: 'discovered-routes',
-      description: registeredEngines.map(e => `/dashboard.html#${e}`),
+      description: `${registeredEngines.length} routes: ${registeredEngines.join(', ')}`,
     });
-
     expect(registeredEngines.length).toBeGreaterThan(0);
 
-    // Visit discovered workspace pages dynamically
-    for (const engineKey of registeredEngines.slice(0, 15)) {
-      await page.evaluate((key) => {
-        if (typeof window.switchPage === 'function') {
-          window.switchPage(key);
-        }
-      }, engineKey);
-
-      await page.waitForTimeout(100);
+    // Visit EVERY discovered route — no slice cap.
+    const stuckRoutes = [];
+    for (const engineKey of registeredEngines) {
+      await page.evaluate((key) => { try { window.switchPage(key); } catch (_) {} }, engineKey);
+      const ok = await page.waitForFunction(() => {
+        const main = document.querySelector('main') || document.body;
+        return main && main.innerText && main.innerText.trim().length > 40;
+      }, { timeout: 8000 }).then(() => true).catch(() => false);
+      if (!ok) stuckRoutes.push(engineKey);
     }
 
-    // Check for broken images (naturalWidth === 0)
     const images = await page.locator('img').all();
     for (const img of images) {
       const isLoaded = await img.evaluate((node) => node.complete && node.naturalWidth > 0);
       const src = await img.getAttribute('src');
-      if (!isLoaded && src && !src.startsWith('data:')) {
-        brokenImages.push(src);
-      }
+      if (!isLoaded && src && !src.startsWith('data:')) brokenImages.push(src);
     }
 
-    expect(brokenImages.length, `Broken images found: ${brokenImages.join(', ')}`).toBe(0);
-    expect(jsErrors.length, `Console JS errors: ${jsErrors.join('; ')}`).toBe(0);
-    expect(failedApis.length, `Server 5xx errors: ${JSON.stringify(failedApis)}`).toBe(0);
+    expect(stuckRoutes, `Workspaces stuck blank/loading: ${stuckRoutes.join(', ')}`).toEqual([]);
+    expect(brokenImages, `Broken images: ${brokenImages.join(', ')}`).toEqual([]);
+    expect(jsErrors, `Console JS errors: ${jsErrors.join('; ')}`).toEqual([]);
+    expect(failedApis, `Server 5xx errors: ${JSON.stringify(failedApis)}`).toEqual([]);
   });
 
 });
