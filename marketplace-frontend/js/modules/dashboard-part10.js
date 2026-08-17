@@ -1379,7 +1379,7 @@ ENGINES['saas-funnel'] = {
           ${engKpi('Completed', (d.completed || 0).toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
           ${engKpi('Conversion', (d.conversion || 0) + '%', 'text-violet-600 dark:text-violet-400')}
           ${engKpi('Abandoned', (d.abandoned || 0).toLocaleString(), d.abandoned ? 'text-rose-600 dark:text-rose-400' : '')}
-        </div>${engCard('SaaS lead priorities', '<p class="text-sm text-slate-600 dark:text-slate-300">Work product interest like DealerOS works vehicle interest: one account, one owner, one next action, and a complete account timeline.</p>')}${saasLeadTable(d)}`;
+        </div><div class="grid grid-cols-1 md:grid-cols-3 gap-3">${engCard('Lead generation','<p class="text-xs text-slate-500 mb-3">Capture demos, pricing interest and campaign responses into one actionable list.</p><button onclick="switchPage(\'saas-website\')" class="text-xs font-black text-blue-500">Manage capture pages →</button>')}${engCard('Marketing','<p class="text-xs text-slate-500 mb-3">Build nurture campaigns and convert product interest into booked demos.</p><button onclick="switchPage(\'saas-email-marketing\')" class="text-xs font-black text-blue-500">Open marketing →</button>')}${engCard('Social posting','<p class="text-xs text-slate-500 mb-3">Create product videos and social-ready MarketSync content.</p><button onclick="switchPage(\'saas-studio\')" class="text-xs font-black text-blue-500">Create social content →</button>')}</div>${engCard('SaaS lead priorities', '<p class="text-sm text-slate-600 dark:text-slate-300">One account, one owner, one next action, and a complete customer timeline—without a Kanban board.</p>')}${saasLeadTable(d)}`;
     },
     work(body, d) {
       body.innerHTML = engCard('Abandoned carts — recover', (d.abandoned_list || []).length ? (d.abandoned_list || []).map(funnelRow).join('') : engEmpty('Nothing to recover right now.'));
@@ -1455,8 +1455,9 @@ window.loadSaasStudio = loadSaasStudio;
 
 function loadSaasWebsite() {
   const root = document.getElementById('saas-website-root'); if (!root) return;
-  root.innerHTML = saasToolHeader({ icon: 'globe', title: 'Website', subtitle: 'Update the public MarketSync landing pages, pricing, banners, customer proof, and SEO metadata.', tabs: [{label:'Landing Page CMS'},{label:'Pricing Tables'},{label:'Global Banners'},{label:'Case Studies & Reviews'},{label:'SEO & Meta'}], action: '<a href="https://marketsync.link" target="_blank" rel="noopener" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-black">Preview live site</a>' }) + `
-    ${engCard('MarketSync website', `<div class="grid sm:grid-cols-2 gap-3"><div class="p-4 rounded-xl border border-slate-200 dark:border-slate-700"><div class="text-xs font-black uppercase tracking-wide text-emerald-600">Live</div><div class="font-black mt-1">marketsync.link</div><p class="text-sm text-slate-500 mt-1">Open the production site and verify the customer experience.</p></div><div class="p-4 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20"><div class="text-xs font-black uppercase tracking-wide text-amber-700 dark:text-amber-400">Publishing connection required</div><div class="font-black mt-1">Content editing</div><p class="text-sm text-slate-600 dark:text-slate-300 mt-1">The repository currently deploys the public site from source control. A reviewed GitHub publishing adapter is required before this dashboard can safely update production content.</p></div></div>`)}`;
+  root.innerHTML = saasToolHeader({ icon: 'globe', title: 'Website', subtitle: 'Edit pages, forms, pricing, content and SEO in the connected public-site builder.', action: '<a href="https://marketsync.link" target="_blank" rel="noopener" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-black">Preview live site</a>' }) + '<div id="saas-connected-website-builder" class="mt-4"></div>';
+  const host = document.getElementById('saas-connected-website-builder');
+  if (host && typeof engMountPage === 'function') engMountPage(host, 'website', () => { if (typeof loadWebsitePage === 'function') loadWebsitePage(); });
 }
 window.loadSaasWebsite = loadSaasWebsite;
 
@@ -1486,7 +1487,7 @@ function renderAutomation() {
         <div><h1 class="text-xl font-black text-slate-900 dark:text-white leading-tight">Automation &amp; Email</h1>
           <p class="text-[13px] text-slate-500 dark:text-slate-400">Edit your drips step-by-step and manage reusable email templates.</p></div>
       </div>
-      <div class="flex items-center gap-2 overflow-x-auto">${pill('sequences', 'Active Workflows')}${pill('sms', 'Twilio & SMS Triggers')}${pill('calendar', 'Calendar Sync')}${pill('webhooks', 'Webhooks')}${pill('history', 'Execution History')}</div>
+      <div class="flex items-center gap-2"><button onclick="automationNewSeq()" class="px-3.5 py-2 rounded-xl bg-blue-600 text-white text-xs font-black">+ New automation</button><button onclick="automationView('campaigns')" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">Email campaigns</button></div>
     </div>
     <div id="automation-body"></div>`;
   (v === 'campaigns' ? renderAutoCampaigns : v === 'templates' ? renderAutoTemplates : v === 'sequences' ? renderAutoSequences : renderAutoOperations)(v);
@@ -1511,7 +1512,8 @@ function renderAutoSequences() {
   const body = document.getElementById('automation-body'); if (!body) return;
   const cards = (__automation.sequences || []).map(s => {
     const steps = (s.steps || []).slice().sort((a, b) => a.step_order - b.step_order);
-    return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+    const trigger = esc(SAAS_TRIGGER_LABEL[s.trigger] || s.trigger || 'Manual');
+    return `<div role="button" tabindex="0" onclick="automationEditSeq('${s.id}')" class="w-full text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:border-blue-500 transition cursor-pointer">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
@@ -1523,15 +1525,14 @@ function renderAutoSequences() {
           <div class="text-[11px] text-slate-400 mt-1">${steps.length} step${steps.length === 1 ? '' : 's'} · ${s.active || 0} active / ${s.total || 0} enrolled</div>
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">
-          <button onclick="automationToggleSeq('${s.id}', ${s.enabled ? 'false' : 'true'})" title="${s.enabled ? 'Turn off' : 'Turn on'}" class="text-[12px] font-bold ${s.enabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">${s.enabled ? 'On' : 'Off'}</button>
-          <button onclick="automationEditSeq('${s.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700">Edit</button>
+          <button onclick="event.stopPropagation();automationToggleSeq('${s.id}', ${s.enabled ? 'false' : 'true'})" title="${s.enabled ? 'Turn off' : 'Turn on'}" class="text-[12px] font-bold ${s.enabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">${s.enabled ? 'On' : 'Off'}</button>
+          <span class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold">Edit visually</span>
         </div>
       </div>
-      <div class="flex flex-wrap gap-1.5 mt-3">${steps.map(autoStepChip).join('') || '<span class="text-[12px] text-slate-400 italic">No steps yet.</span>'}</div>
+      <div class="flex items-center gap-2 mt-4 overflow-x-auto"><span class="shrink-0 px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 text-xs font-black">${trigger}</span><span class="text-blue-400 font-black">→</span>${steps.map(st => `<span class="shrink-0 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">Day ${st.day_offset} · ${st.type === 'task' ? esc(st.title || 'Task') : esc(st.subject || 'Email')}</span><span class="text-blue-400 font-black">→</span>`).join('')}<span class="shrink-0 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 text-xs font-black">Complete</span></div>
     </div>`;
   }).join('');
-  body.innerHTML = `<div class="flex justify-end mb-3"><button onclick="automationNewSeq()" class="px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">＋ New sequence</button></div>
-    <div class="space-y-3">${cards || '<div class="text-sm text-slate-400 italic py-6 text-center">No sequences yet.</div>'}</div>`;
+  body.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">${engCard('Customer growth','<p class="text-xs text-slate-500">Trial onboarding, activation, renewal and win-back.</p>')}${engCard('Marketing','<p class="text-xs text-slate-500">Lead nurture, campaigns, product education and social follow-up.</p>')}${engCard('Operations','<p class="text-xs text-slate-500">Payments, alerts, internal tasks and integration failures.</p>')}</div><div class="space-y-3">${cards || '<div class="text-sm text-slate-400 italic py-6 text-center">No automations yet. Create your first visual flow.</div>'}</div>`;
 }
 function renderAutoTemplates() {
   const body = document.getElementById('automation-body'); if (!body) return;

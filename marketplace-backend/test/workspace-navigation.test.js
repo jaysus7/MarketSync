@@ -74,15 +74,17 @@ test('each MarketSync Internal page owns specific operational header tabs', () =
     'Affiliate Directory', 'Pending Payouts', 'Referral Links', 'Commission Tiers', 'Payout Logs',
     'P&L Summary', 'Subscriptions (MRR)', 'Platform Expenses', 'Invoices & Taxes', 'Currency (CAD/USD)',
     'Campaigns', 'Automated Drips', 'Audience Lists', 'Template Builder', 'Deliverability & Analytics',
-    'Active Workflows', 'Twilio & SMS Triggers', 'Calendar Sync', 'Webhooks', 'Execution History',
     'Video Studio', 'Creative Library', 'Watermark & Branding', 'AI Enhancement Rules', 'Templates',
-    'Landing Page CMS', 'Pricing Tables', 'Global Banners', 'Case Studies & Reviews', 'SEO & Meta',
     'Team Directory', 'Role Permissions', 'Sales Assignments', 'Activity Audit', 'Invitations',
   ]
   const source = part10 + part11 + read('js/modules/dashboard-part13.js')
   for (const label of expected) assert.ok(source.includes(label), `missing tailored Internal header: ${label}`)
   assert.match(part10, /window\.saasExportLeads\s*=/)
   assert.match(part10, /Product usage timeline/)
+  assert.match(part10, /Customer growth/)
+  assert.match(part10, /SaaS lead priorities/)
+  assert.match(part10, /saas-connected-website-builder/)
+  assert.match(part11, /Snap or upload receipt/)
   const videoStudio = read('js/modules/video-studio.js')
   assert.match(videoStudio, /MarketSync Product Video Studio/)
   assert.match(videoStudio, /if \(isSaas && String\(v\.department \|\| ''\)\.toLowerCase\(\) === 'service'\) return false/)

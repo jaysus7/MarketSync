@@ -715,6 +715,12 @@ window.accOpenReceiptScanModal = function() {
   `;
 };
 
+async function accDecodeReceiptWithAi(dataUrl) {
+  const result = await apiSendJson('/accounting/scan-receipt', 'POST', { image: dataUrl });
+  const f = result?.fields || {};
+  return { vendor: f.vendor || '', amount: Number(f.total) || 0, subtotal: Number(f.subtotal) || 0, tax: Number(f.tax) || 0, date: f.date || new Date().toISOString().slice(0,10), department: 'Management', account: f.category || 'Other Expense', description: `Receipt — ${f.vendor || 'Review vendor'}`, receipt_image: dataUrl };
+}
+
 window.accHandleReceiptFileSelect = function(e) {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
@@ -725,13 +731,18 @@ window.accHandleReceiptFileSelect = function(e) {
   if (dropzone) dropzone.classList.add('opacity-40', 'pointer-events-none');
 
   const reader = new FileReader();
-  reader.onload = function(evt) {
+  reader.onload = async function(evt) {
     const dataUrl = evt.target.result;
-    setTimeout(() => {
+    try {
+      const decoded = await accDecodeReceiptWithAi(dataUrl);
       document.getElementById('acc-receipt-scan-modal')?.remove();
-      const decoded = accDecodeReceiptImageData(dataUrl);
       accOpenCustomEntryModal('out', decoded);
-    }, 900);
+      showToast('Receipt read by AI. Review every field, then save.', 'success');
+    } catch (err) {
+      if (progress) progress.classList.add('hidden');
+      if (dropzone) dropzone.classList.remove('opacity-40', 'pointer-events-none');
+      showToast(err.message || 'Could not read this receipt. Try a flatter, well-lit photo.', 'error');
+    }
   };
   reader.readAsDataURL(file);
 };
@@ -755,8 +766,9 @@ window.accHandleProofPhotoSelected = function(e) {
     if (previewBox) previewBox.classList.remove('hidden');
     if (uploadBtns) uploadBtns.classList.add('hidden');
 
-    // Decode receipt details & auto-populate modal fields
-    const decoded = accDecodeReceiptImageData(dataUrl);
+    // The proof-only attachment stays attached; receipt OCR is performed by the
+    // dedicated scanner before this form opens so no values are fabricated here.
+    const decoded = { amount: 0, date: '', account: '', vendor: '', description: '', department: '' };
 
     const amountInput = document.getElementById('acc-modal-amount');
     const dateInput = document.getElementById('acc-modal-date');
@@ -985,7 +997,7 @@ window.accSubmitCustomFinancialEntry = async function() {
       description: memo,
       entry_date: entryDate,
       receipt_image: receiptImg
-    }).catch(() => null);
+    });
 
     // Update local engine cache if present
     if (ENGINE_DATA['accounting-overview'] && ENGINE_DATA['accounting-overview'].payables) {
@@ -1008,7 +1020,12 @@ window.accSubmitCustomFinancialEntry = async function() {
       showToast(`Recorded ${accFmtMoney(amount)} ${direction === 'in' ? 'Incoming Income' : 'Outgoing Expense'}${receiptImg ? ' & Saved Digital Receipt' : ''}!`, 'success');
     }
     document.getElementById('acc-custom-entry-modal')?.remove();
-    engineTab('accounting-overview', direction === 'in' ? 'money_in' : 'money_out', true);
+    if (typeof marketsyncOwnerMode === 'function' && marketsyncOwnerMode()) {
+      ENGINE_DATA['saas-accounting'] = undefined;
+      renderEngine('saas-accounting', true);
+    } else {
+      engineTab('accounting-overview', direction === 'in' ? 'money_in' : 'money_out', true);
+    }
   } catch (e) {
     if (typeof showToast === 'function') showToast(e.message || 'Failed to save entry', 'error');
   }

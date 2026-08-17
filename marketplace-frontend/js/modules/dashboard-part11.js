@@ -789,10 +789,28 @@ ENGINES['saas-employees'] = {
 function loadSaasEmployees() { renderEngine('saas-employees'); }
 
 // ══ SaaS Accounting — MarketSync's own P&L (recurring revenue + program cost) ══
+function saasMoneyRing(label, value, max, color, display) {
+  const pct = Math.max(0, Math.min(100, max ? Math.round(Number(value || 0) / max * 100) : 0));
+  return `<div class="flex flex-col items-center text-center"><div class="w-28 h-28 rounded-full grid place-items-center" style="background:conic-gradient(${color} ${pct}%,#1e293b ${pct}% 100%)"><div class="w-20 h-20 rounded-full bg-white dark:bg-slate-900 grid place-items-center"><div><div class="text-lg font-black">${esc(display)}</div><div class="text-[10px] text-slate-400">${pct}%</div></div></div></div><div class="mt-2 text-xs font-black">${esc(label)}</div></div>`;
+}
+function saasMoneyBudgetEditor(d) {
+  const b = d.budget || {}, budgets = b.budgets || {}, actuals = b.actuals || {};
+  const accounts = (d.accounts || []).filter(a => String(a.category || a.type || a.account_type || '').toLowerCase().includes('expense'));
+  const rows = (accounts.length ? accounts : Object.keys({...budgets,...actuals}).map(id => ({id,name:id}))).map(a => `<div class="grid grid-cols-[1fr_90px_90px] items-center gap-2 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><div class="text-xs font-bold truncate">${esc(a.name || a.id)}</div><div class="text-xs text-right text-slate-400">${engMoney0(actuals[a.id] || 0)} spent</div><input data-saas-budget="${esc(a.id)}" type="number" min="0" step="0.01" value="${budgets[a.id] || ''}" placeholder="Budget" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-transparent px-2 py-1.5 text-xs text-right"></div>`).join('');
+  return rows || engEmpty('Create an expense account first, then give it a monthly budget.');
+}
+window.saasSaveBudget = async () => {
+  const budgets = {}; document.querySelectorAll('[data-saas-budget]').forEach(el => { const n = Number(el.value); if (n > 0) budgets[el.dataset.saasBudget] = n; });
+  try { await apiSendJson('/accounting/budget', 'PUT', { budgets }); ENGINE_DATA['saas-accounting'] = undefined; await renderEngine('saas-accounting', true); showToast('Budget saved', 'success'); } catch (e) { showToast(e.message || 'Could not save budget', 'error'); }
+};
 ENGINES['saas-accounting'] = {
-  rootId: 'saas-accounting-root', title: 'Money', subtitle: 'Automated platform financials, subscription revenue, operating expenses, and net profit',
+  rootId: 'saas-accounting-root', title: 'Money', subtitle: 'Income, receipts, expenses, and your monthly budget on one page',
   icon: 'currency', accent: 'emerald',
-  fetch: () => apiGetJson('/saas/accounting'),
+  hideRail: true, hideTabBar: true, tabOrder: ['overview'],
+  fetch: async () => {
+    const [money, budget, accounts] = await Promise.all([apiGetJson('/saas/accounting'), apiGetJson('/accounting/budget').catch(() => null), apiGetJson('/accounting/accounts').catch(() => ({accounts:[]}))]);
+    return {...money, budget, accounts: accounts.accounts || accounts || []};
+  },
   quickActions: [
     { label: 'MarketSync HQ', icon: 'chart', onclick: "switchPage('saas-command')" },
     { label: 'Affiliates', icon: 'trophy', onclick: "switchPage('affiliates-admin')" },
@@ -805,21 +823,19 @@ ENGINES['saas-accounting'] = {
   tabs: {
     overview(body, d) {
       const netTone = (d.net_mrr || 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
+      const b = d.budget || {}, income = Number(b.totalIncome) || Number(d.mrr) || 0, expenses = Number(b.totalExpense) || Number(d.monthly_expense) || 0;
+      const target = Object.values(b.budgets || {}).reduce((s,v) => s + (Number(v)||0), 0);
+      const entries = b.entries || [];
       body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          ${engKpi('MRR', engMoney0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
-          ${engKpi('ARR', engMoney0(d.arr), 'text-emerald-600 dark:text-emerald-400')}
-          ${engKpi('Program cost /mo', engMoney0(d.monthly_expense), 'text-rose-600 dark:text-rose-400')}
-          ${engKpi('Net MRR', engMoney0(d.net_mrr), netTone)}
-          ${engKpi('Net margin', (d.net_margin || 0) + '%', netTone)}
-          ${engKpi('New MRR (mo)', engMoney0(d.new_mrr_this_month), 'text-indigo-600 dark:text-indigo-400')}
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          ${engCard('This month', `<div class="flex justify-around gap-3">${saasMoneyRing('Income',income,Math.max(income,expenses,1),'#10b981',engMoney0(income))}${saasMoneyRing('Expenses',expenses,Math.max(income,target,expenses,1),'#f43f5e',engMoney0(expenses))}</div><div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between"><span class="text-sm font-bold">Money left</span><span class="font-black ${netTone}">${engMoney0(income-expenses)}</span></div>`)}
+          ${engCard('Automatic income', `<button onclick="switchPage('saas-customers')" class="w-full flex justify-between py-2 text-sm border-b border-slate-100 dark:border-slate-800"><span>Customer subscriptions</span><b class="text-emerald-500">${engMoney0(d.mrr)}/mo</b></button><button onclick="switchPage('affiliates-admin')" class="w-full flex justify-between py-2 text-sm"><span>Affiliate-referred customers</span><b>Included in subscriptions</b></button><p class="text-[11px] text-slate-400 mt-3">Stripe remains the payment source of truth. Affiliate commissions are recorded as expenses when paid.</p>`)}
+          ${engCard('Add an expense', `<p class="text-sm text-slate-500 mb-3">Snap a receipt. AI fills in the vendor, date, category, tax, and total. You review before anything saves.</p><button onclick="accOpenReceiptScanModal()" class="w-full px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black">Snap or upload receipt</button><button onclick="accOpenCustomEntryModal('out')" class="w-full mt-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold">Enter expense manually</button>`)}
         </div>
-        ${engCard('This month', `<div class="text-[13px] text-slate-600 dark:text-slate-300 space-y-1.5">
-          <div class="flex items-center justify-between"><span>Recurring revenue (MRR)</span><span class="font-bold text-emerald-600 dark:text-emerald-400">${engMoney0(d.mrr)}</span></div>
-          <div class="flex items-center justify-between"><span>Affiliate program cost</span><span class="font-bold text-rose-600 dark:text-rose-400">− ${engMoney0(d.monthly_expense)}</span></div>
-          <div class="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-1.5 mt-1.5"><span class="font-black text-slate-800 dark:text-slate-100">Net recurring</span><span class="font-black ${netTone}">${engMoney0(d.net_mrr)}</span></div>
-        </div>`)}
-        <div class="text-[12px] text-slate-400">Revenue is recognised from live product entitlements across ${(d.paying || 0).toLocaleString()} paying accounts (${(d.trials || 0).toLocaleString()} in trial). Cash settlement reconciles in Stripe.</div>`;
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+          ${engCard('My monthly budget', `${saasMoneyBudgetEditor(d)}<button onclick="saasSaveBudget()" class="mt-3 px-4 py-2 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-black">Save budget</button>`)}
+          ${engCard('Recent money activity', entries.length ? entries.slice(0,12).map(e => `<button class="w-full flex justify-between gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0 text-sm"><span class="truncate">${esc(e.description || 'Entry')}</span><b class="${e.direction === 'in' ? 'text-emerald-500' : 'text-rose-500'}">${e.direction === 'in' ? '+' : '-'}${engMoney0(e.amount)}</b></button>`).join('') : engEmpty('No money activity recorded this month.'))}
+        </div>`;
     },
     work(body, d) {   // "Revenue" — MRR by product
       const rows = (d.revenue_by_product || []).filter(p => p.accounts > 0 || p.mrr > 0);
