@@ -67,6 +67,27 @@ test('SETTINGS_TAB_SECTIONS.admin owns billing-section, confirming the fold-in i
   assert.match(part8, /admin: \[[^\]]*'billing-section'/)
 })
 
+test('isSingleProductWorkspace exists and is true for exactly one active product', () => {
+  assert.match(dashboard, /function isSingleProductWorkspace\(\)/)
+  assert.match(dashboard, /window\.isSingleProductWorkspace = isSingleProductWorkspace/)
+})
+
+test('renderSetupBar checks isSingleProductWorkspace at the point it sets host.innerHTML, not just clears it elsewhere', () => {
+  // renderSetupBar() is async and its caller never awaits it: it calls
+  // await refreshSetupIndicator() (a real network fetch for admin roles) before
+  // touching #setup-bar-host, and applyProductNav() — which sets data-product,
+  // the attribute isSingleProductWorkspace() reads — runs synchronously later in
+  // the same caller. A synchronous clear of #setup-bar-host elsewhere loses that
+  // race: renderSetupBar()'s continuation can still repopulate it afterward. The
+  // check has to live in renderSetupBar() itself, after its await, to be reliable.
+  const fn = dashboard.match(/async function renderSetupBar\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fn, 'renderSetupBar must exist')
+  assert.match(fn, /await refreshSetupIndicator\(\)/, 'renderSetupBar must await refreshSetupIndicator before touching the host')
+  const afterAwait = fn.slice(fn.indexOf('await refreshSetupIndicator()'))
+  assert.match(afterAwait, /isSingleProductWorkspace/, 'the single-product check must run after the await, where data-product is guaranteed to already be set')
+  assert.match(afterAwait, /if \(!singleProduct && \[.DEALER_ADMIN., .OWNER., .MANAGER.\]\.includes\(profileContext\?\.role\)\)/)
+})
+
 test('every single-product tier (not just Design Studio) gets the simplified header: Profile + Sign out only', () => {
   const fn = dashboard.match(/function applyProductNav\(products\) \{[\s\S]*?\nwindow\.applyProductNav = applyProductNav;/)?.[0] || ''
   assert.ok(fn, 'applyProductNav must exist')

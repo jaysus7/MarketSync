@@ -673,7 +673,14 @@ async function renderSetupBar() {
   // opens a wizard — every setup entry point routes here, to the Launch Hub.
   const host = document.getElementById('setup-bar-host');
   if (!host) return;
-  if (['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role)) {
+  // Single-product accounts never see Open Setup — that wizard walks through
+  // DealerOS departments they don't have. This function is async and unawaited by
+  // its caller (renderSetupBar() runs before applyProductNav() sets data-product,
+  // then resumes after the await above) — checking here, not just clearing the
+  // host elsewhere, is what actually wins the race: applyProductNav() has always
+  // finished setting data-product synchronously by the time this line runs.
+  const singleProduct = typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace();
+  if (!singleProduct && ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role)) {
     host.innerHTML = `<button onclick="switchPage('launch')" title="Open Setup" class="w-full inline-flex items-center justify-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 px-2 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>Open Setup</button>`;
   } else {
     host.innerHTML = '';
@@ -852,6 +859,16 @@ function isFacebookOnlyWorkspace() {
     && !/(?:^|\s)dealer_os(?:\s|$)/.test(products);
 }
 window.isFacebookOnlyWorkspace = isFacebookOnlyWorkspace;
+
+// True for ANY account with exactly one product active (not a bundle, not full
+// dealer_os) — Design Studio, Facebook Solo/Dealer, AI ChatBot, Video, Website,
+// Social, Email alike. Every single-product dashboard shares the same simplified
+// chrome rule: header collapses to Profile + Sign out, Open Setup never appears.
+function isSingleProductWorkspace() {
+  const products = (document.documentElement.getAttribute('data-product') || '').trim();
+  return !!products && products.split(/\s+/).length === 1;
+}
+window.isSingleProductWorkspace = isSingleProductWorkspace;
 let __productHome = null;           // Where a product-restricted tier lands / bounces to
 
 // ── Access-context helpers (frontend mirror of the backend access service) ────
