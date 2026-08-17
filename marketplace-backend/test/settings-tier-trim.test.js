@@ -7,6 +7,7 @@ const part2 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashbo
 const part8 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part8.js', import.meta.url), 'utf8')
 const dashboardHtml = readFileSync(new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8')
 const marketingWorkspace = readFileSync(new URL('../../marketplace-frontend/js/modules/marketing-workspace.js', import.meta.url), 'utf8')
+const part25 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part25.js', import.meta.url), 'utf8')
 
 test('isFacebookOnlyWorkspace exists and excludes dealer_os accounts, like isDesignStudioOnlyWorkspace', () => {
   assert.match(dashboard, /function isFacebookOnlyWorkspace\(\)/)
@@ -31,9 +32,13 @@ test('every real, non-account Settings tab button is [data-admin-only]', () => {
   }
 })
 
-test('Design Studio standalone trims Settings to My Account + Billing (Upgrade lives at the header, not in Settings)', () => {
-  const block = part2.match(/if \(typeof isDesignStudioOnlyWorkspace === 'function'[\s\S]*?\n {4}\}/)?.[0] || ''
-  assert.ok(block, 'isDesignStudioOnlyWorkspace settings-trim block must exist')
+test('every single-product tier trims Settings to My Account + Billing (Upgrade lives at the header, not in Settings)', () => {
+  // Consolidated into ONE isSingleProductWorkspace()-gated block — this must apply
+  // to every single-product tier (Design Studio, AI ChatBot, Video, Website,
+  // Social, Email, Facebook), not just the two tiers that happened to get a
+  // bespoke isDesignStudioOnlyWorkspace()/isFacebookOnlyWorkspace() block first.
+  const block = part2.match(/if \(typeof isSingleProductWorkspace === 'function'[\s\S]*?\n {4}\}/)?.[0] || ''
+  assert.ok(block, 'the single-product settings-trim block must exist')
   assert.match(block, /document\.querySelectorAll\('#settings-tabs \[data-admin-only\]'\)\.forEach\(el => el\.classList\.add\('hidden'\)\)/)
   assert.match(block, /SETTINGS_TAB_SECTIONS\.account\.push\('billing-section'\)/)
   assert.match(block, /__settingsTab = 'account'/)
@@ -47,15 +52,13 @@ test('Design Studio standalone trims Settings to My Account + Billing (Upgrade l
   // the grid's cards out of their side-by-side row onto their own stacked rows).
   assert.match(block, /document\.getElementById\('settings-my-record'\)\?\.classList\.add\('stab-hide'\)/)
   assert.doesNotMatch(block, /filter\(id => id !== 'settings-my-record'\)/, 'must not rely on removing the id from the tracked section list')
-})
-
-test('Facebook-only tiers trim Settings to My Account + Billing + Facebook Posting Safety', () => {
-  const block = part2.match(/if \(typeof isFacebookOnlyWorkspace === 'function'[\s\S]*?\n {4}\}/)?.[0] || ''
-  assert.ok(block, 'isFacebookOnlyWorkspace settings-trim block must exist')
-  assert.match(block, /document\.querySelectorAll\('#settings-tabs \[data-admin-only\]'\)\.forEach\(el => el\.classList\.add\('hidden'\)\)/)
-  assert.match(block, /'billing-section', 'guardrail-settings-section'/)
+  // Facebook Solo/Dealer are real dealership sales reps (unlike single-user tool
+  // subscribers), so they keep the employment-record card and additionally fold in
+  // Facebook Posting Safety.
+  assert.match(block, /const fbOnly = typeof isFacebookOnlyWorkspace === 'function' && isFacebookOnlyWorkspace\(\)/)
+  assert.match(block, /if \(fbOnly[\s\S]*?guardrail-settings-section/)
   assert.match(block, /document\.getElementById\('guardrail-settings-section'\)\?\.classList\.remove\('hidden'\)/)
-  assert.match(block, /__settingsTab = 'account'/)
+  assert.match(block, /if \(!fbOnly\) document\.getElementById\('settings-my-record'\)/)
 })
 
 test('billing-section is not itself [data-admin-only] (so folding it into My Account is meaningful)', () => {
@@ -136,14 +139,11 @@ test('forceCompactSettingsGrid merges Language into #profile-panel and forces th
   assert.match(fn, /getElementById\('settings-language-card'\)/)
   assert.match(fn, /profilePanel\.appendChild\(languageCard\)/)
   assert.match(fn, /profilePanel\?\.classList\.add\('is-multi'\)/)
-  // Both single-product blocks must call it, after their settingsTab('account') call.
-  const designStudioBlock = part2.match(/if \(typeof isDesignStudioOnlyWorkspace === 'function'[\s\S]*?\n {4}\}/)?.[0] || ''
-  const facebookBlock = part2.match(/if \(typeof isFacebookOnlyWorkspace === 'function'[\s\S]*?\n {4}\}/)?.[0] || ''
-  for (const block of [designStudioBlock, facebookBlock]) {
-    assert.ok(block, 'block must exist')
-    assert.match(block, /settingsTab\('account'\)/, 'block must call settingsTab first')
-    assert.ok(block.indexOf("settingsTab('account')") < block.indexOf('forceCompactSettingsGrid()'), 'forceCompactSettingsGrid() must run after settingsTab')
-  }
+  // The single-product block must call it, after its settingsTab('account') call.
+  const block = part2.match(/if \(typeof isSingleProductWorkspace === 'function'[\s\S]*?\n {4}\}/)?.[0] || ''
+  assert.ok(block, 'block must exist')
+  assert.match(block, /settingsTab\('account'\)/, 'block must call settingsTab first')
+  assert.ok(block.indexOf("settingsTab('account')") < block.indexOf('forceCompactSettingsGrid()'), 'forceCompactSettingsGrid() must run after settingsTab')
 })
 
 test('.settings-cols.is-multi is a real 3-column CSS grid, not a masonry/multi-column layout', () => {
@@ -160,6 +160,24 @@ test('Design Studio nav entries use a real icon key, not the non-existent "image
   assert.doesNotMatch(dashboard, /icon: 'image'/, 'dashboard.js must not reference the non-existent "image" icon key')
   assert.doesNotMatch(marketingWorkspace, /icon: 'image'/, 'marketing-workspace.js must not reference the non-existent "image" icon key')
   assert.match(dashboard, /label: 'Design Studio', icon: 'camera'/, 'the Design Studio nav entry should use a real icon key')
+})
+
+test('the Daily Shift Punch Clock modal is skipped for single-product accounts, checked inside its setTimeout not at the top of the function', () => {
+  // checkLoginPunchClockPrompt() is called (synchronously, unawaited) BEFORE
+  // applyProductNav() sets data-product — a guard at the top of the function
+  // would always read data-product as unset. The actual modal render is already
+  // deferred via setTimeout(fn, 1200) for its own reasons; checking
+  // isSingleProductWorkspace() inside that callback instead means the check runs
+  // after applyProductNav() — called synchronously right after, in the same
+  // caller — has always already finished.
+  const fn = part25.match(/function checkLoginPunchClockPrompt\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fn, 'checkLoginPunchClockPrompt must exist')
+  const setTimeoutIdx = fn.indexOf('setTimeout(() => {')
+  assert.ok(setTimeoutIdx > -1, 'the modal render must be deferred via setTimeout')
+  const beforeSetTimeout = fn.slice(0, setTimeoutIdx)
+  const afterSetTimeoutStart = fn.slice(setTimeoutIdx)
+  assert.doesNotMatch(beforeSetTimeout, /isSingleProductWorkspace/, 'the check must not run before data-product is guaranteed set')
+  assert.match(afterSetTimeoutStart, /if \(typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace\(\)\) return;/)
 })
 
 test('settings-my-record is full-width and the other My Account cards are not, confirming why it must be force-hidden rather than left visible', () => {

@@ -177,6 +177,18 @@ function checkLoginPunchClockPrompt() {
       const dateNow = new Date().toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
 
       setTimeout(() => {
+        // Single-product accounts (Design Studio, Facebook-only, etc.) aren't
+        // dealership employees punching a shift — this modal kept firing for them
+        // even after the persistent header clock widget
+        // (#header-shift-clock-wrapper) was hidden, since they're two separate
+        // mechanisms and only the widget was gated. Checked here, inside the
+        // setTimeout, not at the top of checkLoginPunchClockPrompt(): this
+        // function runs before applyProductNav() sets data-product (the
+        // attribute isSingleProductWorkspace() reads), so a check at the top
+        // would always see it unset. The setTimeout defers to the next tick,
+        // by which point applyProductNav() — called synchronously right after
+        // this function, in the same caller — has always already run.
+        if (typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace()) return;
         const modalHtml = `
           <div class="space-y-5">
             <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">

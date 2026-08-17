@@ -824,61 +824,53 @@ async function initializeDashboardEcosystem() {
     // navigated again, producing the visible legacy-page flash on every load.
     applyProductNav(legacyProductsFromAccess(window.__access) || profileContext?.products);
 
-    // Design Studio standalone accounts never see the DealerOS dashboard at all
-    // (applyProductNav() above just auto-launched the Studio modal) — so the only
-    // reachable page is Settings, and it should show just Upgrade, Billing and
-    // Profile. The Settings tab bar today is account/admin/hr/sales/marketing/
-    // inventory/service/accounting (SETTINGS_TAB_SECTIONS in dashboard-part8.js) —
-    // every non-account button carries [data-admin-only], and since this account's
-    // role is admin-grade (canManageFeeds is true), the generic canManageFeeds hide
-    // earlier never touches them. Hide the tab buttons directly instead. Billing
-    // lives under Administration for every other tier, so fold it into My Account
-    // here — it's the one Administration card this tier still needs (Upgrade lives
-    // outside Settings entirely, at the header's #open-upgrades button). Also drop
-    // the employment-record card — a single-user editor account has no employer.
-    // MUST run after applyProductNav() (just above), not before: that call is what
-    // sets the data-product attribute isDesignStudioOnlyWorkspace()/
-    // isFacebookOnlyWorkspace() read — checking it any earlier always reads empty
-    // and these blocks silently never fire.
-    if (typeof isDesignStudioOnlyWorkspace === 'function' && isDesignStudioOnlyWorkspace()) {
+    // Every single-product account (exactly one product, not a bundle or full
+    // dealer_os — Design Studio, Facebook Solo/Dealer, AI ChatBot, Video, Website,
+    // Social, Email alike) gets the SAME compact Settings treatment, not just
+    // Design Studio: the Settings tab bar today is account/admin/hr/sales/
+    // marketing/inventory/service/accounting (SETTINGS_TAB_SECTIONS in
+    // dashboard-part8.js) — every non-account button carries [data-admin-only],
+    // and since these accounts' role is admin-grade (canManageFeeds is true), the
+    // generic canManageFeeds hide earlier never touches them. Hide the tab buttons
+    // directly instead. Billing lives under Administration for every tier, so fold
+    // it into My Account here — it's the one Administration card every
+    // single-product tier still needs (Upgrade lives outside Settings entirely, at
+    // the header's #open-upgrades button). MUST run after applyProductNav() (just
+    // above), not before: that call is what sets the data-product attribute
+    // isSingleProductWorkspace()/isFacebookOnlyWorkspace() read — checking it any
+    // earlier always reads empty and this block silently never fires.
+    if (typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace()) {
       document.querySelectorAll('#settings-tabs [data-admin-only]').forEach(el => el.classList.add('hidden'));
       if (Array.isArray(SETTINGS_TAB_SECTIONS?.account) && !SETTINGS_TAB_SECTIONS.account.includes('billing-section')) {
         SETTINGS_TAB_SECTIONS.account.push('billing-section');
       }
-      __settingsTab = 'account';
-      if (typeof settingsTab === 'function') settingsTab('account');
-      // Dropping 'settings-my-record' from SETTINGS_TAB_SECTIONS.account (instead of
-      // hiding it directly) doesn't work: applyProductNav() above already triggered an
-      // earlier settingsTab('account') call (via its own switchPage('profile')) using
-      // the UNMODIFIED section list, which un-hid this card and kicked off its fetch.
-      // Once removed from every tab's list entirely, settingsTab()'s toggle loop can no
-      // longer see the id at all, so it stays stuck in whatever state that first call
-      // left it — visible, permanently showing "Loading your record…". Force it hidden
-      // directly instead. This also fixes the account cards rendering in one stacked
-      // column instead of side by side: this card carries data-full-width="true", so
-      // while stuck visible it was forcing itself onto its own grid row and pushing
-      // Security below it alone, wasting the rest of that row.
-      document.getElementById('settings-my-record')?.classList.add('stab-hide');
-      forceCompactSettingsGrid();
-    }
-
-    // Facebook-only tiers (Solo or Dealer AutoPoster) bought Facebook posting, not
-    // the rest of DealerOS — same Administration-tab leak as Design Studio above
-    // (a facebook_dealer account's owner is admin-grade, so canManageFeeds keeps
-    // every [data-admin-only] Settings tab visible). Trim to My Account, but fold in
-    // both Billing AND Facebook Posting Safety (guardrail-settings-section) — the
-    // one dealer-admin setting this tier actually needs. Same ordering requirement
-    // as the Design Studio block above.
-    if (typeof isFacebookOnlyWorkspace === 'function' && isFacebookOnlyWorkspace()) {
-      document.querySelectorAll('#settings-tabs [data-admin-only]').forEach(el => el.classList.add('hidden'));
-      if (Array.isArray(SETTINGS_TAB_SECTIONS?.account)) {
-        ['billing-section', 'guardrail-settings-section'].forEach(id => {
-          if (!SETTINGS_TAB_SECTIONS.account.includes(id)) SETTINGS_TAB_SECTIONS.account.push(id);
-        });
+      const fbOnly = typeof isFacebookOnlyWorkspace === 'function' && isFacebookOnlyWorkspace();
+      // Facebook Solo/Dealer additionally fold in Facebook Posting Safety — the
+      // one other dealer-admin setting this tier actually uses.
+      if (fbOnly && Array.isArray(SETTINGS_TAB_SECTIONS?.account) && !SETTINGS_TAB_SECTIONS.account.includes('guardrail-settings-section')) {
+        SETTINGS_TAB_SECTIONS.account.push('guardrail-settings-section');
+        document.getElementById('guardrail-settings-section')?.classList.remove('hidden');
       }
-      document.getElementById('guardrail-settings-section')?.classList.remove('hidden');
       __settingsTab = 'account';
       if (typeof settingsTab === 'function') settingsTab('account');
+      // Every single-product tier EXCEPT Facebook drops the employment-record
+      // card — Design Studio / AI ChatBot / Video / Website / Social / Email
+      // customers are single-user tool subscribers with no employer, while a
+      // Facebook Dealer account IS a real dealership sales rep. Dropping
+      // 'settings-my-record' from SETTINGS_TAB_SECTIONS.account (instead of
+      // hiding it directly) doesn't work: applyProductNav() above already
+      // triggered an earlier settingsTab('account') call (via its own
+      // switchPage('profile')) using the unmodified section list, which un-hid
+      // this card and kicked off its fetch. Once removed from every tab's list
+      // entirely, settingsTab()'s toggle loop can no longer see the id at all, so
+      // it stays stuck in whatever state that first call left it — visible,
+      // permanently showing "Loading your record…". Force it hidden directly
+      // instead. This also fixes the account cards rendering in one stacked
+      // column instead of side by side: this card carries data-full-width="true",
+      // so while stuck visible it was forcing itself onto its own grid row and
+      // pushing everything after it onto rows of their own, wasting the rest of
+      // each row's space.
+      if (!fbOnly) document.getElementById('settings-my-record')?.classList.add('stab-hide');
       forceCompactSettingsGrid();
     }
 
