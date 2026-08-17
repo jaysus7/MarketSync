@@ -15,7 +15,7 @@ test('auth uses the real session token from localStorage, not a hardcoded or dem
   assert.doesNotMatch(source, /Bearer\s+['"][a-zA-Z0-9._-]{10,}['"]/, 'must not hardcode a bearer token')
 })
 
-test('package/role/scenario switches reload the page so every module re-reads fresh entitlements', () => {
+test('package/role switches reload the page so every module re-reads fresh entitlements', () => {
   for (const fn of ['switchAndReload']) assert.match(source, new RegExp(fn))
   const switchFn = source.match(/async function switchAndReload[\s\S]*?\n {4}\}/)?.[0] || ''
   assert.match(switchFn, /location\.reload\(\)/)
