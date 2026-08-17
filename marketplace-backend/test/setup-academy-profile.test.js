@@ -59,8 +59,8 @@ test('the modal can actually take the missing information', () => {
   assert.match(part2, /value="\$\{esc\(String\(cfg\[k\] \?\? ''\)\)\}"/)
 })
 
-test('setup disappears when it is done, and holds no permanent nav slot', () => {
-  assert.match(part2, /if \(launch\.fully_configured\) \{ banner\.classList\.add\('hidden'\)/)
+test('setup holds no permanent nav slot (the finish-setup banner itself is retired)', () => {
+  assert.match(part2, /getElementById\('setup-status-banner'\)\?\.classList\.add\('hidden'\)/)
   const { MS_WORKSPACES } = loadRegistry()
   assert.ok(!MS_WORKSPACES.launch, 'a finished-once job must not own a sidebar slot forever')
   // Still reachable — removing the nav entry must not strand the page.

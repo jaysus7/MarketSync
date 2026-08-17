@@ -665,26 +665,16 @@ function setupStepDone(step, snap) { return setupAck(step.id) || (typeof step.do
 function setupCloseAll() { document.querySelectorAll('.fixed').forEach(el => { if (el.dataset.setup) el.remove(); }); }
 
 // The compact progress bar at the top of the sidebar. Vanishes when all done.
+// Retired: the "Open Setup" sidebar button and the Setup Wizard nudge it opened are
+// gone for everyone (was already hidden for single-product accounts; now hidden for
+// full DealerOS accounts too). The Launch Hub page (switchPage('launch')) still
+// exists for anyone who navigates there directly.
 async function renderSetupBar() {
   if (typeof refreshSetupIndicator === 'function') {
     await refreshSetupIndicator();
   }
-  // The ONE canonical way to (re)open setup at any time. Department navigation never
-  // opens a wizard — every setup entry point routes here, to the Launch Hub.
   const host = document.getElementById('setup-bar-host');
-  if (!host) return;
-  // Single-product accounts never see Open Setup — that wizard walks through
-  // DealerOS departments they don't have. This function is async and unawaited by
-  // its caller (renderSetupBar() runs before applyProductNav() sets data-product,
-  // then resumes after the await above) — checking here, not just clearing the
-  // host elsewhere, is what actually wins the race: applyProductNav() has always
-  // finished setting data-product synchronously by the time this line runs.
-  const singleProduct = typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace();
-  if (!singleProduct && ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role)) {
-    host.innerHTML = `<button onclick="switchPage('launch')" title="Open Setup" class="w-full inline-flex items-center justify-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 px-2 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>Open Setup</button>`;
-  } else {
-    host.innerHTML = '';
-  }
+  if (host) host.innerHTML = '';
 }
 
 // Compatibility entry point used by older buttons. All setup entry points now route

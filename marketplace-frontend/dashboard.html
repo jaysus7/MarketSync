@@ -944,6 +944,17 @@
               </div>
             </div>
           </div>
+
+          <!-- Language: per-rep dashboard translation (Google Translate) + AI listing-copy
+               language. Sized like every other My Account card (not full-width, not forced
+               square) and explicitly placed on row 2 of the 3-column grid, centered under
+               whatever sits in column 2 of row 1 (Billing for single-product tiers, Security
+               otherwise) — underneath, between the cards that flank it. -->
+          <div id="settings-language-card" class="lg:[grid-row:2] lg:[grid-column:2] overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 notranslate break-inside-avoid mb-5">
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Language</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Translate your dashboard into any language — it's saved to your browser, just for you. Your choice also becomes the language for your AI-written Facebook listings.</p>
+            <div id="google_translate_element"></div>
+          </div>
         </div>
       </div>
 
@@ -1432,12 +1443,6 @@
             <button onclick="deskFeeAddRow()" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500">＋ Add a fee</button>
             <button id="desk-fees-save" onclick="saveDeskFees(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Save fees</button>
           </div>
-        </div>
-        <!-- Language: per-rep dashboard translation (Google Translate) + AI listing-copy language -->
-        <div id="settings-language-card" class="aspect-square overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 notranslate break-inside-avoid mb-5">
-          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Language</h2>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Translate your dashboard into any language — it's saved to your browser, just for you. Your choice also becomes the language for your AI-written Facebook listings.</p>
-          <div id="google_translate_element"></div>
         </div>
         <!-- Text messaging — provision a dedicated SMS number under MarketSync, no
              Twilio account needed. Powers automated follow-ups + AI autoresponder texts. -->
@@ -3818,8 +3823,8 @@
   <!-- Workspace registry: SINGLE SOURCE OF TRUTH for sidebar, workspace tabs and
        mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
   <script src="js/modules/workspace-registry.js?v=20260814_v12"></script>
-  <script src="dashboard.js?v=20260817_singleproduct_v5"></script>
-  <script src="js/modules/dashboard-part2.js?v=20260817_settings_fix_v8"></script>
+  <script src="dashboard.js?v=20260817_singleproduct_v6"></script>
+  <script src="js/modules/dashboard-part2.js?v=20260817_settings_fix_v9"></script>
   <script src="js/modules/dashboard-part3.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part4.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part5.js?v=20260817_studiolaunch_v1"></script>
