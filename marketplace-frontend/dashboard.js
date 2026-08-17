@@ -839,6 +839,19 @@ function isDesignStudioOnlyWorkspace() {
   return /(?:^|\s)design_studio(?:\s|$)/.test(products) && !/(?:^|\s)dealer_os(?:\s|$)/.test(products);
 }
 window.isDesignStudioOnlyWorkspace = isDesignStudioOnlyWorkspace;
+
+// Facebook-only tiers (Solo or Dealer AutoPoster) bought Facebook posting, not the
+// rest of DealerOS — the dealer-administration Settings tabs (HR, Marketing,
+// Inventory, Service, Accounting, CRM/DMS, desking) don't apply to them. This is a
+// PRODUCT check, not a role check: a facebook_dealer account's owner is a
+// DEALER_ADMIN, so the role-based isSolo trim elsewhere never catches them and they
+// were seeing the full DealerOS Administration tab.
+function isFacebookOnlyWorkspace() {
+  const products = document.documentElement.getAttribute('data-product') || '';
+  return (/(?:^|\s)facebook_solo(?:\s|$)/.test(products) || /(?:^|\s)facebook_dealer(?:\s|$)/.test(products))
+    && !/(?:^|\s)dealer_os(?:\s|$)/.test(products);
+}
+window.isFacebookOnlyWorkspace = isFacebookOnlyWorkspace;
 let __productHome = null;           // Where a product-restricted tier lands / bounces to
 
 // ── Access-context helpers (frontend mirror of the backend access service) ────
@@ -1074,9 +1087,15 @@ function applyProductNav(products) {
   if (home) { if (home === 'inventory') __inventoryMode = 'facebook'; if (typeof switchPage === 'function') switchPage(home); }
   // Design Studio standalone: launch straight into the editor, not the Settings page
   // it lands on underneath (that page exists only so closing the editor has somewhere
-  // to go).
-  if (active.length === 1 && active[0] === 'design_studio' && typeof window.openMarketSyncStudio === 'function') {
-    window.openMarketSyncStudio();
+  // to go). Also drop chrome that only makes sense for an employee inside a
+  // dealership — the shift punch clock, internal staff messaging, and the
+  // "Intelligence" AI assistant dock — none of it applies to a single-user editor
+  // account.
+  if (active.length === 1 && active[0] === 'design_studio') {
+    document.getElementById('header-shift-clock-wrapper')?.classList.add('hidden');
+    document.getElementById('ai-dock-btn')?.classList.add('hidden');
+    document.getElementById('staff-chat-dock-bar')?.classList.add('hidden');
+    if (typeof window.openMarketSyncStudio === 'function') window.openMarketSyncStudio();
   }
 }
 window.applyProductNav = applyProductNav;
