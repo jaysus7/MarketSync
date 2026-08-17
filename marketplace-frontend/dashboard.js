@@ -1229,7 +1229,7 @@ function restrictedNavPages() {
     // through the header's Profile icon now (every single-product tier's rule), not
     // a second sidebar row, so this never needs to double as a "current page" link
     // and never needs to fight Settings for the highlighted state.
-    return [{ page: 'studio', label: 'Design Studio', icon: 'image', studioLaunch: true }];
+    return [{ page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true }];
   }
 
   // Fallback for any other restricted product set (keeps generic behavior).

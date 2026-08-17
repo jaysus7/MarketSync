@@ -6,6 +6,7 @@ const dashboard = readFileSync(new URL('../../marketplace-frontend/dashboard.js'
 const part2 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part2.js', import.meta.url), 'utf8')
 const part8 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part8.js', import.meta.url), 'utf8')
 const dashboardHtml = readFileSync(new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8')
+const marketingWorkspace = readFileSync(new URL('../../marketplace-frontend/js/modules/marketing-workspace.js', import.meta.url), 'utf8')
 
 test('isFacebookOnlyWorkspace exists and excludes dealer_os accounts, like isDesignStudioOnlyWorkspace', () => {
   assert.match(dashboard, /function isFacebookOnlyWorkspace\(\)/)
@@ -148,6 +149,17 @@ test('forceCompactSettingsGrid merges Language into #profile-panel and forces th
 test('.settings-cols.is-multi is a real 3-column CSS grid, not a masonry/multi-column layout', () => {
   assert.match(dashboardHtml, /\.settings-cols \{ display: grid;/)
   assert.match(dashboardHtml, /\.settings-cols\.is-multi \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/)
+})
+
+test('Design Studio nav entries use a real icon key, not the non-existent "image" (which silently falls back to a plain dot)', () => {
+  // svgIcon(name) does `SVG_ICONS[name] || SVG_ICONS.dot` — SVG_ICONS has no
+  // 'image' entry, so `icon: 'image'` always rendered as the fallback dot.
+  const svgIconsBlock = dashboard.match(/const SVG_ICONS = \{[\s\S]*?\n\};/)?.[0] || ''
+  assert.ok(svgIconsBlock, 'SVG_ICONS must exist')
+  assert.doesNotMatch(svgIconsBlock, /\bimage:/, 'SVG_ICONS has no "image" key — this test documents that gap')
+  assert.doesNotMatch(dashboard, /icon: 'image'/, 'dashboard.js must not reference the non-existent "image" icon key')
+  assert.doesNotMatch(marketingWorkspace, /icon: 'image'/, 'marketing-workspace.js must not reference the non-existent "image" icon key')
+  assert.match(dashboard, /label: 'Design Studio', icon: 'camera'/, 'the Design Studio nav entry should use a real icon key')
 })
 
 test('settings-my-record is full-width and the other My Account cards are not, confirming why it must be force-hidden rather than left visible', () => {

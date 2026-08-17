@@ -322,7 +322,7 @@ ENGINES['marketing-overview'] = {
     { label: 'Video Studio', icon: 'video', onclick: "engineTab('marketing-overview','video-studio')" },
     { label: 'AI ChatBot', icon: 'chat', onclick: "engineTab('marketing-overview','chatbot')" },
     { label: 'Emails', icon: 'megaphone', onclick: "engineTab('marketing-overview','emails')" },
-    { label: 'Visual Studio', icon: 'image', onclick: "engineTab('marketing-overview','studio')" },
+    { label: 'Visual Studio', icon: 'camera', onclick: "engineTab('marketing-overview','studio')" },
     { label: 'Website', icon: 'chart', onclick: "engineTab('marketing-overview','website')" },
   ],
   nextActions: (d) => (d?.needsAttention || []).slice(0, 5).map(x => ({
