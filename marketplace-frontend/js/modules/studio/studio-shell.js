@@ -114,6 +114,10 @@ function renderStudioPhotoResults(photos) {
   return photos.map(photo => `<button type="button" onclick="addLibraryImageToCanvas('${photo.url}')" class="relative group overflow-hidden rounded-xl border border-slate-800 hover:border-blue-500 transition" title="${escS(photo.alt)}"><img src="${photo.url}" alt="${escS(photo.alt)}" loading="lazy" class="w-full aspect-square object-cover group-hover:scale-105 transition duration-200"><span class="absolute inset-x-0 bottom-0 px-2 py-1 bg-slate-950/80 text-[9px] text-left text-white truncate">${escS(photo.alt)}</span></button>`).join('');
 }
 
+function renderPexelsResults(photos) {
+  return photos.map(photo => `<div class="rounded-xl overflow-hidden border border-slate-800 bg-slate-950"><button type="button" onclick="addLibraryImageToCanvas('${escS(photo.source_url)}', '${escS(photo.alt || 'Pexels photo')}')" class="block w-full group"><img src="${escS(photo.preview_url)}" alt="${escS(photo.alt || '')}" loading="lazy" class="w-full aspect-square object-cover group-hover:scale-105 transition duration-200"></button><div class="px-2 py-1.5 text-[9px] truncate"><a href="${escS(photo.author_url || photo.attribution_url || 'https://www.pexels.com')}" target="_blank" rel="noopener" class="text-sky-400 hover:underline">${escS(photo.author || 'Pexels photographer')}</a></div></div>`).join('');
+}
+
 function renderStudioWorkspaceHtml(designName, scene) {
   return `
     <!-- Top Action Bar -->
@@ -412,23 +416,18 @@ function renderStudioToolPanelContent(tool) {
   } else if (tool === 'photos') {
     return `
       <div class="p-4 space-y-3">
-        <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Free Photos</h3><p class="text-[10px] text-slate-500 mt-1">Curated royalty-free images from Unsplash.</p></div>
-        <input type="search" placeholder="Search cars, showroom, team..." oninput="searchStudioLibrary(this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white">
-        <div class="grid grid-cols-2 gap-2 pt-2" id="studio-photo-results">${renderStudioPhotoResults(STUDIO_FREE_PHOTOS)}</div>
+        <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Pexels Photos</h3><p class="text-[10px] text-slate-500 mt-1">Search the free Pexels library and add a photo directly.</p></div>
+        <form onsubmit="event.preventDefault(); searchStudioLibrary(document.getElementById('studio-photo-query').value)" class="flex gap-2"><input id="studio-photo-query" type="search" value="car dealership" placeholder="Search photos..." class="min-w-0 flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"><button class="px-3 rounded-xl bg-blue-600 text-xs font-black">Search</button></form>
+        <div class="grid grid-cols-2 gap-2 pt-2" id="studio-photo-results"><div class="col-span-2 p-5 text-center text-xs text-slate-500">Loading Pexels photos…</div></div>
+        <a href="https://www.pexels.com" target="_blank" rel="noopener" class="block text-center text-[10px] font-bold text-sky-400 hover:underline">Photos provided by Pexels</a>
       </div>
     `;
   } else if (tool === 'shapes') {
     return `
       <div class="p-4 space-y-3">
         <h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Shapes &amp; Badges</h3>
-        <div class="grid grid-cols-2 gap-2">
-          <button onclick="if(window.__studioAdapter) window.__studioAdapter.addShape('rect', '#2563EB')" class="p-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-white text-center">
-            Rectangle
-          </button>
-          <button onclick="if(window.__studioAdapter) window.__studioAdapter.addShape('circle', '#10B981')" class="p-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-white text-center">
-            Circle
-          </button>
-        </div>
+        <div class="grid grid-cols-3 gap-2">${[['rect','Rectangle'],['badge','Rounded'],['circle','Circle'],['ellipse','Ellipse'],['triangle','Triangle'],['diamond','Diamond'],['pentagon','Pentagon'],['hexagon','Hexagon'],['star','Star'],['line','Line'],['arrow','Arrow'],['heart','Heart'],['speech','Speech']].map(([id,label]) => `<button onclick="studioAddShape('${id}')" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-bold text-white text-center">${label}</button>`).join('')}</div>
+        <div class="border-t border-slate-800 pt-3"><h4 class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Draw</h4><div class="grid grid-cols-2 gap-2"><button onclick="studioDrawingMode('pen')" class="p-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">Pen</button><button onclick="studioDrawingMode('pencil')" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-black">Pencil</button></div><button onclick="studioSelectMode()" class="mt-2 w-full p-2 rounded-xl border border-slate-700 text-xs font-bold">Select &amp; move objects</button></div>
       </div>
     `;
   } else if (tool === 'ai') {
@@ -464,9 +463,17 @@ function renderStudioToolPanelContent(tool) {
 }
 
 function renderStudioInspectorHtml(selected) {
+  const object = Array.isArray(selected) ? selected[0] : selected;
+  const color = typeof object?.fill === 'string' && object.fill.startsWith('#') ? object.fill : (typeof object?.stroke === 'string' && object.stroke.startsWith('#') ? object.stroke : '#2563eb');
+  const opacity = Math.round((object?.opacity ?? 1) * 100);
   return `
     <h3 class="text-xs font-black uppercase tracking-wider text-slate-300 mb-3">Property Inspector</h3>
     <div class="space-y-3">
+      <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+        <div><label class="text-[11px] font-bold text-slate-400">Colour</label><input type="color" value="${color}" onchange="studioSetObjectStyle('color', this.value)" class="mt-1 w-full h-9 rounded-lg bg-transparent cursor-pointer"></div>
+        <div><div class="flex justify-between"><label class="text-[11px] font-bold text-slate-400">Transparency</label><span id="studio-opacity-value" class="text-[11px] text-sky-400">${100-opacity}%</span></div><input type="range" min="0" max="100" value="${opacity}" oninput="document.getElementById('studio-opacity-value').textContent=(100-Number(this.value))+'%'" onchange="studioSetObjectStyle('opacity', Number(this.value)/100)" class="w-full accent-blue-500"></div>
+      </div>
+      <button onclick="studioToggleNodes()" class="w-full py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black">Edit vector nodes</button>
       <div class="space-y-1">
         <label class="text-[11px] font-bold text-slate-400">Layer Order:</label>
         <div class="flex gap-2">
@@ -505,6 +512,7 @@ function setStudioTool(tool) {
   window.__studioActiveTool = tool;
   const panel = document.getElementById('studio-tool-panel');
   if (panel) panel.innerHTML = renderStudioToolPanelContent(tool);
+  if (tool === 'photos') setTimeout(() => searchStudioLibrary('car dealership'), 0);
 }
 
 async function loadStudioTemplate(tmplKey) {
@@ -553,12 +561,48 @@ async function bindVehicleToStudio(vehicleId) {
   if (typeof showToast === 'function') showToast(`Bound ${v.year || ''} ${v.make || ''} ${v.model || ''} to design!`, 'success');
 }
 
-function searchStudioLibrary(query) {
+async function searchStudioLibrary(query) {
   const target = document.getElementById('studio-photo-results');
   if (!target) return;
   const q = String(query || '').trim().toLowerCase();
-  const matches = STUDIO_FREE_PHOTOS.filter(photo => !q || `${photo.keywords} ${photo.alt}`.toLowerCase().includes(q));
-  target.innerHTML = matches.length ? renderStudioPhotoResults(matches) : '<div class="col-span-2 p-4 text-center text-xs text-slate-500">No matching free photos. Try “car”, “team”, “service”, or “showroom”.</div>';
+  target.innerHTML = '<div class="col-span-2 p-5 text-center text-xs text-slate-500">Searching Pexels…</div>';
+  try {
+    const data = await apiGetJson(`/marketing/studio/library/search?q=${encodeURIComponent(q || 'car dealership')}`);
+    target.innerHTML = data?.results?.length ? renderPexelsResults(data.results) : '<div class="col-span-2 p-4 text-center text-xs text-slate-500">No matching Pexels photos.</div>';
+  } catch (error) {
+    const fallback = STUDIO_FREE_PHOTOS.filter(photo => !q || `${photo.keywords} ${photo.alt}`.toLowerCase().includes(q));
+    target.innerHTML = fallback.length ? renderStudioPhotoResults(fallback) : '<div class="col-span-2 p-4 text-center text-xs text-rose-400">Photo search is temporarily unavailable.</div>';
+  }
+}
+
+function studioAddShape(shapeType) {
+  window.__studioAdapter?.stopDrawingMode();
+  window.__studioAdapter?.addShape(shapeType, '#2563EB');
+}
+
+function studioDrawingMode(tool) {
+  window.__studioAdapter?.setDrawingMode(tool, { color: '#2563EB' });
+  if (typeof showToast === 'function') showToast(`${tool === 'pen' ? 'Pen' : 'Pencil'} active — draw directly on the canvas`, 'info');
+}
+
+function studioSelectMode() {
+  window.__studioAdapter?.stopDrawingMode();
+  if (typeof showToast === 'function') showToast('Select mode — objects can be moved, resized, and rotated', 'info');
+}
+
+function studioSetObjectStyle(property, value) {
+  const active = window.__studioAdapter?.fabricCanvas?.getActiveObject();
+  if (!active) { if (typeof showToast === 'function') showToast('Select an object first', 'info'); return; }
+  if (property === 'color') {
+    const usesStroke = active.type === 'path' && (!active.fill || active.fill === '');
+    window.__studioAdapter.updateSelected(usesStroke ? { stroke: value } : { fill: value });
+  } else window.__studioAdapter.updateSelected({ [property]: value });
+}
+
+function studioToggleNodes() {
+  const editing = window.__studioAdapter?.toggleNodeEditing();
+  if (editing == null) { if (typeof showToast === 'function') showToast('Select a vector shape such as a star, polygon, diamond, or speech bubble first', 'info'); return; }
+  if (typeof showToast === 'function') showToast(editing ? 'Node editing on — drag the blue points' : 'Node editing off', 'info');
 }
 
 function studioAddText(kind) {
@@ -607,9 +651,9 @@ function studioAddGeneratedCopy() {
   if (copy && window.__studioAdapter) window.__studioAdapter.addText(copy, { fontSize: 36, fontWeight: '800', width: 700 });
 }
 
-function addLibraryImageToCanvas(url) {
+function addLibraryImageToCanvas(url, name = 'Photo Asset') {
   if (window.__studioAdapter) {
-    window.__studioAdapter.addImage(url, 'Photo Asset');
+    window.__studioAdapter.addImage(url, name);
     if (typeof showToast === 'function') showToast('Added image to artboard', 'success');
   }
 }
@@ -718,6 +762,11 @@ window.zoomStudioIn = zoomStudioIn;
 window.zoomStudioOut = zoomStudioOut;
 window.zoomStudioFit = zoomStudioFit;
 window.applyStudioZoom = applyStudioZoom;
+window.studioAddShape = studioAddShape;
+window.studioDrawingMode = studioDrawingMode;
+window.studioSelectMode = studioSelectMode;
+window.studioSetObjectStyle = studioSetObjectStyle;
+window.studioToggleNodes = studioToggleNodes;
 window.studioAddText = studioAddText;
 window.studioSetTextStyle = studioSetTextStyle;
 window.generateStudioAiCopy = generateStudioAiCopy;
