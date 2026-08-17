@@ -32,6 +32,18 @@ const STUDIO_FREE_PHOTOS = [
   ['business owner', 'Business owner', 'photo-1560250097-0b93528c311a']
 ].map(([keywords, alt, id], index) => ({ id: index + 1, keywords, alt, url: `https://images.unsplash.com/${id}?auto=format&fit=crop&w=900&q=82` }));
 
+const STUDIO_SOCIAL_FORMATS = {
+  square: { label: 'Instagram / Facebook Square', w: 1080, h: 1080, safe: [6, 6, 6, 6], note: 'Keep important words inside' },
+  portrait: { label: 'Instagram Portrait 4:5', w: 1080, h: 1350, safe: [7, 6, 12, 6], note: 'Feed and profile-safe text area', profileCrop: true },
+  story: { label: 'Instagram Story / Reel', w: 1080, h: 1920, safe: [14, 15, 20, 6], note: 'Avoid profile name, caption and action buttons' },
+  tiktok: { label: 'TikTok Vertical Video', w: 1080, h: 1920, safe: [12, 16, 22, 6], note: 'Avoid caption and right-side controls' },
+  landscape: { label: 'Facebook Landscape', w: 1200, h: 630, safe: [6, 6, 8, 6], note: 'Visible across feed placements' },
+  linkedin: { label: 'LinkedIn Page Post', w: 1200, h: 627, safe: [6, 6, 8, 6], note: 'LinkedIn 1.91:1 safe content area' },
+  x_landscape: { label: 'X Landscape Post', w: 1600, h: 900, safe: [6, 6, 8, 6], note: 'Keep text away from crop edges' },
+  youtube: { label: 'YouTube Thumbnail', w: 1280, h: 720, safe: [6, 6, 8, 6], note: 'Keep title and logo inside' },
+  pinterest: { label: 'Pinterest Pin 2:3', w: 1000, h: 1500, safe: [7, 7, 10, 7], note: 'Pin-safe content area' }
+};
+
 function escS(str) {
   if (str == null) return '';
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -146,6 +158,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
           <button onclick="zoomStudioIn()" title="Zoom In" class="px-2.5 py-1 rounded-lg hover:bg-slate-700 text-xs font-black text-slate-300 hover:text-white transition">+</button>
           <button onclick="zoomStudioFit()" title="Fit to Screen" class="px-2.5 py-1 ml-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-[11px] font-bold text-white transition">Fit</button>
         </div>
+        <button id="studio-guides-toggle" onclick="toggleStudioGuides()" class="px-3 py-1.5 rounded-xl bg-blue-600/20 border border-blue-500/40 text-blue-300 text-xs font-bold">Guides on</button>
 
         <div class="h-5 w-px bg-slate-800"></div>
 
@@ -154,10 +167,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
         <div class="h-5 w-px bg-slate-800"></div>
 
         <select id="studio-format-picker" onchange="changeStudioFormat(this.value)" class="bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-700">
-          <option value="square" ${scene.format_key === 'square' ? 'selected' : ''}>Instagram / FB Square (1080×1080)</option>
-          <option value="portrait" ${scene.format_key === 'portrait' ? 'selected' : ''}>Instagram Portrait (1080×1350)</option>
-          <option value="story" ${scene.format_key === 'story' ? 'selected' : ''}>Story / Reel (1080×1920)</option>
-          <option value="landscape" ${scene.format_key === 'landscape' ? 'selected' : ''}>Facebook Banner (1200×628)</option>
+          ${Object.entries(STUDIO_SOCIAL_FORMATS).map(([key, format]) => `<option value="${key}" ${scene.format_key === key ? 'selected' : ''}>${format.label} (${format.w}×${format.h})</option>`).join('')}
         </select>
 
         <button onclick="saveStudioDesign()" class="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition flex items-center gap-1.5">
@@ -208,6 +218,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
       <main id="studio-canvas-viewport" class="flex-1 min-w-0 bg-slate-950 overflow-hidden relative">
         <div id="studio-artboard-container" class="absolute left-1/2 top-1/2 shadow-2xl rounded-2xl overflow-hidden border-4 border-blue-500/70 bg-slate-900 ring-4 ring-blue-500/20 transition-transform duration-200 origin-center" style="width:${scene.width}px; height:${scene.height}px; transform:translate(-50%, -50%) scale(0.55);">
           <canvas id="studio-main-canvas"></canvas>
+          ${renderStudioSafeGuides(scene.format_key || 'square')}
         </div>
       </main>
 
@@ -388,19 +399,52 @@ const STUDIO_TEMPLATES_CATALOG = {
   }
 };
 
+Object.entries(STUDIO_SOCIAL_FORMATS).forEach(([formatKey, format], index) => {
+  const portrait = format.h > format.w;
+  const pad = Math.round(format.w * 0.07);
+  const headlineY = Math.round(format.h * (portrait ? 0.62 : 0.48));
+  const ctaY = Math.round(format.h * (1 - format.safe[2] / 100 - 0.09));
+  const key = `social_ready_${formatKey}`;
+  STUDIO_TEMPLATES_CATALOG[key] = {
+    template_key: key, name: `${format.label} — Ready Layout`,
+    desc: `${format.w}×${format.h} • Gradient campaign template`, format_key: formatKey,
+    width: format.w, height: format.h,
+    preview: index % 3 === 0 ? 'linear-gradient(135deg,#0f172a,#2563eb)' : index % 3 === 1 ? 'linear-gradient(135deg,#172554,#06b6d4)' : 'linear-gradient(135deg,#111827,#7c3aed)',
+    scene: { version: 1, format_key: formatKey, width: format.w, height: format.h, background: { color: '#0F172A' }, elements: [
+      { id: `${key}-bg`, type: 'shape', shapeType: 'rect', x: 0, y: 0, width: format.w, height: format.h, fill: '#0F172A', gradient: { colors: index % 3 === 0 ? ['#0F172A','#2563EB'] : index % 3 === 1 ? ['#172554','#06B6D4'] : ['#111827','#7C3AED'] }, name: 'Background Gradient', z: 1 },
+      { id: `${key}-orb`, type: 'shape', shapeType: 'circle', x: Math.round(format.w * .68), y: Math.round(format.h * .08), width: Math.round(format.w * .42), height: Math.round(format.w * .42), fill: '#60A5FA', opacity: .22, name: 'Accent Shape', z: 2 },
+      { id: `${key}-tag`, type: 'shape', shapeType: 'badge', x: pad, y: Math.round(format.h * .1), width: Math.round(format.w * .34), height: Math.round(format.h * .055), fill: '#FFFFFF', opacity: .18, rx: 28, name: 'Campaign Tag', z: 3 },
+      { id: `${key}-tagtext`, type: 'text', x: pad + 24, y: Math.round(format.h * .115), width: Math.round(format.w * .3), text: 'MARKETSYNC MOTORS', fontSize: Math.max(18, Math.round(format.w * .018)), fontWeight: '800', fill: '#FFFFFF', name: 'Brand Label', z: 4 },
+      { id: `${key}-title`, type: 'text', x: pad, y: headlineY, width: Math.round(format.w * .82), text: 'YOUR BIG CAMPAIGN HEADLINE', fontSize: Math.max(38, Math.round(format.w * (portrait ? .065 : .06))), fontWeight: '900', fill: '#FFFFFF', name: 'Headline', z: 5 },
+      { id: `${key}-sub`, type: 'text', x: pad, y: headlineY + Math.round(format.h * .1), width: Math.round(format.w * .72), text: 'Add the supporting message customers need to take action.', fontSize: Math.max(22, Math.round(format.w * .028)), fontWeight: '600', fill: '#DBEAFE', name: 'Supporting Text', z: 6 },
+      { id: `${key}-cta`, type: 'shape', shapeType: 'badge', x: pad, y: ctaY, width: Math.round(format.w * .42), height: Math.round(format.h * .075), fill: '#FFFFFF', rx: 24, name: 'CTA Button', z: 7 },
+      { id: `${key}-ctatxt`, type: 'text', x: pad + 32, y: ctaY + Math.round(format.h * .02), width: Math.round(format.w * .35), text: 'LEARN MORE →', fontSize: Math.max(20, Math.round(format.w * .025)), fontWeight: '900', fill: '#1D4ED8', name: 'CTA Text', z: 8 }
+    ] }
+  };
+});
+
+function renderStudioSafeGuides(formatKey) {
+  const format = STUDIO_SOCIAL_FORMATS[formatKey] || STUDIO_SOCIAL_FORMATS.square;
+  const [top, right, bottom, left] = format.safe;
+  const profileGuide = format.profileCrop ? `<div style="position:absolute;left:8%;right:8%;top:10%;aspect-ratio:1/1;border:2px dotted rgba(147,197,253,.9);border-radius:18px"><span style="position:absolute;right:8px;bottom:8px;background:rgba(15,23,42,.82);color:#bfdbfe;padding:5px 9px;border-radius:8px;font:700 18px/1 Arial">Profile preview</span></div>` : '';
+  return `<div id="studio-safe-guides" class="absolute inset-0 pointer-events-none z-20"><div style="position:absolute;top:${top}%;right:${right}%;bottom:${bottom}%;left:${left}%;border:3px dashed rgba(96,165,250,.95);border-radius:18px;box-shadow:0 0 0 9999px rgba(15,23,42,.08)"><span style="position:absolute;left:10px;top:10px;background:rgba(15,23,42,.86);color:#dbeafe;padding:6px 10px;border-radius:8px;font:800 18px/1 Arial;letter-spacing:.04em">SAFE AREA · ${format.note}</span></div>${profileGuide}</div>`;
+}
+
+function renderStudioTemplateCards(filter = 'all') {
+  return Object.values(STUDIO_TEMPLATES_CATALOG).filter(t => filter === 'all' || t.format_key === filter).map(t => {
+    const preview = t.preview || 'linear-gradient(135deg,#0f172a,#2563eb 58%,#38bdf8)';
+    const format = STUDIO_SOCIAL_FORMATS[t.format_key];
+    return `<button onclick="loadStudioTemplate('${t.template_key}')" class="w-full text-left rounded-2xl overflow-hidden bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-blue-500 transition group"><div style="height:104px;background:${preview}" class="relative p-3"><span class="absolute left-2 top-2 px-2 py-1 rounded-lg bg-slate-950/75 text-[9px] font-black text-blue-200">${format ? `${format.w}×${format.h}` : 'READY'}</span><div class="absolute left-3 right-3 bottom-3 text-white font-black text-sm leading-tight drop-shadow">YOUR CAMPAIGN<br><span class="text-blue-200">STARTS HERE</span></div></div><div class="p-3"><div class="text-xs font-black text-white group-hover:text-blue-300">${t.name}</div><div class="mt-1 text-[10px] text-slate-400">${t.desc}</div></div></button>`;
+  }).join('');
+}
+
 function renderStudioToolPanelContent(tool) {
   if (tool === 'templates') {
     return `
       <div class="p-4 space-y-3">
-        <h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Automotive Templates</h3>
-        <div class="space-y-2">
-          ${Object.values(STUDIO_TEMPLATES_CATALOG).map(t => `
-            <button onclick="loadStudioTemplate('${t.template_key}')" class="w-full text-left p-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 transition space-y-1 group">
-              <div class="text-xs font-bold text-white group-hover:text-indigo-400 transition">${t.name}</div>
-              <div class="text-[11px] text-slate-400">${t.desc}</div>
-            </button>
-          `).join('')}
-        </div>
+        <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Social Templates</h3><p class="mt-1 text-[10px] text-slate-500">Ready-made layouts with gradients, shapes and safe text placement.</p></div>
+        <select onchange="filterStudioTemplates(this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white"><option value="all">All social sizes</option>${Object.entries(STUDIO_SOCIAL_FORMATS).map(([key,f]) => `<option value="${key}">${f.label}</option>`).join('')}</select>
+        <div id="studio-template-cards" class="space-y-3">${renderStudioTemplateCards()}</div>
       </div>
     `;
   } else if (tool === 'inventory') {
@@ -534,6 +578,11 @@ async function loadStudioTemplate(tmplKey) {
   if (window.__studioAdapter) {
     await window.__studioAdapter.renderScene(scene);
   }
+  const container = document.getElementById('studio-artboard-container');
+  if (container) { container.style.width = `${scene.width}px`; container.style.height = `${scene.height}px`; }
+  const picker = document.getElementById('studio-format-picker');
+  if (picker && STUDIO_SOCIAL_FORMATS[scene.format_key]) picker.value = scene.format_key;
+  updateStudioSafeGuides(scene.format_key || 'square');
   zoomStudioFit();
   if (typeof showToast === 'function') showToast(`Loaded ${tmpl.name}`, 'success');
 }
@@ -720,23 +769,35 @@ function addLibraryImageToCanvas(url, name = 'Photo Asset') {
 }
 
 function changeStudioFormat(formatKey) {
-  const SIZES = { square: { w: 1080, h: 1080 }, portrait: { w: 1080, h: 1350 }, story: { w: 1080, h: 1920 }, landscape: { w: 1200, h: 628 } };
-  const sz = SIZES[formatKey] || SIZES.square;
+  const sz = STUDIO_SOCIAL_FORMATS[formatKey] || STUDIO_SOCIAL_FORMATS.square;
   const container = document.getElementById('studio-artboard-container');
   if (container) {
     container.style.width = `${sz.w}px`;
     container.style.height = `${sz.h}px`;
   }
-  if (window.__studioAdapter && window.__studioAdapter.fabricCanvas) {
-    window.__studioAdapter.fabricCanvas.setDimensions({ width: sz.w, height: sz.h });
-    if (window.__studioAdapter.currentScene) {
-      window.__studioAdapter.currentScene.width = sz.w;
-      window.__studioAdapter.currentScene.height = sz.h;
-      window.__studioAdapter.currentScene.format_key = formatKey;
-    }
-  }
+  if (window.__studioAdapter) window.__studioAdapter.resizeCanvas(sz.w, sz.h);
+  if (window.__studioAdapter?.currentScene) window.__studioAdapter.currentScene.format_key = formatKey;
+  updateStudioSafeGuides(formatKey);
   zoomStudioFit();
   if (typeof showToast === 'function') showToast(`Format set to ${formatKey.toUpperCase()}`, 'info');
+}
+
+function filterStudioTemplates(formatKey) {
+  const cards = document.getElementById('studio-template-cards');
+  if (cards) cards.innerHTML = renderStudioTemplateCards(formatKey);
+}
+
+function updateStudioSafeGuides(formatKey) {
+  const old = document.getElementById('studio-safe-guides');
+  if (old) old.outerHTML = renderStudioSafeGuides(formatKey);
+}
+
+function toggleStudioGuides() {
+  const guides = document.getElementById('studio-safe-guides');
+  const button = document.getElementById('studio-guides-toggle');
+  if (!guides) return;
+  guides.classList.toggle('hidden');
+  if (button) button.textContent = guides.classList.contains('hidden') ? 'Guides off' : 'Guides on';
 }
 
 async function saveStudioDesign() {
@@ -816,6 +877,8 @@ window.bindVehicleToStudio = bindVehicleToStudio;
 window.searchStudioLibrary = searchStudioLibrary;
 window.addLibraryImageToCanvas = addLibraryImageToCanvas;
 window.changeStudioFormat = changeStudioFormat;
+window.filterStudioTemplates = filterStudioTemplates;
+window.toggleStudioGuides = toggleStudioGuides;
 window.saveStudioDesign = saveStudioDesign;
 window.renderStudioDesignAndPublish = renderStudioDesignAndPublish;
 window.closeMarketSyncStudio = closeMarketSyncStudio;
