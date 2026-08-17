@@ -118,6 +118,10 @@ function renderPexelsResults(photos) {
   return photos.map(photo => `<div class="rounded-xl overflow-hidden border border-slate-800 bg-slate-950"><button type="button" onclick="addLibraryImageToCanvas('${escS(photo.source_url)}', '${escS(photo.alt || 'Pexels photo')}')" class="block w-full group"><img src="${escS(photo.preview_url)}" alt="${escS(photo.alt || '')}" loading="lazy" class="w-full aspect-square object-cover group-hover:scale-105 transition duration-200"></button><div class="px-2 py-1.5 text-[9px] truncate"><a href="${escS(photo.author_url || photo.attribution_url || 'https://www.pexels.com')}" target="_blank" rel="noopener" class="text-sky-400 hover:underline">${escS(photo.author || 'Pexels photographer')}</a></div></div>`).join('');
 }
 
+function renderStudioVideoResults(videos, uploaded = false) {
+  return videos.map(video => `<div class="rounded-xl overflow-hidden border border-slate-800 bg-slate-950"><video src="${escS(video.source_url || video.public_url)}" poster="${escS(video.preview_url || '')}" muted loop playsinline controls preload="metadata" class="w-full aspect-video object-cover bg-black"></video><div class="p-2"><div class="flex items-center justify-between gap-2"><a href="${escS(video.author_url || video.attribution_url || '#')}" target="_blank" rel="noopener" class="min-w-0 truncate text-[9px] text-sky-400 hover:underline">${escS(uploaded ? (video.title || 'Your video') : (video.author || 'Pexels creator'))}</a>${video.duration ? `<span class="text-[9px] text-slate-500">${Number(video.duration)}s</span>` : ''}</div><button onclick="addLibraryVideoToCanvas('${escS(video.source_url || video.public_url)}', '${escS(video.title || video.alt || 'Video')}')" class="mt-2 w-full py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-[10px] font-black">Add video to canvas</button></div></div>`).join('');
+}
+
 function renderStudioWorkspaceHtml(designName, scene) {
   return `
     <!-- Top Action Bar -->
@@ -178,6 +182,8 @@ function renderStudioWorkspaceHtml(designName, scene) {
         <button onclick="setStudioTool('photos')" id="tool-btn-photos" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition">
           <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Photos
         </button>
+        <button onclick="setStudioTool('videos')" id="tool-btn-videos" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition"><span class="text-base">▶</span>Videos</button>
+        <button onclick="setStudioTool('uploads')" id="tool-btn-uploads" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition"><span class="text-base">↑</span>Uploads</button>
         <button onclick="setStudioTool('shapes')" id="tool-btn-shapes" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition">
           <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"/></svg>Shapes
         </button>
@@ -422,6 +428,10 @@ function renderStudioToolPanelContent(tool) {
         <a href="https://www.pexels.com" target="_blank" rel="noopener" class="block text-center text-[10px] font-bold text-sky-400 hover:underline">Photos provided by Pexels</a>
       </div>
     `;
+  } else if (tool === 'videos') {
+    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Pexels Videos</h3><p class="text-[10px] text-slate-500 mt-1">Search free video clips and place them on the canvas.</p></div><form onsubmit="event.preventDefault(); searchStudioVideos(document.getElementById('studio-video-query').value)" class="flex gap-2"><input id="studio-video-query" type="search" value="car dealership" placeholder="Search videos..." class="min-w-0 flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"><button class="px-3 rounded-xl bg-blue-600 text-xs font-black">Search</button></form><div class="space-y-3" id="studio-video-results"><div class="p-5 text-center text-xs text-slate-500">Loading Pexels videos…</div></div><a href="https://www.pexels.com/videos/" target="_blank" rel="noopener" class="block text-center text-[10px] font-bold text-sky-400 hover:underline">Videos provided by Pexels</a></div>`;
+  } else if (tool === 'uploads') {
+    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Your Video Uploads</h3><p class="text-[10px] text-slate-500 mt-1">Upload video files up to 200 MB and reuse them here.</p></div><label class="block p-4 rounded-xl border-2 border-dashed border-blue-500/50 bg-blue-500/10 text-center cursor-pointer hover:bg-blue-500/20"><span class="block text-xl mb-1">↑</span><span class="text-xs font-black">Upload your video</span><input type="file" accept="video/*" class="hidden" onchange="uploadStudioVideo(this)"></label><div id="studio-upload-status" class="hidden text-xs text-center text-sky-400"></div><div id="studio-uploaded-videos" class="space-y-3"><div class="p-5 text-center text-xs text-slate-500">Loading your videos…</div></div></div>`;
   } else if (tool === 'shapes') {
     return `
       <div class="p-4 space-y-3">
@@ -513,6 +523,8 @@ function setStudioTool(tool) {
   const panel = document.getElementById('studio-tool-panel');
   if (panel) panel.innerHTML = renderStudioToolPanelContent(tool);
   if (tool === 'photos') setTimeout(() => searchStudioLibrary('car dealership'), 0);
+  if (tool === 'videos') setTimeout(() => searchStudioVideos('car dealership'), 0);
+  if (tool === 'uploads') setTimeout(loadStudioUploadedVideos, 0);
 }
 
 async function loadStudioTemplate(tmplKey) {
@@ -573,6 +585,55 @@ async function searchStudioLibrary(query) {
     const fallback = STUDIO_FREE_PHOTOS.filter(photo => !q || `${photo.keywords} ${photo.alt}`.toLowerCase().includes(q));
     target.innerHTML = fallback.length ? renderStudioPhotoResults(fallback) : '<div class="col-span-2 p-4 text-center text-xs text-rose-400">Photo search is temporarily unavailable.</div>';
   }
+}
+
+async function searchStudioVideos(query) {
+  const target = document.getElementById('studio-video-results');
+  if (!target) return;
+  target.innerHTML = '<div class="p-5 text-center text-xs text-slate-500">Searching Pexels videos…</div>';
+  try {
+    const data = await apiGetJson(`/marketing/studio/library/search?type=video&q=${encodeURIComponent(String(query || 'car dealership').trim())}`);
+    target.innerHTML = data?.results?.length ? renderStudioVideoResults(data.results) : '<div class="p-4 text-center text-xs text-slate-500">No matching videos.</div>';
+  } catch (error) {
+    target.innerHTML = `<div class="p-4 text-center text-xs text-rose-400">${escS(error.message || 'Video search is unavailable.')}</div>`;
+  }
+}
+
+async function loadStudioUploadedVideos() {
+  const target = document.getElementById('studio-uploaded-videos');
+  if (!target) return;
+  try {
+    const data = await apiGetJson('/marketing/assets');
+    const videos = (data?.assets || []).filter(asset => asset.kind === 'video');
+    target.innerHTML = videos.length ? renderStudioVideoResults(videos, true) : '<div class="p-4 text-center text-xs text-slate-500">No uploaded videos yet.</div>';
+  } catch (error) {
+    target.innerHTML = '<div class="p-4 text-center text-xs text-rose-400">Your uploads could not be loaded.</div>';
+  }
+}
+
+async function uploadStudioVideo(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  const status = document.getElementById('studio-upload-status');
+  if (status) { status.classList.remove('hidden'); status.textContent = `Uploading ${file.name}…`; }
+  try {
+    const form = new FormData(); form.append('file', file); form.append('title', file.name);
+    const response = await fetch(`${API}/marketing/assets/video`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Video upload failed');
+    if (status) status.textContent = 'Upload complete';
+    await loadStudioUploadedVideos();
+    if (typeof showToast === 'function') showToast('Video added to your Studio uploads', 'success');
+  } catch (error) {
+    if (status) { status.textContent = error.message || 'Upload failed'; status.className = 'text-xs text-center text-rose-400'; }
+  } finally { input.value = ''; }
+}
+
+function addLibraryVideoToCanvas(url, name = 'Video') {
+  window.__studioAdapter?.stopDrawingMode();
+  window.__studioAdapter?.addVideo(url, name).then(() => {
+    if (typeof showToast === 'function') showToast('Video added to the canvas', 'success');
+  }).catch(error => { if (typeof showToast === 'function') showToast(error.message || 'Video could not be added', 'error'); });
 }
 
 function studioAddShape(shapeType) {
@@ -767,6 +828,10 @@ window.studioDrawingMode = studioDrawingMode;
 window.studioSelectMode = studioSelectMode;
 window.studioSetObjectStyle = studioSetObjectStyle;
 window.studioToggleNodes = studioToggleNodes;
+window.searchStudioVideos = searchStudioVideos;
+window.loadStudioUploadedVideos = loadStudioUploadedVideos;
+window.uploadStudioVideo = uploadStudioVideo;
+window.addLibraryVideoToCanvas = addLibraryVideoToCanvas;
 window.studioAddText = studioAddText;
 window.studioSetTextStyle = studioSetTextStyle;
 window.generateStudioAiCopy = generateStudioAiCopy;
