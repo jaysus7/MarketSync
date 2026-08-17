@@ -37,6 +37,7 @@ import { registerDeposits } from './routes/deposits.js'
 import { registerPayments } from './routes/payments.js'
 import { registerSyndication } from './routes/syndication.js'
 import { refreshDedicatedDemoAccounts, registerDemo } from './routes/demo.js'
+import { registerDemoControl } from './routes/demo-control.js'
 import { registerMarketing } from './routes/marketing.js'
 import { registerBulk } from './routes/bulk.js'
 import { registerService } from './routes/service.js'
@@ -176,6 +177,7 @@ registerDeposits(app)
 registerPayments(app)
 registerSyndication(app)
 registerDemo(app)
+registerDemoControl(app)
 registerMarketing(app)
 registerBulk(app)
 registerService(app)

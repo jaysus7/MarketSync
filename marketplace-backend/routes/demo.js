@@ -214,6 +214,16 @@ async function ownDemoAccount(req) {
   return data
 }
 
+// The caller's own dealership, but ONLY if it's a real dedicated demo account (used by
+// routes/demo-control.js — the same "is this actually a demo tenant" check /demo/seed and
+// /demo/reset already apply, factored out so it isn't duplicated).
+export async function ownDedicatedDemoAccount(req) {
+  const dealership = await ownDemoAccount(req)
+  if (!dealership || !isDedicatedDemoName(dealership.name) || RETIRED_HQ_SANDBOXES.has(dealership.name)) return null
+  return dealership
+}
+export { seedAccount }
+
 export function registerDemo(app) {
   // A dedicated demo login prepares only its own dealership and its purchased modules.
   app.post('/demo/seed', requireAuth, async (req, res) => {
