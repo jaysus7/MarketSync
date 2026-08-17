@@ -994,12 +994,12 @@ function hqTrialRow(t) {
   </button>`;
 }
 ENGINES['saas-command'] = {
-  rootId: 'saas-command-root', title: 'MarketSync HQ', subtitle: 'Revenue, trials, and account health',
+  rootId: 'saas-command-root', title: 'Pulse', subtitle: 'What is happening across MarketSync and what needs attention',
   icon: 'chart', accent: 'violet',
   fetch: () => apiGetJson('/saas/overview'),
   quickActions: [
-    { label: 'Open Customer Pipeline', icon: 'chart', onclick: "switchPage('saas-customers')" },
-    { label: 'All accounts', icon: 'user', onclick: "switchPage('owner-users')" },
+    { label: 'Review customers', icon: 'chart', onclick: "switchPage('saas-customers')" },
+    { label: 'Review leads', icon: 'bolt', onclick: "switchPage('saas-funnel')" },
     { label: 'Employees', icon: 'user', onclick: "switchPage('saas-employees')" },
   ],
   nextActions: (d) => {
@@ -1098,7 +1098,7 @@ function pipeCard(a) {
 }
 const pipeAllRows = (d) => (d.stages || []).flatMap(s => d.by_stage[s] || []);
 ENGINES['saas-customers'] = {
-  rootId: 'saas-customers-root', title: 'Customer Pipeline', subtitle: 'Every account by stage, health score, and next action',
+  rootId: 'saas-customers-root', title: 'Customers', subtitle: 'Every MarketSync customer account, health signal, owner, and next action',
   icon: 'chart', accent: 'violet',
   fetch: () => apiGetJson('/saas/customers'),
   quickActions: [
@@ -1351,7 +1351,7 @@ function funnelRow(c) {
   </div>`;
 }
 ENGINES['saas-funnel'] = {
-  rootId: 'saas-funnel-root', title: 'Checkout Funnel', subtitle: 'Signup → checkout → paid, and abandoned-cart recovery',
+  rootId: 'saas-funnel-root', title: 'Leads', subtitle: 'New interest, checkout intent, and the next follow-up needed to convert it',
   icon: 'chart', accent: 'violet',
   fetch: () => apiGetJson('/saas/carts'),
   quickActions: [{ label: 'Customer Pipeline', icon: 'chart', onclick: "switchPage('saas-customers')" }],
@@ -1376,6 +1376,51 @@ window.saasRecoverCart = async (id) => {
   try { await apiSendJson('/saas/carts/' + id + '/recover', 'POST', {}); showToast('Recovery follow-up created', 'success'); await loadSaasFunnel(); }
   catch (e) { showToast(e.message || 'Could not create recovery follow-up', 'error'); }
 };
+
+// ══ MarketSync company tools — focused HQ entry points ══════════════════════
+// These pages are intentionally separate from the dealer workspace shell. They
+// compose the existing canonical engines and keep the company context explicit.
+function saasToolHeader({ icon, title, subtitle, action = '' }) {
+  return `<div class="rounded-2xl border border-violet-200/70 dark:border-violet-900/70 bg-gradient-to-br from-white via-white to-violet-50 dark:from-slate-900 dark:via-slate-900 dark:to-violet-950/30 p-5 shadow-sm">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div class="flex items-start gap-3 min-w-0"><div class="w-11 h-11 rounded-2xl bg-violet-600 text-white flex items-center justify-center shadow-lg shadow-violet-500/20">${svgIcon(icon, 'w-5 h-5')}</div>
+        <div><h1 class="text-2xl font-black text-slate-950 dark:text-white leading-tight">${esc(title)}</h1><p class="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-2xl">${esc(subtitle)}</p></div></div>${action}
+    </div></div>`;
+}
+
+async function loadSaasEmailMarketing() {
+  const root = document.getElementById('saas-email-marketing-root'); if (!root) return;
+  root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Email Marketing', subtitle: 'Create MarketSync campaigns, manage reusable templates, and review real delivery results.' }) + '<div class="text-sm text-slate-400 py-10 text-center">Loading campaigns…</div>';
+  try {
+    const [camp, tpl] = await Promise.all([apiGetJson('/saas/automation/campaigns'), apiGetJson('/saas/automation/templates')]);
+    const campaigns = camp.campaigns || [], templates = tpl.templates || [];
+    const sent = campaigns.reduce((n, c) => n + (Number(c.sent_count) || 0), 0);
+    const failed = campaigns.reduce((n, c) => n + (Number(c.fail_count) || 0), 0);
+    root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Email Marketing', subtitle: 'Create MarketSync campaigns, manage reusable templates, and review real delivery results.', action: '<button onclick="openSaasAutomationView(\'campaigns\')" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-black">Create campaign</button>' }) + `
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">${engKpi('Campaigns', campaigns.length)}${engKpi('Templates', templates.length)}${engKpi('Provider accepted', sent, 'text-emerald-600 dark:text-emerald-400')}${engKpi('Failed', failed, failed ? 'text-rose-600 dark:text-rose-400' : '')}</div>
+      ${engCard('Email workspace', `<div class="grid sm:grid-cols-2 gap-3"><button onclick="openSaasAutomationView('campaigns')" class="text-left p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-violet-400"><div class="font-black">Campaigns</div><div class="text-sm text-slate-500 mt-1">Build, target, send, and review delivery evidence.</div></button><button onclick="openSaasAutomationView('templates')" class="text-left p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-violet-400"><div class="font-black">Templates</div><div class="text-sm text-slate-500 mt-1">Keep approved MarketSync messaging reusable and consistent.</div></button></div>`)}`;
+  } catch (e) { root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Email Marketing', subtitle: 'Create MarketSync campaigns, manage reusable templates, and review real delivery results.' }) + engCard('Unable to load', `<p class="text-sm text-rose-500">${esc(e.message || 'Email marketing is unavailable.')}</p>`); }
+}
+window.loadSaasEmailMarketing = loadSaasEmailMarketing;
+window.openSaasAutomationView = (view) => { __automation.view = view; switchPage('saas-automation'); };
+
+async function loadSaasStudio() {
+  const root = document.getElementById('saas-studio-root'); if (!root) return;
+  root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Studio', subtitle: 'Create MarketSync-branded graphics and keep reusable company creative in one library.', action: '<button onclick="openMarketSyncStudio()" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-black">Create design</button>' });
+  try {
+    const data = await apiGetJson('/marketing/studio/designs');
+    const designs = data.designs || data || [];
+    root.innerHTML += `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3">${engKpi('Saved designs', Array.isArray(designs) ? designs.length : 0)}${engKpi('Brand', 'MarketSync')}${engKpi('Publishing', 'Approval required')}</div>${engCard('Brand Studio', '<p class="text-sm text-slate-600 dark:text-slate-300">Use the existing Studio engine to create assets. Publishing still goes through the canonical approval and provider-evidence flow.</p><button onclick="openMarketSyncStudio()" class="mt-3 px-4 py-2 rounded-xl border border-violet-300 dark:border-violet-800 text-violet-700 dark:text-violet-300 text-sm font-black">Open Studio</button>')}`;
+  } catch (e) { root.innerHTML += engCard('Creative library unavailable', `<p class="text-sm text-rose-500">${esc(e.message || 'Studio could not be loaded.')}</p>`); }
+}
+window.loadSaasStudio = loadSaasStudio;
+
+function loadSaasWebsite() {
+  const root = document.getElementById('saas-website-root'); if (!root) return;
+  root.innerHTML = saasToolHeader({ icon: 'globe', title: 'Website', subtitle: 'Manage the public MarketSync website without mixing it with dealership website content.', action: '<a href="https://marketsync.link" target="_blank" rel="noopener" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-black">View live site</a>' }) + `
+    ${engCard('MarketSync website', `<div class="grid sm:grid-cols-2 gap-3"><div class="p-4 rounded-xl border border-slate-200 dark:border-slate-700"><div class="text-xs font-black uppercase tracking-wide text-emerald-600">Live</div><div class="font-black mt-1">marketsync.link</div><p class="text-sm text-slate-500 mt-1">Open the production site and verify the customer experience.</p></div><div class="p-4 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20"><div class="text-xs font-black uppercase tracking-wide text-amber-700 dark:text-amber-400">Publishing connection required</div><div class="font-black mt-1">Content editing</div><p class="text-sm text-slate-600 dark:text-slate-300 mt-1">The repository currently deploys the public site from source control. A reviewed GitHub publishing adapter is required before this dashboard can safely update production content.</p></div></div>`)}`;
+}
+window.loadSaasWebsite = loadSaasWebsite;
 
 // ══ Automation & Email — editable drips (sequences + steps) + template library ══
 let __automation = { view: 'sequences', sequences: [], templates: [] };

@@ -39,6 +39,7 @@ function loadRegistry() {
 
 const html = read('dashboard.html')
 const part2 = read('js/modules/dashboard-part2.js')
+const part10 = read('js/modules/dashboard-part10.js')
 const salesWorkspace = read('js/modules/sales-workspace.js')
 const part11 = read('js/modules/dashboard-part11.js')
 const pageContainers = new Set([...html.matchAll(/data-page-content="([^"]+)"/g)].map(m => m[1]))
@@ -47,6 +48,19 @@ const pageContainers = new Set([...html.matchAll(/data-page-content="([^"]+)"/g)
 const EXPECTED_WORKSPACES = [
   'executive', 'sales', 'inventory', 'fni', 'service', 'parts', 'accounting', 'marketing', 'people',
 ]
+
+test('MarketSync Internal OS uses the approved company navigation in order', () => {
+  const block = part2.match(/const SAAS_DEPARTMENTS = \{([\s\S]*?)\n\};/)?.[1] || ''
+  const labels = [...block.matchAll(/label: '([^']+)'/g)].map(match => match[1])
+    .filter(label => ['Pulse', 'Leads', 'Customers', 'Affiliates', 'Money', 'Email Marketing', 'Automations', 'Studio', 'Website', 'Employees'].includes(label))
+  assert.deepEqual(labels, ['Pulse', 'Leads', 'Customers', 'Affiliates', 'Money', 'Email Marketing', 'Automations', 'Studio', 'Website', 'Employees'])
+  for (const page of ['saas-email-marketing', 'saas-studio', 'saas-website']) {
+    assert.ok(pageContainers.has(page), `${page} must resolve to a real page container`)
+    const loader = page.split('-').map(word => word[0].toUpperCase() + word.slice(1)).join('')
+    assert.match(part2, new RegExp(`pageId === '${page}'\\) load${loader}\\(\\)`))
+    assert.match(part10, new RegExp(`function load${loader}\\(`))
+  }
+})
 
 // Every page the PREVIOUS DEPARTMENTS registry could reach. Phase 1 is a
 // reorganization: none of these may become unreachable.
