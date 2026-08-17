@@ -75,10 +75,19 @@ const MS_WORKSPACES = {
       { page: 'inventory', label: 'Vehicles', invmode: 'manual', legacy: true },
       // Recon/Cleanup is part of the inventory lifecycle (a unit is not frontline until
       // it is through cleanup), not a primary department — see docs/DEALEROS_UI_AUDIT.md.
-      { page: 'recon', label: 'Cleanup' },
-      // Acquire group: appraisals and equity mining feed inventory acquisition.
-      { page: 'appraisal', label: 'Appraisals' },
-      { page: 'equity', label: 'Equity Mining' },
+      // `legacy: true` keeps it out of the tab-bar: it is reached as the Cleanup tab
+      // INSIDE the inventory-overview engine (js/modules/inventory-workspace.js), which
+      // mounts this same page under that engine's one header. Without `legacy` here it
+      // was ALSO a standalone tab-bar button rendering the raw page with its own header
+      // — the exact duplicate-header problem this registry exists to prevent.
+      { page: 'recon', label: 'Cleanup', legacy: true },
+      // Acquire group: appraisals and equity mining feed inventory acquisition. Both are
+      // mounted as tabs inside inventory-overview (Appraisals/Equity) AND inside Sales
+      // (Appraise Trade/Equity Mining) — `legacy: true` for the same reason as Cleanup:
+      // without it these were ALSO standalone tab-bar buttons hitting the raw page
+      // directly with its own header, on top of the two proper single-header mounts.
+      { page: 'appraisal', label: 'Appraisals', legacy: true },
+      { page: 'equity', label: 'Equity Mining', legacy: true },
       { page: 'inv-intel', label: 'Inventory Intelligence', mgr: true, legacy: true },
       { page: 'market', label: 'Market & Competitors', mgr: true, legacy: true },
     ],
@@ -88,7 +97,11 @@ const MS_WORKSPACES = {
     label: 'F&I', icon: 'shield', accent: 'indigo', roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'],
     pages: [
       { page: 'fni-overview', label: 'Pulse' },
-      { page: 'fni', label: 'Deals' },
+      // Deals is no longer a tab of its own — the full deal list is mounted directly
+      // inside Pulse (see fni-workspace.js ENGINES['fni-overview'].tabs.overview).
+      // `legacy: true` keeps this id resolvable for old deep links without giving it
+      // a second tab-bar button/header.
+      { page: 'fni', label: 'Deals', legacy: true },
       { page: 'delivery', label: 'Delivery', mgr: true },
     ],
   },
@@ -159,13 +172,16 @@ const MS_WORKSPACES = {
     ],
   },
 
-  // ── Settings — system workspace on the bottom rail, NEVER a department ─────
+  // ── Settings — reachable ONLY through the header gear, never the sidebar ───
   // Configuration, Automations and Integrations are shared platform services that
   // power the departments; they live here, not in the workflow. `system: true` keeps
-  // Settings off the department rail (msDepartmentIds excludes it) while keeping these
-  // pages reachable. `profile` stays the always-on header gear in MS_SYSTEM_NAV.
+  // Settings off the department rail (msDepartmentIds excludes it). Unlike Academy,
+  // Settings has no reason to ALSO sit in the sidebar's system-divider section: the
+  // header gear (#header-settings in dashboard.html, wired in dashboard-part2.js) is
+  // its one door. `hideFromSidebar` tells renderDeptNav to drop it from #dept-nav
+  // entirely instead of rendering it under the divider like other system entries.
   settings: {
-    label: 'Settings', icon: 'shield', accent: 'slate', system: true,
+    label: 'Settings', icon: 'shield', accent: 'slate', system: true, hideFromSidebar: true,
     pages: [
       // The primary Settings surface is Configuration; Automations and Integrations
       // remain deep links (legacy) so they don't render competing primary tabs.

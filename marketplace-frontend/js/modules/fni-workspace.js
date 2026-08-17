@@ -120,7 +120,7 @@ async function fniSetFunding(dealId, to) {
     showToast(to === 'funded' ? 'Funding recorded — Accounting notified' : `Funding marked ${to}`, 'success');
   } catch (e) { showToast(e.message || 'Could not update funding', 'error'); return; }
   ENGINE_DATA['fni-overview'] = undefined;
-  engineTab('fni-overview', 'work', true);
+  engineTab('fni-overview', 'overview', true);
 }
 window.fniSetFunding = fniSetFunding;
 
@@ -153,7 +153,7 @@ async function fniOpenLenders(dealId) {
       </div>
       ${d.selected ? '' : `<button onclick="fniSelectLender('${dealId}','${d.id}')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Select</button>`}
     </div>`).join('') || engEmpty('No lender decisions recorded for this deal.');
-  host.innerHTML = `<button onclick="engineTab('fni-overview','work')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400 mb-3">← Back to Funding</button>
+  host.innerHTML = `<button onclick="engineTab('fni-overview','overview')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400 mb-3">← Back to Funding</button>
     ${engCard('Lender decisions', rows)}
     <p class="text-[12px] text-slate-400 mt-3">One selected approval per deal — enforced by the database, not the interface.</p>`;
 }
@@ -211,33 +211,20 @@ function fniContractsAndFunding(d) {
   </div>`;
 }
 
-// ── Deals — the department's whole book, then the real F&I page ──────────────
-// This was a sub-nav of five (queue, credit, menu, contracts, funding). Credit and the
-// menu belong on the deal you are desking, not beside it; contracts and funding moved
-// into My Day. What is left is one list — and beneath it, the F&I deals page itself,
-// because a tab that ends in "Open F&I deals →" is a tab that did not open them.
-async function fniRenderWork(body, d) {
-  // Everything F&I still owns: sold and funding. A delivered deal has left the
-  // department, so it drops off this list rather than accumulating forever.
-  const order = ['pending', 'approved', 'fni', 'contracted', 'sold', 'working'];
-  const inner = order.map(st => {
-    const rows = (d.deals || []).filter(x => x.deal_status === st && !/delivered/i.test(x.deal_status || '') && !x.delivered_at);
-    return rows.length ? engCard(`${FNI_STAGE_LABEL[st] || st} (${rows.length})`, rows.slice(0, 12).map(fniRow).join('')) : '';
-  }).join('') || engCard('', engEmpty('No deals in progress.'));
-
-  body.innerHTML = engSection('In progress', inner, 'Sold and in funding — a deal leaves here when it is delivered');
-  body.insertAdjacentHTML('beforeend', engSection('All F&I deals', '', 'The full deal list, with everything you can do to one'));
-  engMountPage(body, 'fni', () => loadFniPage());
-}
+// ── Deals — the department's whole book, folded into Pulse (see overview() below) ──
+// This was a sub-nav of five (queue, credit, menu, contracts, funding), then a separate
+// "Deals" tab. Credit and the menu belong on the deal you are desking, not beside it;
+// contracts and funding moved into My Day; the remaining grouped list and the F&I deal
+// page itself now render inside overview() directly — one F&I header, not two.
 
 ENGINES['fni-overview'] = {
   rootId: 'fni-overview-root', title: 'F&I', subtitle: 'Approvals, credit, products, contracts and delivery readiness',
   icon: 'shield', accent: 'indigo',
-  // Insights folded into My Day. Work renamed to Deals, which is what F&I actually works.
-  tabLabels: { overview: 'Pulse', work: 'Deals', settings: 'Settings' },
+  // Insights and Deals both folded into My Day/Pulse — one F&I header, not several.
+  tabLabels: { overview: 'Pulse', settings: 'Settings' },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    return mgr ? ['overview', 'work', 'settings'] : ['overview', 'work'];
+    return mgr ? ['overview', 'settings'] : ['overview'];
   },
 
   fetch: async () => {
@@ -265,7 +252,6 @@ ENGINES['fni-overview'] = {
   quickActions: [
     { label: 'F&I Training (Academy)', icon: 'sparkles', onclick: "openMarketSyncAcademy('fni')" },
     { label: 'Desk Deal', icon: 'currency', onclick: "switchPage('desk')" },
-    { label: 'Deals', icon: 'shield', onclick: "engineTab('fni-overview','work')" },
     { label: 'Delivery queue', icon: 'bolt', onclick: "switchPage('delivery')" },
   ],
   nextActions: (d) => fniAttention(d || {}).slice(0, 5).map(it => ({
@@ -308,7 +294,7 @@ ENGINES['fni-overview'] = {
             <div class="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-sky-400">
               <span>Proactive F&amp;I Manager AI Assistant</span>
             </div>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">LIVE F&amp;I TELEMETRY</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">LIVE F&amp;I ACTIVITY</span>
           </div>
           <div class="text-xs text-slate-300 space-y-1.5 mb-3">
             <p>• <strong>Desked Deals Incoming:</strong> ${incomingDeals.length ? `<span class="text-emerald-400 font-bold">${incomingDeals.length} deal(s) desked in the last 60 minutes ready for lender submission.</span>` : 'No new deals desked in the past hour.'}</p>
@@ -317,7 +303,6 @@ ENGINES['fni-overview'] = {
             <p>• <strong>F&amp;I Product Index:</strong> ${(d.products || []).length} active protection &amp; warranty products available for menu presentation.</p>
           </div>
           <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
-            <button onclick="engineTab('fni-overview','work')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Review Desked Deals</button>
             <button onclick="switchPage('delivery')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Check Delivery Blockers</button>
           </div>
         </div>
@@ -355,7 +340,6 @@ ENGINES['fni-overview'] = {
         ${engCard('F&I Worklist', att.length ? att.map(salesAttentionRow).join('') : engEmpty('No deals need immediate attention.'))}
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
-          ${engCard('Working deals', deals.length ? deals.slice(0, 8).map(fniRow).join('') : engEmpty('No deals in progress.'))}
           ${engCard('Delivery blockers', blocked ? (d.blocked || []).slice(0, 8).map(x => `
             <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
               <div class="min-w-0 flex-1">
@@ -364,6 +348,16 @@ ENGINES['fni-overview'] = {
               </div>
               <button onclick="switchPage('delivery')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Prepare Delivery</button>
             </div>`).join('') : engEmpty('No delivery blockers.'))}
+          ${(() => {
+            // The department's whole book, folded in here rather than a separate Deals
+            // tab — one F&I header, not two. A delivered deal drops off the list.
+            const order = ['pending', 'approved', 'fni', 'contracted', 'sold', 'working'];
+            const inner = order.map(st => {
+              const rows = deals.filter(x => x.deal_status === st && !/delivered/i.test(x.deal_status || '') && !x.delivered_at);
+              return rows.length ? engCard(`${FNI_STAGE_LABEL[st] || st} (${rows.length})`, rows.slice(0, 12).map(fniRow).join('')) : '';
+            }).join('') || engCard('', engEmpty('No deals in progress.'));
+            return engSection('In progress', inner, 'Sold and in funding — a deal leaves here when it is delivered');
+          })()}
         </div>
 
         ${fniContractsAndFunding(d)}`;
@@ -374,8 +368,12 @@ ENGINES['fni-overview'] = {
       engMountPage(esignSection, 'fni-esignatures', () => {
         if (typeof window.renderFniEsign === 'function') window.renderFniEsign();
       });
+
+      // The full F&I deal list, with everything you can do to one — mounted here
+      // instead of behind a second "Deals" tab.
+      body.insertAdjacentHTML('beforeend', engSection('All F&I deals', '', 'The full deal list, with everything you can do to one'));
+      engMountPage(body, 'fni', () => loadFniPage());
     },
-    work: fniRenderWork,
     insights(body, d) {
       const deals = d.deals || [];
       const counts = Object.keys(FNI_STAGE_LABEL).map(k => [FNI_STAGE_LABEL[k], deals.filter(x => x.deal_status === k).length]).filter(r => r[1] > 0);

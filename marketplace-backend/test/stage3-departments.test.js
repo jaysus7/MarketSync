@@ -37,8 +37,10 @@ for (const [name, src, id] of DEPTS) {
     const block = src.match(/get tabOrder\(\)\s*\{[\s\S]*?\n  \},/)?.[0] || ''
     assert.ok(block, `${name} tabOrder must be role-aware`)
     // Inventory is intentionally list-first; Intelligence is composed inside its My Day.
-    // F&I remains My Day-first. Pin the approved lead without constraining later tabs.
-    const expectedLead = name === 'Inventory' ? /\['work', 'overview'/ : /\['overview', 'work'/
+    // F&I remains My Day-first — and My Day/Pulse is now its ONLY non-manager tab, since
+    // Deals folded in rather than staying a second tab. Pin the approved lead without
+    // constraining later tabs.
+    const expectedLead = name === 'Inventory' ? /\['work', 'overview'/ : /\['overview'/
     assert.match(block, expectedLead, `${name}: a non-manager opens on the approved primary view`)
     assert.match(src, /tabLabels:\s*\{\s*overview:\s*'(?:My Day|Pulse)'/, `${name} overview tab must read "My Day" or "Pulse"`)
   })
@@ -207,9 +209,11 @@ test('Vehicle Record is wired into the shell after the department that feeds it'
 })
 
 test('F&I Deals is the deals it still owns; the rest moved to where the work happens', () => {
-  const views = fni.slice(fni.indexOf('async function fniRenderWork'), fni.indexOf("ENGINES['fni-overview']"))
+  // Deals is no longer a separate tab — its content is folded into overview()
+  // (Pulse) itself, one F&I header instead of two.
+  const views = fni.slice(fni.indexOf("overview(body, d) {"), fni.indexOf('insights(body, d)'))
   assert.ok(views.includes('In progress'), 'the deals list must remain')
-  assert.match(views, /engMountPage\(body, 'fni'/, 'the deals page itself belongs in the tab, not behind a link')
+  assert.match(views, /engMountPage\(body, 'fni'/, 'the deals page itself belongs in Pulse, not behind a link')
   // Credit and Menu are things you do ON a deal — the credit application opens from the deal
   // and the menu is part of desking one — so a department-level browse list of each was a
   // second way in to work that already has a home.
