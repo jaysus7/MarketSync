@@ -41,15 +41,13 @@
       ],
     },
     {
+      // Collapsed to one row (was 7, one per tool) — the dropdown links straight to
+      // pricing.html's "Need just one tool?" section, which already lists every
+      // individual tool with what it does and its price; the menu doesn't need to
+      // duplicate that list.
       label: 'Individual Tools', href: '/pricing.html#standalone',
       items: [
-        { href: '/design-studio.html', title: 'Design Studio', desc: 'Dealership graphic canvas & brand studio' },
-        { href: '/facebook-autoposter.html', title: 'Facebook AutoPoster', desc: '1-click Facebook Marketplace auto-posting' },
-        { href: '/social-scheduler.html', title: 'Social Scheduler', desc: 'Multi-channel publishing calendar & queue' },
-        { href: '/video-studio.html', title: 'Video Suite', desc: 'Vehicle walkaround videos & customer messaging' },
-        { href: '/campaigns.html', title: 'Campaigns — Email + SMS', desc: 'Targeted customer email & SMS automation' },
-        { href: '/dealer-website.html', title: 'Dealer Website', desc: 'High-performance VDP showroom & automotive SEO' },
-        { href: '/ai-chatbot.html', title: 'AI ChatBot', desc: '24/7 AI dealership salesperson' },
+        { href: '/pricing.html#standalone', title: 'Individual Tools', desc: 'Design Studio, AutoPoster, Video, Campaigns, Website & AI ChatBot — buy just what you need' },
       ],
     },
   ];

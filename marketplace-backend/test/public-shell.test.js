@@ -154,6 +154,21 @@ test('public navigation is price-free and mobile exposes primary actions before 
   assert.ok(mobileMarkup.indexOf('ms-m-actions-top') < mobileMarkup.indexOf('>Solutions<'), 'account actions should be visible before the long Solutions list')
 })
 
+test('Solutions menu collapses Individual Tools to one link, not a per-tool breakdown', () => {
+  const js = read('assets/public-shell.js')
+  const groups = js.slice(js.indexOf('var SOLUTIONS_GROUPS'), js.indexOf('var SOLUTIONS ='))
+  const individualToolsGroup = groups.match(/label: 'Individual Tools'[\s\S]*?\]\s*,\s*\}/)?.[0] || ''
+  assert.ok(individualToolsGroup, 'Individual Tools group must exist')
+  // Exactly one item — the per-tool links (Design Studio, AutoPoster, etc.) belong
+  // on the pricing page's "Need just one tool?" section, not duplicated in the menu.
+  const itemCount = (individualToolsGroup.match(/\{ href:/g) || []).length
+  assert.equal(itemCount, 1, 'Individual Tools should collapse to a single menu row')
+  assert.match(individualToolsGroup, /href: '\/pricing\.html#standalone'/, 'the single row must link to the tools list page')
+  for (const stale of ['/design-studio.html', '/facebook-autoposter.html', '/social-scheduler.html', '/video-studio.html', '/campaigns.html', '/dealer-website.html', '/ai-chatbot.html']) {
+    assert.doesNotMatch(individualToolsGroup, new RegExp(stale.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${stale} should no longer be an individual menu row`)
+  }
+})
+
 test('pricing cards keep plan totals without repeating component prices', () => {
   const pricing = read('pricing.html')
   assert.doesNotMatch(pricing, /included \(\$[^)]*\)/i, 'pricing cards repeat component prices')
