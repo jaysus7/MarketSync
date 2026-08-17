@@ -51,8 +51,17 @@ const EXPECTED_WORKSPACES = [
 
 test('MarketSync Internal OS uses the approved company navigation in order', () => {
   const block = part2.match(/const SAAS_DEPARTMENTS = \{([\s\S]*?)\n\};/)?.[1] || ''
-  const labels = [...block.matchAll(/label: '([^']+)'/g)].map(match => match[1])
+  // Each department now collapses to a single page (Simplify remaining MarketSync
+  // departments), so several departments' one nested page reuses the department's
+  // own label verbatim (e.g. leads: { label: 'Leads', pages: [{ ..., label: 'Leads' }] }).
+  // The regex below matches every `label:` in the block, department-level and
+  // nested, so a department whose sole page repeats its name legitimately produces
+  // two consecutive identical matches. Collapsing consecutive duplicates preserves
+  // this test's real intent (department ORDER) without being fragile to that
+  // incidental repetition.
+  const rawLabels = [...block.matchAll(/label: '([^']+)'/g)].map(match => match[1])
     .filter(label => ['Pulse', 'Leads', 'Customers', 'Affiliates', 'Money', 'Email Marketing', 'Automations', 'Studio', 'Website', 'Employees'].includes(label))
+  const labels = rawLabels.filter((label, i) => label !== rawLabels[i - 1])
   assert.deepEqual(labels, ['Pulse', 'Leads', 'Customers', 'Affiliates', 'Money', 'Email Marketing', 'Automations', 'Studio', 'Website', 'Employees'])
   for (const page of ['saas-email-marketing', 'saas-studio', 'saas-website']) {
     assert.ok(pageContainers.has(page), `${page} must resolve to a real page container`)
@@ -70,13 +79,19 @@ test('each MarketSync Internal page owns specific operational header tabs', () =
   // saas-command (Pulse) was deliberately collapsed to one tab (hideRail/hideTabBar,
   // tabOrder: ['overview']) — the old Sync Pipeline/API & Webhook Health/Error Logs/
   // Infrastructure sub-tabs no longer exist, so they're no longer pinned here.
+  // "Simplify remaining MarketSync departments" (bdcfe6d) went further: Studio's
+  // saasToolHeader() call dropped its `tabs:` array entirely (Video Studio/Creative
+  // Library/Watermark & Branding/AI Enhancement Rules), replaced by a single action
+  // button. Those four labels no longer exist anywhere in source, so they're no
+  // longer pinned here either. "Templates" stays pinned — it still exists as a KPI
+  // label, coincidentally.
   const expected = [
     'All Leads', 'Pipeline Board', 'Marketplace Sources', 'Routing Rules', 'Export',
     'Directory', 'Onboarding Data', 'Plan Overrides', 'Impersonation & Access', 'Usage Quotas',
     'Affiliate Directory', 'Pending Payouts', 'Referral Links', 'Commission Tiers', 'Payout Logs',
     'Money overview', 'Customer payments', 'Money spent', 'Bills and taxes', 'Canadian and US dollars',
     'Campaigns', 'Automated Drips', 'Audience Lists', 'Template Builder', 'Deliverability & Analytics',
-    'Video Studio', 'Creative Library', 'Watermark & Branding', 'AI Enhancement Rules', 'Templates',
+    'Templates',
     'Team Directory', 'Role Permissions', 'Sales Assignments', 'Activity Audit', 'Invitations',
   ]
   const source = part10 + part11 + read('js/modules/dashboard-part13.js')
@@ -84,7 +99,9 @@ test('each MarketSync Internal page owns specific operational header tabs', () =
   assert.match(part10, /window\.saasExportLeads\s*=/)
   assert.match(part10, /Product usage timeline/)
   assert.match(part10, /Customer growth/)
-  assert.match(part10, /SaaS lead priorities/)
+  // The standalone "SaaS lead priorities" explainer card was removed by the same
+  // simplification pass — its intent (one owner, one next action per lead) is now
+  // implicit in the "Follow up" card's own copy rather than a separate card.
   assert.match(part10, /saas-connected-website-builder/)
   assert.match(part11, /Take or upload receipt photo/)
   const videoStudio = read('js/modules/video-studio.js')
