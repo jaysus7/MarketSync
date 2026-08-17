@@ -185,10 +185,14 @@
     /* The mode switch sits on a stronger blue in MarketSync mode. */
     html[data-dash-mode="marketsync"] #ms-mode-switch{background:#dbeafe}
     html[data-dash-mode="marketsync"].dark #ms-mode-switch{background:#172554}
-    /* Both logo PNGs contain substantial transparent canvas. Crop that canvas in the
-       header so the visible MarketSync mark—not merely its image box—is large. */
-    html[data-dash-mode="marketsync"] #dashboard-brand{width:12rem;height:3.5rem;overflow:hidden;position:relative}
-    html[data-dash-mode="marketsync"] #dashboard-brand img[alt="MarketSync DealerOS"]{position:absolute;width:12rem!important;height:auto!important;max-width:none;left:-.85rem;top:-3.05rem}
+    /* Both logo PNGs contain substantial transparent canvas. Crop that canvas in every
+       dashboard mode so the visible MarketSync mark—not its empty image box—is large. */
+    #dashboard-brand{width:15rem;height:4rem;overflow:hidden;position:relative}
+    #dashboard-brand img[alt="MarketSync DealerOS"]{position:absolute;width:17rem!important;height:auto!important;max-width:none;left:-1.45rem;top:-4.35rem}
+    @media (max-width:639px){
+      #dashboard-brand{width:10.5rem;height:3.25rem}
+      #dashboard-brand img[alt="MarketSync DealerOS"]{width:13rem!important;left:-1.1rem;top:-3.33rem}
+    }
     html[data-dash-mode="marketsync"] #ui-role-pill{font-size:0;background:#0b2a50!important;border-color:#2563eb!important;color:#bfdbfe!important;padding:.4rem .65rem}
     html[data-dash-mode="marketsync"] #ui-role-pill::after{content:"MARKETSYNC INTERNAL";font-size:.75rem;font-weight:800;letter-spacing:.08em}
     /* Dashboard reflects MarketSync leads: show only the MarketSync panel there. */
