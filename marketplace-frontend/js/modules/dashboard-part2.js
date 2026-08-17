@@ -725,42 +725,6 @@ async function initializeDashboardEcosystem() {
       __settingsTab = 'account';
     }
 
-    // Design Studio standalone accounts never see the DealerOS dashboard at all
-    // (applyProductNav() auto-launches the Studio modal instead) — so the only
-    // reachable page is Settings, and it should show just Upgrade, Billing and
-    // Profile. The Settings tab bar today is account/admin/hr/sales/marketing/
-    // inventory/service/accounting (SETTINGS_TAB_SECTIONS in dashboard-part8.js) —
-    // every non-account button carries [data-admin-only], and since this account's
-    // role is admin-grade (canManageFeeds is true), the generic canManageFeeds hide
-    // above never touches them. Hide the tab buttons directly instead. Billing lives
-    // under Administration for every other tier, so fold it into My Account here —
-    // it's the one Administration card this tier still needs (Upgrade lives outside
-    // Settings entirely, at the header's #open-upgrades button).
-    if (typeof isDesignStudioOnlyWorkspace === 'function' && isDesignStudioOnlyWorkspace()) {
-      document.querySelectorAll('#settings-tabs [data-admin-only]').forEach(el => el.classList.add('hidden'));
-      if (Array.isArray(SETTINGS_TAB_SECTIONS?.account) && !SETTINGS_TAB_SECTIONS.account.includes('billing-section')) {
-        SETTINGS_TAB_SECTIONS.account.push('billing-section');
-      }
-      __settingsTab = 'account';
-    }
-
-    // Facebook-only tiers (Solo or Dealer AutoPoster) bought Facebook posting, not
-    // the rest of DealerOS — same Administration-tab leak as Design Studio above
-    // (a facebook_dealer account's owner is admin-grade, so canManageFeeds keeps
-    // every [data-admin-only] Settings tab visible). Trim to My Account, but fold in
-    // both Billing AND Facebook Posting Safety (guardrail-settings-section) — the
-    // one dealer-admin setting this tier actually needs.
-    if (typeof isFacebookOnlyWorkspace === 'function' && isFacebookOnlyWorkspace()) {
-      document.querySelectorAll('#settings-tabs [data-admin-only]').forEach(el => el.classList.add('hidden'));
-      if (Array.isArray(SETTINGS_TAB_SECTIONS?.account)) {
-        ['billing-section', 'guardrail-settings-section'].forEach(id => {
-          if (!SETTINGS_TAB_SECTIONS.account.includes(id)) SETTINGS_TAB_SECTIONS.account.push(id);
-        });
-      }
-      document.getElementById('guardrail-settings-section')?.classList.remove('hidden');
-      __settingsTab = 'account';
-    }
-
     // All role-based hide rules above have run. Reveal the page now (the head CSS
     // kept role-gated items hidden until this point, so nothing dealer-only ever
     // flashed for a solo rep). This happens synchronously after the hides, so the
@@ -844,6 +808,52 @@ async function initializeDashboardEcosystem() {
     // sequence opened a role-default/legacy page, then applied product gates and
     // navigated again, producing the visible legacy-page flash on every load.
     applyProductNav(legacyProductsFromAccess(window.__access) || profileContext?.products);
+
+    // Design Studio standalone accounts never see the DealerOS dashboard at all
+    // (applyProductNav() above just auto-launched the Studio modal) — so the only
+    // reachable page is Settings, and it should show just Upgrade, Billing and
+    // Profile. The Settings tab bar today is account/admin/hr/sales/marketing/
+    // inventory/service/accounting (SETTINGS_TAB_SECTIONS in dashboard-part8.js) —
+    // every non-account button carries [data-admin-only], and since this account's
+    // role is admin-grade (canManageFeeds is true), the generic canManageFeeds hide
+    // earlier never touches them. Hide the tab buttons directly instead. Billing
+    // lives under Administration for every other tier, so fold it into My Account
+    // here — it's the one Administration card this tier still needs (Upgrade lives
+    // outside Settings entirely, at the header's #open-upgrades button). Also drop
+    // the employment-record card — a single-user editor account has no employer.
+    // MUST run after applyProductNav() (just above), not before: that call is what
+    // sets the data-product attribute isDesignStudioOnlyWorkspace()/
+    // isFacebookOnlyWorkspace() read — checking it any earlier always reads empty
+    // and these blocks silently never fire.
+    if (typeof isDesignStudioOnlyWorkspace === 'function' && isDesignStudioOnlyWorkspace()) {
+      document.querySelectorAll('#settings-tabs [data-admin-only]').forEach(el => el.classList.add('hidden'));
+      if (Array.isArray(SETTINGS_TAB_SECTIONS?.account)) {
+        if (!SETTINGS_TAB_SECTIONS.account.includes('billing-section')) SETTINGS_TAB_SECTIONS.account.push('billing-section');
+        SETTINGS_TAB_SECTIONS.account = SETTINGS_TAB_SECTIONS.account.filter(id => id !== 'settings-my-record');
+      }
+      __settingsTab = 'account';
+      if (typeof settingsTab === 'function') settingsTab('account');
+    }
+
+    // Facebook-only tiers (Solo or Dealer AutoPoster) bought Facebook posting, not
+    // the rest of DealerOS — same Administration-tab leak as Design Studio above
+    // (a facebook_dealer account's owner is admin-grade, so canManageFeeds keeps
+    // every [data-admin-only] Settings tab visible). Trim to My Account, but fold in
+    // both Billing AND Facebook Posting Safety (guardrail-settings-section) — the
+    // one dealer-admin setting this tier actually needs. Same ordering requirement
+    // as the Design Studio block above.
+    if (typeof isFacebookOnlyWorkspace === 'function' && isFacebookOnlyWorkspace()) {
+      document.querySelectorAll('#settings-tabs [data-admin-only]').forEach(el => el.classList.add('hidden'));
+      if (Array.isArray(SETTINGS_TAB_SECTIONS?.account)) {
+        ['billing-section', 'guardrail-settings-section'].forEach(id => {
+          if (!SETTINGS_TAB_SECTIONS.account.includes(id)) SETTINGS_TAB_SECTIONS.account.push(id);
+        });
+      }
+      document.getElementById('guardrail-settings-section')?.classList.remove('hidden');
+      __settingsTab = 'account';
+      if (typeof settingsTab === 'function') settingsTab('account');
+    }
+
     // DealerOS: managers/admins land on the Command Center (today's operations +
     // exceptions); reps keep the Dashboard as home.
     // SaaS Admin in MarketSync mode → the company command center; otherwise the
@@ -1303,7 +1313,7 @@ function renderDeptNav(role) {
         if (anchor && anchor.parentElement === navRoot) navRoot.insertBefore(host, anchor.nextSibling);
         else navRoot.insertBefore(host, navRoot.firstChild);
       }
-      host.innerHTML = rp.map(p => `<button type="button" data-page="${esc(p.page)}" onclick="deptGo('${p.page}'${p.invmode ? `,'${p.invmode}'` : ''})" title="${esc(p.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-indigo-500 flex-shrink-0">${svgIcon(p.icon || 'dot', 'w-4 h-4')}</span><span>${esc(p.label)}</span></button>`).join('');
+      host.innerHTML = rp.map(p => `<button type="button" data-page="${esc(p.page)}" onclick="${p.studioLaunch ? 'window.openMarketSyncStudio()' : `deptGo('${esc(p.page)}'${p.invmode ? `,'${esc(p.invmode)}'` : ''})`}" title="${esc(p.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-indigo-500 flex-shrink-0">${svgIcon(p.icon || 'dot', 'w-4 h-4')}</span><span>${esc(p.label)}</span></button>`).join('');
       navRoot.classList.add('dept-mode');
       __deptNavBuilt = true;
       if (__currentPage) highlightDeptNav(__currentPage);
