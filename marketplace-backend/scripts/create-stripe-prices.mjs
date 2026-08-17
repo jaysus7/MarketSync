@@ -25,7 +25,7 @@ const CURRENCIES = ['usd', 'cad'] // one price per currency; same headline amoun
 const envLines = []
 
 for (const plan of Object.values(PLAN_CATALOG)) {
-  const amountCents = plan.monthly * 100
+  const amountCents = Math.round(plan.monthly * 100)
   console.log(`\n▶ ${plan.label}  ($${plan.monthly}/mo)`)
 
   let product

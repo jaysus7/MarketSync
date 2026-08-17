@@ -393,10 +393,10 @@ test('Cleanup is its own department, not an Inventory tab', () => {
   assert.equal(MS_WORKSPACES.cleanup.pages[0].legacy, undefined, 'recon must be a real tab-bar entry in Cleanup, not a legacy deep-link')
 })
 
-test('Marketing top tab reads "Visual Studio", not "Studio"', () => {
+test('Marketing top tab reads "Design Studio", not "Studio"', () => {
   // Renamed multiple times and kept reverting — pin it so it stays fixed.
   const mkt = read('js/modules/marketing-workspace.js')
-  assert.match(mkt, /tabLabels:\s*\{[^}]*studio: 'Visual Studio'/)
+  assert.match(mkt, /tabLabels:\s*\{[^}]*studio: 'Design Studio'/)
   assert.doesNotMatch(mkt, /studio: 'Studio'/)
 })
 

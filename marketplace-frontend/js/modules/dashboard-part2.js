@@ -235,6 +235,13 @@ async function refreshSetupIndicator(role) {
   const banner = document.getElementById('setup-status-banner');
   role = role || window.__setupIndicatorRole || profileContext?.role;
   if (!banner) return;
+  // Single-product accounts bought one tool, not a DealerOS department suite —
+  // there's no multi-department setup for this banner to nudge them through.
+  if (typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace()) {
+    banner.classList.add('hidden');
+    banner.innerHTML = '';
+    return;
+  }
   if (role && !['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(role)) {
     banner.classList.add('hidden');
     banner.innerHTML = '';
@@ -451,10 +458,16 @@ document.addEventListener('DOMContentLoaded', () => {
 function forceCompactSettingsGrid() {
   const profilePanel = document.getElementById('profile-panel');
   const languageCard = document.getElementById('settings-language-card');
-  // Prepend, not append: Language sits full-width right under the page's
-  // description text, above the Profile/Billing/Security row — not buried below it.
+  const billingSection = document.getElementById('billing-section');
+  // Language is a square card that sits directly under Billing & Subscription,
+  // not at the top of the grid — it's a single grid cell like Profile/Billing/
+  // Security, not a full-width banner.
   if (profilePanel && languageCard && languageCard.parentElement !== profilePanel) {
-    profilePanel.insertBefore(languageCard, profilePanel.firstChild);
+    if (billingSection && billingSection.parentElement === profilePanel) {
+      billingSection.insertAdjacentElement('afterend', languageCard);
+    } else {
+      profilePanel.appendChild(languageCard);
+    }
   }
   profilePanel?.classList.add('is-multi');
 }
@@ -890,6 +903,15 @@ async function initializeDashboardEcosystem() {
         }
       }
       forceCompactSettingsGrid();
+      // Every single-product dashboard is one tool, not a department suite — the
+      // floating "Intelligence" AI dock and Team Chat exist to coordinate work
+      // across a dealership's staff/departments, which a single-tool subscriber
+      // doesn't have. Setup Wizard nudges are for configuring DealerOS
+      // departments the account never bought.
+      document.getElementById('ai-dock-btn')?.classList.add('hidden');
+      document.getElementById('ai-dock-panel')?.classList.add('hidden');
+      document.getElementById('team-chat-dock-panel')?.classList.add('hidden');
+      document.getElementById('setup-status-banner')?.classList.add('hidden');
     }
 
     // DealerOS: managers/admins land on the Command Center (today's operations +

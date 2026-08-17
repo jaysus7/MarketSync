@@ -64,7 +64,6 @@
     ['Products', [
       ['Design Studio', '/design-studio.html'],
       ['Facebook AutoPoster', '/facebook-autoposter.html'],
-      ['Social Scheduler', '/social-scheduler.html'],
       ['Video Suite', '/video-studio.html'],
       ['Campaigns', '/campaigns.html'],
       ['Dealer Website', '/dealer-website.html'],

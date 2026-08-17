@@ -8,6 +8,7 @@ const part8 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashbo
 const dashboardHtml = readFileSync(new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8')
 const marketingWorkspace = readFileSync(new URL('../../marketplace-frontend/js/modules/marketing-workspace.js', import.meta.url), 'utf8')
 const part25 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part25.js', import.meta.url), 'utf8')
+const part10 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part10.js', import.meta.url), 'utf8')
 
 test('isFacebookOnlyWorkspace exists and excludes dealer_os accounts, like isDesignStudioOnlyWorkspace', () => {
   assert.match(dashboard, /function isFacebookOnlyWorkspace\(\)/)
@@ -37,7 +38,10 @@ test('every single-product tier trims Settings to My Account + Billing (Upgrade 
   // to every single-product tier (Design Studio, AI ChatBot, Video, Website,
   // Social, Email, Facebook), not just the two tiers that happened to get a
   // bespoke isDesignStudioOnlyWorkspace()/isFacebookOnlyWorkspace() block first.
-  const block = part2.match(/if \(typeof isSingleProductWorkspace === 'function'[\s\S]*?\n {4}\}/)?.[0] || ''
+  // Exactly 4 leading spaces distinguishes this from refreshSetupIndicator()'s
+  // own (2-space-indented) isSingleProductWorkspace early-return check earlier
+  // in the file — both start with the same literal "if (typeof ...".
+  const block = part2.match(/ {4}if \(typeof isSingleProductWorkspace === 'function'[\s\S]*?\n {4}\}/)?.[0] || ''
   assert.ok(block, 'the single-product settings-trim block must exist')
   assert.match(block, /document\.querySelectorAll\('#settings-tabs \[data-admin-only\]'\)\.forEach\(el => el\.classList\.add\('hidden'\)\)/)
   assert.match(block, /SETTINGS_TAB_SECTIONS\.account\.push\('billing-section'\)/)
@@ -143,13 +147,16 @@ test('forceCompactSettingsGrid merges Language into #profile-panel and forces th
   assert.ok(fn, 'forceCompactSettingsGrid must exist')
   assert.match(fn, /getElementById\('profile-panel'\)/)
   assert.match(fn, /getElementById\('settings-language-card'\)/)
-  // Prepended (insertBefore firstChild), not appended — Language sits full-width
-  // right under the page description, above Profile/Billing/Security, not below.
-  assert.match(fn, /profilePanel\.insertBefore\(languageCard, profilePanel\.firstChild\)/)
-  assert.doesNotMatch(fn, /profilePanel\.appendChild\(languageCard\)/)
+  // Inserted directly after #billing-section — Language is a square card sitting
+  // right under Billing & Subscription, not a full-width banner at the top.
+  assert.match(fn, /getElementById\('billing-section'\)/)
+  assert.match(fn, /billingSection\.insertAdjacentElement\('afterend', languageCard\)/)
   assert.match(fn, /profilePanel\?\.classList\.add\('is-multi'\)/)
   // The single-product block must call it, after its settingsTab('account') call.
-  const block = part2.match(/if \(typeof isSingleProductWorkspace === 'function'[\s\S]*?\n {4}\}/)?.[0] || ''
+  // Exactly 4 leading spaces distinguishes this from refreshSetupIndicator()'s
+  // own (2-space-indented) isSingleProductWorkspace early-return check earlier
+  // in the file — both start with the same literal "if (typeof ...".
+  const block = part2.match(/ {4}if \(typeof isSingleProductWorkspace === 'function'[\s\S]*?\n {4}\}/)?.[0] || ''
   assert.ok(block, 'block must exist')
   assert.match(block, /settingsTab\('account'\)/, 'block must call settingsTab first')
   assert.ok(block.indexOf("settingsTab('account')") < block.indexOf('forceCompactSettingsGrid()'), 'forceCompactSettingsGrid() must run after settingsTab')
@@ -158,6 +165,46 @@ test('forceCompactSettingsGrid merges Language into #profile-panel and forces th
 test('.settings-cols.is-multi is a real 3-column CSS grid, not a masonry/multi-column layout', () => {
   assert.match(dashboardHtml, /\.settings-cols \{ display: grid;/)
   assert.match(dashboardHtml, /\.settings-cols\.is-multi \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/)
+})
+
+test('the Language card is a square single grid cell, not a full-width banner', () => {
+  const card = dashboardHtml.match(/<div id="settings-language-card"[^>]*>/)?.[0] || ''
+  assert.ok(card, 'settings-language-card must exist')
+  assert.match(card, /aspect-square/)
+  assert.doesNotMatch(card, /data-full-width="true"/)
+})
+
+test('every single-product dashboard also hides the floating Intelligence AI dock, Team Chat, and the Setup Wizard banner', () => {
+  // These coordinate work across a dealership's staff/departments — a
+  // single-tool subscriber has neither, so all three are dead chrome for them.
+  const block = part2.match(/ {4}if \(typeof isSingleProductWorkspace === 'function'[\s\S]*?\n {4}\}/)?.[0] || ''
+  assert.ok(block, 'block must exist')
+  assert.match(block, /getElementById\('ai-dock-btn'\)\?\.classList\.add\('hidden'\)/)
+  assert.match(block, /getElementById\('ai-dock-panel'\)\?\.classList\.add\('hidden'\)/)
+  assert.match(block, /getElementById\('team-chat-dock-panel'\)\?\.classList\.add\('hidden'\)/)
+  assert.match(block, /getElementById\('setup-status-banner'\)\?\.classList\.add\('hidden'\)/)
+})
+
+test('refreshSetupIndicator never shows the Setup Wizard banner for single-product accounts, even on a later refresh', () => {
+  // The one-time chrome hide in the trim block only runs once at boot — a later
+  // refreshSetupIndicator() call (role change, periodic refresh) must not
+  // re-show the banner for a single-product account, so the check has to live
+  // in the function itself too.
+  const fn = part2.match(/async function refreshSetupIndicator\(role\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fn, 'refreshSetupIndicator must exist')
+  const guard = fn.match(/if \(typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace\(\)\) \{[\s\S]*?\n {2}\}/)?.[0] || ''
+  assert.ok(guard, 'refreshSetupIndicator must check isSingleProductWorkspace')
+  assert.match(guard, /banner\.classList\.add\('hidden'\)/)
+  assert.match(guard, /return;/)
+  // Must run before the (!banner) null-check's later role check, i.e. early.
+  assert.ok(fn.indexOf('isSingleProductWorkspace') < fn.indexOf("role &&"), 'single-product check must run before the role check')
+})
+
+test('engineRail omits the Team Messages section for single-product workspaces', () => {
+  const fn = part10.match(/function engineRail\(eng, d\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fn, 'engineRail must exist')
+  assert.match(fn, /const singleProduct = typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace\(\)/)
+  assert.match(fn, /const msg = singleProduct \? '' : sec\('Team Messages'/)
 })
 
 test('Design Studio nav entries use a real icon key, not the non-existent "image" (which silently falls back to a plain dot)', () => {

@@ -17,6 +17,23 @@ test('addVideo does not set crossOrigin on the video element', () => {
   assert.doesNotMatch(fn, /video\.crossOrigin\s*=/, 'addVideo must not set crossOrigin on the video element')
 })
 
+test('addVideo copies videoWidth/videoHeight onto the element before building the fabric.Image', () => {
+  // Unlike <img>, whose .width/.height fall back to intrinsic size when unset,
+  // <video>.width/.height reflect the (never-set) content attributes and default
+  // to 0. fabric.Image reads element.width/.height at construction, so without
+  // this copy the video object gets added to the canvas at 0x0 — invisible, with
+  // no error or feedback — which is what "nothing happens when you click Add" was.
+  const fn = adapter.match(/async addVideo\(url, name = 'Video', options = \{\}\) \{[\s\S]*?\n {2}\}/)?.[0] || ''
+  assert.ok(fn, 'addVideo must exist')
+  assert.match(fn, /video\.width\s*=\s*video\.videoWidth/, 'addVideo must copy videoWidth onto video.width')
+  assert.match(fn, /video\.height\s*=\s*video\.videoHeight/, 'addVideo must copy videoHeight onto video.height')
+  // The copy must happen before the fabric.Image is constructed from the video element.
+  const widthIdx = fn.indexOf('video.width = video.videoWidth')
+  const fabricImageIdx = fn.indexOf('new window.fabric.Image(video')
+  assert.ok(widthIdx > -1 && fabricImageIdx > -1 && widthIdx < fabricImageIdx,
+    'width/height must be set before constructing the fabric.Image')
+})
+
 test('photo and video search support Load More pagination', () => {
   assert.match(studio, /function loadMoreStudioPhotos/)
   assert.match(studio, /function loadMoreStudioVideos/)
