@@ -800,6 +800,9 @@ html.dark td {
   overflow-y: auto;
   box-sizing: border-box;
 }
+#demo-control-panel[hidden] {
+  display: none !important;
+}
 .dcp-head {
   display: flex;
   align-items: baseline;
