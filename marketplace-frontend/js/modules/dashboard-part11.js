@@ -719,7 +719,7 @@ window.dealerEmailDeleteTmpl = async (id) => {
 const empRoleOpts = (roles, sel) => (roles || []).map(r => `<option value="${r}" ${r === sel ? 'selected' : ''}>${esc(r)}</option>`).join('');
 ENGINES['saas-employees'] = {
   rootId: 'saas-employees-root', title: 'Employees', subtitle: 'MarketSync staff and what each role can do',
-  icon: 'user', accent: 'violet',
+  icon: 'user', accent: 'indigo', hideRail: true, hideTabBar: true, tabOrder: ['work'],
   tabLabels: { overview: 'Team Directory', work: 'Role Permissions', insights: 'Sales Assignments', automation: 'Activity Audit', settings: 'Invitations' },
   fetch: () => apiGetJson('/saas/employees'),
   quickActions: [

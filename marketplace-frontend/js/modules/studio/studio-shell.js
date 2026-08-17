@@ -11,6 +11,26 @@ window.__studioActiveTool = 'templates';
 window.__studioCurrentDesign = null;
 window.__studioCurrentVehicle = null;
 window.__studioZoomLevel = 0.55;
+window.__studioFitObserver = null;
+
+const STUDIO_FREE_PHOTOS = [
+  ['showroom', 'Modern dealership showroom', 'photo-1562141961-b5d64a7b61c0'],
+  ['luxury car', 'Luxury car', 'photo-1503376780353-7e6692767b70'],
+  ['sports car', 'Sports car on the road', 'photo-1549399542-7e3f8b79c341'],
+  ['city drive', 'Car in the city', 'photo-1492144534655-ae79c964c9d7'],
+  ['road travel', 'Open road', 'photo-1500530855697-b586d89ba3ee'],
+  ['electric vehicle', 'Electric vehicle charging', 'photo-1592833159155-c62df1b65634'],
+  ['car interior', 'Premium car interior', 'photo-1503736334956-4c8f8e92946d'],
+  ['car keys', 'Car keys', 'photo-1525609004556-c46c7d6cf023'],
+  ['handshake customer', 'Customer handshake', 'photo-1521791136064-7986c2920216'],
+  ['team office', 'Team working together', 'photo-1522071820081-009f0129c71c'],
+  ['phone social', 'Phone and social content', 'photo-1516321318423-f06f85e504b3'],
+  ['service mechanic', 'Automotive service', 'photo-1487754180451-c456f719a1fc'],
+  ['detail clean', 'Vehicle detailing', 'photo-1607860108855-64acf2078ed9'],
+  ['mountain suv', 'SUV adventure', 'photo-1533473359331-0135ef1b58bf'],
+  ['night city', 'Night city drive', 'photo-1511919884226-fd3cad34687c'],
+  ['business owner', 'Business owner', 'photo-1560250097-0b93528c311a']
+].map(([keywords, alt, id], index) => ({ id: index + 1, keywords, alt, url: `https://images.unsplash.com/${id}?auto=format&fit=crop&w=900&q=82` }));
 
 function escS(str) {
   if (str == null) return '';
@@ -28,15 +48,15 @@ function zoomStudioOut() {
 }
 
 function zoomStudioFit() {
-  const mainEl = document.querySelector('#ms-studio-master-modal main');
+  const mainEl = document.getElementById('studio-canvas-viewport');
   if (!mainEl) return;
-  const availW = mainEl.clientWidth - 64;
-  const availH = mainEl.clientHeight - 64;
+  const availW = Math.max(120, mainEl.clientWidth - 32);
+  const availH = Math.max(120, mainEl.clientHeight - 32);
   const canvasW = window.__studioAdapter?.currentScene?.width || 1080;
   const canvasH = window.__studioAdapter?.currentScene?.height || 1080;
   const scaleW = availW / canvasW;
   const scaleH = availH / canvasH;
-  window.__studioZoomLevel = Math.max(0.2, Math.min(1.0, Math.min(scaleW, scaleH)));
+  window.__studioZoomLevel = Math.max(0.08, Math.min(1.25, Math.min(scaleW, scaleH)));
   applyStudioZoom();
 }
 
@@ -44,7 +64,7 @@ function applyStudioZoom() {
   const container = document.getElementById('studio-artboard-container');
   const display = document.getElementById('studio-zoom-display');
   if (container) {
-    container.style.transform = `scale(${window.__studioZoomLevel || 0.55})`;
+    container.style.transform = `translate(-50%, -50%) scale(${window.__studioZoomLevel || 0.55})`;
   }
   if (display) {
     display.textContent = `${Math.round((window.__studioZoomLevel || 0.55) * 100)}%`;
@@ -77,8 +97,26 @@ window.openMarketSyncStudio = async function(designId = null, initialOptions = {
 
   modal.innerHTML = renderStudioWorkspaceHtml(designName, scene);
   initStudioAdapter(scene);
+  window.__studioFitObserver?.disconnect();
+  const viewport = document.getElementById('studio-canvas-viewport');
+  if (viewport && window.ResizeObserver) {
+    window.__studioFitObserver = new ResizeObserver(() => requestAnimationFrame(zoomStudioFit));
+    window.__studioFitObserver.observe(viewport);
+  }
   setTimeout(zoomStudioFit, 100);
 };
+
+function studioHasPaidAi() {
+  return !!(window.__access?.isPlatformStaff || (typeof __aiBoostActive !== 'undefined' && __aiBoostActive === true));
+}
+
+function renderStudioPhotoResults(photos) {
+  return photos.map(photo => `<button type="button" onclick="addLibraryImageToCanvas('${photo.url}')" class="relative group overflow-hidden rounded-xl border border-slate-800 hover:border-blue-500 transition" title="${escS(photo.alt)}"><img src="${photo.url}" alt="${escS(photo.alt)}" loading="lazy" class="w-full aspect-square object-cover group-hover:scale-105 transition duration-200"><span class="absolute inset-x-0 bottom-0 px-2 py-1 bg-slate-950/80 text-[9px] text-left text-white truncate">${escS(photo.alt)}</span></button>`).join('');
+}
+
+function renderPexelsResults(photos) {
+  return photos.map(photo => `<div class="rounded-xl overflow-hidden border border-slate-800 bg-slate-950"><button type="button" onclick="addLibraryImageToCanvas('${escS(photo.source_url)}', '${escS(photo.alt || 'Pexels photo')}')" class="block w-full group"><img src="${escS(photo.preview_url)}" alt="${escS(photo.alt || '')}" loading="lazy" class="w-full aspect-square object-cover group-hover:scale-105 transition duration-200"></button><div class="px-2 py-1.5 text-[9px] truncate"><a href="${escS(photo.author_url || photo.attribution_url || 'https://www.pexels.com')}" target="_blank" rel="noopener" class="text-sky-400 hover:underline">${escS(photo.author || 'Pexels photographer')}</a></div></div>`).join('');
+}
 
 function renderStudioWorkspaceHtml(designName, scene) {
   return `
@@ -143,8 +181,8 @@ function renderStudioWorkspaceHtml(designName, scene) {
         <button onclick="setStudioTool('shapes')" id="tool-btn-shapes" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition">
           <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"/></svg>Shapes
         </button>
-        <button onclick="setStudioTool('text')" id="tool-btn-text" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition">
-          <span class="text-base font-black">T</span>Text
+        <button onclick="setStudioTool('ai')" id="tool-btn-ai" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${studioHasPaidAi() ? 'text-sky-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-900'} transition">
+          <span class="text-base">✦</span>${studioHasPaidAi() ? 'AI' : 'AI 🔒'}
         </button>
         <button onclick="setStudioTool('brand')" id="tool-btn-brand" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition">
           <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10M7 12h10m-7 5h7"/></svg>Brand
@@ -161,8 +199,8 @@ function renderStudioWorkspaceHtml(designName, scene) {
       </aside>
 
       <!-- Center Artboard Viewport Canvas -->
-      <main class="flex-1 bg-slate-950 overflow-auto flex items-center justify-center p-12 relative">
-        <div id="studio-artboard-container" class="relative shadow-2xl rounded-2xl overflow-hidden border-4 border-indigo-500/60 dark:border-slate-700 bg-slate-900 ring-4 ring-indigo-500/20 transition-transform duration-200 origin-center" style="width:${scene.width}px; height:${scene.height}px; transform: scale(0.55);">
+      <main id="studio-canvas-viewport" class="flex-1 min-w-0 bg-slate-950 overflow-hidden relative">
+        <div id="studio-artboard-container" class="absolute left-1/2 top-1/2 shadow-2xl rounded-2xl overflow-hidden border-4 border-blue-500/70 bg-slate-900 ring-4 ring-blue-500/20 transition-transform duration-200 origin-center" style="width:${scene.width}px; height:${scene.height}px; transform:translate(-50%, -50%) scale(0.55);">
           <canvas id="studio-main-canvas"></canvas>
         </div>
       </main>
@@ -176,6 +214,18 @@ function renderStudioWorkspaceHtml(designName, scene) {
         ${renderStudioInspectorHtml(null)}
       </aside>
     </div>
+    <footer class="h-16 flex-shrink-0 bg-slate-900 border-t border-slate-800 px-3 flex items-center gap-2 overflow-x-auto z-30">
+      <span class="text-[11px] font-black uppercase tracking-wider text-slate-400 mr-1">Text</span>
+      <button onclick="studioAddText('heading')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">+ Heading</button>
+      <button onclick="studioAddText('subheading')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold">+ Subheading</button>
+      <button onclick="studioAddText('body')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium">+ Body text</button>
+      <div class="h-7 w-px bg-slate-700 mx-1"></div>
+      <label class="text-[11px] text-slate-400 font-bold">Size</label>
+      <select onchange="studioSetTextStyle('fontSize', Number(this.value))" class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs"><option>18</option><option>24</option><option selected>36</option><option>48</option><option>64</option><option>88</option></select>
+      <button onclick="studioSetTextStyle('fontWeight', '900')" class="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 font-black">B</button>
+      <label class="flex items-center gap-2 px-2 py-1 rounded-lg bg-slate-800 text-xs font-bold">Colour <input type="color" value="#ffffff" onchange="studioSetTextStyle('fill', this.value)" class="w-6 h-6 rounded cursor-pointer bg-transparent"></label>
+      <span id="studio-text-hint" class="ml-auto whitespace-nowrap text-[11px] text-slate-500">Select text to format it</span>
+    </footer>
   `;
 }
 
@@ -366,38 +416,33 @@ function renderStudioToolPanelContent(tool) {
   } else if (tool === 'photos') {
     return `
       <div class="p-4 space-y-3">
-        <h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Stock &amp; Free Asset Library</h3>
-        <input type="text" placeholder="Search photos (e.g. showroom, luxury car)..." onkeydown="if(event.key==='Enter') searchStudioLibrary(this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white">
-        <div class="grid grid-cols-2 gap-2 pt-2" id="studio-photo-results">
-          <img src="https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=400&q=80" onclick="addLibraryImageToCanvas(this.src)" class="w-full aspect-square object-cover rounded-xl border border-slate-800 cursor-pointer hover:border-indigo-500 transition">
-          <img src="https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=400&q=80" onclick="addLibraryImageToCanvas(this.src)" class="w-full aspect-square object-cover rounded-xl border border-slate-800 cursor-pointer hover:border-indigo-500 transition">
-        </div>
+        <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Pexels Photos</h3><p class="text-[10px] text-slate-500 mt-1">Search the free Pexels library and add a photo directly.</p></div>
+        <form onsubmit="event.preventDefault(); searchStudioLibrary(document.getElementById('studio-photo-query').value)" class="flex gap-2"><input id="studio-photo-query" type="search" value="car dealership" placeholder="Search photos..." class="min-w-0 flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"><button class="px-3 rounded-xl bg-blue-600 text-xs font-black">Search</button></form>
+        <div class="grid grid-cols-2 gap-2 pt-2" id="studio-photo-results"><div class="col-span-2 p-5 text-center text-xs text-slate-500">Loading Pexels photos…</div></div>
+        <a href="https://www.pexels.com" target="_blank" rel="noopener" class="block text-center text-[10px] font-bold text-sky-400 hover:underline">Photos provided by Pexels</a>
       </div>
     `;
   } else if (tool === 'shapes') {
     return `
       <div class="p-4 space-y-3">
         <h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Shapes &amp; Badges</h3>
-        <div class="grid grid-cols-2 gap-2">
-          <button onclick="if(window.__studioAdapter) window.__studioAdapter.addShape('rect', '#2563EB')" class="p-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-white text-center">
-            Rectangle
-          </button>
-          <button onclick="if(window.__studioAdapter) window.__studioAdapter.addShape('circle', '#10B981')" class="p-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-white text-center">
-            Circle
-          </button>
-        </div>
+        <div class="grid grid-cols-3 gap-2">${[['rect','Rectangle'],['badge','Rounded'],['circle','Circle'],['ellipse','Ellipse'],['triangle','Triangle'],['diamond','Diamond'],['pentagon','Pentagon'],['hexagon','Hexagon'],['star','Star'],['line','Line'],['arrow','Arrow'],['heart','Heart'],['speech','Speech']].map(([id,label]) => `<button onclick="studioAddShape('${id}')" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-bold text-white text-center">${label}</button>`).join('')}</div>
+        <div class="border-t border-slate-800 pt-3"><h4 class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Draw</h4><div class="grid grid-cols-2 gap-2"><button onclick="studioDrawingMode('pen')" class="p-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">Pen</button><button onclick="studioDrawingMode('pencil')" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-black">Pencil</button></div><button onclick="studioSelectMode()" class="mt-2 w-full p-2 rounded-xl border border-slate-700 text-xs font-bold">Select &amp; move objects</button></div>
       </div>
     `;
-  } else if (tool === 'text') {
+  } else if (tool === 'ai') {
+    if (!studioHasPaidAi()) return `
+      <div class="p-4 space-y-4">
+        <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-sky-400 text-xl">✦</div>
+        <div><h3 class="text-sm font-black text-white">AI Content is locked</h3><p class="text-xs text-slate-400 mt-1 leading-relaxed">AI writing appears here when AI Boost is active on the paid account.</p></div>
+        <button onclick="if(typeof openUpgradeModal==='function') openUpgradeModal('ai_boost')" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">View AI Boost</button>
+      </div>`;
     return `
       <div class="p-4 space-y-3">
-        <h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Add Text</h3>
-        <button onclick="if(window.__studioAdapter) window.__studioAdapter.addText('ADD HEADING', {fontSize:44, fontWeight:'900'})" class="w-full p-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm font-black text-white text-left">
-          Add Heading
-        </button>
-        <button onclick="if(window.__studioAdapter) window.__studioAdapter.addText('Add subheading details...', {fontSize:24, fontWeight:'600'})" class="w-full p-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-300 text-left">
-          Add Subheading
-        </button>
+        <div><h3 class="text-xs font-black uppercase tracking-wider text-sky-400">AI Content</h3><p class="text-[11px] text-slate-400 mt-1">Generate campaign-ready copy, then add it directly to the canvas.</p></div>
+        <textarea id="studio-ai-prompt" rows="4" placeholder="Example: Write a short summer sales headline for our SUV event" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white resize-none"></textarea>
+        <button onclick="generateStudioAiCopy()" id="studio-ai-generate" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">✦ Generate content</button>
+        <div id="studio-ai-result" class="hidden p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 whitespace-pre-wrap"></div>
       </div>
     `;
   } else if (tool === 'brand') {
@@ -418,9 +463,17 @@ function renderStudioToolPanelContent(tool) {
 }
 
 function renderStudioInspectorHtml(selected) {
+  const object = Array.isArray(selected) ? selected[0] : selected;
+  const color = typeof object?.fill === 'string' && object.fill.startsWith('#') ? object.fill : (typeof object?.stroke === 'string' && object.stroke.startsWith('#') ? object.stroke : '#2563eb');
+  const opacity = Math.round((object?.opacity ?? 1) * 100);
   return `
     <h3 class="text-xs font-black uppercase tracking-wider text-slate-300 mb-3">Property Inspector</h3>
     <div class="space-y-3">
+      <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+        <div><label class="text-[11px] font-bold text-slate-400">Colour</label><input type="color" value="${color}" onchange="studioSetObjectStyle('color', this.value)" class="mt-1 w-full h-9 rounded-lg bg-transparent cursor-pointer"></div>
+        <div><div class="flex justify-between"><label class="text-[11px] font-bold text-slate-400">Transparency</label><span id="studio-opacity-value" class="text-[11px] text-sky-400">${100-opacity}%</span></div><input type="range" min="0" max="100" value="${opacity}" oninput="document.getElementById('studio-opacity-value').textContent=(100-Number(this.value))+'%'" onchange="studioSetObjectStyle('opacity', Number(this.value)/100)" class="w-full accent-blue-500"></div>
+      </div>
+      <button onclick="studioToggleNodes()" class="w-full py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black">Edit vector nodes</button>
       <div class="space-y-1">
         <label class="text-[11px] font-bold text-slate-400">Layer Order:</label>
         <div class="flex gap-2">
@@ -442,6 +495,9 @@ async function initStudioAdapter(scene) {
     onSelection: (selected) => {
       const panel = document.getElementById('studio-inspector-panel');
       if (panel) panel.innerHTML = renderStudioInspectorHtml(selected);
+      const hint = document.getElementById('studio-text-hint');
+      const active = Array.isArray(selected) ? selected[0] : selected;
+      if (hint) hint.textContent = active && ['textbox', 'text', 'i-text'].includes(active.type) ? 'Text selected — use the controls' : 'Select text to format it';
     },
     onStateChange: () => {
       const status = document.getElementById('studio-save-status');
@@ -456,6 +512,7 @@ function setStudioTool(tool) {
   window.__studioActiveTool = tool;
   const panel = document.getElementById('studio-tool-panel');
   if (panel) panel.innerHTML = renderStudioToolPanelContent(tool);
+  if (tool === 'photos') setTimeout(() => searchStudioLibrary('car dealership'), 0);
 }
 
 async function loadStudioTemplate(tmplKey) {
@@ -504,13 +561,99 @@ async function bindVehicleToStudio(vehicleId) {
   if (typeof showToast === 'function') showToast(`Bound ${v.year || ''} ${v.make || ''} ${v.model || ''} to design!`, 'success');
 }
 
-function searchStudioLibrary(query) {
-  if (typeof showToast === 'function') showToast('Stock library search updated', 'info');
+async function searchStudioLibrary(query) {
+  const target = document.getElementById('studio-photo-results');
+  if (!target) return;
+  const q = String(query || '').trim().toLowerCase();
+  target.innerHTML = '<div class="col-span-2 p-5 text-center text-xs text-slate-500">Searching Pexels…</div>';
+  try {
+    const data = await apiGetJson(`/marketing/studio/library/search?q=${encodeURIComponent(q || 'car dealership')}`);
+    target.innerHTML = data?.results?.length ? renderPexelsResults(data.results) : '<div class="col-span-2 p-4 text-center text-xs text-slate-500">No matching Pexels photos.</div>';
+  } catch (error) {
+    const fallback = STUDIO_FREE_PHOTOS.filter(photo => !q || `${photo.keywords} ${photo.alt}`.toLowerCase().includes(q));
+    target.innerHTML = fallback.length ? renderStudioPhotoResults(fallback) : '<div class="col-span-2 p-4 text-center text-xs text-rose-400">Photo search is temporarily unavailable.</div>';
+  }
 }
 
-function addLibraryImageToCanvas(url) {
+function studioAddShape(shapeType) {
+  window.__studioAdapter?.stopDrawingMode();
+  window.__studioAdapter?.addShape(shapeType, '#2563EB');
+}
+
+function studioDrawingMode(tool) {
+  window.__studioAdapter?.setDrawingMode(tool, { color: '#2563EB' });
+  if (typeof showToast === 'function') showToast(`${tool === 'pen' ? 'Pen' : 'Pencil'} active — draw directly on the canvas`, 'info');
+}
+
+function studioSelectMode() {
+  window.__studioAdapter?.stopDrawingMode();
+  if (typeof showToast === 'function') showToast('Select mode — objects can be moved, resized, and rotated', 'info');
+}
+
+function studioSetObjectStyle(property, value) {
+  const active = window.__studioAdapter?.fabricCanvas?.getActiveObject();
+  if (!active) { if (typeof showToast === 'function') showToast('Select an object first', 'info'); return; }
+  if (property === 'color') {
+    const usesStroke = active.type === 'path' && (!active.fill || active.fill === '');
+    window.__studioAdapter.updateSelected(usesStroke ? { stroke: value } : { fill: value });
+  } else window.__studioAdapter.updateSelected({ [property]: value });
+}
+
+function studioToggleNodes() {
+  const editing = window.__studioAdapter?.toggleNodeEditing();
+  if (editing == null) { if (typeof showToast === 'function') showToast('Select a vector shape such as a star, polygon, diamond, or speech bubble first', 'info'); return; }
+  if (typeof showToast === 'function') showToast(editing ? 'Node editing on — drag the blue points' : 'Node editing off', 'info');
+}
+
+function studioAddText(kind) {
+  if (!window.__studioAdapter) return;
+  const options = kind === 'heading' ? { fontSize: 64, fontWeight: '900' }
+    : kind === 'subheading' ? { fontSize: 36, fontWeight: '700' }
+      : { fontSize: 24, fontWeight: '500' };
+  const copy = kind === 'heading' ? 'ADD A HEADING' : kind === 'subheading' ? 'Add a subheading' : 'Add body text';
+  window.__studioAdapter.addText(copy, options);
+}
+
+function studioSetTextStyle(property, value) {
+  if (!window.__studioAdapter?.updateSelectedText({ [property]: value })) {
+    if (typeof showToast === 'function') showToast('Select a text box first', 'info');
+  }
+}
+
+async function generateStudioAiCopy() {
+  if (!studioHasPaidAi()) {
+    if (typeof openUpgradeModal === 'function') openUpgradeModal('ai_boost');
+    return;
+  }
+  const prompt = document.getElementById('studio-ai-prompt')?.value?.trim();
+  if (!prompt) { if (typeof showToast === 'function') showToast('Describe the content you want first', 'info'); return; }
+  const btn = document.getElementById('studio-ai-generate');
+  const result = document.getElementById('studio-ai-result');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
+  try {
+    const response = await apiSendJson('/ai/assistant', 'POST', { messages: [{ role: 'user', content: `Create concise marketing copy for a visual design. Follow this request: ${prompt}. Return only the finished copy, without commentary, headings, markdown, or quotation marks.` }] });
+    const copy = String(response?.reply || '').trim();
+    if (!copy) throw new Error('No content returned');
+    if (result) {
+      result.classList.remove('hidden');
+      result.innerHTML = `${escS(copy)}<button type="button" onclick="studioAddGeneratedCopy()" class="mt-3 w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold">Add to canvas</button>`;
+      result.dataset.copy = copy;
+    }
+  } catch (error) {
+    if (typeof showToast === 'function') showToast(error.message || 'AI content could not be generated', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✦ Generate content'; }
+  }
+}
+
+function studioAddGeneratedCopy() {
+  const copy = document.getElementById('studio-ai-result')?.dataset?.copy;
+  if (copy && window.__studioAdapter) window.__studioAdapter.addText(copy, { fontSize: 36, fontWeight: '800', width: 700 });
+}
+
+function addLibraryImageToCanvas(url, name = 'Photo Asset') {
   if (window.__studioAdapter) {
-    window.__studioAdapter.addImage(url, 'Photo Asset');
+    window.__studioAdapter.addImage(url, name);
     if (typeof showToast === 'function') showToast('Added image to artboard', 'success');
   }
 }
@@ -588,16 +731,18 @@ async function renderStudioDesignAndPublish() {
 }
 
 function closeMarketSyncStudio() {
+  window.__studioFitObserver?.disconnect();
+  window.__studioFitObserver = null;
   document.getElementById('ms-studio-master-modal')?.remove();
 }
 
 function toggleStudioToolPanel() {
   const panel = document.getElementById('studio-tool-panel');
-  if (panel) panel.classList.toggle('hidden');
+  if (panel) { panel.classList.toggle('hidden'); setTimeout(zoomStudioFit, 50); }
 }
 function toggleStudioInspectorPanel() {
   const panel = document.getElementById('studio-inspector-panel');
-  if (panel) panel.classList.toggle('hidden');
+  if (panel) { panel.classList.toggle('hidden'); setTimeout(zoomStudioFit, 50); }
 }
 
 window.toggleStudioToolPanel = toggleStudioToolPanel;
@@ -617,3 +762,12 @@ window.zoomStudioIn = zoomStudioIn;
 window.zoomStudioOut = zoomStudioOut;
 window.zoomStudioFit = zoomStudioFit;
 window.applyStudioZoom = applyStudioZoom;
+window.studioAddShape = studioAddShape;
+window.studioDrawingMode = studioDrawingMode;
+window.studioSelectMode = studioSelectMode;
+window.studioSetObjectStyle = studioSetObjectStyle;
+window.studioToggleNodes = studioToggleNodes;
+window.studioAddText = studioAddText;
+window.studioSetTextStyle = studioSetTextStyle;
+window.generateStudioAiCopy = generateStudioAiCopy;
+window.studioAddGeneratedCopy = studioAddGeneratedCopy;

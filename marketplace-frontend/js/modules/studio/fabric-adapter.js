@@ -65,6 +65,10 @@ class StudioFabricAdapter {
     this.fabricCanvas.on('selection:created', (e) => this.onSelectionChange(e.selected));
     this.fabricCanvas.on('selection:updated', (e) => this.onSelectionChange(e.selected));
     this.fabricCanvas.on('selection:cleared', () => this.onSelectionChange([]));
+    this.fabricCanvas.on('path:created', (e) => {
+      if (e.path) e.path.msData = { type: 'shape', shapeType: window.__studioDrawingTool || 'pencil', name: 'Freehand drawing' };
+      this.saveHistory();
+    });
   }
 
   onSelectionChange(selected) {
@@ -132,6 +136,14 @@ class StudioFabricAdapter {
             left: el.x ?? el.left ?? 100,
             top: el.y ?? el.top ?? 100
           });
+        } else if (el.shapeType === 'ellipse') {
+          shapeObj = new fabric.Ellipse({ left: el.x ?? 100, top: el.y ?? 100, rx: (el.width || 300) / 2, ry: (el.height || 180) / 2, fill: el.fill || '#2563EB' });
+        } else if (el.shapeType === 'triangle') {
+          shapeObj = new fabric.Triangle({ left: el.x ?? 100, top: el.y ?? 100, width: el.width || 260, height: el.height || 230, fill: el.fill || '#2563EB' });
+        } else if (Array.isArray(el.points) && el.points.length > 2) {
+          shapeObj = new fabric.Polygon(el.points, { left: el.x ?? 100, top: el.y ?? 100, fill: el.fill || '#2563EB', stroke: el.stroke || null, strokeWidth: el.strokeWidth || 0 });
+        } else if (el.path) {
+          shapeObj = new fabric.Path(el.path, { left: el.x ?? 100, top: el.y ?? 100, fill: el.fill || '', stroke: el.stroke || el.fill || '#2563EB', strokeWidth: el.strokeWidth || 6, strokeLineCap: 'round', strokeLineJoin: 'round' });
         } else {
           shapeObj = new fabric.Rect({
             left: el.x ?? el.left ?? 100,
@@ -192,9 +204,14 @@ class StudioFabricAdapter {
         rotation: Math.round(obj.angle || 0),
         opacity: obj.opacity ?? 1,
         text: obj.text || ms.text || '',
+        src: typeof obj.getSrc === 'function' ? obj.getSrc() : (ms.src || undefined),
         fill: obj.fill || ms.fill || '#FFFFFF',
         fontSize: obj.fontSize || ms.fontSize || 24,
         fontWeight: obj.fontWeight || ms.fontWeight || '700',
+        stroke: obj.stroke || ms.stroke || null,
+        strokeWidth: obj.strokeWidth || ms.strokeWidth || 0,
+        points: Array.isArray(obj.points) ? obj.points.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })) : undefined,
+        path: obj.path ? obj.path.map(command => command.slice()) : undefined,
         rx: obj.rx || ms.rx || 0,
         z: idx + 1,
         name: ms.name || `Object ${idx + 1}`
@@ -231,11 +248,101 @@ class StudioFabricAdapter {
     this.saveHistory();
   }
 
+  updateSelectedText(properties = {}) {
+    if (!this.fabricCanvas) return false;
+    const active = this.fabricCanvas.getActiveObject();
+    if (!active || !['textbox', 'text', 'i-text'].includes(active.type)) return false;
+    active.set(properties);
+    active.setCoords();
+    this.fabricCanvas.requestRenderAll();
+    this.saveHistory();
+    this.onSelectionChange([active]);
+    return true;
+  }
+
+  updateSelected(properties = {}) {
+    if (!this.fabricCanvas) return false;
+    const active = this.fabricCanvas.getActiveObject();
+    if (!active) return false;
+    active.set(properties);
+    active.setCoords();
+    this.fabricCanvas.requestRenderAll();
+    this.saveHistory();
+    this.onSelectionChange([active]);
+    return true;
+  }
+
+  setDrawingMode(tool = 'pencil', options = {}) {
+    if (!this.fabricCanvas || !window.fabric) return;
+    window.__studioDrawingTool = tool;
+    this.fabricCanvas.discardActiveObject();
+    this.fabricCanvas.isDrawingMode = true;
+    const brush = new window.fabric.PencilBrush(this.fabricCanvas);
+    brush.color = options.color || '#2563EB';
+    brush.width = tool === 'pen' ? 12 : 4;
+    brush.decimate = tool === 'pen' ? 2 : 0.8;
+    this.fabricCanvas.freeDrawingBrush = brush;
+    this.fabricCanvas.requestRenderAll();
+  }
+
+  stopDrawingMode() {
+    if (!this.fabricCanvas) return;
+    this.fabricCanvas.isDrawingMode = false;
+    window.__studioDrawingTool = null;
+    this.fabricCanvas.defaultCursor = 'default';
+  }
+
+  toggleNodeEditing() {
+    const object = this.fabricCanvas?.getActiveObject();
+    if (!object || object.type !== 'polygon' || !Array.isArray(object.points)) return null;
+    object.edit = !object.edit;
+    object.hasBorders = !object.edit;
+    object.cornerStyle = 'circle';
+    object.cornerColor = '#38BDF8';
+    object.transparentCorners = false;
+    if (object.edit) {
+      const controls = {};
+      object.points.forEach((point, index) => {
+        controls[`p${index}`] = new window.fabric.Control({
+          positionHandler: (_dim, _matrix, target) => {
+            const x = target.points[index].x - target.pathOffset.x;
+            const y = target.points[index].y - target.pathOffset.y;
+            return window.fabric.util.transformPoint(new window.fabric.Point(x, y), window.fabric.util.multiplyTransformMatrices(target.canvas.viewportTransform, target.calcTransformMatrix()));
+          },
+          actionHandler: (_event, transform, x, y) => {
+            const target = transform.target;
+            const local = target.toLocalPoint(new window.fabric.Point(x, y), 'center', 'center');
+            const base = target._getNonTransformedDimensions();
+            const size = target._getTransformedDimensions(0, 0);
+            target.points[index] = { x: local.x * base.x / size.x + target.pathOffset.x, y: local.y * base.y / size.y + target.pathOffset.y };
+            target.dirty = true;
+            return true;
+          },
+          actionName: 'modifyPolygon'
+        });
+      });
+      object.controls = controls;
+    } else {
+      object.controls = window.fabric.Object.prototype.controls;
+    }
+    this.fabricCanvas.requestRenderAll();
+    return object.edit;
+  }
+
   addShape(shapeType = 'rect', fill = '#2563EB') {
     if (!this.fabricCanvas) return;
     const fabric = window.fabric;
     const center = this.fabricCanvas.getCenter();
     let shape;
+    const regularPoints = (sides, radius = 120) => Array.from({ length: sides }, (_, i) => {
+      const angle = -Math.PI / 2 + i * Math.PI * 2 / sides;
+      return { x: radius + Math.cos(angle) * radius, y: radius + Math.sin(angle) * radius };
+    });
+    const starPoints = Array.from({ length: 10 }, (_, i) => {
+      const radius = i % 2 ? 55 : 120;
+      const angle = -Math.PI / 2 + i * Math.PI / 5;
+      return { x: 120 + Math.cos(angle) * radius, y: 120 + Math.sin(angle) * radius };
+    });
     if (shapeType === 'circle') {
       shape = new fabric.Circle({
         left: center.left - 100,
@@ -243,6 +350,20 @@ class StudioFabricAdapter {
         radius: 100,
         fill: fill
       });
+    } else if (shapeType === 'ellipse') {
+      shape = new fabric.Ellipse({ left: center.left - 150, top: center.top - 90, rx: 150, ry: 90, fill });
+    } else if (shapeType === 'triangle') {
+      shape = new fabric.Triangle({ left: center.left - 120, top: center.top - 110, width: 240, height: 220, fill });
+    } else if (['diamond', 'pentagon', 'hexagon', 'star'].includes(shapeType)) {
+      const points = shapeType === 'star' ? starPoints : regularPoints(shapeType === 'diamond' ? 4 : shapeType === 'pentagon' ? 5 : 6);
+      shape = new fabric.Polygon(points, { left: center.left - 120, top: center.top - 120, fill, strokeWidth: 0 });
+    } else if (shapeType === 'line' || shapeType === 'arrow') {
+      const path = shapeType === 'arrow' ? 'M 0 50 L 220 50 M 170 0 L 220 50 L 170 100' : 'M 0 0 L 240 0';
+      shape = new fabric.Path(path, { left: center.left - 120, top: center.top - 50, fill: '', stroke: fill, strokeWidth: 10, strokeLineCap: 'round', strokeLineJoin: 'round' });
+    } else if (shapeType === 'heart') {
+      shape = new fabric.Path('M 120 210 C 30 150 0 100 20 55 C 45 5 105 20 120 65 C 135 20 195 5 220 55 C 240 100 210 150 120 210 Z', { left: center.left - 120, top: center.top - 110, fill });
+    } else if (shapeType === 'speech') {
+      shape = new fabric.Polygon([{x:0,y:0},{x:260,y:0},{x:260,y:150},{x:80,y:150},{x:35,y:205},{x:45,y:150},{x:0,y:150}], { left: center.left - 130, top: center.top - 100, fill });
     } else if (shapeType === 'badge') {
       shape = new fabric.Rect({
         left: center.left - 140,
