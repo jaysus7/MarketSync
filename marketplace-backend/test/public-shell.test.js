@@ -143,6 +143,29 @@ test('shell theme is automatic system dark/light with a live listener and no man
   assert.match(css, /@media \(prefers-color-scheme:\s?dark\)/, 'shell CSS has no system dark styling')
 })
 
+test('public navigation is price-free and mobile exposes primary actions before solution links', () => {
+  const js = read('assets/public-shell.js')
+  const solutionModel = js.slice(js.indexOf('var SOLUTIONS'), js.indexOf('var RESOURCES'))
+  assert.doesNotMatch(solutionModel, /\$/, 'Solutions menu must not advertise individual prices')
+  const mobileMarkup = js.slice(js.indexOf("'<div class=\"ms-mobile\""), js.indexOf('// ── Footer'))
+  for (const label of ['Pricing', 'Resources', 'Start free trial', 'Solutions', 'authHref']) {
+    assert.match(mobileMarkup, new RegExp(label), `mobile navigation is missing ${label}`)
+  }
+  assert.ok(mobileMarkup.indexOf('ms-m-actions-top') < mobileMarkup.indexOf('>Solutions<'), 'account actions should be visible before the long Solutions list')
+})
+
+test('pricing cards keep plan totals without repeating component prices', () => {
+  const pricing = read('pricing.html')
+  assert.doesNotMatch(pricing, /included \(\$[^)]*\)/i, 'pricing cards repeat component prices')
+  assert.match(pricing, /class="card-price">\$249/, 'primary plan pricing must remain visible')
+})
+
+test('shared shell crops the padded logo asset to a legible brand mark', () => {
+  const css = read('assets/public-shell.css')
+  assert.match(css, /\.ms-logo img\{position:absolute;/, 'logo image is not cropped')
+  assert.match(css, /width:224px!important;/, 'header logo is not large enough')
+})
+
 // ── Centralized session check (a token string alone is not "signed in") ─
 test('auth.js validates sessions rather than trusting a bare token', async () => {
   const store = {}

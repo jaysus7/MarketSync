@@ -37,12 +37,28 @@ padding:0 32px;
 }
 .ms-logo{display:inline-flex;
 align-items:center;
-gap:9px;
-font-weight:800;
-font-size:19px;
-letter-spacing:-.02em;
+position:relative;
+width:192px;
+height:48px;
+overflow:hidden;
+flex:0 0 192px;
 color:#0b1220;
 text-decoration:none;
+}
+.ms-logo img{position:absolute;
+width:224px!important;
+height:auto!important;
+max-width:none!important;
+left:-16px;
+top:-58px;
+}
+.ms-logo-sm{width:166px;
+height:42px;
+flex-basis:166px;
+}
+.ms-logo-sm img{width:194px!important;
+left:-14px;
+top:-50px;
 }
 @media (prefers-color-scheme:dark){.ms-logo{color:#fff;}
 }
@@ -260,6 +276,24 @@ border-bottom-color:rgba(255,255,255,.08);
 .ms-m-actions{margin-top:24px;
 display:grid;
 gap:10px;
+}
+.ms-m-actions-top{margin:0 0 16px;
+grid-template-columns:1fr 1fr;
+}
+@media (max-width:420px){.ms-hd-in{padding:0 16px;
+gap:10px;
+}
+.ms-logo{width:166px;
+flex-basis:166px;
+}
+.ms-logo img{width:194px!important;
+left:-14px;
+top:-50px;
+}
+.ms-nav-cta>.ms-btn-primary{display:none;
+}
+.ms-m-actions-top{grid-template-columns:1fr;
+}
 }
 @media (min-width:900px){.ms-nav-desktop{display:flex;
 }

@@ -29,15 +29,15 @@
 
   // ── Navigation model — Solutions (All 9 standalone products, suites & DealerOS) ─────────────
   var SOLUTIONS = [
-    { href: '/dealer-os.html', title: 'DealerOS Operating System', desc: 'CRM, Sales, Inventory, Desking & Fixed Ops ($1,499+)' },
-    { href: '/facebook-autoposter.html', title: 'Facebook AutoPoster', desc: '1-click Facebook Marketplace auto-posting ($19–$79)' },
-    { href: '/ai-chatbot.html', title: 'AI ChatBot', desc: '24/7 AI dealership salesperson ($299)' },
-    { href: '/design-studio.html', title: 'Design Studio', desc: 'Dealership graphic canvas & brand studio ($5)' },
-    { href: '/social-scheduler.html', title: 'Social Scheduler', desc: 'Multi-channel publishing calendar & queue ($59)' },
-    { href: '/video-studio.html', title: 'Video Suite', desc: 'Vehicle walkaround videos & customer messaging ($99)' },
-    { href: '/campaigns.html', title: 'Campaigns — Email + SMS', desc: 'Targeted customer email & SMS automation ($129+)' },
-    { href: '/dealer-website.html', title: 'Dealer Website', desc: 'High-performance VDP showroom & automotive SEO ($249)' },
-    { href: '/marketing-suites.html', title: 'Connected Marketing Suites', desc: 'Sales, Service, Complete & MarketSync Digital ($249–$599)' },
+    { href: '/dealer-os.html', title: 'DealerOS Operating System', desc: 'CRM, Sales, Inventory, Desking & Fixed Ops' },
+    { href: '/facebook-autoposter.html', title: 'Facebook AutoPoster', desc: '1-click Facebook Marketplace auto-posting' },
+    { href: '/ai-chatbot.html', title: 'AI ChatBot', desc: '24/7 AI dealership salesperson' },
+    { href: '/design-studio.html', title: 'Design Studio', desc: 'Dealership graphic canvas & brand studio' },
+    { href: '/social-scheduler.html', title: 'Social Scheduler', desc: 'Multi-channel publishing calendar & queue' },
+    { href: '/video-studio.html', title: 'Video Suite', desc: 'Vehicle walkaround videos & customer messaging' },
+    { href: '/campaigns.html', title: 'Campaigns — Email + SMS', desc: 'Targeted customer email & SMS automation' },
+    { href: '/dealer-website.html', title: 'Dealer Website', desc: 'High-performance VDP showroom & automotive SEO' },
+    { href: '/marketing-suites.html', title: 'Connected Marketing Suites', desc: 'Sales, Service, Complete & MarketSync Digital' },
   ];
   var RESOURCES = [
     { href: '/guide.html', title: 'How-to Guide' },
@@ -49,22 +49,22 @@
   // Footer columns
   var FOOTER_COLS = [
     ['Products', [
-      ['Design Studio ($5)', '/design-studio.html'],
-      ['Facebook AutoPoster ($19-$79)', '/facebook-autoposter.html'],
-      ['Social Scheduler ($59)', '/social-scheduler.html'],
-      ['Video Suite ($99)', '/video-studio.html'],
-      ['Campaigns ($129)', '/campaigns.html'],
-      ['Dealer Website ($249)', '/dealer-website.html'],
-      ['AI ChatBot ($299)', '/ai-chatbot.html'],
+      ['Design Studio', '/design-studio.html'],
+      ['Facebook AutoPoster', '/facebook-autoposter.html'],
+      ['Social Scheduler', '/social-scheduler.html'],
+      ['Video Suite', '/video-studio.html'],
+      ['Campaigns', '/campaigns.html'],
+      ['Dealer Website', '/dealer-website.html'],
+      ['AI ChatBot', '/ai-chatbot.html'],
     ]],
     ['Suites & OS', [
-      ['Sales Suite ($249)', '/marketing-suites.html'],
-      ['Service Suite ($249)', '/marketing-suites.html'],
-      ['Complete Suite ($399)', '/marketing-suites.html'],
-      ['MarketSync Digital ($599)', '/marketing-suites.html'],
-      ['DealerOS Core ($1,499)', '/dealer-os.html'],
-      ['DealerOS Pro ($2,499)', '/dealer-os.html'],
-      ['DealerOS Complete ($3,999)', '/dealer-os.html'],
+      ['Sales Suite', '/marketing-suites.html'],
+      ['Service Suite', '/marketing-suites.html'],
+      ['Complete Suite', '/marketing-suites.html'],
+      ['MarketSync Digital', '/marketing-suites.html'],
+      ['DealerOS Core', '/dealer-os.html'],
+      ['DealerOS Pro', '/dealer-os.html'],
+      ['DealerOS Complete', '/dealer-os.html'],
     ]],
     ['Company & Trust', [
       ['How-to Guide', '/guide.html'],
@@ -139,11 +139,12 @@
         '<button class="ms-burger" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>' +
       '</div>' +
       '<div class="ms-mobile" hidden>' +
-        '<div class="ms-m-label">Solutions</div>' + mobSol +
-        '<a href="/pricing.html" class="ms-m-link ms-m-top' + act('/pricing.html', 'ms-active') + '">Pricing</a>' +
-        '<div class="ms-m-label">Resources</div>' + mobRes +
-        '<div class="ms-m-actions"><a href="' + authHref + '" class="ms-btn ms-btn-ghost ms-btn-block">' + esc(authLabel) + '</a>' +
+        '<div class="ms-m-actions ms-m-actions-top"><a href="' + authHref + '" class="ms-btn ms-btn-ghost ms-btn-block">' + esc(authLabel) + '</a>' +
         '<a href="' + TRIAL + '" class="ms-btn ms-btn-primary ms-btn-block">Start free trial</a></div>' +
+        '<div class="ms-m-label">Explore</div>' +
+        '<a href="/pricing.html" class="ms-m-link' + act('/pricing.html', 'ms-active') + '">Pricing</a>' +
+        '<div class="ms-m-label">Resources</div>' + mobRes +
+        '<div class="ms-m-label">Solutions</div>' + mobSol +
       '</div>';
   }
 
