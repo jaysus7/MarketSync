@@ -463,6 +463,14 @@ class StudioFabricAdapter {
       video.addEventListener('error', () => reject(new Error('Video could not be loaded')), { once: true });
       video.load();
     });
+    // Unlike <img>, whose .width/.height fall back to intrinsic size when unset,
+    // <video>.width/.height reflect the (never-set) content attributes and default
+    // to 0. fabric.Image reads element.width/.height at construction, so without
+    // this the video object gets added at 0×0 — invisible on the canvas, no error,
+    // no feedback, "nothing happens when you click Add". loadeddata guarantees
+    // videoWidth/videoHeight are populated, so copy them across first.
+    video.width = video.videoWidth;
+    video.height = video.videoHeight;
     const center = this.fabricCanvas.getCenter();
     const object = new window.fabric.Image(video, {
       left: options.left ?? center.left - 200, top: options.top ?? center.top - 120,
