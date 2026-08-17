@@ -654,7 +654,7 @@ async function aiHomeSettings(body) {
         </div>
       </div>
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
-        <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">Voice</div>
+        <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">Personality</div>
         <div><label class="text-[12px] font-bold text-slate-500">Greeting</label><input id="ai-p-greeting" value="${esc(p.greeting || '')}" placeholder="Leave blank to auto-introduce, e.g. “Hi! I'm Ava with [dealership] — what are you looking for today?”" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"><p class="text-[11px] text-slate-400 mt-1">Blank = the assistant introduces itself by name like a sales rep.</p></div>
         <div><label class="text-[12px] font-bold text-slate-500">Tone</label><input id="ai-p-tone" value="${esc(p.tone || '')}" placeholder="warm, casual, natural — always books the appointment" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
         <button onclick="aiHomeSavePersonality(this)" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition">Save assistant</button>
