@@ -12,6 +12,14 @@
 </script>
 <script id="cookieyes" type="text/javascript" src="https://cdn-cookieyes.com/client_data/4313ff69152b93899edaa7a8/script.js"></script>
   <meta charset="UTF-8">
+  <!-- Tailwind here uses darkMode:'class' (below), which needs *something* to actually add
+       the .dark class — nothing did, so every dark: text/bg utility on this page silently
+       never applied and dark-mode devices fell back to their own forced-dark heuristics,
+       repainting the page inconsistently (dark background, unrepainted dark text). Set the
+       class from the OS preference as early as possible, before Tailwind's CDN script scans
+       the DOM, so first paint is correct and matches how assets/public-shell.js already
+       themes every public marketing page. -->
+  <script>(function(){var m=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)');function apply(){document.documentElement.classList.toggle('dark',!!(m&&m.matches));}apply();if(m){if(m.addEventListener)m.addEventListener('change',apply);else if(m.addListener)m.addListener(apply);}})();</script>
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">
   <title>Log In to MarketSync</title>
@@ -32,8 +40,8 @@
   <div class="bg-white dark:bg-[#1A1D24] p-8 rounded-2xl border border-[#D9DEE8] dark:border-[#2B303A] shadow-2xl w-full max-w-md">
     <div class="text-center mb-8">
       <a href="index.html" class="inline-flex items-center justify-center mb-3">
-        <img src="/Logo 2.0.png" alt="MarketSync DealerOS" class="h-10 w-auto dark:hidden">
-        <img src="/Logo 2.1.png" alt="MarketSync DealerOS" class="h-10 w-auto hidden dark:block">
+        <img src="/Logo 2.0.png" alt="MarketSync DealerOS" class="h-14 w-auto dark:hidden">
+        <img src="/Logo 2.1.png" alt="MarketSync DealerOS" class="h-14 w-auto hidden dark:block">
       </a>
       <h1 class="text-xl font-black text-[#17191F] dark:text-[#F7F8FA]">Log in to DealerOS</h1>
       <p class="text-xs font-semibold text-[#6B7280] dark:text-[#A5ACB8] mt-1">One dealership. One system.</p>
