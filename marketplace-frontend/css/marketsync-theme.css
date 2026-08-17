@@ -628,11 +628,13 @@ html.dark td {
    12. STAFF CHAT MESSENGER/HANGOUTS DOCK & POPUP WINDOWS
    ========================================================================== */
 .staff-chat-dock-bar {
-  /* Anchored left (not right) so it never stacks on top of the Intelligence
-     AI dock button (#ai-dock-btn, fixed bottom-5 right-5) in the same corner. */
+  /* Stacked above the Intelligence AI dock button (#ai-dock-btn, fixed bottom-5
+     right-5, ~44px tall) rather than exiled to the opposite corner — bottom-right
+     is the conventional spot for a chat widget, so both floating widgets live
+     there, just at different heights. */
   position: fixed;
-  bottom: 0;
-  left: 20px;
+  bottom: 80px;
+  right: 20px;
   z-index: 9999;
   display: flex;
   align-items: flex-end;
