@@ -107,6 +107,8 @@ class StudioFabricAdapter {
     this.currentScene = scene;
     const fabric = window.fabric;
 
+    this.fabricCanvas.setDimensions({ width: scene.width || 1080, height: scene.height || 1080 });
+
     this.fabricCanvas.clear();
     this.fabricCanvas.setBackgroundColor(scene.background?.color || '#0F172A', () => this.fabricCanvas.renderAll());
 
@@ -156,8 +158,13 @@ class StudioFabricAdapter {
           });
         }
         shapeObj.set({ angle: el.rotation || 0, opacity: el.opacity ?? 1 });
+        if (el.gradient?.colors?.length >= 2) {
+          shapeObj.set('fill', new fabric.Gradient({ type: 'linear', gradientUnits: 'pixels', coords: { x1: 0, y1: 0, x2: shapeObj.width || el.width || 300, y2: shapeObj.height || el.height || 200 }, colorStops: el.gradient.colors.map((color, index, all) => ({ offset: index / (all.length - 1), color })) }));
+        }
         shapeObj.msData = el;
         this.fabricCanvas.add(shapeObj);
+      } else if (el.type === 'video' && el.src) {
+        await this.addVideo(el.src, el.name || 'Video', { left: el.x, top: el.y, width: el.width, opacity: el.opacity, restoring: true }).catch(() => {});
       } else if ((el.type === 'vehicle-image' || el.type === 'image') && (el.src || this.currentVehicle?.primary_photo_url)) {
         const imgSrc = el.src || this.currentVehicle?.primary_photo_url;
         await new Promise((resolve) => {
@@ -205,7 +212,8 @@ class StudioFabricAdapter {
         opacity: obj.opacity ?? 1,
         text: obj.text || ms.text || '',
         src: typeof obj.getSrc === 'function' ? obj.getSrc() : (ms.src || undefined),
-        fill: obj.fill || ms.fill || '#FFFFFF',
+        fill: typeof obj.fill === 'string' ? obj.fill : (ms.fill || '#FFFFFF'),
+        gradient: ms.gradient || undefined,
         fontSize: obj.fontSize || ms.fontSize || 24,
         fontWeight: obj.fontWeight || ms.fontWeight || '700',
         stroke: obj.stroke || ms.stroke || null,
@@ -290,6 +298,33 @@ class StudioFabricAdapter {
     this.fabricCanvas.isDrawingMode = false;
     window.__studioDrawingTool = null;
     this.fabricCanvas.defaultCursor = 'default';
+  }
+
+  resizeCanvas(width, height) {
+    if (!this.fabricCanvas) return;
+    const oldWidth = this.fabricCanvas.width || width;
+    const oldHeight = this.fabricCanvas.height || height;
+    const scaleX = width / oldWidth;
+    const scaleY = height / oldHeight;
+    const uniform = Math.min(scaleX, scaleY);
+    this.fabricCanvas.getObjects().forEach(object => {
+      const centerX = ((object.left || 0) + object.getScaledWidth() / 2) / oldWidth;
+      const centerY = ((object.top || 0) + object.getScaledHeight() / 2) / oldHeight;
+      const isBackground = /background|panel/i.test(object.msData?.name || '') && (object.left || 0) < oldWidth * 0.08 && (object.top || 0) < oldHeight * 0.08;
+      if (isBackground) {
+        object.set({ left: 0, top: 0, scaleX: (object.scaleX || 1) * scaleX, scaleY: (object.scaleY || 1) * scaleY });
+      } else {
+        object.scaleX = (object.scaleX || 1) * uniform;
+        object.scaleY = (object.scaleY || 1) * uniform;
+        object.left = centerX * width - object.getScaledWidth() / 2;
+        object.top = centerY * height - object.getScaledHeight() / 2;
+      }
+      object.setCoords();
+    });
+    this.fabricCanvas.setDimensions({ width, height });
+    this.currentScene.width = width; this.currentScene.height = height;
+    this.fabricCanvas.requestRenderAll();
+    this.saveHistory();
   }
 
   toggleNodeEditing() {
@@ -409,6 +444,37 @@ class StudioFabricAdapter {
       this.fabricCanvas.renderAll();
       this.saveHistory();
     }, { crossOrigin: 'anonymous' });
+  }
+
+  async addVideo(url, name = 'Video', options = {}) {
+    if (!this.fabricCanvas || !url) return;
+    const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
+    video.muted = true; video.loop = true; video.playsInline = true; video.preload = 'metadata';
+    video.src = url;
+    await new Promise((resolve, reject) => {
+      video.addEventListener('loadeddata', resolve, { once: true });
+      video.addEventListener('error', () => reject(new Error('Video could not be loaded')), { once: true });
+      video.load();
+    });
+    const center = this.fabricCanvas.getCenter();
+    const object = new window.fabric.Image(video, {
+      left: options.left ?? center.left - 200, top: options.top ?? center.top - 120,
+      opacity: options.opacity ?? 1, objectCaching: false
+    });
+    if (options.width) object.scaleToWidth(options.width); else if (object.width > 480) object.scaleToWidth(480);
+    object.msData = { type: 'video', src: url, name };
+    this.fabricCanvas.add(object);
+    if (!options.restoring) this.fabricCanvas.setActiveObject(object);
+    const canvas = this.fabricCanvas;
+    const paint = () => {
+      if (!canvas || !canvas.getObjects().includes(object) || !document.getElementById('ms-studio-master-modal')) return;
+      canvas.requestRenderAll();
+      requestAnimationFrame(paint);
+    };
+    video.play().then(() => requestAnimationFrame(paint)).catch(() => {});
+    canvas.requestRenderAll();
+    if (!options.restoring) this.saveHistory();
   }
 
   deleteSelected() {
