@@ -995,8 +995,7 @@ function hqTrialRow(t) {
 }
 ENGINES['saas-command'] = {
   rootId: 'saas-command-root', title: 'Pulse', subtitle: 'What is happening across MarketSync and what needs attention',
-  icon: 'chart', accent: 'violet',
-  tabLabels: { overview: 'Overview', work: 'Sync Pipeline', insights: 'API & Webhook Health', automation: 'Error Logs', settings: 'Infrastructure' },
+  icon: 'chart', accent: 'indigo', hideRail: true, hideTabBar: true, tabOrder: ['overview'],
   fetch: () => apiGetJson('/saas/overview'),
   quickActions: [
     { label: 'Review customers', icon: 'chart', onclick: "switchPage('saas-customers')" },
@@ -1013,20 +1012,29 @@ ENGINES['saas-command'] = {
   tabs: {
     overview(body, d) {
       const activePct = d.total_accounts ? Math.round((d.active_customers || 0) / d.total_accounts * 100) : 0;
+      const trials = (d.trials || []).slice(0, 5);
+      const expiring = trials.filter(t => t.days_left != null && t.days_left <= 5);
+      const attention = [];
+      if (d.churn_risk) attention.push(`<button onclick="switchPage('saas-customers')" class="w-full flex items-center justify-between gap-3 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/20 px-4 py-3 text-left"><span><b class="block text-sm text-slate-900 dark:text-white">${d.churn_risk} customer${d.churn_risk === 1 ? '' : 's'} may leave</b><span class="text-xs text-slate-500 dark:text-slate-400">Review health and choose the next follow-up.</span></span><span class="text-rose-500">${svgIcon('chevronRight','w-4 h-4')}</span></button>`);
+      if (expiring.length) attention.push(`<button onclick="switchPage('owner-users')" class="w-full flex items-center justify-between gap-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/20 px-4 py-3 text-left"><span><b class="block text-sm text-slate-900 dark:text-white">${expiring.length} trial${expiring.length === 1 ? '' : 's'} end within five days</b><span class="text-xs text-slate-500 dark:text-slate-400">Contact these accounts before access ends.</span></span><span class="text-amber-500">${svgIcon('chevronRight','w-4 h-4')}</span></button>`);
+      const trialRows = trials.map(hqTrialRow).join('') || engEmpty('No active trials right now.');
+      const customerRows = (d.top_accounts || []).slice(0, 5).map(a => `<button onclick="switchPage('saas-customers')" class="w-full flex items-center justify-between gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0 text-left"><span class="font-semibold text-sm text-slate-700 dark:text-slate-200 truncate">${esc(a.name || 'Customer')}</span><span class="font-black text-sm text-slate-900 dark:text-white">${engMoney0(a.mrr)}/month</span></button>`).join('') || engEmpty('No paying customers yet.');
       body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
           ${engKpi('Monthly customer payments', engMoney0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
           ${engKpi('Customers', (d.customers ?? ((d.active_customers || 0) + (d.trial_accounts || 0))).toLocaleString(), 'text-indigo-600 dark:text-indigo-400')}
-          ${engKpi('Paying', (d.active_customers || 0).toLocaleString())}
           ${engKpi('Trials', (d.trial_accounts || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
-          ${engKpi('Churn Risk', (d.churn_risk || 0).toLocaleString(), d.churn_risk ? 'text-rose-600 dark:text-rose-400' : '')}
           ${engKpi('New This Month', (d.new_this_month || 0).toLocaleString())}
         </div>
-        <div class="text-[11px] text-slate-400 -mt-2">Monthly payments are calculated from active products across ${(d.total_accounts || 0).toLocaleString()} accounts.</div>
-        ${engCard('Account status', engBar([
-          { pct: activePct, cls: 'bg-emerald-500', label: `Active (${d.active_customers || 0})` },
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          ${engCard('Needs attention', attention.join('<div class="h-2"></div>') || '<div class="py-8 text-center"><div class="font-black text-emerald-600 dark:text-emerald-400">Everything looks good</div><div class="text-xs text-slate-500 mt-1">Nothing urgent needs your attention.</div></div>')}
+          ${engCard('Trials to contact', `<div class="space-y-1.5">${trialRows}</div><button onclick="switchPage('owner-users')" class="mt-3 w-full rounded-lg bg-blue-600 hover:bg-blue-500 px-3 py-2 text-sm font-black text-white">Review all trials</button>`)}
+          ${engCard('Top customers', `${customerRows}<button onclick="switchPage('saas-customers')" class="mt-3 w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-black text-slate-700 dark:text-slate-200">View all customers</button>`)}
+        </div>
+        ${engCard('Customer status', engBar([
+          { pct: activePct, cls: 'bg-emerald-500', label: `Paying (${d.active_customers || 0})` },
           { pct: d.total_accounts ? Math.round((d.trial_accounts || 0) / d.total_accounts * 100) : 0, cls: 'bg-blue-500', label: `Trial (${d.trial_accounts || 0})` },
-          { pct: d.total_accounts ? Math.round((d.churn_risk || 0) / d.total_accounts * 100) : 0, cls: 'bg-rose-500', label: `At risk (${d.churn_risk || 0})` },
+          { pct: d.total_accounts ? Math.round((d.churn_risk || 0) / d.total_accounts * 100) : 0, cls: 'bg-rose-500', label: `May leave (${d.churn_risk || 0})` },
         ]))}`;
     },
     work(body, d) {
