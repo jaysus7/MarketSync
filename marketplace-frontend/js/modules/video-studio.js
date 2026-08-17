@@ -43,6 +43,18 @@ window.__videoStudioState = {
 };
 
 const VIDEO_TEMPLATES = {
+  product_demo: {
+    title: 'MarketSync Product Demo',
+    text: `Hi {CUSTOMER_NAME}, {REP_NAME} from MarketSync here. I recorded this short walkthrough of {VEHICLE_LABEL} so you can see exactly how the workflow helps your team. Reply with the part you want to implement first and I will tailor your setup.`
+  },
+  onboarding: {
+    title: 'Customer Onboarding Check-In',
+    text: `Hi {CUSTOMER_NAME}, welcome to MarketSync. This video walks through your next setup milestone for {VEHICLE_LABEL}. I will stay with you through activation, and your account timeline will keep every decision and next step in one place.`
+  },
+  feature_update: {
+    title: 'New Feature Update',
+    text: `Hi {CUSTOMER_NAME}, here is a quick look at the latest MarketSync update for {VEHICLE_LABEL}. I will show what changed, how it saves time, and the exact next step for your team.`
+  },
   walkaround: {
     title: 'Personalized Vehicle Walkaround',
     text: `Hi {CUSTOMER_NAME}! This is {REP_NAME} from {STORE_NAME}. I wanted to personally record this walkaround video of the {VEHICLE_LABEL} for you. As you can see, the exterior paint and tires are in excellent condition, and inside we have the premium leather seating and panoramic sunroof you asked about. Let me know what time works best for your test drive today!`
@@ -124,11 +136,13 @@ function renderStudioHtml(contact, options) {
   const vehLabel = contact.vehicle_summary || contact.trade_vehicle || contact.vehicle || '2024 Ford F-150';
 
   const activeDept = window.__videoStudioState.activeDepartment || 'Sales';
+  const isSaas = activeDept === 'MarketSync' || (typeof marketsyncOwnerMode === 'function' && marketsyncOwnerMode());
   const activeKey = window.__videoStudioState.activeScriptKey || (activeDept === 'Service' ? 'service' : 'walkaround');
   const isService = activeDept === 'Service';
   const isViewingSent = !!options.isViewingSent || !!options.sentVideo || !!options.videoId;
 
-  const scriptOptions = Object.keys(VIDEO_TEMPLATES).map(key => `
+  const allowedScripts = isSaas ? ['product_demo', 'onboarding', 'feature_update', 'thankyou'] : Object.keys(VIDEO_TEMPLATES);
+  const scriptOptions = allowedScripts.map(key => `
     <button onclick="vidSelectScript('${key}')" id="vid-script-btn-${key}"
       class="px-3 py-1.5 rounded-lg text-xs font-bold transition ${key === activeKey ? (isService ? 'bg-emerald-600 text-white shadow-sm' : 'bg-indigo-600 text-white shadow-sm') : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">
       ${escV(VIDEO_TEMPLATES[key].title)}
@@ -163,7 +177,7 @@ function renderStudioHtml(contact, options) {
         <div class="flex items-center justify-between z-10 mb-2 sm:mb-3">
           <div class="flex items-center gap-2">
             <span class="w-3 h-3 rounded-full bg-rose-500 animate-ping hidden" id="vid-rec-indicator"></span>
-            <span class="text-xs font-black uppercase tracking-wider text-slate-300">${isService ? 'Service DVI Studio' : 'Sales Video Studio'}</span>
+            <span class="text-xs font-black uppercase tracking-wider text-slate-300">${isSaas ? 'MarketSync Product Video Studio' : isService ? 'Service DVI Studio' : 'Sales Video Studio'}</span>
             <span id="vid-timer-display" class="px-2 py-0.5 rounded-full text-xs font-mono font-extrabold bg-slate-800 text-sky-400 border border-slate-700">00:00 / 03:00</span>
           </div>
           <div class="flex items-center gap-2">
@@ -1129,8 +1143,9 @@ async function loadVideoStudioPage() {
   root.innerHTML = renderVideoStudioWorkspace(videos);
 }
 
-function renderVideoStudioWorkspace(videos) {
+function renderVideoStudioWorkspace(videos, isSaas = false) {
   const filtered = videos.filter(v => {
+    if (isSaas && String(v.department || '').toLowerCase() === 'service') return false;
     if (__videoLibraryFilterStatus !== 'all' && v.status !== __videoLibraryFilterStatus) return false;
     if (__videoLibraryFilterDept !== 'all' && v.department.toLowerCase() !== __videoLibraryFilterDept.toLowerCase()) return false;
     if (__videoLibrarySearch) {
@@ -1153,13 +1168,13 @@ function renderVideoStudioWorkspace(videos) {
             <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
           </div>
           <div>
-            <h1 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">MarketSync Video</h1>
-            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Canonical Customer Video Messaging & Sent Videos Library</p>
+            <h1 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">${isSaas ? 'Product Video Studio' : 'MarketSync Video'}</h1>
+            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">${isSaas ? 'Customer demos, onboarding videos, product updates, and watch-time evidence' : 'Canonical Customer Video Messaging & Sent Videos Library'}</p>
           </div>
         </div>
 
         <div class="flex items-center gap-2">
-          <button onclick="openCustomerVideoStudio('demo-customer')" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition flex items-center gap-2 shadow-sm cursor-pointer">
+          <button onclick="openCustomerVideoStudio('demo-customer', ${isSaas ? "{department:'MarketSync',scriptKey:'product_demo'}" : '{}'} )" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition flex items-center gap-2 shadow-sm cursor-pointer">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
             Record Video
           </button>
@@ -1176,23 +1191,23 @@ function renderVideoStudioWorkspace(videos) {
             `).join('')}
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="${isSaas ? 'hidden' : 'flex'} items-center gap-2">
             <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Dept:</span>
-            ${['all', 'sales', 'service'].map(dp => `
+            ${(isSaas ? ['all'] : ['all', 'sales', 'service']).map(dp => `
               <button onclick="msFilterVideoDept('${dp}')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition capitalize ${__videoLibraryFilterDept === dp ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}">${dp}</button>
             `).join('')}
           </div>
         </div>
 
         <div class="relative">
-          <input type="text" oninput="msSearchVideos(this.value)" value="${escV(__videoLibrarySearch)}" placeholder="Search by customer name, title, vehicle, or salesperson..." class="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-violet-500">
+          <input type="text" oninput="msSearchVideos(this.value)" value="${escV(__videoLibrarySearch)}" placeholder="${isSaas ? 'Search by customer, product, title, or employee…' : 'Search by customer name, title, vehicle, or salesperson...'}" class="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-violet-500">
           <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         </div>
       </div>
 
       <!-- Sent Videos Grid -->
       <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        ${filtered.length > 0 ? filtered.map(v => renderVideoCardHtml(v)).join('') : `
+        ${filtered.length > 0 ? filtered.map(v => renderVideoCardHtml(v, isSaas)).join('') : `
           <div class="col-span-full py-16 text-center text-slate-400 text-sm font-medium">
             No customer videos match your filters.
           </div>
@@ -1202,7 +1217,18 @@ function renderVideoStudioWorkspace(videos) {
   `;
 }
 
-function renderVideoCardHtml(v) {
+async function loadSaasVideoStudio() {
+  const host = document.getElementById('saas-video-studio-host'); if (!host) return;
+  host.innerHTML = '<div class="text-sm text-slate-400 py-6 text-center">Loading product videos…</div>';
+  let videos = [];
+  try {
+    const res = await apiGetJson('/sales-videos').catch(() => null);
+    videos = (res?.videos || []).map(v => ({ id:v.id, title:v.title || 'MarketSync Product Video', contact_name:v.contact_name || 'Customer', contact_id:v.contact_id, vehicle:v.vehicle || v.product || 'MarketSync', sender:v.sender_name || 'MarketSync Team', department:v.department || 'MarketSync', channel:v.channel || 'link', status:v.first_played_at ? 'viewed' : (v.sent_at ? 'sent' : 'draft'), duration_seconds:v.duration_seconds || 0, sent_at:v.sent_at, first_opened_at:v.first_opened_at, first_played_at:v.first_played_at, total_views:v.play_count || 0, watch_percent:v.watch_percent || 0, share_token:v.share_token, public_url:v.public_url || '' }));
+  } catch {}
+  host.innerHTML = renderVideoStudioWorkspace(videos, true);
+}
+
+function renderVideoCardHtml(v, isSaas = false) {
   const isPlayed = !!v.first_played_at;
   const statusColor = isPlayed ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : (v.status === 'sent' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-slate-500/10 text-slate-400 border-slate-500/20');
   const statusLabel = isPlayed ? `Watched (${v.watch_percent}%)` : (v.status === 'sent' ? 'Sent' : 'Draft');
@@ -1224,7 +1250,7 @@ function renderVideoCardHtml(v) {
         </div>
 
         <div class="text-[11px] text-slate-500 dark:text-slate-400 space-y-1 bg-slate-50 dark:bg-slate-950/60 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800/80">
-          <div class="flex justify-between"><span>Sender:</span><span class="font-bold text-slate-700 dark:text-slate-300">${escV(v.sender)} (${v.department})</span></div>
+          <div class="flex justify-between"><span>Sender:</span><span class="font-bold text-slate-700 dark:text-slate-300">${escV(v.sender)}${isSaas ? '' : ` (${v.department})`}</span></div>
           <div class="flex justify-between"><span>Channel:</span><span class="font-bold uppercase text-slate-700 dark:text-slate-300">${escV(v.channel)}</span></div>
           <div class="flex justify-between"><span>Views:</span><span class="font-black text-emerald-500">${v.total_views} view(s)</span></div>
         </div>
@@ -1240,7 +1266,7 @@ function renderVideoCardHtml(v) {
 
 function msFilterVideoStatus(status) {
   __videoLibraryFilterStatus = status;
-  loadVideoStudioPage();
+  document.getElementById('saas-video-studio-host') ? loadSaasVideoStudio() : loadVideoStudioPage();
 }
 function msFilterVideoDept(dept) {
   __videoLibraryFilterDept = dept;
@@ -1248,11 +1274,11 @@ function msFilterVideoDept(dept) {
 }
 function msSearchVideos(val) {
   __videoLibrarySearch = val;
-  loadVideoStudioPage();
+  document.getElementById('saas-video-studio-host') ? loadSaasVideoStudio() : loadVideoStudioPage();
 }
 
 window.loadVideoStudioPage = loadVideoStudioPage;
+window.loadSaasVideoStudio = loadSaasVideoStudio;
 window.msFilterVideoStatus = msFilterVideoStatus;
 window.msFilterVideoDept = msFilterVideoDept;
 window.msSearchVideos = msSearchVideos;
-

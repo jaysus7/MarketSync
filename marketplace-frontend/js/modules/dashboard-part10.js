@@ -1233,6 +1233,11 @@ async function renderSaasCustomer(id) {
       <button onclick="saasCustCompleteFollowup('${id}','${f.id}')" title="Complete" class="mt-0.5 w-4 h-4 rounded border-2 border-slate-300 dark:border-slate-600 hover:border-emerald-500 flex-shrink-0"></button>
       <div class="min-w-0 flex-1"><div class="text-[13px] font-bold text-slate-800 dark:text-slate-100">${esc(f.title)}</div>${f.note ? `<div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(f.note)}</div>` : ''}<div class="text-[11px] text-slate-400">${f.due_at ? 'Due ' + new Date(f.due_at).toLocaleDateString() : 'No due date'} · <span class="uppercase font-bold">${esc(f.priority || 'normal')}</span></div></div></div>`;
   const tl = (d.timeline || []).slice(0, 18).map(e => `<div class="flex justify-between gap-3 py-1.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="text-[12px] text-slate-700 dark:text-slate-200 truncate">${esc(e.name)}</span><span class="text-[11px] text-slate-400 flex-shrink-0">${saasRel(e.at)}</span></div>`).join('') || '<div class="text-xs text-slate-400 italic py-2">No recent activity.</div>';
+  const productUsage = (() => {
+    const events = d.timeline || [], byEngine = {};
+    for (const e of events) { const key = String(e.name || '').split('.')[0] || 'platform'; const x = byEngine[key] || (byEngine[key] = { count: 0, at: null }); x.count++; if (!x.at || new Date(e.at) > new Date(x.at)) x.at = e.at; }
+    return Object.entries(byEngine).sort((a,b) => b[1].count - a[1].count).map(([name, x]) => `<div class="flex items-center justify-between gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><div><div class="text-[13px] font-bold capitalize">${esc(name.replaceAll('_',' '))}</div><div class="text-[11px] text-slate-400">Last used ${saasRel(x.at)}</div></div><span class="text-xs font-black text-blue-500">${x.count} event${x.count === 1 ? '' : 's'}</span></div>`).join('') || '<div class="text-xs text-slate-400 italic">No product activity captured yet.</div>';
+  })();
   const bill = (d.billing_history || []).map(b => `<div class="flex justify-between gap-3 py-1.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="text-[12px] text-slate-600 dark:text-slate-300">${new Date(b.date).toLocaleDateString()} ${b.number ? '· ' + esc(b.number) : ''}</span><span class="text-[12px] font-bold ${b.status === 'paid' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">${money(b.amount)} ${esc(b.currency || '')}</span></div>`).join('');
   const team = (d.team || []).map(t => `<div class="flex justify-between gap-2 py-1 text-[12px]"><span class="text-slate-700 dark:text-slate-200 truncate">${esc(t.name || '—')}</span><span class="text-slate-400">${esc(t.role || '')}</span></div>`).join('') || '<div class="text-xs text-slate-400 italic">No team members.</div>';
   const liveSeqs = (d.sequences || []).filter(s => s.status === 'active' || s.status === 'paused');
@@ -1256,11 +1261,13 @@ async function renderSaasCustomer(id) {
         <div class="flex items-center gap-2 mt-1">${d.status ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${statusTone}">${esc(d.status)}</span>` : ''}<span class="text-[12px] text-slate-400">${d.tenure_months != null ? d.tenure_months + ' mo customer' : ''}</span></div></div>
       <button data-x class="text-2xl leading-none text-slate-400 hover:text-slate-600">×</button>
     </div>
-    <div class="grid grid-cols-2 gap-2 mb-4">
+    <div class="grid grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
       ${kpi('MRR', money(d.mrr), 'text-violet-600 dark:text-violet-400')}
       ${kpi('ARR', money(d.arr))}
-      ${kpi('LTV' + (d.ltv_source === 'stripe' ? '' : ' (est.)'), money(d.ltv), 'text-emerald-600 dark:text-emerald-400')}
-      ${kpi('Engines used', (d.engines_used || []).length + ' · ' + (d.last_activity_days == null ? 'idle' : d.last_activity_days + 'd ago'))}
+      ${kpi('Customer spend' + (d.ltv_source === 'stripe' ? '' : ' (est.)'), money(d.ltv), 'text-emerald-600 dark:text-emerald-400')}
+      ${kpi('Account age', d.tenure_months == null ? 'Unknown' : d.tenure_months + ' months')}
+      ${kpi('Activity · 90 days', (d.activity_90d ?? 0).toLocaleString() + ' events')}
+      ${kpi('Last active', d.last_activity_days == null ? 'No activity' : d.last_activity_days === 0 ? 'Today' : d.last_activity_days + 'd ago')}
     </div>
     <div class="mb-4"><div class="text-[11px] uppercase font-bold tracking-wide text-slate-400 mb-1.5">Products</div><div class="flex flex-wrap gap-1.5">${chips}</div></div>
     <div class="flex items-center gap-2 mb-4"><span class="text-[11px] uppercase font-bold tracking-wide text-slate-400">Owner</span>
@@ -1276,6 +1283,7 @@ async function renderSaasCustomer(id) {
     </div>
     ${seqCard}
     ${bill ? `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100 mb-1">Billing history</div>${bill}</div>` : ''}
+    <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4"><div class="flex items-center justify-between mb-1"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100">Product usage timeline</div><span class="text-[11px] text-slate-400">90-day activity</span></div>${productUsage}</div>
     <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100 mb-1">Team</div>${team}</div>
     <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100 mb-1">Recent activity</div>${tl}</div>`;
   body.querySelector('[data-x]').onclick = () => document.getElementById('saas-cust-drawer')?.remove();
@@ -1352,6 +1360,10 @@ function funnelRow(c) {
     <button onclick="saasRecoverCart('${c.id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex-shrink-0">Recover</button>
   </div>`;
 }
+function saasLeadTable(d) {
+  const rows = d.abandoned_list || [];
+  return `<div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"><table class="w-full min-w-[720px] text-sm"><thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800"><th class="px-3 py-2">Account</th><th class="px-3 py-2">Product interest</th><th class="px-3 py-2">Currency</th><th class="px-3 py-2">Time waiting</th><th class="px-3 py-2">Next action</th></tr></thead><tbody>${rows.map(c => `<tr class="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40"><td class="px-3 py-3 font-bold"><button onclick="openSaasCustomer('${c.dealership_id}')">${esc(c.account)}</button></td><td class="px-3 py-3">${esc(c.plan || c.kind || 'Plan')}</td><td class="px-3 py-3 uppercase">${esc(c.currency || '—')}</td><td class="px-3 py-3">${c.age_hours}h</td><td class="px-3 py-3"><button onclick="saasRecoverCart('${c.id}')" class="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold">Create recovery follow-up</button></td></tr>`).join('') || '<tr><td colspan="5" class="px-3 py-8 text-center text-slate-400">No actionable SaaS leads.</td></tr>'}</tbody></table></div>`;
+}
 ENGINES['saas-funnel'] = {
   rootId: 'saas-funnel-root', title: 'Leads', subtitle: 'New interest, checkout intent, and the next follow-up needed to convert it',
   icon: 'chart', accent: 'violet',
@@ -1367,7 +1379,7 @@ ENGINES['saas-funnel'] = {
           ${engKpi('Completed', (d.completed || 0).toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
           ${engKpi('Conversion', (d.conversion || 0) + '%', 'text-violet-600 dark:text-violet-400')}
           ${engKpi('Abandoned', (d.abandoned || 0).toLocaleString(), d.abandoned ? 'text-rose-600 dark:text-rose-400' : '')}
-        </div>${engCard('Abandoned carts', (d.abandoned_list || []).length ? (d.abandoned_list || []).map(funnelRow).join('') : engEmpty('No abandoned carts — nice.'))}`;
+        </div>${engCard('SaaS lead priorities', '<p class="text-sm text-slate-600 dark:text-slate-300">Work product interest like DealerOS works vehicle interest: one account, one owner, one next action, and a complete account timeline.</p>')}${saasLeadTable(d)}`;
     },
     work(body, d) {
       body.innerHTML = engCard('Abandoned carts — recover', (d.abandoned_list || []).length ? (d.abandoned_list || []).map(funnelRow).join('') : engEmpty('Nothing to recover right now.'));
@@ -1431,11 +1443,12 @@ window.openSaasAutomationView = (view) => { __automation.view = view; switchPage
 
 async function loadSaasStudio() {
   const root = document.getElementById('saas-studio-root'); if (!root) return;
-  root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Studio', subtitle: 'Vehicle photo processing, watermark overlays, background removal, and AI enhancement rules.', tabs: [{label:'Batch Queue',onclick:'openMarketSyncStudio()'},{label:'Watermark & Branding',onclick:'openMarketSyncStudio()'},{label:'AI Enhancement Rules',onclick:'openMarketSyncStudio()'},{label:'Media CDN Storage'},{label:'Templates',onclick:'openMarketSyncStudio()'}], action: '<button onclick="openMarketSyncStudio()" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-black">Create design</button>' });
+  root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Studio', subtitle: 'Create product videos and MarketSync brand assets with reusable templates and engagement tracking.', tabs: [{label:'Video Studio',onclick:"openCustomerVideoStudio('demo-customer',{department:'MarketSync',scriptKey:'product_demo'})"},{label:'Creative Library',onclick:'openMarketSyncStudio()'},{label:'Watermark & Branding',onclick:'openMarketSyncStudio()'},{label:'AI Enhancement Rules',onclick:'openMarketSyncStudio()'},{label:'Templates',onclick:'openMarketSyncStudio()'}], action: '<button onclick="openCustomerVideoStudio(\'demo-customer\',{department:\'MarketSync\',scriptKey:\'product_demo\'})" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-black">Record product video</button>' });
   try {
     const data = await apiGetJson('/marketing/studio/designs');
     const designs = data.designs || data || [];
-    root.innerHTML += `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3">${engKpi('Saved designs', Array.isArray(designs) ? designs.length : 0)}${engKpi('Brand', 'MarketSync')}${engKpi('Publishing', 'Approval required')}</div>${engCard('Brand Studio', '<p class="text-sm text-slate-600 dark:text-slate-300">Use the existing Studio engine to create assets. Publishing still goes through the canonical approval and provider-evidence flow.</p><button onclick="openMarketSyncStudio()" class="mt-3 px-4 py-2 rounded-xl border border-violet-300 dark:border-violet-800 text-violet-700 dark:text-violet-300 text-sm font-black">Open Studio</button>')}`;
+    root.innerHTML += `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3">${engKpi('Saved designs', Array.isArray(designs) ? designs.length : 0)}${engKpi('Brand', 'MarketSync')}${engKpi('Publishing', 'Approval required')}</div><div id="saas-video-studio-host"></div>${engCard('Brand Studio', '<p class="text-sm text-slate-600 dark:text-slate-300">Create static campaign assets in the existing Studio engine. Video engagement stays connected to the customer and product timeline above.</p><button onclick="openMarketSyncStudio()" class="mt-3 px-4 py-2 rounded-xl border border-violet-300 dark:border-violet-800 text-violet-700 dark:text-violet-300 text-sm font-black">Open Creative Studio</button>')}`;
+    if (typeof loadSaasVideoStudio === 'function') loadSaasVideoStudio();
   } catch (e) { root.innerHTML += engCard('Creative library unavailable', `<p class="text-sm text-rose-500">${esc(e.message || 'Studio could not be loaded.')}</p>`); }
 }
 window.loadSaasStudio = loadSaasStudio;
