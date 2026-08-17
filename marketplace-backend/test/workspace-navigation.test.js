@@ -60,6 +60,8 @@ test('MarketSync Internal OS uses the approved company navigation in order', () 
     assert.match(part2, new RegExp(`pageId === '${page}'\\) load${loader}\\(\\)`))
     assert.match(part10, new RegExp(`function load${loader}\\(`))
   }
+  assert.match(html, /data-dash-mode="marketsync"[^}]*img\[alt="MarketSync DealerOS"\][^}]*height:4\.25rem/)
+  assert.match(html, /data-dash-mode="marketsync"[^}]*\.bg-violet-600\)[^}]*#2563eb/)
 })
 
 // Every page the PREVIOUS DEPARTMENTS registry could reach. Phase 1 is a
