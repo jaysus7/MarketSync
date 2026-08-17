@@ -143,7 +143,10 @@ test('forceCompactSettingsGrid merges Language into #profile-panel and forces th
   assert.ok(fn, 'forceCompactSettingsGrid must exist')
   assert.match(fn, /getElementById\('profile-panel'\)/)
   assert.match(fn, /getElementById\('settings-language-card'\)/)
-  assert.match(fn, /profilePanel\.appendChild\(languageCard\)/)
+  // Prepended (insertBefore firstChild), not appended — Language sits full-width
+  // right under the page description, above Profile/Billing/Security, not below.
+  assert.match(fn, /profilePanel\.insertBefore\(languageCard, profilePanel\.firstChild\)/)
+  assert.doesNotMatch(fn, /profilePanel\.appendChild\(languageCard\)/)
   assert.match(fn, /profilePanel\?\.classList\.add\('is-multi'\)/)
   // The single-product block must call it, after its settingsTab('account') call.
   const block = part2.match(/if \(typeof isSingleProductWorkspace === 'function'[\s\S]*?\n {4}\}/)?.[0] || ''

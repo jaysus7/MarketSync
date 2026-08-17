@@ -451,8 +451,10 @@ document.addEventListener('DOMContentLoaded', () => {
 function forceCompactSettingsGrid() {
   const profilePanel = document.getElementById('profile-panel');
   const languageCard = document.getElementById('settings-language-card');
+  // Prepend, not append: Language sits full-width right under the page's
+  // description text, above the Profile/Billing/Security row — not buried below it.
   if (profilePanel && languageCard && languageCard.parentElement !== profilePanel) {
-    profilePanel.appendChild(languageCard);
+    profilePanel.insertBefore(languageCard, profilePanel.firstChild);
   }
   profilePanel?.classList.add('is-multi');
 }
@@ -660,8 +662,12 @@ async function initializeDashboardEcosystem() {
     const isDealerRep = role === 'SALES_REP' && inDealership && !isPersonal;
     const canManageFeeds = isAdmin || isSolo;
 
-    // Feeds + Catalog visible to anyone with a dealership (team or personal)
-    if (inDealership) {
+    // Feeds + Catalog visible to anyone with a dealership (team or personal) OR a
+    // solo Facebook rep — canManageFeeds already grants isSolo full feed-management
+    // rights (Add Feed, Sync Now), but this panel-visibility gate had never been
+    // updated to match, so a solo account's Inventory page was just empty: no
+    // feeds panel, no catalog, no sync button, nothing to manage or view.
+    if (inDealership || isSolo) {
       document.getElementById('feeds-panel')?.classList.remove('hidden');
       document.getElementById('catalog-panel')?.classList.remove('hidden');
       // Defer the actual data loads until the Inventory page is first opened.
