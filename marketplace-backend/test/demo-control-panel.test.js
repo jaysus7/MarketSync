@@ -45,7 +45,9 @@ test('the panel actually hides when closed — an ID selector setting display ca
   const panelBlockMatch = css.match(/#demo-control-panel\s*\{[^}]*\}/)
   assert.ok(panelBlockMatch, '#demo-control-panel rule must exist')
   assert.match(panelBlockMatch[0], /display:\s*flex/, 'sanity check: the panel sets its own display')
-  assert.match(css, /#demo-control-panel\[hidden\]\s*\{\s*display:\s*none;?\s*\}/,
+  // !important (added by "Make Demo Control Center close state authoritative") keeps
+  // this rule winning even if a future author rule targets #demo-control-panel again.
+  assert.match(css, /#demo-control-panel\[hidden\]\s*\{\s*display:\s*none(\s*!important)?;?\s*\}/,
     'a #demo-control-panel[hidden] rule must force display:none, or closing the panel silently does nothing')
 })
 
