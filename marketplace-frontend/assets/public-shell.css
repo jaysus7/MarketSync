@@ -8,7 +8,7 @@
  *
  * Active-page item highlighting adds .ms-active.
  */
-:root{--ms-accent:#6366F1;
+:root{--ms-accent:#2563eb;
 --ms-ink:#0b1220;
 --ms-fg:#e5e7eb;
 }
@@ -106,7 +106,7 @@ transition:color .2s,background .2s;
 }
 }
 .ms-nav-link:hover,.ms-nav-btn:hover{color:var(--ms-accent);
-background:rgba(99,102,241,.08);
+background:rgba(37,99,235,.08);
 }
 .ms-caret{width:15px;
 height:15px;
@@ -147,7 +147,7 @@ border-radius:11px;
 text-decoration:none;
 transition:background .15s;
 }
-.ms-dd-item:hover{background:rgba(99,102,241,.08);
+.ms-dd-item:hover{background:rgba(37,99,235,.08);
 }
 .ms-dd-t{display:block;
 font-size:14px;
@@ -198,15 +198,15 @@ white-space:nowrap;
 }
 .ms-btn-primary{background:var(--ms-accent);
 color:#fff;
-box-shadow:0 6px 20px rgba(99,102,241,.35);
+box-shadow:0 6px 20px rgba(37,99,235,.35);
 }
-.ms-btn-primary:hover{background:#4f46e5;
-box-shadow:0 8px 26px rgba(99,102,241,.5);
+.ms-btn-primary:hover{background:#1d4ed8;
+box-shadow:0 8px 26px rgba(37,99,235,.5);
 }
-.ms-btn-ghost{background:rgba(99,102,241,.08);
+.ms-btn-ghost{background:rgba(37,99,235,.08);
 color:var(--ms-accent);
 }
-.ms-btn-ghost:hover{background:rgba(99,102,241,.16);
+.ms-btn-ghost:hover{background:rgba(37,99,235,.16);
 }
 .ms-btn-lg{padding:14px 28px;
 font-size:16px;
@@ -384,4 +384,4 @@ transition:none;
 
 /* Active-page highlighting */
 .ms-nav-link.ms-active,.ms-dd-item.ms-active .ms-dd-t,.ms-m-link.ms-active{color:var(--ms-accent);}
-.ms-dd-item.ms-active{background:rgba(99,102,241,.08);}
+.ms-dd-item.ms-active{background:rgba(37,99,235,.08);}
