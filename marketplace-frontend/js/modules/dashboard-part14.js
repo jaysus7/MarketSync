@@ -456,15 +456,16 @@ async function loadDealerManagementMatrix() {
   }).join('');
 
   __dealerTeam = team;   // cache for the edit modal
+  // Always openRepEdit — these rows come from /dealership/team (profile records), not
+  // the People module's employee roster openEditEmployeeModal expects. That function
+  // exists globally but its data source (getPeopleComplianceData) is permanently
+  // stubbed to return [] ("legacy callers receive no invented roster"), so calling it
+  // here silently no-ops: Edit looked wired but did nothing when clicked.
   document.querySelectorAll('.rep-detail-btn, .rep-edit-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       const repId = btn.dataset.repId;
-      if (typeof openEditEmployeeModal === 'function') {
-        openEditEmployeeModal(repId);
-      } else if (typeof openRepEdit === 'function') {
-        openRepEdit(repId);
-      }
+      if (typeof openRepEdit === 'function') openRepEdit(repId);
     });
   });
   if (typeof loadLeadRoutingCard === 'function') loadLeadRoutingCard();
@@ -486,11 +487,14 @@ function openRepEdit(id) {
   const routingRow = (m.role === 'SALES_REP')
     ? `<div>${lbl('Sales lot (for auto-assigned leads)')}<select id="re-team" class="${ic}">${[['', '—'], ['new', 'New'], ['used', 'Used'], ['both', 'Both']].map(o => `<option value="${o[0]}" ${(m.sales_team || '') === o[0] ? 'selected' : ''}>${o[1] === '—' ? 'Not set' : o[1]}</option>`).join('')}</select></div>`
     : `<div>${lbl('Manager scope (lead notifications)')}<select id="re-mgr" class="${ic}">${[['', '—'], ['gm', 'General manager'], ['gsm', 'GSM'], ['new_mgr', 'New-car manager'], ['used_mgr', 'Used-car manager'], ['fni', 'F&I manager']].map(o => `<option value="${o[0]}" ${(m.mgr_role || '') === o[0] ? 'selected' : ''}>${o[1] === '—' ? 'Not set' : o[1]}</option>`).join('')}</select></div>`;
-  crmOverlay(`<div class="p-5 space-y-3">
+  const ov = crmOverlay(`<div class="p-5 space-y-3">
     <div class="flex items-center justify-between"><div class="text-lg font-black text-slate-900 dark:text-white">Edit ${esc(m.full_name || 'team member')}</div><button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="flex items-center gap-3">
       <div id="re-avatar-wrap" class="w-16 h-16 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-lg font-black text-slate-500 shrink-0">${m.avatar_url ? `<img src="${esc(m.avatar_url)}" class="w-full h-full object-cover">` : esc((m.full_name || '?')[0] || '?')}</div>
       <div><input type="file" accept="image/*" id="re-photo-file" class="hidden" onchange="repEditUploadPhoto(this.files[0])"><button type="button" onclick="document.getElementById('re-photo-file').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 px-3 py-1.5 rounded-lg">Upload photo</button><p class="text-[11px] text-slate-400 mt-1">Shows on your website team page.</p></div>
+    </div>
+    <div id="re-insights" class="grid grid-cols-3 gap-2 text-center bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5">
+      <div class="text-xs text-slate-400 italic col-span-3 py-1">Loading insights…</div>
     </div>
     <div class="grid grid-cols-2 gap-2">
       <div>${lbl('Full name')}<input id="re-name" value="${esc(m.full_name || '')}" class="${ic}"></div>
@@ -513,7 +517,35 @@ function openRepEdit(id) {
     </div>
     <p id="re-msg" class="hidden text-xs"></p>
   </div>`, 'max-w-lg');
+  if (ov && typeof loadRepEditInsights === 'function') loadRepEditInsights(m.id);
 }
+// Posts / leads / conversion for this rep, sourced from the same /gamification
+// leaderboard data the Sales Leaderboard page uses — this is the "Insights" the
+// Edit modal now folds in, instead of being a separate popup.
+async function loadRepEditInsights(repId) {
+  const host = document.getElementById('re-insights');
+  if (!host) return;
+  try {
+    const res = await fetch(`${API}/gamification`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) throw new Error('failed');
+    const data = await res.json();
+    const dept = data.departments?.facebook;
+    const row = (dept?.leaderboard || []).find(r => r.rep_id === repId);
+    const metrics = row?.metrics || {};
+    const posted = metrics.posted ?? 0;
+    const sold = metrics.sold_30d ?? metrics.sold ?? 0;
+    const conv = posted > 0 ? Math.round((sold / posted) * 100) : 0;
+    if (!document.getElementById('re-insights')) return;   // modal closed while loading
+    host.innerHTML = `
+      <div><div class="text-lg font-black text-slate-900 dark:text-white">${posted}</div><div class="text-[10px] uppercase tracking-wider text-slate-400">Posts</div></div>
+      <div><div class="text-lg font-black text-slate-900 dark:text-white">${sold}</div><div class="text-[10px] uppercase tracking-wider text-slate-400">Sold</div></div>
+      <div><div class="text-lg font-black text-slate-900 dark:text-white">${conv}%</div><div class="text-[10px] uppercase tracking-wider text-slate-400">Conversion</div></div>
+    `;
+  } catch (e) {
+    if (document.getElementById('re-insights')) host.innerHTML = `<div class="text-xs text-slate-400 italic col-span-3 py-1">Insights unavailable</div>`;
+  }
+}
+window.loadRepEditInsights = loadRepEditInsights;
 async function repEditUploadPhoto(file) {
   if (!file) return; showToast('Uploading…', 'info');
   try {
