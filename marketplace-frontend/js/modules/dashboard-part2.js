@@ -851,14 +851,19 @@ async function initializeDashboardEcosystem() {
       }
       forceCompactSettingsGrid();
       // Every single-product dashboard is one tool, not a department suite — the
-      // floating "Intelligence" AI dock and Team Chat exist to coordinate work
-      // across a dealership's staff/departments, which a single-tool subscriber
-      // doesn't have. Setup Wizard nudges are for configuring DealerOS
-      // departments the account never bought.
+      // floating "Intelligence" AI dock exists to coordinate work across a
+      // dealership's staff/departments, which a single-tool subscriber doesn't
+      // have. Setup Wizard nudges are for configuring DealerOS departments the
+      // account never bought.
       document.getElementById('ai-dock-btn')?.classList.add('hidden');
       document.getElementById('ai-dock-panel')?.classList.add('hidden');
-      document.getElementById('team-chat-dock-panel')?.classList.add('hidden');
       document.getElementById('setup-status-banner')?.classList.add('hidden');
+      // Facebook Dealer is the one single-product tier that's a real dealership
+      // team, not a single-user tool subscriber — its reps still need Team Chat to
+      // coordinate with each other. Every other tier (including Facebook Solo,
+      // a lone independent rep) gets it hidden like the rest.
+      const isFbDealer = /(?:^|\s)facebook_dealer(?:\s|$)/.test(document.documentElement.getAttribute('data-product') || '');
+      document.getElementById('team-chat-dock-panel')?.classList.toggle('hidden', !isFbDealer);
     }
 
     // DealerOS: managers/admins land on the Command Center (today's operations +
