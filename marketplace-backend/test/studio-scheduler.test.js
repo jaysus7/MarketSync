@@ -7,6 +7,7 @@ const scheduler = readFileSync(new URL('../../marketplace-frontend/js/modules/st
 // code itself must avoid) before asserting on actual code content below.
 const schedulerCode = scheduler.replace(/^\/\*\*[\s\S]*?\*\/\n*/, '')
 const dashboardHtml = readFileSync(new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8')
+const studioShell = readFileSync(new URL('../../marketplace-frontend/js/modules/studio/studio-shell.js', import.meta.url), 'utf8')
 
 test('studio-scheduler.js is registered as a script in dashboard.html, after fabric-adapter.js', () => {
   const fabricIdx = dashboardHtml.indexOf('js/modules/studio/fabric-adapter.js')
@@ -44,4 +45,10 @@ test('publish/reschedule/cancel actions hit the same /social/posts endpoints as 
   assert.match(scheduler, /apiSendJson\(`\/social\/posts\/\$\{postId\}\/publish`, 'POST', \{\}\)/)
   assert.match(scheduler, /apiSendJson\(`\/social\/posts\/\$\{postId\}`, 'PUT', \{ scheduled_local: next \}\)/)
   assert.match(scheduler, /apiSendJson\(`\/social\/posts\/\$\{postId\}\/cancel`, 'POST', \{\}\)/)
+})
+
+test('the Studio header has a Schedule button wired to openStudioScheduler', () => {
+  assert.match(studioShell, /onclick="if\(typeof openStudioScheduler === 'function'\) openStudioScheduler\(\)"/)
+  const btn = studioShell.match(/<button onclick="if\(typeof openStudioScheduler[\s\S]*?<\/button>/)?.[0] || ''
+  assert.match(btn, />Schedule\s*<\/button>/)
 })
