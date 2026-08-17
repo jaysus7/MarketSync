@@ -140,7 +140,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
     <header class="h-14 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between z-20 flex-shrink-0">
       <div class="flex items-center gap-3">
         <button onclick="closeMarketSyncStudio()" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition flex items-center gap-1.5 text-xs font-bold">
-          ← Back to Marketing
+          ${typeof isDesignStudioOnlyWorkspace === 'function' && isDesignStudioOnlyWorkspace() ? '← Settings' : '← Back to Marketing'}
         </button>
         <div class="h-5 w-px bg-slate-800"></div>
         <img src="/Logo 2.0.png" alt="MarketSync" class="h-8 w-auto dark:hidden">

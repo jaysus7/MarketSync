@@ -790,7 +790,11 @@ const PRODUCT_PAGES = {
   facebook_solo:      ['leaderboard', 'inventory'],
   facebook_dealer:    ['leaderboard', 'inventory', 'sales-team'],
   ai_chatbot:         ['ai-home'],
-  design_studio:      ['marketing-overview'],
+  // Design Studio standalone is the editor itself (a full-screen modal, not a
+  // dashboard page) — it must never expose the Marketing department dashboard behind
+  // it. 'profile' is its only page so Settings (My Account etc.) is reachable once the
+  // editor is closed.
+  design_studio:      ['profile'],
   marketsync_video:   ['video-studio'],
   video:              ['video-studio'],
   marketsync_website: ['website'],
@@ -805,7 +809,7 @@ const PRODUCT_HOME = {
   facebook_solo: 'leaderboard',
   facebook_dealer: 'leaderboard',
   ai_chatbot: 'ai-home',
-  design_studio: 'marketing-overview',
+  design_studio: 'profile',
   marketsync_video: 'video-studio',
   video: 'video-studio',
   marketsync_website: 'website',
@@ -825,6 +829,16 @@ function isAiChatbotOnlyWorkspace() {
   const products = document.documentElement.getAttribute('data-product') || '';
   return /(?:^|\s)ai_chatbot(?:\s|$)/.test(products) && !/(?:^|\s)dealer_os(?:\s|$)/.test(products);
 }
+
+// Design Studio standalone: the editor itself IS the product, not a tab inside a
+// Marketing dashboard the customer never bought. Login lands straight in the
+// full-screen studio modal; closing it reveals Settings (My Account), not a
+// DealerOS department dashboard.
+function isDesignStudioOnlyWorkspace() {
+  const products = document.documentElement.getAttribute('data-product') || '';
+  return /(?:^|\s)design_studio(?:\s|$)/.test(products) && !/(?:^|\s)dealer_os(?:\s|$)/.test(products);
+}
+window.isDesignStudioOnlyWorkspace = isDesignStudioOnlyWorkspace;
 let __productHome = null;           // Where a product-restricted tier lands / bounces to
 
 // ── Access-context helpers (frontend mirror of the backend access service) ────
@@ -1058,6 +1072,12 @@ function applyProductNav(products) {
   __productHome = home;
   applyMobileQuickRow();   // trim the mobile bottom bar to this tier's pages
   if (home) { if (home === 'inventory') __inventoryMode = 'facebook'; if (typeof switchPage === 'function') switchPage(home); }
+  // Design Studio standalone: launch straight into the editor, not the Settings page
+  // it lands on underneath (that page exists only so closing the editor has somewhere
+  // to go).
+  if (active.length === 1 && active[0] === 'design_studio' && typeof window.openMarketSyncStudio === 'function') {
+    window.openMarketSyncStudio();
+  }
 }
 window.applyProductNav = applyProductNav;
 
@@ -1123,7 +1143,7 @@ function applyMobileQuickRow() {
     host.className = 'contents md:hidden';   // display:contents → children join the flex row
     if (more && more.parentElement) more.parentElement.insertBefore(host, more);
   }
-  host.innerHTML = pages.map(p => `<button type="button" data-page="${esc(p.page)}" onclick="deptGo('${esc(p.page)}'${p.invmode ? `,'${esc(p.invmode)}'` : ''})" title="${esc(p.label)}" class="nav-item md:hidden flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="opacity-70">${svgIcon(p.icon || 'dot', 'w-[18px] h-[18px]')}</span><span class="text-[9px] leading-none">${esc(p.label.split(' ')[0])}</span></button>`).join('');
+  host.innerHTML = pages.map(p => `<button type="button" data-page="${esc(p.page)}" onclick="${p.studioLaunch ? 'window.openMarketSyncStudio()' : `deptGo('${esc(p.page)}'${p.invmode ? `,'${esc(p.invmode)}'` : ''})`}" title="${esc(p.label)}" class="nav-item md:hidden flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="opacity-70">${svgIcon(p.icon || 'dot', 'w-[18px] h-[18px]')}</span><span class="text-[9px] leading-none">${esc(p.label.split(' ')[0])}</span></button>`).join('');
   more?.classList.remove('hidden');
 }
 window.applyMobileQuickRow = applyMobileQuickRow;
@@ -1155,6 +1175,9 @@ function restrictedNavPages() {
   }
   if (activeProducts.length === 1 && /facebook_solo/.test(product)) return [INV('Inventory'), LEADER];
   if (activeProducts.length === 1 && /ai_chatbot/.test(product)) return [AI];
+  if (activeProducts.length === 1 && /design_studio/.test(product)) {
+    return [{ page: 'profile', label: 'Design Studio', icon: 'image', studioLaunch: true }];
+  }
 
   // Fallback for any other restricted product set (keeps generic behavior).
   if (__productAllowedPages) {
