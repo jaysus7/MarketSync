@@ -199,7 +199,7 @@ export const PLAN_CATALOG = Object.freeze({
     legacy: { ...legacyFlags({}), products: { design_studio: true } },
   },
   'autoposter-salesperson': {
-    id: 'autoposter-salesperson', label: 'Facebook AutoPoster — Salesperson', product_primary: 'facebook',
+    id: 'autoposter-salesperson', label: 'Facebook AutoPoster', product_primary: 'facebook',
     products: ['facebook'], org_type: 'solo', owner_role: 'OWNER',
     monthly: 39, tier: 0,
     priceEnvCad: 'STRIPE_PRICE_AUTOPOSTER_SALESPERSON_CAD', priceEnvUsd: 'STRIPE_PRICE_AUTOPOSTER_SALESPERSON_USD',

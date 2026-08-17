@@ -43,6 +43,10 @@ test('the current public catalog is fully represented, priced to match public-co
   for (const [id, monthly] of Object.entries(prices)) assert.equal(PLAN_CATALOG[id].monthly, monthly, `${id} price mismatch`)
 })
 
+test('autoposter-salesperson is labelled plainly "Facebook AutoPoster" — the Role Switcher, not the plan name, distinguishes rep vs dealer', () => {
+  assert.equal(PLAN_CATALOG['autoposter-salesperson'].label, 'Facebook AutoPoster')
+})
+
 test('Design Studio is a standalone product distinct from the social scheduler feature set', () => {
   assert.deepEqual(productsForPlan('design-studio'), ['design_studio'])
   assert.ok(featuresForPlan('design-studio').includes('design.canvas'))
