@@ -51,6 +51,16 @@ test('the panel actually hides when closed — an ID selector setting display ca
     'a #demo-control-panel[hidden] rule must force display:none, or closing the panel silently does nothing')
 })
 
+test('once the panel confirms this is the demo tenant, it lands the prospect on Inventory rather than a possibly-empty Home page', () => {
+  const bootFn = source.match(/async function boot\(\) \{[\s\S]*?\n {2}\}/)?.[0] || ''
+  assert.ok(bootFn, 'boot() must exist')
+  // Must come after buildPanel(data) succeeds (i.e. inside the try, after res.ok
+  // is confirmed) — not a blind redirect for every visitor.
+  const afterBuild = bootFn.split('buildPanel(data);')[1] || ''
+  assert.match(afterBuild, /switchPage\('inventory-overview'\)/,
+    'boot() must navigate to Inventory after confirming this is the demo tenant')
+})
+
 test('every requested department maps to a real workspace-registry page id', () => {
   const registry = readFileSync(new URL('../../marketplace-frontend/js/modules/workspace-registry.js', import.meta.url), 'utf8')
   const deptMatch = source.match(/const DEPARTMENTS = \[([\s\S]*?)\];/)

@@ -133,6 +133,11 @@
       if (!res.ok) return; // not the demo account — render nothing
       const data = await res.json();
       buildPanel(data);
+      // Prospects should land somewhere with visible, populated content — the
+      // Insights/Command home page can render empty for a fresh demo dealership.
+      // Inventory always has seeded vehicles, so it's the reliable first thing
+      // to show. Runs once per load, after everything else has settled.
+      if (typeof switchPage === 'function') switchPage('inventory-overview');
     } catch (e) { /* network hiccup — no demo panel this load, not fatal */ }
   }
 
