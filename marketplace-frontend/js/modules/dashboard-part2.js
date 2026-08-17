@@ -827,12 +827,23 @@ async function initializeDashboardEcosystem() {
     // and these blocks silently never fire.
     if (typeof isDesignStudioOnlyWorkspace === 'function' && isDesignStudioOnlyWorkspace()) {
       document.querySelectorAll('#settings-tabs [data-admin-only]').forEach(el => el.classList.add('hidden'));
-      if (Array.isArray(SETTINGS_TAB_SECTIONS?.account)) {
-        if (!SETTINGS_TAB_SECTIONS.account.includes('billing-section')) SETTINGS_TAB_SECTIONS.account.push('billing-section');
-        SETTINGS_TAB_SECTIONS.account = SETTINGS_TAB_SECTIONS.account.filter(id => id !== 'settings-my-record');
+      if (Array.isArray(SETTINGS_TAB_SECTIONS?.account) && !SETTINGS_TAB_SECTIONS.account.includes('billing-section')) {
+        SETTINGS_TAB_SECTIONS.account.push('billing-section');
       }
       __settingsTab = 'account';
       if (typeof settingsTab === 'function') settingsTab('account');
+      // Dropping 'settings-my-record' from SETTINGS_TAB_SECTIONS.account (instead of
+      // hiding it directly) doesn't work: applyProductNav() above already triggered an
+      // earlier settingsTab('account') call (via its own switchPage('profile')) using
+      // the UNMODIFIED section list, which un-hid this card and kicked off its fetch.
+      // Once removed from every tab's list entirely, settingsTab()'s toggle loop can no
+      // longer see the id at all, so it stays stuck in whatever state that first call
+      // left it — visible, permanently showing "Loading your record…". Force it hidden
+      // directly instead. This also fixes the account cards rendering in one stacked
+      // column instead of side by side: this card carries data-full-width="true", so
+      // while stuck visible it was forcing itself onto its own grid row and pushing
+      // Security below it alone, wasting the rest of that row.
+      document.getElementById('settings-my-record')?.classList.add('stab-hide');
     }
 
     // Facebook-only tiers (Solo or Dealer AutoPoster) bought Facebook posting, not

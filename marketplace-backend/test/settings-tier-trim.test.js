@@ -36,6 +36,16 @@ test('Design Studio standalone trims Settings to My Account + Billing (Upgrade l
   assert.match(block, /document\.querySelectorAll\('#settings-tabs \[data-admin-only\]'\)\.forEach\(el => el\.classList\.add\('hidden'\)\)/)
   assert.match(block, /SETTINGS_TAB_SECTIONS\.account\.push\('billing-section'\)/)
   assert.match(block, /__settingsTab = 'account'/)
+  // settings-my-record (the employment-record card) must be hidden by directly
+  // adding 'stab-hide', NOT by removing its id from SETTINGS_TAB_SECTIONS.account —
+  // applyProductNav() above already triggers one settingsTab('account') call before
+  // this block runs, using the unmodified section list, which un-hides the card. If
+  // the id is then dropped from the list entirely instead of force-hidden, nothing
+  // ever re-hides it — it stays stuck visible, permanently showing "Loading your
+  // record…" (and, since it carries data-full-width="true", knocking the rest of
+  // the grid's cards out of their side-by-side row onto their own stacked rows).
+  assert.match(block, /document\.getElementById\('settings-my-record'\)\?\.classList\.add\('stab-hide'\)/)
+  assert.doesNotMatch(block, /filter\(id => id !== 'settings-my-record'\)/, 'must not rely on removing the id from the tracked section list')
 })
 
 test('Facebook-only tiers trim Settings to My Account + Billing + Facebook Posting Safety', () => {
@@ -55,4 +65,47 @@ test('billing-section is not itself [data-admin-only] (so folding it into My Acc
 
 test('SETTINGS_TAB_SECTIONS.admin owns billing-section, confirming the fold-in is necessary', () => {
   assert.match(part8, /admin: \[[^\]]*'billing-section'/)
+})
+
+test('every single-product tier (not just Design Studio) gets the simplified header: Profile + Sign out only', () => {
+  const fn = dashboard.match(/function applyProductNav\(products\) \{[\s\S]*?\nwindow\.applyProductNav = applyProductNav;/)?.[0] || ''
+  assert.ok(fn, 'applyProductNav must exist')
+  const block = fn.match(/if \(active\.length === 1\) \{[\s\S]*?\n {2}\}/)?.[0] || ''
+  assert.ok(block, 'the single-product header-simplification block must exist, gated on active.length === 1 (not a specific product)')
+  for (const id of ['header-settings', 'notif-bell', 'header-social-icons']) {
+    assert.match(block, new RegExp(`document\\.getElementById\\('${id}'\\)\\?\\.classList\\.add\\('hidden'\\)`), `${id} must be hidden for single-product tiers`)
+  }
+  assert.match(block, /document\.getElementById\('setup-bar-host'\)\?\.replaceChildren\(\)/, 'Open Setup must be cleared for single-product tiers')
+  // Must come before the design_studio-specific block, and not be scoped to it —
+  // this has to apply to every single-product tier (Facebook, AI ChatBot, Video,
+  // Website, ...), not just Design Studio.
+  assert.ok(fn.indexOf("active.length === 1) {") < fn.indexOf("active[0] === 'design_studio'"), 'the general single-product block must not be nested inside the design_studio-specific one')
+})
+
+test('Design Studio sidebar is the one launcher button, not a second Settings row — Settings lives under the header Profile icon for every single-product tier', () => {
+  const fn = dashboard.match(/function restrictedNavPages\(\) \{[\s\S]*?\nwindow\.restrictedNavPages = restrictedNavPages;/)?.[0] || ''
+  const branch = fn.match(/if \(activeProducts\.length === 1 && \/design_studio\/\.test\(product\)\) \{[\s\S]*?\n {2}\}/)?.[0] || ''
+  assert.ok(branch, 'the design_studio branch of restrictedNavPages must exist')
+  const itemCount = (branch.match(/\{ page:/g) || []).length
+  assert.equal(itemCount, 1, 'Design Studio should return exactly one nav entry, not a separate Settings row')
+  assert.doesNotMatch(branch, /label: 'Settings'/, 'Settings must not be a sidebar row — it lives under the header Profile icon')
+})
+
+test('the Facebook-tier sidebar no longer carries its own Settings row (dropped from dashboard.html)', () => {
+  assert.doesNotMatch(dashboardHtml, /data-page="profile" title="Settings" class="nav-item fb-only-nav/, 'the fb-only-nav Settings button must be removed — Settings is header-only now')
+})
+
+test('header Profile icon is the single settings entry point: clicking it opens My Account directly', () => {
+  const btn = dashboardHtml.match(/<button id="header-profile-btn"[^>]*>/)?.[0] || ''
+  assert.match(btn, /onclick="switchPage\('profile'\);settingsTab\('account'\)"/)
+})
+
+test('settings-my-record is full-width and the other My Account cards are not, confirming why it must be force-hidden rather than left visible', () => {
+  const record = dashboardHtml.match(/<div id="settings-my-record"[^>]*>/)?.[0] || ''
+  assert.match(record, /data-full-width="true"/, 'settings-my-record spans the whole grid row while visible')
+  for (const id of ['profile-form', 'billing-section', 'security-section']) {
+    const tag = dashboardHtml.match(new RegExp(`<(?:div|form) id="${id}"[^>]*>`))?.[0] || ''
+    assert.ok(tag, `${id} must exist`)
+    assert.doesNotMatch(tag, /data-full-width="true"/, `${id} should be free to sit side-by-side in the grid`)
+  }
 })
