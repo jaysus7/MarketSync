@@ -1561,8 +1561,17 @@ function setPageStyle(key, val, rerender) {
 }
 window.setPageStyle = setPageStyle;
 let __pendingInsertAt = null;   // live builder: insert the next-added section at this index (from an on-canvas "＋")
+// Section types whose image IS the section — a blank Hero/Text+image/Promo ad reads
+// as broken, unlike two_col's explicitly-optional left/right images. Prefills from the
+// same free library Design Studio's Photos tool and the Website Builder's own "Browse
+// Photos" picker use, so a new site never starts with empty photo holes.
+const WS_DEFAULT_IMAGE_TYPES = { hero: 'image', text_image: 'image', ad_banner: 'image' };
 function addSection(type) {
   const sec = { id: 's' + Date.now().toString(36), type, settings: {} };
+  const imageKey = WS_DEFAULT_IMAGE_TYPES[type];
+  if (imageKey && typeof STUDIO_FREE_PHOTOS !== 'undefined' && STUDIO_FREE_PHOTOS.length) {
+    sec.settings[imageKey] = STUDIO_FREE_PHOTOS[Math.floor(Math.random() * STUDIO_FREE_PHOTOS.length)].url;
+  }
   if (__pendingInsertAt != null && __pendingInsertAt >= 0 && __pendingInsertAt <= __siteSections.length) {
     __siteSections.splice(__pendingInsertAt, 0, sec);
     __pendingInsertAt = null;

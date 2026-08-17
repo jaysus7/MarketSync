@@ -322,6 +322,14 @@ function renderStudioWorkspaceHtml(designName, scene) {
   `;
 }
 
+// Every 'vehicle-image' element below carries a real fallback `src` (a free library
+// photo) so a template shows a fully styled example the moment it loads — before that,
+// with no src and no bound vehicle, fabric-adapter.js's render condition
+// `(el.src || currentVehicle?.primary_photo_url)` was false and the whole photo slot
+// rendered as nothing, a blank hole in the layout. Binding a real vehicle
+// (bindVehicleToStudio()) doesn't touch this src — it layers a new image + badge +
+// text on top instead — so the fallback photo stays as a backdrop unless the user
+// deletes it, same as any other placeholder asset.
 const STUDIO_TEMPLATES_CATALOG = {
   tmpl_spotlight_square: {
     template_key: 'tmpl_spotlight_square',
@@ -337,7 +345,7 @@ const STUDIO_TEMPLATES_CATALOG = {
       height: 1080,
       background: { color: '#0F172A' },
       elements: [
-        { id: 'el-bg-photo', type: 'vehicle-image', x: 0, y: 0, width: 1080, height: 720, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
+        { id: 'el-bg-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1600&q=82', x: 0, y: 0, width: 1080, height: 720, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
         { id: 'el-grad-overlay', type: 'shape', shapeType: 'rect', x: 0, y: 580, width: 1080, height: 500, fill: '#0F172A', opacity: 0.95, z: 2, name: 'Bottom Panel' },
         { id: 'el-badge', type: 'shape', shapeType: 'rect', x: 50, y: 50, width: 220, height: 50, fill: '#4F46E5', rx: 12, opacity: 1, z: 3, name: 'Badge Pill' },
         { id: 'el-badge-txt', type: 'text', x: 75, y: 65, text: 'JUST ARRIVED', fontSize: 18, fontWeight: '800', fill: '#FFFFFF', z: 4, name: 'Badge Text' },
@@ -364,7 +372,7 @@ const STUDIO_TEMPLATES_CATALOG = {
       height: 1920,
       background: { color: '#18181B' },
       elements: [
-        { id: 'el-photo', type: 'vehicle-image', x: 0, y: 200, width: 1080, height: 1100, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
+        { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1600&q=82', x: 0, y: 200, width: 1080, height: 1100, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
         { id: 'el-top-banner', type: 'shape', shapeType: 'rect', x: 0, y: 0, width: 1080, height: 200, fill: '#EF4444', opacity: 1, z: 2, name: 'Price Reduction Banner' },
         { id: 'el-top-txt', type: 'text', x: 320, y: 75, text: 'PRICE REDUCED!', fontSize: 44, fontWeight: '900', fill: '#FFFFFF', z: 3, name: 'Banner Text' },
         { id: 'el-card', type: 'shape', shapeType: 'rect', x: 50, y: 1350, width: 980, height: 480, fill: '#27272A', rx: 32, opacity: 0.95, z: 4, name: 'Card Background' },
@@ -389,7 +397,7 @@ const STUDIO_TEMPLATES_CATALOG = {
       height: 628,
       background: { color: '#0B0F19' },
       elements: [
-        { id: 'el-photo', type: 'vehicle-image', x: 0, y: 0, width: 620, height: 628, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
+        { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1562141961-b5d64a7b61c0?auto=format&fit=crop&w=1600&q=82', x: 0, y: 0, width: 620, height: 628, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
         { id: 'el-card', type: 'shape', shapeType: 'rect', x: 600, y: 0, width: 600, height: 628, fill: '#1E293B', opacity: 1, z: 2, name: 'Right Copy Panel' },
         { id: 'el-badge', type: 'text', x: 650, y: 60, text: 'WEEKEND SPECIAL', fontSize: 20, fontWeight: '800', fill: '#F59E0B', z: 3, name: 'Badge' },
         { id: 'el-title', type: 'text', x: 650, y: 110, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 36, fontWeight: '900', fill: '#FFFFFF', z: 4, name: 'Vehicle Name' },
@@ -416,7 +424,7 @@ const STUDIO_TEMPLATES_CATALOG = {
       elements: [
         { id: 'el-top-pill', type: 'shape', shapeType: 'rect', x: 50, y: 40, width: 340, height: 50, fill: '#D97706', rx: 12, opacity: 1, z: 1, name: 'CPO Pill' },
         { id: 'el-top-txt', type: 'text', x: 80, y: 55, text: 'CERTIFIED PRE-OWNED', fontSize: 18, fontWeight: '800', fill: '#FFFFFF', z: 2, name: 'CPO Text' },
-        { id: 'el-photo', type: 'vehicle-image', x: 0, y: 120, width: 1080, height: 780, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
+        { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1600&q=82', x: 0, y: 120, width: 1080, height: 780, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
         { id: 'el-card', type: 'shape', shapeType: 'rect', x: 40, y: 920, width: 1000, height: 380, fill: '#1E293B', rx: 24, opacity: 0.95, z: 4, name: 'Bottom Details Card' },
         { id: 'el-ymmt', type: 'text', x: 80, y: 970, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 42, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'Title' },
         { id: 'el-insp', type: 'text', x: 80, y: 1040, text: '172-Point Inspection Passed • Low Mileage', fontSize: 22, fontWeight: '600', fill: '#94A3B8', z: 6, name: 'Inspection' },
@@ -441,7 +449,7 @@ const STUDIO_TEMPLATES_CATALOG = {
       elements: [
         { id: 'el-hdr', type: 'text', x: 60, y: 80, text: 'TOP MARKET TRADE VALUE', fontSize: 44, fontWeight: '900', fill: '#FFFFFF', z: 1, name: 'Header' },
         { id: 'el-sub', type: 'text', x: 60, y: 150, text: 'We Need Used Inventory — Get Up to 120% KBB Value!', fontSize: 26, fontWeight: '700', fill: '#A7F3D0', z: 2, name: 'Subtitle' },
-        { id: 'el-photo', type: 'vehicle-image', x: 60, y: 220, width: 960, height: 560, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
+        { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=1600&q=82', x: 60, y: 220, width: 960, height: 560, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
         { id: 'el-btn', type: 'shape', shapeType: 'rect', x: 60, y: 840, width: 960, height: 160, fill: '#10B981', rx: 24, opacity: 1, z: 4, name: 'CTA Card' },
         { id: 'el-btn-txt', type: 'text', x: 180, y: 900, text: 'VALUE YOUR TRADE IN 60 SECONDS', fontSize: 32, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'CTA Text' }
       ]
@@ -463,7 +471,7 @@ const STUDIO_TEMPLATES_CATALOG = {
       elements: [
         { id: 'el-badge', type: 'shape', shapeType: 'rect', x: 60, y: 60, width: 360, height: 60, fill: '#06B6D4', rx: 16, opacity: 1, z: 1, name: 'EV Badge' },
         { id: 'el-badge-txt', type: 'text', x: 90, y: 78, text: 'NEXT-GEN ELECTRIC', fontSize: 22, fontWeight: '900', fill: '#FFFFFF', z: 2, name: 'EV Text' },
-        { id: 'el-photo', type: 'vehicle-image', x: 0, y: 160, width: 1080, height: 1100, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
+        { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1592833159155-c62df1b65634?auto=format&fit=crop&w=1600&q=82', x: 0, y: 160, width: 1080, height: 1100, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
         { id: 'el-card', type: 'shape', shapeType: 'rect', x: 50, y: 1300, width: 980, height: 520, fill: '#0F172A', rx: 32, opacity: 0.95, z: 4, name: 'Card' },
         { id: 'el-title', type: 'text', x: 100, y: 1360, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 44, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'Title' },
         { id: 'el-rebate', type: 'text', x: 100, y: 1430, text: 'Federal & State Rebates Up to $7,500 Available', fontSize: 24, fontWeight: '700', fill: '#38BDF8', z: 6, name: 'Rebate' },
