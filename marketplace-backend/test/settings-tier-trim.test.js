@@ -151,35 +151,38 @@ test('.settings-cols.is-multi is a real 3-column CSS grid, not a masonry/multi-c
   assert.match(dashboardHtml, /\.settings-cols\.is-multi \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/)
 })
 
-test('the Language card is authored directly inside #profile-panel, sized like every other card, explicitly placed on row 2 column 2', () => {
-  // Physically authored as the last child of #profile-panel (after security-section)
-  // instead of living in the separate #settings-panel-extra grid and being moved at
-  // runtime — this way it's always adjacent to Profile/Billing/Security for every
-  // account, single-product or not, with no JS DOM-move required.
-  const profilePanel = dashboardHtml.match(/<div id="profile-panel"[\s\S]*?\n {8}<\/div>\n {6}<\/div>/)?.[0] || ''
-  assert.ok(profilePanel, 'profile-panel block must exist')
-  assert.match(profilePanel, /id="security-section"/, 'security-section must be a sibling inside profile-panel')
-  const secIdx = profilePanel.indexOf('id="security-section"')
-  const langIdx = profilePanel.indexOf('id="settings-language-card"')
-  assert.ok(langIdx > -1, 'settings-language-card must be inside profile-panel')
-  assert.ok(langIdx > secIdx, 'settings-language-card must come after security-section in DOM order')
+test('Billing and Language share one grid cell, stacked in normal flow, not two independent grid rows', () => {
+  // A CSS grid row's height is set by its TALLEST cell — explicit row-2/column-2
+  // placement left a visible gap under Billing's much shorter card whenever
+  // Profile/Security (row 1's tall cells) ran longer. Nesting Billing + Language
+  // inside one shared flex-column wrapper means Language sits snug under Billing
+  // regardless of how tall the other columns get.
+  const wrapper = dashboardHtml.match(/<div id="billing-language-col"[\s\S]*?(?=<div id="guardrail-settings-section")/)?.[0] || ''
+  assert.ok(wrapper, 'billing-language-col wrapper must exist')
+  assert.match(wrapper, /class="flex flex-col"/)
+  assert.match(wrapper, /id="billing-section"/, 'Billing must be inside the wrapper')
+  assert.match(wrapper, /id="settings-language-card"/, 'Language must be inside the wrapper')
+  assert.ok(wrapper.indexOf('id="billing-section"') < wrapper.indexOf('id="settings-language-card"'),
+    'Billing must come before Language inside the wrapper')
   const card = dashboardHtml.match(/<div id="settings-language-card"[^>]*>/)?.[0] || ''
   assert.ok(card, 'settings-language-card must exist')
-  assert.doesNotMatch(card, /aspect-square/, 'must not be forced square any more')
+  assert.doesNotMatch(card, /aspect-square/, 'must not be forced square')
   assert.doesNotMatch(card, /data-full-width="true"/)
-  assert.match(card, /\[grid-row:2\]/, 'must be explicitly placed on row 2')
-  assert.match(card, /\[grid-column:2\]/, 'must be explicitly placed in the middle column')
+  assert.doesNotMatch(card, /\[grid-row:2\]|\[grid-column:2\]/, 'must not use explicit grid placement any more — normal flow inside the wrapper instead')
 })
 
-test('every single-product dashboard also hides the floating Intelligence AI dock, Team Chat, and the Setup Wizard banner', () => {
-  // These coordinate work across a dealership's staff/departments — a
-  // single-tool subscriber has neither, so all three are dead chrome for them.
+test('every single-product dashboard hides the floating Intelligence AI dock and the Setup Wizard banner; Team Chat stays for Facebook Dealer only', () => {
+  // The AI dock and Setup Wizard coordinate work across a dealership's staff/
+  // departments — a single-tool subscriber has neither, full stop. Team Chat is
+  // different: Facebook Dealer is a real dealership sales team (unlike a lone
+  // Design Studio/AI ChatBot/Facebook Solo subscriber), so it keeps Team Chat.
   const block = part2.match(/ {4}if \(typeof isSingleProductWorkspace === 'function'[\s\S]*?\n {4}\}/)?.[0] || ''
   assert.ok(block, 'block must exist')
   assert.match(block, /getElementById\('ai-dock-btn'\)\?\.classList\.add\('hidden'\)/)
   assert.match(block, /getElementById\('ai-dock-panel'\)\?\.classList\.add\('hidden'\)/)
-  assert.match(block, /getElementById\('team-chat-dock-panel'\)\?\.classList\.add\('hidden'\)/)
   assert.match(block, /getElementById\('setup-status-banner'\)\?\.classList\.add\('hidden'\)/)
+  assert.match(block, /const isFbDealer = \/\(\?:\^\|\\s\)facebook_dealer\(\?:\\s\|\$\)\/\.test\(document\.documentElement\.getAttribute\('data-product'\) \|\| ''\)/)
+  assert.match(block, /getElementById\('team-chat-dock-panel'\)\?\.classList\.toggle\('hidden', !isFbDealer\)/)
 })
 
 test('refreshSetupIndicator unconditionally hides the Setup Wizard banner for every account', () => {
@@ -192,10 +195,10 @@ test('refreshSetupIndicator unconditionally hides the Setup Wizard banner for ev
   assert.doesNotMatch(fn, /role/, 'must not branch on role — hidden unconditionally')
 })
 
-test('engineRail omits the Team Messages section for single-product workspaces', () => {
+test('engineRail omits the Team Messages section for single-product workspaces, except Facebook Dealer', () => {
   const fn = part10.match(/function engineRail\(eng, d\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(fn, 'engineRail must exist')
-  assert.match(fn, /const singleProduct = typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace\(\)/)
+  assert.match(fn, /const singleProduct = typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace\(\)\s*\n\s*&& !\/\(\?:\^\|\\s\)facebook_dealer\(\?:\\s\|\$\)\/\.test\(document\.documentElement\.getAttribute\('data-product'\) \|\| ''\)/)
   assert.match(fn, /const msg = singleProduct \? '' : sec\('Team Messages'/)
 })
 

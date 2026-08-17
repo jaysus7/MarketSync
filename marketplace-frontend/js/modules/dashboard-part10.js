@@ -932,7 +932,10 @@ function engineRail(eng, d) {
     <div class="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 mb-2.5">${svgIcon(icon, 'w-3.5 h-3.5')}${esc(title)}</div>${inner}</div>`;
   // Team Messages coordinates staff across a dealership's departments — a
   // single-product (one-tool) account has no department staff to message.
-  const singleProduct = typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace();
+  // Facebook Dealer is the one exception: it's a real dealership sales team,
+  // not a lone tool subscriber, so it keeps Team Messages.
+  const singleProduct = typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace()
+    && !/(?:^|\s)facebook_dealer(?:\s|$)/.test(document.documentElement.getAttribute('data-product') || '');
   const msg = singleProduct ? '' : sec('Team Messages', 'chat',
     `<p class="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2.5">Message colleagues &amp; department staff live.</p>
      <button onclick="toggleTeamChatWidget()" class="w-full text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white rounded-lg px-3 py-2 transition shadow-sm cursor-pointer flex items-center justify-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 0 1-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>Messages</button>`);
