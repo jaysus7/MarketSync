@@ -1195,7 +1195,14 @@ function restrictedNavPages() {
   if (activeProducts.length === 1 && /facebook_solo/.test(product)) return [INV('Inventory'), LEADER];
   if (activeProducts.length === 1 && /ai_chatbot/.test(product)) return [AI];
   if (activeProducts.length === 1 && /design_studio/.test(product)) {
-    return [{ page: 'profile', label: 'Design Studio', icon: 'image', studioLaunch: true }];
+    // Two distinct entries, not one dual-purpose button: "Design Studio" always
+    // launches the editor modal (an action, never a "current page" to highlight),
+    // while "Settings" is the real page:'profile' destination — so whichever one
+    // you're actually looking at is the one that lights up, not always the launcher.
+    return [
+      { page: 'studio', label: 'Design Studio', icon: 'image', studioLaunch: true },
+      { page: 'profile', label: 'Settings', icon: 'shield' },
+    ];
   }
 
   // Fallback for any other restricted product set (keeps generic behavior).

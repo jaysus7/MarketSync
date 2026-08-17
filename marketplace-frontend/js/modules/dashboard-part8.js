@@ -89,6 +89,17 @@ const SETTINGS_TAB_SECTIONS = {
   service: ['settings-service-card'],
   accounting: ['settings-accounting-card'],
 };
+// The header gear jumps straight to Administration on full DealerOS — but a
+// restricted tier (Design Studio / Facebook-only) has that tab button hidden, and
+// hardcoding 'admin' would still force it open by calling settingsTab() directly,
+// bypassing the trim entirely. Land on My Account instead when Administration
+// isn't actually reachable.
+function openSettingsAdmin() {
+  switchPage('profile');
+  const adminHidden = document.querySelector('#settings-tabs [data-stab="admin"]')?.classList.contains('hidden');
+  settingsTab(adminHidden ? 'account' : 'admin');
+}
+window.openSettingsAdmin = openSettingsAdmin;
 function settingsTab(tab) {
   if (!SETTINGS_TAB_SECTIONS[tab]) tab = 'account';
   __settingsTab = tab;
