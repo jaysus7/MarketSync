@@ -754,9 +754,12 @@ async function initializeDashboardEcosystem() {
     // never lands on an empty panel — this was the "leaderboard doesn't show" bug on
     // the Facebook Solo/Dealer tiers, where the account is personal / has no team.
     __pageInit.leaderboard = () => { try { initGlobalLeaderboard(); } catch (e) {} try { loadLeaderboard(); } catch (e) {} };
-    // No real team to rank against (solo / personal): default the carousel to the
-    // Global view and drop the "My Team" toggle — Global is the meaningful board.
-    if (!(inDealership && !isPersonal)) {
+    // No real team to rank against (solo / personal), or no team to MANAGE (a
+    // salesperson isn't a dealer admin): default the carousel to the Global view and
+    // drop the "My Team" toggle — Global is the meaningful board. Only a dealer
+    // admin/owner/manager retains the dealer team leaderboard, same as they always
+    // have full visibility into their sales staff.
+    if (!(inDealership && !isPersonal && isAdmin)) {
       document.getElementById('lb-tab-team')?.classList.add('hidden');
     }
 
