@@ -65,6 +65,12 @@ const MS_WORKSPACES = {
       { page: 'leads', label: 'Leads', mgr: true, legacy: true },
       { page: 'insights', label: 'Insights', mgr: true, legacy: true },
       { page: 'commissions', label: 'My Commission', legacy: true },
+      // Appraisals lives ONLY in Sales now — it used to also be mounted inside
+      // Inventory's own engine tabs, so the same content appeared to "switch" contexts
+      // depending on which department you opened it from. `legacy: true` keeps this a
+      // resolvable deep-link id without giving it a second tab-bar button; the real
+      // single-header mount is sales-workspace.js's "Appraise Trade" tab.
+      { page: 'appraisal', label: 'Appraise Trade', legacy: true },
     ],
   },
 
@@ -73,23 +79,25 @@ const MS_WORKSPACES = {
     pages: [
       { page: 'inventory-overview', label: 'Pulse' },
       { page: 'inventory', label: 'Vehicles', invmode: 'manual', legacy: true },
-      // Recon/Cleanup is part of the inventory lifecycle (a unit is not frontline until
-      // it is through cleanup), not a primary department — see docs/DEALEROS_UI_AUDIT.md.
-      // `legacy: true` keeps it out of the tab-bar: it is reached as the Cleanup tab
-      // INSIDE the inventory-overview engine (js/modules/inventory-workspace.js), which
-      // mounts this same page under that engine's one header. Without `legacy` here it
-      // was ALSO a standalone tab-bar button rendering the raw page with its own header
-      // — the exact duplicate-header problem this registry exists to prevent.
-      { page: 'recon', label: 'Cleanup', legacy: true },
-      // Acquire group: appraisals and equity mining feed inventory acquisition. Both are
-      // mounted as tabs inside inventory-overview (Appraisals/Equity) AND inside Sales
-      // (Appraise Trade/Equity Mining) — `legacy: true` for the same reason as Cleanup:
-      // without it these were ALSO standalone tab-bar buttons hitting the raw page
-      // directly with its own header, on top of the two proper single-header mounts.
-      { page: 'appraisal', label: 'Appraisals', legacy: true },
+      // Equity mining still feeds inventory acquisition and is also mounted inside Sales
+      // (Equity Mining) — `legacy: true` keeps it out of the tab-bar here; the one
+      // single-header mount is that Sales tab.
       { page: 'equity', label: 'Equity Mining', legacy: true },
       { page: 'inv-intel', label: 'Inventory Intelligence', mgr: true, legacy: true },
       { page: 'market', label: 'Market & Competitors', mgr: true, legacy: true },
+    ],
+  },
+
+  // ── Cleanup — its own department, not a tab buried inside Inventory ─────────
+  // Recon/Cleanup used to be mounted as an internal tab of the Inventory engine
+  // (inventory-workspace.js), which meant the same recon board rendered with two
+  // different surrounding contexts depending on entry point. It is real, standalone
+  // operational work — reconditioning a unit before it can go frontline — so it gets
+  // its own place in the sidebar, same as any other department.
+  cleanup: {
+    label: 'Cleanup', icon: 'droplet', accent: 'sky',
+    pages: [
+      { page: 'recon', label: 'Cleanup' },
     ],
   },
 

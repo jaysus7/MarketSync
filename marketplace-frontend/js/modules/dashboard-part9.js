@@ -860,7 +860,7 @@ function loadConfigHub() {
       ])}
       ${section('Sales, Inventory & F&I', 'Lead routing, inventory operations and finance workflows.', [
         { label: 'Sales settings', go: "settingsGo('sales','sales','settings')" },
-        { label: 'Inventory settings', go: "settingsGo('inventory-overview','inventory-overview','settings')" },
+        { label: 'Inventory settings', go: "switchPage('config')" },
         { label: 'F&I settings', go: "settingsGo('fni-overview','fni-overview','settings')" },
       ])}
       ${section('Service & Parts', 'Operating hours, repair-order rules and parts configuration.', [
@@ -875,7 +875,7 @@ function loadConfigHub() {
       ${section('Marketing & Communications', 'Brand, campaigns, social, website, email and AI.', [
         { label: 'Marketing settings', go: "settingsGo('marketing-overview','marketing-overview','settings')" },
         { label: 'Website', go: "settingsGo('marketing-overview','marketing-overview','website')" },
-        { label: 'Design Studio', go: "settingsGo('marketing-overview','marketing-overview','studio')" },
+        { label: 'Visual Studio', go: "settingsGo('marketing-overview','marketing-overview','studio')" },
       ])}
       ${section('People & Academy', 'Employment policy, training, schedules and compliance.', [
         { label: 'People', go: "switchPage('people-overview')" },

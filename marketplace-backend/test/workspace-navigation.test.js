@@ -44,9 +44,11 @@ const salesWorkspace = read('js/modules/sales-workspace.js')
 const part11 = read('js/modules/dashboard-part11.js')
 const pageContainers = new Set([...html.matchAll(/data-page-content="([^"]+)"/g)].map(m => m[1]))
 
-// The nine target workspaces (project instructions §8 / Doc 21 §18).
+// The ten target workspaces (project instructions §8 / Doc 21 §18, plus Cleanup —
+// split out from Inventory into its own department: reconditioning a unit before it
+// can go frontline is real, standalone operational work, not an Inventory sub-tab).
 const EXPECTED_WORKSPACES = [
-  'executive', 'sales', 'inventory', 'fni', 'service', 'parts', 'accounting', 'marketing', 'people',
+  'executive', 'sales', 'inventory', 'cleanup', 'fni', 'service', 'parts', 'accounting', 'marketing', 'people',
 ]
 
 test('MarketSync Internal OS uses the approved company navigation in order', () => {
@@ -134,7 +136,11 @@ test('every dealer department leads with one role-aware My Day', () => {
   // The lead tab is labelled 'Pulse' product-wide (see sales-workspace / parts-workspace
   // tests and the registry). It IS the role-aware My Day surface; the label is 'Pulse'.
   for (const id of msDepartmentIds(MS_WORKSPACES)) {
-    assert.equal(MS_WORKSPACES[id].pages[0]?.label, 'Pulse', `${id} must lead with its Pulse (My Day) tab`)
+    const pages = MS_WORKSPACES[id].pages
+    // A single-page department (e.g. Cleanup) IS its own My Day — there is no
+    // separate Pulse/Work split to carve a dedicated 'Pulse' tab out of.
+    if (pages.length === 1) continue
+    assert.equal(pages[0]?.label, 'Pulse', `${id} must lead with its Pulse (My Day) tab`)
   }
 })
 
@@ -142,7 +148,7 @@ test('system engines are NOT primary departments', () => {
   const { msDepartmentIds, MS_WORKSPACES } = loadRegistry()
   // CRM, Automation, AI, Integrations, Analytics, Marketplace power the workspaces
   // underneath — an employee must never navigate our software architecture.
-  for (const forbidden of ['crm', 'automation', 'ai', 'integration', 'analytics', 'marketplace', 'administration', 'cleanup']) {
+  for (const forbidden of ['crm', 'automation', 'ai', 'integration', 'analytics', 'marketplace', 'administration']) {
     assert.ok(!msDepartmentIds(MS_WORKSPACES).includes(forbidden),
       `"${forbidden}" must not be a primary department`)
   }
@@ -175,9 +181,9 @@ test('the two orphaned pages are reachable again', () => {
 test('required UI moves landed in the right workspace', () => {
   const { MS_WORKSPACES, msWorkspaceOfPage } = loadRegistry()
   const at = (page) => msWorkspaceOfPage(page, MS_WORKSPACES)
-  assert.equal(at('appraisal'), 'inventory', 'Appraisals → Inventory > Acquire')
+  assert.equal(at('appraisal'), 'sales', 'Appraisals → Sales')
   assert.equal(at('equity'), 'inventory', 'Equity Mining → Inventory > Acquire')
-  assert.equal(at('recon'), 'inventory', 'Recon → Inventory (not Sales)')
+  assert.equal(at('recon'), 'cleanup', 'Recon → its own Cleanup department, not buried in Inventory')
   assert.equal(at('inv-intel'), 'inventory', 'Inventory Intelligence stays visibly named inside Inventory')
   assert.equal(at('delivery'), 'fni', 'Delivery → F&I')
   assert.equal(at('sales-team'), 'people', 'Employees → People')
@@ -307,9 +313,9 @@ test('the global header keeps approved sales and account controls without a hamb
 })
 
 test('Sales uses one header and composes operational work into My Day', () => {
-  // Role-aware getter (see sales-workspace.test.js) returning exactly the 4-tab set —
-  // no appraisals (moved to Inventory) or desk (reached from the global header).
-  assert.match(salesWorkspace, /get tabOrder\(\)\s*\{\s*return \['overview', 'work', 'equity', 'settings'\]/)
+  // Role-aware getter (see sales-workspace.test.js) — Appraisals is a real Sales tab
+  // now (its one home); desk is still reached from the global header, not a tab.
+  assert.match(salesWorkspace, /get tabOrder\(\)\s*\{\s*return \['overview', 'work', 'appraisals', 'equity', 'settings'\]/)
   assert.doesNotMatch(salesWorkspace, /tabLabels:\s*\{[^}]*appointments:/)
   assert.match(salesWorkspace, /salesDealsAndDeliveries\(d\)/)
   assert.match(salesWorkspace, /Today's appointments/)
@@ -366,12 +372,32 @@ test('mobile navigation is role-aware and derives from the registry', () => {
   assert.ok(msMobileNavForRole('SOMETHING_NEW').length > 0, 'unknown roles need a fallback row')
 })
 
-test('Inventory opens as a list and keeps intelligence in Pulse/My Day with Cleanup in its header', () => {
+test('Inventory is just Inventory and Pulse — Appraisals and Cleanup moved out', () => {
   const inv = read('js/modules/inventory-workspace.js')
-  assert.match(inv, /return mgr \? \['work', 'overview', 'appraisals', 'cleanup', 'settings'\]/)
-  assert.match(inv, /tabLabels:\s*\{ overview: '(?:My Day|Pulse)', work: 'Inventory', appraisals: 'Appraisals', cleanup: 'Cleanup'/)
-  assert.match(inv, /cleanup\(body\)[\s\S]*engMountPage\(body, 'recon'/)
-  assert.doesNotMatch(inv.match(/settings\(body\)[\s\S]*?\n\s*},\n\s*},/s)?.[0] || '', /engMountPage\(body, 'recon'/)
+  // Appraisals → Sales (its one home), Cleanup → its own department, Settings → the
+  // header gear like everywhere else. Inventory's engine tabs are down to the two
+  // that are actually its own: the vehicle list and its Pulse.
+  assert.match(inv, /get tabOrder\(\) \{ return \['work', 'overview'\]; \}/)
+  assert.match(inv, /tabLabels:\s*\{ overview: 'Pulse', work: 'Inventory' \}/)
+  assert.doesNotMatch(inv, /\bappraisals\(body/, 'Appraisals must not be mounted inside Inventory any more')
+  assert.doesNotMatch(inv, /\bcleanup\(body/, 'Cleanup must not be mounted inside Inventory any more')
+  assert.doesNotMatch(inv, /\bsettings\(body/, 'Settings must not be a separate Inventory tab any more')
+  // Cleanup's own summary card in Pulse still links out to the real Cleanup department.
+  assert.match(inv, /switchPage\('recon'\)/)
+})
+
+test('Cleanup is its own department, not an Inventory tab', () => {
+  const { MS_WORKSPACES } = loadRegistry()
+  assert.ok(MS_WORKSPACES.cleanup, 'cleanup must be a top-level workspace')
+  assert.deepEqual(MS_WORKSPACES.cleanup.pages.map(p => p.page), ['recon'])
+  assert.equal(MS_WORKSPACES.cleanup.pages[0].legacy, undefined, 'recon must be a real tab-bar entry in Cleanup, not a legacy deep-link')
+})
+
+test('Marketing top tab reads "Visual Studio", not "Studio"', () => {
+  // Renamed multiple times and kept reverting — pin it so it stays fixed.
+  const mkt = read('js/modules/marketing-workspace.js')
+  assert.match(mkt, /tabLabels:\s*\{[^}]*studio: 'Visual Studio'/)
+  assert.doesNotMatch(mkt, /studio: 'Studio'/)
 })
 
 test('mobile row still renders through the shared gating helpers', () => {

@@ -180,8 +180,14 @@ function studioKeydownHandler(e) {
 }
 window.studioKeydownHandler = studioKeydownHandler;
 
+// Unlocked by EITHER path: the account's package already bundles AI (ai_dealer —
+// AI ChatBot, MarketSync Digital, DealerOS Pro/Complete all include it), or they
+// separately bought the AI Boost add-on. Previously only checked the add-on, so an
+// account whose plan already includes AI still saw "AI Content is locked".
 function studioHasPaidAi() {
-  return !!(window.__access?.isPlatformStaff || (typeof __aiBoostActive !== 'undefined' && __aiBoostActive === true));
+  return !!(window.__access?.isPlatformStaff
+    || (typeof window.hasProduct === 'function' && window.hasProduct('ai_dealer'))
+    || (typeof __aiBoostActive !== 'undefined' && __aiBoostActive === true));
 }
 
 function renderStudioPhotoResults(photos) {
