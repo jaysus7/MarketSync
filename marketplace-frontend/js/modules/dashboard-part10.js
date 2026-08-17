@@ -129,7 +129,7 @@ async function loadAiHome(tab) {
     </div>
     <div class="flex flex-wrap gap-2">
       ${tabBtn('conversations', 'AI Leads & Chats')}
-      ${tabBtn('setup', 'AI Knowledge & Setup')}
+      ${tabBtn('setup', 'Setup')}
     </div>
     <div id="ai-home-body"><div class="text-sm text-slate-400 py-10 text-center">Loading…</div></div>`;
   const body = document.getElementById('ai-home-body');
@@ -141,7 +141,7 @@ async function loadAiHome(tab) {
 
 async function aiHomeCombinedSetup(body) {
   body.innerHTML = `
-    <div class="space-y-8 max-w-4xl">
+    <div class="space-y-8 max-w-6xl">
       <div id="ai-setup-kb-wrapper"></div>
       <div id="ai-setup-settings-wrapper" class="pt-6 border-t border-slate-200 dark:border-slate-800"></div>
     </div>
@@ -425,7 +425,7 @@ async function aiHomeKnowledge(body) {
   `;
 
   body.innerHTML = `
-    <div class="space-y-6 max-w-4xl">
+    <div class="space-y-6">
       <!-- Instant Website Scan & Auto-Fill ("Scan & Paste") Card -->
       <div class="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-950 border border-indigo-500/30 rounded-2xl p-5 text-white space-y-3 shadow-lg">
         <div class="flex items-center justify-between flex-wrap gap-2">
@@ -488,7 +488,7 @@ async function aiHomeKnowledge(body) {
           <button type="button" onclick="aiAddKbSection()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-bold text-slate-800 dark:text-slate-200 transition">+ Add Custom Section</button>
         </div>
 
-        <div id="ai-kb-sections-list" class="space-y-3">
+        <div id="ai-kb-sections-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 items-start">
           ${sections.map((s) => renderSectionField(s)).join('')}
         </div>
 
@@ -624,7 +624,7 @@ async function aiHomeSettings(body) {
       <img src="${uri}" class="w-12 h-12 rounded-full ring-2 ring-transparent group-hover:ring-emerald-400 transition"><span class="text-[11px] font-semibold text-slate-500">${esc(pr.name)}</span></button>`;
   }).join('');
   body.innerHTML = `
-    <div class="space-y-4 max-w-2xl">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
         <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">Assistant identity</div>
         <div class="flex items-center gap-4">
