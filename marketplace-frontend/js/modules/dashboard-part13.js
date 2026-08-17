@@ -270,6 +270,7 @@ function affRow(a) {
 ENGINES['affiliates-admin'] = {
   rootId: 'affadmin-root', title: 'Affiliates', subtitle: 'Referral partners, their rates, and payouts',
   icon: 'trophy', accent: 'amber',
+  tabLabels: { overview: 'Affiliate Directory', work: 'Pending Payouts', insights: 'Referral Links', automation: 'Commission Tiers', settings: 'Payout Logs' },
   fetch: () => apiGetJson('/affiliate/admin/list'),
   quickActions: [
     { label: 'Program page', icon: 'globe', onclick: "window.open('affiliates.html','_blank')" },

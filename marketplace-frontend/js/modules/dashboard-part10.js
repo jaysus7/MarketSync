@@ -994,12 +994,12 @@ function hqTrialRow(t) {
   </button>`;
 }
 ENGINES['saas-command'] = {
-  rootId: 'saas-command-root', title: 'MarketSync HQ', subtitle: 'Revenue, trials, and account health',
-  icon: 'chart', accent: 'violet',
+  rootId: 'saas-command-root', title: 'Pulse', subtitle: 'What is happening across MarketSync and what needs attention',
+  icon: 'chart', accent: 'indigo', hideRail: true, hideTabBar: true, tabOrder: ['overview'],
   fetch: () => apiGetJson('/saas/overview'),
   quickActions: [
-    { label: 'Open Customer Pipeline', icon: 'chart', onclick: "switchPage('saas-customers')" },
-    { label: 'All accounts', icon: 'user', onclick: "switchPage('owner-users')" },
+    { label: 'Review customers', icon: 'chart', onclick: "switchPage('saas-customers')" },
+    { label: 'Review leads', icon: 'bolt', onclick: "switchPage('saas-funnel')" },
     { label: 'Employees', icon: 'user', onclick: "switchPage('saas-employees')" },
   ],
   nextActions: (d) => {
@@ -1012,20 +1012,29 @@ ENGINES['saas-command'] = {
   tabs: {
     overview(body, d) {
       const activePct = d.total_accounts ? Math.round((d.active_customers || 0) / d.total_accounts * 100) : 0;
+      const trials = (d.trials || []).slice(0, 5);
+      const expiring = trials.filter(t => t.days_left != null && t.days_left <= 5);
+      const attention = [];
+      if (d.churn_risk) attention.push(`<button onclick="switchPage('saas-customers')" class="w-full flex items-center justify-between gap-3 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/20 px-4 py-3 text-left"><span><b class="block text-sm text-slate-900 dark:text-white">${d.churn_risk} customer${d.churn_risk === 1 ? '' : 's'} may leave</b><span class="text-xs text-slate-500 dark:text-slate-400">Review health and choose the next follow-up.</span></span><span class="text-rose-500">${svgIcon('chevronRight','w-4 h-4')}</span></button>`);
+      if (expiring.length) attention.push(`<button onclick="switchPage('owner-users')" class="w-full flex items-center justify-between gap-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/20 px-4 py-3 text-left"><span><b class="block text-sm text-slate-900 dark:text-white">${expiring.length} trial${expiring.length === 1 ? '' : 's'} end within five days</b><span class="text-xs text-slate-500 dark:text-slate-400">Contact these accounts before access ends.</span></span><span class="text-amber-500">${svgIcon('chevronRight','w-4 h-4')}</span></button>`);
+      const trialRows = trials.map(hqTrialRow).join('') || engEmpty('No active trials right now.');
+      const customerRows = (d.top_accounts || []).slice(0, 5).map(a => `<button onclick="switchPage('saas-customers')" class="w-full flex items-center justify-between gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0 text-left"><span class="font-semibold text-sm text-slate-700 dark:text-slate-200 truncate">${esc(a.name || 'Customer')}</span><span class="font-black text-sm text-slate-900 dark:text-white">${engMoney0(a.mrr)}/month</span></button>`).join('') || engEmpty('No paying customers yet.');
       body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          ${engKpi('MRR', engMoney0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          ${engKpi('Monthly customer payments', engMoney0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
           ${engKpi('Customers', (d.customers ?? ((d.active_customers || 0) + (d.trial_accounts || 0))).toLocaleString(), 'text-indigo-600 dark:text-indigo-400')}
-          ${engKpi('Paying', (d.active_customers || 0).toLocaleString())}
           ${engKpi('Trials', (d.trial_accounts || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
-          ${engKpi('Churn Risk', (d.churn_risk || 0).toLocaleString(), d.churn_risk ? 'text-rose-600 dark:text-rose-400' : '')}
           ${engKpi('New This Month', (d.new_this_month || 0).toLocaleString())}
         </div>
-        <div class="text-[11px] text-slate-400 -mt-2">MRR estimated from product entitlements across ${(d.total_accounts || 0).toLocaleString()} accounts.</div>
-        ${engCard('Account status', engBar([
-          { pct: activePct, cls: 'bg-emerald-500', label: `Active (${d.active_customers || 0})` },
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          ${engCard('Needs attention', attention.join('<div class="h-2"></div>') || '<div class="py-8 text-center"><div class="font-black text-emerald-600 dark:text-emerald-400">Everything looks good</div><div class="text-xs text-slate-500 mt-1">Nothing urgent needs your attention.</div></div>')}
+          ${engCard('Trials to contact', `<div class="space-y-1.5">${trialRows}</div><button onclick="switchPage('owner-users')" class="mt-3 w-full rounded-lg bg-blue-600 hover:bg-blue-500 px-3 py-2 text-sm font-black text-white">Review all trials</button>`)}
+          ${engCard('Top customers', `${customerRows}<button onclick="switchPage('saas-customers')" class="mt-3 w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-black text-slate-700 dark:text-slate-200">View all customers</button>`)}
+        </div>
+        ${engCard('Customer status', engBar([
+          { pct: activePct, cls: 'bg-emerald-500', label: `Paying (${d.active_customers || 0})` },
           { pct: d.total_accounts ? Math.round((d.trial_accounts || 0) / d.total_accounts * 100) : 0, cls: 'bg-blue-500', label: `Trial (${d.trial_accounts || 0})` },
-          { pct: d.total_accounts ? Math.round((d.churn_risk || 0) / d.total_accounts * 100) : 0, cls: 'bg-rose-500', label: `At risk (${d.churn_risk || 0})` },
+          { pct: d.total_accounts ? Math.round((d.churn_risk || 0) / d.total_accounts * 100) : 0, cls: 'bg-rose-500', label: `May leave (${d.churn_risk || 0})` },
         ]))}`;
     },
     work(body, d) {
@@ -1033,7 +1042,7 @@ ENGINES['saas-command'] = {
       const top = (d.top_accounts || []).map(a => `<div class="flex items-center justify-between text-sm py-1.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(a.name || 'Account')}</span><span class="font-bold text-slate-800 dark:text-slate-100">${engMoney0(a.mrr)}/mo</span></div>`).join('') || engEmpty('No paying accounts yet.');
       body.innerHTML = `<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Trials — closest to expiry</div><div class="space-y-1.5">${trials}</div></div>
-        <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Top accounts by MRR</div>${engCard('', top, 'py-2')}</div>
+        <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Customers paying the most each month</div>${engCard('', top, 'py-2')}</div>
       </div>`;
     },
     insights(body, d) {
@@ -1048,14 +1057,14 @@ ENGINES['saas-command'] = {
           <span class="w-20 text-right font-bold text-slate-700 dark:text-slate-200">${engMoney0(mix[k])}</span>
         </div>`).join('') || engEmpty('No paying products yet.');
       body.innerHTML = `
-        ${engCard('MRR by product · across top accounts', mixRows)}
+        ${engCard('Monthly customer payments by product', mixRows)}
         ${engCard('Growth', `<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
           ${engKpi('New this month', (d.new_this_month || 0).toLocaleString())}
           ${engKpi('Active', (d.active_customers || 0).toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
           ${engKpi('Trials', (d.trial_accounts || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
-          ${engKpi('ARR', engMoney0(d.arr), 'text-emerald-600 dark:text-emerald-400')}
+          ${engKpi('Expected yearly payments', engMoney0(d.arr), 'text-emerald-600 dark:text-emerald-400')}
         </div>`)}
-        <div class="text-[12px] text-slate-400">Cohort retention curves need historical MRR snapshots — that time-series isn't captured yet, so it's intentionally omitted rather than estimated.</div>`;
+        <div class="text-[12px] text-slate-400">Long-term retention charts need a history of monthly payments. That history is not captured yet, so this page does not invent it.</div>`;
     },
     automation(body) {
       body.innerHTML = engCard('Trial &amp; onboarding automation', `
@@ -1098,8 +1107,9 @@ function pipeCard(a) {
 }
 const pipeAllRows = (d) => (d.stages || []).flatMap(s => d.by_stage[s] || []);
 ENGINES['saas-customers'] = {
-  rootId: 'saas-customers-root', title: 'Customer Pipeline', subtitle: 'Every account by stage, health score, and next action',
+  rootId: 'saas-customers-root', title: 'Customers', subtitle: 'Every MarketSync customer account, health signal, owner, and next action',
   icon: 'chart', accent: 'violet',
+  tabLabels: { overview: 'Directory', work: 'Onboarding Data', insights: 'Plan Overrides', automation: 'Impersonation & Access', settings: 'Usage Quotas' },
   fetch: () => apiGetJson('/saas/customers'),
   quickActions: [
     { label: 'MarketSync HQ', icon: 'chart', onclick: "switchPage('saas-command')" },
@@ -1231,6 +1241,11 @@ async function renderSaasCustomer(id) {
       <button onclick="saasCustCompleteFollowup('${id}','${f.id}')" title="Complete" class="mt-0.5 w-4 h-4 rounded border-2 border-slate-300 dark:border-slate-600 hover:border-emerald-500 flex-shrink-0"></button>
       <div class="min-w-0 flex-1"><div class="text-[13px] font-bold text-slate-800 dark:text-slate-100">${esc(f.title)}</div>${f.note ? `<div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(f.note)}</div>` : ''}<div class="text-[11px] text-slate-400">${f.due_at ? 'Due ' + new Date(f.due_at).toLocaleDateString() : 'No due date'} · <span class="uppercase font-bold">${esc(f.priority || 'normal')}</span></div></div></div>`;
   const tl = (d.timeline || []).slice(0, 18).map(e => `<div class="flex justify-between gap-3 py-1.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="text-[12px] text-slate-700 dark:text-slate-200 truncate">${esc(e.name)}</span><span class="text-[11px] text-slate-400 flex-shrink-0">${saasRel(e.at)}</span></div>`).join('') || '<div class="text-xs text-slate-400 italic py-2">No recent activity.</div>';
+  const productUsage = (() => {
+    const events = d.timeline || [], byEngine = {};
+    for (const e of events) { const key = String(e.name || '').split('.')[0] || 'platform'; const x = byEngine[key] || (byEngine[key] = { count: 0, at: null }); x.count++; if (!x.at || new Date(e.at) > new Date(x.at)) x.at = e.at; }
+    return Object.entries(byEngine).sort((a,b) => b[1].count - a[1].count).map(([name, x]) => `<div class="flex items-center justify-between gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><div><div class="text-[13px] font-bold capitalize">${esc(name.replaceAll('_',' '))}</div><div class="text-[11px] text-slate-400">Last used ${saasRel(x.at)}</div></div><span class="text-xs font-black text-blue-500">${x.count} event${x.count === 1 ? '' : 's'}</span></div>`).join('') || '<div class="text-xs text-slate-400 italic">No product activity captured yet.</div>';
+  })();
   const bill = (d.billing_history || []).map(b => `<div class="flex justify-between gap-3 py-1.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="text-[12px] text-slate-600 dark:text-slate-300">${new Date(b.date).toLocaleDateString()} ${b.number ? '· ' + esc(b.number) : ''}</span><span class="text-[12px] font-bold ${b.status === 'paid' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">${money(b.amount)} ${esc(b.currency || '')}</span></div>`).join('');
   const team = (d.team || []).map(t => `<div class="flex justify-between gap-2 py-1 text-[12px]"><span class="text-slate-700 dark:text-slate-200 truncate">${esc(t.name || '—')}</span><span class="text-slate-400">${esc(t.role || '')}</span></div>`).join('') || '<div class="text-xs text-slate-400 italic">No team members.</div>';
   const liveSeqs = (d.sequences || []).filter(s => s.status === 'active' || s.status === 'paused');
@@ -1254,11 +1269,13 @@ async function renderSaasCustomer(id) {
         <div class="flex items-center gap-2 mt-1">${d.status ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${statusTone}">${esc(d.status)}</span>` : ''}<span class="text-[12px] text-slate-400">${d.tenure_months != null ? d.tenure_months + ' mo customer' : ''}</span></div></div>
       <button data-x class="text-2xl leading-none text-slate-400 hover:text-slate-600">×</button>
     </div>
-    <div class="grid grid-cols-2 gap-2 mb-4">
-      ${kpi('MRR', money(d.mrr), 'text-violet-600 dark:text-violet-400')}
-      ${kpi('ARR', money(d.arr))}
-      ${kpi('LTV' + (d.ltv_source === 'stripe' ? '' : ' (est.)'), money(d.ltv), 'text-emerald-600 dark:text-emerald-400')}
-      ${kpi('Engines used', (d.engines_used || []).length + ' · ' + (d.last_activity_days == null ? 'idle' : d.last_activity_days + 'd ago'))}
+    <div class="grid grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
+      ${kpi('Monthly payment', money(d.mrr), 'text-violet-600 dark:text-violet-400')}
+      ${kpi('Expected yearly value', money(d.arr))}
+      ${kpi('Customer spend' + (d.ltv_source === 'stripe' ? '' : ' (est.)'), money(d.ltv), 'text-emerald-600 dark:text-emerald-400')}
+      ${kpi('Account age', d.tenure_months == null ? 'Unknown' : d.tenure_months + ' months')}
+      ${kpi('Activity · 90 days', (d.activity_90d ?? 0).toLocaleString() + ' events')}
+      ${kpi('Last active', d.last_activity_days == null ? 'No activity' : d.last_activity_days === 0 ? 'Today' : d.last_activity_days + 'd ago')}
     </div>
     <div class="mb-4"><div class="text-[11px] uppercase font-bold tracking-wide text-slate-400 mb-1.5">Products</div><div class="flex flex-wrap gap-1.5">${chips}</div></div>
     <div class="flex items-center gap-2 mb-4"><span class="text-[11px] uppercase font-bold tracking-wide text-slate-400">Owner</span>
@@ -1274,6 +1291,7 @@ async function renderSaasCustomer(id) {
     </div>
     ${seqCard}
     ${bill ? `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100 mb-1">Billing history</div>${bill}</div>` : ''}
+    <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4"><div class="flex items-center justify-between mb-1"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100">Product usage timeline</div><span class="text-[11px] text-slate-400">90-day activity</span></div>${productUsage}</div>
     <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100 mb-1">Team</div>${team}</div>
     <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100 mb-1">Recent activity</div>${tl}</div>`;
   body.querySelector('[data-x]').onclick = () => document.getElementById('saas-cust-drawer')?.remove();
@@ -1350,9 +1368,15 @@ function funnelRow(c) {
     <button onclick="saasRecoverCart('${c.id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex-shrink-0">Recover</button>
   </div>`;
 }
+function saasLeadTable(d) {
+  const rows = d.abandoned_list || [];
+  return `<div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"><table class="w-full min-w-[720px] text-sm"><thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800"><th class="px-3 py-2">Account</th><th class="px-3 py-2">Product interest</th><th class="px-3 py-2">Currency</th><th class="px-3 py-2">Time waiting</th><th class="px-3 py-2">Next action</th></tr></thead><tbody>${rows.map(c => `<tr class="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40"><td class="px-3 py-3 font-bold"><button onclick="openSaasCustomer('${c.dealership_id}')">${esc(c.account)}</button></td><td class="px-3 py-3">${esc(c.plan || c.kind || 'Plan')}</td><td class="px-3 py-3 uppercase">${esc(c.currency || '—')}</td><td class="px-3 py-3">${c.age_hours}h</td><td class="px-3 py-3"><button onclick="saasRecoverCart('${c.id}')" class="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold">Create recovery follow-up</button></td></tr>`).join('') || '<tr><td colspan="5" class="px-3 py-8 text-center text-slate-400">No actionable SaaS leads.</td></tr>'}</tbody></table></div>`;
+}
 ENGINES['saas-funnel'] = {
-  rootId: 'saas-funnel-root', title: 'Checkout Funnel', subtitle: 'Signup → checkout → paid, and abandoned-cart recovery',
+  rootId: 'saas-funnel-root', title: 'Leads', subtitle: 'New interest, checkout intent, and the next follow-up needed to convert it',
   icon: 'chart', accent: 'violet',
+  tabOrder: ['overview', 'work', 'sources', 'routing', 'export'],
+  tabLabels: { overview: 'All Leads', work: 'Pipeline Board', sources: 'Marketplace Sources', routing: 'Routing Rules', export: 'Export' },
   fetch: () => apiGetJson('/saas/carts'),
   quickActions: [{ label: 'Customer Pipeline', icon: 'chart', onclick: "switchPage('saas-customers')" }],
   nextActions: d => d.abandoned ? [{ label: `${d.abandoned} abandoned cart${d.abandoned === 1 ? '' : 's'} to recover`, icon: 'flame', tone: 'text-rose-500', onclick: "engineTab('saas-funnel','work')" }] : [],
@@ -1363,10 +1387,20 @@ ENGINES['saas-funnel'] = {
           ${engKpi('Completed', (d.completed || 0).toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
           ${engKpi('Conversion', (d.conversion || 0) + '%', 'text-violet-600 dark:text-violet-400')}
           ${engKpi('Abandoned', (d.abandoned || 0).toLocaleString(), d.abandoned ? 'text-rose-600 dark:text-rose-400' : '')}
-        </div>${engCard('Abandoned carts', (d.abandoned_list || []).length ? (d.abandoned_list || []).map(funnelRow).join('') : engEmpty('No abandoned carts — nice.'))}`;
+        </div><div class="grid grid-cols-1 md:grid-cols-3 gap-3">${engCard('Lead generation','<p class="text-xs text-slate-500 mb-3">Capture demos, pricing interest and campaign responses into one actionable list.</p><button onclick="switchPage(\'saas-website\')" class="text-xs font-black text-blue-500">Manage capture pages →</button>')}${engCard('Marketing','<p class="text-xs text-slate-500 mb-3">Build nurture campaigns and convert product interest into booked demos.</p><button onclick="switchPage(\'saas-email-marketing\')" class="text-xs font-black text-blue-500">Open marketing →</button>')}${engCard('Social posting','<p class="text-xs text-slate-500 mb-3">Create product videos and social-ready MarketSync content.</p><button onclick="switchPage(\'saas-studio\')" class="text-xs font-black text-blue-500">Create social content →</button>')}</div>${engCard('SaaS lead priorities', '<p class="text-sm text-slate-600 dark:text-slate-300">One account, one owner, one next action, and a complete customer timeline—without a Kanban board.</p>')}${saasLeadTable(d)}`;
     },
     work(body, d) {
       body.innerHTML = engCard('Abandoned carts — recover', (d.abandoned_list || []).length ? (d.abandoned_list || []).map(funnelRow).join('') : engEmpty('Nothing to recover right now.'));
+    },
+    sources(body, d) {
+      body.innerHTML = `<div class="grid grid-cols-2 md:grid-cols-4 gap-3">${engKpi('Checkout starts', (d.started || 0).toLocaleString())}${engKpi('Completed', (d.completed || 0).toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}${engKpi('Abandoned', (d.abandoned || 0).toLocaleString(), d.abandoned ? 'text-rose-600 dark:text-rose-400' : '')}${engKpi('Conversion', (d.conversion || 0) + '%')}</div>${engCard('Source attribution', '<p class="text-sm text-slate-600 dark:text-slate-300">Checkout intent is live. Marketplace-source attribution will appear here when source and campaign parameters are captured on every inbound lead.</p>')}`;
+    },
+    routing(body) {
+      body.innerHTML = engCard('Lead routing rules', '<p class="text-sm text-slate-600 dark:text-slate-300 mb-3">Route new inquiries by product interest, territory, source, and account owner. Existing abandoned checkouts continue to create an owned recovery follow-up.</p><button onclick="switchPage(\'saas-followups\')" class="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold">Open follow-up assignments</button>');
+    },
+    export(body, d) {
+      const rows = d.abandoned_list || [];
+      body.innerHTML = engCard('Lead export', `<div class="flex items-center justify-between gap-3"><p class="text-sm text-slate-600 dark:text-slate-300">Export the ${rows.length} currently actionable checkout lead${rows.length === 1 ? '' : 's'} for review.</p><button onclick="saasExportLeads()" class="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold">Export CSV</button></div>`);
     },
   },
 };
@@ -1376,6 +1410,64 @@ window.saasRecoverCart = async (id) => {
   try { await apiSendJson('/saas/carts/' + id + '/recover', 'POST', {}); showToast('Recovery follow-up created', 'success'); await loadSaasFunnel(); }
   catch (e) { showToast(e.message || 'Could not create recovery follow-up', 'error'); }
 };
+window.saasExportLeads = () => {
+  const rows = ENGINE_DATA['saas-funnel']?.abandoned_list || [];
+  const csv = ['Account,Plan,Currency,Age Hours', ...rows.map(r => [r.account, r.plan || r.kind || '', r.currency || '', r.age_hours ?? ''].map(v => `"${String(v ?? '').replaceAll('"', '""')}"`).join(','))].join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `marketsync-leads-${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(a.href);
+};
+
+// ══ MarketSync company tools — focused HQ entry points ══════════════════════
+// These pages are intentionally separate from the dealer workspace shell. They
+// compose the existing canonical engines and keep the company context explicit.
+function saasToolHeader({ icon, title, subtitle, action = '', tabs = [] }) {
+  return `<div class="rounded-2xl border border-violet-200/70 dark:border-violet-900/70 bg-gradient-to-br from-white via-white to-violet-50 dark:from-slate-900 dark:via-slate-900 dark:to-violet-950/30 p-5 shadow-sm">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div class="flex items-start gap-3 min-w-0"><div class="w-11 h-11 rounded-2xl bg-violet-600 text-white flex items-center justify-center shadow-lg shadow-violet-500/20">${svgIcon(icon, 'w-5 h-5')}</div>
+        <div><h1 class="text-2xl font-black text-slate-950 dark:text-white leading-tight">${esc(title)}</h1><p class="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-2xl">${esc(subtitle)}</p></div></div>${action}
+    </div>${tabs.length ? `<div class="flex gap-1 mt-5 -mb-5 overflow-x-auto border-t border-slate-200 dark:border-slate-700 pt-2">${tabs.map((t, i) => `<button onclick="${t.onclick || ''}" class="px-3 py-2.5 whitespace-nowrap text-xs font-extrabold border-b-2 ${i === 0 ? 'border-blue-500 text-blue-600 dark:text-blue-300' : 'border-transparent text-slate-500 hover:text-blue-500'}">${esc(t.label)}</button>`).join('')}</div>` : ''}</div>`;
+}
+
+const EMAIL_MARKETING_TABS = [
+  { label: 'Campaigns', onclick: "openSaasAutomationView('campaigns')" }, { label: 'Automated Drips', onclick: "openSaasAutomationView('sequences')" },
+  { label: 'Audience Lists', onclick: "openSaasAutomationView('campaigns')" }, { label: 'Template Builder', onclick: "openSaasAutomationView('templates')" },
+  { label: 'Deliverability & Analytics', onclick: "switchPage('saas-command');engineTab('saas-command','insights')" },
+];
+
+async function loadSaasEmailMarketing() {
+  const root = document.getElementById('saas-email-marketing-root'); if (!root) return;
+  root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Email Marketing', subtitle: 'Dealer broadcasts, automated onboarding drips, deliverability, and audience segments.', tabs: EMAIL_MARKETING_TABS }) + '<div class="text-sm text-slate-400 py-10 text-center">Loading campaigns…</div>';
+  try {
+    const [camp, tpl] = await Promise.all([apiGetJson('/saas/automation/campaigns'), apiGetJson('/saas/automation/templates')]);
+    const campaigns = camp.campaigns || [], templates = tpl.templates || [];
+    const sent = campaigns.reduce((n, c) => n + (Number(c.sent_count) || 0), 0);
+    const failed = campaigns.reduce((n, c) => n + (Number(c.fail_count) || 0), 0);
+    root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Email Marketing', subtitle: 'Dealer broadcasts, automated onboarding drips, deliverability, and audience segments.', tabs: EMAIL_MARKETING_TABS, action: '<button onclick="openSaasAutomationView(\'campaigns\')" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-black">Create campaign</button>' }) + `
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">${engKpi('Campaigns', campaigns.length)}${engKpi('Templates', templates.length)}${engKpi('Provider accepted', sent, 'text-emerald-600 dark:text-emerald-400')}${engKpi('Failed', failed, failed ? 'text-rose-600 dark:text-rose-400' : '')}</div>
+      ${engCard('Email workspace', `<div class="grid sm:grid-cols-2 gap-3"><button onclick="openSaasAutomationView('campaigns')" class="text-left p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-violet-400"><div class="font-black">Campaigns</div><div class="text-sm text-slate-500 mt-1">Build, target, send, and review delivery evidence.</div></button><button onclick="openSaasAutomationView('templates')" class="text-left p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-violet-400"><div class="font-black">Templates</div><div class="text-sm text-slate-500 mt-1">Keep approved MarketSync messaging reusable and consistent.</div></button></div>`)}`;
+  } catch (e) { root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Email Marketing', subtitle: 'Dealer broadcasts, automated onboarding drips, deliverability, and audience segments.', tabs: EMAIL_MARKETING_TABS }) + engCard('Unable to load', `<p class="text-sm text-rose-500">${esc(e.message || 'Email marketing is unavailable.')}</p>`); }
+}
+window.loadSaasEmailMarketing = loadSaasEmailMarketing;
+window.openSaasAutomationView = (view) => { __automation.view = view; switchPage('saas-automation'); };
+
+async function loadSaasStudio() {
+  const root = document.getElementById('saas-studio-root'); if (!root) return;
+  root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Studio', subtitle: 'Create product videos and MarketSync brand assets with reusable templates and engagement tracking.', tabs: [{label:'Video Studio',onclick:"openCustomerVideoStudio('demo-customer',{department:'MarketSync',scriptKey:'product_demo'})"},{label:'Creative Library',onclick:'openMarketSyncStudio()'},{label:'Watermark & Branding',onclick:'openMarketSyncStudio()'},{label:'AI Enhancement Rules',onclick:'openMarketSyncStudio()'},{label:'Templates',onclick:'openMarketSyncStudio()'}], action: '<button onclick="openCustomerVideoStudio(\'demo-customer\',{department:\'MarketSync\',scriptKey:\'product_demo\'})" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-black">Record product video</button>' });
+  try {
+    const data = await apiGetJson('/marketing/studio/designs');
+    const designs = data.designs || data || [];
+    root.innerHTML += `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3">${engKpi('Saved designs', Array.isArray(designs) ? designs.length : 0)}${engKpi('Brand', 'MarketSync')}${engKpi('Publishing', 'Approval required')}</div><div id="saas-video-studio-host"></div>${engCard('Brand Studio', '<p class="text-sm text-slate-600 dark:text-slate-300">Create static campaign assets in the existing Studio engine. Video engagement stays connected to the customer and product timeline above.</p><button onclick="openMarketSyncStudio()" class="mt-3 px-4 py-2 rounded-xl border border-violet-300 dark:border-violet-800 text-violet-700 dark:text-violet-300 text-sm font-black">Open Creative Studio</button>')}`;
+    if (typeof loadSaasVideoStudio === 'function') loadSaasVideoStudio();
+  } catch (e) { root.innerHTML += engCard('Creative library unavailable', `<p class="text-sm text-rose-500">${esc(e.message || 'Studio could not be loaded.')}</p>`); }
+}
+window.loadSaasStudio = loadSaasStudio;
+
+function loadSaasWebsite() {
+  const root = document.getElementById('saas-website-root'); if (!root) return;
+  root.innerHTML = saasToolHeader({ icon: 'globe', title: 'Website', subtitle: 'Edit pages, forms, pricing, content and SEO in the connected public-site builder.', action: '<a href="https://marketsync.link" target="_blank" rel="noopener" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-black">Preview live site</a>' }) + '<div id="saas-connected-website-builder" class="mt-4"></div>';
+  const host = document.getElementById('saas-connected-website-builder');
+  if (host && typeof engMountPage === 'function') engMountPage(host, 'website', () => { if (typeof loadWebsitePage === 'function') loadWebsitePage(); });
+}
+window.loadSaasWebsite = loadSaasWebsite;
 
 // ══ Automation & Email — editable drips (sequences + steps) + template library ══
 let __automation = { view: 'sequences', sequences: [], templates: [] };
@@ -1403,12 +1495,22 @@ function renderAutomation() {
         <div><h1 class="text-xl font-black text-slate-900 dark:text-white leading-tight">Automation &amp; Email</h1>
           <p class="text-[13px] text-slate-500 dark:text-slate-400">Edit your drips step-by-step and manage reusable email templates.</p></div>
       </div>
-      <div class="flex items-center gap-2">${pill('sequences', 'Sequences')}${pill('campaigns', 'Campaigns')}${pill('templates', 'Templates')}</div>
+      <div class="flex items-center gap-2"><button onclick="automationNewSeq()" class="px-3.5 py-2 rounded-xl bg-blue-600 text-white text-xs font-black">+ New automation</button><button onclick="automationView('campaigns')" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">Email campaigns</button></div>
     </div>
     <div id="automation-body"></div>`;
-  (v === 'campaigns' ? renderAutoCampaigns : v === 'templates' ? renderAutoTemplates : renderAutoSequences)();
+  (v === 'campaigns' ? renderAutoCampaigns : v === 'templates' ? renderAutoTemplates : v === 'sequences' ? renderAutoSequences : renderAutoOperations)(v);
 }
 window.automationView = (v) => { __automation.view = v; renderAutomation(); };
+function renderAutoOperations(view) {
+  const body = document.getElementById('automation-body'); if (!body) return;
+  const copy = {
+    sms: ['Twilio & SMS triggers', 'Configure welcome messages, sync-failure escalation, delivery callbacks, and messaging thresholds. Twilio alert and webhook evidence belongs here beside each trigger.'],
+    calendar: ['Calendar sync', 'Review team OAuth connection status and the automated triggers used for demo bookings, reminders, and follow-up ownership.'],
+    webhooks: ['Webhook operations', 'Inspect registered endpoints, signing status, recent response codes, retries, and disabled destinations.'],
+    history: ['Execution history', 'Review trigger payloads, conditional branches, external responses, failures, and retry evidence for every workflow run.'],
+  }[view] || ['Automation', 'Select an automation workspace.'];
+  body.innerHTML = `${engCard(copy[0], `<p class="text-sm text-slate-600 dark:text-slate-300">${copy[1]}</p>`)}${engCard('Connection status', '<div class="flex items-center gap-2 text-sm"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span><span class="font-bold">Integration data source required</span></div><p class="text-xs text-slate-500 mt-2">This panel will show live provider state once the corresponding account connection is available. No healthy status is fabricated.</p>')}`;
+}
 function autoStepChip(s) {
   const label = s.type === 'task' ? `Task: ${esc(s.title || 'Follow-up')}` : `Email: ${esc(s.subject || '(template)')}`;
   const tone = s.type === 'task' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300';
@@ -1418,7 +1520,8 @@ function renderAutoSequences() {
   const body = document.getElementById('automation-body'); if (!body) return;
   const cards = (__automation.sequences || []).map(s => {
     const steps = (s.steps || []).slice().sort((a, b) => a.step_order - b.step_order);
-    return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+    const trigger = esc(SAAS_TRIGGER_LABEL[s.trigger] || s.trigger || 'Manual');
+    return `<div role="button" tabindex="0" onclick="automationEditSeq('${s.id}')" class="w-full text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:border-blue-500 transition cursor-pointer">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
@@ -1430,15 +1533,14 @@ function renderAutoSequences() {
           <div class="text-[11px] text-slate-400 mt-1">${steps.length} step${steps.length === 1 ? '' : 's'} · ${s.active || 0} active / ${s.total || 0} enrolled</div>
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">
-          <button onclick="automationToggleSeq('${s.id}', ${s.enabled ? 'false' : 'true'})" title="${s.enabled ? 'Turn off' : 'Turn on'}" class="text-[12px] font-bold ${s.enabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">${s.enabled ? 'On' : 'Off'}</button>
-          <button onclick="automationEditSeq('${s.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700">Edit</button>
+          <button onclick="event.stopPropagation();automationToggleSeq('${s.id}', ${s.enabled ? 'false' : 'true'})" title="${s.enabled ? 'Turn off' : 'Turn on'}" class="text-[12px] font-bold ${s.enabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">${s.enabled ? 'On' : 'Off'}</button>
+          <span class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold">Edit visually</span>
         </div>
       </div>
-      <div class="flex flex-wrap gap-1.5 mt-3">${steps.map(autoStepChip).join('') || '<span class="text-[12px] text-slate-400 italic">No steps yet.</span>'}</div>
+      <div class="flex items-center gap-2 mt-4 overflow-x-auto"><span class="shrink-0 px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 text-xs font-black">${trigger}</span><span class="text-blue-400 font-black">→</span>${steps.map(st => `<span class="shrink-0 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">Day ${st.day_offset} · ${st.type === 'task' ? esc(st.title || 'Task') : esc(st.subject || 'Email')}</span><span class="text-blue-400 font-black">→</span>`).join('')}<span class="shrink-0 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 text-xs font-black">Complete</span></div>
     </div>`;
   }).join('');
-  body.innerHTML = `<div class="flex justify-end mb-3"><button onclick="automationNewSeq()" class="px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">＋ New sequence</button></div>
-    <div class="space-y-3">${cards || '<div class="text-sm text-slate-400 italic py-6 text-center">No sequences yet.</div>'}</div>`;
+  body.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">${engCard('Customer growth','<p class="text-xs text-slate-500">Trial onboarding, activation, renewal and win-back.</p>')}${engCard('Marketing','<p class="text-xs text-slate-500">Lead nurture, campaigns, product education and social follow-up.</p>')}${engCard('Operations','<p class="text-xs text-slate-500">Payments, alerts, internal tasks and integration failures.</p>')}</div><div class="space-y-3">${cards || '<div class="text-sm text-slate-400 italic py-6 text-center">No automations yet. Create your first visual flow.</div>'}</div>`;
 }
 function renderAutoTemplates() {
   const body = document.getElementById('automation-body'); if (!body) return;

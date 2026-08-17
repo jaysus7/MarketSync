@@ -8,7 +8,7 @@
  *
  * Active-page item highlighting adds .ms-active.
  */
-:root{--ms-accent:#6366F1;
+:root{--ms-accent:#2563eb;
 --ms-ink:#0b1220;
 --ms-fg:#e5e7eb;
 }
@@ -37,12 +37,28 @@ padding:0 32px;
 }
 .ms-logo{display:inline-flex;
 align-items:center;
-gap:9px;
-font-weight:800;
-font-size:19px;
-letter-spacing:-.02em;
+position:relative;
+width:192px;
+height:48px;
+overflow:hidden;
+flex:0 0 192px;
 color:#0b1220;
 text-decoration:none;
+}
+.ms-logo img{position:absolute;
+width:224px!important;
+height:auto!important;
+max-width:none!important;
+left:-16px;
+top:-58px;
+}
+.ms-logo-sm{width:166px;
+height:42px;
+flex-basis:166px;
+}
+.ms-logo-sm img{width:194px!important;
+left:-14px;
+top:-50px;
 }
 @media (prefers-color-scheme:dark){.ms-logo{color:#fff;}
 }
@@ -90,7 +106,7 @@ transition:color .2s,background .2s;
 }
 }
 .ms-nav-link:hover,.ms-nav-btn:hover{color:var(--ms-accent);
-background:rgba(99,102,241,.08);
+background:rgba(37,99,235,.08);
 }
 .ms-caret{width:15px;
 height:15px;
@@ -131,7 +147,7 @@ border-radius:11px;
 text-decoration:none;
 transition:background .15s;
 }
-.ms-dd-item:hover{background:rgba(99,102,241,.08);
+.ms-dd-item:hover{background:rgba(37,99,235,.08);
 }
 .ms-dd-t{display:block;
 font-size:14px;
@@ -182,15 +198,15 @@ white-space:nowrap;
 }
 .ms-btn-primary{background:var(--ms-accent);
 color:#fff;
-box-shadow:0 6px 20px rgba(99,102,241,.35);
+box-shadow:0 6px 20px rgba(37,99,235,.35);
 }
-.ms-btn-primary:hover{background:#4f46e5;
-box-shadow:0 8px 26px rgba(99,102,241,.5);
+.ms-btn-primary:hover{background:#1d4ed8;
+box-shadow:0 8px 26px rgba(37,99,235,.5);
 }
-.ms-btn-ghost{background:rgba(99,102,241,.08);
+.ms-btn-ghost{background:rgba(37,99,235,.08);
 color:var(--ms-accent);
 }
-.ms-btn-ghost:hover{background:rgba(99,102,241,.16);
+.ms-btn-ghost:hover{background:rgba(37,99,235,.16);
 }
 .ms-btn-lg{padding:14px 28px;
 font-size:16px;
@@ -260,6 +276,24 @@ border-bottom-color:rgba(255,255,255,.08);
 .ms-m-actions{margin-top:24px;
 display:grid;
 gap:10px;
+}
+.ms-m-actions-top{margin:0 0 16px;
+grid-template-columns:1fr 1fr;
+}
+@media (max-width:420px){.ms-hd-in{padding:0 16px;
+gap:10px;
+}
+.ms-logo{width:166px;
+flex-basis:166px;
+}
+.ms-logo img{width:194px!important;
+left:-14px;
+top:-50px;
+}
+.ms-nav-cta>.ms-btn-primary{display:none;
+}
+.ms-m-actions-top{grid-template-columns:1fr;
+}
 }
 @media (min-width:900px){.ms-nav-desktop{display:flex;
 }
@@ -350,4 +384,4 @@ transition:none;
 
 /* Active-page highlighting */
 .ms-nav-link.ms-active,.ms-dd-item.ms-active .ms-dd-t,.ms-m-link.ms-active{color:var(--ms-accent);}
-.ms-dd-item.ms-active{background:rgba(99,102,241,.08);}
+.ms-dd-item.ms-active{background:rgba(37,99,235,.08);}

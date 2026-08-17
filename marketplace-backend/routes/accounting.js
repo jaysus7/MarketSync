@@ -293,10 +293,14 @@ export function registerAccounting(app) {
     const amount = round2(req.body?.amount)
     const direction = req.body?.direction === 'in' ? 'in' : 'out'   // accounting mostly adds expenses (out)
     if (!amount) return res.status(400).json({ error: 'amount required' })
+    const receiptImage = String(req.body?.receipt_image || '')
+    if (receiptImage && !/^data:image\/(png|jpe?g|webp);base64,/.test(receiptImage)) return res.status(400).json({ error: 'Receipt must be a JPG, PNG, or WEBP image.' })
+    if (receiptImage.length > 8_000_000) return res.status(400).json({ error: 'Receipt image is too large.' })
     const { data, error } = await supabaseAdmin.from('gl_entries').insert({
       dealership_id: req.dealershipId, entry_date: String(req.body?.entry_date || today()).slice(0, 10),
       account_id: req.body?.account_id || null, description: String(req.body?.description || '').slice(0, 200) || null,
       amount: Math.abs(amount), direction, source: 'manual', created_by: req.user?.id || null,
+      receipt_image: receiptImage || null,
     }).select().single()
     if (error) return res.status(500).json({ error: error.message })
     audit(req, 'accounting.entry_created', { after_state: data })

@@ -39,6 +39,7 @@ function loadRegistry() {
 
 const html = read('dashboard.html')
 const part2 = read('js/modules/dashboard-part2.js')
+const part10 = read('js/modules/dashboard-part10.js')
 const salesWorkspace = read('js/modules/sales-workspace.js')
 const part11 = read('js/modules/dashboard-part11.js')
 const pageContainers = new Set([...html.matchAll(/data-page-content="([^"]+)"/g)].map(m => m[1]))
@@ -47,6 +48,47 @@ const pageContainers = new Set([...html.matchAll(/data-page-content="([^"]+)"/g)
 const EXPECTED_WORKSPACES = [
   'executive', 'sales', 'inventory', 'fni', 'service', 'parts', 'accounting', 'marketing', 'people',
 ]
+
+test('MarketSync Internal OS uses the approved company navigation in order', () => {
+  const block = part2.match(/const SAAS_DEPARTMENTS = \{([\s\S]*?)\n\};/)?.[1] || ''
+  const labels = [...block.matchAll(/label: '([^']+)'/g)].map(match => match[1])
+    .filter(label => ['Pulse', 'Leads', 'Customers', 'Affiliates', 'Money', 'Email Marketing', 'Automations', 'Studio', 'Website', 'Employees'].includes(label))
+  assert.deepEqual(labels, ['Pulse', 'Leads', 'Customers', 'Affiliates', 'Money', 'Email Marketing', 'Automations', 'Studio', 'Website', 'Employees'])
+  for (const page of ['saas-email-marketing', 'saas-studio', 'saas-website']) {
+    assert.ok(pageContainers.has(page), `${page} must resolve to a real page container`)
+    const loader = page.split('-').map(word => word[0].toUpperCase() + word.slice(1)).join('')
+    assert.match(part2, new RegExp(`pageId === '${page}'\\) load${loader}\\(\\)`))
+    assert.match(part10, new RegExp(`function load${loader}\\(`))
+  }
+  assert.match(html, /data-dash-mode="marketsync"[^}]*#dashboard-brand\{[^}]*overflow:hidden/)
+  assert.match(html, /data-dash-mode="marketsync"[^}]*#dashboard-brand img\[alt="MarketSync DealerOS"\][^}]*top:-3\.05rem/)
+  assert.match(html, /#ui-role-pill::after\{content:"MARKETSYNC INTERNAL"/)
+  assert.match(html, /data-dash-mode="marketsync"[^}]*\.bg-violet-600\)[^}]*#2563eb/)
+})
+
+test('each MarketSync Internal page owns specific operational header tabs', () => {
+  const expected = [
+    'Overview', 'Sync Pipeline', 'API & Webhook Health', 'Error Logs', 'Infrastructure',
+    'All Leads', 'Pipeline Board', 'Marketplace Sources', 'Routing Rules', 'Export',
+    'Directory', 'Onboarding Data', 'Plan Overrides', 'Impersonation & Access', 'Usage Quotas',
+    'Affiliate Directory', 'Pending Payouts', 'Referral Links', 'Commission Tiers', 'Payout Logs',
+    'Money overview', 'Customer payments', 'Money spent', 'Bills and taxes', 'Canadian and US dollars',
+    'Campaigns', 'Automated Drips', 'Audience Lists', 'Template Builder', 'Deliverability & Analytics',
+    'Video Studio', 'Creative Library', 'Watermark & Branding', 'AI Enhancement Rules', 'Templates',
+    'Team Directory', 'Role Permissions', 'Sales Assignments', 'Activity Audit', 'Invitations',
+  ]
+  const source = part10 + part11 + read('js/modules/dashboard-part13.js')
+  for (const label of expected) assert.ok(source.includes(label), `missing tailored Internal header: ${label}`)
+  assert.match(part10, /window\.saasExportLeads\s*=/)
+  assert.match(part10, /Product usage timeline/)
+  assert.match(part10, /Customer growth/)
+  assert.match(part10, /SaaS lead priorities/)
+  assert.match(part10, /saas-connected-website-builder/)
+  assert.match(part11, /Snap or upload receipt/)
+  const videoStudio = read('js/modules/video-studio.js')
+  assert.match(videoStudio, /MarketSync Product Video Studio/)
+  assert.match(videoStudio, /if \(isSaas && String\(v\.department \|\| ''\)\.toLowerCase\(\) === 'service'\) return false/)
+})
 
 // Every page the PREVIOUS DEPARTMENTS registry could reach. Phase 1 is a
 // reorganization: none of these may become unreachable.
