@@ -296,7 +296,7 @@ ENGINES['sales'] = {
   icon: 'currency', accent: 'amber',
   // Appraisals moved to Inventory > Acquire; desking is reached from the global header.
   // Sales composes operational work into the Work tab and leads with its Pulse/My Day.
-  get tabOrder() { return ['overview', 'work', 'equity', 'settings']; },
+  get tabOrder() { return ['overview', 'work', 'appraisals', 'equity', 'settings']; },
   get tabLabels() { return { overview: 'Pulse', work: 'Customers', appraisals: 'Appraise Trade', desk: 'Desk a Deal', equity: 'Equity Mining', settings: 'Settings' }; },
   quickActions: [
     { label: 'Sales Training (Academy)', icon: 'sparkles', onclick: "openMarketSyncAcademy('sales')" },

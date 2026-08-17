@@ -158,10 +158,11 @@ test('Studio creates canonical assets and schedules through the shared composer'
     'Studio must hand the rendered canonical asset to the shared Social composer')
 })
 
-test('Studio is directly discoverable from Marketing', () => {
-  // It is a department tab of its own now, not a shortcut into a sub-nav.
-  assert.match(ws, /studio: 'Studio'/, 'Studio must be a tab in the Marketing header')
-  assert.match(ws, /\{ label: 'Studio', icon: 'image', onclick: "engineTab\('marketing-overview','studio'\)" \}/)
+test('Studio is directly discoverable from Marketing, labelled "Visual Studio"', () => {
+  // It is a department tab of its own now, not a shortcut into a sub-nav. The label
+  // kept reverting to the generic "Studio" — pinned here so it stays fixed.
+  assert.match(ws, /studio: 'Visual Studio'/, 'Studio must be a tab in the Marketing header, labelled "Visual Studio"')
+  assert.match(ws, /\{ label: 'Visual Studio', icon: 'image', onclick: "engineTab\('marketing-overview','studio'\)" \}/)
 })
 
 test('linked and inferred attribution are never added together', () => {

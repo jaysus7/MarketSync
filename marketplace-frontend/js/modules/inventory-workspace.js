@@ -264,7 +264,7 @@ async function invRenderWork(body, d) {
   const sold = reconRows.filter(atRisk), rest = reconRows.filter(r => !atRisk(r));
 
   body.innerHTML = `
-    ${engSection('Cleanup', engCard('Reconditioning', `<div class="text-[13px] text-slate-600 dark:text-slate-300 mb-2">${reconRows.length ? `${rest.length} in recon${sold.length ? ` · ${sold.length} sold and waiting on cleanup` : ''}.` : 'Nothing in cleanup right now.'}</div><button onclick="engineTab('inventory-overview','cleanup')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Open Cleanup</button>`), 'Reconditioning lives in the Cleanup tab — this is the summary and the way in')}
+    ${engSection('Cleanup', engCard('Reconditioning', `<div class="text-[13px] text-slate-600 dark:text-slate-300 mb-2">${reconRows.length ? `${rest.length} in recon${sold.length ? ` · ${sold.length} sold and waiting on cleanup` : ''}.` : 'Nothing in cleanup right now.'}</div><button onclick="switchPage('recon')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Open Cleanup</button>`), 'Reconditioning is its own department — this is the summary and the way in')}
     ${engSection('Vehicles', '', 'Every unit in stock — add one, edit one, publish one')}`;
 
   if (typeof engMountPage === 'function') {
@@ -277,11 +277,13 @@ async function invRenderWork(body, d) {
 ENGINES['inventory-overview'] = {
   rootId: 'inventory-overview-root', title: 'Inventory', subtitle: 'One vehicle lifecycle — acquire, recon, price, publish',
   icon: 'gem', accent: 'sky',
-  tabLabels: { overview: 'Pulse', work: 'Inventory', appraisals: 'Appraisals', cleanup: 'Cleanup', settings: 'Settings' },
-  get tabOrder() {
-    const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    return mgr ? ['work', 'overview', 'appraisals', 'cleanup', 'settings'] : ['work', 'overview'];
-  },
+  // Appraisals moved to Sales (its one home — see sales-workspace.js's "Appraise
+  // Trade" tab), Cleanup is now its own department (workspace-registry.js), and
+  // Settings is a thin redirect to dealership configuration — reachable from the
+  // header gear like every other department's settings, not a tab of its own here.
+  // Inventory is just Inventory and Pulse.
+  tabLabels: { overview: 'Pulse', work: 'Inventory' },
+  get tabOrder() { return ['work', 'overview']; },
 
   fetch: async () => {
     const [inv, recon] = await Promise.all([
@@ -338,7 +340,7 @@ ENGINES['inventory-overview'] = {
           </div>
           <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
             <button onclick="engineTab('inventory-overview','work')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Review Aged Inventory</button>
-            <button onclick="engineTab('inventory-overview','appraisals')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Appraise Trade-Ins</button>
+            <button onclick="switchPage('appraisal')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Appraise Trade-Ins</button>
           </div>
         </div>
       `;
@@ -388,28 +390,6 @@ ENGINES['inventory-overview'] = {
     work: invRenderWork,
 
     // Appraisals live in Inventory > Acquire (trade appraisal feeds acquisition).
-    appraisals(body, d) {
-      if (typeof engMountPage === 'function') {
-        engMountPage(body, 'appraisal', () => {
-          if (typeof initAppraisal === 'function') initAppraisal();
-          if (typeof loadApprList === 'function') loadApprList();
-          if (typeof apprEnsureBranding === 'function') apprEnsureBranding();
-        });
-      } else {
-        body.innerHTML = engCard('Trade Appraisals', `<div class="p-4 text-center"><button onclick="switchPage('appraisal')" class="px-4 py-2 font-bold bg-amber-600 text-white rounded-lg">Appraise a Car / View Trade Appraisals</button></div>`);
-      }
-    },
-
-    // Cleanup (recon) is part of the inventory lifecycle; it mounts the recon board here.
-    cleanup(body) {
-      if (typeof engMountPage === 'function') {
-        engMountPage(body, 'recon', () => { if (typeof loadReconPage === 'function') loadReconPage(); });
-      } else {
-        body.innerHTML = engCard('Cleanup / Recon', `<div class="p-4 text-center"><button onclick="switchPage('recon')" class="px-4 py-2 font-bold bg-sky-600 text-white rounded-lg">Open Recon Board</button></div>`);
-      }
-    },
-
-
     // The old Insights tab, now rendered INSIDE My Day. See overview().
     __insightsStrip(body, d) {
       const veh = d.vehicles || [];
@@ -436,11 +416,6 @@ ENGINES['inventory-overview'] = {
         })(), 'mt-3')}`;
     },
 
-    settings(body) {
-      body.innerHTML = engSection('Inventory settings',
-        engCard('', `<div class="text-[13px] text-slate-600 dark:text-slate-300 mb-2">Syndication destinations and pricing rules live in dealership configuration.</div>
-         <button onclick="switchPage('config')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Dealership configuration</button>`));
-    },
   },
 };
 
