@@ -1085,6 +1085,19 @@ function applyProductNav(products) {
   __productHome = home;
   applyMobileQuickRow();   // trim the mobile bottom bar to this tier's pages
   if (home) { if (home === 'inventory') __inventoryMode = 'facebook'; if (typeof switchPage === 'function') switchPage(home); }
+  // A single-product account (exactly one product, not a bundle) gets the whole
+  // simplified chrome, every tier alike: the header collapses to Profile + Sign out
+  // (clicking Profile opens Settings — that's the one and only settings entry point
+  // now, so the separate gear icon, notification bell, and dealership social-icon
+  // strip all go), and Open Setup never appears (that wizard walks through
+  // DealerOS departments this account doesn't have). "Design Studio" style single-
+  // page tiers get an even flatter sidebar — see restrictedNavPages().
+  if (active.length === 1) {
+    document.getElementById('header-settings')?.classList.add('hidden');
+    document.getElementById('notif-bell')?.classList.add('hidden');
+    document.getElementById('header-social-icons')?.classList.add('hidden');
+    document.getElementById('setup-bar-host')?.replaceChildren();
+  }
   // Design Studio standalone: launch straight into the editor, not the Settings page
   // it lands on underneath (that page exists only so closing the editor has somewhere
   // to go). Also drop chrome that only makes sense for an employee inside a
@@ -1195,14 +1208,11 @@ function restrictedNavPages() {
   if (activeProducts.length === 1 && /facebook_solo/.test(product)) return [INV('Inventory'), LEADER];
   if (activeProducts.length === 1 && /ai_chatbot/.test(product)) return [AI];
   if (activeProducts.length === 1 && /design_studio/.test(product)) {
-    // Two distinct entries, not one dual-purpose button: "Design Studio" always
-    // launches the editor modal (an action, never a "current page" to highlight),
-    // while "Settings" is the real page:'profile' destination — so whichever one
-    // you're actually looking at is the one that lights up, not always the launcher.
-    return [
-      { page: 'studio', label: 'Design Studio', icon: 'image', studioLaunch: true },
-      { page: 'profile', label: 'Settings', icon: 'shield' },
-    ];
+    // The one and only sidebar entry — launches the editor. Settings is reached
+    // through the header's Profile icon now (every single-product tier's rule), not
+    // a second sidebar row, so this never needs to double as a "current page" link
+    // and never needs to fight Settings for the highlighted state.
+    return [{ page: 'studio', label: 'Design Studio', icon: 'image', studioLaunch: true }];
   }
 
   // Fallback for any other restricted product set (keeps generic behavior).
