@@ -801,6 +801,10 @@ async function initializeDashboardEcosystem() {
       });
     });
     setupMobileMoreMenu();
+    // Set the purchased-product boundary BEFORE choosing any landing page. The old
+    // sequence opened a role-default/legacy page, then applied product gates and
+    // navigated again, producing the visible legacy-page flash on every load.
+    applyProductNav(legacyProductsFromAccess(window.__access) || profileContext?.products);
     // DealerOS: managers/admins land on the Command Center (today's operations +
     // exceptions); reps keep the Dashboard as home.
     // SaaS Admin in MarketSync mode → the company command center; otherwise the
@@ -819,15 +823,14 @@ async function initializeDashboardEcosystem() {
       switchPage(dealerRoleLanding(profileContext?.role));
     }
     applyFeatureFlags();   // hide nav for features the dealer switched off
-    // Entitlement-driven front door. Prefer the normalized access context (composes
-    // subscription tier + product membership + role) and fall back to the legacy
-    // /auth/me products object. This is what stops every login landing on Facebook.
-    applyProductNav(legacyProductsFromAccess(window.__access) || profileContext?.products);
     // Flatten the left nav to departments for the full DealerOS manager/admin view
     // (runs after all gating so it derives visibility from the settled nav).
     renderDeptNav(profileContext?.role);
     renderUpgradeCta();           // "Upgrade plan" CTA unless already on the full bundle
     applyExtensionVisibility();   // hide the FB extension CTA for SaaS / AI-only accounts
+    // The canonical workspace and navigation are now final. Reveal exactly that page
+    // on the next frame; legacy compatibility containers were never painted.
+    requestAnimationFrame(() => document.body.classList.remove('ms-app-booting'));
 
     // Global leaderboard — available to EVERYONE (solo reps included). Loaded lazily on first carousel switch.
     initGlobalLeaderboard();
@@ -845,6 +848,7 @@ async function initializeDashboardEcosystem() {
     }
 
 } catch (err) {
+    document.body.classList.remove('ms-app-booting');
     if (err.message === 'TRIAL_EXPIRED') {
       // Free trial lapsed — show the blocking paywall popup with all packages to choose.
       openPaywallModal('trial_ended');
