@@ -287,6 +287,10 @@
     .setup-flash { animation: setupFlash 1.3s ease-in-out 2; border-radius: 0.5rem; }
     #fb-post-btn, #idscan-btn, #ext-header-btn,
     #training-btn, #open-upgrades, #ui-tier-chip { display: none !important; }
+    /* Workforce time clock is a DealerOS Complete entitlement. Keep it out of the
+       shell until the authenticated access context proves this account owns Complete. */
+    #header-shift-clock-wrapper { display: none !important; }
+    #header-shift-clock-wrapper.ms-timeclock-entitled { display: inline-block !important; }
   </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased h-[100dvh] flex flex-col overflow-hidden">
@@ -3813,7 +3817,7 @@
        mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
   <script src="js/modules/workspace-registry.js?v=20260814_v12"></script>
   <script src="dashboard.js?v=20260814_v12"></script>
-  <script src="js/modules/dashboard-part2.js?v=20260817_simple_departments"></script>
+  <script src="js/modules/dashboard-part2.js?v=20260817_complete_timeclock"></script>
   <script src="js/modules/dashboard-part3.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part4.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part5.js?v=20260814_v12"></script>
