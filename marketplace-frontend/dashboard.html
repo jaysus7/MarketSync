@@ -23,7 +23,7 @@
   <title>DealerOS by MarketSync · Dashboard</title>
   <link rel="preconnect" href="https://api.fontshare.com">
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/marketsync-theme.css">
+  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260817_v2">
   <link rel="stylesheet" href="css/dashboard-nav.css">
   <link rel="stylesheet" href="css/dashboard-brand-repaint.css">
   <script>tailwind = { config: { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Satoshi', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'] } } } } }</script>
@@ -286,8 +286,7 @@
     @keyframes setupFlash { 0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); } 30% { box-shadow: 0 0 0 4px rgba(99,102,241,.45); } }
     .setup-flash { animation: setupFlash 1.3s ease-in-out 2; border-radius: 0.5rem; }
     #fb-post-btn, #idscan-btn, #ext-header-btn,
-    #training-btn, #open-upgrades, #ui-tier-chip,
-    #header-shift-clock-chip { display: none !important; }
+    #training-btn, #open-upgrades, #ui-tier-chip { display: none !important; }
   </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased h-[100dvh] flex flex-col overflow-hidden">
@@ -381,7 +380,7 @@
        workspaces after the retired hamburger was removed. -->
   <div class="hidden" aria-hidden="true">
     <span id="ui-profile-name">---</span><span id="ui-dealership-name">---</span>
-    <button id="header-shift-clock-chip"><span id="header-shift-timer-display"></span></button><button id="header-desk-btn"></button><button id="header-appraise-btn"></button>
+    <button id="header-desk-btn"></button><button id="header-appraise-btn"></button>
     <button id="ui-tier-chip"></button><button id="idscan-btn"></button><button id="fb-post-btn"></button>
     <button id="open-upgrades"><span id="upg-days-badge"></span></button><a id="training-btn"></a><a id="ext-header-btn"></a>
   </div>
@@ -3296,7 +3295,7 @@
   </div>
 
   <!-- ── Google Hangouts style Team Messaging Widget Panel ── -->
-  <div id="team-chat-dock-panel" class="hidden fixed z-50 bottom-4 right-4 left-4 sm:left-auto sm:w-[380px] max-h-[calc(100dvh-2rem)] h-[560px] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+  <div id="team-chat-dock-panel" class="hidden fixed z-50 bottom-4 left-4 right-4 sm:right-auto sm:w-[380px] max-h-[calc(100dvh-2rem)] h-[560px] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
     <!-- View 1: Roster View -->
     <div id="widget-roster-view" class="flex flex-col h-full">
       <div class="p-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-between">
@@ -3869,7 +3868,7 @@
     };
   </script>
   <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async></script>
-  <script src="js/modules/staff-chat-dock.js?v=20260814_v1"></script>
+  <script src="js/modules/staff-chat-dock.js?v=20260817_v2"></script>
   <script src="js/modules/demo-control-panel.js?v=20260817_v1"></script>
   <script src="table-sort.js?v=20260706a_noemoji"></script>
 </body>
