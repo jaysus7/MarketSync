@@ -801,31 +801,91 @@ async function bindVehicleToStudio(vehicleId) {
   if (typeof showToast === 'function') showToast(`Bound ${v.year || ''} ${v.make || ''} ${v.model || ''} to design!`, 'success');
 }
 
+// Search state — a fresh search resets to page 1 and replaces results; "Load More"
+// keeps the query/page and appends the next page instead.
+let __studioPhotoQuery = '', __studioPhotoPage = 1, __studioPhotoHasMore = false;
+let __studioVideoQuery = '', __studioVideoPage = 1, __studioVideoHasMore = false;
+
+function loadMoreButton(onclick, label) {
+  return `<button type="button" onclick="${onclick}" id="studio-load-more-btn" class="col-span-2 w-full mt-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-black text-white transition">${label}</button>`;
+}
+
 async function searchStudioLibrary(query) {
   const target = document.getElementById('studio-photo-results');
   if (!target) return;
-  const q = String(query || '').trim().toLowerCase();
+  __studioPhotoQuery = String(query || '').trim().toLowerCase();
+  __studioPhotoPage = 1;
   target.innerHTML = '<div class="col-span-2 p-5 text-center text-xs text-slate-500">Searching Pexels…</div>';
   try {
-    const data = await apiGetJson(`/marketing/studio/library/search?q=${encodeURIComponent(q || 'car dealership')}`);
-    target.innerHTML = data?.results?.length ? renderPexelsResults(data.results) : '<div class="col-span-2 p-4 text-center text-xs text-slate-500">No matching Pexels photos.</div>';
+    const data = await apiGetJson(`/marketing/studio/library/search?q=${encodeURIComponent(__studioPhotoQuery || 'car dealership')}&page=1`);
+    const results = data?.results || [];
+    __studioPhotoHasMore = results.length > 0 && results.length < (data?.total_results || 0);
+    target.innerHTML = results.length ? renderPexelsResults(results) : '<div class="col-span-2 p-4 text-center text-xs text-slate-500">No matching Pexels photos.</div>';
+    if (__studioPhotoHasMore) target.insertAdjacentHTML('beforeend', loadMoreButton('loadMoreStudioPhotos()', 'Load more photos'));
   } catch (error) {
-    const fallback = STUDIO_FREE_PHOTOS.filter(photo => !q || `${photo.keywords} ${photo.alt}`.toLowerCase().includes(q));
+    __studioPhotoHasMore = false;
+    const fallback = STUDIO_FREE_PHOTOS.filter(photo => !__studioPhotoQuery || `${photo.keywords} ${photo.alt}`.toLowerCase().includes(__studioPhotoQuery));
     target.innerHTML = fallback.length ? renderStudioPhotoResults(fallback) : '<div class="col-span-2 p-4 text-center text-xs text-rose-400">Photo search is temporarily unavailable.</div>';
   }
 }
 
+async function loadMoreStudioPhotos() {
+  const target = document.getElementById('studio-photo-results');
+  const btn = document.getElementById('studio-load-more-btn');
+  if (!target || !__studioPhotoHasMore) return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+  try {
+    const nextPage = __studioPhotoPage + 1;
+    const data = await apiGetJson(`/marketing/studio/library/search?q=${encodeURIComponent(__studioPhotoQuery || 'car dealership')}&page=${nextPage}`);
+    const results = data?.results || [];
+    __studioPhotoPage = nextPage;
+    btn?.remove();
+    if (results.length) target.insertAdjacentHTML('beforeend', renderPexelsResults(results));
+    __studioPhotoHasMore = results.length > 0;
+    if (__studioPhotoHasMore) target.insertAdjacentHTML('beforeend', loadMoreButton('loadMoreStudioPhotos()', 'Load more photos'));
+  } catch (error) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Load more photos'; }
+  }
+}
+window.loadMoreStudioPhotos = loadMoreStudioPhotos;
+
 async function searchStudioVideos(query) {
   const target = document.getElementById('studio-video-results');
   if (!target) return;
+  __studioVideoQuery = String(query || '').trim();
+  __studioVideoPage = 1;
   target.innerHTML = '<div class="p-5 text-center text-xs text-slate-500">Searching Pexels videos…</div>';
   try {
-    const data = await apiGetJson(`/marketing/studio/library/search?type=video&q=${encodeURIComponent(String(query || 'car dealership').trim())}`);
-    target.innerHTML = data?.results?.length ? renderStudioVideoResults(data.results) : '<div class="p-4 text-center text-xs text-slate-500">No matching videos.</div>';
+    const data = await apiGetJson(`/marketing/studio/library/search?type=video&q=${encodeURIComponent(__studioVideoQuery || 'car dealership')}&page=1`);
+    const results = data?.results || [];
+    __studioVideoHasMore = results.length > 0 && results.length < (data?.total_results || 0);
+    target.innerHTML = results.length ? renderStudioVideoResults(results) : '<div class="p-4 text-center text-xs text-slate-500">No matching videos.</div>';
+    if (__studioVideoHasMore) target.insertAdjacentHTML('beforeend', loadMoreButton('loadMoreStudioVideos()', 'Load more videos'));
   } catch (error) {
+    __studioVideoHasMore = false;
     target.innerHTML = `<div class="p-4 text-center text-xs text-rose-400">${escS(error.message || 'Video search is unavailable.')}</div>`;
   }
 }
+
+async function loadMoreStudioVideos() {
+  const target = document.getElementById('studio-video-results');
+  const btn = document.getElementById('studio-load-more-btn');
+  if (!target || !__studioVideoHasMore) return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+  try {
+    const nextPage = __studioVideoPage + 1;
+    const data = await apiGetJson(`/marketing/studio/library/search?type=video&q=${encodeURIComponent(__studioVideoQuery || 'car dealership')}&page=${nextPage}`);
+    const results = data?.results || [];
+    __studioVideoPage = nextPage;
+    btn?.remove();
+    if (results.length) target.insertAdjacentHTML('beforeend', renderStudioVideoResults(results));
+    __studioVideoHasMore = results.length > 0;
+    if (__studioVideoHasMore) target.insertAdjacentHTML('beforeend', loadMoreButton('loadMoreStudioVideos()', 'Load more videos'));
+  } catch (error) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Load more videos'; }
+  }
+}
+window.loadMoreStudioVideos = loadMoreStudioVideos;
 
 async function loadStudioUploadedVideos() {
   const target = document.getElementById('studio-uploaded-videos');
