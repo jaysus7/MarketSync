@@ -39,3 +39,17 @@ test('applyProductNav only auto-navigates to the product home page once per load
   assert.doesNotMatch(fnBody, /if \(typeof switchPage === 'function'\) switchPage\(home\);/,
     'switchPage(home) must not fire unconditionally any more')
 })
+
+test('__fbOnly is read from /auth/me\'s dealership.fb_only immediately, not only from the later /ai/config fetch', () => {
+  // fb_only is a plain column on `dealerships` and rides along on every /auth/me
+  // response's `dealership` field. Before this fix, __fbOnly was only ever set
+  // inside loadAIBoostSection()'s /ai/config fetch — a separate, independently
+  // slow round-trip that can lag well behind boot on a cold-started backend. Until
+  // that fetch resolved, a Facebook-only account rendered with the full DealerOS
+  // chrome (generic nav, Insights widgets it has no data for) — reading the flag
+  // straight off the profile response closes that window.
+  const boot = part2.match(/profileContext = await res\.json\(\);[\s\S]*?applyProductNav\(/)?.[0] || ''
+  assert.ok(boot, 'the boot sequence from profileContext load through the first applyProductNav call must exist')
+  assert.match(boot, /__fbOnly = !!profileContext\?\.dealership\?\.fb_only;/,
+    '__fbOnly must be set from profileContext.dealership.fb_only before the first applyProductNav() call')
+})

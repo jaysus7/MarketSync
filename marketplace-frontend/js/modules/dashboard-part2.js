@@ -465,6 +465,15 @@ async function initializeDashboardEcosystem() {
     if (profileContext?.access && Array.isArray(profileContext.access.features)) {
       window.__access = profileContext.access;
     }
+    // fb_only is a plain column on dealerships and rides along on `dealership` in
+    // this very response — read it now instead of waiting on the separate
+    // /ai/config fetch inside loadAIBoostSection() (below), which can lag well
+    // behind boot on a cold-started backend. Until that flag was set, a
+    // Facebook-only account rendered with the full DealerOS chrome (generic nav,
+    // Insights widgets it has no data for) for however long that fetch took —
+    // loadAIBoostSection() still re-sets this once /ai/config lands, harmlessly
+    // confirming the same value.
+    __fbOnly = !!profileContext?.dealership?.fb_only;
 
     // Normalized access context (products / entitled features / permissions / defaultRoute)
     // from the central authorization service — the SINGLE source both desktop and mobile
