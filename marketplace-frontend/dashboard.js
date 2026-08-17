@@ -860,6 +860,14 @@ function isSingleProductWorkspace() {
 }
 window.isSingleProductWorkspace = isSingleProductWorkspace;
 let __productHome = null;           // Where a product-restricted tier lands / bounces to
+// applyProductNav() runs twice on every load: once at boot, then again once
+// /ai/config resolves (loadAIBoostSection re-applies gating after learning
+// __fbOnly — that fetch can cold-start-lag 30-60s on Render's free tier). Both
+// calls compute the same home page and used to force-navigate every time,
+// so if the user clicked into e.g. Inventory during that window, the second
+// call silently yanked them back to the product's home page with no warning.
+// Only the first call should ever auto-navigate.
+let __productNavHomeApplied = false;
 
 // ── Access-context helpers (frontend mirror of the backend access service) ────
 // One place the UI asks "can I see/do this?", reading the derived summary from
@@ -1091,7 +1099,10 @@ function applyProductNav(products) {
   const home = PRODUCT_HOME[active[0]] || [...allow][0] || 'profile';
   __productHome = home;
   applyMobileQuickRow();   // trim the mobile bottom bar to this tier's pages
-  if (home) { if (home === 'inventory') __inventoryMode = 'facebook'; if (typeof switchPage === 'function') switchPage(home); }
+  if (home) {
+    if (home === 'inventory') __inventoryMode = 'facebook';
+    if (typeof switchPage === 'function' && !__productNavHomeApplied) { __productNavHomeApplied = true; switchPage(home); }
+  }
   // A single-product account (exactly one product, not a bundle) gets the whole
   // simplified chrome, every tier alike: the header collapses to Profile + Sign out
   // (clicking Profile opens Settings — that's the one and only settings entry point

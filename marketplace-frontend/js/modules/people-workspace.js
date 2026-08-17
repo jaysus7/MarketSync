@@ -617,7 +617,7 @@ const PPL_EDIT_FIELDS = [
 ];
 
 function pplDetailsPanel(d) {
-  const p = d.person;
+  const p = d.person || {};
   const fields = PPL_EDIT_FIELDS.map(([k, label, type]) => `
     <label class="block">
       <span class="block text-[12px] font-bold text-slate-600 dark:text-slate-300">${esc(label)}</span>
