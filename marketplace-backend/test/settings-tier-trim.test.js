@@ -42,23 +42,29 @@ test('every single-product tier trims Settings to My Account + Billing (Upgrade 
   assert.match(block, /document\.querySelectorAll\('#settings-tabs \[data-admin-only\]'\)\.forEach\(el => el\.classList\.add\('hidden'\)\)/)
   assert.match(block, /SETTINGS_TAB_SECTIONS\.account\.push\('billing-section'\)/)
   assert.match(block, /__settingsTab = 'account'/)
-  // settings-my-record (the employment-record card) must be hidden by directly
-  // adding 'stab-hide', NOT by removing its id from SETTINGS_TAB_SECTIONS.account —
-  // applyProductNav() above already triggers one settingsTab('account') call before
-  // this block runs, using the unmodified section list, which un-hides the card. If
-  // the id is then dropped from the list entirely instead of force-hidden, nothing
-  // ever re-hides it — it stays stuck visible, permanently showing "Loading your
-  // record…" (and, since it carries data-full-width="true", knocking the rest of
-  // the grid's cards out of their side-by-side row onto their own stacked rows).
+  // settings-my-record (the employment-record card) needs BOTH a direct hide AND
+  // removal from SETTINGS_TAB_SECTIONS.account — neither alone is enough:
+  //   - Direct hide only: applyProductNav() above already triggered one
+  //     settingsTab('account') call (via its own switchPage('profile')) using the
+  //     unmodified section list, un-hiding the card — the direct hide catches
+  //     that. But it's still tracked, so ANY later settingsTab('account') call
+  //     (confirmed live: dealerRoleLanding()'s switchPage() a few lines down gets
+  //     internally redirected back to 'profile' for every single-product tier,
+  //     re-running settingsTab — and the header Profile icon, and #/p/profile
+  //     hash-route replays, do the same) re-adds it to the active set and
+  //     un-hides it again.
+  //   - Array removal only: settingsTab()'s toggle loop only manages ids it still
+  //     tracks — remove it without ever hiding it directly first, and it's stuck
+  //     in whatever state that FIRST call left it: visible.
   assert.match(block, /document\.getElementById\('settings-my-record'\)\?\.classList\.add\('stab-hide'\)/)
-  assert.doesNotMatch(block, /filter\(id => id !== 'settings-my-record'\)/, 'must not rely on removing the id from the tracked section list')
+  assert.match(block, /SETTINGS_TAB_SECTIONS\.account = SETTINGS_TAB_SECTIONS\.account\.filter\(id => id !== 'settings-my-record'\)/, 'must ALSO stop tracking the id so later settingsTab() calls never re-show it')
   // Facebook Solo/Dealer are real dealership sales reps (unlike single-user tool
   // subscribers), so they keep the employment-record card and additionally fold in
   // Facebook Posting Safety.
   assert.match(block, /const fbOnly = typeof isFacebookOnlyWorkspace === 'function' && isFacebookOnlyWorkspace\(\)/)
   assert.match(block, /if \(fbOnly[\s\S]*?guardrail-settings-section/)
   assert.match(block, /document\.getElementById\('guardrail-settings-section'\)\?\.classList\.remove\('hidden'\)/)
-  assert.match(block, /if \(!fbOnly\) document\.getElementById\('settings-my-record'\)/)
+  assert.match(block, /if \(!fbOnly\) \{[\s\S]*?document\.getElementById\('settings-my-record'\)/)
 })
 
 test('billing-section is not itself [data-admin-only] (so folding it into My Account is meaningful)', () => {

@@ -252,32 +252,6 @@ export function registerRoutes(app) {
         message: 'We could not verify your multi-factor sign-in status. Please try again shortly.'
       })
     }
-
-    const currentIp = getClientIp(req)
-    const currentUa = (req.headers['user-agent'] || '').slice(0, 500)
-
-    supabaseAdmin.from('logins').insert({
-      user_id: data.user.id,
-      ip: currentIp,
-      user_agent: currentUa
-    }).then(async ({ error: logErr }) => {
-      if (logErr) console.warn('Failed to log login event:', logErr.message)
-      // Best-effort suspicious-login alert (never blocks login response)
-      await maybeAlertSuspiciousLogin({
-        supabaseAdmin,
-        userId: data.user.id,
-        userEmail: data.user.email,
-        currentIp,
-        currentUserAgent: currentUa
-      })
-    })
-
-    audit(req, AuditAction.USER_LOGIN, { method: 'password', user_id: data.user.id })
-    res.json({
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
-      user: { id: data.user.id, email: data.user.email }
-    })
   })
 
   // 3 registrations per IP per hour — stops bot-driven sign-up abuse

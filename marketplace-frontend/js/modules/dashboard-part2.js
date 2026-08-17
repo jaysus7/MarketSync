@@ -856,21 +856,33 @@ async function initializeDashboardEcosystem() {
       // Every single-product tier EXCEPT Facebook drops the employment-record
       // card — Design Studio / AI ChatBot / Video / Website / Social / Email
       // customers are single-user tool subscribers with no employer, while a
-      // Facebook Dealer account IS a real dealership sales rep. Dropping
-      // 'settings-my-record' from SETTINGS_TAB_SECTIONS.account (instead of
-      // hiding it directly) doesn't work: applyProductNav() above already
-      // triggered an earlier settingsTab('account') call (via its own
-      // switchPage('profile')) using the unmodified section list, which un-hid
-      // this card and kicked off its fetch. Once removed from every tab's list
-      // entirely, settingsTab()'s toggle loop can no longer see the id at all, so
-      // it stays stuck in whatever state that first call left it — visible,
-      // permanently showing "Loading your record…". Force it hidden directly
-      // instead. This also fixes the account cards rendering in one stacked
-      // column instead of side by side: this card carries data-full-width="true",
-      // so while stuck visible it was forcing itself onto its own grid row and
+      // Facebook Dealer account IS a real dealership sales rep. This needs BOTH
+      // an immediate direct hide AND removing the id from the tracked list —
+      // neither alone is enough:
+      //   - Direct hide only: applyProductNav() above already triggered one
+      //     settingsTab('account') call (via its own switchPage('profile')) using
+      //     the unmodified section list, un-hiding the card — a hide here catches
+      //     that. But it's still tracked in SETTINGS_TAB_SECTIONS.account, so ANY
+      //     later settingsTab('account') call (the header Profile icon, or the
+      //     msRouteFromHash()/bootPage boot-route replay a few lines down when
+      //     the URL is #/p/profile) re-adds it to the active set and un-hides it
+      //     again — confirmed live: it kept reappearing after landing on
+      //     #/p/profile specifically.
+      //   - Array removal only: settingsTab()'s toggle loop only manages ids it
+      //     still tracks. Remove it from every tab's list without ever hiding it
+      //     directly first, and it's stuck in whatever state that FIRST call
+      //     left it — visible, permanently showing "Loading your record…".
+      // This also fixes the account cards rendering in one stacked column
+      // instead of side by side: this card carries data-full-width="true", so
+      // while stuck visible it was forcing itself onto its own grid row and
       // pushing everything after it onto rows of their own, wasting the rest of
       // each row's space.
-      if (!fbOnly) document.getElementById('settings-my-record')?.classList.add('stab-hide');
+      if (!fbOnly) {
+        document.getElementById('settings-my-record')?.classList.add('stab-hide');
+        if (Array.isArray(SETTINGS_TAB_SECTIONS?.account)) {
+          SETTINGS_TAB_SECTIONS.account = SETTINGS_TAB_SECTIONS.account.filter(id => id !== 'settings-my-record');
+        }
+      }
       forceCompactSettingsGrid();
     }
 
