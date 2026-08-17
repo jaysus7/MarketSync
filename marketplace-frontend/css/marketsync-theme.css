@@ -796,6 +796,13 @@ html.dark td {
   flex-direction: column;
   gap: 10px;
 }
+/* #demo-control-panel's own `display: flex` (author CSS) always wins over the
+   browser's native `[hidden]{display:none}` UA rule regardless of specificity — UA
+   rules are the lowest tier of the cascade. Without this, setting panel.hidden via JS
+   (close button, badge toggle, outside click) has no visual effect. */
+#demo-control-panel[hidden] {
+  display: none;
+}
 .dcp-head {
   display: flex;
   align-items: baseline;
