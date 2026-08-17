@@ -1036,7 +1036,8 @@ function applyProductNav(products) {
   document.documentElement.setAttribute('data-product', active.join(' '));
   // Facebook products render the Dashboard/Insights page as just the leaderboard (reuse
   // the existing fb-tier CSS). AI/other products don't.
-  if (active.some(k => FB_PRODUCTS.has(k))) document.documentElement.setAttribute('data-dash-tier', 'fb');
+  if (active.length && active.every(k => FB_PRODUCTS.has(k))) document.documentElement.setAttribute('data-dash-tier', 'fb');
+  else document.documentElement.removeAttribute('data-dash-tier');
   if (typeof applyLeaderboardProductPresentation === 'function') applyLeaderboardProductPresentation();
   // Hide every nav item (desktop + mobile) whose page isn't in this product's set.
   document.querySelectorAll('#dashboard-nav .nav-item[data-page]').forEach(it => {
