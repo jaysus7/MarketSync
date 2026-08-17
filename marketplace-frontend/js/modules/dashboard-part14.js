@@ -909,6 +909,7 @@ function applyLeaderboardProductPresentation() {
     : '500 pts / deal · 50 pts / appraisal · 100 pts / listing · Climb the tiers, top the team.');
   set('lb-conv-label', facebook ? 'Facebook Conversion' : 'Team Conversion');
   set('lb-rankings-title', facebook ? 'Facebook posting rankings' : 'Full rankings');
+  set('lb-tab-team', facebook ? ' Facebook Marketplace Dealer Leaderboard' : ' My Team');
   set('lb-tab-global', facebook ? ' Facebook Community' : ' Global');
   set('gl-subtitle', facebook
     ? 'How your Facebook posting stacks up across MarketSync. Other accounts are anonymized.'

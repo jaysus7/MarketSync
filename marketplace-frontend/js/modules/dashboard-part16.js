@@ -151,7 +151,9 @@ function initGlobalLeaderboard() {
 
   if (tabTeam) tabTeam.addEventListener('click', () => setCarouselTab('team'));
   if (tabGlobal) tabGlobal.addEventListener('click', () => setCarouselTab('global'));
-  setCarouselTab('team'); // default active
+  // A rep (no "My Team" tab — see dashboard-part2.js) has nothing to default to there;
+  // land them straight on the board they can actually see.
+  setCarouselTab(tabTeam && !tabTeam.classList.contains('hidden') ? 'team' : 'global');
 
   document.querySelectorAll('.gl-tab').forEach(btn => {
     btn.addEventListener('click', () => {
