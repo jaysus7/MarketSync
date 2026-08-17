@@ -497,6 +497,65 @@ class StudioFabricAdapter {
     const active = this.fabricCanvas?.getActiveObject();
     if (active) { this.fabricCanvas.sendBackwards(active); this.fabricCanvas.renderAll(); this.saveHistory(); }
   }
+
+  // Places a clone offset from the source so it's visibly a new object, not
+  // overlapping it exactly. Handles a multi-object ActiveSelection the same way
+  // Fabric's own docs recommend (re-add each member, then re-select them together).
+  _placeClone(cloned) {
+    this.fabricCanvas.discardActiveObject();
+    cloned.set({ left: (cloned.left || 0) + 24, top: (cloned.top || 0) + 24, evented: true });
+    if (cloned.type === 'activeSelection') {
+      cloned.canvas = this.fabricCanvas;
+      cloned.forEachObject(obj => this.fabricCanvas.add(obj));
+      cloned.setCoords();
+    } else {
+      this.fabricCanvas.add(cloned);
+    }
+    this.fabricCanvas.setActiveObject(cloned);
+    this.fabricCanvas.requestRenderAll();
+    this.saveHistory();
+  }
+
+  duplicateSelected() {
+    const active = this.fabricCanvas?.getActiveObject();
+    if (!active) return;
+    active.clone(cloned => this._placeClone(cloned));
+  }
+
+  copySelected() {
+    const active = this.fabricCanvas?.getActiveObject();
+    if (!active) return;
+    active.clone(cloned => { this._clipboard = cloned; });
+  }
+
+  pasteClipboard() {
+    if (!this.fabricCanvas || !this._clipboard) return;
+    this._clipboard.clone(cloned => this._placeClone(cloned));
+  }
+
+  cutSelected() {
+    if (!this.fabricCanvas?.getActiveObject()) return;
+    this.copySelected();
+    this.deleteSelected();
+  }
+
+  groupSelected() {
+    const active = this.fabricCanvas?.getActiveObject();
+    if (!active || active.type !== 'activeSelection') return;
+    const group = active.toGroup();
+    this.fabricCanvas.setActiveObject(group);
+    this.fabricCanvas.requestRenderAll();
+    this.saveHistory();
+  }
+
+  ungroupSelected() {
+    const active = this.fabricCanvas?.getActiveObject();
+    if (!active || active.type !== 'group') return;
+    const selection = active.toActiveSelection();
+    this.fabricCanvas.setActiveObject(selection);
+    this.fabricCanvas.requestRenderAll();
+    this.saveHistory();
+  }
 }
 
 window.StudioFabricAdapter = StudioFabricAdapter;

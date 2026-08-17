@@ -44,6 +44,38 @@ const STUDIO_SOCIAL_FORMATS = {
   pinterest: { label: 'Pinterest Pin 2:3', w: 1000, h: 1500, safe: [7, 7, 10, 7], note: 'Pin-safe content area' }
 };
 
+// Small inline SVG previews so each Shapes button shows the actual shape, not just
+// its name — mirrors the geometry fabric-adapter.js's addShape() draws on canvas.
+const STUDIO_SHAPE_PREVIEW = {
+  rect: '<svg viewBox="0 0 24 24" class="w-6 h-6" fill="currentColor"><rect x="3" y="6" width="18" height="12" rx="1"/></svg>',
+  badge: '<svg viewBox="0 0 24 24" class="w-6 h-6" fill="currentColor"><rect x="2" y="7" width="20" height="10" rx="5"/></svg>',
+  circle: '<svg viewBox="0 0 24 24" class="w-6 h-6" fill="currentColor"><circle cx="12" cy="12" r="9"/></svg>',
+  ellipse: '<svg viewBox="0 0 24 24" class="w-6 h-6" fill="currentColor"><ellipse cx="12" cy="12" rx="10" ry="6"/></svg>',
+  triangle: '<svg viewBox="0 0 24 24" class="w-6 h-6" fill="currentColor"><polygon points="12,4 21,20 3,20"/></svg>',
+  diamond: '<svg viewBox="0 0 24 24" class="w-6 h-6" fill="currentColor"><polygon points="12,3 21,12 12,21 3,12"/></svg>',
+  pentagon: '<svg viewBox="0 0 24 24" class="w-6 h-6" fill="currentColor"><polygon points="12,3 21,9.5 17.5,20 6.5,20 3,9.5"/></svg>',
+  hexagon: '<svg viewBox="0 0 24 24" class="w-6 h-6" fill="currentColor"><polygon points="7,3 17,3 22,12 17,21 7,21 2,12"/></svg>',
+  star: '<svg viewBox="0 0 24 24" class="w-6 h-6" fill="currentColor"><polygon points="12,3 14.7,9.5 21.8,10 16.5,14.6 18.1,21.5 12,17.8 5.9,21.5 7.5,14.6 2.2,10 9.3,9.5"/></svg>',
+  line: '<svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"/></svg>',
+  arrow: '<svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="17" y2="12"/><polyline points="12,6 18,12 12,18"/></svg>',
+  heart: '<svg viewBox="0 0 24 24" class="w-6 h-6" fill="currentColor"><path d="M12 21s-7.5-5-9.5-9.5C1 7 3 4 6.5 4c2 0 3.5 1.2 5.5 3.5C14 5.2 15.5 4 17.5 4 21 4 23 7 21.5 11.5 19.5 16 12 21 12 21z"/></svg>',
+  speech: '<svg viewBox="0 0 24 24" class="w-6 h-6" fill="currentColor"><path d="M3 4h18v11H9l-3.5 3.5V15H3V4z"/></svg>',
+};
+
+// Emoji-based clip art / stickers — no external asset library required, renders
+// identically everywhere, and drops onto the canvas as a resizable text object via
+// the same addText() path real text uses.
+const STUDIO_STICKERS = [
+  '🚗', '🚙', '🚚', '🏎️', '🔧', '⭐', '🔥', '💰', '🎉', '📞', '📍', '✅',
+  '❌', '💯', '🏆', '👍', '❤️', '⚡', '🛠️', '🔑', '🎁', '📣', '🕒', '🛡️',
+];
+
+function studioAddSticker(emoji) {
+  if (!window.__studioAdapter) return;
+  window.__studioAdapter.addText(emoji, { fontSize: 96, fontWeight: '400' });
+}
+window.studioAddSticker = studioAddSticker;
+
 function escS(str) {
   if (str == null) return '';
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -116,7 +148,37 @@ window.openMarketSyncStudio = async function(designId = null, initialOptions = {
     window.__studioFitObserver.observe(viewport);
   }
   setTimeout(zoomStudioFit, 100);
+  if (!window.__studioKeydownBound) {
+    window.__studioKeydownBound = true;
+    document.addEventListener('keydown', studioKeydownHandler);
+  }
 };
+
+// Standard editor shortcuts (undo/redo/copy/cut/paste/duplicate/group/delete). Every
+// shortcut is disabled while focus is in an input/textarea/contenteditable — including
+// Fabric's own hidden textarea for in-canvas text editing — so typing a design name,
+// a text object's contents, or a search box is never hijacked.
+function studioKeydownHandler(e) {
+  const adapter = window.__studioAdapter;
+  if (!adapter) return;
+  const tag = (document.activeElement?.tagName || '').toLowerCase();
+  const editable = tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable;
+  if (editable) return;
+  if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); adapter.deleteSelected(); return; }
+  const mod = e.ctrlKey || e.metaKey;
+  if (!mod) return;
+  const key = e.key.toLowerCase();
+  if (key === 'z' && e.shiftKey) { e.preventDefault(); adapter.redo(); }
+  else if (key === 'z') { e.preventDefault(); adapter.undo(); }
+  else if (key === 'y') { e.preventDefault(); adapter.redo(); }
+  else if (key === 'd') { e.preventDefault(); adapter.duplicateSelected(); }
+  else if (key === 'c') { e.preventDefault(); adapter.copySelected(); }
+  else if (key === 'x') { e.preventDefault(); adapter.cutSelected(); }
+  else if (key === 'v') { e.preventDefault(); adapter.pasteClipboard(); }
+  else if (key === 'g' && e.shiftKey) { e.preventDefault(); adapter.ungroupSelected(); }
+  else if (key === 'g') { e.preventDefault(); adapter.groupSelected(); }
+}
+window.studioKeydownHandler = studioKeydownHandler;
 
 function studioHasPaidAi() {
   return !!(window.__access?.isPlatformStaff || (typeof __aiBoostActive !== 'undefined' && __aiBoostActive === true));
@@ -162,8 +224,13 @@ function renderStudioWorkspaceHtml(designName, scene) {
 
         <div class="h-5 w-px bg-slate-800"></div>
 
-        <button onclick="if(window.__studioAdapter) window.__studioAdapter.undo()" title="Undo" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6-6m-6 6l6 6"/></svg>Undo</button>
-        <button onclick="if(window.__studioAdapter) window.__studioAdapter.redo()" title="Redo" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 10H11a8 8 0 00-8 8v2m18-10l-6-6m6 6l-6 6"/></svg>Redo</button>
+        <button onclick="if(window.__studioAdapter) window.__studioAdapter.undo()" title="Undo (Ctrl+Z)" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6-6m-6 6l6 6"/></svg>Undo</button>
+        <button onclick="if(window.__studioAdapter) window.__studioAdapter.redo()" title="Redo (Ctrl+Shift+Z)" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 10H11a8 8 0 00-8 8v2m18-10l-6-6m6 6l-6 6"/></svg>Redo</button>
+        <div class="h-5 w-px bg-slate-800"></div>
+
+        <button onclick="if(window.__studioAdapter) window.__studioAdapter.duplicateSelected()" title="Duplicate (Ctrl+D)" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>Duplicate</button>
+        <button onclick="if(window.__studioAdapter) window.__studioAdapter.groupSelected()" title="Group (Ctrl+G)" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4h7v7H4V4zm9 9h7v7h-7v-7zM4 20a1 1 0 001-1v-2M4 17v-1a1 1 0 011-1M20 4a1 1 0 00-1 1v2M20 7v1a1 1 0 01-1 1"/></svg>Group</button>
+        <button onclick="if(window.__studioAdapter) window.__studioAdapter.ungroupSelected()" title="Ungroup (Ctrl+Shift+G)" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4h6v6H4V4zm10 10h6v6h-6v-6zM4 14h6v6H4v-6zm10-10h6v6h-6V4z"/></svg>Ungroup</button>
         <div class="h-5 w-px bg-slate-800"></div>
 
         <select id="studio-format-picker" onchange="changeStudioFormat(this.value)" class="bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-700">
@@ -196,6 +263,9 @@ function renderStudioWorkspaceHtml(designName, scene) {
         <button onclick="setStudioTool('uploads')" id="tool-btn-uploads" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition"><span class="text-base">↑</span>Uploads</button>
         <button onclick="setStudioTool('shapes')" id="tool-btn-shapes" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition">
           <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"/></svg>Shapes
+        </button>
+        <button onclick="setStudioTool('stickers')" id="tool-btn-stickers" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition">
+          <span class="text-base mb-0.5">⭐</span>Stickers
         </button>
         <button onclick="setStudioTool('ai')" id="tool-btn-ai" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${studioHasPaidAi() ? 'text-sky-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-900'} transition">
           <span class="text-base">✦</span>${studioHasPaidAi() ? 'AI' : 'AI 🔒'}
@@ -480,8 +550,15 @@ function renderStudioToolPanelContent(tool) {
     return `
       <div class="p-4 space-y-3">
         <h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Shapes &amp; Badges</h3>
-        <div class="grid grid-cols-3 gap-2">${[['rect','Rectangle'],['badge','Rounded'],['circle','Circle'],['ellipse','Ellipse'],['triangle','Triangle'],['diamond','Diamond'],['pentagon','Pentagon'],['hexagon','Hexagon'],['star','Star'],['line','Line'],['arrow','Arrow'],['heart','Heart'],['speech','Speech']].map(([id,label]) => `<button onclick="studioAddShape('${id}')" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-bold text-white text-center">${label}</button>`).join('')}</div>
+        <div class="grid grid-cols-3 gap-2">${[['rect','Rectangle'],['badge','Rounded'],['circle','Circle'],['ellipse','Ellipse'],['triangle','Triangle'],['diamond','Diamond'],['pentagon','Pentagon'],['hexagon','Hexagon'],['star','Star'],['line','Line'],['arrow','Arrow'],['heart','Heart'],['speech','Speech']].map(([id,label]) => `<button onclick="studioAddShape('${id}')" title="${label}" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-center flex flex-col items-center gap-1.5"><span class="text-slate-200">${STUDIO_SHAPE_PREVIEW[id]}</span><span class="text-[10px] font-bold">${label}</span></button>`).join('')}</div>
         <div class="border-t border-slate-800 pt-3"><h4 class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Draw</h4><div class="grid grid-cols-2 gap-2"><button onclick="studioDrawingMode('pen')" class="p-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">Pen</button><button onclick="studioDrawingMode('pencil')" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-black">Pencil</button></div><button onclick="studioSelectMode()" class="mt-2 w-full p-2 rounded-xl border border-slate-700 text-xs font-bold">Select &amp; move objects</button></div>
+      </div>
+    `;
+  } else if (tool === 'stickers') {
+    return `
+      <div class="p-4 space-y-3">
+        <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Stickers &amp; Clip Art</h3><p class="text-[10px] text-slate-500 mt-1">Click to drop a sticker on the canvas — drag to resize once placed.</p></div>
+        <div class="grid grid-cols-4 gap-2">${STUDIO_STICKERS.map(s => `<button onclick="studioAddSticker('${s}')" title="Add sticker" class="aspect-square rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-2xl transition">${s}</button>`).join('')}</div>
       </div>
     `;
   } else if (tool === 'ai') {
@@ -856,6 +933,10 @@ function closeMarketSyncStudio() {
   window.__studioFitObserver?.disconnect();
   window.__studioFitObserver = null;
   document.getElementById('ms-studio-master-modal')?.remove();
+  if (window.__studioKeydownBound) {
+    window.__studioKeydownBound = false;
+    document.removeEventListener('keydown', studioKeydownHandler);
+  }
 }
 
 function toggleStudioToolPanel() {
