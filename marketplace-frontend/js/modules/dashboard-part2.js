@@ -1061,6 +1061,16 @@ const PAGE_FEATURE = {
   config: 'os.settings',
 };
 const PAGE_PRODUCT = { leaderboard: 'facebook' };
+// Product bundles can expose a department without buying the similarly named
+// DealerOS engine. These alternatives keep standalone and Marketing/Digital nav
+// honest while still using the same server-authored feature list.
+const PAGE_ANY_FEATURE = {
+  'marketing-overview': ['os.marketing', 'design.canvas', 'social.scheduler'],
+  'email-marketing': ['os.email_marketing', 'email.campaigns'],
+  'video-studio': ['os.marketing', 'video.library'],
+  website: ['os.website', 'website.builder'],
+  'ai-home': ['os.marketing', 'ai.overview'],
+};
 // The dealership record also carries its server-authored package name. This fallback
 // keeps the DealerOS menu stable during an access-context retry/cold start; it only
 // affects navigation presentation — API permissions remain enforced on the server.
@@ -1068,12 +1078,24 @@ const DEALER_OS_PLAN_FEATURES = {
   starter: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.team', 'os.settings']),
   growth: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.team', 'os.settings', 'os.sales', 'os.accounting', 'os.marketing', 'os.website', 'os.automations', 'os.integrations']),
   pro: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.sales', 'os.accounting', 'os.service', 'os.marketing', 'os.website', 'os.reports', 'os.automations', 'os.email_marketing', 'os.integrations', 'os.team', 'os.settings', 'fb.inventory', 'fb.leaderboard', 'fb.sales_reps', 'ai.overview', 'ai.conversations', 'ai.agents', 'ai.knowledge', 'ai.settings', 'video.library', 'video.record', 'video.templates', 'video.settings', 'social.scheduler', 'social.accounts', 'social.calendar', 'social.studio', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations', 'website.builder', 'website.pages', 'website.domains', 'website.settings']),
+  core: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.settings', 'fb.inventory', 'fb.leaderboard', 'fb.sales_reps', 'design.canvas', 'social.scheduler', 'social.accounts', 'social.calendar', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations']),
+  dealeros_pro: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.settings', 'os.sales', 'os.service', 'os.team', 'fb.inventory', 'fb.leaderboard', 'fb.sales_reps', 'design.canvas', 'social.scheduler', 'social.accounts', 'social.calendar', 'social.studio', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations', 'video.library', 'video.record', 'video.templates', 'video.settings', 'website.builder', 'website.pages', 'website.domains', 'website.settings', 'ai.overview', 'ai.conversations', 'ai.agents', 'ai.knowledge', 'ai.settings']),
+  dealeros_complete: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.settings', 'os.sales', 'os.service', 'os.team', 'os.accounting', 'os.marketing', 'os.website', 'os.automations', 'os.email_marketing', 'os.integrations', 'fb.inventory', 'fb.leaderboard', 'fb.sales_reps', 'design.canvas', 'social.scheduler', 'social.accounts', 'social.calendar', 'social.studio', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations', 'video.library', 'video.record', 'video.templates', 'video.settings', 'website.builder', 'website.pages', 'website.domains', 'website.settings', 'ai.overview', 'ai.conversations', 'ai.agents', 'ai.knowledge', 'ai.settings']),
 };
 function dealerPlanFallback() {
   const plan = String(profileContext?.plan || profileContext?.dealership?.plan || '').toLowerCase();
   const features = DEALER_OS_PLAN_FEATURES[plan];
   if (!features) return { features: null, products: null };
-  return { features, products: plan === 'pro' ? new Set(['dealer_os', 'facebook', 'ai_dealer']) : new Set(['dealer_os']) };
+  const digital = ['pro', 'dealeros_pro', 'dealeros_complete'].includes(plan);
+  const core = plan === 'core';
+  return {
+    features,
+    products: digital
+      ? new Set(['dealer_os', 'facebook', 'ai_dealer', 'design_studio', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website'])
+      : core
+        ? new Set(['dealer_os', 'facebook', 'design_studio', 'marketsync_social', 'marketsync_email'])
+        : new Set(['dealer_os']),
+  };
 }
 // Dealer-controlled switches are a second visibility layer after the paid plan.
 // Keep this mapping page-based rather than deriving it from the legacy sidebar DOM:
@@ -1105,6 +1127,11 @@ function pageFeatureOk(pg, invmode = null) {
   }
   const feat = PAGE_FEATURE[pg];
   if (!feat) return true;
+  const alternatives = PAGE_ANY_FEATURE[pg] || [feat];
+  if (alternatives.length > 1) {
+    return alternatives.some(featureId => (access && (access.isPlatformStaff || (access.features || []).includes(featureId)))
+      || fallback.features?.has(featureId));
+  }
   return !!((access && (access.isPlatformStaff || (access.features || []).includes(feat)))
     || fallback.features?.has(feat));
 }
