@@ -27,18 +27,33 @@
   var CSS_HREF = '/assets/public-shell.css';
   var TRIAL = '/register.html';
 
-  // ── Navigation model — Solutions (All 9 standalone products, suites & DealerOS) ─────────────
-  var SOLUTIONS = [
-    { href: '/dealer-os.html', title: 'DealerOS Operating System', desc: 'CRM, Sales, Inventory, Desking & Fixed Ops' },
-    { href: '/facebook-autoposter.html', title: 'Facebook AutoPoster', desc: '1-click Facebook Marketplace auto-posting' },
-    { href: '/ai-chatbot.html', title: 'AI ChatBot', desc: '24/7 AI dealership salesperson' },
-    { href: '/design-studio.html', title: 'Design Studio', desc: 'Dealership graphic canvas & brand studio' },
-    { href: '/social-scheduler.html', title: 'Social Scheduler', desc: 'Multi-channel publishing calendar & queue' },
-    { href: '/video-studio.html', title: 'Video Suite', desc: 'Vehicle walkaround videos & customer messaging' },
-    { href: '/campaigns.html', title: 'Campaigns — Email + SMS', desc: 'Targeted customer email & SMS automation' },
-    { href: '/dealer-website.html', title: 'Dealer Website', desc: 'High-performance VDP showroom & automotive SEO' },
-    { href: '/marketing-suites.html', title: 'Connected Marketing Suites', desc: 'Sales, Service, Complete & MarketSync Digital' },
+  // ── Navigation model — Solutions ───────────────────────────────────────────
+  // Grouped, and ordered, to match pricing.html's own flow: its "Three clear ways
+  // to use MarketSync" platforms section first, then its "Need just one tool?"
+  // standalone-tools section, in the same left-to-right order as those cards. Each
+  // group heading links to that exact section on the pricing page.
+  var SOLUTIONS_GROUPS = [
+    {
+      label: 'Platforms', href: '/pricing.html#platforms',
+      items: [
+        { href: '/marketing-suites.html', title: 'Connected Marketing Suites', desc: 'Sales, Service, Complete & MarketSync Digital' },
+        { href: '/dealer-os.html', title: 'DealerOS Operating System', desc: 'CRM, Sales, Inventory, Desking & Fixed Ops' },
+      ],
+    },
+    {
+      label: 'Individual Tools', href: '/pricing.html#standalone',
+      items: [
+        { href: '/design-studio.html', title: 'Design Studio', desc: 'Dealership graphic canvas & brand studio' },
+        { href: '/facebook-autoposter.html', title: 'Facebook AutoPoster', desc: '1-click Facebook Marketplace auto-posting' },
+        { href: '/social-scheduler.html', title: 'Social Scheduler', desc: 'Multi-channel publishing calendar & queue' },
+        { href: '/video-studio.html', title: 'Video Suite', desc: 'Vehicle walkaround videos & customer messaging' },
+        { href: '/campaigns.html', title: 'Campaigns — Email + SMS', desc: 'Targeted customer email & SMS automation' },
+        { href: '/dealer-website.html', title: 'Dealer Website', desc: 'High-performance VDP showroom & automotive SEO' },
+        { href: '/ai-chatbot.html', title: 'AI ChatBot', desc: '24/7 AI dealership salesperson' },
+      ],
+    },
   ];
+  var SOLUTIONS = SOLUTIONS_GROUPS.reduce(function (all, g) { return all.concat(g.items); }, []);
   var RESOURCES = [
     { href: '/guide.html', title: 'How-to Guide' },
     { href: '/blog.html', title: 'Blog' },
@@ -116,14 +131,20 @@
 
   // ── Header ──────────────────────────────────────────────────────────
   function headerHTML() {
-    var solItems = SOLUTIONS.map(function (s) {
+    var solItemLink = function (s) {
       return '<a href="' + s.href + '" class="ms-dd-item' + act(s.href, 'ms-active') + '"><span class="ms-dd-t">' + esc(s.title) + '</span><span class="ms-dd-d">' + esc(s.desc) + '</span></a>';
+    };
+    var solItems = SOLUTIONS_GROUPS.map(function (g) {
+      return '<a href="' + g.href + '" class="ms-dd-group-label">' + esc(g.label) + '</a>' + g.items.map(solItemLink).join('');
     }).join('');
     var resItems = RESOURCES.map(function (r) {
       return '<a href="' + r.href + '" class="ms-dd-item' + act(r.href, 'ms-active') + '"><span class="ms-dd-t">' + esc(r.title) + '</span></a>';
     }).join('');
 
-    var mobSol = SOLUTIONS.map(function (s) { return '<a href="' + s.href + '" class="ms-m-link' + act(s.href, 'ms-active') + '">' + esc(s.title) + '</a>'; }).join('');
+    var mobSol = SOLUTIONS_GROUPS.map(function (g) {
+      return '<a href="' + g.href + '" class="ms-m-label ms-m-label-link">' + esc(g.label) + '</a>' +
+        g.items.map(function (s) { return '<a href="' + s.href + '" class="ms-m-link' + act(s.href, 'ms-active') + '">' + esc(s.title) + '</a>'; }).join('');
+    }).join('');
     var mobRes = RESOURCES.map(function (r) { return '<a href="' + r.href + '" class="ms-m-link' + act(r.href, 'ms-active') + '">' + esc(r.title) + '</a>'; }).join('');
 
     return '' +

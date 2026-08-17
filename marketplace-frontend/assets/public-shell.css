@@ -164,6 +164,25 @@ margin-top:2px;
 .ms-dd-d{color:#94a3b8;
 }
 }
+.ms-dd-group-label{display:block;
+font-size:10.5px;
+font-weight:800;
+text-transform:uppercase;
+letter-spacing:.08em;
+color:#94a3b8;
+text-decoration:none;
+padding:10px 12px 4px;
+transition:color .15s;
+}
+.ms-dd-group-label:first-child{padding-top:6px;
+}
+.ms-dd-group-label:hover{color:var(--ms-accent);
+}
+.ms-m-label-link{text-decoration:none;
+cursor:pointer;
+}
+.ms-m-label-link:hover{color:var(--ms-accent);
+}
 .ms-nav-cta{display:flex;
 align-items:center;
 gap:10px;
