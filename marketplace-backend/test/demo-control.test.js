@@ -9,7 +9,10 @@ test('every Product Switcher package id is a real, resolvable plan', () => {
   const match = source.match(/const DEMO_PACKAGES = \[([\s\S]*?)\]/)
   assert.ok(match, 'DEMO_PACKAGES array should exist')
   const ids = [...match[1].matchAll(/'([a-z0-9-]+)'/g)].map(m => m[1])
-  assert.equal(ids.length, 15, 'the full current 15-SKU catalog should be offered')
+  // autoposter-dealer was dropped — one Facebook AutoPoster entry is enough now that
+  // the Role Switcher's Independent/Dealer Admin split already covers rep vs dealer.
+  assert.equal(ids.length, 14, 'the demo catalog should offer 14 SKUs (15 minus the redundant autoposter-dealer)')
+  assert.ok(!ids.includes('autoposter-dealer'), 'autoposter-dealer is redundant with the Role Switcher and must not be offered')
   for (const id of ids) assert.ok(getPlan(id), `DEMO_PACKAGES references an unknown plan: ${id}`)
 })
 

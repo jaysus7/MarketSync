@@ -28,8 +28,11 @@ const CONTROL_KEY = 'demo_control'
 // The current, real, publicly-sold catalog (marketplace-frontend/js/public-config.js) —
 // the Product Switcher's options. Every id here resolves through getPlan() AND through
 // the DB plans/plan_products tables (see migrations/2026-08-17-current-catalog-db-plans.sql).
+// autoposter-dealer was dropped: one Facebook AutoPoster entry is enough now that the
+// Role Switcher's Independent/Dealer Admin split already covers the rep-vs-dealer
+// distinction (Independent auto-provisions this exact plan — see DEMO_ROLES below).
 const DEMO_PACKAGES = [
-  'design-studio', 'autoposter-salesperson', 'social-scheduler', 'autoposter-dealer',
+  'design-studio', 'autoposter-salesperson', 'social-scheduler',
   'video', 'campaigns-email-sms', 'dealer-website', 'ai-chatbot',
   'sales-marketing-suite', 'service-marketing-suite', 'complete-marketing-suite', 'marketsync-digital',
   'dealer-os-core', 'dealer-os-pro', 'dealer-os-complete',
