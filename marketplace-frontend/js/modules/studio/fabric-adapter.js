@@ -107,6 +107,8 @@ class StudioFabricAdapter {
     this.currentScene = scene;
     const fabric = window.fabric;
 
+    this.fabricCanvas.setDimensions({ width: scene.width || 1080, height: scene.height || 1080 });
+
     this.fabricCanvas.clear();
     this.fabricCanvas.setBackgroundColor(scene.background?.color || '#0F172A', () => this.fabricCanvas.renderAll());
 
@@ -156,6 +158,9 @@ class StudioFabricAdapter {
           });
         }
         shapeObj.set({ angle: el.rotation || 0, opacity: el.opacity ?? 1 });
+        if (el.gradient?.colors?.length >= 2) {
+          shapeObj.set('fill', new fabric.Gradient({ type: 'linear', gradientUnits: 'pixels', coords: { x1: 0, y1: 0, x2: shapeObj.width || el.width || 300, y2: shapeObj.height || el.height || 200 }, colorStops: el.gradient.colors.map((color, index, all) => ({ offset: index / (all.length - 1), color })) }));
+        }
         shapeObj.msData = el;
         this.fabricCanvas.add(shapeObj);
       } else if (el.type === 'video' && el.src) {
@@ -207,7 +212,8 @@ class StudioFabricAdapter {
         opacity: obj.opacity ?? 1,
         text: obj.text || ms.text || '',
         src: typeof obj.getSrc === 'function' ? obj.getSrc() : (ms.src || undefined),
-        fill: obj.fill || ms.fill || '#FFFFFF',
+        fill: typeof obj.fill === 'string' ? obj.fill : (ms.fill || '#FFFFFF'),
+        gradient: ms.gradient || undefined,
         fontSize: obj.fontSize || ms.fontSize || 24,
         fontWeight: obj.fontWeight || ms.fontWeight || '700',
         stroke: obj.stroke || ms.stroke || null,
@@ -292,6 +298,33 @@ class StudioFabricAdapter {
     this.fabricCanvas.isDrawingMode = false;
     window.__studioDrawingTool = null;
     this.fabricCanvas.defaultCursor = 'default';
+  }
+
+  resizeCanvas(width, height) {
+    if (!this.fabricCanvas) return;
+    const oldWidth = this.fabricCanvas.width || width;
+    const oldHeight = this.fabricCanvas.height || height;
+    const scaleX = width / oldWidth;
+    const scaleY = height / oldHeight;
+    const uniform = Math.min(scaleX, scaleY);
+    this.fabricCanvas.getObjects().forEach(object => {
+      const centerX = ((object.left || 0) + object.getScaledWidth() / 2) / oldWidth;
+      const centerY = ((object.top || 0) + object.getScaledHeight() / 2) / oldHeight;
+      const isBackground = /background|panel/i.test(object.msData?.name || '') && (object.left || 0) < oldWidth * 0.08 && (object.top || 0) < oldHeight * 0.08;
+      if (isBackground) {
+        object.set({ left: 0, top: 0, scaleX: (object.scaleX || 1) * scaleX, scaleY: (object.scaleY || 1) * scaleY });
+      } else {
+        object.scaleX = (object.scaleX || 1) * uniform;
+        object.scaleY = (object.scaleY || 1) * uniform;
+        object.left = centerX * width - object.getScaledWidth() / 2;
+        object.top = centerY * height - object.getScaledHeight() / 2;
+      }
+      object.setCoords();
+    });
+    this.fabricCanvas.setDimensions({ width, height });
+    this.currentScene.width = width; this.currentScene.height = height;
+    this.fabricCanvas.requestRenderAll();
+    this.saveHistory();
   }
 
   toggleNodeEditing() {
