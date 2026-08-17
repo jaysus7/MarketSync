@@ -449,17 +449,33 @@ export function registerMarketingStudio(app) {
   // ── Free Asset Library Search & Import ────────────────────────────────────
   app.get('/marketing/studio/library/search', requireAuth, requireMfa, canView, async (req, res) => {
     if (!guard(req, res)) return
-    const query = String(req.query.q || 'car dealership').trim()
-    const provider = req.query.provider || 'pixabay'
+    const query = String(req.query.q || 'car dealership').trim().slice(0, 120)
+    const orientation = ['landscape', 'portrait', 'square'].includes(req.query.orientation) ? req.query.orientation : null
+    const page = Math.max(1, Math.min(100, Number(req.query.page) || 1))
 
     try {
-      const results = [
-        { id: 'lib_1', provider, type: 'photo', preview_url: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80', source_url: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341', width: 1920, height: 1280, author: 'Unsplash Car Collection', license: 'Free Commercial' },
-        { id: 'lib_2', provider, type: 'photo', preview_url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=600&q=80', source_url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70', width: 1920, height: 1280, author: 'Unsplash Luxury Automotive', license: 'Free Commercial' },
-        { id: 'lib_3', provider, type: 'photo', preview_url: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=600&q=80', source_url: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d', width: 1920, height: 1280, author: 'Unsplash Sports Car', license: 'Free Commercial' },
-        { id: 'lib_4', provider, type: 'photo', preview_url: 'https://images.unsplash.com/photo-1542282088-72c9c27ed0cd?auto=format&fit=crop&w=600&q=80', source_url: 'https://images.unsplash.com/photo-1542282088-72c9c27ed0cd', width: 1920, height: 1280, author: 'Unsplash Dealership Showroom', license: 'Free Commercial' }
-      ]
-      res.json({ results })
+      if (!process.env.PEXELS_API_KEY) return res.status(503).json({ error: 'Pexels library is not configured' })
+      const params = new URLSearchParams({ query, per_page: '30', page: String(page) })
+      if (orientation) params.set('orientation', orientation)
+      const response = await fetch(`https://api.pexels.com/v1/search?${params}`, {
+        headers: { Authorization: process.env.PEXELS_API_KEY },
+        signal: AbortSignal.timeout(10000)
+      })
+      if (!response.ok) throw new Error(`Pexels search failed (${response.status})`)
+      const data = await response.json()
+      const results = (data.photos || []).map(photo => ({
+        id: `pexels_${photo.id}`,
+        provider: 'pexels', type: 'photo',
+        preview_url: photo.src?.medium || photo.src?.small,
+        source_url: photo.src?.large2x || photo.src?.large || photo.src?.original,
+        width: photo.width, height: photo.height,
+        author: photo.photographer || 'Pexels photographer',
+        author_url: photo.photographer_url || null,
+        attribution_url: photo.url || 'https://www.pexels.com',
+        alt: photo.alt || query,
+        license: 'Pexels'
+      }))
+      res.json({ results, page: data.page || page, total_results: data.total_results || results.length, provider_url: 'https://www.pexels.com' })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
@@ -530,10 +546,27 @@ export function registerMarketingStudio(app) {
       }
 
       const svgElements = elements.map(el => {
+        const n = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback
+        const fill = HEX.test(String(el.fill || '')) ? el.fill : '#2563EB'
+        const stroke = HEX.test(String(el.stroke || '')) ? el.stroke : fill
+        const opacity = Math.max(0, Math.min(1, n(el.opacity, 1)))
+        const transform = `rotate(${n(el.rotation)} ${n(el.x) + n(el.width) / 2} ${n(el.y) + n(el.height) / 2})`
         if (el.type === 'text') {
-          return `<text x="${el.x || 0}" y="${(el.y || 0) + (el.fontSize || 24)}" font-family="Arial, sans-serif" font-size="${el.fontSize || 24}" font-weight="${el.fontWeight || '700'}" fill="${el.fill || '#FFFFFF'}">${xml(el.text || '')}</text>`
-        } else if (el.type === 'shape' && el.shapeType === 'rect') {
-          return `<rect x="${el.x || 0}" y="${el.y || 0}" width="${el.width || 100}" height="${el.height || 100}" rx="${el.rx || 0}" fill="${el.fill || '#2563EB'}" opacity="${el.opacity ?? 1}"/>`
+          return `<text x="${n(el.x)}" y="${n(el.y) + n(el.fontSize, 24)}" font-family="Arial, sans-serif" font-size="${n(el.fontSize, 24)}" font-weight="${xml(el.fontWeight || '700')}" fill="${HEX.test(String(el.fill || '')) ? el.fill : '#FFFFFF'}" opacity="${opacity}" transform="${transform}">${xml(el.text || '')}</text>`
+        } else if (el.type === 'shape') {
+          const x = n(el.x), y = n(el.y), w = n(el.width, 100), h = n(el.height, 100)
+          if (el.shapeType === 'rect' || el.shapeType === 'badge') return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${n(el.rx)}" fill="${fill}" opacity="${opacity}" transform="${transform}"/>`
+          if (el.shapeType === 'circle') return `<ellipse cx="${x + w/2}" cy="${y + h/2}" rx="${w/2}" ry="${h/2}" fill="${fill}" opacity="${opacity}" transform="${transform}"/>`
+          if (el.shapeType === 'ellipse') return `<ellipse cx="${x + w/2}" cy="${y + h/2}" rx="${w/2}" ry="${h/2}" fill="${fill}" opacity="${opacity}" transform="${transform}"/>`
+          if (el.shapeType === 'triangle') return `<polygon points="${x+w/2},${y} ${x+w},${y+h} ${x},${y+h}" fill="${fill}" opacity="${opacity}" transform="${transform}"/>`
+          if (Array.isArray(el.points) && el.points.length > 2) {
+            const points = el.points.slice(0, 80).map(p => `${x + n(p.x)},${y + n(p.y)}`).join(' ')
+            return `<polygon points="${points}" fill="${fill}" stroke="${stroke}" stroke-width="${n(el.strokeWidth)}" opacity="${opacity}" transform="${transform}"/>`
+          }
+          if (Array.isArray(el.path)) {
+            const d = el.path.slice(0, 500).map(command => Array.isArray(command) ? command.map((part, i) => i === 0 ? String(part).replace(/[^a-z]/gi, '') : n(part)).join(' ') : '').join(' ')
+            return `<path d="${xml(d)}" transform="translate(${x} ${y}) rotate(${n(el.rotation)} ${w/2} ${h/2})" fill="${el.fill ? fill : 'none'}" stroke="${stroke}" stroke-width="${Math.max(1, n(el.strokeWidth, 4))}" stroke-linecap="round" stroke-linejoin="round" opacity="${opacity}"/>`
+          }
         }
         return ''
       }).join('\n')
