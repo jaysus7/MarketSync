@@ -848,7 +848,7 @@ function crmTimelineItem(t, cid) {
         ${cleanBody ? `<div class="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-1 whitespace-pre-wrap">${esc(cleanBody)}</div>` : ''}
         <div class="mt-2.5 flex items-center gap-2 flex-wrap">
           <button onclick="openPublicVideoLink('${vidId}', '${cid}')" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-black bg-rose-600 hover:bg-rose-500 text-white shadow-sm transition">
-            ▶ Play Video &amp; Telemetry
+            ▶ Play Video &amp; Activity
           </button>
           <span class="text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
             ️ ${storeData.times_watched || 1} view(s) · ${Math.floor((storeData.watch_time_seconds || 105) / 60)}m ${(storeData.watch_time_seconds || 105) % 60}s watched (${storeData.completion_rate || 81}%)

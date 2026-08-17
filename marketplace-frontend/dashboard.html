@@ -12,6 +12,11 @@
 </script>
 <script id="cookieyes" type="text/javascript" src="https://cdn-cookieyes.com/client_data/4313ff69152b93899edaa7a8/script.js"></script>
   <meta charset="UTF-8">
+  <!-- See login.html for why this exists: darkMode:'class' below needs the .dark class set
+       somewhere, and nothing in the whole dashboard bundle did — dark: utilities silently
+       never applied and dark-mode phones fell back to their own inconsistent forced-dark
+       repaint (dark background, unrepainted dark text). -->
+  <script>(function(){var m=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)');function apply(){document.documentElement.classList.toggle('dark',!!(m&&m.matches));}apply();if(m){if(m.addEventListener)m.addEventListener('change',apply);else if(m.addListener)m.addListener(apply);}})();</script>
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -151,10 +156,11 @@
     html[data-dash-mode="marketsync"] .dark\:text-indigo-400{color:#a78bfa!important}
     html[data-dash-mode="marketsync"] [aria-current="page"]{background-color:#ede9fe!important;color:#6d28d9!important}
     html[data-dash-mode="marketsync"].dark [aria-current="page"]{background-color:rgba(76,29,149,.4)!important;color:#c4b5fd!important}
-    /* Deeper purple identity: tint the page + cards. Dark mode here is driven by the
-       OS setting (prefers-color-scheme) via Tailwind's media strategy — there is NO
-       .dark class — so the light tints MUST live under @media light, or they'd force
-       white cards in OS night mode and leave white text invisible on them. */
+    /* Deeper purple identity: tint the page + cards. These @media rules target the same
+       literal dark:* class names Tailwind's own .dark-scoped rules use, so they still need
+       their own @media gating (not just "not .dark") — the light tints MUST live under
+       @media light, or they'd force white cards in OS night mode and leave white text
+       invisible on them, regardless of whether the .dark class is also present. */
     @media (prefers-color-scheme: light) {
       html[data-dash-mode="marketsync"] body,
       html[data-dash-mode="marketsync"] .bg-slate-50{background-color:#faf8ff!important}
@@ -285,8 +291,8 @@
     <!-- LEFT SIDE: Logo + Role Pill + Live Shift Punch Clock -->
     <div class="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
       <a href="#" onclick="switchPage('command'); return false;" class="flex items-center gap-2 flex-shrink-0">
-        <img src="/Logo 2.0.png" alt="MarketSync DealerOS" class="h-10 w-auto dark:hidden">
-        <img src="/Logo 2.1.png" alt="MarketSync DealerOS" class="h-10 w-auto hidden dark:block">
+        <img src="/Logo 2.0.png" alt="MarketSync DealerOS" class="h-12 w-auto dark:hidden">
+        <img src="/Logo 2.1.png" alt="MarketSync DealerOS" class="h-12 w-auto hidden dark:block">
       </a>
       <!-- Who you are signed in AS -->
       <span class="hidden sm:inline-block text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 font-mono px-2 py-0.5 rounded truncate" id="ui-role-pill">Loading...</span>
@@ -3838,6 +3844,7 @@
   </script>
   <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async></script>
   <script src="js/modules/staff-chat-dock.js?v=20260814_v1"></script>
+  <script src="js/modules/demo-control-panel.js?v=20260817_v1"></script>
   <script src="table-sort.js?v=20260706a_noemoji"></script>
 </body>
 </html>

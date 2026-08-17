@@ -18,6 +18,7 @@ import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { createNotification } from '../notifications.js'
 import { findOrCreateContact } from './crm.js'
+import { blockDemoStripeAction } from './demo.js'
 import { squareStatus, squareCreateDepositLink } from '../providers/square.js'
 import { emitEvent } from './events.js'
 import { recordPayment, publishPaymentReceived } from './payments.js'
@@ -180,7 +181,10 @@ export function registerDeposits(app) {
   })
 
   // ── Start / resume Connect onboarding → returns a Stripe-hosted onboarding URL.
-  app.post('/deposits/connect', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
+  // Blocking this route also transitively protects the public /site/:slug/deposit
+  // checkout below: the demo dealership can never acquire a real connected account id,
+  // so that route's own accountId check always 400s for it regardless.
+  app.post('/deposits/connect', requireAuth, requireMfa, requirePermission('integrations.manage'), blockDemoStripeAction, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!stripeDepositsConfigured()) return res.status(503).json({ error: 'Online deposits aren’t enabled on this MarketSync account yet.' })
     try {
@@ -337,7 +341,7 @@ export function registerDeposits(app) {
   // part of desking a deal. Same destination-charge flow as the website route, but
   // authenticated and tied to an existing CRM contact (and optional vehicle). The
   // link is sent to / opened for the customer; the shared webhook stamps it paid.
-  app.post('/deposits/checkout', requireAuth, requirePermission('deal.create'), async (req, res) => {
+  app.post('/deposits/checkout', requireAuth, requirePermission('deal.create'), blockDemoStripeAction, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const b = req.body || {}
     const contactId = String(b.contact_id || '')

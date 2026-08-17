@@ -24,6 +24,7 @@ import { SYSTEM_ROLES, hasSystemRole, requirePermission } from '../authorization
 import { masterCreds } from '../providers/twilio-provision.js'
 import { audit } from '../audit.js'
 import { mayContact, recordOptOut } from './consent.js'
+import { isDemoDealershipId } from './demo.js'
 
 import {
   dealerSettings, buildDigest, digestEmailHtml, runMorningDigest,
@@ -389,7 +390,14 @@ async function dealerTwilio(dealershipId) {
 }
 export function invalidateTwilioCache(dealershipId) { if (dealershipId) __twilioCache.delete(dealershipId) }
 
-async function sendSms(to, body, from, creds) {
+// The one and only place this codebase calls Twilio's API (verified: no other file
+// imports the twilio package or hits api.twilio.com). dealershipId is optional only for
+// legacy call-site safety — every real caller passes it, and both current callers do.
+async function sendSms(to, body, from, creds, dealershipId) {
+  if (dealershipId && await isDemoDealershipId(dealershipId)) {
+    console.log('[demo] simulated SMS (not sent):', { dealershipId, to })
+    return { ok: false, simulated: true, demo: true, sid: 'demo_sim_' + Date.now() }
+  }
   const sid = creds?.sid || process.env.TWILIO_ACCOUNT_SID
   const tok = creds?.tok || process.env.TWILIO_AUTH_TOKEN
   // Prefer a per-dealer Messaging Service; fall back to a platform-wide one from env
@@ -411,7 +419,7 @@ async function sendSms(to, body, from, creds) {
 // Send an SMS for a dealership using its own Twilio account when connected.
 export async function sendDealerSms(dealershipId, to, body, from = null) {
   const creds = await dealerTwilio(dealershipId)
-  return sendSms(to, body, from, creds)
+  return sendSms(to, body, from, creds, dealershipId)
 }
 
 async function dispatch(msg, campaign) {
@@ -437,12 +445,17 @@ async function dispatch(msg, campaign) {
   if (msg.channel === 'email' && !contact.email_disclosed) { disclosurePatch = { email_disclosed: true } }
 
   let result = { ok: false }
+  const isDemo = await isDemoDealershipId(msg.dealership_id)
   if (msg.channel === 'sms') {
     const to = contact.phone || contact.phone_mobile
     const twilio = await dealerTwilio(msg.dealership_id)
-    result = await sendSms(to, body, sender.smsFrom, twilio)
+    result = await sendSms(to, body, sender.smsFrom, twilio, msg.dealership_id)
   } else {
-    if (!resend) result = { ok: false, simulated: true }
+    if (isDemo) {
+      console.log('[demo] simulated campaign email (not sent):', { dealershipId: msg.dealership_id, to: contact.email })
+      result = { ok: false, simulated: true, demo: true }
+    }
+    else if (!resend) result = { ok: false, simulated: true }
     else if (contact.email) {
       // rep identity → plaintext, no banners/pixels. house → light branded HTML.
       const payload = { from: sender.emailFrom, to: contact.email, subject: subject || `A note from ${dealer.name}` }

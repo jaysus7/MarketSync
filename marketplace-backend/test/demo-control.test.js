@@ -1,0 +1,77 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { getPlan } from '../plan-catalog.js'
+
+const source = readFileSync(new URL('../routes/demo-control.js', import.meta.url), 'utf8')
+
+test('every Product Switcher package id is a real, resolvable plan', () => {
+  const match = source.match(/const DEMO_PACKAGES = \[([\s\S]*?)\]/)
+  assert.ok(match, 'DEMO_PACKAGES array should exist')
+  const ids = [...match[1].matchAll(/'([a-z0-9-]+)'/g)].map(m => m[1])
+  assert.equal(ids.length, 15, 'the full current 15-SKU catalog should be offered')
+  for (const id of ids) assert.ok(getPlan(id), `DEMO_PACKAGES references an unknown plan: ${id}`)
+})
+
+test('every Role Switcher entry maps to a real role_id and a valid profiles.role/account_role pairing', () => {
+  const match = source.match(/const DEMO_ROLES = \{([\s\S]*?)\n\}/)
+  assert.ok(match, 'DEMO_ROLES map should exist')
+  const entries = [...match[1].matchAll(/roleId: '([a-z_]+)'.*?profileRole: '(DEALER_ADMIN|SALES_REP)', accountRole: '(dealer_admin|sales_rep)'/g)]
+  assert.equal(entries.length, 12, 'all 12 requested demo roles should be present')
+  // profiles.role is ONLY ever DEALER_ADMIN or SALES_REP in real data (verified against
+  // staging) — DEALER_ADMIN also gets the implicit "all permissions" bypass in
+  // authorization.js, so only dealer_owner/general_manager (the two real roles that
+  // pair with it) may use it here.
+  for (const [, roleId, profileRole] of entries) {
+    if (profileRole === 'DEALER_ADMIN') {
+      assert.ok(['dealer_owner', 'general_manager'].includes(roleId),
+        `${roleId} should not get the implicit admin-permission bypass`)
+    }
+  }
+})
+
+test('demo control endpoints are tenant-gated only — no admin-role check stacked on top', () => {
+  // Stacking isDealerAdmin/isPlatformOwner on top of the tenant check would lock the
+  // demo operator out after switching to a non-admin role (profiles.role becomes
+  // SALES_REP), since they could no longer pass that check to switch back or reset.
+  const guard = source.match(/async function requireDemoAccount[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(guard, /ownDedicatedDemoAccount\(req\)/)
+  assert.doesNotMatch(guard, /isDealerAdmin|isPlatformOwner|hasSystemRole/)
+  for (const endpoint of [
+    "app.get('/demo/control'",
+    "app.put('/demo/control/package'",
+    "app.put('/demo/control/role'",
+    "app.put('/demo/control/scenario'",
+    "app.put('/demo/control/presentation'",
+    "app.post('/demo/control/reset'",
+  ]) {
+    assert.ok(source.includes(`${endpoint}, requireAuth, requireDemoAccount`), `${endpoint} should require auth + the tenant-only demo guard`)
+  }
+})
+
+test('package switch goes through the real entitlement engine, not a demo-only shortcut', () => {
+  const route = source.match(/app\.put\('\/demo\/control\/package'[\s\S]*?\n {2}\}\)/)?.[0] || ''
+  assert.match(route, /if \(!DEMO_PACKAGES\.includes\(packageId\)\)/)
+  assert.match(route, /provisionPlan\(\{ dealershipId: req\.dealershipId, planId: packageId, status: 'active' \}\)/)
+  assert.match(route, /audit\(req, 'demo\.control_package_switched'/)
+})
+
+test('role switch writes user_roles directly (delete + insert) and updates profiles.role/account_role', () => {
+  const route = source.match(/app\.put\('\/demo\/control\/role'[\s\S]*?\n {2}\}\)/)?.[0] || ''
+  assert.match(route, /if \(!role\) return res\.status\(400\)/)
+  assert.match(route, /from\('user_roles'\)\.delete\(\)\.eq\('user_id', req\.user\.id\)\.eq\('dealership_id', req\.dealershipId\)/)
+  assert.match(route, /from\('user_roles'\)\.insert\(\{/)
+  assert.match(route, /from\('profiles'\)\s*\n?\s*\.update\(\{ role: role\.profileRole, account_role: role\.accountRole \}\)/)
+})
+
+test('reset reuses the same wipe+reseed as /demo/reset and restores default control state', () => {
+  const route = source.match(/app\.post\('\/demo\/control\/reset'[\s\S]*?\n {2}\}\)/)?.[0] || ''
+  assert.match(route, /wipeAcademyDemoData\(supabaseAdmin, req\.dealershipId\)/)
+  assert.match(route, /seedAccount\(\{ dealership: req\._demoDealership, ownerId: req\.user\.id, force: true \}\)/)
+  assert.match(route, /setConfig\(req\.dealershipId, CONTROL_KEY, DEFAULT_STATE, req\)/)
+})
+
+test('demo control state is server-side (dealer_config), never trusts a client-supplied dealership id', () => {
+  assert.doesNotMatch(source, /req\.body\.dealershipId|req\.query\.dealershipId/)
+  assert.match(source, /getConfig\(req\.dealershipId, CONTROL_KEY/)
+})

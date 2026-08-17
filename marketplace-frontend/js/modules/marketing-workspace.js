@@ -451,7 +451,7 @@ ENGINES['marketing-overview'] = {
 
     // ── Video Studio ─────────────────────────────────────────────────────────
     'video-studio'(body) {
-      body.innerHTML = engSection('Video Studio', '', 'Customer video walkaround recorder & sent video telemetry');
+      body.innerHTML = engSection('Video Studio', '', 'Customer video walkaround recorder & sent video activity');
       engMountPage(body, 'video-studio', () => { if (typeof loadVideoStudioPage === 'function') loadVideoStudioPage(); });
     },
 

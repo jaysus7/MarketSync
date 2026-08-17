@@ -127,7 +127,7 @@
     var mobRes = RESOURCES.map(function (r) { return '<a href="' + r.href + '" class="ms-m-link' + act(r.href, 'ms-active') + '">' + esc(r.title) + '</a>'; }).join('');
 
     return '' +
-      '<a href="/" class="ms-logo" aria-label="MarketSync home"><img src="/Logo 2.0.png" alt="MarketSync DealerOS" class="ms-logo-light" style="height:38px; width:auto;"><img src="/Logo 2.1.png" alt="MarketSync DealerOS" class="ms-logo-dark" style="height:38px; width:auto;"></a>' +
+      '<a href="/" class="ms-logo" aria-label="MarketSync home"><img src="/Logo 2.0.png" alt="MarketSync DealerOS" class="ms-logo-light" style="height:44px; width:auto;"><img src="/Logo 2.1.png" alt="MarketSync DealerOS" class="ms-logo-dark" style="height:44px; width:auto;"></a>' +
       '<nav class="ms-nav-desktop" aria-label="Primary">' +
         '<div class="ms-nav-item"><button class="ms-nav-btn" aria-haspopup="true">Solutions ' + CARET + '</button><div class="ms-dropdown ms-dd-wide">' + solItems + '</div></div>' +
         '<a href="/pricing.html" class="ms-nav-link' + act('/pricing.html', 'ms-active') + '">Pricing</a>' +
@@ -161,7 +161,7 @@
         '<div class="ms-f-cta-note">No credit card required · Set up in a day</div>' +
       '</div>' +
       '<div class="ms-f-grid">' +
-        '<div class="ms-f-brand"><a href="/" class="ms-logo ms-logo-sm"><img src="/Logo 2.0.png" alt="MarketSync DealerOS" class="ms-logo-light" style="height:32px; width:auto;"><img src="/Logo 2.1.png" alt="MarketSync DealerOS" class="ms-logo-dark" style="height:32px; width:auto;"></a><p>The intelligent automotive operating system &amp; digital growth platform.</p></div>' +
+        '<div class="ms-f-brand"><a href="/" class="ms-logo ms-logo-sm"><img src="/Logo 2.0.png" alt="MarketSync DealerOS" class="ms-logo-light" style="height:36px; width:auto;"><img src="/Logo 2.1.png" alt="MarketSync DealerOS" class="ms-logo-dark" style="height:36px; width:auto;"></a><p>The intelligent automotive operating system &amp; digital growth platform.</p></div>' +
         cols +
       '</div>' +
       '<div class="ms-f-bottom"><span>© ' + new Date().getFullYear() + ' MarketSync Technologies Inc. All rights reserved. Prices in CAD/month unless noted.</span></div>';
