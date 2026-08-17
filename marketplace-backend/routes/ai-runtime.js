@@ -857,19 +857,45 @@ export function registerAiRuntime(app) {
       // Parse metadata from HTML
       const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
       const metaDesc = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)
-      const phoneMatch = html.match(/(?:\(?\d{3}\)?[\s.-]?)?\d{3}[\s.-]?\d{4}/)
-      const emailMatch = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)
+      const siteNameMatch = html.match(/<meta[^>]*property=["']og:site_name["'][^>]*content=["']([^"']+)["']/i)
+
+      // tel:/mailto: links are the site's own declared contact info — far more reliable
+      // than scanning raw page text, and the only source checked for phone at all
+      // (the old bare-digit regex matched ANY 7 consecutive digits anywhere in the
+      // HTML — prices, ids, zip codes — not just phone numbers).
+      const telHrefMatch = html.match(/href=["']tel:\s*([^"']+)["']/i)
+      const mailHrefMatch = html.match(/href=["']mailto:\s*([^"'?]+)["']/i)
+      const phoneTextMatch = html.match(/\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}/)
+      const emailTextMatch = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)
 
       // Derive hostname as fallback store name
       let domainName = 'Store'
       try { domainName = new URL(fullUrl).hostname.replace(/^www\./, '').split('.')[0] } catch {}
-      const storeName = titleMatch ? titleMatch[1].split(/[-|–]/)[0].trim() : (domainName.charAt(0).toUpperCase() + domainName.slice(1))
+      domainName = domainName.charAt(0).toUpperCase() + domainName.slice(1)
+
+      // og:site_name is the page's own declared business name — use it first. Falling
+      // back to <title>, prefer the segment that isn't a generic page label: dealer
+      // sites title their homepage "Home | Business Name" as often as the reverse, and
+      // blindly taking the first segment turned "Home | Welland Chevrolet" into the
+      // store name "Home".
+      const GENERIC_TITLE_WORDS = /^(home|welcome|index|main|homepage)$/i
+      let storeName
+      if (siteNameMatch) {
+        storeName = siteNameMatch[1].trim()
+      } else if (titleMatch) {
+        const segments = titleMatch[1].split(/[-|–]/).map(s => s.trim()).filter(Boolean)
+        const named = segments.filter(s => !GENERIC_TITLE_WORDS.test(s)).sort((a, b) => b.length - a.length)
+        storeName = named[0] || domainName
+      } else {
+        storeName = domainName
+      }
+      storeName = storeName.charAt(0).toUpperCase() + storeName.slice(1)
 
       const heroTitle = titleMatch ? titleMatch[1].trim() : `Welcome to ${storeName}`
       const heroSub = metaDesc ? metaDesc[1].trim() : `Your premier destination for quality vehicles, service, and transparent pricing.`
 
-      const phone = phoneMatch ? phoneMatch[0] : ''
-      const email = emailMatch ? emailMatch[0] : ''
+      const phone = (telHrefMatch ? telHrefMatch[1].trim() : (phoneTextMatch ? phoneTextMatch[0] : '')) || ''
+      const email = (mailHrefMatch ? decodeURIComponent(mailHrefMatch[1].trim()) : (emailTextMatch ? emailTextMatch[0] : '')) || ''
 
       const extractedKnowledge = [
         { topic: 'Business Name', detail: storeName },
