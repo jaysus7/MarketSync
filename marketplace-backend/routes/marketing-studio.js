@@ -581,9 +581,17 @@ export function registerMarketingStudio(app) {
         base = sharp({ create: { width, height, channels: 4, background: scene.background?.color || '#0F172A' } })
       }
 
-      const svgElements = elements.map(el => {
+      const gradientDefs = []
+      const svgElements = elements.map((el, elementIndex) => {
         const n = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback
-        const fill = HEX.test(String(el.fill || '')) ? el.fill : '#2563EB'
+        let fill = HEX.test(String(el.fill || '')) ? el.fill : '#2563EB'
+        const gradientColors = Array.isArray(el.gradient?.colors) ? el.gradient.colors.filter(color => HEX.test(String(color))).slice(0, 6) : []
+        if (gradientColors.length >= 2) {
+          const gradientId = `studio-gradient-${elementIndex}`
+          const stops = gradientColors.map((color, index) => `<stop offset="${Math.round(index * 100 / (gradientColors.length - 1))}%" stop-color="${color}"/>`).join('')
+          gradientDefs.push(`<linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">${stops}</linearGradient>`)
+          fill = `url(#${gradientId})`
+        }
         const stroke = HEX.test(String(el.stroke || '')) ? el.stroke : fill
         const opacity = Math.max(0, Math.min(1, n(el.opacity, 1)))
         const transform = `rotate(${n(el.rotation)} ${n(el.x) + n(el.width) / 2} ${n(el.y) + n(el.height) / 2})`
@@ -607,7 +615,7 @@ export function registerMarketingStudio(app) {
         return ''
       }).join('\n')
 
-      const sceneSvg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">${svgElements}</svg>`
+      const sceneSvg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><defs>${gradientDefs.join('')}</defs>${svgElements}</svg>`
       const overlaySvg = studioOverlaySvg({ ...spec, width, height })
 
       const webp = await base
