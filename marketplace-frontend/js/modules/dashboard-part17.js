@@ -186,7 +186,7 @@ function siteSettingsFields(cfg) {
     ${sec('Branding', 'Your brand colour and the hero image at the top of the homepage.', `
       <div class="grid grid-cols-2 gap-2">
         <div>${lbl('Brand colour')}<input id="site-color" type="color" value="${esc(c.primary_color || '#1e3a8a')}" class="w-full h-9 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg"></div>
-        <div>${lbl('Hero image')}<div class="flex gap-1">${inp('site-hero', c.hero_url, 'Paste URL or upload', 'flex-1')}<input id="site-hero-file" type="file" accept="image/*" class="hidden" onchange="uploadSiteImage('site-hero', this.files[0])"><button type="button" onclick="document.getElementById('site-hero-file').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 rounded-lg">Upload</button></div></div>
+        <div>${lbl('Hero image')}<div class="flex gap-1">${inp('site-hero', c.hero_url, 'Paste URL or upload', 'flex-1')}<input id="site-hero-file" type="file" accept="image/*" class="hidden" onchange="uploadSiteImage('site-hero', this.files[0])"><button type="button" onclick="document.getElementById('site-hero-file').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 rounded-lg">Upload</button><button type="button" onclick="openWsPhotoPicker(url => { const el = document.getElementById('site-hero'); if (el) el.value = url; })" class="text-xs font-bold bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600/20 px-3 rounded-lg">Browse Photos</button></div></div>
       </div>`)}
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
       <h2 class="text-lg font-bold text-slate-900 dark:text-white">Build &amp; Price brands</h2>
@@ -293,6 +293,68 @@ async function uploadSiteImage(targetId, file) {
     showToast('Image uploaded', 'success');
   } catch (e) { showToast(e.message, 'error'); }
 }
+// ── Shared Pexels photo picker — every image field in the Website Builder (Hero,
+// section images, galleries) can browse the same free library Design Studio uses,
+// instead of only "paste a URL or upload a file". Reuses /marketing/studio/library/
+// search (the same endpoint Design Studio's Photos tool calls) so results and
+// attribution match exactly.
+let __wsPhotoPickCallback = null;
+function openWsPhotoPicker(onPick) {
+  __wsPhotoPickCallback = onPick;
+  let modal = document.getElementById('ws-photo-picker-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'ws-photo-picker-modal';
+    modal.className = 'fixed inset-0 z-[99998] bg-black/60 flex items-center justify-center p-4';
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `
+    <div class="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+      <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
+        <h3 class="text-sm font-black text-slate-900 dark:text-white">Photo Library</h3>
+        <button type="button" onclick="closeWsPhotoPicker()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl leading-none">&times;</button>
+      </div>
+      <div class="p-4 border-b border-slate-200 dark:border-slate-800">
+        <form onsubmit="event.preventDefault(); searchWsPhotoLibrary(document.getElementById('ws-photo-query').value)" class="flex gap-2">
+          <input id="ws-photo-query" type="search" value="car dealership" placeholder="Search photos..." class="flex-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm">
+          <button class="px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black">Search</button>
+        </form>
+      </div>
+      <div id="ws-photo-results" class="p-4 grid grid-cols-3 gap-2 overflow-y-auto flex-1"><div class="col-span-3 py-10 text-center text-xs text-slate-400">Loading…</div></div>
+      <div class="p-2 border-t border-slate-200 dark:border-slate-800 text-center text-[10px] text-slate-400">Photos provided by Pexels</div>
+    </div>`;
+  searchWsPhotoLibrary('car dealership');
+}
+window.openWsPhotoPicker = openWsPhotoPicker;
+
+function closeWsPhotoPicker() {
+  document.getElementById('ws-photo-picker-modal')?.remove();
+  __wsPhotoPickCallback = null;
+}
+window.closeWsPhotoPicker = closeWsPhotoPicker;
+
+async function searchWsPhotoLibrary(query) {
+  const target = document.getElementById('ws-photo-results');
+  if (!target) return;
+  target.innerHTML = '<div class="col-span-3 py-10 text-center text-xs text-slate-400">Searching…</div>';
+  try {
+    const data = await apiGetJson(`/marketing/studio/library/search?q=${encodeURIComponent(query || 'car dealership')}`);
+    const results = data?.results || [];
+    target.innerHTML = results.length
+      ? results.map(r => `<button type="button" onclick="pickWsPhoto('${esc(r.source_url || r.preview_url)}')" title="${esc(r.alt || '')}" class="aspect-video rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 hover:border-indigo-500 transition"><img src="${esc(r.preview_url)}" loading="lazy" class="w-full h-full object-cover"></button>`).join('')
+      : '<div class="col-span-3 py-10 text-center text-xs text-slate-400">No matching photos.</div>';
+  } catch (e) {
+    target.innerHTML = '<div class="col-span-3 py-10 text-center text-xs text-rose-500">Photo search is temporarily unavailable.</div>';
+  }
+}
+window.searchWsPhotoLibrary = searchWsPhotoLibrary;
+
+function pickWsPhoto(url) {
+  if (typeof __wsPhotoPickCallback === 'function') __wsPhotoPickCallback(url);
+  closeWsPhotoPicker();
+}
+window.pickWsPhoto = pickWsPhoto;
+
 // Read an uploaded .txt/.md file into the AI chat knowledge-base box (client-side, no upload).
 async function loadChatKbFile(file) {
   if (!file) return;
@@ -1470,8 +1532,8 @@ function wsField(i, sec, [key, label, type]) {
   else if (type === 'herobg') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['','None (solid brand)'],['g1','Indigo glow'],['g2','Sky wave'],['g3','Teal depth'],['g4','Violet dusk'],['g5','Amber warmth'],['g6','Rose accent'],['g7','Emerald'],['g8','Cyan drift']].map(o => `<option value="${o[0]}" ${(v||'')===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select>`;
   else if (type === 'cond') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['all','All'],['new','New'],['used','Used']].map(o => `<option value="${o[0]}" ${v === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
   else if (type === 'height') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['sm','Short'],['md','Medium'],['lg','Tall'],['screen','Full screen']].map(o => `<option value="${o[0]}" ${(v || 'md') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
-  else if (type === 'image') input = `<div class="flex gap-1 items-center">${v ? `<img src="${esc(v)}" class="w-12 h-9 object-cover rounded">` : ''}<input value="${esc(v || '')}" placeholder="URL or upload" oninput="setSec(${i},'${key}',this.value)" class="${cls} flex-1"><input type="file" accept="image/*" class="hidden" id="secimg-${i}-${key}" onchange="uploadToSec(${i},'${key}',this.files[0])"><button type="button" onclick="document.getElementById('secimg-${i}-${key}').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 px-2 rounded">Upload</button></div>`;
-  else if (type === 'images') { const arr = Array.isArray(v) ? v : []; input = `<div><div class="flex flex-wrap gap-1 mb-1">${arr.map((u, k) => `<div class="relative"><img src="${esc(u)}" class="w-12 h-9 object-cover rounded"><button onclick="delSecImg(${i},'${key}',${k})" class="absolute -top-1 -right-1 bg-black/60 text-white rounded-full w-4 h-4 text-[10px]">×</button></div>`).join('')}</div><input type="file" accept="image/*" multiple class="hidden" id="secimgs-${i}-${key}" onchange="uploadToSecMulti(${i},'${key}',this.files)"><button type="button" onclick="document.getElementById('secimgs-${i}-${key}').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded">+ Add images</button></div>`; }
+  else if (type === 'image') input = `<div class="flex gap-1 items-center">${v ? `<img src="${esc(v)}" class="w-12 h-9 object-cover rounded">` : ''}<input value="${esc(v || '')}" placeholder="URL or upload" oninput="setSec(${i},'${key}',this.value)" class="${cls} flex-1"><input type="file" accept="image/*" class="hidden" id="secimg-${i}-${key}" onchange="uploadToSec(${i},'${key}',this.files[0])"><button type="button" onclick="document.getElementById('secimg-${i}-${key}').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 px-2 rounded">Upload</button><button type="button" onclick="openWsPhotoPicker(url => { setSec(${i},'${key}',url); renderWsSections(); })" class="text-xs font-bold bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600/20 px-2 rounded">Browse</button></div>`;
+  else if (type === 'images') { const arr = Array.isArray(v) ? v : []; input = `<div><div class="flex flex-wrap gap-1 mb-1">${arr.map((u, k) => `<div class="relative"><img src="${esc(u)}" class="w-12 h-9 object-cover rounded"><button onclick="delSecImg(${i},'${key}',${k})" class="absolute -top-1 -right-1 bg-black/60 text-white rounded-full w-4 h-4 text-[10px]">×</button></div>`).join('')}</div><input type="file" accept="image/*" multiple class="hidden" id="secimgs-${i}-${key}" onchange="uploadToSecMulti(${i},'${key}',this.files)"><button type="button" onclick="document.getElementById('secimgs-${i}-${key}').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded">+ Add images</button> <button type="button" onclick="openWsPhotoPicker(url => { const arr = (__siteSections[${i}].settings?.['${key}'] || []).slice(); arr.push(url); setSec(${i},'${key}',arr); renderWsSections(); })" class="text-xs font-bold bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600/20 px-2 py-1 rounded">Browse Photos</button></div>`; }
   else if (type === 'faq') { const lines = (Array.isArray(v) ? v : []).map(it => `${it.q || ''} :: ${it.a || ''}`).join('\n'); input = `<textarea rows="4" oninput="setSecFaq(${i},'${key}',this.value)" placeholder="Question :: Answer" class="${cls} text-xs">${esc(lines)}</textarea>`; }
   else if (type === 'reviews') { const lines = (Array.isArray(v) ? v : []).map(it => `${it.author || ''} :: ${it.rating || 5} :: ${it.text || ''}`).join('\n'); input = `<textarea rows="4" oninput="setSecReviews(${i},'${key}',this.value)" placeholder="Jane D. :: 5 :: Best dealership experience I've had." class="${cls} text-xs">${esc(lines)}</textarea>`; }
   else if (type === 'cards') { const lines = (Array.isArray(v) ? v : []).map(it => `${it.title || ''} :: ${it.text || ''}`).join('\n'); input = `<textarea rows="4" oninput="setSecCards(${i},'${key}',this.value)" placeholder="Free delivery :: We bring the car to your door." class="${cls} text-xs">${esc(lines)}</textarea>`; }
