@@ -59,6 +59,18 @@ const FORMATS = {
   landscape: [1200, 628]
 }
 
+// Pexels authenticates with the raw API key (not a Bearer scheme). Normalizing here
+// also recovers safely if an operator pasted "Bearer …" into Render by mistake.
+export function pexelsApiKey(value = process.env.PEXELS_API_KEY) {
+  return String(value || '').trim().replace(/^Bearer\s+/i, '').trim()
+}
+
+export function pexelsSearchEndpoint(mediaType) {
+  return mediaType === 'video'
+    ? 'https://api.pexels.com/videos/search'
+    : 'https://api.pexels.com/v1/search'
+}
+
 const HEX = /^#[0-9a-f]{6}$/i
 const xml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]))
 
@@ -470,7 +482,7 @@ export function registerMarketingStudio(app) {
   })
 
   // ── Free Asset Library Search & Import ────────────────────────────────────
-  app.get('/marketing/studio/library/search', requireAuth, requireMfa, canView, async (req, res) => {
+  app.get('/marketing/studio/library/search', requireAuth, canView, async (req, res) => {
     if (!guard(req, res)) return
     const query = String(req.query.q || 'car dealership').trim().slice(0, 120)
     const orientation = ['landscape', 'portrait', 'square'].includes(req.query.orientation) ? req.query.orientation : null
@@ -478,15 +490,26 @@ export function registerMarketingStudio(app) {
     const page = Math.max(1, Math.min(100, Number(req.query.page) || 1))
 
     try {
-      if (!process.env.PEXELS_API_KEY) return res.status(503).json({ error: 'Pexels library is not configured' })
+      const apiKey = pexelsApiKey()
+      if (!apiKey) return res.status(503).json({ error: 'Pexels library is not configured.' })
       const params = new URLSearchParams({ query, per_page: '30', page: String(page) })
       if (orientation) params.set('orientation', orientation)
-      const endpoint = mediaType === 'video' ? 'https://api.pexels.com/v1/videos/search' : 'https://api.pexels.com/v1/search'
+      const endpoint = pexelsSearchEndpoint(mediaType)
       const response = await fetch(`${endpoint}?${params}`, {
-        headers: { Authorization: process.env.PEXELS_API_KEY },
+        headers: { Authorization: apiKey, Accept: 'application/json' },
         signal: AbortSignal.timeout(10000)
       })
-      if (!response.ok) throw new Error(`Pexels search failed (${response.status})`)
+      if (!response.ok) {
+        const upstream = await response.json().catch(() => ({}))
+        const detail = upstream?.error || upstream?.message || response.statusText || 'upstream request failed'
+        const status = response.status === 429 ? 429 : 502
+        return res.status(status).json({
+          error: response.status === 429
+            ? 'Pexels request limit reached. Try again shortly.'
+            : `Pexels search failed (${response.status}): ${String(detail).slice(0, 180)}`,
+          provider: 'pexels', media_type: mediaType
+        })
+      }
       const data = await response.json()
       const results = mediaType === 'video' ? (data.videos || []).map(video => {
         const files = (video.video_files || []).filter(file => file.link)

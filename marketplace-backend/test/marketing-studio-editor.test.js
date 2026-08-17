@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { studioDesignSpec, studioOverlaySvg } from '../routes/marketing-studio.js'
+import { pexelsApiKey, pexelsSearchEndpoint, studioDesignSpec, studioOverlaySvg } from '../routes/marketing-studio.js'
 
 const route = readFileSync(new URL('../routes/marketing-studio.js', import.meta.url), 'utf8')
 
@@ -19,6 +19,13 @@ test('Studio overlay escapes dealer-authored SVG text', () => {
   assert.doesNotMatch(svg, /<script>/)
   assert.match(svg, /&lt;script&gt;/)
   assert.match(svg, /Shop &amp; save/)
+})
+
+test('Pexels library uses raw-key authentication and distinct search endpoints', () => {
+  assert.equal(pexelsApiKey('  raw-key-123  '), 'raw-key-123')
+  assert.equal(pexelsApiKey('Bearer raw-key-123'), 'raw-key-123')
+  assert.equal(pexelsSearchEndpoint('photo'), 'https://api.pexels.com/v1/search')
+  assert.equal(pexelsSearchEndpoint('video'), 'https://api.pexels.com/videos/search')
 })
 
 test('Studio backgrounds are tenant-scoped canonical assets, never arbitrary fetched URLs', () => {
