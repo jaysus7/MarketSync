@@ -1015,14 +1015,14 @@ ENGINES['saas-command'] = {
       const activePct = d.total_accounts ? Math.round((d.active_customers || 0) / d.total_accounts * 100) : 0;
       body.innerHTML = `
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          ${engKpi('MRR', engMoney0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
+          ${engKpi('Monthly customer payments', engMoney0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
           ${engKpi('Customers', (d.customers ?? ((d.active_customers || 0) + (d.trial_accounts || 0))).toLocaleString(), 'text-indigo-600 dark:text-indigo-400')}
           ${engKpi('Paying', (d.active_customers || 0).toLocaleString())}
           ${engKpi('Trials', (d.trial_accounts || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
           ${engKpi('Churn Risk', (d.churn_risk || 0).toLocaleString(), d.churn_risk ? 'text-rose-600 dark:text-rose-400' : '')}
           ${engKpi('New This Month', (d.new_this_month || 0).toLocaleString())}
         </div>
-        <div class="text-[11px] text-slate-400 -mt-2">MRR estimated from product entitlements across ${(d.total_accounts || 0).toLocaleString()} accounts.</div>
+        <div class="text-[11px] text-slate-400 -mt-2">Monthly payments are calculated from active products across ${(d.total_accounts || 0).toLocaleString()} accounts.</div>
         ${engCard('Account status', engBar([
           { pct: activePct, cls: 'bg-emerald-500', label: `Active (${d.active_customers || 0})` },
           { pct: d.total_accounts ? Math.round((d.trial_accounts || 0) / d.total_accounts * 100) : 0, cls: 'bg-blue-500', label: `Trial (${d.trial_accounts || 0})` },
@@ -1034,7 +1034,7 @@ ENGINES['saas-command'] = {
       const top = (d.top_accounts || []).map(a => `<div class="flex items-center justify-between text-sm py-1.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(a.name || 'Account')}</span><span class="font-bold text-slate-800 dark:text-slate-100">${engMoney0(a.mrr)}/mo</span></div>`).join('') || engEmpty('No paying accounts yet.');
       body.innerHTML = `<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Trials — closest to expiry</div><div class="space-y-1.5">${trials}</div></div>
-        <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Top accounts by MRR</div>${engCard('', top, 'py-2')}</div>
+        <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Customers paying the most each month</div>${engCard('', top, 'py-2')}</div>
       </div>`;
     },
     insights(body, d) {
@@ -1049,14 +1049,14 @@ ENGINES['saas-command'] = {
           <span class="w-20 text-right font-bold text-slate-700 dark:text-slate-200">${engMoney0(mix[k])}</span>
         </div>`).join('') || engEmpty('No paying products yet.');
       body.innerHTML = `
-        ${engCard('MRR by product · across top accounts', mixRows)}
+        ${engCard('Monthly customer payments by product', mixRows)}
         ${engCard('Growth', `<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
           ${engKpi('New this month', (d.new_this_month || 0).toLocaleString())}
           ${engKpi('Active', (d.active_customers || 0).toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
           ${engKpi('Trials', (d.trial_accounts || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
-          ${engKpi('ARR', engMoney0(d.arr), 'text-emerald-600 dark:text-emerald-400')}
+          ${engKpi('Expected yearly payments', engMoney0(d.arr), 'text-emerald-600 dark:text-emerald-400')}
         </div>`)}
-        <div class="text-[12px] text-slate-400">Cohort retention curves need historical MRR snapshots — that time-series isn't captured yet, so it's intentionally omitted rather than estimated.</div>`;
+        <div class="text-[12px] text-slate-400">Long-term retention charts need a history of monthly payments. That history is not captured yet, so this page does not invent it.</div>`;
     },
     automation(body) {
       body.innerHTML = engCard('Trial &amp; onboarding automation', `
@@ -1262,8 +1262,8 @@ async function renderSaasCustomer(id) {
       <button data-x class="text-2xl leading-none text-slate-400 hover:text-slate-600">×</button>
     </div>
     <div class="grid grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
-      ${kpi('MRR', money(d.mrr), 'text-violet-600 dark:text-violet-400')}
-      ${kpi('ARR', money(d.arr))}
+      ${kpi('Monthly payment', money(d.mrr), 'text-violet-600 dark:text-violet-400')}
+      ${kpi('Expected yearly value', money(d.arr))}
       ${kpi('Customer spend' + (d.ltv_source === 'stripe' ? '' : ' (est.)'), money(d.ltv), 'text-emerald-600 dark:text-emerald-400')}
       ${kpi('Account age', d.tenure_months == null ? 'Unknown' : d.tenure_months + ' months')}
       ${kpi('Activity · 90 days', (d.activity_90d ?? 0).toLocaleString() + ' events')}

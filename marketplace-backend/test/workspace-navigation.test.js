@@ -72,7 +72,7 @@ test('each MarketSync Internal page owns specific operational header tabs', () =
     'All Leads', 'Pipeline Board', 'Marketplace Sources', 'Routing Rules', 'Export',
     'Directory', 'Onboarding Data', 'Plan Overrides', 'Impersonation & Access', 'Usage Quotas',
     'Affiliate Directory', 'Pending Payouts', 'Referral Links', 'Commission Tiers', 'Payout Logs',
-    'P&L Summary', 'Subscriptions (MRR)', 'Platform Expenses', 'Invoices & Taxes', 'Currency (CAD/USD)',
+    'Money overview', 'Customer payments', 'Money spent', 'Bills and taxes', 'Canadian and US dollars',
     'Campaigns', 'Automated Drips', 'Audience Lists', 'Template Builder', 'Deliverability & Analytics',
     'Video Studio', 'Creative Library', 'Watermark & Branding', 'AI Enhancement Rules', 'Templates',
     'Team Directory', 'Role Permissions', 'Sales Assignments', 'Activity Audit', 'Invitations',

@@ -829,7 +829,7 @@ ENGINES['saas-accounting'] = {
       body.innerHTML = `
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
           ${engCard('This month', `<div class="flex justify-around gap-3">${saasMoneyRing('Income',income,Math.max(income,expenses,1),'#10b981',engMoney0(income))}${saasMoneyRing('Expenses',expenses,Math.max(income,target,expenses,1),'#f43f5e',engMoney0(expenses))}</div><div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between"><span class="text-sm font-bold">Money left</span><span class="font-black ${netTone}">${engMoney0(income-expenses)}</span></div>`)}
-          ${engCard('Automatic income', `<button onclick="switchPage('saas-customers')" class="w-full flex justify-between py-2 text-sm border-b border-slate-100 dark:border-slate-800"><span>Customer subscriptions</span><b class="text-emerald-500">${engMoney0(d.mrr)}/mo</b></button><button onclick="switchPage('affiliates-admin')" class="w-full flex justify-between py-2 text-sm"><span>Affiliate-referred customers</span><b>Included in subscriptions</b></button><p class="text-[11px] text-slate-400 mt-3">Stripe remains the payment source of truth. Affiliate commissions are recorded as expenses when paid.</p>`)}
+          ${engCard('Money coming in automatically', `<button onclick="switchPage('saas-customers')" class="w-full flex justify-between py-2 text-sm border-b border-slate-100 dark:border-slate-800"><span>Monthly customer payments</span><b class="text-emerald-500">${engMoney0(d.mrr)} each month</b></button><button onclick="switchPage('affiliates-admin')" class="w-full flex justify-between py-2 text-sm"><span>Customers referred by affiliates</span><b>Already included above</b></button><p class="text-[11px] text-slate-400 mt-3">Stripe supplies the real customer payment records. Affiliate payments appear under money spent after you pay them.</p>`)}
           ${engCard('Add an expense', `<p class="text-sm text-slate-500 mb-3">Snap a receipt. AI fills in the vendor, date, category, tax, and total. You review before anything saves.</p><button onclick="accOpenReceiptScanModal()" class="w-full px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black">Snap or upload receipt</button><button onclick="accOpenCustomEntryModal('out')" class="w-full mt-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold">Enter expense manually</button>`)}
         </div>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
@@ -850,7 +850,7 @@ ENGINES['saas-accounting'] = {
       body.innerHTML = `
         ${engCard('Recurring revenue by product', list)}
         ${engCard('Growth', `<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          ${engKpi('MRR', engMoney0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
+          ${engKpi('Monthly customer payments', engMoney0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
           ${engKpi('New this month', engMoney0(d.new_mrr_this_month), 'text-indigo-600 dark:text-indigo-400')}
           ${engKpi('Paying', (d.paying || 0).toLocaleString())}
           ${engKpi('Trials', (d.trials || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
@@ -873,7 +873,7 @@ ENGINES['saas-accounting'] = {
     },
     automation(body) {
       body.innerHTML = engCard('Revenue &amp; cost automation', `<ul class="text-[13px] text-slate-600 dark:text-slate-300 space-y-2">
-        <li class="flex items-start gap-2">${svgIcon('check', 'w-4 h-4 text-emerald-500 mt-0.5')}<span>MRR is recomputed live from product entitlements every time you open this page — no manual bookkeeping.</span></li>
+        <li class="flex items-start gap-2">${svgIcon('check', 'w-4 h-4 text-emerald-500 mt-0.5')}<span>Monthly customer payments are recalculated from active products whenever you open this page.</span></li>
         <li class="flex items-start gap-2">${svgIcon('check', 'w-4 h-4 text-emerald-500 mt-0.5')}<span>Affiliate commissions accrue automatically when a referred account pays, and post as an expense when you pay them out.</span></li>
       </ul>`);
     },
@@ -884,7 +884,7 @@ ENGINES['saas-accounting'] = {
       </div>`);
     },
   },
-  tabLabels: { overview: 'P&L Summary', work: 'Subscriptions (MRR)', insights: 'Platform Expenses', automation: 'Invoices & Taxes', settings: 'Currency (CAD/USD)' },
+  tabLabels: { overview: 'Money overview', work: 'Customer payments', insights: 'Money spent', automation: 'Bills and taxes', settings: 'Canadian and US dollars' },
 };
 function loadSaasAccounting() { renderEngine('saas-accounting'); }
 window.loadSaasAccounting = loadSaasAccounting;
