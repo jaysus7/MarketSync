@@ -158,6 +158,8 @@ class StudioFabricAdapter {
         shapeObj.set({ angle: el.rotation || 0, opacity: el.opacity ?? 1 });
         shapeObj.msData = el;
         this.fabricCanvas.add(shapeObj);
+      } else if (el.type === 'video' && el.src) {
+        await this.addVideo(el.src, el.name || 'Video', { left: el.x, top: el.y, width: el.width, opacity: el.opacity, restoring: true }).catch(() => {});
       } else if ((el.type === 'vehicle-image' || el.type === 'image') && (el.src || this.currentVehicle?.primary_photo_url)) {
         const imgSrc = el.src || this.currentVehicle?.primary_photo_url;
         await new Promise((resolve) => {
@@ -409,6 +411,37 @@ class StudioFabricAdapter {
       this.fabricCanvas.renderAll();
       this.saveHistory();
     }, { crossOrigin: 'anonymous' });
+  }
+
+  async addVideo(url, name = 'Video', options = {}) {
+    if (!this.fabricCanvas || !url) return;
+    const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
+    video.muted = true; video.loop = true; video.playsInline = true; video.preload = 'metadata';
+    video.src = url;
+    await new Promise((resolve, reject) => {
+      video.addEventListener('loadeddata', resolve, { once: true });
+      video.addEventListener('error', () => reject(new Error('Video could not be loaded')), { once: true });
+      video.load();
+    });
+    const center = this.fabricCanvas.getCenter();
+    const object = new window.fabric.Image(video, {
+      left: options.left ?? center.left - 200, top: options.top ?? center.top - 120,
+      opacity: options.opacity ?? 1, objectCaching: false
+    });
+    if (options.width) object.scaleToWidth(options.width); else if (object.width > 480) object.scaleToWidth(480);
+    object.msData = { type: 'video', src: url, name };
+    this.fabricCanvas.add(object);
+    if (!options.restoring) this.fabricCanvas.setActiveObject(object);
+    const canvas = this.fabricCanvas;
+    const paint = () => {
+      if (!canvas || !canvas.getObjects().includes(object) || !document.getElementById('ms-studio-master-modal')) return;
+      canvas.requestRenderAll();
+      requestAnimationFrame(paint);
+    };
+    video.play().then(() => requestAnimationFrame(paint)).catch(() => {});
+    canvas.requestRenderAll();
+    if (!options.restoring) this.saveHistory();
   }
 
   deleteSelected() {
