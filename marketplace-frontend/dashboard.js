@@ -790,6 +790,7 @@ const PRODUCT_PAGES = {
   facebook_solo:      ['leaderboard', 'inventory'],
   facebook_dealer:    ['leaderboard', 'inventory', 'sales-team'],
   ai_chatbot:         ['ai-home'],
+  design_studio:      ['marketing-overview'],
   marketsync_video:   ['video-studio'],
   video:              ['video-studio'],
   marketsync_website: ['website'],
@@ -798,16 +799,13 @@ const PRODUCT_PAGES = {
   social:             ['marketing-overview'],
   marketsync_email:   ['email-marketing'],
   email_marketing:    ['email-marketing'],
-  // Design Studio is reached via the Marketing engine's Studio tab (marketing-overview
-  // -> 'studio'), the same landing page as marketsync_social — sub-tab-level gating
-  // inside that engine is a separate, deeper concern this page-level list can't express.
-  design_studio:      ['marketing-overview'],
   dealer_os:          null,   // null = full access, no restriction
 };
 const PRODUCT_HOME = {
   facebook_solo: 'leaderboard',
   facebook_dealer: 'leaderboard',
   ai_chatbot: 'ai-home',
+  design_studio: 'marketing-overview',
   marketsync_video: 'video-studio',
   video: 'video-studio',
   marketsync_website: 'website',
@@ -816,7 +814,6 @@ const PRODUCT_HOME = {
   social: 'marketing-overview',
   marketsync_email: 'email-marketing',
   email_marketing: 'email-marketing',
-  design_studio: 'marketing-overview',
 };
 const FB_PRODUCTS = new Set(['facebook_solo', 'facebook_dealer']);
 let __productAllowedPages = null;   // Set of reachable pages under a restricted product, else null
@@ -849,17 +846,10 @@ window.canDo = function (permission) {
   return a.permissions.includes('*') || a.permissions.includes(permission);
 };
 
-// Translate the normalized products (facebook / ai_dealer / dealer_os / design_studio /
-// marketsync_social / marketsync_video / marketsync_email / marketsync_website) from the
-// access context into the legacy product-page keys applyProductNav already understands,
-// so the mature nav logic is reused unchanged. Returns null when no context is present
-// (caller falls back to the legacy /auth/me products object).
-//
-// This must stay in sync with every real product id (see migrations/2026-08-17-current-
-// catalog-db-plans.sql) — a product missing here is a product an account can pay for and
-// then never actually reach: it silently vanishes from `access.products` translation, so
-// a bundle like Sales Marketing Suite (facebook + design_studio + marketsync_social +
-// marketsync_email) used to collapse down to Facebook-only nav, losing the other three.
+// Translate the normalized products (facebook / ai_dealer / dealer_os) from the access
+// context into the legacy product-page keys applyProductNav already understands, so the
+// mature nav logic is reused unchanged. Returns null when no context is present (caller
+// falls back to the legacy /auth/me products object).
 function legacyProductsFromAccess(access) {
   if (!access || !Array.isArray(access.products) || !access.products.length) return null;
   if (access.isPlatformStaff || access.products.includes('dealer_os')) return { dealer_os: true };
@@ -871,10 +861,10 @@ function legacyProductsFromAccess(access) {
   }
   if (access.products.includes('ai_dealer')) out.ai_chatbot = true;
   if (access.products.includes('design_studio')) out.design_studio = true;
-  if (access.products.includes('marketsync_social')) out.marketsync_social = true;
   if (access.products.includes('marketsync_video')) out.marketsync_video = true;
-  if (access.products.includes('marketsync_email')) out.marketsync_email = true;
   if (access.products.includes('marketsync_website')) out.marketsync_website = true;
+  if (access.products.includes('marketsync_social')) out.marketsync_social = true;
+  if (access.products.includes('marketsync_email')) out.marketsync_email = true;
   return Object.keys(out).length ? out : null;
 }
 window.legacyProductsFromAccess = legacyProductsFromAccess;
@@ -1146,22 +1136,29 @@ function restrictedNavPages() {
   //   Facebook Dealer — Owner/Admin . Inventory, Sales Reps, Leaderboard
   //   AI Dealer / AI Chatbot ........ AI Dealer (its page only)
   const product = document.documentElement.getAttribute('data-product') || '';
+  const activeProducts = product.trim().split(/\s+/).filter(Boolean);
   const canManageTeam = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
   const INV = (label) => ({ page: 'inventory', label, icon: 'megaphone', invmode: 'facebook' });
   const LEADER = { page: 'leaderboard', label: 'Leaderboard', icon: 'trophy' };
   const SALES_REPS = { page: 'sales-team', label: 'Sales Reps', icon: 'user' };
   const AI = { page: 'ai-home', label: 'AI Chatbot', icon: 'sparkles' };
+  const META = {
+    'marketing-overview': { page: 'marketing-overview', label: 'Marketing Studio', icon: 'megaphone' },
+    'email-marketing': { page: 'email-marketing', label: 'Email & SMS', icon: 'megaphone' },
+    'video-studio': { page: 'video-studio', label: 'Video', icon: 'video' },
+    website: { page: 'website', label: 'Website', icon: 'globe' },
+  };
 
-  if (/facebook_dealer/.test(product)) {
+  if (activeProducts.length === 1 && /facebook_dealer/.test(product)) {
     return canManageTeam ? [INV('Inventory'), SALES_REPS, LEADER] : [INV('My Inventory'), LEADER];
   }
-  if (/facebook_solo/.test(product)) return [INV('Inventory'), LEADER];
-  if (/ai_chatbot/.test(product)) return [AI];
+  if (activeProducts.length === 1 && /facebook_solo/.test(product)) return [INV('Inventory'), LEADER];
+  if (activeProducts.length === 1 && /ai_chatbot/.test(product)) return [AI];
 
   // Fallback for any other restricted product set (keeps generic behavior).
   if (__productAllowedPages) {
-    const meta = { 'ai-home': AI, leaderboard: LEADER, inventory: INV('Inventory'), 'sales-team': SALES_REPS };
-    return ['inventory', 'sales-team', 'leaderboard', 'ai-home']
+    const meta = { ...META, 'ai-home': AI, leaderboard: LEADER, inventory: INV('Inventory'), 'sales-team': SALES_REPS };
+    return ['marketing-overview', 'email-marketing', 'video-studio', 'website', 'ai-home', 'inventory', 'sales-team', 'leaderboard']
       .filter(p => __productAllowedPages.has(p)).map(p => meta[p]);
   }
   // Legacy pure fb_only accounts with no product set: the same two Facebook items.
