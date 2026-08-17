@@ -1,7 +1,7 @@
 /**
  * Demo Control Center — lets the ONE dedicated demo login switch which package it
- * subscribes to, which role it's acting as, which scenario is loaded, and toggle
- * presentation mode, all without logging out.
+ * subscribes to, which role it's acting as, and toggle presentation mode, all without
+ * logging out.
  *
  * Every write here goes through the SAME mechanisms a real account change would use
  * (provisionPlan() for packages, a user_roles row for roles) — there is no separate
@@ -35,40 +35,34 @@ const DEMO_PACKAGES = [
   'dealer-os-core', 'dealer-os-pro', 'dealer-os-complete',
 ]
 
+// The dealer_group the demo dealership was attached to, purely so the "Group Admin"
+// demo role has a real group to render (routes/groups.js's overview composes one card
+// per store in profile.group_id — an admin with no group would just see an empty
+// rollup). See migrations/history: 'MarketSync Demo Group', one store attached.
+const DEMO_GROUP_ID = 'a0000000-0000-4000-a000-0000000000d3'
+
 // Demo role -> real RBAC role_id (public.roles) + the profiles.role/account_role pairing
-// that matches how this app actually provisions real accounts today (verified against
-// live data: profiles.role is ONLY EVER 'DEALER_ADMIN' or 'SALES_REP' — fine-grained
-// access comes entirely from user_roles -> role_permissions, not from profiles.role).
-// dealer_owner and general_manager are the two roles real accounts pair with the
-// implicit "DEALER_ADMIN = every permission" bypass in authorization.js's
-// permissionLookup(); every other role here is governed purely by role_permissions for
-// its role_id, same as a real account with that role.
+// that matches how this app actually provisions real accounts today. profiles.role is
+// ONLY EVER 'DEALER_ADMIN', 'SALES_REP', or 'DEALER_GROUP' in real data — fine-grained
+// access comes entirely from user_roles -> role_permissions, not from profiles.role.
+// accountRole: 'dealer_admin' is what grants the implicit "every dealership permission"
+// bypass in authorization.js's permissionLookup() (it checks account_role, not role), so
+// group_admin and dealer_admin both get full access; group_admin's profileRole of
+// 'DEALER_GROUP' additionally satisfies isGroupAdmin() in routes/groups.js for the
+// cross-dealership group rollup.
 //
-// service_advisor / parts / marketing are APPROXIMATED onto the closest existing role_id
-// (roles table has no dedicated row for them) — flagged with approximated:true. Those
-// three will show identical access to their nearest neighbor, not a distinct narrower
-// view. Giving them their own realistic view needs new roles + role_permissions rows,
-// which is a real RBAC change outside the scope of the demo layer.
+// `independent` is the Facebook-only persona: switching to it also provisions the
+// autoposter-salesperson plan (product: 'facebook' only — see plan-catalog.js), so the
+// nav actually narrows to just Facebook + the leaderboard instead of only relabeling
+// the role while leaving the full bundle's nav in place.
 const DEMO_ROLES = {
-  dealer_principal: { roleId: 'dealer_owner', label: 'Dealer Principal', profileRole: 'DEALER_ADMIN', accountRole: 'dealer_admin' },
-  general_manager: { roleId: 'general_manager', label: 'General Manager', profileRole: 'DEALER_ADMIN', accountRole: 'dealer_admin' },
-  sales_manager: { roleId: 'sales_manager', label: 'Sales Manager', profileRole: 'SALES_REP', accountRole: 'sales_rep' },
-  salesperson: { roleId: 'salesperson', label: 'Salesperson', profileRole: 'SALES_REP', accountRole: 'sales_rep' },
-  bdc: { roleId: 'bdc', label: 'BDC', profileRole: 'SALES_REP', accountRole: 'sales_rep' },
-  fni: { roleId: 'fni_manager', label: 'F&I', profileRole: 'SALES_REP', accountRole: 'sales_rep' },
-  service_manager: { roleId: 'service_manager', label: 'Service Manager', profileRole: 'SALES_REP', accountRole: 'sales_rep' },
-  service_advisor: { roleId: 'service_manager', label: 'Service Advisor', profileRole: 'SALES_REP', accountRole: 'sales_rep', approximated: true },
-  technician: { roleId: 'technician', label: 'Technician', profileRole: 'SALES_REP', accountRole: 'sales_rep' },
-  parts: { roleId: 'technician', label: 'Parts', profileRole: 'SALES_REP', accountRole: 'sales_rep', approximated: true },
-  marketing: { roleId: 'sales_manager', label: 'Marketing', profileRole: 'SALES_REP', accountRole: 'sales_rep', approximated: true },
-  accounting: { roleId: 'accounting', label: 'Accounting / Admin', profileRole: 'SALES_REP', accountRole: 'sales_rep' },
+  group_admin: { roleId: 'dealer_owner', label: 'Group Admin', profileRole: 'DEALER_GROUP', accountRole: 'dealer_admin', groupId: DEMO_GROUP_ID },
+  dealer_admin: { roleId: 'dealer_owner', label: 'Dealer Admin', profileRole: 'DEALER_ADMIN', accountRole: 'dealer_admin' },
+  sales_role: { roleId: 'salesperson', label: 'Sales Role', profileRole: 'SALES_REP', accountRole: 'sales_rep' },
+  independent: { roleId: 'salesperson', label: 'Independent (Facebook only)', profileRole: 'SALES_REP', accountRole: 'sales_rep', packageId: 'autoposter-salesperson' },
 }
 
-// Scenario data generation is Phase 3 (not yet built) — for now the scenario selection
-// is recorded but does not yet change what's seeded. See dealer_config['demo_control'].
-const DEMO_SCENARIOS = ['healthy', 'needs_attention', 'busy_sales_day', 'service_department', 'marketing_demo', 'dealer_principal']
-
-const DEFAULT_STATE = { packageId: 'dealer-os-complete', roleKey: 'dealer_principal', scenario: 'healthy', presentationMode: false }
+const DEFAULT_STATE = { packageId: 'dealer-os-complete', roleKey: 'dealer_admin', presentationMode: false }
 
 async function requireDemoAccount(req, res, next) {
   const dealership = await ownDedicatedDemoAccount(req)
@@ -85,7 +79,6 @@ export function registerDemoControl(app) {
       state,
       packages: DEMO_PACKAGES.map(id => ({ id, label: getPlan(id)?.label, monthly: getPlan(id)?.monthly })),
       roles: Object.entries(DEMO_ROLES).map(([key, r]) => ({ key, label: r.label, approximated: !!r.approximated })),
-      scenarios: DEMO_SCENARIOS,
     })
   })
 
@@ -123,9 +116,13 @@ export function registerDemoControl(app) {
       })
       if (roleError) throw roleError
       const { error: profileError } = await supabaseAdmin.from('profiles')
-        .update({ role: role.profileRole, account_role: role.accountRole }).eq('id', req.user.id)
+        .update({ role: role.profileRole, account_role: role.accountRole, group_id: role.groupId || null }).eq('id', req.user.id)
       if (profileError) throw profileError
-      const state = { ...(await getConfig(req.dealershipId, CONTROL_KEY, DEFAULT_STATE)), roleKey }
+      let state = { ...(await getConfig(req.dealershipId, CONTROL_KEY, DEFAULT_STATE)), roleKey }
+      if (role.packageId) {
+        await provisionPlan({ dealershipId: req.dealershipId, planId: role.packageId, status: 'active' })
+        state = { ...state, packageId: role.packageId }
+      }
       await setConfig(req.dealershipId, CONTROL_KEY, state, req)
       audit(req, 'demo.control_role_switched', { demo_dealership_id: req.dealershipId, role: roleKey })
       res.json({ ok: true, state })
@@ -133,15 +130,6 @@ export function registerDemoControl(app) {
       console.error('[demo-control] role switch failed:', error.message)
       res.status(500).json({ error: 'Could not switch role.' })
     }
-  })
-
-  app.put('/demo/control/scenario', requireAuth, requireDemoAccount, async (req, res) => {
-    const scenario = String(req.body?.scenario || '')
-    if (!DEMO_SCENARIOS.includes(scenario)) return res.status(400).json({ error: 'Unknown scenario.' })
-    const state = { ...(await getConfig(req.dealershipId, CONTROL_KEY, DEFAULT_STATE)), scenario }
-    await setConfig(req.dealershipId, CONTROL_KEY, state, req)
-    audit(req, 'demo.control_scenario_set', { demo_dealership_id: req.dealershipId, scenario })
-    res.json({ ok: true, state })
   })
 
   app.put('/demo/control/presentation', requireAuth, requireDemoAccount, async (req, res) => {

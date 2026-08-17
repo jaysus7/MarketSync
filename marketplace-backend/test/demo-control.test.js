@@ -16,16 +16,15 @@ test('every Product Switcher package id is a real, resolvable plan', () => {
 test('every Role Switcher entry maps to a real role_id and a valid profiles.role/account_role pairing', () => {
   const match = source.match(/const DEMO_ROLES = \{([\s\S]*?)\n\}/)
   assert.ok(match, 'DEMO_ROLES map should exist')
-  const entries = [...match[1].matchAll(/roleId: '([a-z_]+)'.*?profileRole: '(DEALER_ADMIN|SALES_REP)', accountRole: '(dealer_admin|sales_rep)'/g)]
-  assert.equal(entries.length, 12, 'all 12 requested demo roles should be present')
-  // profiles.role is ONLY ever DEALER_ADMIN or SALES_REP in real data (verified against
-  // staging) — DEALER_ADMIN also gets the implicit "all permissions" bypass in
-  // authorization.js, so only dealer_owner/general_manager (the two real roles that
-  // pair with it) may use it here.
+  const entries = [...match[1].matchAll(/roleId: '([a-z_]+)'.*?profileRole: '(DEALER_ADMIN|SALES_REP|DEALER_GROUP)', accountRole: '(dealer_admin|sales_rep)'/g)]
+  assert.equal(entries.length, 4, 'exactly the 4 requested demo roles should be present: group admin, dealer admin, sales role, independent')
+  // profiles.role is ONLY ever DEALER_ADMIN, SALES_REP, or DEALER_GROUP in real data
+  // (verified against staging) — dealer_owner is the role real accounts pair with the
+  // implicit "all permissions" bypass in authorization.js, so only dealer_owner may
+  // pair with DEALER_ADMIN/DEALER_GROUP here.
   for (const [, roleId, profileRole] of entries) {
-    if (profileRole === 'DEALER_ADMIN') {
-      assert.ok(['dealer_owner', 'general_manager'].includes(roleId),
-        `${roleId} should not get the implicit admin-permission bypass`)
+    if (profileRole === 'DEALER_ADMIN' || profileRole === 'DEALER_GROUP') {
+      assert.equal(roleId, 'dealer_owner', `${roleId} should not get the implicit admin-permission bypass`)
     }
   }
 })
@@ -41,7 +40,6 @@ test('demo control endpoints are tenant-gated only — no admin-role check stack
     "app.get('/demo/control'",
     "app.put('/demo/control/package'",
     "app.put('/demo/control/role'",
-    "app.put('/demo/control/scenario'",
     "app.put('/demo/control/presentation'",
     "app.post('/demo/control/reset'",
   ]) {
@@ -61,7 +59,15 @@ test('role switch writes user_roles directly (delete + insert) and updates profi
   assert.match(route, /if \(!role\) return res\.status\(400\)/)
   assert.match(route, /from\('user_roles'\)\.delete\(\)\.eq\('user_id', req\.user\.id\)\.eq\('dealership_id', req\.dealershipId\)/)
   assert.match(route, /from\('user_roles'\)\.insert\(\{/)
-  assert.match(route, /from\('profiles'\)\s*\n?\s*\.update\(\{ role: role\.profileRole, account_role: role\.accountRole \}\)/)
+  assert.match(route, /from\('profiles'\)\s*\n?\s*\.update\(\{ role: role\.profileRole, account_role: role\.accountRole, group_id: role\.groupId \|\| null \}\)/)
+})
+
+test('the Facebook-only "independent" role also narrows the plan, not just the label', () => {
+  const match = source.match(/const DEMO_ROLES = \{([\s\S]*?)\n\}/)
+  assert.match(match[1], /independent: \{[^}]*packageId: 'autoposter-salesperson'/)
+  const route = source.match(/app\.put\('\/demo\/control\/role'[\s\S]*?\n {2}\}\)/)?.[0] || ''
+  assert.match(route, /if \(role\.packageId\)/)
+  assert.match(route, /provisionPlan\(\{ dealershipId: req\.dealershipId, planId: role\.packageId, status: 'active' \}\)/)
 })
 
 test('reset reuses the same wipe+reseed as /demo/reset and restores default control state', () => {
