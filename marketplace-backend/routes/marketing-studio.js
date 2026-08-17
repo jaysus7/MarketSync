@@ -49,6 +49,7 @@ function isMissingTableError(e) {
 }
 
 const assetUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024, files: 10 } })
+const studioVideoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024, files: 1 } })
 
 const ASSET_COLUMNS = 'id, dealership_id, kind, storage_path, public_url, width, height, bytes, title, alt_text, inventory_id, campaign_id, created_by, created_at'
 const FORMATS = {
@@ -225,6 +226,28 @@ export function registerMarketingStudio(app) {
       return res.status(500).json({ error: error.message })
     }
     audit(req, 'marketing.asset_uploaded', { after_state: { id: data.id, bytes: data.bytes } })
+    res.json({ ok: true, asset: data })
+  })
+
+  app.post('/marketing/assets/video', requireAuth, requireMfa, canEdit, studioVideoUpload.single('file'), async (req, res) => {
+    if (!guard(req, res)) return
+    if (!req.file || !/^video\//.test(req.file.mimetype || '')) return res.status(400).json({ error: 'Choose a valid video file.' })
+    const ext = (req.file.originalname?.split('.').pop() || req.file.mimetype.split('/')[1] || 'mp4').replace(/[^a-z0-9]/gi, '').slice(0, 8)
+    const storagePath = `${req.dealershipId}/_studio/${Date.now()}-${crypto.randomBytes(9).toString('base64url')}.${ext}`
+    const { error: upErr } = await supabaseAdmin.storage.from('sales-videos').upload(storagePath, req.file.buffer, { contentType: req.file.mimetype, upsert: false })
+    if (upErr) return res.status(500).json({ error: 'Video upload failed: ' + upErr.message })
+    const { data: pub } = supabaseAdmin.storage.from('sales-videos').getPublicUrl(storagePath)
+    const { data, error } = await supabaseAdmin.from('marketing_assets').insert({
+      dealership_id: req.dealershipId, kind: 'video', storage_path: storagePath,
+      public_url: pub?.publicUrl || '', bytes: req.file.size,
+      title: String(req.body?.title || req.file.originalname || 'Uploaded video').slice(0, 160),
+      created_by: req.user?.id || null
+    }).select(ASSET_COLUMNS).single()
+    if (error) {
+      await supabaseAdmin.storage.from('sales-videos').remove([storagePath])
+      return res.status(500).json({ error: error.message })
+    }
+    audit(req, 'marketing.video_uploaded', { after_state: { id: data.id, bytes: data.bytes } })
     res.json({ ok: true, asset: data })
   })
 
@@ -451,19 +474,32 @@ export function registerMarketingStudio(app) {
     if (!guard(req, res)) return
     const query = String(req.query.q || 'car dealership').trim().slice(0, 120)
     const orientation = ['landscape', 'portrait', 'square'].includes(req.query.orientation) ? req.query.orientation : null
+    const mediaType = req.query.type === 'video' ? 'video' : 'photo'
     const page = Math.max(1, Math.min(100, Number(req.query.page) || 1))
 
     try {
       if (!process.env.PEXELS_API_KEY) return res.status(503).json({ error: 'Pexels library is not configured' })
       const params = new URLSearchParams({ query, per_page: '30', page: String(page) })
       if (orientation) params.set('orientation', orientation)
-      const response = await fetch(`https://api.pexels.com/v1/search?${params}`, {
+      const endpoint = mediaType === 'video' ? 'https://api.pexels.com/v1/videos/search' : 'https://api.pexels.com/v1/search'
+      const response = await fetch(`${endpoint}?${params}`, {
         headers: { Authorization: process.env.PEXELS_API_KEY },
         signal: AbortSignal.timeout(10000)
       })
       if (!response.ok) throw new Error(`Pexels search failed (${response.status})`)
       const data = await response.json()
-      const results = (data.photos || []).map(photo => ({
+      const results = mediaType === 'video' ? (data.videos || []).map(video => {
+        const files = (video.video_files || []).filter(file => file.link)
+        const chosen = files.find(file => file.quality === 'hd' && Number(file.width) <= 1920) || files.find(file => file.quality === 'sd') || files[0]
+        return {
+          id: `pexels_video_${video.id}`, provider: 'pexels', type: 'video',
+          preview_url: video.image, source_url: chosen?.link || null,
+          width: chosen?.width || video.width, height: chosen?.height || video.height,
+          duration: video.duration || null, author: video.user?.name || 'Pexels creator',
+          author_url: video.user?.url || null, attribution_url: video.url || 'https://www.pexels.com/videos/',
+          alt: `${query} video`, license: 'Pexels'
+        }
+      }).filter(video => video.source_url) : (data.photos || []).map(photo => ({
         id: `pexels_${photo.id}`,
         provider: 'pexels', type: 'photo',
         preview_url: photo.src?.medium || photo.src?.small,
