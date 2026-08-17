@@ -67,8 +67,10 @@ test('MarketSync Internal OS uses the approved company navigation in order', () 
 })
 
 test('each MarketSync Internal page owns specific operational header tabs', () => {
+  // saas-command (Pulse) was deliberately collapsed to one tab (hideRail/hideTabBar,
+  // tabOrder: ['overview']) — the old Sync Pipeline/API & Webhook Health/Error Logs/
+  // Infrastructure sub-tabs no longer exist, so they're no longer pinned here.
   const expected = [
-    'Overview', 'Sync Pipeline', 'API & Webhook Health', 'Error Logs', 'Infrastructure',
     'All Leads', 'Pipeline Board', 'Marketplace Sources', 'Routing Rules', 'Export',
     'Directory', 'Onboarding Data', 'Plan Overrides', 'Impersonation & Access', 'Usage Quotas',
     'Affiliate Directory', 'Pending Payouts', 'Referral Links', 'Commission Tiers', 'Payout Logs',
@@ -84,7 +86,7 @@ test('each MarketSync Internal page owns specific operational header tabs', () =
   assert.match(part10, /Customer growth/)
   assert.match(part10, /SaaS lead priorities/)
   assert.match(part10, /saas-connected-website-builder/)
-  assert.match(part11, /Snap or upload receipt/)
+  assert.match(part11, /Take or upload receipt photo/)
   const videoStudio = read('js/modules/video-studio.js')
   assert.match(videoStudio, /MarketSync Product Video Studio/)
   assert.match(videoStudio, /if \(isSaas && String\(v\.department \|\| ''\)\.toLowerCase\(\) === 'service'\) return false/)
