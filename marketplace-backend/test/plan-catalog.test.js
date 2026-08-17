@@ -5,12 +5,7 @@ import {
   productsForPlan, featuresForPlan,
 } from '../plan-catalog.js'
 
-test('the sold plans exist with correct prices', () => {
-  assert.deepEqual(PLAN_IDS, [
-    'fb_solo', 'fb_dealership', 'ai_standard',
-    'marketsync_video', 'marketsync_website', 'marketsync_social', 'marketsync_email',
-    'os_starter', 'os_growth', 'os_pro',
-  ])
+test('the legacy sold plans still exist with correct prices (real subscribers reference these ids)', () => {
   assert.equal(PLAN_CATALOG.fb_solo.monthly, 79)
   assert.equal(PLAN_CATALOG.fb_dealership.monthly, 499)
   assert.equal(PLAN_CATALOG.ai_standard.monthly, 499)
@@ -22,6 +17,47 @@ test('the sold plans exist with correct prices', () => {
   assert.equal(PLAN_CATALOG.os_starter.monthly, 999)
   assert.equal(PLAN_CATALOG.os_growth.monthly, 1799)
   assert.equal(PLAN_CATALOG.os_pro.monthly, 2499)
+})
+
+// The current public catalog (marketplace-frontend/js/public-config.js) — these ids are
+// what /register.html?plan=<id> and the Demo Control Center's Product Switcher use.
+test('the current public catalog is fully represented, priced to match public-config.js', () => {
+  const CURRENT_CATALOG_IDS = [
+    'design-studio', 'autoposter-salesperson', 'social-scheduler', 'autoposter-dealer',
+    'video', 'campaigns-email-sms', 'dealer-website', 'ai-chatbot',
+    'sales-marketing-suite', 'service-marketing-suite', 'complete-marketing-suite', 'marketsync-digital',
+    'dealer-os-core', 'dealer-os-pro', 'dealer-os-complete',
+  ]
+  for (const id of CURRENT_CATALOG_IDS) assert.ok(PLAN_IDS.includes(id), `PLAN_CATALOG is missing current SKU: ${id}`)
+  // Nothing from the legacy catalog was removed or renamed — real subscribers keep working.
+  for (const id of ['fb_solo', 'fb_dealership', 'ai_standard', 'marketsync_video', 'marketsync_website', 'marketsync_social', 'marketsync_email', 'os_starter', 'os_growth', 'os_pro']) {
+    assert.ok(PLAN_IDS.includes(id), `legacy plan id removed: ${id}`)
+  }
+
+  const prices = {
+    'design-studio': 5, 'autoposter-salesperson': 19, 'social-scheduler': 59, 'autoposter-dealer': 79,
+    video: 99, 'campaigns-email-sms': 129, 'dealer-website': 249, 'ai-chatbot': 299,
+    'sales-marketing-suite': 249, 'service-marketing-suite': 249, 'complete-marketing-suite': 399, 'marketsync-digital': 599,
+    'dealer-os-core': 1499, 'dealer-os-pro': 2499, 'dealer-os-complete': 3999,
+  }
+  for (const [id, monthly] of Object.entries(prices)) assert.equal(PLAN_CATALOG[id].monthly, monthly, `${id} price mismatch`)
+})
+
+test('Design Studio is a standalone product distinct from the social scheduler feature set', () => {
+  assert.deepEqual(productsForPlan('design-studio'), ['design_studio'])
+  assert.ok(featuresForPlan('design-studio').includes('design.canvas'))
+  assert.ok(!featuresForPlan('social-scheduler').includes('social.studio'), 'Social Scheduler alone should not unlock the Design Studio canvas')
+  assert.ok(featuresForPlan('sales-marketing-suite').includes('design.canvas'), 'Sales Marketing Suite bundles Design Studio')
+})
+
+test('DealerOS tiers bundle the current standalone products, not the legacy plan ids', () => {
+  assert.ok(productsForPlan('dealer-os-core').includes('dealer_os'))
+  assert.ok(productsForPlan('dealer-os-core').includes('design_studio'), 'Core includes the Sales Marketing Suite bundle')
+  assert.ok(!featuresForPlan('dealer-os-core').includes('os.service'), 'Core does not include Service')
+  assert.ok(featuresForPlan('dealer-os-pro').includes('os.service'), 'Pro adds the Service department')
+  assert.ok(featuresForPlan('dealer-os-pro').includes('ai.conversations'), 'Pro bundles MarketSync Digital (AI ChatBot)')
+  assert.deepEqual(new Set(productsForPlan('dealer-os-complete')), new Set(productsForPlan('dealer-os-pro')),
+    'Complete and Pro currently share the same product/feature ceiling (see the code comment on dealer-os-complete)')
 })
 
 test('AI Dealer is a standalone product plan', () => {
