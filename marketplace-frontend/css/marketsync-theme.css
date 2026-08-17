@@ -815,6 +815,13 @@ html.dark td {
   display: flex;
   flex-direction: column;
 }
+/* An ID selector always beats the browser's native [hidden] { display: none }
+   attribute rule, so #demo-control-panel's own display:flex was silently
+   overriding every attempt to hide it (badge toggle, close button, outside
+   click) -- the panel never actually closed. This rule wins on specificity. */
+#demo-control-panel[hidden] {
+  display: none;
+}
 .dcp-head {
   display: flex;
   align-items: center;

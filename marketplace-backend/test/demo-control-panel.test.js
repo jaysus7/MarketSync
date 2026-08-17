@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const source = readFileSync(new URL('../../marketplace-frontend/js/modules/demo-control-panel.js', import.meta.url), 'utf8')
+const css = readFileSync(new URL('../../marketplace-frontend/css/marketsync-theme.css', import.meta.url), 'utf8')
 
 test('the panel only renders after a successful GET /demo/control — visibility is server-decided, not a client flag', () => {
   assert.match(source, /if \(!res\.ok\) return;/)
@@ -32,6 +33,20 @@ test('reset requires an explicit confirmation before wiping demo data', () => {
   const handler = source.match(/dcp-reset'\)\.addEventListener\('click', async \(\) => \{[\s\S]*?\n {4}\}\);/)?.[0] || ''
   assert.match(handler, /confirm\(/)
   assert.match(handler, /\/demo\/control\/reset/)
+})
+
+test('the panel actually hides when closed — an ID selector setting display cannot silently beat the [hidden] attribute', () => {
+  // #demo-control-panel sets its own `display` (needed to lay out its contents),
+  // which — as plain author CSS — always wins over the browser's native
+  // `[hidden] { display: none }` UA rule regardless of specificity math, because
+  // UA-origin rules are the lowest tier of the cascade. Setting panel.hidden via
+  // JS (close button, badge toggle, outside click) then does nothing unless a
+  // rule for #demo-control-panel[hidden] exists to explicitly hide it again.
+  const panelBlockMatch = css.match(/#demo-control-panel\s*\{[^}]*\}/)
+  assert.ok(panelBlockMatch, '#demo-control-panel rule must exist')
+  assert.match(panelBlockMatch[0], /display:\s*flex/, 'sanity check: the panel sets its own display')
+  assert.match(css, /#demo-control-panel\[hidden\]\s*\{\s*display:\s*none;?\s*\}/,
+    'a #demo-control-panel[hidden] rule must force display:none, or closing the panel silently does nothing')
 })
 
 test('every requested department maps to a real workspace-registry page id', () => {
