@@ -464,7 +464,7 @@ function pplSummaryPanel(d) {
         <h3 class="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
           <span>Operational Insights &amp; Engagement</span>
         </h3>
-        <span class="text-[11px] font-bold text-sky-600 dark:text-sky-400">Live Telemetry</span>
+        <span class="text-[11px] font-bold text-sky-600 dark:text-sky-400">Live Activity</span>
       </div>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
         ${engKpi('Customer Touches', '342 calls/emails')}

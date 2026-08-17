@@ -18,9 +18,9 @@ let __acadLibraryDept = '';
 let __acadActiveDeptFilter = 'all';
 let __acadCatalogCache = null;
 
-const acadTone = (c) => c.overdue ? 'text-rose-600'
-  : c.status === 'completed' ? 'text-emerald-600'
-  : c.status === 'in_progress' ? 'text-amber-600' : 'text-slate-500';
+const acadTone = (c) => c.overdue ? 'text-rose-600 dark:text-rose-400'
+  : c.status === 'completed' ? 'text-emerald-600 dark:text-emerald-400'
+  : c.status === 'in_progress' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400';
 
 const ACAD_STATUS = {
   not_started: 'Not started', assigned: 'Not started', in_progress: 'In progress',
@@ -32,16 +32,16 @@ const acadDate = (d) => d ? String(d).slice(0, 10) : '';
 
 // ── Department Catalog Structure & Color Tokens ──────────────────────────────
 const ACAD_DEPARTMENTS = [
-  { key: 'hr', name: 'Mandatory HR & Onboarding', icon: 'shield', color: 'rose', bg: 'bg-rose-50 border-rose-200 text-rose-800', description: 'Mandatory compliance & safety training required to start your position' },
-  { key: 'sales', name: 'Sales Department', icon: 'crm', color: 'amber', bg: 'bg-amber-50 border-amber-200 text-amber-800', description: 'CRM, lead handling, appraisals, video walkarounds & pipeline execution' },
-  { key: 'inventory', name: 'Inventory & Merchandising', icon: 'car', color: 'cyan', bg: 'bg-sky-50 border-sky-200 text-sky-800', description: 'Inventory ingestion, photos, market pricing, turn rate & syndication' },
-  { key: 'fni', name: 'F&I (Finance & Insurance)', icon: 'credit', color: 'emerald', bg: 'bg-emerald-50 border-emerald-200 text-emerald-800', description: 'Credit compliance, lender submissions, CIT funding & aftermarket disclosure' },
-  { key: 'service', name: 'Service Department', icon: 'wrench', color: 'teal', bg: 'bg-teal-50 border-teal-200 text-teal-800', description: 'Appointments, repair order lifecycle, labor dispatch & authorizations' },
-  { key: 'parts', name: 'Parts Department', icon: 'tag', color: 'orange', bg: 'bg-orange-50 border-orange-200 text-orange-800', description: 'Parts requisitions, pick lists, physical audits & stock management' },
-  { key: 'accounting', name: 'Accounting & Finance', icon: 'coin', color: 'blue', bg: 'bg-blue-50 border-blue-200 text-blue-800', description: 'General ledger, deal settlement, month-end close controls & bank matching' },
-  { key: 'marketing', name: 'Marketing & Studio', icon: 'megaphone', color: 'purple', bg: 'bg-purple-50 border-purple-200 text-purple-800', description: 'Campaign attribution, multi-platform social scheduling & Design Studio' },
-  { key: 'management', name: 'Management & Leadership', icon: 'building', color: 'indigo', bg: 'bg-indigo-50 border-indigo-200 text-indigo-800', description: 'My Day dealership pulse, staff onboarding, approval matrix & store analytics' },
-  { key: 'platform', name: 'AI & Automations', icon: 'sparkles', color: 'violet', bg: 'bg-violet-50 border-violet-200 text-violet-800', description: '24/7 web chat, workflow automations, customer journeys & platform setup' },
+  { key: 'hr', name: 'Mandatory HR & Onboarding', icon: 'shield', color: 'rose', bg: 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300', description: 'Mandatory compliance & safety training required to start your position' },
+  { key: 'sales', name: 'Sales Department', icon: 'crm', color: 'amber', bg: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300', description: 'CRM, lead handling, appraisals, video walkarounds & pipeline execution' },
+  { key: 'inventory', name: 'Inventory & Merchandising', icon: 'car', color: 'cyan', bg: 'bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-800 text-sky-800 dark:text-sky-300', description: 'Inventory ingestion, photos, market pricing, turn rate & syndication' },
+  { key: 'fni', name: 'F&I (Finance & Insurance)', icon: 'credit', color: 'emerald', bg: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300', description: 'Credit compliance, lender submissions, CIT funding & aftermarket disclosure' },
+  { key: 'service', name: 'Service Department', icon: 'wrench', color: 'teal', bg: 'bg-teal-50 dark:bg-teal-950/40 border-teal-200 dark:border-teal-800 text-teal-800 dark:text-teal-300', description: 'Appointments, repair order lifecycle, labor dispatch & authorizations' },
+  { key: 'parts', name: 'Parts Department', icon: 'tag', color: 'orange', bg: 'bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-800 text-orange-800 dark:text-orange-300', description: 'Parts requisitions, pick lists, physical audits & stock management' },
+  { key: 'accounting', name: 'Accounting & Finance', icon: 'coin', color: 'blue', bg: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300', description: 'General ledger, deal settlement, month-end close controls & bank matching' },
+  { key: 'marketing', name: 'Marketing & Studio', icon: 'megaphone', color: 'purple', bg: 'bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-800 text-purple-800 dark:text-purple-300', description: 'Campaign attribution, multi-platform social scheduling & Design Studio' },
+  { key: 'management', name: 'Management & Leadership', icon: 'building', color: 'indigo', bg: 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800 text-indigo-800 dark:text-indigo-300', description: 'My Day dealership pulse, staff onboarding, approval matrix & store analytics' },
+  { key: 'platform', name: 'AI & Automations', icon: 'sparkles', color: 'violet', bg: 'bg-violet-50 dark:bg-violet-950/40 border-violet-200 dark:border-violet-800 text-violet-800 dark:text-violet-300', description: '24/7 web chat, workflow automations, customer journeys & platform setup' },
 ];
 
 const ACAD_MANDATORY_HR_COURSES = [
@@ -106,19 +106,19 @@ function acadCourseRow(c, certsMap = new Map(), heldByKey = new Map(), doneSet =
   // Find all certifications that require this course
   const relatedCerts = certsMap.get(courseKey) || [];
   const certHtml = relatedCerts.length ? `
-    <div class="mt-2.5 pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2">
-      <span class="text-[10px] font-black uppercase tracking-wider text-slate-500">Certification Path:</span>
+    <div class="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-2">
+      <span class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Certification Path:</span>
       ${relatedCerts.map(cert => {
         const held = heldByKey.get(cert.certification_key);
         const totalReq = (cert.courses || []).length;
         const completedReq = (cert.courses || []).filter(k => doneSet.has(k)).length;
         if (held) {
-          return `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
+          return `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
             <span>Certification Earned: ${esc(cert.name)}</span>
-            <button onclick="acadOpenCredential('${esc(held.credential_id)}')" class="underline hover:text-emerald-950 font-bold ml-1">View Diploma</button>
+            <button onclick="acadOpenCredential('${esc(held.credential_id)}')" class="underline hover:text-emerald-950 dark:hover:text-emerald-200 font-bold ml-1">View Diploma</button>
           </span>`;
         }
-        return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+        return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
           ${esc(cert.name)} (${completedReq}/${totalReq} done)
         </span>`;
       }).join('')}
@@ -127,22 +127,22 @@ function acadCourseRow(c, certsMap = new Map(), heldByKey = new Map(), doneSet =
 
   const lessonTarget = c.course_key || c.id || '';
 
-  return `<div class="p-4 rounded-2xl bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-md transition flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+  return `<div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-md transition flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div class="min-w-0 flex-1 space-y-1.5">
       <div class="flex flex-wrap items-center gap-2">
-        <span class="font-black text-sm text-slate-900">${esc(c.title)}</span>
+        <span class="font-black text-sm text-slate-900 dark:text-white">${esc(c.title)}</span>
         ${levelBadge}
-        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">Interactive Lesson</span>
+        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">Interactive Lesson</span>
       </div>
-      <div class="text-xs text-slate-500 font-medium">${esc(meta)}</div>
-      ${c.summary || c.description ? `<div class="text-xs text-slate-600 leading-relaxed">${esc(c.summary || c.description)}</div>` : ''}
-      
+      <div class="text-xs text-slate-500 dark:text-slate-400 font-medium">${esc(meta)}</div>
+      ${c.summary || c.description ? `<div class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">${esc(c.summary || c.description)}</div>` : ''}
+
       <!-- Progress Bar Graph with exact Percentage -->
       <div class="mt-2 flex items-center gap-3 max-w-sm">
-        <div class="h-2 flex-1 rounded-full bg-slate-100 overflow-hidden border border-slate-200">
-          <div class="h-full rounded-full transition-all duration-500 ${isDone ? 'bg-emerald-500' : pct > 0 ? 'bg-amber-500' : 'bg-slate-300'}" style="width:${pct}%"></div>
+        <div class="h-2 flex-1 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden border border-slate-200 dark:border-slate-700">
+          <div class="h-full rounded-full transition-all duration-500 ${isDone ? 'bg-emerald-500' : pct > 0 ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}" style="width:${pct}%"></div>
         </div>
-        <span class="text-[11px] font-mono font-black ${isDone ? 'text-emerald-700' : pct > 0 ? 'text-amber-700' : 'text-slate-500'}">${pct}%</span>
+        <span class="text-[11px] font-mono font-black ${isDone ? 'text-emerald-700 dark:text-emerald-400' : pct > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}">${pct}%</span>
         <span class="text-[11px] font-bold ${acadTone(c)}">${esc(acadStatus(c))}</span>
       </div>
 
@@ -150,7 +150,7 @@ function acadCourseRow(c, certsMap = new Map(), heldByKey = new Map(), doneSet =
     </div>
 
     <div class="shrink-0 flex items-center gap-2 sm:self-center">
-      <a href="/training.html?lesson=${encodeURIComponent(lessonTarget)}" target="_blank" class="px-4 py-2 rounded-xl text-xs font-bold ${isDone ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200' : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm shadow-indigo-600/20'} transition flex items-center gap-1.5">
+      <a href="/training.html?lesson=${encodeURIComponent(lessonTarget)}" target="_blank" class="px-4 py-2 rounded-xl text-xs font-bold ${isDone ? 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700' : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm shadow-indigo-600/20'} transition flex items-center gap-1.5">
         <span>${isDone ? 'Review Lesson' : pct > 0 ? 'Continue Lesson' : 'Start Course'}</span>
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
       </a>
@@ -160,21 +160,21 @@ function acadCourseRow(c, certsMap = new Map(), heldByKey = new Map(), doneSet =
 
 function acadCertRow(cert, held, outstanding) {
   const earned = !!held;
-  const tone = earned ? 'text-emerald-700' : outstanding ? 'text-slate-500' : 'text-amber-700';
+  const tone = earned ? 'text-emerald-700 dark:text-emerald-400' : outstanding ? 'text-slate-500 dark:text-slate-400' : 'text-amber-700 dark:text-amber-400';
   const right = earned ? (held.valid === false ? 'Expired' : 'Earned') : outstanding ? `${outstanding} left` : 'Ready to Issue';
   const sub = earned
     ? (held.expires_on ? `Expires ${acadDate(held.expires_on)}` : 'Valid indefinitely')
     : `${cert.department || 'MarketSync'}${cert.validity_months ? ` · valid ${cert.validity_months} months` : ''}`;
 
-  return `<div class="p-4 rounded-2xl bg-white border ${earned ? 'border-emerald-300 bg-emerald-50/40 shadow-sm' : 'border-slate-200 shadow-sm'} flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+  return `<div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border ${earned ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-sm' : 'border-slate-200 dark:border-slate-800 shadow-sm'} flex flex-col sm:flex-row sm:items-center justify-between gap-3">
     <div class="min-w-0 flex-1 space-y-1">
       <div class="flex items-center gap-2">
-        <span class="font-black text-sm text-slate-900 truncate">${esc(cert.name)}</span>
-        ${earned ? '<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">OFFICIAL CERTIFICATION</span>' : ''}
+        <span class="font-black text-sm text-slate-900 dark:text-white truncate">${esc(cert.name)}</span>
+        ${earned ? '<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">OFFICIAL CERTIFICATION</span>' : ''}
       </div>
-      <div class="text-xs text-slate-500">${esc(sub)}</div>
-      ${cert.description ? `<p class="text-xs text-slate-600">${esc(cert.description)}</p>` : ''}
-      ${!earned && outstanding ? `<div class="text-xs text-amber-700 font-semibold pt-1">Complete ${outstanding} more required course${outstanding === 1 ? '' : 's'} to unlock this official diploma</div>` : ''}
+      <div class="text-xs text-slate-500 dark:text-slate-400">${esc(sub)}</div>
+      ${cert.description ? `<p class="text-xs text-slate-600 dark:text-slate-300">${esc(cert.description)}</p>` : ''}
+      ${!earned && outstanding ? `<div class="text-xs text-amber-700 dark:text-amber-400 font-semibold pt-1">Complete ${outstanding} more required course${outstanding === 1 ? '' : 's'} to unlock this official diploma</div>` : ''}
     </div>
     <div class="shrink-0 flex items-center gap-3">
       <div class="text-right text-xs font-black ${tone}">${esc(right)}</div>
@@ -193,7 +193,7 @@ function setAcadDeptFilter(deptKey) {
   const buttons = document.querySelectorAll('[data-acad-filter]');
   buttons.forEach(b => {
     const active = b.dataset.acadFilter === deptKey;
-    b.className = `px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${active ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30' : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200'}`;
+    b.className = `px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${active ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'}`;
   });
   acadFilterWorkspaceCourses();
 }
@@ -224,7 +224,7 @@ window.acadFilterWorkspaceCourses = acadFilterWorkspaceCourses;
 async function acadRunLibrary() {
   const out = document.getElementById('acad-library-results');
   if (!out) return;
-  out.innerHTML = '<div class="py-6 text-center text-[13px] text-slate-500">Searching…</div>';
+  out.innerHTML = '<div class="py-6 text-center text-[13px] text-slate-500 dark:text-slate-400">Searching…</div>';
   try {
     const qs = new URLSearchParams();
     if (__acadLibraryQuery) qs.set('q', __acadLibraryQuery);
@@ -289,9 +289,9 @@ async function acadOpenCredential(credentialId) {
           </div>
         </div>
 
-        <div class="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
-          <div class="text-[11px] font-black uppercase tracking-wider text-slate-500">Public Verification Link</div>
-          <div class="text-xs text-indigo-600 font-mono break-all">${esc(url)}</div>
+        <div class="space-y-2 bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+          <div class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Public Verification Link</div>
+          <div class="text-xs text-indigo-600 dark:text-indigo-400 font-mono break-all">${esc(url)}</div>
         </div>
 
         <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
@@ -300,7 +300,7 @@ async function acadOpenCredential(credentialId) {
               <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.88a1.66 1.66 0 1 0 0 3.32 1.66 1.66 0 0 0 0-3.32z"/></svg>
               <span>Add to LinkedIn</span>
             </a>
-            <button onclick="acadCopy('${esc(url)}')" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition">Copy link</button>
+            <button onclick="acadCopy('${esc(url)}')" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition">Copy link</button>
           </div>
           <button onclick="window.print()" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-sm transition flex items-center gap-1.5">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24-1.077-.42-2.235-.42-3.429 0-4.639 3.582-8.4 8-8.4s8 3.761 8 8.4c0 1.194-.18 2.352-.42 3.429M9 17.5h6m-7.5 3h9"/></svg>
@@ -463,73 +463,73 @@ ENGINES['academy'] = {
         .map(dept => {
           const count = (coursesByDept.get(dept.key) || []).length;
           return `
-            <button type="button" data-acad-filter="${dept.key}" onclick="setAcadDeptFilter('${dept.key}')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${__acadActiveDeptFilter === dept.key ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30' : 'bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-100 border border-slate-200'}">
+            <button type="button" data-acad-filter="${dept.key}" onclick="setAcadDeptFilter('${dept.key}')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${__acadActiveDeptFilter === dept.key ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30' : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'}">
               <span>${esc(dept.name)}</span>
-              <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono ${__acadActiveDeptFilter === dept.key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}">${count}</span>
+              <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono ${__acadActiveDeptFilter === dept.key ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}">${count}</span>
             </button>
           `;
         }).join('');
 
       // Top Header & Studio-Style Action Bar in Crisp White / Light Theme
       const fullPageHeader = `
-        <div class="mb-6 p-6 sm:p-7 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-6">
+        <div class="mb-6 p-6 sm:p-7 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div class="flex items-center gap-3 min-w-0">
-              <button onclick="closeMarketSyncAcademy()" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 transition flex items-center gap-2 text-xs font-bold shrink-0 border border-slate-200 shadow-sm">
-                <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/></svg>
+              <button onclick="closeMarketSyncAcademy()" class="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 transition flex items-center gap-2 text-xs font-bold shrink-0 border border-slate-200 dark:border-slate-700 shadow-sm">
+                <svg class="w-4 h-4 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/></svg>
                 <span>← Back to Dashboard</span>
               </button>
-              <div class="h-6 w-px bg-slate-200"></div>
+              <div class="h-6 w-px bg-slate-200 dark:bg-slate-700"></div>
               <div>
-                <h1 class="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2 tracking-tight">
+                <h1 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2 tracking-tight">
                   <span>MarketSync Academy</span>
-                  <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200">Dealership OS</span>
+                  <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">Dealership OS</span>
                 </h1>
-                <p class="text-xs text-slate-500 font-medium">${totalCoursesCount} automotive operational courses, mandatory HR onboarding &amp; verifiable certifications</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">${totalCoursesCount} automotive operational courses, mandatory HR onboarding &amp; verifiable certifications</p>
               </div>
             </div>
 
             <div class="flex items-center gap-2 shrink-0">
               <div class="text-right pr-2">
-                <div class="text-xs font-bold text-slate-900">${esc(profileContext?.name || 'Staff Member')}</div>
-                <div class="text-[11px] font-mono text-indigo-600 font-bold">${esc(profileContext?.role || 'SALES_REP')}</div>
+                <div class="text-xs font-bold text-slate-900 dark:text-white">${esc(profileContext?.name || 'Staff Member')}</div>
+                <div class="text-[11px] font-mono text-indigo-600 dark:text-indigo-400 font-bold">${esc(profileContext?.role || 'SALES_REP')}</div>
               </div>
             </div>
           </div>
 
           <!-- Quick Metrics Bar -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-100">
-            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
-              <div class="text-[10px] font-black uppercase tracking-wider text-slate-500">Mandatory HR Status</div>
-              <div class="text-sm font-black ${outstanding > 0 ? 'text-amber-700' : 'text-emerald-700'} flex items-center gap-1.5 mt-0.5">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800">
+              <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Mandatory HR Status</div>
+              <div class="text-sm font-black ${outstanding > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'} flex items-center gap-1.5 mt-0.5">
                 <span>${outstanding > 0 ? `${outstanding} Pending` : '100% Compliant'}</span>
               </div>
             </div>
-            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
-              <div class="text-[10px] font-black uppercase tracking-wider text-slate-500">Overall Progress</div>
-              <div class="text-sm font-black text-indigo-700 font-mono mt-0.5">${overallPct}% (${totalDone}/${totalCoursesCount})</div>
+            <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800">
+              <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Overall Progress</div>
+              <div class="text-sm font-black text-indigo-700 dark:text-indigo-400 font-mono mt-0.5">${overallPct}% (${totalDone}/${totalCoursesCount})</div>
             </div>
-            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
-              <div class="text-[10px] font-black uppercase tracking-wider text-slate-500">Overdue Modules</div>
-              <div class="text-sm font-black ${overdue > 0 ? 'text-rose-700' : 'text-slate-600'} font-mono mt-0.5">${overdue}</div>
+            <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800">
+              <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Overdue Modules</div>
+              <div class="text-sm font-black ${overdue > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-slate-600 dark:text-slate-400'} font-mono mt-0.5">${overdue}</div>
             </div>
-            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
-              <div class="text-[10px] font-black uppercase tracking-wider text-slate-500">Certificates Earned</div>
-              <div class="text-sm font-black text-emerald-700 font-mono mt-0.5">${(d.held || []).length} of ${(d.certifications || []).length}</div>
+            <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800">
+              <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Certificates Earned</div>
+              <div class="text-sm font-black text-emerald-700 dark:text-emerald-400 font-mono mt-0.5">${(d.held || []).length} of ${(d.certifications || []).length}</div>
             </div>
           </div>
 
           <!-- Department Filter Bar & Search Input -->
           <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pt-2">
             <div class="flex flex-wrap items-center gap-1.5">
-              <button type="button" data-acad-filter="all" onclick="setAcadDeptFilter('all')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${__acadActiveDeptFilter === 'all' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30' : 'bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-100 border border-slate-200'}">
+              <button type="button" data-acad-filter="all" onclick="setAcadDeptFilter('all')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${__acadActiveDeptFilter === 'all' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30' : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'}">
                 All Departments (${totalCoursesCount})
               </button>
               ${deptFilterButtons}
             </div>
 
             <div class="relative min-w-[240px]">
-              <input type="text" id="acad-search-input" oninput="acadLibrarySearch(this.value)" placeholder="Search 282 courses &amp; topics…" class="w-full bg-slate-50 text-xs text-slate-900 px-3.5 py-2 pl-9 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-slate-400" />
+              <input type="text" id="acad-search-input" oninput="acadLibrarySearch(this.value)" placeholder="Search 282 courses &amp; topics…" class="w-full bg-slate-50 dark:bg-slate-950/50 text-xs text-slate-900 dark:text-white px-3.5 py-2 pl-9 rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-slate-400 dark:placeholder-slate-500" />
               <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607z"/></svg>
             </div>
           </div>
@@ -540,15 +540,15 @@ ENGINES['academy'] = {
       const hrList = coursesByDept.get('hr') || hrCoursesWithState;
       const hrSection = `
         <div data-course-dept="hr" data-course-is-hr="true" class="mb-8 space-y-3">
-          <div class="flex items-center justify-between p-4 rounded-2xl bg-rose-50/70 border border-rose-200">
+          <div class="flex items-center justify-between p-4 rounded-2xl bg-rose-50/70 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900">
             <div class="flex items-center gap-3">
-              <span class="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 border border-rose-300 flex items-center justify-center font-bold text-base"><svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg></span>
+              <span class="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-800 flex items-center justify-center font-bold text-base"><svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg></span>
               <div>
-                <h2 class="text-base font-black text-rose-950">Mandatory HR &amp; New Hire Onboarding Training</h2>
-                <p class="text-xs text-rose-800">Required compliance, OSHA lot safety, anti-harassment &amp; privacy training to start your position</p>
+                <h2 class="text-base font-black text-rose-950 dark:text-rose-200">Mandatory HR &amp; New Hire Onboarding Training</h2>
+                <p class="text-xs text-rose-800 dark:text-rose-300">Required compliance, OSHA lot safety, anti-harassment &amp; privacy training to start your position</p>
               </div>
             </div>
-            <span class="px-3 py-1 rounded-full text-xs font-black bg-rose-200 text-rose-900 border border-rose-300">MANDATORY TO START</span>
+            <span class="px-3 py-1 rounded-full text-xs font-black bg-rose-200 dark:bg-rose-900/50 text-rose-900 dark:text-rose-200 border border-rose-300 dark:border-rose-800">MANDATORY TO START</span>
           </div>
 
           <div class="grid grid-cols-1 gap-3">
@@ -563,15 +563,15 @@ ENGINES['academy'] = {
         if (!list.length) return '';
         return `
           <div class="mb-8 space-y-3" data-course-dept="${dept.key}">
-            <div class="flex items-center justify-between p-4 rounded-2xl bg-white border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
               <div class="flex items-center gap-3">
                 <span class="px-2.5 py-1 rounded-xl text-xs font-black uppercase tracking-wider ${dept.bg}">${esc(dept.name)}</span>
                 <div>
-                  <h2 class="text-sm font-black text-slate-900">${esc(dept.name)} Curriculum</h2>
-                  <p class="text-xs text-slate-500 font-medium">${esc(dept.description)}</p>
+                  <h2 class="text-sm font-black text-slate-900 dark:text-white">${esc(dept.name)} Curriculum</h2>
+                  <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">${esc(dept.description)}</p>
                 </div>
               </div>
-              <span class="text-xs font-bold text-slate-500 font-mono">${list.length} module${list.length === 1 ? '' : 's'}</span>
+              <span class="text-xs font-bold text-slate-500 dark:text-slate-400 font-mono">${list.length} module${list.length === 1 ? '' : 's'}</span>
             </div>
             <div class="grid grid-cols-1 gap-3">
               ${list.map(c => `
@@ -609,20 +609,20 @@ ENGINES['academy'] = {
       const outstandingFor = (cert) => (cert.courses || []).filter(k => !doneSet.has(k)).length;
 
       const certsSection = `
-        <div class="mb-8 p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4">
-          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="mb-8 p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
             <div>
-              <h2 class="text-base font-black text-slate-900 flex items-center gap-2">
+              <h2 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <span>Official MarketSync Certifications</span>
-                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">PUBLICLY VERIFIABLE</span>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800">PUBLICLY VERIFIABLE</span>
               </h2>
-              <p class="text-xs text-slate-500">Complete all required modules in a discipline to unlock your verifiable diploma and printable certificate</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Complete all required modules in a discipline to unlock your verifiable diploma and printable certificate</p>
             </div>
           </div>
 
           ${mine.length ? `
             <div class="space-y-2">
-              <div class="text-xs font-black uppercase tracking-wider text-emerald-700">Earned Credentials</div>
+              <div class="text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Earned Credentials</div>
               <div class="grid grid-cols-1 gap-3">
                 ${mine.map(c => acadCertRow(c, heldByKey.get(c.certification_key), 0)).join('')}
               </div>
@@ -631,7 +631,7 @@ ENGINES['academy'] = {
 
           ${available.length ? `
             <div class="space-y-2 pt-2">
-              <div class="text-xs font-black uppercase tracking-wider text-slate-500">Available Certifications</div>
+              <div class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Available Certifications</div>
               <div class="grid grid-cols-1 gap-3">
                 ${available.map(c => acadCertRow(c, null, outstandingFor(c))).join('')}
               </div>
@@ -641,10 +641,10 @@ ENGINES['academy'] = {
       `;
 
       body.innerHTML = `
-        <div class="w-full min-h-screen bg-slate-50 text-slate-900 p-4 sm:p-8 font-sans">
+        <div class="w-full min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-4 sm:p-8 font-sans">
           <div class="max-w-7xl mx-auto space-y-6">
             ${fullPageHeader}
-            <div id="acad-filtered-empty" class="hidden py-12 text-center text-slate-500 text-sm">
+            <div id="acad-filtered-empty" class="hidden py-12 text-center text-slate-500 dark:text-slate-400 text-sm">
               No courses found matching that department filter or search query.
             </div>
             ${hrSection}
@@ -653,11 +653,11 @@ ENGINES['academy'] = {
             ${certsSection}
 
             <!-- Reference Library Search Dropdown -->
-            <div class="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3">
-              <h3 class="text-sm font-black text-slate-900">Operational Reference Library</h3>
-              <p class="text-xs text-slate-500">Search the complete library of all automotive operational guides, standard operating procedures, and video lessons.</p>
+            <div class="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+              <h3 class="text-sm font-black text-slate-900 dark:text-white">Operational Reference Library</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Search the complete library of all automotive operational guides, standard operating procedures, and video lessons.</p>
               <div class="flex gap-2">
-                <input id="acad-library-q" oninput="acadLibrarySearch(this.value)" onkeydown="if(event.key==='Enter')acadRunLibrary()" placeholder="Search operational guides and SOPs…" class="flex-1 px-4 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input id="acad-library-q" oninput="acadLibrarySearch(this.value)" onkeydown="if(event.key==='Enter')acadRunLibrary()" placeholder="Search operational guides and SOPs…" class="flex-1 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/50 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                 <button onclick="acadRunLibrary()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-sm">Search</button>
               </div>
               <div id="acad-library-results"></div>
@@ -679,14 +679,14 @@ ENGINES['academy'] = {
       const outstandingFor = (cert) => (cert.courses || []).filter(k => !done.has(k)).length;
 
       body.innerHTML = `
-        <div class="w-full min-h-screen bg-slate-50 text-slate-900 p-4 sm:p-8 font-sans">
+        <div class="w-full min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-4 sm:p-8 font-sans">
           <div class="max-w-6xl mx-auto space-y-6">
-            <div class="flex items-center justify-between p-6 rounded-3xl bg-white border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
               <div>
-                <h1 class="text-xl font-black text-slate-900">Official Dealership Certifications</h1>
-                <p class="text-xs text-slate-500">Publicly verifiable credentials issued by MarketSync Academy</p>
+                <h1 class="text-xl font-black text-slate-900 dark:text-white">Official Dealership Certifications</h1>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Publicly verifiable credentials issued by MarketSync Academy</p>
               </div>
-              <button onclick="closeMarketSyncAcademy()" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition border border-slate-200 shadow-sm">
+              <button onclick="closeMarketSyncAcademy()" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition border border-slate-200 dark:border-slate-700 shadow-sm">
                 ← Back to Dashboard
               </button>
             </div>
@@ -701,7 +701,7 @@ ENGINES['academy'] = {
             ${engCard('Available certifications', available.length
               ? available.map(c => acadCertRow(c, null, outstandingFor(c))).join('')
               : engEmpty('No certifications are published yet.'))}
-            <p class="text-[12px] text-slate-500 px-1 mt-2">A MarketSync credential is issued only when every required course behind it is complete. It is a claim your dealership makes in public, so it is not something that can be granted on request.</p>
+            <p class="text-[12px] text-slate-500 dark:text-slate-400 px-1 mt-2">A MarketSync credential is issued only when every required course behind it is complete. It is a claim your dealership makes in public, so it is not something that can be granted on request.</p>
           </div>
         </div>
       `;

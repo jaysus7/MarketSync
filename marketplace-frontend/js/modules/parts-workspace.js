@@ -637,6 +637,7 @@ ENGINES['parts-overview'] = {
       const short = reqs.filter(q => q.status === 'backordered').length;
       const toIssue = reqs.filter(q => q.status === 'reserved').length;
       const low = items.filter(i => pwStatus(i) === 'low').length;
+      const unitsOnHand = (d.parts || []).reduce((s, p) => s + Number(p.qty_on_hand || 0), 0);
 
       const triageBar = typeof pwRenderTriageBar === 'function' ? pwRenderTriageBar(d) : '';
       const proactiveAiPanel = typeof pwRenderProactiveAiPanel === 'function' ? pwRenderProactiveAiPanel(d) : '';
@@ -673,7 +674,8 @@ ENGINES['parts-overview'] = {
         ${valuationStrip}
 
         <div id="pw-blocked-ros-section" class="mb-4">
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+            ${engKpi('Units in stock', unitsOnHand)}
             ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}
             ${engKpi('Open requests', reqs.filter(q => PW_ACTIONABLE.includes(q.status)).length)}
             ${engKpi('Shop waiting', short, short ? 'text-rose-600 dark:text-rose-400' : '')}
@@ -683,7 +685,6 @@ ENGINES['parts-overview'] = {
         </div>
 
         ${poSection}
-        ${specialOrdersSection}
 
         ${engSection('By state', byStatus, 'What Parts has to do next, in the order it has to do it')}
         ${engSection('Waiting repair orders', roSection, 'The same records, grouped by the job that is held up')}

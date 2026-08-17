@@ -317,9 +317,9 @@ function svcRenderAppointments(body, d) {
     return engCard(`${title} (${rows.length})`, rows.slice(0, 15).map(svcApptRow).join(''));
   }).join('');
   body.innerHTML = `${svcUnavailableNote(d)}
-    ${engSection('Today and ahead', `<div class="space-y-3">${cards || engEmpty('Nothing booked.')}</div>`, 'Who is coming in, and who has arrived')}
-    ${engSection('The appointment book', '', 'Book, move and cancel — the calendar itself')}`;
-  // The book itself, rather than a button that goes and finds it.
+    ${engSection('Today and ahead', `<div class="space-y-3">${cards || engEmpty('Nothing booked.')}</div>`, 'Who is coming in, and who has arrived')}`;
+  // The book itself, rather than a button that goes and finds it. It renders its own
+  // header ("Service appointments"), so no header is duplicated above it.
   engMountPage(body, 'service-appointments', () => loadServiceAppointments());
 }
 
