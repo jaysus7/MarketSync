@@ -897,6 +897,12 @@ const calcPoints = (m) => (m.total_listings || 0) * 100 + (m.sold_listings || 0)
 function applyLeaderboardProductPresentation() {
   const facebook = facebookLeaderboardActive();
   const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+  // A Facebook-tier account has no Sales/Service/F&I department to browse — the
+  // department tab row is Global vs My Team only (both already Facebook-scoped
+  // below), so the department selector itself is hidden rather than left showing
+  // three tabs that lead nowhere for this account.
+  document.getElementById('lb-dept-tabs')?.classList.toggle('hidden', facebook);
+  if (facebook) window.__activeLbDept = 'facebook';
   set('lb-title', facebook ? ' Facebook Posting Leaderboard' : ' Leaderboard');
   set('lb-subtitle', facebook
     ? '100 pts per Facebook post · 500 pts per Facebook sale · Build your posting streak and lead the board.'

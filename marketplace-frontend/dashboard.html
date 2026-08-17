@@ -1998,8 +1998,9 @@
             </div>
           </div>
         </div>
-        <!-- Department Selector Tabs -->
-        <div class="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800">
+        <!-- Department Selector Tabs — hidden entirely for Facebook-tier accounts, which
+             have no Sales/Service/F&I department to select (applyLeaderboardProductPresentation) -->
+        <div id="lb-dept-tabs" class="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800">
           <button type="button" onclick="switchLeaderboardDept('facebook')" id="lb-dept-facebook" class="lb-dept-btn px-3.5 py-2 rounded-xl text-xs font-extrabold transition bg-indigo-600 text-white shadow-sm flex items-center gap-1.5 shrink-0">
             <span>Facebook AutoPoster</span>
           </button>
