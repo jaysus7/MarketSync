@@ -120,7 +120,7 @@ window.openMarketSyncStudio = async function(designId = null, initialOptions = {
   if (!modal) {
     modal = document.createElement('div');
     modal.id = 'ms-studio-master-modal';
-    modal.className = 'fixed inset-0 z-[99999] bg-slate-950 text-white flex flex-col overflow-hidden font-sans';
+    modal.className = 'fixed inset-0 z-[99999] bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col overflow-hidden font-sans';
     document.body.appendChild(modal);
   }
 
@@ -191,60 +191,60 @@ function studioHasPaidAi() {
 }
 
 function renderStudioPhotoResults(photos) {
-  return photos.map(photo => `<button type="button" onclick="addLibraryImageToCanvas('${photo.url}')" class="relative group overflow-hidden rounded-xl border border-slate-800 hover:border-blue-500 transition" title="${escS(photo.alt)}"><img src="${photo.url}" alt="${escS(photo.alt)}" loading="lazy" class="w-full aspect-square object-cover group-hover:scale-105 transition duration-200"><span class="absolute inset-x-0 bottom-0 px-2 py-1 bg-slate-950/80 text-[9px] text-left text-white truncate">${escS(photo.alt)}</span></button>`).join('');
+  return photos.map(photo => `<button type="button" onclick="addLibraryImageToCanvas('${photo.url}')" class="relative group overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-500 transition" title="${escS(photo.alt)}"><img src="${photo.url}" alt="${escS(photo.alt)}" loading="lazy" class="w-full aspect-square object-cover group-hover:scale-105 transition duration-200"><span class="absolute inset-x-0 bottom-0 px-2 py-1 bg-slate-950/80 text-[9px] text-left text-white truncate">${escS(photo.alt)}</span></button>`).join('');
 }
 
 function renderPexelsResults(photos) {
-  return photos.map(photo => `<div class="rounded-xl overflow-hidden border border-slate-800 bg-slate-950"><button type="button" onclick="addLibraryImageToCanvas('${escS(photo.source_url)}', '${escS(photo.alt || 'Pexels photo')}')" class="block w-full group"><img src="${escS(photo.preview_url)}" alt="${escS(photo.alt || '')}" loading="lazy" class="w-full aspect-square object-cover group-hover:scale-105 transition duration-200"></button><div class="px-2 py-1.5 text-[9px] truncate"><a href="${escS(photo.author_url || photo.attribution_url || 'https://www.pexels.com')}" target="_blank" rel="noopener" class="text-sky-400 hover:underline">${escS(photo.author || 'Pexels photographer')}</a></div></div>`).join('');
+  return photos.map(photo => `<div class="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950"><button type="button" onclick="addLibraryImageToCanvas('${escS(photo.source_url)}', '${escS(photo.alt || 'Pexels photo')}')" class="block w-full group"><img src="${escS(photo.preview_url)}" alt="${escS(photo.alt || '')}" loading="lazy" class="w-full aspect-square object-cover group-hover:scale-105 transition duration-200"></button><div class="px-2 py-1.5 text-[9px] truncate"><a href="${escS(photo.author_url || photo.attribution_url || 'https://www.pexels.com')}" target="_blank" rel="noopener" class="text-sky-400 hover:underline">${escS(photo.author || 'Pexels photographer')}</a></div></div>`).join('');
 }
 
 function renderStudioVideoResults(videos, uploaded = false) {
-  return videos.map(video => `<div class="rounded-xl overflow-hidden border border-slate-800 bg-slate-950"><video src="${escS(video.source_url || video.public_url)}" poster="${escS(video.preview_url || '')}" muted loop playsinline controls preload="metadata" class="w-full aspect-video object-cover bg-black"></video><div class="p-2"><div class="flex items-center justify-between gap-2"><a href="${escS(video.author_url || video.attribution_url || '#')}" target="_blank" rel="noopener" class="min-w-0 truncate text-[9px] text-sky-400 hover:underline">${escS(uploaded ? (video.title || 'Your video') : (video.author || 'Pexels creator'))}</a>${video.duration ? `<span class="text-[9px] text-slate-500">${Number(video.duration)}s</span>` : ''}</div><button onclick="addLibraryVideoToCanvas('${escS(video.source_url || video.public_url)}', '${escS(video.title || video.alt || 'Video')}')" class="mt-2 w-full py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-[10px] font-black">Add video to canvas</button></div></div>`).join('');
+  return videos.map(video => `<div class="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950"><video src="${escS(video.source_url || video.public_url)}" poster="${escS(video.preview_url || '')}" muted loop playsinline controls preload="metadata" class="w-full aspect-video object-cover bg-black"></video><div class="p-2"><div class="flex items-center justify-between gap-2"><a href="${escS(video.author_url || video.attribution_url || '#')}" target="_blank" rel="noopener" class="min-w-0 truncate text-[9px] text-sky-400 hover:underline">${escS(uploaded ? (video.title || 'Your video') : (video.author || 'Pexels creator'))}</a>${video.duration ? `<span class="text-[9px] text-slate-500 dark:text-slate-400">${Number(video.duration)}s</span>` : ''}</div><button onclick="addLibraryVideoToCanvas('${escS(video.source_url || video.public_url)}', '${escS(video.title || video.alt || 'Video')}')" class="mt-2 w-full py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-[10px] font-black">Add video to canvas</button></div></div>`).join('');
 }
 
 function renderStudioWorkspaceHtml(designName, scene) {
   return `
     <!-- Top Action Bar -->
-    <header class="h-14 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between z-20 flex-shrink-0">
+    <header class="h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between z-20 flex-shrink-0">
       <div class="flex items-center gap-3">
-        <button onclick="closeMarketSyncStudio()" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition flex items-center gap-1.5 text-xs font-bold">
+        <button onclick="closeMarketSyncStudio()" class="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5 text-xs font-bold">
           ${typeof isDesignStudioOnlyWorkspace === 'function' && isDesignStudioOnlyWorkspace() ? '← Settings' : '← Back to Marketing'}
         </button>
-        <div class="h-5 w-px bg-slate-800"></div>
+        <div class="h-5 w-px bg-slate-100 dark:bg-slate-800"></div>
         <img src="/Logo 2.0.png" alt="MarketSync" class="h-8 w-auto dark:hidden">
         <img src="/Logo 2.1.png" alt="MarketSync" class="h-8 w-auto hidden dark:block">
         <span class="px-2 py-0.5 rounded-lg text-[11px] font-black bg-indigo-600/20 text-indigo-400 border border-indigo-500/40 tracking-wide uppercase">Design Studio</span>
-        <input type="text" id="studio-design-name" value="${escS(designName)}" onchange="saveStudioDesignName(this.value)" class="bg-transparent text-sm font-black text-white focus:bg-slate-800 px-2 py-1 rounded-lg border border-transparent hover:border-slate-700 transition">
+        <input type="text" id="studio-design-name" value="${escS(designName)}" onchange="saveStudioDesignName(this.value)" class="bg-transparent text-sm font-black text-slate-900 dark:text-white focus:bg-slate-100 dark:focus:bg-slate-800 px-2 py-1 rounded-lg border border-transparent hover:border-slate-300 dark:hover:border-slate-700 transition">
         <span id="studio-save-status" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">SAVED</span>
       </div>
 
       <div class="flex items-center gap-2">
         <!-- Zoom Controls -->
-        <div class="flex items-center bg-slate-800 rounded-xl p-1 border border-slate-700">
-          <button onclick="zoomStudioOut()" title="Zoom Out" class="px-2.5 py-1 rounded-lg hover:bg-slate-700 text-xs font-black text-slate-300 hover:text-white transition">-</button>
+        <div class="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-300 dark:border-slate-700">
+          <button onclick="zoomStudioOut()" title="Zoom Out" class="px-2.5 py-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-black text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition">-</button>
           <span id="studio-zoom-display" class="px-2 text-xs font-mono font-bold text-sky-400">55%</span>
-          <button onclick="zoomStudioIn()" title="Zoom In" class="px-2.5 py-1 rounded-lg hover:bg-slate-700 text-xs font-black text-slate-300 hover:text-white transition">+</button>
-          <button onclick="zoomStudioFit()" title="Fit to Screen" class="px-2.5 py-1 ml-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-[11px] font-bold text-white transition">Fit</button>
+          <button onclick="zoomStudioIn()" title="Zoom In" class="px-2.5 py-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-black text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition">+</button>
+          <button onclick="zoomStudioFit()" title="Fit to Screen" class="px-2.5 py-1 ml-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 text-[11px] font-bold text-slate-900 dark:text-white transition">Fit</button>
         </div>
         <button id="studio-guides-toggle" onclick="toggleStudioGuides()" class="px-3 py-1.5 rounded-xl bg-blue-600/20 border border-blue-500/40 text-blue-300 text-xs font-bold">Guides on</button>
 
-        <div class="h-5 w-px bg-slate-800"></div>
+        <div class="h-5 w-px bg-slate-100 dark:bg-slate-800"></div>
 
-        <button onclick="if(window.__studioAdapter) window.__studioAdapter.undo()" title="Undo (Ctrl+Z)" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6-6m-6 6l6 6"/></svg>Undo</button>
-        <button onclick="if(window.__studioAdapter) window.__studioAdapter.redo()" title="Redo (Ctrl+Shift+Z)" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 10H11a8 8 0 00-8 8v2m18-10l-6-6m6 6l-6 6"/></svg>Redo</button>
-        <div class="h-5 w-px bg-slate-800"></div>
+        <button onclick="if(window.__studioAdapter) window.__studioAdapter.undo()" title="Undo (Ctrl+Z)" class="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6-6m-6 6l6 6"/></svg>Undo</button>
+        <button onclick="if(window.__studioAdapter) window.__studioAdapter.redo()" title="Redo (Ctrl+Shift+Z)" class="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 10H11a8 8 0 00-8 8v2m18-10l-6-6m6 6l-6 6"/></svg>Redo</button>
+        <div class="h-5 w-px bg-slate-100 dark:bg-slate-800"></div>
 
-        <button onclick="if(window.__studioAdapter) window.__studioAdapter.duplicateSelected()" title="Duplicate (Ctrl+D)" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>Duplicate</button>
-        <button onclick="if(window.__studioAdapter) window.__studioAdapter.groupSelected()" title="Group (Ctrl+G)" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4h7v7H4V4zm9 9h7v7h-7v-7zM4 20a1 1 0 001-1v-2M4 17v-1a1 1 0 011-1M20 4a1 1 0 00-1 1v2M20 7v1a1 1 0 01-1 1"/></svg>Group</button>
-        <button onclick="if(window.__studioAdapter) window.__studioAdapter.ungroupSelected()" title="Ungroup (Ctrl+Shift+G)" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4h6v6H4V4zm10 10h6v6h-6v-6zM4 14h6v6H4v-6zm10-10h6v6h-6V4z"/></svg>Ungroup</button>
-        <div class="h-5 w-px bg-slate-800"></div>
+        <button onclick="if(window.__studioAdapter) window.__studioAdapter.duplicateSelected()" title="Duplicate (Ctrl+D)" class="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>Duplicate</button>
+        <button onclick="if(window.__studioAdapter) window.__studioAdapter.groupSelected()" title="Group (Ctrl+G)" class="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4h7v7H4V4zm9 9h7v7h-7v-7zM4 20a1 1 0 001-1v-2M4 17v-1a1 1 0 011-1M20 4a1 1 0 00-1 1v2M20 7v1a1 1 0 01-1 1"/></svg>Group</button>
+        <button onclick="if(window.__studioAdapter) window.__studioAdapter.ungroupSelected()" title="Ungroup (Ctrl+Shift+G)" class="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4h6v6H4V4zm10 10h6v6h-6v-6zM4 14h6v6H4v-6zm10-10h6v6h-6V4z"/></svg>Ungroup</button>
+        <div class="h-5 w-px bg-slate-100 dark:bg-slate-800"></div>
 
-        <select id="studio-format-picker" onchange="changeStudioFormat(this.value)" class="bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-700">
+        <select id="studio-format-picker" onchange="changeStudioFormat(this.value)" class="bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700">
           ${Object.entries(STUDIO_SOCIAL_FORMATS).map(([key, format]) => `<option value="${key}" ${scene.format_key === key ? 'selected' : ''}>${format.label} (${format.w}×${format.h})</option>`).join('')}
         </select>
 
-        <button onclick="saveStudioDesign()" class="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition flex items-center gap-1.5">
-          <svg class="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>Save
+        <button onclick="saveStudioDesign()" class="px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>Save
         </button>
         <button onclick="renderStudioDesignAndPublish()" class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-lg transition flex items-center gap-1.5">
           <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.684A1.85 1.85 0 014.28 11.5c0-.853.585-1.572 1.4-1.782m0 0A3.001 3.001 0 0111 8.5h6.25a2.25 2.25 0 012.25 2.25v2.25a2.25 2.25 0 01-2.25 2.25H11a3 3 0 01-5.564-1.566z"/></svg>Render &amp; Publish to Social
@@ -255,69 +255,69 @@ function renderStudioWorkspaceHtml(designName, scene) {
     <!-- Main Workspace Body -->
     <div class="flex-1 flex overflow-hidden relative">
       <!-- Left Tool Rail -->
-      <nav class="w-16 bg-slate-950 border-r border-slate-800 flex flex-col items-center py-3 gap-3 flex-shrink-0 z-10">
-        <button onclick="setStudioTool('templates')" id="tool-btn-templates" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition ${window.__studioActiveTool==='templates'?'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50':''}">
+      <nav class="w-16 bg-slate-50 dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 flex flex-col items-center py-3 gap-3 flex-shrink-0 z-10">
+        <button onclick="setStudioTool('templates')" id="tool-btn-templates" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition ${window.__studioActiveTool==='templates'?'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50':''}">
           <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Templates
         </button>
-        <button onclick="setStudioTool('inventory')" id="tool-btn-inventory" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition ${window.__studioActiveTool==='inventory'?'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50':''}">
+        <button onclick="setStudioTool('inventory')" id="tool-btn-inventory" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition ${window.__studioActiveTool==='inventory'?'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50':''}">
           <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 17a2 2 0 100 4 2 2 0 000-4zm10 0a2 2 0 100 4 2 2 0 000-4zM4 9h16l-1.5 5H5.5L4 9z"/></svg>Inventory
         </button>
-        <button onclick="setStudioTool('photos')" id="tool-btn-photos" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition">
+        <button onclick="setStudioTool('photos')" id="tool-btn-photos" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
           <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Photos
         </button>
-        <button onclick="setStudioTool('videos')" id="tool-btn-videos" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition"><span class="text-base">▶</span>Videos</button>
-        <button onclick="setStudioTool('uploads')" id="tool-btn-uploads" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition"><span class="text-base">↑</span>Uploads</button>
-        <button onclick="setStudioTool('shapes')" id="tool-btn-shapes" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition">
+        <button onclick="setStudioTool('videos')" id="tool-btn-videos" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-base">▶</span>Videos</button>
+        <button onclick="setStudioTool('uploads')" id="tool-btn-uploads" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-base">↑</span>Uploads</button>
+        <button onclick="setStudioTool('shapes')" id="tool-btn-shapes" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
           <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"/></svg>Shapes
         </button>
-        <button onclick="setStudioTool('stickers')" id="tool-btn-stickers" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition">
+        <button onclick="setStudioTool('stickers')" id="tool-btn-stickers" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
           <span class="text-base mb-0.5">⭐</span>Stickers
         </button>
-        <button onclick="setStudioTool('ai')" id="tool-btn-ai" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${studioHasPaidAi() ? 'text-sky-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-900'} transition">
+        <button onclick="setStudioTool('ai')" id="tool-btn-ai" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${studioHasPaidAi() ? 'text-sky-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800' : 'text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-900'} transition">
           <span class="text-base">✦</span>${studioHasPaidAi() ? 'AI' : 'AI 🔒'}
         </button>
-        <button onclick="setStudioTool('brand')" id="tool-btn-brand" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition">
+        <button onclick="setStudioTool('brand')" id="tool-btn-brand" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
           <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10M7 12h10m-7 5h7"/></svg>Brand
         </button>
       </nav>
 
       <!-- Left Tool Panel Drawer -->
-      <aside class="w-60 bg-slate-900 border-r border-slate-800 flex flex-col flex-shrink-0 z-10 overflow-y-auto transition-all duration-200" id="studio-tool-panel">
-        <div class="flex items-center justify-between p-2.5 border-b border-slate-800 bg-slate-950/50">
-          <span class="text-[11px] font-black uppercase tracking-wider text-slate-400">Tool Drawer</span>
-          <button type="button" onclick="toggleStudioToolPanel()" class="text-slate-400 hover:text-white text-xs font-bold px-1.5 py-0.5 rounded hover:bg-slate-800" title="Collapse Tool Panel">&lt;</button>
+      <aside class="w-60 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col flex-shrink-0 z-10 overflow-y-auto transition-all duration-200" id="studio-tool-panel">
+        <div class="flex items-center justify-between p-2.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
+          <span class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Tool Drawer</span>
+          <button type="button" onclick="toggleStudioToolPanel()" class="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-xs font-bold px-1.5 py-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800" title="Collapse Tool Panel">&lt;</button>
         </div>
         ${renderStudioToolPanelContent(window.__studioActiveTool)}
       </aside>
 
       <!-- Center Artboard Viewport Canvas -->
-      <main id="studio-canvas-viewport" class="flex-1 min-w-0 bg-slate-950 overflow-hidden relative">
-        <div id="studio-artboard-container" class="absolute left-1/2 top-1/2 shadow-2xl rounded-2xl overflow-hidden border-4 border-blue-500/70 bg-slate-900 ring-4 ring-blue-500/20 transition-transform duration-200 origin-center" style="width:${scene.width}px; height:${scene.height}px; transform:translate(-50%, -50%) scale(0.55);">
+      <main id="studio-canvas-viewport" class="flex-1 min-w-0 bg-slate-50 dark:bg-slate-950 overflow-hidden relative">
+        <div id="studio-artboard-container" class="absolute left-1/2 top-1/2 shadow-2xl rounded-2xl overflow-hidden border-4 border-blue-500/70 bg-white dark:bg-slate-900 ring-4 ring-blue-500/20 transition-transform duration-200 origin-center" style="width:${scene.width}px; height:${scene.height}px; transform:translate(-50%, -50%) scale(0.55);">
           <canvas id="studio-main-canvas"></canvas>
           ${renderStudioSafeGuides(scene.format_key || 'square')}
         </div>
       </main>
 
       <!-- Right Property Inspector & Layer Controls -->
-      <aside class="w-60 bg-slate-900 border-l border-slate-800 flex flex-col flex-shrink-0 p-3 z-10 overflow-y-auto transition-all duration-200" id="studio-inspector-panel">
-        <div class="flex items-center justify-between pb-2.5 mb-2 border-b border-slate-800">
-          <span class="text-[11px] font-black uppercase tracking-wider text-slate-400">Inspector</span>
-          <button type="button" onclick="toggleStudioInspectorPanel()" class="text-slate-400 hover:text-white text-xs font-bold px-1.5 py-0.5 rounded hover:bg-slate-800" title="Collapse Inspector">&gt;</button>
+      <aside class="w-60 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col flex-shrink-0 p-3 z-10 overflow-y-auto transition-all duration-200" id="studio-inspector-panel">
+        <div class="flex items-center justify-between pb-2.5 mb-2 border-b border-slate-200 dark:border-slate-800">
+          <span class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Inspector</span>
+          <button type="button" onclick="toggleStudioInspectorPanel()" class="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-xs font-bold px-1.5 py-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800" title="Collapse Inspector">&gt;</button>
         </div>
         ${renderStudioInspectorHtml(null)}
       </aside>
     </div>
-    <footer class="h-16 flex-shrink-0 bg-slate-900 border-t border-slate-800 px-3 flex items-center gap-2 overflow-x-auto z-30">
-      <span class="text-[11px] font-black uppercase tracking-wider text-slate-400 mr-1">Text</span>
+    <footer class="h-16 flex-shrink-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-3 flex items-center gap-2 overflow-x-auto z-30">
+      <span class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-1">Text</span>
       <button onclick="studioAddText('heading')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">+ Heading</button>
-      <button onclick="studioAddText('subheading')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold">+ Subheading</button>
-      <button onclick="studioAddText('body')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium">+ Body text</button>
-      <div class="h-7 w-px bg-slate-700 mx-1"></div>
-      <label class="text-[11px] text-slate-400 font-bold">Size</label>
-      <select onchange="studioSetTextStyle('fontSize', Number(this.value))" class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs"><option>18</option><option>24</option><option selected>36</option><option>48</option><option>64</option><option>88</option></select>
-      <button onclick="studioSetTextStyle('fontWeight', '900')" class="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 font-black">B</button>
-      <label class="flex items-center gap-2 px-2 py-1 rounded-lg bg-slate-800 text-xs font-bold">Colour <input type="color" value="#ffffff" onchange="studioSetTextStyle('fill', this.value)" class="w-6 h-6 rounded cursor-pointer bg-transparent"></label>
-      <span id="studio-text-hint" class="ml-auto whitespace-nowrap text-[11px] text-slate-500">Select text to format it</span>
+      <button onclick="studioAddText('subheading')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold">+ Subheading</button>
+      <button onclick="studioAddText('body')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-medium">+ Body text</button>
+      <div class="h-7 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
+      <label class="text-[11px] text-slate-500 dark:text-slate-400 font-bold">Size</label>
+      <select onchange="studioSetTextStyle('fontSize', Number(this.value))" class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1.5 text-xs"><option>18</option><option>24</option><option selected>36</option><option>48</option><option>64</option><option>88</option></select>
+      <button onclick="studioSetTextStyle('fontWeight', '900')" class="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 font-black">B</button>
+      <label class="flex items-center gap-2 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold">Colour <input type="color" value="#ffffff" onchange="studioSetTextStyle('fill', this.value)" class="w-6 h-6 rounded cursor-pointer bg-transparent"></label>
+      <span id="studio-text-hint" class="ml-auto whitespace-nowrap text-[11px] text-slate-500 dark:text-slate-400">Select text to format it</span>
     </footer>
   `;
 }
@@ -532,7 +532,7 @@ function renderStudioTemplateCards(filter = 'all') {
   return Object.values(STUDIO_TEMPLATES_CATALOG).filter(t => filter === 'all' || t.format_key === filter).map(t => {
     const preview = t.preview || templatePreviewGradient(t);
     const format = STUDIO_SOCIAL_FORMATS[t.format_key];
-    return `<button onclick="loadStudioTemplate('${t.template_key}')" class="w-full text-left rounded-2xl overflow-hidden bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-blue-500 transition group"><div style="height:104px;background:${preview}" class="relative p-3"><span class="absolute left-2 top-2 px-2 py-1 rounded-lg bg-slate-950/75 text-[9px] font-black text-blue-200">${format ? `${format.w}×${format.h}` : 'READY'}</span><div class="absolute left-3 right-3 bottom-3 text-white font-black text-sm leading-tight drop-shadow">${escS(t.name)}</div></div><div class="p-3"><div class="text-xs font-black text-white group-hover:text-blue-300">${t.name}</div><div class="mt-1 text-[10px] text-slate-400">${t.desc}</div></div></button>`;
+    return `<button onclick="loadStudioTemplate('${t.template_key}')" class="w-full text-left rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 hover:border-blue-500 transition group"><div style="height:104px;background:${preview}" class="relative p-3"><span class="absolute left-2 top-2 px-2 py-1 rounded-lg bg-slate-950/75 text-[9px] font-black text-blue-200">${format ? `${format.w}×${format.h}` : 'READY'}</span><div class="absolute left-3 right-3 bottom-3 text-white font-black text-sm leading-tight drop-shadow">${escS(t.name)}</div></div><div class="p-3"><div class="text-xs font-black text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-300">${t.name}</div><div class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">${t.desc}</div></div></button>`;
   }).join('');
 }
 
@@ -540,21 +540,21 @@ function renderStudioToolPanelContent(tool) {
   if (tool === 'templates') {
     return `
       <div class="p-4 space-y-3">
-        <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Social Templates</h3><p class="mt-1 text-[10px] text-slate-500">Ready-made layouts with gradients, shapes and safe text placement.</p></div>
-        <select onchange="filterStudioTemplates(this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white"><option value="all">All social sizes</option>${Object.entries(STUDIO_SOCIAL_FORMATS).map(([key,f]) => `<option value="${key}">${f.label}</option>`).join('')}</select>
+        <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Social Templates</h3><p class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Ready-made layouts with gradients, shapes and safe text placement.</p></div>
+        <select onchange="filterStudioTemplates(this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white"><option value="all">All social sizes</option>${Object.entries(STUDIO_SOCIAL_FORMATS).map(([key,f]) => `<option value="${key}">${f.label}</option>`).join('')}</select>
         <div id="studio-template-cards" class="space-y-3">${renderStudioTemplateCards()}</div>
       </div>
     `;
   } else if (tool === 'inventory') {
     return `
       <div class="p-4 space-y-3">
-        <h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Dealership Inventory</h3>
-        <input type="text" placeholder="Search stock #, VIN, year make model..." oninput="searchStudioInventory(this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white">
+        <h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Dealership Inventory</h3>
+        <input type="text" placeholder="Search stock #, VIN, year make model..." oninput="searchStudioInventory(this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white">
         <div class="space-y-2" id="studio-inventory-list">
-          <button onclick="bindVehicleToStudio('demo_v1')" class="w-full text-left p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 transition flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center text-xs font-black text-indigo-400">VEH</div>
+          <button onclick="bindVehicleToStudio('demo_v1')" class="w-full text-left p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 transition flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-xs font-black text-indigo-400">VEH</div>
             <div class="min-w-0 flex-1">
-              <div class="text-xs font-bold text-white">2024 Ford F-150 Lariat</div>
+              <div class="text-xs font-bold text-slate-900 dark:text-white">2024 Ford F-150 Lariat</div>
               <div class="text-[11px] text-emerald-400 font-bold">$54,990 • STK #F9041</div>
             </div>
           </button>
@@ -564,53 +564,53 @@ function renderStudioToolPanelContent(tool) {
   } else if (tool === 'photos') {
     return `
       <div class="p-4 space-y-3">
-        <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Pexels Photos</h3><p class="text-[10px] text-slate-500 mt-1">Search the free Pexels library and add a photo directly.</p></div>
-        <form onsubmit="event.preventDefault(); searchStudioLibrary(document.getElementById('studio-photo-query').value)" class="flex gap-2"><input id="studio-photo-query" type="search" value="car dealership" placeholder="Search photos..." class="min-w-0 flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"><button class="px-3 rounded-xl bg-blue-600 text-xs font-black">Search</button></form>
-        <div class="grid grid-cols-2 gap-2 pt-2" id="studio-photo-results"><div class="col-span-2 p-5 text-center text-xs text-slate-500">Loading Pexels photos…</div></div>
+        <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Pexels Photos</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Search the free Pexels library and add a photo directly.</p></div>
+        <form onsubmit="event.preventDefault(); searchStudioLibrary(document.getElementById('studio-photo-query').value)" class="flex gap-2"><input id="studio-photo-query" type="search" value="car dealership" placeholder="Search photos..." class="min-w-0 flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white"><button class="px-3 rounded-xl bg-blue-600 text-xs font-black">Search</button></form>
+        <div class="grid grid-cols-2 gap-2 pt-2" id="studio-photo-results"><div class="col-span-2 p-5 text-center text-xs text-slate-500 dark:text-slate-400">Loading Pexels photos…</div></div>
         <a href="https://www.pexels.com" target="_blank" rel="noopener" class="block text-center text-[10px] font-bold text-sky-400 hover:underline">Photos provided by Pexels</a>
       </div>
     `;
   } else if (tool === 'videos') {
-    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Pexels Videos</h3><p class="text-[10px] text-slate-500 mt-1">Search free video clips and place them on the canvas.</p></div><form onsubmit="event.preventDefault(); searchStudioVideos(document.getElementById('studio-video-query').value)" class="flex gap-2"><input id="studio-video-query" type="search" value="car dealership" placeholder="Search videos..." class="min-w-0 flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"><button class="px-3 rounded-xl bg-blue-600 text-xs font-black">Search</button></form><div class="space-y-3" id="studio-video-results"><div class="p-5 text-center text-xs text-slate-500">Loading Pexels videos…</div></div><a href="https://www.pexels.com/videos/" target="_blank" rel="noopener" class="block text-center text-[10px] font-bold text-sky-400 hover:underline">Videos provided by Pexels</a></div>`;
+    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Pexels Videos</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Search free video clips and place them on the canvas.</p></div><form onsubmit="event.preventDefault(); searchStudioVideos(document.getElementById('studio-video-query').value)" class="flex gap-2"><input id="studio-video-query" type="search" value="car dealership" placeholder="Search videos..." class="min-w-0 flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white"><button class="px-3 rounded-xl bg-blue-600 text-xs font-black">Search</button></form><div class="space-y-3" id="studio-video-results"><div class="p-5 text-center text-xs text-slate-500 dark:text-slate-400">Loading Pexels videos…</div></div><a href="https://www.pexels.com/videos/" target="_blank" rel="noopener" class="block text-center text-[10px] font-bold text-sky-400 hover:underline">Videos provided by Pexels</a></div>`;
   } else if (tool === 'uploads') {
-    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Your Video Uploads</h3><p class="text-[10px] text-slate-500 mt-1">Upload video files up to 200 MB and reuse them here.</p></div><label class="block p-4 rounded-xl border-2 border-dashed border-blue-500/50 bg-blue-500/10 text-center cursor-pointer hover:bg-blue-500/20"><span class="block text-xl mb-1">↑</span><span class="text-xs font-black">Upload your video</span><input type="file" accept="video/*" class="hidden" onchange="uploadStudioVideo(this)"></label><div id="studio-upload-status" class="hidden text-xs text-center text-sky-400"></div><div id="studio-uploaded-videos" class="space-y-3"><div class="p-5 text-center text-xs text-slate-500">Loading your videos…</div></div></div>`;
+    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Your Video Uploads</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Upload video files up to 200 MB and reuse them here.</p></div><label class="block p-4 rounded-xl border-2 border-dashed border-blue-500/50 bg-blue-500/10 text-center cursor-pointer hover:bg-blue-500/20"><span class="block text-xl mb-1">↑</span><span class="text-xs font-black">Upload your video</span><input type="file" accept="video/*" class="hidden" onchange="uploadStudioVideo(this)"></label><div id="studio-upload-status" class="hidden text-xs text-center text-sky-400"></div><div id="studio-uploaded-videos" class="space-y-3"><div class="p-5 text-center text-xs text-slate-500 dark:text-slate-400">Loading your videos…</div></div></div>`;
   } else if (tool === 'shapes') {
     return `
       <div class="p-4 space-y-3">
-        <h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Shapes &amp; Badges</h3>
-        <div class="grid grid-cols-3 gap-2">${[['rect','Rectangle'],['badge','Rounded'],['circle','Circle'],['ellipse','Ellipse'],['triangle','Triangle'],['diamond','Diamond'],['pentagon','Pentagon'],['hexagon','Hexagon'],['star','Star'],['line','Line'],['arrow','Arrow'],['heart','Heart'],['speech','Speech']].map(([id,label]) => `<button onclick="studioAddShape('${id}')" title="${label}" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-center flex flex-col items-center gap-1.5"><span class="text-slate-200">${STUDIO_SHAPE_PREVIEW[id]}</span><span class="text-[10px] font-bold">${label}</span></button>`).join('')}</div>
-        <div class="border-t border-slate-800 pt-3"><h4 class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Draw</h4><div class="grid grid-cols-2 gap-2"><button onclick="studioDrawingMode('pen')" class="p-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">Pen</button><button onclick="studioDrawingMode('pencil')" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-black">Pencil</button></div><button onclick="studioSelectMode()" class="mt-2 w-full p-2 rounded-xl border border-slate-700 text-xs font-bold">Select &amp; move objects</button></div>
+        <h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Shapes &amp; Badges</h3>
+        <div class="grid grid-cols-3 gap-2">${[['rect','Rectangle'],['badge','Rounded'],['circle','Circle'],['ellipse','Ellipse'],['triangle','Triangle'],['diamond','Diamond'],['pentagon','Pentagon'],['hexagon','Hexagon'],['star','Star'],['line','Line'],['arrow','Arrow'],['heart','Heart'],['speech','Speech']].map(([id,label]) => `<button onclick="studioAddShape('${id}')" title="${label}" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-center flex flex-col items-center gap-1.5"><span class="text-slate-700 dark:text-slate-200">${STUDIO_SHAPE_PREVIEW[id]}</span><span class="text-[10px] font-bold">${label}</span></button>`).join('')}</div>
+        <div class="border-t border-slate-200 dark:border-slate-800 pt-3"><h4 class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Draw</h4><div class="grid grid-cols-2 gap-2"><button onclick="studioDrawingMode('pen')" class="p-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">Pen</button><button onclick="studioDrawingMode('pencil')" class="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-black">Pencil</button></div><button onclick="studioSelectMode()" class="mt-2 w-full p-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold">Select &amp; move objects</button></div>
       </div>
     `;
   } else if (tool === 'stickers') {
     return `
       <div class="p-4 space-y-3">
-        <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Stickers &amp; Clip Art</h3><p class="text-[10px] text-slate-500 mt-1">Click to drop a sticker on the canvas — drag to resize once placed.</p></div>
-        <div class="grid grid-cols-4 gap-2">${STUDIO_STICKERS.map(s => `<button onclick="studioAddSticker('${s}')" title="Add sticker" class="aspect-square rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-2xl transition">${s}</button>`).join('')}</div>
+        <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Stickers &amp; Clip Art</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Click to drop a sticker on the canvas — drag to resize once placed.</p></div>
+        <div class="grid grid-cols-4 gap-2">${STUDIO_STICKERS.map(s => `<button onclick="studioAddSticker('${s}')" title="Add sticker" class="aspect-square rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-2xl transition">${s}</button>`).join('')}</div>
       </div>
     `;
   } else if (tool === 'ai') {
     if (!studioHasPaidAi()) return `
       <div class="p-4 space-y-4">
-        <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-sky-400 text-xl">✦</div>
-        <div><h3 class="text-sm font-black text-white">AI Content is locked</h3><p class="text-xs text-slate-400 mt-1 leading-relaxed">AI writing appears here when AI Boost is active on the paid account.</p></div>
+        <div class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sky-400 text-xl">✦</div>
+        <div><h3 class="text-sm font-black text-slate-900 dark:text-white">AI Content is locked</h3><p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">AI writing appears here when AI Boost is active on the paid account.</p></div>
         <button onclick="if(typeof openUpgradeModal==='function') openUpgradeModal('ai_boost')" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">View AI Boost</button>
       </div>`;
     return `
       <div class="p-4 space-y-3">
-        <div><h3 class="text-xs font-black uppercase tracking-wider text-sky-400">AI Content</h3><p class="text-[11px] text-slate-400 mt-1">Generate campaign-ready copy, then add it directly to the canvas.</p></div>
-        <textarea id="studio-ai-prompt" rows="4" placeholder="Example: Write a short summer sales headline for our SUV event" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white resize-none"></textarea>
+        <div><h3 class="text-xs font-black uppercase tracking-wider text-sky-400">AI Content</h3><p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Generate campaign-ready copy, then add it directly to the canvas.</p></div>
+        <textarea id="studio-ai-prompt" rows="4" placeholder="Example: Write a short summer sales headline for our SUV event" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white resize-none"></textarea>
         <button onclick="generateStudioAiCopy()" id="studio-ai-generate" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">✦ Generate content</button>
-        <div id="studio-ai-result" class="hidden p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 whitespace-pre-wrap"></div>
+        <div id="studio-ai-result" class="hidden p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-200 whitespace-pre-wrap"></div>
       </div>
     `;
   } else if (tool === 'brand') {
     const storeName = window.__dealerConfig?.store_name || 'MarketSync Motors';
     return `
       <div class="p-4 space-y-3">
-        <h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Dealership Brand Kit</h3>
-        <div class="p-3 rounded-xl bg-slate-800 border border-slate-700 space-y-2">
-          <div class="text-xs font-bold text-white">${escS(storeName)}</div>
+        <h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Dealership Brand Kit</h3>
+        <div class="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 space-y-2">
+          <div class="text-xs font-bold text-slate-900 dark:text-white">${escS(storeName)}</div>
           <button onclick="if(window.__studioAdapter) window.__studioAdapter.addImage('/logo.png', 'MarketSync Logo')" class="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold">
             + Insert Dealership Logo
           </button>
@@ -626,18 +626,18 @@ function renderStudioInspectorHtml(selected) {
   const color = typeof object?.fill === 'string' && object.fill.startsWith('#') ? object.fill : (typeof object?.stroke === 'string' && object.stroke.startsWith('#') ? object.stroke : '#2563eb');
   const opacity = Math.round((object?.opacity ?? 1) * 100);
   return `
-    <h3 class="text-xs font-black uppercase tracking-wider text-slate-300 mb-3">Property Inspector</h3>
+    <h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-3">Property Inspector</h3>
     <div class="space-y-3">
-      <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-        <div><label class="text-[11px] font-bold text-slate-400">Colour</label><input type="color" value="${color}" onchange="studioSetObjectStyle('color', this.value)" class="mt-1 w-full h-9 rounded-lg bg-transparent cursor-pointer"></div>
-        <div><div class="flex justify-between"><label class="text-[11px] font-bold text-slate-400">Transparency</label><span id="studio-opacity-value" class="text-[11px] text-sky-400">${100-opacity}%</span></div><input type="range" min="0" max="100" value="${opacity}" oninput="document.getElementById('studio-opacity-value').textContent=(100-Number(this.value))+'%'" onchange="studioSetObjectStyle('opacity', Number(this.value)/100)" class="w-full accent-blue-500"></div>
+      <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-3">
+        <div><label class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Colour</label><input type="color" value="${color}" onchange="studioSetObjectStyle('color', this.value)" class="mt-1 w-full h-9 rounded-lg bg-transparent cursor-pointer"></div>
+        <div><div class="flex justify-between"><label class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Transparency</label><span id="studio-opacity-value" class="text-[11px] text-sky-400">${100-opacity}%</span></div><input type="range" min="0" max="100" value="${opacity}" oninput="document.getElementById('studio-opacity-value').textContent=(100-Number(this.value))+'%'" onchange="studioSetObjectStyle('opacity', Number(this.value)/100)" class="w-full accent-blue-500"></div>
       </div>
       <button onclick="studioToggleNodes()" class="w-full py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black">Edit vector nodes</button>
       <div class="space-y-1">
-        <label class="text-[11px] font-bold text-slate-400">Layer Order:</label>
+        <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Layer Order:</label>
         <div class="flex gap-2">
-          <button onclick="if(window.__studioAdapter) window.__studioAdapter.bringForward()" class="flex-1 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold">Bring Forward</button>
-          <button onclick="if(window.__studioAdapter) window.__studioAdapter.sendBackwards()" class="flex-1 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold">Send Back</button>
+          <button onclick="if(window.__studioAdapter) window.__studioAdapter.bringForward()" class="flex-1 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold">Bring Forward</button>
+          <button onclick="if(window.__studioAdapter) window.__studioAdapter.sendBackwards()" class="flex-1 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold">Send Back</button>
         </div>
       </div>
       <button onclick="if(window.__studioAdapter) window.__studioAdapter.deleteSelected()" class="w-full py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black transition flex items-center justify-center gap-1.5">
@@ -702,11 +702,11 @@ function showStudioContextMenu(x, y, hasTarget) {
   const active = adapter?.fabricCanvas?.getActiveObject();
   const isSelection = active?.type === 'activeSelection';
   const isGroup = active?.type === 'group';
-  const item = (label, method, opts = {}) => `<button type="button" onclick="studioCtxAction('${method}')" ${opts.disabled ? 'disabled' : ''} class="w-full text-left px-3 py-1.5 flex items-center justify-between gap-4 transition ${opts.disabled ? 'opacity-40 cursor-default' : 'hover:bg-slate-800'} ${opts.danger && !opts.disabled ? 'text-rose-400' : ''}"><span>${label}</span>${opts.shortcut ? `<span class="text-[10px] text-slate-500 font-mono">${opts.shortcut}</span>` : ''}</button>`;
-  const divider = '<div class="my-1 border-t border-slate-800"></div>';
+  const item = (label, method, opts = {}) => `<button type="button" onclick="studioCtxAction('${method}')" ${opts.disabled ? 'disabled' : ''} class="w-full text-left px-3 py-1.5 flex items-center justify-between gap-4 transition ${opts.disabled ? 'opacity-40 cursor-default' : 'hover:bg-slate-100 dark:hover:bg-slate-800'} ${opts.danger && !opts.disabled ? 'text-rose-400' : ''}"><span>${label}</span>${opts.shortcut ? `<span class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">${opts.shortcut}</span>` : ''}</button>`;
+  const divider = '<div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>';
   const menu = document.createElement('div');
   menu.id = 'studio-context-menu';
-  menu.className = 'fixed z-[100000] min-w-[190px] py-1.5 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl text-xs font-bold text-slate-200';
+  menu.className = 'fixed z-[100000] min-w-[190px] py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-2xl text-xs font-bold text-slate-700 dark:text-slate-200';
   menu.innerHTML = [
     item('Copy', 'copySelected', { disabled: !hasTarget, shortcut: 'Ctrl+C' }),
     item('Cut', 'cutSelected', { disabled: !hasTarget, shortcut: 'Ctrl+X' }),
@@ -776,14 +776,14 @@ function searchStudioInventory(query) {
   ]).filter(v => !q || `${v.year} ${v.make} ${v.model} ${v.stocknumber} ${v.vin || ''}`.toLowerCase().includes(q));
 
   listEl.innerHTML = inv.map(v => `
-    <button onclick="bindVehicleToStudio('${v.id}')" class="w-full text-left p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 transition flex items-center gap-3">
-      <div class="w-10 h-10 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center text-xs font-black text-indigo-400">VEH</div>
+    <button onclick="bindVehicleToStudio('${v.id}')" class="w-full text-left p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 transition flex items-center gap-3">
+      <div class="w-10 h-10 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-xs font-black text-indigo-400">VEH</div>
       <div class="min-w-0 flex-1">
-        <div class="text-xs font-bold text-white truncate">${escS(`${v.year || ''} ${v.make || ''} ${v.model || ''}`.trim() || 'Vehicle')}</div>
+        <div class="text-xs font-bold text-slate-900 dark:text-white truncate">${escS(`${v.year || ''} ${v.make || ''} ${v.model || ''}`.trim() || 'Vehicle')}</div>
         <div class="text-[11px] text-emerald-400 font-bold">$${Number(v.price || 0).toLocaleString()} • STK #${escS(v.stocknumber || '—')}</div>
       </div>
     </button>
-  `).join('') || `<div class="text-xs text-slate-400 italic p-3">No matching inventory.</div>`;
+  `).join('') || `<div class="text-xs text-slate-500 dark:text-slate-400 italic p-3">No matching inventory.</div>`;
 }
 
 async function bindVehicleToStudio(vehicleId) {
@@ -807,7 +807,7 @@ let __studioPhotoQuery = '', __studioPhotoPage = 1, __studioPhotoHasMore = false
 let __studioVideoQuery = '', __studioVideoPage = 1, __studioVideoHasMore = false;
 
 function loadMoreButton(onclick, label) {
-  return `<button type="button" onclick="${onclick}" id="studio-load-more-btn" class="col-span-2 w-full mt-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-black text-white transition">${label}</button>`;
+  return `<button type="button" onclick="${onclick}" id="studio-load-more-btn" class="col-span-2 w-full mt-1 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-black text-slate-900 dark:text-white transition">${label}</button>`;
 }
 
 async function searchStudioLibrary(query) {
@@ -815,12 +815,12 @@ async function searchStudioLibrary(query) {
   if (!target) return;
   __studioPhotoQuery = String(query || '').trim().toLowerCase();
   __studioPhotoPage = 1;
-  target.innerHTML = '<div class="col-span-2 p-5 text-center text-xs text-slate-500">Searching Pexels…</div>';
+  target.innerHTML = '<div class="col-span-2 p-5 text-center text-xs text-slate-500 dark:text-slate-400">Searching Pexels…</div>';
   try {
     const data = await apiGetJson(`/marketing/studio/library/search?q=${encodeURIComponent(__studioPhotoQuery || 'car dealership')}&page=1`);
     const results = data?.results || [];
     __studioPhotoHasMore = results.length > 0 && results.length < (data?.total_results || 0);
-    target.innerHTML = results.length ? renderPexelsResults(results) : '<div class="col-span-2 p-4 text-center text-xs text-slate-500">No matching Pexels photos.</div>';
+    target.innerHTML = results.length ? renderPexelsResults(results) : '<div class="col-span-2 p-4 text-center text-xs text-slate-500 dark:text-slate-400">No matching Pexels photos.</div>';
     if (__studioPhotoHasMore) target.insertAdjacentHTML('beforeend', loadMoreButton('loadMoreStudioPhotos()', 'Load more photos'));
   } catch (error) {
     __studioPhotoHasMore = false;
@@ -854,12 +854,12 @@ async function searchStudioVideos(query) {
   if (!target) return;
   __studioVideoQuery = String(query || '').trim();
   __studioVideoPage = 1;
-  target.innerHTML = '<div class="p-5 text-center text-xs text-slate-500">Searching Pexels videos…</div>';
+  target.innerHTML = '<div class="p-5 text-center text-xs text-slate-500 dark:text-slate-400">Searching Pexels videos…</div>';
   try {
     const data = await apiGetJson(`/marketing/studio/library/search?type=video&q=${encodeURIComponent(__studioVideoQuery || 'car dealership')}&page=1`);
     const results = data?.results || [];
     __studioVideoHasMore = results.length > 0 && results.length < (data?.total_results || 0);
-    target.innerHTML = results.length ? renderStudioVideoResults(results) : '<div class="p-4 text-center text-xs text-slate-500">No matching videos.</div>';
+    target.innerHTML = results.length ? renderStudioVideoResults(results) : '<div class="p-4 text-center text-xs text-slate-500 dark:text-slate-400">No matching videos.</div>';
     if (__studioVideoHasMore) target.insertAdjacentHTML('beforeend', loadMoreButton('loadMoreStudioVideos()', 'Load more videos'));
   } catch (error) {
     __studioVideoHasMore = false;
@@ -893,7 +893,7 @@ async function loadStudioUploadedVideos() {
   try {
     const data = await apiGetJson('/marketing/assets');
     const videos = (data?.assets || []).filter(asset => asset.kind === 'video');
-    target.innerHTML = videos.length ? renderStudioVideoResults(videos, true) : '<div class="p-4 text-center text-xs text-slate-500">No uploaded videos yet.</div>';
+    target.innerHTML = videos.length ? renderStudioVideoResults(videos, true) : '<div class="p-4 text-center text-xs text-slate-500 dark:text-slate-400">No uploaded videos yet.</div>';
   } catch (error) {
     target.innerHTML = '<div class="p-4 text-center text-xs text-rose-400">Your uploads could not be loaded.</div>';
   }
@@ -985,7 +985,7 @@ async function generateStudioAiCopy() {
     if (!copy) throw new Error('No content returned');
     if (result) {
       result.classList.remove('hidden');
-      result.innerHTML = `${escS(copy)}<button type="button" onclick="studioAddGeneratedCopy()" class="mt-3 w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold">Add to canvas</button>`;
+      result.innerHTML = `${escS(copy)}<button type="button" onclick="studioAddGeneratedCopy()" class="mt-3 w-full py-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold">Add to canvas</button>`;
       result.dataset.copy = copy;
     }
   } catch (error) {
