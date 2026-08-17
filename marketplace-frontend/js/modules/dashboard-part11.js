@@ -720,6 +720,7 @@ const empRoleOpts = (roles, sel) => (roles || []).map(r => `<option value="${r}"
 ENGINES['saas-employees'] = {
   rootId: 'saas-employees-root', title: 'Employees', subtitle: 'MarketSync staff and what each role can do',
   icon: 'user', accent: 'violet',
+  tabLabels: { overview: 'Team Directory', work: 'Role Permissions', insights: 'Sales Assignments', automation: 'Activity Audit', settings: 'Invitations' },
   fetch: () => apiGetJson('/saas/employees'),
   quickActions: [
     { label: 'MarketSync HQ', icon: 'chart', onclick: "switchPage('saas-command')" },
@@ -789,7 +790,7 @@ function loadSaasEmployees() { renderEngine('saas-employees'); }
 
 // ══ SaaS Accounting — MarketSync's own P&L (recurring revenue + program cost) ══
 ENGINES['saas-accounting'] = {
-  rootId: 'saas-accounting-root', title: 'Accounting', subtitle: "MarketSync's books — recurring revenue and program cost",
+  rootId: 'saas-accounting-root', title: 'Money', subtitle: 'Automated platform financials, subscription revenue, operating expenses, and net profit',
   icon: 'currency', accent: 'emerald',
   fetch: () => apiGetJson('/saas/accounting'),
   quickActions: [
@@ -867,7 +868,7 @@ ENGINES['saas-accounting'] = {
       </div>`);
     },
   },
-  tabLabels: { work: 'Revenue', insights: 'Expenses' },
+  tabLabels: { overview: 'P&L Summary', work: 'Subscriptions (MRR)', insights: 'Platform Expenses', automation: 'Invoices & Taxes', settings: 'Currency (CAD/USD)' },
 };
 function loadSaasAccounting() { renderEngine('saas-accounting'); }
 window.loadSaasAccounting = loadSaasAccounting;

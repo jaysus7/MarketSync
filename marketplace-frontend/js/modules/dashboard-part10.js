@@ -996,6 +996,7 @@ function hqTrialRow(t) {
 ENGINES['saas-command'] = {
   rootId: 'saas-command-root', title: 'Pulse', subtitle: 'What is happening across MarketSync and what needs attention',
   icon: 'chart', accent: 'violet',
+  tabLabels: { overview: 'Overview', work: 'Sync Pipeline', insights: 'API & Webhook Health', automation: 'Error Logs', settings: 'Infrastructure' },
   fetch: () => apiGetJson('/saas/overview'),
   quickActions: [
     { label: 'Review customers', icon: 'chart', onclick: "switchPage('saas-customers')" },
@@ -1100,6 +1101,7 @@ const pipeAllRows = (d) => (d.stages || []).flatMap(s => d.by_stage[s] || []);
 ENGINES['saas-customers'] = {
   rootId: 'saas-customers-root', title: 'Customers', subtitle: 'Every MarketSync customer account, health signal, owner, and next action',
   icon: 'chart', accent: 'violet',
+  tabLabels: { overview: 'Directory', work: 'Onboarding Data', insights: 'Plan Overrides', automation: 'Impersonation & Access', settings: 'Usage Quotas' },
   fetch: () => apiGetJson('/saas/customers'),
   quickActions: [
     { label: 'MarketSync HQ', icon: 'chart', onclick: "switchPage('saas-command')" },
@@ -1353,6 +1355,8 @@ function funnelRow(c) {
 ENGINES['saas-funnel'] = {
   rootId: 'saas-funnel-root', title: 'Leads', subtitle: 'New interest, checkout intent, and the next follow-up needed to convert it',
   icon: 'chart', accent: 'violet',
+  tabOrder: ['overview', 'work', 'sources', 'routing', 'export'],
+  tabLabels: { overview: 'All Leads', work: 'Pipeline Board', sources: 'Marketplace Sources', routing: 'Routing Rules', export: 'Export' },
   fetch: () => apiGetJson('/saas/carts'),
   quickActions: [{ label: 'Customer Pipeline', icon: 'chart', onclick: "switchPage('saas-customers')" }],
   nextActions: d => d.abandoned ? [{ label: `${d.abandoned} abandoned cart${d.abandoned === 1 ? '' : 's'} to recover`, icon: 'flame', tone: 'text-rose-500', onclick: "engineTab('saas-funnel','work')" }] : [],
@@ -1368,6 +1372,16 @@ ENGINES['saas-funnel'] = {
     work(body, d) {
       body.innerHTML = engCard('Abandoned carts — recover', (d.abandoned_list || []).length ? (d.abandoned_list || []).map(funnelRow).join('') : engEmpty('Nothing to recover right now.'));
     },
+    sources(body, d) {
+      body.innerHTML = `<div class="grid grid-cols-2 md:grid-cols-4 gap-3">${engKpi('Checkout starts', (d.started || 0).toLocaleString())}${engKpi('Completed', (d.completed || 0).toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}${engKpi('Abandoned', (d.abandoned || 0).toLocaleString(), d.abandoned ? 'text-rose-600 dark:text-rose-400' : '')}${engKpi('Conversion', (d.conversion || 0) + '%')}</div>${engCard('Source attribution', '<p class="text-sm text-slate-600 dark:text-slate-300">Checkout intent is live. Marketplace-source attribution will appear here when source and campaign parameters are captured on every inbound lead.</p>')}`;
+    },
+    routing(body) {
+      body.innerHTML = engCard('Lead routing rules', '<p class="text-sm text-slate-600 dark:text-slate-300 mb-3">Route new inquiries by product interest, territory, source, and account owner. Existing abandoned checkouts continue to create an owned recovery follow-up.</p><button onclick="switchPage(\'saas-followups\')" class="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold">Open follow-up assignments</button>');
+    },
+    export(body, d) {
+      const rows = d.abandoned_list || [];
+      body.innerHTML = engCard('Lead export', `<div class="flex items-center justify-between gap-3"><p class="text-sm text-slate-600 dark:text-slate-300">Export the ${rows.length} currently actionable checkout lead${rows.length === 1 ? '' : 's'} for review.</p><button onclick="saasExportLeads()" class="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold">Export CSV</button></div>`);
+    },
   },
 };
 function loadSaasFunnel() { renderEngine('saas-funnel'); }
@@ -1376,37 +1390,48 @@ window.saasRecoverCart = async (id) => {
   try { await apiSendJson('/saas/carts/' + id + '/recover', 'POST', {}); showToast('Recovery follow-up created', 'success'); await loadSaasFunnel(); }
   catch (e) { showToast(e.message || 'Could not create recovery follow-up', 'error'); }
 };
+window.saasExportLeads = () => {
+  const rows = ENGINE_DATA['saas-funnel']?.abandoned_list || [];
+  const csv = ['Account,Plan,Currency,Age Hours', ...rows.map(r => [r.account, r.plan || r.kind || '', r.currency || '', r.age_hours ?? ''].map(v => `"${String(v ?? '').replaceAll('"', '""')}"`).join(','))].join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `marketsync-leads-${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(a.href);
+};
 
 // ══ MarketSync company tools — focused HQ entry points ══════════════════════
 // These pages are intentionally separate from the dealer workspace shell. They
 // compose the existing canonical engines and keep the company context explicit.
-function saasToolHeader({ icon, title, subtitle, action = '' }) {
+function saasToolHeader({ icon, title, subtitle, action = '', tabs = [] }) {
   return `<div class="rounded-2xl border border-violet-200/70 dark:border-violet-900/70 bg-gradient-to-br from-white via-white to-violet-50 dark:from-slate-900 dark:via-slate-900 dark:to-violet-950/30 p-5 shadow-sm">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div class="flex items-start gap-3 min-w-0"><div class="w-11 h-11 rounded-2xl bg-violet-600 text-white flex items-center justify-center shadow-lg shadow-violet-500/20">${svgIcon(icon, 'w-5 h-5')}</div>
         <div><h1 class="text-2xl font-black text-slate-950 dark:text-white leading-tight">${esc(title)}</h1><p class="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-2xl">${esc(subtitle)}</p></div></div>${action}
-    </div></div>`;
+    </div>${tabs.length ? `<div class="flex gap-1 mt-5 -mb-5 overflow-x-auto border-t border-slate-200 dark:border-slate-700 pt-2">${tabs.map((t, i) => `<button onclick="${t.onclick || ''}" class="px-3 py-2.5 whitespace-nowrap text-xs font-extrabold border-b-2 ${i === 0 ? 'border-blue-500 text-blue-600 dark:text-blue-300' : 'border-transparent text-slate-500 hover:text-blue-500'}">${esc(t.label)}</button>`).join('')}</div>` : ''}</div>`;
 }
+
+const EMAIL_MARKETING_TABS = [
+  { label: 'Campaigns', onclick: "openSaasAutomationView('campaigns')" }, { label: 'Automated Drips', onclick: "openSaasAutomationView('sequences')" },
+  { label: 'Audience Lists', onclick: "openSaasAutomationView('campaigns')" }, { label: 'Template Builder', onclick: "openSaasAutomationView('templates')" },
+  { label: 'Deliverability & Analytics', onclick: "switchPage('saas-command');engineTab('saas-command','insights')" },
+];
 
 async function loadSaasEmailMarketing() {
   const root = document.getElementById('saas-email-marketing-root'); if (!root) return;
-  root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Email Marketing', subtitle: 'Create MarketSync campaigns, manage reusable templates, and review real delivery results.' }) + '<div class="text-sm text-slate-400 py-10 text-center">Loading campaigns…</div>';
+  root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Email Marketing', subtitle: 'Dealer broadcasts, automated onboarding drips, deliverability, and audience segments.', tabs: EMAIL_MARKETING_TABS }) + '<div class="text-sm text-slate-400 py-10 text-center">Loading campaigns…</div>';
   try {
     const [camp, tpl] = await Promise.all([apiGetJson('/saas/automation/campaigns'), apiGetJson('/saas/automation/templates')]);
     const campaigns = camp.campaigns || [], templates = tpl.templates || [];
     const sent = campaigns.reduce((n, c) => n + (Number(c.sent_count) || 0), 0);
     const failed = campaigns.reduce((n, c) => n + (Number(c.fail_count) || 0), 0);
-    root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Email Marketing', subtitle: 'Create MarketSync campaigns, manage reusable templates, and review real delivery results.', action: '<button onclick="openSaasAutomationView(\'campaigns\')" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-black">Create campaign</button>' }) + `
+    root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Email Marketing', subtitle: 'Dealer broadcasts, automated onboarding drips, deliverability, and audience segments.', tabs: EMAIL_MARKETING_TABS, action: '<button onclick="openSaasAutomationView(\'campaigns\')" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-black">Create campaign</button>' }) + `
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">${engKpi('Campaigns', campaigns.length)}${engKpi('Templates', templates.length)}${engKpi('Provider accepted', sent, 'text-emerald-600 dark:text-emerald-400')}${engKpi('Failed', failed, failed ? 'text-rose-600 dark:text-rose-400' : '')}</div>
       ${engCard('Email workspace', `<div class="grid sm:grid-cols-2 gap-3"><button onclick="openSaasAutomationView('campaigns')" class="text-left p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-violet-400"><div class="font-black">Campaigns</div><div class="text-sm text-slate-500 mt-1">Build, target, send, and review delivery evidence.</div></button><button onclick="openSaasAutomationView('templates')" class="text-left p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-violet-400"><div class="font-black">Templates</div><div class="text-sm text-slate-500 mt-1">Keep approved MarketSync messaging reusable and consistent.</div></button></div>`)}`;
-  } catch (e) { root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Email Marketing', subtitle: 'Create MarketSync campaigns, manage reusable templates, and review real delivery results.' }) + engCard('Unable to load', `<p class="text-sm text-rose-500">${esc(e.message || 'Email marketing is unavailable.')}</p>`); }
+  } catch (e) { root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Email Marketing', subtitle: 'Dealer broadcasts, automated onboarding drips, deliverability, and audience segments.', tabs: EMAIL_MARKETING_TABS }) + engCard('Unable to load', `<p class="text-sm text-rose-500">${esc(e.message || 'Email marketing is unavailable.')}</p>`); }
 }
 window.loadSaasEmailMarketing = loadSaasEmailMarketing;
 window.openSaasAutomationView = (view) => { __automation.view = view; switchPage('saas-automation'); };
 
 async function loadSaasStudio() {
   const root = document.getElementById('saas-studio-root'); if (!root) return;
-  root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Studio', subtitle: 'Create MarketSync-branded graphics and keep reusable company creative in one library.', action: '<button onclick="openMarketSyncStudio()" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-black">Create design</button>' });
+  root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Studio', subtitle: 'Vehicle photo processing, watermark overlays, background removal, and AI enhancement rules.', tabs: [{label:'Batch Queue',onclick:'openMarketSyncStudio()'},{label:'Watermark & Branding',onclick:'openMarketSyncStudio()'},{label:'AI Enhancement Rules',onclick:'openMarketSyncStudio()'},{label:'Media CDN Storage'},{label:'Templates',onclick:'openMarketSyncStudio()'}], action: '<button onclick="openMarketSyncStudio()" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-black">Create design</button>' });
   try {
     const data = await apiGetJson('/marketing/studio/designs');
     const designs = data.designs || data || [];
@@ -1417,7 +1442,7 @@ window.loadSaasStudio = loadSaasStudio;
 
 function loadSaasWebsite() {
   const root = document.getElementById('saas-website-root'); if (!root) return;
-  root.innerHTML = saasToolHeader({ icon: 'globe', title: 'Website', subtitle: 'Manage the public MarketSync website without mixing it with dealership website content.', action: '<a href="https://marketsync.link" target="_blank" rel="noopener" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-black">View live site</a>' }) + `
+  root.innerHTML = saasToolHeader({ icon: 'globe', title: 'Website', subtitle: 'Update the public MarketSync landing pages, pricing, banners, customer proof, and SEO metadata.', tabs: [{label:'Landing Page CMS'},{label:'Pricing Tables'},{label:'Global Banners'},{label:'Case Studies & Reviews'},{label:'SEO & Meta'}], action: '<a href="https://marketsync.link" target="_blank" rel="noopener" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-black">Preview live site</a>' }) + `
     ${engCard('MarketSync website', `<div class="grid sm:grid-cols-2 gap-3"><div class="p-4 rounded-xl border border-slate-200 dark:border-slate-700"><div class="text-xs font-black uppercase tracking-wide text-emerald-600">Live</div><div class="font-black mt-1">marketsync.link</div><p class="text-sm text-slate-500 mt-1">Open the production site and verify the customer experience.</p></div><div class="p-4 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20"><div class="text-xs font-black uppercase tracking-wide text-amber-700 dark:text-amber-400">Publishing connection required</div><div class="font-black mt-1">Content editing</div><p class="text-sm text-slate-600 dark:text-slate-300 mt-1">The repository currently deploys the public site from source control. A reviewed GitHub publishing adapter is required before this dashboard can safely update production content.</p></div></div>`)}`;
 }
 window.loadSaasWebsite = loadSaasWebsite;
@@ -1448,12 +1473,22 @@ function renderAutomation() {
         <div><h1 class="text-xl font-black text-slate-900 dark:text-white leading-tight">Automation &amp; Email</h1>
           <p class="text-[13px] text-slate-500 dark:text-slate-400">Edit your drips step-by-step and manage reusable email templates.</p></div>
       </div>
-      <div class="flex items-center gap-2">${pill('sequences', 'Sequences')}${pill('campaigns', 'Campaigns')}${pill('templates', 'Templates')}</div>
+      <div class="flex items-center gap-2 overflow-x-auto">${pill('sequences', 'Active Workflows')}${pill('sms', 'Twilio & SMS Triggers')}${pill('calendar', 'Calendar Sync')}${pill('webhooks', 'Webhooks')}${pill('history', 'Execution History')}</div>
     </div>
     <div id="automation-body"></div>`;
-  (v === 'campaigns' ? renderAutoCampaigns : v === 'templates' ? renderAutoTemplates : renderAutoSequences)();
+  (v === 'campaigns' ? renderAutoCampaigns : v === 'templates' ? renderAutoTemplates : v === 'sequences' ? renderAutoSequences : renderAutoOperations)(v);
 }
 window.automationView = (v) => { __automation.view = v; renderAutomation(); };
+function renderAutoOperations(view) {
+  const body = document.getElementById('automation-body'); if (!body) return;
+  const copy = {
+    sms: ['Twilio & SMS triggers', 'Configure welcome messages, sync-failure escalation, delivery callbacks, and messaging thresholds. Twilio alert and webhook evidence belongs here beside each trigger.'],
+    calendar: ['Calendar sync', 'Review team OAuth connection status and the automated triggers used for demo bookings, reminders, and follow-up ownership.'],
+    webhooks: ['Webhook operations', 'Inspect registered endpoints, signing status, recent response codes, retries, and disabled destinations.'],
+    history: ['Execution history', 'Review trigger payloads, conditional branches, external responses, failures, and retry evidence for every workflow run.'],
+  }[view] || ['Automation', 'Select an automation workspace.'];
+  body.innerHTML = `${engCard(copy[0], `<p class="text-sm text-slate-600 dark:text-slate-300">${copy[1]}</p>`)}${engCard('Connection status', '<div class="flex items-center gap-2 text-sm"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span><span class="font-bold">Integration data source required</span></div><p class="text-xs text-slate-500 mt-2">This panel will show live provider state once the corresponding account connection is available. No healthy status is fabricated.</p>')}`;
+}
 function autoStepChip(s) {
   const label = s.type === 'task' ? `Task: ${esc(s.title || 'Follow-up')}` : `Email: ${esc(s.subject || '(template)')}`;
   const tone = s.type === 'task' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300';

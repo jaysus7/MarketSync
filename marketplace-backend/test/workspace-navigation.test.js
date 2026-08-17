@@ -66,6 +66,24 @@ test('MarketSync Internal OS uses the approved company navigation in order', () 
   assert.match(html, /data-dash-mode="marketsync"[^}]*\.bg-violet-600\)[^}]*#2563eb/)
 })
 
+test('each MarketSync Internal page owns specific operational header tabs', () => {
+  const expected = [
+    'Overview', 'Sync Pipeline', 'API & Webhook Health', 'Error Logs', 'Infrastructure',
+    'All Leads', 'Pipeline Board', 'Marketplace Sources', 'Routing Rules', 'Export',
+    'Directory', 'Onboarding Data', 'Plan Overrides', 'Impersonation & Access', 'Usage Quotas',
+    'Affiliate Directory', 'Pending Payouts', 'Referral Links', 'Commission Tiers', 'Payout Logs',
+    'P&L Summary', 'Subscriptions (MRR)', 'Platform Expenses', 'Invoices & Taxes', 'Currency (CAD/USD)',
+    'Campaigns', 'Automated Drips', 'Audience Lists', 'Template Builder', 'Deliverability & Analytics',
+    'Active Workflows', 'Twilio & SMS Triggers', 'Calendar Sync', 'Webhooks', 'Execution History',
+    'Batch Queue', 'Watermark & Branding', 'AI Enhancement Rules', 'Media CDN Storage', 'Templates',
+    'Landing Page CMS', 'Pricing Tables', 'Global Banners', 'Case Studies & Reviews', 'SEO & Meta',
+    'Team Directory', 'Role Permissions', 'Sales Assignments', 'Activity Audit', 'Invitations',
+  ]
+  const source = part10 + part11 + read('js/modules/dashboard-part13.js')
+  for (const label of expected) assert.ok(source.includes(label), `missing tailored Internal header: ${label}`)
+  assert.match(part10, /window\.saasExportLeads\s*=/)
+})
+
 // Every page the PREVIOUS DEPARTMENTS registry could reach. Phase 1 is a
 // reorganization: none of these may become unreachable.
 const PRE_PHASE1_PAGES = [
