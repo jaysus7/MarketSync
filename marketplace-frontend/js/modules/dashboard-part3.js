@@ -30,45 +30,67 @@ async function openVinScanner(targetId, afterFill) {
     if (typeof afterFill === 'function') afterFill(vin);
   };
 
-  // Fast path: native BarcodeDetector (Chromium desktop + Android Chrome).
+  // Fallback: ZXing — works on iPhone (Safari/Chrome), any browser without
+  // BarcodeDetector, and is also what the native path below falls back to if it can't
+  // find anything (see NATIVE_TIMEOUT_MS below).
+  const startZXing = async () => {
+    let ZX;
+    try { ZX = await loadZXing(); }
+    catch { stop(); showToast('Scanner couldn’t load — check your connection, or type the VIN.', 'error'); return; }
+    if (stopped) return;
+    try {
+      const reader = new ZX.BrowserMultiFormatReader();
+      cleanup = () => { try { reader.reset(); } catch {} };
+      await reader.decodeFromConstraints({ video: { facingMode: { ideal: 'environment' } } }, video, (result) => {
+        if (!result) return;
+        const vin = cleanVin(result.getText());
+        if (vin) onVin(vin);
+      });
+    } catch {
+      stop();
+      showToast('Camera access was blocked, or scanning isn’t available here — type the VIN.', 'error');
+    }
+  };
+
+  // Fast path: native BarcodeDetector (Chromium desktop + Android Chrome). In
+  // practice its 1D-barcode support (Code 39 / Code 128 — what a VIN door-jamb or
+  // window-sticker barcode actually is) is inconsistent across devices: it can run
+  // "successfully" — camera on, no error — while never actually detecting anything,
+  // which read as "the camera opens and nothing happens." Give it a few seconds, then
+  // fall back to ZXing (proven at reading 1D barcodes) instead of leaving the user
+  // stuck with a live camera and no feedback.
   if ('BarcodeDetector' in window) {
     let stream;
     try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } }); }
     catch { stop(); showToast('Camera access was blocked — allow the camera, then try again.', 'error'); return; }
     cleanup = () => stream.getTracks().forEach(t => t.stop());
     video.srcObject = stream;
-    let formats = ['code_39', 'code_128', 'data_matrix', 'qr_code'];
+    let formats = ['code_39', 'code_128', 'data_matrix', 'pdf417', 'qr_code'];
     try { const sup = await BarcodeDetector.getSupportedFormats(); const f = formats.filter(x => sup.includes(x)); formats = f.length ? f : sup; } catch {}
     const detector = new BarcodeDetector({ formats });
+    const NATIVE_TIMEOUT_MS = 4000;
+    const startedAt = Date.now();
+    let fellBack = false;
     const tick = async () => {
-      if (stopped) return;
+      if (stopped || fellBack) return;
       try {
         const codes = await detector.detect(video);
         for (const c of codes) { const vin = cleanVin(c.rawValue); if (vin) { onVin(vin); return; } }
       } catch {}
+      if (stopped) return;
+      if (Date.now() - startedAt > NATIVE_TIMEOUT_MS) {
+        fellBack = true;
+        try { cleanup(); } catch {}
+        startZXing();
+        return;
+      }
       requestAnimationFrame(tick);
     };
     video.onloadedmetadata = () => requestAnimationFrame(tick);
     return;
   }
 
-  // Fallback: ZXing — works on iPhone (Safari/Chrome) and any browser without BarcodeDetector.
-  let ZX;
-  try { ZX = await loadZXing(); }
-  catch { stop(); showToast('Scanner couldn’t load — check your connection, or type the VIN.', 'error'); return; }
-  if (stopped) return;
-  try {
-    const reader = new ZX.BrowserMultiFormatReader();
-    cleanup = () => { try { reader.reset(); } catch {} };
-    await reader.decodeFromConstraints({ video: { facingMode: { ideal: 'environment' } } }, video, (result) => {
-      if (!result) return;
-      const vin = cleanVin(result.getText());
-      if (vin) onVin(vin);
-    });
-  } catch {
-    stop();
-    showToast('Camera access was blocked, or scanning isn’t available here — type the VIN.', 'error');
-  }
+  startZXing();
 }
 window.loadZXing = loadZXing;
 window.openVinScanner = openVinScanner;
