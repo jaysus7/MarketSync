@@ -1155,16 +1155,16 @@ window.deptGo = deptGo;
 // The MarketSync owner's SaaS back office is its own flat department list —
 // the company operating system, not a dealership.
 const SAAS_DEPARTMENTS = {
-  pulse:      { label: 'Pulse',           icon: 'chart',     accent: 'violet', pages: [{ page: 'saas-command', label: 'Company Pulse' }] },
-  leads:      { label: 'Leads',           icon: 'bolt',      accent: 'violet', pages: [{ page: 'saas-funnel', label: 'Lead Funnel' }, { page: 'saas-followups', label: 'Follow-ups' }] },
-  customers:  { label: 'Customers',       icon: 'user',      accent: 'indigo', pages: [{ page: 'saas-customers', label: 'Customer Accounts' }, { page: 'owner-users', label: 'Users & Access' }] },
+  pulse:      { label: 'Pulse',           icon: 'chart',     accent: 'indigo', pages: [{ page: 'saas-command', label: 'Company Pulse' }] },
+  leads:      { label: 'Leads',           icon: 'bolt',      accent: 'indigo', pages: [{ page: 'saas-funnel', label: 'Leads' }] },
+  customers:  { label: 'Customers',       icon: 'user',      accent: 'indigo', pages: [{ page: 'saas-customers', label: 'Customers' }] },
   affiliates: { label: 'Affiliates',      icon: 'trophy',    accent: 'amber',  pages: [{ page: 'affiliates-admin', label: 'Affiliate Program' }] },
   money:      { label: 'Money',           icon: 'currency',  accent: 'emerald', always: true, pages: [{ page: 'saas-accounting', label: 'Company Money' }] },
-  email:      { label: 'Email Marketing', icon: 'megaphone', accent: 'violet', pages: [{ page: 'saas-email-marketing', label: 'Campaigns & Templates' }] },
-  automation: { label: 'Automations',     icon: 'bolt',      accent: 'violet', pages: [{ page: 'saas-automation', label: 'Sequences & Workflows' }] },
+  email:      { label: 'Email Marketing', icon: 'megaphone', accent: 'indigo', pages: [{ page: 'saas-email-marketing', label: 'Email Marketing' }] },
+  automation: { label: 'Automations',     icon: 'bolt',      accent: 'indigo', pages: [{ page: 'saas-automation', label: 'Automations' }] },
   studio:     { label: 'Studio',          icon: 'megaphone', accent: 'indigo', pages: [{ page: 'saas-studio', label: 'Brand Studio' }] },
   website:    { label: 'Website',         icon: 'globe',     accent: 'indigo', pages: [{ page: 'saas-website', label: 'MarketSync Website' }] },
-  employees:  { label: 'Employees',       icon: 'user',      accent: 'violet', pages: [{ page: 'saas-employees', label: 'Team' }] },
+  employees:  { label: 'Employees',       icon: 'user',      accent: 'indigo', pages: [{ page: 'saas-employees', label: 'Employees' }] },
 };
 let __deptNavBuilt = false;
 let __deptRegistry = DEPARTMENTS;   // which department set the flat nav is showing

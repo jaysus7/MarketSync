@@ -1108,7 +1108,7 @@ function pipeCard(a) {
 const pipeAllRows = (d) => (d.stages || []).flatMap(s => d.by_stage[s] || []);
 ENGINES['saas-customers'] = {
   rootId: 'saas-customers-root', title: 'Customers', subtitle: 'Every MarketSync customer account, health signal, owner, and next action',
-  icon: 'chart', accent: 'violet',
+  icon: 'chart', accent: 'indigo', hideRail: true, hideTabBar: true, tabOrder: ['overview'],
   tabLabels: { overview: 'Directory', work: 'Onboarding Data', insights: 'Plan Overrides', automation: 'Impersonation & Access', settings: 'Usage Quotas' },
   fetch: () => apiGetJson('/saas/customers'),
   quickActions: [
@@ -1144,7 +1144,8 @@ ENGINES['saas-customers'] = {
             <span class="w-28 flex-shrink-0 text-slate-600 dark:text-slate-300 font-semibold">${esc(SAAS_STAGE_LABEL[s] || s)}</span>
             <span class="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><span class="block h-full ${s === 'churn_risk' ? 'bg-rose-500' : s === 'paid' || s === 'expanded' ? 'bg-emerald-500' : 'bg-violet-400'}" style="width:${total ? Math.round(n / total * 100) : 0}%"></span></span>
             <span class="w-8 text-right font-bold text-slate-700 dark:text-slate-200">${n}</span></div>`;
-        }).join(''))}`;
+        }).join(''))}
+        ${engCard('Customer accounts', `<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">${rows.map(pipeCard).join('') || engEmpty('No customer accounts yet.')}</div><details class="mt-3"><summary class="cursor-pointer text-xs font-bold text-slate-500 py-2">More options</summary><button onclick="switchPage('owner-users')" class="mt-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Manage users and access</button></details>`)}`;
     },
     work(body, d) {
       const cols = (d.stages || []).map(s => {
@@ -1374,8 +1375,8 @@ function saasLeadTable(d) {
 }
 ENGINES['saas-funnel'] = {
   rootId: 'saas-funnel-root', title: 'Leads', subtitle: 'New interest, checkout intent, and the next follow-up needed to convert it',
-  icon: 'chart', accent: 'violet',
-  tabOrder: ['overview', 'work', 'sources', 'routing', 'export'],
+  icon: 'chart', accent: 'indigo', hideRail: true, hideTabBar: true,
+  tabOrder: ['overview'],
   tabLabels: { overview: 'All Leads', work: 'Pipeline Board', sources: 'Marketplace Sources', routing: 'Routing Rules', export: 'Export' },
   fetch: () => apiGetJson('/saas/carts'),
   quickActions: [{ label: 'Customer Pipeline', icon: 'chart', onclick: "switchPage('saas-customers')" }],
@@ -1387,7 +1388,7 @@ ENGINES['saas-funnel'] = {
           ${engKpi('Completed', (d.completed || 0).toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
           ${engKpi('Conversion', (d.conversion || 0) + '%', 'text-violet-600 dark:text-violet-400')}
           ${engKpi('Abandoned', (d.abandoned || 0).toLocaleString(), d.abandoned ? 'text-rose-600 dark:text-rose-400' : '')}
-        </div><div class="grid grid-cols-1 md:grid-cols-3 gap-3">${engCard('Lead generation','<p class="text-xs text-slate-500 mb-3">Capture demos, pricing interest and campaign responses into one actionable list.</p><button onclick="switchPage(\'saas-website\')" class="text-xs font-black text-blue-500">Manage capture pages →</button>')}${engCard('Marketing','<p class="text-xs text-slate-500 mb-3">Build nurture campaigns and convert product interest into booked demos.</p><button onclick="switchPage(\'saas-email-marketing\')" class="text-xs font-black text-blue-500">Open marketing →</button>')}${engCard('Social posting','<p class="text-xs text-slate-500 mb-3">Create product videos and social-ready MarketSync content.</p><button onclick="switchPage(\'saas-studio\')" class="text-xs font-black text-blue-500">Create social content →</button>')}</div>${engCard('SaaS lead priorities', '<p class="text-sm text-slate-600 dark:text-slate-300">One account, one owner, one next action, and a complete customer timeline—without a Kanban board.</p>')}${saasLeadTable(d)}`;
+        </div><div class="grid grid-cols-1 md:grid-cols-3 gap-3">${engCard('Generate leads','<p class="text-xs text-slate-500 mb-3">Manage demo and pricing capture pages.</p><button onclick="switchPage(\'saas-website\')" class="text-xs font-black text-blue-500">Open website →</button>')}${engCard('Follow up','<p class="text-xs text-slate-500 mb-3">Assign every lead one owner and next action.</p><button onclick="switchPage(\'saas-followups\')" class="text-xs font-black text-blue-500">Open follow-ups →</button>')}${engCard('Market','<p class="text-xs text-slate-500 mb-3">Nurture leads with email and social content.</p><button onclick="switchPage(\'saas-email-marketing\')" class="text-xs font-black text-blue-500">Open marketing →</button>')}</div>${saasLeadTable(d)}<div class="flex justify-end"><button onclick="saasExportLeads()" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Export leads</button></div>`;
     },
     work(body, d) {
       body.innerHTML = engCard('Abandoned carts — recover', (d.abandoned_list || []).length ? (d.abandoned_list || []).map(funnelRow).join('') : engEmpty('Nothing to recover right now.'));
@@ -1420,9 +1421,9 @@ window.saasExportLeads = () => {
 // These pages are intentionally separate from the dealer workspace shell. They
 // compose the existing canonical engines and keep the company context explicit.
 function saasToolHeader({ icon, title, subtitle, action = '', tabs = [] }) {
-  return `<div class="rounded-2xl border border-violet-200/70 dark:border-violet-900/70 bg-gradient-to-br from-white via-white to-violet-50 dark:from-slate-900 dark:via-slate-900 dark:to-violet-950/30 p-5 shadow-sm">
+  return `<div class="rounded-2xl border border-blue-200/70 dark:border-blue-900/70 bg-gradient-to-br from-white via-white to-blue-50 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/30 p-5 shadow-sm">
     <div class="flex flex-wrap items-start justify-between gap-4">
-      <div class="flex items-start gap-3 min-w-0"><div class="w-11 h-11 rounded-2xl bg-violet-600 text-white flex items-center justify-center shadow-lg shadow-violet-500/20">${svgIcon(icon, 'w-5 h-5')}</div>
+      <div class="flex items-start gap-3 min-w-0"><div class="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/20">${svgIcon(icon, 'w-5 h-5')}</div>
         <div><h1 class="text-2xl font-black text-slate-950 dark:text-white leading-tight">${esc(title)}</h1><p class="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-2xl">${esc(subtitle)}</p></div></div>${action}
     </div>${tabs.length ? `<div class="flex gap-1 mt-5 -mb-5 overflow-x-auto border-t border-slate-200 dark:border-slate-700 pt-2">${tabs.map((t, i) => `<button onclick="${t.onclick || ''}" class="px-3 py-2.5 whitespace-nowrap text-xs font-extrabold border-b-2 ${i === 0 ? 'border-blue-500 text-blue-600 dark:text-blue-300' : 'border-transparent text-slate-500 hover:text-blue-500'}">${esc(t.label)}</button>`).join('')}</div>` : ''}</div>`;
 }
@@ -1435,13 +1436,13 @@ const EMAIL_MARKETING_TABS = [
 
 async function loadSaasEmailMarketing() {
   const root = document.getElementById('saas-email-marketing-root'); if (!root) return;
-  root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Email Marketing', subtitle: 'Dealer broadcasts, automated onboarding drips, deliverability, and audience segments.', tabs: EMAIL_MARKETING_TABS }) + '<div class="text-sm text-slate-400 py-10 text-center">Loading campaigns…</div>';
+  root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Email Marketing', subtitle: 'Create campaigns, reuse approved templates, and review delivery.', action: '<button onclick="openSaasAutomationView(\'campaigns\')" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-black">Create campaign</button>' }) + '<div class="text-sm text-slate-400 py-10 text-center">Loading campaigns…</div>';
   try {
     const [camp, tpl] = await Promise.all([apiGetJson('/saas/automation/campaigns'), apiGetJson('/saas/automation/templates')]);
     const campaigns = camp.campaigns || [], templates = tpl.templates || [];
     const sent = campaigns.reduce((n, c) => n + (Number(c.sent_count) || 0), 0);
     const failed = campaigns.reduce((n, c) => n + (Number(c.fail_count) || 0), 0);
-    root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Email Marketing', subtitle: 'Dealer broadcasts, automated onboarding drips, deliverability, and audience segments.', tabs: EMAIL_MARKETING_TABS, action: '<button onclick="openSaasAutomationView(\'campaigns\')" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-black">Create campaign</button>' }) + `
+    root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Email Marketing', subtitle: 'Create campaigns, reuse approved templates, and review delivery.', action: '<button onclick="openSaasAutomationView(\'campaigns\')" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-black">Create campaign</button>' }) + `
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">${engKpi('Campaigns', campaigns.length)}${engKpi('Templates', templates.length)}${engKpi('Provider accepted', sent, 'text-emerald-600 dark:text-emerald-400')}${engKpi('Failed', failed, failed ? 'text-rose-600 dark:text-rose-400' : '')}</div>
       ${engCard('Email workspace', `<div class="grid sm:grid-cols-2 gap-3"><button onclick="openSaasAutomationView('campaigns')" class="text-left p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-violet-400"><div class="font-black">Campaigns</div><div class="text-sm text-slate-500 mt-1">Build, target, send, and review delivery evidence.</div></button><button onclick="openSaasAutomationView('templates')" class="text-left p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-violet-400"><div class="font-black">Templates</div><div class="text-sm text-slate-500 mt-1">Keep approved MarketSync messaging reusable and consistent.</div></button></div>`)}`;
   } catch (e) { root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Email Marketing', subtitle: 'Dealer broadcasts, automated onboarding drips, deliverability, and audience segments.', tabs: EMAIL_MARKETING_TABS }) + engCard('Unable to load', `<p class="text-sm text-rose-500">${esc(e.message || 'Email marketing is unavailable.')}</p>`); }
@@ -1451,11 +1452,11 @@ window.openSaasAutomationView = (view) => { __automation.view = view; switchPage
 
 async function loadSaasStudio() {
   const root = document.getElementById('saas-studio-root'); if (!root) return;
-  root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Studio', subtitle: 'Create product videos and MarketSync brand assets with reusable templates and engagement tracking.', tabs: [{label:'Video Studio',onclick:"openCustomerVideoStudio('demo-customer',{department:'MarketSync',scriptKey:'product_demo'})"},{label:'Creative Library',onclick:'openMarketSyncStudio()'},{label:'Watermark & Branding',onclick:'openMarketSyncStudio()'},{label:'AI Enhancement Rules',onclick:'openMarketSyncStudio()'},{label:'Templates',onclick:'openMarketSyncStudio()'}], action: '<button onclick="openCustomerVideoStudio(\'demo-customer\',{department:\'MarketSync\',scriptKey:\'product_demo\'})" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-black">Record product video</button>' });
+  root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Studio', subtitle: 'Create product videos and branded campaign assets.', action: '<button onclick="openCustomerVideoStudio(\'demo-customer\',{department:\'MarketSync\',scriptKey:\'product_demo\'})" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-black">Record product video</button>' });
   try {
     const data = await apiGetJson('/marketing/studio/designs');
     const designs = data.designs || data || [];
-    root.innerHTML += `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3">${engKpi('Saved designs', Array.isArray(designs) ? designs.length : 0)}${engKpi('Brand', 'MarketSync')}${engKpi('Publishing', 'Approval required')}</div><div id="saas-video-studio-host"></div>${engCard('Brand Studio', '<p class="text-sm text-slate-600 dark:text-slate-300">Create static campaign assets in the existing Studio engine. Video engagement stays connected to the customer and product timeline above.</p><button onclick="openMarketSyncStudio()" class="mt-3 px-4 py-2 rounded-xl border border-violet-300 dark:border-violet-800 text-violet-700 dark:text-violet-300 text-sm font-black">Open Creative Studio</button>')}`;
+    root.innerHTML += `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3">${engKpi('Saved designs', Array.isArray(designs) ? designs.length : 0)}${engKpi('Brand', 'MarketSync')}${engKpi('Publishing', 'Approval required')}</div><div class="grid grid-cols-1 lg:grid-cols-2 gap-4"><div id="saas-video-studio-host"></div>${engCard('Creative Studio', '<p class="text-sm text-slate-600 dark:text-slate-300">Create campaign graphics with your saved brand, templates, and approval rules.</p><button onclick="openMarketSyncStudio()" class="mt-3 px-4 py-2 rounded-xl border border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-sm font-black">Open Creative Studio</button>')}</div>`;
     if (typeof loadSaasVideoStudio === 'function') loadSaasVideoStudio();
   } catch (e) { root.innerHTML += engCard('Creative library unavailable', `<p class="text-sm text-rose-500">${esc(e.message || 'Studio could not be loaded.')}</p>`); }
 }
@@ -1487,13 +1488,12 @@ window.loadSaasAutomation = loadSaasAutomation;
 function renderAutomation() {
   const root = document.getElementById('saas-automation-root'); if (!root) return;
   const v = __automation.view;
-  const pill = (id, label) => `<button onclick="automationView('${id}')" class="px-3.5 py-1.5 rounded-full text-[13px] font-bold transition ${v === id ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>`;
   root.innerHTML = `
     <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 flex items-center justify-center">${svgIcon('bolt', 'w-5 h-5')}</div>
-        <div><h1 class="text-xl font-black text-slate-900 dark:text-white leading-tight">Automation &amp; Email</h1>
-          <p class="text-[13px] text-slate-500 dark:text-slate-400">Edit your drips step-by-step and manage reusable email templates.</p></div>
+        <div class="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">${svgIcon('bolt', 'w-5 h-5')}</div>
+        <div><h1 class="text-xl font-black text-slate-900 dark:text-white leading-tight">Automations</h1>
+          <p class="text-[13px] text-slate-500 dark:text-slate-400">Build and edit customer workflows step by step.</p></div>
       </div>
       <div class="flex items-center gap-2"><button onclick="automationNewSeq()" class="px-3.5 py-2 rounded-xl bg-blue-600 text-white text-xs font-black">+ New automation</button><button onclick="automationView('campaigns')" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">Email campaigns</button></div>
     </div>
