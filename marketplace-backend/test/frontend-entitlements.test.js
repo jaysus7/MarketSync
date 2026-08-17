@@ -48,3 +48,14 @@ test('DealerOS user management stays dealership-scoped, never platform-wide', as
   // bookmark to their own team page must remain.
   assert.match(await readDashboard(), /pageId === ['"]owner-users['"] && !marketsyncOwnerMode\(\)/)
 })
+
+test('dashboard resolves product gates before any role landing page is selected', async () => {
+  const source = await readDashboard()
+  const gate = source.indexOf('applyProductNav(legacyProductsFromAccess(window.__access) || profileContext?.products)')
+  const landing = source.indexOf("const bootRoute = typeof msRouteFromHash")
+  const reveal = source.indexOf("document.body.classList.remove('ms-app-booting')")
+
+  assert.ok(gate >= 0, 'product gate initialization is missing')
+  assert.ok(landing > gate, 'a role/default page must not load before product gates')
+  assert.ok(reveal > landing, 'page content must stay hidden until final routing is settled')
+})

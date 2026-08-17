@@ -35,9 +35,9 @@ test('the current public catalog is fully represented, priced to match public-co
   }
 
   const prices = {
-    'design-studio': 5, 'autoposter-salesperson': 19, 'social-scheduler': 59, 'autoposter-dealer': 79,
-    video: 99, 'campaigns-email-sms': 129, 'dealer-website': 249, 'ai-chatbot': 299,
-    'sales-marketing-suite': 249, 'service-marketing-suite': 249, 'complete-marketing-suite': 399, 'marketsync-digital': 599,
+    'design-studio': 29, 'autoposter-salesperson': 39, 'social-scheduler': 99, 'autoposter-dealer': 149,
+    video: 149, 'campaigns-email-sms': 199, 'dealer-website': 399, 'ai-chatbot': 599,
+    'sales-marketing-suite': 399, 'service-marketing-suite': 399, 'complete-marketing-suite': 699, 'marketsync-digital': 1199,
     'dealer-os-core': 1499, 'dealer-os-pro': 2499, 'dealer-os-complete': 3999,
   }
   for (const [id, monthly] of Object.entries(prices)) assert.equal(PLAN_CATALOG[id].monthly, monthly, `${id} price mismatch`)
@@ -56,8 +56,11 @@ test('DealerOS tiers bundle the current standalone products, not the legacy plan
   assert.ok(!featuresForPlan('dealer-os-core').includes('os.service'), 'Core does not include Service')
   assert.ok(featuresForPlan('dealer-os-pro').includes('os.service'), 'Pro adds the Service department')
   assert.ok(featuresForPlan('dealer-os-pro').includes('ai.conversations'), 'Pro bundles MarketSync Digital (AI ChatBot)')
-  assert.deepEqual(new Set(productsForPlan('dealer-os-complete')), new Set(productsForPlan('dealer-os-pro')),
-    'Complete and Pro currently share the same product/feature ceiling (see the code comment on dealer-os-complete)')
+  assert.ok(!featuresForPlan('dealer-os-pro').includes('os.accounting'), 'Pro does not expose Complete accounting')
+  assert.ok(!featuresForPlan('dealer-os-pro').includes('os.automations'), 'Pro does not expose Complete automations')
+  assert.ok(featuresForPlan('dealer-os-complete').includes('os.accounting'), 'Complete adds accounting')
+  assert.ok(featuresForPlan('dealer-os-complete').includes('os.automations'), 'Complete adds automations')
+  assert.ok(featuresForPlan('dealer-os-complete').includes('os.integrations'), 'Complete adds integrations')
 })
 
 test('AI Dealer is a standalone product plan', () => {

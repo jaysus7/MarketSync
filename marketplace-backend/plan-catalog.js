@@ -45,6 +45,15 @@ const OS_GROWTH = [...new Set([...OS_STARTER,
   'os.sales', 'os.accounting', 'os.marketing', 'os.website', 'os.automations', 'os.integrations'])]
 const OS_PRO = [...OS] // every Dealer OS feature, including service
 
+// Current public DealerOS ladder. Keep this separate from the grandfathered
+// Starter/Growth/Pro catalog above: the public Core/Pro/Complete packages have
+// different promises and must produce visibly different department navigation.
+const CURRENT_CORE_OS = ['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.settings']
+const CURRENT_PRO_OS = [...new Set([...CURRENT_CORE_OS, 'os.sales', 'os.service', 'os.team'])]
+const CURRENT_COMPLETE_OS = [...new Set([...CURRENT_PRO_OS,
+  'os.accounting', 'os.marketing', 'os.website', 'os.automations',
+  'os.email_marketing', 'os.integrations'])]
+
 // Legacy dealership flags a plan should set (the existing app still reads these).
 // Kept in sync so the transition to the entitlement engine never regresses behavior.
 // ai_boost / inv_intel cascade to Vision / VIN / appraisal per the existing billing code.
@@ -184,7 +193,7 @@ export const PLAN_CATALOG = Object.freeze({
   'design-studio': {
     id: 'design-studio', label: 'Design Studio', product_primary: 'design_studio',
     products: ['design_studio'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 5, tier: 0,
+    monthly: 29, tier: 0,
     priceEnvCad: 'STRIPE_PRICE_DESIGN_STUDIO_CAD', priceEnvUsd: 'STRIPE_PRICE_DESIGN_STUDIO_USD',
     features: [...FEATURES_BY_PRODUCT.design_studio],
     legacy: { ...legacyFlags({}), products: { design_studio: true } },
@@ -192,7 +201,7 @@ export const PLAN_CATALOG = Object.freeze({
   'autoposter-salesperson': {
     id: 'autoposter-salesperson', label: 'Facebook AutoPoster — Salesperson', product_primary: 'facebook',
     products: ['facebook'], org_type: 'solo', owner_role: 'OWNER',
-    monthly: 19, tier: 0,
+    monthly: 39, tier: 0,
     priceEnvCad: 'STRIPE_PRICE_AUTOPOSTER_SALESPERSON_CAD', priceEnvUsd: 'STRIPE_PRICE_AUTOPOSTER_SALESPERSON_USD',
     features: ['fb.inventory', 'fb.leaderboard'],
     legacy: { ...legacyFlags({ fbOnly: true }), products: { autoposter_salesperson: true, facebook_solo: true } },
@@ -200,7 +209,7 @@ export const PLAN_CATALOG = Object.freeze({
   'social-scheduler': {
     id: 'social-scheduler', label: 'Social Scheduler', product_primary: 'marketsync_social',
     products: ['marketsync_social'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 59, tier: 0,
+    monthly: 99, tier: 0,
     priceEnvCad: 'STRIPE_PRICE_SOCIAL_SCHEDULER_CAD', priceEnvUsd: 'STRIPE_PRICE_SOCIAL_SCHEDULER_USD',
     // No 'social.studio' — that's the standalone Design Studio SKU above.
     features: ['social.scheduler', 'social.accounts', 'social.calendar'],
@@ -209,7 +218,7 @@ export const PLAN_CATALOG = Object.freeze({
   'autoposter-dealer': {
     id: 'autoposter-dealer', label: 'Facebook AutoPoster — Dealer', product_primary: 'facebook',
     products: ['facebook'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 79, tier: 1,
+    monthly: 149, tier: 1,
     priceEnvCad: 'STRIPE_PRICE_AUTOPOSTER_DEALER_CAD', priceEnvUsd: 'STRIPE_PRICE_AUTOPOSTER_DEALER_USD',
     features: [...FEATURES_BY_PRODUCT.facebook],
     legacy: { ...legacyFlags({ fbOnly: true }), products: { autoposter_dealer: true, facebook_dealer: true } },
@@ -217,7 +226,7 @@ export const PLAN_CATALOG = Object.freeze({
   video: {
     id: 'video', label: 'Video', product_primary: 'marketsync_video',
     products: ['marketsync_video'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 99, tier: 0,
+    monthly: 149, tier: 0,
     priceEnvCad: 'STRIPE_PRICE_VIDEO_CAD', priceEnvUsd: 'STRIPE_PRICE_VIDEO_USD',
     features: [...FEATURES_BY_PRODUCT.marketsync_video],
     legacy: { ...legacyFlags({}), products: { marketsync_video: true, video: true } },
@@ -225,7 +234,7 @@ export const PLAN_CATALOG = Object.freeze({
   'campaigns-email-sms': {
     id: 'campaigns-email-sms', label: 'Campaigns — Email + SMS', product_primary: 'marketsync_email',
     products: ['marketsync_email'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 129, tier: 0,
+    monthly: 199, tier: 0,
     priceEnvCad: 'STRIPE_PRICE_CAMPAIGNS_CAD', priceEnvUsd: 'STRIPE_PRICE_CAMPAIGNS_USD',
     features: [...FEATURES_BY_PRODUCT.marketsync_email],
     legacy: { ...legacyFlags({}), products: { marketsync_email: true, campaigns: true } },
@@ -233,7 +242,7 @@ export const PLAN_CATALOG = Object.freeze({
   'dealer-website': {
     id: 'dealer-website', label: 'Dealer Website', product_primary: 'marketsync_website',
     products: ['marketsync_website'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 249, tier: 0,
+    monthly: 399, tier: 0,
     priceEnvCad: 'STRIPE_PRICE_DEALER_WEBSITE_CAD', priceEnvUsd: 'STRIPE_PRICE_DEALER_WEBSITE_USD',
     features: [...FEATURES_BY_PRODUCT.marketsync_website],
     legacy: { ...legacyFlags({}), products: { marketsync_website: true, website: true } },
@@ -241,7 +250,7 @@ export const PLAN_CATALOG = Object.freeze({
   'ai-chatbot': {
     id: 'ai-chatbot', label: 'AI ChatBot', product_primary: 'ai_dealer',
     products: ['ai_dealer'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 299, tier: 0,
+    monthly: 599, tier: 0,
     priceEnvCad: 'STRIPE_PRICE_AI_CHATBOT_V2_CAD', priceEnvUsd: 'STRIPE_PRICE_AI_CHATBOT_V2_USD',
     features: [...FEATURES_BY_PRODUCT.ai_dealer],
     legacy: { ...legacyFlags({}), ai_chatbot_active: true, ai_chatbot_paid: true, products: { ai_chatbot: true } },
@@ -249,7 +258,7 @@ export const PLAN_CATALOG = Object.freeze({
   'sales-marketing-suite': {
     id: 'sales-marketing-suite', label: 'Sales Marketing Suite', product_primary: 'marketsync_social',
     products: ['design_studio', 'facebook', 'marketsync_social', 'marketsync_email'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 249, tier: 1,
+    monthly: 399, tier: 1,
     priceEnvCad: 'STRIPE_PRICE_SALES_SUITE_CAD', priceEnvUsd: 'STRIPE_PRICE_SALES_SUITE_USD',
     features: [...new Set([...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, 'social.scheduler', 'social.accounts', 'social.calendar', ...FEATURES_BY_PRODUCT.marketsync_email])],
     legacy: { ...legacyFlags({}), products: { design_studio: true, facebook_dealer: true, marketsync_social: true, marketsync_email: true, sales_marketing_suite: true } },
@@ -257,7 +266,7 @@ export const PLAN_CATALOG = Object.freeze({
   'service-marketing-suite': {
     id: 'service-marketing-suite', label: 'Service Marketing Suite', product_primary: 'marketsync_email',
     products: ['marketsync_email'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 249, tier: 1,
+    monthly: 399, tier: 1,
     priceEnvCad: 'STRIPE_PRICE_SERVICE_SUITE_CAD', priceEnvUsd: 'STRIPE_PRICE_SERVICE_SUITE_USD',
     features: [...FEATURES_BY_PRODUCT.marketsync_email],
     legacy: { ...legacyFlags({}), products: { marketsync_email: true, service_marketing_suite: true } },
@@ -265,7 +274,7 @@ export const PLAN_CATALOG = Object.freeze({
   'complete-marketing-suite': {
     id: 'complete-marketing-suite', label: 'Complete Marketing Suite', product_primary: 'marketsync_social',
     products: ['design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 399, tier: 2,
+    monthly: 699, tier: 2,
     priceEnvCad: 'STRIPE_PRICE_COMPLETE_SUITE_CAD', priceEnvUsd: 'STRIPE_PRICE_COMPLETE_SUITE_USD',
     features: [...new Set([...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, ...FEATURES_BY_PRODUCT.marketsync_social, ...FEATURES_BY_PRODUCT.marketsync_email, ...FEATURES_BY_PRODUCT.marketsync_video])],
     legacy: { ...legacyFlags({}), products: { design_studio: true, facebook_dealer: true, marketsync_social: true, marketsync_email: true, marketsync_video: true, complete_marketing_suite: true } },
@@ -273,7 +282,7 @@ export const PLAN_CATALOG = Object.freeze({
   'marketsync-digital': {
     id: 'marketsync-digital', label: 'MarketSync Digital', product_primary: 'marketsync_website',
     products: ['design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website', 'ai_dealer'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 599, tier: 2,
+    monthly: 1199, tier: 2,
     priceEnvCad: 'STRIPE_PRICE_MARKETSYNC_DIGITAL_CAD', priceEnvUsd: 'STRIPE_PRICE_MARKETSYNC_DIGITAL_USD',
     features: [...new Set([...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, ...FEATURES_BY_PRODUCT.marketsync_social, ...FEATURES_BY_PRODUCT.marketsync_email, ...FEATURES_BY_PRODUCT.marketsync_video, ...FEATURES_BY_PRODUCT.marketsync_website, ...FEATURES_BY_PRODUCT.ai_dealer])],
     legacy: {
@@ -286,7 +295,7 @@ export const PLAN_CATALOG = Object.freeze({
     products: ['dealer_os', 'design_studio', 'facebook', 'marketsync_social', 'marketsync_email'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
     monthly: 1499, tier: 0,
     priceEnvCad: 'STRIPE_PKG_CORE_CAD', priceEnvUsd: 'STRIPE_PKG_CORE_USD',
-    features: [...new Set([...OS_STARTER, ...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, 'social.scheduler', 'social.accounts', 'social.calendar', ...FEATURES_BY_PRODUCT.marketsync_email])],
+    features: [...new Set([...CURRENT_CORE_OS, ...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, 'social.scheduler', 'social.accounts', 'social.calendar', ...FEATURES_BY_PRODUCT.marketsync_email])],
     legacy: { ...legacyFlags({ plan: 'core', ai: false, invIntel: false }), products: { dealer_os: true, design_studio: true, facebook_dealer: true, marketsync_social: true, marketsync_email: true } },
   },
   'dealer-os-pro': {
@@ -294,23 +303,20 @@ export const PLAN_CATALOG = Object.freeze({
     products: ['dealer_os', 'design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website', 'ai_dealer'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
     monthly: 2499, tier: 1,
     priceEnvCad: 'STRIPE_PKG_DEALEROS_PRO_CAD', priceEnvUsd: 'STRIPE_PKG_DEALEROS_PRO_USD',
-    features: [...new Set([...OS_PRO, ...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, ...FEATURES_BY_PRODUCT.marketsync_social, ...FEATURES_BY_PRODUCT.marketsync_email, ...FEATURES_BY_PRODUCT.marketsync_video, ...FEATURES_BY_PRODUCT.marketsync_website, ...FEATURES_BY_PRODUCT.ai_dealer])],
+    features: [...new Set([...CURRENT_PRO_OS, ...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, ...FEATURES_BY_PRODUCT.marketsync_social, ...FEATURES_BY_PRODUCT.marketsync_email, ...FEATURES_BY_PRODUCT.marketsync_video, ...FEATURES_BY_PRODUCT.marketsync_website, ...FEATURES_BY_PRODUCT.ai_dealer])],
     legacy: {
       ...legacyFlags({ plan: 'dealeros_pro', ai: true, invIntel: true }), ai_chatbot_active: true, ai_chatbot_paid: true,
       products: { dealer_os: true, design_studio: true, facebook_dealer: true, marketsync_social: true, marketsync_email: true, marketsync_video: true, marketsync_website: true, ai_chatbot: true },
     },
   },
-  // Complete shares Pro's product/feature ceiling — its public differentiators (Accounting
-  // Ledger sync is already inside OS_PRO's 'os.accounting'; "Unlimited Intelligence" usage
-  // limits and "Multi-Store & Dealership Group Aggregation") aren't modeled as distinct
-  // feature gates yet. If Complete should be technically distinguishable from Pro (not just
-  // priced/supported differently), that needs dedicated feature ids in a follow-up.
+  // Complete retains Pro's product bundle and adds the operating departments promised
+  // by the public package: Accounting, Automations and Integrations/API access.
   'dealer-os-complete': {
     id: 'dealer-os-complete', label: 'DealerOS Complete', product_primary: 'dealer_os',
     products: ['dealer_os', 'design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website', 'ai_dealer'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
     monthly: 3999, tier: 2,
     priceEnvCad: 'STRIPE_PKG_DEALEROS_COMPLETE_CAD', priceEnvUsd: 'STRIPE_PKG_DEALEROS_COMPLETE_USD',
-    features: [...new Set([...OS_PRO, ...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, ...FEATURES_BY_PRODUCT.marketsync_social, ...FEATURES_BY_PRODUCT.marketsync_email, ...FEATURES_BY_PRODUCT.marketsync_video, ...FEATURES_BY_PRODUCT.marketsync_website, ...FEATURES_BY_PRODUCT.ai_dealer])],
+    features: [...new Set([...CURRENT_COMPLETE_OS, ...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, ...FEATURES_BY_PRODUCT.marketsync_social, ...FEATURES_BY_PRODUCT.marketsync_email, ...FEATURES_BY_PRODUCT.marketsync_video, ...FEATURES_BY_PRODUCT.marketsync_website, ...FEATURES_BY_PRODUCT.ai_dealer])],
     legacy: {
       ...legacyFlags({ plan: 'dealeros_complete', ai: true, invIntel: true }), ai_chatbot_active: true, ai_chatbot_paid: true,
       products: { dealer_os: true, design_studio: true, facebook_dealer: true, marketsync_social: true, marketsync_email: true, marketsync_video: true, marketsync_website: true, ai_chatbot: true },
