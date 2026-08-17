@@ -449,7 +449,13 @@ class StudioFabricAdapter {
   async addVideo(url, name = 'Video', options = {}) {
     if (!this.fabricCanvas || !url) return;
     const video = document.createElement('video');
-    video.crossOrigin = 'anonymous';
+    // No crossOrigin here on purpose: this app never reads pixel data back off the
+    // canvas client-side (saveStudioDesign/renderStudioDesignAndPublish both send the
+    // scene JSON to a backend renderer, never canvas.toDataURL()), so there's nothing
+    // that needs a CORS-clean canvas. Setting crossOrigin='anonymous' against a video
+    // CDN that doesn't return CORS headers for its files (Pexels' does not) makes the
+    // browser reject the load outright — the video never plays, never mind renders on
+    // the artboard. Without it, the video loads and draws normally.
     video.muted = true; video.loop = true; video.playsInline = true; video.preload = 'metadata';
     video.src = url;
     await new Promise((resolve, reject) => {
@@ -496,6 +502,16 @@ class StudioFabricAdapter {
   sendBackwards() {
     const active = this.fabricCanvas?.getActiveObject();
     if (active) { this.fabricCanvas.sendBackwards(active); this.fabricCanvas.renderAll(); this.saveHistory(); }
+  }
+
+  bringToFront() {
+    const active = this.fabricCanvas?.getActiveObject();
+    if (active) { this.fabricCanvas.bringToFront(active); this.fabricCanvas.renderAll(); this.saveHistory(); }
+  }
+
+  sendToBack() {
+    const active = this.fabricCanvas?.getActiveObject();
+    if (active) { this.fabricCanvas.sendToBack(active); this.fabricCanvas.renderAll(); this.saveHistory(); }
   }
 
   // Places a clone offset from the source so it's visibly a new object, not

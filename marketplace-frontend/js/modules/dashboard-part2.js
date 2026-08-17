@@ -725,6 +725,42 @@ async function initializeDashboardEcosystem() {
       __settingsTab = 'account';
     }
 
+    // Design Studio standalone accounts never see the DealerOS dashboard at all
+    // (applyProductNav() auto-launches the Studio modal instead) — so the only
+    // reachable page is Settings, and it should show just Upgrade, Billing and
+    // Profile. The Settings tab bar today is account/admin/hr/sales/marketing/
+    // inventory/service/accounting (SETTINGS_TAB_SECTIONS in dashboard-part8.js) —
+    // every non-account button carries [data-admin-only], and since this account's
+    // role is admin-grade (canManageFeeds is true), the generic canManageFeeds hide
+    // above never touches them. Hide the tab buttons directly instead. Billing lives
+    // under Administration for every other tier, so fold it into My Account here —
+    // it's the one Administration card this tier still needs (Upgrade lives outside
+    // Settings entirely, at the header's #open-upgrades button).
+    if (typeof isDesignStudioOnlyWorkspace === 'function' && isDesignStudioOnlyWorkspace()) {
+      document.querySelectorAll('#settings-tabs [data-admin-only]').forEach(el => el.classList.add('hidden'));
+      if (Array.isArray(SETTINGS_TAB_SECTIONS?.account) && !SETTINGS_TAB_SECTIONS.account.includes('billing-section')) {
+        SETTINGS_TAB_SECTIONS.account.push('billing-section');
+      }
+      __settingsTab = 'account';
+    }
+
+    // Facebook-only tiers (Solo or Dealer AutoPoster) bought Facebook posting, not
+    // the rest of DealerOS — same Administration-tab leak as Design Studio above
+    // (a facebook_dealer account's owner is admin-grade, so canManageFeeds keeps
+    // every [data-admin-only] Settings tab visible). Trim to My Account, but fold in
+    // both Billing AND Facebook Posting Safety (guardrail-settings-section) — the
+    // one dealer-admin setting this tier actually needs.
+    if (typeof isFacebookOnlyWorkspace === 'function' && isFacebookOnlyWorkspace()) {
+      document.querySelectorAll('#settings-tabs [data-admin-only]').forEach(el => el.classList.add('hidden'));
+      if (Array.isArray(SETTINGS_TAB_SECTIONS?.account)) {
+        ['billing-section', 'guardrail-settings-section'].forEach(id => {
+          if (!SETTINGS_TAB_SECTIONS.account.includes(id)) SETTINGS_TAB_SECTIONS.account.push(id);
+        });
+      }
+      document.getElementById('guardrail-settings-section')?.classList.remove('hidden');
+      __settingsTab = 'account';
+    }
+
     // All role-based hide rules above have run. Reveal the page now (the head CSS
     // kept role-gated items hidden until this point, so nothing dealer-only ever
     // flashed for a solo rep). This happens synchronously after the hides, so the

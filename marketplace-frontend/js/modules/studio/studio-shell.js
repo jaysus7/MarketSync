@@ -322,6 +322,14 @@ function renderStudioWorkspaceHtml(designName, scene) {
   `;
 }
 
+// Every 'vehicle-image' element below carries a real fallback `src` (a free library
+// photo) so a template shows a fully styled example the moment it loads — before that,
+// with no src and no bound vehicle, fabric-adapter.js's render condition
+// `(el.src || currentVehicle?.primary_photo_url)` was false and the whole photo slot
+// rendered as nothing, a blank hole in the layout. Binding a real vehicle
+// (bindVehicleToStudio()) doesn't touch this src — it layers a new image + badge +
+// text on top instead — so the fallback photo stays as a backdrop unless the user
+// deletes it, same as any other placeholder asset.
 const STUDIO_TEMPLATES_CATALOG = {
   tmpl_spotlight_square: {
     template_key: 'tmpl_spotlight_square',
@@ -337,7 +345,7 @@ const STUDIO_TEMPLATES_CATALOG = {
       height: 1080,
       background: { color: '#0F172A' },
       elements: [
-        { id: 'el-bg-photo', type: 'vehicle-image', x: 0, y: 0, width: 1080, height: 720, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
+        { id: 'el-bg-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1600&q=82', x: 0, y: 0, width: 1080, height: 720, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
         { id: 'el-grad-overlay', type: 'shape', shapeType: 'rect', x: 0, y: 580, width: 1080, height: 500, fill: '#0F172A', opacity: 0.95, z: 2, name: 'Bottom Panel' },
         { id: 'el-badge', type: 'shape', shapeType: 'rect', x: 50, y: 50, width: 220, height: 50, fill: '#4F46E5', rx: 12, opacity: 1, z: 3, name: 'Badge Pill' },
         { id: 'el-badge-txt', type: 'text', x: 75, y: 65, text: 'JUST ARRIVED', fontSize: 18, fontWeight: '800', fill: '#FFFFFF', z: 4, name: 'Badge Text' },
@@ -364,7 +372,7 @@ const STUDIO_TEMPLATES_CATALOG = {
       height: 1920,
       background: { color: '#18181B' },
       elements: [
-        { id: 'el-photo', type: 'vehicle-image', x: 0, y: 200, width: 1080, height: 1100, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
+        { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1600&q=82', x: 0, y: 200, width: 1080, height: 1100, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
         { id: 'el-top-banner', type: 'shape', shapeType: 'rect', x: 0, y: 0, width: 1080, height: 200, fill: '#EF4444', opacity: 1, z: 2, name: 'Price Reduction Banner' },
         { id: 'el-top-txt', type: 'text', x: 320, y: 75, text: 'PRICE REDUCED!', fontSize: 44, fontWeight: '900', fill: '#FFFFFF', z: 3, name: 'Banner Text' },
         { id: 'el-card', type: 'shape', shapeType: 'rect', x: 50, y: 1350, width: 980, height: 480, fill: '#27272A', rx: 32, opacity: 0.95, z: 4, name: 'Card Background' },
@@ -389,7 +397,7 @@ const STUDIO_TEMPLATES_CATALOG = {
       height: 628,
       background: { color: '#0B0F19' },
       elements: [
-        { id: 'el-photo', type: 'vehicle-image', x: 0, y: 0, width: 620, height: 628, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
+        { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1562141961-b5d64a7b61c0?auto=format&fit=crop&w=1600&q=82', x: 0, y: 0, width: 620, height: 628, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
         { id: 'el-card', type: 'shape', shapeType: 'rect', x: 600, y: 0, width: 600, height: 628, fill: '#1E293B', opacity: 1, z: 2, name: 'Right Copy Panel' },
         { id: 'el-badge', type: 'text', x: 650, y: 60, text: 'WEEKEND SPECIAL', fontSize: 20, fontWeight: '800', fill: '#F59E0B', z: 3, name: 'Badge' },
         { id: 'el-title', type: 'text', x: 650, y: 110, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 36, fontWeight: '900', fill: '#FFFFFF', z: 4, name: 'Vehicle Name' },
@@ -416,7 +424,7 @@ const STUDIO_TEMPLATES_CATALOG = {
       elements: [
         { id: 'el-top-pill', type: 'shape', shapeType: 'rect', x: 50, y: 40, width: 340, height: 50, fill: '#D97706', rx: 12, opacity: 1, z: 1, name: 'CPO Pill' },
         { id: 'el-top-txt', type: 'text', x: 80, y: 55, text: 'CERTIFIED PRE-OWNED', fontSize: 18, fontWeight: '800', fill: '#FFFFFF', z: 2, name: 'CPO Text' },
-        { id: 'el-photo', type: 'vehicle-image', x: 0, y: 120, width: 1080, height: 780, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
+        { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1600&q=82', x: 0, y: 120, width: 1080, height: 780, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
         { id: 'el-card', type: 'shape', shapeType: 'rect', x: 40, y: 920, width: 1000, height: 380, fill: '#1E293B', rx: 24, opacity: 0.95, z: 4, name: 'Bottom Details Card' },
         { id: 'el-ymmt', type: 'text', x: 80, y: 970, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 42, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'Title' },
         { id: 'el-insp', type: 'text', x: 80, y: 1040, text: '172-Point Inspection Passed • Low Mileage', fontSize: 22, fontWeight: '600', fill: '#94A3B8', z: 6, name: 'Inspection' },
@@ -441,7 +449,7 @@ const STUDIO_TEMPLATES_CATALOG = {
       elements: [
         { id: 'el-hdr', type: 'text', x: 60, y: 80, text: 'TOP MARKET TRADE VALUE', fontSize: 44, fontWeight: '900', fill: '#FFFFFF', z: 1, name: 'Header' },
         { id: 'el-sub', type: 'text', x: 60, y: 150, text: 'We Need Used Inventory — Get Up to 120% KBB Value!', fontSize: 26, fontWeight: '700', fill: '#A7F3D0', z: 2, name: 'Subtitle' },
-        { id: 'el-photo', type: 'vehicle-image', x: 60, y: 220, width: 960, height: 560, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
+        { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=1600&q=82', x: 60, y: 220, width: 960, height: 560, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
         { id: 'el-btn', type: 'shape', shapeType: 'rect', x: 60, y: 840, width: 960, height: 160, fill: '#10B981', rx: 24, opacity: 1, z: 4, name: 'CTA Card' },
         { id: 'el-btn-txt', type: 'text', x: 180, y: 900, text: 'VALUE YOUR TRADE IN 60 SECONDS', fontSize: 32, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'CTA Text' }
       ]
@@ -463,7 +471,7 @@ const STUDIO_TEMPLATES_CATALOG = {
       elements: [
         { id: 'el-badge', type: 'shape', shapeType: 'rect', x: 60, y: 60, width: 360, height: 60, fill: '#06B6D4', rx: 16, opacity: 1, z: 1, name: 'EV Badge' },
         { id: 'el-badge-txt', type: 'text', x: 90, y: 78, text: 'NEXT-GEN ELECTRIC', fontSize: 22, fontWeight: '900', fill: '#FFFFFF', z: 2, name: 'EV Text' },
-        { id: 'el-photo', type: 'vehicle-image', x: 0, y: 160, width: 1080, height: 1100, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
+        { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1592833159155-c62df1b65634?auto=format&fit=crop&w=1600&q=82', x: 0, y: 160, width: 1080, height: 1100, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
         { id: 'el-card', type: 'shape', shapeType: 'rect', x: 50, y: 1300, width: 980, height: 520, fill: '#0F172A', rx: 32, opacity: 0.95, z: 4, name: 'Card' },
         { id: 'el-title', type: 'text', x: 100, y: 1360, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 44, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'Title' },
         { id: 'el-rebate', type: 'text', x: 100, y: 1430, text: 'Federal & State Rebates Up to $7,500 Available', fontSize: 24, fontWeight: '700', fill: '#38BDF8', z: 6, name: 'Rebate' },
@@ -657,7 +665,81 @@ async function initStudioAdapter(scene) {
   });
 
   await window.__studioAdapter.init(scene, window.__studioCurrentVehicle);
+  wireStudioContextMenu(window.__studioAdapter);
 }
+
+// Right-click on the artboard — the same actions already on the toolbar/keyboard
+// shortcuts (Copy/Cut/Paste/Duplicate, layer order, Group/Ungroup, Delete), just
+// reachable without knowing the shortcut exists.
+function wireStudioContextMenu(adapter) {
+  const canvas = adapter?.fabricCanvas;
+  if (!canvas?.upperCanvasEl) return;
+  canvas.upperCanvasEl.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const target = canvas.findTarget(e, false);
+    if (target && !canvas.getActiveObjects().includes(target)) {
+      canvas.discardActiveObject();
+      canvas.setActiveObject(target);
+      canvas.requestRenderAll();
+    } else if (!target) {
+      canvas.discardActiveObject();
+      canvas.requestRenderAll();
+    }
+    showStudioContextMenu(e.clientX, e.clientY, !!target);
+  });
+}
+
+function closeStudioContextMenu() {
+  document.getElementById('studio-context-menu')?.remove();
+  document.removeEventListener('keydown', studioContextMenuEscape);
+}
+window.closeStudioContextMenu = closeStudioContextMenu;
+function studioContextMenuEscape(e) { if (e.key === 'Escape') closeStudioContextMenu(); }
+
+function showStudioContextMenu(x, y, hasTarget) {
+  closeStudioContextMenu();
+  const adapter = window.__studioAdapter;
+  const active = adapter?.fabricCanvas?.getActiveObject();
+  const isSelection = active?.type === 'activeSelection';
+  const isGroup = active?.type === 'group';
+  const item = (label, method, opts = {}) => `<button type="button" onclick="studioCtxAction('${method}')" ${opts.disabled ? 'disabled' : ''} class="w-full text-left px-3 py-1.5 flex items-center justify-between gap-4 transition ${opts.disabled ? 'opacity-40 cursor-default' : 'hover:bg-slate-800'} ${opts.danger && !opts.disabled ? 'text-rose-400' : ''}"><span>${label}</span>${opts.shortcut ? `<span class="text-[10px] text-slate-500 font-mono">${opts.shortcut}</span>` : ''}</button>`;
+  const divider = '<div class="my-1 border-t border-slate-800"></div>';
+  const menu = document.createElement('div');
+  menu.id = 'studio-context-menu';
+  menu.className = 'fixed z-[100000] min-w-[190px] py-1.5 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl text-xs font-bold text-slate-200';
+  menu.innerHTML = [
+    item('Copy', 'copySelected', { disabled: !hasTarget, shortcut: 'Ctrl+C' }),
+    item('Cut', 'cutSelected', { disabled: !hasTarget, shortcut: 'Ctrl+X' }),
+    item('Paste', 'pasteClipboard', { disabled: !adapter?._clipboard, shortcut: 'Ctrl+V' }),
+    item('Duplicate', 'duplicateSelected', { disabled: !hasTarget, shortcut: 'Ctrl+D' }),
+    divider,
+    item('Bring to Front', 'bringToFront', { disabled: !hasTarget }),
+    item('Bring Forward', 'bringForward', { disabled: !hasTarget }),
+    item('Send Backward', 'sendBackwards', { disabled: !hasTarget }),
+    item('Send to Back', 'sendToBack', { disabled: !hasTarget }),
+    divider,
+    item('Group', 'groupSelected', { disabled: !isSelection, shortcut: 'Ctrl+G' }),
+    item('Ungroup', 'ungroupSelected', { disabled: !isGroup, shortcut: 'Ctrl+Shift+G' }),
+    divider,
+    item('Delete', 'deleteSelected', { disabled: !hasTarget, danger: true }),
+  ].join('');
+  document.body.appendChild(menu);
+  const rect = menu.getBoundingClientRect();
+  menu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - rect.width - 8))}px`;
+  menu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - rect.height - 8))}px`;
+  setTimeout(() => {
+    document.addEventListener('click', closeStudioContextMenu, { once: true });
+    document.addEventListener('keydown', studioContextMenuEscape);
+  }, 0);
+}
+window.showStudioContextMenu = showStudioContextMenu;
+
+function studioCtxAction(method) {
+  closeStudioContextMenu();
+  const adapter = window.__studioAdapter;
+  if (adapter && typeof adapter[method] === 'function') adapter[method]();
+}
+window.studioCtxAction = studioCtxAction;
 
 function setStudioTool(tool) {
   window.__studioActiveTool = tool;
@@ -719,31 +801,91 @@ async function bindVehicleToStudio(vehicleId) {
   if (typeof showToast === 'function') showToast(`Bound ${v.year || ''} ${v.make || ''} ${v.model || ''} to design!`, 'success');
 }
 
+// Search state — a fresh search resets to page 1 and replaces results; "Load More"
+// keeps the query/page and appends the next page instead.
+let __studioPhotoQuery = '', __studioPhotoPage = 1, __studioPhotoHasMore = false;
+let __studioVideoQuery = '', __studioVideoPage = 1, __studioVideoHasMore = false;
+
+function loadMoreButton(onclick, label) {
+  return `<button type="button" onclick="${onclick}" id="studio-load-more-btn" class="col-span-2 w-full mt-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-black text-white transition">${label}</button>`;
+}
+
 async function searchStudioLibrary(query) {
   const target = document.getElementById('studio-photo-results');
   if (!target) return;
-  const q = String(query || '').trim().toLowerCase();
+  __studioPhotoQuery = String(query || '').trim().toLowerCase();
+  __studioPhotoPage = 1;
   target.innerHTML = '<div class="col-span-2 p-5 text-center text-xs text-slate-500">Searching Pexels…</div>';
   try {
-    const data = await apiGetJson(`/marketing/studio/library/search?q=${encodeURIComponent(q || 'car dealership')}`);
-    target.innerHTML = data?.results?.length ? renderPexelsResults(data.results) : '<div class="col-span-2 p-4 text-center text-xs text-slate-500">No matching Pexels photos.</div>';
+    const data = await apiGetJson(`/marketing/studio/library/search?q=${encodeURIComponent(__studioPhotoQuery || 'car dealership')}&page=1`);
+    const results = data?.results || [];
+    __studioPhotoHasMore = results.length > 0 && results.length < (data?.total_results || 0);
+    target.innerHTML = results.length ? renderPexelsResults(results) : '<div class="col-span-2 p-4 text-center text-xs text-slate-500">No matching Pexels photos.</div>';
+    if (__studioPhotoHasMore) target.insertAdjacentHTML('beforeend', loadMoreButton('loadMoreStudioPhotos()', 'Load more photos'));
   } catch (error) {
-    const fallback = STUDIO_FREE_PHOTOS.filter(photo => !q || `${photo.keywords} ${photo.alt}`.toLowerCase().includes(q));
+    __studioPhotoHasMore = false;
+    const fallback = STUDIO_FREE_PHOTOS.filter(photo => !__studioPhotoQuery || `${photo.keywords} ${photo.alt}`.toLowerCase().includes(__studioPhotoQuery));
     target.innerHTML = fallback.length ? renderStudioPhotoResults(fallback) : '<div class="col-span-2 p-4 text-center text-xs text-rose-400">Photo search is temporarily unavailable.</div>';
   }
 }
 
+async function loadMoreStudioPhotos() {
+  const target = document.getElementById('studio-photo-results');
+  const btn = document.getElementById('studio-load-more-btn');
+  if (!target || !__studioPhotoHasMore) return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+  try {
+    const nextPage = __studioPhotoPage + 1;
+    const data = await apiGetJson(`/marketing/studio/library/search?q=${encodeURIComponent(__studioPhotoQuery || 'car dealership')}&page=${nextPage}`);
+    const results = data?.results || [];
+    __studioPhotoPage = nextPage;
+    btn?.remove();
+    if (results.length) target.insertAdjacentHTML('beforeend', renderPexelsResults(results));
+    __studioPhotoHasMore = results.length > 0;
+    if (__studioPhotoHasMore) target.insertAdjacentHTML('beforeend', loadMoreButton('loadMoreStudioPhotos()', 'Load more photos'));
+  } catch (error) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Load more photos'; }
+  }
+}
+window.loadMoreStudioPhotos = loadMoreStudioPhotos;
+
 async function searchStudioVideos(query) {
   const target = document.getElementById('studio-video-results');
   if (!target) return;
+  __studioVideoQuery = String(query || '').trim();
+  __studioVideoPage = 1;
   target.innerHTML = '<div class="p-5 text-center text-xs text-slate-500">Searching Pexels videos…</div>';
   try {
-    const data = await apiGetJson(`/marketing/studio/library/search?type=video&q=${encodeURIComponent(String(query || 'car dealership').trim())}`);
-    target.innerHTML = data?.results?.length ? renderStudioVideoResults(data.results) : '<div class="p-4 text-center text-xs text-slate-500">No matching videos.</div>';
+    const data = await apiGetJson(`/marketing/studio/library/search?type=video&q=${encodeURIComponent(__studioVideoQuery || 'car dealership')}&page=1`);
+    const results = data?.results || [];
+    __studioVideoHasMore = results.length > 0 && results.length < (data?.total_results || 0);
+    target.innerHTML = results.length ? renderStudioVideoResults(results) : '<div class="p-4 text-center text-xs text-slate-500">No matching videos.</div>';
+    if (__studioVideoHasMore) target.insertAdjacentHTML('beforeend', loadMoreButton('loadMoreStudioVideos()', 'Load more videos'));
   } catch (error) {
+    __studioVideoHasMore = false;
     target.innerHTML = `<div class="p-4 text-center text-xs text-rose-400">${escS(error.message || 'Video search is unavailable.')}</div>`;
   }
 }
+
+async function loadMoreStudioVideos() {
+  const target = document.getElementById('studio-video-results');
+  const btn = document.getElementById('studio-load-more-btn');
+  if (!target || !__studioVideoHasMore) return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+  try {
+    const nextPage = __studioVideoPage + 1;
+    const data = await apiGetJson(`/marketing/studio/library/search?type=video&q=${encodeURIComponent(__studioVideoQuery || 'car dealership')}&page=${nextPage}`);
+    const results = data?.results || [];
+    __studioVideoPage = nextPage;
+    btn?.remove();
+    if (results.length) target.insertAdjacentHTML('beforeend', renderStudioVideoResults(results));
+    __studioVideoHasMore = results.length > 0;
+    if (__studioVideoHasMore) target.insertAdjacentHTML('beforeend', loadMoreButton('loadMoreStudioVideos()', 'Load more videos'));
+  } catch (error) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Load more videos'; }
+  }
+}
+window.loadMoreStudioVideos = loadMoreStudioVideos;
 
 async function loadStudioUploadedVideos() {
   const target = document.getElementById('studio-uploaded-videos');
@@ -953,6 +1095,7 @@ function closeMarketSyncStudio() {
   window.__studioFitObserver?.disconnect();
   window.__studioFitObserver = null;
   document.getElementById('ms-studio-master-modal')?.remove();
+  closeStudioContextMenu();
   if (window.__studioKeydownBound) {
     window.__studioKeydownBound = false;
     document.removeEventListener('keydown', studioKeydownHandler);
