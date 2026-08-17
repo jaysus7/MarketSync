@@ -16,12 +16,12 @@
   <link rel="apple-touch-icon" href="/favicon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DealerOS by MarketSync · Dashboard</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://api.fontshare.com">
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/marketsync-theme.css">
   <link rel="stylesheet" href="css/dashboard-nav.css">
-  <script>tailwind = { config: { darkMode: 'class' } }</script>
+  <link rel="stylesheet" href="css/dashboard-brand-repaint.css">
+  <script>tailwind = { config: { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Satoshi', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'] } } } } }</script>
   <script src="https://cdn.tailwindcss.com"></script>
   <meta name="color-scheme" content="light dark">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -285,8 +285,8 @@
     <!-- LEFT SIDE: Logo + Role Pill + Live Shift Punch Clock -->
     <div class="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
       <a href="#" onclick="switchPage('command'); return false;" class="flex items-center gap-2 flex-shrink-0">
-        <img src="/Logo 2.0.png" alt="MarketSync DealerOS" class="h-8 w-auto dark:hidden">
-        <img src="/Logo 2.1.png" alt="MarketSync DealerOS" class="h-8 w-auto hidden dark:block">
+        <img src="/Logo 2.0.png" alt="MarketSync DealerOS" class="h-10 w-auto dark:hidden">
+        <img src="/Logo 2.1.png" alt="MarketSync DealerOS" class="h-10 w-auto hidden dark:block">
       </a>
       <!-- Who you are signed in AS -->
       <span class="hidden sm:inline-block text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 font-mono px-2 py-0.5 rounded truncate" id="ui-role-pill">Loading...</span>

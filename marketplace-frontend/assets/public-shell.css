@@ -53,6 +53,17 @@ background:var(--ms-accent);
 }
 .ms-logo-accent{color:var(--ms-accent);
 }
+/* Logo light/dark swap — plain CSS (no Tailwind dependency, matches every public
+   page whether or not it happens to load Tailwind). */
+.ms-logo-light{display:inline-block;
+}
+.ms-logo-dark{display:none;
+}
+@media (prefers-color-scheme:dark){.ms-logo-light{display:none;
+}
+.ms-logo-dark{display:inline-block;
+}
+}
 .ms-nav-desktop{display:none;
 align-items:center;
 gap:4px;
