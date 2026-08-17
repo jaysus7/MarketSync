@@ -17,6 +17,7 @@ import { accrueAffiliateCommission } from './affiliate.js'
 import { postMarketsyncRevenue } from './accounting.js'
 import { syncSubscriptionFromStripe } from '../entitlements.js'
 import { getPlan, stripePriceForPlan, PLAN_CATALOG, PLAN_IDS } from '../plan-catalog.js'
+import { blockDemoStripeAction } from './demo.js'
 
 // Inventory Intelligence price ID — accept the canonical name OR the
 // STRIPE_INVENTORY_INTELLIGANCE name used in the current Render environment,
@@ -440,9 +441,9 @@ export function registerRoutes(app) {
   }
 
   // ── Add-on subscription endpoints ─────────────────────────────────────────
-  app.post('/billing/subscribe-ai-boost',    requireAuth, requireMfa, requireBillingManage, (req, res) => createAddonCheckout(req, res, 'ai_boost'))
-  app.post('/billing/subscribe-ai-chatbot',  requireAuth, requireMfa, requireBillingManage, (req, res) => createAddonCheckout(req, res, 'ai_chatbot'))
-  app.post('/billing/subscribe-inv-intel',   requireAuth, requireMfa, requireBillingManage, (req, res) => createAddonCheckout(req, res, 'inv_intel'))
+  app.post('/billing/subscribe-ai-boost',    requireAuth, requireMfa, requireBillingManage, blockDemoStripeAction, (req, res) => createAddonCheckout(req, res, 'ai_boost'))
+  app.post('/billing/subscribe-ai-chatbot',  requireAuth, requireMfa, requireBillingManage, blockDemoStripeAction, (req, res) => createAddonCheckout(req, res, 'ai_chatbot'))
+  app.post('/billing/subscribe-inv-intel',   requireAuth, requireMfa, requireBillingManage, blockDemoStripeAction, (req, res) => createAddonCheckout(req, res, 'inv_intel'))
   // Retired add-ons — VIN & Brochure (OEM) is now core; AI Vision + generated docs
   // are part of AI Boost. Point any stale clients at AI Boost.
   const retired = (req, res) => res.status(410).json({ error: 'This add-on has moved into AI Boost.', redirect: 'ai_boost' })
@@ -483,7 +484,7 @@ export function registerRoutes(app) {
       res.json({ url: session.url })
     } catch (err) { res.status(500).json({ error: err.message }) }
   }
-  app.post('/billing/subscribe-package', requireAuth, requireMfa, requireBillingManage, createPackageCheckout)
+  app.post('/billing/subscribe-package', requireAuth, requireMfa, requireBillingManage, blockDemoStripeAction, createPackageCheckout)
 
   // ── Plan subscription (the entitlement-engine flow) ──────────────────────────
   // Start Stripe Checkout for a catalog plan (fb_solo / fb_dealership / os_starter /
@@ -522,7 +523,7 @@ export function registerRoutes(app) {
       res.json({ url: session.url })
     } catch (err) { res.status(500).json({ error: err.message }) }
   }
-  app.post('/billing/subscribe-plan', requireAuth, requireBillingManage, createPlanCheckout)
+  app.post('/billing/subscribe-plan', requireAuth, requireBillingManage, blockDemoStripeAction, createPlanCheckout)
 
   // The plan catalog for the in-app "upgrade to unlock" UI. Reads plan-catalog.js (the
   // single source), annotates each plan with the caller's current active plan(s) and
@@ -592,7 +593,7 @@ export function registerRoutes(app) {
   app.get('/billing/ai-vision-verify',   requireAuth, requireMfa, requireBillingManage, verifyLimit, (req, res) => verifyAddonSession(req, res, 'ai_vision'))
 
   // ── Customer Portal ────────────────────────────────────────────────────────
-  app.post('/billing/portal', requireAuth, requireMfa, requireBillingManage, async (req, res) => {
+  app.post('/billing/portal', requireAuth, requireMfa, requireBillingManage, blockDemoStripeAction, async (req, res) => {
     const customerId = req.profile.dealerships?.stripe_customer_id || req.profile.stripe_customer_id
     if (!customerId) return res.status(400).json({ error: 'No billing account found' })
 
@@ -608,7 +609,7 @@ export function registerRoutes(app) {
   })
 
   // ── Main checkout (base platform plan) ────────────────────────────────────
-  app.post('/billing/checkout', requireAuth, requireMfa, requireBillingManage, async (req, res) => {
+  app.post('/billing/checkout', requireAuth, requireMfa, requireBillingManage, blockDemoStripeAction, async (req, res) => {
     const isPersonal = req.profile.dealerships?.is_personal === true
     const isSolo = !req.dealershipId || isPersonal
 

@@ -27,6 +27,22 @@ const isDealerAdmin = req => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.p
 const isDedicatedDemoName = name => /(?:^|\b)demo(?:\b|$)/i.test(String(name || ''))
 const RETIRED_HQ_SANDBOXES = new Set(['MarketSync Demo', 'MarketSync Automotive'])
 
+// ID-only variant of ownDedicatedDemoAccount, for interception points that only have a
+// bare dealershipId (SMS/email/Stripe call sites deep in automation.js, action-executor.js
+// — not an Express req). Short-TTL cached since sendSms()/the email executors call this on
+// every send; a dealership's demo-ness never changes mid-session so 5 minutes is safe.
+const __demoIdCache = new Map()
+const DEMO_ID_CACHE_TTL_MS = 5 * 60 * 1000
+export async function isDemoDealershipId(dealershipId) {
+  if (!dealershipId) return false
+  const cached = __demoIdCache.get(dealershipId)
+  if (cached && Date.now() - cached.at < DEMO_ID_CACHE_TTL_MS) return cached.value
+  const { data } = await supabaseAdmin.from('dealerships').select('name').eq('id', dealershipId).maybeSingle()
+  const value = !!data && isDedicatedDemoName(data.name) && !RETIRED_HQ_SANDBOXES.has(data.name)
+  __demoIdCache.set(dealershipId, { value, at: Date.now() })
+  return value
+}
+
 const CUSTOMERS = [
   { first: 'Ava', last: 'Thompson', email: 'ava.thompson@example.com', phone: '(416) 555-2201', status: 'uncontacted', source: 'Website', stock: 'DEMO-01', price: 32480, deal_status: 'draft', num: 2001, note: 'Enquired on the RAV4 overnight — needs a first call.' },
   { first: 'Liam', last: 'Rodriguez', email: 'liam.rodriguez@example.com', phone: '(647) 555-2202', status: 'contacted', source: 'Facebook Marketplace', stock: 'DEMO-02', price: 41900, deal_status: 'quoted', num: 2002, note: 'Called back — wants payment options on the F-150.' },
@@ -223,6 +239,25 @@ export async function ownDedicatedDemoAccount(req) {
   return dealership
 }
 export { seedAccount }
+
+// Middleware for every route that would otherwise create a real Stripe checkout session,
+// billing-portal session, or connected account (routes/billing.js, routes/groups.js,
+// routes/deposits.js). Short-circuits with a clearly-labeled simulated response instead of
+// calling next(). `complimentary` + `error` are both set because different checkout
+// call-sites on the frontend check for different fields on failure/no-op — this keeps the
+// demo operator's alert readable regardless of which route they hit, without having to
+// audit and special-case every frontend consumer's response-shape assumption.
+export async function blockDemoStripeAction(req, res, next) {
+  try {
+    const dealership = await ownDedicatedDemoAccount(req)
+    if (!dealership) return next()
+    console.log('[demo] blocked Stripe action (simulated):', { dealershipId: req.dealershipId, path: req.originalUrl })
+    return res.json({
+      ok: true, demo: true, simulated: true, complimentary: true,
+      error: 'This is the demo account — billing is simulated here. No real payment or Stripe session was created.',
+    })
+  } catch (e) { next(e) }
+}
 
 export function registerDemo(app) {
   // A dedicated demo login prepares only its own dealership and its purchased modules.

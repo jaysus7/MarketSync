@@ -24,6 +24,7 @@ import { requireAuth } from '../middleware.js'
 import { createNotification } from '../notifications.js'
 import { emitWebhook } from '../webhooks.js'
 import { raiseException } from './workflow.js'
+import { isDemoDealershipId } from './demo.js'
 
 // Minutes to wait before each retry, indexed by attempt number (1-based).
 const BACKOFF_MIN = [5, 15, 60]
@@ -34,6 +35,10 @@ const EXECUTORS = {
   async email(p) {
     if (!resend) return { skipped: true, reason: 'email_not_configured' }
     if (!p.to) throw new Error('email: missing recipient')
+    if (await isDemoDealershipId(p.dealershipId)) {
+      console.log('[demo] simulated action-executor email (not sent):', { dealershipId: p.dealershipId, to: p.to })
+      return { skipped: true, reason: 'demo_simulated', simulated: true }
+    }
     const r = await resend.emails.send({ from: p.from || EMAIL_FROM, to: p.to, subject: p.subject || '', html: p.html || p.text || '' })
     if (r?.error) throw new Error('resend: ' + (r.error.message || 'send failed'))
     return { id: r?.data?.id || null }
@@ -42,7 +47,7 @@ const EXECUTORS = {
     if (!p.to) throw new Error('sms: missing recipient')
     const { sendDealerSms } = await import('./automation.js')
     const r = await sendDealerSms(p.dealershipId, p.to, p.body || '')
-    if (r?.simulated) return { skipped: true, reason: 'sms_not_configured' }
+    if (r?.simulated) return { skipped: true, reason: r.demo ? 'demo_simulated' : 'sms_not_configured' }
     if (!r?.ok) throw new Error('sms: ' + (r?.error || 'send failed'))
     return { sid: r.sid || null }
   },

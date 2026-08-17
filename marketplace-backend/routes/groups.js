@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware.js'
 import { randomBytes } from 'crypto'
 import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
 import { audit } from '../audit.js'
+import { blockDemoStripeAction } from './demo.js'
 
 // Short, human-shareable join code (no ambiguous chars). e.g. "K7P4-9QMX".
 function makeJoinCode() {
@@ -230,7 +231,7 @@ export function registerGroups(app) {
 
   // Start a central group subscription checkout. The price is built inline from
   // the group's own negotiated monthly amount (no per-group Stripe Price needed).
-  app.post('/groups/billing/checkout', requireAuth, async (req, res) => {
+  app.post('/groups/billing/checkout', requireAuth, blockDemoStripeAction, async (req, res) => {
     if (!isGroupAdmin(req.profile) || !req.profile.group_id) {
       return res.status(403).json({ error: 'Group admin required' })
     }
