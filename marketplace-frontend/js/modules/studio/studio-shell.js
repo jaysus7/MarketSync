@@ -204,8 +204,12 @@ function renderStudioVideoResults(videos, uploaded = false) {
 
 function renderStudioWorkspaceHtml(designName, scene) {
   return `
-    <!-- Top Action Bar -->
-    <header class="h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between z-20 flex-shrink-0">
+    <!-- Header: two stacked layers — identity/branding on top, actions below.
+         Split out of one crowded row so the toolbar (zoom, undo/redo, format,
+         Save/Schedule/Render) has its own layer instead of fighting the logo/back
+         button/name field for space. -->
+    <div class="flex-shrink-0 z-20">
+    <header class="h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <button onclick="closeMarketSyncStudio()" class="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5 text-xs font-bold">
           ${typeof isDesignStudioOnlyWorkspace === 'function' && isDesignStudioOnlyWorkspace() ? '← Settings' : '← Back to Marketing'}
@@ -213,36 +217,41 @@ function renderStudioWorkspaceHtml(designName, scene) {
         <div class="h-5 w-px bg-slate-100 dark:bg-slate-800"></div>
         <img src="/Logo 2.0.png" alt="MarketSync" class="h-8 w-auto dark:hidden">
         <img src="/Logo 2.1.png" alt="MarketSync" class="h-8 w-auto hidden dark:block">
-        <span class="px-2 py-0.5 rounded-lg text-[11px] font-black bg-indigo-600/20 text-indigo-400 border border-indigo-500/40 tracking-wide uppercase">Design Studio</span>
+        <span class="px-2 py-0.5 rounded-lg text-[11px] font-black bg-indigo-600 text-white dark:bg-indigo-600/20 dark:text-indigo-400 border border-indigo-600 dark:border-indigo-500/40 tracking-wide uppercase">Design Studio</span>
         <input type="text" id="studio-design-name" value="${escS(designName)}" onchange="saveStudioDesignName(this.value)" class="bg-transparent text-sm font-black text-slate-900 dark:text-white focus:bg-slate-100 dark:focus:bg-slate-800 px-2 py-1 rounded-lg border border-transparent hover:border-slate-300 dark:hover:border-slate-700 transition">
-        <span id="studio-save-status" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">SAVED</span>
+        <span id="studio-save-status" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-600 text-white dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-600 dark:border-emerald-500/40">SAVED</span>
       </div>
+    </header>
 
+    <!-- Toolbar layer -->
+    <div class="h-14 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between overflow-x-auto">
       <div class="flex items-center gap-2">
         <!-- Zoom Controls -->
         <div class="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-300 dark:border-slate-700">
           <button onclick="zoomStudioOut()" title="Zoom Out" class="px-2.5 py-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-black text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition">-</button>
-          <span id="studio-zoom-display" class="px-2 text-xs font-mono font-bold text-sky-400">55%</span>
+          <span id="studio-zoom-display" class="px-2 text-xs font-mono font-bold text-indigo-600 dark:text-sky-400">55%</span>
           <button onclick="zoomStudioIn()" title="Zoom In" class="px-2.5 py-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-black text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition">+</button>
           <button onclick="zoomStudioFit()" title="Fit to Screen" class="px-2.5 py-1 ml-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 text-[11px] font-bold text-slate-900 dark:text-white transition">Fit</button>
         </div>
-        <button id="studio-guides-toggle" onclick="toggleStudioGuides()" class="px-3 py-1.5 rounded-xl bg-blue-600/20 border border-blue-500/40 text-blue-300 text-xs font-bold">Guides on</button>
+        <button id="studio-guides-toggle" onclick="toggleStudioGuides()" class="px-3 py-1.5 rounded-xl bg-indigo-600 text-white dark:bg-blue-600/20 dark:border dark:border-blue-500/40 dark:text-blue-300 text-xs font-bold">Guides on</button>
 
-        <div class="h-5 w-px bg-slate-100 dark:bg-slate-800"></div>
+        <div class="h-5 w-px bg-slate-200 dark:bg-slate-800"></div>
 
         <button onclick="if(window.__studioAdapter) window.__studioAdapter.undo()" title="Undo (Ctrl+Z)" class="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6-6m-6 6l6 6"/></svg>Undo</button>
         <button onclick="if(window.__studioAdapter) window.__studioAdapter.redo()" title="Redo (Ctrl+Shift+Z)" class="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 10H11a8 8 0 00-8 8v2m18-10l-6-6m6 6l-6 6"/></svg>Redo</button>
-        <div class="h-5 w-px bg-slate-100 dark:bg-slate-800"></div>
+        <div class="h-5 w-px bg-slate-200 dark:bg-slate-800"></div>
 
         <button onclick="if(window.__studioAdapter) window.__studioAdapter.duplicateSelected()" title="Duplicate (Ctrl+D)" class="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>Duplicate</button>
         <button onclick="if(window.__studioAdapter) window.__studioAdapter.groupSelected()" title="Group (Ctrl+G)" class="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4h7v7H4V4zm9 9h7v7h-7v-7zM4 20a1 1 0 001-1v-2M4 17v-1a1 1 0 011-1M20 4a1 1 0 00-1 1v2M20 7v1a1 1 0 01-1 1"/></svg>Group</button>
         <button onclick="if(window.__studioAdapter) window.__studioAdapter.ungroupSelected()" title="Ungroup (Ctrl+Shift+G)" class="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4h6v6H4V4zm10 10h6v6h-6v-6zM4 14h6v6H4v-6zm10-10h6v6h-6V4z"/></svg>Ungroup</button>
-        <div class="h-5 w-px bg-slate-100 dark:bg-slate-800"></div>
+        <div class="h-5 w-px bg-slate-200 dark:bg-slate-800"></div>
 
         <select id="studio-format-picker" onchange="changeStudioFormat(this.value)" class="bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700">
           ${Object.entries(STUDIO_SOCIAL_FORMATS).map(([key, format]) => `<option value="${key}" ${scene.format_key === key ? 'selected' : ''}>${format.label} (${format.w}×${format.h})</option>`).join('')}
         </select>
+      </div>
 
+      <div class="flex items-center gap-2">
         <button onclick="saveStudioDesign()" class="px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition flex items-center gap-1.5">
           <svg class="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>Save
         </button>
@@ -253,7 +262,8 @@ function renderStudioWorkspaceHtml(designName, scene) {
           <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.684A1.85 1.85 0 014.28 11.5c0-.853.585-1.572 1.4-1.782m0 0A3.001 3.001 0 0111 8.5h6.25a2.25 2.25 0 012.25 2.25v2.25a2.25 2.25 0 01-2.25 2.25H11a3 3 0 01-5.564-1.566z"/></svg>Render &amp; Publish to Social
         </button>
       </div>
-    </header>
+    </div>
+    </div>
 
     <!-- Main Workspace Body -->
     <div class="flex-1 flex overflow-hidden relative">
