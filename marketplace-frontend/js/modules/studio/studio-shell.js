@@ -500,11 +500,25 @@ function renderStudioSafeGuides(formatKey) {
   return `<div id="studio-safe-guides" class="absolute inset-0 pointer-events-none z-20"><div style="position:absolute;top:${top}%;right:${right}%;bottom:${bottom}%;left:${left}%;border:3px dashed rgba(96,165,250,.95);border-radius:18px;box-shadow:0 0 0 9999px rgba(15,23,42,.08)"><span style="position:absolute;left:10px;top:10px;background:rgba(15,23,42,.86);color:#dbeafe;padding:6px 10px;border-radius:8px;font:800 18px/1 Arial;letter-spacing:.04em">SAFE AREA · ${format.note}</span></div>${profileGuide}</div>`;
 }
 
+// Every template used to preview as the exact same generic blue gradient with the
+// exact same "YOUR CAMPAIGN STARTS HERE" caption — none of the 9+ templates looked
+// any different from each other in the picker. Build a real gradient from each
+// template's OWN scene colors (background + its most prominent shape fills) instead,
+// so the card actually shows what that template looks like.
+function templatePreviewGradient(tmpl) {
+  const bg = tmpl.scene?.background?.color || '#0f172a';
+  const fills = (tmpl.scene?.elements || [])
+    .filter(e => e.type === 'shape' && e.fill && e.opacity !== 0 && e.fill !== bg);
+  const accent = fills[0]?.fill || '#2563eb';
+  const accent2 = fills.slice().reverse().find(e => e.fill !== accent)?.fill || accent;
+  return `linear-gradient(135deg, ${bg}, ${accent} 58%, ${accent2})`;
+}
+
 function renderStudioTemplateCards(filter = 'all') {
   return Object.values(STUDIO_TEMPLATES_CATALOG).filter(t => filter === 'all' || t.format_key === filter).map(t => {
-    const preview = t.preview || 'linear-gradient(135deg,#0f172a,#2563eb 58%,#38bdf8)';
+    const preview = t.preview || templatePreviewGradient(t);
     const format = STUDIO_SOCIAL_FORMATS[t.format_key];
-    return `<button onclick="loadStudioTemplate('${t.template_key}')" class="w-full text-left rounded-2xl overflow-hidden bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-blue-500 transition group"><div style="height:104px;background:${preview}" class="relative p-3"><span class="absolute left-2 top-2 px-2 py-1 rounded-lg bg-slate-950/75 text-[9px] font-black text-blue-200">${format ? `${format.w}×${format.h}` : 'READY'}</span><div class="absolute left-3 right-3 bottom-3 text-white font-black text-sm leading-tight drop-shadow">YOUR CAMPAIGN<br><span class="text-blue-200">STARTS HERE</span></div></div><div class="p-3"><div class="text-xs font-black text-white group-hover:text-blue-300">${t.name}</div><div class="mt-1 text-[10px] text-slate-400">${t.desc}</div></div></button>`;
+    return `<button onclick="loadStudioTemplate('${t.template_key}')" class="w-full text-left rounded-2xl overflow-hidden bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-blue-500 transition group"><div style="height:104px;background:${preview}" class="relative p-3"><span class="absolute left-2 top-2 px-2 py-1 rounded-lg bg-slate-950/75 text-[9px] font-black text-blue-200">${format ? `${format.w}×${format.h}` : 'READY'}</span><div class="absolute left-3 right-3 bottom-3 text-white font-black text-sm leading-tight drop-shadow">${escS(t.name)}</div></div><div class="p-3"><div class="text-xs font-black text-white group-hover:text-blue-300">${t.name}</div><div class="mt-1 text-[10px] text-slate-400">${t.desc}</div></div></button>`;
   }).join('');
 }
 
