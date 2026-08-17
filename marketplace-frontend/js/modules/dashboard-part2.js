@@ -231,54 +231,13 @@ Object.assign(window, {
 // anything, and it never navigates you away from what you were doing.
 let __msLaunch = null;      // the last /launch answer, so the modal need not refetch
 
-async function refreshSetupIndicator(role) {
-  const banner = document.getElementById('setup-status-banner');
-  role = role || window.__setupIndicatorRole || profileContext?.role;
-  if (!banner) return;
-  // Single-product accounts bought one tool, not a DealerOS department suite —
-  // there's no multi-department setup for this banner to nudge them through.
-  if (typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace()) {
-    banner.classList.add('hidden');
-    banner.innerHTML = '';
-    return;
-  }
-  if (role && !['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(role)) {
-    banner.classList.add('hidden');
-    banner.innerHTML = '';
-    return;
-  }
-  window.__setupIndicatorRole = role;
-  try {
-    const response = await fetch(`${API}/launch`, { headers: { Authorization: `Bearer ${token}` } });
-    if (!response.ok) return;
-    const launch = await response.json();
-    __msLaunch = launch;
-    if (launch.fully_configured) { banner.classList.add('hidden'); banner.innerHTML = ''; return; }
-    const items = launch.items || [];
-    const done = items.filter(i => i.status === 'done').length;
-    const total = items.length || 1;
-    const required = items.filter(i => i.status === 'outstanding' && i.type === 'REQUIRED_TO_LAUNCH').length;
-    const pct = Math.round((done / total) * 100);
-
-    banner.classList.remove('hidden');
-    banner.innerHTML = `
-      <div title="Setting up your dealership" class="max-w-3xl mx-auto text-left rounded-xl border border-indigo-200 dark:border-indigo-800/80 bg-indigo-50/95 dark:bg-indigo-950/70 backdrop-blur p-3 shadow-lg group cursor-pointer">
-        <div class="flex items-center justify-between gap-1 mb-1">
-          <span class="inline-flex items-center gap-1.5 text-xs font-black text-indigo-700 dark:text-indigo-300 truncate">
-            <svg class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.58-5.84l4.13-4.13"/></svg>
-            Finish setup
-          </span>
-          <span class="text-xs font-black text-indigo-700 dark:text-indigo-300 shrink-0 font-mono">${done}/${total}</span>
-        </div>
-        <div class="text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5 line-clamp-1">
-          ${required ? `<span class="text-amber-600 dark:text-amber-400 font-bold">${required} required</span> to operate` : 'Optional tasks remaining'}
-        </div>
-        <div class="h-1.5 rounded-full bg-indigo-100 dark:bg-indigo-900/50 overflow-hidden">
-          <div class="h-full bg-indigo-600 dark:bg-indigo-500 rounded-full transition-all duration-500" style="width:${pct}%"></div>
-        </div>
-      </div>
-    `;
-  } catch { /* Setup status is useful context, never a reason to block shell. */ }
+// Retired: the persistent "Finish setup" nag banner is gone for everyone. The
+// Launch Hub page (switchPage('launch')) and msSetupModal() below still exist,
+// each doing their own independent /launch fetch, for anyone who navigates
+// there deliberately — this just stops the banner announcing itself unprompted
+// on every page load.
+function refreshSetupIndicator() {
+  document.getElementById('setup-status-banner')?.classList.add('hidden');
 }
 window.refreshSetupIndicator = refreshSetupIndicator;
 
@@ -449,27 +408,15 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-// Single-product Settings account tab: merge Language (authored in a separate
-// grid container, #settings-panel-extra) into #profile-panel alongside Profile /
-// Billing / Security, and force the 3-column grid directly rather than relying on
-// settingsTab()'s computed is-multi toggle — this tier's My Account tab should
-// always read as one compact block, never two stacked grids needing extra
-// scrolling to reach a card that's really just sitting in the other container.
+// Single-product Settings account tab: force the 3-column grid directly rather
+// than relying on settingsTab()'s computed is-multi toggle — this tier's My
+// Account tab should always read as one compact block.
 function forceCompactSettingsGrid() {
-  const profilePanel = document.getElementById('profile-panel');
-  const languageCard = document.getElementById('settings-language-card');
-  const billingSection = document.getElementById('billing-section');
-  // Language is a square card that sits directly under Billing & Subscription,
-  // not at the top of the grid — it's a single grid cell like Profile/Billing/
-  // Security, not a full-width banner.
-  if (profilePanel && languageCard && languageCard.parentElement !== profilePanel) {
-    if (billingSection && billingSection.parentElement === profilePanel) {
-      billingSection.insertAdjacentElement('afterend', languageCard);
-    } else {
-      profilePanel.appendChild(languageCard);
-    }
-  }
-  profilePanel?.classList.add('is-multi');
+  // settings-language-card is authored directly inside #profile-panel now (see
+  // dashboard.html), explicitly placed on row 2 via CSS — no runtime DOM move
+  // needed here any more. Single-product tiers still need is-multi forced
+  // directly: settingsTab()'s computed shown-count heuristic is fragile for them.
+  document.getElementById('profile-panel')?.classList.add('is-multi');
 }
 
 async function initializeDashboardEcosystem() {

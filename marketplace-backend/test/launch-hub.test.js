@@ -365,19 +365,17 @@ test('every launch requirement has a working contextual action', () => {
   assert.match(workspace, /i\.actionable_by_you !== false && action/)
 })
 
-test('incomplete setup shows once, at the bottom, from canonical launch state', () => {
-  assert.match(html, /id="setup-status-banner"/)
-  // Setup work belongs to one page; the global indicator only routes there.
-  assert.match(html, /id="setup-status-banner" onclick="switchPage\('launch'\)"/)
-  assert.match(part2, /fetch\(`\$\{API\}\/launch`/)
-  assert.match(part2, /launch\.fully_configured/)
-  assert.match(part2, /i\.type === 'REQUIRED_TO_LAUNCH'/)
-  assert.match(workspace, /refreshSetupIndicator\(\)/)
-  // Done means gone — no leftover "0 remaining" strip to dismiss.
-  assert.match(part2, /if \(launch\.fully_configured\) \{ banner\.classList\.add\('hidden'\)/)
-  // And it must sit AFTER the page content, not between the header and every department.
-  assert.ok(html.indexOf('id="setup-status-banner"') > html.indexOf('</main>'),
-    'the setup bar must be at the foot of the shell, not above every page')
+test('the "Finish setup" banner is retired — always hidden, never fetches or renders', () => {
+  // Used to show incomplete setup progress at the foot of the shell; retired
+  // outright (unconditionally hidden for every account, not just single-product
+  // tiers) rather than left half-wired, per a deliberate product decision.
+  assert.match(html, /id="setup-status-banner"/, 'the element stays in the DOM (other code still references it), just permanently hidden')
+  assert.match(part2, /function refreshSetupIndicator\(\) \{/)
+  const fn = part2.match(/function refreshSetupIndicator\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fn, 'refreshSetupIndicator must exist')
+  assert.match(fn, /getElementById\('setup-status-banner'\)\?\.classList\.add\('hidden'\)/)
+  assert.doesNotMatch(fn, /fetch\(`\$\{API\}\/launch`/, 'must not fetch /launch any more — nothing renders')
+  assert.match(workspace, /refreshSetupIndicator\(\)/, 'the Launch Hub page itself still calls it after a save, to keep the (now permanently hidden) banner in sync')
 })
 
 test('page navigation never opens a legacy setup wizard', () => {
@@ -386,5 +384,7 @@ test('page navigation never opens a legacy setup wizard', () => {
   assert.ok(!/ms_setup_intro_/.test(part2), 'login must not auto-open setup')
   assert.match(part24, /function checkDepartmentOpen\(pageId\)[\s\S]*?return pageId;/)
   assert.match(dashboard, /function openSetupCenter\(\)\s*\{\s*switchPage\('launch'\)/)
-  assert.match(dashboard, /onclick="switchPage\('launch'\)" title="Open Setup"/)
+  // The "Open Setup" sidebar button itself is retired (see renderSetupBar) — the
+  // compatibility entry point above still exists for any other code that calls it.
+  assert.doesNotMatch(dashboard, /onclick="switchPage\('launch'\)" title="Open Setup"/)
 })

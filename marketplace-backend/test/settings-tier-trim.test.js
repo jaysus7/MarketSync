@@ -38,9 +38,7 @@ test('every single-product tier trims Settings to My Account + Billing (Upgrade 
   // to every single-product tier (Design Studio, AI ChatBot, Video, Website,
   // Social, Email, Facebook), not just the two tiers that happened to get a
   // bespoke isDesignStudioOnlyWorkspace()/isFacebookOnlyWorkspace() block first.
-  // Exactly 4 leading spaces distinguishes this from refreshSetupIndicator()'s
-  // own (2-space-indented) isSingleProductWorkspace early-return check earlier
-  // in the file — both start with the same literal "if (typeof ...".
+  // 4-space indent matches this block's nesting inside initializeDashboardEcosystem().
   const block = part2.match(/ {4}if \(typeof isSingleProductWorkspace === 'function'[\s\S]*?\n {4}\}/)?.[0] || ''
   assert.ok(block, 'the single-product settings-trim block must exist')
   assert.match(block, /document\.querySelectorAll\('#settings-tabs \[data-admin-only\]'\)\.forEach\(el => el\.classList\.add\('hidden'\)\)/)
@@ -86,20 +84,18 @@ test('isSingleProductWorkspace exists and is true for exactly one active product
   assert.match(dashboard, /window\.isSingleProductWorkspace = isSingleProductWorkspace/)
 })
 
-test('renderSetupBar checks isSingleProductWorkspace at the point it sets host.innerHTML, not just clears it elsewhere', () => {
-  // renderSetupBar() is async and its caller never awaits it: it calls
-  // await refreshSetupIndicator() (a real network fetch for admin roles) before
-  // touching #setup-bar-host, and applyProductNav() — which sets data-product,
-  // the attribute isSingleProductWorkspace() reads — runs synchronously later in
-  // the same caller. A synchronous clear of #setup-bar-host elsewhere loses that
-  // race: renderSetupBar()'s continuation can still repopulate it afterward. The
-  // check has to live in renderSetupBar() itself, after its await, to be reliable.
+test('renderSetupBar retires the Open Setup wizard button for every account, not just single-product tiers', () => {
+  // The "Open Setup" sidebar button (and the Setup Wizard nudge it opened) used to
+  // be shown to full DealerOS DEALER_ADMIN/OWNER/MANAGER accounts, gated off only
+  // for single-product tiers. It's retired for everyone now — the host is always
+  // cleared, unconditionally, once refreshSetupIndicator() (which itself just hides
+  // the "Finish setup" banner) resolves.
   const fn = dashboard.match(/async function renderSetupBar\(\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(fn, 'renderSetupBar must exist')
   assert.match(fn, /await refreshSetupIndicator\(\)/, 'renderSetupBar must await refreshSetupIndicator before touching the host')
-  const afterAwait = fn.slice(fn.indexOf('await refreshSetupIndicator()'))
-  assert.match(afterAwait, /isSingleProductWorkspace/, 'the single-product check must run after the await, where data-product is guaranteed to already be set')
-  assert.match(afterAwait, /if \(!singleProduct && \[.DEALER_ADMIN., .OWNER., .MANAGER.\]\.includes\(profileContext\?\.role\)\)/)
+  assert.doesNotMatch(fn, /isSingleProductWorkspace/, 'no per-tier branching should remain — the button is gone for everyone')
+  assert.doesNotMatch(fn, /Open Setup/, 'the Open Setup button markup must be gone')
+  assert.match(fn, /if \(host\) host\.innerHTML = ''/, 'the host must always be cleared')
 })
 
 test('every single-product tier (not just Design Studio) gets the simplified header: Profile + Sign out only', () => {
@@ -135,27 +131,15 @@ test('header Profile icon is the single settings entry point: clicking it opens 
   assert.match(btn, /onclick="switchPage\('profile'\);settingsTab\('account'\)"/)
 })
 
-test('forceCompactSettingsGrid merges Language into #profile-panel and forces the 3-column grid directly', () => {
-  // Language is authored in #settings-panel-extra, a SEPARATE grid container from
-  // #profile-panel (Profile/Billing/Security) — the page moves #profile-panel into
-  // place at runtime (ensurePanelsInOriginalLocations()), so relying on
-  // settingsTab()'s computed is-multi toggle for two independent grids produced two
-  // stacked single-row blocks instead of one compact 3-column layout. Forcing the
-  // merge + class directly removes the dependency on that heuristic entirely.
+test('forceCompactSettingsGrid forces the 3-column grid directly, without relying on the computed shown-count heuristic', () => {
+  // settingsTab()'s computed is-multi toggle is fragile for single-product tiers
+  // (confirmed live), so this forces the class directly instead.
   assert.match(part2, /function forceCompactSettingsGrid\(\)/)
   const fn = part2.match(/function forceCompactSettingsGrid\(\)[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(fn, 'forceCompactSettingsGrid must exist')
-  assert.match(fn, /getElementById\('profile-panel'\)/)
-  assert.match(fn, /getElementById\('settings-language-card'\)/)
-  // Inserted directly after #billing-section — Language is a square card sitting
-  // right under Billing & Subscription, not a full-width banner at the top.
-  assert.match(fn, /getElementById\('billing-section'\)/)
-  assert.match(fn, /billingSection\.insertAdjacentElement\('afterend', languageCard\)/)
-  assert.match(fn, /profilePanel\?\.classList\.add\('is-multi'\)/)
+  assert.match(fn, /getElementById\('profile-panel'\)\?\.classList\.add\('is-multi'\)/)
   // The single-product block must call it, after its settingsTab('account') call.
-  // Exactly 4 leading spaces distinguishes this from refreshSetupIndicator()'s
-  // own (2-space-indented) isSingleProductWorkspace early-return check earlier
-  // in the file — both start with the same literal "if (typeof ...".
+  // 4-space indent matches this block's nesting inside initializeDashboardEcosystem().
   const block = part2.match(/ {4}if \(typeof isSingleProductWorkspace === 'function'[\s\S]*?\n {4}\}/)?.[0] || ''
   assert.ok(block, 'block must exist')
   assert.match(block, /settingsTab\('account'\)/, 'block must call settingsTab first')
@@ -167,11 +151,24 @@ test('.settings-cols.is-multi is a real 3-column CSS grid, not a masonry/multi-c
   assert.match(dashboardHtml, /\.settings-cols\.is-multi \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/)
 })
 
-test('the Language card is a square single grid cell, not a full-width banner', () => {
+test('the Language card is authored directly inside #profile-panel, sized like every other card, explicitly placed on row 2 column 2', () => {
+  // Physically authored as the last child of #profile-panel (after security-section)
+  // instead of living in the separate #settings-panel-extra grid and being moved at
+  // runtime — this way it's always adjacent to Profile/Billing/Security for every
+  // account, single-product or not, with no JS DOM-move required.
+  const profilePanel = dashboardHtml.match(/<div id="profile-panel"[\s\S]*?\n {8}<\/div>\n {6}<\/div>/)?.[0] || ''
+  assert.ok(profilePanel, 'profile-panel block must exist')
+  assert.match(profilePanel, /id="security-section"/, 'security-section must be a sibling inside profile-panel')
+  const secIdx = profilePanel.indexOf('id="security-section"')
+  const langIdx = profilePanel.indexOf('id="settings-language-card"')
+  assert.ok(langIdx > -1, 'settings-language-card must be inside profile-panel')
+  assert.ok(langIdx > secIdx, 'settings-language-card must come after security-section in DOM order')
   const card = dashboardHtml.match(/<div id="settings-language-card"[^>]*>/)?.[0] || ''
   assert.ok(card, 'settings-language-card must exist')
-  assert.match(card, /aspect-square/)
+  assert.doesNotMatch(card, /aspect-square/, 'must not be forced square any more')
   assert.doesNotMatch(card, /data-full-width="true"/)
+  assert.match(card, /\[grid-row:2\]/, 'must be explicitly placed on row 2')
+  assert.match(card, /\[grid-column:2\]/, 'must be explicitly placed in the middle column')
 })
 
 test('every single-product dashboard also hides the floating Intelligence AI dock, Team Chat, and the Setup Wizard banner', () => {
@@ -185,19 +182,14 @@ test('every single-product dashboard also hides the floating Intelligence AI doc
   assert.match(block, /getElementById\('setup-status-banner'\)\?\.classList\.add\('hidden'\)/)
 })
 
-test('refreshSetupIndicator never shows the Setup Wizard banner for single-product accounts, even on a later refresh', () => {
-  // The one-time chrome hide in the trim block only runs once at boot — a later
-  // refreshSetupIndicator() call (role change, periodic refresh) must not
-  // re-show the banner for a single-product account, so the check has to live
-  // in the function itself too.
-  const fn = part2.match(/async function refreshSetupIndicator\(role\) \{[\s\S]*?\n\}/)?.[0] || ''
+test('refreshSetupIndicator unconditionally hides the Setup Wizard banner for every account', () => {
+  // The "Finish setup" banner is retired entirely, not just for single-product
+  // tiers — no role check, no fetch, no re-render, just hide it every call.
+  const fn = part2.match(/function refreshSetupIndicator\(\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(fn, 'refreshSetupIndicator must exist')
-  const guard = fn.match(/if \(typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace\(\)\) \{[\s\S]*?\n {2}\}/)?.[0] || ''
-  assert.ok(guard, 'refreshSetupIndicator must check isSingleProductWorkspace')
-  assert.match(guard, /banner\.classList\.add\('hidden'\)/)
-  assert.match(guard, /return;/)
-  // Must run before the (!banner) null-check's later role check, i.e. early.
-  assert.ok(fn.indexOf('isSingleProductWorkspace') < fn.indexOf("role &&"), 'single-product check must run before the role check')
+  assert.match(fn, /getElementById\('setup-status-banner'\)\?\.classList\.add\('hidden'\)/)
+  assert.doesNotMatch(fn, /fetch\(/, 'must not fetch /launch any more — the banner never renders')
+  assert.doesNotMatch(fn, /role/, 'must not branch on role — hidden unconditionally')
 })
 
 test('engineRail omits the Team Messages section for single-product workspaces', () => {
