@@ -69,8 +69,11 @@ test('MarketSync Internal OS uses the approved company navigation in order', () 
     assert.match(part2, new RegExp(`pageId === '${page}'\\) load${loader}\\(\\)`))
     assert.match(part10, new RegExp(`function load${loader}\\(`))
   }
-  assert.match(html, /data-dash-mode="marketsync"[^}]*#dashboard-brand\{[^}]*overflow:hidden/)
-  assert.match(html, /data-dash-mode="marketsync"[^}]*#dashboard-brand img\[alt="MarketSync DealerOS"\][^}]*top:-3\.05rem/)
+  // "Keep dashboard logo large in every mode" (08461ff) deliberately de-scoped the
+  // brand-crop rule from marketsync-only to every dashboard mode — so it's no longer
+  // gated behind data-dash-mode="marketsync".
+  assert.match(html, /#dashboard-brand\{[^}]*overflow:hidden/)
+  assert.match(html, /#dashboard-brand img\[alt="MarketSync DealerOS"\][^}]*top:-4\.35rem/)
   assert.match(html, /#ui-role-pill::after\{content:"MARKETSYNC INTERNAL"/)
   assert.match(html, /data-dash-mode="marketsync"[^}]*\.bg-violet-600\)[^}]*#2563eb/)
 })

@@ -800,6 +800,11 @@ html.dark td {
   overflow-y: auto;
   box-sizing: border-box;
 }
+/* #demo-control-panel's own `display: flex` (author CSS) always wins over the
+   browser's native `[hidden]{display:none}` UA rule regardless of specificity — UA
+   rules are the lowest tier of the cascade. Without this, setting panel.hidden via JS
+   (close button, badge toggle, outside click) has no visual effect. !important keeps
+   this authoritative even if another author rule targets #demo-control-panel later. */
 #demo-control-panel[hidden] {
   display: none !important;
 }

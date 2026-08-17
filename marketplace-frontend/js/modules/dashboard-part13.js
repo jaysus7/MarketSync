@@ -600,6 +600,13 @@ function aiScoreFactors(messages, captured, memory) {
     { label: 'Named a vehicle of interest', pts: 5, on: (memory || []).some(m => m.memory_type === 'vehicle_interest') },
   ];
 }
+// Badge tone for the lead-score button. Thresholds match aiFeedRow's score coloring
+// (dashboard-part10.js) and the "80+ triggers a hot-lead alert" copy shown below it.
+function AI_SCORE_TONE(score) {
+  if (score >= 80) return 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20';
+  if (score >= 50) return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20';
+  return 'bg-slate-500/10 text-slate-500 dark:text-slate-400 border border-slate-500/20';
+}
 let __aiConvo = null;   // last opened conversation cache (for print / share)
 let __aiReplySender = 'rep'; // 'rep' or 'ai'
 let __aiReplyChannel = 'chat'; // 'chat', 'sms', 'email'
