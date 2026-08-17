@@ -442,6 +442,21 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
+// Single-product Settings account tab: merge Language (authored in a separate
+// grid container, #settings-panel-extra) into #profile-panel alongside Profile /
+// Billing / Security, and force the 3-column grid directly rather than relying on
+// settingsTab()'s computed is-multi toggle — this tier's My Account tab should
+// always read as one compact block, never two stacked grids needing extra
+// scrolling to reach a card that's really just sitting in the other container.
+function forceCompactSettingsGrid() {
+  const profilePanel = document.getElementById('profile-panel');
+  const languageCard = document.getElementById('settings-language-card');
+  if (profilePanel && languageCard && languageCard.parentElement !== profilePanel) {
+    profilePanel.appendChild(languageCard);
+  }
+  profilePanel?.classList.add('is-multi');
+}
+
 async function initializeDashboardEcosystem() {
   try {
     // Fetch unified server profile context. Render free/starter tier can cold-start
@@ -844,6 +859,7 @@ async function initializeDashboardEcosystem() {
       // while stuck visible it was forcing itself onto its own grid row and pushing
       // Security below it alone, wasting the rest of that row.
       document.getElementById('settings-my-record')?.classList.add('stab-hide');
+      forceCompactSettingsGrid();
     }
 
     // Facebook-only tiers (Solo or Dealer AutoPoster) bought Facebook posting, not
@@ -863,6 +879,7 @@ async function initializeDashboardEcosystem() {
       document.getElementById('guardrail-settings-section')?.classList.remove('hidden');
       __settingsTab = 'account';
       if (typeof settingsTab === 'function') settingsTab('account');
+      forceCompactSettingsGrid();
     }
 
     // DealerOS: managers/admins land on the Command Center (today's operations +

@@ -121,6 +121,35 @@ test('header Profile icon is the single settings entry point: clicking it opens 
   assert.match(btn, /onclick="switchPage\('profile'\);settingsTab\('account'\)"/)
 })
 
+test('forceCompactSettingsGrid merges Language into #profile-panel and forces the 3-column grid directly', () => {
+  // Language is authored in #settings-panel-extra, a SEPARATE grid container from
+  // #profile-panel (Profile/Billing/Security) — the page moves #profile-panel into
+  // place at runtime (ensurePanelsInOriginalLocations()), so relying on
+  // settingsTab()'s computed is-multi toggle for two independent grids produced two
+  // stacked single-row blocks instead of one compact 3-column layout. Forcing the
+  // merge + class directly removes the dependency on that heuristic entirely.
+  assert.match(part2, /function forceCompactSettingsGrid\(\)/)
+  const fn = part2.match(/function forceCompactSettingsGrid\(\)[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fn, 'forceCompactSettingsGrid must exist')
+  assert.match(fn, /getElementById\('profile-panel'\)/)
+  assert.match(fn, /getElementById\('settings-language-card'\)/)
+  assert.match(fn, /profilePanel\.appendChild\(languageCard\)/)
+  assert.match(fn, /profilePanel\?\.classList\.add\('is-multi'\)/)
+  // Both single-product blocks must call it, after their settingsTab('account') call.
+  const designStudioBlock = part2.match(/if \(typeof isDesignStudioOnlyWorkspace === 'function'[\s\S]*?\n {4}\}/)?.[0] || ''
+  const facebookBlock = part2.match(/if \(typeof isFacebookOnlyWorkspace === 'function'[\s\S]*?\n {4}\}/)?.[0] || ''
+  for (const block of [designStudioBlock, facebookBlock]) {
+    assert.ok(block, 'block must exist')
+    assert.match(block, /settingsTab\('account'\)/, 'block must call settingsTab first')
+    assert.ok(block.indexOf("settingsTab('account')") < block.indexOf('forceCompactSettingsGrid()'), 'forceCompactSettingsGrid() must run after settingsTab')
+  }
+})
+
+test('.settings-cols.is-multi is a real 3-column CSS grid, not a masonry/multi-column layout', () => {
+  assert.match(dashboardHtml, /\.settings-cols \{ display: grid;/)
+  assert.match(dashboardHtml, /\.settings-cols\.is-multi \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/)
+})
+
 test('settings-my-record is full-width and the other My Account cards are not, confirming why it must be force-hidden rather than left visible', () => {
   const record = dashboardHtml.match(/<div id="settings-my-record"[^>]*>/)?.[0] || ''
   assert.match(record, /data-full-width="true"/, 'settings-my-record spans the whole grid row while visible')
