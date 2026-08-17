@@ -57,7 +57,10 @@ test('once the panel confirms this is the demo tenant, it lands the prospect on 
   // Must come after buildPanel(data) succeeds (i.e. inside the try, after res.ok
   // is confirmed) — not a blind redirect for every visitor.
   const afterBuild = bootFn.split('buildPanel(data);')[1] || ''
-  assert.match(afterBuild, /switchPage\('inventory-overview'\)/,
+  // 'inventory' (not 'inventory-overview'): this account can switch between a full
+  // DealerOS package and a Facebook-only one, and switchPage() resolves the generic
+  // id to whichever concrete page matches the tier currently active.
+  assert.match(afterBuild, /switchPage\('inventory'\)/,
     'boot() must navigate to Inventory after confirming this is the demo tenant')
 })
 

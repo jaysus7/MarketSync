@@ -136,8 +136,10 @@
       // Prospects should land somewhere with visible, populated content — the
       // Insights/Command home page can render empty for a fresh demo dealership.
       // Inventory always has seeded vehicles, so it's the reliable first thing
-      // to show. Runs once per load, after everything else has settled.
-      if (typeof switchPage === 'function') switchPage('inventory-overview');
+      // to show. 'inventory' (not 'inventory-overview') because this account can
+      // switch between a full DealerOS package and a Facebook-only one — switchPage()
+      // resolves the generic id to whichever concrete page matches the current tier.
+      if (typeof switchPage === 'function') switchPage('inventory');
     } catch (e) { /* network hiccup — no demo panel this load, not fatal */ }
   }
 
