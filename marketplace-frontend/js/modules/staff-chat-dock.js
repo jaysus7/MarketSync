@@ -380,7 +380,7 @@
       </button>
 
       <!-- Staff Directory Popover -->
-      <div id="staff-chat-directory-popover" class="hidden absolute bottom-14 right-0 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-[10000]">
+      <div id="staff-chat-directory-popover" class="hidden absolute bottom-14 left-0 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-[10000]">
         <div class="p-3 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex items-center justify-between">
           <div class="font-bold text-xs flex items-center gap-2">
             <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
