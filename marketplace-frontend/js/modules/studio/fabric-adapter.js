@@ -231,6 +231,18 @@ class StudioFabricAdapter {
     this.saveHistory();
   }
 
+  updateSelectedText(properties = {}) {
+    if (!this.fabricCanvas) return false;
+    const active = this.fabricCanvas.getActiveObject();
+    if (!active || !['textbox', 'text', 'i-text'].includes(active.type)) return false;
+    active.set(properties);
+    active.setCoords();
+    this.fabricCanvas.requestRenderAll();
+    this.saveHistory();
+    this.onSelectionChange([active]);
+    return true;
+  }
+
   addShape(shapeType = 'rect', fill = '#2563EB') {
     if (!this.fabricCanvas) return;
     const fabric = window.fabric;
