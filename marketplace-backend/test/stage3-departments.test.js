@@ -84,11 +84,21 @@ for (const [name, src, id] of DEPTS) {
 }
 
 test('Inventory Work exposes the vehicle lifecycle', () => {
-  // These were a second row of tabs; they are sections of the Inventory tab now, so the
-  // whole lifecycle is one scroll rather than six clicks. Every stage must still be here.
+  // These were a second row of tabs; they are sections of the inventory-overview engine
+  // now (Acquisition/Merchandising/Pricing and age in Pulse, Cleanup/Vehicles in the
+  // Inventory list tab), so the whole lifecycle is one scroll rather than six clicks —
+  // just split across the engine's two tabs instead of stacked in one. Every stage must
+  // still be here, and neither tab may still carry the OTHER's now-moved sections.
   const fn = inv.slice(inv.indexOf('async function invRenderWork'), inv.indexOf("ENGINES['inventory-overview']"))
-  for (const heading of ['Acquisition', 'Cleanup', 'Merchandising', 'Pricing and age', 'Vehicles']) {
-    assert.ok(fn.includes(heading), `Inventory must still cover ${heading}`)
+  for (const heading of ['Cleanup', 'Vehicles']) {
+    assert.ok(fn.includes(heading), `Inventory (work tab) must still cover ${heading}`)
+  }
+  for (const heading of ['Acquisition', 'Merchandising', 'Pricing and age']) {
+    assert.ok(!fn.includes(heading), `${heading} moved to Pulse and must not also render in the Inventory list tab`)
+  }
+  const engineBlock = inv.slice(inv.indexOf("ENGINES['inventory-overview']"))
+  for (const heading of ['Acquisition', 'Merchandising', 'Pricing and age']) {
+    assert.ok(engineBlock.includes(heading), `Pulse (overview) must cover ${heading}`)
   }
   assert.match(fn, /engMountPage\(body, 'inventory'/, 'adding and removing vehicles happens here')
   assert.doesNotMatch(inv, /INV_WORK_VIEWS|__invWorkView/, 'the sub-nav must not come back')

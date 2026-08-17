@@ -256,35 +256,15 @@ function invRenderMerch(d) {
   </div>`;
 }
 
+// Acquisition, Merchandising and Pricing/age now render in Pulse (overview() above)
+// only — this tab is the vehicle list itself, plus the way into Cleanup.
 async function invRenderWork(body, d) {
-  if (!__invAppraisals) {
-    body.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading inventory…</div>`;
-    try { __invAppraisals = await apiGetJson('/ai/appraisals'); } catch { __invAppraisals = { appraisals: [] }; }
-  }
-
-  const noPrice = (d.vehicles || []).filter(v => !Number(v.price));
-  const aged = (d.vehicles || []).filter(v => { const a = invDays(v.created_at); return a != null && a >= INV_AGED_DAYS; });
-
   const reconRows = d.recon || [];
   const atRisk = (r) => !!r.deal_id && r.stage !== 'done';
   const sold = reconRows.filter(atRisk), rest = reconRows.filter(r => !atRisk(r));
-  const reconRow = (r) => {
-    const v = (d.vehById || {})[r.inventory_id] || r.inventory || {};
-    const sub = `${esc(r.stage || 'in progress')}${r.deal_id ? ' · <span class="text-rose-500">sold — delivery is waiting</span>' : ''}`;
-    if (v.id) return invRow(v, d, sub);
-    return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-      <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(invName(v))}</div>
-        <div class="text-[12px] text-slate-400 truncate">${sub}</div></div>
-    </div>`;
-  };
 
   body.innerHTML = `
-    ${engSection('Acquisition', invRenderAcquisition(d, (__invAppraisals && __invAppraisals.appraisals) || []), 'What is coming in, and what you have taken possession of')}
     ${engSection('Cleanup', engCard('Reconditioning', `<div class="text-[13px] text-slate-600 dark:text-slate-300 mb-2">${reconRows.length ? `${rest.length} in recon${sold.length ? ` · ${sold.length} sold and waiting on cleanup` : ''}.` : 'Nothing in cleanup right now.'}</div><button onclick="engineTab('inventory-overview','cleanup')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Open Cleanup</button>`), 'Reconditioning lives in the Cleanup tab — this is the summary and the way in')}
-    ${engSection('Merchandising', invRenderMerch(d), 'What is stopping a vehicle going on the front line')}
-    ${engSection('Pricing and age', (noPrice.length ? engCard(`No price (${noPrice.length})`, noPrice.slice(0, 10).map(v => invRow(v, d)).join('')) : '')
-      + engCard(`Aged ${INV_AGED_DAYS}+ days (${aged.length})`, aged.slice(0, 15).map(v => invRow(v, d)).join('') || engEmpty('Nothing aged.'), noPrice.length ? 'mt-3' : ''),
-      'Units carrying no price, and units carrying too much time')}
     ${engSection('Vehicles', '', 'Every unit in stock — add one, edit one, publish one')}`;
 
   if (typeof engMountPage === 'function') {
@@ -330,7 +310,10 @@ ENGINES['inventory-overview'] = {
   })),
 
   tabs: {
-    overview(body, d) {
+    async overview(body, d) {
+      if (!__invAppraisals) {
+        try { __invAppraisals = await apiGetJson('/ai/appraisals'); } catch { __invAppraisals = { appraisals: [] }; }
+      }
       const att = invAttention(d);
       const veh = d.vehicles || [];
       const held = veh.filter(v => !v.awaiting_possession);
@@ -345,7 +328,7 @@ ENGINES['inventory-overview'] = {
             <div class="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-sky-400">
               <span>Proactive Inventory &amp; Merchandising AI Assistant</span>
             </div>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">LIVE INVENTORY TELEMETRY</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">LIVE INVENTORY ACTIVITY</span>
           </div>
           <div class="text-xs text-slate-300 space-y-1.5 mb-3">
             <p>• <strong>Aged Inventory Warning:</strong> ${agedCount ? `<span class="text-rose-400 font-bold">${agedCount} unit(s) in stock over 60 days requiring price alignment.</span>` : 'All inventory is currently within normal age thresholds.'}</p>
@@ -379,10 +362,14 @@ ENGINES['inventory-overview'] = {
               <button onclick="switchPage('recon')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Open Recon</button>
             </div>`; }).join('') : engEmpty('Nothing in cleanup.'))}
         </div>`;
-      
+
+      // Acquisition — what is coming in, and what has been taken possession of. Lives
+      // here in Pulse (not also in the Inventory list tab) so there is one copy.
+      body.insertAdjacentHTML('beforeend', engSection('Acquisition', invRenderAcquisition(d, (__invAppraisals && __invAppraisals.appraisals) || []), 'What is coming in, and what you have taken possession of'));
+
       const noPrice = (d.vehicles || []).filter(v => !Number(v.price));
       const aged = (d.vehicles || []).filter(v => { const a = invDays(v.created_at); return a != null && a >= INV_AGED_DAYS; });
-      
+
       body.insertAdjacentHTML('beforeend', engSection('Merchandising', invRenderMerch(d), 'What is stopping a vehicle going on the front line'));
       body.insertAdjacentHTML('beforeend', engSection('Pricing and age', (noPrice.length ? engCard(`No price (${noPrice.length})`, noPrice.slice(0, 10).map(v => invRow(v, d)).join('')) : '')
         + engCard(`Aged ${INV_AGED_DAYS}+ days (${aged.length})`, aged.slice(0, 15).map(v => invRow(v, d)).join('') || engEmpty('Nothing aged.'), noPrice.length ? 'mt-3' : ''),
