@@ -770,58 +770,140 @@ html.dark td {
   left: 50%;
   transform: translateX(-50%);
   z-index: 10001;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.06em;
   color: #fff;
-  background: var(--ms-blue-600, #1F4ED8);
+  background: linear-gradient(135deg, var(--ms-blue-600, #1F4ED8), var(--ms-blue-700, #1a3fb0));
   border: none;
   border-radius: 9999px;
-  padding: 5px 14px;
+  padding: 6px 16px 6px 12px;
   cursor: pointer;
   box-shadow: 0 4px 14px rgba(31, 78, 216, 0.4);
+  transition: transform 120ms ease, box-shadow 120ms ease;
 }
+#demo-mode-badge:hover {
+  transform: translateX(-50%) translateY(-1px);
+  box-shadow: 0 6px 18px rgba(31, 78, 216, 0.5);
+}
+#demo-mode-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25);
+}
+
 #demo-control-panel {
   position: fixed;
   top: 48px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10001;
-  width: 280px;
+  width: 340px;
+  max-height: calc(100vh - 72px);
+  overflow-y: auto;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 14px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
-  padding: 14px;
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
 }
 .dcp-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, var(--ms-blue-600, #1F4ED8), var(--ms-blue-700, #1a3fb0));
+  border-radius: 16px 16px 0 0;
+}
+.dcp-head-title {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.dcp-head span:first-child,
+.dcp-head-title span:first-child {
   font-size: 13px;
   font-weight: 800;
-  color: var(--color-text);
-  margin-bottom: 2px;
+  color: #fff;
+  letter-spacing: 0.01em;
 }
 .dcp-dealer {
   font-size: 11px;
   font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dcp-close {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.dcp-close:hover { background: rgba(255, 255, 255, 0.28); }
+
+.dcp-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 16px;
+}
+.dcp-section-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   color: var(--color-text-secondary);
+  margin: 4px 0 -2px;
 }
 .dcp-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-text-secondary);
 }
+.dcp-field-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.dcp-svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+.dcp-select-wrap {
+  position: relative;
+}
 .dcp-field select {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
   font: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -830,17 +912,52 @@ html.dark td {
   color: var(--color-text);
   background: var(--color-bg);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 7px 8px;
+  border-radius: 10px;
+  padding: 9px 30px 9px 10px;
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.dcp-field select:hover { border-color: var(--ms-blue-400, #7fa3f0); }
+.dcp-field select:focus {
+  outline: none;
+  border-color: var(--ms-blue-600, #1F4ED8);
+  box-shadow: 0 0 0 3px rgba(31, 78, 216, 0.18);
+}
+.dcp-select-wrap::after {
+  content: '';
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--color-text-secondary);
+  border-bottom: 2px solid var(--color-text-secondary);
+  transform: translateY(-65%) rotate(45deg);
+  pointer-events: none;
+}
+.dcp-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 2px 0;
 }
 .dcp-toggle {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--color-text);
   cursor: pointer;
+  padding: 2px 0;
+}
+.dcp-toggle input { accent-color: var(--ms-blue-600, #1F4ED8); width: 16px; height: 16px; }
+.dcp-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
 }
 .dcp-reset {
   font: inherit;
@@ -849,21 +966,48 @@ html.dark td {
   color: var(--ms-danger-600, #DC2626);
   background: var(--ms-danger-bg-light, #FEF2F2);
   border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 8px;
+  border-radius: 10px;
+  padding: 9px;
   cursor: pointer;
+  transition: background 120ms ease;
 }
+.dcp-reset:hover { background: #fee2e2; }
 .dcp-note {
   font-size: 10px;
   color: var(--color-text-secondary);
+  text-align: center;
 }
 
-/* Presentation Mode — hide setup nags and internal/dev-only chrome so the sales
-   demo stays visually clean on a laptop/tablet, without touching normal accounts. */
+/* Presentation Mode — hide setup nags and internal/dev-only chrome so a prospect
+   watching the demo sees a clean product. The demo badge shrinks to a small corner
+   dot instead of disappearing entirely — it must stay reachable, since the toggle
+   that turns Presentation Mode back off lives inside the panel it opens; a fully
+   hidden badge would lock the operator out mid-presentation with no way back. */
 .ms-presentation-mode #setup-status-banner,
 .ms-presentation-mode #setup-bar-host,
 .ms-presentation-mode #ms-demo-reset,
 .ms-presentation-mode #ms-mode-switch,
 .ms-presentation-mode #idscan-btn {
   display: none !important;
+}
+.ms-presentation-mode #demo-mode-badge {
+  top: auto;
+  left: auto;
+  bottom: 14px;
+  right: 14px;
+  transform: none;
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  font-size: 0;
+  gap: 0;
+  opacity: 0.35;
+  box-shadow: none;
+}
+.ms-presentation-mode #demo-mode-badge:hover {
+  transform: scale(1.4);
+  opacity: 1;
+}
+.ms-presentation-mode #demo-mode-badge::before {
+  box-shadow: none;
 }

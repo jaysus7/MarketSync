@@ -49,6 +49,13 @@
     document.documentElement.classList.toggle('ms-presentation-mode', !!on);
   }
 
+  const FIELD_ICON = {
+    package: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="dcp-svg"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-8.25-4.5-8.25 4.5m16.5 0-8.25 4.5m8.25-4.5v9l-8.25 4.5m0-9L3.75 7.5m8.25 4.5v9M3.75 7.5v9l8.25 4.5"/></svg>',
+    role: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="dcp-svg"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a8.25 8.25 0 0115 0"/></svg>',
+    scenario: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="dcp-svg"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h12A2.25 2.25 0 0020.25 14.25V3M3.75 3h16.5M3.75 3l6 8.25L15 6l5.25 6"/></svg>',
+    department: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="dcp-svg"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5M4.5 3h15v18h-15V3zM9 21V9h6v12"/></svg>',
+  };
+
   function buildPanel(data) {
     const badge = document.createElement('button');
     badge.id = 'demo-mode-badge';
@@ -56,38 +63,47 @@
     badge.title = `Demo mode — ${data.dealership.name}`;
     badge.textContent = 'DEMO MODE';
 
+    const field = (id, label, iconKey, options) => `
+      <label class="dcp-field">
+        <span class="dcp-field-icon">${FIELD_ICON[iconKey]}${esc(label)}</span>
+        <span class="dcp-select-wrap"><select id="${id}">${options}</select></span>
+      </label>`;
+
     const panel = document.createElement('div');
     panel.id = 'demo-control-panel';
     panel.hidden = true;
     panel.innerHTML = `
       <div class="dcp-head">
-        <span>Demo Control</span>
-        <span class="dcp-dealer">${esc(data.dealership.name)}</span>
+        <div class="dcp-head-title">
+          <span>Demo Control Center</span>
+          <span class="dcp-dealer">${esc(data.dealership.name)}</span>
+        </div>
+        <button type="button" id="dcp-close" class="dcp-close" aria-label="Close">&times;</button>
       </div>
-      <label class="dcp-field">Package
-        <select id="dcp-package">${data.packages.map(p => `<option value="${esc(p.id)}"${p.id === data.state.packageId ? ' selected' : ''}>${esc(p.label || p.id)}</option>`).join('')}</select>
-      </label>
-      <label class="dcp-field">Role
-        <select id="dcp-role">${data.roles.map(r => `<option value="${esc(r.key)}"${r.key === data.state.roleKey ? ' selected' : ''}>${esc(r.label)}${r.approximated ? ' *' : ''}</option>`).join('')}</select>
-      </label>
-      <label class="dcp-field">Scenario
-        <select id="dcp-scenario">${data.scenarios.map(s => `<option value="${esc(s)}"${s === data.state.scenario ? ' selected' : ''}>${esc(SCENARIO_LABELS[s] || s)}</option>`).join('')}</select>
-      </label>
-      <label class="dcp-field">Department
-        <select id="dcp-department">${DEPARTMENTS.map(d => `<option value="${esc(d.page)}">${esc(d.label)}</option>`).join('')}</select>
-      </label>
-      <label class="dcp-toggle">
-        <input type="checkbox" id="dcp-presentation"${data.state.presentationMode ? ' checked' : ''}>
-        Presentation Mode
-      </label>
-      <button type="button" id="dcp-reset" class="dcp-reset">Reset Demo</button>
-      <div class="dcp-note">* approximated to the closest existing role</div>
+      <div class="dcp-body">
+        <div class="dcp-section-label">What they're demoing</div>
+        ${field('dcp-package', 'Package', 'package', data.packages.map(p => `<option value="${esc(p.id)}"${p.id === data.state.packageId ? ' selected' : ''}>${esc(p.label || p.id)}</option>`).join(''))}
+        ${field('dcp-role', 'Role', 'role', data.roles.map(r => `<option value="${esc(r.key)}"${r.key === data.state.roleKey ? ' selected' : ''}>${esc(r.label)}${r.approximated ? ' *' : ''}</option>`).join(''))}
+        ${field('dcp-scenario', 'Scenario', 'scenario', data.scenarios.map(s => `<option value="${esc(s)}"${s === data.state.scenario ? ' selected' : ''}>${esc(SCENARIO_LABELS[s] || s)}</option>`).join(''))}
+        <div class="dcp-divider"></div>
+        <div class="dcp-section-label">Jump to</div>
+        ${field('dcp-department', 'Department', 'department', DEPARTMENTS.map(d => `<option value="${esc(d.page)}">${esc(d.label)}</option>`).join(''))}
+        <label class="dcp-toggle">
+          <span>Presentation Mode</span>
+          <input type="checkbox" id="dcp-presentation"${data.state.presentationMode ? ' checked' : ''}>
+        </label>
+        <div class="dcp-footer">
+          <button type="button" id="dcp-reset" class="dcp-reset">Reset Demo</button>
+          <div class="dcp-note">* approximated to the closest existing role</div>
+        </div>
+      </div>
     `;
 
     document.body.appendChild(panel);
     document.body.appendChild(badge);
 
     badge.addEventListener('click', () => { panel.hidden = !panel.hidden; });
+    panel.querySelector('#dcp-close').addEventListener('click', () => { panel.hidden = true; });
     document.addEventListener('click', (e) => {
       if (!panel.hidden && !panel.contains(e.target) && e.target !== badge) panel.hidden = true;
     });
