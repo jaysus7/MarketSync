@@ -498,6 +498,16 @@ class StudioFabricAdapter {
     if (active) { this.fabricCanvas.sendBackwards(active); this.fabricCanvas.renderAll(); this.saveHistory(); }
   }
 
+  bringToFront() {
+    const active = this.fabricCanvas?.getActiveObject();
+    if (active) { this.fabricCanvas.bringToFront(active); this.fabricCanvas.renderAll(); this.saveHistory(); }
+  }
+
+  sendToBack() {
+    const active = this.fabricCanvas?.getActiveObject();
+    if (active) { this.fabricCanvas.sendToBack(active); this.fabricCanvas.renderAll(); this.saveHistory(); }
+  }
+
   // Places a clone offset from the source so it's visibly a new object, not
   // overlapping it exactly. Handles a multi-object ActiveSelection the same way
   // Fabric's own docs recommend (re-add each member, then re-select them together).

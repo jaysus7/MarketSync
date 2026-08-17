@@ -665,7 +665,81 @@ async function initStudioAdapter(scene) {
   });
 
   await window.__studioAdapter.init(scene, window.__studioCurrentVehicle);
+  wireStudioContextMenu(window.__studioAdapter);
 }
+
+// Right-click on the artboard — the same actions already on the toolbar/keyboard
+// shortcuts (Copy/Cut/Paste/Duplicate, layer order, Group/Ungroup, Delete), just
+// reachable without knowing the shortcut exists.
+function wireStudioContextMenu(adapter) {
+  const canvas = adapter?.fabricCanvas;
+  if (!canvas?.upperCanvasEl) return;
+  canvas.upperCanvasEl.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const target = canvas.findTarget(e, false);
+    if (target && !canvas.getActiveObjects().includes(target)) {
+      canvas.discardActiveObject();
+      canvas.setActiveObject(target);
+      canvas.requestRenderAll();
+    } else if (!target) {
+      canvas.discardActiveObject();
+      canvas.requestRenderAll();
+    }
+    showStudioContextMenu(e.clientX, e.clientY, !!target);
+  });
+}
+
+function closeStudioContextMenu() {
+  document.getElementById('studio-context-menu')?.remove();
+  document.removeEventListener('keydown', studioContextMenuEscape);
+}
+window.closeStudioContextMenu = closeStudioContextMenu;
+function studioContextMenuEscape(e) { if (e.key === 'Escape') closeStudioContextMenu(); }
+
+function showStudioContextMenu(x, y, hasTarget) {
+  closeStudioContextMenu();
+  const adapter = window.__studioAdapter;
+  const active = adapter?.fabricCanvas?.getActiveObject();
+  const isSelection = active?.type === 'activeSelection';
+  const isGroup = active?.type === 'group';
+  const item = (label, method, opts = {}) => `<button type="button" onclick="studioCtxAction('${method}')" ${opts.disabled ? 'disabled' : ''} class="w-full text-left px-3 py-1.5 flex items-center justify-between gap-4 transition ${opts.disabled ? 'opacity-40 cursor-default' : 'hover:bg-slate-800'} ${opts.danger && !opts.disabled ? 'text-rose-400' : ''}"><span>${label}</span>${opts.shortcut ? `<span class="text-[10px] text-slate-500 font-mono">${opts.shortcut}</span>` : ''}</button>`;
+  const divider = '<div class="my-1 border-t border-slate-800"></div>';
+  const menu = document.createElement('div');
+  menu.id = 'studio-context-menu';
+  menu.className = 'fixed z-[100000] min-w-[190px] py-1.5 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl text-xs font-bold text-slate-200';
+  menu.innerHTML = [
+    item('Copy', 'copySelected', { disabled: !hasTarget, shortcut: 'Ctrl+C' }),
+    item('Cut', 'cutSelected', { disabled: !hasTarget, shortcut: 'Ctrl+X' }),
+    item('Paste', 'pasteClipboard', { disabled: !adapter?._clipboard, shortcut: 'Ctrl+V' }),
+    item('Duplicate', 'duplicateSelected', { disabled: !hasTarget, shortcut: 'Ctrl+D' }),
+    divider,
+    item('Bring to Front', 'bringToFront', { disabled: !hasTarget }),
+    item('Bring Forward', 'bringForward', { disabled: !hasTarget }),
+    item('Send Backward', 'sendBackwards', { disabled: !hasTarget }),
+    item('Send to Back', 'sendToBack', { disabled: !hasTarget }),
+    divider,
+    item('Group', 'groupSelected', { disabled: !isSelection, shortcut: 'Ctrl+G' }),
+    item('Ungroup', 'ungroupSelected', { disabled: !isGroup, shortcut: 'Ctrl+Shift+G' }),
+    divider,
+    item('Delete', 'deleteSelected', { disabled: !hasTarget, danger: true }),
+  ].join('');
+  document.body.appendChild(menu);
+  const rect = menu.getBoundingClientRect();
+  menu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - rect.width - 8))}px`;
+  menu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - rect.height - 8))}px`;
+  setTimeout(() => {
+    document.addEventListener('click', closeStudioContextMenu, { once: true });
+    document.addEventListener('keydown', studioContextMenuEscape);
+  }, 0);
+}
+window.showStudioContextMenu = showStudioContextMenu;
+
+function studioCtxAction(method) {
+  closeStudioContextMenu();
+  const adapter = window.__studioAdapter;
+  if (adapter && typeof adapter[method] === 'function') adapter[method]();
+}
+window.studioCtxAction = studioCtxAction;
 
 function setStudioTool(tool) {
   window.__studioActiveTool = tool;
@@ -961,6 +1035,7 @@ function closeMarketSyncStudio() {
   window.__studioFitObserver?.disconnect();
   window.__studioFitObserver = null;
   document.getElementById('ms-studio-master-modal')?.remove();
+  closeStudioContextMenu();
   if (window.__studioKeydownBound) {
     window.__studioKeydownBound = false;
     document.removeEventListener('keydown', studioKeydownHandler);
