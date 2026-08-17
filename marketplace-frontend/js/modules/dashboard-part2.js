@@ -507,6 +507,15 @@ async function initializeDashboardEcosystem() {
       if (ac.ok) window.__access = await ac.json();
     } catch { /* timed out / unavailable → leave window.__access unset, legacy gating applies */ }
 
+    // The staff time clock belongs only to DealerOS Complete. Gate against the
+    // server-authored active subscription plan, with the legacy dealership plan used
+    // solely during an access-context cold start. This fails closed for every other plan.
+    const activeDealerOsPlan = String(window.__access?.planByProduct?.dealer_os || '').toLowerCase();
+    const legacyDealerOsPlan = String(profileContext?.plan || profileContext?.dealership?.plan || '').toLowerCase();
+    const hasCompleteTimeClock = activeDealerOsPlan === 'dealer-os-complete'
+      || (!activeDealerOsPlan && ['dealeros_complete', 'dealer-os-complete'].includes(legacyDealerOsPlan));
+    document.getElementById('header-shift-clock-wrapper')?.classList.toggle('ms-timeclock-entitled', hasCompleteTimeClock);
+
     // Render Shared Header Components
     // For dealer admins: lead with the DEALERSHIP NAME (so it visually distinguishes the
     // dealer admin view from rep views). Person's name moves to the subtitle line.

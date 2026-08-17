@@ -23,7 +23,7 @@
   <title>DealerOS by MarketSync · Dashboard</title>
   <link rel="preconnect" href="https://api.fontshare.com">
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260817_v2">
+  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260817_v3">
   <link rel="stylesheet" href="css/dashboard-nav.css">
   <link rel="stylesheet" href="css/dashboard-brand-repaint.css">
   <script>tailwind = { config: { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Satoshi', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'] } } } } }</script>
@@ -287,6 +287,10 @@
     .setup-flash { animation: setupFlash 1.3s ease-in-out 2; border-radius: 0.5rem; }
     #fb-post-btn, #idscan-btn, #ext-header-btn,
     #training-btn, #open-upgrades, #ui-tier-chip { display: none !important; }
+    /* Workforce time clock is a DealerOS Complete entitlement. Keep it out of the
+       shell until the authenticated access context proves this account owns Complete. */
+    #header-shift-clock-wrapper { display: none !important; }
+    #header-shift-clock-wrapper.ms-timeclock-entitled { display: inline-block !important; }
   </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased h-[100dvh] flex flex-col overflow-hidden">
@@ -3813,7 +3817,7 @@
        mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
   <script src="js/modules/workspace-registry.js?v=20260814_v12"></script>
   <script src="dashboard.js?v=20260814_v12"></script>
-  <script src="js/modules/dashboard-part2.js?v=20260817_simple_departments"></script>
+  <script src="js/modules/dashboard-part2.js?v=20260817_complete_timeclock"></script>
   <script src="js/modules/dashboard-part3.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part4.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part5.js?v=20260814_v12"></script>
@@ -3821,7 +3825,7 @@
   <script src="js/modules/dashboard-part7.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part8.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part9.js?v=20260814_v12"></script>
-  <script src="js/modules/dashboard-part10.js?v=20260817_simple_departments"></script>
+  <script src="js/modules/dashboard-part10.js?v=20260817_personality_label"></script>
   <script src="js/modules/dashboard-part11.js?v=20260817_simple_departments"></script>
   <script src="js/modules/dashboard-part12.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part13.js?v=20260817_simple_departments"></script>
