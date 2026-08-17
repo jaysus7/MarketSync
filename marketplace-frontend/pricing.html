@@ -7,14 +7,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#6366F1">
   <title>Pricing &amp; Plans — MarketSync Operating System &amp; Growth Platform</title>
-  <meta name="description" content="Transparent MarketSync pricing: Standalone products from $5 CAD/mo, Marketing Suites from $249 CAD/mo, MarketSync Digital $599 CAD/mo, and DealerOS from $1,499 CAD/mo. One connected operating system for your dealership.">
+  <meta name="description" content="Simple MarketSync pricing: marketing from $399 CAD/month, MarketSync Digital at $1,199 CAD/month, and DealerOS from $1,999 CAD/month. Standalone tools start at $29 CAD/month.">
   <meta name="keywords" content="MarketSync pricing, DealerOS price, automotive CRM pricing, dealership software cost, facebook autoposter pricing, dealership website price, AI chatbot cost">
   <meta name="robots" content="index, follow, max-image-preview:large">
   <link rel="canonical" href="https://marketsync.link/pricing.html">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="MarketSync">
   <meta property="og:title" content="MarketSync Pricing — Transparent Dealership Software Pricing">
-  <meta property="og:description" content="Standalone products from $5/mo, Marketing Suites from $249/mo, MarketSync Digital $599/mo, DealerOS from $1,499/mo. All prices CAD/month.">
+  <meta property="og:description" content="MarketSync Marketing from $399/month, MarketSync Digital at $1,199/month, and DealerOS from $1,999/month. All prices CAD.">
   <meta property="og:url" content="https://marketsync.link/pricing.html">
   <meta property="og:image" content="https://marketsync.link/og/home.png">
   <meta name="twitter:card" content="summary_large_image">
@@ -212,6 +212,18 @@
       margin: 80px auto;
       padding: 0 24px;
     }
+    .buying-paths { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 1180px; }
+    .path-card { min-height: 470px; }
+    .path-card .card-name { font-size: 25px; }
+    .standalone-grid { grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); }
+    .standalone-grid .price-card { padding: 24px; }
+    .founding-note {
+      max-width: 1120px; margin: 26px auto 0; padding: 20px 24px; border-radius: 16px;
+      background: rgba(99,102,241,.10); color: #4338ca; text-align: center; font-weight: 750; line-height: 1.55;
+    }
+    .price-was { display:block; margin-top:6px; font-size:13px; color:#64748b; font-weight:700; }
+    .implementation { margin-top: 12px; font-size: 13px; color: #64748b; line-height: 1.5; }
+    @media (max-width: 900px) { .buying-paths { grid-template-columns: 1fr; } }
     .faq-item {
       border-bottom: 1px solid rgba(0,0,0,0.08);
       padding: 20px 0;
@@ -247,6 +259,7 @@
       .faq-item { border-color: rgba(255,255,255,0.08); }
       .faq-q { color: #ffffff; }
       .faq-a { color: #94a3b8; }
+      .founding-note { color:#c7d2fe; }
     }
   </style>
 </head>
@@ -257,292 +270,135 @@
   <section class="pricing-hero ms-reveal">
     <div class="pricing-badge">Simple &amp; Transparent CAD Pricing</div>
     <h1 class="pricing-title">One connected operating system for your dealership.</h1>
-    <p class="pricing-sub">Start with individual products, bundle marketing suites, launch your digital presence, or run your entire dealership on DealerOS.</p>
+    <p class="pricing-sub">Choose the outcome you need today. Start with marketing, build your complete digital presence, or run the dealership on DealerOS.</p>
   </section>
 
-  <!-- Section 1: Standalone Products -->
-  <div id="standalone" class="section-label ms-reveal">
-    <h2>Layer 1 — Standalone Products</h2>
-    <p>Flexible individual tools designed for specific dealership tasks. Upgrade anytime.</p>
+  <div class="section-label ms-reveal">
+    <h2>Three clear ways to use MarketSync</h2>
+    <p>No layers to decode. Pick the platform that matches what you want to improve.</p>
   </div>
-
-  <div class="cards-grid ms-reveal">
-    <!-- Design Studio -->
-    <div class="price-card">
+  <div class="cards-grid buying-paths ms-reveal">
+    <div class="price-card path-card">
       <div>
-        <div class="card-badge">Creative Workspace</div>
-        <div class="card-name">Design Studio</div>
-        <div class="card-price">$5 <span class="card-unit">/ month CAD</span></div>
-        <div class="card-desc">Dealership graphics workspace for creating branded social assets and marketing collateral.</div>
+        <div class="card-badge">Lead Generation &amp; Retention</div>
+        <div class="card-name">MarketSync Marketing</div>
+        <div class="card-price">From $399 <span class="card-unit">/ month CAD</span></div>
+        <div class="card-desc">For dealers that want lead generation, social publishing, campaigns, video, and content without replacing their operating software.</div>
         <ul class="card-features">
-          <li>Branded creative templates</li>
-          <li>Typography &amp; logo asset vault</li>
-          <li>Social media graphics builder</li>
-          <li>Freeform design canvas</li>
+          <li>Sales Marketing Suite — $399/month</li>
+          <li>Service Marketing Suite — $399/month</li>
+          <li>Complete Marketing Suite — $699/month</li>
+          <li>Generous monthly AI usage included</li>
         </ul>
       </div>
-      <a href="/register.html?plan=design-studio" class="btn-pricing btn-pricing-ghost">Start Design Studio</a>
+      <a href="/register.html?plan=sales-marketing-suite" class="btn-pricing btn-pricing-ghost">Start with Marketing</a>
     </div>
-
-    <!-- Facebook AutoPoster - Salesperson -->
-    <div class="price-card">
+    <div class="price-card path-card featured">
+      <div class="featured-tag">Complete Digital Presence</div>
       <div>
-        <div class="card-badge">Sales Rep Essential</div>
-        <div class="card-name">Facebook AutoPoster — Salesperson</div>
-        <div class="card-price">$19 <span class="card-unit">/ month CAD</span></div>
-        <div class="card-desc">Individual inventory posting assistant for sales representatives on Facebook Marketplace.</div>
-        <ul class="card-features">
-          <li>Salesperson inventory access</li>
-          <li>Marketplace posting assistant</li>
-          <li>Automated listing copy generator</li>
-          <li>Activity tracking</li>
-        </ul>
-      </div>
-      <a href="/register.html?plan=autoposter-salesperson" class="btn-pricing btn-pricing-ghost">Get AutoPoster Rep</a>
-    </div>
-
-    <!-- Social Scheduler -->
-    <div class="price-card">
-      <div>
-        <div class="card-badge">Social Calendar</div>
-        <div class="card-name">Social Scheduler</div>
-        <div class="card-price">$59 <span class="card-unit">/ month CAD</span></div>
-        <div class="card-desc">Social content planning, scheduling, and multi-platform publishing calendar.</div>
-        <ul class="card-features">
-          <li>Multi-platform social calendar</li>
-          <li>Dealership &amp; rep queues</li>
-          <li>Scheduled post automation</li>
-          <li>Campaign media manager</li>
-        </ul>
-      </div>
-      <a href="/register.html?plan=social-scheduler" class="btn-pricing btn-pricing-ghost">Start Social Scheduler</a>
-    </div>
-
-    <!-- Facebook AutoPoster - Dealer -->
-    <div class="price-card">
-      <div>
-        <div class="card-badge">Dealership Hub</div>
-        <div class="card-name">Facebook AutoPoster — Dealer</div>
-        <div class="card-price">$79 <span class="card-unit">/ month CAD</span></div>
-        <div class="card-desc">Centralized Facebook Marketplace inventory distribution for the whole sales team.</div>
-        <ul class="card-features">
-          <li>Full lot inventory syndication</li>
-          <li>Team Marketplace management</li>
-          <li>Sales rep approval workflows</li>
-          <li>Centralized lead routing</li>
-        </ul>
-      </div>
-      <a href="/register.html?plan=autoposter-dealer" class="btn-pricing btn-pricing-ghost">Get AutoPoster Dealer</a>
-    </div>
-
-    <!-- Video -->
-    <div class="price-card">
-      <div>
-        <div class="card-badge">Video Marketing</div>
-        <div class="card-name">Video</div>
-        <div class="card-price">$99 <span class="card-unit">/ month CAD</span></div>
-        <div class="card-desc">Vehicle walkaround, customer presentation, and social video creation suite.</div>
-        <ul class="card-features">
-          <li>Walkaround recording assistant</li>
-          <li>Branded overlays &amp; captions</li>
-          <li>Video email &amp; SMS delivery links</li>
-          <li>Video engagement analytics</li>
-        </ul>
-      </div>
-      <a href="/register.html?plan=video" class="btn-pricing btn-pricing-ghost">Start Video Suite</a>
-    </div>
-
-    <!-- Campaigns -->
-    <div class="price-card">
-      <div>
-        <div class="card-badge">Automated Messaging</div>
-        <div class="card-name">Campaigns — Email + SMS</div>
-        <div class="card-price">$129 <span class="card-unit">/ month CAD + usage</span></div>
-        <div class="card-desc">Targeted email and SMS marketing campaigns with intelligent audience segmentation.</div>
-        <ul class="card-features">
-          <li>Email campaign builder &amp; templates</li>
-          <li>SMS broadcast &amp; auto follow-ups</li>
-          <li>Audience segmentation engine</li>
-          <li>Open, click &amp; conversion analytics</li>
-        </ul>
-      </div>
-      <a href="/register.html?plan=campaigns" class="btn-pricing btn-pricing-ghost">Start Campaigns</a>
-    </div>
-
-    <!-- Dealer Website -->
-    <div class="price-card">
-      <div>
-        <div class="card-badge">Digital Showroom</div>
-        <div class="card-name">Dealer Website</div>
-        <div class="card-price">$249 <span class="card-unit">/ month CAD</span></div>
-        <div class="card-desc">High-performance dealership website platform with live inventory VDPs and lead capture.</div>
-        <ul class="card-features">
-          <li>Live inventory &amp; VDP showroom</li>
-          <li>Custom domain &amp; SSL included</li>
-          <li>Mobile-first responsive UX</li>
-          <li>Automotive SEO optimization</li>
-        </ul>
-      </div>
-      <a href="/register.html?plan=dealer-website" class="btn-pricing btn-pricing-ghost">Get Dealer Website</a>
-    </div>
-
-    <!-- AI ChatBot -->
-    <div class="price-card">
-      <div>
-        <div class="card-badge">24/7 AI Assistant</div>
-        <div class="card-name">AI ChatBot</div>
-        <div class="card-price">$299 <span class="card-unit">/ month CAD</span></div>
-        <div class="card-desc">Automotive AI customer engagement assistant trained on your inventory and dealership info.</div>
-        <ul class="card-features">
-          <li>Real-time inventory lookup</li>
-          <li>Test drive appointment booking</li>
-          <li>Trade appraisal intake</li>
-          <li>24/7 lead capture &amp; CRM routing</li>
-        </ul>
-      </div>
-      <a href="/register.html?plan=ai-chatbot" class="btn-pricing btn-pricing-ghost">Deploy AI ChatBot</a>
-    </div>
-  </div>
-
-  <!-- Section 2: Marketing Suites & Digital -->
-  <div id="suites" class="section-label ms-reveal">
-    <h2>Layer 2 &amp; 3 — Connected Marketing Suites &amp; Digital</h2>
-    <p>Bundle products together for connected dealership growth at substantial savings.</p>
-  </div>
-
-  <div class="cards-grid ms-reveal">
-    <!-- Sales Marketing Suite -->
-    <div class="price-card">
-      <div>
-        <div class="card-badge">Sales Growth Pack</div>
-        <div class="card-name">Sales Marketing Suite</div>
-        <div class="card-price">$249 <span class="card-unit">/ month CAD</span></div>
-        <div class="card-desc">Connected marketing suite for sales teams to capture, nurture, and close leads.</div>
-        <ul class="card-features">
-          <li>Design Studio included</li>
-          <li>AutoPoster Dealer included</li>
-          <li>Social Scheduler included</li>
-          <li>Campaigns Email + SMS included</li>
-        </ul>
-      </div>
-      <a href="/register.html?plan=sales-marketing-suite" class="btn-pricing btn-pricing-ghost">Get Sales Suite</a>
-    </div>
-
-    <!-- Service Marketing Suite -->
-    <div class="price-card">
-      <div>
-        <div class="card-badge">Fixed Ops Retention</div>
-        <div class="card-name">Service Marketing Suite</div>
-        <div class="card-price">$249 <span class="card-unit">/ month CAD</span></div>
-        <div class="card-desc">Customer retention and service marketing platform for service drive revenue growth.</div>
-        <ul class="card-features">
-          <li>Service reminder campaigns</li>
-          <li>Dormant customer reactivation</li>
-          <li>Service promo landing pages</li>
-          <li>Customer satisfaction survey loops</li>
-        </ul>
-      </div>
-      <a href="/register.html?plan=service-marketing-suite" class="btn-pricing btn-pricing-ghost">Get Service Suite</a>
-    </div>
-
-    <!-- Complete Marketing Suite -->
-    <div class="price-card featured">
-      <div class="featured-tag">Popular Suite</div>
-      <div>
-        <div class="card-badge">All-In-One Marketing</div>
-        <div class="card-name">Complete Marketing Suite</div>
-        <div class="card-price">$399 <span class="card-unit">/ month CAD</span></div>
-        <div class="card-desc">Full-spectrum connected marketing platform combining Sales, Service, Video, and Social.</div>
-        <ul class="card-features">
-          <li>Sales Marketing Suite included</li>
-          <li>Service Marketing Suite included</li>
-          <li>Video Suite included</li>
-          <li>Intelligence by MarketSync Campaign AI</li>
-        </ul>
-      </div>
-      <a href="/register.html?plan=complete-marketing-suite" class="btn-pricing btn-pricing-primary">Get Complete Marketing</a>
-    </div>
-
-    <!-- MarketSync Digital -->
-    <div id="digital" class="price-card featured">
-      <div class="featured-tag">Digital Flagship</div>
-      <div>
-        <div class="card-badge">360 Digital Presence</div>
+        <div class="card-badge">Marketing + Website + AI</div>
         <div class="card-name">MarketSync Digital</div>
-        <div class="card-price">$599 <span class="card-unit">/ month CAD</span></div>
-        <div class="card-desc">Complete Marketing Suite + Dealer Website + AI ChatBot in one unified platform.</div>
+        <div class="card-price">$1,199 <span class="card-unit">/ month CAD</span></div>
+        <div class="card-desc">Your connected marketing system, dealership website, and AI customer engagement in one digital platform.</div>
         <ul class="card-features">
-          <li>Complete Marketing Suite included</li>
-          <li>Dealer Website included</li>
-          <li>AI ChatBot included</li>
-          <li>Unified Digital Dashboard &amp; Lead Sync</li>
+          <li>Complete Marketing Suite</li>
+          <li>Dealer website and live inventory</li>
+          <li>AI ChatBot and lead capture</li>
+          <li>Unified dashboard and lead sync</li>
         </ul>
       </div>
       <a href="/register.html?plan=marketsync-digital" class="btn-pricing btn-pricing-primary">Get MarketSync Digital</a>
     </div>
+    <div class="price-card path-card">
+      <div>
+        <div class="card-badge">Dealership Operating Platform</div>
+        <div class="card-name">DealerOS</div>
+        <div class="card-price">From $1,999 <span class="card-unit">/ month CAD</span></div>
+        <div class="card-desc">The connected operating system for dealerships ready to unify sales, inventory, desking, service, marketing, reporting, and more.</div>
+        <ul class="card-features">
+          <li>Core — $1,999/month</li>
+          <li>Pro — $3,499/month</li>
+          <li>Complete — $5,999+/month</li>
+          <li>Implementation available with every plan</li>
+        </ul>
+      </div>
+      <a href="/demo.html?plan=dealer-os" class="btn-pricing btn-pricing-ghost">Book a DealerOS Demo</a>
+    </div>
   </div>
 
-  <!-- Section 3: DealerOS Flagship -->
   <div id="dealeros" class="section-label ms-reveal">
-    <h2>Layer 4 — DealerOS Operating System</h2>
-    <p>The flagship automotive operating system powering Sales, Service, Inventory, F&amp;I, and Intelligence.</p>
+    <h2>Founding Dealer pricing</h2>
+    <p>Preferred launch pricing for the first 25 dealerships, locked for 24 months.</p>
   </div>
-
-  <div class="cards-grid ms-reveal" style="max-width:1200px;">
-    <!-- DealerOS Core -->
+  <div class="cards-grid buying-paths ms-reveal">
     <div class="price-card">
       <div>
-        <div class="card-badge">Connected OS Base</div>
-        <div class="card-name">DealerOS Core</div>
-        <div class="card-price">$1,499 <span class="card-unit">/ month CAD</span></div>
-        <div class="card-desc">The connected dealership operating system bringing Sales, CRM, Inventory, and Workflows together.</div>
+        <div class="card-badge">Founding Dealer</div><div class="card-name">DealerOS Core</div>
+        <div class="card-price">$1,499 <span class="card-unit">/ month CAD</span><span class="price-was">Standard price: $1,999/month</span></div>
+        <div class="card-desc">CRM, inventory, desking, appraisals, sales workflows, marketing, and reporting.</div>
         <ul class="card-features">
-          <li>Connected Automotive CRM &amp; Pipeline</li>
-          <li>Inventory Management &amp; VinSticker</li>
-          <li>Sales Marketing Suite Included</li>
-          <li>Desking &amp; Trade Appraisals</li>
-          <li>Manager Command Center &amp; Reporting</li>
+          <li>Connected CRM and lead management</li><li>Inventory and desking</li><li>Sales Marketing Suite</li>
         </ul>
+        <div class="implementation">$1,500 onboarding. Implementation included with a qualifying annual agreement.</div>
       </div>
-      <a href="/demo.html?plan=dealer-os-core" class="btn-pricing btn-pricing-ghost">Book Core Demo</a>
+      <a href="/demo.html?plan=dealer-os-core" class="btn-pricing btn-pricing-ghost">Claim Founding Core</a>
     </div>
-
-    <!-- DealerOS Pro -->
     <div class="price-card featured">
-      <div class="featured-tag">Recommended</div>
+      <div class="featured-tag">Founding Favourite</div>
       <div>
-        <div class="card-badge">Expanded Departments</div>
-        <div class="card-name">DealerOS Pro</div>
-        <div class="card-price">$2,499 <span class="card-unit">/ month CAD</span></div>
-        <div class="card-desc">Comprehensive operating system adding Fixed Ops, F&amp;I, Parts, and MarketSync Digital.</div>
+        <div class="card-badge">Founding Dealer</div><div class="card-name">DealerOS Pro</div>
+        <div class="card-price">$2,499 <span class="card-unit">/ month CAD</span><span class="price-was">Standard price: $3,499/month</span></div>
+        <div class="card-desc">Adds service, parts, F&amp;I, HR, and MarketSync Digital to the connected operating platform.</div>
         <ul class="card-features">
-          <li>All DealerOS Core Features</li>
-          <li>Service &amp; Parts Workspaces</li>
-          <li>F&amp;I Deal Structuring &amp; Lenders</li>
-          <li>MarketSync Digital Included</li>
-          <li>HR Dossier &amp; Staff Directory</li>
+          <li>Everything in DealerOS Core</li><li>Service, Parts, and F&amp;I</li><li>MarketSync Digital included</li>
         </ul>
+        <div class="implementation">$3,000 onboarding. Implementation included with a qualifying annual agreement.</div>
       </div>
-      <a href="/demo.html?plan=dealer-os-pro" class="btn-pricing btn-pricing-primary">Book Pro Demo</a>
+      <a href="/demo.html?plan=dealer-os-pro" class="btn-pricing btn-pricing-primary">Claim Founding Pro</a>
     </div>
-
-    <!-- DealerOS Complete -->
-    <div class="price-card featured">
-      <div class="featured-tag">Enterprise Flagship</div>
+    <div class="price-card">
       <div>
-        <div class="card-badge">Flagship OS</div>
-        <div class="card-name">DealerOS Complete</div>
-        <div class="card-price">$3,999 <span class="card-unit">/ month CAD</span></div>
-        <div class="card-desc">The complete enterprise operating system for dealership groups with unlimited intelligence.</div>
+        <div class="card-badge">Founding Dealer</div><div class="card-name">DealerOS Complete</div>
+        <div class="card-price">$3,999 <span class="card-unit">/ month CAD</span><span class="price-was">Standard price: $5,999+/month</span></div>
+        <div class="card-desc">The complete multi-store operating system with accounting, automations, integrations, and intelligence.</div>
         <ul class="card-features">
-          <li>Full DealerOS Pro Platform</li>
-          <li>Accounting Ledger &amp; Sync</li>
-          <li>Unlimited Intelligence by MarketSync AI</li>
-          <li>Multi-Store Group Aggregation</li>
-          <li>Custom API Integrations &amp; Webhooks</li>
+          <li>Everything in DealerOS Pro</li><li>Accounting and multi-store reporting</li><li>Generous monthly AI usage included</li><li>Custom API integrations and webhooks</li>
         </ul>
+        <div class="implementation">Implementation starts at $5,000. Included with select annual agreements.</div>
       </div>
-      <a href="/demo.html?plan=dealer-os-complete" class="btn-pricing btn-pricing-primary">Book Enterprise Demo</a>
+      <a href="/demo.html?plan=dealer-os-complete" class="btn-pricing btn-pricing-ghost">Claim Founding Complete</a>
+    </div>
+  </div>
+  <div class="founding-note ms-reveal">Founding Dealer availability is limited to the first 25 dealerships. Usage allowances apply to AI, email, SMS, video storage and processing, voice, third-party data, and API activity.</div>
+
+  <div id="standalone" class="section-label ms-reveal">
+    <h2>Need just one tool?</h2>
+    <p>Start small from $29/month and move into the connected platform when you are ready.</p>
+  </div>
+  <div class="cards-grid standalone-grid ms-reveal">
+    <div class="price-card">
+      <div><div class="card-name">Design Studio</div><div class="card-price">$29 <span class="card-unit">/ month CAD</span></div><div class="card-desc">Branded dealership creative and social assets.</div></div><a href="/register.html?plan=design-studio" class="btn-pricing btn-pricing-ghost">Start Design Studio</a>
+    </div>
+    <div class="price-card">
+      <div><div class="card-name">AutoPoster — Salesperson</div><div class="card-price">$39 <span class="card-unit">/ month CAD</span></div><div class="card-desc">Facebook Marketplace posting for an individual salesperson.</div></div><a href="/register.html?plan=autoposter-salesperson" class="btn-pricing btn-pricing-ghost">Get AutoPoster</a>
+    </div>
+    <div class="price-card">
+      <div><div class="card-name">Social Scheduler</div><div class="card-price">$99 <span class="card-unit">/ month CAD</span></div><div class="card-desc">Plan, approve, schedule, and publish dealership content.</div></div><a href="/register.html?plan=social-scheduler" class="btn-pricing btn-pricing-ghost">Start Scheduling</a>
+    </div>
+    <div class="price-card">
+      <div><div class="card-name">AutoPoster — Dealer</div><div class="card-price">$149 <span class="card-unit">/ month CAD</span></div><div class="card-desc">Central Facebook Marketplace inventory distribution for the team.</div></div><a href="/register.html?plan=autoposter-dealer" class="btn-pricing btn-pricing-ghost">Get Dealer AutoPoster</a>
+    </div>
+    <div class="price-card">
+      <div><div class="card-name">Video</div><div class="card-price">$149 <span class="card-unit">/ month CAD</span></div><div class="card-desc">Walkarounds, customer presentations, and social video.</div></div><a href="/register.html?plan=video" class="btn-pricing btn-pricing-ghost">Start Video</a>
+    </div>
+    <div class="price-card">
+      <div><div class="card-name">Campaigns — Email + SMS</div><div class="card-price">$199 <span class="card-unit">/ month CAD + usage</span></div><div class="card-desc">Email and SMS campaigns, audiences, automations, and reporting.</div></div><a href="/register.html?plan=campaigns" class="btn-pricing btn-pricing-ghost">Start Campaigns</a>
+    </div>
+    <div class="price-card">
+      <div><div class="card-name">Dealer Website</div><div class="card-price">$399 <span class="card-unit">/ month CAD</span></div><div class="card-desc">Fast dealership website, live inventory, VDPs, SEO, and lead capture.</div></div><a href="/register.html?plan=dealer-website" class="btn-pricing btn-pricing-ghost">Get Dealer Website</a>
+    </div>
+    <div class="price-card">
+      <div><div class="card-name">AI ChatBot</div><div class="card-price">$599 <span class="card-unit">/ month CAD + AI usage</span></div><div class="card-desc">24/7 inventory-aware customer engagement, appointment booking, and lead capture.</div></div><a href="/register.html?plan=ai-chatbot" class="btn-pricing btn-pricing-ghost">Deploy AI ChatBot</a>
     </div>
   </div>
 
@@ -558,15 +414,15 @@
     </div>
     <div class="faq-item">
       <div class="faq-q">Can I start with one product and upgrade later?</div>
-      <div class="faq-a">Yes. MarketSync is built modularly. You can start with a standalone product like Design Studio ($5/mo) or AutoPoster ($19/mo), and upgrade to a Suite or DealerOS whenever your dealership expands.</div>
+      <div class="faq-a">Yes. Start with a standalone product from $29/month, then move into MarketSync Marketing, MarketSync Digital, or DealerOS as your needs grow.</div>
     </div>
     <div class="faq-item">
       <div class="faq-q">How does usage work on Campaigns — Email + SMS?</div>
-      <div class="faq-a">Campaigns starts at $129 CAD/month for campaign orchestration, segmenting, and templates. Email and SMS carrier message volume is billed transparently at usage cost.</div>
+      <div class="faq-a">Campaigns starts at $199 CAD/month for campaign orchestration, segmentation, templates, and automation. Email and SMS message volume is billed transparently by usage.</div>
     </div>
     <div class="faq-item">
       <div class="faq-q">What is included in DealerOS Complete?</div>
-      <div class="faq-a">DealerOS Complete ($3,999 CAD/mo) is our flagship enterprise operating system. It includes all Sales, Service, Parts, F&amp;I, Accounting, Marketing, Website, AI ChatBot, and multi-location group management capabilities with unlimited Intelligence by MarketSync.</div>
+      <div class="faq-a">DealerOS Complete starts at the $5,999 CAD/month standard price. It brings Sales, Service, Parts, F&amp;I, Accounting, Marketing, Website, AI ChatBot, and multi-location management together, with generous monthly AI usage included. Founding Dealer pricing is available for a limited time.</div>
     </div>
   </section>
 

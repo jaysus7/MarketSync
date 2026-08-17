@@ -157,7 +157,11 @@ test('public navigation is price-free and mobile exposes primary actions before 
 test('pricing cards keep plan totals without repeating component prices', () => {
   const pricing = read('pricing.html')
   assert.doesNotMatch(pricing, /included \(\$[^)]*\)/i, 'pricing cards repeat component prices')
-  assert.match(pricing, /class="card-price">\$249/, 'primary plan pricing must remain visible')
+  assert.match(pricing, /MarketSync Marketing[\s\S]{0,180}From \$399/, 'Marketing buying path is missing')
+  assert.match(pricing, /MarketSync Digital[\s\S]{0,180}\$1,199/, 'Digital buying path is missing')
+  assert.match(pricing, /DealerOS[\s\S]{0,180}From \$1,999/, 'DealerOS buying path is missing')
+  assert.match(pricing, /first 25 dealerships/, 'Founding Dealer limit is missing')
+  assert.doesNotMatch(pricing, /unlimited intelligence/i, 'pricing must not promise unlimited AI compute')
 })
 
 test('shared shell crops the padded logo asset to a legible brand mark', () => {
