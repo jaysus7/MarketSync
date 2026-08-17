@@ -31,8 +31,11 @@ const CONTROL_KEY = 'demo_control'
 // autoposter-dealer was dropped: one Facebook AutoPoster entry is enough now that the
 // Role Switcher's Independent/Dealer Admin split already covers the rep-vs-dealer
 // distinction (Independent auto-provisions this exact plan — see DEMO_ROLES below).
+// social-scheduler was dropped: Social Scheduler is no longer a separate product —
+// it's folded into design-studio (Design Studio), which now also grants the
+// scheduler/accounts/calendar features at one flat price.
 const DEMO_PACKAGES = [
-  'design-studio', 'autoposter-salesperson', 'social-scheduler',
+  'design-studio', 'autoposter-salesperson',
   'video', 'campaigns-email-sms', 'dealer-website', 'ai-chatbot',
   'sales-marketing-suite', 'service-marketing-suite', 'complete-marketing-suite', 'marketsync-digital',
   'dealer-os-core', 'dealer-os-pro', 'dealer-os-complete',

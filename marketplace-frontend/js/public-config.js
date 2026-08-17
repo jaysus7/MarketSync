@@ -19,16 +19,18 @@ const MARKETSYNC_PRICING = {
     {
       id: 'design-studio',
       name: 'Design Studio',
-      price: 5,
-      priceFormatted: '$5',
+      price: 19.99,
+      priceFormatted: '$19.99',
       unit: '/month',
       badge: 'Creative Workspace',
-      desc: 'Dealership design workspace for creating branded graphics, social assets, and marketing collateral.',
+      desc: 'Dealership design workspace for creating branded graphics, social assets, and marketing collateral — with AI generation and a social scheduler built in, one flat price.',
       features: [
         'Branded creative templates',
         'Typography & logo asset vault',
         'Social media graphics builder',
         'Freeform design canvas',
+        'AI-generated images, layouts & copy',
+        'Multi-platform social scheduler & calendar',
         'Intelligence by MarketSync asset suggestions'
       ],
       ctaText: 'Start Design Studio',
@@ -51,24 +53,6 @@ const MARKETSYNC_PRICING = {
       ],
       ctaText: 'Get AutoPoster Rep',
       ctaUrl: '/register.html?plan=autoposter-salesperson'
-    },
-    {
-      id: 'social-scheduler',
-      name: 'Social Scheduler',
-      price: 59,
-      priceFormatted: '$59',
-      unit: '/month',
-      badge: 'Multi-Channel Calendar',
-      desc: 'Social content planning, scheduling, and multi-platform publishing calendar.',
-      features: [
-        'Multi-platform social calendar',
-        'Dealership & rep publishing queues',
-        'Scheduled post automation',
-        'Campaign media manager',
-        'Posting time recommendations'
-      ],
-      ctaText: 'Start Social Scheduler',
-      ctaUrl: '/register.html?plan=social-scheduler'
     },
     {
       id: 'autoposter-dealer',
@@ -173,9 +157,8 @@ const MARKETSYNC_PRICING = {
       badge: 'Sales Growth Pack',
       desc: 'Connected marketing suite for dealership sales teams to capture, nurture, and close leads.',
       includedItems: [
-        'Design Studio ($5/mo value)',
+        'Design Studio ($19.99/mo value, with social scheduler & AI included)',
         'Facebook AutoPoster Dealer ($79/mo value)',
-        'Social Scheduler ($59/mo value)',
         'Campaigns — Email + SMS ($129/mo value)'
       ],
       idealFor: 'Dealership sales departments seeking high-volume lead generation.',

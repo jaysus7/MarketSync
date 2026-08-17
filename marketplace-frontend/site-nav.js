@@ -19,9 +19,8 @@
 
   // The ONE navigation model. Real pages only — never #anchors.
   var PRODUCTS = [
-    { href: '/design-studio.html', title: 'Design Studio', desc: '$5 / mo · Creative & Brand Canvas' },
+    { href: '/design-studio.html', title: 'Design Studio', desc: '$19.99 / mo · Creative Canvas, AI & Social Scheduler' },
     { href: '/facebook-autoposter.html', title: 'Facebook AutoPoster', desc: '$19 – $79 / mo · Rep & Dealer Marketplace Posting' },
-    { href: '/social-scheduler.html', title: 'Social Scheduler', desc: '$59 / mo · Multi-Channel Publishing Calendar' },
     { href: '/video-studio.html', title: 'Video Suite', desc: '$99 / mo · Walkarounds & Video Messaging' },
     { href: '/campaigns.html', title: 'Campaigns — Email + SMS', desc: '$129 / mo + usage · Automated Customer Messaging' },
     { href: '/dealer-website.html', title: 'Dealer Website', desc: '$249 / mo · VDP Showroom & Automotive SEO' },
@@ -31,8 +30,7 @@
     { href: '/dealer-os.html', title: 'DealerOS Operating System', desc: 'CRM, Sales, Inventory, Desking & Fixed Ops ($1,499+)' },
     { href: '/facebook-autoposter.html', title: 'Facebook AutoPoster', desc: '1-click Facebook Marketplace auto-posting ($19–$79)' },
     { href: '/ai-chatbot.html', title: 'AI ChatBot', desc: '24/7 AI dealership salesperson ($299)' },
-    { href: '/design-studio.html', title: 'Design Studio', desc: 'Dealership graphic canvas & brand studio ($5)' },
-    { href: '/social-scheduler.html', title: 'Social Scheduler', desc: 'Multi-channel publishing calendar & queue ($59)' },
+    { href: '/design-studio.html', title: 'Design Studio', desc: 'Creative canvas, AI generation & social scheduler ($19.99)' },
     { href: '/video-studio.html', title: 'Video Suite', desc: 'Vehicle walkaround videos & customer messaging ($99)' },
     { href: '/campaigns.html', title: 'Campaigns — Email + SMS', desc: 'Targeted customer email & SMS automation ($129+)' },
     { href: '/dealer-website.html', title: 'Dealer Website', desc: 'High-performance VDP showroom & automotive SEO ($249)' },
@@ -112,7 +110,7 @@
       '</div>' +
       '<div class="ms-f-grid">' +
         '<div class="ms-f-brand"><a href="/" class="ms-logo ms-logo-sm"><img src="/Logo 2.1.png" alt="MarketSync DealerOS" style="height:28px; width:auto;"></a><p>The intelligent automotive operating system &amp; digital growth platform.</p></div>' +
-        col('Products', [['Design Studio ($5)', '/pricing.html#standalone'], ['AutoPoster Rep ($19)', '/facebook-autoposter.html'], ['Social Scheduler ($59)', '/pricing.html#standalone'], ['AutoPoster Dealer ($79)', '/facebook-autoposter.html'], ['Video ($99)', '/pricing.html#standalone'], ['Campaigns ($129+)', '/pricing.html#standalone'], ['Dealer Website ($249)', '/dealer-website.html'], ['AI ChatBot ($299)', '/ai-chatbot.html']]) +
+        col('Products', [['Design Studio ($19.99)', '/pricing.html#standalone'], ['AutoPoster Rep ($19)', '/facebook-autoposter.html'], ['AutoPoster Dealer ($79)', '/facebook-autoposter.html'], ['Video ($99)', '/pricing.html#standalone'], ['Campaigns ($129+)', '/pricing.html#standalone'], ['Dealer Website ($249)', '/dealer-website.html'], ['AI ChatBot ($299)', '/ai-chatbot.html']]) +
         col('Suites & OS', [['Sales Marketing ($249)', '/pricing.html#suites'], ['Service Marketing ($249)', '/pricing.html#suites'], ['Complete Marketing ($399)', '/pricing.html#suites'], ['MarketSync Digital ($599)', '/pricing.html#digital'], ['DealerOS Core ($1,499)', '/dealer-os.html'], ['DealerOS Pro ($2,499)', '/dealer-os.html'], ['DealerOS Complete ($3,999)', '/dealer-os.html']]) +
         col('Company & Trust', [['Features', '/features.html'], ['How-to Guide', '/guide.html'], ['FAQ', '/faq.html'], ['Security & Trust', '/security.html'], ['Privacy Policy', '/privacy-policy.html'], ['Terms of Service', '/terms.html']]) +
         col('Get Started', [['Book a Demo', '/demo.html'], ['Log In', '/login.html'], ['Register', '/register.html']]) +

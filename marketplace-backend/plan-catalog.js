@@ -23,11 +23,10 @@ export const FEATURES_BY_PRODUCT = Object.freeze({
   marketsync_website: ['website.builder', 'website.pages', 'website.domains', 'website.settings'],
   marketsync_social: ['social.scheduler', 'social.accounts', 'social.calendar', 'social.studio'],
   marketsync_email: ['email.campaigns', 'email.templates', 'email.audiences', 'email.automations'],
-  // Sold standalone ($5/mo) and also bundled into every Marketing Suite / DealerOS tier.
-  // Kept distinct from marketsync_social's own 'social.studio' feature (which is the
-  // canvas reachable FROM the social product) so a Design-Studio-only subscriber gets
-  // the canvas without also unlocking the social scheduler/accounts/calendar tabs.
-  design_studio: ['design.templates', 'design.assets', 'design.canvas', 'design.suggestions'],
+  // Sold standalone ($19.99/mo flat) and also bundled into every Marketing Suite /
+  // DealerOS tier. Includes the social scheduler/accounts/calendar features — Social
+  // Scheduler is no longer a separate product; it's part of Design Studio.
+  design_studio: ['design.templates', 'design.assets', 'design.canvas', 'design.suggestions', 'social.scheduler', 'social.accounts', 'social.calendar'],
   dealer_os: [
     'os.dashboard', 'os.crm', 'os.inventory', 'os.sales', 'os.accounting', 'os.service',
     'os.marketing', 'os.website', 'os.reports', 'os.automations', 'os.email_marketing',
@@ -190,10 +189,12 @@ export const PLAN_CATALOG = Object.freeze({
   // campaigns", "reactivation SMS/email", "survey loops") doesn't yet have dedicated
   // feature ids, so it grants the closest existing capability (marketsync_email) —
   // flagged here for a follow-up if service-specific gating is needed later.
+  // Includes the social scheduler (post scheduling, connected accounts, content
+  // calendar) and AI generation — a flat, all-in price, not a separate add-on line.
   'design-studio': {
     id: 'design-studio', label: 'Design Studio', product_primary: 'design_studio',
     products: ['design_studio'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 29, tier: 0,
+    monthly: 19.99, tier: 0,
     priceEnvCad: 'STRIPE_PRICE_DESIGN_STUDIO_CAD', priceEnvUsd: 'STRIPE_PRICE_DESIGN_STUDIO_USD',
     features: [...FEATURES_BY_PRODUCT.design_studio],
     legacy: { ...legacyFlags({}), products: { design_studio: true } },
@@ -205,15 +206,6 @@ export const PLAN_CATALOG = Object.freeze({
     priceEnvCad: 'STRIPE_PRICE_AUTOPOSTER_SALESPERSON_CAD', priceEnvUsd: 'STRIPE_PRICE_AUTOPOSTER_SALESPERSON_USD',
     features: ['fb.inventory', 'fb.leaderboard'],
     legacy: { ...legacyFlags({ fbOnly: true }), products: { autoposter_salesperson: true, facebook_solo: true } },
-  },
-  'social-scheduler': {
-    id: 'social-scheduler', label: 'Social Scheduler', product_primary: 'marketsync_social',
-    products: ['marketsync_social'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 99, tier: 0,
-    priceEnvCad: 'STRIPE_PRICE_SOCIAL_SCHEDULER_CAD', priceEnvUsd: 'STRIPE_PRICE_SOCIAL_SCHEDULER_USD',
-    // No 'social.studio' — that's the standalone Design Studio SKU above.
-    features: ['social.scheduler', 'social.accounts', 'social.calendar'],
-    legacy: { ...legacyFlags({}), products: { marketsync_social: true, social_scheduler: true } },
   },
   'autoposter-dealer': {
     id: 'autoposter-dealer', label: 'Facebook AutoPoster — Dealer', product_primary: 'facebook',
