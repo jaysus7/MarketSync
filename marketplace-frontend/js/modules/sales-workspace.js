@@ -272,7 +272,7 @@ function salesTodayVideosCard() {
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
           <button onclick="openPublicVideoLink('${v.share_token}', '${v.contact_id}')" class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition">Play Video</button>
-          <button onclick="sendCustomerVideo('${v.id}', 'sms')" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition">Resend</button>
+          <button onclick="vidSendExistingVideo('${v.id}', '${v.channel === 'email' ? 'email' : 'sms'}')" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition">Resend</button>
         </div>
       </div>
     `;

@@ -245,6 +245,34 @@ async function apiSendJson(path, method = 'POST', body = null, { timeoutMs = 200
   return data || {};
 }
 
+// Same contract as apiSendJson, for a FormData body (file uploads) — no
+// Content-Type header is set here on purpose; the browser must generate the
+// multipart boundary itself, which it can only do if the header is left unset.
+// Default timeout is longer than a JSON write since these carry real file bytes
+// (e.g. sales videos, up to 200MB).
+async function apiSendFormData(path, method = 'POST', formData, { timeoutMs = 120000 } = {}) {
+  async function attempt() {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      return await fetch(`${API}${path}`, {
+        method,
+        headers: { 'Authorization': `Bearer ${token || localStorage.getItem('token') || ''}`, ...actHeaders() },
+        body: formData,
+        signal: ctrl.signal,
+      });
+    } finally { clearTimeout(timer); }
+  }
+  let r = await attempt();
+  if (r.status === 401) {
+    const ok = await refreshSessionSilently();
+    if (ok) r = await attempt();
+  }
+  let data = null; try { data = await r.json(); } catch {}
+  if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data || {};
+}
+
 // Surface otherwise-invisible runtime errors so "stuck loading" symptoms become
 // diagnosable instead of silent. Deduped so a repeating error doesn't spam.
 ;(function installGlobalErrorSurfacer() {
