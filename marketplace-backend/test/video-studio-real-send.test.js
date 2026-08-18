@@ -6,6 +6,35 @@ const videoStudio = readFileSync(new URL('../../marketplace-frontend/js/modules/
 const dashboardJs = readFileSync(new URL('../../marketplace-frontend/dashboard.js', import.meta.url), 'utf8')
 const salesWorkspace = readFileSync(new URL('../../marketplace-frontend/js/modules/sales-workspace.js', import.meta.url), 'utf8')
 const watchHtml = readFileSync(new URL('../../marketplace-frontend/watch.html', import.meta.url), 'utf8')
+const salesVideoBackend = readFileSync(new URL('../routes/sales-video.js', import.meta.url), 'utf8')
+
+test('the backend send endpoint ACTUALLY delivers — it was a no-op that only stamped status=sent, so the customer got nothing', () => {
+  // The one bug behind "I sent it and nothing arrived": the endpoint updated the row
+  // but never called any email/SMS provider.
+  assert.match(salesVideoBackend, /import \{ supabaseAdmin, sendEmail, FRONTEND_URL \} from '\.\.\/shared\.js'/)
+  assert.match(salesVideoBackend, /import \{ sendDealerSms \} from '\.\/automation\.js'/)
+
+  const sendHandler = salesVideoBackend.match(/app\.post\('\/sales-videos\/:id\/send'[\s\S]*?\n  \}\)/)?.[0] || ''
+  assert.ok(sendHandler, 'the send route handler must exist')
+  assert.match(sendHandler, /await sendEmail\(/, 'the email channel must call the real mailer')
+  assert.match(sendHandler, /await sendDealerSms\(req\.dealershipId,/, 'the sms channel must call the real Twilio sender')
+
+  // Fail closed: a failed delivery must NOT be recorded as sent. The 502 guard has to come
+  // BEFORE the status update, or a bounced email would still read "Sent" to the rep.
+  const failGuardIdx = sendHandler.indexOf('if (!delivery?.ok)')
+  const markSentIdx = sendHandler.indexOf("status: 'sent'")
+  assert.ok(failGuardIdx > -1, 'must guard on delivery success')
+  assert.ok(markSentIdx > -1, 'must still mark sent on success')
+  assert.ok(failGuardIdx < markSentIdx, 'the delivery-failure guard must run before the status is set to sent')
+
+  // A customer with no address/number on the chosen channel is a hard error, not a silent send.
+  assert.match(sendHandler, /has no email address on file/)
+  assert.match(sendHandler, /has no mobile number on file/)
+
+  // The emailed/texted link must be the same public watch URL the studio builds.
+  assert.match(salesVideoBackend, /function watchUrl\(shareToken\)/)
+  assert.match(salesVideoBackend, /\/watch\.html\?t=\$\{encodeURIComponent\(shareToken\)\}/)
+})
 
 test('apiSendFormData actually exists — the old send flow called it and it was never defined anywhere, so every video upload silently threw and was swallowed', () => {
   assert.doesNotMatch(videoStudio, /\bsendCustomerVideo\b/, 'the old fake-success sender must be gone, not left as dead code')

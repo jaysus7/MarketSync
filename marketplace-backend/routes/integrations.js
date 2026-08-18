@@ -145,7 +145,7 @@ export function registerIntegrations(app) {
   app.get('/integrations/twilio/provision/search', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!twilioProvisionConfigured()) return res.status(503).json({ error: 'Number provisioning is not configured on this server yet.' })
     try {
-      const numbers = await searchNumbers({ country: (req.query.country || 'US'), areaCode: (req.query.area || ''), contains: (req.query.contains || ''), limit: 12 })
+      const numbers = await searchNumbers({ country: (req.query.country || 'US'), region: (req.query.region || ''), city: (req.query.city || ''), areaCode: (req.query.area || ''), contains: (req.query.contains || ''), limit: 12 })
       res.json({ numbers })
     } catch (e) { res.status(400).json({ error: e.message }) }
   })

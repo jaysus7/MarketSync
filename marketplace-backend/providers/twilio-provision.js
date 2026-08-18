@@ -32,10 +32,14 @@ async function tw(url, method = 'GET', params = null, creds = masterCreds()) {
   return j
 }
 
-// Search available local numbers (SMS-capable) by country + area code / contains.
-export async function searchNumbers({ country = 'US', areaCode = '', contains = '', limit = 10 } = {}) {
+// Search available local numbers (SMS-capable) by country + region (province/state)
+// + city + area code / contains. Region is Twilio's 2-letter province/state code
+// (e.g. ON, CA); city is the locality name (e.g. Welland).
+export async function searchNumbers({ country = 'US', region = '', city = '', areaCode = '', contains = '', limit = 10 } = {}) {
   const creds = masterCreds()
   const q = new URLSearchParams({ SmsEnabled: 'true', PageSize: String(Math.min(30, limit)) })
+  if (region) q.set('InRegion', String(region).trim().toUpperCase().slice(0, 4))
+  if (city) q.set('InLocality', String(city).trim())
   if (areaCode) q.set('AreaCode', String(areaCode).replace(/\D/g, '').slice(0, 3))
   if (contains) q.set('Contains', contains)
   const j = await tw(`${API}/Accounts/${creds.sid}/AvailablePhoneNumbers/${country}/Local.json?${q}`, 'GET')
