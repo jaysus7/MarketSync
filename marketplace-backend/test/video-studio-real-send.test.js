@@ -108,3 +108,34 @@ test('the watch page reads the token from ?t= first — the only link shape a pl
   assert.ok(searchIdx > -1 && pathIdx > -1, 'both the query-string and path forms must be present')
   assert.ok(searchIdx < pathIdx, 'the query string (?t=) must be checked before the path fallback')
 })
+
+test('an MFA_REQUIRED failure is impossible to miss — a persistent notice, not just a toast that can flash by unnoticed', () => {
+  assert.match(videoStudio, /id="vid-mfa-notice"/)
+  assert.match(videoStudio, /Complete MFA in Settings/)
+
+  const showFn = videoStudio.match(/function vidShowMfaNotice\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(showFn, 'vidShowMfaNotice must exist')
+  assert.match(showFn, /getElementById\('vid-mfa-notice'\)\?\.classList\.remove\('hidden'\)/)
+
+  const goFn = videoStudio.match(/function vidGoCompleteMfa\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(goFn, 'vidGoCompleteMfa must exist')
+  assert.match(goFn, /vidCloseStudio\(\)/)
+  assert.match(goFn, /switchPage\('profile'\)/)
+  assert.match(goFn, /settingsTab\('account'\)/)
+
+  // Every path that can hit MFA_REQUIRED must call vidShowMfaNotice — including
+  // the auto-prepare that fires with no user action at all, which previously
+  // swallowed every error silently and just left the link box saying "Tap Copy
+  // Link to generate it" forever with no explanation.
+  const autoFn = videoStudio.match(/async function vidAutoPrepareShareLink\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(autoFn, /vidShowMfaNotice\(\)/)
+
+  const copyFn = videoStudio.match(/async function vidCopyShareLink\(\) \{[\s\S]*?\n\}\nwindow\.vidCopyShareLink/)?.[0] || ''
+  assert.match(copyFn, /vidShowMfaNotice\(\)/)
+
+  const sendExistingFn = videoStudio.match(/async function vidSendExistingVideo\(videoId, channel\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(sendExistingFn, /vidShowMfaNotice\(\)/)
+
+  const sendToFn = videoStudio.match(/async function vidSendVideoTo\(channel\) \{[\s\S]*?\n\}\nwindow\.vidSendVideoTo/)?.[0] || ''
+  assert.match(sendToFn, /vidShowMfaNotice\(\)/)
+})

@@ -353,6 +353,15 @@ function renderStudioReviewHtml(contact, options) {
       </div>
 
       <div class="p-4 space-y-4 overflow-y-auto">
+        <!-- Sharing/sending needs step-up MFA, same as texting/social — this stays
+             visible once hit instead of relying on a toast a rep can miss, and it's
+             the same "Complete multi-factor authentication..." wording Settings
+             already uses for texting, so it reads as one consistent rule, not a
+             video-specific quirk. -->
+        <div id="vid-mfa-notice" class="hidden p-3 rounded-xl bg-amber-950/60 border border-amber-800/80 text-amber-200 text-xs space-y-2">
+          <p>Complete multi-factor authentication to share or send this video.</p>
+          <button onclick="vidGoCompleteMfa()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white transition">Complete MFA in Settings</button>
+        </div>
         ${!isViewingSent && previewUrl ? `
         <video src="${escV(previewUrl)}" controls playsinline class="w-full max-h-72 rounded-xl bg-black object-contain"></video>
         ` : ''}
@@ -458,10 +467,14 @@ async function vidAutoPrepareShareLink() {
     const contactId = await vidEnsureContact();
     const video = await vidEnsureUploadedFor(contactId);
     vidUpdateShareLinkBox(video.share_token);
-  } catch {
-    // Silent here — Copy Link / Send surface the failure with a toast if the
-    // rep acts on it; a link that never got auto-prepared just stays showing
-    // "Tap Copy Link to generate it" until then.
+  } catch (e) {
+    // MFA_REQUIRED is the one failure that's worth surfacing even before the
+    // rep acts on anything — every path to actually sending is blocked by it,
+    // and staying silent here just left the link box reading "Tap Copy Link to
+    // generate it" forever with nothing to explain why. Any other failure (no
+    // recording yet, a transient network error) stays quiet — Copy Link/Send
+    // will surface those if the rep acts on them.
+    if (e.message === 'MFA_REQUIRED') vidShowMfaNotice();
   }
 }
 
@@ -916,6 +929,23 @@ function vidBuildShareUrl(shareToken) {
   return `${window.location.origin}/watch.html?t=${encodeURIComponent(shareToken)}`;
 }
 
+// Makes an MFA_REQUIRED failure impossible to miss — a toast alone can flash by
+// unnoticed on a phone, and every button involved already resets itself back to
+// its normal label right after, so nothing else on screen hints that anything
+// went wrong.
+function vidShowMfaNotice() {
+  document.getElementById('vid-mfa-notice')?.classList.remove('hidden');
+}
+
+// Leaves the studio and drops the rep exactly where they'd complete step-up MFA
+// — Settings -> My Account, where Security already lives.
+function vidGoCompleteMfa() {
+  vidCloseStudio();
+  if (typeof switchPage === 'function') switchPage('profile');
+  if (typeof settingsTab === 'function') settingsTab('account');
+}
+window.vidGoCompleteMfa = vidGoCompleteMfa;
+
 function vidRecipientFields() {
   return {
     name: document.getElementById('vid-recipient-name')?.value.trim() || '',
@@ -1017,6 +1047,7 @@ async function vidCopyShareLink() {
       showToast('Link ready — copy it from the box below', 'info');
     }
   } catch (e) {
+    if (e.message === 'MFA_REQUIRED') vidShowMfaNotice();
     if (typeof showToast === 'function') showToast(e.message === 'MFA_REQUIRED' ? 'Complete multi-factor authentication to share this video.' : (e.message || 'Could not prepare the link'), 'error');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Copy Link'; }
@@ -1033,6 +1064,7 @@ async function vidSendExistingVideo(videoId, channel) {
     await apiSendJson(`/sales-videos/${videoId}/send`, 'POST', { channel });
     if (typeof showToast === 'function') showToast(`Sent via ${channel.toUpperCase()}`, 'success');
   } catch (e) {
+    if (e.message === 'MFA_REQUIRED') vidShowMfaNotice();
     if (typeof showToast === 'function') {
       showToast(e.message === 'MFA_REQUIRED' ? 'Complete multi-factor authentication to send videos.' : (e.message || 'Send failed'), 'error');
     }
@@ -1061,6 +1093,7 @@ async function vidSendVideoTo(channel) {
     if (!contactId) throw new Error('Enter at least a name, phone, or email for the customer');
     video = await vidEnsureUploadedFor(contactId);
   } catch (e) {
+    if (e.message === 'MFA_REQUIRED') vidShowMfaNotice();
     if (typeof showToast === 'function') showToast(e.message === 'MFA_REQUIRED' ? 'Complete multi-factor authentication to send videos.' : (e.message || 'Could not prepare the video'), 'error');
     if (btn) { btn.disabled = false; btn.textContent = restoreLabel; }
     return;
