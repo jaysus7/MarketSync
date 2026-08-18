@@ -28,3 +28,17 @@ test('applyExtensionVisibility toggles the real header button by relevance and d
   assert.match(fn, /getElementById\('ext-header-btn'\)/)
   assert.match(fn, /headerBtn\?\.classList\.remove\('hidden'\)/, 'dismissing the banner must be able to reveal the header button')
 })
+
+test('the header Chrome button stays in the nav for Facebook workspaces regardless of banner dismissal', () => {
+  const fn = part14.match(/function applyExtensionVisibility\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  // For a relevant (Facebook-posting) workspace the header button must always show;
+  // the old regression hid it whenever the banner was visible. Guard against that
+  // exact pattern coming back.
+  assert.doesNotMatch(fn, /headerBtn\?\.classList\.add\('hidden'\);?\s*else|else\s*\{[^}]*headerBtn\?\.classList\.add\('hidden'\)/,
+    'the header button must not be hidden while the banner is shown')
+})
+
+test('the header button reads as a "Use Chrome" action', () => {
+  const btn = html.match(/<a id="ext-header-btn"[\s\S]*?<\/a>/)?.[0] || ''
+  assert.match(btn, /Use Chrome/, 'the header extension button must carry a visible "Use Chrome" label')
+})

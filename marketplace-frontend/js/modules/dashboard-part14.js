@@ -372,12 +372,14 @@ function applyExtensionVisibility() {
   const banner = document.getElementById('ext-cta-banner');
   const headerBtn = document.getElementById('ext-header-btn');
   if (!extensionRelevant()) { banner?.classList.add('hidden'); headerBtn?.classList.add('hidden'); return; }
+  // The header "Use Chrome" button stays in the main nav ALWAYS for Facebook-posting
+  // workspaces — it's how you reach the extension after the first-run banner is gone.
+  // The banner is just the extra one-time nudge, dismissible on its own.
+  headerBtn?.classList.remove('hidden');
   let dismissed = false;
   try { dismissed = localStorage.getItem('ms_ext_cta_dismissed') === '1'; } catch {}
-  // Not dismissed → big banner at the top. Dismissed → compact "Install extension"
-  // button beside Tour in the header.
-  if (dismissed) { banner?.classList.add('hidden'); headerBtn?.classList.remove('hidden'); }
-  else { banner?.classList.remove('hidden'); headerBtn?.classList.add('hidden'); }
+  if (dismissed) banner?.classList.add('hidden');
+  else banner?.classList.remove('hidden');
 }
 window.applyExtensionVisibility = applyExtensionVisibility;
 // Wire the dismiss action once; visibility itself is driven by applyExtensionVisibility
