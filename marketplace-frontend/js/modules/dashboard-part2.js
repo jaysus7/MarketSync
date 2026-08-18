@@ -644,8 +644,16 @@ async function initializeDashboardEcosystem() {
     }
 
     if (!canManageFeeds) {
-      // Dealer reps see feeds read-only — hide add/sync controls
-      document.querySelectorAll('[data-admin-only]').forEach(el => el.classList.add('hidden'));
+      // Dealer reps see feeds read-only — hide add/sync controls. Facebook is the
+      // one exception: every rep posts and syncs their own assigned inventory to
+      // their own Facebook profile there, so Sync Now stays available for a
+      // Facebook dealer rep too (Add Feed — connecting a new data source — stays
+      // admin-only everywhere, Facebook included).
+      const fbOnlyForSync = typeof isFacebookOnlyWorkspace === 'function' && isFacebookOnlyWorkspace();
+      document.querySelectorAll('[data-admin-only]').forEach(el => {
+        if (fbOnlyForSync && el.id === 'sync-now-btn') return;
+        el.classList.add('hidden');
+      });
     }
 
     // Billing section: lives inside the Profile card now. Dealer reps don't pay (covered by dealer).

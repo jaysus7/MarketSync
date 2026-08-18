@@ -218,6 +218,7 @@ export function registerRoutes(app) {
     const canManage = req.profile.role === 'DEALER_ADMIN'
       || req.profile.role === 'OWNER'
       || req.profile.role === 'MANAGER'
+      || req.profile.role === 'DEALER_GROUP'
       || req.profile.dealerships?.is_personal === true
     if (!canManage) return res.status(403).json({ error: 'Only dealer admins or solo reps can manage feeds' })
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated with this account' })
@@ -376,6 +377,7 @@ export function registerRoutes(app) {
     const canManage = req.profile.role === 'DEALER_ADMIN'
       || req.profile.role === 'OWNER'
       || req.profile.role === 'MANAGER'
+      || req.profile.role === 'DEALER_GROUP'
       || req.profile.dealerships?.is_personal === true
     if (!canManage) return res.status(403).json({ error: 'Only dealer admins or solo reps can manage feeds' })
 

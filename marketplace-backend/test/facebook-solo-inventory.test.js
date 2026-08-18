@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 const part2 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part2.js', import.meta.url), 'utf8')
 const dashboardJs = readFileSync(new URL('../../marketplace-frontend/dashboard.js', import.meta.url), 'utf8')
 const dashboardHtml = readFileSync(new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8')
+const feedsRoute = readFileSync(new URL('../routes/feeds.js', import.meta.url), 'utf8')
 
 test('feeds-panel/catalog-panel show for solo Facebook reps too, not just accounts inside a dealership', () => {
   // canManageFeeds = isAdmin || isSolo already grants a solo account full
@@ -82,4 +83,27 @@ test('Sync Now is gated the same as Add Feed — a dealer rep sees the panel but
 
 test('isAdmin includes DEALER_GROUP, so a Group Admin gets the same feed-management and settings access as a Dealer Admin', () => {
   assert.match(part2, /const isAdmin = role === 'DEALER_ADMIN' \|\| role === 'OWNER' \|\| role === 'MANAGER' \|\| role === 'DEALER_GROUP';/)
+})
+
+test('a Facebook dealer rep keeps Sync Now even without canManageFeeds — every rep posts and syncs their own inventory there', () => {
+  // Unlike a full DealerOS store (centralized inventory, sync stays admin-gated),
+  // a Facebook dealer rep manages their own assigned inventory on their own
+  // Facebook profile, so Sync Now must stay reachable for them specifically —
+  // Add Feed (connecting a new data source) stays admin-only everywhere, Facebook
+  // included, so this exception is scoped to just the one button.
+  const block = part2.match(/if \(!canManageFeeds\) \{[\s\S]*?\n {4}\}/)?.[0] || ''
+  assert.ok(block, 'the canManageFeeds gating block must exist')
+  assert.match(block, /isFacebookOnlyWorkspace/)
+  assert.match(block, /if \(fbOnlyForSync && el\.id === 'sync-now-btn'\) return;/,
+    'sync-now-btn must be exempted from the admin-only hide when the account is Facebook-only')
+})
+
+test('POST /inventory-feeds lets a Group Admin manage feeds too, matching the frontend isAdmin check', () => {
+  // The frontend's isAdmin (and therefore canManageFeeds, which governs whether
+  // add-feed-form even renders) already includes DEALER_GROUP — this backend guard
+  // is the enforcement side and must recognize the same role, or a Group Admin
+  // would see the Add Feed form and then get a 403 the moment they used it.
+  const matches = [...feedsRoute.matchAll(/const canManage = req\.profile\.role === 'DEALER_ADMIN'[\s\S]*?is_personal === true/g)]
+  assert.ok(matches.length >= 1, 'the canManage check must exist')
+  for (const [block] of matches) assert.match(block, /req\.profile\.role === 'DEALER_GROUP'/)
 })
