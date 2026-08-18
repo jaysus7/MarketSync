@@ -70,6 +70,41 @@ const STUDIO_STICKERS = [
   '❌', '💯', '🏆', '👍', '❤️', '⚡', '🛠️', '🔑', '🎁', '📣', '🕒', '🛡️',
 ];
 
+// Curated Google Fonts for on-canvas text — loaded on demand (not on every page
+// load) the first time the Text tool is opened, via a single stylesheet request.
+const STUDIO_GOOGLE_FONTS = [
+  'Manrope', 'Inter', 'Poppins', 'Montserrat', 'Oswald', 'Bebas Neue',
+  'Playfair Display', 'Anton', 'Archivo Black', 'Roboto Condensed',
+  'DM Sans', 'Barlow Condensed', 'Teko', 'Righteous',
+];
+
+function loadStudioGoogleFonts() {
+  if (document.getElementById('studio-google-fonts-link')) return;
+  const link = document.createElement('link');
+  link.id = 'studio-google-fonts-link';
+  link.rel = 'stylesheet';
+  link.href = `https://fonts.googleapis.com/css2?${STUDIO_GOOGLE_FONTS.map(f => `family=${encodeURIComponent(f).replace(/%20/g, '+')}:wght@400;700;900`).join('&')}&display=swap`;
+  document.head.appendChild(link);
+}
+
+// Applies to the selected text box if one is active, otherwise becomes the
+// font new text (AI copy, headings, etc.) is added with next.
+function studioPickFont(fontName) {
+  window.__studioSelectedFont = `'${fontName}', sans-serif`;
+  document.querySelectorAll('#studio-font-picker button').forEach(btn => {
+    btn.classList.toggle('ring-2', btn.dataset.font === fontName);
+    btn.classList.toggle('ring-indigo-500', btn.dataset.font === fontName);
+  });
+  const active = window.__studioAdapter?.fabricCanvas?.getActiveObject();
+  if (active && ['textbox', 'text', 'i-text'].includes(active.type)) {
+    window.__studioAdapter.updateSelectedText({ fontFamily: window.__studioSelectedFont });
+    if (typeof showToast === 'function') showToast(`${fontName} applied`, 'success');
+  } else if (typeof showToast === 'function') {
+    showToast(`${fontName} selected — new text will use it`, 'info');
+  }
+}
+window.studioPickFont = studioPickFont;
+
 function studioAddSticker(emoji) {
   if (!window.__studioAdapter) return;
   window.__studioAdapter.addText(emoji, { fontSize: 96, fontWeight: '400' });
@@ -276,8 +311,8 @@ function renderStudioWorkspaceHtml(designName, scene) {
         <button onclick="setStudioTool('stickers')" id="tool-btn-stickers" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
           <span class="text-base mb-0.5">⭐</span>Stickers
         </button>
-        <button onclick="setStudioTool('ai')" id="tool-btn-ai" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-sky-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-          <span class="text-base">✦</span>AI
+        <button onclick="setStudioTool('text')" id="tool-btn-text" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition ${window.__studioActiveTool==='text'?'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50':''}">
+          <span class="text-base font-black">Aa</span>Text
         </button>
         <button onclick="setStudioTool('brand')" id="tool-btn-brand" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
           <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10M7 12h10m-7 5h7"/></svg>Brand
@@ -546,6 +581,12 @@ function renderStudioToolPanelContent(tool) {
         <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Social Templates</h3><p class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Ready-made layouts with gradients, shapes and safe text placement.</p></div>
         <select onchange="filterStudioTemplates(this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white"><option value="all">All social sizes</option>${Object.entries(STUDIO_SOCIAL_FORMATS).map(([key,f]) => `<option value="${key}">${f.label}</option>`).join('')}</select>
         <div id="studio-template-cards" class="space-y-3">${renderStudioTemplateCards()}</div>
+        <div class="pt-3 mt-1 border-t border-slate-200 dark:border-slate-800 space-y-2">
+          <h4 class="text-[11px] font-black uppercase tracking-wider text-sky-400">✦ Generate a template</h4>
+          <p class="text-[10px] text-slate-500 dark:text-slate-400 -mt-1">Replaces everything currently on the canvas.</p>
+          <textarea id="studio-ai-template-prompt" rows="3" placeholder="Example: Bold red price-drop banner with room for a headline and a call-to-action button" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white resize-none"></textarea>
+          <button onclick="generateStudioAiTemplate()" id="studio-ai-template-generate" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">✦ Generate template</button>
+        </div>
       </div>
     `;
   } else if (tool === 'inventory') {
@@ -571,6 +612,12 @@ function renderStudioToolPanelContent(tool) {
         <form onsubmit="event.preventDefault(); searchStudioLibrary(document.getElementById('studio-photo-query').value)" class="flex gap-2"><input id="studio-photo-query" type="search" value="car dealership" placeholder="Search photos..." class="min-w-0 flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white"><button class="px-3 rounded-xl bg-blue-600 text-xs font-black">Search</button></form>
         <div class="grid grid-cols-2 gap-2 pt-2" id="studio-photo-results"><div class="col-span-2 p-5 text-center text-xs text-slate-500 dark:text-slate-400">Loading Pexels photos…</div></div>
         <a href="https://www.pexels.com" target="_blank" rel="noopener" class="block text-center text-[10px] font-bold text-sky-400 hover:underline">Photos provided by Pexels</a>
+        <div class="pt-3 mt-1 border-t border-slate-200 dark:border-slate-800 space-y-2">
+          <h4 class="text-[11px] font-black uppercase tracking-wider text-sky-400">✦ Generate an image</h4>
+          <textarea id="studio-ai-image-prompt" rows="3" placeholder="Example: A clean studio shot of a silver SUV on a white background" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white resize-none"></textarea>
+          <button onclick="generateStudioAiImage()" id="studio-ai-image-generate" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">✦ Generate image</button>
+          <div id="studio-ai-image-result" class="hidden"></div>
+        </div>
       </div>
     `;
   } else if (tool === 'videos') {
@@ -592,34 +639,22 @@ function renderStudioToolPanelContent(tool) {
         <div class="grid grid-cols-4 gap-2">${STUDIO_STICKERS.map(s => `<button onclick="studioAddSticker('${s}')" title="Add sticker" class="aspect-square rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-2xl transition">${s}</button>`).join('')}</div>
       </div>
     `;
-  } else if (tool === 'ai') {
-    // Three independent prompt sections — each generates its own kind of
-    // content and adds it to the canvas on its own terms (an image drops in as
-    // a photo layer, copy drops in as a text layer, a template replaces the
-    // whole scene). Built into the editor for every account, no paywall.
+  } else if (tool === 'text') {
     return `
       <div class="p-4 space-y-5">
-        <div><h3 class="text-xs font-black uppercase tracking-wider text-sky-400">AI Content</h3><p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Generate images, copy, or a whole template layout — then add it to the canvas.</p></div>
+        <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Text</h3><p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Generate copy with AI, then pick a font and add it to the canvas.</p></div>
 
         <div class="space-y-2 pb-4 border-b border-slate-200 dark:border-slate-800">
-          <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Image</h4>
-          <textarea id="studio-ai-image-prompt" rows="3" placeholder="Example: A clean studio shot of a silver SUV on a white background" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white resize-none"></textarea>
-          <button onclick="generateStudioAiImage()" id="studio-ai-image-generate" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">✦ Generate image</button>
-          <div id="studio-ai-image-result" class="hidden"></div>
-        </div>
-
-        <div class="space-y-2 pb-4 border-b border-slate-200 dark:border-slate-800">
-          <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Text</h4>
+          <h4 class="text-[11px] font-black uppercase tracking-wider text-sky-400">✦ Generate copy</h4>
           <textarea id="studio-ai-prompt" rows="3" placeholder="Example: Write a short summer sales headline for our SUV event" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white resize-none"></textarea>
           <button onclick="generateStudioAiCopy()" id="studio-ai-generate" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">✦ Generate content</button>
           <div id="studio-ai-result" class="hidden p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-200 whitespace-pre-wrap"></div>
         </div>
 
         <div class="space-y-2">
-          <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Template</h4>
-          <p class="text-[10px] text-slate-500 dark:text-slate-400 -mt-1">Replaces everything currently on the canvas.</p>
-          <textarea id="studio-ai-template-prompt" rows="3" placeholder="Example: Bold red price-drop banner with room for a headline and a call-to-action button" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white resize-none"></textarea>
-          <button onclick="generateStudioAiTemplate()" id="studio-ai-template-generate" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">✦ Generate template</button>
+          <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Fonts</h4>
+          <p class="text-[10px] text-slate-500 dark:text-slate-400 -mt-1">Pick a font — applies to selected text, or the next text you add.</p>
+          <div class="space-y-1.5" id="studio-font-picker">${STUDIO_GOOGLE_FONTS.map(f => `<button type="button" data-font="${escS(f)}" onclick="studioPickFont('${f.replace(/'/g, "\\'")}')" style="font-family:'${escS(f)}', sans-serif" class="w-full text-left px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white transition">${escS(f)}</button>`).join('')}</div>
         </div>
       </div>
     `;
@@ -767,6 +802,7 @@ function setStudioTool(tool) {
   if (tool === 'photos') setTimeout(() => searchStudioLibrary('car dealership'), 0);
   if (tool === 'videos') setTimeout(() => searchStudioVideos('car dealership'), 0);
   if (tool === 'uploads') setTimeout(loadStudioUploadedVideos, 0);
+  if (tool === 'text') setTimeout(loadStudioGoogleFonts, 0);
 }
 
 async function loadStudioTemplate(tmplKey) {
@@ -978,6 +1014,7 @@ function studioAddText(kind) {
   const options = kind === 'heading' ? { fontSize: 64, fontWeight: '900' }
     : kind === 'subheading' ? { fontSize: 36, fontWeight: '700' }
       : { fontSize: 24, fontWeight: '500' };
+  options.fontFamily = window.__studioSelectedFont;
   const copy = kind === 'heading' ? 'ADD A HEADING' : kind === 'subheading' ? 'Add a subheading' : 'Add body text';
   window.__studioAdapter.addText(copy, options);
 }
@@ -1010,9 +1047,8 @@ async function generateStudioAiCopy() {
   }
 }
 
-// Image generation needs a dedicated image-gen provider — the backend returns a
-// clear 503 until one is configured, surfaced here rather than pretending it
-// worked.
+// The backend returns a clear 503 if no image-gen provider key is configured
+// for this server, surfaced here rather than pretending it worked.
 async function generateStudioAiImage() {
   const prompt = document.getElementById('studio-ai-image-prompt')?.value?.trim();
   if (!prompt) { if (typeof showToast === 'function') showToast('Describe the image you want first', 'info'); return; }
@@ -1066,7 +1102,7 @@ window.generateStudioAiTemplate = generateStudioAiTemplate;
 
 function studioAddGeneratedCopy() {
   const copy = document.getElementById('studio-ai-result')?.dataset?.copy;
-  if (copy && window.__studioAdapter) window.__studioAdapter.addText(copy, { fontSize: 36, fontWeight: '800', width: 700 });
+  if (copy && window.__studioAdapter) window.__studioAdapter.addText(copy, { fontSize: 36, fontWeight: '800', width: 700, fontFamily: window.__studioSelectedFont });
 }
 
 function addLibraryImageToCanvas(url, name = 'Photo Asset') {
