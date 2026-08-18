@@ -60,3 +60,30 @@ test('Video folds DMS sync, its own texting, and its own email-sending setup int
   }
   assert.match(block, /loadTextingStatus\(\)/)
 })
+
+test('Video also folds in the Team roster, same as Facebook Dealer', () => {
+  const block = part2.match(/const isVideoTeam = [\s\S]*?\n {6}\}/)?.[0] || ''
+  assert.ok(block, 'the Team-roster fold-in block must exist')
+  assert.match(block, /typeof isVideoOnlyWorkspace === 'function' && isVideoOnlyWorkspace\(\)/)
+  assert.match(block, /\(fbOnly \|\| isVideoTeam\) && isAdmin/)
+  assert.match(block, /SETTINGS_TAB_SECTIONS\.account\.push\('settings-team'\)/)
+})
+
+test('Email sending, Billing and Language are one grid cell, with Security landing beside them — not pushed onto its own row', () => {
+  const col = dashboardHtml.match(/<div id="billing-language-col" class="flex flex-col">[\s\S]*?\n {10}<\/div>\n {10}<\/div>/)?.[0] || ''
+  assert.ok(col, 'billing-language-col must exist')
+  assert.match(col, /id="email-sending-card"/, 'email-sending-card must be nested inside billing-language-col')
+  assert.match(col, /id="billing-section"/)
+  assert.match(col, /id="settings-language-card"/)
+  // Confirm ordering: email-sending-card, then billing-section, then settings-language-card.
+  assert.ok(col.indexOf('id="email-sending-card"') < col.indexOf('id="billing-section"'))
+  assert.ok(col.indexOf('id="billing-section"') < col.indexOf('id="settings-language-card"'))
+})
+
+test('loadTextingStatus shows a clear MFA notice instead of the raw MFA_REQUIRED error code', () => {
+  const part8 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part8.js', import.meta.url), 'utf8')
+  const fn = part8.match(/async function loadTextingStatus\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fn, 'loadTextingStatus must exist')
+  assert.match(fn, /e\.message === 'MFA_REQUIRED'/)
+  assert.match(fn, /Complete multi-factor authentication/)
+})

@@ -167,7 +167,14 @@ let __texting = { status: null };
 async function loadTextingStatus() {
   const root = document.getElementById('texting-root'); if (!root) return;
   try { __texting.status = await apiGetJson('/integrations/twilio/provision/status'); }
-  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message || 'Could not load')}</div>`; return; }
+  catch (e) {
+    // requireMfa returns the bare code 'MFA_REQUIRED' as the error message — show
+    // the actual reason instead of that raw code.
+    root.innerHTML = e.message === 'MFA_REQUIRED'
+      ? `<div class="text-sm text-amber-600 dark:text-amber-400">Complete multi-factor authentication above to manage text messaging.</div>`
+      : `<div class="text-sm text-rose-500">${esc(e.message || 'Could not load')}</div>`;
+    return;
+  }
   renderTexting();
 }
 window.loadTextingStatus = loadTextingStatus;

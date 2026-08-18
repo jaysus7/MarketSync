@@ -859,15 +859,16 @@ async function initializeDashboardEcosystem() {
         });
         if (typeof loadTextingStatus === 'function') loadTextingStatus();
       }
-      // Facebook Dealer also folds in the Team roster (Sales/Management/etc. picker
-      // + Edit/Insights modal) — Administration is hidden entirely for single-product
-      // tiers, so My Account is the only place this reaches its reps at all. Gated on
-      // role (isAdmin, which includes DEALER_GROUP) rather than the facebook_dealer
-      // product string alone — a Group/Dealer Admin previewing a Facebook-only
-      // account can resolve to either product label depending on how the account
-      // was provisioned, and either way only someone who can actually manage a team
-      // should see this (a solo/independent rep has no team).
-      if (fbOnly && isAdmin && Array.isArray(SETTINGS_TAB_SECTIONS?.account) && !SETTINGS_TAB_SECTIONS.account.includes('settings-team')) {
+      // Facebook Dealer and Video both fold in the Team roster (Sales/Management/etc.
+      // picker + Edit/Insights modal) — Administration is hidden entirely for
+      // single-product tiers, so My Account is the only place this reaches their reps
+      // at all. Gated on role (isAdmin, which includes DEALER_GROUP) rather than the
+      // facebook_dealer product string alone — a Group/Dealer Admin previewing a
+      // Facebook-only account can resolve to either product label depending on how
+      // the account was provisioned, and either way only someone who can actually
+      // manage a team should see this (a solo/independent rep has no team).
+      const isVideoTeam = typeof isVideoOnlyWorkspace === 'function' && isVideoOnlyWorkspace();
+      if ((fbOnly || isVideoTeam) && isAdmin && Array.isArray(SETTINGS_TAB_SECTIONS?.account) && !SETTINGS_TAB_SECTIONS.account.includes('settings-team')) {
         SETTINGS_TAB_SECTIONS.account.push('settings-team');
       }
       __settingsTab = 'account';
