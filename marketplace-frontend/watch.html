@@ -35,8 +35,13 @@
 
 <script>
   const API = 'https://vehicle-marketplace-s0e4.onrender.com';
-  const token = location.pathname.split('/').filter(Boolean).pop()
-             || new URLSearchParams(location.search).get('t') || '';
+  // This page is served as a plain static file with no /watch.html/:token
+  // rewrite, so a real link can only ever be /watch.html?t=TOKEN — the query
+  // string is checked first. The path-segment fallback below is dead in
+  // production but kept for a future server-side rewrite that would make
+  // /watch.html/TOKEN work too, without needing another change here.
+  const token = new URLSearchParams(location.search).get('t')
+             || location.pathname.split('/').filter(Boolean).slice(1).pop() || '';
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
     ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 

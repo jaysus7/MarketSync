@@ -3,7 +3,10 @@
  *
  * Implements:
  *   1. `openCustomerVideoStudio(contactId, options)` — Camera controls, teleprompter scripts, front/back flip, zoom, pause/resume
- *   2. `sendCustomerVideo(videoId, channel)` — Sends video link via SMS / Email and posts to CRM Timeline
+ *   2. `vidSendVideoTo(channel)` / `vidCopyShareLink()` — Resolves the recipient
+ *      (creating an ad-hoc CRM contact from typed name/phone/email if there is
+ *      no CRM contact behind this video), uploads if needed, and either sends
+ *      via the real /sales-videos/:id/send endpoint or copies a shareable link.
  *   3. `simCustomerWatchVideo(videoId)` — Simulates customer opening video and generates live watch telemetry
  *   4. `renderVideoTelemetryBadge(videoId)` — Renders open status, watch time duration, and view counts
  */
@@ -103,9 +106,9 @@ async function openCustomerVideoStudio(contactId, options = {}) {
   }
 
   const autoDept = vidDeptForRole(options.department || options.dept);
-  // Recorded once here for sendCustomerVideo() (called later, disconnected from
-  // this options object, to tag the outgoing video) — not a switch a user can
-  // write to themselves; vidDeptForRole() above is still the only place that
+  // Recorded once here for vidEnsureUploadedFor() (called later, disconnected
+  // from this options object, to tag the outgoing video) — not a switch a user
+  // can write to themselves; vidDeptForRole() above is still the only place that
   // decides the value.
   window.__videoStudioState.activeDepartment = autoDept;
   window.__videoStudioState.activeScriptKey = options.scriptKey || (autoDept === 'Service' ? 'service' : 'walkaround');
@@ -353,20 +356,36 @@ function renderStudioReviewHtml(contact, options) {
         ${!isViewingSent && previewUrl ? `
         <video src="${escV(previewUrl)}" controls playsinline class="w-full max-h-72 rounded-xl bg-black object-contain"></video>
         ` : ''}
-        <p class="text-xs text-slate-400">Recipient: <strong>${escV(contact.full_name || contact.first_name)}</strong> (${escV(contact.phone || contact.email)})</p>
-
         ${!isViewingSent ? `
+        <div>
+          <label class="block text-[11px] font-black uppercase text-slate-400 mb-1.5">Recipient</label>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <input id="vid-recipient-name" placeholder="Customer name" value="${escV(contact.full_name || contact.first_name || '')}" class="sm:col-span-2 px-3 py-2 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs font-semibold focus:ring-2 focus:ring-indigo-500 placeholder-slate-500">
+            <input id="vid-recipient-phone" type="tel" placeholder="Mobile phone" value="${escV(contact.phone || '')}" class="px-3 py-2 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs font-semibold focus:ring-2 focus:ring-indigo-500 placeholder-slate-500">
+            <input id="vid-recipient-email" type="email" placeholder="Email" value="${escV(contact.email || '')}" class="px-3 py-2 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs font-semibold focus:ring-2 focus:ring-indigo-500 placeholder-slate-500">
+          </div>
+          <p class="text-[11px] text-slate-500 mt-1">Enter a phone or email to send directly, or just copy the link below and send it yourself.</p>
+        </div>
+
         <div>
           <label class="block text-[11px] font-black uppercase text-slate-400 mb-1">Message &amp; script</label>
           <textarea id="vid-message-input" rows="3" oninput="vidSyncScriptInput(this.value)" class="w-full px-3 py-2 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs font-semibold focus:ring-2 focus:ring-indigo-500">${escV(scriptText)}</textarea>
         </div>
 
+        <div>
+          <label class="block text-[11px] font-black uppercase text-slate-400 mb-1">Shareable link</label>
+          <div class="flex items-center gap-2">
+            <div id="vid-share-link-box" class="flex-1 min-w-0 px-3 py-2 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 text-xs font-mono truncate">Tap Copy Link to generate it</div>
+            <button id="vid-copy-link-btn" onclick="vidCopyShareLink()" class="shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Copy Link</button>
+          </div>
+        </div>
+
         <div class="space-y-2 pt-2 border-t border-slate-800">
-          <button onclick="sendCustomerVideo('${contact.id}', 'sms')" class="w-full py-2.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center justify-center gap-2 shadow-md">
+          <button id="vid-send-sms-btn" onclick="vidSendVideoTo('sms')" class="w-full py-2.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center justify-center gap-2 shadow-md">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
             Send Video via SMS Text
           </button>
-          <button onclick="sendCustomerVideo('${contact.id}', 'email')" class="w-full py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center justify-center gap-2">
+          <button id="vid-send-email-btn" onclick="vidSendVideoTo('email')" class="w-full py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center justify-center gap-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
             Send Video via Email
           </button>
@@ -375,6 +394,7 @@ function renderStudioReviewHtml(contact, options) {
         ` : ''}
 
         ${isViewingSent ? `
+        <p class="text-xs text-slate-400">Recipient: <strong>${escV(contact.full_name || contact.first_name)}</strong> (${escV(contact.phone || contact.email)})</p>
         <div class="p-3 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-black uppercase text-sky-400">Live Video Analytics</span>
@@ -837,93 +857,158 @@ function vidCloseStudio() {
 /**
  * Send Video Link & Attach to Customer Timeline
  */
-async function sendCustomerVideo(contactId, channel) {
-  const videoId = `v_${Math.floor(100000 + Math.random() * 900000)}`;
-  const localUrl = window.__videoStudioState.lastRecordedUrl || '';
-  const messageText = document.getElementById('vid-message-input')?.value || 'Here is your personalized video walkaround!';
-  const contact = window.__videoStudioState.currentContact || { full_name: 'Customer', first_name: 'Customer' };
+// The only working external link, given this is a plain static-file server with
+// no /watch.html/:token rewrite — see the matching fix in watch.html's own token
+// parsing, which now reads this same ?t= query param first.
+function vidBuildShareUrl(shareToken) {
+  return `${window.location.origin}/watch.html?t=${encodeURIComponent(shareToken)}`;
+}
+
+function vidRecipientFields() {
+  return {
+    name: document.getElementById('vid-recipient-name')?.value.trim() || '',
+    phone: document.getElementById('vid-recipient-phone')?.value.trim() || '',
+    email: document.getElementById('vid-recipient-email')?.value.trim() || '',
+  };
+}
+
+// Resolves who this video is actually for. An "independent"/single-product
+// Video account has no CRM to pick a contact from — the rep types a name/phone/
+// email right here instead. If those fields still match whatever real CRM
+// contact this studio was opened for (untouched), that contact is reused rather
+// than creating a duplicate; if they were edited (or there was never a real
+// contact — 'demo-customer' is the studio's own placeholder id, not a CRM
+// record), an ad-hoc contact is created from what was typed. Memoized by the
+// exact field values so clicking Copy Link then Send doesn't create two.
+async function vidEnsureContact() {
+  const fields = vidRecipientFields();
+  const contact = window.__videoStudioState.currentContact || {};
+  const isRealContact = !!contact.id && contact.id !== 'demo-customer';
+  const unchanged = isRealContact
+    && fields.name === (contact.full_name || contact.first_name || '')
+    && fields.phone === (contact.phone || '')
+    && fields.email === (contact.email || '');
+  if (unchanged) return contact.id;
+  if (!fields.name && !fields.phone && !fields.email) return null;
+
+  const cacheKey = `${fields.name}|${fields.phone}|${fields.email}`;
+  const cached = window.__videoStudioState.adhocContact;
+  if (cached && cached.key === cacheKey) return cached.id;
+
+  const res = await apiSendJson('/crm/contacts', 'POST', {
+    full_name: fields.name || undefined,
+    phone: fields.phone || undefined,
+    email: fields.email || undefined,
+  });
+  const id = res?.contact?.id;
+  if (id) window.__videoStudioState.adhocContact = { key: cacheKey, id };
+  return id || null;
+}
+
+// Uploads the recorded blob once per distinct recipient (re-uploads only if the
+// contact actually changes between actions — there is no endpoint to re-attach a
+// contact to an already-uploaded video).
+async function vidEnsureUploadedFor(contactId) {
+  const cached = window.__videoStudioState.uploadedVideo;
+  if (cached && cached.contact_id === (contactId || null)) return cached;
+  const blob = window.__videoStudioState.lastRecordedBlob;
+  if (!blob) throw new Error('No recording to upload yet.');
+  const contact = window.__videoStudioState.currentContact || {};
   const dept = window.__videoStudioState.activeDepartment || 'Sales';
-  const repName = profileContext?.name || window.__user?.name || 'Dave Miller';
+  const formData = new FormData();
+  formData.append('file', blob, `video-${Date.now()}.webm`);
+  if (contactId) formData.append('contact_id', contactId);
+  formData.append('title', `${contact.vehicle || 'Vehicle'} ${dept} Video`);
+  formData.append('duration_seconds', window.__videoStudioState.seconds || 0);
+  const res = await apiSendFormData('/sales-videos', 'POST', formData);
+  if (!res?.video?.id) throw new Error('Upload failed.');
+  const uploaded = { ...res.video, contact_id: contactId || null };
+  window.__videoStudioState.uploadedVideo = uploaded;
+  return uploaded;
+}
 
-  let serverPublicUrl = '';
-  if (window.__videoStudioState.lastRecordedBlob) {
-    try {
-      const formData = new FormData();
-      formData.append('file', window.__videoStudioState.lastRecordedBlob, `video-${Date.now()}.webm`);
-      formData.append('contact_id', contactId || '');
-      formData.append('title', `${contact.vehicle || 'Vehicle'} ${dept} Video`);
-      formData.append('department', dept);
-      formData.append('duration_seconds', window.__videoStudioState.seconds || 120);
-
-      const res = await apiSendFormData('/sales-videos', 'POST', formData).catch(() => null);
-      if (res?.video?.public_url) {
-        serverPublicUrl = res.video.public_url;
-      }
-    } catch (e) {
-      console.warn('Video backend upload warning:', e);
-    }
-  }
-
-  const finalVideoUrl = serverPublicUrl || localUrl || `https://marketsync.dealership.com/video/${videoId}`;
-
-  const videoRecord = {
-    id: videoId,
-    title: `${contact.vehicle || 'Vehicle'} ${dept} Walkaround`,
-    contact_name: contact.full_name || contact.first_name || 'Customer',
-    contact_phone: contact.phone || '',
-    contact_id: contactId,
-    vehicle: contact.vehicle_summary || contact.vehicle || '2024 Ford F-150',
-    sender: repName,
-    department: dept,
-    channel: channel,
-    status: 'sent',
-    duration_seconds: window.__videoStudioState.seconds || 120,
-    sent_at: new Date().toISOString(),
-    first_opened_at: null,
-    first_played_at: null,
-    total_views: 0,
-    watch_percent: 0,
-    share_token: videoId,
-    public_url: finalVideoUrl,
-    local_url: localUrl,
-  };
-
-  window.__videoAnalyticsStore[videoId] = videoRecord;
-
-  if (Array.isArray(DEMO_SENT_VIDEOS)) {
-    DEMO_SENT_VIDEOS.unshift(videoRecord);
-    try {
-      localStorage.setItem('ms_sent_videos', JSON.stringify(DEMO_SENT_VIDEOS.slice(0, 30)));
-    } catch {}
-  }
-
-  const payload = {
-    contact_id: contactId,
-    kind: 'video_walkaround',
-    channel: channel,
-    subject: `Personalized ${dept} Video Message from ${repName}`,
-    body: `${messageText}\n\nWatch Video Link: <a href="#" onclick="openPublicVideoLink('${videoId}', '${contactId}'); return false;" class="text-indigo-400 underline font-bold">▶ Play Customer Video (${finalVideoUrl})</a>`,
-    timestamp: new Date().toISOString()
-  };
-
+// Copy a share link without requiring a named recipient at all — "just copy the
+// link and I'll send it myself" is a valid path, not just SMS/Email.
+async function vidCopyShareLink() {
+  const btn = document.getElementById('vid-copy-link-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
   try {
-    if (contactId) {
-      await apiSendJson(`/crm/contacts/${contactId}/log`, 'POST', payload).catch(() => null);
-      await apiSendJson(`/crm/contacts/${contactId}/timeline`, 'POST', payload).catch(() => null);
+    const contactId = await vidEnsureContact();
+    const video = await vidEnsureUploadedFor(contactId);
+    const url = vidBuildShareUrl(video.share_token);
+    const linkBox = document.getElementById('vid-share-link-box');
+    if (linkBox) { linkBox.textContent = url; linkBox.classList.remove('text-slate-400'); linkBox.classList.add('text-sky-300'); }
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url);
+      if (typeof showToast === 'function') showToast('Video link copied — paste it anywhere', 'success');
+    } else if (typeof showToast === 'function') {
+      showToast('Link ready — copy it from the box below', 'info');
     }
-  } catch {}
-
-  if (typeof showToast === 'function') {
-    showToast(`Video saved & sent via ${channel.toUpperCase()}! Ready to preview in library.`, 'success');
-  }
-
-  const container = document.getElementById('vid-telemetry-container');
-  if (container) container.innerHTML = renderVideoTelemetryBadge(videoId);
-
-  if (document.getElementById('video-studio-root')) {
-    loadVideoStudioPage();
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message === 'MFA_REQUIRED' ? 'Complete multi-factor authentication to share this video.' : (e.message || 'Could not prepare the link'), 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Copy Link'; }
   }
 }
+window.vidCopyShareLink = vidCopyShareLink;
+
+// Real delivery for an already-uploaded video — the one place that actually
+// calls the backend's send endpoint (consent-gated, same as every other
+// customer-facing sender). Used both by the Review screen and the video
+// library's "Resend" button.
+async function vidSendExistingVideo(videoId, channel) {
+  try {
+    await apiSendJson(`/sales-videos/${videoId}/send`, 'POST', { channel });
+    if (typeof showToast === 'function') showToast(`Sent via ${channel.toUpperCase()}`, 'success');
+  } catch (e) {
+    if (typeof showToast === 'function') {
+      showToast(e.message === 'MFA_REQUIRED' ? 'Complete multi-factor authentication to send videos.' : (e.message || 'Send failed'), 'error');
+    }
+    throw e;
+  }
+}
+window.vidSendExistingVideo = vidSendExistingVideo;
+
+// Review screen's Send buttons: resolve who it's going to (creating an ad-hoc
+// contact from the typed name/phone/email if this is an independent Video
+// account with no CRM contact behind it), upload if not already, then actually
+// send — no more silently succeeding regardless of whether anyone real received
+// anything.
+async function vidSendVideoTo(channel) {
+  const fields = vidRecipientFields();
+  if (channel === 'sms' && !fields.phone) { if (typeof showToast === 'function') showToast("Enter the customer's mobile phone number", 'error'); return; }
+  if (channel === 'email' && !fields.email) { if (typeof showToast === 'function') showToast("Enter the customer's email address", 'error'); return; }
+
+  const btn = document.getElementById(channel === 'sms' ? 'vid-send-sms-btn' : 'vid-send-email-btn');
+  const restoreLabel = channel === 'sms' ? 'Send Video via SMS Text' : 'Send Video via Email';
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+
+  let contactId, video;
+  try {
+    contactId = await vidEnsureContact();
+    if (!contactId) throw new Error('Enter at least a name, phone, or email for the customer');
+    video = await vidEnsureUploadedFor(contactId);
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message === 'MFA_REQUIRED' ? 'Complete multi-factor authentication to send videos.' : (e.message || 'Could not prepare the video'), 'error');
+    if (btn) { btn.disabled = false; btn.textContent = restoreLabel; }
+    return;
+  }
+
+  try {
+    await vidSendExistingVideo(video.id, channel);
+    const messageText = document.getElementById('vid-message-input')?.value || '';
+    apiSendJson(`/crm/contacts/${contactId}/timeline`, 'POST', {
+      kind: 'video_walkaround', channel,
+      subject: `Personalized ${window.__videoStudioState.activeDepartment || 'Sales'} Video Message`,
+      body: messageText,
+      timestamp: new Date().toISOString(),
+    }).catch(() => null);
+  } catch { /* vidSendExistingVideo already showed the failure toast */ }
+  finally {
+    if (btn) { btn.disabled = false; btn.textContent = restoreLabel; }
+  }
+}
+window.vidSendVideoTo = vidSendVideoTo;
 
 /**
  * Public Customer Video Player Viewport Modal & Real-Time Telemetry Tracking
@@ -1315,7 +1400,6 @@ function renderVideoTelemetryBadge(videoId) {
 }
 
 window.openCustomerVideoStudio = openCustomerVideoStudio;
-window.sendCustomerVideo = sendCustomerVideo;
 window.simCustomerWatchVideo = simCustomerWatchVideo;
 window.renderVideoTelemetryBadge = renderVideoTelemetryBadge;
 window.vidToggleCamera = vidToggleCamera;
