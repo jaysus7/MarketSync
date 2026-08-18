@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 
 const part2 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part2.js', import.meta.url), 'utf8')
 const dashboardJs = readFileSync(new URL('../../marketplace-frontend/dashboard.js', import.meta.url), 'utf8')
+const dashboardHtml = readFileSync(new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8')
 
 test('feeds-panel/catalog-panel show for solo Facebook reps too, not just accounts inside a dealership', () => {
   // canManageFeeds = isAdmin || isSolo already grants a solo account full
@@ -65,4 +66,20 @@ test('mobile "Menu" overflow button hides for a restricted tier whose whole page
     'the Menu button must only stay visible when the restricted page set overflows the 4-slot row')
   assert.match(fnBody, /more\?\.classList\.toggle\('hidden', !showMoreBtn\);/,
     'the Menu button visibility must follow showMoreBtn, not be forced visible unconditionally')
+})
+
+test('Sync Now is gated the same as Add Feed — a dealer rep sees the panel but not the controls', () => {
+  // canManageFeeds = isAdmin || isSolo was already documented as covering "Add Feed,
+  // Sync Now" (see the comment above the feeds/catalog panel-visibility block), but
+  // sync-now-btn never actually carried [data-admin-only], so a plain dealer rep
+  // (SALES_REP inside a real, non-personal dealership) could see and click Sync Now
+  // and just get a 403 "Insufficient permission" back from the server. Dealer Admin,
+  // Group Admin, and a solo/independent rep should keep it working.
+  const btn = dashboardHtml.match(/<button id="sync-now-btn"[^>]*>/)?.[0] || ''
+  assert.ok(btn, 'sync-now-btn must exist')
+  assert.match(btn, /data-admin-only/, 'Sync Now must be gated by the same admin-only rule as Add Feed')
+})
+
+test('isAdmin includes DEALER_GROUP, so a Group Admin gets the same feed-management and settings access as a Dealer Admin', () => {
+  assert.match(part2, /const isAdmin = role === 'DEALER_ADMIN' \|\| role === 'OWNER' \|\| role === 'MANAGER' \|\| role === 'DEALER_GROUP';/)
 })
