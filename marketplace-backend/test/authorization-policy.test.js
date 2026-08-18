@@ -44,3 +44,16 @@ test('a solo/independent rep on a personal dealership implicitly has all dealers
   assert.ok(fn, 'permissionLookup must exist')
   assert.match(fn, /role === 'SALES_REP' && req\.profile\?\.dealerships\?\.is_personal === true/)
 })
+
+test('a Facebook dealer rep can sync their own inventory — Facebook posting is per-rep, not centrally admin-gated', () => {
+  // Unlike a full DealerOS store, a Facebook dealer rep posts and syncs their own
+  // assigned inventory to their own Facebook profile — there is no "someone else
+  // will do it" the way there is for a rep inside a full multi-department store.
+  // Scoped to inventory.edit specifically (not a blanket dealership-wide bypass
+  // like the personal-dealership one above) so a Facebook dealer rep doesn't pick
+  // up unrelated admin-only capabilities just to unlock Sync Now.
+  const source = readFileSync(new URL('../authorization.js', import.meta.url), 'utf8')
+  const fn = source.match(/async function permissionLookup\(req, permission\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fn, 'permissionLookup must exist')
+  assert.match(fn, /role === 'SALES_REP' && permission === 'inventory\.edit' && req\.profile\?\.dealerships\?\.fb_only === true/)
+})

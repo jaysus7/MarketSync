@@ -43,6 +43,15 @@ async function permissionLookup(req, permission) {
   if (role === 'SALES_REP' && req.profile?.dealerships?.is_personal === true) {
     return { allowed: true, error: null }
   }
+  // On a Facebook-only dealership, every rep posts and syncs their own assigned
+  // inventory to their own Facebook profile — unlike a full DealerOS store, where
+  // inventory is centrally managed and sync stays admin-gated. Scoped to
+  // inventory.edit specifically (not every permission) so a Facebook dealer rep
+  // doesn't pick up unrelated admin-only capabilities (billing, staff management,
+  // ...) just to unlock the sync button.
+  if (role === 'SALES_REP' && permission === 'inventory.edit' && req.profile?.dealerships?.fb_only === true) {
+    return { allowed: true, error: null }
+  }
 
   // `user_roles` and `role_permissions` both reference `roles`, but do not
   // directly reference one another. Querying them as an embedded PostgREST
