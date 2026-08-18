@@ -1142,9 +1142,16 @@ function applyMobileQuickRow() {
   // Build the bottom quick-row from the SAME registry the desktop nav + "All pages"
   // sheet use — nothing hardcoded — for both restricted tiers and full DealerOS.
   let pages = null;
+  // The "Menu" overflow sheet only earns its place when the quick row can't fit
+  // everything. A restricted tier's whole page set is small enough (≤4) to sit
+  // directly in the row, so the sheet would just repeat those same buttons plus
+  // Upgrade — already reachable from the header's own button — with nothing new.
+  let showMoreBtn = true;
   if (__fbOnly || __productAllowedPages) {
     // Restricted tiers (Facebook / product): that tier's exact page set.
-    pages = (restrictedNavPages() || []).filter(p => p.page !== 'profile').slice(0, 4);
+    const restricted = (restrictedNavPages() || []).filter(p => p.page !== 'profile');
+    pages = restricted.slice(0, 4);
+    showMoreBtn = restricted.length > pages.length;
   } else if (__deptNavBuilt && __deptRegistry) {
     // Full DealerOS: ROLE-AWARE bottom row — a salesperson gets Pipeline/Customers/
     // Tasks, a technician gets Repair Orders/Schedule, a manager gets the store view.
@@ -1194,7 +1201,7 @@ function applyMobileQuickRow() {
     if (more && more.parentElement) more.parentElement.insertBefore(host, more);
   }
   host.innerHTML = pages.map(p => `<button type="button" data-page="${esc(p.page)}" onclick="${p.studioLaunch ? 'window.openMarketSyncStudio()' : `deptGo('${esc(p.page)}'${p.invmode ? `,'${esc(p.invmode)}'` : ''})`}" title="${esc(p.label)}" class="nav-item md:hidden flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="opacity-70">${svgIcon(p.icon || 'dot', 'w-[18px] h-[18px]')}</span><span class="text-[9px] leading-none">${esc(p.label.split(' ')[0])}</span></button>`).join('');
-  more?.classList.remove('hidden');
+  more?.classList.toggle('hidden', !showMoreBtn);
 }
 window.applyMobileQuickRow = applyMobileQuickRow;
 

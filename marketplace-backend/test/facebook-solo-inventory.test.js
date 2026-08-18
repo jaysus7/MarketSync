@@ -53,3 +53,16 @@ test('__fbOnly is read from /auth/me\'s dealership.fb_only immediately, not only
   assert.match(boot, /__fbOnly = !!profileContext\?\.dealership\?\.fb_only;/,
     '__fbOnly must be set from profileContext.dealership.fb_only before the first applyProductNav() call')
 })
+
+test('mobile "Menu" overflow button hides for a restricted tier whose whole page set already fits the quick row', () => {
+  // Facebook Solo's restrictedNavPages() is just [Inventory, Leaderboard] — both
+  // already render directly in the 4-slot quick row, so the "Menu" sheet used to
+  // pop up and show those exact same two buttons again (plus Upgrade, which the
+  // header's own button already covers) — dead weight with nothing new in it.
+  const fnBody = dashboardJs.match(/function applyMobileQuickRow\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fnBody, 'applyMobileQuickRow must exist')
+  assert.match(fnBody, /showMoreBtn = restricted\.length > pages\.length;/,
+    'the Menu button must only stay visible when the restricted page set overflows the 4-slot row')
+  assert.match(fnBody, /more\?\.classList\.toggle\('hidden', !showMoreBtn\);/,
+    'the Menu button visibility must follow showMoreBtn, not be forced visible unconditionally')
+})
