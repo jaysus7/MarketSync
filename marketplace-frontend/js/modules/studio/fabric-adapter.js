@@ -247,7 +247,7 @@ class StudioFabricAdapter {
       fontSize: options.fontSize || 36,
       fontWeight: options.fontWeight || '800',
       fill: options.fill || '#FFFFFF',
-      fontFamily: 'Manrope, sans-serif'
+      fontFamily: options.fontFamily || 'Manrope, sans-serif'
     });
     txt.msData = { type: 'text', name: text.slice(0, 20) };
     this.fabricCanvas.add(txt);

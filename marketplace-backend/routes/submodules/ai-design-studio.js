@@ -140,11 +140,26 @@ export function registerAiDesignStudioRoutes(app) {
     }
   })
 
-  // Image generation needs a dedicated image-gen provider (DALL-E, Stability,
-  // etc.) — none is configured yet. Returns a clear, honest 503 instead of a
-  // silent failure or a fake placeholder image, so the panel can say exactly
-  // what's missing rather than pretending this works.
-  app.post('/ai/studio-image', requireAuth, requireMfa, async (req, res) => {
-    res.status(503).json({ error: 'AI image generation is not configured yet for this server.' })
+  // Image generation via OpenAI's image API. Returns a clear, honest 503 (not a
+  // fake placeholder image) when no key is configured for this server.
+  app.post('/ai/studio-image', requireAuth, requireMfa, rateLimit('studio-ai-image', 15, 60 * 60 * 1000, { dealership: true }), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    if (!process.env.OPENAI_API_KEY) return res.status(503).json({ error: 'AI image generation is not configured yet for this server.' })
+    const prompt = String(req.body?.prompt || '').trim().slice(0, 500)
+    if (!prompt) return res.status(400).json({ error: 'Describe the image you want first.' })
+    try {
+      const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+        body: JSON.stringify({ model: 'gpt-image-1', prompt: `Marketing photo for a car dealership design. ${prompt}`, size: '1024x1024', n: 1 }),
+      })
+      const data = await openaiRes.json()
+      if (!openaiRes.ok) return res.status(502).json({ error: data?.error?.message || 'Image could not be generated' })
+      const b64 = data?.data?.[0]?.b64_json
+      if (!b64) return res.status(502).json({ error: 'No image returned' })
+      res.json({ url: `data:image/png;base64,${b64}` })
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Image could not be generated' })
+    }
   })
 }
