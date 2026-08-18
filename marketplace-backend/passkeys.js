@@ -21,6 +21,7 @@ import {
   generateAuthenticationOptions,
   verifyAuthenticationResponse
 } from '@simplewebauthn/server'
+import { supabaseAdmin } from './shared.js'
 
 // Relying Party config — must match the origin the browser sees
 const RP_NAME = 'MarketSync'
@@ -50,7 +51,9 @@ setInterval(() => {
 // ──────────────────────────────────────────────────────────────────────────────
 // REGISTRATION (called while user is already signed in)
 // ──────────────────────────────────────────────────────────────────────────────
-export async function beginPasskeyRegistration({ supabaseAdmin, userId, userEmail }) {
+export async function beginPasskeyRegistration({ user }) {
+  const userId = user?.id
+  const userEmail = user?.email || ''
   // Fetch any existing passkeys so we don't register the same authenticator twice
   const { data: existing } = await supabaseAdmin
     .from('webauthn_credentials')
@@ -82,11 +85,13 @@ export async function beginPasskeyRegistration({ supabaseAdmin, userId, userEmai
   return options
 }
 
-export async function finishPasskeyRegistration({ supabaseAdmin, userId, response, deviceName }) {
+export async function finishPasskeyRegistration({ user, body }) {
+  const userId = user?.id
+  const { response, device_name: deviceName } = body || {}
   const expectedChallenge = takeChallenge(`reg:${userId}`)
-  if (!expectedChallenge) {
-    return { ok: false, error: 'Registration challenge expired — please try again.' }
-  }
+  // The route sends whatever this throws straight back as a 400, and the browser
+  // only trusts the HTTP status — so failures MUST throw, never resolve.
+  if (!expectedChallenge) throw new Error('Registration challenge expired — please try again.')
 
   let verification
   try {
@@ -98,10 +103,10 @@ export async function finishPasskeyRegistration({ supabaseAdmin, userId, respons
       requireUserVerification: false
     })
   } catch (e) {
-    return { ok: false, error: `Verification failed: ${e.message}` }
+    throw new Error(`Verification failed: ${e.message}`)
   }
   if (!verification.verified || !verification.registrationInfo) {
-    return { ok: false, error: 'Registration verification failed.' }
+    throw new Error('Registration verification failed.')
   }
 
   const { credential } = verification.registrationInfo
@@ -115,9 +120,9 @@ export async function finishPasskeyRegistration({ supabaseAdmin, userId, respons
     transports: transports || null,
     device_name: deviceName || null
   })
-  if (error) return { ok: false, error: error.message }
+  if (error) throw new Error(error.message)
 
-  return { ok: true }
+  return { ok: true, passkey: { credential_id: id } }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
