@@ -202,16 +202,30 @@ function renderTexting() {
     return;
   }
   if (s.platform_managed && s.number) {
+    // Four stages the dealer actually cares about. Everything Twilio calls this
+    // (submitted / twilio-approved / brand pending / campaign verified …) collapses
+    // into: not started → pending → in review → approved → active.
     const a2p = s.a2p_status || 'not_started';
-    const badge = ({ not_started: ['Not registered', 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'], submitted: ['Registration submitted', 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'], approved: ['Registered ', 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'] })[a2p] || ['—', 'bg-slate-100 text-slate-500'];
+    const STAGE = { not_started: 0, pending: 1, submitted: 1, in_review: 2, approved: 3, active: 4, error: 1 };
+    const badgeMap = {
+      not_started: ['Not verified', 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'],
+      pending: ['Pending', 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'],
+      submitted: ['Pending', 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'],
+      in_review: ['In review', 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'],
+      approved: ['Approved', 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'],
+      active: ['Active', 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'],
+      error: ['Needs attention', 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'],
+    };
+    const badge = badgeMap[a2p] || badgeMap.not_started;
+    const started = a2p !== 'not_started';
     root.innerHTML = `
       <div class="flex items-center gap-3 mb-2 flex-wrap">
         <div class="text-xl font-black text-slate-900 dark:text-white">${esc(s.number)}</div>
         <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${badge[1]}">${badge[0]}</span>
         <button onclick="textingRelease()" class="ml-auto text-[12px] font-bold text-rose-500">Release number</button>
       </div>
-      <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Your automated follow-ups and AI texts send from this number. To text at full volume in the US, complete carrier registration (A2P 10DLC) below.</p>
-      ${textingA2pForm(s.a2p_profile || {})}`;
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Your automated follow-ups and AI texts send from this number. Any additional numbers you add later are attached to the same approved messaging profile automatically — you only verify once.</p>
+      ${started ? textingA2pStages(STAGE[a2p] || 1, a2p, s) : textingA2pForm(s.a2p_profile || {}, s)}`;
     return;
   }
   root.innerHTML = `
@@ -226,20 +240,64 @@ function renderTexting() {
     <p class="text-[11px] text-slate-400 dark:text-slate-500 mb-3 -mt-1">Search by province/state (2-letter code) and city to get a local number, or leave them blank and use an area code.</p>
     <div id="tx-results"></div>`;
 }
-function textingA2pForm(p) {
+// Messaging Verification (A2P 10DLC). Reframed from a per-number "carrier
+// registration" chore into a once-per-dealership verification: the dealer only
+// types the two things we can't know (legal name + tax ID); everything else is
+// pulled from their dealership profile server-side. MarketSync submits the Twilio
+// ISV registration in the background.
+function textingA2pForm(p, s) {
   const lbl = (t) => `<label class="block text-[11px] font-bold text-slate-500 mb-1">${t}</label>`;
+  const configured = s && s.a2p_configured;
   return `<div class="border-t border-slate-100 dark:border-slate-800 pt-3">
-    <div class="text-sm font-black text-slate-900 dark:text-white mb-2">Carrier registration (A2P 10DLC)</div>
+    <div class="text-sm font-black text-slate-900 dark:text-white mb-1">Messaging Verification</div>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">US carriers require a one-time business verification (A2P 10DLC) before texting at full volume. Enter your legal business name and tax ID — we'll use your dealership's address, phone and website automatically and handle the registration for you.</p>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-      <div>${lbl('Legal business name')}<input id="a2p-legal" value="${esc(p.legal_name || '')}" class="${TX_INP}"></div>
-      <div>${lbl('Tax ID (EIN / BN)')}<input id="a2p-tax" value="${esc(p.tax_id || '')}" class="${TX_INP}"></div>
-      <div class="sm:col-span-2">${lbl('Business address')}<input id="a2p-address" value="${esc(p.address || '')}" class="${TX_INP}"></div>
-      <div>${lbl('Website')}<input id="a2p-website" value="${esc(p.website || '')}" class="${TX_INP}"></div>
-      <div>${lbl('Contact email')}<input id="a2p-email" value="${esc(p.email || '')}" class="${TX_INP}"></div>
-      <div>${lbl('Contact phone')}<input id="a2p-phone" value="${esc(p.phone || '')}" class="${TX_INP}"></div>
-      <div>${lbl('Contact name')}<input id="a2p-contact" value="${esc(p.contact_name || '')}" class="${TX_INP}"></div>
+      <div>${lbl('Legal business name')}<input id="a2p-legal" value="${esc(p.legal_name || '')}" placeholder="As registered with the IRS/CRA" class="${TX_INP}"></div>
+      <div>${lbl('Tax ID (EIN / BN)')}<input id="a2p-tax" value="${esc(p.tax_id || '')}" placeholder="e.g. 12-3456789" class="${TX_INP}"></div>
     </div>
-    <button onclick="textingSubmitA2p(this)" class="mt-3 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg">Submit registration</button>
+    <details class="mt-2">
+      <summary class="text-[12px] font-bold text-slate-500 cursor-pointer select-none">Override auto-filled business details (optional)</summary>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+        <div class="sm:col-span-2">${lbl('Business address')}<input id="a2p-address" value="${esc(p.address || '')}" placeholder="From your dealership profile" class="${TX_INP}"></div>
+        <div>${lbl('Website')}<input id="a2p-website" value="${esc(p.website || '')}" placeholder="From your dealership profile" class="${TX_INP}"></div>
+        <div>${lbl('Contact email')}<input id="a2p-email" value="${esc(p.email || '')}" class="${TX_INP}"></div>
+        <div>${lbl('Contact phone')}<input id="a2p-phone" value="${esc(p.phone || '')}" placeholder="From your dealership profile" class="${TX_INP}"></div>
+        <div>${lbl('Authorized contact name')}<input id="a2p-contact" value="${esc(p.contact_name || '')}" class="${TX_INP}"></div>
+        <div>${lbl('Contact title')}<input id="a2p-title" value="${esc(p.contact_title || '')}" placeholder="e.g. General Manager" class="${TX_INP}"></div>
+      </div>
+    </details>
+    ${configured ? '' : '<p class="text-[11px] text-amber-600 dark:text-amber-400 mt-2">Automatic submission isn\'t switched on for this server yet — your details are saved and will be submitted once it is.</p>'}
+    <button onclick="textingSubmitA2p(this)" class="mt-3 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg">Verify my business</button>
+  </div>`;
+}
+
+// The status view once verification has been submitted: a 4-step progress line and
+// a Refresh that polls Twilio for the latest approval state.
+function textingA2pStages(stage, status, s) {
+  const steps = ['Submitted', 'In review', 'Approved', 'Active'];
+  const dot = (i) => {
+    const done = stage > i, cur = stage === i + 1;
+    const cls = done ? 'bg-emerald-500 text-white' : cur ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500';
+    return `<div class="flex items-center gap-2">
+      <span class="w-5 h-5 rounded-full text-[11px] font-black grid place-items-center ${cls}">${done ? '&#10003;' : i + 1}</span>
+      <span class="text-[12px] ${done || cur ? 'text-slate-800 dark:text-slate-100 font-bold' : 'text-slate-400'}">${steps[i]}</span>
+    </div>`;
+  };
+  const msg = status === 'error'
+    ? 'Something needs attention with your submission — check your legal name and tax ID and re-submit.'
+    : status === 'active'
+      ? 'Your dealership is verified and texting at full volume. Additional numbers attach automatically.'
+      : status === 'approved'
+        ? 'Your business is approved — activating your messaging campaign now.'
+        : 'Your verification is with the carriers. This usually takes a few business days; no action needed.';
+  return `<div class="border-t border-slate-100 dark:border-slate-800 pt-3">
+    <div class="text-sm font-black text-slate-900 dark:text-white mb-3">Messaging Verification</div>
+    <div class="flex flex-wrap gap-x-5 gap-y-2 mb-3">${[0, 1, 2, 3].map(dot).join('')}</div>
+    <p class="text-xs text-slate-500 dark:text-slate-400">${msg}</p>
+    <div class="flex gap-2 mt-3">
+      <button onclick="textingRefreshA2p(this)" class="text-[12px] font-bold text-indigo-600 dark:text-indigo-400">Refresh status</button>
+      ${status === 'error' ? '<button onclick="textingRestartA2p()" class="text-[12px] font-bold text-slate-500">Edit details</button>' : ''}
+    </div>
   </div>`;
 }
 window.textingSearch = async (btn) => {
@@ -264,15 +322,30 @@ window.textingProvision = async (number, btn) => {
   catch (e) { showToast(e.message || 'Could not provision', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Use this number'; } }
 };
 window.textingSubmitA2p = async (btn) => {
+  const val = (id) => document.getElementById(id)?.value.trim() || '';
   const payload = {
-    legal_name: document.getElementById('a2p-legal')?.value.trim(), tax_id: document.getElementById('a2p-tax')?.value.trim(),
-    address: document.getElementById('a2p-address')?.value.trim(), website: document.getElementById('a2p-website')?.value.trim(),
-    email: document.getElementById('a2p-email')?.value.trim(), phone: document.getElementById('a2p-phone')?.value.trim(),
-    contact_name: document.getElementById('a2p-contact')?.value.trim(),
+    legal_name: val('a2p-legal'), tax_id: val('a2p-tax'),
+    address: val('a2p-address'), website: val('a2p-website'),
+    email: val('a2p-email'), phone: val('a2p-phone'),
+    contact_name: val('a2p-contact'), contact_title: val('a2p-title'),
   };
   if (!payload.legal_name || !payload.tax_id) return showToast('Legal business name and tax ID are required', 'error');
-  try { await apiSendJson('/integrations/twilio/a2p', 'POST', payload); showToast('Registration submitted', 'success'); await loadTextingStatus(); }
-  catch (e) { showToast(e.message || 'Could not submit', 'error'); }
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
+  try {
+    const r = await apiSendJson('/integrations/twilio/a2p', 'POST', payload);
+    showToast(r.configured ? 'Business submitted for verification' : 'Details saved — we\'ll submit when verification is switched on', 'success');
+    await loadTextingStatus();
+  }
+  catch (e) { showToast(e.message || 'Could not submit', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Verify my business'; } }
+};
+window.textingRefreshA2p = async (btn) => {
+  if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
+  try { await apiSendJson('/integrations/twilio/a2p/refresh', 'POST', {}); await loadTextingStatus(); }
+  catch (e) { showToast(e.message || 'Could not refresh', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Refresh status'; } }
+};
+// Drop back to the editable form after a failed submission.
+window.textingRestartA2p = () => {
+  if (__texting.status) { __texting.status.a2p_status = 'not_started'; renderTexting(); }
 };
 window.textingRelease = async () => {
   if (!confirm('Release this texting number? Automated texts will stop until you provision a new one.')) return;

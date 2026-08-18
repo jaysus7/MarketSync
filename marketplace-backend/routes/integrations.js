@@ -10,6 +10,8 @@ import { encryptJson, decryptJson, piiConfigured, PII_ENCRYPTION_VERSION } from 
 import { emitWebhook, WEBHOOK_EVENTS } from '../webhooks.js'
 import { sendDealerSms, invalidateTwilioCache } from './automation.js'
 import { twilioProvisionConfigured, searchNumbers, provisionForDealer, releaseNumber } from '../providers/twilio-provision.js'
+import { twilioA2pConfigured, startDealerA2p, advanceDealerA2p } from '../providers/twilio-a2p.js'
+import { isDemoDealershipId } from './demo.js'
 import { qboConfigured, qboAuthorizeUrl, signState, verifyState, qboExchangeCode, qboEnsureToken, qboCompanyName } from '../providers/quickbooks.js'
 import { OAUTH_PROVIDERS, oauthConfigured, oauthAuthorizeUrl, oauthRedirectUri, oauthExchangeCode, oauthEnsureToken, oauthAfterToken, oauthTest, gbpCreatePost, signState as signOAuthState, verifyState as verifyOAuthState } from '../providers/oauth.js'
 import { stripeDepositsConfigured } from './deposits.js'
@@ -139,6 +141,8 @@ export function registerIntegrations(app) {
       number: meta.from || null,
       a2p_status: meta.a2p_status || null,
       a2p_profile: meta.a2p_profile || null,
+      a2p_registration: meta.a2p_registration || null,
+      a2p_configured: twilioA2pConfigured(),
     })
   })
 
@@ -171,29 +175,78 @@ export function registerIntegrations(app) {
     } catch (e) { res.status(400).json({ error: e.message }) }
   })
 
+  // Messaging Verification (A2P 10DLC) for the dealer. This is once-per-dealership,
+  // not once-per-number: the profile the dealer enters here drives the actual Twilio
+  // ISV registration (Secondary Customer Profile → Brand → Campaign), and any future
+  // number they provision is attached to the already-approved Messaging Service.
+  const a2pStatusCallback = () => process.env.PUBLIC_API_URL ? `${String(process.env.PUBLIC_API_URL).replace(/\/$/, '')}/integrations/twilio/a2p/callback` : ''
   app.post('/integrations/twilio/a2p', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const b = req.body || {}
+    // Prefill the non-secret fields from the dealership record so the dealer only
+    // has to supply what we can't already know (legal name + tax ID). Submitted
+    // values still win over the stored defaults.
+    const { data: d } = await supabaseAdmin.from('dealerships')
+      .select('name, street_address, city, province, postal_code, country, phone, website_url').eq('id', req.dealershipId).maybeSingle()
+    const address = String(b.address || [d?.street_address, d?.city, d?.province, d?.postal_code].filter(Boolean).join(', ') || '').slice(0, 200)
     const profile = {
-      legal_name: String(b.legal_name || '').slice(0, 160),
+      legal_name: String(b.legal_name || d?.name || '').slice(0, 160),
       business_type: String(b.business_type || '').slice(0, 60),
       tax_id: String(b.tax_id || '').slice(0, 40),           // EIN (US) / BN (CA)
-      address: String(b.address || '').slice(0, 200),
-      website: String(b.website || '').slice(0, 200),
+      tax_id_type: String(b.tax_id_type || (d?.country === 'CA' ? 'Other' : 'EIN')).slice(0, 20),
+      country: String(b.country || d?.country || 'US').slice(0, 4),
+      address,
+      website: String(b.website || d?.website_url || '').slice(0, 200),
       email: String(b.email || '').slice(0, 160),
-      phone: String(b.phone || '').slice(0, 40),
+      phone: String(b.phone || d?.phone || '').slice(0, 40),
       contact_name: String(b.contact_name || '').slice(0, 120),
+      contact_title: String(b.contact_title || '').slice(0, 80),
+      company_type: String(b.company_type || 'private').slice(0, 20),
     }
-    if (!profile.legal_name || !profile.tax_id) return res.status(400).json({ error: 'Legal business name and tax ID (EIN / BN) are required for carrier registration.' })
+    if (!profile.legal_name || !profile.tax_id) return res.status(400).json({ error: 'Legal business name and tax ID (EIN / BN) are required for messaging verification.' })
+
     const { data: existing } = await supabaseAdmin.from('dealer_integrations')
       .select('lender_code_map').eq('dealership_id', req.dealershipId).eq('provider', 'twilio').maybeSingle()
+    const meta = existing?.lender_code_map || {}
+
+    // Kick off the real ISV registration when configured; otherwise store as pending
+    // so nothing breaks before MarketSync's ISV account/creds are in place.
+    let a2p_status = 'pending', a2p_registration = meta.a2p_registration || null, note = null
+    // Demo dealerships never trigger a real (paid) Twilio brand/campaign registration.
+    if (twilioA2pConfigured() && !(await isDemoDealershipId(req.dealershipId))) {
+      try {
+        const started = await startDealerA2p({ profile, messagingServiceSid: meta.messaging_service_sid || null, statusCallbackUrl: a2pStatusCallback() })
+        if (started.configured) { a2p_registration = started.state; a2p_status = started.state.status }
+      } catch (e) {
+        // A registration error must not lose the dealer's details or wedge the UI.
+        a2p_status = 'error'; note = e.message
+      }
+    }
+
     await supabaseAdmin.from('dealer_integrations').upsert({
       dealership_id: req.dealershipId, provider: 'twilio', enabled: true, status: 'connected',
-      lender_code_map: { ...(existing?.lender_code_map || {}), a2p_profile: profile, a2p_status: 'submitted', a2p_submitted_at: new Date().toISOString() },
+      lender_code_map: { ...meta, a2p_profile: profile, a2p_status, a2p_registration, a2p_submitted_at: new Date().toISOString() },
       updated_at: new Date().toISOString(),
     }, { onConflict: 'dealership_id,provider' })
-    audit(req, 'twilio.a2p_submitted', { after_state: { legal_name: profile.legal_name } })
-    res.json({ ok: true, a2p_status: 'submitted' })
+    audit(req, 'twilio.a2p_submitted', { after_state: { legal_name: profile.legal_name, a2p_status } })
+    res.json({ ok: true, a2p_status, configured: twilioA2pConfigured(), error: note })
+  })
+
+  // Poll Twilio and advance the dealer's registration (idempotent). Called by the UI
+  // when the settings panel opens; also safe as a Twilio status-callback target.
+  app.post('/integrations/twilio/a2p/refresh', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: row } = await supabaseAdmin.from('dealer_integrations')
+      .select('lender_code_map').eq('dealership_id', req.dealershipId).eq('provider', 'twilio').maybeSingle()
+    const meta = row?.lender_code_map || {}
+    if (!meta.a2p_registration || !twilioA2pConfigured() || await isDemoDealershipId(req.dealershipId)) return res.json({ ok: true, a2p_status: meta.a2p_status || 'pending' })
+    try {
+      const state = await advanceDealerA2p(meta.a2p_registration, { profile: meta.a2p_profile })
+      await supabaseAdmin.from('dealer_integrations').update({
+        lender_code_map: { ...meta, a2p_registration: state, a2p_status: state.status }, updated_at: new Date().toISOString(),
+      }).eq('dealership_id', req.dealershipId).eq('provider', 'twilio')
+      res.json({ ok: true, a2p_status: state.status })
+    } catch (e) { res.status(400).json({ error: e.message }) }
   })
 
   app.post('/integrations/twilio/provision/release', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
