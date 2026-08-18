@@ -111,15 +111,23 @@ test('the watch page reads the token from ?t= first — the only link shape a pl
 
 test('an MFA_REQUIRED failure is impossible to miss — a persistent notice, not just a toast that can flash by unnoticed', () => {
   assert.match(videoStudio, /id="vid-mfa-notice"/)
-  assert.match(videoStudio, /Complete MFA in Settings/)
+  assert.match(videoStudio, /Complete MFA</)
 
   const showFn = videoStudio.match(/function vidShowMfaNotice\(\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(showFn, 'vidShowMfaNotice must exist')
   assert.match(showFn, /getElementById\('vid-mfa-notice'\)\?\.classList\.remove\('hidden'\)/)
 
-  const goFn = videoStudio.match(/function vidGoCompleteMfa\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  // There is no in-app step-up prompt once already logged in — only the login
+  // screen challenges an existing factor — so if a factor is already enrolled,
+  // sending the rep to Settings' enrollment panel would be a dead end (2FA
+  // already reads "On" there, nothing to submit). The fix in that case is
+  // signing out and back in to actually complete the step-up challenge.
+  const goFn = videoStudio.match(/async function vidGoCompleteMfa\(\) \{[\s\S]*?\n\}\nwindow\.vidGoCompleteMfa/)?.[0] || ''
   assert.ok(goFn, 'vidGoCompleteMfa must exist')
   assert.match(goFn, /vidCloseStudio\(\)/)
+  assert.match(goFn, /apiGetJson\('\/auth\/2fa\/status'\)/)
+  assert.match(goFn, /if \(status\?\.enabled\) \{/)
+  assert.match(goFn, /window\.msSignOut\(true\)/)
   assert.match(goFn, /switchPage\('profile'\)/)
   assert.match(goFn, /settingsTab\('account'\)/)
 

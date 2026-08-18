@@ -360,7 +360,7 @@ function renderStudioReviewHtml(contact, options) {
              video-specific quirk. -->
         <div id="vid-mfa-notice" class="hidden p-3 rounded-xl bg-amber-950/60 border border-amber-800/80 text-amber-200 text-xs space-y-2">
           <p>Complete multi-factor authentication to share or send this video.</p>
-          <button onclick="vidGoCompleteMfa()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white transition">Complete MFA in Settings</button>
+          <button onclick="vidGoCompleteMfa()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white transition">Complete MFA</button>
         </div>
         ${!isViewingSent && previewUrl ? `
         <video src="${escV(previewUrl)}" controls playsinline class="w-full max-h-72 rounded-xl bg-black object-contain"></video>
@@ -939,8 +939,23 @@ function vidShowMfaNotice() {
 
 // Leaves the studio and drops the rep exactly where they'd complete step-up MFA
 // — Settings -> My Account, where Security already lives.
-function vidGoCompleteMfa() {
+async function vidGoCompleteMfa() {
   vidCloseStudio();
+  // If a factor is already enrolled, this session just hasn't stepped up to
+  // aal2 yet — and there is no in-app step-up prompt once already logged in,
+  // only the login screen challenges an existing factor. Settings' enrollment
+  // panel has nothing to do in that case (2FA already reads "On"), so sending
+  // a rep there would be a dead end that looks like "the MFA piece doesn't
+  // work" even though the actual fix is just signing back in.
+  try {
+    const status = await apiGetJson('/auth/2fa/status');
+    if (status?.enabled) {
+      if (confirm('Two-factor sign-in is already set up on your account — this browser session just needs to confirm it again. Sign out and back in now?')) {
+        if (typeof window.msSignOut === 'function') window.msSignOut(true);
+      }
+      return;
+    }
+  } catch { /* fall through to Settings either way */ }
   if (typeof switchPage === 'function') switchPage('profile');
   if (typeof settingsTab === 'function') settingsTab('account');
 }
