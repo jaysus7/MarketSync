@@ -401,12 +401,12 @@ async function loadDealerManagementMatrix() {
   const invite = document.getElementById('invite-rep-btn');
   const inviteMgr = document.getElementById('invite-manager-btn');
 
-  if (title) title.textContent = isFacebookTeam ? 'Sales Team' : 'Users & Team';
+  if (title) title.textContent = isFacebookTeam ? 'Staff' : 'Users & Team';
   if (subtitle) subtitle.textContent = isFacebookTeam
-    ? 'Add or remove sales reps for your dealership.'
+    ? 'Add or remove staff for your dealership.'
     : 'Invite, edit, assign roles, pause, or remove users in this dealership.';
   if (invite) {
-    invite.textContent = isFacebookTeam ? '+ Invite Rep' : '+ Invite User';
+    invite.textContent = isFacebookTeam ? '+ Invite Staff' : '+ Invite User';
     invite.onclick = (e) => { e.preventDefault(); if (typeof openAddEmployeeModal === 'function') openAddEmployeeModal(); };
   }
   if (inviteMgr) {
@@ -928,13 +928,28 @@ const calcPoints = (m) => (m.total_listings || 0) * 100 + (m.sold_listings || 0)
 
 function applyLeaderboardProductPresentation() {
   const facebook = facebookLeaderboardActive();
+  const video = typeof isVideoOnlyWorkspace === 'function' && isVideoOnlyWorkspace();
   const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
-  // A Facebook-tier account has no Sales/Service/F&I department to browse — the
-  // department tab row is Global vs My Team only (both already Facebook-scoped
-  // below), so the department selector itself is hidden rather than left showing
-  // three tabs that lead nowhere for this account.
-  document.getElementById('lb-dept-tabs')?.classList.toggle('hidden', facebook);
+  // A Facebook-tier or Video-tier account has no Sales/Service/F&I department to
+  // browse — the department tab row is Global vs My Team only (both already
+  // department-scoped below), so the department selector itself is hidden rather
+  // than left showing tabs that lead nowhere for this account.
+  document.getElementById('lb-dept-tabs')?.classList.toggle('hidden', facebook || video);
   if (facebook) window.__activeLbDept = 'facebook';
+  else if (video) window.__activeLbDept = 'video';
+  if (video) {
+    // Sales Video ranks video-sending activity only — the deal/appraisal columns
+    // and legend belong to the general DealerOS leaderboard, not this one.
+    document.querySelectorAll('[data-lb-non-fb]').forEach(el => el.classList.add('hidden'));
+    set('lb-title', ' Sales Video Leaderboard');
+    set('lb-subtitle', '100 pts / video sent · 250 pts / video watched · 5 pts per point of average watch completion.');
+    set('lb-conv-label', 'Videos Sent');
+    set('lb-rankings-title', 'Video sending rankings');
+    set('lb-tab-team', ' My Team');
+    set('lb-tab-global', ' Global');
+    set('gl-posted-label', 'Your Videos');
+    return;
+  }
   set('lb-title', facebook ? ' Facebook Posting Leaderboard' : ' Leaderboard');
   set('lb-subtitle', facebook
     ? '100 pts per Facebook post · 500 pts per Facebook sale · Build your posting streak and lead the board.'
@@ -1002,7 +1017,7 @@ window.__activeLbDept = 'facebook';
 
 function switchLeaderboardDept(deptKey) {
   window.__activeLbDept = deptKey || 'facebook';
-  ['facebook', 'sales', 'service', 'fni'].forEach(k => {
+  ['facebook', 'sales', 'service', 'fni', 'video'].forEach(k => {
     const btn = document.getElementById(`lb-dept-${k}`);
     if (!btn) return;
     const active = k === window.__activeLbDept;
@@ -1034,9 +1049,9 @@ async function loadLeaderboard() {
       setText('lb-title', dept.title || 'Department Leaderboard');
       setText('lb-rankings-title', `${dept.title} rankings`);
       if (dept.totals) {
-        setText('lb-conv', dept.totals.sales_30d || dept.totals.posted || 0);
-        setText('lb-team-sold', dept.totals.sold || dept.totals.ro_closed || dept.totals.fni_deals || 0);
-        setText('lb-team-total', dept.totals.posted || dept.totals.total_sold || 0);
+        setText('lb-conv', dept.totals.sales_30d || dept.totals.posted || dept.totals.sent_30d || 0);
+        setText('lb-team-sold', dept.totals.sold || dept.totals.ro_closed || dept.totals.fni_deals || dept.totals.watched || 0);
+        setText('lb-team-total', dept.totals.posted || dept.totals.total_sold || dept.totals.total_sent || 0);
       }
     }
 
@@ -1109,6 +1124,13 @@ function renderDepartmentRankingTable(ranking, deptKey) {
         <td class="py-3 px-3 text-right font-mono font-bold text-indigo-600 dark:text-indigo-400">${money(m.pvr_avg)}</td>
         <td class="py-3 px-3 text-right font-mono">${m.vsc_pct ? m.vsc_pct + '%' : '—'}</td>
         <td class="py-3 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">${money(m.fni_gross)}</td>
+      `;
+    } else if (deptKey === 'video') {
+      metricCols = `
+        <td class="py-3 px-3 text-right font-mono font-bold">${m.total_sent || 0}</td>
+        <td class="py-3 px-3 text-right font-mono">${m.watched || 0}</td>
+        <td class="py-3 px-3 text-right font-mono">${m.watch_rate_pct ? m.watch_rate_pct + '%' : '—'}</td>
+        <td class="py-3 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">${m.avg_watch_pct ? m.avg_watch_pct + '%' : '—'}</td>
       `;
     }
 

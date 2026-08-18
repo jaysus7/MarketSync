@@ -801,8 +801,8 @@ const PRODUCT_PAGES = {
   // it. 'profile' is its only page so Settings (My Account etc.) is reachable once the
   // editor is closed.
   design_studio:      ['profile'],
-  marketsync_video:   ['video-studio'],
-  video:              ['video-studio'],
+  marketsync_video:   ['video-studio', 'leaderboard', 'sales-team'],
+  video:              ['video-studio', 'leaderboard', 'sales-team'],
   marketsync_website: ['website'],
   website:            ['website'],
   marketsync_social:  ['marketing-overview'],
@@ -1123,10 +1123,10 @@ function applyProductNav(products) {
   if (!active.length) { __productAllowedPages = null; __productHome = null; applyMobileQuickRow(); return; }
   const allow = new Set(['profile']);
   active.forEach(k => (PRODUCT_PAGES[k] || []).forEach(p => allow.add(p)));
-  // Facebook Dealer: only owners/admins/managers can reach Sales Reps — a rep's nav omits
-  // it AND it's pruned from the reachable set so a deep link bounces (backend RLS also
-  // denies team management for reps).
-  const canManageTeam = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+  // Facebook Dealer / Video: only owners/admins/managers/group-admins can reach
+  // Staff — a rep's nav omits it AND it's pruned from the reachable set so a deep
+  // link bounces (backend RLS also denies team management for reps).
+  const canManageTeam = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'DEALER_GROUP'].includes(profileContext?.role);
   if (!canManageTeam) allow.delete('sales-team');
   __productAllowedPages = allow;
   document.documentElement.setAttribute('data-product', active.join(' '));
@@ -1265,14 +1265,14 @@ function restrictedNavPages() {
   // Exact per-product / per-role nav (Settings lives on the header gear, never here):
   //   Facebook Solo ................. Inventory, Leaderboard
   //   Facebook Dealer — Rep ......... My Inventory, Leaderboard
-  //   Facebook Dealer — Owner/Admin . Inventory, Sales Reps, Leaderboard
+  //   Facebook Dealer — Owner/Admin . Inventory, Staff, Leaderboard
   //   AI Dealer / AI Chatbot ........ AI Dealer (its page only)
   const product = document.documentElement.getAttribute('data-product') || '';
   const activeProducts = product.trim().split(/\s+/).filter(Boolean);
-  const canManageTeam = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+  const canManageTeam = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'DEALER_GROUP'].includes(profileContext?.role);
   const INV = (label) => ({ page: 'inventory', label, icon: 'megaphone', invmode: 'facebook' });
   const LEADER = { page: 'leaderboard', label: 'Leaderboard', icon: 'trophy' };
-  const SALES_REPS = { page: 'sales-team', label: 'Sales Reps', icon: 'user' };
+  const SALES_REPS = { page: 'sales-team', label: 'Staff', icon: 'user' };
   const AI = { page: 'ai-home', label: 'AI Chatbot', icon: 'sparkles' };
   const META = {
     'marketing-overview': { page: 'marketing-overview', label: 'Marketing Studio', icon: 'megaphone' },

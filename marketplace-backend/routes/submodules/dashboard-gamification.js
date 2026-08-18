@@ -57,8 +57,8 @@ export function registerDashboardGamificationRoutes(app) {
       const memberIds = team.map(m => m.id)
       const nameOf = new Map(team.map(m => [m.id, m.full_name]))
 
-      // Fetch DB data for Facebook, Sales, Appraisals, Inventory
-      const [{ data: listings }, { data: appraisals }, { count: availCount }] = await Promise.all([
+      // Fetch DB data for Facebook, Sales, Appraisals, Inventory, Sales Videos
+      const [{ data: listings }, { data: appraisals }, { count: availCount }, { data: videos }] = await Promise.all([
         memberIds.length ? supabaseAdmin
           .from('listings')
           .select('posted_by, status, posted_at, inventory:inventory_id(created_at)')
@@ -69,6 +69,9 @@ export function registerDashboardGamificationRoutes(app) {
         supabaseAdmin
           .from('inventory').select('id', { count: 'exact', head: true })
           .eq('dealership_id', req.dealershipId).eq('status', 'available').is('archived_at', null),
+        supabaseAdmin
+          .from('sales_videos').select('created_by, status, sent_at, first_played_at, watch_percent')
+          .eq('dealership_id', req.dealershipId).is('deleted_at', null).limit(20000),
       ])
 
       const now = Date.now()
@@ -83,6 +86,8 @@ export function registerDashboardGamificationRoutes(app) {
           dept: m.department || 'Sales',
           posted_total: 0, posted_30d: 0, sold_total: 0, sold_30d: 0,
           post_lags_ms: [], appraisals_total: 0,
+          videos_sent_total: 0, videos_sent_30d: 0, videos_watched_total: 0,
+          watch_pct_sum: 0, watch_pct_count: 0,
         }
       })
 
@@ -108,17 +113,33 @@ export function registerDashboardGamificationRoutes(app) {
         rawStats[a.created_by].appraisals_total++
       }
 
-      // Build 4 Departmental Data Sets
+      for (const v of (videos || [])) {
+        if (!v.created_by || !rawStats[v.created_by]) continue
+        const s = rawStats[v.created_by]
+        // 'draft'/'ready' means recorded but never sent — only count what actually went out.
+        if (v.status === 'draft' || v.status === 'ready') continue
+        s.videos_sent_total++
+        const sMs = v.sent_at ? new Date(v.sent_at).getTime() : null
+        if (sMs && (now - sMs) <= d30Ms) s.videos_sent_30d++
+        if (v.first_played_at) {
+          s.videos_watched_total++
+          if (typeof v.watch_percent === 'number') { s.watch_pct_sum += v.watch_percent; s.watch_pct_count++ }
+        }
+      }
+
+      // Build 5 Departmental Data Sets
       // 1. Facebook AutoPoster
       // 2. Internal Sales
       // 3. Service Department
       // 4. F&I Department
+      // 5. Sales Video
 
       const deptData = {
         facebook: { title: 'Facebook AutoPoster', reps: [] },
         sales: { title: 'Internal Sales', reps: [] },
         service: { title: 'Service Department', reps: [] },
         fni: { title: 'F&I Department', reps: [] },
+        video: { title: 'Sales Video', reps: [] },
       }
 
       team.forEach(m => {
@@ -215,6 +236,29 @@ export function registerDashboardGamificationRoutes(app) {
           metrics: { fni_deals, pvr_avg, vsc_pct, products_sold, fni_gross },
           score: (fni_deals * 300) + Math.floor(pvr_avg * 2) + Math.floor(fni_gross / 100),
           badges: fniBadges,
+        })
+
+        // --- 5. SALES VIDEO ---
+        const vid_sent = s.videos_sent_total
+        const vid_sent_30d = s.videos_sent_30d
+        const vid_watched = s.videos_watched_total
+        const vid_avg_watch_pct = s.watch_pct_count ? Math.round(s.watch_pct_sum / s.watch_pct_count) : 0
+        const vid_watch_rate_pct = vid_sent ? Math.round((vid_watched / vid_sent) * 100) : 0
+
+        const videoBadges = [
+          ascBadge('vid_first_send', '🎬', 'First Send', 'Send your first walkaround video.', vid_sent, [1]),
+          ascBadge('vid_prolific', '📹', 'Prolific Sender', 'Send 10, 50, or 200 walkaround videos.', vid_sent, [10, 50, 200]),
+          ascBadge('vid_watched', '👀', 'Getting Watched', 'Have 5, 25, or 75 videos actually watched.', vid_watched, [5, 25, 75]),
+          ascBadge('vid_engagement', '🔥', 'High Engagement', 'Reach a 40%, 65%, or 85% watch rate.', vid_watch_rate_pct, [40, 65, 85], '%'),
+          ascBadge('vid_full_watch', '⭐', 'Full Attention', 'Average watch completion of 40%, 65%, or 90%.', vid_avg_watch_pct, [40, 65, 90], '%'),
+        ]
+
+        deptData.video.reps.push({
+          rep_id: id, full_name: m.full_name,
+          title: vid_sent >= 100 ? 'Video Star' : vid_sent >= 25 ? 'Regular Sender' : 'Getting Started',
+          metrics: { sent_30d: vid_sent_30d, total_sent: vid_sent, watched: vid_watched, watch_rate_pct: vid_watch_rate_pct, avg_watch_pct: vid_avg_watch_pct },
+          score: (vid_sent * 100) + (vid_watched * 250) + (vid_avg_watch_pct * 5),
+          badges: videoBadges,
         })
       })
 
