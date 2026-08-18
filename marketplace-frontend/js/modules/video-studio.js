@@ -87,20 +87,11 @@ async function openCustomerVideoStudio(contactId, options = {}) {
     }
   }
 
-  // Automatic Department Auto-Detection (Sales vs Service)
-  let autoDept = options.department || options.dept;
-  if (!autoDept) {
-    const currentWorkspace = (window.__activeWorkspace || localStorage.getItem('ms_active_workspace') || '').toLowerCase();
-    const userRole = (window.profileContext?.role || window.__user?.role || '').toLowerCase();
-    const userDept = (window.profileContext?.department || window.__user?.department || '').toLowerCase();
-
-    if (currentWorkspace.includes('service') || userRole.includes('tech') || userRole.includes('service') || userDept.includes('service')) {
-      autoDept = 'Service';
-    } else {
-      autoDept = 'Sales';
-    }
-  }
-
+  const autoDept = vidDeptForRole(options.department || options.dept);
+  // Recorded once here for sendCustomerVideo() (called later, disconnected from
+  // this options object, to tag the outgoing video) — not a switch a user can
+  // write to themselves; vidDeptForRole() above is still the only place that
+  // decides the value.
   window.__videoStudioState.activeDepartment = autoDept;
   window.__videoStudioState.activeScriptKey = options.scriptKey || (autoDept === 'Service' ? 'service' : 'walkaround');
   window.__videoStudioState.currentContact = contact;
@@ -117,17 +108,26 @@ async function openCustomerVideoStudio(contactId, options = {}) {
   initCameraFeed();
 }
 
-function vidSwitchDepartment(dept) {
-  window.__videoStudioState.activeDepartment = dept;
-  const scriptKey = dept === 'Service' ? 'service' : 'walkaround';
-  window.__videoStudioState.activeScriptKey = scriptKey;
-  const modal = document.getElementById('video-studio-modal');
-  if (modal && window.__videoStudioState.currentContact) {
-    modal.innerHTML = renderStudioHtml(window.__videoStudioState.currentContact, {});
-    initCameraFeed();
-  }
+// The video is a Service video for a SERVICE role and a Sales video for a SALES_REP
+// — no manual override for either; there is no UI control left anywhere that can
+// flip it, and this is computed fresh on every render rather than cached in mutable
+// state, so there's no stored value to flip out-of-band either. MarketSync's own
+// staff (marketsyncOwnerMode()) get their own 'MarketSync' department, checked
+// first since it isn't a dealership role at all.
+//
+// A DEALER_ADMIN/OWNER/MANAGER isn't inherently one department the way a rep or
+// tech is — they can legitimately record either kind. For them (and only them),
+// `explicitDept` is honored: it's an app-level signal (e.g. "this button lives on
+// the Service workspace page"), never a user-facing switch inside the Studio
+// itself, so it doesn't reopen the loophole this function exists to close.
+function vidDeptForRole(explicitDept) {
+  if (typeof marketsyncOwnerMode === 'function' && marketsyncOwnerMode()) return 'MarketSync';
+  const role = window.profileContext?.role || window.__user?.role;
+  if (role === 'SERVICE') return 'Service';
+  if (role === 'SALES_REP') return 'Sales';
+  return explicitDept === 'Service' ? 'Service' : 'Sales';
 }
-window.vidSwitchDepartment = vidSwitchDepartment;
+window.vidDeptForRole = vidDeptForRole;
 
 function renderStudioHtml(contact, options) {
   const repName = profileContext?.name || window.__user?.name || 'Dave Miller';
@@ -135,8 +135,8 @@ function renderStudioHtml(contact, options) {
   const custName = contact.first_name || contact.full_name || 'Customer';
   const vehLabel = contact.vehicle_summary || contact.trade_vehicle || contact.vehicle || '2024 Ford F-150';
 
-  const activeDept = window.__videoStudioState.activeDepartment || 'Sales';
-  const isSaas = activeDept === 'MarketSync' || (typeof marketsyncOwnerMode === 'function' && marketsyncOwnerMode());
+  const activeDept = vidDeptForRole(options.department || options.dept);
+  const isSaas = activeDept === 'MarketSync';
   const activeKey = window.__videoStudioState.activeScriptKey || (activeDept === 'Service' ? 'service' : 'walkaround');
   const isService = activeDept === 'Service';
   const isViewingSent = !!options.isViewingSent || !!options.sentVideo || !!options.videoId;
@@ -160,17 +160,14 @@ function renderStudioHtml(contact, options) {
     <div class="relative w-full max-w-5xl bg-slate-900 text-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-800 overflow-hidden flex flex-col lg:flex-row max-h-[95vh] my-auto">
       <!-- Left Column: Camera Viewfinder & Recording Controls -->
       <div class="flex-1 p-4 sm:p-5 flex flex-col justify-between bg-black/60 relative min-w-0">
-        <!-- Classification Header & Department Switcher -->
+        <!-- Classification Header — set entirely by the logged-in role, not a switch:
+             a SERVICE login always gets a Service video, everyone else always gets Sales. -->
         <div class="flex flex-wrap items-center justify-between gap-2 mb-2 p-2.5 rounded-xl border ${isService ? 'bg-emerald-950/80 border-emerald-800/80 text-emerald-300' : 'bg-indigo-950/80 border-indigo-800/80 text-indigo-300'}">
           <div class="flex items-center gap-2">
             <span class="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${isService ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40' : 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'}">
-              Auto-Classified: ${isService ? 'SERVICE Inspection' : 'SALES Presentation'}
+              ${isService ? 'SERVICE Inspection' : 'SALES Presentation'}
             </span>
             <span class="text-xs font-bold text-slate-300 hidden sm:inline">• ${isService ? 'Tech DVI Inspection Walkaround' : 'Vehicle Presentation & Deal Quote'}</span>
-          </div>
-          <div class="inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-800 text-xs font-bold">
-            <button onclick="vidSwitchDepartment('Sales')" class="px-2.5 py-1 rounded-md transition ${!isService ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'}">Sales</button>
-            <button onclick="vidSwitchDepartment('Service')" class="px-2.5 py-1 rounded-md transition ${isService ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'}">Service</button>
           </div>
         </div>
 
@@ -205,14 +202,19 @@ function renderStudioHtml(contact, options) {
           <span class="text-[10px] font-mono text-slate-400 uppercase hidden sm:inline">Live Prompter</span>
         </div>
 
-        <!-- Camera Viewfinder -->
-        <div class="relative w-full aspect-video bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center shadow-inner max-h-[280px] sm:max-h-[380px]">
+        <!-- Camera Viewfinder — aspect-video is just the initial guess before the stream
+             loads; onCameraStreamReady() overrides it with the real track dimensions so
+             a portrait phone camera gets a portrait frame instead of being center-cropped
+             into a fixed 16:9 box. -->
+        <div id="vid-camera-viewfinder" class="relative w-full aspect-video bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center shadow-inner max-h-[280px] sm:max-h-[380px]">
           <video id="vid-camera-preview" autoplay playsinline muted class="w-full h-full object-cover transition-transform duration-200" style="transform: scale(1.0);"></video>
 
-          <!-- Teleprompter Floating Overlay -->
+          <!-- Teleprompter Floating Overlay — draggable via makeWsPanelDraggable(),
+               wired up in initCameraFeed(). Starts pinned near the top; once dragged,
+               position is held with inline left/top (see makeWsPanelDraggable). -->
           <div class="absolute inset-x-4 top-4 bg-slate-900/90 backdrop-blur-md p-3 rounded-xl border border-slate-700/80 text-xs font-semibold text-sky-200 shadow-lg max-h-32 overflow-y-auto transition-all" id="vid-teleprompter-box">
-            <div class="text-[10px] font-black uppercase text-sky-400 mb-0.5 flex items-center justify-between">
-              <span>Teleprompter Script:</span>
+            <div id="vid-teleprompter-handle" class="text-[10px] font-black uppercase text-sky-400 mb-0.5 flex items-center justify-between cursor-grab active:cursor-grabbing">
+              <span class="flex items-center gap-1"><svg class="w-3 h-3 opacity-60" fill="currentColor" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>Teleprompter Script:</span>
               <span class="text-[9px] text-slate-400">Scrolls / Live Sync</span>
             </div>
             <div id="vid-teleprompter-text">${escV(formattedScript)}</div>
@@ -322,10 +324,33 @@ async function initCameraFeed() {
     });
     window.__videoStudioState.mediaStream = stream;
     videoEl.srcObject = stream;
+    // The viewfinder starts at a fixed 16:9 guess (aspect-video) before any stream
+    // exists. Once real frames arrive, size the box to the camera's actual aspect
+    // ratio instead — a phone held upright reports a portrait track (e.g. 1080x1920),
+    // and forcing that into a 16:9 box just center-crops it via object-cover.
+    videoEl.addEventListener('loadedmetadata', vidSyncViewfinderAspect);
+    // Rotating the device mid-session changes which way is "up" for a mobile
+    // browser's camera track without restarting the stream — re-read the now-current
+    // dimensions rather than trusting the ones captured at load time.
+    if (window.screen?.orientation && !window.__videoStudioState.__orientationBound) {
+      window.__videoStudioState.__orientationBound = true;
+      window.screen.orientation.addEventListener('change', () => setTimeout(vidSyncViewfinderAspect, 250));
+    }
   } catch {
     /* camera simulation mode fallback */
   }
+  if (typeof window.makeWsPanelDraggable === 'function') {
+    window.makeWsPanelDraggable(document.getElementById('vid-teleprompter-handle'), document.getElementById('vid-teleprompter-box'));
+  }
 }
+
+function vidSyncViewfinderAspect() {
+  const videoEl = document.getElementById('vid-camera-preview');
+  const box = document.getElementById('vid-camera-viewfinder');
+  if (!videoEl || !box || !videoEl.videoWidth || !videoEl.videoHeight) return;
+  box.style.aspectRatio = `${videoEl.videoWidth} / ${videoEl.videoHeight}`;
+}
+window.vidSyncViewfinderAspect = vidSyncViewfinderAspect;
 
 function vidToggleCamera() {
   window.__videoStudioState.cameraFacing = window.__videoStudioState.cameraFacing === 'user' ? 'environment' : 'user';

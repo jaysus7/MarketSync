@@ -936,38 +936,51 @@ function toggleWsRightDock() {
 }
 window.toggleWsRightDock = toggleWsRightDock;
 
+// Mouse AND touch — a panel dragged on a phone (the Video Studio's teleprompter is
+// the first mobile-first user of this) needs touch events; mousedown-only silently
+// does nothing on a touchscreen.
 function makeWsPanelDraggable(handleEl, targetEl) {
   if (!handleEl || !targetEl) return;
   let isDragging = false, startX = 0, startY = 0, initialLeft = 0, initialTop = 0;
   handleEl.style.cursor = 'grab';
-  handleEl.addEventListener('mousedown', (e) => {
+  handleEl.style.touchAction = 'none';
+  const point = (e) => e.touches?.[0] || e.changedTouches?.[0] || e;
+  const onStart = (e) => {
     if (e.target.closest('button, input, select, textarea, a, label, [contenteditable]')) return;
     isDragging = true;
     handleEl.style.cursor = 'grabbing';
-    startX = e.clientX;
-    startY = e.clientY;
+    const p = point(e);
+    startX = p.clientX;
+    startY = p.clientY;
     const parentRect = targetEl.offsetParent ? targetEl.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
     const rect = targetEl.getBoundingClientRect();
     initialLeft = rect.left - parentRect.left;
     initialTop = rect.top - parentRect.top;
-    const onMouseMove = (ev) => {
+    const onMove = (ev) => {
       if (!isDragging) return;
-      ev.preventDefault();
-      const dx = ev.clientX - startX;
-      const dy = ev.clientY - startY;
+      if (ev.cancelable) ev.preventDefault();
+      const mp = point(ev);
+      const dx = mp.clientX - startX;
+      const dy = mp.clientY - startY;
       targetEl.style.left = `${initialLeft + dx}px`;
       targetEl.style.top = `${initialTop + dy}px`;
       targetEl.style.right = 'auto';
     };
-    const onMouseUp = () => {
+    const onEnd = () => {
       isDragging = false;
       handleEl.style.cursor = 'grab';
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onEnd);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
     };
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-  });
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onEnd);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onEnd);
+  };
+  handleEl.addEventListener('mousedown', onStart);
+  handleEl.addEventListener('touchstart', onStart, { passive: true });
 }
 window.makeWsPanelDraggable = makeWsPanelDraggable;
 
