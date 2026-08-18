@@ -1093,11 +1093,21 @@ async function renderStudioDesignAndPublish() {
     });
 
     if (res?.asset?.public_url) {
-      closeMarketSyncStudio();
-      if (typeof window.mktCompose === 'function') {
+      // mktCompose() reads from/writes into ENGINE_DATA['marketing-overview'] and
+      // mounts at #marketing-overview-root — the full DealerOS Marketing engine
+      // page, which a Design-Studio-only account never renders (they land straight
+      // in this full-screen editor). Calling it used to close the Studio first,
+      // dropping the user onto whatever page sits behind it (Settings, for a
+      // single-product account) while mktCompose() itself silently failed to mount.
+      // studioSchedulerCompose() is the self-contained equivalent (studio-scheduler.js)
+      // — it overlays on top of the Studio instead of closing it.
+      if (typeof window.studioSchedulerCompose === 'function') {
+        window.studioSchedulerCompose(res.asset.public_url);
+      } else if (typeof window.mktCompose === 'function') {
+        closeMarketSyncStudio();
         window.mktCompose({ assetUrl: res.asset.public_url });
       }
-      if (typeof showToast === 'function') showToast('Design rendered and loaded into Social Composer!', 'success');
+      if (typeof showToast === 'function') showToast('Design rendered — choose where to post it.', 'success');
     }
   } catch (e) {
     if (typeof showToast === 'function') showToast('Render error: ' + e.message, 'error');

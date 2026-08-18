@@ -838,6 +838,15 @@ async function initializeDashboardEcosystem() {
         SETTINGS_TAB_SECTIONS.account.push('guardrail-settings-section');
         document.getElementById('guardrail-settings-section')?.classList.remove('hidden');
       }
+      // Design Studio folds in the real "Connected social accounts" card — its
+      // scheduler posts to these same accounts, and Administration (where account
+      // connections would otherwise live) is hidden entirely for single-product tiers.
+      if (typeof isDesignStudioOnlyWorkspace === 'function' && isDesignStudioOnlyWorkspace()
+        && Array.isArray(SETTINGS_TAB_SECTIONS?.account) && !SETTINGS_TAB_SECTIONS.account.includes('studio-social-connections')) {
+        SETTINGS_TAB_SECTIONS.account.push('studio-social-connections');
+        document.getElementById('studio-social-connections')?.classList.remove('hidden');
+        if (typeof studioSocialConnectionsRender === 'function') studioSocialConnectionsRender();
+      }
       // Facebook Dealer also folds in the Team roster (Sales/Management/etc. picker
       // + Edit/Insights modal) — Administration is hidden entirely for single-product
       // tiers, so My Account is the only place this reaches its reps at all. Gated on
