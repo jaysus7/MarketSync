@@ -224,8 +224,11 @@ function renderStudioWorkspaceHtml(designName, scene) {
     </header>
 
     <!-- Toolbar layer -->
-    <div class="h-14 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between overflow-x-auto">
-      <div class="flex items-center gap-2">
+    <div class="h-14 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between gap-3">
+      <!-- Left tool cluster scrolls on its own so it can never push the primary
+           actions (Save/Schedule/Publish) off the right edge — the exact reason
+           Schedule + Render weren't visible on laptop widths. -->
+      <div class="flex items-center gap-2 min-w-0 overflow-x-auto">
         <!-- Zoom Controls -->
         <div class="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-300 dark:border-slate-700">
           <button onclick="zoomStudioOut()" title="Zoom Out" class="px-2.5 py-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-black text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition">-</button>
@@ -251,7 +254,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
         </select>
       </div>
 
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-shrink-0">
         <button onclick="saveStudioDesign()" class="px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition flex items-center gap-1.5">
           <svg class="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>Save
         </button>
