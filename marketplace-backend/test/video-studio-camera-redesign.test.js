@@ -129,8 +129,10 @@ test('every recorded video is composited with a small bottom overlay — rep nam
   // only ever be visible live and never end up in the saved file.
   const recordFn = videoStudio.match(/function vidToggleRecord\(\) \{[\s\S]*?\n\}\n\nfunction vidPauseRecord/)?.[0] || ''
   assert.match(recordFn, /canvas\.captureStream\(30\)/)
-  assert.match(recordFn, /getAudioTracks\(\)\[0\]/)
-  assert.match(recordFn, /canvasStream\.addTrack\(audioTrack\)/)
+  // Built as a fresh MediaStream from explicit track arrays, not by mutating the
+  // canvas-returned stream via addTrack() — that dropped audio on some mobile
+  // Chrome builds (confirmed on a real device).
+  assert.match(recordFn, /new MediaStream\(\[\.\.\.canvasStream\.getVideoTracks\(\), \.\.\.stream\.getAudioTracks\(\)\]\)/)
   assert.match(recordFn, /vidStartCompositeLoop\(\)/)
   assert.match(recordFn, /new MediaRecorder\(recordStream, options\)/)
 })
