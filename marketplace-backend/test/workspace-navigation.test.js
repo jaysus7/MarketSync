@@ -110,7 +110,11 @@ test('each MarketSync Internal page owns specific operational header tabs', () =
   assert.match(part10, /saas-connected-website-builder/)
   assert.match(part11, /Take or upload receipt photo/)
   const videoStudio = read('js/modules/video-studio.js')
-  assert.match(videoStudio, /MarketSync Product Video Studio/)
+  // The full-screen camera redesign shortened the verbose "MarketSync Product
+  // Video Studio" header badge to a compact "MarketSync" pill (it now shares the
+  // screen with a translucent top bar over the live viewfinder, not a spacious
+  // side panel) — the isSaas branch that decides it is still there.
+  assert.match(videoStudio, /\$\{isSaas \? 'MarketSync' : isService \? 'Service' : 'Sales'\}/)
   assert.match(videoStudio, /if \(isSaas && String\(v\.department \|\| ''\)\.toLowerCase\(\) === 'service'\) return false/)
 })
 

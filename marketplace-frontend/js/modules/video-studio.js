@@ -31,6 +31,7 @@ window.__videoAnalyticsStore = window.__videoAnalyticsStore || {
 };
 
 window.__videoStudioState = {
+  phase: 'setup',   // 'setup' -> 'camera' -> 'review', or 'sent-detail' for an already-sent video
   recording: false,
   paused: false,
   seconds: 0,
@@ -39,8 +40,22 @@ window.__videoStudioState = {
   zoomLevel: 1.0,
   mediaStream: null,
   currentContact: null,
-  activeScriptKey: 'walkaround'
+  activeScriptKey: 'walkaround',
+  compositeRAF: null,
 };
+
+// Whether the teleprompter starts hidden — persisted, not per-session: once a rep
+// hides it (from the setup screen or the in-camera toggle), it stays hidden on
+// every future video until they turn it back on. This is what lets portrait mode
+// actually work well on a phone: no floating text box to fight for space in a tall
+// narrow frame, and no per-video re-decision.
+const VID_TP_PREF_KEY = 'ms_video_tp_hidden';
+function vidTeleprompterHiddenByDefault() {
+  try { return localStorage.getItem(VID_TP_PREF_KEY) === '1'; } catch { return false; }
+}
+function vidSetTeleprompterPref(hidden) {
+  try { localStorage.setItem(VID_TP_PREF_KEY, hidden ? '1' : '0'); } catch {}
+}
 
 const VIDEO_TEMPLATES = {
   product_demo: {
@@ -95,17 +110,29 @@ async function openCustomerVideoStudio(contactId, options = {}) {
   window.__videoStudioState.activeDepartment = autoDept;
   window.__videoStudioState.activeScriptKey = options.scriptKey || (autoDept === 'Service' ? 'service' : 'walkaround');
   window.__videoStudioState.currentContact = contact;
+  window.__videoStudioState.optionsSnapshot = options;
 
   let modal = document.getElementById('video-studio-modal');
   if (!modal) {
     modal = document.createElement('div');
     modal.id = 'video-studio-modal';
-    modal.className = 'fixed inset-0 z-[99999] flex items-center justify-center p-2 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto';
+    modal.className = 'fixed inset-0 z-[99999] flex items-center justify-center bg-slate-950/85 backdrop-blur-md overflow-y-auto';
     document.body.appendChild(modal);
   }
 
-  modal.innerHTML = renderStudioHtml(contact, options);
-  initCameraFeed();
+  // Viewing an already-sent video's telemetry skips straight past setup/camera —
+  // there's nothing left to record or configure.
+  if (options.isViewingSent || options.sentVideo || options.videoId) {
+    window.__videoStudioState.phase = 'sent-detail';
+    modal.innerHTML = renderStudioReviewHtml(contact, options);
+    return;
+  }
+
+  // The teleprompter script is picked BEFORE the camera opens — not fiddled with
+  // live once recording chrome is already up. This is also what a native camera
+  // app does: configure, THEN shoot.
+  window.__videoStudioState.phase = 'setup';
+  modal.innerHTML = renderStudioSetupHtml(contact, options);
 }
 
 // The video is a Service video for a SERVICE role and a Sales video for a SALES_REP
@@ -129,9 +156,12 @@ function vidDeptForRole(explicitDept) {
 }
 window.vidDeptForRole = vidDeptForRole;
 
-function renderStudioHtml(contact, options) {
+// Configure-then-shoot: pick the script and decide whether the teleprompter shows
+// at all BEFORE the camera opens, exactly like choosing a mode on a phone's camera
+// app before the shutter is even live. Nothing here is re-decided mid-recording.
+function renderStudioSetupHtml(contact, options) {
   const repName = profileContext?.name || window.__user?.name || 'Dave Miller';
-  const storeName = window.__dealerConfig?.store_name || 'MarketSync Motors';
+  const storeName = window.__dealerConfig?.store_name || profileContext?.dealership?.name || 'MarketSync Motors';
   const custName = contact.first_name || contact.full_name || 'Customer';
   const vehLabel = contact.vehicle_summary || contact.trade_vehicle || contact.vehicle || '2024 Ford F-150';
 
@@ -139,7 +169,6 @@ function renderStudioHtml(contact, options) {
   const isSaas = activeDept === 'MarketSync';
   const activeKey = window.__videoStudioState.activeScriptKey || (activeDept === 'Service' ? 'service' : 'walkaround');
   const isService = activeDept === 'Service';
-  const isViewingSent = !!options.isViewingSent || !!options.sentVideo || !!options.videoId;
 
   const allowedScripts = isSaas ? ['product_demo', 'onboarding', 'feature_update', 'thankyou'] : Object.keys(VIDEO_TEMPLATES);
   const scriptOptions = allowedScripts.map(key => `
@@ -156,159 +185,317 @@ function renderStudioHtml(contact, options) {
     .replace(/{STORE_NAME}/g, storeName)
     .replace(/{VEHICLE_LABEL}/g, vehLabel);
 
+  const tpHidden = vidTeleprompterHiddenByDefault();
+
   return `
-    <div class="relative w-full max-w-5xl bg-slate-900 text-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-800 overflow-hidden flex flex-col lg:flex-row max-h-[95vh] my-auto">
-      <!-- Left Column: Camera Viewfinder & Recording Controls -->
-      <div class="flex-1 p-4 sm:p-5 flex flex-col justify-between bg-black/60 relative min-w-0">
-        <!-- Classification Header — set entirely by the logged-in role, not a switch:
-             a SERVICE login always gets a Service video, everyone else always gets Sales. -->
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-2 p-2.5 rounded-xl border ${isService ? 'bg-emerald-950/80 border-emerald-800/80 text-emerald-300' : 'bg-indigo-950/80 border-indigo-800/80 text-indigo-300'}">
-          <div class="flex items-center gap-2">
-            <span class="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${isService ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40' : 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/40'}">
-              ${isService ? 'SERVICE Inspection' : 'SALES Presentation'}
-            </span>
-            <span class="text-xs font-bold text-slate-300 hidden sm:inline">• ${isService ? 'Tech DVI Inspection Walkaround' : 'Vehicle Presentation & Deal Quote'}</span>
-          </div>
+    <div class="relative w-full max-w-xl bg-slate-900 text-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-800 overflow-hidden max-h-[95vh] my-4 mx-2 sm:mx-auto flex flex-col">
+      <div class="flex items-center justify-between gap-2 p-4 border-b border-slate-800">
+        <div>
+          <div class="text-xs font-black uppercase tracking-wider ${isService ? 'text-emerald-400' : 'text-indigo-400'}">${isService ? 'Service Inspection Video' : isSaas ? 'MarketSync Product Video' : 'Sales Video'}</div>
+          <h3 class="text-sm font-bold text-white mt-0.5">Set up before you record</h3>
         </div>
-
-        <div class="flex items-center justify-between z-10 mb-2 sm:mb-3">
-          <div class="flex items-center gap-2">
-            <span class="w-3 h-3 rounded-full bg-rose-500 animate-ping hidden" id="vid-rec-indicator"></span>
-            <span class="text-xs font-black uppercase tracking-wider text-slate-300">${isSaas ? 'MarketSync Product Video Studio' : isService ? 'Service DVI Studio' : 'Sales Video Studio'}</span>
-            <span id="vid-timer-display" class="px-2 py-0.5 rounded-full text-xs font-mono font-extrabold bg-slate-800 text-sky-400 border border-slate-700">00:00 / 03:00</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <button onclick="vidToggleCamera()" title="Flip Front / Back Camera" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition flex items-center gap-1.5">
-              <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-              Flip Camera
-            </button>
-            <button onclick="vidCloseStudio()" class="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition">\u{2715}</button>
-          </div>
-        </div>
-
-        <!-- Teleprompter Control Toolbar -->
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-2 bg-slate-950/80 p-2 rounded-xl border border-slate-800">
-          <div class="flex flex-wrap items-center gap-1.5">
-            <button onclick="vidToggleTeleprompter()" id="vid-tp-toggle-btn" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 transition flex items-center gap-1">
-              Hide Teleprompter
-            </button>
-            <button onclick="vidGenerateAiScript()" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1">
-              AI Teleprompter
-            </button>
-            <button onclick="vidEnableCustomScript()" id="vid-tp-edit-btn" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1">
-              Type Your Own
-            </button>
-          </div>
-          <span class="text-[10px] font-mono text-slate-400 uppercase hidden sm:inline">Live Prompter</span>
-        </div>
-
-        <!-- Camera Viewfinder — aspect-video is just the initial guess before the stream
-             loads; onCameraStreamReady() overrides it with the real track dimensions so
-             a portrait phone camera gets a portrait frame instead of being center-cropped
-             into a fixed 16:9 box. -->
-        <div id="vid-camera-viewfinder" class="relative w-full aspect-video bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center shadow-inner max-h-[280px] sm:max-h-[380px]">
-          <video id="vid-camera-preview" autoplay playsinline muted class="w-full h-full object-cover transition-transform duration-200" style="transform: scale(1.0);"></video>
-
-          <!-- Teleprompter Floating Overlay — draggable via makeWsPanelDraggable(),
-               wired up in initCameraFeed(). Starts pinned near the top; once dragged,
-               position is held with inline left/top (see makeWsPanelDraggable). -->
-          <div class="absolute inset-x-4 top-4 bg-slate-900/90 backdrop-blur-md p-3 rounded-xl border border-slate-700/80 text-xs font-semibold text-sky-200 shadow-lg max-h-32 overflow-y-auto transition-all" id="vid-teleprompter-box">
-            <div id="vid-teleprompter-handle" class="text-[10px] font-black uppercase text-sky-400 mb-0.5 flex items-center justify-between cursor-grab active:cursor-grabbing">
-              <span class="flex items-center gap-1"><svg class="w-3 h-3 opacity-60" fill="currentColor" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>Teleprompter Script:</span>
-              <span class="text-[9px] text-slate-400">Scrolls / Live Sync</span>
-            </div>
-            <div id="vid-teleprompter-text">${escV(formattedScript)}</div>
-          </div>
-
-          <!-- Live Recording Status Overlay -->
-          <div id="vid-status-badge" class="absolute bottom-4 left-4 px-3 py-1 rounded-full text-xs font-black bg-slate-900/90 text-emerald-400 border border-emerald-500/40 hidden flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Recording Live...
-          </div>
-        </div>
-
-        <!-- Zoom & Viewfinder Control Bar -->
-        <div class="mt-3 space-y-2 sm:space-y-3">
-          <div class="flex items-center justify-between text-xs font-bold text-slate-300 px-1">
-            <span>Camera Zoom:</span>
-            <div class="flex items-center gap-2 w-2/3">
-              <span class="text-[11px] text-slate-400">1.0x</span>
-              <input type="range" id="vid-zoom-slider" min="1.0" max="3.0" step="0.1" value="1.0" oninput="vidChangeZoom(this.value)" class="w-full accent-indigo-500 cursor-pointer">
-              <span class="text-[11px] text-slate-400" id="vid-zoom-val">1.0x</span>
-            </div>
-          </div>
-
-          <!-- Main Recording Action Buttons -->
-          <div class="flex items-center justify-center gap-2 sm:gap-3 pt-2 border-t border-slate-800">
-            <button id="vid-rec-btn" onclick="vidToggleRecord()" class="px-4 sm:px-5 py-2.5 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white shadow-lg transition flex items-center gap-1.5 sm:gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-white animate-pulse"></span> Start Recording
-            </button>
-            <button id="vid-pause-btn" onclick="vidPauseRecord()" disabled class="px-3 sm:px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-500 cursor-not-allowed transition">
-              Pause
-            </button>
-            <button id="vid-reset-btn" onclick="vidResetRecord()" class="px-3 sm:px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">
-              Retake
-            </button>
-          </div>
-        </div>
+        <button onclick="vidCloseStudio()" class="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition">\u{2715}</button>
       </div>
 
-      <!-- Right Column: Scripts & Sharing -->
-      <div class="w-full lg:w-96 p-4 sm:p-5 bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-800 flex flex-col justify-between overflow-y-auto">
-        <div class="space-y-4">
-          <div>
-            <h3 class="text-sm font-black uppercase tracking-wider text-white">${isViewingSent ? 'Sent Video Details' : 'Send Video to Customer'}</h3>
-            <p class="text-xs text-slate-400 mt-0.5">Recipient: <strong>${escV(contact.full_name || contact.first_name)}</strong> (${escV(contact.phone || contact.email)})</p>
-          </div>
-
-          <!-- Script Template Picker -->
-          <div>
-            <label class="block text-[11px] font-black uppercase text-slate-400 mb-1.5">Select Script Template</label>
-            <div class="flex flex-wrap gap-1.5">${scriptOptions}</div>
-          </div>
-
-          <!-- Custom Message Body -->
-          <div>
-            <label class="block text-[11px] font-black uppercase text-slate-400 mb-1">Message &amp; Teleprompter Script (Type to Edit)</label>
-            <textarea id="vid-message-input" rows="3" oninput="vidSyncScriptInput(this.value)" class="w-full px-3 py-2 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs font-semibold focus:ring-2 focus:ring-indigo-500">${escV(formattedScript)}</textarea>
-          </div>
-
-          <!-- Send Action Buttons -->
-          <div class="space-y-2 pt-2 border-t border-slate-800">
-            <button onclick="sendCustomerVideo('${contact.id}', 'sms')" class="w-full py-2.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center justify-center gap-2 shadow-md">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-              Send Video via SMS Text
-            </button>
-            <button onclick="sendCustomerVideo('${contact.id}', 'email')" class="w-full py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center justify-center gap-2">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-              Send Video via Email
-            </button>
-          </div>
-
-          ${isViewingSent ? `
-          <!-- Live Telemetry & View Tracker Panel (ONLY shown when viewing an already sent video) -->
-          <div class="p-3 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] font-black uppercase text-sky-400">Live Video Analytics</span>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300">REAL-TIME</span>
-            </div>
-
-            <div id="vid-telemetry-container">
-              ${renderVideoTelemetryBadge(options.videoId || 'v_demo_101')}
-            </div>
-
-            <button onclick="simCustomerWatchVideo('${options.videoId || 'v_demo_101'}', '${contact.id}')" class="w-full py-2 mt-1 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm flex items-center justify-center gap-1.5">
-              Play &amp; Watch Customer Video Link
-            </button>
-          </div>
-          ` : ''}
+      <div class="p-4 space-y-4 overflow-y-auto">
+        <div>
+          <label class="block text-[11px] font-black uppercase text-slate-400 mb-1.5">Script</label>
+          <div class="flex flex-wrap gap-1.5">${scriptOptions}</div>
         </div>
 
-        <div class="pt-3 border-t border-slate-800 flex justify-end">
-          <button onclick="vidCloseStudio()" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 text-white hover:bg-slate-700">Done</button>
+        <div>
+          <label class="block text-[11px] font-black uppercase text-slate-400 mb-1">Message &amp; teleprompter script</label>
+          <textarea id="vid-message-input" rows="4" oninput="vidSyncScriptInput(this.value)" class="w-full px-3 py-2 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs font-semibold focus:ring-2 focus:ring-indigo-500">${escV(formattedScript)}</textarea>
+          <div id="vid-teleprompter-text" class="hidden">${escV(formattedScript)}</div>
+          <button onclick="vidGenerateAiScript()" class="mt-2 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition">AI Teleprompter</button>
+        </div>
+
+        <label class="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer">
+          <span>
+            <span class="block text-xs font-bold text-white">Show teleprompter while recording</span>
+            <span class="block text-[11px] text-slate-400 mt-0.5">Stays off until you turn it back on here — no floating box to fight with in portrait mode.</span>
+          </span>
+          <input type="checkbox" id="vid-setup-tp-toggle" ${tpHidden ? '' : 'checked'} onchange="vidSetTeleprompterPref(!this.checked)" class="w-5 h-5 accent-indigo-500 shrink-0">
+        </label>
+      </div>
+
+      <div class="p-4 border-t border-slate-800">
+        <button onclick="vidEnterCameraView()" id="vid-setup-start-btn" class="w-full py-3 rounded-xl text-sm font-black bg-rose-600 hover:bg-rose-500 text-white shadow-lg transition flex items-center justify-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-white"></span> Open Camera
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// Camera opens full-screen on a phone — no side panel, no chrome fighting the
+// viewfinder for space — the same way a native camera app owns the whole screen.
+// The send/script panel that used to live beside the camera now only appears
+// AFTER recording stops (renderStudioReviewHtml), once there's actually something
+// to send.
+function renderStudioCameraHtml(contact, options) {
+  const repName = profileContext?.name || window.__user?.name || 'Dave Miller';
+  const storeName = window.__dealerConfig?.store_name || 'MarketSync Motors';
+  const custName = contact.first_name || contact.full_name || 'Customer';
+  const vehLabel = contact.vehicle_summary || contact.trade_vehicle || contact.vehicle || '2024 Ford F-150';
+
+  const activeDept = vidDeptForRole(options.department || options.dept);
+  const isSaas = activeDept === 'MarketSync';
+  const activeKey = window.__videoStudioState.activeScriptKey || (activeDept === 'Service' ? 'service' : 'walkaround');
+  const isService = activeDept === 'Service';
+
+  const currentTemplateText = VIDEO_TEMPLATES[activeKey]?.text || VIDEO_TEMPLATES.walkaround.text;
+  const formattedScript = currentTemplateText
+    .replace(/{CUSTOMER_NAME}/g, custName)
+    .replace(/{REP_NAME}/g, repName)
+    .replace(/{STORE_NAME}/g, storeName)
+    .replace(/{VEHICLE_LABEL}/g, vehLabel);
+  // The setup screen already wrote whatever the rep actually chose/edited into
+  // vid-message-input before we got here; that's the real source of truth for the
+  // teleprompter text now, not the freshly-recomputed template default.
+  const scriptText = window.__videoStudioState.scriptText || formattedScript;
+
+  const tpHiddenClass = vidTeleprompterHiddenByDefault() ? ' hidden' : '';
+
+  return `
+    <div class="relative w-full h-[100dvh] sm:h-auto sm:max-h-[92vh] sm:max-w-md bg-black text-white sm:rounded-3xl shadow-2xl sm:border sm:border-slate-800 overflow-hidden flex flex-col sm:my-4">
+      <!-- Camera Viewfinder — fills the whole screen like a phone's native camera
+           app, not boxed beside a side panel. aspect-video is just the initial
+           guess before the stream loads; vidSyncViewfinderAspect() overrides it
+           with the real track dimensions so a portrait phone camera gets a
+           portrait frame instead of being center-cropped into a fixed 16:9 box. -->
+      <div id="vid-camera-viewfinder" class="relative flex-1 w-full bg-slate-950 overflow-hidden flex items-center justify-center">
+        <video id="vid-camera-preview" autoplay playsinline muted class="w-full h-full object-cover transition-transform duration-200" style="transform: scale(1.0);"></video>
+        <!-- Compositing canvas — never shown; the visible preview above is the raw
+             camera feed. This is what MediaRecorder actually reads from once
+             recording starts, so the rep name / phone / logo overlay ends up
+             burned into the saved video, not just floating on top of the live
+             preview. -->
+        <canvas id="vid-composite-canvas" class="hidden"></canvas>
+
+        <!-- Top bar overlay — close, department badge, flip camera, timer -->
+        <div class="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-2 p-3 sm:p-4 bg-gradient-to-b from-black/70 to-transparent">
+          <button onclick="vidCloseStudio()" class="p-2 rounded-full text-white bg-black/40 hover:bg-black/60 transition">\u{2715}</button>
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping hidden" id="vid-rec-indicator"></span>
+            <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${isService ? 'bg-emerald-500/25 text-emerald-300' : 'bg-indigo-500/25 text-indigo-300'}">
+              ${isSaas ? 'MarketSync' : isService ? 'Service' : 'Sales'}
+            </span>
+            <span id="vid-timer-display" class="px-2 py-1 rounded-full text-xs font-mono font-extrabold bg-black/50 text-sky-300">00:00 / 03:00</span>
+          </div>
+          <button onclick="vidToggleCamera()" title="Flip Front / Back Camera" class="p-2 rounded-full text-white bg-black/40 hover:bg-black/60 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </button>
+        </div>
+
+        <!-- Teleprompter Floating Overlay — hidden by default per the persisted
+             preference (vidTeleprompterHiddenByDefault()), draggable via
+             makeWsPanelDraggable(), wired up in initCameraFeed(). -->
+        <div class="absolute inset-x-4 top-16 sm:top-20 bg-slate-900/90 backdrop-blur-md p-3 rounded-xl border border-slate-700/80 text-xs font-semibold text-sky-200 shadow-lg max-h-32 overflow-y-auto transition-all z-10${tpHiddenClass}" id="vid-teleprompter-box">
+          <div id="vid-teleprompter-handle" class="text-[10px] font-black uppercase text-sky-400 mb-0.5 flex items-center justify-between cursor-grab active:cursor-grabbing">
+            <span class="flex items-center gap-1"><svg class="w-3 h-3 opacity-60" fill="currentColor" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>Teleprompter Script:</span>
+            <span class="text-[9px] text-slate-400">Scrolls / Live Sync</span>
+          </div>
+          <div id="vid-teleprompter-text">${escV(scriptText)}</div>
+        </div>
+
+        <!-- Live Recording Status Overlay -->
+        <div id="vid-status-badge" class="absolute top-16 sm:top-20 right-4 px-3 py-1 rounded-full text-xs font-black bg-slate-900/90 text-emerald-400 border border-emerald-500/40 hidden flex items-center gap-1.5 z-10">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Recording Live...
+        </div>
+
+        <!-- Bottom bar overlay — zoom, teleprompter quick-toggle, then the big
+             shutter button flanked by Retake/Pause, the way a phone camera lays
+             its own bottom bar out. -->
+        <div class="absolute inset-x-0 bottom-0 z-10 p-3 sm:p-4 pb-6 sm:pb-6 bg-gradient-to-t from-black/80 to-transparent space-y-2 sm:space-y-3">
+          <div class="flex items-center justify-center gap-2">
+            <span class="text-[11px] text-slate-300">1.0x</span>
+            <input type="range" id="vid-zoom-slider" min="1.0" max="3.0" step="0.1" value="1.0" oninput="vidChangeZoom(this.value)" class="w-1/2 accent-indigo-500 cursor-pointer">
+            <span class="text-[11px] text-slate-300" id="vid-zoom-val">1.0x</span>
+            <button onclick="vidToggleTeleprompter()" id="vid-tp-toggle-btn" class="ml-2 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-black/40 hover:bg-black/60 text-sky-300 transition">
+              ${tpHiddenClass ? 'Show Teleprompter' : 'Hide Teleprompter'}
+            </button>
+          </div>
+          <div class="flex items-center justify-center gap-6 sm:gap-8">
+            <button id="vid-reset-btn" onclick="vidResetRecord()" class="px-3 py-2 rounded-xl text-xs font-bold bg-black/40 hover:bg-black/60 text-white transition">
+              Retake
+            </button>
+            <button id="vid-rec-btn" onclick="vidToggleRecord()" title="Start Recording" class="w-16 h-16 rounded-full bg-rose-600 hover:bg-rose-500 text-white shadow-lg transition flex items-center justify-center">
+              <span class="w-6 h-6 rounded-full bg-white"></span>
+            </button>
+            <button id="vid-pause-btn" onclick="vidPauseRecord()" disabled class="px-3 py-2 rounded-xl text-xs font-bold bg-black/20 text-slate-500 cursor-not-allowed transition">
+              Pause
+            </button>
+          </div>
         </div>
       </div>
     </div>
   `;
+}
+
+// Recording stopped — this is where the send panel a phone camera app shows as
+// "review your shot" lives, not beside the live viewfinder the whole time.
+function renderStudioReviewHtml(contact, options) {
+  const repName = profileContext?.name || window.__user?.name || 'Dave Miller';
+  const activeDept = vidDeptForRole(options.department || options.dept);
+  const isViewingSent = !!options.isViewingSent || !!options.sentVideo || !!options.videoId;
+  const scriptText = window.__videoStudioState.scriptText || '';
+  const previewUrl = window.__videoStudioState.lastRecordedUrl || '';
+
+  return `
+    <div class="relative w-full max-w-xl bg-slate-900 text-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-800 overflow-hidden max-h-[95vh] my-4 mx-2 sm:mx-auto flex flex-col">
+      <div class="flex items-center justify-between gap-2 p-4 border-b border-slate-800">
+        <h3 class="text-sm font-black uppercase tracking-wider text-white">${isViewingSent ? 'Sent Video Details' : 'Send video to customer'}</h3>
+        <button onclick="vidCloseStudio()" class="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition">\u{2715}</button>
+      </div>
+
+      <div class="p-4 space-y-4 overflow-y-auto">
+        ${!isViewingSent && previewUrl ? `
+        <video src="${escV(previewUrl)}" controls playsinline class="w-full max-h-72 rounded-xl bg-black object-contain"></video>
+        ` : ''}
+        <p class="text-xs text-slate-400">Recipient: <strong>${escV(contact.full_name || contact.first_name)}</strong> (${escV(contact.phone || contact.email)})</p>
+
+        ${!isViewingSent ? `
+        <div>
+          <label class="block text-[11px] font-black uppercase text-slate-400 mb-1">Message &amp; script</label>
+          <textarea id="vid-message-input" rows="3" oninput="vidSyncScriptInput(this.value)" class="w-full px-3 py-2 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs font-semibold focus:ring-2 focus:ring-indigo-500">${escV(scriptText)}</textarea>
+        </div>
+
+        <div class="space-y-2 pt-2 border-t border-slate-800">
+          <button onclick="sendCustomerVideo('${contact.id}', 'sms')" class="w-full py-2.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center justify-center gap-2 shadow-md">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+            Send Video via SMS Text
+          </button>
+          <button onclick="sendCustomerVideo('${contact.id}', 'email')" class="w-full py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            Send Video via Email
+          </button>
+          <button onclick="vidRetakeFromReview()" class="w-full py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Retake</button>
+        </div>
+        ` : ''}
+
+        ${isViewingSent ? `
+        <div class="p-3 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-black uppercase text-sky-400">Live Video Analytics</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300">REAL-TIME</span>
+          </div>
+          <div id="vid-telemetry-container">
+            ${renderVideoTelemetryBadge(options.videoId || 'v_demo_101')}
+          </div>
+          <button onclick="simCustomerWatchVideo('${options.videoId || 'v_demo_101'}', '${contact.id}')" class="w-full py-2 mt-1 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm flex items-center justify-center gap-1.5">
+            Play &amp; Watch Customer Video Link
+          </button>
+        </div>
+        ` : ''}
+      </div>
+
+      <div class="p-4 border-t border-slate-800 flex justify-end">
+        <button onclick="vidCloseStudio()" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 text-white hover:bg-slate-700">Done</button>
+      </div>
+    </div>
+  `;
+}
+
+// Setup -> Camera transition: the rep already picked the script and teleprompter
+// preference on renderStudioSetupHtml; now actually open the camera, full-screen.
+function vidEnterCameraView() {
+  window.__videoStudioState.scriptText = document.getElementById('vid-message-input')?.value || window.__videoStudioState.scriptText;
+  window.__videoStudioState.phase = 'camera';
+  const modal = document.getElementById('video-studio-modal');
+  if (!modal) return;
+  const contact = window.__videoStudioState.currentContact || {};
+  const options = window.__videoStudioState.optionsSnapshot || {};
+  modal.innerHTML = renderStudioCameraHtml(contact, options);
+  initCameraFeed();
+}
+window.vidEnterCameraView = vidEnterCameraView;
+
+// Stop -> Review transition, once the recorded blob is actually ready.
+function vidEnterReview() {
+  vidStopCompositeLoop();
+  if (window.__videoStudioState.mediaStream) {
+    window.__videoStudioState.mediaStream.getTracks().forEach(t => t.stop());
+  }
+  window.__videoStudioState.phase = 'review';
+  const modal = document.getElementById('video-studio-modal');
+  if (!modal) return;
+  const contact = window.__videoStudioState.currentContact || {};
+  const options = window.__videoStudioState.optionsSnapshot || {};
+  modal.innerHTML = renderStudioReviewHtml(contact, options);
+}
+
+// Review -> Camera: re-open the camera to shoot again, keeping the same script.
+function vidRetakeFromReview() {
+  window.__videoStudioState.lastRecordedUrl = null;
+  window.__videoStudioState.lastRecordedBlob = null;
+  window.__videoStudioState.seconds = 0;
+  vidEnterCameraView();
+}
+window.vidRetakeFromReview = vidRetakeFromReview;
+
+// Rep name, dealership phone, and a small logo badge — burned into the bottom of
+// every recorded video (not just floating over the live preview), so a sent
+// video is always identifiable even outside the app. Kept small and translucent
+// on purpose: it should never compete with the actual walkaround for attention.
+function vidOverlayInfo() {
+  const repName = profileContext?.name || window.__user?.name || 'Dave Miller';
+  const phone = profileContext?.dealership?.phone || profileContext?.dealership?.phone_number || '';
+  const storeName = window.__dealerConfig?.store_name || profileContext?.dealership?.name || 'MarketSync Motors';
+  const initials = storeName.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'MS';
+  return { repName, phone, storeName, initials };
+}
+
+// Draws the live camera frame plus the branding bar onto the (never-shown)
+// compositing canvas, one frame at a time, only while actively recording — this
+// is the stream MediaRecorder actually reads from.
+function vidStartCompositeLoop() {
+  const videoEl = document.getElementById('vid-camera-preview');
+  const canvas = document.getElementById('vid-composite-canvas');
+  if (!videoEl || !canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  canvas.width = videoEl.videoWidth || 720;
+  canvas.height = videoEl.videoHeight || 1280;
+  const { repName, phone, initials } = vidOverlayInfo();
+  const barH = Math.round(canvas.height * 0.07);
+  const badgeSize = Math.round(barH * 0.7);
+  const pad = Math.round(barH * 0.15);
+
+  const draw = () => {
+    if (!window.__videoStudioState.recording) return;
+    ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.fillRect(0, canvas.height - barH, canvas.width, barH);
+
+    ctx.fillStyle = '#4f46e5';
+    ctx.fillRect(pad, canvas.height - barH + (barH - badgeSize) / 2, badgeSize, badgeSize);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${Math.round(badgeSize * 0.42)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(initials, pad + badgeSize / 2, canvas.height - barH / 2);
+
+    const textX = pad * 2 + badgeSize;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${Math.round(barH * 0.32)}px sans-serif`;
+    ctx.fillText(repName, textX, canvas.height - barH / 2 - barH * 0.14);
+    if (phone) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.font = `${Math.round(barH * 0.26)}px sans-serif`;
+      ctx.fillText(phone, textX, canvas.height - barH / 2 + barH * 0.2);
+    }
+
+    window.__videoStudioState.compositeRAF = requestAnimationFrame(draw);
+  };
+  draw();
+}
+
+function vidStopCompositeLoop() {
+  if (window.__videoStudioState.compositeRAF) cancelAnimationFrame(window.__videoStudioState.compositeRAF);
+  window.__videoStudioState.compositeRAF = null;
 }
 
 /**
@@ -411,6 +598,23 @@ function vidToggleRecord() {
     const stream = window.__videoStudioState.mediaStream;
     if (stream && typeof MediaRecorder !== 'undefined') {
       try {
+        // Record from the compositing canvas (camera frame + rep name / phone /
+        // logo bar), not the raw camera stream directly — that's what actually
+        // burns the overlay into the saved video instead of just floating it over
+        // the live preview. Falls back to the raw stream if canvas.captureStream
+        // isn't available in this browser.
+        let recordStream = stream;
+        const canvas = document.getElementById('vid-composite-canvas');
+        if (canvas && typeof canvas.captureStream === 'function') {
+          try {
+            const canvasStream = canvas.captureStream(30);
+            const audioTrack = stream.getAudioTracks()[0];
+            if (audioTrack) canvasStream.addTrack(audioTrack);
+            recordStream = canvasStream;
+            vidStartCompositeLoop();
+          } catch { recordStream = stream; }
+        }
+
         let options = { mimeType: 'video/webm;codecs=vp9,opus' };
         if (!MediaRecorder.isTypeSupported(options.mimeType)) {
           options = { mimeType: 'video/webm' };
@@ -418,12 +622,20 @@ function vidToggleRecord() {
         if (!MediaRecorder.isTypeSupported(options.mimeType)) {
           options = { mimeType: 'video/mp4' };
         }
-        const recorder = new MediaRecorder(stream, options);
+        const recorder = new MediaRecorder(recordStream, options);
         window.__videoStudioState.mediaRecorder = recorder;
         recorder.ondataavailable = (e) => {
           if (e.data && e.data.size > 0) {
             window.__videoStudioState.recordedChunks.push(e.data);
           }
+        };
+        recorder.onstop = () => {
+          if (window.__videoStudioState.recordedChunks && window.__videoStudioState.recordedChunks.length > 0) {
+            const blob = new Blob(window.__videoStudioState.recordedChunks, { type: 'video/webm' });
+            window.__videoStudioState.lastRecordedBlob = blob;
+            window.__videoStudioState.lastRecordedUrl = URL.createObjectURL(blob);
+          }
+          vidEnterReview();
         };
         recorder.start(100);
       } catch (err) {
@@ -448,21 +660,18 @@ function vidToggleRecord() {
 
     if (typeof showToast === 'function') showToast('Recording started', 'success');
   } else {
-    // Stop Recording
+    // Stop Recording — transition to the review screen happens in the recorder's
+    // onstop handler (set up above), once the actual blob is ready, not on a
+    // fixed timeout guess. If MediaRecorder never started (unsupported browser /
+    // camera simulation fallback), there's nothing to wait on — go straight there.
     window.__videoStudioState.recording = false;
     clearInterval(window.__videoStudioState.timerInterval);
 
-    if (window.__videoStudioState.mediaRecorder && window.__videoStudioState.mediaRecorder.state !== 'inactive') {
-      try {
-        window.__videoStudioState.mediaRecorder.stop();
-        setTimeout(() => {
-          if (window.__videoStudioState.recordedChunks && window.__videoStudioState.recordedChunks.length > 0) {
-            const blob = new Blob(window.__videoStudioState.recordedChunks, { type: 'video/webm' });
-            window.__videoStudioState.lastRecordedBlob = blob;
-            window.__videoStudioState.lastRecordedUrl = URL.createObjectURL(blob);
-          }
-        }, 150);
-      } catch {}
+    const recorder = window.__videoStudioState.mediaRecorder;
+    if (recorder && recorder.state !== 'inactive') {
+      try { recorder.stop(); } catch { vidEnterReview(); }
+    } else {
+      vidEnterReview();
     }
 
     if (btn) { btn.innerHTML = 'Start Recording'; btn.className = 'px-5 py-2.5 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white transition flex items-center gap-2'; }
@@ -483,9 +692,19 @@ function vidPauseRecord() {
 }
 
 function vidResetRecord() {
+  // A Retake discards and stays on the live camera — it must NOT trigger the
+  // recorder's onstop handler, which is what sends a normal Stop Recording to
+  // the review screen.
+  const recorder = window.__videoStudioState.mediaRecorder;
+  if (recorder && recorder.state !== 'inactive') {
+    recorder.onstop = null;
+    try { recorder.stop(); } catch {}
+  }
   window.__videoStudioState.recording = false;
   window.__videoStudioState.paused = false;
   window.__videoStudioState.seconds = 0;
+  window.__videoStudioState.recordedChunks = [];
+  vidStopCompositeLoop();
   clearInterval(window.__videoStudioState.timerInterval);
   const display = document.getElementById('vid-timer-display');
   if (display) display.textContent = '00:00 / 03:00';
@@ -504,11 +723,15 @@ function vidToggleTeleprompter() {
   if (isHidden) {
     box.classList.remove('hidden');
     if (btn) btn.innerHTML = 'Hide Teleprompter';
+    // A choice made in-camera persists the same as one made on the setup screen —
+    // "indefinitely until turned on again", not just for this one video.
+    vidSetTeleprompterPref(false);
     if (typeof showToast === 'function') showToast('Teleprompter overlay visible', 'info');
   } else {
     box.classList.add('hidden');
     if (btn) btn.innerHTML = 'Show Teleprompter';
-    if (typeof showToast === 'function') showToast('Teleprompter overlay hidden', 'info');
+    vidSetTeleprompterPref(true);
+    if (typeof showToast === 'function') showToast('Teleprompter hidden — stays off next time too, until you turn it back on', 'info');
   }
 }
 
@@ -587,7 +810,16 @@ function vidCloseStudio() {
   if (window.__videoStudioState.mediaStream) {
     window.__videoStudioState.mediaStream.getTracks().forEach(t => t.stop());
   }
+  vidStopCompositeLoop();
   clearInterval(window.__videoStudioState.timerInterval);
+  if (window.__videoStudioState.lastRecordedUrl) {
+    try { URL.revokeObjectURL(window.__videoStudioState.lastRecordedUrl); } catch {}
+  }
+  window.__videoStudioState.phase = 'setup';
+  window.__videoStudioState.mediaStream = null;
+  window.__videoStudioState.lastRecordedUrl = null;
+  window.__videoStudioState.lastRecordedBlob = null;
+  window.__videoStudioState.scriptText = null;
   document.getElementById('video-studio-modal')?.remove();
 }
 
@@ -1083,6 +1315,7 @@ window.vidResetRecord = vidResetRecord;
 window.vidSelectScript = vidSelectScript;
 window.vidCloseStudio = vidCloseStudio;
 window.vidToggleTeleprompter = vidToggleTeleprompter;
+window.vidSetTeleprompterPref = vidSetTeleprompterPref;
 window.vidGenerateAiScript = vidGenerateAiScript;
 window.vidEnableCustomScript = vidEnableCustomScript;
 window.vidSyncScriptInput = vidSyncScriptInput;

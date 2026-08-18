@@ -937,10 +937,25 @@ function applyLeaderboardProductPresentation() {
   document.getElementById('lb-dept-tabs')?.classList.toggle('hidden', facebook || video);
   if (facebook) window.__activeLbDept = 'facebook';
   else if (video) window.__activeLbDept = 'video';
+  // The 5 middle ranking-table columns are shared markup across every department
+  // — Facebook's "Deals/Appr./Listings/FB Sold/Conv." labels are the DEFAULT text,
+  // not fixed captions, so a department with different metrics (Video) must
+  // relabel them instead of leaving Facebook's words sitting over its own numbers.
+  // Reset to that default here so switching department tabs never leaves a stale
+  // label from a previous visit to Video showing.
+  const DEFAULT_COLS = ['Deals', 'Appr.', 'Listings', 'FB Sold', 'Conv.'];
+  DEFAULT_COLS.forEach((label, i) => set(`lb-col-${i + 1}`, label));
+  document.querySelectorAll('[data-lb-non-fb]').forEach(el => el.classList.toggle('hidden', facebook));
+  document.getElementById('lb-activity-section')?.classList.remove('hidden');
   if (video) {
-    // Sales Video ranks video-sending activity only — the deal/appraisal columns
-    // and legend belong to the general DealerOS leaderboard, not this one.
-    document.querySelectorAll('[data-lb-non-fb]').forEach(el => el.classList.add('hidden'));
+    // Sales Video has 5 real metrics of its own (sent this month, total sent,
+    // watched, watch rate, average watch completion) — reuse all 5 shared middle
+    // columns instead of hiding two and leaving the row 1 cell short of its header.
+    ['Sent (30d)', 'Total Sent', 'Watched', 'Watch Rate', 'Avg Watch'].forEach((label, i) => set(`lb-col-${i + 1}`, label));
+    // "Recent activity" reads from the Facebook/inventory posting feed — it has no
+    // video-sending equivalent yet, so showing it here would just mislabel
+    // Facebook activity as video activity.
+    document.getElementById('lb-activity-section')?.classList.add('hidden');
     set('lb-title', ' Sales Video Leaderboard');
     set('lb-subtitle', '100 pts / video sent · 250 pts / video watched · 5 pts per point of average watch completion.');
     set('lb-conv-label', 'Videos Sent');
@@ -1126,7 +1141,12 @@ function renderDepartmentRankingTable(ranking, deptKey) {
         <td class="py-3 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">${money(m.fni_gross)}</td>
       `;
     } else if (deptKey === 'video') {
+      // 5 tds to fill all 5 shared middle columns (relabeled to video's own
+      // metrics in applyLeaderboardProductPresentation) — every other department
+      // only fills 4 of the 5 and leaves one blank, but Video actually has 5 real
+      // numbers, so use the column Facebook's "Deals"/"Appr." slots free up here.
       metricCols = `
+        <td class="py-3 px-3 text-right font-mono">${m.sent_30d || 0}</td>
         <td class="py-3 px-3 text-right font-mono font-bold">${m.total_sent || 0}</td>
         <td class="py-3 px-3 text-right font-mono">${m.watched || 0}</td>
         <td class="py-3 px-3 text-right font-mono">${m.watch_rate_pct ? m.watch_rate_pct + '%' : '—'}</td>
