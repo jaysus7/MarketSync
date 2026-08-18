@@ -15,6 +15,24 @@ test('the camera starts as zoomed out as the hardware allows, not whatever defau
   assert.match(initFn, /\.catch\(\(\) => \{\}\)/, 'must not throw on browsers that do not expose a zoom capability')
 })
 
+test('the front camera preview mirrors, like every other camera app; the back camera never does; the recording itself is unaffected either way', () => {
+  const transformFn = videoStudio.match(/function vidApplyPreviewTransform\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(transformFn, 'vidApplyPreviewTransform must exist')
+  assert.match(transformFn, /const mirror = window\.__videoStudioState\.cameraFacing === 'user';/)
+  assert.match(transformFn, /scaleX\(-1\)/)
+
+  const initFn = videoStudio.match(/async function initCameraFeed\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(initFn, /vidApplyPreviewTransform\(\);/, 'must apply the mirror as soon as the stream is attached')
+
+  const toggleFn = videoStudio.match(/function vidToggleCamera\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(toggleFn, 'vidToggleCamera must exist')
+  assert.match(toggleFn, /initCameraFeed\(\);/, 'flipping camera must re-open the stream, which re-applies the mirror for the new facing mode')
+
+  const zoomFn = videoStudio.match(/function vidChangeZoom\(val\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(zoomFn, 'vidChangeZoom must exist')
+  assert.match(zoomFn, /vidApplyPreviewTransform\(\);/, 'zoom must not clobber the mirror transform by setting style.transform directly')
+})
+
 test('opening the studio configures the script/teleprompter BEFORE the camera starts, not while it is already live', () => {
   const openFn = videoStudio.match(/async function openCustomerVideoStudio\(contactId, options = \{\}\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(openFn, 'openCustomerVideoStudio must exist')

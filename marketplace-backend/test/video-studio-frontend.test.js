@@ -16,16 +16,21 @@ test('Video has a real nav icon — "video" was referenced but never defined in 
     'the single-product Video nav entry must still reference icon: "video"')
 })
 
-test('the camera stream is explicitly requested in the shape the device is currently held, not left to the browser default', () => {
-  // A camera sensor has no inherent portrait/landscape — without a width/height
-  // hint most browsers default to a landscape-shaped stream (e.g. 1920x1080) even
-  // when the phone is held upright. Sizing the container after the fact isn't
-  // enough on its own; the stream itself must be requested portrait-shaped.
+test('the camera stream is requested wide, never a narrow portrait crop that would force the sensor to digitally zoom in', () => {
+  // An earlier version explicitly requested a narrow portrait-shaped resolution
+  // (e.g. 720x1280) on a portrait device, on the theory that a camera sensor has
+  // no inherent orientation. In practice most camera pipelines satisfy a request
+  // that doesn't match the sensor's native (wide) aspect ratio by digitally
+  // zooming/cropping into the center — confirmed on a real phone, the studio
+  // opened "way too close". The fix is the opposite: always ask for a
+  // generously wide resolution and let the full-screen viewfinder's
+  // object-cover crop it for portrait display, which only trims the real field
+  // of view rather than asking the sensor to zoom.
   const initFn = videoStudio.match(/async function initCameraFeed\(\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(initFn, 'initCameraFeed must exist')
-  assert.match(initFn, /matchMedia\('\(orientation: portrait\)'\)\.matches/)
-  assert.match(initFn, /width: \{ ideal: isPortraitDevice \? 720 : 1280 \}/)
-  assert.match(initFn, /height: \{ ideal: isPortraitDevice \? 1280 : 720 \}/)
+  assert.doesNotMatch(initFn, /isPortraitDevice/, 'must not request a portrait-shaped capture any more')
+  assert.match(initFn, /width: \{ ideal: 1920 \}/)
+  assert.match(initFn, /height: \{ ideal: 1080 \}/)
   assert.match(initFn, /addEventListener\('loadedmetadata', vidSyncViewfinderAspect\)/)
   assert.match(initFn, /screen\.orientation/, 'must re-request the stream on device rotation, not just on first load')
   assert.match(initFn, /vidRestartCameraForOrientation/, 'rotation must re-request the stream (track dimensions do not update on their own), not just re-read it')

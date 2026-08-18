@@ -268,7 +268,7 @@ function renderStudioCameraHtml(contact, options) {
            with the real track dimensions so a portrait phone camera gets a
            portrait frame instead of being center-cropped into a fixed 16:9 box. -->
       <div id="vid-camera-viewfinder" class="relative flex-1 w-full bg-slate-950 overflow-hidden flex items-center justify-center">
-        <video id="vid-camera-preview" autoplay playsinline muted class="w-full h-full object-cover transition-transform duration-200" style="transform: scale(1.0);"></video>
+        <video id="vid-camera-preview" autoplay playsinline muted class="w-full h-full object-cover transition-transform duration-200" style="transform: ${window.__videoStudioState.cameraFacing === 'user' ? 'scaleX(-1) ' : ''}scale(1.0);"></video>
         <!-- Compositing canvas — never shown; the visible preview above is the raw
              camera feed. This is what MediaRecorder actually reads from once
              recording starts, so the rep name / phone / logo overlay ends up
@@ -525,24 +525,29 @@ async function initCameraFeed() {
   const videoEl = document.getElementById('vid-camera-preview');
   if (!videoEl) return;
   try {
-    // A camera sensor has no inherent "portrait" or "landscape" — without a
-    // width/height hint most browsers default to a landscape-shaped stream (e.g.
-    // 1920x1080) even when the phone is held upright, and the live track's
-    // reported dimensions typically do NOT change on their own when the device is
-    // rotated later. Explicitly request a stream shaped for how the device is
-    // held RIGHT NOW; vidSyncViewfinderAspect() (below) still sizes the box to
-    // whatever actually comes back, since a camera can decline the exact ask.
-    const isPortraitDevice = typeof window.matchMedia === 'function' && window.matchMedia('(orientation: portrait)').matches;
+    // Do NOT ask the camera for a narrow portrait-shaped resolution (e.g.
+    // 720x1280) — most camera pipelines satisfy a request that doesn't match the
+    // sensor's native (wide) aspect ratio by digitally zooming/cropping into the
+    // center, which is exactly what made the studio feel "way too close" on a
+    // real phone. Request a generously wide resolution instead and let the
+    // full-screen viewfinder's object-cover crop it for portrait display — that
+    // only trims the sides/top-bottom of the real field of view, it never asks
+    // the sensor itself to zoom in.
     const stream = await navigator.mediaDevices.getUserMedia({
       video: {
         facingMode: window.__videoStudioState.cameraFacing,
-        width: { ideal: isPortraitDevice ? 720 : 1280 },
-        height: { ideal: isPortraitDevice ? 1280 : 720 },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
       },
       audio: true
     });
     window.__videoStudioState.mediaStream = stream;
     videoEl.srcObject = stream;
+    // A front camera's live preview is mirrored (like every other camera app —
+    // it's what a rep expects to see of themselves), a back camera's is not.
+    // The recording itself is unaffected: canvas.drawImage reads the video
+    // element's real pixel data, not its CSS transform.
+    vidApplyPreviewTransform();
     // Many phones (especially ones with multiple rear lenses) don't actually
     // start their "1x" camera at true 1x — the sensor/lens the browser picks by
     // default is often already zoomed in. Force the hardware zoom down to its
@@ -554,11 +559,9 @@ async function initCameraFeed() {
     if (zoomCap && typeof zoomCap.min === 'number') {
       videoTrack.applyConstraints({ advanced: [{ zoom: zoomCap.min }] }).catch(() => {});
     }
-    // The viewfinder starts at a fixed 16:9 guess (aspect-video) before any stream
-    // exists. Once real frames arrive, size the box to the camera's actual aspect
-    // ratio instead — a phone held upright now gets a portrait track (e.g.
-    // 720x1280), and forcing that into a 16:9 box would just center-crop it via
-    // object-cover.
+    // The viewfinder fills the whole screen via flex-1 + object-cover already;
+    // this only matters as a fallback for older layouts/paths that still size a
+    // boxed container from the stream's real aspect ratio.
     videoEl.addEventListener('loadedmetadata', vidSyncViewfinderAspect);
     // Rotating the device mid-session doesn't change the already-negotiated
     // track's dimensions on most browsers — re-requesting the stream (not just
@@ -596,6 +599,19 @@ function vidSyncViewfinderAspect() {
 }
 window.vidSyncViewfinderAspect = vidSyncViewfinderAspect;
 
+// Front camera preview mirrors, like every other camera/video-call app — a rep
+// looking at their own face expects to see it the way a mirror shows it. Back
+// camera never mirrors. Combined with whatever CSS zoom level is currently set,
+// since both share the same style.transform.
+function vidApplyPreviewTransform() {
+  const videoEl = document.getElementById('vid-camera-preview');
+  if (!videoEl) return;
+  const mirror = window.__videoStudioState.cameraFacing === 'user';
+  const zoom = window.__videoStudioState.zoomLevel || 1.0;
+  videoEl.style.transform = `${mirror ? 'scaleX(-1) ' : ''}scale(${zoom})`;
+}
+window.vidApplyPreviewTransform = vidApplyPreviewTransform;
+
 function vidToggleCamera() {
   window.__videoStudioState.cameraFacing = window.__videoStudioState.cameraFacing === 'user' ? 'environment' : 'user';
   if (window.__videoStudioState.mediaStream) {
@@ -606,10 +622,9 @@ function vidToggleCamera() {
 }
 
 function vidChangeZoom(val) {
-  const videoEl = document.getElementById('vid-camera-preview');
   const labelEl = document.getElementById('vid-zoom-val');
   window.__videoStudioState.zoomLevel = val;
-  if (videoEl) videoEl.style.transform = `scale(${val})`;
+  vidApplyPreviewTransform();
   if (labelEl) labelEl.textContent = `${Number(val).toFixed(1)}x`;
 }
 
