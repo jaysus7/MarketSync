@@ -16,11 +16,12 @@
  * a user gesture, begins a watch. The database recomputes the summary from the events, so what
  * a rep sees and the evidence behind it cannot drift apart.
  */
-import { supabaseAdmin } from '../shared.js'
+import { supabaseAdmin, sendEmail, FRONTEND_URL } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { mayContact } from './consent.js'
+import { sendDealerSms } from './automation.js'
 import multer from 'multer'
 import crypto from 'crypto'
 
@@ -39,6 +40,27 @@ const newShareToken = () => crypto.randomBytes(18).toString('base64url')
 
 // A share link that lives forever is a data-exposure liability nobody remembers to close.
 const DEFAULT_EXPIRY_DAYS = 60
+
+// The public watch link a customer actually taps. Must match the frontend's own
+// vidBuildShareUrl (`<origin>/watch.html?t=<token>`) so a link sent by email/SMS and
+// a link copied in the studio point at the same page. FRONTEND_URL is the static-site
+// host (the backend serves no HTML), the same base every other transactional link uses.
+function watchUrl(shareToken) {
+  return `${FRONTEND_URL}/watch.html?t=${encodeURIComponent(shareToken)}`
+}
+
+// Minimal, deliverable email body. Plain and link-forward on purpose: a walkaround
+// video won't inline in most inboxes, so the message is the personal note plus the
+// one tap that opens it.
+function videoEmailHtml({ url, repName, dealerName, note }) {
+  const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+  const who = repName ? `${esc(repName)}${dealerName ? ` at ${esc(dealerName)}` : ''}` : (dealerName ? esc(dealerName) : 'your salesperson')
+  return `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#0f172a">
+  <p style="font-size:16px;line-height:1.5">${note ? esc(note) : `${who} recorded a short video for you.`}</p>
+  <p style="margin:24px 0"><a href="${esc(url)}" style="background:#4f46e5;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:10px;display:inline-block">▶ Watch your video</a></p>
+  <p style="font-size:13px;color:#64748b;line-height:1.5">Or paste this link into your browser:<br><a href="${esc(url)}" style="color:#4f46e5">${esc(url)}</a></p>
+</div>`
+}
 
 /**
  * Is this link still usable? Expiry is enforced on read, not by a sweeper, so a link stops
@@ -202,6 +224,40 @@ export function registerSalesVideo(app) {
 
       const consent = await mayContact(req.dealershipId, video.contact_id, channel)
       if (!consent.allowed) return res.status(403).json({ error: consent.reason, basis: consent.basis })
+
+      // Who it's going to. Without a real address/number there is nothing to deliver — the
+      // old endpoint marked such videos "sent" anyway, which is exactly why a rep saw "sent"
+      // but the customer got nothing.
+      const [{ data: contact }, { data: dealer }, { data: rep }] = await Promise.all([
+        supabaseAdmin.from('contacts').select('full_name, first_name, email, phone, phone_mobile').eq('id', video.contact_id).maybeSingle(),
+        supabaseAdmin.from('dealerships').select('name').eq('id', req.dealershipId).maybeSingle(),
+        video.created_by ? supabaseAdmin.from('profiles').select('full_name').eq('id', video.created_by).maybeSingle() : Promise.resolve({ data: null }),
+      ])
+      if (!contact) return res.status(404).json({ error: 'Customer not found for this video.' })
+
+      const url = watchUrl(video.share_token)
+      const note = String(req.body?.message || '').trim().slice(0, 800)
+      const repName = (rep?.full_name || '').split(' ')[0] || ''
+      const dealerName = dealer?.name || ''
+
+      // Actually deliver, and DO NOT mark it sent unless delivery succeeds.
+      let delivery
+      if (channel === 'email') {
+        const to = (contact.email || '').trim()
+        if (!to) return res.status(400).json({ error: 'This customer has no email address on file.' })
+        const subject = repName
+          ? `${repName} sent you a video${dealerName ? ` — ${dealerName}` : ''}`
+          : `A video for you${dealerName ? ` from ${dealerName}` : ''}`
+        delivery = await sendEmail({ to, subject, html: videoEmailHtml({ url, repName, dealerName, note }) })
+      } else {
+        const to = (contact.phone || contact.phone_mobile || '').trim()
+        if (!to) return res.status(400).json({ error: 'This customer has no mobile number on file.' })
+        const body = `${note || `${repName ? `${repName}: ` : ''}Here's a quick video for you`}: ${url}`
+        delivery = await sendDealerSms(req.dealershipId, to, body)
+      }
+      if (!delivery?.ok) {
+        return res.status(502).json({ error: delivery?.error || `Could not send the ${channel === 'email' ? 'email' : 'text'}. Check your ${channel === 'email' ? 'email' : 'texting number'} setup and try again.` })
+      }
 
       const { data, error } = await supabaseAdmin.from('sales_videos').update({
         status: 'sent', channel, sent_at: new Date().toISOString(),

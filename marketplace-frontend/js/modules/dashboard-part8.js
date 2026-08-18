@@ -218,9 +218,12 @@ function renderTexting() {
     ${s.byo ? '<div class="text-xs text-slate-500 dark:text-slate-400 mb-2">You\'re currently using your own Twilio (Integrations). Provision a MarketSync-managed number instead below.</div>' : ''}
     <div class="flex gap-2 items-end mb-3 flex-wrap">
       <div><label class="block text-[11px] font-bold text-slate-500 mb-1">Country</label><select id="tx-country" class="${TX_INP}" style="width:90px"><option value="US">US</option><option value="CA">CA</option></select></div>
-      <div class="flex-1 min-w-[140px]"><label class="block text-[11px] font-bold text-slate-500 mb-1">Area code (optional)</label><input id="tx-area" maxlength="3" placeholder="e.g. 416" class="${TX_INP}"></div>
+      <div style="width:110px"><label class="block text-[11px] font-bold text-slate-500 mb-1">Province / State</label><input id="tx-region" maxlength="4" placeholder="e.g. ON" class="${TX_INP}"></div>
+      <div class="flex-1 min-w-[140px]"><label class="block text-[11px] font-bold text-slate-500 mb-1">City</label><input id="tx-city" placeholder="e.g. Welland" class="${TX_INP}"></div>
+      <div style="width:110px"><label class="block text-[11px] font-bold text-slate-500 mb-1">Area code (optional)</label><input id="tx-area" maxlength="3" placeholder="e.g. 416" class="${TX_INP}"></div>
       <button onclick="textingSearch(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg">Search numbers</button>
     </div>
+    <p class="text-[11px] text-slate-400 dark:text-slate-500 mb-3 -mt-1">Search by province/state (2-letter code) and city to get a local number, or leave them blank and use an area code.</p>
     <div id="tx-results"></div>`;
 }
 function textingA2pForm(p) {
@@ -241,15 +244,17 @@ function textingA2pForm(p) {
 }
 window.textingSearch = async (btn) => {
   const country = document.getElementById('tx-country')?.value || 'US';
+  const region = (document.getElementById('tx-region')?.value || '').trim();
+  const city = (document.getElementById('tx-city')?.value || '').trim();
   const area = (document.getElementById('tx-area')?.value || '').trim();
   const box = document.getElementById('tx-results'); if (box) box.innerHTML = '<div class="text-sm text-slate-400 italic py-2">Searching…</div>';
   try {
-    const r = await apiGetJson(`/integrations/twilio/provision/search?country=${encodeURIComponent(country)}&area=${encodeURIComponent(area)}`);
+    const r = await apiGetJson(`/integrations/twilio/provision/search?country=${encodeURIComponent(country)}&region=${encodeURIComponent(region)}&city=${encodeURIComponent(city)}&area=${encodeURIComponent(area)}`);
     const rows = (r.numbers || []).map(n => `<div class="flex items-center gap-3 px-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
         <div class="flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(n.number)}</div><div class="text-[12px] text-slate-500">${esc([n.locality, n.region].filter(Boolean).join(', '))}</div></div>
         <button onclick="textingProvision('${esc(n.number)}', this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[12px] font-bold px-3 py-1.5 rounded-lg">Use this number</button>
       </div>`).join('');
-    if (box) box.innerHTML = rows ? `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-1">${rows}</div>` : '<div class="text-sm text-slate-400 italic py-2">No numbers found — try a different area code.</div>';
+    if (box) box.innerHTML = rows ? `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-1">${rows}</div>` : '<div class="text-sm text-slate-400 italic py-2">No numbers found — try a different city, province/state or area code.</div>';
   } catch (e) { if (box) box.innerHTML = `<div class="text-sm text-rose-500 py-2">${esc(e.message || 'Search failed')}</div>`; }
 };
 window.textingProvision = async (number, btn) => {
