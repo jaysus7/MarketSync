@@ -70,18 +70,35 @@ test('the backend /gamification endpoint computes a real Sales Video department 
 test('the frontend leaderboard renders a Video department tab, ranking columns, and single-product presentation', () => {
   assert.match(dashboardHtml, /switchLeaderboardDept\('video'\)" id="lb-dept-video"/)
   assert.match(part14, /\['facebook', 'sales', 'service', 'fni', 'video'\]\.forEach/)
+  // Video has 5 real metrics — it fills all 5 shared middle columns (every other
+  // department only fills 4 and leaves one blank), so header cell count and body
+  // <td> count actually match instead of being one short.
   const metricBlock = part14.match(/else if \(deptKey === 'video'\) \{[\s\S]*?\n {4}\}/)?.[0] || ''
   assert.ok(metricBlock, 'the video metric-column branch must exist')
-  assert.match(metricBlock, /m\.total_sent/)
-  assert.match(metricBlock, /m\.watched/)
-  assert.match(metricBlock, /m\.watch_rate_pct/)
-  assert.match(metricBlock, /m\.avg_watch_pct/)
+  const tdCount = (metricBlock.match(/<td /g) || []).length
+  assert.equal(tdCount, 5, 'Video must render 5 <td>s to fill all 5 shared middle columns')
+  for (const key of ['m.sent_30d', 'm.total_sent', 'm.watched', 'm.watch_rate_pct', 'm.avg_watch_pct']) {
+    assert.ok(metricBlock.includes(key), `Video metric columns must include ${key}`)
+  }
 
   const presentationFn = part14.match(/function applyLeaderboardProductPresentation\(\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(presentationFn, 'applyLeaderboardProductPresentation must exist')
   assert.match(presentationFn, /isVideoOnlyWorkspace === 'function' && isVideoOnlyWorkspace\(\)/)
   assert.match(presentationFn, /window\.__activeLbDept = 'video'/)
-  // A video-only account has no deal-desk/appraisal activity — the legend and header
-  // columns for those must not be left showing.
-  assert.match(presentationFn, /lb-non-fb.*classList\.add\('hidden'\)/)
+  // The 5 shared column headers get relabeled to Video's own metrics, not left
+  // showing Facebook's "Deals/Appr./Listings/FB Sold/Conv." over different numbers.
+  assert.match(presentationFn, /\['Sent \(30d\)', 'Total Sent', 'Watched', 'Watch Rate', 'Avg Watch'\]/)
+  // "Recent activity" reads from the Facebook/inventory posting feed, which has no
+  // video-sending equivalent — it must be hidden for Video, not show mislabeled data.
+  assert.match(presentationFn, /getElementById\('lb-activity-section'\)\?\.classList\.add\('hidden'\)/)
+})
+
+test('the leaderboard table header and body actually line up — Points is the LAST column in both, not 4th in the header while last in every row', () => {
+  const theadBlock = dashboardHtml.match(/<thead>\s*<tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500[\s\S]*?<\/tr>\s*<\/thead>/)?.[0] || ''
+  assert.ok(theadBlock, 'the department leaderboard thead must exist')
+  const headers = [...theadBlock.matchAll(/<th[^>]*>([^<]+)<\/th>/g)].map(m => m[1].trim())
+  assert.deepEqual(headers, ['Rank', 'Player', 'Tier', 'Deals', 'Appr.', 'Listings', 'FB Sold', 'Conv.', 'Points'])
+  // renderDepartmentRankingTable's row template renders Points as the LAST <td>,
+  // after the metric columns — the header must match that order.
+  assert.match(theadBlock, /Conv\.<\/th>\s*<th class="py-3 px-3 text-right">Points<\/th>/)
 })
