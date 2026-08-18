@@ -485,6 +485,16 @@
             <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded transition">Save Changes</button>
           </form>
 
+          <!-- Email sending, Billing and Language share ONE grid cell (column 2),
+               stacked in normal document flow, instead of being independent grid
+               items on separate rows — a CSS grid row's height is set by its
+               TALLEST cell, so placing them on their own explicit rows left a
+               visible gap whenever Profile/Security (row 1's tall cells) ran
+               longer, and pushed Security out of row 1 into a row of its own once
+               a tier folds in Email sending (Video's My Account does). Nesting
+               them together means this column sizes independently and Security
+               always lands beside it as row 1's third cell. -->
+          <div id="billing-language-col" class="flex flex-col">
           <!-- Email sending — how the CRM emails you send go out (per-person) -->
           <div id="email-sending-card" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
             <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Email sending</h3>
@@ -503,15 +513,6 @@
               <button type="button" id="es-save" onclick="saveEmailSettings(this)" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded transition">Save email settings</button>
             </div>
           </div>
-
-          <!-- Billing and Language share ONE grid cell (column 2), stacked in normal
-               document flow, instead of being two independent grid items on separate
-               rows — a CSS grid row's height is set by its TALLEST cell, so placing
-               Language on an explicit row 2 left a visible gap under Billing's much
-               shorter card whenever Profile/Security (row 1's tall cells) ran longer.
-               Nesting them together means Language sits snug under Billing regardless
-               of how tall the other columns get. -->
-          <div id="billing-language-col" class="flex flex-col">
           <div id="billing-section" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
             <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Billing &amp; Subscription</h3>
             <!-- Current plan (populated from /billing/plans; the active subscription is what grants access) -->
@@ -3851,13 +3852,13 @@
        mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
   <script src="js/modules/workspace-registry.js?v=20260814_v12"></script>
   <script src="dashboard.js?v=20260817_singleproduct_v11"></script>
-  <script src="js/modules/dashboard-part2.js?v=20260817_settings_fix_v16"></script>
+  <script src="js/modules/dashboard-part2.js?v=20260817_settings_fix_v17"></script>
   <script src="js/modules/dashboard-part3.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part4.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part5.js?v=20260817_studiolaunch_v1"></script>
   <script src="js/modules/dashboard-part6.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part7.js?v=20260814_v12"></script>
-  <script src="js/modules/dashboard-part8.js?v=20260817_settingsadmin_v2"></script>
+  <script src="js/modules/dashboard-part8.js?v=20260817_settingsadmin_v3"></script>
   <script src="js/modules/dashboard-part9.js?v=20260817_designstudio_v1"></script>
   <script src="js/modules/dashboard-part10.js?v=20260817_singleproduct_rail_v2"></script>
   <script src="js/modules/dashboard-part11.js?v=20260817_simple_departments"></script>
