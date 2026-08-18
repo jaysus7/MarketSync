@@ -70,10 +70,15 @@ test('every single-product tier trims Settings to My Account + Billing (Upgrade 
   assert.match(block, /const fbOnly = typeof isFacebookOnlyWorkspace === 'function' && isFacebookOnlyWorkspace\(\)/)
   assert.match(block, /if \(fbOnly[\s\S]*?guardrail-settings-section/)
   assert.match(block, /document\.getElementById\('guardrail-settings-section'\)\?\.classList\.remove\('hidden'\)/)
-  // Facebook Dealer (not Solo — a lone rep has no team) additionally folds in the
-  // Team roster, since Administration (where it normally lives) is hidden entirely.
-  assert.match(block, /const isFbDealer = \/\(\?:\^\|\\s\)facebook_dealer\(\?:\\s\|\$\)\/\.test\(document\.documentElement\.getAttribute\('data-product'\) \|\| ''\)/)
-  assert.match(block, /if \(isFbDealer[\s\S]*?settings-team/)
+  // Facebook-only tiers with an admin-capable role (Dealer Admin, Group Admin,
+  // Manager — not Solo/Independent, a lone rep has no team) fold in the Team
+  // roster, since Administration (where it normally lives) is hidden entirely.
+  // Gated on role rather than the facebook_dealer product string alone, since a
+  // Group/Dealer Admin account can resolve to either Facebook product label
+  // depending on how it was provisioned.
+  assert.match(part2, /const isAdmin = role === 'DEALER_ADMIN' \|\| role === 'OWNER' \|\| role === 'MANAGER' \|\| role === 'DEALER_GROUP'/,
+    'isAdmin must include DEALER_GROUP so a Group Admin gets the same access as a Dealer Admin')
+  assert.match(block, /if \(fbOnly && isAdmin[\s\S]*?settings-team/)
 })
 
 test('settingsTab("account") loads the Team roster once it has been folded in for Facebook Dealer', () => {
