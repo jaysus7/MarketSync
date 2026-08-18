@@ -543,6 +543,10 @@ export function registerRoutes(app) {
         product_primary: p.product_primary, products: p.products, org_type: p.org_type,
         feature_count: p.features.length,
         configured: !!(stripePriceForPlan(id, 'usd', process.env) || stripePriceForPlan(id, 'cad', process.env)),
+        // Grandfathered plans kept only so existing subscribers keep their exact
+        // entitlements — never offered as a new purchase option. The frontend still
+        // shows one if the account is currently on it (current includes its id).
+        legacyPlan: !!p.legacyPlan,
       }
     })
     res.json({ current, plans })

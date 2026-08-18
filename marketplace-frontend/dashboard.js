@@ -954,25 +954,60 @@ async function startPlanCheckout(planId, btn) {
 }
 window.startPlanCheckout = startPlanCheckout;
 
-async function openPlanUpgradeModal() {
-  const data = await fetchPlanCatalog();
-  if (!data || !Array.isArray(data.plans)) { if (typeof showToast === 'function') showToast('Could not load plans.', 'error'); return; }
-  const current = data.current || [];
-  const currentMax = Math.max(0, ...data.plans.filter(p => current.includes(p.id)).map(p => p.monthly));
-  // Offer plans the account isn't on that cost at least as much (i.e. a real upgrade).
-  const options = data.plans.filter(p => !current.includes(p.id) && p.monthly >= currentMax);
-  const money = n => '$' + Number(n).toLocaleString();
-  const cards = (options.length ? options : data.plans).map(p => `
-    <div class="border ${current.includes(p.id) ? 'border-emerald-400' : 'border-slate-200 dark:border-slate-700'} rounded-xl p-4 flex flex-col">
+// Every real product key a plan's `products` array can contain. Used by both the
+// upgrade modal and the trial-expired paywall so a product never renders as a bare
+// key or, worse, collapses onto some other product's name.
+const MS_PRODUCT_LABELS = {
+  dealer_os: 'Dealer OS', facebook: 'Facebook', ai_dealer: 'AI Dealer',
+  design_studio: 'Design Studio', marketsync_video: 'Video', marketsync_website: 'Website',
+  marketsync_social: 'Social', marketsync_email: 'Email & SMS',
+};
+function msPlanProductLine(p) {
+  return [...new Set(p.products)].map(x => MS_PRODUCT_LABELS[x] || x).join(' + ');
+}
+function msPlanCard(p, { included, money }) {
+  return `
+    <div class="border ${included ? 'border-emerald-400' : 'border-slate-200 dark:border-slate-700'} rounded-xl p-4 flex flex-col">
       <div class="flex items-baseline justify-between">
         <span class="text-sm font-black text-slate-900 dark:text-white">${esc(p.label)}</span>
         <span class="text-sm font-black text-indigo-600 dark:text-indigo-400">${money(p.monthly)}<span class="text-[10px] font-medium text-slate-400">/mo</span></span>
       </div>
-      <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex-1">${p.products.map(x => x === 'dealer_os' ? 'Dealer OS' : x === 'ai_dealer' ? 'AI Dealer' : 'Facebook').join(' + ')} · ${p.feature_count} features${p.id === 'os_pro' ? ' · bundles everything' : ''}</div>
-      ${current.includes(p.id)
-        ? '<div class="mt-3 text-center text-xs font-bold text-emerald-600 dark:text-emerald-400 py-2">Your current plan</div>'
+      <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex-1">${msPlanProductLine(p)} · ${p.feature_count} features${p.id === 'os_pro' || p.id === 'dealer-os-complete' ? ' · bundles everything' : ''}</div>
+      ${included
+        ? '<div class="mt-3 text-center text-xs font-bold text-emerald-600 dark:text-emerald-400 py-2">Included in your plan</div>'
         : `<button onclick="startPlanCheckout('${p.id}', this)" ${p.configured ? '' : 'disabled title="Pricing not configured yet"'} class="mt-3 ${p.configured ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed'} text-white text-xs font-bold py-2 rounded-lg transition">${p.configured ? 'Upgrade' : 'Coming soon'}</button>`}
-    </div>`).join('');
+    </div>`;
+}
+
+async function openPlanUpgradeModal() {
+  const data = await fetchPlanCatalog();
+  if (!data || !Array.isArray(data.plans)) { if (typeof showToast === 'function') showToast('Could not load plans.', 'error'); return; }
+  const current = data.current || [];
+  // Grandfathered plans are never offered as a new purchase — only shown at all if
+  // the account is actually still on one, so it can see what it currently has.
+  const visible = data.plans.filter(p => !p.legacyPlan || current.includes(p.id));
+  const currentPlans = visible.filter(p => current.includes(p.id));
+  const currentMax = Math.max(0, ...currentPlans.map(p => p.monthly));
+  const currentProducts = new Set(currentPlans.flatMap(p => p.products));
+  const money = n => '$' + Number(n).toLocaleString();
+
+  // Bundles (more than one product): offer only real upgrades — costs at least as
+  // much as what the account already pays — falling back to the full list only if
+  // nothing qualifies (e.g. already on the top bundle).
+  const bundles = visible.filter(p => p.products.length > 1);
+  const bundleOptions = bundles.filter(p => !current.includes(p.id) && p.monthly >= currentMax);
+  const bundleCards = (bundleOptions.length ? bundleOptions : bundles)
+    .map(p => msPlanCard(p, { included: current.includes(p.id), money })).join('');
+
+  // Add-ons (exactly one product, sold standalone): always shown — greyed out
+  // ("Included in your plan") the moment that product is already covered by any
+  // currently-held plan, purchasable otherwise. No monthly-price filter here: an
+  // add-on is often cheaper than a full bundle, which is exactly why it used to
+  // vanish under the bundle-only "costs at least as much" filter.
+  const addons = visible.filter(p => p.products.length === 1);
+  const addonCards = addons
+    .map(p => msPlanCard(p, { included: current.includes(p.id) || currentProducts.has(p.products[0]), money })).join('');
+
   const modal = document.createElement('div');
   modal.className = 'fixed inset-0 z-[80] bg-black/70 flex items-start justify-center p-4 overflow-y-auto';
   modal.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-2xl mt-12 p-6 shadow-2xl">
@@ -981,7 +1016,10 @@ async function openPlanUpgradeModal() {
       <button data-x class="text-slate-400 hover:text-slate-700 dark:hover:text-white text-2xl leading-none">&times;</button>
     </div>
     <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Your plan decides what you can access. Upgrade to unlock more.</p>
-    <div class="grid sm:grid-cols-2 gap-3">${cards}</div>
+    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Plans</div>
+    <div class="grid sm:grid-cols-2 gap-3 mb-5">${bundleCards}</div>
+    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Add-ons</div>
+    <div class="grid sm:grid-cols-2 gap-3">${addonCards}</div>
   </div>`;
   document.body.appendChild(modal);
   modal.addEventListener('click', e => { if (e.target === modal || e.target.closest('[data-x]')) modal.remove(); });
@@ -996,16 +1034,17 @@ async function openPaywallModal(reason) {
   if (__paywallOpen) return;
   __paywallOpen = true;
   const data = await fetchPlanCatalog();
-  const plans = (data && data.plans) || [];
+  // Grandfathered plans are never offered to a new/re-subscribing customer — only
+  // the current, real, publicly-sold catalog belongs on the paywall.
+  const plans = ((data && data.plans) || []).filter(p => !p.legacyPlan);
   const money = n => '$' + Number(n).toLocaleString();
-  const label = { facebook: 'Facebook', ai_dealer: 'AI Dealer', dealer_os: 'Dealer OS' };
   const cards = plans.map(p => `
     <div class="border border-slate-200 dark:border-slate-700 rounded-xl p-4 flex flex-col bg-white dark:bg-slate-900">
       <div class="flex items-baseline justify-between">
         <span class="text-sm font-black text-slate-900 dark:text-white">${esc(p.label)}</span>
         <span class="text-sm font-black text-indigo-600 dark:text-indigo-400">${money(p.monthly)}<span class="text-[10px] font-medium text-slate-400">/mo</span></span>
       </div>
-      <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex-1">${p.products.map(x => label[x] || x).join(' + ')} · ${p.feature_count} features${p.id === 'os_pro' ? ' · bundles everything' : ''}</div>
+      <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex-1">${msPlanProductLine(p)} · ${p.feature_count} features${p.id === 'os_pro' || p.id === 'dealer-os-complete' ? ' · bundles everything' : ''}</div>
       <button onclick="startPlanCheckout('${p.id}', this)" ${p.configured ? '' : 'disabled title="Pricing not configured yet"'} class="mt-3 ${p.configured ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed'} text-white text-xs font-bold py-2 rounded-lg transition">${p.configured ? 'Choose this plan' : 'Coming soon'}</button>
     </div>`).join('');
   const modal = document.createElement('div');
@@ -1051,7 +1090,7 @@ async function renderCurrentPlanBox() {
   const cur = (data && data.current) || [];
   const plan = data && data.plans.find(p => cur.includes(p.id));
   if (!plan) { box.classList.add('hidden'); return; }
-  const prod = plan.products.map(x => x === 'dealer_os' ? 'Dealer OS' : x === 'ai_dealer' ? 'AI Dealer' : 'Facebook').join(' + ');
+  const prod = msPlanProductLine(plan);
   const nm = document.getElementById('current-plan-name');
   const dt = document.getElementById('current-plan-detail');
   if (nm) nm.textContent = `${plan.label} · $${Number(plan.monthly).toLocaleString()}/mo`;
