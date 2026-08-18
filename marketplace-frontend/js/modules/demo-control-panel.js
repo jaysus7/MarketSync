@@ -56,6 +56,13 @@
     badge.type = 'button';
     badge.title = `Demo mode — ${data.dealership.name}`;
     badge.textContent = 'DEMO MODE';
+    // Append the badge to the page FIRST, before building the (larger, data-driven)
+    // control panel below. If panel construction ever throws on some tier — e.g. a
+    // department/plan lookup returns something unexpected on a single-product
+    // "independent" account — boot()'s try/catch would otherwise swallow it and the
+    // operator would lose the DEMO MODE badge entirely. The badge is the one thing
+    // that must always be there.
+    if (!document.getElementById('demo-mode-badge')) document.body.appendChild(badge);
 
     const field = (id, label, iconKey, options) => `
       <label class="dcp-field">
@@ -93,7 +100,6 @@
     `;
 
     document.body.appendChild(panel);
-    document.body.appendChild(badge);
 
     badge.addEventListener('click', () => { panel.hidden = !panel.hidden; });
     panel.querySelector('#dcp-close').addEventListener('click', () => { panel.hidden = true; });
@@ -139,7 +145,11 @@
       // to show. 'inventory' (not 'inventory-overview') because this account can
       // switch between a full DealerOS package and a Facebook-only one — switchPage()
       // resolves the generic id to whichever concrete page matches the current tier.
-      if (typeof switchPage === 'function') switchPage('inventory');
+      // BUT a single-product ("independent") demo has no Inventory page at all —
+      // forcing it there fights applyProductNav's own landing on the product's home
+      // and can leave the UI stranded, so let that tier keep its product home.
+      const singleProduct = typeof window.isSingleProductWorkspace === 'function' && window.isSingleProductWorkspace();
+      if (typeof switchPage === 'function' && !singleProduct) switchPage('inventory');
     } catch (e) { /* network hiccup — no demo panel this load, not fatal */ }
   }
 

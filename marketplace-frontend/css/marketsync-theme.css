@@ -768,7 +768,11 @@ html.dark td {
   top: 10px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 10001;
+  /* Above every product full-screen modal (the Video studio is z-99999, its player
+     and sub-modals go up to z-9999999). The demo operator must be able to switch
+     package/role/presentation at any time — including from inside a single-product
+     surface like the Video studio — so this badge never gets buried. */
+  z-index: 10000001;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -785,7 +789,7 @@ html.dark td {
   top: 48px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 10001;
+  z-index: 10000001;
   width: 280px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
