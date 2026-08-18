@@ -1196,6 +1196,18 @@ function applyProductNav(products) {
     document.getElementById('notif-bell')?.classList.add('hidden');
     document.getElementById('header-social-icons')?.classList.add('hidden');
     document.getElementById('setup-bar-host')?.replaceChildren();
+    // Independent single-tool programs never show the AI assistant or team/staff
+    // chat — those coordinate a dealership's departments/staff, which a single-tool
+    // subscriber doesn't have. Facebook Dealer is a real dealership team, so it keeps
+    // team chat. This runs after the tier resolves, so it also catches the staff-chat
+    // dock if it mounted before data-product was known.
+    if (active[0] !== 'facebook_dealer') {
+      document.getElementById('ai-dock-btn')?.classList.add('hidden');
+      document.getElementById('ai-dock-panel')?.classList.add('hidden');
+      document.getElementById('team-chat-dock-panel')?.classList.add('hidden');
+      document.getElementById('staff-chat-dock-bar')?.classList.add('hidden');
+      if (typeof window.disableStaffChatDock === 'function') window.disableStaffChatDock();
+    }
   }
   // Design Studio standalone: launch straight into the editor, not the Settings page
   // it lands on underneath (that page exists only so closing the editor has somewhere

@@ -923,8 +923,12 @@ async function initializeDashboardEcosystem() {
       document.getElementById('ai-dock-panel')?.classList.add('hidden');
       document.getElementById('setup-status-banner')?.classList.add('hidden');
       // Its reps still need Team Chat to coordinate with each other. Every other
-      // tier (including Facebook Solo, a lone independent rep) gets it hidden.
+      // tier (including Facebook Solo, a lone independent rep) gets it hidden — both
+      // the legacy panel AND the staff-chat launcher dock, which mounts itself and
+      // must be torn down explicitly so it stops polling/popping notifications.
       document.getElementById('team-chat-dock-panel')?.classList.toggle('hidden', !isFbDealer);
+      document.getElementById('staff-chat-dock-bar')?.classList.toggle('hidden', !isFbDealer);
+      if (!isFbDealer && typeof window.disableStaffChatDock === 'function') window.disableStaffChatDock();
     }
 
     // DealerOS: managers/admins land on the Command Center (today's operations +
