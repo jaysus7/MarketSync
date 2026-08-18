@@ -1,7 +1,8 @@
 import { supabase, supabaseAdmin, isSaasStaff } from './shared.js'
 import { SYSTEM_ROLES, hasSystemRole } from './authorization.js'
 import { createClient } from '@supabase/supabase-js'
-import { hasAal2 } from './mfa-assurance.js'
+import { mfaStepUpSatisfied } from './mfa-assurance.js'
+import { hasRecentPasskeyStepUp } from './passkeys.js'
 
 // A Supabase client scoped to the CALLER'S JWT. Queries run as the `authenticated`
 // Postgres role with auth.uid() set, so RLS (authz.has_permission(dealership_id, …))
@@ -113,13 +114,21 @@ export async function requireAuth(req, res, next) {
 // factor (TOTP or phone) promotes that specific session to aal2.
 //
 export async function requireMfa(req, res, next) {
+  // A recent biometric passkey step-up (Touch ID / Face ID / Windows Hello /
+  // fingerprint), verified via /auth/passkey/stepup/*, satisfies the gate without
+  // a TOTP code. Runs after requireAuth, so req.user is populated.
+  if (hasRecentPasskeyStepUp(req.user?.id)) return next()
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ error: 'No token provided' })
   try {
     const client = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: `Bearer ${token}` } }
     })
-    if (!(await hasAal2(client, token))) {
+    // Eased policy: only accounts that actually have MFA enrolled are asked to
+    // step up. Users without a verified factor pass through instead of being
+    // locked out of the whole app. (Still 503s, never bypasses, if the level
+    // can't be verified — see the catch below.)
+    if (!(await mfaStepUpSatisfied(client, token))) {
       return res.status(403).json({ error: 'MFA_REQUIRED', message: 'Complete multi-factor authentication to continue.' })
     }
     next()

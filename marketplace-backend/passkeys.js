@@ -219,3 +219,100 @@ export async function deletePasskey({ supabaseAdmin, userId, passkeyId }) {
     .eq('user_id', userId)
   return !error
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// STEP-UP (called while already signed in, to satisfy the MFA gate with a
+// biometric passkey — Touch ID / Face ID / Windows Hello / fingerprint — instead
+// of a TOTP code). userVerification is REQUIRED here: the whole point is that the
+// device confirms the human, which is what makes a passkey MFA-grade.
+// ──────────────────────────────────────────────────────────────────────────────
+export async function beginPasskeyStepUp({ supabaseAdmin, userId }) {
+  const { data: creds } = await supabaseAdmin
+    .from('webauthn_credentials')
+    .select('credential_id, transports')
+    .eq('user_id', userId)
+  const allowCredentials = (creds || []).map(c => ({
+    id: c.credential_id,
+    transports: c.transports || undefined
+  }))
+  if (!allowCredentials.length) return { ok: false, error: 'NO_PASSKEY' }
+
+  const options = await generateAuthenticationOptions({
+    rpID: RP_ID,
+    timeout: 60000,
+    userVerification: 'required',
+    allowCredentials
+  })
+  setChallenge(`stepup:${userId}`, options.challenge)
+  return { ok: true, options }
+}
+
+export async function finishPasskeyStepUp({ supabaseAdmin, userId, response }) {
+  const expectedChallenge = takeChallenge(`stepup:${userId}`)
+  if (!expectedChallenge) return { ok: false, error: 'Step-up challenge expired — please try again.' }
+
+  const credentialId = response?.id
+  // Scoped to THIS user (unlike login, where we don't yet know who they are) — a
+  // step-up must be satisfied by the signed-in user's own passkey.
+  const { data: cred, error: lookupErr } = await supabaseAdmin
+    .from('webauthn_credentials')
+    .select('id, user_id, public_key, counter, transports')
+    .eq('credential_id', credentialId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (lookupErr || !cred) return { ok: false, error: 'Unknown passkey.' }
+
+  let verification
+  try {
+    verification = await verifyAuthenticationResponse({
+      response,
+      expectedChallenge,
+      expectedOrigin: ORIGIN,
+      expectedRPID: RP_ID,
+      credential: {
+        id: credentialId,
+        publicKey: new Uint8Array(Buffer.from(cred.public_key, 'base64')),
+        counter: cred.counter,
+        transports: cred.transports || undefined
+      },
+      requireUserVerification: true
+    })
+  } catch (e) {
+    return { ok: false, error: `Verification failed: ${e.message}` }
+  }
+  if (!verification.verified) return { ok: false, error: 'Passkey verification failed.' }
+
+  await supabaseAdmin
+    .from('webauthn_credentials')
+    .update({ counter: verification.authenticationInfo.newCounter, last_used_at: new Date().toISOString() })
+    .eq('id', cred.id)
+
+  recordPasskeyStepUp(userId)
+  return { ok: true }
+}
+
+// Short-lived step-up markers so requireMfa can accept a recent biometric passkey
+// verification as satisfying the gate. In-memory with a TTL, matching the
+// challenge cache's single-node design tradeoff above.
+const STEP_UP_TTL_MS = 20 * 60 * 1000
+const stepUpCache = new Map()
+
+export function recordPasskeyStepUp(userId) {
+  if (!userId) return
+  stepUpCache.set(userId, Date.now() + STEP_UP_TTL_MS)
+}
+
+export function hasRecentPasskeyStepUp(userId) {
+  if (!userId) return false
+  const expiresAt = stepUpCache.get(userId)
+  if (!expiresAt) return false
+  if (expiresAt < Date.now()) { stepUpCache.delete(userId); return false }
+  return true
+}
+
+setInterval(() => {
+  const now = Date.now()
+  for (const [k, v] of stepUpCache) {
+    if (v < now) stepUpCache.delete(k)
+  }
+}, 5 * 60 * 1000).unref?.()

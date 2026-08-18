@@ -1064,6 +1064,46 @@ async function registerNewPasskey() {
   }
 }
 
+// Biometric MFA step-up. Runs the Face ID / Touch ID / Windows Hello / fingerprint
+// prompt against the signed-in user's own passkey to satisfy the server's MFA gate
+// for this session (see /auth/passkey/stepup/*). Reusable across features that hit
+// MFA_REQUIRED. Returns:
+//   { ok: true }                       — step-up done; retry the blocked action
+//   { ok: false, reason: 'no_passkey'} — no passkey enrolled; offer to add one
+//   { ok: false, reason: 'cancelled' } — user dismissed the prompt
+//   { ok: false, error }               — other failure (message is user-safe)
+async function msPasskeyStepUp() {
+  if (!window.SimpleWebAuthnBrowser || !window.PublicKeyCredential) {
+    return { ok: false, error: "This device doesn't support passkeys — use your authenticator code instead." };
+  }
+  try {
+    const beginRes = await fetch(`${API}/auth/passkey/stepup/begin`, {
+      method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const options = await beginRes.json().catch(() => ({}));
+    if (beginRes.status === 409 || options.error === 'NO_PASSKEY') {
+      return { ok: false, reason: 'no_passkey', error: 'Add a passkey first (Settings → Security), then try again.' };
+    }
+    if (!beginRes.ok) return { ok: false, error: options.error || 'Could not start verification.' };
+
+    const assertion = await SimpleWebAuthnBrowser.startAuthentication({ optionsJSON: options });
+
+    const finishRes = await fetch(`${API}/auth/passkey/stepup/finish`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ response: assertion })
+    });
+    const data = await finishRes.json().catch(() => ({}));
+    if (!finishRes.ok) return { ok: false, error: data.error || 'Verification failed.' };
+    if (typeof showToast === 'function') showToast('Verified with your passkey', 'success');
+    return { ok: true };
+  } catch (err) {
+    if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') return { ok: false, reason: 'cancelled', error: 'Cancelled.' };
+    return { ok: false, error: err?.message || 'Verification failed.' };
+  }
+}
+window.msPasskeyStepUp = msPasskeyStepUp;
+
 async function removePasskey(passkeyId) {
   if (!confirm("Remove this passkey? You won't be able to sign in with it anymore.")) return;
   try {

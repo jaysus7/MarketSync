@@ -17,7 +17,7 @@
  * a rep sees and the evidence behind it cannot drift apart.
  */
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth, requireMfa } from '../middleware.js'
+import { requireAuth } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { mayContact } from './consent.js'
@@ -121,7 +121,7 @@ export function registerSalesVideo(app) {
   const canEdit = requirePermission('customer.edit')
   const guard = (req, res) => { if (!req.dealershipId) { res.status(403).json({ error: 'no dealership' }); return false } return true }
 
-  app.get('/sales-videos', requireAuth, requireMfa, canView, async (req, res) => {
+  app.get('/sales-videos', requireAuth, canView, async (req, res) => {
     if (!guard(req, res)) return
     try {
       let q = supabaseAdmin.from('sales_videos').select(VIDEO_COLUMNS)
@@ -134,7 +134,7 @@ export function registerSalesVideo(app) {
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
-  app.get('/sales-videos/attention', requireAuth, requireMfa, canView, async (req, res) => {
+  app.get('/sales-videos/attention', requireAuth, canView, async (req, res) => {
     if (!guard(req, res)) return
     try { res.json({ items: await salesVideoAttention(req.dealershipId) }) }
     catch (e) { res.status(500).json({ error: e.message }) }
@@ -142,7 +142,7 @@ export function registerSalesVideo(app) {
 
   // Upload. The video is stored as-is: re-encoding server-side would need a media pipeline
   // this product does not have, and a silently degraded walkaround is worse than a large one.
-  app.post('/sales-videos', requireAuth, requireMfa, canEdit, videoUpload.single('file'), async (req, res) => {
+  app.post('/sales-videos', requireAuth, canEdit, videoUpload.single('file'), async (req, res) => {
     if (!guard(req, res)) return
     if (!req.file) return res.status(400).json({ error: 'No video was uploaded.' })
     if (!/^video\//.test(req.file.mimetype || '')) {
@@ -188,7 +188,7 @@ export function registerSalesVideo(app) {
    * opted out of SMS does not receive a video by SMS because it came from Sales rather than
    * Marketing. The basis is stored as evidence of what was true at the moment we sent.
    */
-  app.post('/sales-videos/:id/send', requireAuth, requireMfa, canEdit, async (req, res) => {
+  app.post('/sales-videos/:id/send', requireAuth, canEdit, async (req, res) => {
     if (!guard(req, res)) return
     const channel = String(req.body?.channel || '').toLowerCase()
     if (!['sms', 'email'].includes(channel)) {

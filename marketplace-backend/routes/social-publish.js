@@ -25,7 +25,7 @@
  *      the two pages the dealership meant to reach and never did.
  */
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth, requireMfa } from '../middleware.js'
+import { requireAuth } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { canActOnAccount } from './social.js'
@@ -207,7 +207,7 @@ export function registerSocialPublish(app) {
    * A target the caller may no longer publish to is 'skipped', not 'failed' — nothing broke,
    * the permission changed, and the difference matters to whoever reads the queue.
    */
-  app.post('/social/posts/:id/publish', requireAuth, requireMfa, canEdit, async (req, res) => {
+  app.post('/social/posts/:id/publish', requireAuth, canEdit, async (req, res) => {
     if (!guard(req, res)) return
     try {
       const { data: post } = await supabaseAdmin.from('social_posts')
