@@ -42,6 +42,7 @@ function esc(s) {
 // everywhere instead of emojis.
 const SVG_ICONS = {
   dot: '<circle cx="12" cy="12" r="3"/>',
+  video: '<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5l4.72-2.72a.75.75 0 011.28.53v7.38a.75.75 0 01-1.28.53l-4.72-2.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-7.5A2.25 2.25 0 0013.5 6.75h-9A2.25 2.25 0 002.25 9v7.5a2.25 2.25 0 002.25 2.25z"/>',
   sparkles: '<path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/><path d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/>',
   fuel: '<path d="M3.75 21h10.5M4.5 21V5.25A2.25 2.25 0 016.75 3h4.5a2.25 2.25 0 012.25 2.25V21M13.5 9h2.25a2.25 2.25 0 012.25 2.25v6a1.5 1.5 0 003 0V9.257a1.5 1.5 0 00-.44-1.06l-2.06-2.06M7.5 7.5h3"/>',
   tag: '<path d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z"/><path d="M6 6h.008v.008H6V6z"/>',
@@ -844,6 +845,12 @@ function isDesignStudioOnlyWorkspace() {
   return /(?:^|\s)design_studio(?:\s|$)/.test(products) && !/(?:^|\s)dealer_os(?:\s|$)/.test(products);
 }
 window.isDesignStudioOnlyWorkspace = isDesignStudioOnlyWorkspace;
+
+function isVideoOnlyWorkspace() {
+  const products = document.documentElement.getAttribute('data-product') || '';
+  return /(?:^|\s)marketsync_video(?:\s|$)/.test(products) && !/(?:^|\s)dealer_os(?:\s|$)/.test(products);
+}
+window.isVideoOnlyWorkspace = isVideoOnlyWorkspace;
 
 // Facebook-only tiers (Solo or Dealer AutoPoster) bought Facebook posting, not the
 // rest of DealerOS — the dealer-administration Settings tabs (HR, Marketing,

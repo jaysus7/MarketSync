@@ -847,6 +847,18 @@ async function initializeDashboardEcosystem() {
         document.getElementById('studio-social-connections')?.classList.remove('hidden');
         if (typeof studioSocialConnectionsRender === 'function') studioSocialConnectionsRender();
       }
+      // Video folds in DMS lead-delivery sync (crm-dms-card, normally under
+      // Sales), a MarketSync-managed texting number (settings-texting-card) and its
+      // own email-sending setup (email-sending-card) — normally under Administration,
+      // hidden entirely for single-product tiers. A Video account has no CRM/DMS of
+      // its own to send follow-up texts/emails through otherwise, and dealers who do
+      // run a real DMS/CRM still need the ADF sync so those follow-ups land there too.
+      if (typeof isVideoOnlyWorkspace === 'function' && isVideoOnlyWorkspace() && Array.isArray(SETTINGS_TAB_SECTIONS?.account)) {
+        ['crm-dms-card', 'settings-texting-card', 'email-sending-card'].forEach(id => {
+          if (!SETTINGS_TAB_SECTIONS.account.includes(id)) SETTINGS_TAB_SECTIONS.account.push(id);
+        });
+        if (typeof loadTextingStatus === 'function') loadTextingStatus();
+      }
       // Facebook Dealer also folds in the Team roster (Sales/Management/etc. picker
       // + Edit/Insights modal) — Administration is hidden entirely for single-product
       // tiers, so My Account is the only place this reaches its reps at all. Gated on
