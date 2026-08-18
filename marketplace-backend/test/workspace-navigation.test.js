@@ -346,7 +346,9 @@ test('restricted product tiers keep their own flat navigation', () => {
   assert.match(part2, /__productAllowedPages == null/, 'product tiers must bypass the workspace nav')
   assert.match(part2, /if \(__fbOnly\)/, 'Facebook-only tier must bypass the workspace nav')
   assert.match(dashboardJs, /facebook_solo:\s*\['leaderboard', 'inventory'\]/, 'Facebook Solo page set unchanged')
-  assert.match(dashboardJs, /facebook_dealer:\s*\['leaderboard', 'inventory', 'sales-team'\]/, 'Facebook Dealer page set unchanged')
+  // Staff management moved into Settings for Facebook Dealer (same as Video) — no
+  // more standalone 'sales-team' nav page.
+  assert.match(dashboardJs, /facebook_dealer:\s*\['leaderboard', 'inventory'\]/, 'Facebook Dealer page set')
   assert.match(dashboardJs, /ai_chatbot:\s*\['ai-home'\]/, 'AI Chatbot page set unchanged')
 })
 

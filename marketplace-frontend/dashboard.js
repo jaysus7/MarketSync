@@ -794,16 +794,17 @@ window.applyFbOnlyMode = applyFbOnlyMode;
 // several products (e.g. Facebook Dealer + AI Chatbot).
 const PRODUCT_PAGES = {
   facebook_solo:      ['leaderboard', 'inventory'],
-  facebook_dealer:    ['leaderboard', 'inventory', 'sales-team'],
+  // Staff management for Facebook Dealer and Video both live inside Settings ->
+  // My Account (the same dealer-view-panel Administration folds into its Team
+  // card for full DealerOS), not as their own nav page — 'sales-team' is
+  // deliberately absent here.
+  facebook_dealer:    ['leaderboard', 'inventory'],
   ai_chatbot:         ['ai-home'],
   // Design Studio standalone is the editor itself (a full-screen modal, not a
   // dashboard page) — it must never expose the Marketing department dashboard behind
   // it. 'profile' is its only page so Settings (My Account etc.) is reachable once the
   // editor is closed.
   design_studio:      ['profile'],
-  // Staff management for Video lives inside Settings → My Account (the same
-  // dealer-view-panel Administration folds into its Team card for full DealerOS),
-  // not as its own nav page — 'sales-team' is deliberately absent here.
   marketsync_video:   ['video-studio', 'leaderboard'],
   video:              ['video-studio', 'leaderboard'],
   marketsync_website: ['website'],
@@ -1126,11 +1127,6 @@ function applyProductNav(products) {
   if (!active.length) { __productAllowedPages = null; __productHome = null; applyMobileQuickRow(); return; }
   const allow = new Set(['profile']);
   active.forEach(k => (PRODUCT_PAGES[k] || []).forEach(p => allow.add(p)));
-  // Facebook Dealer / Video: only owners/admins/managers/group-admins can reach
-  // Staff — a rep's nav omits it AND it's pruned from the reachable set so a deep
-  // link bounces (backend RLS also denies team management for reps).
-  const canManageTeam = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'DEALER_GROUP'].includes(profileContext?.role);
-  if (!canManageTeam) allow.delete('sales-team');
   __productAllowedPages = allow;
   document.documentElement.setAttribute('data-product', active.join(' '));
   // Facebook products render the Dashboard/Insights page as just the leaderboard (reuse
@@ -1144,7 +1140,7 @@ function applyProductNav(products) {
   });
   // Reveal nav buttons that ship hidden-by-default (so DealerOS never sees them) but
   // belong to this product's set.
-  ['solo-home', 'sales-team', 'ai-home'].forEach(pg => {
+  ['solo-home', 'ai-home'].forEach(pg => {
     document.querySelectorAll(`#dashboard-nav .nav-item[data-page="${pg}"]`).forEach(it => it.classList.toggle('hidden', !allow.has(pg)));
   });
   // Collapse any group left with no visible leaf.
@@ -1268,14 +1264,13 @@ function restrictedNavPages() {
   // Exact per-product / per-role nav (Settings lives on the header gear, never here):
   //   Facebook Solo ................. Inventory, Leaderboard
   //   Facebook Dealer — Rep ......... My Inventory, Leaderboard
-  //   Facebook Dealer — Owner/Admin . Inventory, Staff, Leaderboard
+  //   Facebook Dealer — Owner/Admin . Inventory, Leaderboard (Staff is in Settings)
   //   AI Dealer / AI Chatbot ........ AI Dealer (its page only)
   const product = document.documentElement.getAttribute('data-product') || '';
   const activeProducts = product.trim().split(/\s+/).filter(Boolean);
   const canManageTeam = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'DEALER_GROUP'].includes(profileContext?.role);
   const INV = (label) => ({ page: 'inventory', label, icon: 'megaphone', invmode: 'facebook' });
   const LEADER = { page: 'leaderboard', label: 'Leaderboard', icon: 'trophy' };
-  const SALES_REPS = { page: 'sales-team', label: 'Staff', icon: 'user' };
   const AI = { page: 'ai-home', label: 'AI Chatbot', icon: 'sparkles' };
   const META = {
     'marketing-overview': { page: 'marketing-overview', label: 'Marketing Studio', icon: 'megaphone' },
@@ -1285,7 +1280,7 @@ function restrictedNavPages() {
   };
 
   if (activeProducts.length === 1 && /facebook_dealer/.test(product)) {
-    return canManageTeam ? [INV('Inventory'), SALES_REPS, LEADER] : [INV('My Inventory'), LEADER];
+    return canManageTeam ? [INV('Inventory'), LEADER] : [INV('My Inventory'), LEADER];
   }
   if (activeProducts.length === 1 && /facebook_solo/.test(product)) return [INV('Inventory'), LEADER];
   if (activeProducts.length === 1 && /ai_chatbot/.test(product)) return [AI];
@@ -1298,9 +1293,11 @@ function restrictedNavPages() {
   }
 
   // Fallback for any other restricted product set (keeps generic behavior).
+  // 'sales-team' is deliberately absent — no restricted tier gets it as a nav
+  // page any more, Staff management lives in Settings for all of them.
   if (__productAllowedPages) {
-    const meta = { ...META, 'ai-home': AI, leaderboard: LEADER, inventory: INV('Inventory'), 'sales-team': SALES_REPS };
-    return ['marketing-overview', 'email-marketing', 'video-studio', 'website', 'ai-home', 'inventory', 'sales-team', 'leaderboard']
+    const meta = { ...META, 'ai-home': AI, leaderboard: LEADER, inventory: INV('Inventory') };
+    return ['marketing-overview', 'email-marketing', 'video-studio', 'website', 'ai-home', 'inventory', 'leaderboard']
       .filter(p => __productAllowedPages.has(p)).map(p => meta[p]);
   }
   // Legacy pure fb_only accounts with no product set: the same two Facebook items.

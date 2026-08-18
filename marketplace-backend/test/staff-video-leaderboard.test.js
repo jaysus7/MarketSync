@@ -8,33 +8,41 @@ const dashboardHtml = readFileSync(new URL('../../marketplace-frontend/dashboard
 const gamification = readFileSync(new URL('../../marketplace-backend/routes/submodules/dashboard-gamification.js', import.meta.url), 'utf8')
 
 test('Group Admin, not just Dealer Admin/Owner/Manager, can reach and manage Staff', () => {
-  // Two independent hardcoded gates existed for the Staff/Sales Reps page — one that
-  // prunes it from the reachable-page set, one that decides the mobile nav entry — and
-  // both omitted DEALER_GROUP, so a Group Admin could not add staff at all.
+  // canManageTeam previously omitted DEALER_GROUP, so a Group Admin could not add
+  // staff at all. It now only needs to gate the "Inventory" vs "My Inventory" label
+  // (applyProductNav's own allow.delete('sales-team') gate was removed as dead code
+  // once no restricted tier put 'sales-team' in its reachable page set any more).
   const matches = [...dashboardJs.matchAll(/const canManageTeam = (\[[^\]]*\])\.includes\(profileContext\?\.role\);/g)]
-  assert.equal(matches.length, 2, 'both canManageTeam gates must exist')
-  for (const m of matches) {
-    assert.match(m[1], /'DEALER_GROUP'/, `canManageTeam must include DEALER_GROUP: ${m[1]}`)
-  }
+  assert.equal(matches.length, 1, 'the canManageTeam gate must exist exactly once now')
+  assert.match(matches[0][1], /'DEALER_GROUP'/, `canManageTeam must include DEALER_GROUP: ${matches[0][1]}`)
 })
 
-test('the nav/page label reads "Staff", not "Sales Reps" / "Sales Team"', () => {
-  assert.match(dashboardJs, /const SALES_REPS = \{ page: 'sales-team', label: 'Staff', icon: 'user' \};/)
-  assert.match(dashboardHtml, /id="nav-sales-team" data-page="sales-team" title="Staff"/)
-  const navBtn = dashboardHtml.match(/id="nav-sales-team"[\s\S]*?<\/button>/)?.[0] || ''
-  assert.match(navBtn, /<span>Staff<\/span>/)
+test('the page heading reads "Staff", not "Sales Reps" / "Sales Team"', () => {
   assert.match(part14, /title\.textContent = isFacebookTeam \? 'Staff' : 'Users & Team';/)
 })
 
-test('Video is entitled to the Leaderboard but NOT a standalone Staff nav page — staff management lives in Settings instead', () => {
+test('neither Facebook Dealer nor Video gets a standalone Staff nav page — staff management lives in Settings for both', () => {
+  assert.match(dashboardJs, /facebook_dealer:\s*\['leaderboard', 'inventory'\],/)
   assert.match(dashboardJs, /marketsync_video:\s*\['video-studio', 'leaderboard'\],/)
   assert.match(dashboardJs, /\n\s*video:\s*\['video-studio', 'leaderboard'\],/)
+  // The old dedicated nav button and its SALES_REPS/'sales-team' plumbing are gone,
+  // not just unreachable — genuinely dead code left behind confuses the next read.
+  assert.doesNotMatch(dashboardHtml, /id="nav-sales-team"/)
+  assert.doesNotMatch(dashboardJs, /const SALES_REPS/)
+  const restrictedFn = dashboardJs.match(/function restrictedNavPages\(\) \{[\s\S]*?\n\}\n/)?.[0] || ''
+  assert.ok(restrictedFn, 'restrictedNavPages must exist')
+  // No page object or META/fallback-list entry may still route to it — the leftover
+  // comment explaining the removal is fine, an actual page reference is not.
+  assert.doesNotMatch(restrictedFn, /page: 'sales-team'/)
+  assert.doesNotMatch(restrictedFn, /'ai-home', 'inventory', 'sales-team'/)
+  assert.match(restrictedFn, /canManageTeam \? \[INV\('Inventory'\), LEADER\] : \[INV\('My Inventory'\), LEADER\]/)
 })
 
-test('Video folds real staff management (Invite Rep/Manager, role table) into the Settings → My Account Team card, the same way Administration folds it in for full DealerOS', () => {
+test('Facebook Dealer and Video both fold real staff management (Invite Rep/Manager, role table) into the Settings → My Account Team card, the same way Administration folds it in for full DealerOS', () => {
   const part8 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part8.js', import.meta.url), 'utf8')
   const accountBlock = part8.match(/if \(tab === 'account'\) \{[\s\S]*?\n {2}\}/)?.[0] || ''
   assert.ok(accountBlock, 'the account-tab branch of settingsTab must exist')
+  assert.match(accountBlock, /isFacebookOnlyWorkspace === 'function' && isFacebookOnlyWorkspace\(\)/)
   assert.match(accountBlock, /isVideoOnlyWorkspace === 'function' && isVideoOnlyWorkspace\(\)/)
   assert.match(accountBlock, /getElementById\('settings-team'\)/)
   assert.match(accountBlock, /getElementById\('dealer-view-panel'\)/)
