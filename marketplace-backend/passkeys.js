@@ -21,6 +21,7 @@ import {
   generateAuthenticationOptions,
   verifyAuthenticationResponse
 } from '@simplewebauthn/server'
+import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from './shared.js'
 
 // Relying Party config — must match the origin the browser sees
@@ -128,21 +129,23 @@ export async function finishPasskeyRegistration({ user, body }) {
 // ──────────────────────────────────────────────────────────────────────────────
 // AUTHENTICATION (called at login, BEFORE password — passkey IS the password)
 // ──────────────────────────────────────────────────────────────────────────────
-export async function beginPasskeyLogin({ supabaseAdmin, email }) {
+export async function beginPasskeyLogin({ email }) {
+  const key = (email || '').toLowerCase()
   let allowCredentials = []
-  let targetUserId = null
 
-  if (email) {
-    // Find the user's credentials by email
-    const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1, page: 1 })
-      .catch(() => ({ data: { users: [] } }))
-    const user = (users || []).find(u => u.email?.toLowerCase() === email.toLowerCase())
-    if (user) {
-      targetUserId = user.id
+  if (key) {
+    // Resolve the user by email via profiles (profiles.id === the auth user id),
+    // then scope the prompt to that user's registered credentials. Best-effort
+    // only — if we can't resolve, we fall back to discoverable credentials.
+    // finish() is the real gate: it verifies the signed assertion against the
+    // stored public key and replay counter.
+    const { data: profile } = await supabaseAdmin
+      .from('profiles').select('id').eq('email', key).maybeSingle()
+    if (profile?.id) {
       const { data: creds } = await supabaseAdmin
         .from('webauthn_credentials')
         .select('credential_id, transports')
-        .eq('user_id', user.id)
+        .eq('user_id', profile.id)
       allowCredentials = (creds || []).map(c => ({
         id: c.credential_id,
         transports: c.transports || undefined
@@ -153,27 +156,31 @@ export async function beginPasskeyLogin({ supabaseAdmin, email }) {
   const options = await generateAuthenticationOptions({
     rpID: RP_ID,
     timeout: 60000,
-    userVerification: 'preferred',
+    // Passwordless login: the passkey replaces the password, so REQUIRE user
+    // verification (biometric / PIN) — a presence-only security key tap must not
+    // authenticate on its own.
+    userVerification: 'required',
     allowCredentials: allowCredentials.length > 0 ? allowCredentials : undefined
   })
 
-  // Cache challenge by email (since we don't know userId for sure pre-auth)
-  setChallenge(`auth:${(email || '').toLowerCase()}`, { challenge: options.challenge, userId: targetUserId })
+  setChallenge(`auth:${key}`, { challenge: options.challenge })
   return options
 }
 
-export async function finishPasskeyLogin({ supabaseAdmin, email, response }) {
+export async function finishPasskeyLogin({ body }) {
+  const { email, response } = body || {}
   const cached = takeChallenge(`auth:${(email || '').toLowerCase()}`)
-  if (!cached) return { ok: false, error: 'Authentication challenge expired — please try again.' }
+  // Failures MUST throw — the route relays the message as a 400 and the browser
+  // only trusts the HTTP status.
+  if (!cached) throw new Error('Sign-in challenge expired — please try again.')
 
-  // The credential ID the browser sent back is what we look up
-  const credentialId = response.id  // base64url-encoded
+  const credentialId = response?.id  // base64url-encoded
   const { data: cred, error: lookupErr } = await supabaseAdmin
     .from('webauthn_credentials')
     .select('id, user_id, public_key, counter, transports')
     .eq('credential_id', credentialId)
     .maybeSingle()
-  if (lookupErr || !cred) return { ok: false, error: 'Unknown passkey.' }
+  if (lookupErr || !cred) throw new Error('Unknown passkey.')
 
   let verification
   try {
@@ -188,20 +195,50 @@ export async function finishPasskeyLogin({ supabaseAdmin, email, response }) {
         counter: cred.counter,
         transports: cred.transports || undefined
       },
-      requireUserVerification: false
+      // Login is passwordless, so the biometric/PIN gesture is mandatory.
+      requireUserVerification: true
     })
   } catch (e) {
-    return { ok: false, error: `Verification failed: ${e.message}` }
+    throw new Error(`Verification failed: ${e.message}`)
   }
-  if (!verification.verified) return { ok: false, error: 'Passkey verification failed.' }
+  if (!verification.verified) throw new Error('Passkey verification failed.')
 
-  // Bump the counter to prevent replay
-  await supabaseAdmin
+  // Bump the counter to prevent replay. FAIL CLOSED: if we can't persist the new
+  // counter, a replayed assertion would still verify next time — so throw before
+  // minting a session rather than issuing one on an un-recorded counter.
+  const { error: counterErr } = await supabaseAdmin
     .from('webauthn_credentials')
     .update({ counter: verification.authenticationInfo.newCounter, last_used_at: new Date().toISOString() })
     .eq('id', cred.id)
+  if (counterErr) throw new Error('Could not complete sign-in — please try again.')
 
-  return { ok: true, userId: cred.user_id }
+  // Mint a real Supabase session for the credential's OWNER — the authoritative
+  // email from the account, never the client-supplied one. Server-side passwordless
+  // path: admin-generate a magic-link OTP, then verify it to obtain access/refresh
+  // tokens. The verified WebAuthn assertion above is the proof of identity. Verify
+  // on a throwaway client with persistSession:false so we never leave a user session
+  // attached to a shared client instance.
+  const { data: got, error: getErr } = await supabaseAdmin.auth.admin.getUserById(cred.user_id)
+  const ownerEmail = got?.user?.email
+  if (getErr || !ownerEmail) throw new Error('Could not resolve the account for this passkey.')
+
+  const { data: link, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({ type: 'magiclink', email: ownerEmail })
+  const otp = link?.properties?.email_otp
+  if (linkErr || !otp) throw new Error('Could not start the session.')
+
+  const ephemeral = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  })
+  const { data: verified, error: otpErr } = await ephemeral.auth.verifyOtp({ type: 'email', email: ownerEmail, token: otp })
+  if (otpErr || !verified?.session) throw new Error('Could not complete sign-in.')
+
+  return {
+    ok: true,
+    userId: cred.user_id,
+    user: { id: cred.user_id, email: ownerEmail },
+    access_token: verified.session.access_token,
+    refresh_token: verified.session.refresh_token
+  }
 }
 
 // List a user's passkeys (for the management UI)
