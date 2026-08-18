@@ -20,7 +20,7 @@
  * into a response. Every read in this file lists its columns explicitly for that reason.
  */
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth, requireMfa } from '../middleware.js'
+import { requireAuth } from '../middleware.js'
 import { requirePermission, hasPermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { dealerLocalToUtc } from '../utils/dealerTime.js'
@@ -181,7 +181,7 @@ export function registerSocial(app) {
     return { scheduledFor: converted.utc, timezone, ambiguous: converted.ambiguous }
   }
 
-  app.get('/social/accounts', requireAuth, requireMfa, canView, async (req, res) => {
+  app.get('/social/accounts', requireAuth, canView, async (req, res) => {
     if (!guard(req, res)) return
     try {
       const { data, error } = await supabaseAdmin.from('social_accounts')
@@ -202,7 +202,7 @@ export function registerSocial(app) {
 
   // Connect an account. A user-owned connection is the caller's own by definition; claiming
   // one on someone else's behalf needs the department permission.
-  app.post('/social/accounts', requireAuth, requireMfa, canEdit, async (req, res) => {
+  app.post('/social/accounts', requireAuth, canEdit, async (req, res) => {
     if (!guard(req, res)) return
     const b = req.body || {}
     const provider = String(b.provider || '').toLowerCase()
@@ -256,7 +256,7 @@ export function registerSocial(app) {
 
   // Grant one account to one user. Granting is itself an authorized act: you may only give
   // away access you hold.
-  app.post('/social/accounts/:id/grants', requireAuth, requireMfa, canEdit, async (req, res) => {
+  app.post('/social/accounts/:id/grants', requireAuth, canEdit, async (req, res) => {
     if (!guard(req, res)) return
     const userId = String(req.body?.user_id || '')
     if (!userId) return res.status(400).json({ error: 'user_id is required' })
@@ -280,7 +280,7 @@ export function registerSocial(app) {
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
-  app.delete('/social/accounts/:id/grants/:userId', requireAuth, requireMfa, canEdit, async (req, res) => {
+  app.delete('/social/accounts/:id/grants/:userId', requireAuth, canEdit, async (req, res) => {
     if (!guard(req, res)) return
     const mine = await canActOnAccount(req, req.params.id, 'publish')
     if (!mine.allowed) return res.status(403).json({ error: `You cannot change access you do not have. ${mine.reason}` })
@@ -292,7 +292,7 @@ export function registerSocial(app) {
   })
 
   // What this user may publish to — the list a composer should offer.
-  app.get('/social/publishable', requireAuth, requireMfa, canView, async (req, res) => {
+  app.get('/social/publishable', requireAuth, canView, async (req, res) => {
     if (!guard(req, res)) return
     try { res.json({ accounts: await publishableAccounts(req, 'publish') }) }
     catch (e) { res.status(500).json({ error: e.message }) }
@@ -301,7 +301,7 @@ export function registerSocial(app) {
   // Compose a post and choose its targets. EVERY target is authorized here, individually —
   // a post to five accounts is five separate decisions, and one refusal fails the request
   // rather than quietly dropping that channel.
-  app.post('/social/posts', requireAuth, requireMfa, canEdit, async (req, res) => {
+  app.post('/social/posts', requireAuth, canEdit, async (req, res) => {
     if (!guard(req, res)) return
     const b = req.body || {}
     const targets = Array.isArray(b.targets) ? b.targets : []
@@ -346,7 +346,7 @@ export function registerSocial(app) {
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
-  app.get('/social/posts', requireAuth, requireMfa, canView, async (req, res) => {
+  app.get('/social/posts', requireAuth, canView, async (req, res) => {
     if (!guard(req, res)) return
     try {
       let q = supabaseAdmin.from('social_posts').select('*')
@@ -380,7 +380,7 @@ export function registerSocial(app) {
 
   // Scheduled content may change only before a worker claims any target. This updates the
   // canonical timestamp; calendar drag/drop and the editor both call this same route.
-  app.put('/social/posts/:id', requireAuth, requireMfa, canEdit, async (req, res) => {
+  app.put('/social/posts/:id', requireAuth, canEdit, async (req, res) => {
     if (!guard(req, res)) return
     const { data: post } = await supabaseAdmin.from('social_posts').select('*')
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
@@ -417,7 +417,7 @@ export function registerSocial(app) {
     res.json({ ok: true, post: data })
   })
 
-  app.post('/social/posts/:id/cancel', requireAuth, requireMfa, canEdit, async (req, res) => {
+  app.post('/social/posts/:id/cancel', requireAuth, canEdit, async (req, res) => {
     if (!guard(req, res)) return
     const { data: post } = await supabaseAdmin.from('social_posts').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!post) return res.status(404).json({ error: 'Post not found' })
@@ -437,7 +437,7 @@ export function registerSocial(app) {
 
   // Approval is per post, and the approver must be able to approve for every account it
   // targets — approving content for a page you cannot post to is not an approval.
-  app.post('/social/posts/:id/approve', requireAuth, requireMfa, canEdit, async (req, res) => {
+  app.post('/social/posts/:id/approve', requireAuth, canEdit, async (req, res) => {
     if (!guard(req, res)) return
     try {
       const { data: post } = await supabaseAdmin.from('social_posts').select('*')
@@ -464,7 +464,7 @@ export function registerSocial(app) {
   })
 
   // Marketing attention items this slice can honestly produce, for My Day to compose later.
-  app.get('/social/attention', requireAuth, requireMfa, canView, async (req, res) => {
+  app.get('/social/attention', requireAuth, canView, async (req, res) => {
     if (!guard(req, res)) return
     try { res.json({ items: await socialAttention(req.dealershipId) }) }
     catch (e) { res.status(500).json({ error: e.message }) }
