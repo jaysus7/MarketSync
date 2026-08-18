@@ -16,14 +16,24 @@ test('Video has a real nav icon — "video" was referenced but never defined in 
     'the single-product Video nav entry must still reference icon: "video"')
 })
 
-test('the camera viewfinder sizes itself to the real stream dimensions instead of a fixed 16:9 box', () => {
-  // aspect-video (16:9) is only the pre-stream placeholder now — a portrait phone
-  // camera reports a portrait track, and forcing that into a fixed landscape box
-  // just center-crops it via object-cover.
+test('the camera stream is explicitly requested in the shape the device is currently held, not left to the browser default', () => {
+  // A camera sensor has no inherent portrait/landscape — without a width/height
+  // hint most browsers default to a landscape-shaped stream (e.g. 1920x1080) even
+  // when the phone is held upright. Sizing the container after the fact isn't
+  // enough on its own; the stream itself must be requested portrait-shaped.
   const initFn = videoStudio.match(/async function initCameraFeed\(\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(initFn, 'initCameraFeed must exist')
+  assert.match(initFn, /matchMedia\('\(orientation: portrait\)'\)\.matches/)
+  assert.match(initFn, /width: \{ ideal: isPortraitDevice \? 720 : 1280 \}/)
+  assert.match(initFn, /height: \{ ideal: isPortraitDevice \? 1280 : 720 \}/)
   assert.match(initFn, /addEventListener\('loadedmetadata', vidSyncViewfinderAspect\)/)
-  assert.match(initFn, /screen\.orientation/, 'must re-sync on device rotation, not just on first load')
+  assert.match(initFn, /screen\.orientation/, 'must re-request the stream on device rotation, not just on first load')
+  assert.match(initFn, /vidRestartCameraForOrientation/, 'rotation must re-request the stream (track dimensions do not update on their own), not just re-read it')
+
+  const restartFn = videoStudio.match(/function vidRestartCameraForOrientation\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(restartFn, 'vidRestartCameraForOrientation must exist')
+  assert.match(restartFn, /if \(window\.__videoStudioState\.recording\) return;/, 'rotating mid-recording must never kill the take')
+  assert.match(restartFn, /getTracks\(\)\.forEach\(t => t\.stop\(\)\)/, 'the old stream must be stopped before requesting a new one')
 
   const syncFn = videoStudio.match(/function vidSyncViewfinderAspect\(\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(syncFn, 'vidSyncViewfinderAspect must exist')
@@ -86,4 +96,13 @@ test('loadTextingStatus shows a clear MFA notice instead of the raw MFA_REQUIRED
   assert.ok(fn, 'loadTextingStatus must exist')
   assert.match(fn, /e\.message === 'MFA_REQUIRED'/)
   assert.match(fn, /Complete multi-factor authentication/)
+})
+
+test('for a Video admin, Language moves beside Text messaging instead of staying stacked under Email/Billing two rows down — the rep view is untouched', () => {
+  const block = part2.match(/if \(typeof isVideoOnlyWorkspace === 'function' && isVideoOnlyWorkspace\(\)[\s\S]*?Facebook Dealer and Video both fold/)?.[0] || ''
+  assert.ok(block, 'the Video fold-in block must exist')
+  const moveBlock = block.match(/if \(isAdmin\) \{[\s\S]*?insertBefore\(lang, texting\.nextSibling\);[\s\S]*?\n {8}\}\n {6}\}/)?.[0] || ''
+  assert.ok(moveBlock, 'the admin-only Language move must be gated on isAdmin, not applied to the rep view')
+  assert.match(moveBlock, /getElementById\('settings-texting-card'\)/)
+  assert.match(moveBlock, /getElementById\('settings-language-card'\)/)
 })

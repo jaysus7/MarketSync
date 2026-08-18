@@ -858,6 +858,18 @@ async function initializeDashboardEcosystem() {
           if (!SETTINGS_TAB_SECTIONS.account.includes(id)) SETTINGS_TAB_SECTIONS.account.push(id);
         });
         if (typeof loadTextingStatus === 'function') loadTextingStatus();
+        // Admin view only (settings-texting-card is data-admin-only, hidden for a
+        // rep — the rep-level layout, Email/Language stacked under Billing, stays
+        // exactly as-is). CRM/DMS + Text messaging fill columns 1-2 of their row
+        // with column 3 empty; move Language there instead of leaving it stacked
+        // under Email/Billing two rows down.
+        if (isAdmin) {
+          const texting = document.getElementById('settings-texting-card');
+          const lang = document.getElementById('settings-language-card');
+          if (texting && lang && lang.previousElementSibling !== texting) {
+            texting.parentElement.insertBefore(lang, texting.nextSibling);
+          }
+        }
       }
       // Facebook Dealer and Video both fold in the Team roster (Sales/Management/etc.
       // picker + Edit/Insights modal) — Administration is hidden entirely for

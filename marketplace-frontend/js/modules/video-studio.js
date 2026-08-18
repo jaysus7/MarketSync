@@ -318,23 +318,37 @@ async function initCameraFeed() {
   const videoEl = document.getElementById('vid-camera-preview');
   if (!videoEl) return;
   try {
+    // A camera sensor has no inherent "portrait" or "landscape" — without a
+    // width/height hint most browsers default to a landscape-shaped stream (e.g.
+    // 1920x1080) even when the phone is held upright, and the live track's
+    // reported dimensions typically do NOT change on their own when the device is
+    // rotated later. Explicitly request a stream shaped for how the device is
+    // held RIGHT NOW; vidSyncViewfinderAspect() (below) still sizes the box to
+    // whatever actually comes back, since a camera can decline the exact ask.
+    const isPortraitDevice = typeof window.matchMedia === 'function' && window.matchMedia('(orientation: portrait)').matches;
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: window.__videoStudioState.cameraFacing },
+      video: {
+        facingMode: window.__videoStudioState.cameraFacing,
+        width: { ideal: isPortraitDevice ? 720 : 1280 },
+        height: { ideal: isPortraitDevice ? 1280 : 720 },
+      },
       audio: true
     });
     window.__videoStudioState.mediaStream = stream;
     videoEl.srcObject = stream;
     // The viewfinder starts at a fixed 16:9 guess (aspect-video) before any stream
     // exists. Once real frames arrive, size the box to the camera's actual aspect
-    // ratio instead — a phone held upright reports a portrait track (e.g. 1080x1920),
-    // and forcing that into a 16:9 box just center-crops it via object-cover.
+    // ratio instead — a phone held upright now gets a portrait track (e.g.
+    // 720x1280), and forcing that into a 16:9 box would just center-crop it via
+    // object-cover.
     videoEl.addEventListener('loadedmetadata', vidSyncViewfinderAspect);
-    // Rotating the device mid-session changes which way is "up" for a mobile
-    // browser's camera track without restarting the stream — re-read the now-current
-    // dimensions rather than trusting the ones captured at load time.
+    // Rotating the device mid-session doesn't change the already-negotiated
+    // track's dimensions on most browsers — re-requesting the stream (not just
+    // re-reading it) is what actually gets a correctly-shaped feed for the new
+    // orientation.
     if (window.screen?.orientation && !window.__videoStudioState.__orientationBound) {
       window.__videoStudioState.__orientationBound = true;
-      window.screen.orientation.addEventListener('change', () => setTimeout(vidSyncViewfinderAspect, 250));
+      window.screen.orientation.addEventListener('change', () => setTimeout(vidRestartCameraForOrientation, 250));
     }
   } catch {
     /* camera simulation mode fallback */
@@ -342,6 +356,18 @@ async function initCameraFeed() {
   if (typeof window.makeWsPanelDraggable === 'function') {
     window.makeWsPanelDraggable(document.getElementById('vid-teleprompter-handle'), document.getElementById('vid-teleprompter-box'));
   }
+}
+
+// Re-requests the camera stream shaped for the device's current orientation.
+// Never interrupts an active recording — rotating the phone mid-take must not
+// kill the take; the box just stays whatever shape the in-progress track already
+// is until recording stops.
+function vidRestartCameraForOrientation() {
+  if (window.__videoStudioState.recording) return;
+  if (window.__videoStudioState.mediaStream) {
+    window.__videoStudioState.mediaStream.getTracks().forEach(t => t.stop());
+  }
+  initCameraFeed();
 }
 
 function vidSyncViewfinderAspect() {
