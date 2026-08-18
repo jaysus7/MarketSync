@@ -72,7 +72,7 @@ export const PLAN_CATALOG = Object.freeze({
   fb_solo: {
     id: 'fb_solo', label: 'Facebook Solo', product_primary: 'facebook',
     products: ['facebook'], org_type: 'solo', owner_role: 'OWNER',
-    monthly: 79, tier: 0,
+    monthly: 79, tier: 0, legacyPlan: true,
     priceEnvCad: 'STRIPE_PRICE_FB_SOLO_CAD', priceEnvUsd: 'STRIPE_PRICE_FB_SOLO_USD',
     priceEnvCadAliases: ['STRIPE_SOLO_PRICE_ID_CAD', 'STRIPE_SOLO_PRICE_ID'],
     priceEnvUsdAliases: ['STRIPE_SOLO_PRICE_ID_USD', 'STRIPE_SOLO_PRICE_ID'],
@@ -82,7 +82,7 @@ export const PLAN_CATALOG = Object.freeze({
   fb_dealership: {
     id: 'fb_dealership', label: 'Facebook Dealer', product_primary: 'facebook',
     products: ['facebook'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 499, tier: 1,
+    monthly: 499, tier: 1, legacyPlan: true,
     priceEnvCad: 'STRIPE_PRICE_FB_DEALER_CAD', priceEnvUsd: 'STRIPE_PRICE_FB_DEALER_USD',
     priceEnvCadAliases: ['STRIPE_DEALER_PRICE_ID_CAD', 'STRIPE_DEALER_PRICE_ID'],
     priceEnvUsdAliases: ['STRIPE_DEALER_PRICE_ID_USD', 'STRIPE_DEALER_PRICE_ID'],
@@ -92,7 +92,7 @@ export const PLAN_CATALOG = Object.freeze({
   ai_standard: {
     id: 'ai_standard', label: 'AI Dealer', product_primary: 'ai_dealer',
     products: ['ai_dealer'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 499, tier: 0,
+    monthly: 499, tier: 0, legacyPlan: true,
     priceEnvCad: 'STRIPE_PRICE_AI_STANDARD_CAD', priceEnvUsd: 'STRIPE_PRICE_AI_STANDARD_USD',
     priceEnvCadAliases: ['STRIPE_AI_CHATBOT_PRICE_ID_CAD'],
     priceEnvUsdAliases: ['STRIPE_AI_CHATBOT_PRICE_ID_USD'],
@@ -102,7 +102,7 @@ export const PLAN_CATALOG = Object.freeze({
   marketsync_video: {
     id: 'marketsync_video', label: 'MarketSync Video', product_primary: 'marketsync_video',
     products: ['marketsync_video'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 199, tier: 0,
+    monthly: 199, tier: 0, legacyPlan: true,
     priceEnvCad: 'STRIPE_PRICE_MARKETSYNC_VIDEO_CAD', priceEnvUsd: 'STRIPE_PRICE_MARKETSYNC_VIDEO_USD',
     priceEnvCadAliases: ['STRIPE_VIDEO_PRICE_ID_CAD', 'STRIPE_VIDEO_PRICE_ID'],
     priceEnvUsdAliases: ['STRIPE_VIDEO_PRICE_ID_USD', 'STRIPE_VIDEO_PRICE_ID'],
@@ -112,7 +112,7 @@ export const PLAN_CATALOG = Object.freeze({
   marketsync_website: {
     id: 'marketsync_website', label: 'MarketSync Website', product_primary: 'marketsync_website',
     products: ['marketsync_website'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 299, tier: 0,
+    monthly: 299, tier: 0, legacyPlan: true,
     priceEnvCad: 'STRIPE_PRICE_MARKETSYNC_WEBSITE_CAD', priceEnvUsd: 'STRIPE_PRICE_MARKETSYNC_WEBSITE_USD',
     priceEnvCadAliases: ['STRIPE_WEBSITE_PRICE_ID_CAD', 'STRIPE_WEBSITE_PRICE_ID'],
     priceEnvUsdAliases: ['STRIPE_WEBSITE_PRICE_ID_USD', 'STRIPE_WEBSITE_PRICE_ID'],
@@ -122,7 +122,7 @@ export const PLAN_CATALOG = Object.freeze({
   marketsync_social: {
     id: 'marketsync_social', label: 'MarketSync Social', product_primary: 'marketsync_social',
     products: ['marketsync_social'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 299, tier: 0,
+    monthly: 299, tier: 0, legacyPlan: true,
     priceEnvCad: 'STRIPE_PRICE_MARKETSYNC_SOCIAL_CAD', priceEnvUsd: 'STRIPE_PRICE_MARKETSYNC_SOCIAL_USD',
     priceEnvCadAliases: ['STRIPE_SOCIAL_PRICE_ID_CAD', 'STRIPE_SOCIAL_PRICE_ID'],
     priceEnvUsdAliases: ['STRIPE_SOCIAL_PRICE_ID_USD', 'STRIPE_SOCIAL_PRICE_ID'],
@@ -132,7 +132,7 @@ export const PLAN_CATALOG = Object.freeze({
   marketsync_email: {
     id: 'marketsync_email', label: 'MarketSync Email', product_primary: 'marketsync_email',
     products: ['marketsync_email'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 199, tier: 0,
+    monthly: 199, tier: 0, legacyPlan: true,
     priceEnvCad: 'STRIPE_PRICE_MARKETSYNC_EMAIL_CAD', priceEnvUsd: 'STRIPE_PRICE_MARKETSYNC_EMAIL_USD',
     priceEnvCadAliases: ['STRIPE_EMAIL_PRICE_ID_CAD', 'STRIPE_EMAIL_PRICE_ID'],
     priceEnvUsdAliases: ['STRIPE_EMAIL_PRICE_ID_USD', 'STRIPE_EMAIL_PRICE_ID'],
@@ -142,7 +142,7 @@ export const PLAN_CATALOG = Object.freeze({
   os_starter: {
     id: 'os_starter', label: 'Dealer OS Starter', product_primary: 'dealer_os',
     products: ['dealer_os'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 999, tier: 0,
+    monthly: 999, tier: 0, legacyPlan: true,
     priceEnvCad: 'STRIPE_PKG_STARTER_CAD', priceEnvUsd: 'STRIPE_PKG_STARTER_USD',
     features: OS_STARTER,
     legacy: { ...legacyFlags({ plan: 'starter', ai: false, invIntel: false }), products: { dealer_os: true } },
@@ -150,7 +150,7 @@ export const PLAN_CATALOG = Object.freeze({
   os_growth: {
     id: 'os_growth', label: 'Dealer OS Growth', product_primary: 'dealer_os',
     products: ['dealer_os'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 1799, tier: 1,
+    monthly: 1799, tier: 1, legacyPlan: true,
     priceEnvCad: 'STRIPE_PKG_GROWTH_CAD', priceEnvUsd: 'STRIPE_PKG_GROWTH_USD',
     features: OS_GROWTH,
     legacy: { ...legacyFlags({ plan: 'growth', ai: true, invIntel: true }), products: { dealer_os: true } },
@@ -158,7 +158,7 @@ export const PLAN_CATALOG = Object.freeze({
   os_pro: {
     id: 'os_pro', label: 'Dealer OS Pro', product_primary: 'dealer_os',
     products: ['dealer_os', 'facebook', 'ai_dealer', 'marketsync_video', 'marketsync_website', 'marketsync_social', 'marketsync_email'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 2499, tier: 2,
+    monthly: 2499, tier: 2, legacyPlan: true,
     priceEnvCad: 'STRIPE_PKG_PRO_CAD', priceEnvUsd: 'STRIPE_PKG_PRO_USD',
     features: [...new Set([...OS_PRO, ...FEATURES_BY_PRODUCT.facebook, ...FEATURES_BY_PRODUCT.ai_dealer, ...FEATURES_BY_PRODUCT.marketsync_video, ...FEATURES_BY_PRODUCT.marketsync_website, ...FEATURES_BY_PRODUCT.marketsync_social, ...FEATURES_BY_PRODUCT.marketsync_email])],
     legacy: {
