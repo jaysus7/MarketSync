@@ -1410,24 +1410,12 @@
           <div id="integrations-list"><div class="py-10 text-center text-sm text-slate-400 italic">Loading…</div></div>
         </div>
 
-        <!-- Team — Sales/Management are login users; Service/Admin/Cleanup/Lot are label rosters -->
-        <div id="settings-team" data-stab-panel="team" data-full-width="true" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
-          <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
-            <div>
-              <h2 class="text-lg font-bold text-slate-900 dark:text-white">Team</h2>
-              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pick a team to see its members. Sales &amp; Management sign in; the rest are roster labels.</p>
-            </div>
-            <select id="team-picker" onchange="loadSettingsTeam(this.value)" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-semibold">
-              <option value="sales">Sales team</option>
-              <option value="management">Management team</option>
-              <option value="service">Service team</option>
-              <option value="admin">Admin team</option>
-              <option value="cleanup">Cleanup team</option>
-              <option value="lot">Lot team</option>
-            </select>
-          </div>
-          <div id="team-roster"><div class="py-10 text-center text-sm text-slate-400 italic">Loading…</div></div>
-        </div>
+        <!-- Staff host. The standalone "Team" roster (team picker + read-only member
+             list) was removed — staff management is the Staff panel that folds in
+             here: Invite Rep / Invite Manager, roles, and lead routing. Kept as a
+             bare, full-width wrapper so that panel (and the owner SaaS-roles panel)
+             has a home without nesting a card inside a card. -->
+        <div id="settings-team" data-stab-panel="team" data-full-width="true" class="break-inside-avoid mb-5"></div>
 
         <!-- CRM / DMS connection (ADF lead delivery) — moved here from the CRM Leads tab -->
         <div id="crm-dms-card" data-admin-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
