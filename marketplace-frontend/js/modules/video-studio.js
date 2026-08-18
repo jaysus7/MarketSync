@@ -523,6 +523,17 @@ async function initCameraFeed() {
     });
     window.__videoStudioState.mediaStream = stream;
     videoEl.srcObject = stream;
+    // Many phones (especially ones with multiple rear lenses) don't actually
+    // start their "1x" camera at true 1x — the sensor/lens the browser picks by
+    // default is often already zoomed in. Force the hardware zoom down to its
+    // real minimum so the studio opens as wide/zoomed-out as the camera can go,
+    // the same starting point a native camera app uses. Not all browsers expose
+    // this (notably iOS Safari), so it's a no-op there rather than an error.
+    const videoTrack = stream.getVideoTracks()[0];
+    const zoomCap = videoTrack?.getCapabilities?.().zoom;
+    if (zoomCap && typeof zoomCap.min === 'number') {
+      videoTrack.applyConstraints({ advanced: [{ zoom: zoomCap.min }] }).catch(() => {});
+    }
     // The viewfinder starts at a fixed 16:9 guess (aspect-video) before any stream
     // exists. Once real frames arrive, size the box to the camera's actual aspect
     // ratio instead — a phone held upright now gets a portrait track (e.g.

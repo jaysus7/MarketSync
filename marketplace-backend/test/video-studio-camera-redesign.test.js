@@ -4,6 +4,17 @@ import { readFileSync } from 'node:fs'
 
 const videoStudio = readFileSync(new URL('../../marketplace-frontend/js/modules/video-studio.js', import.meta.url), 'utf8')
 
+test('the camera starts as zoomed out as the hardware allows, not whatever default lens/zoom the browser picks', () => {
+  const initFn = videoStudio.match(/async function initCameraFeed\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(initFn, 'initCameraFeed must exist')
+  assert.match(initFn, /const videoTrack = stream\.getVideoTracks\(\)\[0\];/)
+  assert.match(initFn, /const zoomCap = videoTrack\?\.getCapabilities\?\.\(\)\.zoom;/)
+  // Must drive it to the capability's actual minimum, not a hardcoded guess like 1 —
+  // some devices report a min above or below 1.
+  assert.match(initFn, /applyConstraints\(\{ advanced: \[\{ zoom: zoomCap\.min \}\] \}\)/)
+  assert.match(initFn, /\.catch\(\(\) => \{\}\)/, 'must not throw on browsers that do not expose a zoom capability')
+})
+
 test('opening the studio configures the script/teleprompter BEFORE the camera starts, not while it is already live', () => {
   const openFn = videoStudio.match(/async function openCustomerVideoStudio\(contactId, options = \{\}\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(openFn, 'openCustomerVideoStudio must exist')
