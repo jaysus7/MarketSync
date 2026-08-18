@@ -135,11 +135,13 @@ function settingsTab(tab) {
     // hidden entirely for single-product tiers, so this is its only way to reach it).
     if (Array.isArray(SETTINGS_TAB_SECTIONS.account) && SETTINGS_TAB_SECTIONS.account.includes('settings-team')) {
       loadSettingsTeam(document.getElementById('team-picker')?.value || 'sales');
-      // Video has no separate "Staff" nav page — its real staff management (Invite
-      // Rep/Manager, role table) folds into this SAME Team card instead, exactly
-      // like Administration folds it in for full DealerOS below (nodes are moved,
-      // not cloned, so IDs keep working).
-      if (typeof isVideoOnlyWorkspace === 'function' && isVideoOnlyWorkspace()) {
+      // Facebook Dealer and Video neither one has a separate "Staff" nav page —
+      // their real staff management (Invite Rep/Manager, role table) folds into
+      // this SAME Team card instead, exactly like Administration folds it in for
+      // full DealerOS below (nodes are moved, not cloned, so IDs keep working).
+      const isFbOrVideoTeam = (typeof isFacebookOnlyWorkspace === 'function' && isFacebookOnlyWorkspace())
+        || (typeof isVideoOnlyWorkspace === 'function' && isVideoOnlyWorkspace());
+      if (isFbOrVideoTeam) {
         const host = document.getElementById('settings-team');
         const dv = document.getElementById('dealer-view-panel');
         const lr = document.getElementById('lead-routing-card');
