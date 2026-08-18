@@ -1095,7 +1095,7 @@ async function msPasskeyStepUp() {
     });
     const data = await finishRes.json().catch(() => ({}));
     if (!finishRes.ok) return { ok: false, error: data.error || 'Verification failed.' };
-    if (typeof showToast === 'function') showToast('Verified with your passkey ✓', 'success');
+    if (typeof showToast === 'function') showToast('Verified with your passkey', 'success');
     return { ok: true };
   } catch (err) {
     if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') return { ok: false, reason: 'cancelled', error: 'Cancelled.' };
