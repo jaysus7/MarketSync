@@ -443,6 +443,33 @@ function vidEnterReview() {
   const contact = window.__videoStudioState.currentContact || {};
   const options = window.__videoStudioState.optionsSnapshot || {};
   modal.innerHTML = renderStudioReviewHtml(contact, options);
+  vidAutoPrepareShareLink();
+}
+
+// The share link is generated automatically the moment recording stops — it
+// should "just be there" when the rep looks at the Review screen, not gated
+// behind a tap that then also has to wait on the whole upload. A manual tap of
+// Copy Link (below) awaits this exact same request rather than starting a
+// second upload, so by the time someone taps it the link is usually already
+// sitting there ready — which is also what makes the clipboard write reliable,
+// since there is no more long async gap between the tap and the actual copy.
+async function vidAutoPrepareShareLink() {
+  try {
+    const contactId = await vidEnsureContact();
+    const video = await vidEnsureUploadedFor(contactId);
+    vidUpdateShareLinkBox(video.share_token);
+  } catch {
+    // Silent here — Copy Link / Send surface the failure with a toast if the
+    // rep acts on it; a link that never got auto-prepared just stays showing
+    // "Tap Copy Link to generate it" until then.
+  }
+}
+
+function vidUpdateShareLinkBox(shareToken) {
+  const url = vidBuildShareUrl(shareToken);
+  const linkBox = document.getElementById('vid-share-link-box');
+  if (linkBox) { linkBox.textContent = url; linkBox.classList.remove('text-slate-400'); linkBox.classList.add('text-sky-300'); }
+  return url;
 }
 
 // Review -> Camera: re-open the camera to shoot again, keeping the same script.
@@ -653,10 +680,20 @@ function vidToggleRecord() {
         const canvas = document.getElementById('vid-composite-canvas');
         if (canvas && typeof canvas.captureStream === 'function') {
           try {
+            // Size the canvas BEFORE capturing its stream — captureStream() on a
+            // still-0x0 canvas (the sizing normally happens inside
+            // vidStartCompositeLoop, called after this) produced an unreliable
+            // stream. vidStartCompositeLoop still sets these again once its draw
+            // loop starts; setting them here too is harmless.
+            const previewEl = document.getElementById('vid-camera-preview');
+            canvas.width = previewEl?.videoWidth || 720;
+            canvas.height = previewEl?.videoHeight || 1280;
             const canvasStream = canvas.captureStream(30);
-            const audioTrack = stream.getAudioTracks()[0];
-            if (audioTrack) canvasStream.addTrack(audioTrack);
-            recordStream = canvasStream;
+            // Building a fresh MediaStream from explicit track arrays is the
+            // documented-reliable way to combine a canvas's video track with the
+            // mic's audio track — mutating the canvas-returned stream via
+            // addTrack() dropped audio on some mobile Chrome builds.
+            recordStream = new MediaStream([...canvasStream.getVideoTracks(), ...stream.getAudioTracks()]);
             vidStartCompositeLoop();
           } catch { recordStream = stream; }
         }
@@ -909,23 +946,39 @@ async function vidEnsureContact() {
   const cacheKey = `${fields.name}|${fields.phone}|${fields.email}`;
   const cached = window.__videoStudioState.adhocContact;
   if (cached && cached.key === cacheKey) return cached.id;
+  // The share link is prepared automatically the moment the Review screen opens
+  // AND a rep can also tap Copy Link/Send at any time — both must resolve to the
+  // SAME contact-creation call, not one each.
+  const inflight = window.__videoStudioState.adhocContactPromise;
+  if (inflight && inflight.key === cacheKey) return inflight.promise;
 
-  const res = await apiSendJson('/crm/contacts', 'POST', {
-    full_name: fields.name || undefined,
-    phone: fields.phone || undefined,
-    email: fields.email || undefined,
-  });
-  const id = res?.contact?.id;
-  if (id) window.__videoStudioState.adhocContact = { key: cacheKey, id };
-  return id || null;
+  const promise = (async () => {
+    const res = await apiSendJson('/crm/contacts', 'POST', {
+      full_name: fields.name || undefined,
+      phone: fields.phone || undefined,
+      email: fields.email || undefined,
+    });
+    const id = res?.contact?.id;
+    if (id) window.__videoStudioState.adhocContact = { key: cacheKey, id };
+    return id || null;
+  })();
+  window.__videoStudioState.adhocContactPromise = { key: cacheKey, promise };
+  try { return await promise; }
+  finally { window.__videoStudioState.adhocContactPromise = null; }
 }
 
 // Uploads the recorded blob once per distinct recipient (re-uploads only if the
 // contact actually changes between actions — there is no endpoint to re-attach a
-// contact to an already-uploaded video).
+// contact to an already-uploaded video). The auto-prepare-on-entry call and a
+// manual Copy Link/Send tap share the same in-flight request instead of each
+// starting their own upload of the same recording.
 async function vidEnsureUploadedFor(contactId) {
+  const key = contactId || null;
   const cached = window.__videoStudioState.uploadedVideo;
-  if (cached && cached.contact_id === (contactId || null)) return cached;
+  if (cached && cached.contact_id === key) return cached;
+  const inflight = window.__videoStudioState.uploadPromise;
+  if (inflight && inflight.contactId === key) return inflight.promise;
+
   const blob = window.__videoStudioState.lastRecordedBlob;
   if (!blob) throw new Error('No recording to upload yet.');
   const contact = window.__videoStudioState.currentContact || {};
@@ -935,11 +988,17 @@ async function vidEnsureUploadedFor(contactId) {
   if (contactId) formData.append('contact_id', contactId);
   formData.append('title', `${contact.vehicle || 'Vehicle'} ${dept} Video`);
   formData.append('duration_seconds', window.__videoStudioState.seconds || 0);
-  const res = await apiSendFormData('/sales-videos', 'POST', formData);
-  if (!res?.video?.id) throw new Error('Upload failed.');
-  const uploaded = { ...res.video, contact_id: contactId || null };
-  window.__videoStudioState.uploadedVideo = uploaded;
-  return uploaded;
+
+  const promise = (async () => {
+    const res = await apiSendFormData('/sales-videos', 'POST', formData);
+    if (!res?.video?.id) throw new Error('Upload failed.');
+    const uploaded = { ...res.video, contact_id: key };
+    window.__videoStudioState.uploadedVideo = uploaded;
+    return uploaded;
+  })();
+  window.__videoStudioState.uploadPromise = { contactId: key, promise };
+  try { return await promise; }
+  finally { window.__videoStudioState.uploadPromise = null; }
 }
 
 // Copy a share link without requiring a named recipient at all — "just copy the
@@ -950,9 +1009,7 @@ async function vidCopyShareLink() {
   try {
     const contactId = await vidEnsureContact();
     const video = await vidEnsureUploadedFor(contactId);
-    const url = vidBuildShareUrl(video.share_token);
-    const linkBox = document.getElementById('vid-share-link-box');
-    if (linkBox) { linkBox.textContent = url; linkBox.classList.remove('text-slate-400'); linkBox.classList.add('text-sky-300'); }
+    const url = vidUpdateShareLinkBox(video.share_token);
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(url);
       if (typeof showToast === 'function') showToast('Video link copied — paste it anywhere', 'success');

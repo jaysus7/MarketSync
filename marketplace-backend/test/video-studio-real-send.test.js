@@ -53,6 +53,30 @@ test('an independent Video account with no CRM contact can still send — typing
   assert.match(sendToFn, /if \(!contactId\) throw new Error/)
 })
 
+test('the share link "just is there" — it prepares itself automatically as soon as the Review screen opens, not only after a tap', () => {
+  const enterFn = videoStudio.match(/function vidEnterReview\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(enterFn, 'vidEnterReview must exist')
+  assert.match(enterFn, /vidAutoPrepareShareLink\(\);/)
+
+  const autoFn = videoStudio.match(/async function vidAutoPrepareShareLink\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(autoFn, 'vidAutoPrepareShareLink must exist')
+  assert.match(autoFn, /vidEnsureContact\(\)/)
+  assert.match(autoFn, /vidEnsureUploadedFor\(contactId\)/)
+  assert.match(autoFn, /vidUpdateShareLinkBox\(video\.share_token\)/)
+
+  // A manual tap of Copy Link must share the SAME upload/contact requests the
+  // auto-prepare kicked off, not start a second one — that's both what avoids
+  // duplicate contacts/uploads and what makes the tap's clipboard write land
+  // within the click's user-activation window instead of racing a fresh upload.
+  const uploadFn = videoStudio.match(/async function vidEnsureUploadedFor\(contactId\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(uploadFn, 'vidEnsureUploadedFor must exist')
+  assert.match(uploadFn, /window\.__videoStudioState\.uploadPromise/)
+
+  const contactFn = videoStudio.match(/async function vidEnsureContact\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(contactFn, 'vidEnsureContact must exist')
+  assert.match(contactFn, /window\.__videoStudioState\.adhocContactPromise/)
+})
+
 test('a shareable link can be copied independent of naming a customer — "copy the link, or send to a customer"', () => {
   const buildFn = videoStudio.match(/function vidBuildShareUrl\(shareToken\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(buildFn, 'vidBuildShareUrl must exist')
