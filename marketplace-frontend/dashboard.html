@@ -530,6 +530,114 @@
           </div>
           </div>
 
+          <!-- Sits to the right of Billing + Language (same grid row) — moved out of its
+               old spot further down the page, where two data-full-width cards ahead of it
+               (Facebook Posting Safety, Your record) always forced it onto its own row with
+               nothing beside it. -->
+          <div id="security-section" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">Multi-factor authentication (MFA) &amp; account security</h3>
+
+            <!-- ─── Extra login code (2FA) ─────────────────────────────── -->
+            <div id="mfa-status-row" class="flex items-start justify-between gap-2 mb-3">
+              <div class="flex-1">
+                <div class="text-xs font-bold text-slate-900 dark:text-white">Multi-factor authentication (MFA)</div>
+                <div id="mfa-status-text" class="text-xs text-slate-500 leading-snug mt-0.5">Loading…</div>
+              </div>
+              <button id="mfa-toggle-btn" class="text-xs font-bold px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white transition whitespace-nowrap">Turn On</button>
+            </div>
+
+            <div id="mfa-enroll-panel" class="hidden p-3 rounded bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 mb-3">
+              <p class="text-xs font-bold text-slate-900 dark:text-white mb-1">Step 1: Scan this with an app</p>
+              <p class="text-sm text-slate-600 dark:text-slate-300 mb-2 leading-relaxed">
+                Open Google Authenticator, 1Password, Authy, or any code app on your phone. Tap "+" and scan this picture:
+              </p>
+              <div id="mfa-qr-container" class="bg-white p-2 rounded inline-block mb-2"><canvas id="mfa-qr-canvas"></canvas></div>
+              <p class="text-xs text-slate-500 mb-1">Can't scan? Type this code into your app instead:</p>
+              <p class="text-xs text-slate-700 dark:text-slate-300 font-mono break-all mb-3 bg-white dark:bg-slate-900 p-1.5 rounded border border-slate-200 dark:border-slate-700" id="mfa-secret-text"></p>
+
+              <p class="text-xs font-bold text-slate-900 dark:text-white mb-1">Step 2: Type the 6 numbers your app shows</p>
+              <input type="text" id="mfa-enroll-code" inputmode="numeric" maxlength="6" placeholder="123456"
+                class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2 py-1.5 text-base text-center font-mono mb-2 tracking-widest">
+              <button id="mfa-enroll-verify-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 rounded">Turn It On</button>
+              <div id="mfa-enroll-error" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></div>
+            </div>
+
+            <!-- Native Supabase Phone MFA (requires Phone MFA + SMS provider in the project). -->
+            <div class="rounded-lg border border-slate-200 dark:border-slate-800 p-3 mb-3">
+              <div class="flex items-start justify-between gap-3">
+                <div><div class="text-xs font-bold text-slate-900 dark:text-white">Text-message code</div><div id="phone-mfa-status" class="text-xs text-slate-500 mt-0.5">Add a verified mobile number as another true MFA method.</div></div>
+                <button id="phone-mfa-start" class="text-xs font-bold px-3 py-1.5 rounded border border-indigo-300 text-indigo-700 dark:border-indigo-800 dark:text-indigo-300 whitespace-nowrap">Set up</button>
+              </div>
+              <div id="phone-mfa-enroll" class="hidden mt-3 space-y-2">
+                <input id="phone-mfa-number" type="tel" autocomplete="tel" placeholder="+19055551234" class="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-2 text-sm">
+                <p class="text-[10px] text-slate-500">Include country code. MarketSync uses Supabase Phone MFA and the configured SMS provider.</p>
+                <button id="phone-mfa-send" class="w-full rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2">Send verification text</button>
+              </div>
+              <div id="phone-mfa-verify" class="hidden mt-3 space-y-2">
+                <input id="phone-mfa-code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="Verification code" class="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-2 text-center text-base font-mono tracking-widest">
+                <button id="phone-mfa-confirm" class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2">Verify and turn on</button>
+              </div>
+              <div id="phone-mfa-error" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></div>
+            </div>
+
+            <div class="rounded-lg bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 p-3 mb-3 text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
+              <strong class="text-slate-800 dark:text-slate-200">About the other sign-in choices:</strong> Passkeys are available below for fingerprint/face passwordless sign-in. Email codes are a first sign-in factor, and voice-call codes are not a native Supabase MFA method, so MarketSync does not falsely label either one as completed MFA.
+            </div>
+
+            <!-- ─── Backup codes shown ONCE after enrollment ─────────────── -->
+            <div id="backup-codes-panel" class="hidden p-3 rounded bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-300 dark:border-amber-700 mb-3">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-lg"></span>
+                <p class="text-xs font-bold text-amber-900 dark:text-amber-200">Save these backup codes NOW</p>
+              </div>
+              <p class="text-sm text-amber-800 dark:text-amber-300 mb-3 leading-relaxed">
+                If you ever lose your phone, type one of these codes instead of the 6-digit code. <strong>Each code works only once.</strong> We will NEVER show them again.
+              </p>
+              <div id="backup-codes-grid" class="grid grid-cols-2 gap-1.5 font-mono text-xs text-slate-900 dark:text-white mb-3"></div>
+              <div class="flex gap-2">
+                <button id="backup-codes-download" class="flex-1 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold py-2 rounded transition"> Download as a file</button>
+                <button id="backup-codes-copy" class="flex-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white text-xs font-bold py-2 rounded transition"> Copy</button>
+              </div>
+              <button id="backup-codes-done" class="w-full mt-2 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">I saved them — hide this</button>
+            </div>
+
+            <button id="regen-codes-btn" class="hidden w-full text-xs text-indigo-600 dark:text-indigo-400 hover:underline text-left mb-3">Make new backup codes (old ones stop working)</button>
+
+            <!-- ─── Passkeys (fingerprint / face / hardware key) ──────────── -->
+            <div class="border-t border-slate-200 dark:border-slate-800 pt-3 mt-3">
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <div class="flex-1">
+                  <div class="text-xs font-bold text-slate-900 dark:text-white">Sign in with your fingerprint or face</div>
+                  <div class="text-xs text-slate-500 leading-snug mt-0.5">Skip typing your password — use Touch ID, Face ID, or Windows Hello.</div>
+                </div>
+                <button id="add-passkey-btn" class="text-xs font-bold px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white transition whitespace-nowrap">+ Add</button>
+              </div>
+              <div id="passkey-list" class="space-y-1.5"></div>
+              <div id="passkey-error" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></div>
+            </div>
+
+            <!-- ─── Recent sign-ins ─────────────────────────────────────── -->
+            <button id="show-sessions-btn" class="w-full text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-left py-1.5 mt-3 border-t border-slate-200 dark:border-slate-800 pt-3">See where you're signed in →</button>
+
+            <div id="sessions-panel" class="hidden mt-2 p-3 rounded bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Your last 20 sign-ins</h4>
+              <div id="sessions-list" class="space-y-1.5 max-h-48 overflow-y-auto text-xs">Loading…</div>
+              <button id="revoke-sessions-btn" class="w-full mt-3 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold py-1.5 rounded transition">Sign me out everywhere else</button>
+            </div>
+
+            <!-- ─── Dealership activity log (admins/owners only) ─────────── -->
+            <div id="audit-log-block" class="hidden mt-3 border-t border-slate-200 dark:border-slate-800 pt-3">
+              <button id="show-audit-btn" class="w-full text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-left py-1.5">See the dealership activity log →</button>
+              <div id="audit-panel" class="hidden mt-2 p-3 rounded bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700">
+                <div class="flex items-center justify-between gap-2 mb-2">
+                  <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500">Who did what</h4>
+                  <select id="audit-filter" class="text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-slate-700 dark:text-slate-200"><option value="">All actions</option></select>
+                </div>
+                <div id="audit-list" class="space-y-1.5 max-h-72 overflow-y-auto text-xs">Loading…</div>
+              </div>
+            </div>
+          </div>
+
           <div id="guardrail-settings-section" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5" data-dealer-only data-full-width="true">
             <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Facebook Posting Safety</h3>
             <p class="text-sm text-slate-500 leading-relaxed mb-3">Protect your reps' Facebook accounts by capping daily posts and letting them post in short bursts with a rest between — a high posting rate is what triggers Marketplace bans.</p>
@@ -858,110 +966,6 @@
                certificates, the contracts you signed) and download the documents shared with
                you; what you can CHANGE stays your password and your picture, above. -->
           <div id="settings-my-record" data-full-width="true" class="stab-hide break-inside-avoid mb-5"></div>
-
-          <div id="security-section" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
-            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">Multi-factor authentication (MFA) &amp; account security</h3>
-
-            <!-- ─── Extra login code (2FA) ─────────────────────────────── -->
-            <div id="mfa-status-row" class="flex items-start justify-between gap-2 mb-3">
-              <div class="flex-1">
-                <div class="text-xs font-bold text-slate-900 dark:text-white">Multi-factor authentication (MFA)</div>
-                <div id="mfa-status-text" class="text-xs text-slate-500 leading-snug mt-0.5">Loading…</div>
-              </div>
-              <button id="mfa-toggle-btn" class="text-xs font-bold px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white transition whitespace-nowrap">Turn On</button>
-            </div>
-
-            <div id="mfa-enroll-panel" class="hidden p-3 rounded bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 mb-3">
-              <p class="text-xs font-bold text-slate-900 dark:text-white mb-1">Step 1: Scan this with an app</p>
-              <p class="text-sm text-slate-600 dark:text-slate-300 mb-2 leading-relaxed">
-                Open Google Authenticator, 1Password, Authy, or any code app on your phone. Tap "+" and scan this picture:
-              </p>
-              <div id="mfa-qr-container" class="bg-white p-2 rounded inline-block mb-2"><canvas id="mfa-qr-canvas"></canvas></div>
-              <p class="text-xs text-slate-500 mb-1">Can't scan? Type this code into your app instead:</p>
-              <p class="text-xs text-slate-700 dark:text-slate-300 font-mono break-all mb-3 bg-white dark:bg-slate-900 p-1.5 rounded border border-slate-200 dark:border-slate-700" id="mfa-secret-text"></p>
-
-              <p class="text-xs font-bold text-slate-900 dark:text-white mb-1">Step 2: Type the 6 numbers your app shows</p>
-              <input type="text" id="mfa-enroll-code" inputmode="numeric" maxlength="6" placeholder="123456"
-                class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2 py-1.5 text-base text-center font-mono mb-2 tracking-widest">
-              <button id="mfa-enroll-verify-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 rounded">Turn It On</button>
-              <div id="mfa-enroll-error" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></div>
-            </div>
-
-            <!-- Native Supabase Phone MFA (requires Phone MFA + SMS provider in the project). -->
-            <div class="rounded-lg border border-slate-200 dark:border-slate-800 p-3 mb-3">
-              <div class="flex items-start justify-between gap-3">
-                <div><div class="text-xs font-bold text-slate-900 dark:text-white">Text-message code</div><div id="phone-mfa-status" class="text-xs text-slate-500 mt-0.5">Add a verified mobile number as another true MFA method.</div></div>
-                <button id="phone-mfa-start" class="text-xs font-bold px-3 py-1.5 rounded border border-indigo-300 text-indigo-700 dark:border-indigo-800 dark:text-indigo-300 whitespace-nowrap">Set up</button>
-              </div>
-              <div id="phone-mfa-enroll" class="hidden mt-3 space-y-2">
-                <input id="phone-mfa-number" type="tel" autocomplete="tel" placeholder="+19055551234" class="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-2 text-sm">
-                <p class="text-[10px] text-slate-500">Include country code. MarketSync uses Supabase Phone MFA and the configured SMS provider.</p>
-                <button id="phone-mfa-send" class="w-full rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2">Send verification text</button>
-              </div>
-              <div id="phone-mfa-verify" class="hidden mt-3 space-y-2">
-                <input id="phone-mfa-code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="Verification code" class="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-2 text-center text-base font-mono tracking-widest">
-                <button id="phone-mfa-confirm" class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2">Verify and turn on</button>
-              </div>
-              <div id="phone-mfa-error" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></div>
-            </div>
-
-            <div class="rounded-lg bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 p-3 mb-3 text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
-              <strong class="text-slate-800 dark:text-slate-200">About the other sign-in choices:</strong> Passkeys are available below for fingerprint/face passwordless sign-in. Email codes are a first sign-in factor, and voice-call codes are not a native Supabase MFA method, so MarketSync does not falsely label either one as completed MFA.
-            </div>
-
-            <!-- ─── Backup codes shown ONCE after enrollment ─────────────── -->
-            <div id="backup-codes-panel" class="hidden p-3 rounded bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-300 dark:border-amber-700 mb-3">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="text-lg"></span>
-                <p class="text-xs font-bold text-amber-900 dark:text-amber-200">Save these backup codes NOW</p>
-              </div>
-              <p class="text-sm text-amber-800 dark:text-amber-300 mb-3 leading-relaxed">
-                If you ever lose your phone, type one of these codes instead of the 6-digit code. <strong>Each code works only once.</strong> We will NEVER show them again.
-              </p>
-              <div id="backup-codes-grid" class="grid grid-cols-2 gap-1.5 font-mono text-xs text-slate-900 dark:text-white mb-3"></div>
-              <div class="flex gap-2">
-                <button id="backup-codes-download" class="flex-1 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold py-2 rounded transition"> Download as a file</button>
-                <button id="backup-codes-copy" class="flex-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white text-xs font-bold py-2 rounded transition"> Copy</button>
-              </div>
-              <button id="backup-codes-done" class="w-full mt-2 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">I saved them — hide this</button>
-            </div>
-
-            <button id="regen-codes-btn" class="hidden w-full text-xs text-indigo-600 dark:text-indigo-400 hover:underline text-left mb-3">Make new backup codes (old ones stop working)</button>
-
-            <!-- ─── Passkeys (fingerprint / face / hardware key) ──────────── -->
-            <div class="border-t border-slate-200 dark:border-slate-800 pt-3 mt-3">
-              <div class="flex items-start justify-between gap-2 mb-2">
-                <div class="flex-1">
-                  <div class="text-xs font-bold text-slate-900 dark:text-white">Sign in with your fingerprint or face</div>
-                  <div class="text-xs text-slate-500 leading-snug mt-0.5">Skip typing your password — use Touch ID, Face ID, or Windows Hello.</div>
-                </div>
-                <button id="add-passkey-btn" class="text-xs font-bold px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white transition whitespace-nowrap">+ Add</button>
-              </div>
-              <div id="passkey-list" class="space-y-1.5"></div>
-              <div id="passkey-error" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></div>
-            </div>
-
-            <!-- ─── Recent sign-ins ─────────────────────────────────────── -->
-            <button id="show-sessions-btn" class="w-full text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-left py-1.5 mt-3 border-t border-slate-200 dark:border-slate-800 pt-3">See where you're signed in →</button>
-
-            <div id="sessions-panel" class="hidden mt-2 p-3 rounded bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700">
-              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Your last 20 sign-ins</h4>
-              <div id="sessions-list" class="space-y-1.5 max-h-48 overflow-y-auto text-xs">Loading…</div>
-              <button id="revoke-sessions-btn" class="w-full mt-3 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold py-1.5 rounded transition">Sign me out everywhere else</button>
-            </div>
-
-            <!-- ─── Dealership activity log (admins/owners only) ─────────── -->
-            <div id="audit-log-block" class="hidden mt-3 border-t border-slate-200 dark:border-slate-800 pt-3">
-              <button id="show-audit-btn" class="w-full text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-left py-1.5">See the dealership activity log →</button>
-              <div id="audit-panel" class="hidden mt-2 p-3 rounded bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700">
-                <div class="flex items-center justify-between gap-2 mb-2">
-                  <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500">Who did what</h4>
-                  <select id="audit-filter" class="text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-slate-700 dark:text-slate-200"><option value="">All actions</option></select>
-                </div>
-                <div id="audit-list" class="space-y-1.5 max-h-72 overflow-y-auto text-xs">Loading…</div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -3830,14 +3834,14 @@
   <!-- Workspace registry: SINGLE SOURCE OF TRUTH for sidebar, workspace tabs and
        mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
   <script src="js/modules/workspace-registry.js?v=20260814_v12"></script>
-  <script src="dashboard.js?v=20260817_singleproduct_v8"></script>
-  <script src="js/modules/dashboard-part2.js?v=20260817_settings_fix_v11"></script>
+  <script src="dashboard.js?v=20260817_singleproduct_v9"></script>
+  <script src="js/modules/dashboard-part2.js?v=20260817_settings_fix_v12"></script>
   <script src="js/modules/dashboard-part3.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part4.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part5.js?v=20260817_studiolaunch_v1"></script>
   <script src="js/modules/dashboard-part6.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part7.js?v=20260814_v12"></script>
-  <script src="js/modules/dashboard-part8.js?v=20260817_settingsadmin_v1"></script>
+  <script src="js/modules/dashboard-part8.js?v=20260817_settingsadmin_v2"></script>
   <script src="js/modules/dashboard-part9.js?v=20260817_designstudio_v1"></script>
   <script src="js/modules/dashboard-part10.js?v=20260817_singleproduct_rail_v2"></script>
   <script src="js/modules/dashboard-part11.js?v=20260817_simple_departments"></script>

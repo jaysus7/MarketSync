@@ -131,6 +131,11 @@ function settingsTab(tab) {
   // Your own employment record — everybody has one, so it lives in My Account.
   if (tab === 'account') {
     if (typeof renderMyRecordCard === 'function') renderMyRecordCard();
+    // Facebook Dealer folds its Team roster into My Account (Administration is
+    // hidden entirely for single-product tiers, so this is its only way to reach it).
+    if (Array.isArray(SETTINGS_TAB_SECTIONS.account) && SETTINGS_TAB_SECTIONS.account.includes('settings-team')) {
+      loadSettingsTeam(document.getElementById('team-picker')?.value || 'sales');
+    }
   }
   // Administration bundles team, billing, integrations, group, features + texting.
   if (tab === 'admin') {

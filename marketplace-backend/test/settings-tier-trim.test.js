@@ -44,8 +44,12 @@ test('every single-product tier trims Settings to My Account + Billing (Upgrade 
   assert.match(block, /document\.querySelectorAll\('#settings-tabs \[data-admin-only\]'\)\.forEach\(el => el\.classList\.add\('hidden'\)\)/)
   assert.match(block, /SETTINGS_TAB_SECTIONS\.account\.push\('billing-section'\)/)
   assert.match(block, /__settingsTab = 'account'/)
-  // settings-my-record (the employment-record card) needs BOTH a direct hide AND
-  // removal from SETTINGS_TAB_SECTIONS.account — neither alone is enough:
+  // settings-my-record (the employment-record card) renders from GET /hr/me, which
+  // 404s for every single-product account (they're created through product signup,
+  // not the full HR onboarding flow that creates a staff_members row) — including
+  // Facebook Dealer, so it is unconditionally dropped for every tier, no exception.
+  // It needs BOTH a direct hide AND removal from SETTINGS_TAB_SECTIONS.account —
+  // neither alone is enough:
   //   - Direct hide only: applyProductNav() above already triggered one
   //     settingsTab('account') call (via its own switchPage('profile')) using the
   //     unmodified section list, un-hiding the card — the direct hide catches
@@ -60,13 +64,24 @@ test('every single-product tier trims Settings to My Account + Billing (Upgrade 
   //     in whatever state that FIRST call left it: visible.
   assert.match(block, /document\.getElementById\('settings-my-record'\)\?\.classList\.add\('stab-hide'\)/)
   assert.match(block, /SETTINGS_TAB_SECTIONS\.account = SETTINGS_TAB_SECTIONS\.account\.filter\(id => id !== 'settings-my-record'\)/, 'must ALSO stop tracking the id so later settingsTab() calls never re-show it')
-  // Facebook Solo/Dealer are real dealership sales reps (unlike single-user tool
-  // subscribers), so they keep the employment-record card and additionally fold in
-  // Facebook Posting Safety.
+  assert.doesNotMatch(block, /if \(!fbOnly\) \{\s*\n\s*document\.getElementById\('settings-my-record'\)/,
+    'the hide must be unconditional now — Facebook Dealer no longer gets an exception')
+  // Facebook Solo/Dealer additionally fold in Facebook Posting Safety.
   assert.match(block, /const fbOnly = typeof isFacebookOnlyWorkspace === 'function' && isFacebookOnlyWorkspace\(\)/)
   assert.match(block, /if \(fbOnly[\s\S]*?guardrail-settings-section/)
   assert.match(block, /document\.getElementById\('guardrail-settings-section'\)\?\.classList\.remove\('hidden'\)/)
-  assert.match(block, /if \(!fbOnly\) \{[\s\S]*?document\.getElementById\('settings-my-record'\)/)
+  // Facebook Dealer (not Solo — a lone rep has no team) additionally folds in the
+  // Team roster, since Administration (where it normally lives) is hidden entirely.
+  assert.match(block, /const isFbDealer = \/\(\?:\^\|\\s\)facebook_dealer\(\?:\\s\|\$\)\/\.test\(document\.documentElement\.getAttribute\('data-product'\) \|\| ''\)/)
+  assert.match(block, /if \(isFbDealer[\s\S]*?settings-team/)
+})
+
+test('settingsTab("account") loads the Team roster once it has been folded in for Facebook Dealer', () => {
+  const fn = part8.match(/function settingsTab\(tab\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fn, 'settingsTab must exist')
+  const accountBlock = fn.match(/if \(tab === 'account'\) \{[\s\S]*?\n {4}\}/)?.[0] || ''
+  assert.match(accountBlock, /SETTINGS_TAB_SECTIONS\.account\.includes\('settings-team'\)/)
+  assert.match(accountBlock, /loadSettingsTeam\(document\.getElementById\('team-picker'\)\?\.value \|\| 'sales'\)/)
 })
 
 test('billing-section is not itself [data-admin-only] (so folding it into My Account is meaningful)', () => {

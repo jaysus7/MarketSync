@@ -187,14 +187,22 @@ async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}
         if ([429, 500, 502, 503, 504].includes(r.status) && attempt < retries) {
           lastErr = new Error(`HTTP ${r.status}`);
         } else {
+          // A status outside the retryable set (404, 403, 400, ...) is a deterministic
+          // answer — retrying the identical request won't change it. Mark it so the
+          // catch block below throws immediately instead of silently retrying it up to
+          // `retries` more times (a plain throw here used to get caught by the same
+          // catch as a network error and re-looped, turning e.g. a 404 into a ~15s
+          // stall before the real error ever reached the caller).
           let msg = `HTTP ${r.status}`;
           try { const b = await r.json(); if (b?.error) msg = b.error; } catch {}
-          throw new Error(msg);
+          const err = new Error(msg);
+          err.nonRetryable = true;
+          throw err;
         }
       } catch (e) {
         if (e.name === 'AbortError') lastErr = new Error('Request timed out');
         else lastErr = e;
-        if (attempt >= retries) throw lastErr;
+        if (attempt >= retries || e.nonRetryable) throw lastErr;
       } finally {
         clearTimeout(timer);
       }
