@@ -9,6 +9,28 @@
   let unreadCounts = {};
   let pollInterval = null;
   let activeEmojiPicker = null;
+  let disabled = false;
+
+  // Internal staff messaging only makes sense inside a dealership with a team.
+  // Independent single-product programs (Video, AI ChatBot, etc.) have no staff to
+  // message — they must never see team chat. Facebook Dealer is a real dealership
+  // team, so it keeps it. This is evaluated defensively at every entry point because
+  // this dock boots on DOMContentLoaded, which can fire before data-product is set.
+  function shouldHideStaffChat() {
+    if (disabled) return true;
+    const products = (document.documentElement.getAttribute('data-product') || '').trim();
+    if (!products) return false; // product tier not resolved yet — applyProductNav disables us later
+    const list = products.split(/\s+/);
+    return list.length === 1 && list[0] !== 'facebook_dealer';
+  }
+
+  // Called by applyProductNav once the tier is known (covers the case where this dock
+  // booted before data-product was set): tears the dock down for good.
+  window.disableStaffChatDock = function () {
+    disabled = true;
+    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+    document.getElementById('staff-chat-dock-bar')?.classList.add('hidden');
+  };
 
   const EMOJI_LIST = ['\u{1F44D}', '\u{2764}', '\u{1F525}', '\u{1F602}', '\u{1F44F}', '\u{1F680}', '\u{1F389}', '\u{1F697}', '\u{1F4AF}', '\u{1F64F}', '\u{2705}', '\u{1F440}', '\u{2B50}', '\u{1F4A1}', '\u{1F4AA}', '\u{1F91D}', '\u{26A1}', '\u{1F3AF}'];
 
@@ -38,6 +60,7 @@
   }
 
   async function pollUnread() {
+    if (shouldHideStaffChat()) return;
     try {
       const res = await fetch(`${getApi()}/staff-chat/unread`, {
         headers: { 'Authorization': `Bearer ${getToken()}` }
@@ -60,6 +83,7 @@
   }
 
   function triggerIncomingPopup(msg) {
+    if (shouldHideStaffChat()) return;
     const sender = staffList.find(s => s.id === msg.sender_id) || { name: msg.sender_name || 'Staff Member' };
 
     // 1. In-App Toast Alert
@@ -365,6 +389,7 @@
 
   // Create floating trigger button (Launcher head & Directory Popover)
   function initLauncherUI() {
+    if (shouldHideStaffChat()) return;
     if (document.getElementById('staff-chat-launcher-btn')) return;
 
     const dock = ensureDockContainer();
@@ -409,6 +434,7 @@
 
   // Start cycles on DOM ready
   document.addEventListener('DOMContentLoaded', () => {
+    if (shouldHideStaffChat()) return; // independent program — no team chat at all
     initLauncherUI();
     fetchMembers();
     pollUnread();

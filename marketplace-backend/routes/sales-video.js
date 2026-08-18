@@ -16,7 +16,7 @@
  * a user gesture, begins a watch. The database recomputes the summary from the events, so what
  * a rep sees and the evidence behind it cannot drift apart.
  */
-import { supabaseAdmin, sendEmail, FRONTEND_URL } from '../shared.js'
+import { supabaseAdmin, sendEmail, emailHealth, FRONTEND_URL } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
@@ -241,19 +241,32 @@ export function registerSalesVideo(app) {
       const dealerName = dealer?.name || ''
 
       // Actually deliver, and DO NOT mark it sent unless delivery succeeds.
-      let delivery
+      // When the server has no way to send on this channel (no Resend key / no
+      // provisioned texting number), we don't fail — we hand back the recipient +
+      // watch link so the rep's own device can open its Messages / Mail app with it
+      // prefilled. The share link records opens/plays no matter who sends it.
+      let delivery, to, unconfigured = false
       if (channel === 'email') {
-        const to = (contact.email || '').trim()
+        to = (contact.email || '').trim()
         if (!to) return res.status(400).json({ error: 'This customer has no email address on file.' })
-        const subject = repName
-          ? `${repName} sent you a video${dealerName ? ` — ${dealerName}` : ''}`
-          : `A video for you${dealerName ? ` from ${dealerName}` : ''}`
-        delivery = await sendEmail({ to, subject, html: videoEmailHtml({ url, repName, dealerName, note }) })
+        if (!emailHealth().configured) { unconfigured = true }
+        else {
+          const subject = repName
+            ? `${repName} sent you a video${dealerName ? ` — ${dealerName}` : ''}`
+            : `A video for you${dealerName ? ` from ${dealerName}` : ''}`
+          delivery = await sendEmail({ to, subject, html: videoEmailHtml({ url, repName, dealerName, note }) })
+        }
       } else {
-        const to = (contact.phone || contact.phone_mobile || '').trim()
+        to = (contact.phone || contact.phone_mobile || '').trim()
         if (!to) return res.status(400).json({ error: 'This customer has no mobile number on file.' })
         const body = `${note || `${repName ? `${repName}: ` : ''}Here's a quick video for you`}: ${url}`
         delivery = await sendDealerSms(req.dealershipId, to, body)
+        // sendDealerSms returns { simulated:true } when there's no usable sender.
+        if (!delivery?.ok && delivery?.simulated) unconfigured = true
+      }
+      // No server-side sender configured for this channel → let the device do it.
+      if (unconfigured) {
+        return res.json({ ok: false, code: 'delivery_unconfigured', channel, to, watch_url: url })
       }
       if (!delivery?.ok) {
         return res.status(502).json({ error: delivery?.error || `Could not send the ${channel === 'email' ? 'email' : 'text'}. Check your ${channel === 'email' ? 'email' : 'texting number'} setup and try again.` })

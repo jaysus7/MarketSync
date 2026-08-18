@@ -616,6 +616,10 @@ window.msPostVehicle = msPostVehicle;
 
 // ── Reconditioning board ─────────────────────────────────────────────────────
 let __reconData = null;
+// Board view: 'list' (the table) or 'calendar' (delivery dates on a month grid).
+let __reconView = 'list';
+// First-of-month currently shown in the calendar view (null = this month).
+let __reconCalMonth = null;
 
 // Small POST/DELETE helper matching the app's token-based fetch pattern.
 async function reconApi(path, method = 'POST', body = null) {
@@ -1056,6 +1060,31 @@ function renderReconBoard() {
   const deliveringToday = cards.filter(c => c.delivery_at && new Date(c.delivery_at).toDateString() === today).length;
   const readyCount = cards.filter(reconIsReady).length;
 
+  const tabBtn = (id, label) => `<button data-recon-view="${id}" class="px-2.5 py-1 rounded-md text-xs font-bold ${__reconView === id ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400'}">${label}</button>`;
+  const header = `
+    <div class="flex items-center gap-3 text-xs mb-3 flex-wrap">
+      <span class="text-slate-500 dark:text-slate-400">${cards.length} in cleanup</span>
+      <span class="text-amber-600 dark:text-amber-400 font-semibold">${deliveringToday} delivering today</span>
+      <span class="text-emerald-600 dark:text-emerald-400 font-semibold">${readyCount} ready</span>
+      <div class="ml-auto inline-flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">${tabBtn('list', 'List')}${tabBtn('calendar', 'Calendar')}</div>
+    </div>`;
+
+  const wire = () => {
+    root.querySelectorAll('[data-recon-view]').forEach(b => b.addEventListener('click', () => { __reconView = b.dataset.reconView; renderReconBoard(); }));
+    root.querySelectorAll('[data-recon-open]').forEach(el => el.addEventListener('click', () => openReconCard(el.dataset.reconOpen)));
+    root.querySelectorAll('[data-recon-cal]').forEach(b => b.addEventListener('click', () => {
+      const base = __reconCalMonth || new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      __reconCalMonth = b.dataset.reconCal === 'today' ? null : new Date(base.getFullYear(), base.getMonth() + (b.dataset.reconCal === 'next' ? 1 : -1), 1);
+      renderReconBoard();
+    }));
+  };
+
+  if (__reconView === 'calendar') {
+    root.innerHTML = header + renderReconCalendar(cards, esc);
+    wire();
+    return;
+  }
+
   const rows = sorted.map(c => {
     const d = reconDelivery(c.delivery_at);
     const done = reconChkDone(c), tot = reconChkTotal(c), ready = reconIsReady(c);
@@ -1072,12 +1101,7 @@ function renderReconBoard() {
     </tr>`;
   }).join('');
 
-  root.innerHTML = `
-    <div class="flex items-center gap-3 text-xs mb-3">
-      <span class="text-slate-500 dark:text-slate-400">${cards.length} in cleanup</span>
-      <span class="text-amber-600 dark:text-amber-400 font-semibold">${deliveringToday} delivering today</span>
-      <span class="text-emerald-600 dark:text-emerald-400 font-semibold">${readyCount} ready</span>
-    </div>
+  root.innerHTML = header + `
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
       <div class="overflow-x-auto"><table class="w-full text-left min-w-[720px]">
         <thead><tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase text-xs tracking-wider">
@@ -1087,7 +1111,69 @@ function renderReconBoard() {
       </table></div>
     </div>`;
 
-  root.querySelectorAll('[data-recon-open]').forEach(tr => tr.addEventListener('click', () => openReconCard(tr.dataset.reconOpen)));
+  wire();
+}
+
+// Month calendar: each vehicle sits on its delivery date, colour-coded by urgency
+// (overdue red, today amber, ready green). Unscheduled cars are listed underneath
+// so nothing in cleanup is hidden just because it has no delivery date yet. Chips
+// open the same stock card as the list.
+function reconDateKey(d) { const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; }
+function renderReconCalendar(cards, esc) {
+  const base = __reconCalMonth || new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const year = base.getFullYear(), month = base.getMonth();
+  const monthName = base.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+  const todayKey = reconDateKey(new Date());
+
+  // Group scheduled cards by local delivery day.
+  const byDay = {}; const unscheduled = [];
+  for (const c of cards) {
+    if (!c.delivery_at) { unscheduled.push(c); continue; }
+    const k = reconDateKey(new Date(c.delivery_at));
+    (byDay[k] = byDay[k] || []).push(c);
+  }
+
+  const chip = (c) => {
+    const ready = reconIsReady(c);
+    const overdue = c.delivery_at && new Date(c.delivery_at) < new Date() && !ready;
+    const cls = ready ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+      : overdue ? 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300'
+      : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300';
+    const time = new Date(c.delivery_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return `<button data-recon-open="${c.inventory_id}" title="${esc(c.label)} · ${esc(time)}" class="block w-full text-left truncate rounded px-1.5 py-1 mb-1 text-[11px] font-semibold leading-tight ${cls}">${esc(c.label)}</button>`;
+  };
+
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < firstWeekday; i++) cells.push('<div class="min-h-[92px] bg-slate-50/50 dark:bg-slate-900/30"></div>');
+  for (let day = 1; day <= daysInMonth; day++) {
+    const key = reconDateKey(new Date(year, month, day));
+    const isToday = key === todayKey;
+    const dayCards = byDay[key] || [];
+    cells.push(`<div class="min-h-[92px] p-1.5 border border-slate-100 dark:border-slate-800/60 ${isToday ? 'ring-1 ring-inset ring-indigo-400 dark:ring-indigo-500' : ''}">
+      <div class="text-[11px] font-bold mb-1 ${isToday ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}">${day}</div>
+      ${dayCards.map(chip).join('')}
+    </div>`);
+  }
+  const dow = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    .map(d => `<div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 py-1 text-center">${d}</div>`).join('');
+
+  return `
+    <div class="flex items-center gap-2 mb-3">
+      <button data-recon-cal="prev" class="w-7 h-7 grid place-items-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-white">‹</button>
+      <button data-recon-cal="next" class="w-7 h-7 grid place-items-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-white">›</button>
+      <div class="text-sm font-black text-slate-900 dark:text-white">${monthName}</div>
+      <button data-recon-cal="today" class="ml-auto text-xs font-bold text-indigo-600 dark:text-indigo-400">Today</button>
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+      <div class="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800">${dow}</div>
+      <div class="grid grid-cols-7">${cells.join('')}</div>
+    </div>
+    ${unscheduled.length ? `<div class="mt-3">
+      <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">No delivery date yet (${unscheduled.length})</div>
+      <div class="flex flex-wrap gap-1.5">${unscheduled.map(c => `<button data-recon-open="${c.inventory_id}" class="rounded-lg px-2 py-1 text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">${esc(c.label)}</button>`).join('')}</div>
+    </div>` : ''}`;
 }
 
 // Stock card modal — the full get-ready card for one vehicle: delivery date/time,

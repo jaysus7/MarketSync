@@ -1076,8 +1076,17 @@ window.vidCopyShareLink = vidCopyShareLink;
 // library's "Resend" button.
 async function vidSendExistingVideo(videoId, channel) {
   try {
-    await apiSendJson(`/sales-videos/${videoId}/send`, 'POST', { channel });
+    const res = await apiSendJson(`/sales-videos/${videoId}/send`, 'POST', { channel });
+    // No server-side sender set up (no texting number / email service) → open the
+    // rep's own Messages or Mail app with the customer + watch link prefilled, so
+    // they can send it straight from their phone.
+    if (res && res.code === 'delivery_unconfigured') {
+      vidDeviceHandoff(channel, res.to, res.watch_url);
+      if (typeof showToast === 'function') showToast(`Opening your ${channel === 'sms' ? 'Messages' : 'email'} app to send it`, 'info');
+      return res;
+    }
     if (typeof showToast === 'function') showToast(`Sent via ${channel.toUpperCase()}`, 'success');
+    return res;
   } catch (e) {
     if (e.message === 'MFA_REQUIRED') vidShowMfaNotice();
     if (typeof showToast === 'function') {
@@ -1087,6 +1096,24 @@ async function vidSendExistingVideo(videoId, channel) {
   }
 }
 window.vidSendExistingVideo = vidSendExistingVideo;
+
+// Fall back to the device's native apps when the server can't send. Opens the SMS
+// or Mail composer prefilled with the watch link (and the rep's typed note, if any
+// is on screen) — the rep just hits send. The sms:/mailto: forms used here work on
+// both iOS and Android.
+function vidDeviceHandoff(channel, to, url) {
+  if (!url) return;
+  const note = (document.getElementById('vid-message-input')?.value || '').trim();
+  if (channel === 'sms') {
+    const body = `${note ? note + ' ' : ''}${url}`;
+    window.location.href = `sms:${to || ''}?&body=${encodeURIComponent(body)}`;
+  } else {
+    const subject = 'A video for you';
+    const body = `${note ? note + '\n\n' : ''}Watch your video: ${url}`;
+    window.location.href = `mailto:${to || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }
+}
+window.vidDeviceHandoff = vidDeviceHandoff;
 
 // Review screen's Send buttons: resolve who it's going to (creating an ad-hoc
 // contact from the typed name/phone/email if this is an independent Video

@@ -11,7 +11,7 @@ const salesVideoBackend = readFileSync(new URL('../routes/sales-video.js', impor
 test('the backend send endpoint ACTUALLY delivers — it was a no-op that only stamped status=sent, so the customer got nothing', () => {
   // The one bug behind "I sent it and nothing arrived": the endpoint updated the row
   // but never called any email/SMS provider.
-  assert.match(salesVideoBackend, /import \{ supabaseAdmin, sendEmail, FRONTEND_URL \} from '\.\.\/shared\.js'/)
+  assert.match(salesVideoBackend, /import \{ supabaseAdmin, sendEmail, emailHealth, FRONTEND_URL \} from '\.\.\/shared\.js'/)
   assert.match(salesVideoBackend, /import \{ sendDealerSms \} from '\.\/automation\.js'/)
 
   const sendHandler = salesVideoBackend.match(/app\.post\('\/sales-videos\/:id\/send'[\s\S]*?\n  \}\)/)?.[0] || ''
@@ -34,6 +34,34 @@ test('the backend send endpoint ACTUALLY delivers — it was a no-op that only s
   // The emailed/texted link must be the same public watch URL the studio builds.
   assert.match(salesVideoBackend, /function watchUrl\(shareToken\)/)
   assert.match(salesVideoBackend, /\/watch\.html\?t=\$\{encodeURIComponent\(shareToken\)\}/)
+})
+
+test('when the server has no sender configured, the send endpoint hands the recipient + link back for a device fallback instead of failing', () => {
+  const sendHandler = salesVideoBackend.match(/app\.post\('\/sales-videos\/:id\/send'[\s\S]*?\n  \}\)/)?.[0] || ''
+  // Email with no Resend key, or SMS with no usable number, is "unconfigured", not an error.
+  assert.match(sendHandler, /emailHealth\(\)\.configured/, 'email uses the real email-health check to detect an unconfigured server')
+  assert.match(sendHandler, /delivery\?\.simulated/, 'a simulated SMS result (no sender) counts as unconfigured')
+  // The unconfigured response is a 200 with the code + recipient + link (NOT a 502),
+  // and it must not mark the video sent (the guard/return comes before the update).
+  assert.match(sendHandler, /code: 'delivery_unconfigured', channel, to, watch_url: url/)
+  const unconfIdx = sendHandler.indexOf("delivery_unconfigured")
+  const markSentIdx = sendHandler.indexOf("status: 'sent'")
+  assert.ok(unconfIdx > -1 && markSentIdx > -1 && unconfIdx < markSentIdx, 'the device-fallback return must come before the status is set to sent')
+})
+
+test('the studio opens the device Messages/Mail app when the server cannot send', () => {
+  // vidSendExistingVideo detects the fallback code and hands off to the device.
+  const sendFn = videoStudio.match(/async function vidSendExistingVideo\(videoId, channel\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(sendFn, /res\.code === 'delivery_unconfigured'/)
+  assert.match(sendFn, /vidDeviceHandoff\(channel, res\.to, res\.watch_url\)/)
+
+  // The handoff builds real sms: and mailto: composer links with the watch URL.
+  const handoff = videoStudio.match(/function vidDeviceHandoff\(channel, to, url\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(handoff, 'vidDeviceHandoff must exist')
+  assert.match(handoff, /`sms:\$\{to \|\| ''\}\?&body=\$\{encodeURIComponent\(body\)\}`/)
+  assert.match(handoff, /`mailto:\$\{to \|\| ''\}\?subject=/)
+  // The rep's typed note, when present on screen, is carried into the composer.
+  assert.match(handoff, /getElementById\('vid-message-input'\)/)
 })
 
 test('apiSendFormData actually exists — the old send flow called it and it was never defined anywhere, so every video upload silently threw and was swallowed', () => {
