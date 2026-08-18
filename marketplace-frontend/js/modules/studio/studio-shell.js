@@ -180,16 +180,6 @@ function studioKeydownHandler(e) {
 }
 window.studioKeydownHandler = studioKeydownHandler;
 
-// Unlocked by EITHER path: the account's package already bundles AI (ai_dealer —
-// AI ChatBot, MarketSync Digital, DealerOS Pro/Complete all include it), or they
-// separately bought the AI Boost add-on. Previously only checked the add-on, so an
-// account whose plan already includes AI still saw "AI Content is locked".
-function studioHasPaidAi() {
-  return !!(window.__access?.isPlatformStaff
-    || (typeof window.hasProduct === 'function' && window.hasProduct('ai_dealer'))
-    || (typeof __aiBoostActive !== 'undefined' && __aiBoostActive === true));
-}
-
 function renderStudioPhotoResults(photos) {
   return photos.map(photo => `<button type="button" onclick="addLibraryImageToCanvas('${photo.url}')" class="relative group overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-500 transition" title="${escS(photo.alt)}"><img src="${photo.url}" alt="${escS(photo.alt)}" loading="lazy" class="w-full aspect-square object-cover group-hover:scale-105 transition duration-200"><span class="absolute inset-x-0 bottom-0 px-2 py-1 bg-slate-950/80 text-[9px] text-left text-white truncate">${escS(photo.alt)}</span></button>`).join('');
 }
@@ -286,8 +276,8 @@ function renderStudioWorkspaceHtml(designName, scene) {
         <button onclick="setStudioTool('stickers')" id="tool-btn-stickers" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
           <span class="text-base mb-0.5">⭐</span>Stickers
         </button>
-        <button onclick="setStudioTool('ai')" id="tool-btn-ai" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${studioHasPaidAi() ? 'text-sky-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800' : 'text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-900'} transition">
-          <span class="text-base">✦</span>${studioHasPaidAi() ? 'AI' : 'AI 🔒'}
+        <button onclick="setStudioTool('ai')" id="tool-btn-ai" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-sky-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <span class="text-base">✦</span>AI
         </button>
         <button onclick="setStudioTool('brand')" id="tool-btn-brand" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
           <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10M7 12h10m-7 5h7"/></svg>Brand
@@ -603,18 +593,34 @@ function renderStudioToolPanelContent(tool) {
       </div>
     `;
   } else if (tool === 'ai') {
-    if (!studioHasPaidAi()) return `
-      <div class="p-4 space-y-4">
-        <div class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sky-400 text-xl">✦</div>
-        <div><h3 class="text-sm font-black text-slate-900 dark:text-white">AI Content is locked</h3><p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">AI writing appears here when AI Boost is active on the paid account.</p></div>
-        <button onclick="if(typeof openUpgradeModal==='function') openUpgradeModal('ai_boost')" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">View AI Boost</button>
-      </div>`;
+    // Three independent prompt sections — each generates its own kind of
+    // content and adds it to the canvas on its own terms (an image drops in as
+    // a photo layer, copy drops in as a text layer, a template replaces the
+    // whole scene). Built into the editor for every account, no paywall.
     return `
-      <div class="p-4 space-y-3">
-        <div><h3 class="text-xs font-black uppercase tracking-wider text-sky-400">AI Content</h3><p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Generate campaign-ready copy, then add it directly to the canvas.</p></div>
-        <textarea id="studio-ai-prompt" rows="4" placeholder="Example: Write a short summer sales headline for our SUV event" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white resize-none"></textarea>
-        <button onclick="generateStudioAiCopy()" id="studio-ai-generate" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">✦ Generate content</button>
-        <div id="studio-ai-result" class="hidden p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-200 whitespace-pre-wrap"></div>
+      <div class="p-4 space-y-5">
+        <div><h3 class="text-xs font-black uppercase tracking-wider text-sky-400">AI Content</h3><p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Generate images, copy, or a whole template layout — then add it to the canvas.</p></div>
+
+        <div class="space-y-2 pb-4 border-b border-slate-200 dark:border-slate-800">
+          <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Image</h4>
+          <textarea id="studio-ai-image-prompt" rows="3" placeholder="Example: A clean studio shot of a silver SUV on a white background" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white resize-none"></textarea>
+          <button onclick="generateStudioAiImage()" id="studio-ai-image-generate" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">✦ Generate image</button>
+          <div id="studio-ai-image-result" class="hidden"></div>
+        </div>
+
+        <div class="space-y-2 pb-4 border-b border-slate-200 dark:border-slate-800">
+          <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Text</h4>
+          <textarea id="studio-ai-prompt" rows="3" placeholder="Example: Write a short summer sales headline for our SUV event" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white resize-none"></textarea>
+          <button onclick="generateStudioAiCopy()" id="studio-ai-generate" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">✦ Generate content</button>
+          <div id="studio-ai-result" class="hidden p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-200 whitespace-pre-wrap"></div>
+        </div>
+
+        <div class="space-y-2">
+          <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Template</h4>
+          <p class="text-[10px] text-slate-500 dark:text-slate-400 -mt-1">Replaces everything currently on the canvas.</p>
+          <textarea id="studio-ai-template-prompt" rows="3" placeholder="Example: Bold red price-drop banner with room for a headline and a call-to-action button" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white resize-none"></textarea>
+          <button onclick="generateStudioAiTemplate()" id="studio-ai-template-generate" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">✦ Generate template</button>
+        </div>
       </div>
     `;
   } else if (tool === 'brand') {
@@ -983,18 +989,14 @@ function studioSetTextStyle(property, value) {
 }
 
 async function generateStudioAiCopy() {
-  if (!studioHasPaidAi()) {
-    if (typeof openUpgradeModal === 'function') openUpgradeModal('ai_boost');
-    return;
-  }
   const prompt = document.getElementById('studio-ai-prompt')?.value?.trim();
   if (!prompt) { if (typeof showToast === 'function') showToast('Describe the content you want first', 'info'); return; }
   const btn = document.getElementById('studio-ai-generate');
   const result = document.getElementById('studio-ai-result');
   if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
   try {
-    const response = await apiSendJson('/ai/assistant', 'POST', { messages: [{ role: 'user', content: `Create concise marketing copy for a visual design. Follow this request: ${prompt}. Return only the finished copy, without commentary, headings, markdown, or quotation marks.` }] });
-    const copy = String(response?.reply || '').trim();
+    const response = await apiSendJson('/ai/studio-copy', 'POST', { prompt });
+    const copy = String(response?.copy || '').trim();
     if (!copy) throw new Error('No content returned');
     if (result) {
       result.classList.remove('hidden');
@@ -1007,6 +1009,60 @@ async function generateStudioAiCopy() {
     if (btn) { btn.disabled = false; btn.textContent = '✦ Generate content'; }
   }
 }
+
+// Image generation needs a dedicated image-gen provider — the backend returns a
+// clear 503 until one is configured, surfaced here rather than pretending it
+// worked.
+async function generateStudioAiImage() {
+  const prompt = document.getElementById('studio-ai-image-prompt')?.value?.trim();
+  if (!prompt) { if (typeof showToast === 'function') showToast('Describe the image you want first', 'info'); return; }
+  const btn = document.getElementById('studio-ai-image-generate');
+  const result = document.getElementById('studio-ai-image-result');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
+  try {
+    const response = await apiSendJson('/ai/studio-image', 'POST', { prompt });
+    const url = response?.url;
+    if (!url) throw new Error('No image returned');
+    if (result) {
+      result.classList.remove('hidden');
+      result.innerHTML = `<img src="${escS(url)}" alt="${escS(prompt)}" class="w-full rounded-xl border border-slate-200 dark:border-slate-800 mb-2"><button type="button" onclick="addLibraryImageToCanvas('${escS(url)}', 'AI image')" class="w-full py-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold">Add to canvas</button>`;
+    }
+  } catch (error) {
+    if (typeof showToast === 'function') showToast(error.message || 'AI image could not be generated', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✦ Generate image'; }
+  }
+}
+window.generateStudioAiImage = generateStudioAiImage;
+
+// Replaces the whole scene with an AI-generated layout — same load path as
+// picking a template from the library (renderScene), just with a
+// server-generated scene instead of one from STUDIO_TEMPLATES_CATALOG.
+async function generateStudioAiTemplate() {
+  const prompt = document.getElementById('studio-ai-template-prompt')?.value?.trim();
+  if (!prompt) { if (typeof showToast === 'function') showToast('Describe the template you want first', 'info'); return; }
+  const btn = document.getElementById('studio-ai-template-generate');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
+  try {
+    const current = window.__studioAdapter?.currentScene;
+    const formatKey = document.getElementById('studio-format-picker')?.value || current?.format_key || 'square';
+    const size = STUDIO_SOCIAL_FORMATS[formatKey] || { w: current?.width || 1080, h: current?.height || 1080 };
+    const response = await apiSendJson('/ai/studio-template', 'POST', { prompt, format_key: formatKey, width: size.w, height: size.h });
+    const scene = response?.scene;
+    if (!scene) throw new Error('No template returned');
+    if (window.__studioAdapter) await window.__studioAdapter.renderScene(scene);
+    const container = document.getElementById('studio-artboard-container');
+    if (container) { container.style.width = `${scene.width}px`; container.style.height = `${scene.height}px`; }
+    updateStudioSafeGuides(scene.format_key || formatKey);
+    zoomStudioFit();
+    if (typeof showToast === 'function') showToast(`Loaded ${response.name || 'AI template'}`, 'success');
+  } catch (error) {
+    if (typeof showToast === 'function') showToast(error.message || 'AI template could not be generated', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✦ Generate template'; }
+  }
+}
+window.generateStudioAiTemplate = generateStudioAiTemplate;
 
 function studioAddGeneratedCopy() {
   const copy = document.getElementById('studio-ai-result')?.dataset?.copy;
