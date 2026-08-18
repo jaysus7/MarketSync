@@ -6,6 +6,9 @@ import { backendRouteSource } from './helpers/split-source.js'
 const passkeys = readFileSync(new URL('../passkeys.js', import.meta.url), 'utf8')
 const authRoutes = backendRouteSource('auth')  // routes/auth.js + routes/submodules/auth-*.js
 
+const beginLoginFn = passkeys.match(/export async function beginPasskeyLogin[\s\S]*?\n\}/)?.[0] || ''
+const finishLoginFn = passkeys.match(/export async function finishPasskeyLogin[\s\S]*?\n\}/)?.[0] || ''
+
 test('passkey login module and routes agree on the { email } / { body } shape', () => {
   assert.match(passkeys, /export async function beginPasskeyLogin\(\{ email \}\)/)
   assert.match(passkeys, /export async function finishPasskeyLogin\(\{ body \}\)/)
@@ -34,7 +37,26 @@ test('login session mint is bound to the credential OWNER, not the client-suppli
 })
 
 test('the OTP is verified on a throwaway client, never the shared anon client', () => {
-  const fn = passkeys.match(/export async function finishPasskeyLogin[\s\S]*?\n\}/)?.[0] || ''
-  assert.match(fn, /const ephemeral = createClient\([\s\S]*?persistSession: false/)
-  assert.match(fn, /ephemeral\.auth\.verifyOtp/)
+  assert.match(finishLoginFn, /const ephemeral = createClient\([\s\S]*?persistSession: false/)
+  assert.match(finishLoginFn, /ephemeral\.auth\.verifyOtp/)
+})
+
+test('passwordless login REQUIRES user verification (biometric/PIN), not presence-only', () => {
+  // Generation side: the challenge must demand userVerification.
+  assert.match(beginLoginFn, /userVerification: 'required'/)
+  assert.doesNotMatch(beginLoginFn, /userVerification: 'preferred'/)
+  // Verification side: the assertion must be rejected unless UV was performed.
+  assert.match(finishLoginFn, /requireUserVerification: true/)
+  assert.doesNotMatch(finishLoginFn, /requireUserVerification: false/)
+})
+
+test('a replay-counter persistence failure prevents session minting (fail closed)', () => {
+  // The counter update error is captured and thrown...
+  assert.match(finishLoginFn, /const \{ error: counterErr \}[\s\S]*?\.update\(\{ counter:/)
+  assert.match(finishLoginFn, /if \(counterErr\) throw new Error/)
+  // ...and that throw happens BEFORE any session is minted.
+  const counterGuardAt = finishLoginFn.indexOf('if (counterErr) throw')
+  const mintAt = finishLoginFn.indexOf('generateLink(')
+  assert.ok(counterGuardAt !== -1 && mintAt !== -1, 'both the counter guard and the mint must be present')
+  assert.ok(counterGuardAt < mintAt, 'the counter-persistence guard must run before the session mint')
 })

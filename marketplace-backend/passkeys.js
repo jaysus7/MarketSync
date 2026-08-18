@@ -156,7 +156,10 @@ export async function beginPasskeyLogin({ email }) {
   const options = await generateAuthenticationOptions({
     rpID: RP_ID,
     timeout: 60000,
-    userVerification: 'preferred',
+    // Passwordless login: the passkey replaces the password, so REQUIRE user
+    // verification (biometric / PIN) — a presence-only security key tap must not
+    // authenticate on its own.
+    userVerification: 'required',
     allowCredentials: allowCredentials.length > 0 ? allowCredentials : undefined
   })
 
@@ -192,18 +195,22 @@ export async function finishPasskeyLogin({ body }) {
         counter: cred.counter,
         transports: cred.transports || undefined
       },
-      requireUserVerification: false
+      // Login is passwordless, so the biometric/PIN gesture is mandatory.
+      requireUserVerification: true
     })
   } catch (e) {
     throw new Error(`Verification failed: ${e.message}`)
   }
   if (!verification.verified) throw new Error('Passkey verification failed.')
 
-  // Bump the counter to prevent replay
-  await supabaseAdmin
+  // Bump the counter to prevent replay. FAIL CLOSED: if we can't persist the new
+  // counter, a replayed assertion would still verify next time — so throw before
+  // minting a session rather than issuing one on an un-recorded counter.
+  const { error: counterErr } = await supabaseAdmin
     .from('webauthn_credentials')
     .update({ counter: verification.authenticationInfo.newCounter, last_used_at: new Date().toISOString() })
     .eq('id', cred.id)
+  if (counterErr) throw new Error('Could not complete sign-in — please try again.')
 
   // Mint a real Supabase session for the credential's OWNER — the authoritative
   // email from the account, never the client-supplied one. Server-side passwordless
