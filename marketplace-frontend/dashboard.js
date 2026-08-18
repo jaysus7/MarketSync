@@ -801,8 +801,11 @@ const PRODUCT_PAGES = {
   // it. 'profile' is its only page so Settings (My Account etc.) is reachable once the
   // editor is closed.
   design_studio:      ['profile'],
-  marketsync_video:   ['video-studio', 'leaderboard', 'sales-team'],
-  video:              ['video-studio', 'leaderboard', 'sales-team'],
+  // Staff management for Video lives inside Settings → My Account (the same
+  // dealer-view-panel Administration folds into its Team card for full DealerOS),
+  // not as its own nav page — 'sales-team' is deliberately absent here.
+  marketsync_video:   ['video-studio', 'leaderboard'],
+  video:              ['video-studio', 'leaderboard'],
   marketsync_website: ['website'],
   website:            ['website'],
   marketsync_social:  ['marketing-overview'],

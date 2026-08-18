@@ -135,6 +135,19 @@ function settingsTab(tab) {
     // hidden entirely for single-product tiers, so this is its only way to reach it).
     if (Array.isArray(SETTINGS_TAB_SECTIONS.account) && SETTINGS_TAB_SECTIONS.account.includes('settings-team')) {
       loadSettingsTeam(document.getElementById('team-picker')?.value || 'sales');
+      // Video has no separate "Staff" nav page — its real staff management (Invite
+      // Rep/Manager, role table) folds into this SAME Team card instead, exactly
+      // like Administration folds it in for full DealerOS below (nodes are moved,
+      // not cloned, so IDs keep working).
+      if (typeof isVideoOnlyWorkspace === 'function' && isVideoOnlyWorkspace()) {
+        const host = document.getElementById('settings-team');
+        const dv = document.getElementById('dealer-view-panel');
+        const lr = document.getElementById('lead-routing-card');
+        const isAdminNow = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'DEALER_GROUP'].includes(profileContext?.role);
+        if (host && dv && isAdminNow) { dv.classList.remove('hidden'); if (dv.parentElement !== host) host.appendChild(dv); }
+        if (host && lr && isAdminNow && lr.parentElement !== host) host.appendChild(lr);
+        if (isAdminNow && typeof loadDealerManagementMatrix === 'function') loadDealerManagementMatrix();
+      }
     }
   }
   // Administration bundles team, billing, integrations, group, features + texting.

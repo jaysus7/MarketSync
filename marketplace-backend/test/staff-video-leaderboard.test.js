@@ -26,9 +26,23 @@ test('the nav/page label reads "Staff", not "Sales Reps" / "Sales Team"', () => 
   assert.match(part14, /title\.textContent = isFacebookTeam \? 'Staff' : 'Users & Team';/)
 })
 
-test('Video is entitled to the Staff page and the Leaderboard, not just Video Studio', () => {
-  assert.match(dashboardJs, /marketsync_video:\s*\['video-studio', 'leaderboard', 'sales-team'\],/)
-  assert.match(dashboardJs, /\n\s*video:\s*\['video-studio', 'leaderboard', 'sales-team'\],/)
+test('Video is entitled to the Leaderboard but NOT a standalone Staff nav page — staff management lives in Settings instead', () => {
+  assert.match(dashboardJs, /marketsync_video:\s*\['video-studio', 'leaderboard'\],/)
+  assert.match(dashboardJs, /\n\s*video:\s*\['video-studio', 'leaderboard'\],/)
+})
+
+test('Video folds real staff management (Invite Rep/Manager, role table) into the Settings → My Account Team card, the same way Administration folds it in for full DealerOS', () => {
+  const part8 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part8.js', import.meta.url), 'utf8')
+  const accountBlock = part8.match(/if \(tab === 'account'\) \{[\s\S]*?\n {2}\}/)?.[0] || ''
+  assert.ok(accountBlock, 'the account-tab branch of settingsTab must exist')
+  assert.match(accountBlock, /isVideoOnlyWorkspace === 'function' && isVideoOnlyWorkspace\(\)/)
+  assert.match(accountBlock, /getElementById\('settings-team'\)/)
+  assert.match(accountBlock, /getElementById\('dealer-view-panel'\)/)
+  // Nodes must be moved (appendChild), not cloned or duplicated, so ids/handlers keep working.
+  assert.match(accountBlock, /host\.appendChild\(dv\)/)
+  assert.match(accountBlock, /loadDealerManagementMatrix\(\)/)
+  // Group Admin must reach it too, not just Dealer Admin/Owner/Manager.
+  assert.match(accountBlock, /'DEALER_GROUP'/)
 })
 
 test('the backend /gamification endpoint computes a real Sales Video department from sales_videos', () => {
