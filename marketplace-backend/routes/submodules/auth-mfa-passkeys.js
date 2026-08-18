@@ -273,7 +273,7 @@ export function registerAuthMfaPasskeyRoutes(app) {
 
   app.post('/auth/passkey/register/begin', requireAuth, rateLimit('passkey-reg-begin', 10, 60 * 60 * 1000), async (req, res) => {
     try {
-      const options = await beginPasskeyRegistration({ user: req.user, userAgent: req.headers['user-agent'] })
+      const options = await beginPasskeyRegistration({ user: req.user, userAgent: req.headers['user-agent'], reqOrigin: req.headers.origin })
       res.json(options)
     } catch (err) {
       res.status(500).json({ error: err.message })
@@ -282,7 +282,7 @@ export function registerAuthMfaPasskeyRoutes(app) {
 
   app.post('/auth/passkey/register/finish', requireAuth, rateLimit('passkey-reg-finish', 10, 60 * 60 * 1000), async (req, res) => {
     try {
-      const result = await finishPasskeyRegistration({ user: req.user, body: req.body || {} })
+      const result = await finishPasskeyRegistration({ user: req.user, body: req.body || {}, reqOrigin: req.headers.origin })
       audit(req, AuditAction.PASSKEY_REGISTERED, { credential_id: result.passkey?.credential_id || null })
       res.json(result)
     } catch (err) {
@@ -293,7 +293,7 @@ export function registerAuthMfaPasskeyRoutes(app) {
   app.post('/auth/passkey/login/begin', rateLimit('passkey-login-begin', 20, 60 * 60 * 1000), async (req, res) => {
     try {
       const email = String(req.body?.email || '').trim().toLowerCase()
-      const options = await beginPasskeyLogin({ email })
+      const options = await beginPasskeyLogin({ email, reqOrigin: req.headers.origin })
       res.json(options)
     } catch (err) {
       res.status(500).json({ error: err.message })
@@ -302,7 +302,7 @@ export function registerAuthMfaPasskeyRoutes(app) {
 
   app.post('/auth/passkey/login/finish', rateLimit('passkey-login-finish', 20, 60 * 60 * 1000), async (req, res) => {
     try {
-      const result = await finishPasskeyLogin({ body: req.body || {}, ip: getClientIp(req), userAgent: req.headers['user-agent'] })
+      const result = await finishPasskeyLogin({ body: req.body || {}, ip: getClientIp(req), userAgent: req.headers['user-agent'], reqOrigin: req.headers.origin })
       if (result.ok && (result.userId || result.user?.id)) {
         const uid = result.userId || result.user?.id
         result.trusted_device_token = createTrustedDeviceToken(uid)
@@ -318,7 +318,7 @@ export function registerAuthMfaPasskeyRoutes(app) {
   // session, it is not a login.
   app.post('/auth/passkey/stepup/begin', requireAuth, rateLimit('passkey-stepup-begin', 20, 60 * 60 * 1000), async (req, res) => {
     try {
-      const result = await beginPasskeyStepUp({ supabaseAdmin, userId: req.user.id })
+      const result = await beginPasskeyStepUp({ supabaseAdmin, userId: req.user.id, reqOrigin: req.headers.origin })
       if (!result.ok) return res.status(result.error === 'NO_PASSKEY' ? 409 : 400).json({ error: result.error })
       res.json(result.options)
     } catch (err) {
@@ -328,7 +328,7 @@ export function registerAuthMfaPasskeyRoutes(app) {
 
   app.post('/auth/passkey/stepup/finish', requireAuth, rateLimit('passkey-stepup-finish', 20, 60 * 60 * 1000), async (req, res) => {
     try {
-      const result = await finishPasskeyStepUp({ supabaseAdmin, userId: req.user.id, response: req.body?.response || req.body || {} })
+      const result = await finishPasskeyStepUp({ supabaseAdmin, userId: req.user.id, response: req.body?.response || req.body || {}, reqOrigin: req.headers.origin })
       if (!result.ok) {
         audit(req, AuditAction.MFA_CHALLENGE_FAILED, { method: 'passkey_stepup' })
         return res.status(400).json({ error: result.error })

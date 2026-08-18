@@ -10,9 +10,9 @@ const beginLoginFn = passkeys.match(/export async function beginPasskeyLogin[\s\
 const finishLoginFn = passkeys.match(/export async function finishPasskeyLogin[\s\S]*?\n\}/)?.[0] || ''
 
 test('passkey login module and routes agree on the { email } / { body } shape', () => {
-  assert.match(passkeys, /export async function beginPasskeyLogin\(\{ email \}\)/)
-  assert.match(passkeys, /export async function finishPasskeyLogin\(\{ body \}\)/)
-  assert.match(authRoutes, /beginPasskeyLogin\(\{ email \}\)/)
+  assert.match(passkeys, /export async function beginPasskeyLogin\(\{ email, reqOrigin \}\)/)
+  assert.match(passkeys, /export async function finishPasskeyLogin\(\{ body, reqOrigin \}\)/)
+  assert.match(authRoutes, /beginPasskeyLogin\(\{ email,/)
   assert.match(authRoutes, /finishPasskeyLogin\(\{ body: req\.body/)
 })
 
