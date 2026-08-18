@@ -10,8 +10,8 @@ const authRoutes = backendRouteSource('auth')
 
 test('passkey registration module and routes agree on the { user } / { user, body } shape', () => {
   // Module side — the signatures the routes actually call.
-  assert.match(passkeys, /export async function beginPasskeyRegistration\(\{ user \}\)/)
-  assert.match(passkeys, /export async function finishPasskeyRegistration\(\{ user, body \}\)/)
+  assert.match(passkeys, /export async function beginPasskeyRegistration\(\{ user, reqOrigin \}\)/)
+  assert.match(passkeys, /export async function finishPasskeyRegistration\(\{ user, body, reqOrigin \}\)/)
   // Route side.
   assert.match(authRoutes, /beginPasskeyRegistration\(\{ user: req\.user/)
   assert.match(authRoutes, /finishPasskeyRegistration\(\{ user: req\.user, body:/)

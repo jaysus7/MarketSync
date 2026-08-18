@@ -29,6 +29,27 @@ const RP_NAME = 'MarketSync'
 const RP_ID = process.env.WEBAUTHN_RP_ID || 'marketsync.link'  // domain only, no protocol
 const ORIGIN = process.env.WEBAUTHN_ORIGIN || 'https://marketsync.link'
 
+// Resolve the WebAuthn RP ID + expected origin for THIS request. A passkey is
+// scoped to the domain the dashboard is served from, and that differs per
+// environment (prod marketsync.link, staging *.onrender.com, …). The browser
+// stamps a trustworthy Origin header on every fetch (page JS cannot forge it),
+// so we derive rpID + origin from it — no per-environment env var required, and
+// registration can't blow up with "RP ID … is invalid for this domain" on a new
+// host. Precedence: an explicitly-configured WEBAUTHN_RP_ID + WEBAUTHN_ORIGIN pin
+// it (both must be set) and win; otherwise the request origin; otherwise the
+// marketsync.link defaults (only reached when there is no Origin header, e.g. a
+// non-browser client). begin/finish for the same flow run against the same
+// browser origin, so the challenge's rpID/origin always match at verification.
+export function rpFrom(reqOrigin) {
+  if (process.env.WEBAUTHN_RP_ID && process.env.WEBAUTHN_ORIGIN) {
+    return { rpID: process.env.WEBAUTHN_RP_ID, origin: process.env.WEBAUTHN_ORIGIN }
+  }
+  try {
+    if (reqOrigin) { const u = new URL(reqOrigin); return { rpID: u.hostname, origin: u.origin } }
+  } catch {}
+  return { rpID: RP_ID, origin: ORIGIN }
+}
+
 // In-memory challenge cache (challenges expire in 5 min, so memory is fine for
 // single-node deploys). Key: userId — value: { challenge, expiresAt }
 const challengeCache = new Map()
@@ -52,9 +73,10 @@ setInterval(() => {
 // ──────────────────────────────────────────────────────────────────────────────
 // REGISTRATION (called while user is already signed in)
 // ──────────────────────────────────────────────────────────────────────────────
-export async function beginPasskeyRegistration({ user }) {
+export async function beginPasskeyRegistration({ user, reqOrigin }) {
   const userId = user?.id
   const userEmail = user?.email || ''
+  const { rpID } = rpFrom(reqOrigin)
   // Fetch any existing passkeys so we don't register the same authenticator twice
   const { data: existing } = await supabaseAdmin
     .from('webauthn_credentials')
@@ -68,7 +90,7 @@ export async function beginPasskeyRegistration({ user }) {
 
   const options = await generateRegistrationOptions({
     rpName: RP_NAME,
-    rpID: RP_ID,
+    rpID,
     userID: new TextEncoder().encode(userId),
     userName: userEmail,
     userDisplayName: userEmail,
@@ -86,9 +108,10 @@ export async function beginPasskeyRegistration({ user }) {
   return options
 }
 
-export async function finishPasskeyRegistration({ user, body }) {
+export async function finishPasskeyRegistration({ user, body, reqOrigin }) {
   const userId = user?.id
   const { response, device_name: deviceName } = body || {}
+  const { rpID, origin } = rpFrom(reqOrigin)
   const expectedChallenge = takeChallenge(`reg:${userId}`)
   // The route sends whatever this throws straight back as a 400, and the browser
   // only trusts the HTTP status — so failures MUST throw, never resolve.
@@ -99,8 +122,8 @@ export async function finishPasskeyRegistration({ user, body }) {
     verification = await verifyRegistrationResponse({
       response,
       expectedChallenge,
-      expectedOrigin: ORIGIN,
-      expectedRPID: RP_ID,
+      expectedOrigin: origin,
+      expectedRPID: rpID,
       requireUserVerification: false
     })
   } catch (e) {
@@ -129,8 +152,9 @@ export async function finishPasskeyRegistration({ user, body }) {
 // ──────────────────────────────────────────────────────────────────────────────
 // AUTHENTICATION (called at login, BEFORE password — passkey IS the password)
 // ──────────────────────────────────────────────────────────────────────────────
-export async function beginPasskeyLogin({ email }) {
+export async function beginPasskeyLogin({ email, reqOrigin }) {
   const key = (email || '').toLowerCase()
+  const { rpID } = rpFrom(reqOrigin)
   let allowCredentials = []
 
   if (key) {
@@ -154,7 +178,7 @@ export async function beginPasskeyLogin({ email }) {
   }
 
   const options = await generateAuthenticationOptions({
-    rpID: RP_ID,
+    rpID,
     timeout: 60000,
     // Passwordless login: the passkey replaces the password, so REQUIRE user
     // verification (biometric / PIN) — a presence-only security key tap must not
@@ -167,8 +191,9 @@ export async function beginPasskeyLogin({ email }) {
   return options
 }
 
-export async function finishPasskeyLogin({ body }) {
+export async function finishPasskeyLogin({ body, reqOrigin }) {
   const { email, response } = body || {}
+  const { rpID, origin } = rpFrom(reqOrigin)
   const cached = takeChallenge(`auth:${(email || '').toLowerCase()}`)
   // Failures MUST throw — the route relays the message as a 400 and the browser
   // only trusts the HTTP status.
@@ -187,8 +212,8 @@ export async function finishPasskeyLogin({ body }) {
     verification = await verifyAuthenticationResponse({
       response,
       expectedChallenge: cached.challenge,
-      expectedOrigin: ORIGIN,
-      expectedRPID: RP_ID,
+      expectedOrigin: origin,
+      expectedRPID: rpID,
       credential: {
         id: credentialId,
         publicKey: new Uint8Array(Buffer.from(cred.public_key, 'base64')),
@@ -268,7 +293,8 @@ export async function deletePasskey({ supabaseAdmin, userId, passkeyId }) {
 // of a TOTP code). userVerification is REQUIRED here: the whole point is that the
 // device confirms the human, which is what makes a passkey MFA-grade.
 // ──────────────────────────────────────────────────────────────────────────────
-export async function beginPasskeyStepUp({ supabaseAdmin, userId }) {
+export async function beginPasskeyStepUp({ supabaseAdmin, userId, reqOrigin }) {
+  const { rpID } = rpFrom(reqOrigin)
   const { data: creds } = await supabaseAdmin
     .from('webauthn_credentials')
     .select('credential_id, transports')
@@ -280,7 +306,7 @@ export async function beginPasskeyStepUp({ supabaseAdmin, userId }) {
   if (!allowCredentials.length) return { ok: false, error: 'NO_PASSKEY' }
 
   const options = await generateAuthenticationOptions({
-    rpID: RP_ID,
+    rpID,
     timeout: 60000,
     userVerification: 'required',
     allowCredentials
@@ -289,7 +315,8 @@ export async function beginPasskeyStepUp({ supabaseAdmin, userId }) {
   return { ok: true, options }
 }
 
-export async function finishPasskeyStepUp({ supabaseAdmin, userId, response }) {
+export async function finishPasskeyStepUp({ supabaseAdmin, userId, response, reqOrigin }) {
+  const { rpID, origin } = rpFrom(reqOrigin)
   const expectedChallenge = takeChallenge(`stepup:${userId}`)
   if (!expectedChallenge) return { ok: false, error: 'Step-up challenge expired — please try again.' }
 
@@ -309,8 +336,8 @@ export async function finishPasskeyStepUp({ supabaseAdmin, userId, response }) {
     verification = await verifyAuthenticationResponse({
       response,
       expectedChallenge,
-      expectedOrigin: ORIGIN,
-      expectedRPID: RP_ID,
+      expectedOrigin: origin,
+      expectedRPID: rpID,
       credential: {
         id: credentialId,
         publicKey: new Uint8Array(Buffer.from(cred.public_key, 'base64')),
