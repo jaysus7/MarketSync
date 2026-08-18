@@ -820,20 +820,30 @@ async function initializeDashboardEcosystem() {
         SETTINGS_TAB_SECTIONS.account.push('billing-section');
       }
       const fbOnly = typeof isFacebookOnlyWorkspace === 'function' && isFacebookOnlyWorkspace();
+      // Facebook Dealer is the one single-product tier that's a real dealership
+      // team, not a single-user tool subscriber — computed once here, reused below
+      // for both the folded-in Team roster and the Team Chat dock toggle.
+      const isFbDealer = /(?:^|\s)facebook_dealer(?:\s|$)/.test(document.documentElement.getAttribute('data-product') || '');
       // Facebook Solo/Dealer additionally fold in Facebook Posting Safety — the
       // one other dealer-admin setting this tier actually uses.
       if (fbOnly && Array.isArray(SETTINGS_TAB_SECTIONS?.account) && !SETTINGS_TAB_SECTIONS.account.includes('guardrail-settings-section')) {
         SETTINGS_TAB_SECTIONS.account.push('guardrail-settings-section');
         document.getElementById('guardrail-settings-section')?.classList.remove('hidden');
       }
+      // Facebook Dealer also folds in the Team roster (Sales/Management/etc. picker
+      // + Edit/Insights modal) — Administration is hidden entirely for single-product
+      // tiers, so My Account is the only place this reaches its reps at all.
+      if (isFbDealer && Array.isArray(SETTINGS_TAB_SECTIONS?.account) && !SETTINGS_TAB_SECTIONS.account.includes('settings-team')) {
+        SETTINGS_TAB_SECTIONS.account.push('settings-team');
+      }
       __settingsTab = 'account';
       if (typeof settingsTab === 'function') settingsTab('account');
-      // Every single-product tier EXCEPT Facebook drops the employment-record
-      // card — Design Studio / AI ChatBot / Video / Website / Social / Email
-      // customers are single-user tool subscribers with no employer, while a
-      // Facebook Dealer account IS a real dealership sales rep. This needs BOTH
-      // an immediate direct hide AND removing the id from the tracked list —
-      // neither alone is enough:
+      // Every single-product tier drops the employment-record card — it renders
+      // from GET /hr/me, which 404s for every one of these accounts (they're
+      // created through product signup, not the full HR onboarding flow that
+      // creates a staff_members row), so the card just sat there permanently
+      // showing "Loading your record…". This needs BOTH an immediate direct hide
+      // AND removing the id from the tracked list — neither alone is enough:
       //   - Direct hide only: applyProductNav() above already triggered one
       //     settingsTab('account') call (via its own switchPage('profile')) using
       //     the unmodified section list, un-hiding the card — a hide here catches
@@ -852,11 +862,9 @@ async function initializeDashboardEcosystem() {
       // while stuck visible it was forcing itself onto its own grid row and
       // pushing everything after it onto rows of their own, wasting the rest of
       // each row's space.
-      if (!fbOnly) {
-        document.getElementById('settings-my-record')?.classList.add('stab-hide');
-        if (Array.isArray(SETTINGS_TAB_SECTIONS?.account)) {
-          SETTINGS_TAB_SECTIONS.account = SETTINGS_TAB_SECTIONS.account.filter(id => id !== 'settings-my-record');
-        }
+      document.getElementById('settings-my-record')?.classList.add('stab-hide');
+      if (Array.isArray(SETTINGS_TAB_SECTIONS?.account)) {
+        SETTINGS_TAB_SECTIONS.account = SETTINGS_TAB_SECTIONS.account.filter(id => id !== 'settings-my-record');
       }
       forceCompactSettingsGrid();
       // Every single-product dashboard is one tool, not a department suite — the
@@ -867,11 +875,8 @@ async function initializeDashboardEcosystem() {
       document.getElementById('ai-dock-btn')?.classList.add('hidden');
       document.getElementById('ai-dock-panel')?.classList.add('hidden');
       document.getElementById('setup-status-banner')?.classList.add('hidden');
-      // Facebook Dealer is the one single-product tier that's a real dealership
-      // team, not a single-user tool subscriber — its reps still need Team Chat to
-      // coordinate with each other. Every other tier (including Facebook Solo,
-      // a lone independent rep) gets it hidden like the rest.
-      const isFbDealer = /(?:^|\s)facebook_dealer(?:\s|$)/.test(document.documentElement.getAttribute('data-product') || '');
+      // Its reps still need Team Chat to coordinate with each other. Every other
+      // tier (including Facebook Solo, a lone independent rep) gets it hidden.
       document.getElementById('team-chat-dock-panel')?.classList.toggle('hidden', !isFbDealer);
     }
 
