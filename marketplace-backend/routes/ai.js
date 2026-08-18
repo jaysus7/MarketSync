@@ -27,6 +27,7 @@ import { registerAiAppraisalRoutes } from './submodules/ai-appraisal.js'
 import { registerAiAppraisalManagementRoutes } from './submodules/ai-appraisal-management.js'
 import { registerAiAssistantChatRoutes } from './submodules/ai-assistant-chat.js'
 import { registerAiReportsCronRoutes } from './submodules/ai-reports-cron.js'
+import { registerAiDesignStudioRoutes } from './submodules/ai-design-studio.js'
 import { SMART_MODEL } from '../aiModels.js'
 import { normalizeCommissionImport, commissionImportSummary } from '../commission-plan-import.js'
 
@@ -153,6 +154,7 @@ export function registerAI(app) {
   registerAiAppraisalManagementRoutes(app)
   registerAiAssistantChatRoutes(app)
   registerAiReportsCronRoutes(app)
+  registerAiDesignStudioRoutes(app)
   // GET /ai/config — returns dealership's AI config
   app.get('/ai/config', requireAuth, requireMfa, requirePermission('settings.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
