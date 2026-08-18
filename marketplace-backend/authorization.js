@@ -34,6 +34,15 @@ async function permissionLookup(req, permission) {
   ) {
     return { allowed: true, error: null }
   }
+  // A solo/independent rep's "dealership" is a personal, one-person record with no
+  // admin above them to grant permissions on their behalf — provisioning still signs
+  // them up with a plain SALES_REP profile role and the 'salesperson' RBAC role
+  // (which only grants inventory.view), so without this they could never sync their
+  // own Facebook feeds or manage their own inventory. Mirrors the frontend's isSolo
+  // check (role === 'SALES_REP' && dealership.is_personal).
+  if (role === 'SALES_REP' && req.profile?.dealerships?.is_personal === true) {
+    return { allowed: true, error: null }
+  }
 
   // `user_roles` and `role_permissions` both reference `roles`, but do not
   // directly reference one another. Querying them as an embedded PostgREST
