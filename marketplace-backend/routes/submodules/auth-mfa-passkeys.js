@@ -7,7 +7,8 @@ import { createMfaLoginChallenge, consumeMfaLoginChallenge, getMfaLoginChallenge
 import {
   beginPasskeyRegistration, finishPasskeyRegistration,
   beginPasskeyLogin, finishPasskeyLogin,
-  listUserPasskeys, deletePasskey
+  listUserPasskeys, deletePasskey,
+  beginPasskeyStepUp, finishPasskeyStepUp
 } from '../../passkeys.js'
 
 function maskPhone(phone) {
@@ -307,6 +308,33 @@ export function registerAuthMfaPasskeyRoutes(app) {
         result.trusted_device_token = createTrustedDeviceToken(uid)
       }
       res.json(result)
+    } catch (err) {
+      res.status(400).json({ error: err.message })
+    }
+  })
+
+  // ── Step-up: satisfy the MFA gate with a biometric passkey instead of a TOTP
+  // code. Both require an authenticated session (requireAuth) — this promotes THAT
+  // session, it is not a login.
+  app.post('/auth/passkey/stepup/begin', requireAuth, rateLimit('passkey-stepup-begin', 20, 60 * 60 * 1000), async (req, res) => {
+    try {
+      const result = await beginPasskeyStepUp({ supabaseAdmin, userId: req.user.id })
+      if (!result.ok) return res.status(result.error === 'NO_PASSKEY' ? 409 : 400).json({ error: result.error })
+      res.json(result.options)
+    } catch (err) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  app.post('/auth/passkey/stepup/finish', requireAuth, rateLimit('passkey-stepup-finish', 20, 60 * 60 * 1000), async (req, res) => {
+    try {
+      const result = await finishPasskeyStepUp({ supabaseAdmin, userId: req.user.id, response: req.body?.response || req.body || {} })
+      if (!result.ok) {
+        audit(req, AuditAction.MFA_CHALLENGE_FAILED, { method: 'passkey_stepup' })
+        return res.status(400).json({ error: result.error })
+      }
+      audit(req, AuditAction.MFA_CHALLENGE_PASSED, { method: 'passkey_stepup' })
+      res.json({ ok: true })
     } catch (err) {
       res.status(400).json({ error: err.message })
     }

@@ -81,10 +81,40 @@ async function loadStudioSchedulerPosts() {
 
 function studioSchedulerMfaNotice() {
   return `<div class="text-[12px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-2">
-    <b>Complete multi-factor authentication to schedule posts.</b> Posting to your connected accounts needs step-up verification for this session.
-    <button onclick="this.closest('.fixed').remove(); if (typeof switchPage === 'function') { switchPage('profile'); settingsTab('account'); }" class="block mt-1.5 font-bold text-amber-800 dark:text-amber-200 underline">Go verify in Settings →</button>
+    <b>Verify it's you to schedule posts.</b> Posting to your connected accounts needs a quick step-up for this session.
+    <div class="flex flex-wrap items-center gap-3 mt-2">
+      <button id="studio-sched-passkey-btn" onclick="studioSchedulerVerifyPasskey()" class="inline-flex items-center gap-1.5 font-bold text-white bg-amber-600 hover:bg-amber-500 rounded-lg px-3 py-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 11c0 3.5-1 6-1 6m-4-8a5 5 0 019-3m-9 7c-.5-1-.5-2-.5-3a5.5 5.5 0 0111 0c0 2 0 4 .5 5M9 13a3 3 0 016 0c0 1.5 0 3 .5 4.5"/></svg>
+        Verify with Face ID / fingerprint
+      </button>
+      <button onclick="if (typeof switchPage === 'function') { switchPage('profile'); if (typeof settingsTab === 'function') settingsTab('account'); }" class="font-bold text-amber-800 dark:text-amber-200 underline">Use a code instead</button>
+    </div>
   </div>`;
 }
+
+// Biometric step-up straight from the scheduler notice: verify with the device
+// passkey, then re-load posts (the /social/* calls now clear the gate for the
+// session). Falls back to Settings if there's no passkey to use yet.
+async function studioSchedulerVerifyPasskey() {
+  const btn = document.getElementById('studio-sched-passkey-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; }
+  const res = (typeof window.msPasskeyStepUp === 'function')
+    ? await window.msPasskeyStepUp()
+    : { ok: false, error: 'Passkey verification is unavailable — use a code instead.' };
+  if (res.ok) {
+    __studioSchedulerMfaRequired = false;
+    await loadStudioSchedulerPosts();
+    return;
+  }
+  if (res.reason === 'no_passkey' && typeof switchPage === 'function') {
+    if (typeof showToast === 'function') showToast(res.error, 'info', 6000);
+    switchPage('profile'); if (typeof settingsTab === 'function') settingsTab('account');
+    return;
+  }
+  if (res.reason !== 'cancelled' && typeof showToast === 'function') showToast(res.error || 'Verification failed.', 'error');
+  renderStudioSchedulerList();   // re-draw the notice (resets the button)
+}
+window.studioSchedulerVerifyPasskey = studioSchedulerVerifyPasskey;
 
 function renderStudioSchedulerList() {
   const body = document.getElementById('studio-sched-body');
