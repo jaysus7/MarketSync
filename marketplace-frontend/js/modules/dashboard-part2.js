@@ -1439,13 +1439,13 @@ function renderDeptNav(role) {
   const navRoot = document.getElementById('nav-desktop');
   if (!navRoot) return;
   const ctx = typeof resolveWorkspaceContext === 'function' ? resolveWorkspaceContext() : { type: 'dealer_os', product: 'dealer_os' };
-  if (ctx.type === 'website') {
-    navRoot.classList.remove('dept-mode');
-    document.getElementById('dept-nav')?.remove();
-    document.getElementById('sidebar-nav')?.classList.add('hidden');
-    __deptNavBuilt = false;
-    return;
-  }
+  // NOTE: the Website product used to bail out here and tear the sidebar down, which
+  // left a website-only account (and the Website demo) with a completely empty left nav.
+  // Its real sidebar is the flat Builder / Blog / SEO / Setup list from restrictedNavPages()
+  // (deptNavEligible() returns false for a website workspace, so registry is null and we
+  // render that flat list below). While inside the full-screen builder the whole
+  // #dashboard-nav is hidden by the .website-workspace-mode CSS, so this nav only shows on
+  // Settings and the other non-workspace pages — exactly where the operator needs it.
   // Owner in the SaaS back office → the SaaS departments; a dealer manager in full
   // DealerOS → the dealership departments; anyone else → the legacy nav.
   const registry = marketsyncOwnerMode() ? SAAS_DEPARTMENTS : (deptNavEligible(role) ? DEPARTMENTS : null);
