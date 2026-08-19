@@ -254,6 +254,22 @@ export function registerSocial(app) {
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
+  // Disconnect a social account
+  app.delete('/social/accounts/:id', requireAuth, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    const mine = await canActOnAccount(req, req.params.id, 'publish')
+    if (!mine.allowed) return res.status(403).json({ error: `You cannot change access you do not have. ${mine.reason}` })
+    try {
+      const { error } = await supabaseAdmin.from('social_accounts')
+        .delete()
+        .eq('dealership_id', req.dealershipId)
+        .eq('id', req.params.id)
+      if (error) return res.status(500).json({ error: error.message })
+      audit(req, 'social.account_disconnected', { before_state: { id: req.params.id } })
+      res.json({ ok: true })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
   // Grant one account to one user. Granting is itself an authorized act: you may only give
   // away access you hold.
   app.post('/social/accounts/:id/grants', requireAuth, canEdit, async (req, res) => {

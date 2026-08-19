@@ -136,6 +136,17 @@ export function requireFeature(featureId) {
     } catch { return res.status(500).json({ error: 'Access check failed' }) }
   }
 }
+export function requireAnyFeature(...featureIds) {
+  return async (req, res, next) => {
+    try {
+      const ctx = await getCurrentAccessContext(req)
+      for (const featureId of featureIds) {
+        if (hasFeature(ctx, featureId)) return next()
+      }
+      return res.status(403).json({ error: 'FEATURE_ACCESS_REQUIRED', feature: featureIds[0] })
+    } catch { return res.status(500).json({ error: 'Access check failed' }) }
+  }
+}
 
 // Convenience wrappers that resolve the context first, so callers can `await hasFeatureReq(req, 'os.crm')`
 // without threading the context manually.

@@ -1331,6 +1331,9 @@ function restrictedNavPages() {
     // and never needs to fight Settings for the highlighted state.
     return [{ page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true }];
   }
+  if (activeProducts.length === 1 && /(marketsync_email|email_marketing)/.test(product)) {
+    return [META['email-marketing']];
+  }
 
   // Fallback for any other restricted product set (keeps generic behavior).
   // 'sales-team' is deliberately absent — no restricted tier gets it as a nav

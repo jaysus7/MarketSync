@@ -226,7 +226,7 @@ export const PLAN_CATALOG = Object.freeze({
   'campaigns-email-sms': {
     id: 'campaigns-email-sms', label: 'Campaigns — Email + SMS', product_primary: 'marketsync_email',
     products: ['marketsync_email'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 199, tier: 0,
+    monthly: 129, tier: 0,
     priceEnvCad: 'STRIPE_PRICE_CAMPAIGNS_CAD', priceEnvUsd: 'STRIPE_PRICE_CAMPAIGNS_USD',
     features: [...FEATURES_BY_PRODUCT.marketsync_email],
     legacy: { ...legacyFlags({}), products: { marketsync_email: true, campaigns: true } },

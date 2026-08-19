@@ -16,9 +16,6 @@ let __studioSchedulerPosts = [];
 let __studioSchedulerAccounts = [];
 let __studioSchedulerView = 'list';   // 'list' | 'calendar'
 let __studioSchedulerCalMonth = new Date();
-// Every /social/* route requires step-up MFA (posting to a dealership's own social
-// accounts is sensitive enough to warrant it) — set once a load hits it, so the UI
-// can tell "you truly have zero accounts" apart from "we couldn't check".
 let __studioSchedulerMfaRequired = false;
 
 async function openStudioScheduler() {
@@ -44,99 +41,78 @@ async function openStudioScheduler() {
 }
 window.openStudioScheduler = openStudioScheduler;
 
-function studioSchedulerSetView(view) {
-  __studioSchedulerView = view;
-  studioSchedulerPaintViewToggle();
-  renderStudioSchedulerList();
-}
-window.studioSchedulerSetView = studioSchedulerSetView;
-
 function studioSchedulerPaintViewToggle() {
-  const on = 'bg-indigo-600 text-white';
-  const off = 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800';
-  const list = document.getElementById('studio-sched-view-list');
-  const cal = document.getElementById('studio-sched-view-cal');
-  if (list) { list.textContent = 'List'; list.className = `text-xs font-bold px-2.5 py-1 rounded-lg transition ${__studioSchedulerView === 'list' ? on : off}`; }
-  if (cal) { cal.textContent = 'Calendar'; cal.className = `text-xs font-bold px-2.5 py-1 rounded-lg transition ${__studioSchedulerView === 'calendar' ? on : off}`; }
-}
-
-async function loadStudioSchedulerPosts() {
-  const body = document.getElementById('studio-sched-body');
-  if (!body) return;
-  __studioSchedulerMfaRequired = false;
-  const isMfaError = (e) => e?.message === 'MFA_REQUIRED';
-  try {
-    const [accountsRes, postsRes] = await Promise.all([
-      apiGetJson('/social/accounts').catch(e => { if (isMfaError(e)) __studioSchedulerMfaRequired = true; return { accounts: [] }; }),
-      apiGetJson('/social/posts').catch(e => { if (isMfaError(e)) __studioSchedulerMfaRequired = true; return { posts: [] }; }),
-    ]);
-    __studioSchedulerAccounts = accountsRes.accounts || [];
-    __studioSchedulerPosts = postsRes.posts || [];
-    if (!document.getElementById('studio-sched-body')) return;
-    renderStudioSchedulerList();
-  } catch (e) {
-    if (body) body.innerHTML = `<div class="text-sm text-rose-500 py-6 text-center">${esc(e.message || 'Could not load')}</div>`;
-  }
+  const listBtn = document.getElementById('studio-sched-view-list');
+  const calBtn = document.getElementById('studio-sched-view-cal');
+  if (!listBtn || !calBtn) return;
+  const isList = __studioSchedulerView === 'list';
+  listBtn.textContent = 'List view';
+  calBtn.textContent = 'Calendar view';
+  listBtn.className = `text-xs font-bold px-3 py-1.5 rounded-lg transition ${isList ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`;
+  calBtn.className = `text-xs font-bold px-3 py-1.5 rounded-lg transition ${!isList ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`;
 }
 
 function studioSchedulerMfaNotice() {
-  return `<div class="text-[12px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-2">
-    <b>Verify it's you to schedule posts.</b> Posting to your connected accounts needs a quick step-up for this session.
-    <div class="flex flex-wrap items-center gap-3 mt-2">
-      <button id="studio-sched-passkey-btn" onclick="studioSchedulerVerifyPasskey()" class="inline-flex items-center gap-1.5 font-bold text-white bg-amber-600 hover:bg-amber-500 rounded-lg px-3 py-1.5">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 11c0 3.5-1 6-1 6m-4-8a5 5 0 019-3m-9 7c-.5-1-.5-2-.5-3a5.5 5.5 0 0111 0c0 2 0 4 .5 5M9 13a3 3 0 016 0c0 1.5 0 3 .5 4.5"/></svg>
-        Verify with Face ID / fingerprint
-      </button>
-      <button onclick="if (typeof switchPage === 'function') { switchPage('profile'); if (typeof settingsTab === 'function') settingsTab('account'); }" class="font-bold text-amber-800 dark:text-amber-200 underline">Use a code instead</button>
-    </div>
-  </div>`;
+  return `<div class="text-[12px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">Multi-factor authentication is required to view or manage scheduled posts. Complete MFA in your profile settings.</div>`;
 }
 
-// Biometric step-up straight from the scheduler notice: verify with the device
-// passkey, then re-load posts (the /social/* calls now clear the gate for the
-// session). Falls back to Settings if there's no passkey to use yet.
-async function studioSchedulerVerifyPasskey() {
-  const btn = document.getElementById('studio-sched-passkey-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; }
-  const res = (typeof window.msPasskeyStepUp === 'function')
-    ? await window.msPasskeyStepUp()
-    : { ok: false, error: 'Passkey verification is unavailable — use a code instead.' };
-  if (res.ok) {
-    __studioSchedulerMfaRequired = false;
-    await loadStudioSchedulerPosts();
-    return;
-  }
-  if (res.reason === 'no_passkey' && typeof switchPage === 'function') {
-    if (typeof showToast === 'function') showToast(res.error, 'info', 6000);
-    switchPage('profile'); if (typeof settingsTab === 'function') settingsTab('account');
-    return;
-  }
-  if (res.reason !== 'cancelled' && typeof showToast === 'function') showToast(res.error || 'Verification failed.', 'error');
-  renderStudioSchedulerList();   // re-draw the notice (resets the button)
+function studioSchedulerSetView(view) {
+  __studioSchedulerView = view;
+  studioSchedulerPaintViewToggle();
+  if (view === 'calendar') renderStudioSchedulerCalendar();
+  else renderStudioSchedulerList();
 }
-window.studioSchedulerVerifyPasskey = studioSchedulerVerifyPasskey;
+window.studioSchedulerSetView = studioSchedulerSetView;
+
+async function loadStudioSchedulerPosts() {
+  try {
+    const [pRes, aRes] = await Promise.all([
+      apiGetJson('/social/posts'),
+      apiGetJson('/social/accounts').catch(() => ({ accounts: [] })),
+    ]);
+    __studioSchedulerPosts = pRes.posts || [];
+    __studioSchedulerAccounts = aRes.accounts || [];
+    __studioSchedulerMfaRequired = false;
+  } catch (e) {
+    if (e?.message === 'MFA_REQUIRED') {
+      __studioSchedulerMfaRequired = true;
+      __studioSchedulerPosts = [];
+    } else {
+      __studioSchedulerPosts = [];
+    }
+  }
+  if (__studioSchedulerView === 'calendar') renderStudioSchedulerCalendar();
+  else renderStudioSchedulerList();
+}
 
 function renderStudioSchedulerList() {
   const body = document.getElementById('studio-sched-body');
   if (!body) return;
-  if (__studioSchedulerMfaRequired) { body.innerHTML = studioSchedulerMfaNotice(); return; }
-  if (__studioSchedulerView === 'calendar') { renderStudioSchedulerCalendar(); return; }
+  if (__studioSchedulerMfaRequired) {
+    body.innerHTML = `<div class="text-[12px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">Multi-factor authentication is required to view or manage scheduled posts. Complete MFA in your profile settings.</div>`;
+    return;
+  }
+  const accounts = __studioSchedulerAccounts;
+  const usable = accounts.filter(a => a.can_publish);
+  const accountNote = usable.length === 0
+    ? `<div class="text-[12px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5 mb-2 flex items-center justify-between gap-2">
+        <span>No connected social accounts yet.</span>
+        <button onclick="this.closest('.fixed')?.remove(); switchPage('profile'); if (typeof settingsTab === 'function') settingsTab('account');" class="text-[11px] font-bold underline shrink-0">Connect in Settings</button>
+       </div>`
+    : '';
 
-  const accountNote = __studioSchedulerAccounts.length
-    ? ''
-    : `<div class="text-[12px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5 mb-2">No accounts connected yet — connect one in Settings before scheduling a post.</div>`;
-  const upcoming = __studioSchedulerPosts
-    .filter(p => p.status !== 'published' && p.status !== 'cancelled')
-    .sort((a, b) => new Date(a.scheduled_local || 0) - new Date(b.scheduled_local || 0));
-  const rows = upcoming.length
-    ? upcoming.map(p => `
-      <div class="flex items-start justify-between gap-3 border border-slate-200 dark:border-slate-700 rounded-lg p-3">
-        <div class="min-w-0 flex-1 cursor-pointer" onclick="studioSchedulerEditPost('${esc(p.id)}')">
-          <p class="text-sm text-slate-800 dark:text-slate-100 line-clamp-2">${esc(p.body || '(no caption)')}</p>
-          <p class="text-[11px] text-slate-400 mt-1">${p.scheduled_local ? esc(new Date(p.scheduled_local).toLocaleString()) : 'Draft — not scheduled'} · ${esc(p.status || 'draft')}</p>
+  const active = __studioSchedulerPosts.filter(p => p.status === 'scheduled' || p.status === 'draft');
+  const rows = active.length
+    ? active.map(p => `
+      <div class="flex items-center justify-between gap-3 border border-slate-200 dark:border-slate-800 rounded-xl p-3 bg-white dark:bg-slate-900">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${p.status === 'scheduled' ? 'bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}">${esc(p.status)}</span>
+            <span class="text-[11px] text-slate-400 truncate">${p.scheduled_local ? esc(new Date(p.scheduled_local).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })) : 'Draft'}</span>
+          </div>
+          <div class="text-[13px] font-medium text-slate-800 dark:text-slate-200 truncate">${esc(p.body || '(no caption)')}</div>
         </div>
         <div class="flex items-center gap-1 shrink-0">
-          <button onclick="studioSchedulerPublishNow('${esc(p.id)}')" title="Publish now" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 12h14"/></svg></button>
           <button onclick="studioSchedulerEditPost('${esc(p.id)}')" title="Edit / reschedule" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></button>
           <button onclick="studioSchedulerCancelPost('${esc(p.id)}')" title="Cancel" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button>
         </div>
@@ -146,8 +122,6 @@ function renderStudioSchedulerList() {
     <button onclick="studioSchedulerCompose()" class="w-full mt-1 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold py-2.5 rounded-lg transition">+ Schedule a post</button>`;
 }
 
-// ── Calendar view: same posts, laid out on a month grid. Clicking a post opens the
-// same edit popover the list view uses, so either view can reschedule/cancel/publish.
 function studioSchedulerMoveMonth(delta) {
   __studioSchedulerCalMonth = new Date(__studioSchedulerCalMonth.getFullYear(), __studioSchedulerCalMonth.getMonth() + delta, 1);
   renderStudioSchedulerCalendar();
@@ -191,8 +165,6 @@ function renderStudioSchedulerCalendar() {
     <button onclick="studioSchedulerCompose()" class="w-full mt-3 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold py-2.5 rounded-lg transition">+ Schedule a post</button>`;
 }
 
-// Compact edit popover for an existing post — reschedule, publish now, or cancel,
-// without leaving whichever view (list or calendar) the user opened it from.
 function studioSchedulerEditPost(postId) {
   const p = __studioSchedulerPosts.find(x => x.id === postId);
   if (!p) return;
@@ -228,44 +200,90 @@ async function studioSchedulerSaveReschedule(postId, btn) {
 window.studioSchedulerSaveReschedule = studioSchedulerSaveReschedule;
 
 async function studioSchedulerCompose(preselectedAssetUrl) {
-  const accounts = __studioSchedulerAccounts;
+  // Ensure user is in Design Studio workspace
+  if (typeof switchPage === 'function' && document.querySelector('[data-page-content="marketing"]')?.classList.contains('hidden')) {
+    switchPage('marketing');
+  }
+  // Close open schedule modal if present
+  document.getElementById('studio-sched-body')?.closest('.fixed')?.remove();
+
+  let accounts = [];
+  try {
+    const r = await apiGetJson('/social/accounts').catch(() => ({ accounts: [] }));
+    accounts = r.accounts || [];
+    __studioSchedulerAccounts = accounts;
+  } catch {}
+
   const usable = accounts.filter(a => a.can_publish);
   const refused = accounts.filter(a => !a.can_publish);
+
   let assets = [];
   try { assets = (await apiGetJson('/marketing/assets').catch(() => ({ assets: [] }))).assets || []; } catch {}
-  // A design just rendered from the editor may not have propagated into
-  // /marketing/assets yet — pin it to the front of the picker either way so it's
-  // always selectable and pre-checked.
   if (preselectedAssetUrl && !assets.some(a => a.public_url === preselectedAssetUrl)) {
     assets = [{ public_url: preselectedAssetUrl, alt_text: 'Just rendered' }, ...assets];
   }
 
+  const platformKeys = ['facebook', 'instagram', 'linkedin', 'tiktok', 'youtube'];
+  const platformCardsHtml = platformKeys.map(p => {
+    const cfg = STUDIO_SOCIAL_PLATFORMS[p];
+    const acc = usable.find(a => a.provider === p);
+    if (acc) {
+      return `
+        <label class="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 cursor-pointer hover:border-indigo-500 transition">
+          <input type="checkbox" class="ss-target rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" value="${esc(acc.id)}" checked>
+          <div class="flex items-center gap-2 min-w-0 flex-1">
+            ${cfg.iconSvg}
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-slate-900 dark:text-white truncate">${esc(acc.display_name)}</div>
+              <div class="text-[10px] text-slate-400 truncate">${esc(cfg.name)}${acc.handle ? ' · ' + esc(acc.handle) : ''}</div>
+            </div>
+          </div>
+        </label>`;
+    } else {
+      return `
+        <div class="flex items-center justify-between gap-2 p-3 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="opacity-50 shrink-0">${cfg.iconSvg}</div>
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-slate-400 dark:text-slate-500">${esc(cfg.name)}</div>
+              <div class="text-[10px] text-slate-400/80 truncate">Not connected</div>
+            </div>
+          </div>
+          <button type="button" onclick="this.closest('.fixed')?.remove(); switchPage('profile'); if (typeof settingsTab === 'function') settingsTab('account'); setTimeout(() => studioSocialConnectPlatform('${p}'), 200);" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline shrink-0">+ Connect</button>
+        </div>`;
+    }
+  }).join('');
+
+  const noAccountWarning = usable.length === 0 ? `
+    <div class="mb-4 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs flex items-center justify-between gap-3">
+      <span>Connect a social account to publish or schedule this post.</span>
+      <button type="button" onclick="this.closest('.fixed')?.remove(); switchPage('profile'); if (typeof settingsTab === 'function') settingsTab('account');" class="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold transition shrink-0">Connect account</button>
+    </div>` : '';
+
   const ov = crmOverlay(`
     <div class="p-5">
-      <h2 class="text-lg font-black text-slate-900 dark:text-white mb-1">New post</h2>
-      <p class="text-[13px] text-slate-500 mb-4">Nothing is sent until a network confirms it.</p>
+      <h2 class="text-lg font-black text-slate-900 dark:text-white mb-1">New scheduled post</h2>
+      <p class="text-[13px] text-slate-500 mb-4">Compose your post, pick your publishing destinations, and set the date/time.</p>
+      ${noAccountWarning}
       <textarea id="ss-body" rows="4" placeholder="What do you want to say?"
-        class="w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3 text-[14px] mb-3"></textarea>
-      <div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mb-1">Publish to</div>
-      ${usable.length ? usable.map(a => `<label class="flex items-center gap-2 py-1">
-          <input type="checkbox" class="ss-target" value="${esc(a.id)}">
-          <span class="text-[13px] text-slate-900 dark:text-white">${esc(a.display_name)}</span><span class="text-[12px] text-slate-400">${esc(a.provider)}</span>
-        </label>`).join('') : `<div class="text-[13px] text-rose-600 dark:text-rose-400">You cannot publish to any connected account yet.</div>`}
-      ${refused.length ? `<div class="mt-2 text-[12px] text-slate-400">${refused.map(a => `${esc(a.display_name)} — ${esc(a.why || 'not available to you')}`).join('<br>')}</div>` : ''}
-      ${assets.length ? `<div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mt-4 mb-1">Attach a design</div>
-        <div class="flex gap-2 overflow-x-auto pb-1">${assets.slice(0, 20).map(a => `
+        class="w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3 text-[14px] mb-4"></textarea>
+      <div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mb-2">Publishing Destinations</div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">${platformCardsHtml}</div>
+      ${refused.length ? `<div class="mb-4 text-[12px] text-slate-400">${refused.map(a => `${esc(a.display_name)} — ${esc(a.why || 'not available to you')}`).join('<br>')}</div>` : ''}
+      ${assets.length ? `<div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mb-2">Attach a design</div>
+        <div class="flex gap-2 overflow-x-auto pb-1 mb-4">${assets.slice(0, 20).map(a => `
           <label class="shrink-0 cursor-pointer">
             <input type="checkbox" class="ss-media" value="${esc(a.public_url)}" ${a.public_url === preselectedAssetUrl ? 'checked' : ''}>
             <img src="${esc(a.public_url)}" alt="${esc(a.alt_text || '')}" class="w-16 h-16 object-cover rounded-lg border ${a.public_url === preselectedAssetUrl ? 'border-indigo-500 border-2' : 'border-slate-200 dark:border-slate-700'}">
           </label>`).join('')}</div>` : ''}
-      <div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mt-4 mb-1">When</div>
+      <div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mb-1">Date &amp; Time</div>
       <input id="ss-when" type="datetime-local" class="rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]">
       <div class="text-[12px] text-slate-400 mt-1">Leave empty to save as a draft.</div>
       <div class="flex gap-2 mt-5">
-        <button onclick="studioSchedulerSavePost(this)" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[13px] font-bold">Save post</button>
+        <button onclick="studioSchedulerSavePost(this)" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[13px] font-bold">Schedule post</button>
         <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[13px] font-bold">Cancel</button>
       </div>
-    </div>`, 'max-w-lg');
+    </div>`, 'max-w-xl');
   if (!ov) return;
 }
 window.studioSchedulerCompose = studioSchedulerCompose;
@@ -315,11 +333,58 @@ async function studioSchedulerCancelPost(postId) {
 window.studioSchedulerCancelPost = studioSchedulerCancelPost;
 
 // ── Settings → My Account: "Connected social accounts" card ─────────────────────
-// The real thing, reading/writing the actual /social/accounts API — not
-// marketing-workspace.js's renderSocialConnectorsPanelHtml(), which is fixed demo
-// data (Academy training scenario) with no backend behind it.
-const STUDIO_SOCIAL_PROVIDERS = ['facebook', 'instagram', 'tiktok', 'youtube', 'linkedin'];
-const STUDIO_SOCIAL_PROVIDER_LABEL = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', youtube: 'YouTube', linkedin: 'LinkedIn' };
+const STUDIO_SOCIAL_PLATFORMS = {
+  facebook: {
+    name: 'Facebook',
+    subtitle: 'Connect your dealership Facebook Page',
+    iconSvg: `<svg class="w-6 h-6 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>`,
+    fields: [
+      { id: 'display_name', label: 'Page Name', placeholder: 'e.g. Downtown Motors Facebook Page', required: true },
+      { id: 'external_account_id', label: 'Page ID', placeholder: 'e.g. 109823471209384', required: true },
+      { id: 'handle', label: 'Handle (optional)', placeholder: '@downtownmotors' }
+    ]
+  },
+  instagram: {
+    name: 'Instagram',
+    subtitle: 'Connect your dealership Instagram Business account',
+    iconSvg: `<svg class="w-6 h-6 text-[#E4405F]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>`,
+    fields: [
+      { id: 'display_name', label: 'Account Name', placeholder: 'e.g. Downtown Motors Instagram', required: true },
+      { id: 'handle', label: 'Instagram Handle', placeholder: '@downtownmotors', required: true },
+      { id: 'external_account_id', label: 'Account ID (optional)', placeholder: 'e.g. ig_10982347' }
+    ]
+  },
+  linkedin: {
+    name: 'LinkedIn',
+    subtitle: 'Connect your dealership LinkedIn Page',
+    iconSvg: `<svg class="w-6 h-6 text-[#0A66C2]" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>`,
+    fields: [
+      { id: 'display_name', label: 'Organization Name', placeholder: 'e.g. Downtown Motors LinkedIn', required: true },
+      { id: 'external_account_id', label: 'Organization ID', placeholder: 'e.g. 89274102', required: true },
+      { id: 'handle', label: 'Vanity Name / URL (optional)', placeholder: 'downtown-motors' }
+    ]
+  },
+  tiktok: {
+    name: 'TikTok',
+    subtitle: 'Connect your dealership TikTok Business account',
+    iconSvg: `<svg class="w-6 h-6 text-[#000000] dark:text-[#ffffff]" fill="currentColor" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.97v7.09c.01 1.73-.39 3.51-1.39 4.96-1.12 1.64-2.88 2.76-4.85 3.12-2.31.42-4.76.01-6.73-1.2-1.92-1.17-3.23-3.14-3.56-5.36-.4-2.7.4-5.5 2.19-7.51 1.74-1.94 4.31-3.03 6.94-2.91v4.11c-1.31-.13-2.67.23-3.66 1.05-1.07.88-1.63 2.27-1.49 3.65.11 1.34.92 2.53 2.14 3.08 1.25.56 2.76.4 3.87-.39.84-.6 1.38-1.57 1.43-2.61.03-3.32.01-6.64.01-9.96z"/></svg>`,
+    fields: [
+      { id: 'display_name', label: 'Business Account Name', placeholder: 'e.g. Downtown Motors TikTok', required: true },
+      { id: 'handle', label: 'TikTok Handle', placeholder: '@downtownmotors', required: true },
+      { id: 'external_account_id', label: 'Account ID (optional)', placeholder: 'e.g. tt_9182374' }
+    ]
+  },
+  youtube: {
+    name: 'YouTube',
+    subtitle: 'Connect your dealership YouTube Channel',
+    iconSvg: `<svg class="w-6 h-6 text-[#FF0000]" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`,
+    fields: [
+      { id: 'display_name', label: 'Channel Name', placeholder: 'e.g. Downtown Motors Official Channel', required: true },
+      { id: 'external_account_id', label: 'Channel ID', placeholder: 'e.g. UC_x5XG1OV2P6uZZ5FSM9Ttw', required: true },
+      { id: 'handle', label: 'Handle (optional)', placeholder: '@downtownmotors' }
+    ]
+  }
+};
 
 async function studioSocialConnectionsRender() {
   const list = document.getElementById('studio-social-list');
@@ -328,16 +393,44 @@ async function studioSocialConnectionsRender() {
   try {
     const r = await apiGetJson('/social/accounts');
     const accounts = r.accounts || [];
-    list.innerHTML = accounts.length
-      ? accounts.map(a => `
-        <div class="flex items-center justify-between gap-3 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2">
-          <div class="min-w-0">
-            <div class="text-sm font-bold text-slate-900 dark:text-white truncate">${esc(a.display_name)}</div>
-            <div class="text-[11px] text-slate-400">${esc(STUDIO_SOCIAL_PROVIDER_LABEL[a.provider] || a.provider)}${a.handle ? ' · ' + esc(a.handle) : ''}</div>
-          </div>
-          <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full shrink-0 ${a.status === 'connected' ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}">${esc(a.status || 'connected')}</span>
-        </div>`).join('')
-      : '<div class="text-xs text-slate-500 italic">No accounts connected yet.</div>';
+    const platformKeys = ['facebook', 'instagram', 'linkedin', 'tiktok', 'youtube'];
+
+    const cardsHtml = platformKeys.map(p => {
+      const cfg = STUDIO_SOCIAL_PLATFORMS[p];
+      const acc = accounts.find(a => a.provider === p);
+      if (acc) {
+        return `
+          <div class="flex items-center justify-between gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/60">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="shrink-0">${cfg.iconSvg}</div>
+              <div class="min-w-0">
+                <div class="text-sm font-bold text-slate-900 dark:text-white truncate">${esc(acc.display_name)}</div>
+                <div class="text-xs text-slate-400 truncate">${esc(cfg.name)}${acc.handle ? ' · ' + esc(acc.handle) : ''}</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>Connected
+              </span>
+              <button type="button" onclick="studioSocialDisconnectAccount('${esc(acc.id)}')" class="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-200 dark:hover:border-rose-800 transition">Disconnect</button>
+            </div>
+          </div>`;
+      } else {
+        return `
+          <div class="flex items-center justify-between gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="shrink-0">${cfg.iconSvg}</div>
+              <div class="min-w-0">
+                <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(cfg.name)}</div>
+                <div class="text-xs text-slate-500 dark:text-slate-400 truncate">${esc(cfg.subtitle)}</div>
+              </div>
+            </div>
+            <button type="button" onclick="studioSocialConnectPlatform('${p}')" class="text-xs font-bold px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition shrink-0">Connect ${esc(cfg.name)}</button>
+          </div>`;
+      }
+    }).join('');
+
+    list.innerHTML = `<div class="grid grid-cols-1 gap-3">${cardsHtml}</div>`;
   } catch (e) {
     if (e.message === 'MFA_REQUIRED') {
       list.innerHTML = `<div class="text-[12px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5">Complete multi-factor authentication above to manage connected accounts.</div>`;
@@ -348,36 +441,88 @@ async function studioSocialConnectionsRender() {
 }
 window.studioSocialConnectionsRender = studioSocialConnectionsRender;
 
-function studioSocialConnectForm() {
+async function studioSocialConnectPlatform(provider) {
+  const cfg = STUDIO_SOCIAL_PLATFORMS[provider];
+  if (!cfg) return;
+
+  // Prefer existing backend OAuth authorization flow if configured
+  try {
+    const oauthRes = await apiGetJson(`/social/connect/${provider}`).catch(() => null);
+    if (oauthRes?.url) {
+      window.location.href = oauthRes.url;
+      return;
+    }
+  } catch {}
+
+  // Single-platform connection form without platform dropdown
+  const fieldHtml = cfg.fields.map(f => `
+    <div class="mb-3">
+      <label class="block text-[12px] font-bold text-slate-700 dark:text-slate-200 mb-1">${esc(f.label)}</label>
+      <input id="ssc-field-${esc(f.id)}" type="text" placeholder="${esc(f.placeholder)}" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2.5 text-[13px]">
+    </div>`).join('');
+
   const ov = crmOverlay(`
     <div class="p-5">
-      <h2 class="text-lg font-black text-slate-900 dark:text-white mb-1">Connect an account</h2>
-      <p class="text-[13px] text-slate-500 mb-4">Enter the account's details as they appear on that platform.</p>
-      <div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mb-1">Platform</div>
-      <select id="ssc-provider" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px] mb-3">
-        ${STUDIO_SOCIAL_PROVIDERS.map(p => `<option value="${esc(p)}">${esc(STUDIO_SOCIAL_PROVIDER_LABEL[p])}</option>`).join('')}
-      </select>
-      <div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mb-1">Display name</div>
-      <input id="ssc-name" type="text" placeholder="e.g. Downtown Motors" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px] mb-3">
-      <div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mb-1">Handle (optional)</div>
-      <input id="ssc-handle" type="text" placeholder="@downtownmotors" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px] mb-3">
-      <div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mb-1">Account ID on that platform</div>
-      <input id="ssc-external-id" type="text" placeholder="Page/profile ID" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px] mb-4">
+      <div class="flex items-center gap-3 mb-2">
+        <div class="shrink-0">${cfg.iconSvg}</div>
+        <div>
+          <h2 class="text-lg font-black text-slate-900 dark:text-white">Connect ${esc(cfg.name)}</h2>
+          <p class="text-[13px] text-slate-500">${esc(cfg.subtitle)}</p>
+        </div>
+      </div>
+      <div class="my-4">
+        ${fieldHtml}
+      </div>
       <div class="flex gap-2">
-        <button onclick="studioSocialConnectSave(this)" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[13px] font-bold">Connect</button>
+        <button onclick="studioSocialConnectSavePlatform('${esc(provider)}', this)" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[13px] font-bold">Connect ${esc(cfg.name)}</button>
         <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[13px] font-bold">Cancel</button>
       </div>
     </div>`, 'max-w-md');
   if (!ov) return;
 }
-window.studioSocialConnectForm = studioSocialConnectForm;
+window.studioSocialConnectPlatform = studioSocialConnectPlatform;
+
+async function studioSocialConnectSavePlatform(provider, btn) {
+  const cfg = STUDIO_SOCIAL_PLATFORMS[provider];
+  const root = btn.closest('.fixed');
+  const displayName = (root.querySelector('#ssc-field-display_name')?.value || '').trim();
+  const handle = (root.querySelector('#ssc-field-handle')?.value || '').trim();
+  const externalId = (root.querySelector('#ssc-field-external_account_id')?.value || '').trim() || handle || displayName;
+
+  if (!displayName) return showToast('Display name / Page name is required.', 'error');
+  if (!externalId) return showToast('Account ID / Page ID is required.', 'error');
+
+  try {
+    await apiSendJson('/social/accounts', 'POST', {
+      provider,
+      display_name: displayName,
+      handle: handle || null,
+      external_account_id: externalId,
+      ownership: 'dealership'
+    });
+    root.remove();
+    showToast(`${cfg.name} account connected`, 'success');
+    studioSocialConnectionsRender();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+window.studioSocialConnectSavePlatform = studioSocialConnectSavePlatform;
+
+async function studioSocialDisconnectAccount(accountId) {
+  if (!confirm('Disconnect this social account?')) return;
+  try {
+    await apiSendJson(`/social/accounts/${accountId}`, 'DELETE');
+    showToast('Social account disconnected', 'success');
+    studioSocialConnectionsRender();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+window.studioSocialDisconnectAccount = studioSocialDisconnectAccount;
 
 async function studioSocialConnectSave(btn) {
   const root = btn.closest('.fixed');
-  const provider = root.querySelector('#ssc-provider').value;
-  const displayName = root.querySelector('#ssc-name').value.trim();
-  const handle = root.querySelector('#ssc-handle').value.trim();
-  const externalId = root.querySelector('#ssc-external-id').value.trim();
+  const provider = root.querySelector('#ssc-provider')?.value || 'facebook';
+  const displayName = (root.querySelector('#ssc-name')?.value || '').trim();
+  const handle = (root.querySelector('#ssc-handle')?.value || '').trim();
+  const externalId = (root.querySelector('#ssc-external-id')?.value || '').trim() || handle || displayName;
   if (!displayName || !externalId) return showToast('Display name and account ID are required.', 'error');
   try {
     await apiSendJson('/social/accounts', 'POST', { provider, display_name: displayName, handle: handle || null, external_account_id: externalId, ownership: 'dealership' });
@@ -387,3 +532,7 @@ async function studioSocialConnectSave(btn) {
   } catch (e) { showToast(e.message, 'error'); }
 }
 window.studioSocialConnectSave = studioSocialConnectSave;
+
+window.studioSocialConnectForm = function() {
+  studioSocialConnectPlatform('facebook');
+};

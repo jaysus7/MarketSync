@@ -13,7 +13,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { sendEmail } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
-import { requireFeature } from '../access.js'
+import { requireFeature, requireAnyFeature } from '../access.js'
 import { audit } from '../audit.js'
 
 const nowIso = () => new Date().toISOString()
@@ -64,7 +64,7 @@ function segmentFilters(q, seg = {}) {
 const emailable = (c) => !!clean(c.email) && c.dnc !== true && c.opt_out !== true && c.consent_email !== false
 
 export function registerDealerEmailMarketing(app) {
-  const guards = [requireAuth, requireMfa, requireFeature('os.email_marketing')]
+  const guards = [requireAuth, requireMfa, requireAnyFeature('email.campaigns', 'email.templates', 'email.audiences', 'email.automations', 'os.email_marketing')]
 
   async function dealerName(req) {
     const { data } = await req.supabase.from('dealerships').select('name').eq('id', req.dealershipId).maybeSingle()

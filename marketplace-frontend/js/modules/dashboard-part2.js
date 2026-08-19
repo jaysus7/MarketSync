@@ -1199,7 +1199,7 @@ const PAGE_PRODUCT = { leaderboard: 'facebook' };
 // honest while still using the same server-authored feature list.
 const PAGE_ANY_FEATURE = {
   'marketing-overview': ['os.marketing', 'design.canvas', 'social.scheduler'],
-  'email-marketing': ['os.email_marketing', 'email.campaigns'],
+  'email-marketing': ['os.email_marketing', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations'],
   'video-studio': ['os.marketing', 'video.library'],
   website: ['os.website', 'website.builder'],
   'ai-home': ['os.marketing', 'ai.overview'],
