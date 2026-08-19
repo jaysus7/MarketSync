@@ -3901,6 +3901,25 @@ function createBlogFromSeoOpp(index) {
   }, 200);
 }
 
+// ── Normal in-dashboard pages for SEO and Blog ──────────────────────────────
+// These render the SAME SEO Suite / Blog manager the full-screen Builder workspace
+// uses, but inside the standard page-content area (with the sidebar), so they behave
+// like every other MarketSync page instead of taking over the screen. Only the Builder
+// tab remains a full-screen workspace. Each seeds the exact root element id its existing
+// loader targets (#seo-workspace-root / #ws-blog-root) inside the page container.
+function loadSeoPage() {
+  const host = document.getElementById('ms-seo-root');
+  if (!host) return;
+  host.innerHTML = '<div id="seo-workspace-root" class="space-y-6 pt-2"><div class="py-12 text-center text-sm text-slate-400 italic">Loading AI SEO…</div></div>';
+  if (typeof loadDealerSeo === 'function') loadDealerSeo();
+}
+function loadBlogPage() {
+  const host = document.getElementById('ms-blog-root');
+  if (!host) return;
+  host.innerHTML = '<div id="ws-blog-root"></div>';
+  if (typeof loadDealerBlog === 'function') loadDealerBlog();
+}
+
 Object.assign(window, {
   isSeoOwned,
   upgradeToSeo,
@@ -3910,5 +3929,7 @@ Object.assign(window, {
   setSeoMode,
   renderSeoWorkspace,
   runSeoAction,
-  createBlogFromSeoOpp
+  createBlogFromSeoOpp,
+  loadSeoPage,
+  loadBlogPage
 });

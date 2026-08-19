@@ -1691,6 +1691,9 @@ function switchPage(pageId) {
   if (pageId === 'market') loadMarketPage();
   if (pageId === 'website') loadWebsitePage();
   if (pageId === 'website-settings') loadWebsiteSettings();
+  // Blog and SEO are normal in-dashboard pages (not the full-screen Builder workspace).
+  if (pageId === 'blog' && typeof loadBlogPage === 'function') loadBlogPage();
+  if (pageId === 'seo' && typeof loadSeoPage === 'function') loadSeoPage();
   if (pageId === 'automation') loadAutomationPage();
   if (pageId === 'automation-builder') loadAutoBuilderPage();
   if (pageId === 'email-marketing' || pageId === 'email-campaigns') loadDealerEmail();
