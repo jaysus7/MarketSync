@@ -784,6 +784,28 @@ html.dark td {
   cursor: pointer;
   box-shadow: 0 4px 14px rgba(31, 78, 216, 0.4);
 }
+#header-demo-switcher-container #demo-mode-badge {
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  background: #2563eb;
+  border: none;
+  border-radius: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
+  transition: background-color 0.15s ease;
+}
+#header-demo-switcher-container #demo-mode-badge:hover {
+  background: #1d4ed8;
+}
 #demo-control-panel {
   position: fixed;
   top: 48px;

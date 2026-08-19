@@ -7,11 +7,22 @@ const memoryStore = {
   reactions: {}
 }
 
+async function requireTeamMessaging(req, res, next) {
+  if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+  const { data: subData } = await supabaseAdmin
+    .from('subscriptions')
+    .select('product_id')
+    .eq('dealership_id', req.dealershipId)
+    .in('status', ['active', 'trialing'])
+  const products = (subData || []).map(s => s.product_id)
+  const allowed = products.includes('dealer_os') || products.includes('facebook') || products.includes('facebook_dealer')
+  if (!allowed) return res.status(403).json({ error: 'Team Messaging is a DealerOS feature and is not included with standalone subscriptions.' })
+  next()
+}
+
 export function registerStaffChat(app) {
   // GET /staff-chat/members — list dealership staff members & team channels
-  app.get('/staff-chat/members', requireAuth, async (req, res) => {
-    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-
+  app.get('/staff-chat/members', requireAuth, requireTeamMessaging, async (req, res) => {
     const channels = [
       { id: 'channel-general', name: 'General Chat', type: 'channel', icon: 'hashtag', dept: 'all' },
       { id: 'channel-sales', name: 'Sales Floor', type: 'channel', icon: 'currency', dept: 'sales' },

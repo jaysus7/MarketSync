@@ -176,6 +176,15 @@ DOCUMENT TEXT END`
       .select('name, ai_boost_active, inv_intel_active, city, province, country, ai_assistant_name, ai_internal_style, ai_knowledge, ai_knowledge_name, ai_tools_disabled, ai_assistant_reps')
       .eq('id', req.dealershipId).maybeSingle()
 
+    const { data: subData } = await supabaseAdmin
+      .from('subscriptions')
+      .select('product_id')
+      .eq('dealership_id', req.dealershipId)
+      .in('status', ['active', 'trialing'])
+    const subProducts = (subData || []).map(s => s.product_id)
+    const isDealerOS = isOwner || subProducts.includes('dealer_os')
+    if (!isDealerOS) return res.status(403).json({ error: 'AI Intelligence Chat is a DealerOS capability and is not included with standalone subscriptions.' })
+
     const entitled = isOwner || !!dealer?.ai_boost_active || !!dealer?.inv_intel_active
     if (!entitled) return res.status(403).json({ error: 'The AI assistant needs AI Boost or Inventory Intelligence.' })
     const canManageLeads = await hasPermission(req, 'lead.assign')

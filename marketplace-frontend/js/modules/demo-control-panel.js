@@ -55,14 +55,14 @@
     badge.id = 'demo-mode-badge';
     badge.type = 'button';
     badge.title = `Demo mode — ${data.dealership.name}`;
-    badge.textContent = 'DEMO MODE';
-    // Append the badge to the page FIRST, before building the (larger, data-driven)
-    // control panel below. If panel construction ever throws on some tier — e.g. a
-    // department/plan lookup returns something unexpected on a single-product
-    // "independent" account — boot()'s try/catch would otherwise swallow it and the
-    // operator would lose the DEMO MODE badge entirely. The badge is the one thing
-    // that must always be there.
-    if (!document.getElementById('demo-mode-badge')) document.body.appendChild(badge);
+    badge.textContent = 'Demo';
+    // Append the badge to the header container FIRST (or body fallback), before building
+    // the control panel below.
+    const headerContainer = document.getElementById('header-demo-switcher-container');
+    if (!document.getElementById('demo-mode-badge')) {
+      if (headerContainer) headerContainer.appendChild(badge);
+      else document.body.appendChild(badge);
+    }
 
     const field = (id, label, iconKey, options) => `
       <label class="dcp-field">

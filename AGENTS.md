@@ -307,6 +307,18 @@ User-visible workflows must distinguish **empty / loading / success / failed /
 blocked / unsupported**. Silence is the bug — it is how a scheduled post sat
 unpublished forever with nobody told.
 
+## A21. MarketSync Product Boundary Rules
+
+> AI ChatBot is a standalone product. AI Intelligence Chat is a DealerOS capability and is not included with standalone AI ChatBot subscriptions.
+
+> Team Messaging is a DealerOS/internal collaboration capability and is not included with standalone MarketSync products.
+
+> Demo-mode access must never be used as evidence of customer entitlement.
+
+> Product access must always be determined by canonical backend entitlements/permissions, not merely by frontend navigation visibility.
+
+Coding agents must consult the canonical pricing/product catalog (`marketplace-backend/plan-catalog.js`) before adding a feature to a standalone package.
+
 ---
 
 # PART B — Frontend guardrails
