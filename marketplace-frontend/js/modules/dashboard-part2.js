@@ -1440,7 +1440,7 @@ function renderDeptNav(role) {
         if (anchor && anchor.parentElement === navRoot) navRoot.insertBefore(host, anchor.nextSibling);
         else navRoot.insertBefore(host, navRoot.firstChild);
       }
-      host.innerHTML = rp.map(p => `<button type="button" data-page="${esc(p.page)}" onclick="${p.studioLaunch ? 'window.openMarketSyncStudio()' : `deptGo('${esc(p.page)}'${p.invmode ? `,'${esc(p.invmode)}'` : '\'\''}${p.tab ? `,'${esc(p.tab)}'` : ''})`}" title="${esc(p.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-indigo-500 flex-shrink-0">${svgIcon(p.icon || 'dot', 'w-4 h-4')}</span><span>${esc(p.label)}</span></button>`).join('');
+      host.innerHTML = rp.map(p => `<button type="button" data-page="${esc(p.page)}"${p.tab ? ` data-tab="${esc(p.tab)}"` : ''} onclick="${p.studioLaunch ? 'window.openMarketSyncStudio()' : `deptGo('${esc(p.page)}'${p.invmode ? `,'${esc(p.invmode)}'` : '\'\''}${p.tab ? `,'${esc(p.tab)}'` : ''})`}" title="${esc(p.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-indigo-500 flex-shrink-0">${svgIcon(p.icon || 'dot', 'w-4 h-4')}</span><span>${esc(p.label)}</span></button>`).join('');
       navRoot.classList.add('dept-mode');
       __deptNavBuilt = true;
       if (__currentPage) highlightDeptNav(__currentPage);
@@ -1492,7 +1492,10 @@ function highlightDeptNav(pageId) {
   // Restricted tiers render a FLAT page list (no dept registry): highlight by data-page.
   if (!reg) {
     document.querySelectorAll('#dept-nav .dept-nav-item').forEach(b => {
-      const on = b.dataset.page === pageId;
+      let on = b.dataset.page === pageId;
+      if (on && b.dataset.page === 'website' && b.dataset.tab) {
+        on = (b.dataset.tab === (window.__wsTab || 'builder'));
+      }
       b.classList.toggle('bg-indigo-100', on); b.classList.toggle('dark:bg-indigo-950/50', on);
       b.classList.toggle('text-indigo-700', on); b.classList.toggle('dark:text-indigo-300', on);
       b.classList.toggle('text-slate-700', !on); b.classList.toggle('dark:text-slate-300', !on);

@@ -268,6 +268,13 @@ let __reportRailWired = false;
 function updateReportRailVisibility() {
   const rail = document.getElementById('report-rail');
   if (!rail) return;
+  const isStandalone = (typeof isStandaloneWebsiteWorkspace === 'function' && isStandaloneWebsiteWorkspace())
+    || (typeof restrictedNavPages === 'function' && !!restrictedNavPages());
+  if (isStandalone) {
+    rail.classList.add('hidden');
+    rail.classList.remove('lg:flex');
+    return;
+  }
   // All four reports are Inventory Intelligence features, so the rail rides on
   // that entitlement (owner already resolves to active in /ai/config).
   // Step aside while the AI chat panel is open — it occupies the same right edge.
@@ -277,6 +284,7 @@ function updateReportRailVisibility() {
   const isAcademy = (typeof currentPage !== 'undefined' && currentPage === 'academy') || !document.querySelector('[data-page-content="academy"]')?.classList.contains('hidden');
   const show = !!__invIntelActive && isMgr && !panelOpen && !isAcademy;   // reports are manager-only
   rail.classList.toggle('lg:flex', show);   // lg:flex + base `hidden` = desktop-only when shown
+  if (!show) rail.classList.add('hidden');
   if (__invIntelActive) wireReportRail();
 }
 
@@ -344,6 +352,13 @@ function updateAiDockVisibility() {
   const btn = document.getElementById('ai-dock-btn');
   const panel = document.getElementById('ai-dock-panel');
   if (!btn) return;
+  const isStandalone = (typeof isStandaloneWebsiteWorkspace === 'function' && isStandaloneWebsiteWorkspace())
+    || (typeof restrictedNavPages === 'function' && !!restrictedNavPages());
+  if (isStandalone) {
+    btn.classList.add('hidden');
+    if (panel) panel.classList.add('hidden');
+    return;
+  }
   const show = true;
   const panelOpen = panel && !panel.classList.contains('hidden');
   // Launcher hides while the panel is open.

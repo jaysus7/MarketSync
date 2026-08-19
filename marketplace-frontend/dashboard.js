@@ -1347,13 +1347,27 @@ function restrictedNavPages() {
   if (activeProducts.length === 1 && /(marketsync_email|email_marketing)/.test(product)) {
     return [META['email-marketing']];
   }
-  if (activeProducts.length === 1 && /(marketsync_website|website|dealer-website)/.test(product)) {
-    return [
+  const isWebsiteProduct = (typeof isStandaloneWebsiteWorkspace === 'function' && isStandaloneWebsiteWorkspace())
+    || (window.__demoActiveProduct === 'dealer-website')
+    || /(marketsync_website|website|dealer-website)/.test(product)
+    || (activeProducts.length === 1 && /(marketsync_website|website|dealer-website)/.test(product));
+
+  if (isWebsiteProduct && !/dealer_os/.test(product)) {
+    const list = [
       { page: 'website', tab: 'builder', label: 'Builder', icon: 'globe' },
       { page: 'website', tab: 'blog', label: 'Blog', icon: 'newspaper' },
       { page: 'website', tab: 'seo', label: 'SEO', icon: 'chart' },
       { page: 'website', tab: 'setup', label: 'Setup', icon: 'cog' },
     ];
+    const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+    const hasAi = !!(window.__aiBoostActive || (window.__siteCfg && window.__siteCfg.ai_boost_active)
+      || (access.products && (access.products.includes('marketsync_ai') || access.products.includes('ai_boost') || access.products.includes('ai_chatbot') || access.products.includes('ai')))
+      || /(?:^|\s)(?:marketsync_ai|ai_boost|ai_chatbot|ai)(?:\s|$)/.test(product));
+
+    if (hasAi) {
+      list.push({ page: 'ai-home', label: 'AI', icon: 'sparkles' });
+    }
+    return list;
   }
 
   // Fallback for any other restricted product set (keeps generic behavior).
