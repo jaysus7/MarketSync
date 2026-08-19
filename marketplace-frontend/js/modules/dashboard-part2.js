@@ -1357,15 +1357,54 @@ function marketsyncOwnerMode() {
     && document.documentElement.getAttribute('data-dash-mode') === 'marketsync';
 }
 function resolveWorkspaceContext(userObj, accessObj, currentRouteStr) {
-  if (typeof isStandaloneWebsiteWorkspace === 'function' && isStandaloneWebsiteWorkspace()) {
-    return 'website';
+  let activeProd = null;
+  if (window.__demoActiveProduct) {
+    if (window.__demoActiveProduct === 'dealer_os' || window.__demoActiveProduct === 'dealer-os') {
+      return { type: 'dealer_os', product: 'dealer_os' };
+    }
+    if (window.__demoActiveProduct === 'dealer-website' || window.__demoActiveProduct === 'website') {
+      return { type: 'website', product: 'website' };
+    }
+    activeProd = window.__demoActiveProduct;
+  } else {
+    const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+    let products = '';
+    if (access && Array.isArray(access.products)) {
+      products = access.products.join(' ');
+    } else {
+      products = (document.documentElement.getAttribute('data-product') || '').trim();
+    }
+    
+    if (!products || /(?:^|\s)dealer_os(?:\s|$)/.test(products)) {
+      return { type: 'dealer_os', product: 'dealer_os' };
+    }
+    
+    if (typeof PRODUCT_PAGES !== 'undefined') {
+      const list = products.split(/\s+/).filter(p => PRODUCT_PAGES.hasOwnProperty(p));
+      if (list.length > 0) activeProd = list[0];
+    } else {
+      activeProd = products.split(/\s+/)[0];
+    }
   }
-  return 'dealer_os';
+
+  if (!activeProd) return { type: 'dealer_os', product: 'dealer_os' };
+
+  if (activeProd.includes('website')) return { type: 'website', product: 'website' };
+  
+  let mappedProd = activeProd;
+  if (activeProd.includes('facebook')) mappedProd = 'facebook';
+  else if (activeProd.includes('video')) mappedProd = 'video';
+  else if (activeProd.includes('campaign') || activeProd.includes('social') || activeProd.includes('email')) mappedProd = 'campaigns';
+  else if (activeProd === 'design-studio' || activeProd === 'design_studio') mappedProd = 'design_studio';
+  else if (activeProd === 'ai_chatbot' || activeProd === 'ai-chatbot') mappedProd = 'ai_chatbot';
+
+  return { type: 'standalone', product: mappedProd };
 }
 window.resolveWorkspaceContext = resolveWorkspaceContext;
 
 function deptNavEligible(role) {
-  if (typeof resolveWorkspaceContext === 'function' && resolveWorkspaceContext() === 'website') {
+  const ctx = typeof resolveWorkspaceContext === 'function' ? resolveWorkspaceContext() : { type: 'dealer_os', product: 'dealer_os' };
+  if (ctx.type === 'website') {
     return false;
   }
   // The department (DealerOS) nav is the ONE nav for every dealership user — reps
@@ -1399,7 +1438,8 @@ function deptVisible(dept) {
 function renderDeptNav(role) {
   const navRoot = document.getElementById('nav-desktop');
   if (!navRoot) return;
-  if (typeof resolveWorkspaceContext === 'function' && resolveWorkspaceContext() === 'website') {
+  const ctx = typeof resolveWorkspaceContext === 'function' ? resolveWorkspaceContext() : { type: 'dealer_os', product: 'dealer_os' };
+  if (ctx.type === 'website') {
     navRoot.classList.remove('dept-mode');
     document.getElementById('dept-nav')?.remove();
     document.getElementById('sidebar-nav')?.classList.add('hidden');
@@ -1518,9 +1558,6 @@ function switchPage(pageId) {
   }
   // Facebook-only tier: only the Facebook hub, leaderboard and settings are reachable.
   if (__fbOnly && !FB_ONLY_PAGES.has(pageId)) { __inventoryMode = 'facebook'; pageId = 'inventory'; }
-  if (typeof resolveWorkspaceContext === 'function' && resolveWorkspaceContext() === 'website' && pageId !== 'profile' && !pageId.startsWith('website')) {
-    pageId = 'website';
-  }
   // Product-restricted tiers (Facebook Solo/Dealer, AI Chatbot): keep them inside
   // their page set so a stale link or hardcoded mobile button can't reach full-OS
   // pages. 'profile' (header gear) is always allowed.
@@ -1539,9 +1576,10 @@ function switchPage(pageId) {
   if (__staffAllowedPages && !__staffAllowedPages.has(pageId)) { pageId = __staffHome; }
 
   if (pageId === 'profile') {
+    const ctx = typeof resolveWorkspaceContext === 'function' ? resolveWorkspaceContext() : { type: 'dealer_os', product: 'dealer_os' };
     const isStandalone = (typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace())
       || (typeof isStandaloneWebsiteWorkspace === 'function' && isStandaloneWebsiteWorkspace())
-      || (typeof resolveWorkspaceContext === 'function' && resolveWorkspaceContext() === 'website');
+      || ctx.type === 'website' || ctx.type === 'standalone';
     if (isStandalone) {
       document.querySelectorAll('#settings-tabs [data-admin-only]').forEach(el => el.classList.add('hidden'));
       if (typeof SETTINGS_TAB_SECTIONS !== 'undefined' && Array.isArray(SETTINGS_TAB_SECTIONS?.account) && !SETTINGS_TAB_SECTIONS.account.includes('billing-section')) {

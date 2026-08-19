@@ -821,41 +821,37 @@ window.applyFbOnlyMode = applyFbOnlyMode;
 // each price point, powerful as they upgrade. The union applies when a dealer holds
 // several products (e.g. Facebook Dealer + AI Chatbot).
 const PRODUCT_PAGES = {
-  facebook_solo:      ['leaderboard', 'inventory'],
-  // Staff management for Facebook Dealer and Video both live inside Settings ->
-  // My Account (the same dealer-view-panel Administration folds into its Team
-  // card for full DealerOS), not as their own nav page — 'sales-team' is
-  // deliberately absent here.
-  facebook_dealer:    ['leaderboard', 'inventory'],
-  ai_chatbot:         ['ai-home'],
-  // Design Studio standalone is the editor itself (a full-screen modal, not a
-  // dashboard page) — it must never expose the Marketing department dashboard behind
-  // it. 'profile' is its only page so Settings (My Account etc.) is reachable once the
-  // editor is closed.
   design_studio:      ['profile'],
-  marketsync_video:   ['video-studio', 'leaderboard'],
+  facebook:           ['leaderboard', 'inventory'],
+  facebook_solo:      ['leaderboard', 'inventory'],
+  facebook_dealer:    ['leaderboard', 'inventory'],
   video:              ['video-studio', 'leaderboard'],
-  marketsync_website: ['website'],
-  website:            ['website'],
-  marketsync_social:  ['marketing-overview'],
+  marketsync_video:   ['video-studio', 'leaderboard'],
+  campaigns:          ['marketing-overview', 'email-marketing', 'saas-automation'],
   social:             ['marketing-overview'],
-  marketsync_email:   ['email-marketing'],
+  marketsync_social:  ['marketing-overview'],
   email_marketing:    ['email-marketing'],
-  dealer_os:          null,   // null = full access, no restriction
+  marketsync_email:   ['email-marketing'],
+  ai_chatbot:         ['ai-home'],
+  website:            ['website-builder', 'website-blog', 'website-seo', 'website-setup', 'website'],
+  marketsync_website: ['website-builder', 'website-blog', 'website-seo', 'website-setup', 'website'],
+  dealer_os:          null,
 };
 const PRODUCT_HOME = {
-  facebook_solo: 'leaderboard',
-  facebook_dealer: 'leaderboard',
-  ai_chatbot: 'ai-home',
-  design_studio: 'profile',
-  marketsync_video: 'video-studio',
-  video: 'video-studio',
+  design_studio:      'profile',
+  facebook:           'leaderboard',
+  facebook_solo:      'leaderboard',
+  facebook_dealer:    'leaderboard',
+  video:              'video-studio',
+  marketsync_video:   'video-studio',
+  campaigns:          'marketing-overview',
+  social:             'marketing-overview',
+  marketsync_social:  'marketing-overview',
+  email_marketing:    'email-marketing',
+  marketsync_email:   'email-marketing',
+  ai_chatbot:         'ai-home',
+  website:            'website',
   marketsync_website: 'website',
-  website: 'website',
-  marketsync_social: 'marketing-overview',
-  social: 'marketing-overview',
-  marketsync_email: 'email-marketing',
-  email_marketing: 'email-marketing',
 };
 const FB_PRODUCTS = new Set(['facebook_solo', 'facebook_dealer']);
 let __productAllowedPages = null;   // Set of reachable pages under a restricted product, else null
@@ -902,21 +898,27 @@ window.isFacebookOnlyWorkspace = isFacebookOnlyWorkspace;
 // Social, Email alike. Every single-product dashboard shares the same simplified
 // chrome rule: header collapses to Profile + Sign out, Open Setup never appears.
 function isSingleProductWorkspace() {
+  if (typeof resolveWorkspaceContext === 'function') {
+    const ctx = resolveWorkspaceContext();
+    if (ctx.type === 'website' || ctx.type === 'standalone') return true;
+  }
   const products = (document.documentElement.getAttribute('data-product') || '').trim();
   const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
-  if (window.__demoActiveProduct === 'dealer-website') return true;
+  if (window.__demoActiveProduct && window.__demoActiveProduct !== 'dealer_os' && window.__demoActiveProduct !== 'dealer-os') return true;
   if (access.products && access.products.length === 1 && !access.products.includes('dealer_os')) return true;
-  if (typeof resolveWorkspaceContext === 'function' && resolveWorkspaceContext() === 'website' && !products.includes('dealer_os')) return true;
   return !!products && products.split(/\s+/).length === 1 && !products.includes('dealer_os');
 }
 window.isSingleProductWorkspace = isSingleProductWorkspace;
 
 function isStandaloneWebsiteWorkspace() {
+  if (typeof resolveWorkspaceContext === 'function') {
+    return resolveWorkspaceContext().type === 'website';
+  }
   const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
   if (access.products && access.products.includes('dealer_os')) return false;
   const products = (document.documentElement.getAttribute('data-product') || '').trim();
   if (products.includes('dealer_os')) return false;
-  return (window.__demoActiveProduct === 'dealer-website')
+  return (window.__demoActiveProduct === 'dealer-website' || window.__demoActiveProduct === 'website')
     || (access.products && access.products.length === 1 && (access.products.includes('marketsync_website') || access.products.includes('website')))
     || (/(?:^|\s)(?:marketsync_website|website)(?:\s|$)/.test(products) && !products.includes('dealer_os'));
 }
