@@ -74,6 +74,7 @@ export function registerRoutes(app) {
       const ctx = await getCurrentAccessContext(req)
       access = {
         isPlatformStaff: ctx.isPlatformStaff,
+        isDemo: !!ctx.isDemo,
         products: ctx.products,
         features: ctx.features,
         permissions: ctx.permissions,

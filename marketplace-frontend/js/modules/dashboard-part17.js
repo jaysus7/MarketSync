@@ -290,11 +290,23 @@ function isAiChatbotOwned() {
 window.isAiChatbotOwned = isAiChatbotOwned;
 
 async function upgradeToAiChatbot(btn) {
+  if (typeof isDemoAccount === 'function' && isDemoAccount()) {
+    showToast('This feature is included in the MarketSync demo.', 'info');
+    if (typeof setWsSetupSection === 'function') setWsSetupSection('ai-chatbot');
+    return;
+  }
   const orig = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = 'Preparing checkout…';
   try {
     const res = await apiSendJson('/billing/subscribe-plan', 'POST', { plan: 'ai-chatbot', currency: 'CAD' });
+    if (res.demo || res.simulated) {
+      btn.disabled = false;
+      btn.innerHTML = orig;
+      showToast('This feature is included in the MarketSync demo.', 'info');
+      if (typeof setWsSetupSection === 'function') setWsSetupSection('ai-chatbot');
+      return;
+    }
     if (res.url) {
       location.href = res.url;
     } else {

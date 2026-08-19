@@ -376,3 +376,28 @@ export function productsForPlan(planId) { return PLAN_CATALOG[planId]?.products 
 
 // The features a plan grants.
 export function featuresForPlan(planId) { return PLAN_CATALOG[planId]?.features || [] }
+
+/**
+ * Returns all products and features from the catalog that are showcaseable in demo mode.
+ * Any plan or feature marked `demo_excluded: true` is omitted.
+ */
+export function getShowcaseOverlay() {
+  const products = new Set()
+  const features = new Set()
+
+  for (const plan of Object.values(PLAN_CATALOG)) {
+    if (plan.demo_excluded) continue
+    if (Array.isArray(plan.products)) {
+      plan.products.forEach(p => products.add(p))
+    }
+    if (Array.isArray(plan.features)) {
+      plan.features.forEach(f => features.add(f))
+    }
+  }
+
+  return {
+    products: [...products],
+    features: [...features],
+  }
+}
+

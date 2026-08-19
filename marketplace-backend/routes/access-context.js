@@ -18,6 +18,7 @@ export function registerAccessContext(app) {
         dealershipId: ctx.dealershipId,
         accountType: ctx.accountType,
         isPlatformStaff: ctx.isPlatformStaff,
+        isDemo: !!ctx.isDemo,
         products: ctx.products,
         features: ctx.features,
         permissions: ctx.permissions,

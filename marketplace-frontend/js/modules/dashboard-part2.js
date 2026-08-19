@@ -24,6 +24,15 @@ if (typeof window.toggleAiDock !== 'function') window.toggleAiDock = function() 
 if (typeof window.openTeamChatWidget !== 'function') window.openTeamChatWidget = function() { const p = document.getElementById('team-chat-dock-panel'); if (p) p.classList.remove('hidden'); };
 if (typeof window.toggleTeamChatWidget !== 'function') window.toggleTeamChatWidget = function() { const p = document.getElementById('team-chat-dock-panel'); if (p) p.classList.toggle('hidden'); };
 
+function isDemoAccount() {
+  const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+  if (access.isDemo) return true;
+  const d = (typeof profileContext !== 'undefined' && profileContext?.dealership) ? profileContext.dealership : {};
+  if (d && d.name && /(?:^|\b)demo(?:\b|$)/i.test(d.name)) return true;
+  return false;
+}
+window.isDemoAccount = isDemoAccount;
+
 function dealerRoleLanding(role) {
   const routes = {
     DEALER_ADMIN: 'command', OWNER: 'command', MANAGER: 'command',

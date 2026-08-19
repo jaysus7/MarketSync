@@ -98,6 +98,7 @@ export function computeAccessContext(raw = {}) {
   const featureProduct = {}
   for (const f of featureCatalog) featureProduct[f.id] = f.product_id
 
+  const isDemo = !!raw.isDemo
   const entitledFeatures = new Set()
   for (const product of userProducts) {
     const planId = planByProduct[product]
@@ -107,6 +108,22 @@ export function computeAccessContext(raw = {}) {
       // Product access without a plan row (legacy fallback / platform staff) ⇒ all of the
       // product's features are entitled. Tier gating only applies once a plan is assigned.
       for (const f of featureCatalog) if (f.product_id === product) entitledFeatures.add(f.id)
+    }
+  }
+
+  // ── Layer 2b: Dedicated Demo Entitlement Overlay ──
+  // For a dedicated demo dealership, effective entitlements = canonical entitlements UNION
+  // all showcaseable products and features from the catalog overlay. Does NOT alter
+  // subscriptions table or real plan billing state.
+  if (isDemo && raw.showcaseOverlay) {
+    const overlayProducts = Array.isArray(raw.showcaseOverlay.products) ? raw.showcaseOverlay.products : []
+    const overlayFeatures = Array.isArray(raw.showcaseOverlay.features) ? raw.showcaseOverlay.features : []
+    for (const p of overlayProducts) {
+      orgProducts.add(p)
+      userProducts.add(p)
+    }
+    for (const f of overlayFeatures) {
+      entitledFeatures.add(f)
     }
   }
 
@@ -135,6 +152,7 @@ export function computeAccessContext(raw = {}) {
     dealershipId: raw.dealershipId || null,
     accountType: raw.accountType || null,
     isPlatformStaff,
+    isDemo,
     roleIds,
     products: [...userProducts],
     orgProducts: [...orgProducts],

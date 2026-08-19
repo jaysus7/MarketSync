@@ -13,6 +13,8 @@ import {
   computeAccessContext, hasProductAccess, hasFeature, can,
   getDataScope, getDefaultRoute, getVisibleNavigation,
 } from './access-policy.js'
+import { isDemoDealershipId } from './routes/demo.js'
+import { getShowcaseOverlay } from './plan-catalog.js'
 
 export * from './access-policy.js'
 
@@ -96,6 +98,9 @@ export async function getCurrentAccessContext(req) {
     rolePermissions = data || []
   }
 
+  const isDemo = dealershipId ? await isDemoDealershipId(dealershipId) : false
+  const showcaseOverlay = isDemo ? getShowcaseOverlay() : null
+
   const ctx = computeAccessContext({
     userId,
     dealershipId,
@@ -109,10 +114,23 @@ export async function getCurrentAccessContext(req) {
     productMemberships: memberships,
     features: catalog.features,
     planFeatures: catalog.planFeatures,
+    isDemo,
+    showcaseOverlay,
   })
 
   req._accessContext = ctx
   return ctx
+}
+
+export async function getEffectiveEntitlements(req) {
+  const ctx = await getCurrentAccessContext(req)
+  return {
+    products: ctx.products,
+    features: ctx.features,
+    permissions: ctx.permissions,
+    isDemo: !!ctx.isDemo,
+    isPlatformStaff: !!ctx.isPlatformStaff,
+  }
 }
 
 // ── Express guards (backend authorization layer) ──
