@@ -3677,6 +3677,7 @@ async function ensureAutoCfg(rootId) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 let __seoSubTab = 'attention';
+let __seoMainTab = 'overview';
 let __seoMode = 'easy';
 let __seoData = null;
 
