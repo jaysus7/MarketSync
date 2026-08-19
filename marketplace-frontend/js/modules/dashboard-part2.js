@@ -1357,21 +1357,7 @@ function marketsyncOwnerMode() {
     && document.documentElement.getAttribute('data-dash-mode') === 'marketsync';
 }
 function resolveWorkspaceContext(userObj, accessObj, currentRouteStr) {
-  const hashRoute = (typeof msRouteFromHash === 'function' ? msRouteFromHash()?.page : null) || currentRouteStr || (typeof location !== 'undefined' ? location.hash : '');
-  const isWebRoute = Boolean(hashRoute && (
-    hashRoute === 'website' ||
-    hashRoute.startsWith('website-') ||
-    hashRoute.includes('/website') ||
-    hashRoute.includes('website')
-  ));
-  const activeProducts = document.documentElement.getAttribute('data-product') || '';
-  const isWebProduct = Boolean(
-    /(?:^|\s)(?:marketsync_website|website)(?:\s|$)/.test(activeProducts) ||
-    (window.__access?.products && (window.__access.products.includes('marketsync_website') || window.__access.products.includes('website')))
-  );
-  const isDemoWebsite = window.__demoActiveProduct === 'dealer-website';
-
-  if (isWebRoute || isDemoWebsite || (isWebProduct && !activeProducts.includes('dealer_os'))) {
+  if (typeof isStandaloneWebsiteWorkspace === 'function' && isStandaloneWebsiteWorkspace()) {
     return 'website';
   }
   return 'dealer_os';

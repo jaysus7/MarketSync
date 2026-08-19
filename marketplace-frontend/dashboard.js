@@ -912,8 +912,10 @@ function isSingleProductWorkspace() {
 window.isSingleProductWorkspace = isSingleProductWorkspace;
 
 function isStandaloneWebsiteWorkspace() {
-  const products = (document.documentElement.getAttribute('data-product') || '').trim();
   const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+  if (access.products && access.products.includes('dealer_os')) return false;
+  const products = (document.documentElement.getAttribute('data-product') || '').trim();
+  if (products.includes('dealer_os')) return false;
   return (window.__demoActiveProduct === 'dealer-website')
     || (access.products && access.products.length === 1 && (access.products.includes('marketsync_website') || access.products.includes('website')))
     || (/(?:^|\s)(?:marketsync_website|website)(?:\s|$)/.test(products) && !products.includes('dealer_os'));
@@ -1348,11 +1350,9 @@ function restrictedNavPages() {
     return [META['email-marketing']];
   }
   const isWebsiteProduct = (typeof isStandaloneWebsiteWorkspace === 'function' && isStandaloneWebsiteWorkspace())
-    || (window.__demoActiveProduct === 'dealer-website')
-    || /(marketsync_website|website|dealer-website)/.test(product)
-    || (activeProducts.length === 1 && /(marketsync_website|website|dealer-website)/.test(product));
+    || (window.__demoActiveProduct === 'dealer-website');
 
-  if (isWebsiteProduct && !/dealer_os/.test(product)) {
+  if (isWebsiteProduct) {
     const list = [
       { page: 'website', tab: 'builder', label: 'Builder', icon: 'globe' },
       { page: 'website', tab: 'blog', label: 'Blog', icon: 'newspaper' },
