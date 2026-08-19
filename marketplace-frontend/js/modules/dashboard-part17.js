@@ -1294,7 +1294,11 @@ function wsSetTarget(v) {
 }
 
 function exitWebsiteWorkspace() {
-  if (typeof switchPage === 'function') switchPage('command');
+  const body = document.body;
+  const html = document.documentElement;
+  body.classList.remove('website-workspace-mode', 'ws-theme-dark', 'ws-theme-light');
+  html.classList.remove('website-workspace-mode', 'ws-theme-dark', 'ws-theme-light');
+  if (typeof switchPage === 'function') switchPage('config');
 }
 window.exitWebsiteWorkspace = exitWebsiteWorkspace;
 
@@ -1303,44 +1307,43 @@ function renderWebsitePage() {
   const c = __siteCfg.content || {};
   const url = __siteCfg.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(__siteCfg.site_slug)}` : null;
   
-  const tab = (id, label) => `<button onclick="wsTab('${id}')" class="px-5 py-2 text-xs font-black rounded-xl transition ${(__wsTab === id || (id === 'setup' && __wsTab === 'settings')) ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-900/90 text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-800'}">${label}</button>`;
+  const tab = (id, label) => `<button onclick="wsTab('${id}')" class="px-5 py-2 text-xs font-black rounded-xl transition ${(__wsTab === id || (id === 'setup' && __wsTab === 'settings')) ? 'bg-indigo-600 text-white shadow-md' : 'bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] hover:text-[var(--ws-text)] border border-[var(--ws-border)]'}">${label}</button>`;
 
   root.innerHTML = `
-    <div class="flex flex-col h-full w-full bg-[#070B14] text-white">
+    <div class="flex flex-col h-full w-full bg-[var(--ws-bg)] text-[var(--ws-text)]">
       <!-- TOP APPLICATION HEADER (Dedicated Full-Screen Workspace Header) -->
-      <div class="flex items-center justify-between px-4 py-2.5 bg-[#0D1527] border-b border-[#1E293B] flex-shrink-0 flex-wrap gap-2">
+      <div class="ws-builder-header flex items-center justify-between px-4 py-2.5 bg-[var(--ws-panel)] border-b border-[var(--ws-border)] flex-shrink-0 flex-wrap gap-2">
         <div class="flex items-center gap-3">
-          <button onclick="exitWebsiteWorkspace()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-xs font-extrabold transition cursor-pointer" title="Exit Website Workspace">
+          <button onclick="exitWebsiteWorkspace()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-extrabold transition cursor-pointer" title="Exit to Settings in Dashboard">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
             Exit
           </button>
-          <div class="h-5 w-px bg-slate-800"></div>
-          <div class="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-black border border-indigo-500/40">
+          <div class="h-5 w-px bg-[var(--ws-border)]"></div>
+          <div class="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black border border-indigo-500/40">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18zM2.25 12h19.5M12 2.25a15.3 15.3 0 014.5 9.75 15.3 15.3 0 01-4.5 9.75 15.3 15.3 0 01-4.5-9.75A15.3 15.3 0 0112 2.25z"/></svg>
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <span class="text-sm font-black tracking-tight text-white">MarketSync Website</span>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${__siteCfg.site_published ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'}">
+              <span class="text-sm font-black tracking-tight text-[var(--ws-text)]">MarketSync Website</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${__siteCfg.site_published ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40'}">
                 ${__siteCfg.site_published ? 'Live' : 'Draft'}
               </span>
             </div>
-            <p class="text-[11px] text-slate-400">Full-screen dealership website application</p>
+            <p class="text-[11px] text-[var(--ws-text-muted)]">Full-screen dealership website application</p>
           </div>
         </div>
 
-        <!-- PRIMARY WORKSPACE NAVIGATION: Builder | Blog | SEO | Setup -->
+        <!-- PRIMARY WORKSPACE NAVIGATION: Builder | Blog | Setup -->
         <div class="flex items-center gap-1.5">
           ${tab('builder', 'Builder')}
           ${tab('blog', 'Blog')}
-          ${tab('seo', 'SEO')}
           ${tab('setup', 'Setup')}
         </div>
 
         <!-- TOP RIGHT ACTION CONTROLS -->
         <div class="flex items-center gap-2">
-          ${url ? `<a href="${url}" target="_blank" class="text-xs font-black bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-xl transition">View Site ↗</a>` : ''}
-          <label class="flex items-center gap-1.5 text-xs font-bold text-slate-300 cursor-pointer bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-xl"><input id="ws-pub" type="checkbox" ${__siteCfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-3.5 h-3.5 rounded">Published</label>
+          ${url ? `<a href="${url}" target="_blank" class="text-xs font-black bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl transition">View Site ↗</a>` : ''}
+          <label class="flex items-center gap-1.5 text-xs font-bold text-[var(--ws-text-secondary)] cursor-pointer bg-[var(--ws-panel-raised)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl"><input id="ws-pub" type="checkbox" ${__siteCfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-3.5 h-3.5 rounded">Published</label>
           <button onclick="saveWebsite(this)" class="text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-xl transition shadow-md cursor-pointer">Save Changes</button>
         </div>
       </div>
@@ -1971,35 +1974,35 @@ function renderLiveBuilder(body) {
 
   body.innerHTML = `
     <!-- Top Visual Workspace Action Bar -->
-    <div class="flex items-center justify-between gap-3 py-2 px-3 bg-slate-900 border border-slate-800 rounded-xl mt-3 mb-3 z-20 flex-wrap">
+    <div class="ws-top-action-bar flex items-center justify-between gap-3 py-2 px-3 bg-[var(--ws-panel)] border border-[var(--ws-border)] rounded-xl mt-3 mb-3 z-20 flex-wrap">
       <div class="flex items-center gap-2">
-        <span class="text-xs font-bold text-slate-400">Editing Page:</span>
-        <select onchange="wsSetTarget(this.value)" class="text-xs font-bold bg-slate-950 text-white border border-slate-800 rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer">
+        <span class="text-xs font-bold text-[var(--ws-text-muted)]">Editing Page:</span>
+        <select onchange="wsSetTarget(this.value)" class="text-xs font-bold bg-[var(--ws-input-bg)] text-[var(--ws-input-text)] border border-[var(--ws-input-border)] rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer">
           <option value="home" ${__wsTarget === 'home' ? 'selected' : ''}>Home Page</option>
           ${(__sitePages || []).map((p, i) => `<option value="${i}" ${__wsTarget === i ? 'selected' : ''}>${esc(p.title || 'Untitled Page')}</option>`).join('')}
         </select>
       </div>
 
       <!-- Device Viewport Switcher -->
-      <div class="flex items-center bg-slate-950 rounded-lg p-1 border border-slate-800">
-        <button onclick="setWsDeviceView('desktop')" data-view="desktop" class="ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'desktop' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'} cursor-pointer">Desktop</button>
-        <button onclick="setWsDeviceView('tablet')" data-view="tablet" class="ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'tablet' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'} cursor-pointer">Tablet</button>
-        <button onclick="setWsDeviceView('mobile')" data-view="mobile" class="ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'mobile' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'} cursor-pointer">Mobile</button>
+      <div class="flex items-center bg-[var(--ws-panel-raised)] rounded-lg p-1 border border-[var(--ws-border)]">
+        <button onclick="setWsDeviceView('desktop')" data-view="desktop" class="ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'desktop' ? 'bg-indigo-600 text-white shadow-sm' : 'text-[var(--ws-text-muted)] hover:text-[var(--ws-text)]'} cursor-pointer">Desktop</button>
+        <button onclick="setWsDeviceView('tablet')" data-view="tablet" class="ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'tablet' ? 'bg-indigo-600 text-white shadow-sm' : 'text-[var(--ws-text-muted)] hover:text-[var(--ws-text)]'} cursor-pointer">Tablet</button>
+        <button onclick="setWsDeviceView('mobile')" data-view="mobile" class="ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'mobile' ? 'bg-indigo-600 text-white shadow-sm' : 'text-[var(--ws-text-muted)] hover:text-[var(--ws-text)]'} cursor-pointer">Mobile</button>
       </div>
 
       <div class="flex items-center gap-2">
-        <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">SAVED</span>
-        <a href="${SITE_BASE}?d=${encodeURIComponent(slug)}" target="_blank" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition">Preview ↗</a>
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40">SAVED</span>
+        <a href="${SITE_BASE}?d=${encodeURIComponent(slug)}" target="_blank" class="px-3 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-bold transition">Preview ↗</a>
         <button onclick="saveWebsite(this)" class="px-4 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md transition cursor-pointer">Publish Site</button>
       </div>
     </div>
 
     <!-- Main Full-Screen Visual Workspace with Floating Collapsible Panels -->
-    <div class="relative w-full min-h-[82vh] rounded-2xl bg-slate-950 border border-slate-800 overflow-hidden">
+    <div class="relative w-full min-h-[82vh] rounded-2xl bg-[var(--ws-bg)] border border-[var(--ws-border)] overflow-hidden">
       
       <!-- Center Full-Screen Live Web Canvas (Takes 100% width on Desktop) -->
       <main class="w-full h-full flex items-center justify-center p-0 overflow-auto relative z-0">
-        <div id="ws-frame-wrapper" class="${__wsActiveDeviceView === 'mobile' ? 'w-[375px]' : (__wsActiveDeviceView === 'tablet' ? 'w-[768px]' : 'w-full')} h-[82vh] ${__wsActiveDeviceView === 'desktop' ? 'rounded-xl border border-slate-800' : 'rounded-3xl border-4 border-slate-700'} bg-white shadow-2xl transition-all duration-300 overflow-hidden relative z-0">
+        <div id="ws-frame-wrapper" class="${__wsActiveDeviceView === 'mobile' ? 'w-[375px]' : (__wsActiveDeviceView === 'tablet' ? 'w-[768px]' : 'w-full')} h-[82vh] ${__wsActiveDeviceView === 'desktop' ? 'rounded-xl border border-[var(--ws-border)]' : 'rounded-3xl border-4 border-slate-400 dark:border-slate-700'} bg-white shadow-2xl transition-all duration-300 overflow-hidden relative z-0">
           <iframe id="ws-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1" class="w-full h-full border-0" title="Live Website Canvas"></iframe>
         </div>
       </main>
@@ -2007,18 +2010,18 @@ function renderLiveBuilder(body) {
       <!-- Left Floating Dock (Nav Rail + Drawer) -->
       <div id="ws-left-dock-wrapper" class="absolute left-3 top-3 z-30 flex items-start gap-2 max-h-[78vh]">
         <!-- Nav Rail -->
-        <nav class="w-12 bg-slate-950/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl flex flex-col items-center py-2.5 gap-2 shrink-0 shadow-2xl">
-          <button onclick="setWsLeftNav('layers')" data-tab="layers" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'layers' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'} cursor-pointer" title="Layers Tree">Tree</button>
-          <button onclick="setWsLeftNav('blocks')" data-tab="blocks" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'blocks' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'} cursor-pointer" title="Add Blocks">+Add</button>
-          <button onclick="setWsLeftNav('pages')" data-tab="pages" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'pages' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'} cursor-pointer" title="Manage Pages">Pages</button>
-          <button onclick="setWsLeftNav('images')" data-tab="images" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'images' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'} cursor-pointer" title="Media & Photos">Images</button>
-          <button onclick="setWsLeftNav('design')" data-tab="design" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'design' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'} cursor-pointer" title="Global Styling">Style</button>
-          <button onclick="setWsLeftNav('ai')" data-tab="ai" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'ai' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'} cursor-pointer" title="AI Copilot">AI</button>
-          <button id="ws-left-collapse-btn" onclick="toggleWsLeftDock()" class="w-9 h-9 mt-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white text-xs font-black transition flex items-center justify-center border border-slate-800 cursor-pointer" title="Toggle Sidebar Collapse">&lt;</button>
+        <nav class="w-12 bg-[var(--ws-panel)] backdrop-blur-xl border border-[var(--ws-border)] rounded-2xl flex flex-col items-center py-2.5 gap-2 shrink-0 shadow-2xl">
+          <button onclick="setWsLeftNav('layers')" data-tab="layers" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'layers' ? 'bg-indigo-600/30 text-indigo-600 dark:text-indigo-400 border border-indigo-500/50' : 'text-[var(--ws-text-muted)] hover:text-[var(--ws-text)]'} cursor-pointer" title="Layers Tree">Tree</button>
+          <button onclick="setWsLeftNav('blocks')" data-tab="blocks" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'blocks' ? 'bg-indigo-600/30 text-indigo-600 dark:text-indigo-400 border border-indigo-500/50' : 'text-[var(--ws-text-muted)] hover:text-[var(--ws-text)]'} cursor-pointer" title="Add Blocks">+Add</button>
+          <button onclick="setWsLeftNav('pages')" data-tab="pages" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'pages' ? 'bg-indigo-600/30 text-indigo-600 dark:text-indigo-400 border border-indigo-500/50' : 'text-[var(--ws-text-muted)] hover:text-[var(--ws-text)]'} cursor-pointer" title="Manage Pages">Pages</button>
+          <button onclick="setWsLeftNav('images')" data-tab="images" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'images' ? 'bg-indigo-600/30 text-indigo-600 dark:text-indigo-400 border border-indigo-500/50' : 'text-[var(--ws-text-muted)] hover:text-[var(--ws-text)]'} cursor-pointer" title="Media & Photos">Images</button>
+          <button onclick="setWsLeftNav('design')" data-tab="design" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'design' ? 'bg-indigo-600/30 text-indigo-600 dark:text-indigo-400 border border-indigo-500/50' : 'text-[var(--ws-text-muted)] hover:text-[var(--ws-text)]'} cursor-pointer" title="Global Styling">Style</button>
+          <button onclick="setWsLeftNav('ai')" data-tab="ai" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'ai' ? 'bg-indigo-600/30 text-indigo-600 dark:text-indigo-400 border border-indigo-500/50' : 'text-[var(--ws-text-muted)] hover:text-[var(--ws-text)]'} cursor-pointer" title="AI Copilot">AI</button>
+          <button id="ws-left-collapse-btn" onclick="toggleWsLeftDock()" class="w-9 h-9 mt-2 rounded-xl bg-[var(--ws-panel-raised)] hover:bg-slate-200 dark:hover:bg-slate-800 text-[var(--ws-text-muted)] hover:text-[var(--ws-text)] text-xs font-black transition flex items-center justify-center border border-[var(--ws-border)] cursor-pointer" title="Toggle Sidebar Collapse">&lt;</button>
         </nav>
 
         <!-- Floating Drawer Content -->
-        <aside id="ws-left-drawer-content" class="w-64 bg-slate-950/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl overflow-y-auto max-h-[78vh] shadow-2xl transition-all duration-200 ${__wsLeftDockCollapsed ? 'hidden' : ''}">
+        <aside id="ws-left-drawer-content" class="w-64 bg-[var(--ws-panel)] backdrop-blur-xl border border-[var(--ws-border)] rounded-2xl overflow-y-auto max-h-[78vh] shadow-2xl transition-all duration-200 ${__wsLeftDockCollapsed ? 'hidden' : ''}">
           ${renderWsLeftDrawerHtml()}
         </aside>
       </div>

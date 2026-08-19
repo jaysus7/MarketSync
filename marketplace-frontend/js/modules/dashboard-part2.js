@@ -1180,7 +1180,7 @@ const PAGE_FEATURE = {
   inventory: 'os.inventory', recon: 'os.inventory',
   accounting: 'os.accounting',
   'service-ros': 'os.service', 'service-appointments': 'os.service', 'service-parts': 'os.service',
-  website: 'os.website',
+  website: 'os.website', seo: 'os.marketing',
   'automation-builder': 'os.automations', operations: 'os.automations', taskboard: 'os.automations',
   'email-marketing': 'os.email_marketing',
   delivery: 'os.sales', fni: 'os.sales',
@@ -1204,6 +1204,7 @@ const PAGE_ANY_FEATURE = {
   'email-marketing': ['os.email_marketing', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations'],
   'video-studio': ['os.marketing', 'video.library'],
   website: ['os.website', 'website.builder'],
+  seo: ['os.marketing', 'seo.intelligence', 'seo.standalone'],
   'ai-home': ['os.marketing', 'ai.overview'],
 };
 // The dealership record also carries its server-authored package name. This fallback

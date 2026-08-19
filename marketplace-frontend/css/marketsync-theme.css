@@ -1090,7 +1090,7 @@ body.website-workspace-mode {
   border-color: var(--ws-border) !important;
 }
 
-/* Property Inspector Text Contrast Rules */
+/* Property Inspector Text & Form Theme Rules */
 #ws-inspector-panel label,
 #ws-inspector-content label,
 .ws-builder-label {
@@ -1132,5 +1132,50 @@ body.website-workspace-mode {
 #ws-inspector-panel textarea::placeholder,
 #ws-inspector-content textarea::placeholder {
   color: var(--ws-text-muted) !important;
+}
+
+/* Specific Light Theme Chrome Overrides */
+.ws-theme-light #website-root {
+  background-color: #F8FAFC !important;
+  color: #0F172A !important;
+}
+
+.ws-theme-light .ws-builder-header,
+.ws-theme-light .ws-top-action-bar,
+.ws-theme-light #ws-left-dock-wrapper nav,
+.ws-theme-light #ws-left-drawer-content,
+.ws-theme-light #ws-right-dock-wrapper,
+.ws-theme-light #ws-inspector-panel,
+.ws-theme-light #ws-inspector-content {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+  border-color: #E2E8F0 !important;
+}
+
+.ws-theme-light #ws-left-drag-header,
+.ws-theme-light #ws-inspector-drag-header {
+  background-color: #F1F5F9 !important;
+  color: #0F172A !important;
+  border-color: #E2E8F0 !important;
+}
+
+.ws-theme-light .ws-nav-rail-btn {
+  color: #64748B !important;
+}
+
+.ws-theme-light .ws-nav-rail-btn:hover {
+  color: #0F172A !important;
+  background-color: #F1F5F9 !important;
+}
+
+.ws-theme-light .ws-nav-rail-btn[data-tab].bg-indigo-600\/30 {
+  background-color: #EEF2FF !important;
+  color: #4F46E5 !important;
+  border-color: #C7D2FE !important;
+}
+
+.ws-theme-light #ws-frame-wrapper {
+  border-color: #CBD5E1 !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
 }
 
