@@ -22,7 +22,7 @@ async function requireTeamMessaging(req, res, next) {
 
 export function registerStaffChat(app) {
   // GET /staff-chat/members — list dealership staff members & team channels
-  app.get('/staff-chat/members', requireAuth, requireTeamMessaging, async (req, res) => {
+  app.get(['/staff-chat/members', '/api/staff-chat/members'], requireAuth, requireTeamMessaging, async (req, res) => {
     const channels = [
       { id: 'channel-general', name: 'General Chat', type: 'channel', icon: 'hashtag', dept: 'all' },
       { id: 'channel-sales', name: 'Sales Floor', type: 'channel', icon: 'currency', dept: 'sales' },
@@ -68,7 +68,7 @@ export function registerStaffChat(app) {
   })
 
   // GET /staff-chat/messages — fetch message thread history
-  app.get('/staff-chat/messages', requireAuth, async (req, res) => {
+  app.get(['/staff-chat/messages', '/api/staff-chat/messages'], requireAuth, requireTeamMessaging, async (req, res) => {
     const { target_id } = req.query
     if (!target_id) return res.status(400).json({ error: 'target_id is required' })
 
@@ -102,7 +102,7 @@ export function registerStaffChat(app) {
   })
 
   // POST /staff-chat/messages — send internal staff message
-  app.post('/staff-chat/messages', requireAuth, async (req, res) => {
+  app.post(['/staff-chat/messages', '/api/staff-chat/messages'], requireAuth, requireTeamMessaging, async (req, res) => {
     const { recipient_id, content } = req.body
     if (!recipient_id || !content?.trim()) {
       return res.status(400).json({ error: 'recipient_id and content are required' })
@@ -141,7 +141,7 @@ export function registerStaffChat(app) {
   })
 
   // GET /staff-chat/unread — check unread messages for popup notifications
-  app.get('/staff-chat/unread', requireAuth, async (req, res) => {
+  app.get(['/staff-chat/unread', '/api/staff-chat/unread', '/unread'], requireAuth, requireTeamMessaging, async (req, res) => {
     try {
       const unreadMsgs = memoryStore.messages.filter(m =>
         m.dealership_id === req.dealershipId &&
@@ -159,7 +159,7 @@ export function registerStaffChat(app) {
   })
 
   // POST /staff-chat/read — mark messages as read
-  app.post('/staff-chat/read', requireAuth, async (req, res) => {
+  app.post(['/staff-chat/read', '/api/staff-chat/read'], requireAuth, requireTeamMessaging, async (req, res) => {
     const { target_id } = req.body
     if (!target_id) return res.status(400).json({ error: 'target_id is required' })
 
@@ -182,7 +182,7 @@ export function registerStaffChat(app) {
   })
 
   // POST /staff-chat/react — toggle emoji reaction on message
-  app.post('/staff-chat/react', requireAuth, async (req, res) => {
+  app.post(['/staff-chat/react', '/api/staff-chat/react'], requireAuth, requireTeamMessaging, async (req, res) => {
     const { message_id, emoji } = req.body
     if (!message_id || !emoji) return res.status(400).json({ error: 'message_id and emoji are required' })
 

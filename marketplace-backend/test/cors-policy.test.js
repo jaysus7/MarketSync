@@ -13,15 +13,11 @@ function restoreEnv(name, value) {
   else process.env[name] = value
 }
 
-test('CORS allows MarketSync and explicitly configured application origins', async () => {
-  const prior = process.env.CORS_ALLOWED_ORIGINS
-  process.env.CORS_ALLOWED_ORIGINS = 'https://marketsync-staging-site.onrender.com/'
-  try {
-    assert.deepEqual(await check('https://marketsync.link'), { error: null, allowed: true })
-    assert.deepEqual(await check('https://marketsync-staging-site.onrender.com'), { error: null, allowed: true })
-  } finally {
-    restoreEnv('CORS_ALLOWED_ORIGINS', prior)
-  }
+test('CORS allows MarketSync production and staging origins by default', async () => {
+  assert.deepEqual(await check('https://marketsync.link'), { error: null, allowed: true })
+  assert.deepEqual(await check('https://www.marketsync.link'), { error: null, allowed: true })
+  assert.deepEqual(await check('https://marketsync-staging-site.onrender.com'), { error: null, allowed: true })
+  assert.deepEqual(await check('https://marketsync-staging-backend.onrender.com'), { error: null, allowed: true })
 })
 
 test('CORS requires each Chrome extension origin to be explicitly configured', async () => {
@@ -31,7 +27,7 @@ test('CORS requires each Chrome extension origin to be explicitly configured', a
     assert.deepEqual(await check('chrome-extension://marketsync-extension-id'), { error: null, allowed: true })
     const blocked = await check('chrome-extension://untrusted-extension-id')
     assert.equal(blocked.allowed, false)
-    assert.match(blocked.error?.message || '', /^CORS blocked:/)
+    assert.equal(blocked.error, null)
   } finally {
     restoreEnv('CORS_ALLOWED_EXTENSION_ORIGINS', prior)
   }
@@ -40,5 +36,5 @@ test('CORS requires each Chrome extension origin to be explicitly configured', a
 test('CORS rejects unapproved browser origins', async () => {
   const blocked = await check('https://untrusted.example')
   assert.equal(blocked.allowed, false)
-  assert.match(blocked.error?.message || '', /^CORS blocked:/)
+  assert.equal(blocked.error, null)
 })

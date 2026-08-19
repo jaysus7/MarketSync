@@ -13,19 +13,26 @@ export function corsOriginCheck(origin, callback) {
   const allowed = [
     'https://marketsync.link',
     'https://www.marketsync.link',
+    'https://marketsync-staging-site.onrender.com',
+    'https://marketsync-staging-backend.onrender.com',
     'https://www.facebook.com',
     'https://facebook.com',
     'https://m.facebook.com'
   ]
   const configuredAppOrigins = configuredOrigins('CORS_ALLOWED_ORIGINS')
   const configuredExtensionOrigins = configuredOrigins('CORS_ALLOWED_EXTENSION_ORIGINS')
-  if (allowed.includes(origin) || configuredAppOrigins.includes(origin) || configuredExtensionOrigins.includes(origin)) {
+  const cleanOrigin = String(origin).trim().replace(/\/$/, '')
+  if (
+    allowed.includes(cleanOrigin) ||
+    configuredAppOrigins.includes(cleanOrigin) ||
+    configuredExtensionOrigins.includes(cleanOrigin)
+  ) {
     return callback(null, true)
   }
   if (process.env.NODE_ENV !== 'production') {
-    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+    if (cleanOrigin.startsWith('http://localhost:') || cleanOrigin.startsWith('http://127.0.0.1:')) {
       return callback(null, true)
     }
   }
-  return callback(new Error(`CORS blocked: ${origin}`), false)
+  return callback(null, false)
 }

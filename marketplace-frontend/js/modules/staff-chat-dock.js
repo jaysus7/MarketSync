@@ -18,8 +18,19 @@
   // this dock boots on DOMContentLoaded, which can fire before data-product is set.
   function shouldHideStaffChat() {
     if (disabled) return true;
+    if (typeof window.isSingleProductWorkspace === 'function' && window.isSingleProductWorkspace()) {
+      const products = (document.documentElement.getAttribute('data-product') || '').trim();
+      const list = products ? products.split(/\s+/) : [];
+      if (!list.includes('facebook_dealer')) return true;
+    }
+    const accessProducts = window.__access?.products;
+    if (Array.isArray(accessProducts)) {
+      const hasDealerOs = accessProducts.includes('dealer_os');
+      const hasFbDealer = accessProducts.includes('facebook_dealer') || accessProducts.includes('facebook');
+      if (!hasDealerOs && !hasFbDealer) return true;
+    }
     const products = (document.documentElement.getAttribute('data-product') || '').trim();
-    if (!products) return false; // product tier not resolved yet — applyProductNav disables us later
+    if (!products) return false;
     const list = products.split(/\s+/);
     return list.length === 1 && list[0] !== 'facebook_dealer';
   }

@@ -602,11 +602,14 @@ async function initializeDashboardEcosystem() {
       document.querySelectorAll('[data-dealer-only]').forEach(el => el.classList.add('hidden'));
     }
 
-    // Load transactional data + insights
-    const [fleet, totalListings] = await Promise.all([
-      fetchMetrics('/inventory'),
-      fetchMetrics('/listings')
-    ]);
+    // Load transactional data + insights (safely — non-critical metrics must never block boot)
+    let fleet = 0, totalListings = 0;
+    try {
+      [fleet, totalListings] = await Promise.all([
+        fetchMetrics('/inventory').catch(() => 0),
+        fetchMetrics('/listings').catch(() => 0)
+      ]);
+    } catch {}
 
     if (typeof loadInsights === 'function') try { loadInsights(); } catch {}
     if (typeof loadMyTierChip === 'function') try { loadMyTierChip(); } catch {}

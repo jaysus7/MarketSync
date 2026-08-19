@@ -38,7 +38,7 @@ test('Security Engine — CORS allows first-party origins and blocks unknown one
   const decide = (origin) => new Promise((resolve) => corsOriginCheck(origin, (err, ok) => resolve({ err, ok })))
   assert.deepEqual(await decide('https://marketsync.link'), { err: null, ok: true }, 'first-party origin must be allowed')
   const blocked = await decide('https://malicious-site.com')
-  assert.ok(blocked.err instanceof Error && blocked.ok === false, 'unknown origins must be blocked')
+  assert.ok(blocked.err === null && blocked.ok === false, 'unknown origins must be blocked')
 })
 
 // ── 4. RBAC / auth guards are exported ───────────────────────────────────────
