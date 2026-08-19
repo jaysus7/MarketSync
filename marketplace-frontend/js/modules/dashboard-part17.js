@@ -323,12 +323,15 @@ window.upgradeToAiChatbot = upgradeToAiChatbot;
 let __wsSetupSection = 'info';
 
 let __builderTheme = (() => {
-  try { return localStorage.getItem('ms_builder_theme') || 'auto'; } catch { return 'auto'; }
+  try { return localStorage.getItem('ms_ws_appearance') || localStorage.getItem('ms_builder_theme') || 'auto'; } catch { return 'auto'; }
 })();
 
 function setBuilderTheme(m) {
   __builderTheme = ['auto', 'light', 'dark'].includes(m) ? m : 'auto';
-  try { localStorage.setItem('ms_builder_theme', __builderTheme); } catch {}
+  try {
+    localStorage.setItem('ms_ws_appearance', __builderTheme);
+    localStorage.setItem('ms_builder_theme', __builderTheme);
+  } catch {}
   applyBuilderTheme();
   const body = document.getElementById('ws-setup-body');
   if (body) body.innerHTML = renderWsSetupSection();
@@ -336,13 +339,40 @@ function setBuilderTheme(m) {
 window.setBuilderTheme = setBuilderTheme;
 
 function applyBuilderTheme() {
-  const isDark = __builderTheme === 'dark' || (__builderTheme === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  document.documentElement.classList.toggle('ws-theme-dark', isDark);
-  document.documentElement.classList.toggle('ws-theme-light', !isDark);
-  document.body.classList.toggle('ws-theme-dark', isDark);
-  document.body.classList.toggle('ws-theme-light', !isDark);
+  const currentPref = __builderTheme || 'auto';
+  let effectiveTheme = currentPref;
+  if (currentPref === 'auto') {
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    effectiveTheme = isDark ? 'dark' : 'light';
+  }
+
+  const container = document.getElementById('page-content-website');
+  const root = document.getElementById('website-root');
+  const body = document.body;
+  const html = document.documentElement;
+
+  [container, root, body, html].forEach(el => {
+    if (!el) return;
+    el.setAttribute('data-ws-theme', effectiveTheme);
+    el.classList.toggle('ws-theme-dark', effectiveTheme === 'dark');
+    el.classList.toggle('ws-theme-light', effectiveTheme === 'light');
+  });
 }
 window.applyBuilderTheme = applyBuilderTheme;
+
+if (typeof window !== 'undefined' && window.matchMedia) {
+  const media = window.matchMedia('(prefers-color-scheme: dark)');
+  const handleMediaChange = () => {
+    if (__builderTheme === 'auto' || !__builderTheme) {
+      applyBuilderTheme();
+    }
+  };
+  if (media.addEventListener) {
+    media.addEventListener('change', handleMediaChange);
+  } else if (media.addListener) {
+    media.addListener(handleMediaChange);
+  }
+}
 
 function wsSetup() {
   const secBtn = (id, label) => `<button type="button" onclick="setWsSetupSection('${id}')" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between ${__wsSetupSection === id ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"><span>${label}</span> ${id === 'ai-chatbot' ? (isAiChatbotOwned() ? '<span class="w-2 h-2 rounded-full bg-emerald-400" title="Active"></span>' : '<span class="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">Upgrade</span>') : ''}</button>`;
@@ -1306,15 +1336,37 @@ function wsSetTarget(v) {
 }
 
 function exitWebsiteWorkspace() {
+  if (typeof closeWsLeftDock === 'function') closeWsLeftDock();
+  if (typeof closeWsRightDock === 'function') closeWsRightDock();
+
   const body = document.body;
   const html = document.documentElement;
-  body.classList.remove('website-workspace-mode', 'ws-theme-dark', 'ws-theme-light');
-  html.classList.remove('website-workspace-mode', 'ws-theme-dark', 'ws-theme-light');
-  if (typeof switchPage === 'function') switchPage('config');
+  const container = document.getElementById('page-content-website');
+  const root = document.getElementById('website-root');
+
+  [body, html, container, root].forEach(el => {
+    if (!el) return;
+    el.classList.remove('website-workspace-mode', 'ws-theme-dark', 'ws-theme-light');
+    el.removeAttribute('data-ws-theme');
+  });
+
+  const sideNav = document.getElementById('sidebar-nav') || document.getElementById('dept-nav');
+  if (sideNav) sideNav.style.display = '';
+  const mainHeader = document.querySelector('header') || document.getElementById('main-header');
+  if (mainHeader) mainHeader.style.display = '';
+  const chatDock = document.getElementById('staff-chat-dock-bar');
+  if (chatDock) chatDock.style.display = '';
+
+  const targetPage = (window.__lastNonWebsitePage && window.__lastNonWebsitePage !== 'website')
+    ? window.__lastNonWebsitePage
+    : 'config';
+
+  if (typeof switchPage === 'function') switchPage(targetPage);
 }
 window.exitWebsiteWorkspace = exitWebsiteWorkspace;
 
 function renderWebsitePage() {
+  applyBuilderTheme();
   const root = document.getElementById('website-root'); if (!root) return;
   const c = __siteCfg.content || {};
   const url = __siteCfg.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(__siteCfg.site_slug)}` : null;
@@ -1326,9 +1378,9 @@ function renderWebsitePage() {
       <!-- TOP APPLICATION HEADER (Dedicated Full-Screen Workspace Header) -->
       <div class="ws-builder-header flex items-center justify-between px-4 py-2.5 bg-[var(--ws-panel)] border-b border-[var(--ws-border)] flex-shrink-0 flex-wrap gap-2">
         <div class="flex items-center gap-3">
-          <button onclick="exitWebsiteWorkspace()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-extrabold transition cursor-pointer" title="Exit to Settings in Dashboard">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
-            Exit
+          <button onclick="exitWebsiteWorkspace()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-white border border-slate-700/60 text-xs font-black transition cursor-pointer shadow-sm" title="Exit Website Workspace & Return to Dashboard">
+            <svg class="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
+            <span>Exit Website</span>
           </button>
           <div class="h-5 w-px bg-[var(--ws-border)]"></div>
           <div class="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black border border-indigo-500/40">

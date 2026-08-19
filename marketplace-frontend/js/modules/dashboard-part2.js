@@ -1521,9 +1521,15 @@ function switchPage(pageId) {
   // Accounting has one container but each nav leaf (acct-insights, acct-tax, …) is
   // its own "page" — map those to the shared accounting container.
   const contentKey = (typeof pageId === 'string' && pageId.startsWith('acct-')) ? 'accounting' : pageId;
+  if (contentKey !== 'website') {
+    window.__lastNonWebsitePage = contentKey;
+  }
   const isWsWorkspace = (contentKey === 'website');
   document.documentElement.classList.toggle('website-workspace-mode', isWsWorkspace);
   document.body.classList.toggle('website-workspace-mode', isWsWorkspace);
+  if (isWsWorkspace && typeof applyBuilderTheme === 'function') {
+    applyBuilderTheme();
+  }
   document.querySelectorAll('[data-page-content]').forEach(el => {
     el.classList.toggle('hidden', el.dataset.pageContent !== contentKey);
   });
