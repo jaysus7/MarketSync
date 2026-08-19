@@ -1336,8 +1336,9 @@ function wsSetTarget(v) {
 }
 
 function exitWebsiteWorkspace() {
-  if (typeof closeWsLeftDock === 'function') closeWsLeftDock();
-  if (typeof closeWsRightDock === 'function') closeWsRightDock();
+  if (typeof toggleWsLeftDock === 'function' && !__wsLeftDockCollapsed) {
+    toggleWsLeftDock();
+  }
 
   const body = document.body;
   const html = document.documentElement;
@@ -1357,9 +1358,33 @@ function exitWebsiteWorkspace() {
   const chatDock = document.getElementById('staff-chat-dock-bar');
   if (chatDock) chatDock.style.display = '';
 
-  const targetPage = (window.__lastNonWebsitePage && window.__lastNonWebsitePage !== 'website')
-    ? window.__lastNonWebsitePage
-    : 'config';
+  const prev = window.websiteWorkspacePreviousRoute || {};
+  const isDemo = typeof isDemoAccount === 'function' && isDemoAccount();
+  const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+  const isStandaloneWebsite = access.products && access.products.length === 1 && access.products.includes('marketsync_website');
+
+  let targetPage = null;
+
+  // 1. If entered from Marketing department or a marketing page
+  if (prev.dept === 'marketing' || (prev.page && (prev.page.includes('marketing') || prev.page === 'design-studio' || prev.page === 'seo' || prev.page === 'blog'))) {
+    targetPage = 'marketing-overview';
+  }
+  // 2. If entered from another valid non-website page
+  else if (prev.page && prev.page !== 'website' && prev.page !== 'website-settings') {
+    targetPage = prev.page;
+  }
+  // 3. If standalone website account
+  else if (isStandaloneWebsite) {
+    targetPage = 'profile';
+  }
+  // 4. If demo account
+  else if (isDemo) {
+    targetPage = 'marketing-overview';
+  }
+  // 5. Final fallback
+  else {
+    targetPage = 'config';
+  }
 
   if (typeof switchPage === 'function') switchPage(targetPage);
 }
