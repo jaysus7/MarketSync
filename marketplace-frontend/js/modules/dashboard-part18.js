@@ -1147,14 +1147,14 @@ async function eqPullAhead(id, btn) {
 }
 Object.assign(window, { loadEquityPage, eqTab, eqSaveLease, eqSaveSettings, eqPullAhead, eqWorksheet, eqDealTypeToggle });
 
-window.openVehicleForm = openVehicleForm;
-window.vehDelete = vehDelete;
-window.vehGenPitch = vehGenPitch;
-window.generateAllPitches = generateAllPitches;
-window.editVehicle = editVehicle;
-window.openPhotoBackgroundUploader = openPhotoBackgroundUploader;
-window.uploadPhotoBackground = uploadPhotoBackground;
-window.removePhotoBackground = removePhotoBackground;
+if (typeof openVehicleForm !== 'undefined') window.openVehicleForm = openVehicleForm;
+if (typeof vehDelete !== 'undefined') window.vehDelete = vehDelete;
+if (typeof vehGenPitch !== 'undefined') window.vehGenPitch = vehGenPitch;
+if (typeof generateAllPitches !== 'undefined') window.generateAllPitches = generateAllPitches;
+if (typeof editVehicle !== 'undefined') window.editVehicle = editVehicle;
+if (typeof openPhotoBackgroundUploader !== 'undefined') window.openPhotoBackgroundUploader = openPhotoBackgroundUploader;
+if (typeof uploadPhotoBackground !== 'undefined') window.uploadPhotoBackground = uploadPhotoBackground;
+if (typeof removePhotoBackground !== 'undefined') window.removePhotoBackground = removePhotoBackground;
 
 async function loadInventoryCatalog() {
   if (typeof setupExtensionBridge === 'function') setupExtensionBridge();  // so card "Post" can detect the extension

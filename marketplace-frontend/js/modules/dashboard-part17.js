@@ -95,6 +95,9 @@ async function removePhotoBackground() {
     document.querySelector('.fixed')?.remove();
   } catch (e) { showToast(e.message, 'error'); }
 }
+window.openPhotoBackgroundUploader = openPhotoBackgroundUploader;
+window.uploadPhotoBackground = uploadPhotoBackground;
+window.removePhotoBackground = removePhotoBackground;
 // ── Website manager: the public dealer site we host ──────────────────────────
 const SITE_BASE = (location.origin && !/^file/.test(location.origin)) ? `${location.origin}/site.html` : 'https://marketsync.link/site.html';
 // The settings form body (shared by the Website → Settings tab and the modal).
