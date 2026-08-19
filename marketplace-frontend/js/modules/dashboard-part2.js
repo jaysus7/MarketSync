@@ -952,7 +952,9 @@ async function initializeDashboardEcosystem() {
     // authoritative and switchPage will refuse any destination the caller cannot open.
     const bootRoute = typeof msRouteFromHash === 'function' ? msRouteFromHash() : null;
     const bootPage = (bootRoute && bootRoute.page) ? bootRoute.page : null;
-    if (bootPage) {
+    if (typeof resolveWorkspaceContext === 'function' && resolveWorkspaceContext() === 'website') {
+      switchPage('website');
+    } else if (bootPage) {
       switchPage(bootPage);
       if (bootRoute.tab && typeof engineTab === 'function' && typeof ENGINES !== 'undefined' && ENGINES[bootPage]) {
         engineTab(bootPage, bootRoute.tab);
@@ -1293,6 +1295,7 @@ function renderDeptTabbar(pageId) {
   const bar = document.getElementById('dept-tabbar');
   if (!bar) return;
   const hide = () => { bar.classList.add('hidden'); bar.innerHTML = ''; };
+  if (pageId === 'website' || (typeof resolveWorkspaceContext === 'function' && resolveWorkspaceContext() === 'website')) { __activeDept = null; return hide(); }
   if (__fbOnly) { __activeDept = null; return hide(); }   // stripped Facebook-only tier
   if (__productAllowedPages) { __activeDept = null; return hide(); }   // restricted product tiers use their flat nav, no dept tab-bar
   // MarketSync owner mode uses the SaaS departments, not the dealership ones.
@@ -1353,7 +1356,32 @@ function marketsyncOwnerMode() {
   return document.documentElement.getAttribute('data-dash-owner') === '1'
     && document.documentElement.getAttribute('data-dash-mode') === 'marketsync';
 }
+function resolveWorkspaceContext(userObj, accessObj, currentRouteStr) {
+  const hashRoute = (typeof msRouteFromHash === 'function' ? msRouteFromHash()?.page : null) || currentRouteStr || (typeof location !== 'undefined' ? location.hash : '');
+  const isWebRoute = Boolean(hashRoute && (
+    hashRoute === 'website' ||
+    hashRoute.startsWith('website-') ||
+    hashRoute.includes('/website') ||
+    hashRoute.includes('website')
+  ));
+  const activeProducts = document.documentElement.getAttribute('data-product') || '';
+  const isWebProduct = Boolean(
+    /(?:^|\s)(?:marketsync_website|website)(?:\s|$)/.test(activeProducts) ||
+    (window.__access?.products && (window.__access.products.includes('marketsync_website') || window.__access.products.includes('website')))
+  );
+  const isDemoWebsite = window.__demoActiveProduct === 'dealer-website';
+
+  if (isWebRoute || isDemoWebsite || (isWebProduct && !activeProducts.includes('dealer_os'))) {
+    return 'website';
+  }
+  return 'dealer_os';
+}
+window.resolveWorkspaceContext = resolveWorkspaceContext;
+
 function deptNavEligible(role) {
+  if (typeof resolveWorkspaceContext === 'function' && resolveWorkspaceContext() === 'website') {
+    return false;
+  }
   // The department (DealerOS) nav is the ONE nav for every dealership user — reps
   // included. Each department/page is filtered to what that user can actually see
   // (deptVisible / deptPageVisible respect role + solo + feature-flag gating), so a
@@ -1385,6 +1413,13 @@ function deptVisible(dept) {
 function renderDeptNav(role) {
   const navRoot = document.getElementById('nav-desktop');
   if (!navRoot) return;
+  if (typeof resolveWorkspaceContext === 'function' && resolveWorkspaceContext() === 'website') {
+    navRoot.classList.remove('dept-mode');
+    document.getElementById('dept-nav')?.remove();
+    document.getElementById('sidebar-nav')?.classList.add('hidden');
+    __deptNavBuilt = false;
+    return;
+  }
   // Owner in the SaaS back office → the SaaS departments; a dealer manager in full
   // DealerOS → the dealership departments; anyone else → the legacy nav.
   const registry = marketsyncOwnerMode() ? SAAS_DEPARTMENTS : (deptNavEligible(role) ? DEPARTMENTS : null);
@@ -1494,6 +1529,9 @@ function switchPage(pageId) {
   }
   // Facebook-only tier: only the Facebook hub, leaderboard and settings are reachable.
   if (__fbOnly && !FB_ONLY_PAGES.has(pageId)) { __inventoryMode = 'facebook'; pageId = 'inventory'; }
+  if (typeof resolveWorkspaceContext === 'function' && resolveWorkspaceContext() === 'website' && pageId !== 'profile' && !pageId.startsWith('website')) {
+    pageId = 'website';
+  }
   // Product-restricted tiers (Facebook Solo/Dealer, AI Chatbot): keep them inside
   // their page set so a stale link or hardcoded mobile button can't reach full-OS
   // pages. 'profile' (header gear) is always allowed.

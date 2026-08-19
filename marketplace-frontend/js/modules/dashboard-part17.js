@@ -1284,6 +1284,7 @@ async function loadWebsitePage() {
 
   if (targetTab === 'setup' || targetTab === 'settings') __wsTab = 'setup';
   else if (targetTab === 'blog') __wsTab = 'blog';
+  else if (targetTab === 'seo') __wsTab = 'seo';
   else if (!__wsTab || __wsTab === 'settings') __wsTab = 'builder';
 
   if (targetSection) __wsSetupSection = targetSection;
@@ -1422,10 +1423,11 @@ function renderWebsitePage() {
           </div>
         </div>
 
-        <!-- PRIMARY WORKSPACE NAVIGATION: Builder | Blog | Setup -->
+        <!-- PRIMARY WORKSPACE NAVIGATION: Builder | Blog | SEO | Setup -->
         <div class="flex items-center gap-1.5">
           ${tab('builder', 'Builder')}
           ${tab('blog', 'Blog')}
+          ${tab('seo', 'SEO')}
           ${tab('setup', 'Setup')}
         </div>
 
@@ -1457,9 +1459,34 @@ window.setBuilderMode = setBuilderMode;
 // A side-by-side editor: the dealer's actual site in a preview iframe on the left,
 // the section palette + reorderable list on the right. Edits post to the iframe via
 // postMessage and render instantly (never saved until "Save"). Clicking a section in
-// the preview jumps to its editor. Uses the SAME __siteSections model as Classic, so
-// both editors are fully interchangeable.
 let __livePreviewReady = false, __liveMsgWired = false, __livePushTimer = null;
+
+function refreshWebsitePreview() {
+  markWsUnsaved();
+  livePreviewPush();
+}
+window.refreshWebsitePreview = refreshWebsitePreview;
+
+function markWsUnsaved() {
+  window.__wsHasUnsavedChanges = true;
+  const badges = document.querySelectorAll('.ws-saved-badge');
+  badges.forEach(b => {
+    b.className = 'ws-saved-badge px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40';
+    b.textContent = 'UNSAVED';
+  });
+}
+window.markWsUnsaved = markWsUnsaved;
+
+function markWsSaved() {
+  window.__wsHasUnsavedChanges = false;
+  const badges = document.querySelectorAll('.ws-saved-badge');
+  badges.forEach(b => {
+    b.className = 'ws-saved-badge px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40';
+    b.textContent = 'SAVED';
+  });
+}
+window.markWsSaved = markWsSaved;
+
 function livePreviewPush() {
   if (__builderMode !== 'live') return;
   const ifr = document.getElementById('ws-preview-frame');
@@ -1468,10 +1495,16 @@ function livePreviewPush() {
   __livePushTimer = setTimeout(() => {
     try {
       wsFlushTarget();
-      const c = __siteCfg.content || {};
+      const c = __siteCfg?.content || {};
       const site = {
         sections: __homeSections, pages: __sitePages, builtins: __siteBuiltins, staff: __siteStaff,
-        primary_color: c.primary_color, secondary_color: c.secondary_color,
+        design_theme: c.design_theme || 'modern',
+        quick_palette: c.quick_palette || 'chevy_blue',
+        primary_color: c.primary_color || '#1e3a8a',
+        secondary_color: c.secondary_color || '#3b82f6',
+        accent_color: c.accent_color || '#f59e0b',
+        heading_font: c.heading_font || 'Inter',
+        body_font: c.body_font || 'Inter',
         tagline: c.tagline, about: c.about, hero_url: c.hero_url, logo_url: c.logo_url,
       };
       let view = 'home';
@@ -1479,9 +1512,232 @@ function livePreviewPush() {
       else if (typeof __wsTarget === 'number' && __sitePages[__wsTarget]) view = 'page:' + (__sitePages[__wsTarget].slug || '');
       ifr.contentWindow.postMessage({ type: 'ms-preview-apply', site, view }, '*');
     } catch {}
-  }, 140);
+  }, 40);
 }
 window.livePreviewPush = livePreviewPush;
+
+const THEME_DEFAULTS = {
+  classic:  { heading_font: 'Inter', body_font: 'Inter' },
+  prestige: { heading_font: 'Playfair Display', body_font: 'Inter' },
+  modern:   { heading_font: 'Plus Jakarta Sans', body_font: 'Inter' },
+  bold:     { heading_font: 'Oswald', body_font: 'Montserrat' },
+  minimal:  { heading_font: 'Outfit', body_font: 'Space Grotesk' }
+};
+
+const PALETTES = {
+  chevy_blue:  { label: 'Chevy Blue',  primary: '#1e3a8a', secondary: '#3b82f6', accent: '#f59e0b' },
+  gmc_red:     { label: 'GMC Red',     primary: '#991b1b', secondary: '#ef4444', accent: '#1e293b' },
+  buick_bronze:{ label: 'Buick Bronze',primary: '#78350f', secondary: '#d97706', accent: '#451a03' },
+  ford_blue:   { label: 'Ford Blue',   primary: '#0369a1', secondary: '#0284c7', accent: '#e0f2fe' },
+  midnight:    { label: 'Midnight',    primary: '#0f172a', secondary: '#334155', accent: '#6366f1' },
+  clean_slate: { label: 'Clean Slate', primary: '#334155', secondary: '#64748b', accent: '#0ea5e9' },
+  luxury_gold: { label: 'Luxury Gold', primary: '#1c1917', secondary: '#78350f', accent: '#eab308' },
+  forest:      { label: 'Forest',      primary: '#064e3b', secondary: '#059669', accent: '#f59e0b' }
+};
+
+function setWsTheme(key) {
+  if (!__siteCfg) return;
+  __siteCfg.content = __siteCfg.content || {};
+  const c = __siteCfg.content;
+  c.design_theme = key;
+  const defs = THEME_DEFAULTS[key] || THEME_DEFAULTS.modern;
+  if (!c.heading_font || ['Inter', 'Playfair Display', 'Plus Jakarta Sans', 'Oswald', 'Outfit'].includes(c.heading_font)) {
+    c.heading_font = defs.heading_font;
+  }
+  if (!c.body_font || ['Inter', 'Montserrat', 'Space Grotesk'].includes(c.body_font)) {
+    c.body_font = defs.body_font;
+  }
+  const drawer = document.getElementById('ws-left-drawer-content');
+  if (drawer && __wsActiveLeftNav === 'design') {
+    drawer.innerHTML = renderWsLeftDrawerHtml();
+  }
+  refreshWebsitePreview();
+}
+window.setWsTheme = setWsTheme;
+
+function setWsPalette(key) {
+  if (!__siteCfg) return;
+  const pal = PALETTES[key];
+  if (!pal) return;
+  __siteCfg.content = __siteCfg.content || {};
+  const c = __siteCfg.content;
+  c.quick_palette = key;
+  c.primary_color = pal.primary;
+  c.secondary_color = pal.secondary;
+  c.accent_color = pal.accent;
+  const drawer = document.getElementById('ws-left-drawer-content');
+  if (drawer && __wsActiveLeftNav === 'design') {
+    drawer.innerHTML = renderWsLeftDrawerHtml();
+  }
+  refreshWebsitePreview();
+}
+window.setWsPalette = setWsPalette;
+
+function setWsBrandColor(type, val) {
+  if (!__siteCfg) return;
+  __siteCfg.content = __siteCfg.content || {};
+  const c = __siteCfg.content;
+  if (type === 'primary') c.primary_color = val;
+  else if (type === 'secondary') c.secondary_color = val;
+  else if (type === 'accent') c.accent_color = val;
+  refreshWebsitePreview();
+}
+window.setWsBrandColor = setWsBrandColor;
+
+function setWsFont(type, fontName) {
+  if (!__siteCfg) return;
+  __siteCfg.content = __siteCfg.content || {};
+  const c = __siteCfg.content;
+  if (type === 'heading') c.heading_font = fontName;
+  else if (type === 'body') c.body_font = fontName;
+  refreshWebsitePreview();
+}
+window.setWsFont = setWsFont;
+
+function wsDesign() {
+  const c = __siteCfg?.content || {};
+  const theme = (c.design_theme || 'modern').toLowerCase();
+  const palette = (c.quick_palette || 'chevy_blue').toLowerCase();
+  const primary = c.primary_color || '#1e3a8a';
+  const secondary = c.secondary_color || '#3b82f6';
+  const accent = c.accent_color || '#f59e0b';
+  const headingFont = c.heading_font || 'Inter';
+  const bodyFont = c.body_font || 'Inter';
+
+  const themes = [
+    { id: 'classic', label: 'Classic', desc: 'Traditional & familiar dealership style' },
+    { id: 'prestige', label: 'Prestige', desc: 'Serif headlines & luxury spacing' },
+    { id: 'modern', label: 'Modern', desc: 'Rounded corners & clean tech typography' },
+    { id: 'bold', label: 'Bold', desc: 'High contrast & heavy impact headlines' },
+    { id: 'minimal', label: 'Minimal', desc: 'Monochrome, subtle & airy surfaces' }
+  ];
+
+  const fontOpts = [
+    'Inter', 'Playfair Display', 'Plus Jakarta Sans', 'Oswald', 'Roboto Slab',
+    'Outfit', 'Montserrat', 'Space Grotesk', 'Poppins', 'Lora', 'Cinzel', 'Rubik'
+  ];
+
+  return `
+    <div class="space-y-4 font-sans text-xs">
+      <div>
+        <div class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Design Theme</div>
+        <div class="grid grid-cols-1 gap-1.5">
+          ${themes.map(t => `
+            <button type="button" onclick="setWsTheme('${t.id}')" class="p-2.5 rounded-xl border text-left transition cursor-pointer ${theme === t.id ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-950 text-slate-300 hover:border-slate-700'}">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold">${t.label}</span>
+                ${theme === t.id ? '<span class="text-[10px] text-indigo-400 font-black">ACTIVE</span>' : ''}
+              </div>
+              <div class="text-[10px] text-slate-400 mt-0.5">${t.desc}</div>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+
+      <div>
+        <div class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Quick Palettes</div>
+        <div class="grid grid-cols-2 gap-1.5">
+          ${Object.entries(PALETTES).map(([k, p]) => `
+            <button type="button" onclick="setWsPalette('${k}')" class="p-2 rounded-xl border text-left transition flex items-center justify-between cursor-pointer ${palette === k ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-950 text-slate-300 hover:border-slate-700'}">
+              <span class="text-[11px] font-bold truncate">${p.label}</span>
+              <div class="flex items-center -space-x-1 shrink-0 ml-1">
+                <div class="w-3 h-3 rounded-full border border-black/30" style="background-color:${p.primary}"></div>
+                <div class="w-3 h-3 rounded-full border border-black/30" style="background-color:${p.secondary}"></div>
+                <div class="w-3 h-3 rounded-full border border-black/30" style="background-color:${p.accent}"></div>
+              </div>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="space-y-2 pt-1 border-t border-slate-800">
+        <div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Brand Colors</div>
+        <div class="space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <label class="text-xs font-bold text-slate-300">Primary Color</label>
+            <div class="flex items-center gap-2">
+              <input type="color" value="${primary}" oninput="setWsBrandColor('primary', this.value)" class="w-7 h-7 rounded border border-slate-700 bg-transparent cursor-pointer">
+              <input type="text" value="${primary}" oninput="setWsBrandColor('primary', this.value)" class="w-20 px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-200 font-mono">
+            </div>
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <label class="text-xs font-bold text-slate-300">Secondary Color</label>
+            <div class="flex items-center gap-2">
+              <input type="color" value="${secondary}" oninput="setWsBrandColor('secondary', this.value)" class="w-7 h-7 rounded border border-slate-700 bg-transparent cursor-pointer">
+              <input type="text" value="${secondary}" oninput="setWsBrandColor('secondary', this.value)" class="w-20 px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-200 font-mono">
+            </div>
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <label class="text-xs font-bold text-slate-300">Accent Color</label>
+            <div class="flex items-center gap-2">
+              <input type="color" value="${accent}" oninput="setWsBrandColor('accent', this.value)" class="w-7 h-7 rounded border border-slate-700 bg-transparent cursor-pointer">
+              <input type="text" value="${accent}" oninput="setWsBrandColor('accent', this.value)" class="w-20 px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-200 font-mono">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-2 pt-2 border-t border-slate-800">
+        <div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Typography</div>
+        <div class="space-y-2">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-300 mb-1">Heading Google Font</label>
+            <select onchange="setWsFont('heading', this.value)" class="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer">
+              ${fontOpts.map(f => `<option value="${f}" ${headingFont === f ? 'selected' : ''}>${f}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-300 mb-1">Body Google Font</label>
+            <select onchange="setWsFont('body', this.value)" class="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer">
+              ${fontOpts.map(f => `<option value="${f}" ${bodyFont === f ? 'selected' : ''}>${f}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+window.wsDesign = wsDesign;
+
+async function saveWebsite(btn) {
+  if (!__siteCfg) return;
+  wsFlushTarget();
+  const c = __siteCfg.content || {};
+  
+  const payload = {
+    site_slug: __siteCfg.site_slug || '',
+    site_published: document.getElementById('ws-pub')?.checked || __siteCfg.site_published || false,
+    content: {
+      ...c,
+      sections: __homeSections,
+      pages: __sitePages,
+      builtins: __siteBuiltins,
+      staff: __siteStaff,
+      design_theme: c.design_theme || 'modern',
+      quick_palette: c.quick_palette || 'chevy_blue',
+      primary_color: c.primary_color || '#1e3a8a',
+      secondary_color: c.secondary_color || '#3b82f6',
+      accent_color: c.accent_color || '#f59e0b',
+      heading_font: c.heading_font || 'Inter',
+      body_font: c.body_font || 'Inter',
+    }
+  };
+
+  const orig = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Saving…'; }
+
+  try {
+    const res = await apiSendJson('/dealership/site', 'PUT', payload);
+    if (res && res.content) __siteCfg.content = res.content;
+    markWsSaved();
+    showToast('Website design saved', 'success');
+  } catch (e) {
+    showToast(e.message || 'Failed to save website', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+  }
+}
+window.saveWebsite = saveWebsite;
 function cancelInsert() { __pendingInsertAt = null; const h = document.getElementById('ws-insert-hint'); if (h) h.classList.add('hidden'); }
 window.cancelInsert = cancelInsert;
 function wireLiveMessages() {
@@ -2252,7 +2508,7 @@ function wsField(i, sec, [key, label, type]) {
   else input = `<input value="${esc(v || '')}" oninput="setSec(${i},'${key}',this.value)" class="${cls}">`;
   return `<div class="${wide}">${lbl}${input}</div>`;
 }
-function setSec(i, key, val) { if (__siteSections[i]) { __siteSections[i].settings = __siteSections[i].settings || {}; __siteSections[i].settings[key] = val; if (__builderMode === 'live') livePreviewPush(); } }
+function setSec(i, key, val) { if (__siteSections[i]) { __siteSections[i].settings = __siteSections[i].settings || {}; __siteSections[i].settings[key] = val; refreshWebsitePreview(); } }
 function setSecFaq(i, key, text) { const items = text.split('\n').map(l => { const [q, ...a] = l.split('::'); return { q: (q || '').trim(), a: a.join('::').trim() }; }).filter(x => x.q); setSec(i, key, items); }
 function setSecReviews(i, key, text) { const items = text.split('\n').map(l => { const p = l.split('::'); const author = (p[0] || '').trim(); const rating = Math.max(1, Math.min(5, parseInt(p[1]) || 5)); const body = p.slice(2).join('::').trim(); return { author, rating, text: body }; }).filter(x => x.author || x.text); setSec(i, key, items); }
 function setSecCards(i, key, text) { const items = text.split('\n').map(l => { const [t, ...d] = l.split('::'); return { title: (t || '').trim(), text: d.join('::').trim() }; }).filter(x => x.title || x.text); setSec(i, key, items); }

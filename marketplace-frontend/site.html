@@ -146,22 +146,80 @@
     }
     function injectHead(html){ if(!html) return; try{ const t=document.createElement('div'); t.innerHTML=html; Array.from(t.childNodes).forEach(n=>{ if(n.nodeType===1&&n.tagName==='SCRIPT'){ const s=document.createElement('script'); for(const a of n.attributes) s.setAttribute(a.name,a.value); s.textContent=n.textContent; document.head.appendChild(s);} else if(n.nodeType===1) document.head.appendChild(n); }); }catch(e){} }
     // Typography → dealer-chosen Google Fonts (heading + body), or a named preset.
+    function applyDesignThemeStyle(s){
+      const theme = (s.design_theme || s.theme || 'modern').toLowerCase();
+      document.documentElement.setAttribute('data-theme', theme);
+      let el = document.getElementById('ms-theme-styles');
+      if(!el){
+        el = document.createElement('style');
+        el.id = 'ms-theme-styles';
+        document.head.appendChild(el);
+      }
+      if(theme === 'prestige' || theme === 'luxury'){
+        el.textContent = `
+          :root { --border-radius: 4px; --shadow-style: 0 4px 20px rgba(0,0,0,0.06); }
+          header { border-bottom: 1px solid rgba(255,255,255,0.15); }
+          h1, h2, h3 { letter-spacing: -0.02em; line-height: 1.2; }
+          .brand-bg { background-color: var(--brand, #1c1917) !important; }
+          button, .btn { border-radius: 4px !important; }
+        `;
+      } else if(theme === 'bold'){
+        el.textContent = `
+          :root { --border-radius: 0px; --shadow-style: 0 10px 30px rgba(0,0,0,0.2); }
+          header { text-transform: uppercase; font-weight: 900; }
+          h1, h2, h3 { text-transform: uppercase; font-weight: 900; letter-spacing: 0.03em; }
+          .brand-bg { background-color: var(--brand, #0f172a) !important; }
+          button, .btn { border-radius: 0px !important; text-transform: uppercase; font-weight: 900; }
+        `;
+      } else if(theme === 'minimal'){
+        el.textContent = `
+          :root { --border-radius: 8px; --shadow-style: none; }
+          header { background-color: #ffffff !important; color: #0f172a !important; border-bottom: 1px solid #e2e8f0; }
+          header a, header button { color: #0f172a !important; }
+          h1, h2, h3 { font-weight: 700; letter-spacing: -0.01em; }
+          .brand-bg { background-color: #ffffff !important; color: #0f172a !important; }
+          button, .btn { border-radius: 8px !important; border: 1px solid #cbd5e1 !important; }
+        `;
+      } else if(theme === 'classic'){
+        el.textContent = `
+          :root { --border-radius: 8px; --shadow-style: 0 2px 8px rgba(0,0,0,0.08); }
+          h1, h2, h3 { font-weight: 800; }
+          .brand-bg { background-color: var(--brand, #1e3a8a) !important; }
+          button, .btn { border-radius: 8px !important; }
+        `;
+      } else { // modern
+        el.textContent = `
+          :root { --border-radius: 16px; --shadow-style: 0 10px 25px -5px rgba(0,0,0,0.1); }
+          h1, h2, h3 { font-weight: 800; letter-spacing: -0.025em; }
+          .brand-bg { background-color: var(--brand, #4f46e5) !important; }
+          button, .btn { border-radius: 12px !important; }
+        `;
+      }
+    }
     function applyTypography(s){
-      const T={ modern:{h:'Inter',b:'Inter',u:'Inter:wght@400;600;800'},
-        luxury:{h:'Playfair Display',b:'Inter',u:'Playfair+Display:wght@600;800|Inter:wght@400;600'},
-        bold:{h:'Oswald',b:'Inter',u:'Oswald:wght@600;700|Inter:wght@400;600'},
-        corporate:{h:'Roboto Slab',b:'Inter',u:'Roboto+Slab:wght@600;800|Inter:wght@400;600'},
-        minimal:{h:'Inter',b:'Inter',u:'Inter:wght@300;500;700'} };
+      const T={ modern:{h:'Plus Jakarta Sans',b:'Inter',u:'Plus+Jakarta+Sans:wght@600;800|Inter:wght@400;600'},
+        prestige:{h:'Playfair Display',b:'Inter',u:'Playfair+Display:wght@600;800|Inter:wght@400;600'},
+        bold:{h:'Oswald',b:'Montserrat',u:'Oswald:wght@600;700|Montserrat:wght@400;600;800'},
+        minimal:{h:'Outfit',b:'Space Grotesk',u:'Outfit:wght@500;700|Space+Grotesk:wght@400;600'},
+        classic:{h:'Inter',b:'Inter',u:'Inter:wght@400;600;800'} };
       let h,b,url;
       if(s&&(s.heading_font||s.body_font)){
         h=s.heading_font||'Inter'; b=s.body_font||'Inter';
         const fams=[...new Set([h,b])].map(f=>`family=${String(f).trim().replace(/\s+/g,'+')}:wght@400;600;700;800`).join('&');
         url=`https://fonts.googleapis.com/css2?${fams}&display=swap`;
       } else {
-        const t=T[(s&&s.typography)]||T.modern; h=t.h; b=t.b; url=`https://fonts.googleapis.com/css2?family=${t.u}&display=swap`;
+        const t=T[(s&&(s.design_theme||s.theme||s.typography))]||T.modern; h=t.h; b=t.b; url=`https://fonts.googleapis.com/css2?family=${t.u}&display=swap`;
       }
-      const link=document.createElement('link'); link.rel='stylesheet'; link.href=url; document.head.appendChild(link);
-      const st=document.createElement('style'); st.textContent=`body{font-family:'${b}',system-ui,sans-serif}h1,h2,h3,.font-black,.font-bold{font-family:'${h}',system-ui,sans-serif}`; document.head.appendChild(st);
+      let link=document.getElementById('ms-google-fonts');
+      if(!link){
+        link=document.createElement('link'); link.id='ms-google-fonts'; link.rel='stylesheet'; document.head.appendChild(link);
+      }
+      link.href=url;
+      let st=document.getElementById('ms-typography-styles');
+      if(!st){
+        st=document.createElement('style'); st.id='ms-typography-styles'; document.head.appendChild(st);
+      }
+      st.textContent=`body{font-family:'${b}',system-ui,sans-serif}h1,h2,h3,.font-black,.font-bold{font-family:'${h}',system-ui,sans-serif}`;
     }
     // Rendered-car placeholder when a unit has no photo — the car on the dealer's
     // chosen background (or a brand gradient). Never a broken/empty tile.
@@ -1257,6 +1315,8 @@
           const s=DATA.site;
           if(s.primary_color) document.documentElement.style.setProperty('--brand',s.primary_color);
           if(s.secondary_color) document.documentElement.style.setProperty('--brand2',s.secondary_color);
+          if(s.accent_color) document.documentElement.style.setProperty('--accent',s.accent_color);
+          try{ applyDesignThemeStyle(s); }catch(e){}
           try{ applyTypography(s); }catch(e){}
           try{ renderChrome(); }catch(e){}
           go(m.view||'home');
