@@ -833,8 +833,8 @@ const PRODUCT_PAGES = {
   email_marketing:    ['email-marketing'],
   marketsync_email:   ['email-marketing'],
   ai_chatbot:         ['ai-home'],
-  website:            ['website-builder', 'website-blog', 'website-seo', 'website-setup', 'website'],
-  marketsync_website: ['website-builder', 'website-blog', 'website-seo', 'website-setup', 'website'],
+  website:            ['website', 'blog', 'seo'],
+  marketsync_website: ['website', 'blog', 'seo'],
   dealer_os:          null,
 };
 const PRODUCT_HOME = {
@@ -1374,9 +1374,13 @@ function restrictedNavPages() {
 
   if (isWebsiteProduct) {
     const list = [
+      // Builder is the full-screen site editor (the one intentional "full pager").
+      // Blog and SEO open as normal in-dashboard pages (page content area + sidebar),
+      // like the rest of MarketSync — not the full-screen workspace. Setup stays with
+      // the Builder workspace (it configures that editor).
       { page: 'website', tab: 'builder', label: 'Builder', icon: 'globe' },
-      { page: 'website', tab: 'blog', label: 'Blog', icon: 'document' },
-      { page: 'website', tab: 'seo', label: 'SEO', icon: 'chart' },
+      { page: 'blog', label: 'Blog', icon: 'document' },
+      { page: 'seo', label: 'SEO', icon: 'chart' },
       { page: 'website', tab: 'setup', label: 'Setup', icon: 'wrench' },
     ];
     const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
