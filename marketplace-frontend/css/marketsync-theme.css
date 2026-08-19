@@ -1035,12 +1035,14 @@ body.website-workspace-mode {
 /* Suppress all global MarketSync navigation, headers, sidebars & rails in Website workspace mode */
 .website-workspace-mode header,
 .website-workspace-mode #dashboard-nav,
-.website-workspace-mode #dept-nav,
-.website-workspace-mode #nav-desktop,
 .website-workspace-mode #nav-reports-m,
 .website-workspace-mode #nav-more,
 .website-workspace-mode #staff-chat-dock-bar,
 .website-workspace-mode #setup-status-banner,
+.website-workspace-mode #report-rail,
+.website-workspace-mode #ai-dock-btn,
+.website-workspace-mode #ai-dock-panel,
+.website-workspace-mode #team-chat-dock-panel,
 .website-workspace-mode main > section:first-child {
   display: none !important;
 }

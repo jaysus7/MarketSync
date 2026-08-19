@@ -1327,7 +1327,7 @@ function renderDeptTabbar(pageId) {
   bar.classList.remove('hidden');
 }
 // Navigate to a department page (handles the inventory view-mode tabs).
-function deptGo(page, invmode) { if (invmode) __inventoryMode = invmode; switchPage(page); }
+function deptGo(page, invmode, tab) { if (invmode) __inventoryMode = invmode; if (tab && page === 'website') __wsTab = tab; switchPage(page); }
 window.deptGo = deptGo;
 
 // ── Flat department LEFT nav ─────────────────────────────────────────────────
@@ -1440,7 +1440,7 @@ function renderDeptNav(role) {
         if (anchor && anchor.parentElement === navRoot) navRoot.insertBefore(host, anchor.nextSibling);
         else navRoot.insertBefore(host, navRoot.firstChild);
       }
-      host.innerHTML = rp.map(p => `<button type="button" data-page="${esc(p.page)}" onclick="${p.studioLaunch ? 'window.openMarketSyncStudio()' : `deptGo('${esc(p.page)}'${p.invmode ? `,'${esc(p.invmode)}'` : ''})`}" title="${esc(p.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-indigo-500 flex-shrink-0">${svgIcon(p.icon || 'dot', 'w-4 h-4')}</span><span>${esc(p.label)}</span></button>`).join('');
+      host.innerHTML = rp.map(p => `<button type="button" data-page="${esc(p.page)}" onclick="${p.studioLaunch ? 'window.openMarketSyncStudio()' : `deptGo('${esc(p.page)}'${p.invmode ? `,'${esc(p.invmode)}'` : '\'\''}${p.tab ? `,'${esc(p.tab)}'` : ''})`}" title="${esc(p.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-indigo-500 flex-shrink-0">${svgIcon(p.icon || 'dot', 'w-4 h-4')}</span><span>${esc(p.label)}</span></button>`).join('');
       navRoot.classList.add('dept-mode');
       __deptNavBuilt = true;
       if (__currentPage) highlightDeptNav(__currentPage);

@@ -1362,29 +1362,20 @@ function exitWebsiteWorkspace() {
   const prev = window.websiteWorkspacePreviousRoute || {};
   const isDemo = typeof isDemoAccount === 'function' && isDemoAccount();
   const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
-  const isStandaloneWebsite = access.products && access.products.length === 1 && access.products.includes('marketsync_website');
+  const isStandaloneWebsite = (access.products && access.products.length === 1 && (access.products.includes('marketsync_website') || access.products.includes('website')))
+    || (typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace())
+    || (typeof resolveWorkspaceContext === 'function' && resolveWorkspaceContext() === 'website');
 
   let targetPage = null;
 
-  // 1. If entered from Marketing department or a marketing page
-  if (prev.dept === 'marketing' || (prev.page && (prev.page.includes('marketing') || prev.page === 'design-studio' || prev.page === 'seo' || prev.page === 'blog'))) {
-    targetPage = 'marketing-overview';
-  }
-  // 2. If entered from another valid non-website page
-  else if (prev.page && prev.page !== 'website' && prev.page !== 'website-settings') {
-    targetPage = prev.page;
-  }
-  // 3. If standalone website account
-  else if (isStandaloneWebsite) {
+  if (isStandaloneWebsite) {
     targetPage = 'profile';
-  }
-  // 4. If demo account
-  else if (isDemo) {
+  } else if (prev.dept === 'marketing' || (prev.page && (prev.page.includes('marketing') || prev.page === 'design-studio' || prev.page === 'seo' || prev.page === 'blog'))) {
     targetPage = 'marketing-overview';
-  }
-  // 5. Final fallback
-  else {
-    targetPage = 'config';
+  } else if (prev.page && prev.page !== 'website' && prev.page !== 'website-settings') {
+    targetPage = prev.page;
+  } else {
+    targetPage = 'profile';
   }
 
   if (typeof switchPage === 'function') switchPage(targetPage);
@@ -1397,14 +1388,12 @@ function renderWebsitePage() {
   const c = __siteCfg.content || {};
   const url = __siteCfg.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(__siteCfg.site_slug)}` : null;
   
-  const tab = (id, label) => `<button onclick="wsTab('${id}')" class="px-5 py-2 text-xs font-black rounded-xl transition ${(__wsTab === id || (id === 'setup' && __wsTab === 'settings')) ? 'bg-indigo-600 text-white shadow-md' : 'bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] hover:text-[var(--ws-text)] border border-[var(--ws-border)]'}">${label}</button>`;
-
   root.innerHTML = `
     <div class="flex flex-col h-full w-full bg-[var(--ws-bg)] text-[var(--ws-text)]">
       <!-- TOP APPLICATION HEADER (Dedicated Full-Screen Workspace Header) -->
       <div class="ws-builder-header flex items-center justify-between px-4 py-2.5 bg-[var(--ws-panel)] border-b border-[var(--ws-border)] flex-shrink-0 flex-wrap gap-2">
         <div class="flex items-center gap-3">
-          <button onclick="exitWebsiteWorkspace()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-white border border-slate-700/60 text-xs font-black transition cursor-pointer shadow-sm" title="Exit Website Workspace & Return to Dashboard">
+          <button onclick="exitWebsiteWorkspace()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-white border border-slate-700/60 text-xs font-black transition cursor-pointer shadow-sm" title="Exit Website Workspace & Return to Settings">
             <svg class="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
             <span>Exit Website</span>
           </button>
@@ -1421,14 +1410,6 @@ function renderWebsitePage() {
             </div>
             <p class="text-[11px] text-[var(--ws-text-muted)]">Full-screen dealership website application</p>
           </div>
-        </div>
-
-        <!-- PRIMARY WORKSPACE NAVIGATION: Builder | Blog | SEO | Setup -->
-        <div class="flex items-center gap-1.5">
-          ${tab('builder', 'Builder')}
-          ${tab('blog', 'Blog')}
-          ${tab('seo', 'SEO')}
-          ${tab('setup', 'Setup')}
         </div>
 
         <!-- TOP RIGHT ACTION CONTROLS -->
@@ -1925,7 +1906,7 @@ function setWsLeftNav(tab) {
   const btns = document.querySelectorAll('.ws-nav-rail-btn');
   btns.forEach(b => {
     const isSel = b.dataset.tab === tab;
-    b.className = `ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold transition ${isSel ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white hover:bg-slate-800'} cursor-pointer`;
+    b.className = `ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-black transition ${isSel ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-900 dark:text-slate-200 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800'} cursor-pointer`;
   });
   if (tab === 'layers') renderWsLayersTree();
   if (__wsLeftDockCollapsed) toggleWsLeftDock();
@@ -1955,38 +1936,38 @@ window.selectWsSection = selectWsSection;
 
 function renderWsLayersTreeHtml() {
   return `
-    <div id="ws-layers-tree" class="p-4">
+    <div id="ws-layers-tree" class="p-4 bg-white dark:bg-slate-900">
       <div class="space-y-1 font-sans text-xs">
-        <div class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
+        <div class="text-[10px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-300 mb-2 flex items-center justify-between">
           <span>Hierarchical Layers Tree</span>
-          <span class="text-slate-500 font-normal text-[9px]">(Drag Header To Move)</span>
+          <span class="text-slate-600 dark:text-slate-400 font-bold text-[9px]">(Drag Header To Move)</span>
         </div>
-        <div onclick="selectWsSection(-1)" class="p-2.5 rounded-xl border ${__wsSelectedSecIdx === -1 ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-900/60 text-slate-300 hover:border-slate-700'} cursor-pointer flex items-center justify-between transition">
-          <span>Header &amp; Navigation Bar</span>
-          <span class="text-[10px] font-mono text-slate-400">Global</span>
+        <div onclick="selectWsSection(-1)" class="p-2.5 rounded-xl border ${__wsSelectedSecIdx === -1 ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400'} cursor-pointer flex items-center justify-between transition">
+          <span class="font-extrabold text-slate-900 dark:text-slate-100">Header &amp; Navigation Bar</span>
+          <span class="text-[10px] font-mono text-slate-500 font-bold">Global</span>
         </div>
-        <div class="pl-2 space-y-1 border-l-2 border-slate-800 ml-2 my-1">
+        <div class="pl-2 space-y-1 border-l-2 border-slate-300 dark:border-slate-800 ml-2 my-1">
           ${(__siteSections || []).map((sec, idx) => {
             const isSel = __wsSelectedSecIdx === idx;
             const meta = SEC_META[sec.type] || {};
             return `
-              <div onclick="selectWsSection(${idx})" class="p-2.5 rounded-xl border ${isSel ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-950 text-slate-300 hover:border-slate-700'} cursor-pointer flex items-center justify-between transition group">
+              <div onclick="selectWsSection(${idx})" class="p-2.5 rounded-xl border ${isSel ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400'} cursor-pointer flex items-center justify-between transition group shadow-xs">
                 <div class="flex items-center gap-2 min-w-0">
-                  <span class="w-4 text-[10px] font-mono text-slate-500">${idx + 1}</span>
-                  <span class="truncate">${esc(meta.label || sec.type)}</span>
+                  <span class="w-4 text-[10px] font-mono text-slate-700 dark:text-slate-400 font-bold">${idx + 1}</span>
+                  <span class="truncate font-extrabold text-slate-900 dark:text-slate-100">${esc(meta.label || sec.type)}</span>
                 </div>
-                <div class="flex items-center gap-1 opacity-80 group-hover:opacity-100">
-                  <button type="button" onclick="event.stopPropagation(); moveSection(${idx},-1)" ${idx === 0 ? 'disabled' : ''} class="p-1 text-slate-400 hover:text-white disabled:opacity-20" title="Move Up">↑</button>
-                  <button type="button" onclick="event.stopPropagation(); moveSection(${idx},1)" ${idx === __siteSections.length - 1 ? 'disabled' : ''} class="p-1 text-slate-400 hover:text-white disabled:opacity-20" title="Move Down">↓</button>
-                  <button type="button" onclick="event.stopPropagation(); delSection(${idx})" class="p-1 text-rose-400 hover:text-rose-300" title="Delete">×</button>
+                <div class="flex items-center gap-1 opacity-90 group-hover:opacity-100">
+                  <button type="button" onclick="event.stopPropagation(); moveSection(${idx},-1)" ${idx === 0 ? 'disabled' : ''} class="p-1 text-slate-700 dark:text-slate-300 hover:text-black dark:hover:text-white disabled:opacity-20 font-bold" title="Move Up">↑</button>
+                  <button type="button" onclick="event.stopPropagation(); moveSection(${idx},1)" ${idx === __siteSections.length - 1 ? 'disabled' : ''} class="p-1 text-slate-700 dark:text-slate-300 hover:text-black dark:hover:text-white disabled:opacity-20 font-bold" title="Move Down">↓</button>
+                  <button type="button" onclick="event.stopPropagation(); delSection(${idx})" class="p-1 text-rose-600 hover:text-rose-700 font-black" title="Delete">×</button>
                 </div>
               </div>
             `;
           }).join('')}
         </div>
-        <div onclick="selectWsSection(-2)" class="p-2.5 rounded-xl border ${__wsSelectedSecIdx === -2 ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-900/60 text-slate-300 hover:border-slate-700'} cursor-pointer flex items-center justify-between transition">
-          <span>Footer &amp; Copyright</span>
-          <span class="text-[10px] font-mono text-slate-400">Global</span>
+        <div onclick="selectWsSection(-2)" class="p-2.5 rounded-xl border ${__wsSelectedSecIdx === -2 ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400'} cursor-pointer flex items-center justify-between transition">
+          <span class="font-extrabold text-slate-900 dark:text-slate-100">Footer &amp; Copyright</span>
+          <span class="text-[10px] font-mono text-slate-500 font-bold">Global</span>
         </div>
       </div>
     </div>
@@ -2004,12 +1985,12 @@ function renderWsLayersTree() {
 
 function renderWsLeftDrawerHtml() {
   const headerHtml = `
-    <div id="ws-left-drag-header" class="flex items-center justify-between p-3 border-b border-slate-800 bg-slate-900/80 rounded-t-2xl cursor-grab select-none">
+    <div id="ws-left-drag-header" class="flex items-center justify-between p-3 border-b border-slate-300 dark:border-slate-800 bg-slate-100 dark:bg-slate-900/80 rounded-t-2xl cursor-grab select-none">
       <div class="flex items-center gap-1.5">
-        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h16M4 16h16"/></svg>
-        <span class="text-[11px] font-black uppercase tracking-wider text-slate-300">Tool Drawer</span>
+        <svg class="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h16M4 16h16"/></svg>
+        <span class="text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-slate-100">Tool Drawer</span>
       </div>
-      <button type="button" onclick="toggleWsLeftDock()" class="text-slate-400 hover:text-white text-xs font-bold px-1.5 py-0.5 rounded hover:bg-slate-800 transition" title="Collapse Drawer">&times;</button>
+      <button type="button" onclick="toggleWsLeftDock()" class="text-slate-700 dark:text-slate-300 hover:text-black dark:hover:text-white text-xs font-bold px-1.5 py-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-800 transition" title="Collapse Drawer">&times;</button>
     </div>
   `;
   if (__wsActiveLeftNav === 'layers') {
@@ -2018,15 +1999,15 @@ function renderWsLeftDrawerHtml() {
     return headerHtml + renderElementorPalette();
   } else if (__wsActiveLeftNav === 'pages') {
     return headerHtml + `
-      <div class="p-4 space-y-3">
+      <div class="p-4 space-y-3 bg-white dark:bg-slate-900">
         <div class="flex items-center justify-between">
-          <h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Pages &amp; Structure</h3>
-          <button type="button" onclick="wsTab('pages')" class="text-xs font-bold text-indigo-400 hover:underline">+ Add Page</button>
+          <h3 class="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-slate-100">Pages &amp; Structure</h3>
+          <button type="button" onclick="wsTab('pages')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">+ Add Page</button>
         </div>
         <div class="space-y-1.5">
-          <button onclick="wsSetTarget('home')" class="w-full text-left p-2.5 rounded-xl border transition ${__wsTarget === 'home' ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-950 text-slate-300 hover:border-slate-700'}">Home Page</button>
+          <button onclick="wsSetTarget('home')" class="w-full text-left p-2.5 rounded-xl border transition ${__wsTarget === 'home' ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400 font-extrabold'}">Home Page</button>
           ${(__sitePages || []).map((p, i) => `
-            <button onclick="wsSetTarget(${i})" class="w-full text-left p-2.5 rounded-xl border transition ${__wsTarget === i ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-950 text-slate-300 hover:border-slate-700'}">${esc(p.title || 'Untitled Page')}</button>
+            <button onclick="wsSetTarget(${i})" class="w-full text-left p-2.5 rounded-xl border transition ${__wsTarget === i ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400 font-extrabold'}">${esc(p.title || 'Untitled Page')}</button>
           `).join('')}
         </div>
       </div>
@@ -2034,16 +2015,16 @@ function renderWsLeftDrawerHtml() {
   } else if (__wsActiveLeftNav === 'images') {
     return headerHtml + renderWsImagesDrawerHtml();
   } else if (__wsActiveLeftNav === 'design') {
-    return headerHtml + `<div class="p-4 space-y-3">${wsDesign()}</div>`;
+    return headerHtml + `<div class="p-4 space-y-3 bg-white dark:bg-slate-900">${wsDesign()}</div>`;
   } else if (__wsActiveLeftNav === 'ai') {
     return headerHtml + `
-      <div class="p-4 space-y-4">
+      <div class="p-4 space-y-4 bg-white dark:bg-slate-900">
         <div class="flex items-center justify-between">
-          <h3 class="text-xs font-black uppercase tracking-wider text-violet-400">AI Site Copilot</h3>
+          <h3 class="text-xs font-black uppercase tracking-wider text-violet-600 dark:text-violet-400">AI Site Copilot</h3>
         </div>
-        <div class="p-3.5 rounded-xl bg-violet-600/10 border border-violet-500/30 space-y-2">
-          <label class="block text-xs font-black text-white">Describe the website you want</label>
-          <textarea id="ai-site-prompt" rows="3" placeholder="e.g. Build a premium Chevrolet dealership homepage focused on pre-owned trucks, instant trade appraisal, and easy financing..." class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-violet-500"></textarea>
+        <div class="p-3.5 rounded-xl bg-violet-50 dark:bg-violet-600/10 border border-violet-200 dark:border-violet-500/30 space-y-2">
+          <label class="block text-xs font-black text-slate-900 dark:text-white">Describe the website you want</label>
+          <textarea id="ai-site-prompt" rows="3" placeholder="e.g. Build a premium Chevrolet dealership homepage focused on pre-owned trucks, instant trade appraisal, and easy financing..." class="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"></textarea>
           <button onclick="aiBuildPageLayoutFromPrompt()" class="w-full py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-black transition shadow-lg cursor-pointer">Generate Page Layout</button>
         </div>
       </div>

@@ -1334,6 +1334,14 @@ function restrictedNavPages() {
   if (activeProducts.length === 1 && /(marketsync_email|email_marketing)/.test(product)) {
     return [META['email-marketing']];
   }
+  if (activeProducts.length === 1 && /(marketsync_website|website|dealer-website)/.test(product)) {
+    return [
+      { page: 'website', tab: 'builder', label: 'Builder', icon: 'globe' },
+      { page: 'website', tab: 'blog', label: 'Blog', icon: 'newspaper' },
+      { page: 'website', tab: 'seo', label: 'SEO', icon: 'chart' },
+      { page: 'website', tab: 'setup', label: 'Setup', icon: 'cog' },
+    ];
+  }
 
   // Fallback for any other restricted product set (keeps generic behavior).
   // 'sales-team' is deliberately absent — no restricted tier gets it as a nav
