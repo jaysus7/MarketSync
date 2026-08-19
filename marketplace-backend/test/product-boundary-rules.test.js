@@ -30,7 +30,11 @@ test('Shared header in dashboard.html includes header-demo-switcher-container', 
   assert.match(dashboardHtml, /id="header-demo-switcher-container"/)
 })
 
-test('demo-control-panel.js mounts Demo button into header-demo-switcher-container', () => {
-  assert.match(demoPanelJs, /header-demo-switcher-container/)
+test('demo-control-panel.js keeps the Demo button reachable as a fixed overlay, not buried in product chrome', () => {
   assert.match(demoPanelJs, /badge\.textContent = 'Demo'/)
+  // Must mount on <body> (the fixed, top-of-everything #demo-mode-badge overlay), never
+  // inside the collapsible header — single-product/full-screen surfaces hide the header,
+  // which would strand the operator with no way to switch back.
+  assert.match(demoPanelJs, /document\.body\.appendChild\(badge\)/)
+  assert.doesNotMatch(demoPanelJs, /header-demo-switcher-container/)
 })

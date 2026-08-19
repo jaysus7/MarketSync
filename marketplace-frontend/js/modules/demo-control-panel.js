@@ -77,13 +77,14 @@
     badge.type = 'button';
     badge.title = `Demo mode — ${data.dealership.name}`;
     badge.textContent = 'Demo';
-    // Append the badge to the header container FIRST (or body fallback), before building
-    // the control panel below.
-    const headerContainer = document.getElementById('header-demo-switcher-container');
-    if (!document.getElementById('demo-mode-badge')) {
-      if (headerContainer) headerContainer.appendChild(badge);
-      else document.body.appendChild(badge);
-    }
+    // Append the badge to <body> as a FIXED, top-of-everything overlay (see the
+    // #demo-mode-badge CSS: position:fixed, z-index above every product full-screen
+    // modal). It must NOT live inside the header/product chrome: single-product tiers and
+    // full-screen surfaces (Video / Design studio) hide or bury the header, and the
+    // operator has to reach this switcher to get back out — that's exactly the flow that
+    // broke when the badge was re-parented into the header. Appended BEFORE the panel is
+    // built so a later panel/nav error can never drop it.
+    if (!document.getElementById('demo-mode-badge')) document.body.appendChild(badge);
 
     const field = (id, label, iconKey, options) => `
       <label class="dcp-field">
@@ -160,24 +161,38 @@
       if (!res.ok) return; // not the demo account — render nothing
       const data = await res.json();
       window.__demoControlData = data;
-      if (data?.state?.packageId) {
-        window.__demoPackageId = data.state.packageId;
-        window.__demoActiveProduct = mapDemoPackageToProduct(data.state.packageId);
 
-        const legacyMap = {
-          design_studio: { design_studio: true },
-          facebook: { facebook_solo: true },
-          video: { marketsync_video: true },
-          campaigns: { marketsync_social: true },
-          website: { marketsync_website: true },
-          ai_chatbot: { ai_chatbot: true },
-          dealer_os: { dealer_os: true },
-        };
-        const prodObj = legacyMap[window.__demoActiveProduct] || { dealer_os: true };
-        if (typeof applyProductNav === 'function') applyProductNav(prodObj);
-        if (typeof renderDeptNav === 'function') renderDeptNav(data.state.roleKey || 'DEALER_ADMIN');
-      }
+      // Build the badge + panel FIRST so the operator can always reach the switcher —
+      // even if the product-nav narrowing below throws on some tier. boot()'s outer catch
+      // would otherwise swallow that error and leave no badge at all (the regression).
       buildPanel(data);
+
+      // Narrow the demo's VISIBLE nav to the currently-selected package, so a prospect
+      // sees just that one product's dashboard. The demo dealership is entitled to every
+      // product server-side (the showcase overlay in access-policy.js), so without this
+      // narrowing it would always show the full suite. This reuses the exact same
+      // applyProductNav() a real single-product customer goes through, so the demo view
+      // and a real single-product purchase render identically. Best-effort: never let it
+      // drop the badge/panel we just built.
+      if (data?.state?.packageId) {
+        try {
+          window.__demoPackageId = data.state.packageId;
+          window.__demoActiveProduct = mapDemoPackageToProduct(data.state.packageId);
+
+          const legacyMap = {
+            design_studio: { design_studio: true },
+            facebook: { facebook_solo: true },
+            video: { marketsync_video: true },
+            campaigns: { marketsync_social: true },
+            website: { marketsync_website: true },
+            ai_chatbot: { ai_chatbot: true },
+            dealer_os: { dealer_os: true },
+          };
+          const prodObj = legacyMap[window.__demoActiveProduct] || { dealer_os: true };
+          if (typeof applyProductNav === 'function') applyProductNav(prodObj);
+          if (typeof renderDeptNav === 'function') renderDeptNav(data.state.roleKey || 'DEALER_ADMIN');
+        } catch (e) { /* nav narrowing is best-effort; the badge/panel stay up */ }
+      }
 
       const singleProduct = typeof window.isSingleProductWorkspace === 'function' && window.isSingleProductWorkspace();
       if (typeof switchPage === 'function' && !singleProduct) switchPage('inventory');
