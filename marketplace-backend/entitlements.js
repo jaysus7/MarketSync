@@ -21,7 +21,7 @@ export function resolvePlanId(planId) {
 // per product, PRUNES any product no longer covered (so a downgrade revokes it), and
 // dual-writes the legacy dealership flags the existing app still reads. Access = the union
 // of the org's active-subscription products; features come from the plan's plan_features.
-export async function provisionPlan({ dealershipId, planId, status = 'trialing', trialEndsAt = null, stripe = null }) {
+export async function provisionPlan({ dealershipId, planId, status = 'trialing', trialEndsAt = null, stripe = null, preserveExisting = false }) {
   const plan = getPlan(planId)
   if (!dealershipId || !plan) throw new Error(`provisionPlan: bad args (dealership=${dealershipId}, plan=${planId})`)
   const products = plan.products
@@ -36,10 +36,12 @@ export async function provisionPlan({ dealershipId, planId, status = 'trialing',
     .from('subscriptions').upsert(rows, { onConflict: 'dealership_id,product_id' })
   if (upErr) throw upErr
 
-  // Prune products this plan no longer covers (downgrade revokes them automatically).
-  const { error: delErr } = await supabaseAdmin
-    .from('subscriptions').delete().eq('dealership_id', dealershipId).not('product_id', 'in', `(${products.join(',')})`)
-  if (delErr) throw delErr
+  // Prune products this plan no longer covers only if preserveExisting is false.
+  if (!preserveExisting) {
+    const { error: delErr } = await supabaseAdmin
+      .from('subscriptions').delete().eq('dealership_id', dealershipId).not('product_id', 'in', `(${products.join(',')})`)
+    if (delErr) throw delErr
+  }
 
   // Keep the legacy dealership flags + account_type + billing gate in sync so the
   // middleware (requireAuth) reflects the plan: trialing→TRIALING (with trial_ends_at),
@@ -48,6 +50,21 @@ export async function provisionPlan({ dealershipId, planId, status = 'trialing',
   const billing_status = SUB_STATUS_TO_BILLING[status] || null
   const dealerUpdate = { ...(plan.legacy || {}), account_type: plan.org_type, billing_status }
   if (trialEndsAt !== null) dealerUpdate.trial_ends_at = trialEndsAt
+
+  if (preserveExisting) {
+    // Preserve existing true flags so multi-product purchases do not overwrite each other
+    const { data: currentDealer } = await supabaseAdmin
+      .from('dealerships')
+      .select('ai_chatbot_active, ai_chatbot_paid, inv_intel_active, inv_intel_paid, ai_boost_active, ai_boost_paid, vin_sticker_active, ai_vision_active, fb_only')
+      .eq('id', dealershipId)
+      .maybeSingle()
+    if (currentDealer) {
+      if (currentDealer.ai_chatbot_active) { dealerUpdate.ai_chatbot_active = true; dealerUpdate.ai_chatbot_paid = true; }
+      if (currentDealer.inv_intel_active) { dealerUpdate.inv_intel_active = true; dealerUpdate.inv_intel_paid = true; }
+      if (currentDealer.ai_boost_active) { dealerUpdate.ai_boost_active = true; dealerUpdate.ai_boost_paid = true; }
+    }
+  }
+
   const { error: dErr } = await supabaseAdmin.from('dealerships').update(dealerUpdate).eq('id', dealershipId)
   if (dErr) throw dErr
 
@@ -100,7 +117,7 @@ export function planForStripePrice(priceId) {
 // the internal plan, then grant that plan (expand→products, prune, dual-write legacy). One
 // Stripe subscription = one plan. Prices not in the catalog are ignored here (legacy
 // à-la-carte add-ons keep their own dealership-flag webhook path).
-export async function syncSubscriptionFromStripe(dealershipId, stripeSub) {
+export async function syncSubscriptionFromStripe(dealershipId, stripeSub, { preserveExisting = true } = {}) {
   if (!dealershipId || !stripeSub) return
   const status = mapStripeStatus(stripeSub.status)
   const trialEndsAt = stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000).toISOString() : null
@@ -116,7 +133,7 @@ export async function syncSubscriptionFromStripe(dealershipId, stripeSub) {
     if (p) { planId = p; break }
   }
   if (!planId) return
-  await provisionPlan({ dealershipId, planId, status, trialEndsAt, stripe })
+  await provisionPlan({ dealershipId, planId, status, trialEndsAt, stripe, preserveExisting })
 }
 
 // Apply per-member permission overrides (grant/deny) on top of their RBAC role. Validates

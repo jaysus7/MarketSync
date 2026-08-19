@@ -274,11 +274,322 @@ async function openSiteManager() {
 // Website → Settings tab (same form, inline instead of a modal).
 function wsSettings() {
   if (!__siteCfg) return '<div class="mt-4 text-sm text-slate-400">Loading…</div>';
-  // Two columns on wide screens — each settings block stays intact (break-inside-avoid).
-  return `<div class="mt-4 max-w-5xl">
-    <div class="gap-x-8 lg:columns-2 [&>*]:break-inside-avoid [&>*]:mb-4">${siteSettingsFields(__siteCfg)}</div>
-    <div class="flex justify-end pt-3 border-t border-slate-200 dark:border-slate-700 mt-2"><button onclick="saveSite(this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-lg">Save settings</button></div>
+  return wsSetup();
+}
+
+function isAiChatbotOwned() {
+  const c = __siteCfg?.content || {};
+  const dealer = (typeof profileContext !== 'undefined' && profileContext?.dealership) ? profileContext.dealership : {};
+  const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+  
+  if (dealer.ai_chatbot_active || dealer.ai_chatbot_paid) return true;
+  if (access.products && (access.products.includes('ai_dealer') || access.products.includes('ai-chatbot'))) return true;
+  if (access.features && (access.features.includes('ai.overview') || access.features.includes('ai.conversations'))) return true;
+  return false;
+}
+window.isAiChatbotOwned = isAiChatbotOwned;
+
+async function upgradeToAiChatbot(btn) {
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = 'Preparing checkout…';
+  try {
+    const res = await apiSendJson('/billing/subscribe-plan', 'POST', { plan: 'ai-chatbot', currency: 'CAD' });
+    if (res.url) {
+      location.href = res.url;
+    } else {
+      throw new Error(res.error || 'Could not start checkout session');
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+    showToast(e.message || 'Checkout failed', 'error');
+  }
+}
+window.upgradeToAiChatbot = upgradeToAiChatbot;
+
+let __wsSetupSection = 'info';
+
+function wsSetup() {
+  const secBtn = (id, label) => `<button type="button" onclick="setWsSetupSection('${id}')" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between ${__wsSetupSection === id ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"><span>${label}</span> ${id === 'ai-chatbot' ? (isAiChatbotOwned() ? '<span class="w-2 h-2 rounded-full bg-emerald-400" title="Active"></span>' : '<span class="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">Upgrade</span>') : ''}</button>`;
+
+  return `
+    <div class="mt-4 max-w-6xl">
+      <div class="grid md:grid-cols-[220px_1fr] gap-6 items-start">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 space-y-1 shadow-sm sticky top-4">
+          <div class="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 py-1">Website Setup</div>
+          ${secBtn('info', 'Dealership Info')}
+          ${secBtn('domain', 'Domain & DNS')}
+          ${secBtn('branding', 'Branding & Colors')}
+          ${secBtn('social', 'Social Links')}
+          ${secBtn('inventory_feed', 'Inventory Feed')}
+          ${secBtn('routing', 'Lead Routing')}
+          ${secBtn('seo', 'SEO & Analytics')}
+          ${secBtn('ai-chatbot', 'AI ChatBot')}
+          ${secBtn('publishing', 'Publishing & Link')}
+        </div>
+
+        <div id="ws-setup-body" class="space-y-6">
+          ${renderWsSetupSection()}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function setWsSetupSection(sec) {
+  __wsSetupSection = sec;
+  const body = document.getElementById('ws-setup-body');
+  if (body) body.innerHTML = renderWsSetupSection();
+}
+window.setWsSetupSection = setWsSetupSection;
+
+function renderWsSetupSection() {
+  const c = __siteCfg?.content || {};
+  const sec = (title, desc, inner) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+    <div>
+      <h2 class="text-lg font-black text-slate-900 dark:text-white">${title}</h2>
+      ${desc ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${desc}</p>` : ''}
+    </div>
+    ${inner}
+    <div class="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800"><button onclick="saveWebsite(this)" class="text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl transition shadow-md">Save Settings</button></div>
   </div>`;
+
+  if (__wsSetupSection === 'domain') {
+    return sec('Domain & DNS Configuration', 'Connect your custom domain to your MarketSync dealer website.', customDomainCard(__siteCfg));
+  }
+
+  if (__wsSetupSection === 'branding') {
+    return sec('Branding & Aesthetics', 'Set your primary brand color, hero background, and dealership logo.', `
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-extrabold text-slate-500 mb-1">Brand Primary Color</label>
+          <input id="site-color" type="color" value="${esc(c.primary_color || '#1e3a8a')}" class="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 cursor-pointer">
+        </div>
+        <div>
+          <label class="block text-xs font-extrabold text-slate-500 mb-1">Hero Image</label>
+          <div class="flex gap-2">
+            <input id="site-hero" value="${esc(c.hero_url || '')}" placeholder="URL or upload" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
+            <button type="button" onclick="openWsPhotoPicker(url => { const el = document.getElementById('site-hero'); if (el) el.value = url; })" class="text-xs font-black bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600/20 px-3.5 rounded-xl border border-indigo-500/30">Browse</button>
+          </div>
+        </div>
+      </div>
+    `);
+  }
+
+  if (__wsSetupSection === 'social') {
+    return sec('Social Media Channels', 'Link your official social accounts.', `
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-extrabold text-slate-500 mb-1">Facebook Page URL</label>
+          <input id="site-fb" value="${esc(c.facebook_url || '')}" placeholder="https://facebook.com/yourdealership" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
+        </div>
+        <div>
+          <label class="block text-xs font-extrabold text-slate-500 mb-1">Instagram Profile URL</label>
+          <input id="site-ig" value="${esc(c.instagram_url || '')}" placeholder="https://instagram.com/yourdealership" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
+        </div>
+      </div>
+    `);
+  }
+
+  if (__wsSetupSection === 'inventory_feed') {
+    return sec('Inventory Feed & Franchise Makes', 'Select new vehicle franchise lineups to display on your Build & Price page.', `
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-2">Check the new vehicle makes you sell. Unchecked makes default to auto-detect from your live stock.</p>
+      <div id="bm-wrap" class="flex flex-wrap gap-x-4 gap-y-2 py-2">${(() => { const set = new Set((c.build_makes || []).map(s => String(s).toLowerCase())); return ['Chevrolet', 'GMC', 'Buick', 'Cadillac', 'Ford', 'Lincoln', 'Toyota', 'Honda', 'Nissan', 'Hyundai', 'Kia', 'Mazda', 'Subaru', 'Volkswagen', 'Jeep', 'Ram', 'Dodge', 'Chrysler'].map(b => `<label class="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200"><input type="checkbox" class="bm-check accent-indigo-600 w-4 h-4 rounded" value="${b}" ${set.has(b.toLowerCase()) ? 'checked' : ''}>${b}</label>`).join(''); })()}</div>
+    `);
+  }
+
+  if (__wsSetupSection === 'routing') {
+    return sec('Lead Capture & Form Routing', 'Where website leads and inquiry forms deliver.', `
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-extrabold text-slate-500 mb-1">Notification Email</label>
+          <input id="site-email" value="${esc(c.email || '')}" placeholder="sales@yourdealership.com" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
+        </div>
+        <div>
+          <label class="block text-xs font-extrabold text-slate-500 mb-1">Notification Phone (SMS)</label>
+          <input id="site-phone" value="${esc(c.phone || '')}" placeholder="905-555-1234" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
+        </div>
+      </div>
+    `);
+  }
+
+  if (__wsSetupSection === 'seo') {
+    return sec('SEO & Head Analytics Code', 'Search engine optimization and tracking tags.', `
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-extrabold text-slate-500 mb-1">Google Page Title (~60 chars)</label>
+          <input id="seo-title" value="${esc(c.seo_title || '')}" placeholder="Your Dealership | New & Used Cars, Trucks & SUVs" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
+        </div>
+        <div>
+          <label class="block text-xs font-extrabold text-slate-500 mb-1">Meta Description (~155 chars)</label>
+          <textarea id="seo-desc" rows="2" placeholder="Shop new and used vehicles..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">${esc(c.seo_description || '')}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-extrabold text-slate-500 mb-1">Keywords</label>
+          <input id="seo-keywords" value="${esc(c.seo_keywords || '')}" placeholder="used cars near me, trucks for sale" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
+        </div>
+        <div>
+          <label class="block text-xs font-extrabold text-slate-500 mb-1">Site-wide Head HTML Scripts</label>
+          <textarea id="site-head" rows="3" placeholder="<script>...</script> (Google Analytics, Meta Pixel)" class="w-full font-mono text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2">${esc(c.head_html || '')}</textarea>
+        </div>
+      </div>
+    `);
+  }
+
+  if (__wsSetupSection === 'ai-chatbot') {
+    if (!isAiChatbotOwned()) {
+      return `
+        <div class="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 border border-indigo-500/30 rounded-3xl p-8 text-white space-y-6 shadow-2xl">
+          <div class="flex items-center justify-between flex-wrap gap-4 border-b border-indigo-900/60 pb-6">
+            <div class="flex items-center gap-4">
+              <div class="w-14 h-14 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 font-black text-xl shadow-inner">AI</div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h2 class="text-2xl font-black text-white">AI ChatBot</h2>
+                  <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">Standalone Product</span>
+                </div>
+                <p class="text-indigo-200 text-sm font-medium mt-0.5">Turn your website into a 24/7 digital sales assistant.</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-3xl font-black text-white">$299 <span class="text-xs font-bold text-slate-400">/ month CAD</span></div>
+              <div class="text-[11px] text-indigo-300 font-semibold">Standalone add-on · Instant activation</div>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <h3 class="text-sm font-black uppercase tracking-wider text-indigo-400">What AI ChatBot does for your dealership:</h3>
+            <div class="grid md:grid-cols-2 gap-3 text-xs">
+              <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                <div class="font-black text-slate-200 flex items-center gap-2"><svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Answers Vehicle Questions</div>
+                <p class="text-slate-400 text-[11px]">Replies instantly to shopper questions about pricing, specs, availability, and features using your live lot inventory.</p>
+              </div>
+              <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                <div class="font-black text-slate-200 flex items-center gap-2"><svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Captures 24/7 Leads</div>
+                <p class="text-slate-400 text-[11px]">Collects customer contact info, preferred vehicles, and trade details even when your showroom is closed.</p>
+              </div>
+              <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                <div class="font-black text-slate-200 flex items-center gap-2"><svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Helps Customers Find Inventory</div>
+                <p class="text-slate-400 text-[11px]">Guides shoppers to matching new and used vehicles on your website based on budget, body style, and payment goals.</p>
+              </div>
+              <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                <div class="font-black text-slate-200 flex items-center gap-2"><svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Routes Sales &amp; Service Inquiries</div>
+                <p class="text-slate-400 text-[11px]">Directs service appointment requests, financing applications, and trade appraisals directly to the right department.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-2xl bg-indigo-950/40 border border-indigo-500/20 text-xs text-indigo-200 flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <div class="font-bold text-white text-sm">Keep your existing Dealer Website subscription ($249/mo CAD)</div>
+              <div class="text-[11px] text-slate-400">AI ChatBot ($299/mo CAD) is added as a separate standalone product under your account.</div>
+            </div>
+            <button onclick="upgradeToAiChatbot(this)" class="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm transition shadow-xl hover:shadow-indigo-500/30 cursor-pointer whitespace-nowrap">Upgrade to AI ChatBot — $299/mo</button>
+          </div>
+        </div>
+      `;
+    }
+
+    // Active AI ChatBot configuration wizard
+    return `
+      <div class="space-y-6">
+        <div class="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg></div>
+            <div>
+              <div class="font-black text-emerald-300 text-sm">AI ChatBot Active</div>
+              <div class="text-xs text-slate-400">Your 24/7 digital assistant is active on your MarketSync website.</div>
+            </div>
+          </div>
+          <label class="flex items-center gap-2 text-xs font-black text-slate-200 cursor-pointer">
+            <input id="site-sales-chat" type="checkbox" ${c.sales_chat ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded"> Enabled on site
+          </label>
+        </div>
+
+        ${sec('AI Assistant Persona & Setup', 'Configure name, tone, and knowledgebase.', `
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-extrabold text-slate-500 mb-1">Concierge Name</label>
+              <input id="site-chat-name" type="text" value="${esc(c.chat_name || '')}" placeholder="e.g. Ava" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
+            </div>
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <label class="block text-xs font-extrabold text-slate-500">Knowledgebase Facts</label>
+                <input id="site-chat-kb-file" type="file" accept=".txt,.md,.csv,text/plain" class="hidden" onchange="loadChatKbFile(this.files[0])">
+                <button type="button" onclick="document.getElementById('site-chat-kb-file').click()" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">⬆ Upload .txt/.md</button>
+              </div>
+              <textarea id="site-chat-kb" rows="5" placeholder="Financing policies, warranties, dealership hours..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">${esc(c.chat_kb || '')}</textarea>
+            </div>
+            <div>
+              <label class="block text-xs font-extrabold text-slate-500 mb-1">Special Instructions for AI</label>
+              <textarea id="site-chat-instructions" rows="3" placeholder="Low-pressure tone, emphasize trade-in offers..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">${esc(c.chat_instructions || '')}</textarea>
+            </div>
+            <div>
+              <label class="block text-xs font-extrabold text-slate-500 mb-1">Terms Disclaimer</label>
+              <textarea id="site-chat-disclaimer" rows="2" placeholder="Prices do not include taxes or license fees..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">${esc(c.chat_disclaimer || '')}</textarea>
+            </div>
+          </div>
+        `)}
+      </div>
+    `;
+  }
+
+  if (__wsSetupSection === 'publishing') {
+    const url = c.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(c.site_slug)}` : '';
+    return sec('Publishing & Site URL', 'Public website address and visibility status.', `
+      <div class="space-y-4">
+        ${url ? `
+          <div class="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3">
+            <span class="text-xs text-slate-600 dark:text-slate-300 flex-1 truncate font-mono">${esc(url)}</span>
+            <button onclick="navigator.clipboard?.writeText('${url}');showToast('Link copied','success')" class="text-xs font-black text-indigo-600 dark:text-indigo-400 px-3 py-1 bg-indigo-600/10 rounded-lg">Copy</button>
+            <a href="${url}" target="_blank" class="text-xs font-black text-indigo-600 dark:text-indigo-400 px-3 py-1 bg-indigo-600/10 rounded-lg">Open ↗</a>
+          </div>
+        ` : ''}
+        <div class="flex items-center gap-4">
+          <div class="flex-1">
+            <label class="block text-xs font-extrabold text-slate-500 mb-1">Site Slug (Address)</label>
+            <input id="site-slug" value="${esc(__siteCfg.site_slug || '')}" placeholder="your-dealership" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
+          </div>
+          <label class="flex items-center gap-2 text-xs font-black text-slate-700 dark:text-slate-300 mt-5 cursor-pointer">
+            <input id="site-pub" type="checkbox" ${__siteCfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded"> Published Live
+          </label>
+        </div>
+      </div>
+    `);
+  }
+
+  // Default 'info'
+  return sec('Dealership Profile & Contact Details', 'Business name, address, hours, and contact details shown on your site.', `
+    <div class="space-y-4">
+      <div>
+        <label class="block text-xs font-extrabold text-slate-500 mb-1">Headline / Tagline</label>
+        <input id="site-tagline" value="${esc(c.tagline || '')}" placeholder="Your trusted local dealership" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
+      </div>
+      <div>
+        <label class="block text-xs font-extrabold text-slate-500 mb-1">About Dealership</label>
+        <textarea id="site-about" rows="3" placeholder="A sentence or two about your store..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">${esc(c.about || '')}</textarea>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-extrabold text-slate-500 mb-1">Phone</label>
+          <input id="site-phone" value="${esc(c.phone || '')}" placeholder="905-555-1234" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
+        </div>
+        <div>
+          <label class="block text-xs font-extrabold text-slate-500 mb-1">Email</label>
+          <input id="site-email" value="${esc(c.email || '')}" placeholder="sales@yourdealership.com" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-extrabold text-slate-500 mb-1">Address</label>
+        <input id="site-address" value="${esc(c.address || '')}" placeholder="123 Main St, City, Province" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
+      </div>
+      <div>
+        <label class="block text-xs font-extrabold text-slate-500 mb-1">Hours</label>
+        <textarea id="site-hours" rows="2" placeholder="Mon–Fri 9–6, Sat 9–5" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">${esc(c.hours || '')}</textarea>
+      </div>
+    </div>
+  `);
 }
 // Upload an image (hero/page) → returns a public URL into the given input field.
 async function uploadSiteImage(targetId, file) {
@@ -299,32 +610,152 @@ async function uploadSiteImage(targetId, file) {
 // search (the same endpoint Design Studio's Photos tool calls) so results and
 // attribution match exactly.
 let __wsPhotoPickCallback = null;
+// ── Shared 3-tab image picker — Upload, Inventory photos, and Pexels library ──
+let __wsPhotoPickCallback = null;
+let __wsPhotoActiveTab = 'pexels';
+
 function openWsPhotoPicker(onPick) {
   __wsPhotoPickCallback = onPick;
+  __wsPhotoActiveTab = 'pexels';
   let modal = document.getElementById('ws-photo-picker-modal');
   if (!modal) {
     modal = document.createElement('div');
     modal.id = 'ws-photo-picker-modal';
-    modal.className = 'fixed inset-0 z-[99998] bg-black/60 flex items-center justify-center p-4';
+    modal.className = 'fixed inset-0 z-[99998] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4';
     document.body.appendChild(modal);
   }
+  renderWsPhotoPickerModal();
+}
+
+function renderWsPhotoPickerModal() {
+  const modal = document.getElementById('ws-photo-picker-modal');
+  if (!modal) return;
+  
+  const tabBtn = (id, label) => `<button type="button" onclick="setWsPhotoTab('${id}')" class="px-4 py-2 text-xs font-black rounded-xl transition ${__wsPhotoActiveTab === id ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>`;
+
   modal.innerHTML = `
-    <div class="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800">
       <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
-        <h3 class="text-sm font-black text-slate-900 dark:text-white">Photo Library</h3>
+        <div>
+          <h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Select Image</h3>
+          <p class="text-[11px] text-slate-400">Choose from Pexels library, your lot inventory, or upload a custom image.</p>
+        </div>
         <button type="button" onclick="closeWsPhotoPicker()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl leading-none">&times;</button>
       </div>
-      <div class="p-4 border-b border-slate-200 dark:border-slate-800">
-        <form onsubmit="event.preventDefault(); searchWsPhotoLibrary(document.getElementById('ws-photo-query').value)" class="flex gap-2">
-          <input id="ws-photo-query" type="search" value="car dealership" placeholder="Search photos..." class="flex-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm">
-          <button class="px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black">Search</button>
-        </form>
+
+      <div class="p-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 bg-slate-50 dark:bg-slate-950">
+        ${tabBtn('pexels', 'Pexels Search')}
+        ${tabBtn('inventory', 'Inventory Photos')}
+        ${tabBtn('upload', 'Upload File')}
       </div>
-      <div id="ws-photo-results" class="p-4 grid grid-cols-3 gap-2 overflow-y-auto flex-1"><div class="col-span-3 py-10 text-center text-xs text-slate-400">Loading…</div></div>
-      <div class="p-2 border-t border-slate-200 dark:border-slate-800 text-center text-[10px] text-slate-400">Photos provided by Pexels</div>
+
+      <div id="ws-photo-tab-content" class="p-4 flex-1 overflow-y-auto min-h-[300px]">
+        ${renderWsPhotoTabBody()}
+      </div>
+
+      <div class="p-2.5 border-t border-slate-200 dark:border-slate-800 text-center text-[10px] text-slate-400">
+        ${__wsPhotoActiveTab === 'pexels' ? 'High-quality royalty-free photography provided by Pexels' : (__wsPhotoActiveTab === 'inventory' ? 'Live lot vehicle photos from your inventory' : 'Supported formats: JPG, PNG, WEBP')}
+      </div>
     </div>`;
-  searchWsPhotoLibrary('car dealership');
+
+  if (__wsPhotoActiveTab === 'pexels') searchWsPhotoLibrary('car dealership');
+  else if (__wsPhotoActiveTab === 'inventory') loadWsInventoryPhotos();
 }
+
+function setWsPhotoTab(t) {
+  __wsPhotoActiveTab = t;
+  renderWsPhotoPickerModal();
+}
+window.setWsPhotoTab = setWsPhotoTab;
+
+function renderWsPhotoTabBody() {
+  if (__wsPhotoActiveTab === 'upload') {
+    return `
+      <div class="space-y-4 py-6 text-center">
+        <div class="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-8 bg-slate-50 dark:bg-slate-950/60 hover:border-indigo-500 transition">
+          <svg class="w-12 h-12 text-slate-400 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+          <div class="text-sm font-black text-slate-900 dark:text-white mb-1">Upload a Custom Photo</div>
+          <p class="text-xs text-slate-400 mb-4">Drag and drop an image file here or browse from your device.</p>
+          <input type="file" id="ws-modal-file" accept="image/*" class="hidden" onchange="uploadWsModalImage(this.files[0])">
+          <button type="button" onclick="document.getElementById('ws-modal-file').click()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black transition shadow-md">Select Local File</button>
+        </div>
+      </div>
+    `;
+  }
+  if (__wsPhotoActiveTab === 'inventory') {
+    return `
+      <div class="space-y-3">
+        <div id="ws-inv-photos-grid" class="grid grid-cols-3 gap-2">
+          <div class="col-span-3 py-10 text-center text-xs text-slate-400">Loading lot inventory photos…</div>
+        </div>
+      </div>
+    `;
+  }
+  // Pexels
+  return `
+    <div class="space-y-3">
+      <form onsubmit="event.preventDefault(); searchWsPhotoLibrary(document.getElementById('ws-photo-query').value)" class="flex gap-2">
+        <input id="ws-photo-query" type="search" value="car dealership" placeholder="Search car dealership, trucks, luxury, SUV..." class="flex-1 px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-medium focus:outline-none focus:border-indigo-500">
+        <button class="px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-xs">Search</button>
+      </form>
+      <div class="flex items-center gap-1.5 flex-wrap">
+        <span class="text-[10px] font-bold text-slate-400">Quick topics:</span>
+        <button type="button" onclick="document.getElementById('ws-photo-query').value='car dealership'; searchWsPhotoLibrary('car dealership')" class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200">Dealership</button>
+        <button type="button" onclick="document.getElementById('ws-photo-query').value='truck'; searchWsPhotoLibrary('truck')" class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200">Trucks</button>
+        <button type="button" onclick="document.getElementById('ws-photo-query').value='luxury car'; searchWsPhotoLibrary('luxury car')" class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200">Luxury</button>
+        <button type="button" onclick="document.getElementById('ws-photo-query').value='electric vehicle'; searchWsPhotoLibrary('electric vehicle')" class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200">EV</button>
+        <button type="button" onclick="document.getElementById('ws-photo-query').value='car service'; searchWsPhotoLibrary('car service')" class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200">Service</button>
+      </div>
+      <div id="ws-photo-results" class="grid grid-cols-3 gap-2 pt-1"><div class="col-span-3 py-10 text-center text-xs text-slate-400">Loading…</div></div>
+    </div>
+  `;
+}
+
+async function uploadWsModalImage(file) {
+  if (!file) return;
+  showToast('Uploading custom image…', 'info');
+  try {
+    const fd = new FormData(); fd.append('image', file);
+    const r = await fetch(`${API}/dealership/site-image`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: fd });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Upload failed');
+    pickWsPhoto(d.url);
+    showToast('Image uploaded', 'success');
+  } catch (e) {
+    showToast(e.message || 'Upload failed', 'error');
+  }
+}
+window.uploadWsModalImage = uploadWsModalImage;
+
+async function loadWsInventoryPhotos() {
+  const box = document.getElementById('ws-inv-photos-grid');
+  if (!box) return;
+  try {
+    let inv = (typeof __catalogCache !== 'undefined' && __catalogCache?.length) ? __catalogCache : [];
+    if (!inv.length) { inv = await apiGetJson('/inventory/all', { retries: 1 }); }
+    const photos = [];
+    (inv || []).forEach(v => {
+      if (Array.isArray(v.photos)) {
+        v.photos.forEach(p => { if (p) photos.push({ url: p, label: `${v.year || ''} ${v.make || ''} ${v.model || ''}` }); });
+      } else if (v.photo_url) {
+        photos.push({ url: v.photo_url, label: `${v.year || ''} ${v.make || ''} ${v.model || ''}` });
+      }
+    });
+    if (!photos.length) {
+      box.innerHTML = '<div class="col-span-3 py-10 text-center text-xs text-slate-400 italic">No inventory vehicle photos found on your lot.</div>';
+      return;
+    }
+    box.innerHTML = photos.map(p => `
+      <button type="button" onclick="pickWsPhoto('${esc(p.url)}')" title="${esc(p.label)}" class="group relative aspect-video rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 hover:border-indigo-500 transition shadow-xs">
+        <img src="${esc(p.url)}" loading="lazy" class="w-full h-full object-cover">
+        <div class="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/80 to-transparent text-[10px] text-white font-bold truncate opacity-0 group-hover:opacity-100 transition">${esc(p.label)}</div>
+      </button>
+    `).join('');
+  } catch (e) {
+    box.innerHTML = '<div class="col-span-3 py-10 text-center text-xs text-rose-500">Could not load inventory photos.</div>';
+  }
+}
+
 window.openWsPhotoPicker = openWsPhotoPicker;
 
 function closeWsPhotoPicker() {
@@ -760,9 +1191,41 @@ async function loadWebsitePage() {
   __siteStaff = Array.isArray(__siteCfg.content?.staff) ? __siteCfg.content.staff.slice() : [];
   __siteBuiltins = normBuiltins(__siteCfg.content?.builtins);
   __wsTarget = 'home'; __siteSections = __homeSections;
+
+  // Handle returning Stripe checkout session or deep link parameters
+  const params = new URLSearchParams(location.search);
+  const planSession = params.get('plan_session') || params.get('session_id');
+  const targetTab = params.get('tab');
+  const targetSection = params.get('section');
+
+  if (targetTab === 'setup' || targetTab === 'settings') __wsTab = 'setup';
+  else if (targetTab === 'blog') __wsTab = 'blog';
+  else if (!__wsTab || __wsTab === 'settings') __wsTab = 'builder';
+
+  if (targetSection) __wsSetupSection = targetSection;
+
+  if (planSession) {
+    try {
+      const v = await apiGetJson(`/billing/verify-plan-session?session_id=${encodeURIComponent(planSession)}`);
+      if (v.success) {
+        showToast('Subscription updated successfully!', 'success');
+        const cleanUrl = location.pathname + (location.hash || '');
+        history.replaceState(null, '', cleanUrl);
+        try {
+          const ac = await fetch(`${API}/access/context`, { headers: { 'Authorization': `Bearer ${token}` } });
+          if (ac.ok) window.__access = await ac.json();
+        } catch {}
+      }
+    } catch (e) {}
+  }
+
+  // Ensure default mode is Live Builder
+  if (!localStorage.getItem('ms_builder_mode')) __builderMode = 'live';
+
   renderWebsitePage();
 }
-// Website Settings — its own page (domain/SEO/widgets), reusing the builder's config + fields.
+
+// Website Settings — alias for wsSetup()
 async function loadWebsiteSettings() {
   const root = document.getElementById('website-settings-root');
   if (!root) return;
@@ -771,11 +1234,10 @@ async function loadWebsiteSettings() {
     try { __siteCfg = await apiGetJson('/dealership/site'); }
     catch (e) { root.innerHTML = `<div class="py-16 text-center text-sm text-slate-500">Couldn't load: ${esc(e.message)}</div>`; return; }
   }
-  root.innerHTML = wsSettings();
-  __siteWidgets = Array.isArray(__siteCfg?.content?.widgets) ? __siteCfg.content.widgets.slice() : [];
-  renderSiteWidgets();
+  __wsTab = 'setup';
+  renderWebsitePage();
 }
-// Move the active buffer back onto its source (home or a page) before switching/saving.
+
 function wsFlushTarget() {
   if (__wsTarget === 'home') __homeSections = __siteSections;
   else if (typeof __wsTarget === 'string' && __wsTarget.startsWith('b:')) { const k = __wsTarget.slice(2); (__siteBuiltins[k] = __siteBuiltins[k] || { enabled: true, label: k, menu: '' }).sections = __siteSections; }
@@ -786,40 +1248,52 @@ function wsSetTarget(v) {
   if (v === 'home') { __wsTarget = 'home'; __siteSections = __homeSections || []; }
   else if (typeof v === 'string' && v.startsWith('b:')) { __wsTarget = v; const k = v.slice(2); const b = (__siteBuiltins[k] = __siteBuiltins[k] || { enabled: true, label: k, menu: '' }); b.sections = Array.isArray(b.sections) ? b.sections : []; __siteSections = b.sections; }
   else { __wsTarget = parseInt(v); __siteSections = Array.isArray(__sitePages[__wsTarget]?.sections) ? __sitePages[__wsTarget].sections : []; }
-  __wsTab = 'builder'; renderWebsitePage();   // full re-render so the Builder tab lights up
+  __wsTab = 'builder'; renderWebsitePage();
 }
+
 function renderWebsitePage() {
   const root = document.getElementById('website-root'); if (!root) return;
   const c = __siteCfg.content || {};
   const url = __siteCfg.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(__siteCfg.site_slug)}` : null;
-  const tab = (id, label) => `<button onclick="wsTab('${id}')" class="px-4 py-2 text-sm font-bold border-b-2 transition ${__wsTab === id ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}">${label}</button>`;
+  
+  const tab = (id, label) => `<button onclick="wsTab('${id}')" class="px-5 py-2.5 text-xs font-black rounded-xl transition ${(__wsTab === id || (id === 'setup' && __wsTab === 'settings')) ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>`;
+
   root.innerHTML = `
-    <div class="flex items-start justify-between gap-3 flex-wrap">
-      <div>
-        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Website</h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Professional dealership site anyone can edit. Add sections, no code required.</p>
+    <div class="space-y-4">
+      <div class="flex items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800 flex-wrap">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-600/10 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black border border-indigo-500/30"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18zM2.25 12h19.5M12 2.25a15.3 15.3 0 014.5 9.75 15.3 15.3 0 01-4.5 9.75 15.3 15.3 0 01-4.5-9.75A15.3 15.3 0 0112 2.25z"/></svg></div>
+          <div>
+            <h2 class="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+              MarketSync Website Builder
+            </h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Full-screen website builder &amp; dealership content platform.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          ${__wsTab === 'builder' ? `
+            <div class="inline-flex rounded-xl border border-slate-300 dark:border-slate-700 overflow-hidden text-xs font-bold shadow-xs">
+              <button onclick="setBuilderMode('live')" class="px-3 py-1.5 transition ${__builderMode === 'live' ? 'bg-indigo-600 text-white font-black' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">Live Builder</button>
+              <button onclick="setBuilderMode('classic')" class="px-3 py-1.5 transition ${__builderMode !== 'live' ? 'bg-indigo-600 text-white font-black' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">Simple Builder</button>
+            </div>
+          ` : ''}
+          <button onclick="openWebsiteScannerModal()" class="text-xs font-black bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600/30 border border-indigo-500/40 px-3.5 py-1.5 rounded-xl transition" title="Scan existing website">Scan Site</button>
+          ${url ? `<a href="${url}" target="_blank" class="text-xs font-black bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3.5 py-1.5 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition">View Site ↗</a>` : ''}
+          <label class="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer"><input id="ws-pub" type="checkbox" ${__siteCfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">Published</label>
+          <button onclick="saveWebsite(this)" class="text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl transition shadow-md cursor-pointer">Save Changes</button>
+        </div>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
-        <!-- Editor mode toggle: Classic section-cards vs Live drag-and-drop preview. -->
-        <div class="inline-flex rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden text-xs font-bold" title="Switch between the classic section editor and the live drag-and-drop builder">
-          <button onclick="setBuilderMode('classic')" class="px-3 py-2 transition ${__builderMode !== 'live' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">Classic</button>
-          <button onclick="setBuilderMode('live')" class="px-3 py-2 transition ${__builderMode === 'live' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">Live </button>
-        </div>
-        <button onclick="openWebsiteScannerModal()" class="text-xs font-black bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 border border-indigo-500/40 px-3 py-2 rounded-lg transition" title="Scan existing website to auto-fill template & AI knowledgebase">Scan Site</button>
-        ${url ? `<a href="${url}" target="_blank" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg">View site ↗</a>` : ''}
-        <label class="flex items-center gap-1.5 text-sm font-bold"><input id="ws-pub" type="checkbox" ${__siteCfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Published</label>
-        <button onclick="wsTab('settings')" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg">Settings</button>
-        <button onclick="saveWebsite(this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">Save</button>
+        ${tab('builder', 'Builder')}
+        ${tab('blog', 'Blog')}
+        ${tab('setup', 'Setup')}
       </div>
-    </div>
-    <div class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 flex-wrap">${tab('builder', 'Builder')}${tab('blog', 'Blog')}${tab('settings', 'Settings')}</div>
-    <div id="ws-body"></div>`;
+      <div id="ws-body"></div>
+    </div>`;
   renderWsBody();
 }
-function wsTab(t) { __wsTab = t; renderWebsitePage(); }   // re-render header+tabs so the active underline moves
-// Editor mode: 'classic' (section cards) or 'live' (WYSIWYG drag + live preview).
-// Persisted per user; the classic builder is always kept as an option.
-let __builderMode = (() => { try { return localStorage.getItem('ms_builder_mode') || 'classic'; } catch { return 'classic'; } })();
+function wsTab(t) { __wsTab = t; renderWebsitePage(); }
+let __builderMode = (() => { try { return localStorage.getItem('ms_builder_mode') || 'live'; } catch { return 'live'; } })();
 function setBuilderMode(m) {
   __builderMode = (m === 'live') ? 'live' : 'classic';
   try { localStorage.setItem('ms_builder_mode', __builderMode); } catch {}
@@ -1439,11 +1913,11 @@ function renderLiveBuilder(body) {
 }
 function renderWsBody() {
   const body = document.getElementById('ws-body'); if (!body) return;
+  if (__wsTab === 'setup' || __wsTab === 'settings') { body.innerHTML = wsSetup(); return; }
   if (__wsTab === 'design') { body.innerHTML = wsDesign(); return; }
   if (__wsTab === 'pages') { body.innerHTML = wsPages(); renderMenuList(); return; }
   if (__wsTab === 'blog') { body.innerHTML = '<div id="ws-blog-root" class="pt-4"></div>'; loadDealerBlog(); return; }
   if (__wsTab === 'team') { body.innerHTML = wsTeam(); renderSiteStaff(); return; }
-  if (__wsTab === 'settings') { body.innerHTML = wsSettings(); __siteWidgets = Array.isArray(__siteCfg?.content?.widgets) ? __siteCfg.content.widgets.slice() : []; renderSiteWidgets(); return; }
   if (__wsTab === 'builder' && __builderMode === 'live') { renderLiveBuilder(body); return; }
   // Builder Classic
   const pageOpts = (__sitePages || []).map((p, i) => `<option value="${i}" ${__wsTarget === i ? 'selected' : ''}> ${esc(p.title || 'Untitled page')}</option>`).join('');
@@ -1617,53 +2091,88 @@ function openTemplatePicker() {
     {
       id: 'luxury',
       name: 'Premier Luxury Dealership',
-      desc: 'Playfair Display serif hierarchy, obsidian & gold accents, pill buttons, 110px padding, glassmorphic cards.',
+      desc: 'Playfair Display serif hierarchy, obsidian & gold accents, pill buttons, wide padding, glassmorphic cards, executive sedan hero.',
       preset: 'luxury',
       primary: '#0f172a', secondary: '#1e293b', accent: '#d97706', heading_font: 'Playfair Display', body_font: 'Inter'
     },
     {
       id: 'modern',
       name: 'Modern Omnichannel Showroom',
-      desc: 'Outfit & Inter typography, indigo/slate gradients, rounded-2xl cards, glowing primary buttons.',
+      desc: 'Outfit & Inter typography, indigo/slate gradients, rounded-2xl cards, glowing primary buttons, futuristic coupe hero.',
       preset: 'modern',
       primary: '#1e3a8a', secondary: '#0f172a', accent: '#4f46e5', heading_font: 'Outfit', body_font: 'Inter'
     },
     {
-      id: 'bold',
-      name: 'Bold High-Volume Truck & SUV Hub',
-      desc: 'Oswald uppercase headlines, crimson & charcoal theme, sharp corners, dominant conversion CTAs.',
-      preset: 'bold',
-      primary: '#991b1b', secondary: '#0f172a', accent: '#dc2626', heading_font: 'Oswald', body_font: 'Inter'
-    },
-    {
-      id: 'minimal',
-      name: 'Minimalist Certified Pre-Owned',
-      desc: 'Monochrome precision grid, generous white space, subtle border lines, ultra-clean typography.',
-      preset: 'minimal',
-      primary: '#0f172a', secondary: '#334155', accent: '#2563eb', heading_font: 'Inter', body_font: 'Inter'
+      id: 'traditional',
+      name: 'Traditional Dealership',
+      desc: 'Archivo & Open Sans, classic navy/red header, top contact bar, upfront pricing banner, lot flagship hero.',
+      preset: 'traditional',
+      primary: '#0b2a5b', secondary: '#1f2937', accent: '#dc2626', heading_font: 'Archivo', body_font: 'Open Sans'
     },
     {
       id: 'performance',
       name: 'High-Performance Motorsport & EV',
-      desc: 'Syne bold italic font, carbon dark styling, neon cyan/amber accents, high-velocity conversion CTAs.',
+      desc: 'Syne & Space Grotesk typography, carbon dark styling, neon cyan accents, velocity specs spotlight, night supercar hero.',
       preset: 'performance',
-      primary: '#0284c7', secondary: '#0f172a', accent: '#06b6d4', heading_font: 'Syne', body_font: 'Space Grotesk'
+      primary: '#0284c7', secondary: '#020617', accent: '#06b6d4', heading_font: 'Syne', body_font: 'Space Grotesk'
+    },
+    {
+      id: 'truck',
+      name: 'Truck & Heavy Duty Hub',
+      desc: 'Oswald uppercase headlines, earth/stone theme, heavy-duty towing capacity cards, 4x4 off-road hero.',
+      preset: 'truck',
+      primary: '#1c1917', secondary: '#292524', accent: '#d97706', heading_font: 'Oswald', body_font: 'Inter'
+    },
+    {
+      id: 'family',
+      name: 'Family & Community Motors',
+      desc: 'Poppins & Nunito typography, warm teal palette, 5-star Google review spotlight, safe family crossover hero.',
+      preset: 'family',
+      primary: '#1e293b', secondary: '#0f172a', accent: '#0d9488', heading_font: 'Poppins', body_font: 'Nunito'
+    },
+    {
+      id: 'minimal',
+      name: 'Minimalist European Studio',
+      desc: 'Monochrome precision grid, generous negative space, 1px border cards, studio white coupe hero.',
+      preset: 'minimal',
+      primary: '#09090b', secondary: '#27272a', accent: '#2563eb', heading_font: 'Inter', body_font: 'Work Sans'
+    },
+    {
+      id: 'promo',
+      name: 'Bold High-Volume Promotional',
+      desc: 'Bebas Neue & Roboto typography, high-contrast sales event theme, flash deal banners, red sports car hero.',
+      preset: 'promo',
+      primary: '#b91c1c', secondary: '#18181b', accent: '#eab308', heading_font: 'Bebas Neue', body_font: 'Roboto'
+    },
+    {
+      id: 'used',
+      name: 'Certified Pre-Owned Depot',
+      desc: 'Barlow & Rubik typography, amber/navy theme, "Every Credit Approved" finance banner, certified used lot hero.',
+      preset: 'used',
+      primary: '#1e3a8a', secondary: '#0f172a', accent: '#f59e0b', heading_font: 'Barlow', body_font: 'Rubik'
+    },
+    {
+      id: 'ev',
+      name: 'Next-Gen Electric Vehicle Hub',
+      desc: 'Plus Jakarta Sans & Inter typography, deep electric blue theme, charging range calculator banner, EV charging hero.',
+      preset: 'ev',
+      primary: '#030712', secondary: '#0b1329', accent: '#22d3ee', heading_font: 'Plus Jakarta Sans', body_font: 'Inter'
     }
   ];
 
   const modalHtml = `
-    <div class="p-6 space-y-4 max-w-3xl">
-      <div class="flex items-center justify-between">
+    <div class="p-6 space-y-4 max-w-4xl">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
         <div>
           <h2 class="text-xl font-black text-slate-900 dark:text-white">Choose Complete Homepage Template</h2>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Select an art-directed layout template — instantly configures typography, hero height, spacing, card styles, and section hierarchy.</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Each template features a distinct visual layout, typography, Pexels imagery, and color palette.</p>
         </div>
         <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
 
-      <div class="grid md:grid-cols-2 gap-4 pt-2">
+      <div class="grid md:grid-cols-2 gap-4 pt-2 max-h-[70vh] overflow-y-auto">
         ${templates.map(t => `
           <button onclick="applyCompleteTemplate('${t.id}')" class="group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-lg hover:shadow-2xl transition duration-200 space-y-3 cursor-pointer">
             <div class="flex items-center justify-between">
@@ -1684,7 +2193,7 @@ function openTemplatePicker() {
     </div>
   `;
 
-  crmOverlay(modalHtml, 'max-w-3xl');
+  crmOverlay(modalHtml, 'max-w-4xl');
 }
 
 function applyCompleteTemplate(templateId) {
@@ -1692,22 +2201,112 @@ function applyCompleteTemplate(templateId) {
   const ctx = { name: c.name || ctxName(), city: c.city || '' };
 
   const configs = {
-    luxury: { primary_color: '#0f172a', secondary_color: '#1e293b', accent_color: '#d97706', typography: 'luxury', heading_font: 'Playfair Display', body_font: 'Inter', preset: 'luxury' },
-    modern: { primary_color: '#1e3a8a', secondary_color: '#0f172a', accent_color: '#4f46e5', typography: 'modern', heading_font: 'Outfit', body_font: 'Inter', preset: 'modern' },
-    bold: { primary_color: '#991b1b', secondary_color: '#0f172a', accent_color: '#dc2626', typography: 'bold', heading_font: 'Oswald', body_font: 'Inter', preset: 'bold' },
-    minimal: { primary_color: '#0f172a', secondary_color: '#334155', accent_color: '#2563eb', typography: 'minimal', heading_font: 'Inter', body_font: 'Inter', preset: 'minimal' },
-    performance: { primary_color: '#0284c7', secondary_color: '#0f172a', accent_color: '#06b6d4', typography: 'modern', heading_font: 'Syne', body_font: 'Space Grotesk', preset: 'performance' }
+    luxury: {
+      primary_color: '#0f172a', secondary_color: '#1e293b', accent_color: '#d97706', typography: 'luxury', heading_font: 'Playfair Display', body_font: 'Inter', preset: 'luxury',
+      hero_url: 'https://images.pexels.com/photos/3764984/pexels-photo-3764984.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+      sections: [
+        psHero('Excellence in Motion', 'Experience bespoke automotive service and curated executive vehicles.', 'Explore Collection', 'inventory', 'g1'),
+        __psec('feature_cards', { title: 'White-Glove Dealership Experience' }),
+        __psec('featured_inventory', { title: 'Private Reserve Spotlight', condition: 'all', count: 6 }),
+        __psec('text_image', { headline: 'Crafted Around Your Driving Life', body: 'At our studio, acquiring a vehicle is a tailored journey. Every luxury vehicle passes 180-point verification.', image: 'https://images.pexels.com/photos/164634/pexels-photo-164634.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Speak to Advisor', button_target: 'team' }),
+        __psec('reviews', { title: 'Client Testimonials', google_rating: '4.9' }),
+        psCta('Private Appraisal Service', 'Receive an uncompromised valuation for your current luxury vehicle.', 'Request Appraisal', 'trade')
+      ]
+    },
+    modern: {
+      primary_color: '#1e3a8a', secondary_color: '#0f172a', accent_color: '#4f46e5', typography: 'modern', heading_font: 'Outfit', body_font: 'Inter', preset: 'modern',
+      hero_url: 'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+      sections: templateHome(ctx)
+    },
+    traditional: {
+      primary_color: '#0b2a5b', secondary_color: '#1f2937', accent_color: '#dc2626', typography: 'traditional', heading_font: 'Archivo', body_font: 'Open Sans', preset: 'traditional',
+      hero_url: 'https://images.pexels.com/photos/112460/pexels-photo-112460.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+      sections: [
+        psHero('Your Trusted Local Car Dealership', 'Honest prices, straightforward financing, and dependable vehicles updated daily.', 'Shop Inventory', 'inventory', 'g2'),
+        __psec('ad_banner', { tag: 'Monthly Special', headline: 'Drive Away With Up to $2,000 Off Trade-Ins', subtitle: 'Limited time offers across our new and certified pre-owned lot.', button_label: 'Claim Offer', button_target: 'inquiry', image: 'https://images.pexels.com/photos/7144211/pexels-photo-7144211.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2' }),
+        __psec('featured_inventory', { title: 'Top Deals This Week', condition: 'all', count: 6 }),
+        __psec('contact', { title: 'Visit Our Showroom Today' })
+      ]
+    },
+    performance: {
+      primary_color: '#0284c7', secondary_color: '#020617', accent_color: '#06b6d4', typography: 'performance', heading_font: 'Syne', body_font: 'Space Grotesk', preset: 'performance',
+      hero_url: 'https://images.pexels.com/photos/3311574/pexels-photo-3311574.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+      sections: [
+        psHero('Engineered for High Performance', 'Precision sports coupes, tuned SUVs, and next-generation electric supercars.', 'View High Velocity Vehicles', 'inventory', 'g4'),
+        __psec('body_style', { title: 'Shop By Performance Category' }),
+        __psec('featured_inventory', { title: 'Track & Street Lineup', condition: 'all', count: 6 }),
+        __psec('text_image', { headline: 'Uncompromising Horsepower & Tech', body: 'Experience dyno-tested performance and certified pre-owned sports vehicles.', image: 'https://images.pexels.com/photos/1149831/pexels-photo-1149831.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Schedule Test Track Drive', button_target: 'contact' })
+      ]
+    },
+    truck: {
+      primary_color: '#1c1917', secondary_color: '#292524', accent_color: '#d97706', typography: 'rugged', heading_font: 'Oswald', body_font: 'Inter', preset: 'truck',
+      hero_url: 'https://images.pexels.com/photos/1638459/pexels-photo-1638459.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+      sections: [
+        psHero('Heavy Duty Truck & Commercial Headquarters', 'Built to tow, haul, and conquer any job site or off-road trail.', 'Browse Truck Inventory', 'inventory', 'g5'),
+        __psec('trade_cta', { title: 'Trade Up Your Work Truck', subtitle: 'Get maximum trade-in value for your current pickup in 2 minutes.', button_label: 'Value My Truck' }),
+        __psec('featured_inventory', { title: 'Featured Pickups & 4x4 SUVs', condition: 'all', count: 6 }),
+        __psec('text_image', { headline: 'Towing Power & Payload Excellence', body: 'From diesel crew cabs to 4WD off-road rigs, explore tested truck capability.', image: 'https://images.pexels.com/photos/210019/pexels-photo-210019.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Contact Fleet Specialist', button_target: 'contact' })
+      ]
+    },
+    family: {
+      primary_color: '#1e293b', secondary_color: '#0f172a', accent_color: '#0d9488', typography: 'family', heading_font: 'Poppins', body_font: 'Nunito', preset: 'family',
+      hero_url: 'https://images.pexels.com/photos/1592384/pexels-photo-1592384.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+      sections: [
+        psHero('Safe & Reliable Family Vehicles', '5-star safety rated SUVs, crossovers, and minivans for every journey.', 'Explore Family SUVs', 'inventory', 'g7'),
+        __psec('reviews', { title: 'Loved by Local Families', google_rating: '4.9' }),
+        __psec('featured_inventory', { title: 'Top Rated Family Rides', condition: 'all', count: 6 }),
+        __psec('text_image', { headline: 'Peace of Mind On Every Road', body: 'Comprehensive warranties, multi-point safety checks, and child-safe interior options.', image: 'https://images.pexels.com/photos/4553277/pexels-photo-4553277.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Book Family Test Drive', button_target: 'contact' })
+      ]
+    },
+    minimal: {
+      primary_color: '#09090b', secondary_color: '#27272a', accent_color: '#2563eb', typography: 'minimal', heading_font: 'Inter', body_font: 'Work Sans', preset: 'minimal',
+      hero_url: 'https://images.pexels.com/photos/909907/pexels-photo-909907.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+      sections: [
+        psHero('Essential Automotive Precision', 'Pure design. Transparent terms. Direct digital purchasing.', 'Discover Stock', 'inventory', 'g8'),
+        __psec('featured_inventory', { title: 'Curated Vehicles', condition: 'all', count: 6 }),
+        __psec('text_image', { headline: 'Simplicity Redefined', body: 'No hidden fees. Pure vehicle engineering presented without distraction.', image: 'https://images.pexels.com/photos/244206/pexels-photo-244206.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Inquire', button_target: 'contact' })
+      ]
+    },
+    promo: {
+      primary_color: '#b91c1c', secondary_color: '#18181b', accent_color: '#eab308', typography: 'promo', heading_font: 'Bebas Neue', body_font: 'Roboto', preset: 'promo',
+      hero_url: 'https://images.pexels.com/photos/2127040/pexels-photo-2127040.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+      sections: [
+        psHero('MASSIVE INVENTORY CLEARANCE EVENT', 'Lowest prices of the season on top new and used vehicles!', 'View Flash Clearance', 'inventory', 'g6'),
+        __psec('ad_banner', { tag: 'Limited Time Deal', headline: '0% APR Financing Available On Select Units', subtitle: 'Don’t wait — these prices are locked in while inventory lasts.', button_label: 'Get My Price Now', button_target: 'inquiry', image: 'https://images.pexels.com/photos/97075/pexels-photo-97075.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2' }),
+        __psec('featured_inventory', { title: 'Clearance Spotlight Deals', condition: 'all', count: 6 }),
+        psCta('Want the Lowest Price Guarantee?', 'Submit your inquiry in under 30 seconds to lock in extra savings.', 'Lock In My Price', 'inquiry')
+      ]
+    },
+    used: {
+      primary_color: '#1e3a8a', secondary_color: '#0f172a', accent_color: '#f59e0b', typography: 'used', heading_font: 'Barlow', body_font: 'Rubik', preset: 'used',
+      hero_url: 'https://images.pexels.com/photos/100656/pexels-photo-100656.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+      sections: [
+        psHero('Certified Pre-Owned Car & Truck Depot', '100% inspected, free CarFax reports, and guaranteed credit approval.', 'Shop Used Vehicles', 'inventory', 'g3'),
+        __psec('finance_cta', { title: 'All Credit Types Approved', subtitle: 'Good credit, bad credit, or first-time buyer — we get you approved fast.', button_label: 'Get Pre-Approved Online' }),
+        __psec('featured_inventory', { title: 'Fresh Pre-Owned Arrivals', condition: 'used', count: 6 }),
+        __psec('text_image', { headline: 'Every Vehicle Thoroughly Certified', body: 'Includes multi-point safety inspection, reconditioning, and powertrain warranty.', image: 'https://images.pexels.com/photos/3807277/pexels-photo-3807277.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Value My Trade', button_target: 'trade' })
+      ]
+    },
+    ev: {
+      primary_color: '#030712', secondary_color: '#0b1329', accent_color: '#22d3ee', typography: 'ev', heading_font: 'Plus Jakarta Sans', body_font: 'Inter', preset: 'ev',
+      hero_url: 'https://images.pexels.com/photos/9800006/pexels-photo-9800006.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+      sections: [
+        psHero('The Electric & Hybrid Experience', 'Zero emissions, instant torque, and federal EV incentive rebates.', 'Explore EV & Hybrid Stock', 'inventory', 'g1'),
+        __psec('payment_calc', { title: 'Estimate Your Monthly Fuel & Charging Savings', rate: 6.99, term: 72 }),
+        __psec('featured_inventory', { title: 'Electric & Hybrid Vehicles', condition: 'all', count: 6 }),
+        __psec('text_image', { headline: 'Charge Into the Future', body: 'Discover high-range EVs, home charging installation guidance, and battery health warranties.', image: 'https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Calculate EV Rebate', button_target: 'finance' })
+      ]
+    }
   };
 
-  const selConfig = configs[templateId] || configs.modern;
-  Object.assign(c, selConfig);
-
-  __homeSections = templateHome(ctx);
+  const selected = configs[templateId] || configs.modern;
+  Object.assign(c, selected);
+  __homeSections = selected.sections.slice();
   __siteSections = __homeSections;
 
   document.querySelector('.fixed')?.remove();
-  renderWsBody();
-  showToast(`Applied ${templateId.toUpperCase()} Template! Click "Save" or "Publish" to set live.`, 'success');
+  renderWebsitePage();
+  showToast(`Applied "${templateId}" template with Pexels imagery — Save to publish`, 'success');
 }
 
 window.openTemplatePicker = openTemplatePicker;

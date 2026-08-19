@@ -509,13 +509,20 @@ export function registerRoutes(app) {
     try {
       // Charge immediately (no Stripe trial): the 39-day free trial is granted at sign-up
       // with no card, so by the time someone reaches Checkout they're subscribing to pay.
+      const successUrl = (planId === 'ai-chatbot')
+        ? `${FRONTEND_URL}/dashboard.html?page=website&tab=setup&section=ai-chatbot&plan_session={CHECKOUT_SESSION_ID}`
+        : `${FRONTEND_URL}/dashboard.html?plan_session={CHECKOUT_SESSION_ID}`
+      const cancelUrl = (planId === 'ai-chatbot')
+        ? `${FRONTEND_URL}/dashboard.html?page=website&tab=setup&section=ai-chatbot`
+        : `${FRONTEND_URL}/dashboard.html`
+
       const params = {
         line_items: [{ price: priceId, quantity: 1 }],
         mode: 'subscription',
         metadata: { type: 'plan', plan: planId, currency, dealership_id: req.dealershipId },
         subscription_data: { metadata: { type: 'plan', plan: planId, dealership_id: req.dealershipId } },
-        success_url: `${FRONTEND_URL}/dashboard.html?plan_session={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${FRONTEND_URL}/dashboard.html`,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
       }
       if (existingCustomerId) params.customer = existingCustomerId
       const session = await stripe.checkout.sessions.create(params)
@@ -524,6 +531,31 @@ export function registerRoutes(app) {
     } catch (err) { res.status(500).json({ error: err.message }) }
   }
   app.post('/billing/subscribe-plan', requireAuth, requireBillingManage, blockDemoStripeAction, createPlanCheckout)
+
+  async function verifyPlanSession(req, res) {
+    const { session_id } = req.query
+    if (!session_id) return res.status(400).json({ error: 'session_id required' })
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+
+    try {
+      const session = await stripe.checkout.sessions.retrieve(session_id)
+      const meta = session.metadata || {}
+      if (meta.dealership_id !== req.dealershipId) {
+        return res.status(403).json({ error: 'Session does not belong to this dealership' })
+      }
+      if (session.status !== 'complete') {
+        return res.status(400).json({ error: 'Session not complete', status: session.status })
+      }
+      if (session.subscription) {
+        const sub = await stripe.subscriptions.retrieve(session.subscription)
+        await syncSubscriptionFromStripe(req.dealershipId, sub, { preserveExisting: true })
+      }
+      res.json({ success: true, plan: meta.plan || null })
+    } catch (err) {
+      res.status(500).json({ error: err.message })
+    }
+  }
+  app.get('/billing/verify-plan-session', requireAuth, verifyPlanSession)
 
   // The plan catalog for the in-app "upgrade to unlock" UI. Reads plan-catalog.js (the
   // single source), annotates each plan with the caller's current active plan(s) and
