@@ -3747,6 +3747,21 @@ function wsSeo() {
             <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
               <div class="font-black text-slate-200 flex items-center gap-2"><svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> CRM Revenue Attribution</div>
               <p class="text-slate-400 text-[11px]">Connects organic search visits to CRM leads, appointments, sold deals, and gross revenue.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-indigo-950/40 border border-indigo-500/20 text-xs text-indigo-200 flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <div class="font-bold text-white text-sm">Keep your existing Dealer Website subscription ($249/mo CAD)</div>
+            <div class="text-[11px] text-slate-400">MarketSync SEO ($149/mo CAD) is added as an independent add-on product under your account.</div>
+          </div>
+          <button onclick="upgradeToSeo(this)" class="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm transition shadow-xl hover:shadow-indigo-500/30 cursor-pointer whitespace-nowrap">Upgrade to MarketSync SEO — $149/mo</button>
+        </div>
+      </div>
+    `;
+  }
+
   return `<div id="seo-workspace-root" class="space-y-6 pt-2"><div class="py-12 text-center text-sm text-slate-400 italic">Loading AI SEO Application…</div></div>`;
 }
 
