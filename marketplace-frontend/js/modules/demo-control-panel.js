@@ -50,6 +50,27 @@
     department: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="dcp-svg"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5M4.5 3h15v18h-15V3zM9 21V9h6v12"/></svg>',
   };
 
+  function mapDemoPackageToProduct(pkgId) {
+    if (!pkgId) return 'dealer_os';
+    if (pkgId === 'design-studio') return 'design_studio';
+    if (pkgId.includes('autoposter') || pkgId.includes('facebook') || pkgId === 'fb_solo' || pkgId === 'fb_dealership') return 'facebook';
+    if (pkgId === 'video' || pkgId === 'marketsync_video') return 'video';
+    if (pkgId.includes('campaign') || pkgId.includes('email') || pkgId.includes('social')) return 'campaigns';
+    if (pkgId.includes('website') || pkgId === 'dealer-website') return 'website';
+    if (pkgId.includes('chatbot') || pkgId.includes('ai_')) return 'ai_chatbot';
+    if (pkgId.includes('dealer-os') || pkgId.includes('suite') || pkgId === 'marketsync-digital') return 'dealer_os';
+    return 'dealer_os';
+  }
+
+  window.openDemoControlPanel = function () {
+    const p = document.getElementById('demo-control-panel');
+    if (p) p.hidden = false;
+  };
+  window.toggleDemoControlPanel = function () {
+    const p = document.getElementById('demo-control-panel');
+    if (p) p.hidden = !p.hidden;
+  };
+
   function buildPanel(data) {
     const badge = document.createElement('button');
     badge.id = 'demo-mode-badge';
@@ -101,7 +122,7 @@
 
     document.body.appendChild(panel);
 
-    badge.addEventListener('click', () => { panel.hidden = !panel.hidden; });
+    badge.addEventListener('click', () => { window.toggleDemoControlPanel(); });
     panel.querySelector('#dcp-close').addEventListener('click', () => { panel.hidden = true; });
     document.addEventListener('click', (e) => {
       if (!panel.hidden && !panel.contains(e.target) && e.target !== badge) panel.hidden = true;
@@ -138,16 +159,26 @@
       const res = await apiCall('/demo/control');
       if (!res.ok) return; // not the demo account — render nothing
       const data = await res.json();
+      window.__demoControlData = data;
+      if (data?.state?.packageId) {
+        window.__demoPackageId = data.state.packageId;
+        window.__demoActiveProduct = mapDemoPackageToProduct(data.state.packageId);
+
+        const legacyMap = {
+          design_studio: { design_studio: true },
+          facebook: { facebook_solo: true },
+          video: { marketsync_video: true },
+          campaigns: { marketsync_social: true },
+          website: { marketsync_website: true },
+          ai_chatbot: { ai_chatbot: true },
+          dealer_os: { dealer_os: true },
+        };
+        const prodObj = legacyMap[window.__demoActiveProduct] || { dealer_os: true };
+        if (typeof applyProductNav === 'function') applyProductNav(prodObj);
+        if (typeof renderDeptNav === 'function') renderDeptNav(data.state.roleKey || 'DEALER_ADMIN');
+      }
       buildPanel(data);
-      // Prospects should land somewhere with visible, populated content — the
-      // Insights/Command home page can render empty for a fresh demo dealership.
-      // Inventory always has seeded vehicles, so it's the reliable first thing
-      // to show. 'inventory' (not 'inventory-overview') because this account can
-      // switch between a full DealerOS package and a Facebook-only one — switchPage()
-      // resolves the generic id to whichever concrete page matches the current tier.
-      // BUT a single-product ("independent") demo has no Inventory page at all —
-      // forcing it there fights applyProductNav's own landing on the product's home
-      // and can leave the UI stranded, so let that tier keep its product home.
+
       const singleProduct = typeof window.isSingleProductWorkspace === 'function' && window.isSingleProductWorkspace();
       if (typeof switchPage === 'function' && !singleProduct) switchPage('inventory');
     } catch (e) { /* network hiccup — no demo panel this load, not fatal */ }
