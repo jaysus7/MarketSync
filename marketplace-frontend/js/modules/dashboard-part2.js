@@ -55,6 +55,8 @@ function fmtHHMMSS(ms) {
 }
 
 async function syncLiveShiftState() {
+  if (typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace()) return;
+  if (window.__access && Array.isArray(window.__access.products) && !window.__access.products.includes('dealer_os')) return;
   try {
     const res = await apiGetJson('/hr/time/me').catch(() => null);
     if (res && res.open) {

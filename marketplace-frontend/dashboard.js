@@ -999,7 +999,7 @@ window.startPlanCheckout = startPlanCheckout;
 const MS_PRODUCT_LABELS = {
   dealer_os: 'Dealer OS', facebook: 'Facebook', ai_dealer: 'AI Dealer',
   design_studio: 'Design Studio', marketsync_video: 'Video', marketsync_website: 'Website',
-  marketsync_social: 'Social', marketsync_email: 'Email & SMS',
+  marketsync_social: 'Social', marketsync_email: 'Email & SMS', marketsync_seo: 'MarketSync SEO',
 };
 function msPlanProductLine(p) {
   return [...new Set(p.products)].map(x => MS_PRODUCT_LABELS[x] || x).join(' + ');

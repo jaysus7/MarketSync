@@ -58,6 +58,7 @@
   }
 
   async function fetchMembers() {
+    if (shouldHideStaffChat()) return;
     try {
       const res = await fetch(`${getApi()}/staff-chat/members`, {
         headers: { 'Authorization': `Bearer ${getToken()}` }

@@ -511,9 +511,13 @@ export function registerRoutes(app) {
       // with no card, so by the time someone reaches Checkout they're subscribing to pay.
       const successUrl = (planId === 'ai-chatbot')
         ? `${FRONTEND_URL}/dashboard.html?page=website&tab=setup&section=ai-chatbot&plan_session={CHECKOUT_SESSION_ID}`
+        : (planId === 'marketsync-seo' || planId === 'marketsync_seo')
+        ? `${FRONTEND_URL}/dashboard.html?page=website&tab=seo&section=overview&plan_session={CHECKOUT_SESSION_ID}`
         : `${FRONTEND_URL}/dashboard.html?plan_session={CHECKOUT_SESSION_ID}`
       const cancelUrl = (planId === 'ai-chatbot')
         ? `${FRONTEND_URL}/dashboard.html?page=website&tab=setup&section=ai-chatbot`
+        : (planId === 'marketsync-seo' || planId === 'marketsync_seo')
+        ? `${FRONTEND_URL}/dashboard.html?page=website&tab=seo`
         : `${FRONTEND_URL}/dashboard.html`
 
       const params = {

@@ -143,6 +143,26 @@ const MARKETSYNC_PRICING = {
       ],
       ctaText: 'Deploy AI ChatBot',
       ctaUrl: '/register.html?plan=ai-chatbot'
+    },
+    {
+      id: 'marketsync-seo',
+      name: 'MarketSync SEO',
+      price: 149,
+      priceFormatted: '$149',
+      unit: '/month',
+      badge: 'AI SEO Platform',
+      desc: 'Complete automotive AI SEO command center, automated daily monitoring, auto-fix engine, local & inventory SEO rules, and CRM revenue attribution.',
+      features: [
+        'AI SEO Command Center & Daily Audit',
+        'Automated Safe Fix Engine (Auto-Fix Safe)',
+        'Local SEO & AutoDealer Schema Generator',
+        'Inventory SEO Lifecycle Rules (Active, Sold, Removed)',
+        'Competitor Search Tracking & Keyword Gaps',
+        'AI Search Readiness & llms.txt Management',
+        'CRM Organic Lead & Deal Revenue Attribution'
+      ],
+      ctaText: 'Get MarketSync SEO',
+      ctaUrl: '/register.html?plan=marketsync-seo'
     }
   ],
 

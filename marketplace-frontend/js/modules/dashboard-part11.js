@@ -1769,17 +1769,27 @@ ENGINES['command'] = {
     // rendered as "unknown", never as zero — a management screen that quietly shows $0 cash is
     // worse than one that says it could not read the ledger.
     const miss = (label) => (e) => ({ __unavailable: label, __reason: e?.message || 'could not be loaded' });
+    const access = window.__access || {};
+    const prods = Array.isArray(access.products) ? access.products : [];
+    const feats = Array.isArray(access.features) ? access.features : [];
+
+    const canAcct = prods.includes('dealer_os') || feats.includes('os.accounting');
+    const canService = prods.includes('dealer_os') || feats.includes('os.service');
+
+    const acctReq = (url, label) => canAcct ? apiGetJson(url).catch(miss(label)) : Promise.resolve(miss(label)(new Error('Not entitled')));
+    const serviceReq = (url, fallback) => canService ? apiGetJson(url).catch(() => fallback) : Promise.resolve(fallback);
+
     const [cc, ev, day, identityReviews, pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy, contacts, tasks, appts, deliveries, reconVehicles, inventory, fniDeals, esignRequests, serviceRos, partsOrders, staff] = await Promise.all([
       apiGetJson('/command-center').catch(() => ({ tiles: {}, exceptions: [], exception_count: 0 })),
       apiGetJson('/events?limit=40').catch(() => ({ events: [] })),
       apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ label: 'Pulse', reason: 'Could not be loaded' }], complete: false })),
       apiGetJson('/identity/reviews').catch(() => ({ reviews: [] })),
       apiGetJson('/pipeline').catch(miss('Sales pipeline')),
-      apiGetJson('/accounting/summary').catch(miss('Accounting summary')),
-      apiGetJson('/accounting/receivables').catch(miss('Receivables')),
-      apiGetJson('/accounting/payables').catch(miss('Payables')),
-      apiGetJson('/accounting/contracts-in-transit').catch(miss('Contracts in transit')),
-      apiGetJson('/accounting/close-checklist').catch(miss('Close')),
+      acctReq('/accounting/summary', 'Accounting summary'),
+      acctReq('/accounting/receivables', 'Receivables'),
+      acctReq('/accounting/payables', 'Payables'),
+      acctReq('/accounting/contracts-in-transit', 'Contracts in transit'),
+      acctReq('/accounting/close-checklist', 'Close'),
       apiGetJson('/campaigns').catch(miss('Campaigns')),
       apiGetJson('/automation/queue').catch(miss('Automation')),
       apiGetJson('/academy/my-path').catch(() => null),
@@ -1791,8 +1801,8 @@ ENGINES['command'] = {
       apiGetJson('/inventory/all').catch(() => null),
       apiGetJson('/fni/deals').catch(() => null),
       apiGetJson('/esign').catch(() => ({ requests: [] })),
-      apiGetJson('/service-engine/ros').catch(() => ({ ros: [] })),
-      apiGetJson('/service-engine/part-requests').catch(() => ({ requests: [] })),
+      serviceReq('/service-engine/ros', { ros: [] }),
+      serviceReq('/service-engine/part-requests', { requests: [] }),
       (profileContext?.saas_role === 'owner' ? apiGetJson('/saas/employees') : Promise.resolve({ employees: [] })).catch(() => ({ employees: [] })),
     ]);
     const badge = document.getElementById('command-badge');

@@ -43,6 +43,7 @@ import { registerBulk } from './routes/bulk.js'
 import { registerService } from './routes/service.js'
 import { registerReports } from './routes/reports.js'
 import { registerEsign } from './routes/esign.js'
+import registerSeoRoutes from './routes/seo.js'
 import { registerCalendar } from './routes/calendar.js'
 import { registerAdSpend } from './routes/adspend.js'
 import { registerIdentity } from './routes/identity.js'
@@ -228,6 +229,7 @@ registerPlaid(app)
 registerAffiliate(app)
 registerHR(app)
 registerStaffChat(app)
+registerSeoRoutes(app)
 registerWebhookRoutes(app)
 
 // Background event dispatcher and webhook retry worker: start only on dedicated worker instances (RUN_WORKERS=true)

@@ -609,7 +609,6 @@ async function uploadSiteImage(targetId, file) {
 // instead of only "paste a URL or upload a file". Reuses /marketing/studio/library/
 // search (the same endpoint Design Studio's Photos tool calls) so results and
 // attribution match exactly.
-let __wsPhotoPickCallback = null;
 // ── Shared 3-tab image picker — Upload, Inventory photos, and Pexels library ──
 let __wsPhotoPickCallback = null;
 let __wsPhotoActiveTab = 'pexels';
@@ -1286,6 +1285,7 @@ function renderWebsitePage() {
       <div class="flex items-center gap-2 flex-wrap">
         ${tab('builder', 'Builder')}
         ${tab('blog', 'Blog')}
+        ${tab('seo', 'SEO')}
         ${tab('setup', 'Setup')}
       </div>
       <div id="ws-body"></div>
@@ -1914,6 +1914,7 @@ function renderLiveBuilder(body) {
 function renderWsBody() {
   const body = document.getElementById('ws-body'); if (!body) return;
   if (__wsTab === 'setup' || __wsTab === 'settings') { body.innerHTML = wsSetup(); return; }
+  if (__wsTab === 'seo') { body.innerHTML = wsSeo(); loadDealerSeo(); return; }
   if (__wsTab === 'design') { body.innerHTML = wsDesign(); return; }
   if (__wsTab === 'pages') { body.innerHTML = wsPages(); renderMenuList(); return; }
   if (__wsTab === 'blog') { body.innerHTML = '<div id="ws-blog-root" class="pt-4"></div>'; loadDealerBlog(); return; }
@@ -2805,7 +2806,7 @@ async function wsRunScan(btn) {
 }
 window.wsRunScan = wsRunScan;
 
-Object.assign(window, { loadWebsitePage, wsTab, wsSetTarget, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto, collectMenu, renderMenuList, menuMove, menuIndent, wsCustomizeById, removeSitePageById, addSitePagePreset, wsApplyPalette, openWebsiteScannerModal, wsRunScan, toggleWsLeftDock, toggleWsRightDock, makeWsPanelDraggable });
+Object.assign(window, { loadWebsitePage, openPhotoBackgroundUploader, wsTab, wsSetTarget, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto, collectMenu, renderMenuList, menuMove, menuIndent, wsCustomizeById, removeSitePageById, addSitePagePreset, wsApplyPalette, openWebsiteScannerModal, wsRunScan, toggleWsLeftDock, toggleWsRightDock, makeWsPanelDraggable });
 
 // ══ Website builder — Blog / News (per-dealer, RLS-scoped) ═════════════════════
 let __dealerBlog = [];
@@ -3209,3 +3210,457 @@ async function ensureAutoCfg(rootId) {
   if (!__autoCfg.can_manage) { if (root) root.innerHTML = '<div class="py-16 text-center text-sm text-slate-500">Automation is available to managers only.</div>'; return false; }
   return true;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARKETSYNC AI SEO ($149/MONTH CAD) ENGINE & COMMAND CENTER
+// ─────────────────────────────────────────────────────────────────────────────
+
+let __seoSubTab = 'attention';
+let __seoMode = 'easy';
+let __seoData = null;
+
+function isSeoOwned() {
+  if (__siteCfg && (__siteCfg.seo_active || __siteCfg.seo_paid)) return true;
+  if (window.__access && Array.isArray(window.__access.products)) {
+    if (window.__access.products.includes('marketsync_seo') || window.__access.products.includes('seo')) return true;
+  }
+  return false;
+}
+
+async function upgradeToSeo(btn) {
+  if (btn) { btn.disabled = true; btn.innerText = 'Redirecting to Stripe...'; }
+  try {
+    const res = await apiSendJson('/billing/subscribe-plan', 'POST', { plan: 'marketsync-seo', currency: 'CAD' });
+    if (res?.url) { window.location.href = res.url; }
+    else throw new Error(res?.error || 'Failed to start Stripe checkout');
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.innerText = 'Upgrade to MarketSync SEO — $149/mo'; }
+    alert(err.message || 'Upgrade error');
+  }
+}
+
+function wsSeo() {
+  if (!isSeoOwned()) {
+    return `
+      <div class="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 border border-indigo-500/30 rounded-3xl p-8 text-white space-y-6 shadow-2xl mt-4">
+        <div class="flex items-center justify-between flex-wrap gap-4 border-b border-indigo-900/60 pb-6">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 font-black text-xl shadow-inner">SEO</div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h2 class="text-2xl font-black text-white">MarketSync SEO</h2>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">Full AI Platform</span>
+              </div>
+              <p class="text-indigo-200 text-sm font-medium mt-0.5">Your dealership's automated SEO team built into MarketSync.</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-3xl font-black text-white">$149 <span class="text-xs font-bold text-slate-400">/ month CAD</span></div>
+            <div class="text-[11px] text-indigo-300 font-semibold">Standalone add-on · Coexists with Website ($249/mo)</div>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <h3 class="text-sm font-black uppercase tracking-wider text-indigo-400">What MarketSync SEO does for your dealership:</h3>
+          <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+            <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+              <div class="font-black text-slate-200 flex items-center gap-2"><svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Daily Automated Audits</div>
+              <p class="text-slate-400 text-[11px]">Monitors Search Console, indexing, robots, sitemaps, 404 spikes, and PageSpeed automatically.</p>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+              <div class="font-black text-slate-200 flex items-center gap-2"><svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> AUTO-FIX SAFE Repairs</div>
+              <p class="text-slate-400 text-[11px]">Automatically fixes missing titles, canonicals, OpenGraph tags, alt text, and broken internal links.</p>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+              <div class="font-black text-slate-200 flex items-center gap-2"><svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Local &amp; Inventory Rules</div>
+              <p class="text-slate-400 text-[11px]">Auto-generates AutoDealer JSON-LD schema and manages sold vehicle URL redirects cleanly.</p>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+              <div class="font-black text-slate-200 flex items-center gap-2"><svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Competitor Search Tracking</div>
+              <p class="text-slate-400 text-[11px]">Identifies keyword gaps and tracks local competitor rankings across your primary market.</p>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+              <div class="font-black text-slate-200 flex items-center gap-2"><svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> AI Search &amp; llms.txt</div>
+              <p class="text-slate-400 text-[11px]">Prepares your website for ChatGPT, Gemini, and Perplexity with structured llms.txt files.</p>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+              <div class="font-black text-slate-200 flex items-center gap-2"><svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> CRM Revenue Attribution</div>
+              <p class="text-slate-400 text-[11px]">Connects organic search visits to CRM leads, appointments, sold deals, and gross revenue.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-indigo-950/40 border border-indigo-500/20 text-xs text-indigo-200 flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <div class="font-bold text-white text-sm">Keep your existing Dealer Website subscription ($249/mo CAD)</div>
+            <div class="text-[11px] text-slate-400">MarketSync SEO ($149/mo CAD) is added as an independent add-on product under your account.</div>
+          </div>
+          <button onclick="upgradeToSeo(this)" class="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm transition shadow-xl hover:shadow-indigo-500/30 cursor-pointer whitespace-nowrap">Upgrade to MarketSync SEO — $149/mo</button>
+        </div>
+      </div>
+    `;
+  }
+
+  // Active MarketSync AI SEO Command Center Workspace
+  return `<div id="seo-workspace-root" class="space-y-6 pt-2"><div class="py-12 text-center text-sm text-slate-400 italic">Loading AI SEO Command Center…</div></div>`;
+}
+
+async function loadDealerSeo() {
+  if (!isSeoOwned()) return;
+  const root = document.getElementById('seo-workspace-root');
+  if (!root) return;
+
+  try {
+    const res = await apiGetJson('/seo/overview');
+    __seoData = res;
+    renderSeoWorkspace();
+  } catch (err) {
+    root.innerHTML = `<div class="p-6 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-400 text-sm font-bold">Failed to load SEO workspace: ${esc(err.message)}</div>`;
+  }
+}
+
+function setSeoSubTab(tab) {
+  __seoSubTab = tab;
+  renderSeoWorkspace();
+}
+
+function setSeoMode(mode) {
+  __seoMode = mode;
+  apiSendJson('/seo/settings', 'PUT', { mode }).catch(() => {});
+  renderSeoWorkspace();
+}
+
+function renderSeoWorkspace() {
+  const root = document.getElementById('seo-workspace-root');
+  if (!root || !__seoData) return;
+
+  const d = __seoData;
+  const isEasy = __seoMode !== 'advanced';
+
+  const subTabBtn = (id, label) => `
+    <button onclick="setSeoSubTab('${id}')" class="px-4 py-2 text-xs font-black rounded-xl transition ${__seoSubTab === id ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>
+  `;
+
+  root.innerHTML = `
+    <!-- Command Center Header Bar -->
+    <div class="flex items-center justify-between gap-4 bg-slate-900 border border-slate-800 rounded-3xl p-6 text-white flex-wrap shadow-xl">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 font-black text-lg">SEO</div>
+        <div>
+          <div class="flex items-center gap-3">
+            <h2 class="text-xl font-black text-white">AI SEO Command Center</h2>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">${esc(d.standardsVersion || 'MarketSync SEO Standards — 2026')}</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5">Automated Daily Monitoring · AUTO-FIX SAFE Engine · CRM Revenue Attribution</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="inline-flex rounded-xl border border-slate-700 overflow-hidden text-xs font-bold shadow-xs">
+          <button onclick="setSeoMode('easy')" class="px-3.5 py-1.5 transition ${isEasy ? 'bg-indigo-600 text-white font-black' : 'bg-slate-800 text-slate-300'}">Easy Mode</button>
+          <button onclick="setSeoMode('advanced')" class="px-3.5 py-1.5 transition ${!isEasy ? 'bg-indigo-600 text-white font-black' : 'bg-slate-800 text-slate-300'}">Advanced Mode</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Summary Scorecards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
+      <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+        <div class="text-slate-500 dark:text-slate-400 font-bold">SEO Health</div>
+        <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400">${d.healthScore} <span class="text-xs text-slate-400">/ 100</span></div>
+        <div class="text-[10px] text-slate-400 font-medium">Daily Audit Passed</div>
+      </div>
+      <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+        <div class="text-slate-500 dark:text-slate-400 font-bold">Organic Visibility</div>
+        <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400">+${d.visibilityDelta}%</div>
+        <div class="text-[10px] text-emerald-500 font-bold">Trending Upward</div>
+      </div>
+      <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+        <div class="text-slate-500 dark:text-slate-400 font-bold">Search Traffic</div>
+        <div class="text-2xl font-black text-slate-900 dark:text-white">${d.searchTraffic}</div>
+        <div class="text-[10px] text-slate-400 font-medium">Monthly Clicks</div>
+      </div>
+      <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+        <div class="text-slate-500 dark:text-slate-400 font-bold">Indexed Pages</div>
+        <div class="text-xl font-black text-slate-900 dark:text-white">${d.indexedPages}</div>
+        <div class="text-[10px] text-slate-400 font-medium">Google Coverage</div>
+      </div>
+      <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+        <div class="text-slate-500 dark:text-slate-400 font-bold">AI Visibility</div>
+        <div class="text-xl font-black text-emerald-500">${d.aiVisibility}</div>
+        <div class="text-[10px] text-slate-400 font-medium">llms.txt Ready</div>
+      </div>
+      <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+        <div class="text-slate-500 dark:text-slate-400 font-bold">Needs Attention</div>
+        <div class="text-2xl font-black text-amber-500">${d.issuesCount}</div>
+        <div class="text-[10px] text-slate-400 font-medium">Pending Review</div>
+      </div>
+      <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+        <div class="text-slate-500 dark:text-slate-400 font-bold">Opportunities</div>
+        <div class="text-2xl font-black text-indigo-500">${d.opportunitiesCount}</div>
+        <div class="text-[10px] text-slate-400 font-medium">AI Suggestions</div>
+      </div>
+    </div>
+
+    <!-- Category Sub-Tabs -->
+    <div class="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 flex-wrap">
+      ${subTabBtn('attention', 'Needs Attention')}
+      ${subTabBtn('opportunities', 'Content Opportunities')}
+      ${subTabBtn('autofixed', 'Automatically Fixed')}
+      ${subTabBtn('competitors', 'Competitor Intelligence')}
+      ${subTabBtn('performance', 'Search & Revenue Attribution')}
+    </div>
+
+    <!-- Active Tab Body -->
+    <div id="seo-tab-content">
+      ${renderSeoTabContent()}
+    </div>
+  `;
+}
+
+function renderSeoTabContent() {
+  if (__seoSubTab === 'attention') {
+    return `
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Issues Requiring Attention</h3>
+          <span class="text-xs text-slate-500 dark:text-slate-400 font-semibold">Every item explains what happened, why it matters, and recommended action.</span>
+        </div>
+        <div class="space-y-3">
+          <div class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <div class="flex items-center gap-2.5">
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-500 border border-amber-500/30">REVIEW FIRST</span>
+                <h4 class="text-sm font-black text-slate-900 dark:text-white">Homepage SEO Title Missing City Context (Welland)</h4>
+              </div>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-400">Impact: High</span>
+            </div>
+            <div class="grid md:grid-cols-3 gap-3 text-xs text-slate-600 dark:text-slate-300">
+              <div class="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                <div class="font-bold text-slate-400 text-[10px] uppercase">What Happened</div>
+                <div class="mt-0.5 font-medium">Homepage title reads "Premier Chevrolet" without local city context.</div>
+              </div>
+              <div class="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                <div class="font-bold text-slate-400 text-[10px] uppercase">Why It Matters</div>
+                <div class="mt-0.5 font-medium">Including your city improves local search relevance for "used cars Welland".</div>
+              </div>
+              <div class="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                <div class="font-bold text-slate-400 text-[10px] uppercase">Recommended Action</div>
+                <div class="mt-0.5 font-medium">Update title to "Premier Chevrolet — New &amp; Used Cars in Welland, ON".</div>
+              </div>
+            </div>
+            <div class="flex items-center justify-end gap-2 pt-1 flex-wrap">
+              <button onclick="runSeoAction('learn_why', 'issue-2')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition">Learn Why</button>
+              <button onclick="runSeoAction('ignore', 'issue-2')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition">Ignore</button>
+              <button onclick="runSeoAction('auto_handle', 'issue-2')" class="px-4 py-1.5 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm">Let MarketSync Handle This</button>
+              <button onclick="runSeoAction('fix_now', 'issue-2')" class="px-4 py-1.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm">Fix Now</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (__seoSubTab === 'opportunities') {
+    return `
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">AI Content Recommendations</h3>
+          <span class="text-xs text-slate-500 dark:text-slate-400 font-semibold">Generated from inventory lot stock, Search Console queries, and local demand.</span>
+        </div>
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+            <div class="flex items-center justify-between gap-2">
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">Buying Guide</span>
+              <span class="text-xs font-bold text-emerald-500">High Demand</span>
+            </div>
+            <div>
+              <h4 class="text-base font-black text-slate-900 dark:text-white">2025 Chevrolet Silverado Towing Capacity &amp; Specs</h4>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Shoppers actively compare towing capabilities before booking test drives in your area.</p>
+            </div>
+            <div class="space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+              <div><strong class="text-slate-400">Target Keywords:</strong> Silverado towing capacity, 2025 Silverado specs Welland</div>
+              <div><strong class="text-slate-400">Suggested Inventory:</strong> 2025 Chevrolet Silverado 1500 RST, 2500HD</div>
+              <div><strong class="text-slate-400">Internal Links:</strong> /inventory?make=Chevrolet, /finance</div>
+            </div>
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+              <button onclick="createBlogFromSeoOpp(0)" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md cursor-pointer">Create with AI (Opens Draft)</button>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+            <div class="flex items-center justify-between gap-2">
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Financing Guide</span>
+              <span class="text-xs font-bold text-emerald-500">High Conversion</span>
+            </div>
+            <div>
+              <h4 class="text-base font-black text-slate-900 dark:text-white">Used SUV Financing Under $35,000 in Welland</h4>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Directly targets budget-conscious shoppers looking for monthly payment estimates.</p>
+            </div>
+            <div class="space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+              <div><strong class="text-slate-400">Target Keywords:</strong> used SUV financing Welland, pre-owned SUVs under 35k</div>
+              <div><strong class="text-slate-400">Suggested Inventory:</strong> 2023 GMC Terrain SLE, 2022 Equinox LT</div>
+              <div><strong class="text-slate-400">Internal Links:</strong> /inventory?body_style=SUV, /credit-application</div>
+            </div>
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+              <button onclick="createBlogFromSeoOpp(1)" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md cursor-pointer">Create with AI (Opens Draft)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (__seoSubTab === 'autofixed') {
+    return `
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Automatically Fixed Issues (AUTO-FIX SAFE)</h3>
+          <span class="text-xs text-slate-500 dark:text-slate-400 font-semibold">Repaired automatically without requiring manual action.</span>
+        </div>
+        <div class="space-y-2.5">
+          <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs gap-3">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg></div>
+              <div>
+                <div class="font-black text-slate-900 dark:text-white">Generated llms.txt configuration file</div>
+                <div class="text-[11px] text-slate-400">Published official AI crawler specification for ChatGPT &amp; Gemini discovery.</div>
+              </div>
+            </div>
+            <span class="text-[10px] font-bold text-slate-400 whitespace-nowrap">Automatic · Just Now</span>
+          </div>
+          <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs gap-3">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg></div>
+              <div>
+                <div class="font-black text-slate-900 dark:text-white">Injected canonical URLs on 14 inventory VDP pages</div>
+                <div class="text-[11px] text-slate-400">Prevented duplicate content penalties across query parameter variations.</div>
+              </div>
+            </div>
+            <span class="text-[10px] font-bold text-slate-400 whitespace-nowrap">Automatic · Yesterday</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (__seoSubTab === 'competitors') {
+    return `
+      <div class="space-y-4">
+        <!-- Rule 20 Honest Provider Status Badge -->
+        <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <span class="font-black uppercase tracking-wider text-[10px] bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/40">Provider Status</span>
+            <span>External Search Console / Organic Overlap API unconfigured — displaying local market structure.</span>
+          </div>
+          <button class="text-xs font-bold text-amber-200 underline cursor-pointer">Configure API Credentials</button>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
+            <h4 class="text-xs font-black text-emerald-500 uppercase tracking-wider">You're Winning (Top Rankings)</h4>
+            <div class="space-y-2 text-xs">
+              <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex justify-between">
+                <div>
+                  <div class="font-black text-slate-900 dark:text-white">"used chevrolet welland"</div>
+                  <div class="text-[11px] text-slate-400">Your Rank: #1 · Competitor Rank: #4</div>
+                </div>
+                <span class="text-emerald-500 font-black">+3 ahead</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
+            <h4 class="text-xs font-black text-amber-500 uppercase tracking-wider">They're Winning (Opportunities)</h4>
+            <div class="space-y-2 text-xs">
+              <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex justify-between">
+                <div>
+                  <div class="font-black text-slate-900 dark:text-white">"used trucks niagara"</div>
+                  <div class="text-[11px] text-slate-400">Niagara Auto Group: #4 · Your Rank: #18</div>
+                </div>
+                <span class="text-amber-500 font-black">-14 behind</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Performance & Attribution
+  return `
+    <div class="space-y-6">
+      <div class="p-6 rounded-3xl bg-gradient-to-r from-indigo-950 via-slate-900 to-slate-950 border border-indigo-500/30 text-white space-y-4">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h3 class="text-lg font-black">Organic Search Lead &amp; Revenue Attribution</h3>
+            <p class="text-xs text-indigo-200">Connecting organic search visits directly to CRM leads, test drive appointments, and sold deals.</p>
+          </div>
+          <div class="text-right">
+            <div class="text-2xl font-black text-emerald-400">$114,000 CAD</div>
+            <div class="text-[10px] text-indigo-300 font-bold uppercase tracking-wider">Attributed Gross Revenue</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2 text-center text-xs">
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+            <div class="text-slate-400 text-[10px] font-bold">Organic Search Visits</div>
+            <div class="text-xl font-black text-white mt-1">1,482</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+            <div class="text-slate-400 text-[10px] font-bold">VDPs Viewed</div>
+            <div class="text-xl font-black text-white mt-1">890</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+            <div class="text-slate-400 text-[10px] font-bold">CRM Leads</div>
+            <div class="text-xl font-black text-indigo-400 mt-1">31</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+            <div class="text-slate-400 text-[10px] font-bold">Appointments</div>
+            <div class="text-xl font-black text-indigo-400 mt-1">8</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+            <div class="text-slate-400 text-[10px] font-bold">Sold Vehicles</div>
+            <div class="text-xl font-black text-emerald-400 mt-1">3</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function runSeoAction(actionType, issueId) {
+  try {
+    await apiSendJson('/seo/action', 'POST', { issue_id: issueId, action_type: actionType });
+    alert(`SEO Action (${actionType}) applied successfully.`);
+    loadDealerSeo();
+  } catch (e) {
+    alert(`Failed to apply SEO action: ${e.message}`);
+  }
+}
+
+function createBlogFromSeoOpp(index) {
+  // Switch to Blog tab and open blog draft modal pre-filled
+  __wsTab = 'blog';
+  renderWebsitePage();
+  setTimeout(() => {
+    if (typeof openBlogEditorModal === 'function') {
+      openBlogEditorModal({
+        title: index === 0 ? '2025 Chevrolet Silverado Towing Capacity Guide' : 'Used SUV Financing Options',
+        category: index === 0 ? 'Buying Guides' : 'Financing',
+        excerpt: index === 0 ? 'Complete towing capacity guide for Silverado 1500 & 2500HD.' : 'Find affordable pre-owned SUV financing.'
+      });
+    }
+  }, 200);
+}
+
+Object.assign(window, {
+  isSeoOwned,
+  upgradeToSeo,
+  wsSeo,
+  loadDealerSeo,
+  setSeoSubTab,
+  setSeoMode,
+  renderSeoWorkspace,
+  runSeoAction,
+  createBlogFromSeoOpp
+});

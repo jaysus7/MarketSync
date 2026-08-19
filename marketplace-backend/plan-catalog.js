@@ -23,6 +23,7 @@ export const FEATURES_BY_PRODUCT = Object.freeze({
   marketsync_website: ['website.builder', 'website.pages', 'website.domains', 'website.settings'],
   marketsync_social: ['social.scheduler', 'social.accounts', 'social.calendar', 'social.studio'],
   marketsync_email: ['email.campaigns', 'email.templates', 'email.audiences', 'email.automations'],
+  marketsync_seo: ['seo.overview', 'seo.audit', 'seo.autofix', 'seo.content', 'seo.competitors', 'seo.local', 'seo.inventory', 'seo.ai_search', 'seo.reports', 'seo.settings'],
   // Sold standalone ($19.99/mo flat) and also bundled into every Marketing Suite /
   // DealerOS tier. Includes the social scheduler/accounts/calendar features — Social
   // Scheduler is no longer a separate product; it's part of Design Studio.
@@ -238,6 +239,26 @@ export const PLAN_CATALOG = Object.freeze({
     priceEnvCad: 'STRIPE_PRICE_DEALER_WEBSITE_CAD', priceEnvUsd: 'STRIPE_PRICE_DEALER_WEBSITE_USD',
     features: [...FEATURES_BY_PRODUCT.marketsync_website],
     legacy: { ...legacyFlags({}), products: { marketsync_website: true, website: true } },
+  },
+  'marketsync-seo': {
+    id: 'marketsync-seo', label: 'MarketSync SEO', product_primary: 'marketsync_seo',
+    products: ['marketsync_seo'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
+    monthly: 149, tier: 0,
+    priceEnvCad: 'STRIPE_PRICE_MARKETSYNC_SEO_CAD', priceEnvUsd: 'STRIPE_PRICE_MARKETSYNC_SEO_USD',
+    priceEnvCadAliases: ['STRIPE_SEO_PRICE_ID_CAD', 'STRIPE_SEO_PRICE_ID'],
+    priceEnvUsdAliases: ['STRIPE_SEO_PRICE_ID_USD', 'STRIPE_SEO_PRICE_ID'],
+    features: [...FEATURES_BY_PRODUCT.marketsync_seo],
+    legacy: { ...legacyFlags({}), products: { marketsync_seo: true, seo: true } },
+  },
+  marketsync_seo: {
+    id: 'marketsync_seo', label: 'MarketSync SEO', product_primary: 'marketsync_seo',
+    products: ['marketsync_seo'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
+    monthly: 149, tier: 0,
+    priceEnvCad: 'STRIPE_PRICE_MARKETSYNC_SEO_CAD', priceEnvUsd: 'STRIPE_PRICE_MARKETSYNC_SEO_USD',
+    priceEnvCadAliases: ['STRIPE_SEO_PRICE_ID_CAD', 'STRIPE_SEO_PRICE_ID'],
+    priceEnvUsdAliases: ['STRIPE_SEO_PRICE_ID_USD', 'STRIPE_SEO_PRICE_ID'],
+    features: [...FEATURES_BY_PRODUCT.marketsync_seo],
+    legacy: { ...legacyFlags({}), products: { marketsync_seo: true, seo: true } },
   },
   'ai-chatbot': {
     id: 'ai-chatbot', label: 'AI ChatBot', product_primary: 'ai_dealer',
