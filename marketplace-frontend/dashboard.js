@@ -1375,9 +1375,9 @@ function restrictedNavPages() {
   if (isWebsiteProduct) {
     const list = [
       { page: 'website', tab: 'builder', label: 'Builder', icon: 'globe' },
-      { page: 'website', tab: 'blog', label: 'Blog', icon: 'newspaper' },
+      { page: 'website', tab: 'blog', label: 'Blog', icon: 'document' },
       { page: 'website', tab: 'seo', label: 'SEO', icon: 'chart' },
-      { page: 'website', tab: 'setup', label: 'Setup', icon: 'cog' },
+      { page: 'website', tab: 'setup', label: 'Setup', icon: 'wrench' },
     ];
     const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
     const hasAi = !!(window.__aiBoostActive || (window.__siteCfg && window.__siteCfg.ai_boost_active)
