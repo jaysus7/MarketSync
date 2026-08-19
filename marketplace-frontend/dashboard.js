@@ -903,9 +903,22 @@ window.isFacebookOnlyWorkspace = isFacebookOnlyWorkspace;
 // chrome rule: header collapses to Profile + Sign out, Open Setup never appears.
 function isSingleProductWorkspace() {
   const products = (document.documentElement.getAttribute('data-product') || '').trim();
-  return !!products && products.split(/\s+/).length === 1;
+  const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+  if (window.__demoActiveProduct === 'dealer-website') return true;
+  if (access.products && access.products.length === 1 && !access.products.includes('dealer_os')) return true;
+  if (typeof resolveWorkspaceContext === 'function' && resolveWorkspaceContext() === 'website' && !products.includes('dealer_os')) return true;
+  return !!products && products.split(/\s+/).length === 1 && !products.includes('dealer_os');
 }
 window.isSingleProductWorkspace = isSingleProductWorkspace;
+
+function isStandaloneWebsiteWorkspace() {
+  const products = (document.documentElement.getAttribute('data-product') || '').trim();
+  const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+  return (window.__demoActiveProduct === 'dealer-website')
+    || (access.products && access.products.length === 1 && (access.products.includes('marketsync_website') || access.products.includes('website')))
+    || (/(?:^|\s)(?:marketsync_website|website)(?:\s|$)/.test(products) && !products.includes('dealer_os'));
+}
+window.isStandaloneWebsiteWorkspace = isStandaloneWebsiteWorkspace;
 let __productHome = null;           // Where a product-restricted tier lands / bounces to
 // applyProductNav() runs twice on every load: once at boot, then again once
 // /ai/config resolves (loadAIBoostSection re-applies gating after learning

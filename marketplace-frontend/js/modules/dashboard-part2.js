@@ -1549,6 +1549,23 @@ function switchPage(pageId) {
   // their workspace bounces to their home page. Guards deep links & stale nav too.
   if (__staffAllowedPages && !__staffAllowedPages.has(pageId)) { pageId = __staffHome; }
 
+  if (pageId === 'profile') {
+    const isStandalone = (typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace())
+      || (typeof isStandaloneWebsiteWorkspace === 'function' && isStandaloneWebsiteWorkspace())
+      || (typeof resolveWorkspaceContext === 'function' && resolveWorkspaceContext() === 'website');
+    if (isStandalone) {
+      document.querySelectorAll('#settings-tabs [data-admin-only]').forEach(el => el.classList.add('hidden'));
+      if (typeof SETTINGS_TAB_SECTIONS !== 'undefined' && Array.isArray(SETTINGS_TAB_SECTIONS?.account) && !SETTINGS_TAB_SECTIONS.account.includes('billing-section')) {
+        SETTINGS_TAB_SECTIONS.account.push('billing-section');
+      }
+      if (typeof settingsTab === 'function') settingsTab('account');
+      document.getElementById('settings-my-record')?.classList.add('stab-hide');
+      if (typeof SETTINGS_TAB_SECTIONS !== 'undefined' && Array.isArray(SETTINGS_TAB_SECTIONS?.account)) {
+        SETTINGS_TAB_SECTIONS.account = SETTINGS_TAB_SECTIONS.account.filter(id => id !== 'settings-my-record');
+      }
+    }
+  }
+
   // Plan-tier gate: a page whose feature the current plan doesn't include bounces to a
   // safe home. The API + RLS already deny the data; this keeps the UI from opening an
   // empty/403 page from a stale link. profile (settings) is always reachable.

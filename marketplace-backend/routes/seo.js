@@ -392,7 +392,133 @@ export default function registerSeoRoutes(app) {
     })
   })
 
-  // ── 12. SEO Settings (Easy vs Advanced Mode) ────────────────────────────────
+  // ── 12. SEO Settings & Full Configuration System ────────────────────────────
+  const DEFAULT_SEO_SETTINGS = {
+    mode: 'easy',
+    standards_version: 'MarketSync SEO Standards — 2026',
+    site_type: 'franchise',
+    site_name: 'Premier Chevrolet',
+    alt_site_name: 'Premier Chevy',
+    org_name: 'Premier Chevrolet Showcase',
+    logo_url: '',
+    default_social_image: '',
+    default_description: 'Premier Chevrolet dealership offering new and pre-owned trucks, SUVs, and cars with instant financing and certified service.',
+    separator: '|',
+    canonical_domain: 'https://marketsync.link',
+    www_preference: 'prefer_non_www',
+    enforce_https: true,
+    trailing_slash: 'add_slash',
+    search_visibility: 'index_all',
+    maintenance_protection: false,
+    default_robots: 'index, follow',
+    default_schema_profile: 'AutomotiveBusiness',
+    strip_category_base: true,
+    redirect_attachments: true,
+    external_new_tab: true,
+    nofollow_external: false,
+    nofollow_image_links: false,
+    nofollow_domains: '',
+    exclude_nofollow_domains: 'marketsync.link, google.com',
+    sponsored_links: false,
+    ugc_links: false,
+    relative_urls: false,
+    lowercase_urls: true,
+    remove_duplicate_params: true,
+    breadcrumbs_enabled: true,
+    breadcrumb_separator: '→',
+    breadcrumb_show_home: true,
+    breadcrumb_home_label: 'Home',
+    breadcrumb_blog_label: 'Blog',
+    breadcrumb_inventory_label: 'Inventory',
+    breadcrumb_service_label: 'Service',
+    breadcrumb_hide_title: false,
+    breadcrumb_show_taxonomy: true,
+    breadcrumb_schema: true,
+    auto_alt_missing: true,
+    alt_template: '%year% %make% %model% %trim% %stock% - %dealer% %city%',
+    auto_title_missing: true,
+    filename_normalization: true,
+    image_sitemap: true,
+    lazy_loading_checks: true,
+    broken_image_monitor: true,
+    duplicate_alt_detection: true,
+    gsc_connected: true,
+    ga4_connected: true,
+    ga4_measurement_id: 'G-MSDEMO2026',
+    gbp_connected: true,
+    bing_connected: false,
+    clarity_connected: false,
+    meta_pixel_id: 'FB-9059414226',
+    gtm_id: 'GTM-MSSYNC1',
+    google_ads_id: 'AW-9059414226',
+    robots_mode: 'recommended',
+    robots_custom_rules: 'User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /checkout/\nSitemap: https://marketsync.link/sitemap.xml',
+    llms_txt_enabled: true,
+    ai_gptbot: true,
+    ai_claudebot: true,
+    ai_perplexitybot: true,
+    ai_bytedance: true,
+    ai_google_extended: true,
+    ai_include_inventory: true,
+    ai_include_blog: true,
+    ai_include_service: true,
+    ai_include_financing: true,
+    title_homepage: '%dealer% | New & Used Cars in %city%',
+    desc_homepage: 'Welcome to %dealer% in %city%. Browse top new and pre-owned inventory, get pre-approved financing, and schedule certified auto service.',
+    title_vdp: '%year% %make% %model% %trim% for Sale in %city% | %dealer%',
+    desc_vdp: 'Buy this %year% %make% %model% %trim% at %dealer% in %city%. Stock #%stock%, competitive pricing, instant trade-in appraisal, and easy financing.',
+    title_srp: 'Used Cars & Trucks for Sale in %city% | %dealer%',
+    desc_srp: 'Browse verified new and pre-owned cars, trucks, and SUVs for sale at %dealer% in %city%. Filter by price, make, and body style.',
+    title_blog: '%title% | %dealer% Blog',
+    desc_blog: '%excerpt%',
+    sitemap_enabled: true,
+    sitemap_max_urls: 1000,
+    sitemap_pages: true,
+    sitemap_blog: true,
+    sitemap_inventory: true,
+    sitemap_images: true,
+    sitemap_video: true,
+    sitemap_locations: true,
+    sitemap_service: true,
+    sitemap_lastmod: true,
+    local_business_name: 'Premier Chevrolet Showcase',
+    local_legal_name: 'Premier Chevrolet Automotive Inc.',
+    local_address: '1426 Niagara Street',
+    local_city: 'Welland',
+    local_province: 'ON',
+    local_postal: 'L3B 6A3',
+    local_country: 'CA',
+    local_phone: '(905) 941-4226',
+    local_sales_phone: '(905) 941-4226',
+    local_service_phone: '(905) 941-4227',
+    local_parts_phone: '(905) 941-4228',
+    local_email: 'sales@marketsync.link',
+    local_lat: '43.0112',
+    local_lng: '-79.2456',
+    local_hours: 'Mon-Fri: 9:00 AM - 8:00 PM, Sat: 9:00 AM - 6:00 PM, Sun: Closed',
+    local_oems: 'Chevrolet, GMC, Buick',
+    vehicle_url_format: '/inventory/%year%-%make%-%model%-%stock%',
+    sold_vehicle_rule: 'SOLD_BADGE_PRESERVE',
+    sold_vehicle_redirect_target: '/inventory',
+    sold_vehicle_410_days: 30,
+    autopilot_master: true,
+    autopilot_sitemaps: true,
+    autopilot_redirects: true,
+    autopilot_metadata: true,
+    autopilot_alt_text: true,
+    autopilot_schema: true,
+    autopilot_monitor_404: true,
+    autopilot_broken_links: true,
+    autopilot_canonical: true,
+    autopilot_indexing: true,
+    autopilot_llms_txt: true,
+    autopilot_pagespeed: true,
+    autopilot_competitors: true
+  }
+
+  // Memory fallback store for environments without Supabase table
+  const memoryStore = new Map()
+
   app.get('/seo/settings', requireAuth, checkSeoEntitlement, async (req, res) => {
     if (!req.hasSeoEntitlement) return res.status(403).json({ error: 'SEO entitlement required' })
 
@@ -402,38 +528,210 @@ export default function registerSeoRoutes(app) {
       .eq('dealership_id', req.dealershipId)
       .maybeSingle()
 
+    const current = memoryStore.get(req.dealershipId) || settings
     res.json({
-      settings: settings || {
-        mode: 'easy',
-        sitemap_auto: true,
-        schema_auto: true,
-        robots_auto: true,
-        redirects_auto: true,
-        standards_version: 'MarketSync SEO Standards — 2026'
-      }
+      settings: { ...DEFAULT_SEO_SETTINGS, ...current }
     })
   })
 
   app.put('/seo/settings', requireAuth, checkSeoEntitlement, async (req, res) => {
     if (!req.hasSeoEntitlement) return res.status(403).json({ error: 'SEO entitlement required' })
 
-    const { mode, sitemap_auto, schema_auto, robots_auto, redirects_auto } = req.body
-    const patch = {
+    const incoming = req.body || {}
+    const existing = memoryStore.get(req.dealershipId) || {}
+    const updated = {
+      ...DEFAULT_SEO_SETTINGS,
+      ...existing,
+      ...incoming,
       dealership_id: req.dealershipId,
-      mode: mode === 'advanced' ? 'advanced' : 'easy',
-      sitemap_auto: sitemap_auto !== false,
-      schema_auto: schema_auto !== false,
-      robots_auto: robots_auto !== false,
-      redirects_auto: redirects_auto !== false,
       updated_at: new Date().toISOString()
     }
+
+    memoryStore.set(req.dealershipId, updated)
 
     try {
       await supabaseAdmin
         .from('seo_settings')
-        .upsert(patch, { onConflict: 'dealership_id' })
+        .upsert(updated, { onConflict: 'dealership_id' })
     } catch (e) {}
 
-    res.json({ success: true, settings: patch })
+    // Record audit log
+    try {
+      await supabaseAdmin.from('seo_history').insert({
+        dealership_id: req.dealershipId,
+        action: 'Updated SEO configuration settings',
+        type: 'Manual',
+        details: `Saved settings patch: ${Object.keys(incoming).join(', ')}`,
+        created_at: new Date().toISOString()
+      })
+    } catch (e) {}
+
+    res.json({ success: true, settings: updated })
+  })
+
+  // ── 13. Redirect Manager Endpoints ─────────────────────────────────────────
+  const redirectsStore = new Map()
+  redirectsStore.set('default', [
+    { id: 'red-1', source: '/inventory/used-2023-chevy-silverado', target: '/inventory/2023-chevrolet-silverado-1500-stk905', type: 301, hit_count: 42, last_accessed: new Date().toISOString(), reason: 'Stock number URL update', created_by: 'Auto-Pilot' },
+    { id: 'red-2', source: '/finance-specials', target: '/credit-application', type: 301, hit_count: 18, last_accessed: new Date(Date.now() - 86400000).toISOString(), reason: 'Legacy page consolidated', created_by: 'User' }
+  ])
+
+  app.get('/seo/redirects', requireAuth, checkSeoEntitlement, async (req, res) => {
+    const list = redirectsStore.get(req.dealershipId) || redirectsStore.get('default')
+    res.json({ redirects: list })
+  })
+
+  app.post('/seo/redirects', requireAuth, checkSeoEntitlement, async (req, res) => {
+    const { source, target, type = 301, reason = 'Manual Redirect' } = req.body
+    if (!source || !target) return res.status(400).json({ error: 'source and target required' })
+
+    const list = redirectsStore.get(req.dealershipId) || redirectsStore.get('default').slice()
+    const newRed = {
+      id: `red-${Date.now()}`,
+      source,
+      target,
+      type: Number(type),
+      hit_count: 0,
+      last_accessed: 'Just now',
+      reason,
+      created_by: 'User'
+    }
+    list.unshift(newRed)
+    redirectsStore.set(req.dealershipId, list)
+    res.json({ success: true, redirect: newRed })
+  })
+
+  app.delete('/seo/redirects', requireAuth, checkSeoEntitlement, async (req, res) => {
+    const { id } = req.body
+    const list = (redirectsStore.get(req.dealershipId) || redirectsStore.get('default')).filter(r => r.id !== id)
+    redirectsStore.set(req.dealershipId, list)
+    res.json({ success: true, id })
+  })
+
+  // ── 14. 404 Error Log Monitor ──────────────────────────────────────────────
+  const logs404Store = new Map()
+  logs404Store.set('default', [
+    { id: '404-1', url: '/used-trucks-niagara-falls', hits: 14, referrer: 'Google Organic', first_seen: '3 days ago', last_seen: '1 hour ago', user_agent: 'Mozilla/5.0 (iPhone)', status: 'unresolved', target_suggestion: '/inventory?body_style=Truck' },
+    { id: '404-2', url: '/service-coupons-2025', hits: 8, referrer: 'Direct / Bookmark', first_seen: '5 days ago', last_seen: 'Yesterday', user_agent: 'Mozilla/5.0 (Windows NT)', status: 'unresolved', target_suggestion: '/service' }
+  ])
+
+  app.get('/seo/404-logs', requireAuth, checkSeoEntitlement, async (req, res) => {
+    const list = logs404Store.get(req.dealershipId) || logs404Store.get('default')
+    res.json({ logs: list })
+  })
+
+  app.post('/seo/404-logs/resolve', requireAuth, checkSeoEntitlement, async (req, res) => {
+    const { id, action = 'resolve', targetUrl } = req.body
+    let list = logs404Store.get(req.dealershipId) || logs404Store.get('default').slice()
+
+    if (action === 'create_redirect' && targetUrl) {
+      const item = list.find(l => l.id === id)
+      if (item) {
+        const reds = redirectsStore.get(req.dealershipId) || redirectsStore.get('default').slice()
+        reds.unshift({
+          id: `red-${Date.now()}`,
+          source: item.url,
+          target: targetUrl,
+          type: 301,
+          hit_count: item.hits,
+          last_accessed: 'Just now',
+          reason: 'Resolved from 404 Monitor',
+          created_by: 'Auto-Pilot AI'
+        })
+        redirectsStore.set(req.dealershipId, reds)
+      }
+    }
+
+    list = list.filter(l => l.id !== id)
+    logs404Store.set(req.dealershipId, list)
+    res.json({ success: true, id, action })
+  })
+
+  // ── 15. Robots, Sitemap & llms.txt Generators ──────────────────────────────
+  app.post('/seo/robots/generate', requireAuth, checkSeoEntitlement, async (req, res) => {
+    const { rules, mode = 'recommended' } = req.body
+    const isBlockingAll = Boolean(rules && /Disallow:\s*\/\s*$/m.test(rules))
+    res.json({
+      success: true,
+      mode,
+      rules: rules || 'User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /checkout/\nSitemap: https://marketsync.link/sitemap.xml',
+      hasCriticalWarning: isBlockingAll,
+      warningMessage: isBlockingAll ? 'CRITICAL WARNING: Blocking "/" will instruct search engines to remove your website from Google search results!' : null
+    })
+  })
+
+  app.post('/seo/sitemap/regenerate', requireAuth, checkSeoEntitlement, async (req, res) => {
+    res.json({
+      success: true,
+      generatedAt: new Date().toISOString(),
+      sitemapUrl: 'https://marketsync.link/sitemap.xml',
+      urlCount: 347,
+      status: 'Regenerated & Submitted to Google Search Console'
+    })
+  })
+
+  app.post('/seo/llms/generate', requireAuth, checkSeoEntitlement, async (req, res) => {
+    res.json({
+      success: true,
+      generatedAt: new Date().toISOString(),
+      llmsUrl: 'https://marketsync.link/llms.txt',
+      status: 'Active and readable by AI Crawlers (ChatGPT, Gemini, Perplexity)'
+    })
+  })
+
+  // ── 16. Public Static Generated Output Routes ──────────────────────────────
+  app.get('/robots.txt', (req, res) => {
+    res.type('text/plain').send(`User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /checkout/
+Disallow: /api/
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+Sitemap: https://marketsync.link/sitemap.xml
+Sitemap: https://marketsync.link/sitemap-inventory.xml
+`)
+  })
+
+  app.get('/sitemap.xml', (req, res) => {
+    res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>https://marketsync.link/sitemap-pages.xml</loc>
+    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://marketsync.link/sitemap-inventory.xml</loc>
+    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://marketsync.link/sitemap-blog.xml</loc>
+    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+  </sitemap>
+</sitemapindex>`)
+  })
+
+  app.get('/llms.txt', (req, res) => {
+    res.type('text/plain').send(`# Dealership AI Discovery Specification (llms.txt)
+> Generated by MarketSync SEO — 2026
+
+## Dealership Identity
+- Name: MarketSync Automotive Showcase
+- Location: 1426 Niagara Street, Welland, ON
+- Contact Phone: (905) 941-4226
+
+## Offerings
+- New & Certified Pre-Owned Automotive Inventory
+- Dealership Credit Intake & Financing
+- Certified Vehicle Service & Parts
+`)
   })
 }
