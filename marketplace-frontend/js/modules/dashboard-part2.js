@@ -1466,7 +1466,18 @@ function renderDeptNav(role) {
         if (anchor && anchor.parentElement === navRoot) navRoot.insertBefore(host, anchor.nextSibling);
         else navRoot.insertBefore(host, navRoot.firstChild);
       }
-      host.innerHTML = rp.map(p => `<button type="button" data-page="${esc(p.page)}"${p.tab ? ` data-tab="${esc(p.tab)}"` : ''} onclick="${p.studioLaunch ? 'window.openMarketSyncStudio()' : `deptGo('${esc(p.page)}'${p.invmode ? `,'${esc(p.invmode)}'` : '\'\''}${p.tab ? `,'${esc(p.tab)}'` : ''})`}" title="${esc(p.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-indigo-500 flex-shrink-0">${svgIcon(p.icon || 'dot', 'w-4 h-4')}</span><span>${esc(p.label)}</span></button>`).join('');
+      host.innerHTML = rp.map(p => {
+        // Build a valid deptGo(page, invmode, tab) call. deptGo is positional, so a page
+        // that has a tab but no invmode still needs an (empty) invmode arg to keep the tab
+        // in the third slot — deptGo('website','','builder'). The old code emitted a bare
+        // '' with no comma for the no-invmode case, producing invalid JS like
+        // deptGo('leaderboard''') / deptGo('website''','builder') ("missing ) after
+        // argument list"), which broke every restricted-tier nav click.
+        const call = p.studioLaunch
+          ? 'window.openMarketSyncStudio()'
+          : `deptGo('${esc(p.page)}'${p.tab ? `,'${esc(p.invmode || '')}','${esc(p.tab)}'` : (p.invmode ? `,'${esc(p.invmode)}'` : '')})`;
+        return `<button type="button" data-page="${esc(p.page)}"${p.tab ? ` data-tab="${esc(p.tab)}"` : ''} onclick="${call}" title="${esc(p.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-indigo-500 flex-shrink-0">${svgIcon(p.icon || 'dot', 'w-4 h-4')}</span><span>${esc(p.label)}</span></button>`;
+      }).join('');
       navRoot.classList.add('dept-mode');
       __deptNavBuilt = true;
       if (__currentPage) highlightDeptNav(__currentPage);
