@@ -1250,45 +1250,60 @@ function wsSetTarget(v) {
   __wsTab = 'builder'; renderWebsitePage();
 }
 
+function exitWebsiteWorkspace() {
+  if (typeof switchPage === 'function') switchPage('command');
+}
+window.exitWebsiteWorkspace = exitWebsiteWorkspace;
+
 function renderWebsitePage() {
   const root = document.getElementById('website-root'); if (!root) return;
   const c = __siteCfg.content || {};
   const url = __siteCfg.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(__siteCfg.site_slug)}` : null;
   
-  const tab = (id, label) => `<button onclick="wsTab('${id}')" class="px-5 py-2.5 text-xs font-black rounded-xl transition ${(__wsTab === id || (id === 'setup' && __wsTab === 'settings')) ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>`;
+  const tab = (id, label) => `<button onclick="wsTab('${id}')" class="px-5 py-2 text-xs font-black rounded-xl transition ${(__wsTab === id || (id === 'setup' && __wsTab === 'settings')) ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-900/90 text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-800'}">${label}</button>`;
 
   root.innerHTML = `
-    <div class="space-y-4">
-      <div class="flex items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800 flex-wrap">
+    <div class="flex flex-col h-full w-full bg-[#070B14] text-white">
+      <!-- TOP APPLICATION HEADER (Dedicated Full-Screen Workspace Header) -->
+      <div class="flex items-center justify-between px-4 py-2.5 bg-[#0D1527] border-b border-[#1E293B] flex-shrink-0 flex-wrap gap-2">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-indigo-600/10 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black border border-indigo-500/30"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18zM2.25 12h19.5M12 2.25a15.3 15.3 0 014.5 9.75 15.3 15.3 0 01-4.5 9.75 15.3 15.3 0 01-4.5-9.75A15.3 15.3 0 0112 2.25z"/></svg></div>
+          <button onclick="exitWebsiteWorkspace()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-xs font-extrabold transition cursor-pointer" title="Exit Website Workspace">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
+            Exit
+          </button>
+          <div class="h-5 w-px bg-slate-800"></div>
+          <div class="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-black border border-indigo-500/40">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18zM2.25 12h19.5M12 2.25a15.3 15.3 0 014.5 9.75 15.3 15.3 0 01-4.5 9.75 15.3 15.3 0 01-4.5-9.75A15.3 15.3 0 0112 2.25z"/></svg>
+          </div>
           <div>
-            <h2 class="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-              MarketSync Website Builder
-            </h2>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Full-screen website builder &amp; dealership content platform.</p>
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-black tracking-tight text-white">MarketSync Website</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${__siteCfg.site_published ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'}">
+                ${__siteCfg.site_published ? 'Live' : 'Draft'}
+              </span>
+            </div>
+            <p class="text-[11px] text-slate-400">Full-screen dealership website application</p>
           </div>
         </div>
-        <div class="flex items-center gap-2 flex-wrap">
-          ${__wsTab === 'builder' ? `
-            <div class="inline-flex rounded-xl border border-slate-300 dark:border-slate-700 overflow-hidden text-xs font-bold shadow-xs">
-              <button onclick="setBuilderMode('live')" class="px-3 py-1.5 transition ${__builderMode === 'live' ? 'bg-indigo-600 text-white font-black' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">Live Builder</button>
-              <button onclick="setBuilderMode('classic')" class="px-3 py-1.5 transition ${__builderMode !== 'live' ? 'bg-indigo-600 text-white font-black' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">Simple Builder</button>
-            </div>
-          ` : ''}
-          <button onclick="openWebsiteScannerModal()" class="text-xs font-black bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600/30 border border-indigo-500/40 px-3.5 py-1.5 rounded-xl transition" title="Scan existing website">Scan Site</button>
-          ${url ? `<a href="${url}" target="_blank" class="text-xs font-black bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3.5 py-1.5 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition">View Site ↗</a>` : ''}
-          <label class="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer"><input id="ws-pub" type="checkbox" ${__siteCfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">Published</label>
-          <button onclick="saveWebsite(this)" class="text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl transition shadow-md cursor-pointer">Save Changes</button>
+
+        <!-- PRIMARY WORKSPACE NAVIGATION: Builder | Blog | SEO | Setup -->
+        <div class="flex items-center gap-1.5">
+          ${tab('builder', 'Builder')}
+          ${tab('blog', 'Blog')}
+          ${tab('seo', 'SEO')}
+          ${tab('setup', 'Setup')}
+        </div>
+
+        <!-- TOP RIGHT ACTION CONTROLS -->
+        <div class="flex items-center gap-2">
+          ${url ? `<a href="${url}" target="_blank" class="text-xs font-black bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-xl transition">View Site ↗</a>` : ''}
+          <label class="flex items-center gap-1.5 text-xs font-bold text-slate-300 cursor-pointer bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-xl"><input id="ws-pub" type="checkbox" ${__siteCfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-3.5 h-3.5 rounded">Published</label>
+          <button onclick="saveWebsite(this)" class="text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-xl transition shadow-md cursor-pointer">Save Changes</button>
         </div>
       </div>
-      <div class="flex items-center gap-2 flex-wrap">
-        ${tab('builder', 'Builder')}
-        ${tab('blog', 'Blog')}
-        ${tab('seo', 'SEO')}
-        ${tab('setup', 'Setup')}
-      </div>
-      <div id="ws-body"></div>
+
+      <!-- WORKSPACE CONTENT BODY -->
+      <div id="ws-body" class="flex-1 min-h-0 overflow-y-auto"></div>
     </div>`;
   renderWsBody();
 }
@@ -1691,16 +1706,16 @@ function renderWsRightInspectorContent() {
     return `
       <div class="space-y-3 text-xs">
         <div class="space-y-1">
-          <label class="font-bold text-slate-400">Background Color / Overlay</label>
-          <input type="color" value="${sec.settings?.bg_color || '#0F172A'}" oninput="setSec(${i},'bg_color',this.value)" class="w-full h-8 rounded border border-slate-800 bg-transparent cursor-pointer">
+          <label class="font-bold text-slate-300">Background Color / Overlay</label>
+          <input type="color" value="${sec.settings?.bg_color || '#0F172A'}" oninput="setSec(${i},'bg_color',this.value)" class="w-full h-8 rounded border border-slate-700 bg-transparent cursor-pointer">
         </div>
         <div class="space-y-1">
-          <label class="font-bold text-slate-400">Text Color Accent</label>
-          <input type="color" value="${sec.settings?.text_color || '#FFFFFF'}" oninput="setSec(${i},'text_color',this.value)" class="w-full h-8 rounded border border-slate-800 bg-transparent cursor-pointer">
+          <label class="font-bold text-slate-300">Text Color Accent</label>
+          <input type="color" value="${sec.settings?.text_color || '#FFFFFF'}" oninput="setSec(${i},'text_color',this.value)" class="w-full h-8 rounded border border-slate-700 bg-transparent cursor-pointer">
         </div>
         <div class="space-y-1">
-          <label class="font-bold text-slate-400">Border Radius</label>
-          <select onchange="setSec(${i},'border_radius',this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white">
+          <label class="font-bold text-slate-300">Border Radius</label>
+          <select onchange="setSec(${i},'border_radius',this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white">
             <option value="none">Square (0px)</option>
             <option value="md" selected>Curved (12px)</option>
             <option value="full">Pill (999px)</option>
@@ -1712,8 +1727,8 @@ function renderWsRightInspectorContent() {
     return `
       <div class="space-y-3 text-xs">
         <div class="space-y-1">
-          <label class="font-bold text-slate-400">Section Height</label>
-          <select onchange="setSec(${i},'height',this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white">
+          <label class="font-bold text-slate-300">Section Height</label>
+          <select onchange="setSec(${i},'height',this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white">
             <option value="sm">Short</option>
             <option value="md" selected>Medium</option>
             <option value="lg">Tall</option>
@@ -1721,8 +1736,8 @@ function renderWsRightInspectorContent() {
           </select>
         </div>
         <div class="space-y-1">
-          <label class="font-bold text-slate-400">Container Alignment</label>
-          <select onchange="setSec(${i},'align',this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white">
+          <label class="font-bold text-slate-300">Container Alignment</label>
+          <select onchange="setSec(${i},'align',this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white">
             <option value="left">Left Aligned</option>
             <option value="center" selected>Center Aligned</option>
             <option value="right">Right Aligned</option>
@@ -1733,11 +1748,11 @@ function renderWsRightInspectorContent() {
   } else if (__wsInspectorTab === 'advanced') {
     return `
       <div class="space-y-3 text-xs">
-        <div class="space-y-2 p-3 rounded-xl bg-slate-950 border border-slate-800">
-          <div class="font-bold text-slate-300">Device Visibility</div>
-          <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked class="accent-indigo-600"> Show on Desktop</label>
-          <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked class="accent-indigo-600"> Show on Tablet</label>
-          <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked class="accent-indigo-600"> Show on Mobile</label>
+        <div class="space-y-2 p-3 rounded-xl bg-slate-900 border border-slate-700">
+          <div class="font-bold text-white">Device Visibility</div>
+          <label class="flex items-center gap-2 cursor-pointer text-slate-300"><input type="checkbox" checked class="accent-indigo-600"> Show on Desktop</label>
+          <label class="flex items-center gap-2 cursor-pointer text-slate-300"><input type="checkbox" checked class="accent-indigo-600"> Show on Tablet</label>
+          <label class="flex items-center gap-2 cursor-pointer text-slate-300"><input type="checkbox" checked class="accent-indigo-600"> Show on Mobile</label>
         </div>
       </div>
     `;
@@ -2009,8 +2024,8 @@ const WS_AI_KIND = {
 function wsField(i, sec, [key, label, type]) {
   const v = sec.settings?.[key];
   const aiKind = WS_AI_KIND[key];
-  const lbl = `<div class="flex items-center justify-between mb-1"><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">${label}</label>${aiKind ? `<button type="button" onclick="aiMenu(event,${i},'${key}','${aiKind}')" class="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500"> AI</button>` : ''}</div>`;
-  const cls = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm';
+  const lbl = `<div class="flex items-center justify-between mb-1"><label class="block text-[11px] font-bold text-slate-300">${label}</label>${aiKind ? `<button type="button" onclick="aiMenu(event,${i},'${key}','${aiKind}')" class="text-[11px] font-bold text-violet-400 hover:text-violet-300"> AI</button>` : ''}</div>`;
+  const cls = 'w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500';
   const wide = ['textarea', 'faq', 'reviews', 'images', 'image', 'html'].includes(type) ? 'sm:col-span-2' : '';
   let input;
   if (type === 'textarea' || type === 'html') input = `<textarea rows="3" oninput="setSec(${i},'${key}',this.value)" class="${cls} font-mono text-xs">${esc(v || '')}</textarea>`;
