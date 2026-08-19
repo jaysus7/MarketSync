@@ -988,9 +988,10 @@ html.dark td {
 }
 
 /* ==========================================================================
-   WEBSITE WORKSPACE FULL-SCREEN MODE & BUILDER DARK CHROME TOKENS
+   WEBSITE WORKSPACE FULL-SCREEN MODE & BUILDER THEME TOKENS
    ========================================================================== */
-:root {
+:root,
+.ws-theme-dark {
   --ws-bg: #070B14;
   --ws-panel: #0D1527;
   --ws-panel-raised: #111B31;
@@ -1003,6 +1004,21 @@ html.dark td {
   --ws-input-bg: #0F172A;
   --ws-input-border: #334155;
   --ws-input-text: #F8FAFC;
+}
+
+.ws-theme-light {
+  --ws-bg: #F8FAFC;
+  --ws-panel: #FFFFFF;
+  --ws-panel-raised: #F1F5F9;
+  --ws-border: #CBD5E1;
+  --ws-text: #0F172A;
+  --ws-text-secondary: #475569;
+  --ws-text-muted: #64748B;
+  --ws-accent: #4F46E5;
+  --ws-danger: #E11D48;
+  --ws-input-bg: #FFFFFF;
+  --ws-input-border: #CBD5E1;
+  --ws-input-text: #0F172A;
 }
 
 html.website-workspace-mode,

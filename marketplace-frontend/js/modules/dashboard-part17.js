@@ -310,6 +310,28 @@ window.upgradeToAiChatbot = upgradeToAiChatbot;
 
 let __wsSetupSection = 'info';
 
+let __builderTheme = (() => {
+  try { return localStorage.getItem('ms_builder_theme') || 'auto'; } catch { return 'auto'; }
+})();
+
+function setBuilderTheme(m) {
+  __builderTheme = ['auto', 'light', 'dark'].includes(m) ? m : 'auto';
+  try { localStorage.setItem('ms_builder_theme', __builderTheme); } catch {}
+  applyBuilderTheme();
+  const body = document.getElementById('ws-setup-body');
+  if (body) body.innerHTML = renderWsSetupSection();
+}
+window.setBuilderTheme = setBuilderTheme;
+
+function applyBuilderTheme() {
+  const isDark = __builderTheme === 'dark' || (__builderTheme === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.classList.toggle('ws-theme-dark', isDark);
+  document.documentElement.classList.toggle('ws-theme-light', !isDark);
+  document.body.classList.toggle('ws-theme-dark', isDark);
+  document.body.classList.toggle('ws-theme-light', !isDark);
+}
+window.applyBuilderTheme = applyBuilderTheme;
+
 function wsSetup() {
   const secBtn = (id, label) => `<button type="button" onclick="setWsSetupSection('${id}')" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between ${__wsSetupSection === id ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"><span>${label}</span> ${id === 'ai-chatbot' ? (isAiChatbotOwned() ? '<span class="w-2 h-2 rounded-full bg-emerald-400" title="Active"></span>' : '<span class="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">Upgrade</span>') : ''}</button>`;
 
@@ -318,6 +340,7 @@ function wsSetup() {
       <div class="grid md:grid-cols-[220px_1fr] gap-6 items-start">
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 space-y-1 shadow-sm sticky top-4">
           <div class="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 py-1">Website Setup</div>
+          ${secBtn('appearance', 'Appearance')}
           ${secBtn('info', 'Dealership Info')}
           ${secBtn('domain', 'Domain & DNS')}
           ${secBtn('branding', 'Branding & Colors')}
@@ -354,6 +377,25 @@ function renderWsSetupSection() {
     ${inner}
     <div class="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800"><button onclick="saveWebsite(this)" class="text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl transition shadow-md">Save Settings</button></div>
   </div>`;
+
+  if (!__wsSetupSection || __wsSetupSection === 'appearance') {
+    return sec('Application Appearance', 'Choose the visual theme for the Website Builder application chrome. This affects the editor application UI only and does NOT alter your published dealership website.', `
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <button type="button" onclick="setBuilderTheme('auto')" class="p-4 rounded-xl border text-left transition ${__builderTheme === 'auto' ? 'border-indigo-600 bg-indigo-600/10' : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950'}">
+          <div class="text-xs font-black text-slate-900 dark:text-white mb-1">Automatic (System)</div>
+          <div class="text-[11px] text-slate-500 dark:text-slate-400">Follows your device light or dark mode preference</div>
+        </button>
+        <button type="button" onclick="setBuilderTheme('light')" class="p-4 rounded-xl border text-left transition ${__builderTheme === 'light' ? 'border-indigo-600 bg-indigo-600/10' : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950'}">
+          <div class="text-xs font-black text-slate-900 dark:text-white mb-1">Light Mode</div>
+          <div class="text-[11px] text-slate-500 dark:text-slate-400">Always use clean light builder application chrome</div>
+        </button>
+        <button type="button" onclick="setBuilderTheme('dark')" class="p-4 rounded-xl border text-left transition ${__builderTheme === 'dark' ? 'border-indigo-600 bg-indigo-600/10' : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950'}">
+          <div class="text-xs font-black text-slate-900 dark:text-white mb-1">Dark Mode</div>
+          <div class="text-[11px] text-slate-500 dark:text-slate-400">Always use sleek dark builder application chrome</div>
+        </button>
+      </div>
+    `);
+  }
 
   if (__wsSetupSection === 'domain') {
     return sec('Domain & DNS Configuration', 'Connect your custom domain to your MarketSync dealer website.', customDomainCard(__siteCfg));
@@ -1180,6 +1222,7 @@ const SEC_META = {
 const SEC_ORDER = ['hero','feature_cards','two_col','cards','featured_inventory','text_image','body_style','payment_calc','ad_banner','inventory_grid','trade_cta','finance_cta','service_cta','staff','reviews','faq','blog','gallery','map','contact','cta_banner','html'];
 
 async function loadWebsitePage() {
+  applyBuilderTheme();
   const root = document.getElementById('website-root');
   if (!root) return;
   root.innerHTML = '<div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div>';
@@ -1640,6 +1683,8 @@ function renderWsLeftDrawerHtml() {
         </div>
       </div>
     `;
+  } else if (__wsActiveLeftNav === 'images') {
+    return headerHtml + renderWsImagesDrawerHtml();
   } else if (__wsActiveLeftNav === 'design') {
     return headerHtml + `<div class="p-4 space-y-3">${wsDesign()}</div>`;
   } else if (__wsActiveLeftNav === 'ai') {
@@ -1656,7 +1701,75 @@ function renderWsLeftDrawerHtml() {
       </div>
     `;
   }
-  return headerHtml;
+}
+
+let __wsDrawerPhotoTab = 'pexels';
+function setWsDrawerPhotoTab(t) {
+  __wsDrawerPhotoTab = t;
+  const el = document.getElementById('ws-left-drawer-content');
+  if (el) el.innerHTML = renderWsLeftDrawerHtml();
+}
+window.setWsDrawerPhotoTab = setWsDrawerPhotoTab;
+
+function renderWsImagesDrawerHtml() {
+  const tabBtn = (id, label) => `<button type="button" onclick="setWsDrawerPhotoTab('${id}')" class="px-2.5 py-1 text-[11px] font-black rounded-lg transition ${__wsDrawerPhotoTab === id ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-900 text-slate-300 hover:text-white border border-slate-800'}">${label}</button>`;
+  
+  return `
+    <div class="p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Images &amp; Media</h3>
+        <button type="button" onclick="openWsPhotoPicker()" class="text-[11px] font-bold text-indigo-400 hover:underline">Full Modal ↗</button>
+      </div>
+      <div class="flex items-center gap-1 border-b border-slate-800 pb-2">
+        ${tabBtn('pexels', 'Pexels')}
+        ${tabBtn('inventory', 'Inventory')}
+        ${tabBtn('upload', 'Upload')}
+      </div>
+      <div id="ws-drawer-photo-body">
+        ${renderWsDrawerPhotoBody()}
+      </div>
+    </div>
+  `;
+}
+
+function renderWsDrawerPhotoBody() {
+  if (__wsDrawerPhotoTab === 'upload') {
+    return `
+      <div class="space-y-3 py-2 text-center">
+        <div class="border border-dashed border-slate-700 rounded-xl p-4 bg-slate-950/60 hover:border-indigo-500 transition">
+          <svg class="w-8 h-8 text-slate-400 mx-auto mb-2" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+          <div class="text-xs font-bold text-white mb-1">Upload File</div>
+          <p class="text-[10px] text-slate-400 mb-3">JPG, PNG, WEBP</p>
+          <input type="file" id="ws-drawer-file" accept="image/*" class="hidden" onchange="uploadWsModalImage(this.files[0])">
+          <button type="button" onclick="document.getElementById('ws-drawer-file').click()" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition">Choose File</button>
+        </div>
+      </div>
+    `;
+  }
+  if (__wsDrawerPhotoTab === 'inventory') {
+    setTimeout(loadWsInventoryPhotos, 50);
+    return `
+      <div id="ws-inv-photos-grid" class="grid grid-cols-2 gap-1.5 pt-1">
+        <div class="col-span-2 py-6 text-center text-xs text-slate-400">Loading lot photos…</div>
+      </div>
+    `;
+  }
+  // Pexels drawer tab
+  setTimeout(() => searchWsPhotoLibrary('car dealership'), 50);
+  return `
+    <div class="space-y-2">
+      <form onsubmit="event.preventDefault(); searchWsPhotoLibrary(document.getElementById('ws-drawer-photo-query').value)" class="flex gap-1">
+        <input id="ws-drawer-photo-query" type="search" value="car dealership" placeholder="Search..." class="flex-1 px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-950 text-xs text-white focus:outline-none focus:border-indigo-500">
+        <button class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-xs font-bold">Go</button>
+      </form>
+      <div class="flex items-center gap-1 flex-wrap text-[10px]">
+        <button type="button" onclick="searchWsPhotoLibrary('car dealership')" class="px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-800">Store</button>
+        <button type="button" onclick="searchWsPhotoLibrary('truck')" class="px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-800">Trucks</button>
+        <button type="button" onclick="searchWsPhotoLibrary('luxury car')" class="px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-800">Luxury</button>
+        <button type="button" onclick="searchWsPhotoLibrary('electric vehicle')" class="px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-800">EV</button>
+      </div>
+      <div id="ws-photo-results" class="grid grid-cols-2 gap-1.5 pt-1"><div class="col-span-2 py-6 text-center text-xs text-slate-400">Loading…</div></div>
+  `;
 }
 
 async function aiBuildPageLayoutFromPrompt() {
@@ -1898,6 +2011,7 @@ function renderLiveBuilder(body) {
           <button onclick="setWsLeftNav('layers')" data-tab="layers" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'layers' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'} cursor-pointer" title="Layers Tree">Tree</button>
           <button onclick="setWsLeftNav('blocks')" data-tab="blocks" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'blocks' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'} cursor-pointer" title="Add Blocks">+Add</button>
           <button onclick="setWsLeftNav('pages')" data-tab="pages" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'pages' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'} cursor-pointer" title="Manage Pages">Pages</button>
+          <button onclick="setWsLeftNav('images')" data-tab="images" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'images' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'} cursor-pointer" title="Media & Photos">Images</button>
           <button onclick="setWsLeftNav('design')" data-tab="design" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'design' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'} cursor-pointer" title="Global Styling">Style</button>
           <button onclick="setWsLeftNav('ai')" data-tab="ai" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'ai' ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50' : 'text-slate-400 hover:text-white'} cursor-pointer" title="AI Copilot">AI</button>
           <button id="ws-left-collapse-btn" onclick="toggleWsLeftDock()" class="w-9 h-9 mt-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white text-xs font-black transition flex items-center justify-center border border-slate-800 cursor-pointer" title="Toggle Sidebar Collapse">&lt;</button>
