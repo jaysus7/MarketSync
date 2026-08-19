@@ -957,6 +957,24 @@ window.canDo = function (permission) {
 // mature nav logic is reused unchanged. Returns null when no context is present (caller
 // falls back to the legacy /auth/me products object).
 function legacyProductsFromAccess(access) {
+  // Demo mode: the demo dealership is entitled to EVERY product (the showcase overlay in
+  // access-policy.js), so access.products always includes dealer_os — which below would
+  // force the full DealerOS sidebar and silently override the single product the operator
+  // picked in the Demo Control Center. Honor the selected demo product for NAV so a
+  // prospect sees just that product's dashboard, exactly as a real single-product
+  // customer would. (dealer_os falls through to the normal full-nav path.)
+  const demoProd = window.__demoActiveProduct;
+  if (demoProd && demoProd !== 'dealer_os' && demoProd !== 'dealer-os') {
+    const demoNav = {
+      design_studio: { design_studio: true },
+      facebook:      { facebook_solo: true },
+      video:         { marketsync_video: true },
+      campaigns:     { marketsync_social: true },
+      website:       { marketsync_website: true },
+      ai_chatbot:    { ai_chatbot: true },
+    }[demoProd];
+    if (demoNav) return demoNav;
+  }
   if (!access || !Array.isArray(access.products) || !access.products.length) return null;
   if (access.isPlatformStaff || access.products.includes('dealer_os')) return { dealer_os: true };
   const out = {};

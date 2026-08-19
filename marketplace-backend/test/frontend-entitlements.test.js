@@ -59,3 +59,25 @@ test('dashboard resolves product gates before any role landing page is selected'
   assert.ok(landing > gate, 'a role/default page must not load before product gates')
   assert.ok(reveal > landing, 'page content must stay hidden until final routing is settled')
 })
+
+// A demo dealership is entitled to EVERY product (the showcase overlay), so its access
+// context always includes dealer_os. legacyProductsFromAccess() must honor the selected
+// demo product (window.__demoActiveProduct) BEFORE the dealer_os short-circuit — otherwise
+// every demo package falls back to the full DealerOS sidebar and the Demo Control Center's
+// per-product view (and the matching single-product-customer view) silently breaks.
+test('legacyProductsFromAccess narrows to the selected demo product before the dealer_os fallback', async () => {
+  const source = await readDashboard()
+  const fn = source.match(/function legacyProductsFromAccess\(access\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fn, 'legacyProductsFromAccess must exist')
+
+  const demoBranch = fn.indexOf('window.__demoActiveProduct')
+  const dealerOsFallback = fn.indexOf("access.products.includes('dealer_os')")
+  assert.ok(demoBranch >= 0, 'must consult window.__demoActiveProduct')
+  assert.ok(dealerOsFallback >= 0, 'the dealer_os fallback must still exist')
+  assert.ok(demoBranch < dealerOsFallback,
+    'the demo product must be resolved BEFORE the dealer_os short-circuit, or narrowing is overridden')
+
+  // The demo product ids map to the same legacy nav keys applyProductNav understands.
+  assert.match(fn, /video:\s*\{ marketsync_video: true \}/)
+  assert.match(fn, /website:\s*\{ marketsync_website: true \}/)
+})
