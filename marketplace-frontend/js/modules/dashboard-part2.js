@@ -1382,7 +1382,15 @@ function renderDeptTabbar(pageId) {
   bar.classList.remove('hidden');
 }
 // Navigate to a department page (handles the inventory view-mode tabs).
-function deptGo(page, invmode, tab) { if (invmode) __inventoryMode = invmode; if (tab && page === 'website') __wsTab = tab; switchPage(page); }
+function deptGo(page, invmode, tab) {
+  if (invmode) __inventoryMode = invmode;
+  if (tab && page === 'website') __wsTab = tab;
+  if (tab && page === 'automation-builder') {
+    __autoTab = tab;
+    if (typeof loadAutoBuilderPage === 'function') loadAutoBuilderPage();
+  }
+  switchPage(page);
+}
 window.deptGo = deptGo;
 
 // ── Flat department LEFT nav ─────────────────────────────────────────────────
@@ -1595,6 +1603,9 @@ function highlightDeptNav(pageId) {
       let on = b.dataset.page === pageId;
       if (on && b.dataset.page === 'website' && b.dataset.tab) {
         on = (b.dataset.tab === (window.__wsTab || 'builder'));
+      }
+      if (on && b.dataset.page === 'automation-builder' && b.dataset.tab) {
+        on = (b.dataset.tab === (window.__autoTab || 'overview'));
       }
       b.classList.toggle('bg-indigo-100', on); b.classList.toggle('dark:bg-indigo-950/50', on);
       b.classList.toggle('text-indigo-700', on); b.classList.toggle('dark:text-indigo-300', on);

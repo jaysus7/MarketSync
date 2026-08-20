@@ -1409,7 +1409,14 @@ function restrictedNavPages() {
     return [{ page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true }];
   }
   if (activeProducts.length === 1 && /(marketsync_email|email_marketing|campaigns[-_]email[-_]sms)/.test(product)) {
-    return [{ page: 'automation-builder', label: 'Email & SMS', icon: 'megaphone' }];
+    return [
+      { page: 'automation-builder', tab: 'overview', label: 'Overview', icon: 'chart' },
+      { page: 'automation-builder', tab: 'automations', label: 'Automations', icon: 'bolt' },
+      { page: 'automation-builder', tab: 'campaigns', label: 'Campaigns', icon: 'megaphone' },
+      { page: 'automation-builder', tab: 'templates', label: 'Templates', icon: 'document' },
+      { page: 'automation-builder', tab: 'audiences', label: 'Audiences', icon: 'users' },
+      { page: 'automation-builder', tab: 'performance', label: 'Performance', icon: 'sparkles' },
+    ];
   }
   const isSalesMarketingSuite = activeProducts.includes('sales_marketing_suite')
     || (typeof profileContext !== 'undefined' && profileContext?.package_id === 'sales-marketing-suite')

@@ -88,6 +88,7 @@ const SETTINGS_TAB_SECTIONS = {
   inventory: ['inv-intel-section'],
   service: ['settings-service-card'],
   accounting: ['settings-accounting-card'],
+  email_sms: ['settings-email-sms-card'],
 };
 // The header gear jumps straight to Administration on full DealerOS — but a
 // restricted tier (Design Studio / Facebook-only) has that tab button hidden, and
@@ -125,6 +126,9 @@ function settingsTab(tab) {
       !el.classList.contains('stab-hide') && !el.classList.contains('hidden'));
     panel.classList.toggle('is-multi', shown.length > 1);
   });
+  if (tab === 'email_sms') {
+    if (typeof renderSettingsEmailSmsCard === 'function') renderSettingsEmailSmsCard();
+  }
   if (tab === 'hr') {
     if (typeof renderSettingsHrCard === 'function') renderSettingsHrCard();
   }

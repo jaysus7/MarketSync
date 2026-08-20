@@ -1438,11 +1438,14 @@
           <button data-stab="inventory" data-admin-only onclick="settingsTab('inventory')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Inventory</button>
           <button data-stab="service" data-admin-only onclick="settingsTab('service')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Service</button>
           <button data-stab="accounting" data-admin-only onclick="settingsTab('accounting')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Accounting</button>
+          <button data-stab="email_sms" data-admin-only onclick="settingsTab('email_sms')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Email &amp; SMS</button>
         </div>
 
         <!-- These tab sections flow into two columns on wide screens (settings-cols);
              JS adds .is-multi only when the active tab has more than one card. -->
         <div id="settings-panel-extra" class="settings-cols gap-5 [column-fill:_balance]">
+        <!-- Email & SMS Global Configuration Section in Settings -->
+        <div id="settings-email-sms-card" data-admin-only data-full-width="true" class="stab-hide space-y-4 break-inside-avoid mb-5"></div>
         <!-- HR & Compliance section in Settings -->
         <div id="settings-hr-card" data-admin-only data-full-width="true" class="stab-hide space-y-4 break-inside-avoid mb-5"></div>
         <!-- Integrations Hub — connect MarketSync to the rest of the dealership stack.
