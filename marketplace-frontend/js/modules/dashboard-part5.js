@@ -181,8 +181,13 @@ function setupMobileMoreMenu() {
 
     const product = document.documentElement.getAttribute('data-product') || '';
     const headerTitle = menu.querySelector('.border-b span');
+    const mktSuite = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;
+    const mktCfg = mktSuite && (typeof getMarketingSuiteConfig === 'function') ? getMarketingSuiteConfig(mktSuite) : null;
+
     if (headerTitle) {
-      if (/(marketsync_email|email_marketing|campaigns[-_]email[-_]sms|campaigns)/.test(product)) {
+      if (mktCfg) {
+        headerTitle.textContent = mktCfg.title;
+      } else if (/(marketsync_email|email_marketing|campaigns[-_]email[-_]sms|campaigns)/.test(product)) {
         headerTitle.textContent = 'Email & SMS Campaigns';
       } else {
         headerTitle.textContent = 'All pages';
@@ -204,8 +209,14 @@ function setupMobileMoreMenu() {
     };
     const restricted = restrictedNavPages();
     if (restricted) {
+      let currentSection = null;
       restricted.forEach(p => {
-        const b = mk(`<button type="button" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition text-left"><span class="w-5 h-5 flex-shrink-0 text-indigo-500">${svgIcon(p.icon || 'dot', 'w-5 h-5')}</span><span class="truncate">${esc(p.label)}</span></button>`);
+        if (p.section && p.section !== currentSection) {
+          currentSection = p.section;
+          const secHdr = mk(`<div class="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 pt-2 pb-0.5 px-1">${esc(currentSection)}</div>`);
+          list.appendChild(secHdr);
+        }
+        const b = mk(`<button type="button" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition text-left"><span class="w-5 h-5 flex-shrink-0 text-indigo-500">${svgIcon(p.icon || 'dot', 'w-5 h-5')}</span><span class="truncate">${esc(p.label)}</span></button>`);
         b.addEventListener('click', () => {
           close();
           if (p.studioLaunch) { if (typeof window.openMarketSyncStudio === 'function') window.openMarketSyncStudio(); return; }

@@ -857,11 +857,19 @@ async function loadAutoBuilderPage() {
   if (!mainRoot) return;
   mainRoot.classList.remove('hidden');
 
+  const categoryMap = {
+    leads: 'leads', appointments: 'leads', no_show: 'leads',
+    sales: 'sales', reviews: 'sales', referrals: 'sales',
+    service: 'service', service_reminders: 'service', maintenance: 'service', declined_service: 'service', service_appts: 'service', post_service: 'service',
+    reactivation: 'lifecycle', lifecycle: 'lifecycle',
+    inventory: 'inventory', marketing: 'marketing', custom: 'custom'
+  };
+
   if (__autoTab === 'overview') {
     renderAutoOverviewTab(mainRoot);
-  } else if (__autoTab === 'automations' || ['leads', 'sales', 'service', 'inventory', 'marketing', 'lifecycle', 'custom'].includes(__autoTab)) {
-    if (['leads', 'sales', 'service', 'inventory', 'marketing', 'lifecycle', 'custom'].includes(__autoTab)) {
-      __autoCategoryFilter = __autoTab;
+  } else if (__autoTab === 'automations' || categoryMap[__autoTab]) {
+    if (categoryMap[__autoTab]) {
+      __autoCategoryFilter = categoryMap[__autoTab];
     }
     renderAutoAutomationsTab(mainRoot);
   } else if (__autoTab === 'campaigns') {
@@ -878,7 +886,8 @@ window.loadAutoBuilderPage = loadAutoBuilderPage;
 
 // ── Render Automations Tab ───────────────────────────────────────────────────
 function renderAutoAutomationsTab(container) {
-  const cats = [
+  const mktSuite = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;
+  const allCats = [
     { key: 'all', label: 'All Automations' },
     { key: 'leads', label: 'Sales Leads' },
     { key: 'sales', label: 'Sales & Delivery' },
@@ -888,6 +897,19 @@ function renderAutoAutomationsTab(container) {
     { key: 'lifecycle', label: 'Lifecycle' },
     { key: 'custom', label: 'Custom Journeys' }
   ];
+
+  let cats = allCats;
+  if (mktSuite === 'sales') {
+    cats = allCats.filter(c => ['all', 'leads', 'sales', 'inventory', 'marketing', 'custom'].includes(c.key));
+    if (!['all', 'leads', 'sales', 'inventory', 'marketing', 'custom'].includes(__autoCategoryFilter)) {
+      __autoCategoryFilter = 'leads';
+    }
+  } else if (mktSuite === 'service') {
+    cats = allCats.filter(c => ['all', 'service', 'marketing', 'lifecycle', 'custom'].includes(c.key));
+    if (!['all', 'service', 'marketing', 'lifecycle', 'custom'].includes(__autoCategoryFilter)) {
+      __autoCategoryFilter = 'service';
+    }
+  }
 
   let items = [];
   if (__autoCategoryFilter === 'all') {

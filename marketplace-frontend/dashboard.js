@@ -1317,7 +1317,14 @@ function applyMobileQuickRow() {
   // directly in the row, so the sheet would just repeat those same buttons plus
   // Upgrade — already reachable from the header's own button — with nothing new.
   let showMoreBtn = true;
-  if (__fbOnly || __productAllowedPages) {
+  const suite = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;
+  if (suite && typeof getMarketingSuiteConfig === 'function') {
+    const cfg = getMarketingSuiteConfig(suite);
+    if (cfg && cfg.mobileQuickRow) {
+      pages = cfg.mobileQuickRow;
+      showMoreBtn = true;
+    }
+  } else if (__fbOnly || __productAllowedPages) {
     // Restricted tiers (Facebook / product): that tier's exact page set.
     const restricted = (restrictedNavPages() || []).filter(p => p.page !== 'profile');
     pages = restricted.slice(0, 4);
@@ -1432,72 +1439,34 @@ function restrictedNavPages() {
     );
     return items;
   }
-  const isSalesMarketingSuite = activeProducts.includes('sales_marketing_suite')
-    || (typeof profileContext !== 'undefined' && profileContext?.package_id === 'sales-marketing-suite')
-    || window.__demoActiveProduct === 'sales-marketing-suite'
-    || window.__demoActivePackage === 'sales-marketing-suite'
-    || /(?:^|\s)sales[-_]marketing[-_]suite(?:\s|$)/.test(product);
-
-  const isServiceMarketingSuite = activeProducts.includes('service_marketing_suite')
-    || (typeof profileContext !== 'undefined' && profileContext?.package_id === 'service-marketing-suite')
-    || window.__demoActiveProduct === 'service-marketing-suite'
-    || window.__demoActivePackage === 'service-marketing-suite'
-    || /(?:^|\s)service[-_]marketing[-_]suite(?:\s|$)/.test(product);
-
-  const isCompleteMarketingSuite = activeProducts.includes('complete_marketing_suite')
-    || activeProducts.includes('marketsync_digital')
-    || (typeof profileContext !== 'undefined' && (profileContext?.package_id === 'complete-marketing-suite' || profileContext?.package_id === 'marketsync-digital'))
-    || window.__demoActiveProduct === 'complete-marketing-suite'
-    || window.__demoActiveProduct === 'marketsync-digital'
-    || window.__demoActivePackage === 'complete-marketing-suite'
-    || window.__demoActivePackage === 'marketsync-digital'
-    || /(?:^|\s)(?:complete[-_]marketing[-_]suite|marketsync[-_]digital)(?:\s|$)/.test(product);
-
-  if (isSalesMarketingSuite || isServiceMarketingSuite || isCompleteMarketingSuite) {
-    const list = [
-      { page: 'marketing-overview', label: 'Pulse', icon: 'chart' },
-      { page: 'automation-builder', label: 'Email & SMS', icon: 'megaphone' },
-      { page: 'video-studio', label: 'Video Studio', icon: 'video' },
-      { page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true },
-    ];
-
-    if (isSalesMarketingSuite) {
-      list.push(
-        { page: 'sales-campaigns', label: 'Sales Campaigns', icon: 'megaphone' },
-        { page: 'sales-automations', label: 'Sales Automations', icon: 'bolt' },
-        { page: 'leads', label: 'Leads', icon: 'user' },
-        { page: 'marketing-analytics', label: 'Analytics', icon: 'chart' }
+  const mktSuite = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;
+  if (mktSuite && typeof getMarketingSuiteConfig === 'function') {
+    const cfg = getMarketingSuiteConfig(mktSuite);
+    if (cfg && Array.isArray(cfg.sections)) {
+      const items = [];
+      const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+      const hasSeo = access.isPlatformStaff || !!(
+        (access.products && (access.products.includes('marketsync_seo') || access.products.includes('seo')))
+        || (access.features && access.features.includes('seo.manage'))
+        || /(?:^|\s)(?:marketsync_seo|seo)(?:\s|$)/.test(document.documentElement.getAttribute('data-product') || '')
       );
-    } else if (isServiceMarketingSuite) {
-      list.push(
-        { page: 'service-campaigns', label: 'Service Campaigns', icon: 'megaphone' },
-        { page: 'service-automations', label: 'Service Automations', icon: 'bolt' },
-        { page: 'crm', label: 'Customers', icon: 'user' },
-        { page: 'marketing-analytics', label: 'Analytics', icon: 'chart' }
-      );
-    } else if (isCompleteMarketingSuite) {
-      list.push(
-        { page: 'sales-campaigns', label: 'Sales Campaigns', icon: 'megaphone' },
-        { page: 'service-campaigns', label: 'Service Campaigns', icon: 'megaphone' },
-        { page: 'sales-automations', label: 'Sales Automations', icon: 'bolt' },
-        { page: 'service-automations', label: 'Service Automations', icon: 'bolt' },
-        { page: 'crm', label: 'Leads & Customers', icon: 'user' },
-        { page: 'marketing-analytics', label: 'Analytics', icon: 'chart' }
-      );
+
+      for (const section of cfg.sections) {
+        for (const it of section.items) {
+          if (it.requiresSeo && !hasSeo) continue;
+          items.push({
+            page: it.page,
+            tab: it.tab,
+            label: it.label,
+            icon: it.icon,
+            invmode: it.invmode,
+            studioLaunch: it.studioLaunch,
+            section: section.title
+          });
+        }
+      }
+      return items;
     }
-
-    const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
-    const hasWebsite = !!((access.products && (access.products.includes('marketsync_website') || access.products.includes('website')))
-      || /(?:^|\s)(?:marketsync_website|website|dealer[-_]website)(?:\s|$)/.test(product)
-      || window.__demoActiveProduct === 'marketsync-digital');
-    const hasAi = !!(window.__aiBoostActive || (window.__siteCfg && window.__siteCfg.ai_boost_active)
-      || (access.products && (access.products.includes('marketsync_ai') || access.products.includes('ai_boost') || access.products.includes('ai_chatbot') || access.products.includes('ai')))
-      || /(?:^|\s)(?:marketsync_ai|ai_boost|ai_chatbot|ai)(?:\s|$)/.test(product)
-      || window.__demoActiveProduct === 'marketsync-digital');
-
-    if (hasWebsite) list.push({ page: 'website', label: 'Website', icon: 'globe' });
-    if (hasAi) list.push({ page: 'ai-home', label: 'AI ChatBot', icon: 'sparkles' });
-    return list;
   }
 
   const isWebsiteProduct = (typeof isStandaloneWebsiteWorkspace === 'function' && isStandaloneWebsiteWorkspace())

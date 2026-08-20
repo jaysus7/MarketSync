@@ -1429,17 +1429,27 @@ function marketsyncOwnerMode() {
 }
 function resolveWorkspaceContext(userObj, accessObj, currentRouteStr) {
   let activeProd = null;
-  if (window.__demoActiveProduct) {
-    if (window.__demoActiveProduct === 'dealer_os' || window.__demoActiveProduct === 'dealer-os') {
+  const dProd = window.__demoActiveProduct || window.__demoActivePackage;
+  if (dProd) {
+    if (dProd === 'dealer_os' || dProd === 'dealer-os') {
       return { type: 'dealer_os', product: 'dealer_os' };
     }
-    if (window.__demoActiveProduct === 'dealer-website' || window.__demoActiveProduct === 'website') {
+    if (dProd === 'dealer-website' || dProd === 'website') {
       return { type: 'website', product: 'website' };
     }
-    if (window.__demoActiveProduct === 'sales-marketing-suite' || window.__demoActiveProduct === 'service-marketing-suite' || window.__demoActiveProduct === 'complete-marketing-suite' || window.__demoActiveProduct === 'marketsync-digital') {
-      return { type: 'marketing_suite', suite: window.__demoActiveProduct };
+    if (dProd === 'sales-marketing-suite' || dProd === 'sales_marketing_suite' || dProd === 'sales') {
+      return { type: 'marketing_suite', suite: 'sales', packageId: 'sales-marketing-suite' };
     }
-    activeProd = window.__demoActiveProduct;
+    if (dProd === 'service-marketing-suite' || dProd === 'service_marketing_suite' || dProd === 'service') {
+      return { type: 'marketing_suite', suite: 'service', packageId: 'service-marketing-suite' };
+    }
+    if (dProd === 'complete-marketing-suite' || dProd === 'complete_marketing_suite' || dProd === 'complete') {
+      return { type: 'marketing_suite', suite: 'complete', packageId: 'complete-marketing-suite' };
+    }
+    if (dProd === 'marketsync-digital' || dProd === 'marketsync_digital' || dProd === 'digital') {
+      return { type: 'marketing_suite', suite: 'digital', packageId: 'marketsync-digital' };
+    }
+    activeProd = dProd;
   } else {
     const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
     let products = '';
@@ -1449,9 +1459,15 @@ function resolveWorkspaceContext(userObj, accessObj, currentRouteStr) {
       products = (document.documentElement.getAttribute('data-product') || '').trim();
     }
 
-    if (typeof isMarketingSuite === 'function' && isMarketingSuite()) {
-      const activePackage = (typeof profileContext !== 'undefined' && profileContext?.package_id) || window.__demoActivePackage || '';
-      return { type: 'marketing_suite', suite: activePackage || 'complete-marketing-suite' };
+    if (typeof getActiveMarketingSuite === 'function') {
+      const suite = getActiveMarketingSuite();
+      if (suite) {
+        return { type: 'marketing_suite', suite, packageId: `${suite}-marketing-suite` };
+      }
+    } else if (typeof isMarketingSuite === 'function' && isMarketingSuite()) {
+      const activePackage = (typeof profileContext !== 'undefined' && profileContext?.package_id) || '';
+      const suiteKey = activePackage.includes('sales') ? 'sales' : (activePackage.includes('service') ? 'service' : (activePackage.includes('digital') ? 'digital' : 'complete'));
+      return { type: 'marketing_suite', suite: suiteKey, packageId: activePackage || 'complete-marketing-suite' };
     }
 
     if (!products || /(?:^|\s)dealer_os(?:\s|$)/.test(products)) {
@@ -1514,23 +1530,68 @@ function deptVisible(dept) {
   if (dept.probe) { const el = document.querySelector(dept.probe); if (el && !el.classList.contains('hidden')) return true; }
   return false;
 }
+
+function renderMarketingSuiteNav(suiteKey, host, navRoot) {
+  const cfg = (typeof getMarketingSuiteConfig === 'function') ? getMarketingSuiteConfig(suiteKey) : null;
+  if (!cfg || !Array.isArray(cfg.sections)) return;
+
+  const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+  const hasSeo = access.isPlatformStaff || !!(
+    (access.products && (access.products.includes('marketsync_seo') || access.products.includes('seo')))
+    || (access.features && access.features.includes('seo.manage'))
+    || /(?:^|\s)(?:marketsync_seo|seo)(?:\s|$)/.test(document.documentElement.getAttribute('data-product') || '')
+  );
+
+  __deptRegistry = null;
+
+  let html = '';
+  html += `<div class="px-3 pt-1 pb-2 mb-1 border-b border-slate-200/80 dark:border-slate-800">
+    <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">${esc(cfg.badge)}</div>
+    <div class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">${esc(cfg.title)}</div>
+  </div>`;
+
+  for (const section of cfg.sections) {
+    const visibleItems = (section.items || []).filter(it => !it.requiresSeo || hasSeo);
+    if (!visibleItems.length) continue;
+
+    html += `<div class="pt-2.5 pb-1 px-3 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">${esc(section.title)}</div>`;
+    html += visibleItems.map(p => {
+      const call = p.studioLaunch
+        ? 'window.openMarketSyncStudio()'
+        : `deptGo('${esc(p.page)}'${p.tab ? `,'${esc(p.invmode || '')}','${esc(p.tab)}'` : (p.invmode ? `,'${esc(p.invmode)}'` : '')})`;
+      return `<button type="button" data-page="${esc(p.page)}"${p.tab ? ` data-tab="${esc(p.tab)}"` : ''} onclick="${call}" title="${esc(p.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-1.5 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-[13px]"><span class="text-indigo-500 flex-shrink-0">${svgIcon(p.icon || 'dot', 'w-4 h-4')}</span><span class="truncate">${esc(p.label)}</span></button>`;
+    }).join('');
+  }
+
+  host.innerHTML = html;
+  navRoot.classList.add('dept-mode');
+  __deptNavBuilt = true;
+  if (__currentPage) highlightDeptNav(__currentPage);
+  applyMobileQuickRow();
+}
+window.renderMarketingSuiteNav = renderMarketingSuiteNav;
+
 function renderDeptNav(role) {
   const navRoot = document.getElementById('nav-desktop');
   if (!navRoot) return;
   const ctx = typeof resolveWorkspaceContext === 'function' ? resolveWorkspaceContext() : { type: 'dealer_os', product: 'dealer_os' };
-  // NOTE: the Website product used to bail out here and tear the sidebar down, which
-  // left a website-only account (and the Website demo) with a completely empty left nav.
-  // Its real sidebar is the flat Builder / Blog / SEO / Setup list from restrictedNavPages()
-  // (deptNavEligible() returns false for a website workspace, so registry is null and we
-  // render that flat list below). While inside the full-screen builder the whole
-  // #dashboard-nav is hidden by the .website-workspace-mode CSS, so this nav only shows on
-  // Settings and the other non-workspace pages — exactly where the operator needs it.
-  // Owner in the SaaS back office → the SaaS departments; a dealer manager in full
-  // DealerOS → the dealership departments; anyone else → the legacy nav.
-  const registry = marketsyncOwnerMode() ? SAAS_DEPARTMENTS : (deptNavEligible(role) ? DEPARTMENTS : null);
-  // The mode is now decided — reveal the sidebar (clears the pre-nav hidden state
-  // so the legacy tree never flashes before the department nav for eligible users).
+  
+  // Reveal sidebar
   navRoot.classList.remove('nav-init');
+
+  if (ctx.type === 'marketing_suite') {
+    let host = document.getElementById('dept-nav');
+    if (!host) {
+      host = document.createElement('div'); host.id = 'dept-nav'; host.className = 'space-y-0.5 mb-1';
+      const anchor = document.getElementById('setup-bar-host');
+      if (anchor && anchor.parentElement === navRoot) navRoot.insertBefore(host, anchor.nextSibling);
+      else navRoot.insertBefore(host, navRoot.firstChild);
+    }
+    renderMarketingSuiteNav(ctx.suite, host, navRoot);
+    return;
+  }
+
+  const registry = marketsyncOwnerMode() ? SAAS_DEPARTMENTS : (deptNavEligible(role) ? DEPARTMENTS : null);
   if (!registry) {
     // Restricted product / Facebook tiers: render their nav from the same registry
     // the mobile menu uses (restrictedNavPages) — a flat page list — so desktop and
@@ -1546,12 +1607,6 @@ function renderDeptNav(role) {
         else navRoot.insertBefore(host, navRoot.firstChild);
       }
       host.innerHTML = rp.map(p => {
-        // Build a valid deptGo(page, invmode, tab) call. deptGo is positional, so a page
-        // that has a tab but no invmode still needs an (empty) invmode arg to keep the tab
-        // in the third slot — deptGo('website','','builder'). The old code emitted a bare
-        // '' with no comma for the no-invmode case, producing invalid JS like
-        // deptGo('leaderboard''') / deptGo('website''','builder') ("missing ) after
-        // argument list"), which broke every restricted-tier nav click.
         const call = p.studioLaunch
           ? 'window.openMarketSyncStudio()'
           : `deptGo('${esc(p.page)}'${p.tab ? `,'${esc(p.invmode || '')}','${esc(p.tab)}'` : (p.invmode ? `,'${esc(p.invmode)}'` : '')})`;

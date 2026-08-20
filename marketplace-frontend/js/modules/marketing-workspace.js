@@ -1,21 +1,301 @@
-/**
- * Marketing workspace — the department's operating surface (Phase 6 PR 6.5).
- *
- * My Day is an exception and opportunity queue, COMPOSED by the server from what each
- * Phase 6 slice already produces — campaigns, social, conversations. This file re-derives
- * nothing: a second opinion about "what needs attention" would drift from the department
- * that owns the fact.
- *
- * Two honesty rules carried through from the backend:
- *   • Attribution by ID is LINKED; a legacy free-text source is INFERRED, and the two are
- *     never shown as the same kind of number.
- *   • Gross comes from the posted ledger. A campaign whose deliveries have no posted
- *     journal shows its units with the gross marked incomplete, never an assumed average.
- */
+// ── Canonical Marketing Suite Configurations ────────────────────────────────
+// Defines the 4 distinct Marketing Suite product experiences:
+// 1. Sales Marketing Suite
+// 2. Service Marketing Suite
+// 3. Complete Marketing Suite
+// 4. MarketSync Digital
 
-// Campaigns, Studio, Social, Conversations and Attribution were a second row of tabs
-// inside "Work". They are sections of the six real tabs now — Campaigns under Emails,
-// Social under Studio, Conversations under AI ChatBot, Attribution in My Day.
+const MARKETING_SUITE_CONFIG = {
+  sales: {
+    id: 'sales',
+    packageId: 'sales-marketing-suite',
+    title: 'Sales Marketing',
+    subtitle: 'Turn leads into appointments, appointments into sales, and customers into repeat buyers.',
+    badge: 'Sales Marketing Suite',
+    sections: [
+      {
+        title: 'OVERVIEW',
+        items: [
+          { page: 'marketing-overview', tab: 'overview', label: 'Sales Marketing Overview', icon: 'chart' },
+        ]
+      },
+      {
+        title: 'CAMPAIGNS',
+        items: [
+          { page: 'marketing-overview', tab: 'campaigns', category: 'sales', label: 'Campaigns', icon: 'megaphone' },
+          { page: 'marketing-overview', tab: 'templates', category: 'sales', label: 'Templates', icon: 'document' },
+          { page: 'marketing-overview', tab: 'audiences', category: 'sales', label: 'Audiences', icon: 'users' },
+        ]
+      },
+      {
+        title: 'AUTOMATIONS',
+        items: [
+          { page: 'automation-builder', tab: 'leads', label: 'Lead Follow-Up', icon: 'bolt' },
+          { page: 'automation-builder', tab: 'appointments', label: 'Appointment Follow-Up', icon: 'calendar' },
+          { page: 'automation-builder', tab: 'no_show', label: 'No-Show Follow-Up', icon: 'user' },
+          { page: 'automation-builder', tab: 'sales', label: 'Sold / Delivery Follow-Up', icon: 'sparkles' },
+          { page: 'automation-builder', tab: 'reviews', label: 'Review Requests', icon: 'star' },
+          { page: 'automation-builder', tab: 'referrals', label: 'Referral Campaigns', icon: 'share' },
+        ]
+      },
+      {
+        title: 'CREATE',
+        items: [
+          { page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true },
+          { page: 'marketing-overview', tab: 'studio', label: 'Social Scheduler', icon: 'calendar' },
+          { page: 'video-studio', label: 'Video', icon: 'video' },
+        ]
+      },
+      {
+        title: 'INSIGHTS',
+        items: [
+          { page: 'marketing-analytics', tab: 'sales', label: 'Sales Marketing Reports', icon: 'chart' },
+        ]
+      },
+      {
+        title: 'SETTINGS',
+        items: [
+          { page: 'profile', tab: 'marketing', label: 'Product Settings', icon: 'shield' },
+        ]
+      }
+    ],
+    mobileQuickRow: [
+      { page: 'marketing-overview', tab: 'overview', label: 'Overview', icon: 'chart' },
+      { page: 'marketing-overview', tab: 'campaigns', label: 'Campaigns', icon: 'megaphone' },
+      { page: 'automation-builder', tab: 'leads', label: 'Automations', icon: 'bolt' },
+      { page: 'video-studio', label: 'Video', icon: 'video' },
+    ]
+  },
+
+  service: {
+    id: 'service',
+    packageId: 'service-marketing-suite',
+    title: 'Service Marketing',
+    subtitle: 'Keep customers returning with service reminders, retention campaigns and automated follow-up.',
+    badge: 'Service Marketing Suite',
+    sections: [
+      {
+        title: 'OVERVIEW',
+        items: [
+          { page: 'marketing-overview', tab: 'overview', label: 'Service Marketing Overview', icon: 'chart' },
+        ]
+      },
+      {
+        title: 'CAMPAIGNS',
+        items: [
+          { page: 'marketing-overview', tab: 'campaigns', category: 'service', label: 'Service Campaigns', icon: 'megaphone' },
+          { page: 'marketing-overview', tab: 'templates', category: 'service', label: 'Templates', icon: 'document' },
+          { page: 'marketing-overview', tab: 'audiences', category: 'service', label: 'Audiences', icon: 'users' },
+        ]
+      },
+      {
+        title: 'AUTOMATIONS',
+        items: [
+          { page: 'automation-builder', tab: 'service_reminders', label: 'Service Reminders', icon: 'wrench' },
+          { page: 'automation-builder', tab: 'maintenance', label: 'Maintenance Follow-Up', icon: 'bolt' },
+          { page: 'automation-builder', tab: 'declined_service', label: 'Declined Service Follow-Up', icon: 'clock' },
+          { page: 'automation-builder', tab: 'reactivation', label: 'Customer Reactivation', icon: 'users' },
+          { page: 'automation-builder', tab: 'service_appts', label: 'Appointment Reminders', icon: 'calendar' },
+          { page: 'automation-builder', tab: 'post_service', label: 'Post-Service Follow-Up', icon: 'sparkles' },
+          { page: 'automation-builder', tab: 'reviews', label: 'Review Requests', icon: 'star' },
+        ]
+      },
+      {
+        title: 'CREATE',
+        items: [
+          { page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true },
+          { page: 'marketing-overview', tab: 'studio', label: 'Social Scheduler', icon: 'calendar' },
+          { page: 'video-studio', label: 'Video', icon: 'video' },
+        ]
+      },
+      {
+        title: 'INSIGHTS',
+        items: [
+          { page: 'marketing-analytics', tab: 'service', label: 'Service Marketing Reports', icon: 'chart' },
+        ]
+      },
+      {
+        title: 'SETTINGS',
+        items: [
+          { page: 'profile', tab: 'marketing', label: 'Product Settings', icon: 'shield' },
+        ]
+      }
+    ],
+    mobileQuickRow: [
+      { page: 'marketing-overview', tab: 'overview', label: 'Overview', icon: 'chart' },
+      { page: 'marketing-overview', tab: 'campaigns', label: 'Campaigns', icon: 'megaphone' },
+      { page: 'automation-builder', tab: 'service_reminders', label: 'Reminders', icon: 'wrench' },
+      { page: 'video-studio', label: 'Video', icon: 'video' },
+    ]
+  },
+
+  complete: {
+    id: 'complete',
+    packageId: 'complete-marketing-suite',
+    title: 'Marketing Command Center',
+    subtitle: 'Sales and service marketing in one connected workspace.',
+    badge: 'Complete Marketing Suite',
+    sections: [
+      {
+        title: 'OVERVIEW',
+        items: [
+          { page: 'marketing-overview', tab: 'overview', label: 'Marketing Overview', icon: 'chart' },
+        ]
+      },
+      {
+        title: 'SALES MARKETING',
+        items: [
+          { page: 'marketing-overview', tab: 'sales_overview', label: 'Sales Overview', icon: 'currency' },
+          { page: 'marketing-overview', tab: 'sales_campaigns', label: 'Sales Campaigns', icon: 'megaphone' },
+          { page: 'automation-builder', tab: 'sales', label: 'Sales Automations', icon: 'bolt' },
+        ]
+      },
+      {
+        title: 'SERVICE MARKETING',
+        items: [
+          { page: 'marketing-overview', tab: 'service_overview', label: 'Service Overview', icon: 'wrench' },
+          { page: 'marketing-overview', tab: 'service_campaigns', label: 'Service Campaigns', icon: 'megaphone' },
+          { page: 'automation-builder', tab: 'service', label: 'Service Automations', icon: 'bolt' },
+        ]
+      },
+      {
+        title: 'CAMPAIGNS',
+        items: [
+          { page: 'marketing-overview', tab: 'campaigns', label: 'All Campaigns', icon: 'megaphone' },
+          { page: 'marketing-overview', tab: 'templates', label: 'Templates', icon: 'document' },
+          { page: 'marketing-overview', tab: 'audiences', label: 'Audiences', icon: 'users' },
+        ]
+      },
+      {
+        title: 'CREATE',
+        items: [
+          { page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true },
+          { page: 'marketing-overview', tab: 'studio', label: 'Social Scheduler', icon: 'calendar' },
+          { page: 'video-studio', label: 'Video', icon: 'video' },
+        ]
+      },
+      {
+        title: 'INSIGHTS',
+        items: [
+          { page: 'marketing-analytics', tab: 'overview', label: 'Marketing Reports', icon: 'chart' },
+          { page: 'marketing-analytics', tab: 'sales', label: 'Sales Marketing', icon: 'currency' },
+          { page: 'marketing-analytics', tab: 'service', label: 'Service Marketing', icon: 'wrench' },
+        ]
+      },
+      {
+        title: 'SETTINGS',
+        items: [
+          { page: 'profile', tab: 'marketing', label: 'Product Settings', icon: 'shield' },
+        ]
+      }
+    ],
+    mobileQuickRow: [
+      { page: 'marketing-overview', tab: 'overview', label: 'Overview', icon: 'chart' },
+      { page: 'marketing-overview', tab: 'sales_overview', label: 'Sales', icon: 'currency' },
+      { page: 'marketing-overview', tab: 'service_overview', label: 'Service', icon: 'wrench' },
+      { page: 'video-studio', label: 'Video', icon: 'video' },
+    ]
+  },
+
+  digital: {
+    id: 'digital',
+    packageId: 'marketsync-digital',
+    title: 'Digital Command Center',
+    subtitle: "Manage your dealership's complete digital presence from one workspace.",
+    badge: 'MarketSync Digital',
+    sections: [
+      {
+        title: 'OVERVIEW',
+        items: [
+          { page: 'marketing-overview', tab: 'overview', label: 'Digital Overview', icon: 'chart' },
+        ]
+      },
+      {
+        title: 'MARKETING',
+        items: [
+          { page: 'marketing-overview', tab: 'sales_overview', label: 'Sales Marketing', icon: 'currency' },
+          { page: 'marketing-overview', tab: 'service_overview', label: 'Service Marketing', icon: 'wrench' },
+          { page: 'marketing-overview', tab: 'campaigns', label: 'Campaigns', icon: 'megaphone' },
+          { page: 'automation-builder', tab: 'overview', label: 'Automations', icon: 'bolt' },
+        ]
+      },
+      {
+        title: 'CREATE',
+        items: [
+          { page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true },
+          { page: 'marketing-overview', tab: 'studio', label: 'Social Scheduler', icon: 'calendar' },
+          { page: 'video-studio', label: 'Video', icon: 'video' },
+        ]
+      },
+      {
+        title: 'DIGITAL PRESENCE',
+        items: [
+          { page: 'website', label: 'Website', icon: 'globe' },
+          { page: 'ai-home', label: 'AI ChatBot', icon: 'sparkles' },
+          { page: 'seo', label: 'SEO', icon: 'chart', requiresSeo: true },
+        ]
+      },
+      {
+        title: 'INSIGHTS',
+        items: [
+          { page: 'marketing-analytics', tab: 'digital', label: 'Digital Marketing Reports', icon: 'chart' },
+        ]
+      },
+      {
+        title: 'SETTINGS',
+        items: [
+          { page: 'profile', tab: 'marketing', label: 'Product Settings', icon: 'shield' },
+        ]
+      }
+    ],
+    mobileQuickRow: [
+      { page: 'marketing-overview', tab: 'overview', label: 'Overview', icon: 'chart' },
+      { page: 'website', label: 'Website', icon: 'globe' },
+      { page: 'ai-home', label: 'AI Chat', icon: 'sparkles' },
+      { page: 'marketing-overview', tab: 'campaigns', label: 'Campaigns', icon: 'megaphone' },
+    ]
+  }
+};
+
+function getActiveMarketingSuite() {
+  const activePackage = (typeof profileContext !== 'undefined' && profileContext?.package_id)
+    || (typeof window !== 'undefined' ? (window.__demoActiveProduct || window.__demoActivePackage) : '')
+    || (typeof document !== 'undefined' ? (document.documentElement.getAttribute('data-package') || document.documentElement.getAttribute('data-product') || '') : '')
+    || '';
+
+  if (activePackage.includes('sales-marketing-suite') || activePackage.includes('sales_marketing_suite') || activePackage === 'sales_marketing_suite' || activePackage === 'sales') return 'sales';
+  if (activePackage.includes('service-marketing-suite') || activePackage.includes('service_marketing_suite') || activePackage === 'service_marketing_suite' || activePackage === 'service') return 'service';
+  if (activePackage.includes('complete-marketing-suite') || activePackage.includes('complete_marketing_suite') || activePackage === 'complete_marketing_suite' || activePackage === 'complete') return 'complete';
+  if (activePackage.includes('marketsync-digital') || activePackage.includes('marketsync_digital') || activePackage === 'marketsync_digital' || activePackage === 'digital') return 'digital';
+
+  if (typeof document !== 'undefined') {
+    const product = document.documentElement.getAttribute('data-product') || '';
+    if (/(?:^|\s)sales[-_]marketing[-_]suite(?:\s|$)/.test(product)) return 'sales';
+    if (/(?:^|\s)service[-_]marketing[-_]suite(?:\s|$)/.test(product)) return 'service';
+    if (/(?:^|\s)complete[-_]marketing[-_]suite(?:\s|$)/.test(product)) return 'complete';
+    if (/(?:^|\s)marketsync[-_]digital(?:\s|$)/.test(product)) return 'digital';
+  }
+
+  const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+  if (access.products) {
+    if (access.products.includes('marketsync_digital')) return 'digital';
+    if (access.products.includes('complete_marketing_suite')) return 'complete';
+    if (access.products.includes('service_marketing_suite')) return 'service';
+    if (access.products.includes('sales_marketing_suite')) return 'sales';
+  }
+  return null;
+}
+
+function getMarketingSuiteConfig(suiteKey) {
+  const key = suiteKey || getActiveMarketingSuite() || 'complete';
+  return MARKETING_SUITE_CONFIG[key] || MARKETING_SUITE_CONFIG.complete;
+}
+
+if (typeof window !== 'undefined') {
+  window.MARKETING_SUITE_CONFIG = MARKETING_SUITE_CONFIG;
+  window.getActiveMarketingSuite = getActiveMarketingSuite;
+  window.getMarketingSuiteConfig = getMarketingSuiteConfig;
+}
 let __socialView = 'calendar';
 let __socialCalendarMode = 'month';
 let __socialCalendarAnchor = '';
@@ -362,8 +642,16 @@ ENGINES['marketing-overview'] = {
 
   tabs: {
     overview(body, d) {
+      const suite = getActiveMarketingSuite() || 'complete';
+      const cfg = getMarketingSuiteConfig(suite);
+      const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+      const hasSeo = access.isPlatformStaff || !!(
+        (access.products && (access.products.includes('marketsync_seo') || access.products.includes('seo')))
+        || (access.features && access.features.includes('seo.manage'))
+        || /(?:^|\s)(?:marketsync_seo|seo)(?:\s|$)/.test(document.documentElement.getAttribute('data-product') || '')
+      );
+
       const att = d.needsAttention || [];
-      const opp = d.opportunities || [];
       const failed = d.dayFailed || [];
       const notCovered = d.dayNotCovered || [];
       const caveat = (failed.length || notCovered.length) ? `
@@ -373,13 +661,406 @@ ENGINES['marketing-overview'] = {
           ${notCovered.length ? `<div class="text-[12px] text-amber-700 dark:text-amber-400 ${failed.length ? 'mt-1' : ''}">Not covered here yet: ${esc(notCovered.join(', '))}.</div>` : ''}
         </div>` : '';
 
+      // 1. Sales Marketing Suite Overview
+      if (suite === 'sales') {
+        body.innerHTML = `
+          <div class="space-y-6">
+            ${caveat}
+            <!-- Sales Marketing Header -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60">${esc(cfg.badge)}</span>
+                <h2 class="text-xl font-black text-slate-900 dark:text-white mt-1.5">${esc(cfg.title)}</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">${esc(cfg.subtitle)}</p>
+              </div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <button onclick="openVisualWorkflowBuilder({ category: 'leads' })" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs border border-slate-700 shadow-xs transition flex items-center gap-1.5 cursor-pointer">
+                  <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
+                  <span>Build Sales Automation</span>
+                </button>
+                <button onclick="openEmailSmsBuilder({ mode: 'email', department: 'sales' })" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+                  <span>New Sales Campaign</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 8 Sales KPIs Strip -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Leads In Nurture</div>
+                <div class="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1">142</div>
+                <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">Active sequences</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Sales Campaigns</div>
+                <div class="text-xl font-black text-slate-900 dark:text-white mt-1">8</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Broadcast active</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Messages Sent</div>
+                <div class="text-xl font-black text-slate-900 dark:text-white mt-1">9,480</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Last 30 days</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Lead Reply Rate</div>
+                <div class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">19.4%</div>
+                <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">+3.2% vs avg</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Showroom Appts</div>
+                <div class="text-xl font-black text-violet-600 dark:text-violet-400 mt-1">24</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">From automations</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Review Asks</div>
+                <div class="text-xl font-black text-amber-600 dark:text-amber-400 mt-1">34</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Post-delivery sent</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Social Posts</div>
+                <div class="text-xl font-black text-sky-600 dark:text-sky-400 mt-1">18</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Sales schedule</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Attributed Deals</div>
+                <div class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">12 Deals</div>
+                <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">$94.5k gross</div>
+              </div>
+            </div>
+
+            <!-- Sales Quick Action Cards -->
+            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div onclick="switchPage('automation-builder'); autoTab('automations'); __autoCategoryFilter='leads'; loadAutoBuilderPage();" class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-indigo-500 transition cursor-pointer group">
+                <div class="w-10 h-10 rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black mb-3 group-hover:bg-indigo-600 group-hover:text-white transition">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+                </div>
+                <h4 class="text-base font-black text-slate-900 dark:text-white">Lead Follow-Up</h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">90-second rapid response, missed calls, day 1-7 lead follow-ups, appointments.</p>
+                <div class="text-xs font-bold text-indigo-600 dark:text-indigo-400 mt-3 flex items-center gap-1">Manage Lead Flows &rarr;</div>
+              </div>
+
+              <div onclick="switchPage('automation-builder'); autoTab('automations'); __autoCategoryFilter='sales'; loadAutoBuilderPage();" class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-emerald-500 transition cursor-pointer group">
+                <div class="w-10 h-10 rounded-xl bg-emerald-600/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black mb-3 group-hover:bg-emerald-600 group-hover:text-white transition">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <h4 class="text-base font-black text-slate-900 dark:text-white">Sold &amp; Delivery</h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Delivery checklists, Google review requests, referrals, and equity check-ins.</p>
+                <div class="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-3 flex items-center gap-1">Manage Sales Flows &rarr;</div>
+              </div>
+
+              <div onclick="engineTab('marketing-overview','campaigns')" class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-sky-500 transition cursor-pointer group">
+                <div class="w-10 h-10 rounded-xl bg-sky-600/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-black mb-3 group-hover:bg-sky-600 group-hover:text-white transition">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/></svg>
+                </div>
+                <h4 class="text-base font-black text-slate-900 dark:text-white">Sales Campaigns</h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Vehicle clearance blasts, trade-in VIP events, holiday inventory sales.</p>
+                <div class="text-xs font-bold text-sky-600 dark:text-sky-400 mt-3 flex items-center gap-1">Manage Campaigns &rarr;</div>
+              </div>
+
+              <div onclick="window.openMarketSyncStudio ? window.openMarketSyncStudio() : switchPage('studio')" class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-violet-500 transition cursor-pointer group">
+                <div class="w-10 h-10 rounded-xl bg-violet-600/10 text-violet-600 dark:text-violet-400 flex items-center justify-center font-black mb-3 group-hover:bg-violet-600 group-hover:text-white transition">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/></svg>
+                </div>
+                <h4 class="text-base font-black text-slate-900 dark:text-white">Design Studio</h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Vehicle graphics, social banners, flyer templates, and promotional assets.</p>
+                <div class="text-xs font-bold text-violet-600 dark:text-violet-400 mt-3 flex items-center gap-1">Open Design Studio &rarr;</div>
+              </div>
+            </div>
+
+            <div id="mkt-overview-automations-mount"></div>
+          </div>
+        `;
+        const mount = document.getElementById('mkt-overview-automations-mount');
+        if (mount && typeof renderAutoOverviewTab === 'function') renderAutoOverviewTab(mount);
+        return;
+      }
+
+      // 2. Service Marketing Suite Overview
+      if (suite === 'service') {
+        body.innerHTML = `
+          <div class="space-y-6">
+            ${caveat}
+            <!-- Service Marketing Header -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">${esc(cfg.badge)}</span>
+                <h2 class="text-xl font-black text-slate-900 dark:text-white mt-1.5">${esc(cfg.title)}</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">${esc(cfg.subtitle)}</p>
+              </div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <button onclick="openVisualWorkflowBuilder({ category: 'service' })" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs border border-slate-700 shadow-xs transition flex items-center gap-1.5 cursor-pointer">
+                  <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
+                  <span>Build Service Automation</span>
+                </button>
+                <button onclick="openEmailSmsBuilder({ mode: 'email', department: 'service' })" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+                  <span>New Service Campaign</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 8 Service KPIs Strip -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Service Drivers</div>
+                <div class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">2,140</div>
+                <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">Active database</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Reminders Due</div>
+                <div class="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1">340</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Next 30 days</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Reactivation Opps</div>
+                <div class="text-xl font-black text-amber-600 dark:text-amber-400 mt-1">86</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Lapsed &gt;9 mos</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Service Campaigns</div>
+                <div class="text-xl font-black text-slate-900 dark:text-white mt-1">6</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Seasonal specials</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Messages Sent</div>
+                <div class="text-xl font-black text-slate-900 dark:text-white mt-1">5,340</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Last 30 days</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Appts Booked</div>
+                <div class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">48</div>
+                <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">Service bays</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Declined Recapture</div>
+                <div class="text-xl font-black text-sky-600 dark:text-sky-400 mt-1">14</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">ROs recovered</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Review Requests</div>
+                <div class="text-xl font-black text-violet-600 dark:text-violet-400 mt-1">42</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Post-service sent</div>
+              </div>
+            </div>
+
+            <!-- Service Quick Action Cards -->
+            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div onclick="switchPage('automation-builder'); autoTab('automations'); __autoCategoryFilter='service'; loadAutoBuilderPage();" class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-emerald-500 transition cursor-pointer group">
+                <div class="w-10 h-10 rounded-xl bg-emerald-600/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black mb-3 group-hover:bg-emerald-600 group-hover:text-white transition">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.07a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091.491.077.994-.04 1.48"/></svg>
+                </div>
+                <h4 class="text-base font-black text-slate-900 dark:text-white">Service Reminders</h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Mileage intervals, seasonal tire changeovers, brake alerts, oil change reminders.</p>
+                <div class="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-3 flex items-center gap-1">Manage Reminder Flows &rarr;</div>
+              </div>
+
+              <div onclick="switchPage('automation-builder'); autoTab('automations'); __autoCategoryFilter='service'; loadAutoBuilderPage();" class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-amber-500 transition cursor-pointer group">
+                <div class="w-10 h-10 rounded-xl bg-amber-600/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-black mb-3 group-hover:bg-amber-600 group-hover:text-white transition">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <h4 class="text-base font-black text-slate-900 dark:text-white">Declined Service Follow-Up</h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Automated recapture sequences on unperformed technician recommendations.</p>
+                <div class="text-xs font-bold text-amber-600 dark:text-amber-400 mt-3 flex items-center gap-1">Manage Declined Recapture &rarr;</div>
+              </div>
+
+              <div onclick="switchPage('automation-builder'); autoTab('automations'); __autoCategoryFilter='lifecycle'; loadAutoBuilderPage();" class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-sky-500 transition cursor-pointer group">
+                <div class="w-10 h-10 rounded-xl bg-sky-600/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-black mb-3 group-hover:bg-sky-600 group-hover:text-white transition">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                </div>
+                <h4 class="text-base font-black text-slate-900 dark:text-white">Customer Reactivation</h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Win back drivers who haven't visited for service in 9 to 18 months automatically.</p>
+                <div class="text-xs font-bold text-sky-600 dark:text-sky-400 mt-3 flex items-center gap-1">Manage Win-Back &rarr;</div>
+              </div>
+
+              <div onclick="engineTab('marketing-overview','campaigns')" class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-violet-500 transition cursor-pointer group">
+                <div class="w-10 h-10 rounded-xl bg-violet-600/10 text-violet-600 dark:text-violet-400 flex items-center justify-center font-black mb-3 group-hover:bg-violet-600 group-hover:text-white transition">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/></svg>
+                </div>
+                <h4 class="text-base font-black text-slate-900 dark:text-white">Service Campaigns</h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Spring tire changeover specials, brake service discounts, battery health check blasts.</p>
+                <div class="text-xs font-bold text-violet-600 dark:text-violet-400 mt-3 flex items-center gap-1">Explore Campaigns &rarr;</div>
+              </div>
+            </div>
+
+            <div id="mkt-overview-automations-mount"></div>
+          </div>
+        `;
+        const mount = document.getElementById('mkt-overview-automations-mount');
+        if (mount && typeof renderAutoOverviewTab === 'function') renderAutoOverviewTab(mount);
+        return;
+      }
+
+      // 3. MarketSync Digital Overview
+      if (suite === 'digital') {
+        body.innerHTML = `
+          <div class="space-y-6">
+            ${caveat}
+            <!-- Digital Command Center Header -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-50 dark:bg-violet-950/50 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/60">${esc(cfg.badge)}</span>
+                <h2 class="text-xl font-black text-slate-900 dark:text-white mt-1.5">${esc(cfg.title)}</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">${esc(cfg.subtitle)}</p>
+              </div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <button onclick="switchPage('website')" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs border border-slate-700 shadow-xs transition flex items-center gap-1.5 cursor-pointer">
+                  <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"/></svg>
+                  <span>Website Studio</span>
+                </button>
+                <button onclick="switchPage('ai-home')" class="px-3.5 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+                  <span>AI ChatBot</span>
+                </button>
+                <button onclick="openEmailSmsBuilder({ mode: 'email' })" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+                  <span>Campaigns</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 8 Digital KPIs Strip -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Digital Hubs</div>
+                <div class="text-xl font-black text-violet-600 dark:text-violet-400 mt-1">4 Live</div>
+                <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">Web + Bot + Marketing</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Web Traffic</div>
+                <div class="text-xl font-black text-slate-900 dark:text-white mt-1">8,420</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Monthly visits</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">AI Bot Chats</div>
+                <div class="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1">342</div>
+                <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">&lt;2s response</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Online Leads</div>
+                <div class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">94</div>
+                <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">Web &amp; Bot capture</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Automations</div>
+                <div class="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1">63</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Sales &amp; Service live</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Messages Sent</div>
+                <div class="text-xl font-black text-slate-900 dark:text-white mt-1">14,820</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Last 30 days</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Social Posts</div>
+                <div class="text-xl font-black text-sky-600 dark:text-sky-400 mt-1">22</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Published &amp; scheduled</div>
+              </div>
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Online Appts</div>
+                <div class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">38</div>
+                <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">Confirmed bookings</div>
+              </div>
+            </div>
+
+            <!-- Digital Ecosystem Cards Grid -->
+            <div class="grid lg:grid-cols-3 gap-5">
+              <!-- Card 1: Dealer Website -->
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Digital Storefront</span>
+                    <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Live</span>
+                  </div>
+                  <h3 class="text-lg font-black text-slate-900 dark:text-white mt-1">Dealership Website</h3>
+                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">High-converting inventory showroom, finance lead capture, and instant service scheduling.</p>
+                  <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 space-y-1.5">
+                    <div class="flex justify-between font-medium"><span>Monthly Inquiries:</span><span class="font-bold text-slate-900 dark:text-white">62 leads</span></div>
+                    <div class="flex justify-between font-medium"><span>Mobile Speed Index:</span><span class="font-bold text-emerald-600 dark:text-emerald-400">98 / 100</span></div>
+                  </div>
+                </div>
+                <button onclick="switchPage('website')" class="mt-5 w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold text-xs transition">Manage Website &rarr;</button>
+              </div>
+
+              <!-- Card 2: AI ChatBot -->
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-black uppercase tracking-wider text-violet-600 dark:text-violet-400">24/7 AI Concierge</span>
+                    <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active</span>
+                  </div>
+                  <h3 class="text-lg font-black text-slate-900 dark:text-white mt-1">AI ChatBot</h3>
+                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Autonomous 24/7 inventory Q&amp;A, test drive bookings, service questions, and credit pre-qual intake.</p>
+                  <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 space-y-1.5">
+                    <div class="flex justify-between font-medium"><span>Conversations Handled:</span><span class="font-bold text-slate-900 dark:text-white">342 chats</span></div>
+                    <div class="flex justify-between font-medium"><span>Lead Capture Rate:</span><span class="font-bold text-violet-600 dark:text-violet-400">27.4%</span></div>
+                  </div>
+                </div>
+                <button onclick="switchPage('ai-home')" class="mt-5 w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold text-xs transition">Open AI ChatBot &rarr;</button>
+              </div>
+
+              <!-- Card 3: SEO Module (Entitlement-Aware) -->
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-black uppercase tracking-wider ${hasSeo ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">Search Optimization</span>
+                    <span class="inline-flex items-center gap-1 text-[11px] font-bold ${hasSeo ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}"><span class="w-1.5 h-1.5 rounded-full ${hasSeo ? 'bg-emerald-500' : 'bg-slate-400'}"></span> ${hasSeo ? 'Connected' : 'Optional Add-on'}</span>
+                  </div>
+                  <h3 class="text-lg font-black text-slate-900 dark:text-white mt-1">MarketSync SEO</h3>
+                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">${hasSeo ? 'Real-time vehicle schema, Google Search Console indexing, and local automotive rankings.' : 'Automated local search engine optimization, vehicle inventory schema, and Google ranking monitor.'}</p>
+                  <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 space-y-1.5">
+                    ${hasSeo ? `
+                      <div class="flex justify-between font-medium"><span>SEO Health:</span><span class="font-bold text-emerald-600 dark:text-emerald-400">Active Monitoring</span></div>
+                      <div class="flex justify-between font-medium"><span>Google Index:</span><span class="font-bold text-slate-900 dark:text-white">Synced</span></div>
+                    ` : `
+                      <div class="text-[11px] text-slate-400 dark:text-slate-500 italic">MarketSync SEO is a separate add-on product ($149/mo).</div>
+                    `}
+                  </div>
+                </div>
+                ${hasSeo ? `
+                  <button onclick="switchPage('seo')" class="mt-5 w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold text-xs transition">Manage SEO &rarr;</button>
+                ` : `
+                  <button onclick="openPlanUpgradeModal ? openPlanUpgradeModal() : showToast('MarketSync SEO is available in Plan Settings', 'info')" class="mt-5 w-full py-2 rounded-xl border border-indigo-200 dark:border-indigo-800/70 bg-indigo-50/50 dark:bg-indigo-950/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold text-xs transition">Explore SEO Add-on &rarr;</button>
+                `}
+              </div>
+            </div>
+
+            <!-- Marketing & Content Hub Section -->
+            <div id="mkt-overview-automations-mount"></div>
+          </div>
+        `;
+        const mount = document.getElementById('mkt-overview-automations-mount');
+        if (mount && typeof renderAutoOverviewTab === 'function') renderAutoOverviewTab(mount);
+        return;
+      }
+
+      // 4. Complete Marketing Suite (Default / Standard Overview)
       body.innerHTML = `
         <div class="space-y-6">
           ${caveat}
-          <!-- 8 KPI Metrics Strip (Image 3) -->
+          <!-- Complete Suite Header -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60">${esc(cfg.badge)}</span>
+              <h2 class="text-xl font-black text-slate-900 dark:text-white mt-1.5">${esc(cfg.title)}</h2>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">${esc(cfg.subtitle)}</p>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <button onclick="openVisualWorkflowBuilder()" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs border border-slate-700 shadow-xs transition flex items-center gap-1.5 cursor-pointer">
+                <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
+                <span>Build Automation</span>
+              </button>
+              <button onclick="openEmailSmsBuilder({ mode: 'email' })" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+                <span>New Campaign</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 8 KPI Metrics Strip -->
           <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
             <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
-              <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Active Automations</div>
+              <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Active Flows</div>
               <div class="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1">63 <span class="text-xs font-semibold text-slate-400">/ 63</span></div>
               <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">Live running</div>
             </div>
@@ -420,12 +1101,91 @@ ENGINES['marketing-overview'] = {
             </div>
           </div>
 
+          <!-- Side-by-Side Sales Marketing and Service Marketing Hubs -->
+          <div class="grid lg:grid-cols-2 gap-5">
+            <!-- Sales Marketing Panel -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Sales Marketing Hub</span>
+                  <span class="text-xs font-bold text-slate-400">12 Active Flows</span>
+                </div>
+                <h3 class="text-lg font-black text-slate-900 dark:text-white mt-1">Sales Leads &amp; Delivery</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Rapid response lead nurturing, showroom visit confirmation, post-delivery reviews, and equity mining.</p>
+                <div class="mt-4 grid grid-cols-2 gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                    <div class="text-[10px] font-bold text-slate-400">Lead Response Time</div>
+                    <div class="text-sm font-black text-indigo-600 dark:text-indigo-400 mt-0.5">90 seconds</div>
+                  </div>
+                  <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                    <div class="text-[10px] font-bold text-slate-400">Review Requests</div>
+                    <div class="text-sm font-black text-slate-900 dark:text-white mt-0.5">34 Sent / 30d</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-4 flex items-center gap-2">
+                <button onclick="engineTab('marketing-overview','sales_overview')" class="flex-1 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold text-xs transition">Sales Overview &rarr;</button>
+                <button onclick="openEmailSmsBuilder({ mode: 'email', department: 'sales' })" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition">Sales Blast</button>
+              </div>
+            </div>
+
+            <!-- Service Marketing Panel -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Service Marketing Hub</span>
+                  <span class="text-xs font-bold text-slate-400">8 Active Flows</span>
+                </div>
+                <h3 class="text-lg font-black text-slate-900 dark:text-white mt-1">Service Retention &amp; Recapture</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Automated maintenance reminders, seasonal tire specials, declined service follow-up, and lapsed driver win-back.</p>
+                <div class="mt-4 grid grid-cols-2 gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                    <div class="text-[10px] font-bold text-slate-400">Service Reminders Due</div>
+                    <div class="text-sm font-black text-emerald-600 dark:text-emerald-400 mt-0.5">340 Drivers</div>
+                  </div>
+                  <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                    <div class="text-[10px] font-bold text-slate-400">Declined Recaptures</div>
+                    <div class="text-sm font-black text-slate-900 dark:text-white mt-0.5">14 Recovered</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-4 flex items-center gap-2">
+                <button onclick="engineTab('marketing-overview','service_overview')" class="flex-1 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold text-xs transition">Service Overview &rarr;</button>
+                <button onclick="openEmailSmsBuilder({ mode: 'email', department: 'service' })" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition">Service Blast</button>
+              </div>
+            </div>
+          </div>
+
           <div id="mkt-overview-automations-mount"></div>
         </div>
       `;
       const mount = document.getElementById('mkt-overview-automations-mount');
       if (mount && typeof renderAutoOverviewTab === 'function') {
         renderAutoOverviewTab(mount);
+      }
+    },
+
+    sales_overview(body, d) {
+      this.overview(body, { ...d, _suiteOverride: 'sales' });
+    },
+
+    service_overview(body, d) {
+      this.overview(body, { ...d, _suiteOverride: 'service' });
+    },
+
+    sales_campaigns(body) {
+      body.innerHTML = `<div id="mkt-campaigns-mount"></div>`;
+      const mount = document.getElementById('mkt-campaigns-mount');
+      if (mount && typeof renderAutoCampaignsTab === 'function') {
+        renderAutoCampaignsTab(mount, 'sales');
+      }
+    },
+
+    service_campaigns(body) {
+      body.innerHTML = `<div id="mkt-campaigns-mount"></div>`;
+      const mount = document.getElementById('mkt-campaigns-mount');
+      if (mount && typeof renderAutoCampaignsTab === 'function') {
+        renderAutoCampaignsTab(mount, 'service');
       }
     },
 

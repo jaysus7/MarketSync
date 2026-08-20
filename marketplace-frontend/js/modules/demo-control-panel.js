@@ -58,7 +58,11 @@
     if (pkgId.includes('campaign') || pkgId.includes('email') || pkgId.includes('social')) return 'campaigns';
     if (pkgId.includes('website') || pkgId === 'dealer-website') return 'website';
     if (pkgId.includes('chatbot') || pkgId.includes('ai_')) return 'ai_chatbot';
-    if (pkgId.includes('dealer-os') || pkgId.includes('suite') || pkgId === 'marketsync-digital') return 'dealer_os';
+    if (pkgId === 'sales-marketing-suite' || pkgId === 'sales_marketing_suite') return 'sales-marketing-suite';
+    if (pkgId === 'service-marketing-suite' || pkgId === 'service_marketing_suite') return 'service-marketing-suite';
+    if (pkgId === 'complete-marketing-suite' || pkgId === 'complete_marketing_suite') return 'complete-marketing-suite';
+    if (pkgId === 'marketsync-digital' || pkgId === 'marketsync_digital') return 'marketsync-digital';
+    if (pkgId.includes('dealer-os') || pkgId.includes('dealer_os')) return 'dealer_os';
     return 'dealer_os';
   }
 
