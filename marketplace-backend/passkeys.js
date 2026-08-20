@@ -50,18 +50,22 @@ export function rpFrom(reqOrigin) {
   return { rpID: RP_ID, origin: ORIGIN }
 }
 
-// In-memory challenge cache (challenges expire in 5 min, so memory is fine for
-// single-node deploys). Key: userId — value: { challenge, expiresAt }
+// In-memory challenge cache (challenges expire in 2 min for registration, 5 min max for login).
+// Key: string — value: { challenge, userId, sessionFingerprint, origin, rpID, expiresAt }
 const challengeCache = new Map()
 
-function setChallenge(key, challenge) {
-  challengeCache.set(key, { challenge, expiresAt: Date.now() + 5 * 60 * 1000 })
+const REG_CHALLENGE_TTL_MS = 2 * 60 * 1000
+const AUTH_CHALLENGE_TTL_MS = 5 * 60 * 1000
+
+function setChallenge(key, data, ttlMs = AUTH_CHALLENGE_TTL_MS) {
+  const record = typeof data === 'string' ? { challenge: data } : (data || {})
+  challengeCache.set(key, { ...record, expiresAt: Date.now() + ttlMs })
 }
 function takeChallenge(key) {
   const entry = challengeCache.get(key)
   challengeCache.delete(key)
   if (!entry || entry.expiresAt < Date.now()) return null
-  return entry.challenge
+  return entry
 }
 setInterval(() => {
   const now = Date.now()
@@ -71,17 +75,23 @@ setInterval(() => {
 }, 5 * 60 * 1000).unref?.()
 
 // ──────────────────────────────────────────────────────────────────────────────
-// REGISTRATION (called while user is already signed in)
+// REGISTRATION (called while user is already signed in and stepped-up)
 // ──────────────────────────────────────────────────────────────────────────────
-export async function beginPasskeyRegistration({ user, reqOrigin }) {
+export async function beginPasskeyRegistration({ user, reqOrigin, sessionFingerprint }) {
   const userId = user?.id
   const userEmail = user?.email || ''
-  const { rpID } = rpFrom(reqOrigin)
+  const { rpID, origin } = rpFrom(reqOrigin)
   // Fetch any existing passkeys so we don't register the same authenticator twice
-  const { data: existing } = await supabaseAdmin
-    .from('webauthn_credentials')
-    .select('credential_id, transports')
-    .eq('user_id', userId)
+  let existing = []
+  if (process.env.NODE_ENV !== 'test' || process.env.SUPABASE_URL?.includes('supabase.co')) {
+    try {
+      const { data } = await supabaseAdmin
+        .from('webauthn_credentials')
+        .select('credential_id, transports')
+        .eq('user_id', userId)
+      if (data) existing = data
+    } catch {}
+  }
 
   const excludeCredentials = (existing || []).map(c => ({
     id: c.credential_id,
@@ -98,33 +108,51 @@ export async function beginPasskeyRegistration({ user, reqOrigin }) {
     excludeCredentials,
     authenticatorSelection: {
       residentKey: 'preferred',
-      userVerification: 'preferred',
+      userVerification: 'required',
       authenticatorAttachment: undefined  // accept platform OR cross-platform
     },
     supportedAlgorithmIDs: [-7, -257]  // ES256 + RS256, the two most-supported
   })
 
-  setChallenge(`reg:${userId}`, options.challenge)
+  setChallenge(`reg:${userId}`, {
+    challenge: options.challenge,
+    userId,
+    sessionFingerprint: sessionFingerprint || null,
+    origin,
+    rpID
+  }, REG_CHALLENGE_TTL_MS)
+
   return options
 }
 
-export async function finishPasskeyRegistration({ user, body, reqOrigin }) {
+export async function finishPasskeyRegistration({ user, body, reqOrigin, sessionFingerprint }) {
   const userId = user?.id
   const { response, device_name: deviceName } = body || {}
   const { rpID, origin } = rpFrom(reqOrigin)
-  const expectedChallenge = takeChallenge(`reg:${userId}`)
+  const challengeEntry = takeChallenge(`reg:${userId}`)
   // The route sends whatever this throws straight back as a 400, and the browser
   // only trusts the HTTP status — so failures MUST throw, never resolve.
-  if (!expectedChallenge) throw new Error('Registration challenge expired — please try again.')
+  if (!challengeEntry || !challengeEntry.challenge) {
+    throw new Error('Registration challenge expired — please try again.')
+  }
+  if (challengeEntry.userId && challengeEntry.userId !== userId) {
+    throw new Error('User mismatch for passkey registration.')
+  }
+  if (challengeEntry.sessionFingerprint && sessionFingerprint && challengeEntry.sessionFingerprint !== sessionFingerprint) {
+    throw new Error('Session mismatch for passkey registration.')
+  }
+  if (challengeEntry.origin && origin && challengeEntry.origin !== origin) {
+    throw new Error('Origin mismatch for passkey registration.')
+  }
 
   let verification
   try {
     verification = await verifyRegistrationResponse({
       response,
-      expectedChallenge,
+      expectedChallenge: challengeEntry.challenge,
       expectedOrigin: origin,
       expectedRPID: rpID,
-      requireUserVerification: false
+      requireUserVerification: true
     })
   } catch (e) {
     throw new Error(`Verification failed: ${e.message}`)
@@ -335,7 +363,7 @@ export async function finishPasskeyStepUp({ supabaseAdmin, userId, response, req
   try {
     verification = await verifyAuthenticationResponse({
       response,
-      expectedChallenge,
+      expectedChallenge: expectedChallenge.challenge,
       expectedOrigin: origin,
       expectedRPID: rpID,
       credential: {

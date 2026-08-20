@@ -271,18 +271,30 @@ export function registerAuthMfaPasskeyRoutes(app) {
     }
   })
 
-  app.post('/auth/passkey/register/begin', requireAuth, requireMfa, rateLimit('passkey-reg-begin', 10, 60 * 60 * 1000), async (req, res) => {
+  app.post('/auth/passkey/register/begin', requireAuth, requireStrongStepUp, rateLimit('passkey-reg-begin', 10, 60 * 60 * 1000), async (req, res) => {
     try {
-      const options = await beginPasskeyRegistration({ user: req.user, userAgent: req.headers['user-agent'], reqOrigin: req.headers.origin })
+      const sessionFingerprint = getSessionFingerprint(req)
+      const options = await beginPasskeyRegistration({
+        user: req.user,
+        userAgent: req.headers['user-agent'],
+        reqOrigin: req.headers.origin,
+        sessionFingerprint
+      })
       res.json(options)
     } catch (err) {
       res.status(500).json({ error: err.message })
     }
   })
 
-  app.post('/auth/passkey/register/finish', requireAuth, rateLimit('passkey-reg-finish', 10, 60 * 60 * 1000), async (req, res) => {
+  app.post('/auth/passkey/register/finish', requireAuth, requireStrongStepUp, rateLimit('passkey-reg-finish', 10, 60 * 60 * 1000), async (req, res) => {
     try {
-      const result = await finishPasskeyRegistration({ user: req.user, body: req.body || {}, reqOrigin: req.headers.origin })
+      const sessionFingerprint = getSessionFingerprint(req)
+      const result = await finishPasskeyRegistration({
+        user: req.user,
+        body: req.body || {},
+        reqOrigin: req.headers.origin,
+        sessionFingerprint
+      })
       audit(req, AuditAction.PASSKEY_REGISTERED, { credential_id: result.passkey?.credential_id || null })
       res.json(result)
     } catch (err) {
