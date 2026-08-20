@@ -1539,13 +1539,15 @@ async function loadWebsitePage() {
 async function loadWebsiteSettings() {
   const root = document.getElementById('website-settings-root');
   if (!root) return;
+  document.documentElement.classList.remove('website-workspace-mode');
+  document.body.classList.remove('website-workspace-mode');
   if (!__siteCfg) {
     root.innerHTML = '<div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div>';
     try { __siteCfg = await apiGetJson('/dealership/site'); }
     catch (e) { root.innerHTML = `<div class="py-16 text-center text-sm text-slate-500">Couldn't load: ${esc(e.message)}</div>`; return; }
   }
   __wsTab = 'setup';
-  renderWebsitePage();
+  root.innerHTML = wsSetup();
 }
 
 function wsFlushTarget() {
@@ -1609,6 +1611,9 @@ window.exitWebsiteWorkspace = exitWebsiteWorkspace;
 
 function renderWebsitePage() {
   applyBuilderTheme();
+  const isBuilder = (__wsTab === 'builder');
+  document.documentElement.classList.toggle('website-workspace-mode', isBuilder);
+  document.body.classList.toggle('website-workspace-mode', isBuilder);
   const root = document.getElementById('website-root'); if (!root) return;
   const c = __siteCfg?.content || {};
   const url = __siteCfg?.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(__siteCfg.site_slug)}` : null;
@@ -1624,7 +1629,7 @@ function renderWebsitePage() {
   };
 
   root.innerHTML = `
-    <div class="flex flex-col h-full w-full bg-[var(--ws-bg)] text-[var(--ws-text)]">
+    <div class="flex flex-col ${isBuilder ? 'h-full' : 'min-h-0'} w-full bg-[var(--ws-bg)] text-[var(--ws-text)]">
       <!-- TOP APPLICATION HEADER (Dedicated Website Workspace Header with Sub-Layout Navigation) -->
       <div class="ws-builder-header flex items-center justify-between px-4 py-2.5 bg-slate-900 border-b border-slate-800 flex-shrink-0 flex-wrap gap-2 text-white z-20">
         <div class="flex items-center gap-3">
@@ -1663,11 +1668,17 @@ function renderWebsitePage() {
       </div>
 
       <!-- WORKSPACE CONTENT BODY (Sub-Layout dynamically mounted based on active tab) -->
-      <div id="ws-body" class="flex-1 min-h-0 overflow-y-auto"></div>
+      <div id="ws-body" class="${isBuilder ? 'flex-1 min-h-0 overflow-hidden' : 'w-full'}"></div>
     </div>`;
   renderWsBody();
 }
-function wsTab(t) { __wsTab = t; renderWebsitePage(); }
+function wsTab(t) {
+  __wsTab = t;
+  const isBuilder = (__wsTab === 'builder');
+  document.documentElement.classList.toggle('website-workspace-mode', isBuilder);
+  document.body.classList.toggle('website-workspace-mode', isBuilder);
+  renderWebsitePage();
+}
 let __builderMode = (() => { try { return localStorage.getItem('ms_builder_mode') || 'live'; } catch { return 'live'; } })();
 function setBuilderMode(m) {
   __builderMode = (m === 'live') ? 'live' : 'classic';

@@ -1622,7 +1622,7 @@ function switchPage(pageId) {
   if (contentKey !== 'website') {
     window.__lastNonWebsitePage = contentKey;
   }
-  const isWsWorkspace = (contentKey === 'website');
+  const isWsWorkspace = (contentKey === 'website' && (typeof __wsTab === 'undefined' || __wsTab === 'builder'));
   document.documentElement.classList.toggle('website-workspace-mode', isWsWorkspace);
   document.body.classList.toggle('website-workspace-mode', isWsWorkspace);
   if (isWsWorkspace && typeof applyBuilderTheme === 'function') {
