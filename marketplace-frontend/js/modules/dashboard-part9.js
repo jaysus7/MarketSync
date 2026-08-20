@@ -873,6 +873,7 @@ function loadConfigHub() {
         { label: 'Budget & bank', go: "settingsGo('accounting-overview','accounting-overview','budget')" },
       ])}
       ${section('Marketing & Communications', 'Brand, campaigns, social, website, email and AI.', [
+        { label: 'Email & SMS settings', go: "openMarketingEmailSettings()" },
         { label: 'Marketing settings', go: "settingsGo('marketing-overview','marketing-overview','settings')" },
         { label: 'Website', go: "settingsGo('marketing-overview','marketing-overview','website')" },
         { label: 'Design Studio', go: "settingsGo('marketing-overview','marketing-overview','studio')" },

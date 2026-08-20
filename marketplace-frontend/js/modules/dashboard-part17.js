@@ -1630,7 +1630,7 @@ function renderWebsitePage() {
         <div class="flex items-center gap-3">
           <button onclick="exitWebsiteWorkspace()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 text-xs font-black transition cursor-pointer shadow-xs" title="Exit Website Workspace & Return to Dashboard">
             <svg class="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
-            <span>Exit Website</span>
+            <span>${(window.websiteWorkspacePreviousRoute && window.websiteWorkspacePreviousRoute.dept === 'marketing') ? 'Back to Marketing' : 'Exit Website'}</span>
           </button>
           <div class="h-5 w-px bg-slate-800"></div>
           <div class="w-7 h-7 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-black border border-indigo-500/40">

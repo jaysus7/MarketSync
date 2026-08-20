@@ -308,20 +308,19 @@ ENGINES['marketing-overview'] = {
   rootId: 'marketing-overview-root', title: 'Marketing',
   subtitle: 'Campaigns, social, conversations — and what they actually produced',
   icon: 'megaphone', accent: 'violet',
-  // Marketing is the widest department, so it carries six. Each is a place a marketer
-  // goes to do one job, and none of them opens onto another row of tabs.
-  tabLabels: { overview: 'Pulse', 'video-studio': 'Video Studio', chatbot: 'AI ChatBot', emails: 'Emails', studio: 'Design Studio', website: 'Website', automations: 'Automations' },
+  // Marketing navigation leads with Pulse, Video Studio, AI ChatBot, Email & SMS, Design Studio, and Website.
+  tabLabels: { overview: 'Pulse', 'video-studio': 'Video Studio', chatbot: 'AI ChatBot', 'email-sms': 'Email & SMS', studio: 'Design Studio', website: 'Website', emails: 'Email & SMS', automations: 'Email & SMS' },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    return mgr ? ['overview', 'video-studio', 'chatbot', 'emails', 'studio', 'website', 'automations']
-               : ['overview', 'video-studio', 'chatbot', 'emails', 'studio'];
+    return mgr ? ['overview', 'video-studio', 'chatbot', 'email-sms', 'studio', 'website']
+               : ['overview', 'video-studio', 'chatbot', 'email-sms', 'studio'];
   },
 
   quickActions: [
     { label: 'Marketing Training (Academy)', icon: 'sparkles', onclick: "openMarketSyncAcademy('marketing')" },
     { label: 'Video Studio', icon: 'video', onclick: "engineTab('marketing-overview','video-studio')" },
     { label: 'AI ChatBot', icon: 'chat', onclick: "engineTab('marketing-overview','chatbot')" },
-    { label: 'Emails', icon: 'megaphone', onclick: "engineTab('marketing-overview','emails')" },
+    { label: 'Email & SMS', icon: 'megaphone', onclick: "engineTab('marketing-overview','email-sms')" },
     { label: 'Design Studio', icon: 'camera', onclick: "engineTab('marketing-overview','studio')" },
     { label: 'Website', icon: 'chart', onclick: "engineTab('marketing-overview','website')" },
   ],
@@ -395,7 +394,7 @@ ENGINES['marketing-overview'] = {
           </div>
           <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
             <button onclick="engineTab('marketing-overview','chatbot')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Open AI ChatBot Inbox</button>
-            <button onclick="engineTab('marketing-overview','emails')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Review Email Campaigns</button>
+            <button onclick="engineTab('marketing-overview','email-sms')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Review Email &amp; SMS</button>
           </div>
         </div>
       `;
@@ -420,46 +419,128 @@ ENGINES['marketing-overview'] = {
     },
 
     // ── AI ChatBot ───────────────────────────────────────────────────────────
-    // Was "Work", which opened onto five more tabs. The chatbot and the inbox it fills
-    // are one job, so they are one page you scroll.
     chatbot(body, d) {
-      body.innerHTML = engSection('Conversations', mktConversationsView(d), 'Who is talking to the bot, and who is waiting on a human');
-      body.insertAdjacentHTML('beforeend', engSection('The assistant', '', 'How it answers, and what it knows about your store'));
-      engMountPage(body, 'ai-home', () => loadAiHome());
+      body.innerHTML = `
+        <div class="space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+            <div>
+              <h3 class="text-sm font-black text-slate-900 dark:text-white">AI ChatBot Product Workspace</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Live conversations, human takeovers, and AI dealership knowledgebase configuration.</p>
+            </div>
+            <button onclick="engineTab('marketing-overview','overview')" class="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition shadow-xs flex items-center gap-1.5">
+              <span>&larr; Back to Marketing Pulse</span>
+            </button>
+          </div>
+          <div id="mkt-chatbot-mount" class="space-y-4"></div>
+        </div>
+      `;
+      const mount = document.getElementById('mkt-chatbot-mount');
+      if (mount) {
+        mount.innerHTML = engSection('Conversations', mktConversationsView(d), 'Who is talking to the bot, and who is waiting on a human');
+        mount.insertAdjacentHTML('beforeend', engSection('The assistant', '', 'How it answers, and what it knows about your store'));
+        engMountPage(mount, 'ai-home', () => loadAiHome());
+      }
     },
 
-    // ── Emails ───────────────────────────────────────────────────────────────
-    // Campaigns live under Emails, because a campaign IS the email you send.
+    // ── Email & SMS (Consolidated Communication Automation Engine) ───────────
+    'email-sms'(body) {
+      body.innerHTML = `
+        <div class="space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+            <div>
+              <h3 class="text-sm font-black text-slate-900 dark:text-white">Email &amp; SMS Automation Engine</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Automated lead response, service retention, reviews, and visual workflow journeys.</p>
+            </div>
+            <button onclick="engineTab('marketing-overview','overview')" class="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition shadow-xs flex items-center gap-1.5">
+              <span>&larr; Back to Marketing Pulse</span>
+            </button>
+          </div>
+          <div id="mkt-email-sms-mount"></div>
+        </div>
+      `;
+      const mount = document.getElementById('mkt-email-sms-mount');
+      if (mount) {
+        engMountPage(mount, 'automation-builder', () => loadAutoBuilderPage());
+      }
+    },
+
+    // Legacy aliases for backward-compatible deep links and redirects
     emails(body, d) {
-      body.innerHTML = engSection('Campaigns', mktCampaignsView(d), 'What is running, what it cost, and what it produced');
-      body.insertAdjacentHTML('beforeend', engSection('Email', '', 'Templates, sends and the list they go to'));
-      engMountPage(body, 'email-marketing', () => loadDealerEmail());
+      this['email-sms'](body, d);
+    },
+    automations(body, d) {
+      this['email-sms'](body, d);
     },
 
-    // ── Studio ───────────────────────────────────────────────────────────────
-    // Took the Insights slot. Creative and the places it gets published.
+    // ── Design Studio ────────────────────────────────────────────────────────
+    // Leaves Marketing dashboard shell and opens the full-screen canvas workspace
     studio(body, d) {
-      body.innerHTML = engSection('Creative', mktStudioView(d), 'The assets you have made, and the vehicles they are for')
-        + engSection('Social', mktSocialSection(d), 'Scheduled, published and failed — across every connected account');
+      if (typeof openMarketSyncStudio === 'function') {
+        openMarketSyncStudio();
+      }
+      body.innerHTML = `
+        <div class="py-12 px-6 max-w-xl mx-auto text-center space-y-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs my-8">
+          <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/></svg>
+          </div>
+          <div>
+            <h3 class="text-base font-black text-slate-900 dark:text-white">Design Studio Full-Screen Workspace</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Design Studio operates as a dedicated full-screen creative workspace for automotive social graphics, inventory flyers, and story assets.</p>
+          </div>
+          <div class="pt-2 flex justify-center gap-3">
+            <button onclick="openMarketSyncStudio()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md">Open Studio Canvas &rarr;</button>
+            <button onclick="engineTab('marketing-overview','overview')" class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition">Back to Pulse</button>
+          </div>
+        </div>
+      `;
     },
 
     // ── Website ──────────────────────────────────────────────────────────────
+    // Leaves Marketing dashboard shell and enters dedicated Website product shell
     website(body) {
-      body.innerHTML = engSection('Your website', '', 'Pages, the blog and what shoppers see');
-      engMountPage(body, 'website', () => loadWebsitePage());
+      window.websiteWorkspacePreviousRoute = { dept: 'marketing', page: 'marketing-overview' };
+      body.innerHTML = `
+        <div class="py-12 px-6 max-w-xl mx-auto text-center space-y-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs my-8">
+          <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"/></svg>
+          </div>
+          <div>
+            <h3 class="text-base font-black text-slate-900 dark:text-white">Dealer Website Product Workspace</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Dedicated website workspace featuring Live Visual Builder, Blog CMS, AI SEO, and 3-Column Configuration Setup.</p>
+          </div>
+          <div class="pt-2 flex justify-center gap-3">
+            <button onclick="if (typeof switchPage === 'function') switchPage('website'); else loadWebsitePage();" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md">Open Website Workspace &rarr;</button>
+            <button onclick="engineTab('marketing-overview','overview')" class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition">Back to Pulse</button>
+          </div>
+        </div>
+      `;
+      if (typeof switchPage === 'function') {
+        switchPage('website');
+      } else {
+        engMountPage(body, 'website', () => loadWebsitePage());
+      }
     },
 
     // ── Video Studio ─────────────────────────────────────────────────────────
     'video-studio'(body) {
-      body.innerHTML = engSection('Video Studio', '', 'Customer video walkaround recorder & sent video activity');
-      engMountPage(body, 'video-studio', () => { if (typeof loadVideoStudioPage === 'function') loadVideoStudioPage(); });
-    },
-
-    // ── Automations ─────────────────────────────────────────────────────────
-    // Marketing Automation Engine — event-driven rules that follow up, remind, and re-engage based on live events.
-    automations(body) {
-      body.innerHTML = engSection('Marketing Automation Engine', '', 'Event-driven workflows that follow up, remind and re-engage without human delay');
-      engMountPage(body, 'automation-builder', () => loadAutoBuilderPage());
+      body.innerHTML = `
+        <div class="space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+            <div>
+              <h3 class="text-sm font-black text-slate-900 dark:text-white">Video Studio Product Workspace</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Customer video walkaround recorder, camera app, and delivery analytics.</p>
+            </div>
+            <button onclick="engineTab('marketing-overview','overview')" class="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition shadow-xs flex items-center gap-1.5">
+              <span>&larr; Back to Marketing Pulse</span>
+            </button>
+          </div>
+          <div id="mkt-video-studio-mount"></div>
+        </div>
+      `;
+      const mount = document.getElementById('mkt-video-studio-mount');
+      if (mount) {
+        engMountPage(mount, 'video-studio', () => { if (typeof loadVideoStudioPage === 'function') loadVideoStudioPage(); });
+      }
     },
   },
 };

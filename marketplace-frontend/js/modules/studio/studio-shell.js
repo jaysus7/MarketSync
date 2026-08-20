@@ -1218,6 +1218,10 @@ function closeMarketSyncStudio() {
     window.__studioKeydownBound = false;
     document.removeEventListener('keydown', studioKeydownHandler);
   }
+  if (typeof switchDept === 'function' && typeof currentDept !== 'undefined' && currentDept === 'marketing') {
+    if (typeof engineTab === 'function') engineTab('marketing-overview', 'overview');
+    else switchDept('marketing', 'overview');
+  }
 }
 
 function toggleStudioToolPanel() {

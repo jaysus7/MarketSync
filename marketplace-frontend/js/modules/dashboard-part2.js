@@ -1197,7 +1197,7 @@ const PAGE_FEATURE = {
   delivery: 'os.sales', fni: 'os.sales',
   reports: 'os.reports',
   'inv-intel': 'os.inventory', market: 'os.inventory',
-  'ai-home': 'os.marketing', 'video-studio': 'os.marketing',
+  'ai-home': 'os.marketing', 'video-studio': 'os.marketing', studio: 'os.marketing',
   'api-keys': 'os.integrations',
   'owner-users': 'os.team', 'sales-team': 'os.team', 'people-compliance': 'os.team', hr: 'os.team', people: 'os.team',
   'people-overview': 'os.team',
@@ -1212,7 +1212,9 @@ const PAGE_PRODUCT = { leaderboard: 'facebook' };
 // honest while still using the same server-authored feature list.
 const PAGE_ANY_FEATURE = {
   'marketing-overview': ['os.marketing', 'design.canvas', 'social.scheduler'],
+  studio: ['os.marketing', 'design.canvas', 'social.scheduler'],
   'email-marketing': ['os.email_marketing', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations'],
+  'automation-builder': ['os.automations', 'os.marketing', 'os.email_marketing', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations'],
   'video-studio': ['os.marketing', 'video.library'],
   website: ['os.website', 'website.builder'],
   seo: ['os.marketing', 'seo.intelligence', 'seo.standalone'],
@@ -1563,8 +1565,11 @@ function switchPage(pageId) {
   if (pageId === 'people' || pageId === 'hr') pageId = 'people-overview';
   // The three automation follow-up pages are now tabs inside one Builder page —
   // keep old deep links (notifications, mobile nav) working by mapping to the tab.
-  if (pageId === 'auto-holidays' || pageId === 'auto-leads' || pageId === 'auto-delivery') {
-    __autoTab = pageId === 'auto-holidays' ? 'holidays' : pageId === 'auto-delivery' ? 'delivery' : 'leads';
+  if (pageId === 'email-marketing' || pageId === 'email-sms' || pageId === 'automations' || pageId === 'auto-holidays' || pageId === 'auto-leads' || pageId === 'auto-delivery') {
+    if (pageId === 'auto-holidays') __autoTab = 'lifecycle';
+    else if (pageId === 'auto-delivery') __autoTab = 'sales';
+    else if (pageId === 'auto-leads') __autoTab = 'leads';
+    else if (pageId === 'email-marketing') __autoTab = 'marketing';
     pageId = 'automation-builder';
   }
   // Facebook-only tier: only the Facebook hub, leaderboard and settings are reachable.
@@ -1697,6 +1702,7 @@ function switchPage(pageId) {
   if (pageId === 'automation') loadAutomationPage();
   if (pageId === 'automation-builder') loadAutoBuilderPage();
   if (pageId === 'email-marketing' || pageId === 'email-campaigns') loadDealerEmail();
+  if (pageId === 'studio' || pageId === 'design-studio') { if (typeof openMarketSyncStudio === 'function') openMarketSyncStudio(); }
   if (pageId === 'video-studio') loadVideoStudioPage();
   if (pageId === 'academy') loadAcademyWorkspace();
   if (pageId === 'launch') loadLaunchHub();

@@ -118,14 +118,15 @@ test('renderSetupBar retires the Open Setup wizard button for every account, not
   assert.match(fn, /if \(host\) host\.innerHTML = ''/, 'the host must always be cleared')
 })
 
-test('every single-product tier (not just Design Studio) gets the simplified header: Profile + Sign out only', () => {
+test('every single-product tier (not just Design Studio) gets the simplified header: Notifications + Profile + Sign out (DealerOS settings hidden)', () => {
   const fn = dashboard.match(/function applyProductNav\(products\) \{[\s\S]*?\nwindow\.applyProductNav = applyProductNav;/)?.[0] || ''
   assert.ok(fn, 'applyProductNav must exist')
   const block = fn.match(/if \(active\.length === 1\) \{[\s\S]*?\n {2}\}/)?.[0] || ''
   assert.ok(block, 'the single-product header-simplification block must exist, gated on active.length === 1 (not a specific product)')
-  for (const id of ['header-settings', 'notif-bell', 'header-social-icons']) {
+  for (const id of ['header-settings', 'header-social-icons']) {
     assert.match(block, new RegExp(`document\\.getElementById\\('${id}'\\)\\?\\.classList\\.add\\('hidden'\\)`), `${id} must be hidden for single-product tiers`)
   }
+  assert.match(block, /document\.getElementById\('notif-bell'\)\?\.classList\.remove\('hidden'\)/, 'notif-bell must remain visible for single-product tiers')
   assert.match(block, /document\.getElementById\('setup-bar-host'\)\?\.replaceChildren\(\)/, 'Open Setup must be cleared for single-product tiers')
   // Must come before the design_studio-specific block, and not be scoped to it —
   // this has to apply to every single-product tier (Facebook, AI ChatBot, Video,

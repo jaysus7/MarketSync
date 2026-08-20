@@ -12,14 +12,14 @@ const API = (location.hostname.includes('staging') ? 'https://marketsync-staging
     try {
       const url = typeof input === 'string' ? input : (input && input.url) || '';
       if (url.indexOf(API) === 0 &&
-          document.documentElement.getAttribute('data-dash-owner') === '1' &&
-          document.documentElement.getAttribute('data-dash-mode') === 'demo') {
+        document.documentElement.getAttribute('data-dash-owner') === '1' &&
+        document.documentElement.getAttribute('data-dash-mode') === 'demo') {
         init = init || {};
         const h = new Headers(init.headers || (typeof input !== 'string' && input.headers) || {});
         h.set('X-Act-Demo', '1');
         init = { ...init, headers: h };
       }
-    } catch (e) {}
+    } catch (e) { }
     return _fetch(input, init);
   };
 })();
@@ -118,7 +118,7 @@ document.addEventListener('input', (e) => {
   if (after !== before) {
     el.value = after;
     const pos = Math.max(0, after.length - caretFromEnd);
-    try { el.setSelectionRange(pos, pos); } catch {}
+    try { el.setSelectionRange(pos, pos); } catch { }
   }
 }, true);
 // Format pre-filled data-money inputs inside a freshly-rendered container.
@@ -159,8 +159,8 @@ function msIco(name, cls) {
 function actHeaders() {
   try {
     if (document.documentElement.getAttribute('data-dash-owner') === '1' &&
-        document.documentElement.getAttribute('data-dash-mode') === 'demo') return { 'X-Act-Demo': '1' };
-  } catch (e) {}
+      document.documentElement.getAttribute('data-dash-mode') === 'demo') return { 'X-Act-Demo': '1' };
+  } catch (e) { }
   return {};
 }
 const __apiInflight = new Map();
@@ -195,7 +195,7 @@ async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}
           // catch as a network error and re-looped, turning e.g. a 404 into a ~15s
           // stall before the real error ever reached the caller).
           let msg = `HTTP ${r.status}`;
-          try { const b = await r.json(); if (b?.error) msg = b.error; } catch {}
+          try { const b = await r.json(); if (b?.error) msg = b.error; } catch { }
           const err = new Error(msg);
           err.nonRetryable = true;
           throw err;
@@ -207,7 +207,7 @@ async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}
       } finally {
         clearTimeout(timer);
       }
-      if (typeof onRetry === 'function') try { onRetry(attempt + 1, retries + 1); } catch {}
+      if (typeof onRetry === 'function') try { onRetry(attempt + 1, retries + 1); } catch { }
       await new Promise(res => setTimeout(res, Math.min(6000, 1000 * (attempt + 1))));
     }
     throw lastErr || new Error('Request failed');
@@ -240,7 +240,7 @@ async function apiSendJson(path, method = 'POST', body = null, { timeoutMs = 200
     const ok = await refreshSessionSilently();
     if (ok) r = await attempt();
   }
-  let data = null; try { data = await r.json(); } catch {}
+  let data = null; try { data = await r.json(); } catch { }
   if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
   return data || {};
 }
@@ -268,20 +268,20 @@ async function apiSendFormData(path, method = 'POST', formData, { timeoutMs = 12
     const ok = await refreshSessionSilently();
     if (ok) r = await attempt();
   }
-  let data = null; try { data = await r.json(); } catch {}
+  let data = null; try { data = await r.json(); } catch { }
   if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
   return data || {};
 }
 
 // Surface otherwise-invisible runtime errors so "stuck loading" symptoms become
 // diagnosable instead of silent. Deduped so a repeating error doesn't spam.
-;(function installGlobalErrorSurfacer() {
+; (function installGlobalErrorSurfacer() {
   let last = '';
   const show = (label, msg) => {
     const text = `${label}: ${msg}`;
     if (text === last) return; last = text;
     console.error('[MarketSync]', text);
-    try { if (typeof showToast === 'function') showToast(text.slice(0, 160), 'error', 8000); } catch {}
+    try { if (typeof showToast === 'function') showToast(text.slice(0, 160), 'error', 8000); } catch { }
   };
   window.addEventListener('error', (e) => show('JS error', e.message || String(e.error || e)));
   window.addEventListener('unhandledrejection', (e) => show('Unhandled', (e.reason && (e.reason.message || e.reason)) || 'promise rejection'));
@@ -302,7 +302,7 @@ window.toast = showToast;
 
 // If the extension passed a token in the URL hash (#tk=...), store it into
 // localStorage so the user is automatically logged in, then strip the hash.
-;(function bootstrapExtensionToken() {
+; (function bootstrapExtensionToken() {
   try {
     const hash = window.location.hash
     const match = hash.match(/[#&]tk=([^&]+)/)
@@ -312,56 +312,56 @@ window.toast = showToast;
       // Replace hash without reloading so the token isn't left in browser history
       history.replaceState(null, '', window.location.pathname + window.location.search)
     }
-  } catch {}
+  } catch { }
 })()
 
-// After a calendar OAuth round-trip the provider redirects back with
-// ?calendar=connected|error. Surface it, land the user on Integrations, then
-// strip the params so a refresh doesn't re-toast.
-;(function bootstrapCalendarReturn() {
-  try {
-    const q = new URLSearchParams(window.location.search)
-    const state = q.get('calendar')
-    if (!state) return
-    const provider = q.get('provider') || ''
-    const label = provider === 'google' ? 'Google Calendar' : provider === 'microsoft' ? 'Outlook Calendar' : 'Calendar'
-    window.addEventListener('DOMContentLoaded', () => {
-      setTimeout(() => {
-        if (state === 'connected') { showToast(`${label} connected`, 'success'); if (typeof switchPage === 'function') { switchPage('profile'); setTimeout(() => { if (typeof settingsTab === 'function') settingsTab('admin'); }, 250); } }
-        else showToast(`Couldn’t connect ${label}${q.get('msg') ? ': ' + q.get('msg') : ''}`, 'error', 7000)
-      }, 400)
-    })
-    q.delete('calendar'); q.delete('provider'); q.delete('msg')
-    history.replaceState(null, '', window.location.pathname + (q.toString() ? '?' + q.toString() : ''))
-  } catch {}
-})()
+  // After a calendar OAuth round-trip the provider redirects back with
+  // ?calendar=connected|error. Surface it, land the user on Integrations, then
+  // strip the params so a refresh doesn't re-toast.
+  ; (function bootstrapCalendarReturn() {
+    try {
+      const q = new URLSearchParams(window.location.search)
+      const state = q.get('calendar')
+      if (!state) return
+      const provider = q.get('provider') || ''
+      const label = provider === 'google' ? 'Google Calendar' : provider === 'microsoft' ? 'Outlook Calendar' : 'Calendar'
+      window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+          if (state === 'connected') { showToast(`${label} connected`, 'success'); if (typeof switchPage === 'function') { switchPage('profile'); setTimeout(() => { if (typeof settingsTab === 'function') settingsTab('admin'); }, 250); } }
+          else showToast(`Couldn’t connect ${label}${q.get('msg') ? ': ' + q.get('msg') : ''}`, 'error', 7000)
+        }, 400)
+      })
+      q.delete('calendar'); q.delete('provider'); q.delete('msg')
+      history.replaceState(null, '', window.location.pathname + (q.toString() ? '?' + q.toString() : ''))
+    } catch { }
+  })()
 
-// Same, for the ad-spend (Meta / Google Ads) OAuth return.
-;(function bootstrapAdSpendReturn() {
-  try {
-    const q = new URLSearchParams(window.location.search)
-    const state = q.get('adspend')
-    if (!state) return
-    const provider = q.get('provider') || ''
-    const label = provider === 'meta' ? 'Meta Ads' : provider === 'google_ads' ? 'Google Ads' : 'Ad account'
-    window.addEventListener('DOMContentLoaded', () => {
-      setTimeout(() => {
-        if (state === 'connected') { showToast(`${label} connected — importing spend…`, 'success'); if (typeof switchPage === 'function') switchPage('reports'); }
-        else showToast(`Couldn’t connect ${label}${q.get('msg') ? ': ' + q.get('msg') : ''}`, 'error', 7000)
-      }, 400)
-    })
-    q.delete('adspend'); q.delete('provider'); q.delete('msg')
-    history.replaceState(null, '', window.location.pathname + (q.toString() ? '?' + q.toString() : ''))
-  } catch {}
-})()
+  // Same, for the ad-spend (Meta / Google Ads) OAuth return.
+  ; (function bootstrapAdSpendReturn() {
+    try {
+      const q = new URLSearchParams(window.location.search)
+      const state = q.get('adspend')
+      if (!state) return
+      const provider = q.get('provider') || ''
+      const label = provider === 'meta' ? 'Meta Ads' : provider === 'google_ads' ? 'Google Ads' : 'Ad account'
+      window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+          if (state === 'connected') { showToast(`${label} connected — importing spend…`, 'success'); if (typeof switchPage === 'function') switchPage('reports'); }
+          else showToast(`Couldn’t connect ${label}${q.get('msg') ? ': ' + q.get('msg') : ''}`, 'error', 7000)
+        }, 400)
+      })
+      q.delete('adspend'); q.delete('provider'); q.delete('msg')
+      history.replaceState(null, '', window.location.pathname + (q.toString() ? '?' + q.toString() : ''))
+    } catch { }
+  })()
 
 // Keys that should survive localStorage.clear() (user-level UI preferences, not session data)
 const PERSIST_KEYS = ['ms_tour_done', 'ms_ext_cta_dismissed'];
 function clearLocalStorage() {
   const saved = {};
-  PERSIST_KEYS.forEach(k => { try { const v = localStorage.getItem(k); if (v !== null) saved[k] = v; } catch {} });
+  PERSIST_KEYS.forEach(k => { try { const v = localStorage.getItem(k); if (v !== null) saved[k] = v; } catch { } });
   localStorage.clear();
-  Object.entries(saved).forEach(([k, v]) => { try { localStorage.setItem(k, v); } catch {} });
+  Object.entries(saved).forEach(([k, v]) => { try { localStorage.setItem(k, v); } catch { } });
 }
 
 // Deliberate sign-out. Defined globally + wired via inline onclick on the Sign Out button
@@ -369,13 +369,13 @@ function clearLocalStorage() {
 // suspenders: explicitly drop the session keys, flag the extension bridge not to re-login,
 // then bounce to the login page.
 function executeActualSignOut() {
-  try { sessionStorage.setItem('ms_logged_out', '1'); } catch {}
+  try { sessionStorage.setItem('ms_logged_out', '1'); } catch { }
   try {
     const tk = localStorage.getItem('token');
-    if (tk) fetch(`${API}/auth/logout`, { method: 'POST', headers: { 'Authorization': `Bearer ${tk}` } }).catch(() => {});
-  } catch {}
-  try { ['token', 'refresh_token', 'user', 'ms_remember_until'].forEach(k => localStorage.removeItem(k)); } catch {}
-  try { clearLocalStorage(); } catch {}
+    if (tk) fetch(`${API}/auth/logout`, { method: 'POST', headers: { 'Authorization': `Bearer ${tk}` } }).catch(() => { });
+  } catch { }
+  try { ['token', 'refresh_token', 'user', 'ms_remember_until'].forEach(k => localStorage.removeItem(k)); } catch { }
+  try { clearLocalStorage(); } catch { }
   window.location.replace('login.html');
 }
 window.executeActualSignOut = executeActualSignOut;
@@ -402,7 +402,7 @@ window.msSignOut = function msSignOut(skipClockCheck = false) {
     } else if (Date.now() > until) {
       clearLocalStorage();
     }
-  } catch {}
+  } catch { }
 })();
 
 // Local Security Handshake Validations
@@ -502,10 +502,10 @@ const MS_ALLOWED_PAGES = new Set(['command', 'saas-command', 'saas-customers', '
 // these roles in particular — F&I credit compliance, service authorization — so a specialized
 // role that cannot reach its own required courses is the worst version of this gate.
 const STAFF_ROLE_NAV = {
-  FNI:        { groups: ['crm', 'sales', 'acquisition'], pages: ['insights', 'crm', 'tasks', 'appointments', 'leads', 'appraisal', 'fni', 'recon', 'desk', 'taskboard', 'profile', 'academy'], home: 'crm' },
-  SERVICE:    { groups: ['crm', 'service', 'acquisition'], pages: ['crm', 'tasks', 'appointments', 'service-appointments', 'equity', 'service-settings', 'taskboard', 'profile', 'academy'], home: 'service-appointments' },
-  ACCOUNTING: { groups: ['crm', 'accounting'],   pages: ['crm', 'tasks', 'appointments', 'acct-insights', 'acct-reconciliation', 'acct-bank', 'commissions', 'acct-expenses', 'acct-budget', 'acct-tax', 'acct-reports', 'acct-settings', 'taskboard', 'profile', 'academy'], home: 'acct-insights' },
-  CLEANUP:    { groups: ['sales'],               pages: ['recon', 'taskboard', 'profile', 'academy'], home: 'recon' },
+  FNI: { groups: ['crm', 'sales', 'acquisition'], pages: ['insights', 'crm', 'tasks', 'appointments', 'leads', 'appraisal', 'fni', 'recon', 'desk', 'taskboard', 'profile', 'academy'], home: 'crm' },
+  SERVICE: { groups: ['crm', 'service', 'acquisition'], pages: ['crm', 'tasks', 'appointments', 'service-appointments', 'equity', 'service-settings', 'taskboard', 'profile', 'academy'], home: 'service-appointments' },
+  ACCOUNTING: { groups: ['crm', 'accounting'], pages: ['crm', 'tasks', 'appointments', 'acct-insights', 'acct-reconciliation', 'acct-bank', 'commissions', 'acct-expenses', 'acct-budget', 'acct-tax', 'acct-reports', 'acct-settings', 'taskboard', 'profile', 'academy'], home: 'acct-insights' },
+  CLEANUP: { groups: ['sales'], pages: ['recon', 'taskboard', 'profile', 'academy'], home: 'recon' },
 };
 const STAFF_ROLE_LABELS = { FNI: 'F&I', SERVICE: 'Service', ACCOUNTING: 'Accounting', CLEANUP: 'Cleanup' };
 // Roles allowed to desk/appraise/work a deal from a CRM card (managers + F&I).
@@ -559,7 +559,7 @@ const SETUP_WIZARDS = {
     // Merge onto the current settings — the PUT rebuilds the whole object, so we
     // must send back the fields the wizard doesn't touch (tolerance, gm_emails…).
     save: async (v) => {
-      let cur = {}; try { cur = (await apiGetJson('/accounting/settings')).settings || {}; } catch {}
+      let cur = {}; try { cur = (await apiGetJson('/accounting/settings')).settings || {}; } catch { }
       await apiSendJson('/accounting/settings', 'PUT', { ...cur, tax_label: v.tax_label, tax_number: v.tax_number, tax_frequency: v.tax_frequency, accounting_emails: v.accounting_emails });
       if (typeof loadAccountingPage === 'function') loadAccountingPage();
     },
@@ -621,7 +621,7 @@ const SETUP_WIZARDS = {
 const MGR_SET = ['DEALER_ADMIN', 'OWNER', 'MANAGER'];
 const __setupAckKey = (id) => `ms_setup_ack_${(profileContext?.dealership?.id || 'x')}_${id}`;
 function setupAck(id) { try { return localStorage.getItem(__setupAckKey(id)) === '1'; } catch { return false; } }
-function setSetupAck(id) { try { localStorage.setItem(__setupAckKey(id), '1'); } catch {} }
+function setSetupAck(id) { try { localStorage.setItem(__setupAckKey(id), '1'); } catch { } }
 
 // One live snapshot feeds every step's done-check. Fetched once; refresh after a step.
 let __setupSnap = null;
@@ -725,7 +725,7 @@ function setupTour(tourId) { setupCloseAll(); if (typeof startAreaTour === 'func
 
 // Refresh everything after a step and flow straight to the next one.
 async function afterSetupStep() {
-  try { await loadSetupSnapshot(true); } catch {}
+  try { await loadSetupSnapshot(true); } catch { }
   renderSetupBar();
   openSetupCenter();
 }
@@ -735,7 +735,7 @@ async function afterSetupStep() {
 async function runSetupForm(id) {
   setupCloseAll();
   const w = SETUP_WIZARDS[id]; if (!w) return;
-  let cur = {}; try { if (w.load) cur = (await w.load()) || {}; } catch {}
+  let cur = {}; try { if (w.load) cur = (await w.load()) || {}; } catch { }
   const ic = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
   const fieldHtml = (f) => {
     const v = cur[f.key], fid = `wiz-${f.key}`;
@@ -821,36 +821,36 @@ window.applyFbOnlyMode = applyFbOnlyMode;
 // each price point, powerful as they upgrade. The union applies when a dealer holds
 // several products (e.g. Facebook Dealer + AI Chatbot).
 const PRODUCT_PAGES = {
-  design_studio:      ['profile'],
-  facebook:           ['leaderboard', 'inventory'],
-  facebook_solo:      ['leaderboard', 'inventory'],
-  facebook_dealer:    ['leaderboard', 'inventory'],
-  video:              ['video-studio', 'leaderboard'],
-  marketsync_video:   ['video-studio', 'leaderboard'],
-  campaigns:          ['marketing-overview', 'email-marketing', 'saas-automation'],
-  social:             ['marketing-overview'],
-  marketsync_social:  ['marketing-overview'],
-  email_marketing:    ['email-marketing'],
-  marketsync_email:   ['email-marketing'],
-  ai_chatbot:         ['ai-home'],
-  website:            ['website', 'blog', 'seo'],
+  design_studio: ['profile'],
+  facebook: ['leaderboard', 'inventory'],
+  facebook_solo: ['leaderboard', 'inventory'],
+  facebook_dealer: ['leaderboard', 'inventory'],
+  video: ['video-studio', 'leaderboard'],
+  marketsync_video: ['video-studio', 'leaderboard'],
+  campaigns: ['marketing-overview', 'email-marketing', 'saas-automation'],
+  social: ['marketing-overview'],
+  marketsync_social: ['marketing-overview'],
+  email_marketing: ['email-marketing'],
+  marketsync_email: ['email-marketing'],
+  ai_chatbot: ['ai-home'],
+  website: ['website', 'blog', 'seo'],
   marketsync_website: ['website', 'blog', 'seo'],
-  dealer_os:          null,
+  dealer_os: null,
 };
 const PRODUCT_HOME = {
-  design_studio:      'profile',
-  facebook:           'leaderboard',
-  facebook_solo:      'leaderboard',
-  facebook_dealer:    'leaderboard',
-  video:              'video-studio',
-  marketsync_video:   'video-studio',
-  campaigns:          'marketing-overview',
-  social:             'marketing-overview',
-  marketsync_social:  'marketing-overview',
-  email_marketing:    'email-marketing',
-  marketsync_email:   'email-marketing',
-  ai_chatbot:         'ai-home',
-  website:            'website',
+  design_studio: 'profile',
+  facebook: 'leaderboard',
+  facebook_solo: 'leaderboard',
+  facebook_dealer: 'leaderboard',
+  video: 'video-studio',
+  marketsync_video: 'video-studio',
+  campaigns: 'marketing-overview',
+  social: 'marketing-overview',
+  marketsync_social: 'marketing-overview',
+  email_marketing: 'email-marketing',
+  marketsync_email: 'email-marketing',
+  ai_chatbot: 'ai-home',
+  website: 'website',
   marketsync_website: 'website',
 };
 const FB_PRODUCTS = new Set(['facebook_solo', 'facebook_dealer']);
@@ -967,11 +967,11 @@ function legacyProductsFromAccess(access) {
   if (demoProd && demoProd !== 'dealer_os' && demoProd !== 'dealer-os') {
     const demoNav = {
       design_studio: { design_studio: true },
-      facebook:      { facebook_solo: true },
-      video:         { marketsync_video: true },
-      campaigns:     { marketsync_social: true },
-      website:       { marketsync_website: true },
-      ai_chatbot:    { ai_chatbot: true },
+      facebook: { facebook_solo: true },
+      video: { marketsync_video: true },
+      campaigns: { marketsync_social: true },
+      website: { marketsync_website: true },
+      ai_chatbot: { ai_chatbot: true },
     }[demoProd];
     if (demoNav) return demoNav;
   }
@@ -1048,8 +1048,8 @@ function msPlanCard(p, { included, money }) {
       </div>
       <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex-1">${msPlanProductLine(p)} · ${p.feature_count} features${p.id === 'os_pro' || p.id === 'dealer-os-complete' ? ' · bundles everything' : ''}</div>
       ${included
-        ? '<div class="mt-3 text-center text-xs font-bold text-emerald-600 dark:text-emerald-400 py-2">Included in your plan</div>'
-        : `<button onclick="startPlanCheckout('${p.id}', this)" ${p.configured ? '' : 'disabled title="Pricing not configured yet"'} class="mt-3 ${p.configured ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed'} text-white text-xs font-bold py-2 rounded-lg transition">${p.configured ? 'Upgrade' : 'Coming soon'}</button>`}
+      ? '<div class="mt-3 text-center text-xs font-bold text-emerald-600 dark:text-emerald-400 py-2">Included in your plan</div>'
+      : `<button onclick="startPlanCheckout('${p.id}', this)" ${p.configured ? '' : 'disabled title="Pricing not configured yet"'} class="mt-3 ${p.configured ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed'} text-white text-xs font-bold py-2 rounded-lg transition">${p.configured ? 'Upgrade' : 'Coming soon'}</button>`}
     </div>`;
 }
 
@@ -1223,12 +1223,12 @@ function applyProductNav(products) {
   // simplified chrome, every tier alike: the header collapses to Profile + Sign out
   // (clicking Profile opens Settings — that's the one and only settings entry point
   // now, so the separate gear icon, notification bell, and dealership social-icon
-  // strip all go), and Open Setup never appears (that wizard walks through
+  // strip all go), and Open Setup never appears (that wizathese top headers go to the left nav for this dashrd walks through
   // DealerOS departments this account doesn't have). "Design Studio" style single-
   // page tiers get an even flatter sidebar — see restrictedNavPages().
   if (active.length === 1) {
     document.getElementById('header-settings')?.classList.add('hidden');
-    document.getElementById('notif-bell')?.classList.add('hidden');
+    document.getElementById('notif-bell')?.classList.remove('hidden');
     document.getElementById('header-social-icons')?.classList.add('hidden');
     document.getElementById('setup-bar-host')?.replaceChildren();
     // Independent single-tool programs never show the AI assistant or team/staff
@@ -1349,7 +1349,8 @@ function restrictedNavPages() {
   const AI = { page: 'ai-home', label: 'AI Chatbot', icon: 'sparkles' };
   const META = {
     'marketing-overview': { page: 'marketing-overview', label: 'Marketing Studio', icon: 'megaphone' },
-    'email-marketing': { page: 'email-marketing', label: 'Email & SMS', icon: 'megaphone' },
+    'email-marketing': { page: 'automation-builder', label: 'Email & SMS', icon: 'megaphone' },
+    'automation-builder': { page: 'automation-builder', label: 'Email & SMS', icon: 'megaphone' },
     'video-studio': { page: 'video-studio', label: 'Video', icon: 'video' },
     website: { page: 'website', label: 'Website', icon: 'globe' },
   };
@@ -1366,8 +1367,8 @@ function restrictedNavPages() {
     // and never needs to fight Settings for the highlighted state.
     return [{ page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true }];
   }
-  if (activeProducts.length === 1 && /(marketsync_email|email_marketing)/.test(product)) {
-    return [META['email-marketing']];
+  if (activeProducts.length === 1 && /(marketsync_email|email_marketing|campaigns[-_]email[-_]sms)/.test(product)) {
+    return [{ page: 'automation-builder', label: 'Email & SMS', icon: 'megaphone' }];
   }
   const isWebsiteProduct = (typeof isStandaloneWebsiteWorkspace === 'function' && isStandaloneWebsiteWorkspace())
     || (window.__demoActiveProduct === 'dealer-website');
@@ -1426,7 +1427,7 @@ function applyDashMode(mode) {
       ? () => { if (typeof switchPage === 'function') switchPage('fni'); }
       : () => { if (typeof toggleNavGroup === 'function') toggleNavGroup('sales'); };
   }
-  if (__dashMode === 'marketsync') { try { renderMarketsyncInsights(); } catch (e) {} }
+  if (__dashMode === 'marketsync') { try { renderMarketsyncInsights(); } catch (e) { } }
 }
 function setDashMode(mode) {
   applyDashMode(mode);
@@ -1434,7 +1435,7 @@ function setDashMode(mode) {
   // Full reload so every page re-fetches under the new workspace header cleanly.
   if (__dashMode === 'demo') {
     if (typeof showToast === 'function') showToast('Loading demo workspace…', 'info');
-    apiSendJson('/demo/seed', 'POST', {}).catch(() => {}).finally(() => location.reload());
+    apiSendJson('/demo/seed', 'POST', {}).catch(() => { }).finally(() => location.reload());
   } else {
     location.reload();
   }

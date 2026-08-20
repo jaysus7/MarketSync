@@ -903,6 +903,59 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (!bell || !panel) return
 
+  let _notifTab = 'unread' // 'unread' | 'needs_action' | 'all'
+  let _notifScope = 'active' // 'active' | 'all'
+  let _notifications = []
+
+  function getActiveProductKey() {
+    if (window.__demoActiveProduct) {
+      const dp = String(window.__demoActiveProduct).toLowerCase()
+      if (dp.includes('facebook') || dp === 'fb') return 'facebook'
+      if (dp.includes('website') || dp.includes('site')) return 'website'
+      if (dp.includes('email') || dp.includes('sms') || dp.includes('automation')) return 'email_sms'
+      if (dp.includes('video')) return 'video'
+      if (dp.includes('ai') || dp.includes('chat')) return 'ai_chatbot'
+      if (dp.includes('studio') || dp.includes('design')) return 'design_studio'
+      if (dp.includes('seo')) return 'seo'
+    }
+
+    const docProd = (document.documentElement.getAttribute('data-product') || '').toLowerCase().trim()
+    if (docProd) {
+      if (docProd.includes('facebook') || docProd === 'fb') return 'facebook'
+      if (docProd.includes('video')) return 'video'
+      if (docProd.includes('email') || docProd.includes('sms') || docProd.includes('automation')) return 'email_sms'
+      if (docProd.includes('website') || docProd.includes('site')) return 'website'
+      if (docProd.includes('chatbot') || docProd === 'ai' || docProd === 'ai_dealer') return 'ai_chatbot'
+      if (docProd.includes('design_studio') || docProd === 'studio') return 'design_studio'
+      if (docProd.includes('seo')) return 'seo'
+    }
+
+    const cur = typeof __currentPage !== 'undefined' ? String(__currentPage).toLowerCase() : ''
+    if (cur === 'video-studio') return 'video'
+    if (cur === 'automation-builder' || cur === 'email-marketing') return 'email_sms'
+    if (cur === 'website' || cur === 'blog') return 'website'
+    if (cur === 'ai-home' || cur === 'ai-inbox') return 'ai_chatbot'
+    if (cur === 'studio') return 'design_studio'
+    if (cur === 'seo') return 'seo'
+    if (cur === 'inventory' || cur === 'leaderboard') return 'facebook'
+
+    return 'dealer_os'
+  }
+
+  function getProductDisplayLabel(k) {
+    const map = {
+      facebook: 'Facebook AutoPoster',
+      video: 'Video Studio',
+      email_sms: 'Email & SMS',
+      website: 'Dealer Website',
+      ai_chatbot: 'AI ChatBot',
+      design_studio: 'Design Studio',
+      seo: 'MarketSync SEO',
+      dealer_os: 'DealerOS'
+    }
+    return map[k] || 'MarketSync'
+  }
+
   async function authFetch(url, opts = {}) {
     const tk = localStorage.getItem('token')
     const res = await fetch(url, { ...opts, headers: { 'Authorization': `Bearer ${tk}`, ...(opts.headers || {}) } })
@@ -910,8 +963,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return res.json()
   }
 
-  // Inline SVG icons (stroke = currentColor, so the color class tints them). #26 —
-  // replaces the old emoji so notifications read as crisp product icons.
+  // Inline SVG icons
   const _svg = (p) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`
   const NI = {
     clock: _svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
@@ -928,7 +980,10 @@ document.addEventListener('DOMContentLoaded', () => {
     user: _svg('<path d="M20 21a8 8 0 1 0-16 0"/><circle cx="12" cy="7" r="4"/>'),
     clipboard: _svg('<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"/><path d="M9 14l2 2 4-4"/>'),
     bell: _svg('<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>'),
+    alert: _svg('<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>'),
+    check: _svg('<path d="M5 13l4 4L19 7"/>')
   }
+
   const TYPE_META = {
     aging:        { icon: NI.clock, color: 'text-orange-500' },
     price_drift:  { icon: NI.dollar, color: 'text-amber-500' },
@@ -944,7 +999,18 @@ document.addEventListener('DOMContentLoaded', () => {
     new_lead:     { icon: NI.user, color: 'text-emerald-500' },
     appraisal:    { icon: NI.clipboard, color: 'text-violet-500' },
     fb_sold:      { icon: NI.car, color: 'text-emerald-500' },
-    fb_price_change: { icon: NI.dollar, color: 'text-amber-500' },
+    sold_vehicle: { icon: NI.car, color: 'text-rose-500' },
+    pending_sale: { icon: NI.clock, color: 'text-amber-500' },
+    extension_disconnected: { icon: NI.alert, color: 'text-rose-500' },
+    video_viewed: { icon: NI.camera, color: 'text-indigo-500' },
+    video_failed: { icon: NI.alert, color: 'text-rose-500' },
+    customer_replied: { icon: NI.mail, color: 'text-indigo-500' },
+    automation_failed: { icon: NI.alert, color: 'text-amber-500' },
+    form_lead:    { icon: NI.user, color: 'text-emerald-500' },
+    human_requested: { icon: NI.alert, color: 'text-rose-500' },
+    chat_lead:    { icon: NI.user, color: 'text-violet-500' },
+    scheduled_post_failed: { icon: NI.alert, color: 'text-amber-500' },
+    indexing_issue: { icon: NI.search, color: 'text-orange-500' },
   }
 
   function timeAgo(iso) {
@@ -957,74 +1023,147 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${Math.floor(h / 24)}d ago`
   }
 
-  function renderList(items) {
-    if (!items.length) {
-      list.innerHTML = `<div class="flex flex-col items-center justify-center h-48 text-slate-400 text-sm gap-2"><span class="w-8 h-8">${NI.bell}</span>No notifications yet</div>`
-      return
-    }
-    list.innerHTML = items.map(n => {
-      const meta = TYPE_META[n.type] || { icon: NI.bell, color: 'text-slate-400' }
-      return `
-        <div class="notif-item flex gap-3 px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition cursor-pointer ${n.read ? 'opacity-60' : ''}" data-id="${n.id}" data-page="${n.link_page || ''}" data-filter="${n.link_filter || ''}" data-url="${n.link_url || ''}">
-          <span class="mt-0.5 flex-shrink-0 ${meta.color}">${meta.icon}</span>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-start justify-between gap-2">
-              <p class="text-sm font-semibold text-slate-900 dark:text-white leading-snug ${n.read ? '' : 'font-bold'}">${n.title}</p>
-              <span class="text-[10px] text-slate-400 whitespace-nowrap flex-shrink-0 mt-0.5">${timeAgo(n.created_at)}</span>
-            </div>
-            ${n.body ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">${n.body}</p>` : ''}
-            ${n.link_url ? `<span class="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">${n.type === 'fb_price_change' ? 'Open Facebook ad' : n.type === 'fb_sold' ? 'Open listing' : 'Open PDF'}
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-            </span>` : ''}
-          </div>
-          ${!n.read ? '<span class="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0 mt-1.5"></span>' : '<span class="w-2 h-2 flex-shrink-0"></span>'}
-        </div>`
-    }).join('')
+  function setupPanelHeader() {
+    const aside = panel.querySelector('aside')
+    if (!aside) return
+    const prodKey = getActiveProductKey()
+    const prodLabel = getProductDisplayLabel(prodKey)
 
-    list.querySelectorAll('.notif-item').forEach(el => {
-      el.addEventListener('click', async () => {
-        const id   = el.dataset.id
-        const page = el.dataset.page
-        const filter = el.dataset.filter
-        const url  = el.dataset.url
-        // Mark read
-        await authFetch(`${API}/notifications/${id}/read`, { method: 'POST' }).catch(() => {})
-        el.classList.add('opacity-60')
-        el.querySelector('span.bg-indigo-500')?.classList.replace('bg-indigo-500', 'bg-transparent')
+    let headerEl = aside.querySelector('#notif-panel-header')
+    if (!headerEl) {
+      aside.innerHTML = `
+        <div id="notif-panel-header" class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-black text-slate-900 dark:text-white">Notifications</h2>
+              <p id="notif-scope-title" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 mt-0.5">${esc(prodLabel)} Feed</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="notif-desktop-toggle" onclick="requestDesktopPermission()" title="Turn on desktop alerts" class="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition p-1.5 rounded-lg">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+              </button>
+              <button id="notif-read-all" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-bold">Mark read</button>
+              <button id="notif-close" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Scope Switcher & Filter Tabs -->
+          <div class="flex items-center justify-between pt-1 gap-2">
+            <div class="inline-flex p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-bold">
+              <button id="notif-tab-unread" onclick="window.switchNotifTab('unread')" class="px-2.5 py-1 rounded-md transition ${_notifTab === 'unread' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-slate-500'}">Unread</button>
+              <button id="notif-tab-action" onclick="window.switchNotifTab('needs_action')" class="px-2.5 py-1 rounded-md transition ${_notifTab === 'needs_action' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-slate-500'}">Needs Action</button>
+              <button id="notif-tab-all" onclick="window.switchNotifTab('all')" class="px-2.5 py-1 rounded-md transition ${_notifTab === 'all' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-slate-500'}">All</button>
+            </div>
+
+            <button id="notif-scope-toggle" onclick="window.toggleNotifScope()" class="text-[10px] font-bold text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 underline whitespace-nowrap">
+              ${_notifScope === 'active' ? 'Show All Products' : 'Active Product Only'}
+            </button>
+          </div>
+        </div>
+        <div id="notif-list" class="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800"></div>
+      `
+      aside.querySelector('#notif-close')?.addEventListener('click', closePanel)
+      aside.querySelector('#notif-read-all')?.addEventListener('click', async () => {
+        const prod = _notifScope === 'active' ? getActiveProductKey() : ''
+        await authFetch(`${API}/notifications/read-all${prod ? `?product=${prod}` : ''}`, { method: 'POST' }).catch(() => {})
+        _notifications.forEach(n => {
+          if (!prod || n.product === prod) n.read = true
+        })
+        renderList(_notifications)
         updateBadge()
-        // External link (e.g. a generated PDF) → open in a new tab.
-        if (url) {
-          window.open(url, '_blank', 'noopener');
-          return;
-        }
-        // Navigate if page set
-        if (page) {
-          closePanel()
-          switchPage(page)
-          if (filter && document.getElementById('catalog-search')) {
-            document.getElementById('catalog-search').value = filter
-            if (typeof renderCatalog === 'function') renderCatalog()
-          }
-        }
       })
-    })
+    } else {
+      const titleEl = aside.querySelector('#notif-scope-title')
+      if (titleEl) titleEl.textContent = _notifScope === 'active' ? `${prodLabel} Feed` : 'All MarketSync Feed'
+      const scopeBtn = aside.querySelector('#notif-scope-toggle')
+      if (scopeBtn) scopeBtn.textContent = _notifScope === 'active' ? 'Show All Products' : 'Active Product Only'
+    }
   }
 
-  let _notifications = []
+  function renderList(items) {
+    const listEl = document.getElementById('notif-list')
+    if (!listEl) return
+
+    let filtered = items || []
+    if (_notifTab === 'unread') {
+      filtered = filtered.filter(n => !n.read)
+    } else if (_notifTab === 'needs_action') {
+      filtered = filtered.filter(n => (n.needs_action || n.severity === 'action_required' || n.severity === 'critical') && n.status !== 'action_completed' && n.status !== 'acknowledged')
+    }
+
+    if (!filtered.length) {
+      const emptyMsg = _notifTab === 'needs_action' ? 'No pending action items.' : _notifTab === 'unread' ? 'All caught up! No unread notifications.' : 'No notifications found.'
+      listEl.innerHTML = `<div class="flex flex-col items-center justify-center h-56 text-slate-400 text-xs gap-2.5 p-6 text-center"><span class="w-8 h-8 opacity-40">${NI.bell}</span>${esc(emptyMsg)}</div>`
+      return
+    }
+
+    listEl.innerHTML = filtered.map(n => {
+      const meta = TYPE_META[n.type] || { icon: NI.bell, color: 'text-slate-400' }
+      const sev = n.severity || 'info'
+      const sevBadge = sev === 'critical' ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30">Critical</span>'
+        : sev === 'action_required' ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">Action Required</span>'
+        : sev === 'warning' ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/30">Warning</span>'
+        : ''
+
+      const isResolved = n.status === 'acknowledged' || n.status === 'action_completed'
+      const actionLabel = n.action_label || (n.link_page ? 'Open' : n.link_url ? 'View' : null)
+
+      return `
+        <div class="notif-item p-4 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition space-y-2 ${n.read ? 'opacity-70' : ''}" data-id="${esc(n.id)}">
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="flex-shrink-0 ${meta.color}">${meta.icon}</span>
+              ${sevBadge}
+              ${isResolved ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">Resolved</span>' : ''}
+            </div>
+            <span class="text-[10px] text-slate-400 font-mono flex-shrink-0">${timeAgo(n.created_at)}</span>
+          </div>
+
+          <div>
+            <h4 class="text-xs font-black text-slate-900 dark:text-white leading-snug">${esc(n.title)}</h4>
+            ${n.body ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">${esc(n.body)}</p>` : ''}
+          </div>
+
+          <!-- Action and Acknowledge Buttons -->
+          <div class="flex items-center justify-between pt-1.5 gap-2">
+            <div class="flex items-center gap-2">
+              ${actionLabel ? `
+                <button onclick="window.handleNotifAction('${esc(n.id)}', '${esc(n.action_page || n.link_page || '')}', '${esc(n.action_filter || n.link_filter || '')}', '${esc(n.action_url || n.link_url || '')}')" class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow-xs">
+                  ${esc(actionLabel)}
+                </button>
+              ` : ''}
+              ${!isResolved && (n.needs_action || sev === 'action_required' || sev === 'critical') ? `
+                <button onclick="window.acknowledgeNotif('${esc(n.id)}')" class="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold text-[11px] transition">
+                  Acknowledge
+                </button>
+              ` : ''}
+            </div>
+            ${!n.read ? '<span class="w-2 h-2 rounded-full bg-indigo-600 flex-shrink-0"></span>' : ''}
+          </div>
+        </div>
+      `
+    }).join('')
+  }
 
   async function loadNotifications() {
+    setupPanelHeader()
+    const prod = _notifScope === 'active' ? getActiveProductKey() : ''
     try {
-      const data = await authFetch(`${API}/notifications`)
+      const data = await authFetch(`${API}/notifications${prod ? `?product=${prod}` : ''}`)
       _notifications = Array.isArray(data) ? data : []
       renderList(_notifications)
     } catch {
-      list.innerHTML = '<div class="px-5 py-8 text-center text-sm text-slate-400">Could not load notifications.</div>'
+      const listEl = document.getElementById('notif-list')
+      if (listEl) listEl.innerHTML = '<div class="px-5 py-8 text-center text-xs text-slate-400">Could not load notifications.</div>'
     }
   }
 
   async function updateBadge() {
     try {
-      const { count } = await authFetch(`${API}/notifications/unread-count`)
+      const prod = getActiveProductKey()
+      const { count } = await authFetch(`${API}/notifications/unread-count${prod ? `?product=${prod}` : ''}`)
       if (count > 0) {
         badge.textContent = count > 99 ? '99+' : count
         badge.classList.remove('hidden')
@@ -1034,51 +1173,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch {}
   }
 
-  // ── Desktop / browser push notifications (#25) ────────────────────────────
-  // No push service needed: we already poll, so when a new unread notification
-  // appears we raise a native OS Notification (if the user granted permission).
-  const NOTIF_TS_KEY = 'ms_notif_last_ts'
-  function desktopEnabled() {
-    return ('Notification' in window) && Notification.permission === 'granted' && localStorage.getItem('ms_desktop_notify') !== 'off'
-  }
-  async function pollDesktop() {
-    if (!desktopEnabled()) return
-    try {
-      const data = await authFetch(`${API}/notifications`)
-      const items = Array.isArray(data) ? data : []
-      if (!items.length) return
-      const lastTs = Number(localStorage.getItem(NOTIF_TS_KEY) || 0)
-      const maxTs = Math.max(...items.map(n => new Date(n.created_at).getTime()).filter(Number.isFinite))
-      localStorage.setItem(NOTIF_TS_KEY, String(Math.max(lastTs, maxTs)))
-      if (!lastTs) return   // first run just records the watermark — don't backfill-spam
-      const fresh = items.filter(n => !n.read && new Date(n.created_at).getTime() > lastTs)
-      fresh.slice(0, 3).reverse().forEach(n => {
-        try {
-          const dn = new Notification(n.title || 'MarketSync', { body: n.body || '', tag: String(n.id) })
-          dn.onclick = () => {
-            window.focus()
-            if (n.link_url) window.open(n.link_url, '_blank', 'noopener')
-            else if (n.link_page && typeof switchPage === 'function') switchPage(n.link_page)
-            dn.close()
-          }
-        } catch {}
-      })
-    } catch {}
-  }
-  function requestDesktopPermission() {
-    if (!('Notification' in window)) { showToast?.('This browser doesn\'t support desktop alerts', 'error'); return }
-    if (Notification.permission === 'granted') { localStorage.setItem('ms_desktop_notify', 'on'); showToast?.('Desktop alerts on', 'success'); return }
-    if (Notification.permission === 'denied') { showToast?.('Desktop alerts are blocked in your browser settings', 'error'); return }
-    Notification.requestPermission().then(p => {
-      if (p === 'granted') { localStorage.setItem('ms_desktop_notify', 'on'); localStorage.setItem(NOTIF_TS_KEY, String(Date.now())); showToast?.('Desktop alerts on', 'success') }
-    })
-  }
-  window.requestDesktopPermission = requestDesktopPermission
-
   function openPanel() {
     panel.classList.remove('hidden')
     document.body.style.overflow = 'hidden'
-    // First time the user opens the bell, offer to turn on desktop alerts.
     if (('Notification' in window) && Notification.permission === 'default' && !localStorage.getItem('ms_desktop_prompted')) {
       localStorage.setItem('ms_desktop_prompted', '1')
       requestDesktopPermission()
@@ -1092,25 +1189,65 @@ document.addEventListener('DOMContentLoaded', () => {
     updateBadge()
   }
 
-  bell.addEventListener('click', () => panel.classList.contains('hidden') ? openPanel() : closePanel())
-  closeBtn.addEventListener('click', closePanel)
-  backdrop.addEventListener('click', closePanel)
-
-  readAllBtn.addEventListener('click', async () => {
-    await authFetch(`${API}/notifications/read-all`, { method: 'POST' }).catch(() => {})
-    _notifications.forEach(n => n.read = true)
+  window.switchNotifTab = function(t) {
+    _notifTab = t
+    const aside = panel.querySelector('aside')
+    if (aside) {
+      aside.querySelectorAll('[id^="notif-tab-"]').forEach(el => {
+        el.className = 'px-2.5 py-1 rounded-md transition text-slate-500'
+      })
+      const activeBtn = aside.querySelector(`#notif-tab-${t === 'needs_action' ? 'action' : t}`)
+      if (activeBtn) activeBtn.className = 'px-2.5 py-1 rounded-md transition bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
+    }
     renderList(_notifications)
-    badge.classList.add('hidden')
-  })
-
-  // Poll for badge count every 60s after login; raise desktop alerts on new ones.
-  function startPolling() {
-    updateBadge()
-    pollDesktop()
-    setInterval(() => { updateBadge(); pollDesktop() }, 60000)
   }
 
-  // Start after auth resolves — wait for API constant to be ready
+  window.toggleNotifScope = function() {
+    _notifScope = _notifScope === 'active' ? 'all' : 'active'
+    loadNotifications()
+  }
+
+  window.handleNotifAction = async function(id, page, filter, url) {
+    await authFetch(`${API}/notifications/${id}/read`, { method: 'POST' }).catch(() => {})
+    const found = _notifications.find(n => n.id === id)
+    if (found) found.read = true
+    updateBadge()
+
+    if (url) {
+      window.open(url, '_blank', 'noopener')
+      return
+    }
+    if (page) {
+      closePanel()
+      if (typeof switchPage === 'function') switchPage(page)
+      if (filter && document.getElementById('catalog-search')) {
+        document.getElementById('catalog-search').value = filter
+        if (typeof renderCatalog === 'function') renderCatalog()
+      }
+    }
+  }
+
+  window.acknowledgeNotif = async function(id) {
+    await authFetch(`${API}/notifications/${id}/acknowledge`, { method: 'POST' }).catch(() => {})
+    const found = _notifications.find(n => n.id === id)
+    if (found) {
+      found.status = 'acknowledged'
+      found.read = true
+    }
+    renderList(_notifications)
+    updateBadge()
+    if (typeof showToast === 'function') showToast('Notification resolved', 'success')
+  }
+
+  bell.addEventListener('click', () => panel.classList.contains('hidden') ? openPanel() : closePanel())
+  if (closeBtn) closeBtn.addEventListener('click', closePanel)
+  if (backdrop) backdrop.addEventListener('click', closePanel)
+
+  function startPolling() {
+    updateBadge()
+    setInterval(() => { updateBadge() }, 60000)
+  }
+
   const authWait = setInterval(() => {
     if (typeof API !== 'undefined' && localStorage.getItem('token')) {
       clearInterval(authWait)
@@ -1118,6 +1255,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, 500)
 })()
+
 
 // ── Inventory Intelligence Page ────────────────────────────────────────────
 ;(function() {
