@@ -162,3 +162,66 @@ test('videos are tenant-scoped and soft-deletable', () => {
   assert.match(migration, /alter table public\.sales_videos enable row level security/)
   assert.match(migration, /alter table public\.sales_video_events enable row level security/)
 })
+
+// ── Secure Private Bucket & Customer Playback Architecture ──────────────────
+
+const secureStorageMigration = read('migrations/2026-08-20-secure-sales-videos-bucket.sql')
+
+test('secure sales-videos bucket migration enforces private bucket and no anonymous SELECT', () => {
+  // 1. Bucket is private
+  assert.match(secureStorageMigration, /UPDATE storage\.buckets\s+SET public = false\s+WHERE id = 'sales-videos'|INSERT INTO storage\.buckets[\s\S]*?'sales-videos'[\s\S]*?false/)
+  
+  // 2. No anonymous storage select policy
+  assert.doesNotMatch(secureStorageMigration, /CREATE POLICY.*ON storage\.objects\s+FOR SELECT TO (?:anon|public)\b/)
+
+  // 3. Authenticated dealership isolation
+  assert.match(secureStorageMigration, /CREATE POLICY "sales_videos_authenticated_select" ON storage\.objects/)
+  assert.match(secureStorageMigration, /authz\.belongs_to_dealership\(authz\.storage_path_dealership\(name\)\)/)
+  
+  // 4. revoked_at column support
+  assert.match(secureStorageMigration, /ALTER TABLE public\.sales_videos\s+ADD COLUMN IF NOT EXISTS revoked_at timestamptz/)
+})
+
+test('shareLinkState rejects revoked and expired links', () => {
+  // Revoked link
+  assert.equal(shareLinkState({ revoked_at: '2026-08-20T12:00:00Z' }).ok, false)
+  assert.match(shareLinkState({ revoked_at: '2026-08-20T12:00:00Z' }).reason, /no longer available/)
+
+  // Expired link
+  assert.equal(shareLinkState({ expires_at: '2020-01-01T00:00:00Z' }).ok, false)
+  assert.match(shareLinkState({ expires_at: '2020-01-01T00:00:00Z' }).reason, /expired/)
+
+  // Active valid link
+  const future = new Date(Date.now() + 86400000).toISOString()
+  assert.equal(shareLinkState({ expires_at: future, revoked_at: null }).ok, true)
+})
+
+test('customer playback route /v/:token returns short-lived signed URLs, not raw object URLs', () => {
+  const pub = route.match(/app\.get\('\/v\/:token'[\s\S]*?\n  \}\)/)?.[0] || ''
+  assert.ok(pub, 'the public playback route must exist')
+  
+  // Enforces token lookup and validity
+  assert.match(pub, /shareLinkState\(video\)/)
+  assert.match(pub, /extractStoragePath\(video\)/)
+  assert.match(pub, /getSignedPlaybackUrl\(storagePath,\s*900\)/)
+  
+  // Emits link_opened view tracking event
+  assert.match(pub, /kind: 'link_opened'/)
+})
+
+test('authenticated playback route enforces dealership tenant boundary and provides signed URLs', () => {
+  const play = route.match(/app\.get\('\/sales-videos\/:id\/playback'[\s\S]*?\n  \}\)/)?.[0] || ''
+  assert.ok(play, 'playback route must exist')
+  
+  // Dealership boundary enforcement
+  assert.match(play, /\.eq\('dealership_id', req\.dealershipId\)/)
+  assert.match(play, /getSignedPlaybackUrl\(path,\s*3600\)/)
+})
+
+test('revocation endpoint /sales-videos/:id/revoke updates revoked_at', () => {
+  const rev = route.match(/app\.post\('\/sales-videos\/:id\/revoke'[\s\S]*?\n  \}\)/)?.[0] || ''
+  assert.ok(rev, 'revoke endpoint must exist')
+  assert.match(rev, /revoked_at:\s*now/)
+  assert.match(rev, /\.eq\('dealership_id', req\.dealershipId\)/)
+})
+
