@@ -192,18 +192,22 @@
     let currentStep = 1;
     let isDealerAdmin = true; // mirrors the accountRole radio state
     const PLAN_OPTIONS = {
-      'design-studio': { name: 'Design Studio', price: '$19.99 / month', detail: 'Branded graphics, social assets, AI generation and a social scheduler — one flat price.', level: 1 },
-      'autoposter-salesperson': { name: 'AutoPoster — Salesperson', price: '$39 / month', detail: 'Facebook Marketplace posting for one salesperson.', level: 1, solo: true },
-      'autoposter-dealer': { name: 'AutoPoster — Dealer', price: '$149 / month', detail: 'Manage Marketplace inventory for the team.', level: 1 },
+      'design-studio': { name: 'Design Studio', price: '$19.99 / month', detail: 'Branded graphics, social assets, AI generation — one flat price.', level: 1 },
+      'autoposter-salesperson': { name: 'Facebook AutoPoster — Salesperson', price: '$39 / month', detail: 'Facebook Marketplace posting for one salesperson.', level: 1, solo: true },
+      'social-scheduler': { name: 'Social Scheduler', price: '$99 / month', detail: 'Multi-platform social media scheduling and calendar.', level: 1 },
+      'autoposter-dealer': { name: 'Facebook AutoPoster — Dealer', price: '$149 / month', detail: 'Manage Marketplace inventory for the team.', level: 1 },
       video: { name: 'Video', price: '$149 / month', detail: 'Walkarounds, customer videos, and social video.', level: 1 },
       'campaigns-email-sms': { name: 'Campaigns — Email + SMS', price: '$199 / month + usage', detail: 'Campaigns, audiences, and automations.', level: 1 },
-      'dealer-website': { name: 'Dealer Website', price: '$399 / month', detail: 'Website, live inventory, SEO, and lead capture.', level: 1 },
-      'ai-chatbot': { name: 'AI ChatBot', price: '$599 / month + usage', detail: 'Always-on customer engagement and lead capture.', level: 1 },
-      'sales-marketing-suite': { name: 'MarketSync Marketing', price: '$399 / month', detail: 'Lead generation, social, campaigns, and content.', level: 2 },
-      'complete-marketing-suite': { name: 'Complete Marketing Suite', price: '$699 / month', detail: 'Marketing plus Video and the full creative workflow.', level: 3 },
-      'marketsync-digital': { name: 'MarketSync Digital', price: '$1,199 / month', detail: 'Marketing, website, and AI customer engagement.', level: 4 },
-      'dealer-os-core': { name: 'DealerOS Core', price: '$1,999 / month', detail: 'The dealership operating platform for CRM, inventory, sales, and reporting.', level: 5 },
-      'dealer-os-pro': { name: 'DealerOS Pro', price: '$3,499 / month', detail: 'The complete operating platform with advanced departments and MarketSync Digital.', level: 6 }
+      'dealer-website': { name: 'Dealer Website', price: '$249 / month', detail: 'Website, live inventory, SEO, and lead capture.', level: 1 },
+      'marketsync-seo': { name: 'MarketSync SEO', price: '$149 / month', detail: 'Automated daily SEO monitoring, schema, and rank tracking.', level: 1 },
+      'ai-chatbot': { name: 'AI ChatBot', price: '$599 / month', detail: 'Always-on customer engagement and lead capture.', level: 1 },
+      'sales-marketing-suite': { name: 'Sales Marketing Suite', price: '$399 / month', detail: 'Design Studio, AutoPoster Dealer, and Campaigns.', level: 2 },
+      'service-marketing-suite': { name: 'Service Marketing Suite', price: '$399 / month', detail: 'Service reminders, reactivation, and fixed ops growth.', level: 2 },
+      'complete-marketing-suite': { name: 'Complete Marketing Suite', price: '$699 / month', detail: 'Sales and Service suites plus Video and Campaign AI.', level: 3 },
+      'marketsync-digital': { name: 'MarketSync Digital', price: '$1,199 / month', detail: 'Complete Marketing Suite + Dealer Website + AI ChatBot.', level: 4 },
+      'dealer-os-core': { name: 'DealerOS Core', price: '$1,499 / month', detail: 'The dealership operating platform for CRM, inventory, sales, and reporting.', level: 5 },
+      'dealer-os-pro': { name: 'DealerOS Pro', price: '$2,499 / month', detail: 'The complete operating platform with advanced departments and MarketSync Digital.', level: 6 },
+      'dealer-os-complete': { name: 'DealerOS Complete', price: '$3,999 / month', detail: 'Enterprise operating system with accounting, multi-store, and AI.', level: 7 }
     };
     const requestedPlan = new URLSearchParams(location.search).get('plan');
     const PLAN_ALIASES = { campaigns: 'campaigns-email-sms', fb_solo: 'autoposter-salesperson', fb_dealership: 'autoposter-dealer', ai_standard: 'ai-chatbot', os_starter: 'dealer-os-core', os_growth: 'dealer-os-core', os_pro: 'dealer-os-pro' };

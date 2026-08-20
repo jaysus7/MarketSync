@@ -23,14 +23,13 @@ const MARKETSYNC_PRICING = {
       priceFormatted: '$19.99',
       unit: '/month',
       badge: 'Creative Workspace',
-      desc: 'Dealership design workspace for creating branded graphics, social assets, and marketing collateral — with AI generation and a social scheduler built in, one flat price.',
+      desc: 'Dealership design workspace for creating branded graphics, social assets, and marketing collateral — with AI generation built in.',
       features: [
         'Branded creative templates',
         'Typography & logo asset vault',
         'Social media graphics builder',
         'Freeform design canvas',
         'AI-generated images, layouts & copy',
-        'Multi-platform social scheduler & calendar',
         'Intelligence by MarketSync asset suggestions'
       ],
       ctaText: 'Start Design Studio',
@@ -53,6 +52,24 @@ const MARKETSYNC_PRICING = {
       ],
       ctaText: 'Get AutoPoster Rep',
       ctaUrl: '/register.html?plan=autoposter-salesperson'
+    },
+    {
+      id: 'social-scheduler',
+      name: 'Social Scheduler',
+      price: 99,
+      priceFormatted: '$99',
+      unit: '/month',
+      badge: 'Social Media Suite',
+      desc: 'Multi-platform social media scheduling and calendar for publishing finished content across Facebook, Instagram, LinkedIn, X, and TikTok.',
+      features: [
+        'Multi-platform social scheduler & calendar',
+        'Connected Facebook, Instagram, LinkedIn, X & TikTok accounts',
+        'Upload finished assets from Canva, Adobe, phone, or agency',
+        'Draft, schedule, and immediate publish workflows',
+        'Cross-platform post queue & status tracking'
+      ],
+      ctaText: 'Start Social Scheduler',
+      ctaUrl: '/register.html?plan=social-scheduler'
     },
     {
       id: 'autoposter-dealer',
@@ -127,24 +144,6 @@ const MARKETSYNC_PRICING = {
       ctaUrl: '/register.html?plan=dealer-website'
     },
     {
-      id: 'ai-chatbot',
-      name: 'AI ChatBot',
-      price: 599,
-      priceFormatted: '$599',
-      unit: '/month',
-      badge: '24/7 Automotive Assistant',
-      desc: 'Automotive AI customer engagement assistant trained on your inventory and dealership info.',
-      features: [
-        'Real-time inventory lookup',
-        'Test drive & appointment scheduling',
-        'Trade appraisal intake',
-        '24/7 lead capture & CRM routing',
-        'Dealership knowledgebase responses'
-      ],
-      ctaText: 'Deploy AI ChatBot',
-      ctaUrl: '/register.html?plan=ai-chatbot'
-    },
-    {
       id: 'marketsync-seo',
       name: 'MarketSync SEO',
       price: 149,
@@ -163,6 +162,24 @@ const MARKETSYNC_PRICING = {
       ],
       ctaText: 'Get MarketSync SEO',
       ctaUrl: '/register.html?plan=marketsync-seo'
+    },
+    {
+      id: 'ai-chatbot',
+      name: 'AI ChatBot',
+      price: 599,
+      priceFormatted: '$599',
+      unit: '/month',
+      badge: '24/7 Automotive Assistant',
+      desc: 'Automotive AI customer engagement assistant trained on your inventory and dealership info.',
+      features: [
+        'Real-time inventory lookup',
+        'Test drive & appointment scheduling',
+        'Trade appraisal intake',
+        '24/7 lead capture & CRM routing',
+        'Dealership knowledgebase responses'
+      ],
+      ctaText: 'Deploy AI ChatBot',
+      ctaUrl: '/register.html?plan=ai-chatbot'
     }
   ],
 

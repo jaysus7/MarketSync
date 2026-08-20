@@ -64,9 +64,11 @@
     ['Products', [
       ['Design Studio', '/design-studio.html'],
       ['Facebook AutoPoster', '/facebook-autoposter.html'],
+      ['Social Scheduler', '/pricing.html#standalone'],
       ['Video Suite', '/video-studio.html'],
       ['Campaigns', '/campaigns.html'],
       ['Dealer Website', '/dealer-website.html'],
+      ['MarketSync SEO', '/pricing.html#standalone'],
       ['AI ChatBot', '/ai-chatbot.html'],
     ]],
     ['Suites & OS', [
