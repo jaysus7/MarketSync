@@ -22,6 +22,7 @@ import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { mayContact } from './consent.js'
 import { sendDealerSms } from './automation.js'
+import { rateLimit } from '../security.js'
 import multer from 'multer'
 import crypto from 'crypto'
 
@@ -30,7 +31,7 @@ const videoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize
 
 const VIDEO_COLUMNS = [
   'id', 'dealership_id', 'contact_id', 'inventory_id', 'created_by', 'title',
-  'public_url', 'poster_url', 'duration_seconds', 'bytes', 'share_token', 'expires_at',
+  'storage_path', 'public_url', 'poster_url', 'duration_seconds', 'bytes', 'share_token', 'expires_at', 'revoked_at',
   'status', 'channel', 'sent_at', 'consent_basis', 'first_opened_at', 'first_played_at',
   'watched_seconds', 'watch_percent', 'play_count', 'created_at',
 ].join(', ')
@@ -47,6 +48,28 @@ const DEFAULT_EXPIRY_DAYS = 60
 // host (the backend serves no HTML), the same base every other transactional link uses.
 function watchUrl(shareToken) {
   return `${FRONTEND_URL}/watch.html?t=${encodeURIComponent(shareToken)}`
+}
+
+// Extract canonical storage path from video record or legacy public URL.
+export function extractStoragePath(video) {
+  if (video?.storage_path) return video.storage_path
+  if (!video?.public_url) return null
+  const match = video.public_url.match(/\/sales-videos\/(.+)$/)
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+// Generate short-lived signed playback URL from private storage.
+export async function getSignedPlaybackUrl(storagePath, expiresInSeconds = 900) {
+  if (!storagePath) return null
+  try {
+    const { data, error } = await supabaseAdmin.storage
+      .from('sales-videos')
+      .createSignedUrl(storagePath, expiresInSeconds)
+    if (error || !data?.signedUrl) return null
+    return data.signedUrl
+  } catch {
+    return null
+  }
 }
 
 // Minimal, deliverable email body. Plain and link-forward on purpose: a walkaround
@@ -67,7 +90,7 @@ function videoEmailHtml({ url, repName, dealerName, note }) {
  * working the moment it should rather than whenever a job next happens to run.
  */
 export function shareLinkState(video, now = new Date()) {
-  if (!video || video.deleted_at) return { ok: false, reason: 'This video link is no longer available.' }
+  if (!video || video.deleted_at || video.revoked_at) return { ok: false, reason: 'This video link is no longer available.' }
   if (video.expires_at && new Date(video.expires_at) < now) {
     return { ok: false, reason: 'This video link has expired. Ask your salesperson to send a new one.' }
   }
@@ -152,7 +175,37 @@ export function registerSalesVideo(app) {
       if (req.query.mine === '1' && req.user?.id) q = q.eq('created_by', req.user.id)
       const { data, error } = await q.order('created_at', { ascending: false }).limit(200)
       if (error) return res.status(500).json({ error: error.message })
-      res.json({ videos: (data || []).map(v => ({ ...v, summary: watchSummary(v) })) })
+      const videos = (data || []).map(v => ({
+        ...v,
+        watch_url: watchUrl(v.share_token),
+        summary: watchSummary(v),
+      }))
+      res.json({ videos })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  // Authenticated playback URL generation for dealership users. Enforces tenant boundary.
+  app.get('/sales-videos/:id/playback', requireAuth, canView, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const { data: video, error } = await supabaseAdmin.from('sales_videos')
+        .select('id, dealership_id, storage_path, public_url, deleted_at, title')
+        .eq('id', req.params.id)
+        .eq('dealership_id', req.dealershipId)
+        .is('deleted_at', null)
+        .maybeSingle()
+
+      if (error) return res.status(500).json({ error: error.message })
+      if (!video) return res.status(404).json({ error: 'Video not found' })
+
+      const path = extractStoragePath(video)
+      if (!path) return res.status(404).json({ error: 'Video storage path not found' })
+
+      const signedUrl = await getSignedPlaybackUrl(path, 3600)
+      if (!signedUrl) return res.status(500).json({ error: 'Could not generate signed playback URL' })
+
+      res.set('Cache-Control', 'private, no-store')
+      res.json({ ok: true, video_id: video.id, title: video.title, playback_url: signedUrl })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
@@ -162,24 +215,21 @@ export function registerSalesVideo(app) {
     catch (e) { res.status(500).json({ error: e.message }) }
   })
 
-  // Upload. The video is stored as-is: re-encoding server-side would need a media pipeline
-  // this product does not have, and a silently degraded walkaround is worse than a large one.
+  // Upload to private sales-videos bucket with tenant-scoped path.
   app.post('/sales-videos', requireAuth, canEdit, videoUpload.single('file'), async (req, res) => {
     if (!guard(req, res)) return
     if (!req.file) return res.status(400).json({ error: 'No video was uploaded.' })
-    if (!/^video\//.test(req.file.mimetype || '')) {
+    const mime = (req.file.mimetype || '').toLowerCase()
+    if (!['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v'].includes(mime) && !/^video\//.test(mime)) {
       return res.status(400).json({ error: 'That file is not a video.' })
     }
 
-    const ext = (req.file.mimetype.split('/')[1] || 'mp4').replace(/[^a-z0-9]/gi, '')
-    // The bucket is public; this path is what keeps a customer's walkaround private until the
-    // share link is sent. Not Math.random(). (Phase 6S)
+    const ext = (req.file.originalname?.split('.').pop() || mime.split('/')[1] || 'mp4').replace(/[^a-z0-9]/gi, '').slice(0, 8) || 'mp4'
     const path = `${req.dealershipId}/${req.user?.id || 'unknown'}/${Date.now()}-${crypto.randomBytes(9).toString('base64url')}.${ext}`
     const { error: upErr } = await supabaseAdmin.storage.from('sales-videos')
       .upload(path, req.file.buffer, { contentType: req.file.mimetype, upsert: false })
     if (upErr) return res.status(500).json({ error: 'Upload failed: ' + upErr.message })
 
-    const { data: pub } = supabaseAdmin.storage.from('sales-videos').getPublicUrl(path)
     const expires = new Date(Date.now() + DEFAULT_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString()
     const { data, error } = await supabaseAdmin.from('sales_videos').insert({
       dealership_id: req.dealershipId,
@@ -188,7 +238,7 @@ export function registerSalesVideo(app) {
       created_by: req.user?.id || null,
       title: req.body?.title || null,
       storage_path: path,
-      public_url: pub?.publicUrl || '',
+      public_url: '',
       duration_seconds: req.body?.duration_seconds ? Math.round(Number(req.body.duration_seconds)) : null,
       bytes: req.file.size,
       share_token: newShareToken(),
@@ -201,8 +251,81 @@ export function registerSalesVideo(app) {
       await supabaseAdmin.storage.from('sales-videos').remove([path])
       return res.status(500).json({ error: error.message })
     }
+    const signedUrl = await getSignedPlaybackUrl(path, 3600)
     audit(req, 'sales_video.recorded', { after_state: { id: data.id, bytes: data.bytes } })
-    res.json({ ok: true, video: data })
+    res.json({ ok: true, video: { ...data, playback_url: signedUrl, summary: watchSummary(data) } })
+  })
+
+  // Revoke an active share link immediately
+  app.post('/sales-videos/:id/revoke', requireAuth, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const now = new Date().toISOString()
+      const { data, error } = await supabaseAdmin.from('sales_videos')
+        .update({ revoked_at: now, updated_at: now })
+        .eq('id', req.params.id)
+        .eq('dealership_id', req.dealershipId)
+        .is('deleted_at', null)
+        .select(VIDEO_COLUMNS)
+        .maybeSingle()
+
+      if (error) return res.status(500).json({ error: error.message })
+      if (!data) return res.status(404).json({ error: 'Video not found' })
+
+      audit(req, 'sales_video.revoked', { after_state: { id: data.id } })
+      res.json({ ok: true, message: 'Share link revoked', video: { ...data, summary: watchSummary(data) } })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  // Regenerate customer share token with a new unguessable token
+  app.post('/sales-videos/:id/share-token', requireAuth, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const token = newShareToken()
+      const expires = new Date(Date.now() + DEFAULT_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString()
+      const now = new Date().toISOString()
+      const { data, error } = await supabaseAdmin.from('sales_videos')
+        .update({ share_token: token, expires_at: expires, revoked_at: null, updated_at: now })
+        .eq('id', req.params.id)
+        .eq('dealership_id', req.dealershipId)
+        .is('deleted_at', null)
+        .select(VIDEO_COLUMNS)
+        .maybeSingle()
+
+      if (error) return res.status(500).json({ error: error.message })
+      if (!data) return res.status(404).json({ error: 'Video not found' })
+
+      audit(req, 'sales_video.token_regenerated', { after_state: { id: data.id } })
+      res.json({ ok: true, share_token: token, watch_url: watchUrl(token), video: { ...data, summary: watchSummary(data) } })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  // Soft-delete video and remove storage object
+  app.delete('/sales-videos/:id', requireAuth, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const { data: video } = await supabaseAdmin.from('sales_videos')
+        .select('id, dealership_id, storage_path, public_url')
+        .eq('id', req.params.id)
+        .eq('dealership_id', req.dealershipId)
+        .is('deleted_at', null)
+        .maybeSingle()
+
+      if (!video) return res.status(404).json({ error: 'Video not found' })
+
+      const now = new Date().toISOString()
+      await supabaseAdmin.from('sales_videos')
+        .update({ deleted_at: now, revoked_at: now, updated_at: now })
+        .eq('id', video.id)
+
+      const path = extractStoragePath(video)
+      if (path) {
+        await supabaseAdmin.storage.from('sales-videos').remove([path]).catch(() => {})
+      }
+
+      audit(req, 'sales_video.deleted', { before_state: { id: video.id } })
+      res.json({ ok: true })
+    } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
   /**
@@ -225,9 +348,7 @@ export function registerSalesVideo(app) {
       const consent = await mayContact(req.dealershipId, video.contact_id, channel)
       if (!consent.allowed) return res.status(403).json({ error: consent.reason, basis: consent.basis })
 
-      // Who it's going to. Without a real address/number there is nothing to deliver — the
-      // old endpoint marked such videos "sent" anyway, which is exactly why a rep saw "sent"
-      // but the customer got nothing.
+      // Who it's going to.
       const [{ data: contact }, { data: dealer }, { data: rep }] = await Promise.all([
         supabaseAdmin.from('contacts').select('full_name, first_name, email, phone, phone_mobile').eq('id', video.contact_id).maybeSingle(),
         supabaseAdmin.from('dealerships').select('name').eq('id', req.dealershipId).maybeSingle(),
@@ -240,11 +361,6 @@ export function registerSalesVideo(app) {
       const repName = (rep?.full_name || '').split(' ')[0] || ''
       const dealerName = dealer?.name || ''
 
-      // Actually deliver, and DO NOT mark it sent unless delivery succeeds.
-      // When the server has no way to send on this channel (no Resend key / no
-      // provisioned texting number), we don't fail — we hand back the recipient +
-      // watch link so the rep's own device can open its Messages / Mail app with it
-      // prefilled. The share link records opens/plays no matter who sends it.
       let delivery, to, unconfigured = false
       if (channel === 'email') {
         to = (contact.email || '').trim()
@@ -261,10 +377,8 @@ export function registerSalesVideo(app) {
         if (!to) return res.status(400).json({ error: 'This customer has no mobile number on file.' })
         const body = `${note || `${repName ? `${repName}: ` : ''}Here's a quick video for you`}: ${url}`
         delivery = await sendDealerSms(req.dealershipId, to, body)
-        // sendDealerSms returns { simulated:true } when there's no usable sender.
         if (!delivery?.ok && delivery?.simulated) unconfigured = true
       }
-      // No server-side sender configured for this channel → let the device do it.
       if (unconfigured) {
         return res.json({ ok: false, code: 'delivery_unconfigured', channel, to, watch_url: url })
       }
@@ -287,17 +401,25 @@ export function registerSalesVideo(app) {
 
   /**
    * What the watch page needs. Deliberately minimal — the rep's first name and the vehicle,
-   * never the customer's own record. A share link that leaked would otherwise become a way to
-   * read someone's CRM entry.
+   * never the customer's own record. Generates short-lived signed playback URL from private storage.
    */
-  app.get('/v/:token', async (req, res) => {
+  app.get('/v/:token', rateLimit('sales_video_watch', 60, 60 * 1000), async (req, res) => {
     try {
+      const token = String(req.params.token || '').trim()
+      if (!token || token.length < 8) return res.status(404).json({ error: 'Video unavailable' })
+
       const { data: video } = await supabaseAdmin.from('sales_videos')
-        .select('id, dealership_id, title, public_url, poster_url, duration_seconds, expires_at, deleted_at, created_by, inventory_id')
-        .eq('share_token', req.params.token).maybeSingle()
+        .select('id, dealership_id, title, storage_path, public_url, poster_url, duration_seconds, expires_at, revoked_at, deleted_at, created_by, inventory_id')
+        .eq('share_token', token).maybeSingle()
 
       const state = shareLinkState(video)
       if (!state.ok) return res.status(404).json({ error: state.reason })
+
+      const storagePath = extractStoragePath(video)
+      if (!storagePath) return res.status(404).json({ error: 'Video unavailable' })
+
+      const signedUrl = await getSignedPlaybackUrl(storagePath, 900) // 15-minute short-lived playback URL
+      if (!signedUrl) return res.status(500).json({ error: 'Could not generate playback URL' })
 
       const [{ data: rep }, { data: veh }] = await Promise.all([
         video.created_by
@@ -308,38 +430,36 @@ export function registerSalesVideo(app) {
           : Promise.resolve({ data: null }),
       ])
 
-      // Fetching the page is NOT watching it. This event exists so a rep can tell the
-      // difference between "never delivered" and "delivered but nobody pressed play".
+      // Fetching the page is NOT watching it.
       await supabaseAdmin.from('sales_video_events').insert({
         dealership_id: video.dealership_id, video_id: video.id, kind: 'link_opened',
         user_agent: (req.get('user-agent') || '').slice(0, 300),
       })
 
+      res.set('Cache-Control', 'private, no-store')
       res.json({
         title: video.title,
-        url: video.public_url,
+        url: signedUrl,
         poster: video.poster_url,
         duration_seconds: video.duration_seconds,
-        // First name only: a customer does not need the rep's full record either.
         from: (rep?.full_name || '').split(' ')[0] || null,
         vehicle: veh ? [veh.year, veh.make, veh.model, veh.trim].filter(Boolean).join(' ') : null,
       })
-    } catch (e) { res.status(500).json({ error: e.message }) }
+    } catch (e) { res.status(500).json({ error: 'Video unavailable' }) }
   })
 
   /**
    * A playback event from the player. Requires JavaScript and — for `play_started` — a real
    * user gesture, which is exactly what separates this from a prefetch.
    */
-  app.post('/v/:token/event', async (req, res) => {
+  app.post('/v/:token/event', rateLimit('sales_video_event', 120, 60 * 1000), async (req, res) => {
     const kind = String(req.body?.kind || '')
-    // 'link_opened' is server-recorded only. Accepting it here would let anything claim one.
     if (!['play_started', 'progress', 'completed', 'replied'].includes(kind)) {
       return res.status(400).json({ error: 'Unknown event.' })
     }
     try {
       const { data: video } = await supabaseAdmin.from('sales_videos')
-        .select('id, dealership_id, expires_at, deleted_at').eq('share_token', req.params.token).maybeSingle()
+        .select('id, dealership_id, expires_at, revoked_at, deleted_at').eq('share_token', req.params.token).maybeSingle()
       const state = shareLinkState(video)
       if (!state.ok) return res.status(404).json({ error: state.reason })
 

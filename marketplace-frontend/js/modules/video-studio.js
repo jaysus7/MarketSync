@@ -1160,8 +1160,8 @@ window.vidSendVideoTo = vidSendVideoTo;
 /**
  * Public Customer Video Player Viewport Modal & Real-Time Telemetry Tracking
  */
-function openPublicVideoLink(videoId, contactId) {
-  const data = window.__videoAnalyticsStore[videoId] || DEMO_SENT_VIDEOS.find(v => v.id === videoId || v.share_token === videoId) || {
+async function openPublicVideoLink(videoId, contactId) {
+  let data = window.__videoAnalyticsStore[videoId] || DEMO_SENT_VIDEOS.find(v => v.id === videoId || v.share_token === videoId) || {
     id: videoId,
     opened_at: new Date().toISOString(),
     watch_time_seconds: 0,
@@ -1171,8 +1171,22 @@ function openPublicVideoLink(videoId, contactId) {
     video_url: `https://marketsync.dealership.com/video/${videoId}`
   };
 
-  const videoSrc = data.local_url || data.public_url || data.video_url;
-  const isRealMedia = videoSrc && (videoSrc.startsWith('blob:') || videoSrc.startsWith('data:') || videoSrc.includes('.mp4') || videoSrc.includes('.webm') || videoSrc.includes('/sales-videos/'));
+  // If no live signed playback URL, fetch one on demand
+  if (!data.playback_url && !data.local_url) {
+    try {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(videoId);
+      if (isUuid) {
+        const pb = await apiGetJson(`/sales-videos/${videoId}/playback`).catch(() => null);
+        if (pb?.playback_url) data.playback_url = pb.playback_url;
+      } else {
+        const pb = await apiGetJson(`/v/${encodeURIComponent(videoId)}`).catch(() => null);
+        if (pb?.url) data.playback_url = pb.url;
+      }
+    } catch {}
+  }
+
+  const videoSrc = data.playback_url || data.local_url || data.public_url || data.video_url;
+  const isRealMedia = videoSrc && (videoSrc.startsWith('blob:') || videoSrc.startsWith('data:') || videoSrc.includes('.mp4') || videoSrc.includes('.webm') || videoSrc.includes('/sales-videos/') || videoSrc.includes('token=') || videoSrc.includes('X-Amz-Signature'));
 
   let playerModal = document.getElementById('public-video-player-modal');
   if (!playerModal) {
@@ -1803,8 +1817,41 @@ function msSearchVideos(val) {
   document.getElementById('saas-video-studio-host') ? loadSaasVideoStudio() : loadVideoStudioPage();
 }
 
+async function msRevokeVideoShare(videoId) {
+  if (!confirm('Are you sure you want to revoke this customer video link? Anyone with the old link will no longer be able to watch it.')) return;
+  try {
+    const res = await apiSendJson(`/sales-videos/${videoId}/revoke`, 'POST');
+    if (res?.ok) {
+      if (typeof toastSuccess === 'function') toastSuccess('Video share link revoked.');
+      loadVideoStudioPage();
+    }
+  } catch (e) {
+    if (typeof toastError === 'function') toastError(e.message || 'Could not revoke share link');
+  }
+}
+
+async function msRegenerateVideoShare(videoId) {
+  try {
+    const res = await apiSendJson(`/sales-videos/${videoId}/share-token`, 'POST');
+    if (res?.ok) {
+      if (res.watch_url && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(res.watch_url).catch(() => {});
+        if (typeof toastSuccess === 'function') toastSuccess('New share link generated and copied to clipboard!');
+      } else {
+        if (typeof toastSuccess === 'function') toastSuccess('New share link generated.');
+      }
+      loadVideoStudioPage();
+    }
+  } catch (e) {
+    if (typeof toastError === 'function') toastError(e.message || 'Could not generate new link');
+  }
+}
+
+window.msRevokeVideoShare = msRevokeVideoShare;
+window.msRegenerateVideoShare = msRegenerateVideoShare;
 window.loadVideoStudioPage = loadVideoStudioPage;
 window.loadSaasVideoStudio = loadSaasVideoStudio;
 window.msFilterVideoStatus = msFilterVideoStatus;
 window.msFilterVideoDept = msFilterVideoDept;
 window.msSearchVideos = msSearchVideos;
+
