@@ -160,15 +160,35 @@ function setupMobileMoreMenu() {
   const menu = document.getElementById('nav-more-menu');
   const list = document.getElementById('nav-more-list');
   if (!btn || !menu || !list) return;
-  const close = () => menu.classList.add('hidden');
+  if (btn.__moreMenuBound) return;
+  btn.__moreMenuBound = true;
+
+  const close = () => {
+    menu.classList.add('hidden');
+    btn.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+  };
 
   btn.addEventListener('click', () => {
+    btn.setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden';
     // Rebuild each open so it reflects the user's current role/add-on access.
     // Mirror the desktop grouped sidebar as collapsible dropdown groups so a dealer
     // admin can reach EVERYTHING from one place.
     list.className = 'space-y-1.5';   // stacked full-width groups (was a 2-col grid)
     list.innerHTML = '';
     const mk = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+
+    const product = document.documentElement.getAttribute('data-product') || '';
+    const headerTitle = menu.querySelector('.border-b span');
+    if (headerTitle) {
+      if (/(marketsync_email|email_marketing|campaigns[-_]email[-_]sms|campaigns)/.test(product)) {
+        headerTitle.textContent = 'Email & SMS Campaigns';
+      } else {
+        headerTitle.textContent = 'All pages';
+      }
+    }
+
     // Restricted tiers (Facebook-only + product tiers): the desktop sidebar is
     // stripped, so mirror exactly that tier's page set here — no legacy tree, no
     // department cards. Settings is always reachable (this list + the header gear).
@@ -191,6 +211,9 @@ function setupMobileMoreMenu() {
           if (p.studioLaunch) { if (typeof window.openMarketSyncStudio === 'function') window.openMarketSyncStudio(); return; }
           if (p.invmode) __inventoryMode = p.invmode;
           switchPage(p.page);
+          if (p.tab && typeof engineTab === 'function') {
+            engineTab(p.page, p.tab, true);
+          }
         });
         list.appendChild(b);
       });
@@ -284,6 +307,7 @@ function setupMobileMoreMenu() {
 
   document.getElementById('nav-more-close')?.addEventListener('click', close);
   menu.addEventListener('click', (e) => { if (e.target === menu) close(); });
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !menu.classList.contains('hidden')) close(); });
 }
 
 // ── Sales Pipeline (integrated page) ─────────────────────────────────────────

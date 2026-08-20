@@ -30,11 +30,11 @@ test('sensitive financial and customer-data routes require MFA plus a permission
   for (const [path, guard] of checks) assert.match(source(path), new RegExp(guard.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 })
 
-test('follow-up automation management requires MFA and lead assignment authority', () => {
+test('follow-up automation management requires MFA and automation management authority', () => {
   const automation = source('routes/automation.js')
-  assert.match(automation, /app\.put\('\/automation\/campaigns\/:id', requireAuth, requireMfa, requirePermission\('lead\.assign'\)/)
-  assert.match(automation, /app\.put\('\/automation\/settings', requireAuth, requireMfa, requirePermission\('lead\.assign'\)/)
-  assert.match(automation, /app\.post\('\/automation\/event', requireAuth, requireMfa, requirePermission\('lead\.assign'\)/)
+  assert.match(automation, /app\.put\('\/automation\/campaigns\/:id', requireAuth, requireMfa, requireAutomationManage/)
+  assert.match(automation, /app\.put\('\/automation\/settings', requireAuth, requireMfa, requireAutomationManage/)
+  assert.match(automation, /app\.post\('\/automation\/event', requireAuth, requireMfa, requireAutomationManage/)
 })
 
 test('integration management permission is seeded for dealer owners and general managers', () => {

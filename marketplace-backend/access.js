@@ -80,6 +80,18 @@ export async function getCurrentAccessContext(req) {
       ['product_memberships', memRes.error],
       ['member_permission_overrides', ovrRes.error],
     ].filter(([, error]) => error)
+
+    if (covRes.error) {
+      if (covRes.error.code === '42P01' || covRes.error.message?.includes('does not exist') || covRes.error.message?.includes('schema cache')) {
+        console.warn('[access] subscription_product_coverage table not yet migrated; falling back to subscriptions table')
+        productCoverage = []
+      } else {
+        failed.push(['subscription_product_coverage', covRes.error])
+      }
+    } else {
+      productCoverage = covRes.data || []
+    }
+
     if (failed.length) {
       const detail = failed.map(([table, error]) => `${table}: ${error.message}`).join('; ')
       console.error(`[access] caller entitlement rows unavailable — ${detail}`)
@@ -87,7 +99,6 @@ export async function getCurrentAccessContext(req) {
     }
     roleRows = roleRes.data || []
     subscriptions = subRes.data || []
-    productCoverage = covRes.data || []
     memberships = (memRes.data || []).map(m => m.product_id)
     overrides = ovrRes.data || []
   }
@@ -192,6 +203,12 @@ export function requireAccess(opts = {}) {
       if (opts.permission) {
         if (!can(ctx, opts.permission)) {
           return res.status(403).json({ error: 'PERMISSION_DENIED', permission: opts.permission })
+        }
+      }
+      if (Array.isArray(opts.anyPermission) && opts.anyPermission.length > 0) {
+        const matched = opts.anyPermission.some(p => can(ctx, p))
+        if (!matched) {
+          return res.status(403).json({ error: 'PERMISSION_DENIED', permission: opts.anyPermission[0] })
         }
       }
       next()

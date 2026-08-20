@@ -29,14 +29,15 @@ ALTER TABLE public.subscription_product_coverage ENABLE ROW LEVEL SECURITY;
 
 -- Clean up any existing policies
 DROP POLICY IF EXISTS "sub_prod_coverage_select_dealership" ON public.subscription_product_coverage;
+DROP POLICY IF EXISTS "sub_prod_coverage_select_authorized" ON public.subscription_product_coverage;
 DROP POLICY IF EXISTS "sub_prod_coverage_service_all" ON public.subscription_product_coverage;
 
 -- Authenticated members can only view coverage for their own dealership
-CREATE POLICY "sub_prod_coverage_select_dealership"
+CREATE POLICY "sub_prod_coverage_select_authorized"
   ON public.subscription_product_coverage
   FOR SELECT TO authenticated
   USING (
-    dealership_id = authz.current_dealership_id()
+    authz.belongs_to_dealership(dealership_id) OR authz.is_platform_staff()
   );
 
 -- Backend service role has full access

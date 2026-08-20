@@ -138,8 +138,17 @@ export function computeAccessContext(raw = {}) {
   )
 
   // ── Layer 2: subscription tier → entitled features per product ──
+  // If multiple live coverage rows exist for the SAME product (e.g. from different plans),
+  // entitled features for that product are the UNION of all feature grants across all live plans.
+  const plansByProduct = {}
   const planByProduct = {}
-  for (const s of activeItems) if (s.plan_id) planByProduct[s.product_id] = s.plan_id
+  for (const s of activeItems) {
+    if (s.plan_id && s.product_id) {
+      if (!plansByProduct[s.product_id]) plansByProduct[s.product_id] = new Set()
+      plansByProduct[s.product_id].add(s.plan_id)
+      if (!planByProduct[s.product_id]) planByProduct[s.product_id] = s.plan_id
+    }
+  }
   const planFeatures = raw.planFeatures || []
   const featureCatalog = raw.features || []
   const featureProduct = {}
@@ -148,9 +157,13 @@ export function computeAccessContext(raw = {}) {
   const isDemo = !!raw.isDemo
   const entitledFeatures = new Set()
   for (const product of userProducts) {
-    const planId = planByProduct[product]
-    if (planId) {
-      for (const pf of planFeatures) if (pf.plan_id === planId) entitledFeatures.add(pf.feature_id)
+    const productPlans = plansByProduct[product]
+    if (productPlans && productPlans.size > 0) {
+      for (const planId of productPlans) {
+        for (const pf of planFeatures) {
+          if (pf.plan_id === planId) entitledFeatures.add(pf.feature_id)
+        }
+      }
     } else {
       // Product access without a plan row (legacy fallback / platform staff) ⇒ all of the
       // product's features are entitled. Tier gating only applies once a plan is assigned.

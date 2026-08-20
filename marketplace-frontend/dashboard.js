@@ -828,11 +828,11 @@ const PRODUCT_PAGES = {
   facebook_dealer: ['leaderboard', 'inventory'],
   video: ['video-studio', 'leaderboard'],
   marketsync_video: ['video-studio', 'leaderboard'],
-  campaigns: ['marketing-overview', 'email-marketing', 'saas-automation'],
+  campaigns: ['marketing-overview', 'automation-builder', 'email-marketing', 'saas-automation'],
   social: ['marketing-overview'],
   marketsync_social: ['marketing-overview'],
-  email_marketing: ['email-marketing'],
-  marketsync_email: ['email-marketing'],
+  email_marketing: ['marketing-overview', 'automation-builder', 'email-marketing'],
+  marketsync_email: ['marketing-overview', 'automation-builder', 'email-marketing'],
   ai_chatbot: ['ai-home'],
   website: ['website', 'blog', 'seo'],
   marketsync_website: ['website', 'blog', 'seo'],
@@ -856,8 +856,8 @@ const PRODUCT_HOME = {
   campaigns: 'marketing-overview',
   social: 'marketing-overview',
   marketsync_social: 'marketing-overview',
-  email_marketing: 'email-marketing',
-  marketsync_email: 'email-marketing',
+  email_marketing: 'marketing-overview',
+  marketsync_email: 'marketing-overview',
   ai_chatbot: 'ai-home',
   website: 'website',
   marketsync_website: 'website',
@@ -1370,7 +1370,7 @@ function applyMobileQuickRow() {
     host.className = 'contents md:hidden';   // display:contents → children join the flex row
     if (more && more.parentElement) more.parentElement.insertBefore(host, more);
   }
-  host.innerHTML = pages.map(p => `<button type="button" data-page="${esc(p.page)}" onclick="${p.studioLaunch ? 'window.openMarketSyncStudio()' : `deptGo('${esc(p.page)}'${p.invmode ? `,'${esc(p.invmode)}'` : ''})`}" title="${esc(p.label)}" class="nav-item md:hidden flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="opacity-70">${svgIcon(p.icon || 'dot', 'w-[18px] h-[18px]')}</span><span class="text-[9px] leading-none">${esc(p.label.split(' ')[0])}</span></button>`).join('');
+  host.innerHTML = pages.map(p => `<button type="button" data-page="${esc(p.page)}" data-tab="${esc(p.tab || '')}" onclick="${p.studioLaunch ? 'window.openMarketSyncStudio()' : p.tab ? `(function(){ switchPage('${esc(p.page)}'); if(typeof engineTab==='function') engineTab('${esc(p.page)}','${esc(p.tab)}',true); })()` : `deptGo('${esc(p.page)}'${p.invmode ? `,'${esc(p.invmode)}'` : ''})`}" title="${esc(p.label)}" class="nav-item md:hidden flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="opacity-70">${svgIcon(p.icon || 'dot', 'w-[18px] h-[18px]')}</span><span class="text-[9px] leading-none">${esc(p.label.split(' ')[0])}</span></button>`).join('');
   more?.classList.toggle('hidden', !showMoreBtn);
 }
 window.applyMobileQuickRow = applyMobileQuickRow;
@@ -1410,14 +1410,22 @@ function restrictedNavPages() {
     return [{ page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true }];
   }
   if (activeProducts.length === 1 && /(marketsync_email|email_marketing|campaigns[-_]email[-_]sms|marketsync_social|marketing[-_]overview|marketing|campaigns|automations)/.test(product)) {
-    return [
+    const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+    const feats = access.features || [];
+    const hasAuto = access.isPlatformStaff || feats.includes('email.automations') || feats.includes('os.automations') || !access.features;
+    const items = [
       { page: 'marketing-overview', tab: 'overview', label: 'Overview', icon: 'chart' },
-      { page: 'marketing-overview', tab: 'automations', label: 'Automations', icon: 'bolt' },
+    ];
+    if (hasAuto) {
+      items.push({ page: 'marketing-overview', tab: 'automations', label: 'Automations', icon: 'bolt' });
+    }
+    items.push(
       { page: 'marketing-overview', tab: 'campaigns', label: 'Campaigns', icon: 'megaphone' },
       { page: 'marketing-overview', tab: 'templates', label: 'Templates', icon: 'document' },
       { page: 'marketing-overview', tab: 'audiences', label: 'Audiences', icon: 'users' },
       { page: 'marketing-overview', tab: 'performance', label: 'Performance', icon: 'sparkles' },
-    ];
+    );
+    return items;
   }
   const isSalesMarketingSuite = activeProducts.includes('sales_marketing_suite')
     || (typeof profileContext !== 'undefined' && profileContext?.package_id === 'sales-marketing-suite')

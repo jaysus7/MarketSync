@@ -311,7 +311,13 @@ ENGINES['marketing-overview'] = {
   hideTabBar: true,
   tabLabels: { overview: 'Pulse', automations: 'Automations', campaigns: 'Campaigns', templates: 'Templates', audiences: 'Audiences', performance: 'Performance', studio: 'Design Studio', 'video-studio': 'Video Studio', chatbot: 'AI ChatBot', website: 'Website' },
   get tabOrder() {
-    return ['overview', 'automations', 'campaigns', 'templates', 'audiences', 'performance'];
+    const access = (typeof window !== "undefined" && window.__access) ? window.__access : {};
+    const feats = access.features || [];
+    const hasAuto = access.isPlatformStaff || feats.includes('email.automations') || feats.includes('os.automations') || !access.features;
+    const base = ['overview'];
+    if (hasAuto) base.push('automations');
+    base.push('campaigns', 'templates', 'audiences', 'performance');
+    return base;
   },
 
   quickActions: [
@@ -501,9 +507,6 @@ ENGINES['marketing-overview'] = {
 
     // Legacy aliases for backward-compatible deep links and redirects
     emails(body, d) {
-      this['email-sms'](body, d);
-    },
-    automations(body, d) {
       this['email-sms'](body, d);
     },
 

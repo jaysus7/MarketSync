@@ -44,3 +44,4 @@ CREATE POLICY "sales_videos_authenticated_delete" ON storage.objects
     bucket_id = 'sales-videos' AND
     (storage.foldername(name))[1] = authz.current_dealership_id()::text
   );
+
