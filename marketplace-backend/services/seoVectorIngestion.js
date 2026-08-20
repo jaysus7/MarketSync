@@ -19,7 +19,8 @@ export async function syncSeoIntelligenceForDealership(dealershipId, auditData =
   if (!dealershipId) return
 
   const now = new Date().toISOString()
-  const { healthScore = 92, issues = [], dealer = {}, activeInventoryCount = 0 } = auditData
+  const { issues = [], dealer = {}, activeInventoryCount = 0 } = auditData
+  const healthScore = auditData.healthScore != null ? auditData.healthScore : Math.max(0, 100 - (issues.filter(i => i.status === 'pending').length * 6))
 
   // 1. Site Health Chunk
   const healthContent = `MarketSync SEO Site Health Summary for ${dealer.name || 'Dealership'} (${dealer.city || 'Local'}):

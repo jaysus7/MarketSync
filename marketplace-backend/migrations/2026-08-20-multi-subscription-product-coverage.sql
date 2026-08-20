@@ -32,6 +32,11 @@ DROP POLICY IF EXISTS "sub_prod_coverage_select_dealership" ON public.subscripti
 DROP POLICY IF EXISTS "sub_prod_coverage_select_authorized" ON public.subscription_product_coverage;
 DROP POLICY IF EXISTS "sub_prod_coverage_service_all" ON public.subscription_product_coverage;
 
+-- Revoke write privileges from public/authenticated users
+REVOKE ALL ON public.subscription_product_coverage FROM authenticated, anon, public;
+GRANT SELECT ON public.subscription_product_coverage TO authenticated;
+GRANT ALL ON public.subscription_product_coverage TO service_role;
+
 -- Authenticated members can only view coverage for their own dealership
 CREATE POLICY "sub_prod_coverage_select_authorized"
   ON public.subscription_product_coverage

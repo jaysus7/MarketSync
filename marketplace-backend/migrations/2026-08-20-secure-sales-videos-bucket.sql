@@ -26,7 +26,7 @@ CREATE POLICY "sales_videos_authenticated_select" ON storage.objects
   FOR SELECT TO authenticated
   USING (
     bucket_id = 'sales-videos' AND
-    (storage.foldername(name))[1] = authz.current_dealership_id()::text
+    authz.belongs_to_dealership(authz.storage_path_dealership(name))
   );
 
 -- Authenticated dealership users can only insert objects within their dealership folder
@@ -34,7 +34,7 @@ CREATE POLICY "sales_videos_authenticated_insert" ON storage.objects
   FOR INSERT TO authenticated
   WITH CHECK (
     bucket_id = 'sales-videos' AND
-    (storage.foldername(name))[1] = authz.current_dealership_id()::text
+    authz.belongs_to_dealership(authz.storage_path_dealership(name))
   );
 
 -- Authenticated dealership users can only delete objects within their dealership folder
@@ -42,6 +42,6 @@ CREATE POLICY "sales_videos_authenticated_delete" ON storage.objects
   FOR DELETE TO authenticated
   USING (
     bucket_id = 'sales-videos' AND
-    (storage.foldername(name))[1] = authz.current_dealership_id()::text
+    authz.belongs_to_dealership(authz.storage_path_dealership(name))
   );
 

@@ -33,8 +33,8 @@ test('migration makes sales-videos bucket private and enforces storage RLS', () 
     'storage.objects must have RLS enabled')
   assert.match(migration, /CREATE\s+POLICY\s+"sales_videos_authenticated_select"\s+ON\s+storage\.objects/i,
     'authenticated select policy must exist')
-  assert.match(migration, /authz\.current_dealership_id\(\)::text/i,
-    'storage policy must isolate by dealership ID')
+  assert.match(migration, /authz\.belongs_to_dealership\(authz\.storage_path_dealership\(name\)\)/i,
+    'storage policy must isolate by dealership ID using tenant authorization')
   
   // Guardrail: must NOT touch public vehicle media buckets
   assert.doesNotMatch(migration, /vehicle-photos/i, 'must not modify vehicle-photos')

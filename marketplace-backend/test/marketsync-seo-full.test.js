@@ -109,7 +109,7 @@ test('SEO Overview endpoint returns entitled status and health metrics', async (
     const data = await res.json()
     assert.equal(res.status, 200)
     assert.equal(data.entitled, true)
-    assert.equal(typeof data.healthScore, 'number')
+    assert.ok(data.healthScore === null || typeof data.healthScore === 'number')
     assert.equal(data.standardsVersion, 'MarketSync SEO Standards — 2026')
   } finally {
     await ts.close()

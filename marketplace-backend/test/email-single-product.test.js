@@ -11,7 +11,7 @@ test('Email single product (marketsync_email) has correct canonical catalog and 
   const plan = PLAN_CATALOG['campaigns-email-sms']
   assert.ok(plan, 'campaigns-email-sms must exist in plan catalog')
   assert.equal(plan.product_primary, 'marketsync_email')
-  assert.equal(plan.monthly, 129)
+  assert.equal(plan.monthly, 199)
 
   // Validate access policy for standalone email user
   const access = computeAccessContext({

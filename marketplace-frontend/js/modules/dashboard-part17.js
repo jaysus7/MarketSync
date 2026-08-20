@@ -4100,23 +4100,23 @@ async function loadDealerSeo() {
       apiGetJson('/seo/settings').catch(() => null)
     ]);
     __seoData = overviewRes || {
-      healthScore: 94,
-      visibilityDelta: 14.2,
-      searchTraffic: 1482,
-      indexedPages: '347 / 352',
-      aiVisibility: '88% Ready',
-      issuesCount: 2,
-      opportunitiesCount: 12,
-      shareOfVoice: '42.8%',
-      trackedKeywords: 48,
-      top3Count: 6,
-      top10Count: 24,
-      top20Count: 38,
-      leadsCount: 42,
-      apptsCount: 18,
-      revenueAttributed: '$148,200',
-      referringDomains: 86,
-      totalBacklinks: 1420,
+      healthScore: null,
+      visibilityDelta: null,
+      searchTraffic: null,
+      indexedPages: '--',
+      aiVisibility: 'Pending Audit',
+      issuesCount: 0,
+      opportunitiesCount: 0,
+      shareOfVoice: '--',
+      trackedKeywords: 0,
+      top3Count: 0,
+      top10Count: 0,
+      top20Count: 0,
+      leadsCount: 0,
+      apptsCount: 0,
+      revenueAttributed: '$0',
+      referringDomains: 0,
+      totalBacklinks: 0,
       standardsVersion: 'Standards — 2026'
     };
     __seoFullSettings = settingsRes?.settings || {};
@@ -4262,37 +4262,37 @@ function renderSeoEasyOverviewView() {
       <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
         <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
           <div class="text-slate-500 dark:text-slate-400 font-bold">SEO Health</div>
-          <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400">${d.healthScore != null ? d.healthScore : 94} <span class="text-xs text-slate-400">/ 100</span></div>
-          <div class="text-[10px] text-slate-400 font-medium">Daily Audit Passed</div>
+          <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400">${d.healthScore != null ? d.healthScore : '--'} <span class="text-xs text-slate-400">/ 100</span></div>
+          <div class="text-[10px] text-slate-400 font-medium">Daily Audit</div>
         </div>
         <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
           <div class="text-slate-500 dark:text-slate-400 font-bold">Organic Visibility</div>
-          <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400">+${d.visibilityDelta != null ? d.visibilityDelta : 14.2}%</div>
-          <div class="text-[10px] text-emerald-500 font-bold">Trending Upward</div>
+          <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400">${d.visibilityDelta != null ? `+${d.visibilityDelta}%` : '--'}</div>
+          <div class="text-[10px] text-emerald-500 font-bold">${d.visibilityDelta != null ? 'Active' : 'Pending GSC'}</div>
         </div>
         <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
           <div class="text-slate-500 dark:text-slate-400 font-bold">Search Traffic</div>
-          <div class="text-2xl font-black text-slate-900 dark:text-white">${d.searchTraffic != null ? d.searchTraffic : 1482}</div>
+          <div class="text-2xl font-black text-slate-900 dark:text-white">${d.searchTraffic != null ? d.searchTraffic : (d.providerStatus?.connected ? 0 : 'Connect GSC')}</div>
           <div class="text-[10px] text-slate-400 font-medium">Monthly Clicks</div>
         </div>
         <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
           <div class="text-slate-500 dark:text-slate-400 font-bold">Indexed Pages</div>
-          <div class="text-xl font-black text-slate-900 dark:text-white">${esc(d.indexedPages || '347 / 352')}</div>
+          <div class="text-xl font-black text-slate-900 dark:text-white">${esc(d.indexedPages || '--')}</div>
           <div class="text-[10px] text-slate-400 font-medium">Google Coverage</div>
         </div>
         <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
           <div class="text-slate-500 dark:text-slate-400 font-bold">AI Visibility</div>
-          <div class="text-xl font-black text-emerald-600 dark:text-emerald-400">${esc(d.aiVisibility || '88% Ready')}</div>
+          <div class="text-xl font-black text-emerald-600 dark:text-emerald-400">${esc(d.aiVisibility || '--')}</div>
           <div class="text-[10px] text-slate-400 font-medium">llms.txt Active</div>
         </div>
         <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
           <div class="text-slate-500 dark:text-slate-400 font-bold">Action Items</div>
-          <div class="text-2xl font-black text-amber-500">${d.issuesCount != null ? d.issuesCount : 2}</div>
+          <div class="text-2xl font-black text-amber-500">${d.issuesCount != null ? d.issuesCount : 0}</div>
           <div class="text-[10px] text-slate-400 font-medium">Warnings Flagged</div>
         </div>
         <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
           <div class="text-slate-500 dark:text-slate-400 font-bold">Opportunities</div>
-          <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400">${d.opportunitiesCount != null ? d.opportunitiesCount : 12}</div>
+          <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400">${d.opportunitiesCount != null ? d.opportunitiesCount : 0}</div>
           <div class="text-[10px] text-slate-400 font-medium">High Impact Targets</div>
         </div>
       </div>
@@ -4388,38 +4388,38 @@ function renderSeoAdvancedOverviewView() {
         </div>
         <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
           <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Search Clicks</div>
-          <div class="text-xl font-black text-slate-900 dark:text-white">${d.searchTraffic || 1482}</div>
-          <div class="text-[10px] text-emerald-500 font-bold">+18.4% vs Last Mo</div>
+          <div class="text-xl font-black text-slate-900 dark:text-white">${d.searchTraffic != null ? d.searchTraffic : '--'}</div>
+          <div class="text-[10px] text-slate-400">${d.providerStatus?.connected ? 'Live GSC' : 'Connect GSC'}</div>
         </div>
         <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
           <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">CRM Leads</div>
-          <div class="text-xl font-black text-indigo-500">${d.leadsCount || 42}</div>
-          <div class="text-[10px] text-slate-400">3.1% Conversion</div>
+          <div class="text-xl font-black text-indigo-500">${d.leadsCount != null ? d.leadsCount : 0}</div>
+          <div class="text-[10px] text-slate-400">Attributed Leads</div>
         </div>
         <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
           <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Appointments</div>
-          <div class="text-xl font-black text-emerald-500">${d.apptsCount || 18}</div>
+          <div class="text-xl font-black text-emerald-500">${d.apptsCount != null ? d.apptsCount : 0}</div>
           <div class="text-[10px] text-slate-400">Showroom &amp; Service</div>
         </div>
         <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
           <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Attributed Rev</div>
-          <div class="text-xl font-black text-emerald-400">${esc(d.revenueAttributed || '$148,200')}</div>
-          <div class="text-[10px] text-slate-400">14 Closed Units</div>
+          <div class="text-xl font-black text-emerald-400">${esc(d.revenueAttributed || '$0')}</div>
+          <div class="text-[10px] text-slate-400">Closed Units</div>
         </div>
         <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
           <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Referring Domains</div>
-          <div class="text-xl font-black text-indigo-400">${d.referringDomains || 86}</div>
-          <div class="text-[10px] text-emerald-500 font-bold">1,420 Backlinks</div>
+          <div class="text-xl font-black text-indigo-400">${d.referringDomains != null ? d.referringDomains : 0}</div>
+          <div class="text-[10px] text-slate-400">${d.totalBacklinks != null ? `${d.totalBacklinks} Backlinks` : '0 Backlinks'}</div>
         </div>
         <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
           <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Site Health</div>
-          <div class="text-xl font-black text-emerald-500">${d.healthScore || 94} / 100</div>
-          <div class="text-[10px] text-slate-400">Grade A Health</div>
+          <div class="text-xl font-black text-emerald-500">${d.healthScore != null ? d.healthScore : '--'} / 100</div>
+          <div class="text-[10px] text-slate-400">Audit Status</div>
         </div>
         <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
           <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Indexed Pages</div>
-          <div class="text-xl font-black text-slate-900 dark:text-white">${esc(d.indexedPages || '347 / 352')}</div>
-          <div class="text-[10px] text-slate-400">98.5% Indexation</div>
+          <div class="text-xl font-black text-slate-900 dark:text-white">${esc(d.indexedPages || '--')}</div>
+          <div class="text-[10px] text-slate-400">Indexation Status</div>
         </div>
         <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
           <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Content Gaps</div>

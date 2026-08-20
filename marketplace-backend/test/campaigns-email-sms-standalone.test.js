@@ -12,7 +12,7 @@ test('campaigns-email-sms plan is configured to grant marketsync_email product a
   assert.ok(plan, 'campaigns-email-sms plan must exist')
   assert.equal(plan.product_primary, 'marketsync_email')
   assert.deepEqual(plan.products, ['marketsync_email'])
-  assert.equal(plan.monthly, 129)
+  assert.equal(plan.monthly, 199)
   assert.deepEqual(plan.features, FEATURES_BY_PRODUCT.marketsync_email)
   assert.ok(plan.features.includes('email.campaigns'))
   assert.ok(plan.features.includes('email.templates'))

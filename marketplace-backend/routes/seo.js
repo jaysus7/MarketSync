@@ -49,7 +49,7 @@ export default function registerSeoRoutes(app) {
     res.json({
       entitled: true,
       auditSource: 'marketsync_site_audit',
-      healthScore: audit?.healthScore ?? 85,
+      healthScore: audit?.healthScore ?? null,
       issuesCount: audit?.issues?.filter(i => i.status === 'pending')?.length ?? 0,
       autoFixesAppliedCount: audit?.autoFixesAppliedCount ?? 0,
       mode: settings?.mode || 'easy',
@@ -305,10 +305,21 @@ export default function registerSeoRoutes(app) {
 - Dealership Financing & Credit Intake
 - Certified Vehicle Repair & Parts Department`
 
+    const { data: settings } = await supabaseAdmin
+      .from('seo_settings')
+      .select('gsc_connected')
+      .eq('dealership_id', req.dealershipId)
+      .maybeSingle()
+
+    const isConnected = !!settings?.gsc_connected
+    const hasCoreInfo = !!(dealer?.name && dealer?.city && dealer?.phone)
+    const readinessScore = hasCoreInfo ? '100 / 100' : '60 / 100'
+    const aiReferralTraffic = isConnected ? '0 visits / month' : 'Requires Search Console connection'
+
     res.json({
-      readinessScore: '94 / 100',
-      aiReferralTraffic: '18 visits / month',
-      structuredCoverage: 'Complete (AutoDealer, Vehicle, Offer, LocalBusiness)',
+      readinessScore,
+      aiReferralTraffic,
+      structuredCoverage: hasCoreInfo ? 'Complete (AutoDealer, Vehicle, Offer, LocalBusiness)' : 'Basic (Missing Dealership NAP Details)',
       crawlerAccessibility: 'GPTBot (Allowed), ClaudeBot (Allowed), PerplexityBot (Allowed)',
       llmsTxtContent
     })
@@ -326,22 +337,7 @@ export default function registerSeoRoutes(app) {
       .limit(50)
 
     res.json({
-      history: history || [
-        {
-          id: 'hist-1',
-          action: 'MarketSync regenerated XML sitemap',
-          type: 'Automatic',
-          details: 'Updated sitemap.xml with 347 active URLs and submitted to Search Console.',
-          created_at: new Date().toISOString()
-        },
-        {
-          id: 'hist-2',
-          action: 'Updated homepage SEO title',
-          type: 'Manual',
-          details: 'User updated homepage title to include target city.',
-          created_at: new Date(Date.now() - 86400000).toISOString()
-        }
-      ]
+      history: history || []
     })
   })
 

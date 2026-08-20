@@ -32,9 +32,11 @@ test('sensitive financial and customer-data routes require MFA plus a permission
 
 test('follow-up automation management requires MFA and automation management authority', () => {
   const automation = source('routes/automation.js')
-  assert.match(automation, /app\.put\('\/automation\/campaigns\/:id', requireAuth, requireMfa, requireAutomationManage/)
-  assert.match(automation, /app\.put\('\/automation\/settings', requireAuth, requireMfa, requireAutomationManage/)
-  assert.match(automation, /app\.post\('\/automation\/event', requireAuth, requireMfa, requireAutomationManage/)
+  assert.match(automation, /app\.get\('\/automation\/campaigns', requireAuth, requireMfa, requireAutomationRead/)
+  assert.match(automation, /app\.get\('\/automation\/queue', requireAuth, requireMfa, requireAutomationRead/)
+  assert.match(automation, /app\.put\('\/automation\/campaigns\/:id', requireAuth, requireMfa, requireAutomationWrite/)
+  assert.match(automation, /app\.put\('\/automation\/settings', requireAuth, requireMfa, requireAutomationWrite/)
+  assert.match(automation, /app\.post\('\/automation\/event', requireAuth, requireMfa, requireAutomationWrite/)
 })
 
 test('integration management permission is seeded for dealer owners and general managers', () => {

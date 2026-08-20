@@ -12,3 +12,5 @@ commit_signing_key.pub
 .claude/worktrees/
 .claude/settings.local.json
 .DS_Store
+.temp/
+supabase/.temp/

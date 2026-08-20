@@ -7,7 +7,7 @@
  * RULES:
  * 1. ALL prices are CAD per month.
  * 2. NO emojis anywhere in copy or metadata.
- * 3. Campaigns — Email + SMS is $129/mo + usage.
+ * 3. Campaigns — Email + SMS is $199/mo + usage.
  */
 
 const MARKETSYNC_PRICING = {
@@ -19,8 +19,8 @@ const MARKETSYNC_PRICING = {
     {
       id: 'design-studio',
       name: 'Design Studio',
-      price: 5,
-      priceFormatted: '$5',
+      price: 19.99,
+      priceFormatted: '$19.99',
       unit: '/month',
       badge: 'Creative Workspace',
       desc: 'Dealership design workspace for creating branded graphics, social assets, and marketing collateral — with AI generation and a social scheduler built in, one flat price.',
@@ -39,8 +39,8 @@ const MARKETSYNC_PRICING = {
     {
       id: 'autoposter-salesperson',
       name: 'Facebook AutoPoster — Salesperson',
-      price: 19,
-      priceFormatted: '$19',
+      price: 39,
+      priceFormatted: '$39',
       unit: '/month',
       badge: 'Sales Rep Essential',
       desc: 'Individual inventory posting assistant for automotive sales representatives on Facebook Marketplace.',
@@ -57,8 +57,8 @@ const MARKETSYNC_PRICING = {
     {
       id: 'autoposter-dealer',
       name: 'Facebook AutoPoster — Dealer',
-      price: 79,
-      priceFormatted: '$79',
+      price: 149,
+      priceFormatted: '$149',
       unit: '/month',
       badge: 'Dealership Hub',
       desc: 'Centralized Facebook Marketplace inventory distribution for the whole sales team.',
@@ -75,8 +75,8 @@ const MARKETSYNC_PRICING = {
     {
       id: 'video',
       name: 'Video',
-      price: 99,
-      priceFormatted: '$99',
+      price: 149,
+      priceFormatted: '$149',
       unit: '/month',
       badge: 'Video Marketing',
       desc: 'Vehicle walkaround, customer presentation, and social video creation suite.',
@@ -93,8 +93,8 @@ const MARKETSYNC_PRICING = {
     {
       id: 'campaigns-email-sms',
       name: 'Campaigns — Email + SMS',
-      price: 129,
-      priceFormatted: '$129',
+      price: 199,
+      priceFormatted: '$199',
       unit: '/month + usage',
       badge: 'Automated Messaging',
       desc: 'Targeted email and SMS marketing campaigns with intelligent audience segmentation.',
@@ -129,8 +129,8 @@ const MARKETSYNC_PRICING = {
     {
       id: 'ai-chatbot',
       name: 'AI ChatBot',
-      price: 299,
-      priceFormatted: '$299',
+      price: 599,
+      priceFormatted: '$599',
       unit: '/month',
       badge: '24/7 Automotive Assistant',
       desc: 'Automotive AI customer engagement assistant trained on your inventory and dealership info.',
@@ -171,15 +171,15 @@ const MARKETSYNC_PRICING = {
     {
       id: 'sales-marketing-suite',
       name: 'Sales Marketing Suite',
-      price: 249,
-      priceFormatted: '$249',
+      price: 399,
+      priceFormatted: '$399',
       unit: '/month',
       badge: 'Sales Growth Pack',
       desc: 'Connected marketing suite for dealership sales teams to capture, nurture, and close leads.',
       includedItems: [
-        'Design Studio ($5/mo value, with social scheduler & AI included)',
-        'Facebook AutoPoster Dealer ($79/mo value)',
-        'Campaigns — Email + SMS ($129/mo value)'
+        'Design Studio ($19.99/mo value, with social scheduler & AI included)',
+        'Facebook AutoPoster Dealer ($149/mo value)',
+        'Campaigns — Email + SMS ($199/mo value)'
       ],
       idealFor: 'Dealership sales departments seeking high-volume lead generation.',
       ctaText: 'Get Sales Suite',
@@ -188,8 +188,8 @@ const MARKETSYNC_PRICING = {
     {
       id: 'service-marketing-suite',
       name: 'Service Marketing Suite',
-      price: 249,
-      priceFormatted: '$249',
+      price: 399,
+      priceFormatted: '$399',
       unit: '/month',
       badge: 'Fixed Ops Retention',
       desc: 'Customer retention and service marketing platform for service drive revenue growth.',
@@ -207,15 +207,15 @@ const MARKETSYNC_PRICING = {
     {
       id: 'complete-marketing-suite',
       name: 'Complete Marketing Suite',
-      price: 399,
-      priceFormatted: '$399',
+      price: 699,
+      priceFormatted: '$699',
       unit: '/month',
       badge: 'All-In-One Marketing',
       desc: 'Full-spectrum connected marketing platform combining Sales, Service, Video, and Social.',
       includedItems: [
-        'Sales Marketing Suite ($249/mo value)',
-        'Service Marketing Suite ($249/mo value)',
-        'Video Suite ($99/mo value)',
+        'Sales Marketing Suite ($399/mo value)',
+        'Service Marketing Suite ($399/mo value)',
+        'Video Suite ($149/mo value)',
         'Intelligence by MarketSync Campaign AI'
       ],
       idealFor: 'Full dealerships replacing multiple standalone marketing tools.',
@@ -226,15 +226,15 @@ const MARKETSYNC_PRICING = {
     {
       id: 'marketsync-digital',
       name: 'MarketSync Digital',
-      price: 599,
-      priceFormatted: '$599',
+      price: 1199,
+      priceFormatted: '$1,199',
       unit: '/month',
       badge: 'Complete Digital Presence',
       desc: 'Complete Marketing Suite + Dealer Website + AI ChatBot in one unified platform.',
       includedItems: [
-        'Complete Marketing Suite ($399/mo value)',
+        'Complete Marketing Suite ($699/mo value)',
         'Dealer Website ($249/mo value)',
-        'AI ChatBot ($299/mo value)',
+        'AI ChatBot ($599/mo value)',
         'Unified Digital Dashboard & CRM Lead Sync'
       ],
       idealFor: 'Dealerships seeking a modern website and 360-degree digital growth platform.',
@@ -277,7 +277,7 @@ const MARKETSYNC_PRICING = {
         'All DealerOS Core Features',
         'Service & Parts Department Workspaces',
         'F&I Deal Structuring & Lender Submissions',
-        'MarketSync Digital Suite Included ($599/mo value)',
+        'MarketSync Digital Suite Included ($1,199/mo value)',
         'HR Dossier & Staff Directory',
         'Priority Phone & Dedicated Onboarding'
       ],

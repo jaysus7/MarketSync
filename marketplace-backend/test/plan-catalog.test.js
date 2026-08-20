@@ -38,9 +38,9 @@ test('the current public catalog is fully represented, priced to match public-co
   }
 
   const prices = {
-    'design-studio': 5, 'autoposter-salesperson': 19, 'autoposter-dealer': 79,
-    video: 99, 'campaigns-email-sms': 129, 'dealer-website': 249, 'ai-chatbot': 299,
-    'sales-marketing-suite': 249, 'service-marketing-suite': 249, 'complete-marketing-suite': 399, 'marketsync-digital': 599,
+    'design-studio': 19.99, 'autoposter-salesperson': 39, 'autoposter-dealer': 149,
+    video: 149, 'campaigns-email-sms': 199, 'dealer-website': 249, 'ai-chatbot': 599,
+    'sales-marketing-suite': 399, 'service-marketing-suite': 399, 'complete-marketing-suite': 699, 'marketsync-digital': 1199,
     'dealer-os-core': 1499, 'dealer-os-pro': 2499, 'dealer-os-complete': 3999,
   }
   for (const [id, monthly] of Object.entries(prices)) assert.equal(PLAN_CATALOG[id].monthly, monthly, `${id} price mismatch`)

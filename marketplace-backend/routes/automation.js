@@ -666,9 +666,14 @@ async function runDaily() {
 export function registerAutomation(app) {
   const cronOk = requestHasCronSecret
 
-  const requireAutomationManage = requireAccess({
+  const requireAutomationRead = requireAccess({
     anyFeature: ['email.automations', 'os.automations', 'os.email_marketing', 'email.campaigns', 'marketing.overview'],
-    anyPermission: ['marketing.edit', 'marketing.view', 'lead.assign']
+    anyPermission: ['marketing.view', 'marketing.edit']
+  })
+
+  const requireAutomationWrite = requireAccess({
+    anyFeature: ['email.automations', 'os.automations', 'os.email_marketing', 'email.campaigns', 'marketing.overview'],
+    anyPermission: ['marketing.edit']
   })
 
   // ── Safe diagnostic: is the cron secret configured + does a given header match?
@@ -703,7 +708,7 @@ export function registerAutomation(app) {
     try { res.json({ ok: true, ...(await runMorningDigest()) }) } catch (e) { res.status(500).json({ error: e.message }) }
   })
   // Manager self-serve: send myself today's briefing right now (for the "preview" button).
-  app.post('/automation/digest/preview', requireAuth, requireMfa, requireAutomationManage, async (req, res) => {
+  app.post('/automation/digest/preview', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     try {
       const dg = await buildDigest(req.dealershipId)
@@ -723,7 +728,7 @@ export function registerAutomation(app) {
     try { res.json({ ok: true, ...(await runWeeklyBriefing(false)) }) } catch (e) { res.status(500).json({ error: e.message }) }
   })
   // Manager self-serve: build + email myself this week's briefing right now.
-  app.post('/automation/weekly/preview', requireAuth, requireMfa, requireAutomationManage, async (req, res) => {
+  app.post('/automation/weekly/preview', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     try {
       const { data: dl } = await supabaseAdmin.from('dealerships').select('name, automation_settings').eq('id', req.dealershipId).maybeSingle()
@@ -793,7 +798,7 @@ export function registerAutomation(app) {
   })
 
   // ── Campaign management (manager) ──────────────────────────────────────────
-  app.get('/automation/campaigns', requireAuth, requireMfa, requireAutomationManage, async (req, res) => {
+  app.get('/automation/campaigns', requireAuth, requireMfa, requireAutomationRead, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     await ensureCampaigns(req.dealershipId)
     const [{ data: campaigns }, { data: dealer }] = await Promise.all([
@@ -802,7 +807,7 @@ export function registerAutomation(app) {
     ])
     res.json({ campaigns: campaigns || [], settings: dealerSettings(dealer), region: { province: dealer?.province || null, country: dealer?.country || null }, can_manage: true })
   })
-  app.put('/automation/campaigns/:id', requireAuth, requireMfa, requireAutomationManage, async (req, res) => {
+  app.put('/automation/campaigns/:id', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     const b = req.body || {}, patch = { updated_at: nowIso() }
     if (b.name !== undefined) patch.name = String(b.name).slice(0, 120)
     if (b.subject_template !== undefined) patch.subject_template = String(b.subject_template || '').slice(0, 300) || null
@@ -820,7 +825,7 @@ export function registerAutomation(app) {
   })
   // Create a new campaign — used by the "Add more" template library on the
   // Lead / Delivery / Holiday automation pages.
-  app.post('/automation/campaigns', requireAuth, requireMfa, requireAutomationManage, async (req, res) => {
+  app.post('/automation/campaigns', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     const b = req.body || {}
     const TRIGGERS = ['internet_lead', 'appointment_booked', 'show_no_sale', 'delivered', 'birthday', 'holiday']
     const trigger = TRIGGERS.includes(b.trigger_event) ? b.trigger_event : 'internet_lead'
@@ -848,7 +853,7 @@ export function registerAutomation(app) {
     res.json({ ok: true, campaign: data })
   })
   // Delete a (custom) campaign.
-  app.delete('/automation/campaigns/:id', requireAuth, requireMfa, requireAutomationManage, async (req, res) => {
+  app.delete('/automation/campaigns/:id', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     const { data: before } = await supabaseAdmin.from('automated_campaigns').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!before) return res.status(404).json({ error: 'Campaign not found' })
     const { error } = await supabaseAdmin.from('automated_campaigns').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
@@ -866,7 +871,7 @@ export function registerAutomation(app) {
   })
 
   // ── Settings (review URL, referral bonus, business hours, holidays…) ───────
-  app.put('/automation/settings', requireAuth, requireMfa, requireAutomationManage, async (req, res) => {
+  app.put('/automation/settings', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     const b = req.body || {}
     const { data: cur } = await supabaseAdmin.from('dealerships').select('automation_settings').eq('id', req.dealershipId).maybeSingle()
     const s = { ...(cur?.automation_settings || {}) }
@@ -907,7 +912,7 @@ export function registerAutomation(app) {
   })
 
   // ── Manual event fire (delivered / show_no_sale / appointment / lead) ──────
-  app.post('/automation/event', requireAuth, requireMfa, requireAutomationManage, async (req, res) => {
+  app.post('/automation/event', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     const b = req.body || {}
     const trigger = String(b.trigger || '')
     if (!['internet_lead', 'appointment_booked', 'show_no_sale', 'delivered'].includes(trigger)) return res.status(400).json({ error: 'Bad trigger' })
@@ -922,7 +927,7 @@ export function registerAutomation(app) {
   })
 
   // ── Upcoming queue (for a contact or the whole store) ──────────────────────
-  app.get('/automation/queue', requireAuth, requireMfa, requireAutomationManage, async (req, res) => {
+  app.get('/automation/queue', requireAuth, requireMfa, requireAutomationRead, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     let q = supabaseAdmin.from('scheduled_messages').select('id, contact_id, campaign_id, channel, sender_identity, scheduled_at, status, cancel_reason, interval_marker').eq('dealership_id', req.dealershipId)
     if (req.query.contact_id) q = q.eq('contact_id', req.query.contact_id)
@@ -932,7 +937,7 @@ export function registerAutomation(app) {
   })
 
   // ── AI copy generation (context-aware) ─────────────────────────────────────
-  app.post('/automation/ai-copy', requireAuth, requireMfa, requireAutomationManage, async (req, res) => {
+  app.post('/automation/ai-copy', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const b = req.body || {}
     const instruction = String(b.instruction || '').slice(0, 400)
@@ -965,7 +970,7 @@ Return ONLY the message text — no preamble, no quotes, no markdown.`
   })
 
   // ── Live template preview (renders against a sample or real contact) ───────
-  app.post('/automation/preview', requireAuth, requireMfa, requireAutomationManage, async (req, res) => {
+  app.post('/automation/preview', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     const b = req.body || {}
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('id, name, site_slug, branding, automation_settings').eq('id', req.dealershipId).maybeSingle()
     const s = dealerSettings(dealer)
@@ -981,7 +986,7 @@ Return ONLY the message text — no preamble, no quotes, no markdown.`
   // ── Visual Workflow Builder Endpoints (N8N-style, MarketSync-Simple) ────────
   // Compile and validate visual node graph down to canonical automation engine
 
-  app.get('/automation/workflows', requireAuth, requireMfa, requireAutomationManage, async (req, res) => {
+  app.get('/automation/workflows', requireAuth, requireMfa, requireAutomationRead, async (req, res) => {
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('automation_settings').eq('id', req.dealershipId).maybeSingle()
     const s = dealer?.automation_settings || {}
     const visualWorkflows = s.visual_workflows || {}
@@ -1020,7 +1025,7 @@ Return ONLY the message text — no preamble, no quotes, no markdown.`
     res.json({ ok: true, workflows: list })
   })
 
-  app.get('/automation/workflows/:key', requireAuth, requireMfa, requireAutomationManage, async (req, res) => {
+  app.get('/automation/workflows/:key', requireAuth, requireMfa, requireAutomationRead, async (req, res) => {
     const key = req.params.key
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('automation_settings').eq('id', req.dealershipId).maybeSingle()
     const s = dealer?.automation_settings || {}
@@ -1059,7 +1064,7 @@ Return ONLY the message text — no preamble, no quotes, no markdown.`
     })
   })
 
-  app.post('/automation/workflows', requireAuth, requireMfa, requireAutomationManage, async (req, res) => {
+  app.post('/automation/workflows', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     const b = req.body || {}
     const key = String(b.key || 'custom_' + Math.random().toString(36).slice(2, 10))
     const name = String(b.name || 'New Workflow').slice(0, 120)
@@ -1163,7 +1168,7 @@ Return ONLY the message text — no preamble, no quotes, no markdown.`
     })
   })
 
-  app.post('/automation/workflows/validate', requireAuth, requireMfa, requireAutomationManage, (req, res) => {
+  app.post('/automation/workflows/validate', requireAuth, requireMfa, requireAutomationWrite, (req, res) => {
     const b = req.body || {}
     const nodes = Array.isArray(b.nodes) ? b.nodes : []
     const edges = Array.isArray(b.edges) ? b.edges : []
@@ -1171,7 +1176,7 @@ Return ONLY the message text — no preamble, no quotes, no markdown.`
     res.json({ ok: true, validation: result })
   })
 
-  app.post('/automation/workflows/ai-generate', requireAuth, requireMfa, requireAutomationManage, async (req, res) => {
+  app.post('/automation/workflows/ai-generate', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     const b = req.body || {}
     const prompt = String(b.prompt || '').trim().slice(0, 600)
     if (!prompt) return res.status(400).json({ error: 'Prompt is required' })
@@ -1216,7 +1221,7 @@ Return ONLY raw JSON in format { "name": string, "description": string, "nodes":
     res.json({ ok: true, workflow: generatedGraph })
   })
 
-  app.post('/automation/workflows/:key/test', requireAuth, requireMfa, requireAutomationManage, async (req, res) => {
+  app.post('/automation/workflows/:key/test', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     const b = req.body || {}
     const graph = b.graph || { nodes: [], edges: [] }
     const contactId = b.contact_id || null
@@ -1234,7 +1239,7 @@ Return ONLY raw JSON in format { "name": string, "description": string, "nodes":
     res.json({ ok: true, trace })
   })
 
-  app.get('/automation/workflows/:key/runs', requireAuth, requireMfa, requireAutomationManage, (req, res) => {
+  app.get('/automation/workflows/:key/runs', requireAuth, requireMfa, requireAutomationRead, (req, res) => {
     const key = req.params.key
     // Generate realistic recent run logs for the visual builder audit trail
     const now = Date.now()
