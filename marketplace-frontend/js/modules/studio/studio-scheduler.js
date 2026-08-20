@@ -25,6 +25,9 @@ let __studioActiveCaptionPlatform = 'shared'; // 'shared' | 'facebook' | 'instag
  * Ensures the canonical full-screen Design Studio workspace is active before opening any Schedule UI
  */
 async function ensureStudioWorkspaceActive() {
+  if (typeof __currentPage !== 'undefined' && __currentPage === 'social-scheduler') {
+    return;
+  }
   const masterModal = document.getElementById('ms-studio-master-modal');
   if (!masterModal || masterModal.classList.contains('hidden') || masterModal.style.display === 'none') {
     if (typeof window.openMarketSyncStudio === 'function') {
@@ -829,17 +832,25 @@ async function studioSchedulerCompose(preselectedAssetUrl) {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${platformCardsHtml}</div>
       </div>
 
-      ${assets.length ? `
-        <div>
-          <div class="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">Attach Design Artwork</div>
-          <div class="flex gap-2 overflow-x-auto pb-1">${assets.slice(0, 20).map(a => `
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-bold text-slate-700 dark:text-slate-300">Attach Media / Finished Artwork</span>
+          <input type="file" id="ss-upload-input" accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm" class="hidden" onchange="studioSchedulerUploadMedia(this)">
+          <button type="button" id="ss-upload-btn" onclick="document.getElementById('ss-upload-input').click()" class="px-2.5 py-1 rounded-lg border border-dashed border-indigo-500/50 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-bold text-[11px] transition flex items-center gap-1.5 cursor-pointer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+            <span>+ Upload from Canva / Adobe / Phone</span>
+          </button>
+        </div>
+        <div id="ss-media-list" class="flex gap-2 overflow-x-auto pb-1 min-h-[72px] items-center p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+          ${assets.length ? assets.slice(0, 20).map(a => `
             <label class="shrink-0 cursor-pointer">
               <input type="checkbox" class="ss-media" value="${esc(a.public_url)}" ${a.public_url === preselectedAssetUrl ? 'checked' : ''}>
               <img src="${esc(a.public_url)}" alt="${esc(a.alt_text || '')}" class="w-16 h-16 object-cover rounded-lg border ${a.public_url === preselectedAssetUrl ? 'border-indigo-500 border-2' : 'border-slate-200 dark:border-slate-700'}">
-            </label>`).join('')}
-          </div>
+            </label>`).join('') : `
+            <div class="text-xs text-slate-400 italic py-3 px-4 w-full text-center">No media attached yet. Click above to upload finished content or pick from Design Studio.</div>
+          `}
         </div>
-      ` : ''}
+      </div>
 
       <div>
         <div class="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Scheduled Date &amp; Time</div>
@@ -1073,3 +1084,156 @@ window.studioSocialConnectSave = studioSocialConnectSave;
 window.studioSocialConnectForm = function() {
   studioSocialConnectPlatform('facebook');
 };
+
+/**
+ * Direct Media Upload Handler (Canva / Adobe / Phone / Agency)
+ */
+async function studioSchedulerUploadMedia(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+
+  const isVideo = file.type.startsWith('video/');
+  const endpoint = isVideo ? '/marketing/assets/video' : '/marketing/assets';
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
+  formData.append('category', 'social_upload');
+
+  const btn = document.getElementById('ss-upload-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="animate-spin inline-block mr-1">⏳</span> Uploading ${esc(file.name)}…`;
+  }
+
+  try {
+    const res = await fetch(`${API}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+      throw new Error(err.error || `Upload failed with HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const publicUrl = data.asset?.public_url || data.public_url || data.url;
+
+    if (publicUrl) {
+      showToast('Media uploaded successfully!', 'success');
+      // Append to the artwork list and select it
+      const mediaList = document.getElementById('ss-media-list');
+      if (mediaList) {
+        // Clear placeholder text if present
+        if (mediaList.querySelector('.italic')) mediaList.innerHTML = '';
+        const item = document.createElement('label');
+        item.className = 'shrink-0 cursor-pointer';
+        item.innerHTML = `
+          <input type="checkbox" class="ss-media" value="${esc(publicUrl)}" checked>
+          ${isVideo ? `
+            <div class="w-16 h-16 bg-slate-800 rounded-lg border-2 border-indigo-500 flex items-center justify-center text-white text-xs font-bold">
+              ▶ Video
+            </div>
+          ` : `
+            <img src="${esc(publicUrl)}" alt="Uploaded" class="w-16 h-16 object-cover rounded-lg border-2 border-indigo-500">
+          `}
+        `;
+        mediaList.prepend(item);
+      }
+    }
+  } catch (e) {
+    showToast('Upload error: ' + e.message, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg><span>+ Upload from Canva / Adobe / Phone</span>`;
+    }
+    input.value = '';
+  }
+}
+window.studioSchedulerUploadMedia = studioSchedulerUploadMedia;
+
+/**
+ * Standalone Social Scheduler Page Mount Point
+ */
+async function loadSocialSchedulerPage() {
+  const root = document.getElementById('social-scheduler-root');
+  if (!root) return;
+
+  root.innerHTML = `
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full space-y-6">
+      <!-- Header -->
+      <div class="flex items-center justify-between flex-wrap gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-bold">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5"/></svg>
+          </div>
+          <div>
+            <h1 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Social Scheduler</h1>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Schedule, publish, and automate custom artwork and videos across Facebook, Instagram, LinkedIn, TikTok, and YouTube.</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="studioSocialConnectionsModal()" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/></svg>
+            <span>Connected Accounts</span>
+          </button>
+          <button onclick="studioSchedulerCompose()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black transition shadow-md flex items-center gap-1.5 cursor-pointer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+            <span>+ Create / Schedule Post</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Controls bar (Views, Date Navigation, Filters) -->
+      <div class="p-4 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-between flex-wrap gap-3 bg-white dark:bg-slate-900 shadow-xs">
+        <!-- View switchers -->
+        <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+          <button id="studio-sched-view-cal" onclick="studioSchedulerSetView('calendar')" class="text-xs font-bold px-3 py-1.5 rounded-lg transition ${__studioSchedulerView === 'calendar' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-300'}">Month</button>
+          <button id="studio-sched-view-week" onclick="studioSchedulerSetView('week')" class="text-xs font-bold px-3 py-1.5 rounded-lg transition ${__studioSchedulerView === 'week' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-300'}">Week</button>
+          <button id="studio-sched-view-list" onclick="studioSchedulerSetView('list')" class="text-xs font-bold px-3 py-1.5 rounded-lg transition ${__studioSchedulerView === 'list' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-300'}">List</button>
+        </div>
+
+        <!-- Month / Navigation -->
+        <div class="flex items-center gap-2">
+          <button onclick="studioSchedulerMoveMonth(-1)" class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold transition">‹</button>
+          <button onclick="studioSchedulerToday()" class="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold transition">Today</button>
+          <button onclick="studioSchedulerMoveMonth(1)" class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold transition">›</button>
+          <span id="studio-sched-cal-title" class="text-sm font-black text-slate-900 dark:text-white px-2"></span>
+        </div>
+
+        <!-- Filters: Platform & Status -->
+        <div class="flex items-center gap-2 flex-wrap text-xs">
+          <select id="studio-sched-filter-plat" onchange="studioSchedulerFilterPlat(this.value)" class="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-slate-700 dark:text-slate-200 font-bold">
+            <option value="all">All Channels</option>
+            <option value="facebook">Facebook</option>
+            <option value="instagram">Instagram</option>
+            <option value="linkedin">LinkedIn</option>
+            <option value="tiktok">TikTok</option>
+            <option value="youtube">YouTube</option>
+          </select>
+          <select id="studio-sched-filter-stat" onchange="studioSchedulerFilterStat(this.value)" class="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-slate-700 dark:text-slate-200 font-bold">
+            <option value="all">All Statuses</option>
+            <option value="draft">Draft</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="published">Published</option>
+            <option value="failed">Failed</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Main Schedule Content Body -->
+      <div id="studio-sched-body" class="p-5 border border-slate-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900 shadow-xs min-h-[460px] space-y-4">
+        <div class="text-sm text-slate-400 italic py-12 text-center">Loading scheduled posts…</div>
+      </div>
+    </div>
+  `;
+
+  await loadStudioSchedulerPosts();
+}
+window.loadSocialSchedulerPage = loadSocialSchedulerPage;

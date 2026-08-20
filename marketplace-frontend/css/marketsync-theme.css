@@ -1021,6 +1021,8 @@ html.dark td {
   --ws-input-text: #0F172A;
 }
 
+html.website-builder-mode,
+body.website-builder-mode,
 html.website-workspace-mode,
 body.website-workspace-mode {
   background-color: var(--ws-bg) !important;
@@ -1032,7 +1034,22 @@ body.website-workspace-mode {
   padding: 0 !important;
 }
 
-/* Suppress all global MarketSync navigation, headers, sidebars & rails in Website workspace mode */
+/* Suppress all global MarketSync navigation, headers, sidebars & rails in full-screen Website Builder mode */
+.website-builder-mode header,
+.website-builder-mode #dashboard-header,
+.website-builder-mode #main-header,
+.website-builder-mode #dashboard-nav,
+.website-builder-mode #dept-nav,
+.website-builder-mode #nav-desktop,
+.website-builder-mode #nav-reports-m,
+.website-builder-mode #nav-more,
+.website-builder-mode #staff-chat-dock-bar,
+.website-builder-mode #setup-status-banner,
+.website-builder-mode #report-rail,
+.website-builder-mode #ai-dock-btn,
+.website-builder-mode #ai-dock-panel,
+.website-builder-mode #team-chat-dock-panel,
+.website-builder-mode main > section:first-child,
 .website-workspace-mode header,
 .website-workspace-mode #dashboard-nav,
 .website-workspace-mode #nav-reports-m,
@@ -1048,6 +1065,7 @@ body.website-workspace-mode {
 }
 
 /* Expand main container to full viewport */
+.website-builder-mode main,
 .website-workspace-mode main {
   display: block !important;
   padding: 0 !important;
@@ -1061,6 +1079,7 @@ body.website-workspace-mode {
   grid-template-columns: 1fr !important;
 }
 
+.website-builder-mode div[data-page-content="website"],
 .website-workspace-mode div[data-page-content="website"] {
   display: flex !important;
   flex-direction: column !important;
@@ -1073,6 +1092,7 @@ body.website-workspace-mode {
   overflow: hidden !important;
 }
 
+.website-builder-mode #website-root,
 .website-workspace-mode #website-root {
   display: flex !important;
   flex-direction: column !important;

@@ -1176,8 +1176,64 @@ async function saveStudioDesign() {
   }
 }
 
+function hasSocialSchedulerEntitlement() {
+  const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+  if (access.isPlatformStaff) return true;
+  const feats = access.features || [];
+  const prods = access.products || [];
+  return feats.includes('social.scheduler') || feats.includes('os.marketing') ||
+    prods.includes('marketsync_social') || prods.includes('social-scheduler') ||
+    prods.includes('complete-marketing-suite') || prods.includes('sales-marketing-suite') ||
+    prods.includes('service-marketing-suite') || prods.includes('marketsync-digital') ||
+    prods.includes('dealer-os-core') || prods.includes('dealer-os-pro') || prods.includes('dealer-os-complete');
+}
+window.hasSocialSchedulerEntitlement = hasSocialSchedulerEntitlement;
+
+function showSocialSchedulerUpgradeModal() {
+  if (typeof crmOverlay === 'function') {
+    crmOverlay(`
+      <div class="p-6 space-y-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-bold">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5"/></svg>
+          </div>
+          <div>
+            <h3 class="text-base font-black text-slate-900 dark:text-white">Social Scheduler Required</h3>
+            <p class="text-xs text-slate-500">Upgrade to schedule and distribute your designs directly to social channels.</p>
+          </div>
+        </div>
+        <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+          Design Studio allows you to create high-converting graphics and canvas artwork. To publish or schedule your designs across Facebook, Instagram, LinkedIn, TikTok, and YouTube, add the standalone <strong>Social Scheduler ($99/mo)</strong> or upgrade to any <strong>Marketing Suite</strong>.
+        </p>
+        <div class="flex gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+          <a href="upgrade.html" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md transition">View Upgrade Options</a>
+          <button onclick="this.closest('.fixed').remove();" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer">Dismiss</button>
+        </div>
+      </div>
+    `, 'max-w-md');
+  } else {
+    alert('Social Scheduler is required to schedule posts. Please upgrade in subscription settings.');
+  }
+}
+window.showSocialSchedulerUpgradeModal = showSocialSchedulerUpgradeModal;
+
+function openStudioSchedulerWithEntitlementCheck() {
+  if (!hasSocialSchedulerEntitlement()) {
+    showSocialSchedulerUpgradeModal();
+    return;
+  }
+  if (typeof openStudioScheduler === 'function') openStudioScheduler();
+}
+window.openStudioSchedulerWithEntitlementCheck = openStudioSchedulerWithEntitlementCheck;
+
 async function renderStudioDesignAndPublish() {
   if (!window.__studioAdapter) return;
+
+  if (!hasSocialSchedulerEntitlement()) {
+    showSocialSchedulerUpgradeModal();
+    return;
+  }
+
   await saveStudioDesign();
   const scene = window.__studioAdapter.exportScene();
 

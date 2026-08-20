@@ -829,21 +829,23 @@ const PRODUCT_PAGES = {
   video: ['video-studio', 'leaderboard'],
   marketsync_video: ['video-studio', 'leaderboard'],
   campaigns: ['marketing-overview', 'automation-builder', 'email-marketing', 'saas-automation'],
-  social: ['marketing-overview'],
-  marketsync_social: ['marketing-overview'],
+  social: ['social-scheduler'],
+  marketsync_social: ['social-scheduler'],
+  'social-scheduler': ['social-scheduler'],
+  social_scheduler: ['social-scheduler'],
   email_marketing: ['marketing-overview', 'automation-builder', 'email-marketing'],
   marketsync_email: ['marketing-overview', 'automation-builder', 'email-marketing'],
   ai_chatbot: ['ai-home'],
   website: ['website', 'blog', 'seo'],
   marketsync_website: ['website', 'blog', 'seo'],
-  'sales-marketing-suite': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'sales-campaigns', 'sales-automations', 'leads', 'marketing-analytics', 'email-sms', 'email-marketing'],
-  sales_marketing_suite: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'sales-campaigns', 'sales-automations', 'leads', 'marketing-analytics', 'email-sms', 'email-marketing'],
-  'service-marketing-suite': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'service-campaigns', 'service-automations', 'crm', 'marketing-analytics', 'email-sms', 'email-marketing'],
-  service_marketing_suite: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'service-campaigns', 'service-automations', 'crm', 'marketing-analytics', 'email-sms', 'email-marketing'],
-  'complete-marketing-suite': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'email-sms', 'email-marketing', 'leads'],
-  complete_marketing_suite: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'email-sms', 'email-marketing', 'leads'],
-  'marketsync-digital': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'website', 'blog', 'seo', 'ai-home', 'email-sms', 'email-marketing', 'leads'],
-  marketsync_digital: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'website', 'blog', 'seo', 'ai-home', 'email-sms', 'email-marketing', 'leads'],
+  'sales-marketing-suite': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'sales-automations', 'leads', 'marketing-analytics', 'email-sms', 'email-marketing'],
+  sales_marketing_suite: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'sales-automations', 'leads', 'marketing-analytics', 'email-sms', 'email-marketing'],
+  'service-marketing-suite': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'service-campaigns', 'service-automations', 'crm', 'marketing-analytics', 'email-sms', 'email-marketing'],
+  service_marketing_suite: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'service-campaigns', 'service-automations', 'crm', 'marketing-analytics', 'email-sms', 'email-marketing'],
+  'complete-marketing-suite': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'email-sms', 'email-marketing', 'leads'],
+  complete_marketing_suite: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'email-sms', 'email-marketing', 'leads'],
+  'marketsync-digital': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'website', 'blog', 'seo', 'ai-home', 'email-sms', 'email-marketing', 'leads'],
+  marketsync_digital: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'website', 'blog', 'seo', 'ai-home', 'email-sms', 'email-marketing', 'leads'],
   dealer_os: null,
 };
 const PRODUCT_HOME = {
@@ -854,8 +856,10 @@ const PRODUCT_HOME = {
   video: 'video-studio',
   marketsync_video: 'video-studio',
   campaigns: 'marketing-overview',
-  social: 'marketing-overview',
-  marketsync_social: 'marketing-overview',
+  social: 'social-scheduler',
+  marketsync_social: 'social-scheduler',
+  'social-scheduler': 'social-scheduler',
+  social_scheduler: 'social-scheduler',
   email_marketing: 'marketing-overview',
   marketsync_email: 'marketing-overview',
   ai_chatbot: 'ai-home',
@@ -1442,8 +1446,12 @@ function restrictedNavPages() {
   if (activeProducts.length === 1 && /facebook_dealer/.test(product)) {
     return canManageTeam ? [INV('Inventory'), LEADER] : [INV('My Inventory'), LEADER];
   }
-  if (activeProducts.length === 1 && /facebook_solo/.test(product)) return [INV('Inventory'), LEADER];
-  if (activeProducts.length === 1 && /ai_chatbot/.test(product)) return [AI];
+  if (activeProducts.length === 1 && /ai_chatbot/.test(product)) {
+    return [
+      { page: 'ai-home', tab: 'conversations', label: 'AI ChatBot', icon: 'sparkles' },
+      { page: 'ai-home', tab: 'setup', label: 'Setup', icon: 'wrench' }
+    ];
+  }
   if (activeProducts.length === 1 && /design_studio/.test(product)) {
     // The one and only sidebar entry — launches the editor. Settings is reached
     // through the header's Profile icon now (every single-product tier's rule), not
@@ -1451,7 +1459,10 @@ function restrictedNavPages() {
     // and never needs to fight Settings for the highlighted state.
     return [{ page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true }];
   }
-  if (activeProducts.length === 1 && /(marketsync_email|email_marketing|campaigns[-_]email[-_]sms|marketsync_social|marketing[-_]overview|marketing|campaigns|automations)/.test(product)) {
+  if (activeProducts.length === 1 && /(marketsync_social|social[-_]scheduler)/.test(product)) {
+    return [{ page: 'social-scheduler', label: 'Social Scheduler', icon: 'calendar' }];
+  }
+  if (activeProducts.length === 1 && /(marketsync_email|email_marketing|campaigns[-_]email[-_]sms|marketing[-_]overview|marketing|campaigns|automations)/.test(product)) {
     const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
     const feats = access.features || [];
     const hasAuto = access.isPlatformStaff || feats.includes('email.automations') || feats.includes('os.automations') || !access.features;

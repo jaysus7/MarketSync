@@ -42,9 +42,6 @@ INSERT INTO public.features (id, product_id, name, feature_group, sort_order) VA
   ('design.assets', 'design_studio', 'Assets', 'design', 2),
   ('design.canvas', 'design_studio', 'Canvas', 'design', 3),
   ('design.suggestions', 'design_studio', 'Suggestions', 'design', 4),
-  ('social.scheduler', 'design_studio', 'Scheduler', 'social', 5),
-  ('social.accounts', 'design_studio', 'Accounts', 'social', 6),
-  ('social.calendar', 'design_studio', 'Calendar', 'social', 7),
 
   -- facebook
   ('fb.inventory', 'facebook', 'Inventory', 'facebook', 1),
@@ -52,6 +49,9 @@ INSERT INTO public.features (id, product_id, name, feature_group, sort_order) VA
   ('fb.sales_reps', 'facebook', 'Sales Reps', 'facebook', 3),
 
   -- marketsync_social
+  ('social.scheduler', 'marketsync_social', 'Scheduler', 'social', 1),
+  ('social.accounts', 'marketsync_social', 'Accounts', 'social', 2),
+  ('social.calendar', 'marketsync_social', 'Calendar', 'social', 3),
   ('social.studio', 'marketsync_social', 'Studio', 'social', 4),
 
   -- marketsync_email
@@ -78,10 +78,16 @@ INSERT INTO public.features (id, product_id, name, feature_group, sort_order) VA
   ('ai.agents', 'ai_dealer', 'Agents', 'ai_dealer', 3),
   ('ai.knowledge', 'ai_dealer', 'Knowledge', 'ai_dealer', 4),
   ('ai.settings', 'ai_dealer', 'Settings', 'ai_dealer', 5)
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+  product_id = EXCLUDED.product_id,
+  name = EXCLUDED.name,
+  feature_group = EXCLUDED.feature_group,
+  sort_order = EXCLUDED.sort_order;
 
--- ── 3. Upsert Marketing Suite plans with ratified pricing ─────────────────────
+-- ── 3. Upsert Marketing Suite plans and standalone plans with ratified pricing ───
 INSERT INTO public.plans (id, product_id, name, tier, monthly_price_cents, org_type, is_public, is_trial_default) VALUES
+  ('design-studio', 'design_studio', 'Design Studio', 0, 1999, 'dealership', true, false),
+  ('social-scheduler', 'marketsync_social', 'Social Scheduler', 0, 9900, 'dealership', true, false),
   ('sales-marketing-suite', 'marketsync_social', 'Sales Marketing Suite', 1, 39900, 'dealership', true, false),
   ('service-marketing-suite', 'marketsync_email', 'Service Marketing Suite', 1, 39900, 'dealership', true, false),
   ('complete-marketing-suite', 'marketsync_social', 'Complete Marketing Suite', 2, 69900, 'dealership', true, false),
@@ -94,9 +100,11 @@ ON CONFLICT (id) DO UPDATE SET
   org_type = EXCLUDED.org_type,
   is_public = EXCLUDED.is_public;
 
--- ── 4. Reconcile plan_products for all four Marketing Suites ──────────────────
+-- ── 4. Reconcile plan_products for Marketing Suites & standalone creative/social ──────
 DELETE FROM public.plan_products
 WHERE plan_id IN (
+  'design-studio',
+  'social-scheduler',
   'sales-marketing-suite',
   'service-marketing-suite',
   'complete-marketing-suite',
@@ -104,6 +112,10 @@ WHERE plan_id IN (
 );
 
 INSERT INTO public.plan_products (plan_id, product_id) VALUES
+  -- Standalone Design Studio & Social Scheduler
+  ('design-studio', 'design_studio'),
+  ('social-scheduler', 'marketsync_social'),
+
   -- Sales Marketing Suite
   ('sales-marketing-suite', 'design_studio'),
   ('sales-marketing-suite', 'facebook'),
@@ -135,9 +147,11 @@ INSERT INTO public.plan_products (plan_id, product_id) VALUES
   ('marketsync-digital', 'ai_dealer')
 ON CONFLICT (plan_id, product_id) DO NOTHING;
 
--- ── 5. Reconcile plan_features for all four Marketing Suites ──────────────────
+-- ── 5. Reconcile plan_features for Marketing Suites & standalone creative/social ──────
 DELETE FROM public.plan_features
 WHERE plan_id IN (
+  'design-studio',
+  'social-scheduler',
   'sales-marketing-suite',
   'service-marketing-suite',
   'complete-marketing-suite',
@@ -145,6 +159,17 @@ WHERE plan_id IN (
 );
 
 INSERT INTO public.plan_features (plan_id, feature_id) VALUES
+  -- ── Standalone Design Studio Features ──
+  ('design-studio', 'design.templates'),
+  ('design-studio', 'design.assets'),
+  ('design-studio', 'design.canvas'),
+  ('design-studio', 'design.suggestions'),
+
+  -- ── Standalone Social Scheduler Features ──
+  ('social-scheduler', 'social.scheduler'),
+  ('social-scheduler', 'social.accounts'),
+  ('social-scheduler', 'social.calendar'),
+  ('social-scheduler', 'social.studio'),
   -- ── Sales Marketing Suite Features ──
   ('sales-marketing-suite', 'design.templates'),
   ('sales-marketing-suite', 'design.assets'),

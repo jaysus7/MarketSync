@@ -118,20 +118,8 @@ async function loadAiHome(tab) {
   if (tab) __aiHomeTab = tab;
   const t = __aiHomeTab;
   const activeTab = (t === 'setup' || t === 'knowledge' || t === 'settings') ? 'setup' : 'conversations';
-  const tabBtn = (key, label) => `<button onclick="loadAiHome('${key}')" class="px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${activeTab === key ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${esc(label)}</button>`;
   
-  root.innerHTML = `
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <div>
-        <h1 class="text-2xl font-black text-slate-900 dark:text-white">MarketSync AI Employee Platform</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400">Configurable general business AI employee platform — industry packages, capability tools, role personas, goals &amp; knowledge base.</p>
-      </div>
-    </div>
-    <div class="flex flex-wrap gap-2">
-      ${tabBtn('conversations', 'AI Leads & Chats')}
-      ${tabBtn('setup', 'Setup')}
-    </div>
-    <div id="ai-home-body"><div class="text-sm text-slate-400 py-10 text-center">Loading…</div></div>`;
+  root.innerHTML = `<div id="ai-home-body"><div class="text-sm text-slate-400 py-10 text-center">Loading…</div></div>`;
   const body = document.getElementById('ai-home-body');
   try {
     if (activeTab === 'setup') return aiHomeCombinedSetup(body);

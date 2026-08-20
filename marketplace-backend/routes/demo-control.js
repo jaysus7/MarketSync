@@ -20,7 +20,7 @@ import { audit } from '../audit.js'
 import { getPlan } from '../plan-catalog.js'
 import { provisionPlan } from '../entitlements.js'
 import { getConfig, setConfig } from './config-engine.js'
-import { ownDedicatedDemoAccount, seedAccount } from './demo.js'
+import { ownDedicatedDemoAccount, seedAccount, isDemoDealershipId } from './demo.js'
 import { wipeAcademyDemoData } from '../academy-demo-data.js'
 
 const CONTROL_KEY = 'demo_control'
@@ -28,14 +28,8 @@ const CONTROL_KEY = 'demo_control'
 // The current, real, publicly-sold catalog (marketplace-frontend/js/public-config.js) —
 // the Product Switcher's options. Every id here resolves through getPlan() AND through
 // the DB plans/plan_products tables (see migrations/2026-08-17-current-catalog-db-plans.sql).
-// autoposter-dealer was dropped: one Facebook AutoPoster entry is enough now that the
-// Role Switcher's Independent/Dealer Admin split already covers the rep-vs-dealer
-// distinction (Independent auto-provisions this exact plan — see DEMO_ROLES below).
-// social-scheduler was dropped: Social Scheduler is no longer a separate product —
-// it's folded into design-studio (Design Studio), which now also grants the
-// scheduler/accounts/calendar features at one flat price.
 const DEMO_PACKAGES = [
-  'design-studio', 'autoposter-salesperson',
+  'design-studio', 'social-scheduler', 'autoposter-salesperson',
   'video', 'campaigns-email-sms', 'dealer-website', 'ai-chatbot',
   'sales-marketing-suite', 'service-marketing-suite', 'complete-marketing-suite', 'marketsync-digital',
   'dealer-os-core', 'dealer-os-pro', 'dealer-os-complete',
@@ -77,6 +71,69 @@ async function requireDemoAccount(req, res, next) {
   next()
 }
 
+/**
+ * Dedicated demo package replacement flow:
+ * A. Confirms this is the dedicated demo dealership
+ * B. Cleans existing demo subscriptions
+ * C. Cleans coverage rows IF the coverage table exists (safely tolerating 42P01 during DB transition)
+ * D. Resets demo legacy product flags
+ * E. Provisions the selected package without leaving stale demo entitlements
+ */
+async function replaceDemoDealershipPackage({ dealershipId, planId, status = 'active' }) {
+  const isDemo = await isDemoDealershipId(dealershipId)
+  if (!isDemo) throw new Error('Package replacement is restricted to the dedicated demo account.')
+
+  // Clean subscriptions table
+  const { error: subErr } = await supabaseAdmin
+    .from('subscriptions')
+    .delete()
+    .eq('dealership_id', dealershipId)
+  if (subErr) throw subErr
+
+  // Clean coverage table IF it exists
+  try {
+    const covQuery = supabaseAdmin.from('subscription_product_coverage')
+    if (covQuery && typeof covQuery.delete === 'function') {
+      const { error: covErr } = await covQuery.delete().eq('dealership_id', dealershipId)
+      if (covErr && covErr.code !== '42P01') {
+        const msg = (covErr.message || '').toLowerCase()
+        if (!msg.includes('does not exist') && !msg.includes('schema cache')) {
+          throw covErr
+        }
+      }
+    }
+  } catch (err) {
+    const msg = (err.message || '').toLowerCase()
+    if (!msg.includes('does not exist') && !msg.includes('42p01') && !msg.includes('schema cache')) {
+      throw err
+    }
+  }
+
+  // Reset demo legacy flags in dealerships table
+  await supabaseAdmin.from('dealerships').update({
+    products: {},
+    ai_chatbot_active: false,
+    ai_chatbot_paid: false,
+    inv_intel_active: false,
+    inv_intel_paid: false,
+    ai_boost_active: false,
+    ai_boost_paid: false,
+    seo_active: false,
+    vin_sticker_active: false,
+    ai_vision_active: false,
+    fb_only: false,
+    plan: null,
+  }).eq('id', dealershipId)
+
+  // Provision single selected plan cleanly
+  return await provisionPlan({
+    dealershipId,
+    planId,
+    status,
+    preserveExisting: false,
+  })
+}
+
 export function registerDemoControl(app) {
   app.get('/demo/control', requireAuth, requireDemoAccount, async (req, res) => {
     const state = await getConfig(req.dealershipId, CONTROL_KEY, DEFAULT_STATE)
@@ -95,14 +152,30 @@ export function registerDemoControl(app) {
     const packageId = String(req.body?.packageId || '')
     if (!DEMO_PACKAGES.includes(packageId)) return res.status(400).json({ error: 'Unknown package.' })
     try {
-      await provisionPlan({ dealershipId: req.dealershipId, planId: packageId, status: 'active' })
-      const state = { ...(await getConfig(req.dealershipId, CONTROL_KEY, DEFAULT_STATE)), packageId }
+      await replaceDemoDealershipPackage({ dealershipId: req.dealershipId, planId: packageId, status: 'active' })
+      let state = { ...(await getConfig(req.dealershipId, CONTROL_KEY, DEFAULT_STATE)), packageId }
+
+      // When switching to a DealerOS tier, default role to dealer_admin so full platform is showcased
+      const isDealerOsTier = ['dealer-os-core', 'dealer-os-pro', 'dealer-os-complete', 'os_starter', 'os_growth', 'os_pro'].includes(packageId)
+      if (isDealerOsTier) {
+        const role = DEMO_ROLES.dealer_admin
+        if (role) {
+          await supabaseAdmin.from('user_roles').delete().eq('user_id', req.user.id).eq('dealership_id', req.dealershipId)
+          await supabaseAdmin.from('user_roles').insert({
+            user_id: req.user.id, dealership_id: req.dealershipId, role_id: role.roleId, assigned_by: req.user.id,
+          })
+          await supabaseAdmin.from('profiles')
+            .update({ role: role.profileRole, account_role: role.accountRole, group_id: role.groupId || null }).eq('id', req.user.id)
+          state.roleKey = 'dealer_admin'
+        }
+      }
+
       await setConfig(req.dealershipId, CONTROL_KEY, state, req)
-      audit(req, 'demo.control_package_switched', { demo_dealership_id: req.dealershipId, package: packageId })
+      audit(req, 'demo.control_package_switched', { demo_dealership_id: req.dealershipId, package: packageId, role: state.roleKey })
       res.json({ ok: true, state })
     } catch (error) {
       console.error('[demo-control] package switch failed:', error.message)
-      res.status(500).json({ error: 'Could not switch package.' })
+      res.status(500).json({ error: 'Could not switch package: ' + error.message })
     }
   })
 

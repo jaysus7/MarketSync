@@ -42,7 +42,7 @@ const MARKETING_SUITE_CONFIG = {
         title: 'CREATE',
         items: [
           { page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true },
-          { page: 'marketing-overview', tab: 'studio', label: 'Social Scheduler', icon: 'calendar' },
+          { page: 'social-scheduler', label: 'Social Scheduler', icon: 'calendar' },
           { page: 'video-studio', label: 'Video', icon: 'video' },
         ]
       },
@@ -104,7 +104,7 @@ const MARKETING_SUITE_CONFIG = {
         title: 'CREATE',
         items: [
           { page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true },
-          { page: 'marketing-overview', tab: 'studio', label: 'Social Scheduler', icon: 'calendar' },
+          { page: 'social-scheduler', label: 'Social Scheduler', icon: 'calendar' },
           { page: 'video-studio', label: 'Video', icon: 'video' },
         ]
       },
@@ -170,7 +170,7 @@ const MARKETING_SUITE_CONFIG = {
         title: 'CREATE',
         items: [
           { page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true },
-          { page: 'marketing-overview', tab: 'studio', label: 'Social Scheduler', icon: 'calendar' },
+          { page: 'social-scheduler', label: 'Social Scheduler', icon: 'calendar' },
           { page: 'video-studio', label: 'Video', icon: 'video' },
         ]
       },
@@ -223,7 +223,7 @@ const MARKETING_SUITE_CONFIG = {
         title: 'CREATE',
         items: [
           { page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true },
-          { page: 'marketing-overview', tab: 'studio', label: 'Social Scheduler', icon: 'calendar' },
+          { page: 'social-scheduler', label: 'Social Scheduler', icon: 'calendar' },
           { page: 'video-studio', label: 'Video', icon: 'video' },
         ]
       },
@@ -231,7 +231,8 @@ const MARKETING_SUITE_CONFIG = {
         title: 'DIGITAL PRESENCE',
         items: [
           { page: 'website', label: 'Website', icon: 'globe' },
-          { page: 'ai-home', label: 'AI ChatBot', icon: 'sparkles' },
+          { page: 'ai-home', tab: 'conversations', label: 'AI ChatBot', icon: 'sparkles' },
+          { page: 'ai-home', tab: 'setup', label: 'AI Setup', icon: 'wrench' },
           { page: 'seo', label: 'SEO', icon: 'chart', requiresSeo: true },
         ]
       },

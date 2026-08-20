@@ -1,4 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
+555555555555555555555555555555555555555555555555555555555555555555555555555// ─────────────────────────────────────────────────────────────────────────────
 // THE SINGLE SOURCE OF TRUTH FOR ENTITLEMENTS.
 //
 // Every plan is defined here ONCE: which products it grants, which features it
@@ -25,9 +25,8 @@ export const FEATURES_BY_PRODUCT = Object.freeze({
   marketsync_email: ['email.campaigns', 'email.templates', 'email.audiences', 'email.automations'],
   marketsync_seo: ['seo.overview', 'seo.audit', 'seo.autofix', 'seo.content', 'seo.competitors', 'seo.local', 'seo.inventory', 'seo.ai_search', 'seo.reports', 'seo.settings'],
   // Sold standalone ($19.99/mo flat) and also bundled into every Marketing Suite /
-  // DealerOS tier. Includes the social scheduler/accounts/calendar features — Social
-  // Scheduler is no longer a separate product; it's part of Design Studio.
-  design_studio: ['design.templates', 'design.assets', 'design.canvas', 'design.suggestions', 'social.scheduler', 'social.accounts', 'social.calendar'],
+  // DealerOS tier. Graphic design & creative editor.
+  design_studio: ['design.templates', 'design.assets', 'design.canvas', 'design.suggestions'],
   dealer_os: [
     'os.dashboard', 'os.crm', 'os.inventory', 'os.sales', 'os.accounting', 'os.service',
     'os.marketing', 'os.website', 'os.reports', 'os.automations', 'os.email_marketing',
@@ -199,6 +198,16 @@ export const PLAN_CATALOG = Object.freeze({
     priceEnvCad: 'STRIPE_PRICE_DESIGN_STUDIO_CAD', priceEnvUsd: 'STRIPE_PRICE_DESIGN_STUDIO_USD',
     features: [...FEATURES_BY_PRODUCT.design_studio],
     legacy: { ...legacyFlags({}), products: { design_studio: true } },
+  },
+  'social-scheduler': {
+    id: 'social-scheduler', label: 'Social Scheduler', product_primary: 'marketsync_social',
+    products: ['marketsync_social'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
+    monthly: 99, tier: 0,
+    priceEnvCad: 'STRIPE_PRICE_SOCIAL_SCHEDULER_CAD', priceEnvUsd: 'STRIPE_PRICE_SOCIAL_SCHEDULER_USD',
+    priceEnvCadAliases: ['STRIPE_SOCIAL_PRICE_ID_CAD', 'STRIPE_SOCIAL_PRICE_ID'],
+    priceEnvUsdAliases: ['STRIPE_SOCIAL_PRICE_ID_USD', 'STRIPE_SOCIAL_PRICE_ID'],
+    features: [...FEATURES_BY_PRODUCT.marketsync_social],
+    legacy: { ...legacyFlags({}), products: { marketsync_social: true, social: true } },
   },
   'autoposter-salesperson': {
     id: 'autoposter-salesperson', label: 'Facebook AutoPoster', product_primary: 'facebook',

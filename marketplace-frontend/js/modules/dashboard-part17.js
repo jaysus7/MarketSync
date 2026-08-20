@@ -1555,12 +1555,67 @@ async function loadWebsitePage() {
   renderWebsitePage();
 }
 
+// Canonical website builder entry point
+function openWebsiteBuilder() {
+  __wsTab = 'builder';
+  if (typeof switchPage === 'function' && typeof __currentPage !== 'undefined' && __currentPage !== 'website') {
+    switchPage('website');
+  } else {
+    renderWebsitePage();
+  }
+}
+window.openWebsiteBuilder = openWebsiteBuilder;
+
+// Canonical website builder exit point (returns to Website workspace setup)
+function closeWebsiteBuilder() {
+  if (typeof toggleWsLeftDock === 'function' && !__wsLeftDockCollapsed) {
+    toggleWsLeftDock();
+  }
+
+  const body = document.body;
+  const html = document.documentElement;
+  const container = document.getElementById('page-content-website');
+  const root = document.getElementById('website-root');
+
+  [body, html, container, root].forEach(el => {
+    if (!el) return;
+    el.classList.remove('website-builder-mode', 'website-workspace-mode', 'ws-theme-dark', 'ws-theme-light');
+    el.removeAttribute('data-ws-theme');
+  });
+
+  const sideNav = document.getElementById('sidebar-nav') || document.getElementById('dept-nav');
+  if (sideNav) sideNav.style.display = '';
+  const mainHeader = document.querySelector('header') || document.getElementById('main-header');
+  if (mainHeader) mainHeader.style.display = '';
+  const chatDock = document.getElementById('staff-chat-dock-bar');
+  if (chatDock) chatDock.style.display = '';
+
+  __wsTab = 'setup';
+  if (typeof switchPage === 'function' && typeof __currentPage !== 'undefined' && __currentPage !== 'website') {
+    switchPage('website');
+  } else {
+    renderWebsitePage();
+  }
+}
+window.closeWebsiteBuilder = closeWebsiteBuilder;
+
+function exitWebsiteWorkspace() {
+  __wsTab = 'setup';
+  if (typeof closeWebsiteBuilder === 'function') closeWebsiteBuilder();
+  if (typeof switchPage === 'function' && typeof __currentPage !== 'undefined' && __currentPage !== 'website') {
+    switchPage('website');
+  } else {
+    renderWebsitePage();
+  }
+}
+window.exitWebsiteWorkspace = exitWebsiteWorkspace;
+
 // Website Settings — alias for wsSetup()
 async function loadWebsiteSettings() {
   const root = document.getElementById('website-settings-root');
   if (!root) return;
-  document.documentElement.classList.remove('website-workspace-mode');
-  document.body.classList.remove('website-workspace-mode');
+  document.documentElement.classList.remove('website-builder-mode', 'website-workspace-mode');
+  document.body.classList.remove('website-builder-mode', 'website-workspace-mode');
   if (!__siteCfg) {
     root.innerHTML = '<div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div>';
     try { __siteCfg = await apiGetJson('/dealership/site'); }
@@ -1583,45 +1638,11 @@ function wsSetTarget(v) {
   __wsTab = 'builder'; renderWebsitePage();
 }
 
-function exitWebsiteWorkspace() {
-  if (typeof toggleWsLeftDock === 'function' && !__wsLeftDockCollapsed) {
-    toggleWsLeftDock();
-  }
-
-  const body = document.body;
-  const html = document.documentElement;
-  const container = document.getElementById('page-content-website');
-  const root = document.getElementById('website-root');
-
-  [body, html, container, root].forEach(el => {
-    if (!el) return;
-    el.classList.remove('website-workspace-mode', 'ws-theme-dark', 'ws-theme-light');
-    el.removeAttribute('data-ws-theme');
-  });
-
-  const sideNav = document.getElementById('sidebar-nav') || document.getElementById('dept-nav');
-  if (sideNav) sideNav.style.display = '';
-  const mainHeader = document.querySelector('header') || document.getElementById('main-header');
-  if (mainHeader) mainHeader.style.display = '';
-  const chatDock = document.getElementById('staff-chat-dock-bar');
-  if (chatDock) chatDock.style.display = '';
-
-  // Exiting Builder returns to Website -> Setup (unless previous route is explicitly outside website)
-  const prev = window.websiteWorkspacePreviousRoute || {};
-  if (prev.page && prev.page !== 'website' && prev.page !== 'website-settings' && prev.dept !== 'marketing') {
-    if (typeof switchPage === 'function') switchPage(prev.page);
-    return;
-  }
-
-  __wsTab = 'setup';
-  if (typeof switchPage === 'function') switchPage('website');
-  else renderWebsitePage();
-}
-window.exitWebsiteWorkspace = exitWebsiteWorkspace;
-
 function renderWebsitePage() {
   applyBuilderTheme();
   const isBuilder = (__wsTab === 'builder');
+  document.documentElement.classList.toggle('website-builder-mode', isBuilder);
+  document.body.classList.toggle('website-builder-mode', isBuilder);
   document.documentElement.classList.toggle('website-workspace-mode', isBuilder);
   document.body.classList.toggle('website-workspace-mode', isBuilder);
   const root = document.getElementById('website-root'); if (!root) return;
@@ -1640,9 +1661,9 @@ function renderWebsitePage() {
       <!-- TOP APPLICATION HEADER (Dedicated Website Workspace Header) -->
       <div class="ws-builder-header flex items-center justify-between px-4 py-2.5 bg-slate-900 border-b border-slate-800 flex-shrink-0 flex-wrap gap-2 text-white z-20">
         <div class="flex items-center gap-3">
-          <button onclick="exitWebsiteWorkspace()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 text-xs font-black transition cursor-pointer shadow-xs" title="Exit Website Workspace & Return to Dashboard">
+          <button onclick="closeWebsiteBuilder()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 text-xs font-black transition cursor-pointer shadow-xs" title="Exit Website Builder & Return to Website Workspace">
             <svg class="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
-            <span>${(window.websiteWorkspacePreviousRoute && window.websiteWorkspacePreviousRoute.dept === 'marketing') ? 'Back to Marketing' : 'Exit Builder'}</span>
+            <span>Exit Builder</span>
           </button>
           <div class="h-5 w-px bg-slate-800"></div>
           <div class="w-7 h-7 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-black border border-indigo-500/40">
@@ -1681,7 +1702,13 @@ function wsTab(t) {
     if (typeof switchPage === 'function') switchPage('seo');
     return;
   }
+  if (t === 'builder') {
+    openWebsiteBuilder();
+    return;
+  }
   const isBuilder = (__wsTab === 'builder');
+  document.documentElement.classList.toggle('website-builder-mode', isBuilder);
+  document.body.classList.toggle('website-builder-mode', isBuilder);
   document.documentElement.classList.toggle('website-workspace-mode', isBuilder);
   document.body.classList.toggle('website-workspace-mode', isBuilder);
   renderWebsitePage();

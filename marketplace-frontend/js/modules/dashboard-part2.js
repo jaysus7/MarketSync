@@ -1250,7 +1250,7 @@ const PAGE_FEATURE = {
   delivery: 'os.sales', fni: 'os.sales',
   reports: 'os.reports',
   'inv-intel': 'os.inventory', market: 'os.inventory',
-  'ai-home': 'os.marketing', 'video-studio': 'os.marketing', studio: 'os.marketing',
+  'ai-home': 'os.marketing', 'video-studio': 'os.marketing', studio: 'design.canvas', 'social-scheduler': 'social.scheduler',
   'api-keys': 'os.integrations',
   'owner-users': 'os.team', 'sales-team': 'os.team', 'people-compliance': 'os.team', hr: 'os.team', people: 'os.team',
   'people-overview': 'os.team',
@@ -1259,13 +1259,14 @@ const PAGE_FEATURE = {
   // would stop a dealership configuring the product it just bought.
   config: 'os.settings',
 };
-const PAGE_PRODUCT = { leaderboard: 'facebook' };
+const PAGE_PRODUCT = { leaderboard: 'facebook', 'social-scheduler': 'marketsync_social', studio: 'design_studio' };
 // Product bundles can expose a department without buying the similarly named
 // DealerOS engine. These alternatives keep standalone and Marketing/Digital nav
 // honest while still using the same server-authored feature list.
 const PAGE_ANY_FEATURE = {
   'marketing-overview': ['os.marketing', 'design.canvas', 'social.scheduler'],
-  studio: ['os.marketing', 'design.canvas', 'social.scheduler'],
+  studio: ['design.canvas', 'os.marketing'],
+  'social-scheduler': ['social.scheduler', 'os.marketing'],
   'email-marketing': ['os.email_marketing', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations'],
   'automation-builder': ['os.automations', 'os.marketing', 'os.email_marketing', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations'],
   'video-studio': ['os.marketing', 'video.library'],
@@ -1370,8 +1371,8 @@ function renderDeptTabbar(pageId) {
   if (pages.length <= 1) return hide();   // nothing to move between → no tab-bar
   const A = ENGINE_ACCENTS[dept.accent] || ENGINE_ACCENTS.indigo;
   const tabs = pages.map(p => {
-    const on = p.page === pageId && (!p.invmode || p.invmode === __inventoryMode);
-    return `<button onclick="deptGo('${p.page}'${p.invmode ? `,'${p.invmode}'` : ''})" class="px-3.5 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition ${on ? A.text + ' border-current' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}">${esc(p.label)}</button>`;
+    const on = p.page === pageId && (!p.invmode || p.invmode === __inventoryMode) && (!p.tab || (p.page === 'ai-home' ? (p.tab === (window.__aiHomeTab || 'conversations')) : true));
+    return `<button onclick="deptGo('${p.page}'${p.invmode ? `,'${p.invmode}'` : (p.tab ? `,'','${p.tab}'` : '')})" class="px-3.5 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition ${on ? A.text + ' border-current' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}">${esc(p.label)}</button>`;
   }).join('');
   bar.innerHTML = `
     <div class="flex items-center gap-2 mb-1">
@@ -1384,10 +1385,20 @@ function renderDeptTabbar(pageId) {
 // Navigate to a department page (handles the inventory view-mode tabs).
 function deptGo(page, invmode, tab) {
   if (invmode) __inventoryMode = invmode;
+  if (page === 'website' && tab === 'builder') {
+    if (typeof openWebsiteBuilder === 'function') {
+      openWebsiteBuilder();
+      return;
+    }
+  }
   if (tab && page === 'website') __wsTab = tab;
   if (tab && page === 'automation-builder') {
     __autoTab = tab;
     if (typeof loadAutoBuilderPage === 'function') loadAutoBuilderPage();
+  }
+  if (tab && page === 'ai-home') {
+    window.__aiHomeTab = tab;
+    if (typeof loadAiHome === 'function') loadAiHome(tab);
   }
   if (page === 'marketing-overview' && tab) {
     if (typeof ENGINE_STATE !== 'undefined') ENGINE_STATE['marketing-overview'] = tab;
@@ -1664,6 +1675,7 @@ function highlightDeptNav(pageId) {
   const getPageActiveTab = (pg) => {
     if (pg === 'website') return window.__wsTab || 'setup';
     if (pg === 'automation-builder') return window.__autoTab || 'overview';
+    if (pg === 'ai-home') return window.__aiHomeTab || 'conversations';
     if (pg === 'marketing-overview') {
       const st = (typeof ENGINE_STATE !== 'undefined' ? ENGINE_STATE['marketing-overview'] : (typeof window !== 'undefined' ? window.ENGINE_STATE?.['marketing-overview'] : null));
       return st || 'overview';
@@ -1755,6 +1767,11 @@ function switchPage(pageId) {
     pageId = 'seo';
   }
 
+  if (typeof pageId === 'string' && pageId.startsWith('ai-home/')) {
+    const sub = pageId.split('/')[1];
+    window.__aiHomeTab = sub || 'conversations';
+    pageId = 'ai-home';
+  }
   // Website canonical default route: website -> setup first; support deep links: website/builder, website/blog, website/seo, website/setup
   if (typeof pageId === 'string' && pageId.startsWith('website/')) {
     const sub = pageId.split('/')[1];
@@ -1843,6 +1860,7 @@ function switchPage(pageId) {
     if (active && btn.dataset.tab) {
       const activeTab = (pageId === 'website') ? (window.__wsTab || 'setup')
                       : (pageId === 'automation-builder') ? (window.__autoTab || 'overview')
+                      : (pageId === 'ai-home') ? (window.__aiHomeTab || 'conversations')
                       : (pageId === 'marketing-overview') ? ((typeof ENGINE_STATE !== 'undefined' ? ENGINE_STATE['marketing-overview'] : (typeof window !== 'undefined' ? window.ENGINE_STATE?.['marketing-overview'] : null)) || 'overview')
                       : null;
       if (activeTab) {
@@ -1906,6 +1924,7 @@ function switchPage(pageId) {
   if (pageId === 'automation-builder') loadAutoBuilderPage();
   if (pageId === 'email-marketing' || pageId === 'email-campaigns') loadDealerEmail();
   if (pageId === 'studio' || pageId === 'design-studio') { if (typeof openMarketSyncStudio === 'function') openMarketSyncStudio(); }
+  if (pageId === 'social-scheduler') { if (typeof loadSocialSchedulerPage === 'function') loadSocialSchedulerPage(); }
   if (pageId === 'video-studio') loadVideoStudioPage();
   if (pageId === 'academy') loadAcademyWorkspace();
   if (pageId === 'launch') loadLaunchHub();
@@ -1936,7 +1955,7 @@ function switchPage(pageId) {
   if (pageId === 'api-keys') loadApiKeys();
   if (pageId === 'delivery') loadDeliveryQueue();
   if (pageId === 'solo-home') loadSoloHome();
-  if (pageId === 'ai-home') loadAiHome();
+  if (pageId === 'ai-home') loadAiHome(window.__aiHomeTab);
   if (pageId === 'sales-team' && typeof loadDealerManagementMatrix === 'function') { try { loadDealerManagementMatrix(); } catch {} }
   if (pageId === 'operations') loadOperationsPage();
   if (pageId === 'service-ros') loadServiceRosPage();

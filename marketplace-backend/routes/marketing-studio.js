@@ -11,6 +11,7 @@
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission, hasPermission } from '../authorization.js'
+import { getCurrentAccessContext, hasFeature } from '../access.js'
 import { audit } from '../audit.js'
 import { toWebp } from './inventory.js'
 import multer from 'multer'
@@ -199,6 +200,20 @@ export function registerMarketingStudio(app) {
   const canEdit = requirePermission('marketing.edit')
   const guard = (req, res) => { if (!req.dealershipId) { res.status(403).json({ error: 'no dealership' }); return false } return true }
 
+  const requireMediaUploadAccess = async (req, res, next) => {
+    if (req.user?.is_platform_staff) return next()
+    try {
+      const ctx = await getCurrentAccessContext(req)
+      const allowed = hasFeature(ctx, 'design.assets') || hasFeature(ctx, 'social.scheduler')
+      if (!allowed) {
+        return res.status(403).json({ error: 'Active Design Studio or Social Scheduler subscription required.' })
+      }
+      next()
+    } catch (e) {
+      return res.status(500).json({ error: e.message })
+    }
+  }
+
   // ── Asset Management ──────────────────────────────────────────────────────
   app.get('/marketing/assets', requireAuth, requireMfa, canView, async (req, res) => {
     if (!guard(req, res)) return
@@ -210,7 +225,7 @@ export function registerMarketingStudio(app) {
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
-  app.post('/marketing/assets', requireAuth, requireMfa, canEdit, assetUpload.single('file'), async (req, res) => {
+  app.post('/marketing/assets', requireAuth, requireMfa, canEdit, requireMediaUploadAccess, assetUpload.single('file'), async (req, res) => {
     if (!guard(req, res)) return
     if (!req.file) return res.status(400).json({ error: 'No file was uploaded.' })
 
@@ -250,7 +265,7 @@ export function registerMarketingStudio(app) {
     res.json({ ok: true, asset: data })
   })
 
-  app.post('/marketing/assets/video', requireAuth, requireMfa, canEdit, studioVideoUpload.single('file'), async (req, res) => {
+  app.post('/marketing/assets/video', requireAuth, requireMfa, canEdit, requireMediaUploadAccess, studioVideoUpload.single('file'), async (req, res) => {
     if (!guard(req, res)) return
     if (!req.file || !/^video\//.test(req.file.mimetype || '')) return res.status(400).json({ error: 'Choose a valid video file.' })
     const ext = (req.file.originalname?.split('.').pop() || req.file.mimetype.split('/')[1] || 'mp4').replace(/[^a-z0-9]/gi, '').slice(0, 8)

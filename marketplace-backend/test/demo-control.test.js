@@ -11,11 +11,10 @@ test('every Product Switcher package id is a real, resolvable plan', () => {
   const ids = [...match[1].matchAll(/'([a-z0-9-]+)'/g)].map(m => m[1])
   // autoposter-dealer was dropped — one Facebook AutoPoster entry is enough now that
   // the Role Switcher's Independent/Dealer Admin split already covers rep vs dealer.
-  // social-scheduler was dropped too — it's no longer a separate product, folded
-  // into design-studio at one flat price.
-  assert.equal(ids.length, 13, 'the demo catalog should offer 13 SKUs (15 minus autoposter-dealer minus social-scheduler)')
+  // social-scheduler is offered as an active standalone plan.
+  assert.equal(ids.length, 14, 'the demo catalog should offer 14 SKUs (15 minus autoposter-dealer)')
   assert.ok(!ids.includes('autoposter-dealer'), 'autoposter-dealer is redundant with the Role Switcher and must not be offered')
-  assert.ok(!ids.includes('social-scheduler'), 'social-scheduler is folded into design-studio and must not be offered separately')
+  assert.ok(ids.includes('social-scheduler'), 'social-scheduler is offered as a demo plan')
   for (const id of ids) assert.ok(getPlan(id), `DEMO_PACKAGES references an unknown plan: ${id}`)
 })
 
@@ -56,7 +55,7 @@ test('demo control endpoints are tenant-gated only — no admin-role check stack
 test('package switch goes through the real entitlement engine, not a demo-only shortcut', () => {
   const route = source.match(/app\.put\('\/demo\/control\/package'[\s\S]*?\n {2}\}\)/)?.[0] || ''
   assert.match(route, /if \(!DEMO_PACKAGES\.includes\(packageId\)\)/)
-  assert.match(route, /provisionPlan\(\{ dealershipId: req\.dealershipId, planId: packageId, status: 'active' \}\)/)
+  assert.match(route, /replaceDemoDealershipPackage\(\{ dealershipId: req\.dealershipId, planId: packageId, status: 'active' \}\)/)
   assert.match(route, /audit\(req, 'demo\.control_package_switched'/)
 })
 

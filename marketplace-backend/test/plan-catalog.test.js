@@ -23,22 +23,21 @@ test('the legacy sold plans still exist with correct prices (real subscribers re
 // what /register.html?plan=<id> and the Demo Control Center's Product Switcher use.
 test('the current public catalog is fully represented, priced to match public-config.js', () => {
   const CURRENT_CATALOG_IDS = [
-    'design-studio', 'autoposter-salesperson', 'autoposter-dealer',
+    'design-studio', 'social-scheduler', 'autoposter-salesperson', 'autoposter-dealer',
     'video', 'campaigns-email-sms', 'dealer-website', 'ai-chatbot',
     'sales-marketing-suite', 'service-marketing-suite', 'complete-marketing-suite', 'marketsync-digital',
     'dealer-os-core', 'dealer-os-pro', 'dealer-os-complete',
   ]
   for (const id of CURRENT_CATALOG_IDS) assert.ok(PLAN_IDS.includes(id), `PLAN_CATALOG is missing current SKU: ${id}`)
-  // social-scheduler was retired: Social Scheduler is no longer sold separately — it's
-  // folded into design-studio, at one flat price.
-  assert.ok(!PLAN_IDS.includes('social-scheduler'), 'social-scheduler should no longer be a sellable plan')
+  // social-scheduler is an active standalone plan at 99 CAD/mo
+  assert.ok(PLAN_IDS.includes('social-scheduler'), 'social-scheduler is a sellable standalone plan')
   // Nothing from the legacy catalog was removed or renamed — real subscribers keep working.
   for (const id of ['fb_solo', 'fb_dealership', 'ai_standard', 'marketsync_video', 'marketsync_website', 'marketsync_social', 'marketsync_email', 'os_starter', 'os_growth', 'os_pro']) {
     assert.ok(PLAN_IDS.includes(id), `legacy plan id removed: ${id}`)
   }
 
   const prices = {
-    'design-studio': 19.99, 'autoposter-salesperson': 39, 'autoposter-dealer': 149,
+    'design-studio': 19.99, 'social-scheduler': 99, 'autoposter-salesperson': 39, 'autoposter-dealer': 149,
     video: 149, 'campaigns-email-sms': 199, 'dealer-website': 249, 'ai-chatbot': 599,
     'sales-marketing-suite': 399, 'service-marketing-suite': 399, 'complete-marketing-suite': 699, 'marketsync-digital': 1199,
     'dealer-os-core': 1499, 'dealer-os-pro': 2499, 'dealer-os-complete': 3999,
@@ -59,21 +58,17 @@ test('autoposter-salesperson is labelled plainly "Facebook AutoPoster" — the R
   assert.equal(PLAN_CATALOG['autoposter-salesperson'].label, 'Facebook AutoPoster')
 })
 
-test('Design Studio is still a single-product plan, now with the social scheduler features folded in', () => {
-  // Social Scheduler is no longer sold separately — its capability is granted through
-  // Design Studio's own feature list, not by also granting the marketsync_social
-  // PRODUCT identity. Keeping `products` to just ['design_studio'] is what keeps a
-  // Design Studio subscriber a "single-product" account (isSingleProductWorkspace()
-  // on the frontend), even though they now get the scheduler.
+test('Design Studio is a standalone single-product plan, separate from Social Scheduler', () => {
+  // Design Studio and Social Scheduler are separate standalone products:
+  // Design Studio creates graphics, Social Scheduler publishes/distributes.
   assert.deepEqual(productsForPlan('design-studio'), ['design_studio'])
   assert.ok(featuresForPlan('design-studio').includes('design.canvas'))
-  assert.ok(featuresForPlan('design-studio').includes('social.scheduler'), 'Design Studio must include the social scheduler')
-  assert.ok(featuresForPlan('design-studio').includes('social.accounts'), 'Design Studio must include connected accounts')
-  assert.ok(featuresForPlan('design-studio').includes('social.calendar'), 'Design Studio must include the content calendar')
-  // social.studio (the canvas reachable FROM a marketsync_social purchase) stays
-  // exclusive to marketsync_social — Design Studio has its own design.canvas instead.
+  assert.ok(featuresForPlan('design-studio').includes('design.templates'))
+  assert.ok(!featuresForPlan('design-studio').includes('social.scheduler'), 'Design Studio standalone does not include social scheduler')
   assert.ok(!featuresForPlan('design-studio').includes('social.studio'))
+  assert.ok(featuresForPlan('social-scheduler').includes('social.scheduler'), 'Social Scheduler standalone includes scheduler')
   assert.ok(featuresForPlan('sales-marketing-suite').includes('design.canvas'), 'Sales Marketing Suite bundles Design Studio')
+  assert.ok(featuresForPlan('sales-marketing-suite').includes('social.scheduler'), 'Sales Marketing Suite bundles Social Scheduler')
 })
 
 test('DealerOS tiers bundle the current standalone products, not the legacy plan ids', () => {
