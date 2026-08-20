@@ -810,7 +810,7 @@ async function studioSchedulerCompose(preselectedAssetUrl) {
           <h2 class="text-base font-black text-slate-900 dark:text-white">New Scheduled Social Post</h2>
           <p class="text-xs text-slate-500">Pick publishing destinations, attach your design artwork, and choose date/time.</p>
         </div>
-        <button onclick="this.closest('.fixed').remove(); openStudioScheduler();" class="text-slate-400 hover:text-slate-200 font-bold">x</button>
+        <button onclick="this.closest('.fixed').remove();" class="text-slate-400 hover:text-slate-200 font-bold text-lg leading-none cursor-pointer">&times;</button>
       </div>
 
       ${noAccountWarning}
@@ -818,7 +818,7 @@ async function studioSchedulerCompose(preselectedAssetUrl) {
       <div class="space-y-1.5">
         <div class="flex items-center justify-between">
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">Caption &amp; Messaging</label>
-          <button type="button" onclick="studioSchedulerAiCaption('rewrite')" class="text-[10px] text-indigo-500 font-black hover:underline cursor-pointer"> AI Suggestion</button>
+          <button type="button" onclick="studioSchedulerAiCaption('rewrite')" class="text-[10px] text-indigo-500 font-black hover:underline cursor-pointer">✨ AI Suggestion</button>
         </div>
         <textarea id="ss-body" rows="4" placeholder="What do you want to say about this vehicle or promotion?"
           class="w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3 text-xs text-slate-900 dark:text-white"></textarea>
@@ -849,7 +849,7 @@ async function studioSchedulerCompose(preselectedAssetUrl) {
 
       <div class="flex gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
         <button onclick="studioSchedulerSavePost(this)" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md cursor-pointer transition">Schedule Post</button>
-        <button onclick="this.closest('.fixed').remove(); openStudioScheduler();" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold">Cancel</button>
+        <button onclick="this.closest('.fixed').remove();" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer">Cancel</button>
       </div>
     </div>`, 'max-w-xl');
 }
@@ -869,8 +869,7 @@ async function studioSchedulerSavePost(btn) {
     });
     root.remove();
     showToast(when ? 'Post scheduled' : 'Draft saved', 'success');
-    loadStudioSchedulerPosts();
-    openStudioScheduler();
+    if (typeof loadStudioSchedulerPosts === 'function') loadStudioSchedulerPosts();
   } catch (e) { showToast(e.message, 'error'); }
 }
 window.studioSchedulerSavePost = studioSchedulerSavePost;

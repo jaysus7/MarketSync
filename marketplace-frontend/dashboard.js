@@ -1389,9 +1389,9 @@ function restrictedNavPages() {
   const LEADER = { page: 'leaderboard', label: 'Leaderboard', icon: 'trophy' };
   const AI = { page: 'ai-home', label: 'AI Chatbot', icon: 'sparkles' };
   const META = {
-    'marketing-overview': { page: 'marketing-overview', label: 'Marketing Studio', icon: 'megaphone' },
-    'email-marketing': { page: 'automation-builder', label: 'Email & SMS', icon: 'megaphone' },
-    'automation-builder': { page: 'automation-builder', label: 'Email & SMS', icon: 'megaphone' },
+    'marketing-overview': { page: 'automation-builder', tab: 'overview', label: 'Overview', icon: 'chart' },
+    'email-marketing': { page: 'automation-builder', tab: 'overview', label: 'Overview', icon: 'chart' },
+    'automation-builder': { page: 'automation-builder', tab: 'overview', label: 'Overview', icon: 'chart' },
     'video-studio': { page: 'video-studio', label: 'Video', icon: 'video' },
     website: { page: 'website', label: 'Website', icon: 'globe' },
   };
@@ -1408,7 +1408,7 @@ function restrictedNavPages() {
     // and never needs to fight Settings for the highlighted state.
     return [{ page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true }];
   }
-  if (activeProducts.length === 1 && /(marketsync_email|email_marketing|campaigns[-_]email[-_]sms)/.test(product)) {
+  if (activeProducts.length === 1 && /(marketsync_email|email_marketing|campaigns[-_]email[-_]sms|marketsync_social|marketing[-_]overview|marketing|campaigns|automations)/.test(product)) {
     return [
       { page: 'automation-builder', tab: 'overview', label: 'Overview', icon: 'chart' },
       { page: 'automation-builder', tab: 'automations', label: 'Automations', icon: 'bolt' },

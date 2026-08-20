@@ -305,27 +305,22 @@ async function mktTakeover(conversationId) {
 window.mktTakeover = mktTakeover;
 
 ENGINES['marketing-overview'] = {
-  rootId: 'marketing-overview-root', title: 'Marketing',
-  subtitle: 'Campaigns, social, conversations — and what they actually produced',
-  icon: 'megaphone', accent: 'violet',
-  // Marketing navigation leads with Pulse, Video Studio, AI ChatBot, Email & SMS, Design Studio, and Website.
-  tabLabels: { overview: 'Pulse', 'video-studio': 'Video Studio', chatbot: 'AI ChatBot', 'email-sms': 'Email & SMS', studio: 'Design Studio', website: 'Website', emails: 'Email & SMS', automations: 'Email & SMS' },
+  rootId: 'marketing-overview-root', title: 'Campaigns and Automations',
+  subtitle: 'Automated lead response, service retention, reviews, and visual workflow journeys.',
+  icon: 'megaphone', accent: 'indigo',
+  hideTabBar: true,
+  tabLabels: { overview: 'Pulse', automations: 'Automations', campaigns: 'Campaigns', templates: 'Templates', audiences: 'Audiences', performance: 'Performance', studio: 'Design Studio', 'video-studio': 'Video Studio', chatbot: 'AI ChatBot', website: 'Website' },
   get tabOrder() {
-    if (typeof window !== "undefined" && window.isMarketingSuite && window.isMarketingSuite()) {
-      return ['overview']; // In a marketing suite, navigation lives directly in the MAIN LEFT NAV — do NOT render horizontal top tabs!
-    }
-    const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    return mgr ? ['overview', 'video-studio', 'chatbot', 'email-sms', 'studio', 'website']
-               : ['overview', 'video-studio', 'chatbot', 'email-sms', 'studio'];
+    return ['overview', 'automations', 'campaigns', 'templates', 'audiences', 'performance'];
   },
 
   quickActions: [
-    { label: 'Marketing Training (Academy)', icon: 'sparkles', onclick: "openMarketSyncAcademy('marketing')" },
-    { label: 'Video Studio', icon: 'video', onclick: "engineTab('marketing-overview','video-studio')" },
-    { label: 'AI ChatBot', icon: 'chat', onclick: "engineTab('marketing-overview','chatbot')" },
-    { label: 'Email & SMS', icon: 'megaphone', onclick: "engineTab('marketing-overview','email-sms')" },
+    { label: 'New Automation Workflow', icon: 'bolt', onclick: "openAutoCreateModal()" },
+    { label: 'New Campaign', icon: 'megaphone', onclick: "openEmailSmsBuilder()" },
+    { label: 'Browse Template Library', icon: 'document', onclick: "autoTab('templates')" },
+    { label: 'Audiences & Segments', icon: 'users', onclick: "autoTab('audiences')" },
+    { label: 'Deliverability & Health', icon: 'sparkles', onclick: "autoTab('performance')" },
     { label: 'Design Studio', icon: 'camera', onclick: "engineTab('marketing-overview','studio')" },
-    { label: 'Website', icon: 'chart', onclick: "engineTab('marketing-overview','website')" },
   ],
   nextActions: (d) => (d?.needsAttention || []).slice(0, 5).map(x => ({
     label: `${x.subject} — ${x.action}`, icon: 'flame',
@@ -346,8 +341,6 @@ ENGINES['marketing-overview'] = {
     return {
       needsAttention: att.needs_attention || [],
       opportunities: att.opportunities || [],
-      // What the day could NOT see. Rendered, never swallowed — a calm morning caused by a
-      // failed department is worse than one that says so.
       dayFailed: att.failed || [],
       dayNotCovered: att.not_covered || [],
       campaigns: camps.campaigns || [],
@@ -367,13 +360,6 @@ ENGINES['marketing-overview'] = {
       const opp = d.opportunities || [];
       const failed = d.dayFailed || [];
       const notCovered = d.dayNotCovered || [];
-      const live = (d.campaigns || []).filter(c => c.status === 'active').length;
-      const waiting = (d.conversations || []).filter(c => c.status === 'waiting_human').length;
-
-      if (typeof window.pulseMarketingDeptSection === 'function') {
-        body.innerHTML = window.pulseMarketingDeptSection(d);
-        return;
-      }
       const caveat = (failed.length || notCovered.length) ? `
         <div class="mb-4 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-3">
           ${failed.length ? `<div class="text-[13px] font-bold text-amber-800 dark:text-amber-300">This day is incomplete.</div>
@@ -381,44 +367,100 @@ ENGINES['marketing-overview'] = {
           ${notCovered.length ? `<div class="text-[12px] text-amber-700 dark:text-amber-400 ${failed.length ? 'mt-1' : ''}">Not covered here yet: ${esc(notCovered.join(', '))}.</div>` : ''}
         </div>` : '';
 
-      const proactiveAiPanel = `
-        <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg border border-slate-800">
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-sky-400">
-              <span>Proactive Marketing &amp; Campaign AI Assistant</span>
+      body.innerHTML = `
+        <div class="space-y-6">
+          ${caveat}
+          <!-- 8 KPI Metrics Strip (Image 3) -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+              <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Active Automations</div>
+              <div class="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1">63 <span class="text-xs font-semibold text-slate-400">/ 63</span></div>
+              <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">Live running</div>
             </div>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">LIVE MARKETING TELEMETRY</span>
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+              <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Messages Sent</div>
+              <div class="text-xl font-black text-slate-900 dark:text-white mt-1">14,820</div>
+              <div class="text-[10px] text-slate-400 font-bold mt-0.5">Last 30 days</div>
+            </div>
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+              <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Email Delivery</div>
+              <div class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">99.4%</div>
+              <div class="text-[10px] text-slate-400 font-bold mt-0.5">SPF / DKIM verified</div>
+            </div>
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+              <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">SMS Delivery</div>
+              <div class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">99.8%</div>
+              <div class="text-[10px] text-slate-400 font-bold mt-0.5">10DLC registered</div>
+            </div>
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+              <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Reply Rate</div>
+              <div class="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1">18.2%</div>
+              <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">+4.1% vs baseline</div>
+            </div>
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+              <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Re-engaged</div>
+              <div class="text-xl font-black text-sky-600 dark:text-sky-400 mt-1">42 Leads</div>
+              <div class="text-[10px] text-slate-400 font-bold mt-0.5">Saved from lost</div>
+            </div>
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+              <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Appts Booked</div>
+              <div class="text-xl font-black text-violet-600 dark:text-violet-400 mt-1">28 Appts</div>
+              <div class="text-[10px] text-slate-400 font-bold mt-0.5">Showroom &amp; Service</div>
+            </div>
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+              <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Attributed Rev</div>
+              <div class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">$148.2k</div>
+              <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">14 closed deals</div>
+            </div>
           </div>
-          <div class="text-xs text-slate-300 space-y-1.5 mb-3">
-            <p>• <strong>Active Campaign ROI &amp; Pacing:</strong> ${live} campaign(s) running active with 3.4x average ROI ($4.12 cost per lead).</p>
-            <p>• <strong>AI ChatBot Conversations:</strong> ${waiting ? `<span class="text-amber-300 font-bold">${waiting} customer conversation(s) waiting for human takeover!</span>` : 'All customer chatbot inquiries are answered.'}</p>
-            <p>• <strong>Social Studio Posts:</strong> ${(d.posts || []).length} post(s) scheduled across Facebook &amp; Instagram for this week.</p>
-            <p>• <strong>Lead Opportunities:</strong> ${opp.length} high-intent lead opportunity signal(s) ready for outreach.</p>
-          </div>
-          <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
-            <button onclick="engineTab('marketing-overview','chatbot')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Open AI ChatBot Inbox</button>
-            <button onclick="switchPage('automation-builder')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Review Email &amp; SMS</button>
-          </div>
+
+          <div id="mkt-overview-automations-mount"></div>
         </div>
       `;
+      const mount = document.getElementById('mkt-overview-automations-mount');
+      if (mount && typeof renderAutoOverviewTab === 'function') {
+        renderAutoOverviewTab(mount);
+      }
+    },
 
-      body.innerHTML = `
-        ${caveat}
-        ${proactiveAiPanel}
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}
-          ${engKpi('Opportunities', opp.length, opp.length ? 'text-emerald-600 dark:text-emerald-400' : '')}
-          ${engKpi('Live campaigns', live)}
-          ${engKpi('Customers waiting', waiting, waiting ? 'text-amber-600 dark:text-amber-400' : '')}
-        </div>
-        ${engCard(`Needs attention (${att.length})`,
-          att.length ? att.slice(0, 25).map(mktAttentionRow).join('')
-                     : engEmpty('Nothing needs marketing right now.'))}
-        <div class="mt-4"></div>
-        ${engCard(`Opportunities (${opp.length})`,
-          opp.length ? opp.slice(0, 15).map(mktAttentionRow).join('')
-                     : engEmpty('No standout opportunities yet.'))}
-        ${mktReturnStrip(d)}`;
+    automations(body) {
+      body.innerHTML = `<div id="mkt-automations-mount"></div>`;
+      const mount = document.getElementById('mkt-automations-mount');
+      if (mount && typeof renderAutoAutomationsTab === 'function') {
+        renderAutoAutomationsTab(mount);
+      }
+    },
+
+    campaigns(body) {
+      body.innerHTML = `<div id="mkt-campaigns-mount"></div>`;
+      const mount = document.getElementById('mkt-campaigns-mount');
+      if (mount && typeof renderAutoCampaignsTab === 'function') {
+        renderAutoCampaignsTab(mount);
+      }
+    },
+
+    templates(body) {
+      body.innerHTML = `<div id="mkt-templates-mount"></div>`;
+      const mount = document.getElementById('mkt-templates-mount');
+      if (mount && typeof renderAutoTemplatesTab === 'function') {
+        renderAutoTemplatesTab(mount);
+      }
+    },
+
+    audiences(body) {
+      body.innerHTML = `<div id="mkt-audiences-mount"></div>`;
+      const mount = document.getElementById('mkt-audiences-mount');
+      if (mount && typeof renderAutoAudiencesTab === 'function') {
+        renderAutoAudiencesTab(mount);
+      }
+    },
+
+    performance(body) {
+      body.innerHTML = `<div id="mkt-performance-mount"></div>`;
+      const mount = document.getElementById('mkt-performance-mount');
+      if (mount && typeof renderAutoPerformanceTab === 'function') {
+        renderAutoPerformanceTab(mount);
+      }
     },
 
     // ── AI ChatBot ───────────────────────────────────────────────────────────

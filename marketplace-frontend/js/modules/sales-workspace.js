@@ -335,7 +335,7 @@ ENGINES['sales'] = {
     { label: '+ Customer', icon: 'user', onclick: 'crmOpenForm()' },
     { label: 'Book Appointment', icon: 'calendar', onclick: "switchPage('appointments')" },
     { label: 'Desk a Deal', icon: 'currency', onclick: "engineTab('sales', 'desk')" },
-    { label: 'Appraise Trade', icon: 'gem', onclick: "engineTab('sales', 'appraisal')" },
+    { label: 'Appraise Trade', icon: 'gem', onclick: "engineTab('sales', 'appraisals')" },
     { label: 'Equity Mining', icon: 'gem', onclick: "engineTab('sales', 'equity')" },
   ],
 

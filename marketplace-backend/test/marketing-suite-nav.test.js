@@ -54,8 +54,7 @@ test('Marketing Suite — Left Navigation & Workspace Context', async (t) => {
 
 test('Marketing Suite — Horizontal Top Tabs & Clean Email & SMS Landing', async (t) => {
   await t.test('suppresses horizontal top tab header for marketing suites', () => {
-    assert.match(mktWorkspaceJs, /window\.isMarketingSuite/, 'tabOrder checks if in marketing suite');
-    assert.match(mktWorkspaceJs, /return \['overview'\];/, 'returns overview only so tab bar is hidden');
+    assert.match(mktWorkspaceJs, /hideTabBar:\s*true/, 'hideTabBar is true so top horizontal tab bar is deleted');
   });
 
   await t.test('removes Back to Marketing Pulse button from Email & SMS dashboard', () => {

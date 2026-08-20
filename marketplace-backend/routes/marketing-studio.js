@@ -10,7 +10,7 @@
 
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
-import { requirePermission } from '../authorization.js'
+import { requirePermission, hasPermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { toWebp } from './inventory.js'
 import multer from 'multer'
@@ -74,13 +74,6 @@ export function pexelsSearchEndpoint(mediaType) {
 const HEX = /^#[0-9a-f]{6}$/i
 const xml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]))
 
-/**
- * Normalizes untrusted Studio input into a safe design spec. Every style field a dealer
- * can supply is validated or clamped here so nothing unsafe reaches the SVG renderer:
- *   - format  → one of the approved social aspect ratios (unknown → square)
- *   - colors  → strict #rrggbb hex only (anything else → the brand default)
- *   - overlay → an integer 0–100 (a scrim strength), clamped
- */
 export function studioDesignSpec(input = {}) {
   const format = FORMATS[input?.format] ? input.format : 'square'
   const [width, height] = FORMATS[format]
@@ -97,11 +90,6 @@ export function studioDesignSpec(input = {}) {
   }
 }
 
-/**
- * Renders the dealer-authored overlay (scrim + headline + CTA) as an SVG string. ALL
- * dealer text is XML-escaped, so a headline like `<script>` becomes inert `&lt;script&gt;`
- * text rather than executable markup composited into the image.
- */
 export function studioOverlaySvg(spec = {}) {
   const s = (spec && spec.width && spec.height) ? spec : studioDesignSpec(spec)
   const scrim = (Math.max(0, Math.min(100, Number(s.overlay) || 0)) / 100).toFixed(3)
@@ -120,13 +108,34 @@ export function studioOverlaySvg(spec = {}) {
 }
 
 /**
- * Default Stock Automotive Templates
+ * Normalizes untrusted Studio input into a safe design spec. Every style field a dealer
+ * can supply is validated or clamped here so nothing unsafe reaches the SVG renderer:
+ *   - format  → one of the approved social aspect ratios (unknown → square)
+ *   - colors  → 6-digit hex (unknown → slate-900 / white)
+ *   - numbers → clamped to physically meaningful ranges
+ *   - strings → escaped before string-interpolation into XML
  */
-const GLOBAL_TEMPLATES = [
+export function normalizeStudioSpec(raw = {}) {
+  const format = FORMATS[raw.format] ? raw.format : 'square'
+  const [w, h] = FORMATS[format]
+  const background = HEX.test(raw.background) ? raw.background : '#0f172a'
+  const accent = HEX.test(raw.accent) ? raw.accent : '#6366f1'
+  const headline = String(raw.headline || '').slice(0, 120)
+  const subheadline = String(raw.subheadline || '').slice(0, 160)
+  const price = Number(raw.price) > 0 ? Number(raw.price) : null
+  const badge = String(raw.badge || '').slice(0, 40)
+  const cta = String(raw.cta || '').slice(0, 40)
+  const photoUrl = typeof raw.photo_url === 'string' && raw.photo_url.startsWith('https://') ? raw.photo_url : null
+  const logoUrl = typeof raw.logo_url === 'string' && raw.logo_url.startsWith('https://') ? raw.logo_url : null
+
+  return { format, width: w, height: h, background, accent, headline, subheadline, price, badge, cta, photo_url: photoUrl, logo_url: logoUrl }
+}
+
+export const STOCK_STUDIO_TEMPLATES = [
   {
-    template_key: 'tmpl_spotlight_square',
-    name: 'Vehicle Spotlight',
-    category: 'Vehicle Spotlight',
+    template_key: 'tmpl_new_arrival_square',
+    name: 'New Arrival Showcase',
+    category: 'Inventory',
     format_key: 'square',
     width: 1080,
     height: 1080,

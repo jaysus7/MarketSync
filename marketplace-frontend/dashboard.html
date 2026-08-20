@@ -2875,8 +2875,8 @@
       <!-- Email & SMS Automation Engine -->
       <div data-page-content="automation-builder" class="page-content hidden space-y-6">
         <div>
-          <h2 class="text-xl font-bold text-slate-900 dark:text-white">Email &amp; SMS</h2>
-          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Automated email and SMS follow-up, campaigns, reminders and customer journeys.</p>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">Campaigns and Automations</h2>
+          <p class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mt-1">Automated lead response, service retention, reviews, and visual workflow journeys.</p>
         </div>
         <div id="auto-builder-metrics"></div>
         <div id="auto-builder-tabs" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 flex-wrap"></div>
@@ -2958,6 +2958,30 @@
 
         <!-- Card: the appraisal form -->
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+          <!-- Customer search (optional — search & link customer before appraisal) -->
+          <div class="pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div class="flex items-center justify-between gap-2 mb-1.5">
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">Customer <span class="normal-case font-normal text-slate-400">(optional — search to link customer)</span></label>
+              <span id="appr-cust-linked" class="hidden items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 rounded-full px-2 py-0.5">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                <span id="appr-cust-linked-name">Linked</span>
+                <button type="button" onclick="apprUnlinkCustomer()" class="ml-1 text-emerald-600/70 hover:text-emerald-600 font-bold" title="Unlink">&times;</button>
+              </span>
+            </div>
+            <div class="relative">
+              <div class="flex gap-2">
+                <div class="relative flex-1">
+                  <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                  </div>
+                  <input id="appr-cust-search" autocomplete="off" placeholder="Search customer by name, phone, or email…" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm">
+                </div>
+                <button type="button" onclick="apprClearCustomer()" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg whitespace-nowrap transition">Clear</button>
+              </div>
+              <div id="appr-cust-results" class="hidden absolute z-20 mt-1 w-full max-h-64 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg"></div>
+            </div>
+          </div>
+
           <!-- License plate → VIN (optional; shown only when a plate-decode provider is provisioned) -->
           <div id="appr-plate-block" class="hidden">
             <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Look up by plate <span class="normal-case font-normal text-slate-400">(optional — finds the VIN, then fills the fields below)</span></label>
@@ -3066,24 +3090,13 @@
             </div>
           </div>
 
-          <!-- Customer Information -->
-          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
-            <div class="flex items-center justify-between gap-2 mb-3">
-              <h4 class="text-sm font-bold text-slate-900 dark:text-white">Customer Information</h4>
-              <span id="appr-cust-linked" class="hidden items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 rounded-full px-2 py-0.5">
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-                <span id="appr-cust-linked-name">Linked</span>
-                <button type="button" onclick="apprUnlinkCustomer()" class="ml-1 text-emerald-600/70 hover:text-emerald-600" title="Unlink"></button>
-              </span>
-            </div>
-            <!-- Search existing customer or start a new one -->
-            <div class="relative mb-3">
-              <div class="flex gap-2">
-                <input id="appr-cust-search" autocomplete="off" placeholder="Search customers by name, phone, or email…" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
-                <button type="button" onclick="apprClearCustomer()" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 rounded-lg whitespace-nowrap">New customer</button>
-              </div>
-              <div id="appr-cust-results" class="hidden absolute z-20 mt-1 w-full max-h-64 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg"></div>
-            </div>
+          <!-- Customer Details (collapsible / pre-filled from search) -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <button type="button" onclick="this.closest('.rounded-xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+              <h4 class="text-sm font-bold text-slate-900 dark:text-white">Customer Contact Details <span class="text-xs font-normal text-slate-400">(optional)</span></h4>
+              <svg class="ai-chevron w-4 h-4 text-slate-400 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div class="p-5">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">First name</label><input id="cust-first" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
               <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Last name</label><input id="cust-last" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>

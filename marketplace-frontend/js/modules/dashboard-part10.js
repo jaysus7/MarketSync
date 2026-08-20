@@ -909,11 +909,13 @@ async function engineTab(engineId, tab, force) {
   // A borrowed page panel may be sitting in here; hand it back before the wipe or
   // innerHTML deletes the real page out of the document.
   engRestoreMountedPages();
+  body.innerHTML = '';
   if (ENGINE_DATA[engineId] === undefined && !force) {
     body.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center flex items-center justify-center gap-2"><svg class="animate-spin w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>Loading…</span></div>`;
   }
   try {
     const d = await engineData(engineId, force);
+    body.innerHTML = '';
     await eng.tabs[tab]?.(body, d, eng);
     const rail = document.querySelector(`[data-engine-rail="${engineId}"]`);
     if (rail) rail.innerHTML = engineRail(eng, d);

@@ -62,6 +62,16 @@ async function permissionLookup(req, permission) {
     return { allowed: true, error: null }
   }
 
+  if (
+    (permission === 'marketing.view' || permission === 'marketing.edit' || permission === 'social.studio' || permission === 'design.canvas' || permission === 'social.scheduler') &&
+    (req.entitlements?.products?.some(p => ['design_studio', 'marketsync_social', 'sales_marketing_suite', 'service_marketing_suite', 'complete_marketing_suite', 'marketsync_digital'].includes(p)) ||
+     req.entitlements?.features?.some(f => ['design.canvas', 'design.templates', 'design.assets', 'social.scheduler', 'social.accounts', 'email.campaigns'].includes(f)) ||
+     ['SALES_REP', 'MANAGER', 'MARKETING_MANAGER'].includes(role) ||
+     ['sales-marketing-suite', 'service-marketing-suite', 'complete-marketing-suite', 'marketsync-digital', 'design-studio', 'marketing-suite'].includes(req.profile?.package_id))
+  ) {
+    return { allowed: true, error: null }
+  }
+
   // `user_roles` and `role_permissions` both reference `roles`, but do not
   // directly reference one another. Querying them as an embedded PostgREST
   // relationship therefore fails in Supabase's schema cache. Resolve through
