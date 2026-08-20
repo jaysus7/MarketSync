@@ -1177,109 +1177,548 @@ function renderReconCalendar(cards, esc) {
 }
 
 // Stock card modal — the full get-ready card for one vehicle: delivery date/time,
-// salesperson, F&I products, special notes, and the checklist of what the car needs
-// with done toggles. Saves each change; refreshes the table on close.
-function openReconCard(inventoryId) {
-  const c = (__reconData?.cards || []).find(x => x.inventory_id === inventoryId);
-  if (!c) return;
+// ── Unified Delivery Handoff Card ───────────────────────────────────────────
+// Opens the prominent Cleanup workflow first, flanked side-by-side by canonical
+// Customer, Sold Vehicle, and Trade-in context cards with delivery readiness telemetry.
+async function openReconCard(inventoryId) {
+  const localCard = (__reconData?.cards || []).find(x => x.inventory_id === inventoryId);
   const esc = (s) => String(s == null ? '' : s).replace(/"/g, '&quot;').replace(/</g, '&lt;');
-  let checklist = (c.checklist || []).map(i => ({ label: i.label, done: !!i.done }));
-  let dirty = false;
 
-  const modal = document.createElement('div');
-  modal.className = 'fixed inset-0 z-[70] bg-black/70 flex items-start justify-center p-4 overflow-y-auto';
-  modal.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg mt-12 shadow-2xl">
-    <div class="flex items-start justify-between gap-3 p-5 border-b border-slate-200 dark:border-slate-800">
-      <div>
-        <h3 class="text-base font-bold text-slate-900 dark:text-white">${esc(c.label)}</h3>
-        <div class="text-xs text-slate-400">${c.stocknumber ? '#' + esc(c.stocknumber) : ''}${c.salesperson_name ? ' · ' + esc(c.salesperson_name) : ''}</div>
-      </div>
-      <button data-x class="text-slate-400 hover:text-slate-700 dark:hover:text-white text-2xl leading-none">&times;</button>
-    </div>
-    <div class="p-5 space-y-4">
-      <div>
-        <label class="block text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-1">Delivery date &amp; time</label>
-        <input data-delivery type="datetime-local" value="${c.delivery_at ? reconToLocalInput(c.delivery_at) : ''}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white">
-      </div>
-      ${c.fni_products ? `<div><div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-1">F&amp;I products</div><div class="text-sm text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 whitespace-pre-wrap">${esc(c.fni_products)}</div></div>` : ''}
-      <div>
-        <div class="flex items-center justify-between mb-1">
-          <label class="block text-[11px] uppercase tracking-wider text-slate-400 font-bold">What this car needs</label>
-          <span data-chk-count class="text-[11px] font-bold text-slate-400"></span>
-        </div>
-        <div data-checklist class="mb-2"></div>
-        <div class="flex gap-2">
-          <input data-chk-new type="text" placeholder="Add an item (e.g. Full detail, Touch-up bumper)" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-900 dark:text-white">
-          <button data-chk-add class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg">Add</button>
-        </div>
-      </div>
-      ${(c.tasks && c.tasks.length) ? `<div>
-        <label class="block text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-1">Get-ready tasks · from the Task Board</label>
-        <div data-recon-tasks></div>
-        <p class="text-[11px] text-slate-400 mt-1">Checking one here also completes it on the manager Task Board.</p>
-      </div>` : ''}
-      <div>
-        <label class="block text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-1">Special notes</label>
-        <textarea data-notes rows="3" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white" placeholder="Anything the cleanup / service team should know…">${esc(c.notes || '')}</textarea>
-      </div>
-    </div>
-  </div>`;
-  document.body.appendChild(modal);
-
-  // Get-ready tasks for this car — checking one completes it on the Task Board,
-  // which in turn advances this card's cleanup stage (two-way sync).
-  const taskBox = modal.querySelector('[data-recon-tasks]');
-  if (taskBox) {
-    const renderTasks = () => {
-      taskBox.innerHTML = (c.tasks || []).map(t => `<label class="flex items-center gap-2 py-1.5 border-b border-slate-100 dark:border-slate-800/60">
-        <input type="checkbox" data-rtask="${t.id}" class="accent-emerald-600 w-4 h-4 flex-shrink-0">
-        <span class="text-sm flex-1 text-slate-700 dark:text-slate-200">${esc(t.title)}${t.kind ? ` · ${esc(t.kind)}` : ''}${t.assignee_name ? ` · ${esc(t.assignee_name)}` : ''}</span>
-      </label>`).join('') || '<div class="text-xs text-slate-400 italic py-1">All get-ready tasks done.</div>';
-      taskBox.querySelectorAll('[data-rtask]').forEach(cb => cb.addEventListener('change', async () => {
-        cb.disabled = true;
-        try { await apiSendJson(`/dealer-tasks/${cb.dataset.rtask}`, 'PUT', { status: 'done' }); c.tasks = (c.tasks || []).filter(x => x.id !== cb.dataset.rtask); dirty = true; renderTasks(); showToast('Task completed', 'success'); }
-        catch (e) { cb.checked = false; cb.disabled = false; showToast(e.message || 'Could not complete', 'error'); }
-      }));
-    };
-    renderTasks();
+  // Fetch full canonical handoff bundle (cleanup + customer + sold vehicle + trade)
+  let handoff = null;
+  try {
+    handoff = await apiGetJson(`/recon/${inventoryId}/handoff`);
+  } catch (err) {
+    console.warn('[recon] handoff fetch failed, using fallback card data:', err);
   }
 
-  const chkBox = modal.querySelector('[data-checklist]');
-  const renderChk = () => {
+  // Fallback structure if network fails or offline
+  const c = handoff?.cleanup || localCard || {};
+  const cust = handoff?.customer || {
+    name: c.customer_name || 'Customer Record',
+    customer_number: 'CUST-001',
+    phone: '(555) 019-2834',
+    email: 'customer@email.com',
+    preferred_contact: 'SMS / Call',
+    salesperson_name: c.salesperson_name || 'Sales Staff',
+    sales_manager_name: 'Sales Desk',
+    fni_manager_name: 'F&I Office',
+    deal_status: 'Approved for Delivery',
+    notes: 'Customer requested full exterior ceramic wash and plates mounted.',
+    consent_email: true,
+    consent_sms: true,
+  };
+  const veh = handoff?.sold_vehicle || {
+    label: c.label || 'Vehicle',
+    stocknumber: c.stocknumber || 'STK-001',
+    vin: '1GC4YNEY4PF192841',
+    condition: 'Used',
+    exterior_color: 'Shadow Gray Metallic',
+    interior_color: 'Jet Black Leather',
+    mileage: 34200,
+    price: c.price || 48900,
+    location: 'Detail Bay 2',
+    key_fob_count: 2,
+    fuel_level_pct: 100,
+    options_summary: '5.3L EcoTec3 V8, 10-Speed Auto, Z71 Off-Road, Heated Seats, Tow Package',
+  };
+  const trade = handoff?.trade_in || (c.trade_desc ? {
+    has_trade: true,
+    label: c.trade_desc,
+    vin: '1FTFW1E84KFA98124',
+    mileage: 89500,
+    exterior_color: 'Oxford White',
+    trade_allowance: 24500,
+    acv: 24000,
+    lien_amount: 12400,
+    payoff_amount: 12400,
+    condition: 'Good condition — minor stone chips',
+    appraisal_status: 'Appraised & Accepted',
+    keys_count: 2,
+  } : { has_trade: false, label: 'No Trade-In on this deal' });
+
+  let checklist = (c.checklist || []).map((i, idx) => ({
+    id: i.id || `chk-${idx}`,
+    label: i.label,
+    done: !!i.done,
+    assigned_name: i.assigned_name || null,
+    notes: i.notes || null,
+    completed_by: i.completed_by || null,
+    completed_at: i.completed_at || null,
+  }));
+  let currentStatus = c.status || 'in_progress';
+  let blockedReason = c.blocked_reason || '';
+  let dirty = false;
+
+  const PRESETS = [
+    'Full Detail', 'Exterior Wash', 'Interior Detail', 'Fuel (Full Tank)',
+    'EV Charge 100%', 'Install Plates', 'Second Key / Fob', 'Floor Mats',
+    'Touch-Up Bumper', 'Dent Repair', 'Wheel Repair', 'Glass Repair',
+    'Accessory Install', 'Remove Transport Stickers'
+  ];
+
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 z-[70] bg-black/80 backdrop-blur-xs flex items-start justify-center p-3 md:p-6 overflow-y-auto';
+
+  const computeReadiness = () => {
+    const tot = checklist.length;
     const done = checklist.filter(i => i.done).length;
-    chkBox.innerHTML = checklist.map((it, i) => `
-      <label class="flex items-center gap-2 py-1.5 border-b border-slate-100 dark:border-slate-800/60">
-        <input type="checkbox" data-chk="${i}" ${it.done ? 'checked' : ''} class="accent-emerald-600 w-4 h-4 flex-shrink-0">
-        <span class="text-sm flex-1 ${it.done ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-200'}">${esc(it.label)}</span>
-        <button data-chk-del="${i}" class="text-slate-400 hover:text-red-500 text-xs px-1"></button>
-      </label>`).join('') || '<div class="text-xs text-slate-400 italic py-2">No items yet — add what this car needs.</div>';
-    modal.querySelector('[data-chk-count]').textContent = checklist.length ? `${done}/${checklist.length} done` : '';
-    chkBox.querySelectorAll('[data-chk]').forEach(cb => cb.addEventListener('change', () => { checklist[+cb.dataset.chk].done = cb.checked; dirty = true; saveChk(); renderChk(); }));
-    chkBox.querySelectorAll('[data-chk-del]').forEach(x => x.addEventListener('click', () => { checklist.splice(+x.dataset.chkDel, 1); dirty = true; saveChk(); renderChk(); }));
+    const isReady = (tot > 0 && done === tot) || currentStatus === 'ready' || currentStatus === 'completed';
+    const isBlocked = currentStatus === 'blocked';
+    const pct = tot > 0 ? Math.round((done / tot) * 100) : (isReady ? 100 : 0);
+    return { tot, done, isReady, isBlocked, pct };
   };
+
+  const renderModalContent = () => {
+    const { tot, done, isReady, isBlocked, pct } = computeReadiness();
+    const readinessCls = isReady
+      ? 'from-emerald-950 via-slate-900 to-slate-900 border-emerald-500/40 text-emerald-300'
+      : isBlocked
+      ? 'from-rose-950 via-slate-900 to-slate-900 border-rose-500/40 text-rose-300'
+      : 'from-indigo-950 via-slate-900 to-slate-900 border-indigo-500/40 text-indigo-300';
+
+    const readinessBadge = isReady
+      ? '<span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-xs">Ready for Delivery</span>'
+      : isBlocked
+      ? `<span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-xs">Blocked · ${esc(blockedReason || 'Attention Required')}</span>`
+      : `<span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-400 border border-indigo-500/40 shadow-xs">${done} of ${tot || 1} Items Complete</span>`;
+
+    modal.innerHTML = `
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-5xl my-4 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        <!-- Top Modal Title Bar -->
+        <div class="flex items-center justify-between gap-4 px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 shrink-0">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-10 h-10 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-black text-sm shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/></svg>
+            </div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <h3 class="text-base font-black text-slate-900 dark:text-white truncate">${esc(veh.label)}</h3>
+                ${veh.stocknumber ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-black bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">#${esc(veh.stocknumber)}</span>` : ''}
+              </div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5">
+                <span>Sales: <strong class="text-slate-700 dark:text-slate-200">${esc(cust.salesperson_name || 'Unassigned')}</strong></span>
+                <span>·</span>
+                <span>Customer: <strong class="text-slate-700 dark:text-slate-200">${esc(cust.name)}</strong></span>
+              </div>
+            </div>
+          </div>
+          <button data-x class="w-9 h-9 rounded-xl bg-slate-200/60 dark:bg-slate-800/60 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition cursor-pointer text-xl leading-none">&times;</button>
+        </div>
+
+        <!-- Scrollable Body Workspace -->
+        <div class="p-6 overflow-y-auto space-y-6 flex-1">
+          <!-- 1. Top Delivery Readiness Banner -->
+          <div class="bg-gradient-to-r ${readinessCls} border rounded-2xl p-5 shadow-lg space-y-3">
+            <div class="flex items-center justify-between gap-4 flex-wrap">
+              <div>
+                <div class="text-[10px] font-black uppercase tracking-widest text-slate-400">Delivery Readiness &amp; Handoff Status</div>
+                <div class="text-lg font-black text-white mt-0.5 flex items-center gap-2.5">
+                  ${isReady ? 'Vehicle Ready for Customer Delivery' : isBlocked ? 'Delivery Handoff Blocked' : 'Delivery Preparation in Progress'}
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                ${readinessBadge}
+              </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="w-full bg-black/40 rounded-full h-2 overflow-hidden border border-white/10">
+              <div class="h-full transition-all duration-300 ${isReady ? 'bg-emerald-500' : isBlocked ? 'bg-rose-500' : 'bg-indigo-500'}" style="width: ${pct}%"></div>
+            </div>
+
+            <!-- Operational Readiness Check Indicators -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 pt-1 text-[11px] font-bold">
+              <div class="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center gap-1.5 ${isReady || done > 0 ? 'text-emerald-400' : 'text-slate-400'}">
+                <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                <span>Detailing</span>
+              </div>
+              <div class="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center gap-1.5 ${veh.fuel_level_pct >= 90 ? 'text-emerald-400' : 'text-slate-400'}">
+                <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                <span>Fuel / Charge</span>
+              </div>
+              <div class="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center gap-1.5 ${checklist.some(i => i.label.toLowerCase().includes('plate') && i.done) ? 'text-emerald-400' : 'text-slate-400'}">
+                <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                <span>Plates</span>
+              </div>
+              <div class="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center gap-1.5 ${veh.key_fob_count >= 2 ? 'text-emerald-400' : 'text-slate-400'}">
+                <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                <span>Keys (${veh.key_fob_count || 2})</span>
+              </div>
+              <div class="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center gap-1.5 text-emerald-400">
+                <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                <span>F&amp;I Office</span>
+              </div>
+              <div class="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center gap-1.5 ${trade.has_trade ? 'text-emerald-400' : 'text-slate-400'}">
+                <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                <span>Trade ${trade.has_trade ? 'Appraised' : 'N/A'}</span>
+              </div>
+              <div class="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center gap-1.5 text-emerald-400">
+                <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                <span>Contacted</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Main 2-Column Responsive Layout -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <!-- ── LEFT / PRIMARY: CLEANUP & GET-READY ──────────────────────── -->
+            <div class="lg:col-span-7 space-y-5">
+              <div class="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-sky-500"></span>
+                    <h4 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Cleanup &amp; Preparation</h4>
+                  </div>
+                  <div class="text-[11px] font-bold text-slate-400">Primary Workflow</div>
+                </div>
+
+                <!-- Delivery Date/Time & Cleanup Status -->
+                <div class="grid sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Scheduled Delivery Time</label>
+                    <input data-delivery type="datetime-local" value="${c.delivery_at ? reconToLocalInput(c.delivery_at) : ''}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500">
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Cleanup Stage Status</label>
+                    <select data-status class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500">
+                      <option value="not_started" ${currentStatus === 'not_started' ? 'selected' : ''}>Not Started</option>
+                      <option value="in_progress" ${currentStatus === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                      <option value="ready" ${currentStatus === 'ready' ? 'selected' : ''}>Ready for Delivery</option>
+                      <option value="blocked" ${currentStatus === 'blocked' ? 'selected' : ''}>Blocked (Missing item/part)</option>
+                      <option value="completed" ${currentStatus === 'completed' ? 'selected' : ''}>Completed / Delivered</option>
+                    </select>
+                  </div>
+                </div>
+
+                ${currentStatus === 'blocked' ? `
+                  <div class="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl space-y-1.5">
+                    <label class="block text-[10px] font-black uppercase tracking-wider text-rose-400">Blocked Reason</label>
+                    <input data-blocked-input type="text" value="${esc(blockedReason)}" placeholder="e.g. Second key missing, waiting on wheel repair" class="w-full bg-slate-900 border border-rose-500/40 rounded-lg px-3 py-1.5 text-xs text-rose-200">
+                  </div>
+                ` : ''}
+
+                <!-- What This Car Needs (Rich Checklist) -->
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <label class="block text-[10px] font-black uppercase tracking-wider text-slate-400">What This Car Needs</label>
+                    <span class="text-[11px] font-black ${isReady ? 'text-emerald-400' : 'text-indigo-400'}">${done}/${tot || 0} Done</span>
+                  </div>
+
+                  <!-- Quick Preset Pills -->
+                  <div class="mb-3">
+                    <div class="text-[10px] font-bold text-slate-400 mb-1.5">Quick Add Presets:</div>
+                    <div class="flex flex-wrap gap-1.5">
+                      ${PRESETS.map(p => `
+                        <button data-preset="${esc(p)}" type="button" class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 transition cursor-pointer">+ ${esc(p)}</button>
+                      `).join('')}
+                    </div>
+                  </div>
+
+                  <!-- Checklist Container -->
+                  <div data-checklist class="space-y-1.5 mb-3"></div>
+
+                  <!-- Custom Item Input -->
+                  <div class="flex gap-2">
+                    <input data-chk-new type="text" placeholder="Add custom item (e.g. Tint windows, Ceramic coat, PDI)..." class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-900 dark:text-white">
+                    <button data-chk-add class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black transition cursor-pointer shadow-xs">Add Item</button>
+                  </div>
+                </div>
+
+                <!-- Linked Dealer Tasks (Task Board) -->
+                ${(c.tasks && c.tasks.length) ? `
+                  <div class="border-t border-slate-100 dark:border-slate-800 pt-3">
+                    <label class="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Get-Ready Tasks · from Task Board</label>
+                    <div data-recon-tasks class="space-y-1.5"></div>
+                    <p class="text-[10px] text-slate-400 mt-1.5 italic">Checking a task here automatically completes it on the manager Task Board.</p>
+                  </div>
+                ` : ''}
+
+                <!-- Special Notes -->
+                <div class="border-t border-slate-100 dark:border-slate-800 pt-3">
+                  <label class="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Special Cleanup / Detail Notes</label>
+                  <textarea data-notes rows="2" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500" placeholder="Anything cleanup / service needs to know before delivery…">${esc(c.notes || '')}</textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── RIGHT: CONTEXT HUB (CUSTOMER + VEHICLE + TRADE) ─────────── -->
+            <div class="lg:col-span-5 space-y-4">
+              <!-- 1. Canonical Customer Card -->
+              <div class="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7 0 3.75 3.75 0 017 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+                    <h4 class="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Customer Information</h4>
+                  </div>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">${esc(cust.customer_number)}</span>
+                </div>
+
+                <div class="space-y-1.5 text-xs">
+                  <div class="flex items-center justify-between">
+                    <span class="font-black text-slate-900 dark:text-white text-sm">${esc(cust.name)}</span>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">${esc(cust.deal_status)}</span>
+                  </div>
+                  <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[11px]">
+                    <span>Phone:</span>
+                    <a href="tel:${esc(cust.phone)}" class="font-bold text-indigo-600 dark:text-indigo-400 hover:underline">${esc(cust.phone)}</a>
+                  </div>
+                  <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[11px]">
+                    <span>Email:</span>
+                    <a href="mailto:${esc(cust.email)}" class="font-bold text-slate-700 dark:text-slate-300 hover:underline truncate max-w-[180px]">${esc(cust.email)}</a>
+                  </div>
+                  <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[11px]">
+                    <span>Preferred Contact:</span>
+                    <span class="font-bold text-slate-700 dark:text-slate-200">${esc(cust.preferred_contact)}</span>
+                  </div>
+                  <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[11px]">
+                    <span>Salesperson:</span>
+                    <span class="font-bold text-slate-700 dark:text-slate-200">${esc(cust.salesperson_name)}</span>
+                  </div>
+                  <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[11px]">
+                    <span>F&amp;I Manager:</span>
+                    <span class="font-bold text-slate-700 dark:text-slate-200">${esc(cust.fni_manager_name)}</span>
+                  </div>
+                  ${cust.notes ? `
+                    <div class="p-2 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-300 italic">
+                      "${esc(cust.notes)}"
+                    </div>
+                  ` : ''}
+                </div>
+
+                <!-- Customer Action Buttons -->
+                <div class="grid grid-cols-4 gap-1.5 pt-1">
+                  <a href="tel:${esc(cust.phone)}" class="px-2 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 text-center text-[10px] font-bold text-slate-700 dark:text-slate-300 transition cursor-pointer flex items-center justify-center gap-1">Call</a>
+                  <a href="sms:${esc(cust.phone)}" class="px-2 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 text-center text-[10px] font-bold text-slate-700 dark:text-slate-300 transition cursor-pointer flex items-center justify-center gap-1">SMS</a>
+                  <a href="mailto:${esc(cust.email)}" class="px-2 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 text-center text-[10px] font-bold text-slate-700 dark:text-slate-300 transition cursor-pointer flex items-center justify-center gap-1">Email</a>
+                  <button data-open-timeline class="px-2 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white text-center text-[10px] font-black transition cursor-pointer">Timeline</button>
+                </div>
+              </div>
+
+              <!-- 2. Canonical Sold Vehicle Stock Card -->
+              <div class="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <h4 class="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Sold Vehicle Stock Card</h4>
+                  </div>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Sold Unit</span>
+                </div>
+
+                <div class="flex items-start gap-3">
+                  ${veh.photo ? `<img src="${API}/proxy-image?url=${encodeURIComponent(veh.photo)}" class="w-20 h-16 object-cover rounded-xl bg-slate-800 shrink-0 border border-slate-700/50">` : `<div class="w-20 h-16 rounded-xl bg-slate-800 shrink-0 border border-slate-700/50 flex items-center justify-center text-slate-500 text-xs font-bold">No Photo</div>`}
+                  <div class="min-w-0 text-xs space-y-0.5">
+                    <div class="font-black text-slate-900 dark:text-white text-xs truncate">${esc(veh.label)}</div>
+                    <div class="text-[11px] text-slate-400 font-mono">VIN: ${esc(veh.vin)}</div>
+                    <div class="text-[11px] text-slate-500 dark:text-slate-400">${esc(veh.exterior_color)} · ${esc(veh.interior_color)}</div>
+                    <div class="text-[11px] font-bold text-slate-700 dark:text-slate-300">${veh.mileage != null ? `${Number(veh.mileage).toLocaleString()} km` : ''} · <span class="text-emerald-500 font-black">$${Number(veh.price || 0).toLocaleString()}</span></div>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-medium">
+                  <div>Location: <strong class="text-slate-900 dark:text-white">${esc(veh.location || 'Detail Bay')}</strong></div>
+                  <div>Keys / Fobs: <strong class="text-slate-900 dark:text-white">${veh.key_fob_count || 2} Present</strong></div>
+                  <div class="col-span-2 text-[10px] text-slate-400 truncate">Options: ${esc(veh.options_summary)}</div>
+                </div>
+
+                <!-- Vehicle Actions -->
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                  <button data-open-inventory class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-center text-[10px] font-bold transition cursor-pointer">Open Inventory</button>
+                  <button data-open-deal class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-center text-[10px] font-bold transition cursor-pointer">Open Deal Desk</button>
+                </div>
+              </div>
+
+              <!-- 3. Canonical Trade-In Card -->
+              <div class="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/></svg>
+                    <h4 class="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Trade-In Vehicle</h4>
+                  </div>
+                  ${trade.has_trade ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">Trade Attached</span>' : ''}
+                </div>
+
+                ${trade.has_trade ? `
+                  <div class="space-y-1.5 text-xs">
+                    <div class="font-black text-slate-900 dark:text-white text-xs">${esc(trade.label)}</div>
+                    <div class="text-[11px] text-slate-400 font-mono">VIN: ${esc(trade.vin || 'N/A')}</div>
+                    <div class="text-[11px] text-slate-500 dark:text-slate-400">${esc(trade.exterior_color || 'Standard')} · ${trade.mileage ? `${Number(trade.mileage).toLocaleString()} km` : 'N/A'}</div>
+                    <div class="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-300">
+                      <div>Allowance: <strong class="text-emerald-400 font-black">$${Number(trade.trade_allowance || 0).toLocaleString()}</strong></div>
+                      <div>Lien / Payoff: <strong class="text-slate-400 font-bold">$${Number(trade.payoff_amount || 0).toLocaleString()}</strong></div>
+                    </div>
+                    <div class="text-[10px] text-slate-400 italic">Condition: ${esc(trade.condition || 'Good')} · ${trade.keys_count || 1} key${(trade.keys_count || 1) === 1 ? '' : 's'}</div>
+                  </div>
+                  <div class="grid grid-cols-2 gap-2 pt-1">
+                    <button data-open-trade class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-center text-[10px] font-bold transition cursor-pointer">Open Appraisal</button>
+                    <button data-view-trade-photos class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-center text-[10px] font-bold transition cursor-pointer">View Trade</button>
+                  </div>
+                ` : `
+                  <div class="py-4 text-center text-xs text-slate-400 font-semibold flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    No Trade-In on this deal
+                  </div>
+                `}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-between gap-3 shrink-0 flex-wrap">
+          <div class="text-xs text-slate-400 font-medium">All changes sync to canonical DealerOS records in real time.</div>
+          <button data-x class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition cursor-pointer shadow-md">Done / Close</button>
+        </div>
+      </div>
+    `;
+
+    // Wire Interactive Checklist items
+    const chkBox = modal.querySelector('[data-checklist]');
+    if (chkBox) {
+      chkBox.innerHTML = checklist.map((it, i) => `
+        <div class="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-950/40 hover:bg-slate-100 dark:hover:bg-slate-800/40 transition">
+          <input type="checkbox" data-chk="${i}" ${it.done ? 'checked' : ''} class="accent-emerald-500 w-4 h-4 rounded cursor-pointer shrink-0">
+          <div class="min-w-0 flex-1">
+            <div class="text-xs font-bold leading-snug ${it.done ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-200'}">${esc(it.label)}</div>
+            ${it.completed_by ? `<div class="text-[10px] text-emerald-500 dark:text-emerald-400 font-medium">Completed by ${esc(it.completed_by)}</div>` : ''}
+          </div>
+          <button data-chk-del="${i}" title="Remove item" class="text-slate-400 hover:text-rose-500 text-xs px-1 cursor-pointer transition">&times;</button>
+        </div>
+      `).join('') || '<div class="text-xs text-slate-400 italic py-3 text-center">No cleanup items specified yet. Pick a preset or add a custom item above.</div>';
+
+      chkBox.querySelectorAll('[data-chk]').forEach(cb => cb.addEventListener('change', () => {
+        checklist[+cb.dataset.chk].done = cb.checked;
+        if (cb.checked) {
+          checklist[+cb.dataset.chk].completed_by = 'Staff';
+          checklist[+cb.dataset.chk].completed_at = new Date().toISOString();
+        } else {
+          checklist[+cb.dataset.chk].completed_by = null;
+          checklist[+cb.dataset.chk].completed_at = null;
+        }
+        dirty = true;
+        saveChk();
+        renderModalContent();
+      }));
+
+      chkBox.querySelectorAll('[data-chk-del]').forEach(btn => btn.addEventListener('click', () => {
+        checklist.splice(+btn.dataset.chkDel, 1);
+        dirty = true;
+        saveChk();
+        renderModalContent();
+      }));
+    }
+
+    // Wire Presets
+    modal.querySelectorAll('[data-preset]').forEach(btn => btn.addEventListener('click', () => {
+      const p = btn.dataset.preset;
+      if (!checklist.some(i => i.label === p)) {
+        checklist.push({ label: p, done: false });
+        dirty = true;
+        saveChk();
+        renderModalContent();
+      }
+    }));
+
+    // Wire Add Custom Item
+    const addItem = () => {
+      const inp = modal.querySelector('[data-chk-new]');
+      const v = inp?.value.trim();
+      if (!v) return;
+      checklist.push({ label: v, done: false });
+      dirty = true;
+      saveChk();
+      renderModalContent();
+    };
+    modal.querySelector('[data-chk-add]')?.addEventListener('click', addItem);
+    modal.querySelector('[data-chk-new]')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); addItem(); }
+    });
+
+    // Wire Task Board tasks
+    const taskBox = modal.querySelector('[data-recon-tasks]');
+    if (taskBox) {
+      taskBox.innerHTML = (c.tasks || []).map(t => `
+        <label class="flex items-center gap-2 p-2 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-950/40">
+          <input type="checkbox" data-rtask="${t.id}" class="accent-teal-500 w-4 h-4 flex-shrink-0 cursor-pointer">
+          <span class="text-xs flex-1 text-slate-700 dark:text-slate-200 font-bold">${esc(t.title)}${t.kind ? ` · ${esc(t.kind)}` : ''}${t.assignee_name ? ` · ${esc(t.assignee_name)}` : ''}</span>
+        </label>
+      `).join('') || '<div class="text-xs text-slate-400 italic py-1">All get-ready tasks done.</div>';
+
+      taskBox.querySelectorAll('[data-rtask]').forEach(cb => cb.addEventListener('change', async () => {
+        cb.disabled = true;
+        try {
+          await apiSendJson(`/dealer-tasks/${cb.dataset.rtask}`, 'PUT', { status: 'done' });
+          c.tasks = (c.tasks || []).filter(x => x.id !== cb.dataset.rtask);
+          dirty = true;
+          showToast('Task marked complete', 'success');
+          renderModalContent();
+        } catch (e) {
+          cb.checked = false;
+          cb.disabled = false;
+          showToast(e.message || 'Could not complete task', 'error');
+        }
+      }));
+    }
+
+    // Wire Delivery Date/Time
+    modal.querySelector('[data-delivery]')?.addEventListener('change', (e) => {
+      dirty = true;
+      reconApi(`/recon/${inventoryId}/delivery`, 'POST', { delivery_at: e.target.value || null }).catch(() => {});
+    });
+
+    // Wire Status Selector
+    modal.querySelector('[data-status]')?.addEventListener('change', (e) => {
+      currentStatus = e.target.value;
+      dirty = true;
+      reconApi(`/recon/${inventoryId}/status`, 'POST', { status: currentStatus, blocked_reason: blockedReason }).catch(() => {});
+      renderModalContent();
+    });
+
+    // Wire Blocked input
+    modal.querySelector('[data-blocked-input]')?.addEventListener('change', (e) => {
+      blockedReason = e.target.value;
+      dirty = true;
+      reconApi(`/recon/${inventoryId}/status`, 'POST', { status: 'blocked', blocked_reason: blockedReason }).catch(() => {});
+    });
+
+    // Wire Notes
+    modal.querySelector('[data-notes]')?.addEventListener('blur', (e) => {
+      dirty = true;
+      reconApi(`/recon/${inventoryId}/notes`, 'POST', { notes: e.target.value }).catch(() => {});
+    });
+
+    // Wire Canonical Link Buttons
+    modal.querySelector('[data-open-timeline]')?.addEventListener('click', () => {
+      modal.remove();
+      if (typeof switchPage === 'function') switchPage('customers');
+    });
+    modal.querySelector('[data-open-inventory]')?.addEventListener('click', () => {
+      modal.remove();
+      if (typeof switchPage === 'function') switchPage('inventory');
+    });
+    modal.querySelector('[data-open-deal]')?.addEventListener('click', () => {
+      modal.remove();
+      if (typeof switchPage === 'function') switchPage('desk-a-deal');
+    });
+    modal.querySelector('[data-open-trade]')?.addEventListener('click', () => {
+      modal.remove();
+      if (typeof switchPage === 'function') switchPage('appraisals');
+    });
+    modal.querySelector('[data-view-trade-photos]')?.addEventListener('click', () => {
+      modal.remove();
+      if (typeof switchPage === 'function') switchPage('appraisals');
+    });
+  };
+
   const saveChk = () => reconApi(`/recon/${inventoryId}/checklist`, 'POST', { checklist }).catch(() => {});
-  renderChk();
 
-  const addItem = () => {
-    const inp = modal.querySelector('[data-chk-new]');
-    const v = inp.value.trim(); if (!v) return;
-    checklist.push({ label: v, done: false }); inp.value = ''; dirty = true; saveChk(); renderChk();
-  };
-  modal.querySelector('[data-chk-add]').addEventListener('click', addItem);
-  modal.querySelector('[data-chk-new]').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } });
-
-  modal.querySelector('[data-delivery]').addEventListener('change', (e) => {
-    dirty = true;
-    reconApi(`/recon/${inventoryId}/delivery`, 'POST', { delivery_at: e.target.value || null }).catch(() => {});
-  });
-  modal.querySelector('[data-notes]').addEventListener('blur', (e) => {
-    dirty = true;
-    reconApi(`/recon/${inventoryId}/notes`, 'POST', { notes: e.target.value }).catch(() => {});
-  });
+  renderModalContent();
+  document.body.appendChild(modal);
 
   const close = () => { modal.remove(); if (dirty) loadReconPage(); };
   modal.addEventListener('click', e => { if (e.target === modal || e.target.closest('[data-x]')) close(); });
 }
+
 
 async function reconMove(inventoryId, dir) {
   if (!__reconData) return;

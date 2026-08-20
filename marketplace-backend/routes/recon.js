@@ -545,4 +545,3 @@ export function registerRecon(app) {
     res.json({ ok: true })
   })
 }
-}
