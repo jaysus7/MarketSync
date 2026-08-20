@@ -295,27 +295,27 @@ export function rateLimit(name, max, windowMs, { email = false, dealership = fal
 // Chart.js, Stripe, Supabase, GTM, Calendly, CookieYes). Adjust here if you add a new CDN.
 const CSP_DIRECTIVES = [
   "default-src 'self'",
-  // Scripts: own origin + CDN, GA, Stripe, Calendly, CookieYes. 'unsafe-inline' is
-  // required because Tailwind CDN injects styles via inline <style>; eval'd inline
-  // tag handlers (onclick) are also used in places. To tighten further we'd need to
-  // self-host Tailwind + replace all inline event handlers.
+  // Scripts: own origin + CDN, GA, Stripe, Calendly, CookieYes, Google Translate.
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' " +
     "https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net " +
     "https://www.googletagmanager.com https://www.google-analytics.com " +
-    "https://js.stripe.com https://assets.calendly.com https://cdn-cookieyes.com",
+    "https://js.stripe.com https://assets.calendly.com https://cdn-cookieyes.com " +
+    "https://translate.google.com https://translate.googleapis.com",
   "style-src 'self' 'unsafe-inline' " +
     "https://cdnjs.cloudflare.com https://cdn.jsdelivr.net " +
-    "https://fonts.googleapis.com https://assets.calendly.com",
+    "https://fonts.googleapis.com https://assets.calendly.com https://translate.googleapis.com",
   "font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com",
   "img-src 'self' data: blob: https:",  // dealer photo proxies make this broad
+  "media-src 'self' blob: https://*.supabase.co https://*.supabase.in https:",
   "connect-src 'self' " +
+    "https://marketsync-staging-backend.onrender.com " +
     "https://vehicle-marketplace-s0e4.onrender.com " +
     "https://*.supabase.co https://*.supabase.in " +
     "https://www.google-analytics.com https://stats.g.doubleclick.net " +
     "https://api.stripe.com https://calendly.com " +
-    "https://api.pwnedpasswords.com",
+    "https://api.pwnedpasswords.com https://translate.googleapis.com",
   "frame-src 'self' https://www.youtube.com https://js.stripe.com " +
-    "https://hooks.stripe.com https://calendly.com",
+    "https://hooks.stripe.com https://calendly.com https://*.supabase.co",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self' https://hooks.stripe.com",
@@ -332,10 +332,10 @@ export function securityHeaders(req, res, next) {
   res.set('X-Frame-Options', 'DENY')
   // Don't leak full URL paths to other origins via Referer
   res.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-  // Limit powerful browser features we don't use
-  res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), interest-cohort=()')
-  // Disable cross-origin window opener access (tabnabbing prevention)
-  res.set('Cross-Origin-Opener-Policy', 'same-origin')
+  // Allow camera/microphone for first-party video walkaround studio, block geolocation/floc
+  res.set('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=(), interest-cohort=()')
+  // Allow popups for OAuth/Stripe
+  res.set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups')
   // Content Security Policy — see CSP_DIRECTIVES above for what's allowed
   res.set('Content-Security-Policy', CSP_DIRECTIVES)
   next()
