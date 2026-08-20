@@ -235,7 +235,7 @@ export const PLAN_CATALOG = Object.freeze({
   'dealer-website': {
     id: 'dealer-website', label: 'Dealer Website', product_primary: 'marketsync_website',
     products: ['marketsync_website'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 399, tier: 0,
+    monthly: 249, tier: 0,
     priceEnvCad: 'STRIPE_PRICE_DEALER_WEBSITE_CAD', priceEnvUsd: 'STRIPE_PRICE_DEALER_WEBSITE_USD',
     features: [...FEATURES_BY_PRODUCT.marketsync_website],
     legacy: { ...legacyFlags({}), products: { marketsync_website: true, website: true } },
