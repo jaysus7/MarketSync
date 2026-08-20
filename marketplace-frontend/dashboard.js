@@ -1409,6 +1409,36 @@ function restrictedNavPages() {
     website: { page: 'website', label: 'Website', icon: 'globe' },
   };
 
+  const mktSuite = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;
+  if (mktSuite && typeof getMarketingSuiteConfig === 'function') {
+    const cfg = getMarketingSuiteConfig(mktSuite);
+    if (cfg && Array.isArray(cfg.sections)) {
+      const items = [];
+      const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+      const hasSeo = access.isPlatformStaff || !!(
+        (access.products && (access.products.includes('marketsync_seo') || access.products.includes('seo')))
+        || (access.features && access.features.includes('seo.manage'))
+        || /(?:^|\s)(?:marketsync_seo|seo)(?:\s|$)/.test(document.documentElement.getAttribute('data-product') || '')
+      );
+
+      for (const section of cfg.sections) {
+        for (const it of section.items) {
+          if (it.requiresSeo && !hasSeo) continue;
+          items.push({
+            page: it.page,
+            tab: it.tab,
+            label: it.label,
+            icon: it.icon,
+            invmode: it.invmode,
+            studioLaunch: it.studioLaunch,
+            section: section.title
+          });
+        }
+      }
+      return items;
+    }
+  }
+
   if (activeProducts.length === 1 && /facebook_dealer/.test(product)) {
     return canManageTeam ? [INV('Inventory'), LEADER] : [INV('My Inventory'), LEADER];
   }
@@ -1438,35 +1468,6 @@ function restrictedNavPages() {
       { page: 'marketing-overview', tab: 'performance', label: 'Performance', icon: 'sparkles' },
     );
     return items;
-  }
-  const mktSuite = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;
-  if (mktSuite && typeof getMarketingSuiteConfig === 'function') {
-    const cfg = getMarketingSuiteConfig(mktSuite);
-    if (cfg && Array.isArray(cfg.sections)) {
-      const items = [];
-      const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
-      const hasSeo = access.isPlatformStaff || !!(
-        (access.products && (access.products.includes('marketsync_seo') || access.products.includes('seo')))
-        || (access.features && access.features.includes('seo.manage'))
-        || /(?:^|\s)(?:marketsync_seo|seo)(?:\s|$)/.test(document.documentElement.getAttribute('data-product') || '')
-      );
-
-      for (const section of cfg.sections) {
-        for (const it of section.items) {
-          if (it.requiresSeo && !hasSeo) continue;
-          items.push({
-            page: it.page,
-            tab: it.tab,
-            label: it.label,
-            icon: it.icon,
-            invmode: it.invmode,
-            studioLaunch: it.studioLaunch,
-            section: section.title
-          });
-        }
-      }
-      return items;
-    }
   }
 
   const isWebsiteProduct = (typeof isStandaloneWebsiteWorkspace === 'function' && isStandaloneWebsiteWorkspace())

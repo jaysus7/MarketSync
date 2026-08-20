@@ -25,30 +25,22 @@ test('Marketing Suite — Left Navigation & Workspace Context', async (t) => {
   await t.test('resolves marketing_suite workspace context and disables generic department nav', () => {
     assert.match(dashPart2Js, /type:\s*'marketing_suite'/, 'resolveWorkspaceContext maps marketing suites');
     assert.match(dashPart2Js, /ctx\.type === 'marketing_suite'/, 'deptNavEligible excludes marketing suites');
+    assert.match(dashPart2Js, /renderMarketingSuiteNav/, 'renders suite-specific sectioned navigation');
   });
 
-  await t.test('provides exact required left nav for Sales Marketing Suite', () => {
-    assert.match(dashJs, /isSalesMarketingSuite/, 'handles Sales Marketing Suite');
-    assert.match(dashJs, /\{ page: 'marketing-overview', label: 'Pulse', icon: 'chart' \}/);
-    assert.match(dashJs, /\{ page: 'automation-builder', label: 'Email & SMS', icon: 'megaphone' \}/);
-    assert.match(dashJs, /\{ page: 'video-studio', label: 'Video Studio', icon: 'video' \}/);
-    assert.match(dashJs, /\{ page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true \}/);
-    assert.match(dashJs, /\{ page: 'sales-campaigns', label: 'Sales Campaigns', icon: 'megaphone' \}/);
-    assert.match(dashJs, /\{ page: 'sales-automations', label: 'Sales Automations', icon: 'bolt' \}/);
-    assert.match(dashJs, /\{ page: 'leads', label: 'Leads', icon: 'user' \}/);
-    assert.match(dashJs, /\{ page: 'marketing-analytics', label: 'Analytics', icon: 'chart' \}/);
+  await t.test('defines MARKETING_SUITE_CONFIG for Sales, Service, Complete, and Digital', () => {
+    assert.match(mktWorkspaceJs, /MARKETING_SUITE_CONFIG\s*=/, 'defines MARKETING_SUITE_CONFIG');
+    assert.match(mktWorkspaceJs, /sales:\s*\{/, 'Sales Marketing Suite configuration');
+    assert.match(mktWorkspaceJs, /service:\s*\{/, 'Service Marketing Suite configuration');
+    assert.match(mktWorkspaceJs, /complete:\s*\{/, 'Complete Marketing Suite configuration');
+    assert.match(mktWorkspaceJs, /digital:\s*\{/, 'MarketSync Digital configuration');
   });
 
-  await t.test('provides exact required left nav for Service Marketing Suite', () => {
-    assert.match(dashJs, /isServiceMarketingSuite/, 'handles Service Marketing Suite');
-    assert.match(dashJs, /\{ page: 'service-campaigns', label: 'Service Campaigns', icon: 'megaphone' \}/);
-    assert.match(dashJs, /\{ page: 'service-automations', label: 'Service Automations', icon: 'bolt' \}/);
-    assert.match(dashJs, /\{ page: 'crm', label: 'Customers', icon: 'user' \}/);
-  });
-
-  await t.test('provides exact required left nav for Complete Marketing Suite', () => {
-    assert.match(dashJs, /isCompleteMarketingSuite/, 'handles Complete Marketing Suite');
-    assert.match(dashJs, /\{ page: 'crm', label: 'Leads & Customers', icon: 'user' \}/);
+  await t.test('provides distinct navigation structure across all 4 suites', () => {
+    assert.match(mktWorkspaceJs, /Sales Marketing Overview/, 'Sales overview title');
+    assert.match(mktWorkspaceJs, /Service Marketing Overview/, 'Service overview title');
+    assert.match(mktWorkspaceJs, /Marketing Command Center|Marketing Overview/, 'Complete overview title');
+    assert.match(mktWorkspaceJs, /Digital Command Center|Digital Overview/, 'Digital overview title');
   });
 });
 

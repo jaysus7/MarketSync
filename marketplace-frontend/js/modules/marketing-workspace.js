@@ -652,6 +652,7 @@ ENGINES['marketing-overview'] = {
       );
 
       const att = d.needsAttention || [];
+      const opp = d.opportunities || [];
       const failed = d.dayFailed || [];
       const notCovered = d.dayNotCovered || [];
       const caveat = (failed.length || notCovered.length) ? `
