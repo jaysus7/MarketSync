@@ -1460,7 +1460,18 @@ function restrictedNavPages() {
     return [{ page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true }];
   }
   if (activeProducts.length === 1 && /(marketsync_social|social[-_]scheduler)/.test(product)) {
-    return [{ page: 'social-scheduler', label: 'Social Scheduler', icon: 'calendar' }];
+    return [
+      { page: 'social-scheduler', tab: 'overview', label: 'Overview', icon: 'chart' },
+      { page: 'social-scheduler', tab: 'calendar', label: 'Calendar', icon: 'calendar' },
+      { page: 'social-scheduler', tab: 'create', label: 'Create Post', icon: 'sparkles' },
+      { page: 'social-scheduler', tab: 'scheduled', label: 'Scheduled', icon: 'clock' },
+      { page: 'social-scheduler', tab: 'drafts', label: 'Drafts', icon: 'document' },
+      { page: 'social-scheduler', tab: 'published', label: 'Published', icon: 'check' },
+      { page: 'social-scheduler', tab: 'library', label: 'Content Library', icon: 'camera' },
+      { page: 'social-scheduler', tab: 'accounts', label: 'Social Accounts', icon: 'users' },
+      { page: 'social-scheduler', tab: 'analytics', label: 'Analytics', icon: 'chart' },
+      { page: 'social-scheduler', tab: 'settings', label: 'Settings', icon: 'shield' },
+    ];
   }
   if (activeProducts.length === 1 && /(marketsync_email|email_marketing|campaigns[-_]email[-_]sms|marketing[-_]overview|marketing|campaigns|automations)/.test(product)) {
     const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};

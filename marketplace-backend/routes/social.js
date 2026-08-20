@@ -578,6 +578,24 @@ export function registerSocial(app) {
     res.json({ ok: true, post: data })
   })
 
+  app.delete('/social/posts/:id', requireAuth, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data: post } = await supabaseAdmin.from('social_posts').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
+    if (!post) return res.status(404).json({ error: 'Post not found' })
+    const { data: ownedTargets } = await supabaseAdmin.from('social_post_targets').select('social_account_id').eq('post_id', post.id)
+    for (const target of ownedTargets || []) {
+      const allowed = await canActOnAccount(req, target.social_account_id, 'schedule')
+      if (!allowed.allowed) return res.status(403).json({ error: allowed.reason })
+    }
+    const { data: active } = await supabaseAdmin.from('social_post_targets').select('id').eq('post_id', post.id).in('status', ['publishing', 'published']).limit(1)
+    if (active?.length) return res.status(409).json({ error: 'Publishing has started; this post cannot be deleted.' })
+    const { data, error } = await supabaseAdmin.from('social_posts').update({ deleted_at: new Date().toISOString(), status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('id', post.id).eq('dealership_id', req.dealershipId).select('*').single()
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'social.post_deleted', { before_state: { status: post.status }, after_state: { deleted_at: data.deleted_at } })
+    res.json({ ok: true, post: data })
+  })
+
   // Approval is per post, and the approver must be able to approve for every account it
   // targets — approving content for a page you cannot post to is not an approval.
   app.post('/social/posts/:id/approve', requireAuth, requireMfa, canEdit, async (req, res) => {

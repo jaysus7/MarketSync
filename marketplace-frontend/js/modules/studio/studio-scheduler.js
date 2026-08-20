@@ -270,10 +270,10 @@ async function loadStudioSchedulerPosts() {
     __studioSchedulerAccounts = aRes.accounts || [];
     __studioSchedulerMfaRequired = false;
   } catch (e) {
-    if (e.message === 'MFA_REQUIRED') {
+    if (e?.message === 'MFA_REQUIRED') {
       __studioSchedulerMfaRequired = true;
     } else {
-      console.warn('[social-scheduler] Could not load posts/accounts:', e.message);
+      console.warn('[social-scheduler] Could not load posts/accounts:', e?.message || e);
     }
   }
   renderStudioScheduler();
@@ -298,7 +298,12 @@ function getFilteredSchedulerPosts() {
 }
 
 // ── Master Social Scheduler Standalone Page Router ───────────────────────────
-async function loadSocialSchedulerPage(tab) {
+function loadSocialSchedulerPage() {
+  const tab = arguments[0] || 'overview';
+  return loadSocialSchedulerPageTab(tab);
+}
+
+async function loadSocialSchedulerPageTab(tab) {
   if (tab) __studioSchedulerTab = tab;
   if (!__studioSchedulerTab) __studioSchedulerTab = 'overview';
 
@@ -348,7 +353,7 @@ async function loadSocialSchedulerPage(tab) {
             </button>
             <label class="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-sm font-bold border border-white/10 backdrop-blur-sm transition flex items-center gap-2 cursor-pointer">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
-              <span>+ Upload Media</span>
+              <span>+ Upload from Canva / Adobe / Phone</span>
               <input type="file" accept="image/*,video/*" class="hidden" onchange="studioSchedulerUploadMedia(this)">
             </label>
             <button type="button" onclick="loadSocialSchedulerPage('accounts')" class="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-sm font-bold border border-white/10 backdrop-blur-sm transition flex items-center gap-2 cursor-pointer">
@@ -745,19 +750,21 @@ function renderStudioSchedulerCalendar() {
         </div>
         <div class="flex-1 space-y-1 overflow-y-auto max-h-[120px] no-scrollbar">
           ${dayPosts.map(p => {
-            const mediaUrl = (p.media_urls && p.media_urls[0]) || p.asset_url || p.image_url;
+            const thumb = (p.media_urls && p.media_urls[0]) || p.asset_url || p.image_url;
+            const timeStr = (p.scheduled_for || p.scheduled_local || '').split('T')[1]?.substring(0, 5) || '10:00';
             const status = p.status || 'draft';
-            const statColor = status === 'scheduled' ? 'border-l-2 border-indigo-500 bg-indigo-500/10'
-                            : status === 'published' ? 'border-l-2 border-emerald-500 bg-emerald-500/10'
-                            : status === 'failed'    ? 'border-l-2 border-rose-500 bg-rose-500/10'
-                            : 'border-l-2 border-amber-500 bg-amber-500/10';
+            const badgeCls = status === 'scheduled' ? 'border-l-2 border-indigo-500 bg-indigo-500/10'
+                           : status === 'published' ? 'border-l-2 border-emerald-500 bg-emerald-500/10'
+                           : status === 'failed'    ? 'border-l-2 border-rose-500 bg-rose-500/10'
+                           : 'border-l-2 border-amber-500 bg-amber-500/10';
             return `
               <div draggable="true"
                    ondragstart="studioCalendarDrag(event, '${esc(p.id)}')"
                    onclick="studioSchedulerEditPost('${esc(p.id)}')"
-                   class="p-1.5 rounded-lg text-[10px] font-bold text-slate-800 dark:text-slate-200 cursor-pointer shadow-xs transition hover:scale-[1.02] flex items-center gap-1.5 ${statColor}">
-                ${mediaUrl ? `<img src="${esc(mediaUrl)}" class="w-4 h-4 object-cover rounded shrink-0">` : ''}
+                   class="p-1.5 rounded-lg text-[10px] font-bold text-slate-800 dark:text-slate-200 cursor-pointer shadow-xs transition hover:scale-[1.02] flex items-center gap-1.5 ${badgeCls}">
+                ${thumb ? `<img src="${esc(thumb)}" class="w-4 h-4 object-cover rounded shrink-0">` : ''}
                 <span class="truncate flex-1">${esc(p.caption || p.content || 'Post')}</span>
+                <span class="text-[9px] text-slate-400 shrink-0">${esc(timeStr)}</span>
               </div>
             `;
           }).join('')}
@@ -793,6 +800,11 @@ function renderStudioSchedulerWeek() {
 function renderStudioSchedulerList() {
   const body = document.getElementById('studio-sched-body');
   if (!body) return;
+
+  if (__studioSchedulerMfaRequired) {
+    body.innerHTML = studioSchedulerMfaNotice();
+    return;
+  }
 
   const filtered = getFilteredSchedulerPosts();
   if (filtered.length === 0) {
@@ -835,7 +847,32 @@ async function studioCalendarDrop(e, targetDateStr) {
 window.studioCalendarDrop = studioCalendarDrop;
 
 function studioSchedulerOpenDay(dateStr) {
-  studioSchedulerCompose(null, { date: dateStr });
+  const dayPosts = __studioSchedulerPosts.filter(p => (p.scheduled_for || p.scheduled_local || p.created_at || '').substring(0, 10) === dateStr);
+  const container = document.createElement('div');
+  container.id = 'studio-day-detail-modal';
+  container.className = 'fixed inset-0 z-[100001] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4';
+  container.innerHTML = `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div>
+          <h3 class="text-base font-black text-slate-900 dark:text-white">${esc(dateStr)}</h3>
+          <p class="text-xs text-slate-500">${dayPosts.length} scheduled posts</p>
+        </div>
+        <button onclick="document.getElementById('studio-day-detail-modal')?.remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">&times;</button>
+      </div>
+
+      <div class="space-y-2 max-h-[300px] overflow-y-auto">
+        ${dayPosts.length === 0 ? '<div class="text-xs text-slate-400 italic py-4 text-center">No posts on this date.</div>' : dayPosts.map(p => renderSocialPostRow(p)).join('')}
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+        <button type="button" onclick="document.getElementById('studio-day-detail-modal')?.remove(); studioSchedulerCompose(null, { date: '${dateStr}' });" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition">
+          + Schedule Post on this Date
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(container);
 }
 window.studioSchedulerOpenDay = studioSchedulerOpenDay;
 
@@ -867,8 +904,8 @@ function renderSocialComposerView(container) {
 
             ${accounts.length === 0 ? `
               <div class="p-4 rounded-2xl border border-dashed border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 flex items-center justify-between">
-                <div class="text-xs text-amber-800 dark:text-amber-300">No social accounts connected yet.</div>
-                <button type="button" onclick="loadSocialSchedulerPage('accounts')" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-lg transition">Connect Accounts</button>
+                <div class="text-xs text-amber-800 dark:text-amber-300">Connect a social account to publish or schedule this post</div>
+                <button type="button" onclick="loadSocialSchedulerPage('accounts')" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-lg transition">+ Connect</button>
               </div>
             ` : `
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5" id="composer-account-list">
@@ -1073,6 +1110,24 @@ function studioComposerOpenVehicleSearch() {
 }
 window.studioComposerOpenVehicleSearch = studioComposerOpenVehicleSearch;
 
+function studioSchedulerOpenDesignEditor(designId, assetUrl) {
+  if (typeof window.openMarketSyncStudio === 'function') {
+    window.openMarketSyncStudio(designId || null, { assetUrl });
+  } else {
+    showToast('Design Studio not available in this context.', 'info');
+  }
+}
+window.studioSchedulerOpenDesignEditor = studioSchedulerOpenDesignEditor;
+
+function studioSchedulerSelectCaptionTab(tab) {
+  __studioActiveCaptionPlatform = tab;
+  document.querySelectorAll('[data-caption-tab]').forEach(btn => {
+    const isActive = btn.dataset.captionTab === tab;
+    btn.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition ${isActive ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`;
+  });
+}
+window.studioSchedulerSelectCaptionTab = studioSchedulerSelectCaptionTab;
+
 function studioSchedulerAddHashtags() {
   const captionEl = document.getElementById('composer-caption');
   if (!captionEl) return;
@@ -1086,7 +1141,12 @@ function studioSchedulerAiCaption(type) {
   const captionEl = document.getElementById('composer-caption');
   if (!captionEl) return;
 
-  if (type === 'punchy') {
+  if (type === 'rewrite') {
+    captionEl.value = `🔥 Special Deal Alert! Unbeatable savings this week on top-rated pre-owned & new vehicles. Don't miss out — visit us today!`;
+  } else if (type === 'hashtags') {
+    studioSchedulerAddHashtags();
+    return;
+  } else if (type === 'punchy') {
     captionEl.value = `🔥 Incredible deal of the week! Drive home in style with unbeatable pricing and instant financing approvals. Tap below or stop by the lot today!`;
   } else if (type === 'cta') {
     captionEl.value += `\n\n👉 Send us a DM or tap the link in bio to schedule your VIP test drive today!`;
@@ -1433,22 +1493,61 @@ function renderSocialSettingsView(container) {
 }
 
 // ── Modal Post Editor & Actions ─────────────────────────────────────────────
+async function studioSchedulerSaveReschedule(postId, next) {
+  try {
+    await apiSendJson(`/social/posts/${postId}`, 'PUT', { scheduled_local: next });
+    showToast('Post rescheduled', 'success');
+    loadStudioSchedulerPosts();
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+window.studioSchedulerSaveReschedule = studioSchedulerSaveReschedule;
+
 function studioSchedulerEditPost(postId) {
   const post = __studioSchedulerPosts.find(p => p.id === postId);
   if (!post) return;
 
   const currentCap = post.caption || post.content || '';
   const currentSched = post.scheduled_for || post.scheduled_local || '';
+  const isScheduled = post.status === 'scheduled';
+  const isFailed = post.status === 'failed';
 
-  const newCap = prompt('Edit Caption:', currentCap);
-  if (newCap === null) return;
-
-  apiSendJson(`/social/posts/${postId}`, 'PUT', { caption: newCap, content: newCap })
-    .then(() => {
-      showToast('Post updated successfully', 'success');
-      loadStudioSchedulerPosts();
-    })
-    .catch(e => showToast(e.message, 'error'));
+  document.getElementById('studio-post-edit-modal')?.remove();
+  const container = document.createElement('div');
+  container.id = 'studio-post-edit-modal';
+  container.className = 'fixed inset-0 z-[100001] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4';
+  container.innerHTML = `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <h3 class="text-base font-black text-slate-900 dark:text-white">Edit Post &amp; Schedule</h3>
+        <button onclick="document.getElementById('studio-post-edit-modal')?.remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">&times;</button>
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Caption</label>
+        <textarea id="edit-post-caption" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-white font-medium" rows="4">${esc(currentCap)}</textarea>
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Reschedule Date &amp; Time</label>
+        <input type="datetime-local" id="edit-post-datetime" value="${esc(currentSched ? currentSched.substring(0, 16) : '')}" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-900 dark:text-white font-bold">
+      </div>
+      <div class="flex items-center justify-between pt-2 flex-wrap gap-2">
+        <div class="flex items-center gap-2">
+          ${isScheduled ? `
+            <button type="button" onclick="studioSchedulerPublishNow('${esc(postId)}'); document.getElementById('studio-post-edit-modal')?.remove();" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition cursor-pointer">Publish Now</button>
+            <button type="button" onclick="studioSchedulerCancelPost('${esc(postId)}'); document.getElementById('studio-post-edit-modal')?.remove();" class="px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-bold hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer">Cancel Post</button>
+          ` : ''}
+          ${isFailed ? `
+            <button type="button" onclick="studioSchedulerPublishNow('${esc(postId)}'); document.getElementById('studio-post-edit-modal')?.remove();" class="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition cursor-pointer">Retry Now</button>
+          ` : ''}
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="const next = document.getElementById('edit-post-datetime')?.value; studioSchedulerSaveReschedule('${esc(postId)}', next); document.getElementById('studio-post-edit-modal')?.remove();" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition cursor-pointer">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(container);
 }
 window.studioSchedulerEditPost = studioSchedulerEditPost;
 
@@ -1474,6 +1573,42 @@ async function studioSchedulerCancelPost(postId) {
   }
 }
 window.studioSchedulerCancelPost = studioSchedulerCancelPost;
+
+async function studioSchedulerSavePost(btn) {
+  const caption = (document.getElementById('composer-caption')?.value || document.getElementById('studio-sched-caption')?.value || '').trim();
+  const scheduledLocal = document.getElementById('composer-scheduled-date')?.value || document.getElementById('studio-sched-datetime')?.value || '';
+  const selectedAccounts = Array.from(document.querySelectorAll('input[name="composer_account"]:checked, input[name="studio_sched_account"]:checked')).map(cb => cb.value);
+
+  if (!caption) {
+    showToast('Please enter a caption for your post.', 'error');
+    return;
+  }
+
+  const targets = selectedAccounts.map(id => ({ social_account_id: id }));
+  const payload = {
+    caption,
+    body: caption,
+    content: caption,
+    targets: targets.length > 0 ? targets : (__studioSchedulerAccounts[0] ? [{ social_account_id: __studioSchedulerAccounts[0].id }] : []),
+    status: 'scheduled',
+    scheduled_local: scheduledLocal || new Date().toISOString(),
+    media: __studioComposerMedia.map(m => m.url || m),
+    media_urls: __studioComposerMedia.map(m => m.url || m)
+  };
+
+  try {
+    if (btn) btn.disabled = true;
+    await apiSendJson('/social/posts', 'POST', payload);
+    showToast('Post scheduled successfully!', 'success');
+    await loadStudioSchedulerPosts();
+    loadSocialSchedulerPage('scheduled');
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+window.studioSchedulerSavePost = studioSchedulerSavePost;
 
 async function studioSchedulerUploadMedia(input) {
   const file = input.files && input.files[0];
@@ -1560,7 +1695,8 @@ async function studioSocialConnectionsRender() {
       }
     }).join('');
 
-    list.innerHTML = `<div class="grid grid-cols-1 gap-3">${cardsHtml}</div>`;
+    const studioHandoffBtn = `<div class="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end"><button type="button" onclick="openStudioScheduler()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition">Open Social Calendar in Design Studio</button></div>`;
+    list.innerHTML = `<div class="grid grid-cols-1 gap-3">${cardsHtml}</div>${studioHandoffBtn}`;
   } catch (e) {
     if (e.message === 'MFA_REQUIRED') {
       list.innerHTML = `<div class="text-[12px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5">Complete multi-factor authentication above to manage connected accounts.</div>`;
@@ -1570,6 +1706,41 @@ async function studioSocialConnectionsRender() {
   }
 }
 window.studioSocialConnectionsRender = studioSocialConnectionsRender;
+
+async function studioSocialConnectSave(btn) {
+  const provider = document.getElementById('ssc-provider')?.value || 'facebook';
+  const display_name = (document.getElementById('ssc-display-name')?.value || '').trim();
+  const external_account_id = (document.getElementById('ssc-external-id')?.value || '').trim();
+  const handle = (document.getElementById('ssc-handle')?.value || '').trim();
+
+  if (!display_name) {
+    showToast('Please enter an account name.', 'error');
+    return;
+  }
+
+  try {
+    if (btn) btn.disabled = true;
+    await apiSendJson('/social/accounts', 'POST', {
+      provider,
+      display_name,
+      external_account_id: external_account_id || `acc_${Date.now()}`,
+      handle
+    });
+    showToast('Social account connected successfully!', 'success');
+    await loadStudioSchedulerPosts();
+    studioSocialConnectionsRender();
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+window.studioSocialConnectSave = studioSocialConnectSave;
+
+function studioSocialConnectForm(provider = 'facebook') {
+  studioSocialConnectPlatform(provider);
+}
+window.studioSocialConnectForm = studioSocialConnectForm;
 
 async function studioSocialConnectPlatform(provider) {
   const cfg = STUDIO_SOCIAL_PLATFORMS[provider] || { name: provider };
@@ -1601,9 +1772,14 @@ async function studioSocialDisconnectAccount(accountId) {
 }
 window.studioSocialDisconnectAccount = studioSocialDisconnectAccount;
 
-function studioSchedulerCompose(preselectedAssetUrl, options = {}) {
+async function studioSchedulerCompose(preselectedAssetUrl) {
+  const options = arguments[1] || {};
+  if (typeof switchPage === 'function') {
+    switchPage('marketing');
+  }
   loadSocialSchedulerPage('create');
   if (preselectedAssetUrl) {
+    const isChecked = (a) => a.public_url === preselectedAssetUrl ? 'checked' : '';
     setTimeout(() => {
       studioSchedulerUseAsset(preselectedAssetUrl);
     }, 100);
@@ -1611,3 +1787,4 @@ function studioSchedulerCompose(preselectedAssetUrl, options = {}) {
 }
 window.studioSchedulerCompose = studioSchedulerCompose;
 window.loadSocialSchedulerPage = loadSocialSchedulerPage;
+

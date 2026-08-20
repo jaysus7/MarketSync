@@ -15,7 +15,7 @@
   if (typeof window === 'undefined') return;
 
   const DEPARTMENTS = [
-    { page: 'command', label: 'Executive / My Day' },
+    { page: 'command', label: 'Executive / Pulse' },
     { page: 'sales', label: 'Sales' },
     { page: 'crm', label: 'CRM' },
     { page: 'inventory-overview', label: 'Inventory' },
@@ -55,7 +55,8 @@
     if (pkgId === 'design-studio') return 'design_studio';
     if (pkgId.includes('autoposter') || pkgId.includes('facebook') || pkgId === 'fb_solo' || pkgId === 'fb_dealership') return 'facebook';
     if (pkgId === 'video' || pkgId === 'marketsync_video') return 'video';
-    if (pkgId.includes('campaign') || pkgId.includes('email') || pkgId.includes('social')) return 'campaigns';
+    if (pkgId === 'social-scheduler' || pkgId.includes('social') || pkgId.includes('scheduler')) return 'social-scheduler';
+    if (pkgId.includes('campaign') || pkgId.includes('email')) return 'campaigns';
     if (pkgId.includes('website') || pkgId === 'dealer-website') return 'website';
     if (pkgId.includes('chatbot') || pkgId.includes('ai_')) return 'ai_chatbot';
     if (pkgId === 'sales-marketing-suite' || pkgId === 'sales_marketing_suite') return 'sales-marketing-suite';

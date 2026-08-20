@@ -1761,7 +1761,7 @@ ENGINES['command'] = {
   rootId: 'command-root', title: 'Pulse', subtitle: 'This main page is the pulse of the dealership.',
   icon: 'chart', accent: 'indigo',
   hideTabBar: true,
-  tabLabels: { overview: 'My Day', pulse: 'Pulse', forecast: 'Forecast', financials: 'Financials' },
+  tabLabels: { overview: 'Pulse', 'my_day': 'My Day', pulse: 'Pulse', forecast: 'Forecast', financials: 'Financials' },
   tabOrder: ['overview', 'pulse', 'forecast', 'financials'],
 
   fetch: async () => {

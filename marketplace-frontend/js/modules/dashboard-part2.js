@@ -1400,6 +1400,10 @@ function deptGo(page, invmode, tab) {
     window.__aiHomeTab = tab;
     if (typeof loadAiHome === 'function') loadAiHome(tab);
   }
+  if (page === 'social-scheduler' && tab) {
+    window.__socialTab = tab;
+    if (typeof loadSocialSchedulerPage === 'function') loadSocialSchedulerPage(tab);
+  }
   if (page === 'marketing-overview' && tab) {
     if (typeof ENGINE_STATE !== 'undefined') ENGINE_STATE['marketing-overview'] = tab;
   }
@@ -1500,7 +1504,8 @@ function resolveWorkspaceContext(userObj, accessObj, currentRouteStr) {
   let mappedProd = activeProd;
   if (activeProd.includes('facebook')) mappedProd = 'facebook';
   else if (activeProd.includes('video')) mappedProd = 'video';
-  else if (activeProd.includes('campaign') || activeProd.includes('social') || activeProd.includes('email')) mappedProd = 'campaigns';
+  else if (activeProd.includes('social') || activeProd.includes('scheduler')) mappedProd = 'social-scheduler';
+  else if (activeProd.includes('campaign') || activeProd.includes('email')) mappedProd = 'campaigns';
   else if (activeProd === 'design-studio' || activeProd === 'design_studio') mappedProd = 'design_studio';
   else if (activeProd === 'ai_chatbot' || activeProd === 'ai-chatbot') mappedProd = 'ai_chatbot';
 
@@ -1676,6 +1681,7 @@ function highlightDeptNav(pageId) {
     if (pg === 'website') return window.__wsTab || 'setup';
     if (pg === 'automation-builder') return window.__autoTab || 'overview';
     if (pg === 'ai-home') return window.__aiHomeTab || 'conversations';
+    if (pg === 'social-scheduler') return window.__socialTab || window.__studioSchedulerTab || 'overview';
     if (pg === 'marketing-overview') {
       const st = (typeof ENGINE_STATE !== 'undefined' ? ENGINE_STATE['marketing-overview'] : (typeof window !== 'undefined' ? window.ENGINE_STATE?.['marketing-overview'] : null));
       return st || 'overview';
