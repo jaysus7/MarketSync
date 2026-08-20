@@ -19,14 +19,23 @@
  * Tokens are stored with the existing encrypted-credentials helper and are NEVER selected
  * into a response. Every read in this file lists its columns explicitly for that reason.
  */
-import { supabaseAdmin } from '../shared.js'
+import { supabaseAdmin, FRONTEND_URL } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission, hasPermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { dealerLocalToUtc } from '../utils/dealerTime.js'
 import { encryptJson, PII_ENCRYPTION_VERSION } from '../crypto-pii.js'
+import {
+  KNOWN_PROVIDERS,
+  socialOAuthConfigured,
+  signSocialOAuthState,
+  verifySocialOAuthState,
+  socialOAuthAuthorizeUrl,
+  socialOAuthExchangeCode,
+  socialOAuthFetchProfile,
+} from '../providers/social-providers.js'
 
-const PROVIDERS = ['facebook', 'instagram', 'tiktok', 'youtube', 'linkedin']
+const PROVIDERS = KNOWN_PROVIDERS
 
 export function deriveProviderCapabilities(provider, customCaps = {}) {
   const p = String(provider || '').toLowerCase()
@@ -36,6 +45,7 @@ export function deriveProviderCapabilities(provider, customCaps = {}) {
     linkedin: { publish: true, schedule: true, video: true, articles: true },
     youtube: { publish: true, schedule: true, video: true, shorts: true },
     tiktok: { publish: true, schedule: false, video: true },
+    x: { publish: true, schedule: true, video: true },
   }[p] || { publish: true, schedule: false }
 
   const derived = { ...baseCaps }
@@ -219,27 +229,32 @@ export function registerSocial(app) {
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
-  // Connect an account. A user-owned connection is the caller's own by definition; claiming
-  // one on someone else's behalf needs the department permission.
-  app.post('/social/accounts', requireAuth, requireMfa, canEdit, async (req, res) => {
-    if (!guard(req, res)) return
-    const b = req.body || {}
-    const provider = String(b.provider || '').toLowerCase()
-    if (!PROVIDERS.includes(provider)) return res.status(400).json({ error: `provider must be one of ${PROVIDERS.join(', ')}` })
-    const ownership = b.ownership === 'user' ? 'user' : 'dealership'
-    const externalId = String(b.external_account_id || '').trim().slice(0, 160)
-    const displayName = String(b.display_name || '').trim().slice(0, 160)
-    if (!externalId || !displayName) return res.status(400).json({ error: 'external_account_id and display_name are required' })
+  // ── Authoritative Social OAuth Connection Endpoints ─────────────────────────
 
+  // Initiate OAuth connect: browser requests connect for a social platform
+  app.get('/social/connect/:provider', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    const provider = String(req.params.provider || '').toLowerCase()
+    if (!KNOWN_PROVIDERS.includes(provider)) {
+      return res.status(400).json({ error: `provider must be one of ${KNOWN_PROVIDERS.join(', ')}` })
+    }
+
+    if (!socialOAuthConfigured(provider)) {
+      return res.status(501).json({
+        ok: false,
+        code: 'setup_required',
+        error: `${provider} integration is not configured on this server yet.`,
+      })
+    }
+
+    const ownership = req.query.ownership === 'user' ? 'user' : 'dealership'
     let ownerUserId = null
+
     if (ownership === 'user') {
-      ownerUserId = b.owner_user_id || req.user?.id || null
-      if (!ownerUserId) return res.status(400).json({ error: 'A user-owned account needs an owner.' })
+      ownerUserId = req.query.owner_user_id || req.user?.id || null
       if (ownerUserId !== req.user?.id && !(await hasPermission(req, 'marketing.publish').catch(() => false))) {
         return res.status(403).json({ error: 'You cannot connect an account on behalf of another user.' })
       }
-      // An owner from another dealership would be an account nobody here can be
-      // accountable for.
       const { data: owner } = await supabaseAdmin.from('profiles')
         .select('id, dealership_id').eq('id', ownerUserId).maybeSingle()
       if (!owner || owner.dealership_id !== req.dealershipId) {
@@ -250,30 +265,120 @@ export function registerSocial(app) {
     }
 
     try {
-      const capabilities = deriveProviderCapabilities(provider, b.capabilities)
+      const state = signSocialOAuthState({
+        uid: req.user.id,
+        did: req.dealershipId,
+        p: provider,
+        ownership,
+        ownerUserId: ownership === 'user' ? ownerUserId : null,
+        kind: 'social',
+      })
+      const authUrl = socialOAuthAuthorizeUrl(provider, state)
+      res.json({ ok: true, url: authUrl, state })
+    } catch (e) {
+      res.status(500).json({ error: e.message })
+    }
+  })
+
+  // Authoritative Provider OAuth Redirect Target (Public callback verified via signed state)
+  app.get('/social/callback/:provider', async (req, res) => {
+    const provider = String(req.params.provider || '').toLowerCase()
+    const done = (ok, msg) => res.redirect(`${FRONTEND_URL}/dashboard.html?social=${ok ? 'connected' : 'error'}&provider=${encodeURIComponent(provider)}&msg=${encodeURIComponent(msg || '')}`)
+
+    try {
+      if (!KNOWN_PROVIDERS.includes(provider) || !socialOAuthConfigured(provider)) {
+        return done(false, 'Provider not configured')
+      }
+      if (req.query.error) {
+        return done(false, String(req.query.error_description || req.query.error))
+      }
+
+      const st = verifySocialOAuthState(req.query.state)
+      if (!st || st.p !== provider || st.kind !== 'social' || !st.did || !st.uid) {
+        return done(false, 'This link expired — try again.')
+      }
+
+      const tokens = await socialOAuthExchangeCode(provider, String(req.query.code || ''))
+      const profile = await socialOAuthFetchProfile(provider, tokens)
+
+      if (!profile?.external_account_id || !profile?.display_name) {
+        return done(false, 'Provider returned incomplete account information.')
+      }
+
+      const credentials_enc = encryptJson(tokens)
+      if (!credentials_enc) {
+        return done(false, 'Failed to securely encrypt tokens.')
+      }
+
       const row = {
-        dealership_id: req.dealershipId, provider, external_account_id: externalId,
-        display_name: displayName, handle: b.handle ? String(b.handle).slice(0, 120) : null,
-        avatar_url: b.avatar_url ? String(b.avatar_url).slice(0, 500) : null,
-        ownership, owner_user_id: ownerUserId,
-        capabilities,
-        connected_by: req.user?.id || null, status: 'connected',
-        token_expires_at: b.token_expires_at || null,
+        dealership_id: st.did,
+        provider,
+        external_account_id: profile.external_account_id,
+        display_name: profile.display_name,
+        handle: profile.handle ? String(profile.handle).slice(0, 120) : null,
+        avatar_url: profile.avatar_url ? String(profile.avatar_url).slice(0, 500) : null,
+        ownership: st.ownership || 'dealership',
+        owner_user_id: st.ownership === 'user' ? (st.ownerUserId || st.uid) : null,
+        capabilities: profile.capabilities || deriveProviderCapabilities(provider),
+        connected_by: st.uid,
+        status: 'connected',
+        token_expires_at: profile.token_expires_at || null,
+        credentials_enc,
+        credentials_encryption_version: PII_ENCRYPTION_VERSION,
+        connected_at: new Date().toISOString(),
+        last_verified_at: new Date().toISOString(),
+        last_error: null,
+        updated_at: new Date().toISOString(),
       }
-      // Credentials are encrypted with the same helper dealer_integrations uses, and are
-      // never read back out through this API.
-      if (b.credentials && typeof b.credentials === 'object') {
-        row.credentials_enc = encryptJson(b.credentials)
-        if (!row.credentials_enc) return res.status(500).json({ error: 'Encryption error — credentials could not be encrypted.' })
-        row.credentials_encryption_version = PII_ENCRYPTION_VERSION
-      }
+
       const { data, error } = await supabaseAdmin.from('social_accounts')
         .upsert(row, { onConflict: 'dealership_id,provider,external_account_id' })
         .select(SAFE_COLUMNS).single()
-      if (error) return res.status(500).json({ error: error.message })
-      audit(req, 'social.account_connected', { after_state: { id: data.id, provider, ownership, display_name: displayName } })
-      res.json({ ok: true, account: data })
-    } catch (e) { res.status(500).json({ error: e.message }) }
+
+      if (error) return done(false, error.message)
+
+      audit(
+        { user: { id: st.uid }, dealershipId: st.did, headers: req.headers },
+        'social.account_connected',
+        { after_state: { id: data.id, provider, ownership: row.ownership, display_name: row.display_name } }
+      )
+
+      done(true, profile.display_name)
+    } catch (e) {
+      console.error('[social] callback failed:', e.message)
+      done(false, e.message)
+    }
+  })
+
+  // Disallow direct client self-declaration or raw credential submission
+  app.post('/social/accounts', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    const b = req.body || {}
+    const provider = String(b.provider || '').toLowerCase()
+    if (!PROVIDERS.includes(provider)) return res.status(400).json({ error: `provider must be one of ${PROVIDERS.join(', ')}` })
+
+    const ownership = b.ownership === 'user' ? 'user' : 'dealership'
+    let ownerUserId = null
+    if (ownership === 'user') {
+      ownerUserId = b.owner_user_id || req.user?.id || null
+      if (!ownerUserId) return res.status(400).json({ error: 'A user-owned account needs an owner.' })
+      if (ownerUserId !== req.user?.id && !(await hasPermission(req, 'marketing.publish').catch(() => false))) {
+        return res.status(403).json({ error: 'You cannot connect an account on behalf of another user.' })
+      }
+      const { data: owner } = await supabaseAdmin.from('profiles')
+        .select('id, dealership_id').eq('id', ownerUserId).maybeSingle()
+      if (!owner || owner.dealership_id !== req.dealershipId) {
+        return res.status(400).json({ error: 'That owner is not part of this dealership.' })
+      }
+    } else if (!(await hasPermission(req, 'marketing.publish').catch(() => false))) {
+      return res.status(403).json({ error: 'Connecting a dealership account requires publishing access.' })
+    }
+
+    // Direct client self-declaration is prohibited for security
+    return res.status(400).json({
+      error: 'Direct credential submission or client self-declared connection is disabled. Initiate connection via /social/connect/:provider to use the authoritative OAuth flow.',
+      code: 'oauth_required',
+    })
   })
 
   // Disconnect a social account

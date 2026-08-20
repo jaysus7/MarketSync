@@ -137,18 +137,48 @@ test('granting access you do not hold is refused', () => {
 })
 
 test('connecting an account on another user\'s behalf needs permission', () => {
-  const route = social.match(/app\.post\('\/social\/accounts'[\s\S]*?\n  \}\)/)?.[0] || ''
+  const route = social.match(/app\.get\('\/social\/connect\/:provider'[\s\S]*?\n  \}\)/)?.[0] || ''
   assert.match(route, /ownerUserId !== req\.user\?\.id && !\(await hasPermission\(req, 'marketing\.publish'\)/)
   assert.match(route, /cannot connect an account on behalf of another user/)
   assert.match(route, /owner\.dealership_id !== req\.dealershipId/)
 })
 
-// ── Token custody ───────────────────────────────────────────────────────────
+// ── Token custody & Authoritative OAuth Connection ──────────────────────────
+
+test('direct client credential submission and self-declared connection are prohibited', () => {
+  const directPost = social.match(/app\.post\('\/social\/accounts'[\s\S]*?\n  \}\)/)?.[0] || ''
+  assert.ok(directPost, 'POST /social/accounts endpoint must exist')
+  assert.match(directPost, /status === 'connected'|code: 'oauth_required'/,
+    'must reject direct client self-declared connection')
+  assert.match(directPost, /oauth_required/,
+    'must require authoritative OAuth connect flow')
+})
+
+test('OAuth connection initiates via signed state and returns setup_required if unconfigured', async () => {
+  const { socialOAuthConfigured, signSocialOAuthState, verifySocialOAuthState, socialOAuthAuthorizeUrl } = await import('../providers/social-providers.js')
+  
+  // Unconfigured check
+  assert.equal(socialOAuthConfigured('unknown_platform'), false)
+  
+  // Signed state validation
+  const payload = { uid: 'user-123', did: 'dealer-456', p: 'facebook', ownership: 'dealership', kind: 'social' }
+  const state = signSocialOAuthState(payload)
+  assert.ok(state && state.includes('.'), 'signed state must have body and HMAC signature')
+  
+  const verified = verifySocialOAuthState(state)
+  assert.equal(verified?.uid, 'user-123')
+  assert.equal(verified?.did, 'dealer-456')
+  assert.equal(verified?.p, 'facebook')
+  
+  // Tampered state fails
+  assert.equal(verifySocialOAuthState(state + 'tampered'), null)
+  assert.equal(verifySocialOAuthState('invalid.token'), null)
+})
 
 test('tokens are encrypted with the existing helper and never returned', () => {
   assert.match(socialRaw, /import \{ encryptJson, PII_ENCRYPTION_VERSION \} from '\.\.\/crypto-pii\.js'/,
     'reuse the credential encryption dealer_integrations already uses')
-  assert.match(social, /row\.credentials_enc = encryptJson\(b\.credentials\)/)
+  assert.match(social, /const credentials_enc = encryptJson\(tokens\)/)
   // Every read names its columns, so a token cannot leak by a later '*' select.
   assert.match(social, /const SAFE_COLUMNS = \[/)
   assert.doesNotMatch(social, /SAFE_COLUMNS[\s\S]*?'credentials_enc'/, 'credentials must not be in the safe list')
@@ -182,13 +212,18 @@ test('this slice emits real attention items', () => {
 test('every social route is dealership-scoped and permission-gated', () => {
   const routes = [...social.matchAll(/app\.(get|post|delete)\('(\/social\/[^']+)'[\s\S]*?\n  \}\)/g)]
   assert.ok(routes.length >= 6, `expected the social routes, saw ${routes.length}`)
-  for (const r of routes) {
+  const internalRoutes = routes.filter(r => !r[2].includes('/callback/'))
+  for (const r of internalRoutes) {
     // Either the route scopes directly, or it delegates to a helper that does. Both
     // helpers are asserted dealership-scoped above and below, so delegation is not a gap.
     assert.match(r[0], /req\.dealershipId|publishableAccounts\(|canActOnAccount\(/,
       `${r[2]} must scope to the dealership`)
     assert.match(r[0], /can(View|Edit)/, `${r[2]} must be permission-gated`)
   }
+  const callbackRoute = routes.find(r => r[2].includes('/callback/'))
+  assert.ok(callbackRoute, 'public callback route must exist')
+  assert.match(callbackRoute[0], /verifySocialOAuthState|dealership_id:\s*st\.did/,
+    'callback must authenticate and scope via signed state')
   // The delegated helper really is scoped — otherwise the allowance above would be a hole.
   const helper = social.match(/export async function publishableAccounts[\s\S]*?\n\}\n/)?.[0] || ''
   assert.match(helper, /\.eq\('dealership_id', req\.dealershipId\)/)

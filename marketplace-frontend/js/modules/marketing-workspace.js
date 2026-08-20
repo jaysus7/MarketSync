@@ -2010,25 +2010,24 @@ function openSocialChannelConfigModal(providerKey) {
 async function submitSocialChannelConnect(providerKey) {
   const ch = window.__msSocialChannelStates[providerKey];
   if (!ch) return;
-  const displayName = document.getElementById('sc-conn-display-name')?.value || ch.name;
-  const handle = document.getElementById('sc-conn-handle')?.value || '@dealership';
   const ownership = document.getElementById('sc-conn-ownership')?.value || 'dealership';
 
   try {
-    await apiSendJson('/social/accounts', 'POST', {
-      provider: providerKey,
-      external_account_id: handle,
-      display_name: displayName,
-      handle: handle,
-      ownership: ownership
-    }).catch(() => null);
-  } catch (e) { /* fallback */ }
-
-  window.__msSocialChannelStates[providerKey].connected = true;
-  window.__msSocialChannelStates[providerKey].handle = handle;
-  closeSocialChannelModal();
-  if (typeof showToast === 'function') showToast(`Successfully connected ${ch.name}!`, 'success');
-  if (typeof window.loadMarketingWorkspace === 'function') window.loadMarketingWorkspace();
+    const res = await apiGetJson(`/social/connect/${encodeURIComponent(providerKey)}?ownership=${encodeURIComponent(ownership)}`);
+    if (res?.url) {
+      closeSocialChannelModal();
+      window.location.href = res.url;
+      return;
+    }
+    if (res?.code === 'setup_required' || !res?.ok) {
+      if (typeof showToast === 'function') showToast(res?.error || `${ch.name} integration setup is required on the server.`, 'error');
+      closeSocialChannelModal();
+      return;
+    }
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message || `${ch.name} integration setup required.`, 'error');
+    closeSocialChannelModal();
+  }
 }
 
 async function saveSocialChannelConfig(providerKey) {

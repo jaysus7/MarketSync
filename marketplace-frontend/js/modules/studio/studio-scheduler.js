@@ -1019,68 +1019,28 @@ async function studioSocialConnectionsRender() {
 window.studioSocialConnectionsRender = studioSocialConnectionsRender;
 
 async function studioSocialConnectPlatform(provider) {
-  const cfg = STUDIO_SOCIAL_PLATFORMS[provider];
-  if (!cfg) return;
+  const cfg = STUDIO_SOCIAL_PLATFORMS[provider] || { name: provider };
 
-  // Prefer existing backend OAuth authorization flow if configured
   try {
-    const oauthRes = await apiGetJson(`/social/connect/${provider}`).catch(() => null);
+    const oauthRes = await apiGetJson(`/social/connect/${encodeURIComponent(provider)}?ownership=dealership`);
     if (oauthRes?.url) {
       window.location.href = oauthRes.url;
       return;
     }
-  } catch {}
-
-  // Single-platform connection form
-  const fieldHtml = cfg.fields.map(f => `
-    <div class="mb-3">
-      <label class="block text-[12px] font-bold text-slate-700 dark:text-slate-200 mb-1">${esc(f.label)}</label>
-      <input id="ssc-field-${esc(f.id)}" type="text" placeholder="${esc(f.placeholder)}" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2.5 text-[13px]">
-    </div>`).join('');
-
-  const ov = crmOverlay(`
-    <div class="p-5">
-      <div class="flex items-center gap-3 mb-2">
-        <div class="shrink-0">${cfg.iconSvg}</div>
-        <div>
-          <h2 class="text-lg font-black text-slate-900 dark:text-white">Connect ${esc(cfg.name)}</h2>
-          <p class="text-[13px] text-slate-500">${esc(cfg.subtitle)}</p>
-        </div>
-      </div>
-      <div class="my-4">
-        ${fieldHtml}
-      </div>
-      <div class="flex gap-2">
-        <button onclick="studioSocialConnectSavePlatform('${esc(provider)}', this)" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[13px] font-bold cursor-pointer">Connect ${esc(cfg.name)}</button>
-        <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[13px] font-bold cursor-pointer">Cancel</button>
-      </div>
-    </div>`, 'max-w-md');
-  if (!ov) return;
+    if (oauthRes?.code === 'setup_required' || !oauthRes?.ok) {
+      showToast(oauthRes?.error || `${cfg.name} integration setup is required on the server.`, 'error');
+      return;
+    }
+  } catch (e) {
+    showToast(e.message || `${cfg.name} integration setup required.`, 'error');
+  }
 }
 window.studioSocialConnectPlatform = studioSocialConnectPlatform;
 
 async function studioSocialConnectSavePlatform(provider, btn) {
-  const cfg = STUDIO_SOCIAL_PLATFORMS[provider];
-  const root = btn.closest('.fixed');
-  const displayName = (root.querySelector('#ssc-field-display_name')?.value || '').trim();
-  const handle = (root.querySelector('#ssc-field-handle')?.value || '').trim();
-  const externalId = (root.querySelector('#ssc-field-external_account_id')?.value || '').trim() || handle || displayName;
-
-  if (!displayName) return showToast('Display name / Page name is required.', 'error');
-  if (!externalId) return showToast('Account ID / Page ID is required.', 'error');
-
-  try {
-    await apiSendJson('/social/accounts', 'POST', {
-      provider,
-      display_name: displayName,
-      handle: handle || null,
-      external_account_id: externalId,
-      ownership: 'dealership'
-    });
-    root.remove();
-    showToast(`${cfg.name} account connected`, 'success');
-    studioSocialConnectionsRender();
-  } catch (e) { showToast(e.message, 'error'); }
+  await studioSocialConnectPlatform(provider);
+  const root = btn?.closest?.('.fixed');
+  if (root) root.remove();
 }
 window.studioSocialConnectSavePlatform = studioSocialConnectSavePlatform;
 
