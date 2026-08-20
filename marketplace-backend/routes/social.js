@@ -20,13 +20,32 @@
  * into a response. Every read in this file lists its columns explicitly for that reason.
  */
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission, hasPermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { dealerLocalToUtc } from '../utils/dealerTime.js'
 import { encryptJson, PII_ENCRYPTION_VERSION } from '../crypto-pii.js'
 
 const PROVIDERS = ['facebook', 'instagram', 'tiktok', 'youtube', 'linkedin']
+
+export function deriveProviderCapabilities(provider, customCaps = {}) {
+  const p = String(provider || '').toLowerCase()
+  const baseCaps = {
+    facebook: { publish: true, schedule: true, video: true, reels: true, stories: true, pages: true },
+    instagram: { publish: true, schedule: true, video: true, reels: true, stories: true },
+    linkedin: { publish: true, schedule: true, video: true, articles: true },
+    youtube: { publish: true, schedule: true, video: true, shorts: true },
+    tiktok: { publish: true, schedule: false, video: true },
+  }[p] || { publish: true, schedule: false }
+
+  const derived = { ...baseCaps }
+  if (customCaps && typeof customCaps === 'object') {
+    for (const [k, v] of Object.entries(customCaps)) {
+      if (typeof v === 'boolean') derived[k] = v
+    }
+  }
+  return derived
+}
 
 // Never select credentials_enc. Listing columns rather than '*' is what keeps a token from
 // leaking into a response by accident when the table grows a column.
@@ -202,14 +221,14 @@ export function registerSocial(app) {
 
   // Connect an account. A user-owned connection is the caller's own by definition; claiming
   // one on someone else's behalf needs the department permission.
-  app.post('/social/accounts', requireAuth, canEdit, async (req, res) => {
+  app.post('/social/accounts', requireAuth, requireMfa, canEdit, async (req, res) => {
     if (!guard(req, res)) return
     const b = req.body || {}
     const provider = String(b.provider || '').toLowerCase()
     if (!PROVIDERS.includes(provider)) return res.status(400).json({ error: `provider must be one of ${PROVIDERS.join(', ')}` })
     const ownership = b.ownership === 'user' ? 'user' : 'dealership'
-    const externalId = String(b.external_account_id || '').trim()
-    const displayName = String(b.display_name || '').trim()
+    const externalId = String(b.external_account_id || '').trim().slice(0, 160)
+    const displayName = String(b.display_name || '').trim().slice(0, 160)
     if (!externalId || !displayName) return res.status(400).json({ error: 'external_account_id and display_name are required' })
 
     let ownerUserId = null
@@ -231,11 +250,13 @@ export function registerSocial(app) {
     }
 
     try {
+      const capabilities = deriveProviderCapabilities(provider, b.capabilities)
       const row = {
         dealership_id: req.dealershipId, provider, external_account_id: externalId,
-        display_name: displayName, handle: b.handle || null, avatar_url: b.avatar_url || null,
+        display_name: displayName, handle: b.handle ? String(b.handle).slice(0, 120) : null,
+        avatar_url: b.avatar_url ? String(b.avatar_url).slice(0, 500) : null,
         ownership, owner_user_id: ownerUserId,
-        capabilities: b.capabilities && typeof b.capabilities === 'object' ? b.capabilities : {},
+        capabilities,
         connected_by: req.user?.id || null, status: 'connected',
         token_expires_at: b.token_expires_at || null,
       }
@@ -243,6 +264,7 @@ export function registerSocial(app) {
       // never read back out through this API.
       if (b.credentials && typeof b.credentials === 'object') {
         row.credentials_enc = encryptJson(b.credentials)
+        if (!row.credentials_enc) return res.status(500).json({ error: 'Encryption error — credentials could not be encrypted.' })
         row.credentials_encryption_version = PII_ENCRYPTION_VERSION
       }
       const { data, error } = await supabaseAdmin.from('social_accounts')
@@ -255,7 +277,7 @@ export function registerSocial(app) {
   })
 
   // Disconnect a social account
-  app.delete('/social/accounts/:id', requireAuth, canEdit, async (req, res) => {
+  app.delete('/social/accounts/:id', requireAuth, requireMfa, canEdit, async (req, res) => {
     if (!guard(req, res)) return
     const mine = await canActOnAccount(req, req.params.id, 'publish')
     if (!mine.allowed) return res.status(403).json({ error: `You cannot change access you do not have. ${mine.reason}` })
@@ -272,7 +294,7 @@ export function registerSocial(app) {
 
   // Grant one account to one user. Granting is itself an authorized act: you may only give
   // away access you hold.
-  app.post('/social/accounts/:id/grants', requireAuth, canEdit, async (req, res) => {
+  app.post('/social/accounts/:id/grants', requireAuth, requireMfa, canEdit, async (req, res) => {
     if (!guard(req, res)) return
     const userId = String(req.body?.user_id || '')
     if (!userId) return res.status(400).json({ error: 'user_id is required' })
@@ -296,7 +318,7 @@ export function registerSocial(app) {
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
-  app.delete('/social/accounts/:id/grants/:userId', requireAuth, canEdit, async (req, res) => {
+  app.delete('/social/accounts/:id/grants/:userId', requireAuth, requireMfa, canEdit, async (req, res) => {
     if (!guard(req, res)) return
     const mine = await canActOnAccount(req, req.params.id, 'publish')
     if (!mine.allowed) return res.status(403).json({ error: `You cannot change access you do not have. ${mine.reason}` })
@@ -453,7 +475,7 @@ export function registerSocial(app) {
 
   // Approval is per post, and the approver must be able to approve for every account it
   // targets — approving content for a page you cannot post to is not an approval.
-  app.post('/social/posts/:id/approve', requireAuth, canEdit, async (req, res) => {
+  app.post('/social/posts/:id/approve', requireAuth, requireMfa, canEdit, async (req, res) => {
     if (!guard(req, res)) return
     try {
       const { data: post } = await supabaseAdmin.from('social_posts').select('*')

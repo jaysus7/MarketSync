@@ -17,9 +17,11 @@
  *   <BACKEND_URL>/adspend/callback/google_ads
  *
  * Reuses the signed-state CSRF helpers from calendarSync.js.
+ * Stores tokens encrypted at rest using AES-256-GCM (crypto-pii.js).
  */
 import { supabaseAdmin, BACKEND_URL } from './shared.js'
 import { signState, verifyState } from './calendarSync.js'
+import { encryptJson, decryptJson, PII_ENCRYPTION_VERSION } from './crypto-pii.js'
 
 const META = { id: process.env.META_ADS_CLIENT_ID || '', secret: process.env.META_ADS_CLIENT_SECRET || '', ver: 'v21.0' }
 const GADS = {
@@ -62,6 +64,19 @@ async function jsonFetch(url, opts = {}) {
   return data
 }
 
+// ── Extract Credentials Helper ────────────────────────────────────────────────
+export function extractAdCredentials(conn) {
+  if (conn.credentials_enc) {
+    const creds = decryptJson(conn.credentials_enc)
+    if (creds) return creds
+  }
+  // Migration fallback: return legacy plaintext if present
+  return {
+    access_token: conn.access_token || null,
+    refresh_token: conn.refresh_token || null,
+  }
+}
+
 // ── Exchange auth code → stored connection ───────────────────────────────────
 export async function adExchangeAndStore(provider, code, { dealershipId, userId }) {
   if (provider === 'meta') {
@@ -98,29 +113,69 @@ export async function adExchangeAndStore(provider, code, { dealershipId, userId 
 }
 
 async function storeConnection({ dealershipId, userId, provider, account_id, account_name, access_token, refresh_token, expires_in }) {
+  const { data: existing } = await supabaseAdmin.from('ad_connections')
+    .select('id, credentials_enc, refresh_token')
+    .eq('dealership_id', dealershipId).eq('provider', provider).maybeSingle()
+
+  const existingCreds = existing ? extractAdCredentials(existing) : null
+  const effectiveRefreshToken = refresh_token || existingCreds?.refresh_token || null
+
+  const creds = { access_token, refresh_token: effectiveRefreshToken }
+  const enc = encryptJson(creds)
+  if (!enc) throw new Error('PII_ENCRYPTION_KEY required — failed to encrypt ad spend credentials.')
+
   const row = {
-    dealership_id: dealershipId, provider, account_id, account_name, access_token,
+    dealership_id: dealershipId,
+    provider,
+    account_id,
+    account_name,
+    credentials_enc: enc,
+    credentials_encryption_version: PII_ENCRYPTION_VERSION,
+    access_token: null, // Clear plaintext token
+    refresh_token: null, // Clear plaintext refresh token
     token_expires_at: new Date(Date.now() + expires_in * 1000).toISOString(),
-    connected_by: userId, last_error: null, updated_at: new Date().toISOString(),
+    connected_by: userId,
+    last_error: null,
+    updated_at: new Date().toISOString(),
   }
-  const { data: existing } = await supabaseAdmin.from('ad_connections').select('id, refresh_token').eq('dealership_id', dealershipId).eq('provider', provider).maybeSingle()
-  row.refresh_token = refresh_token || existing?.refresh_token || null   // Google keeps its first refresh token
+
   if (existing) await supabaseAdmin.from('ad_connections').update(row).eq('id', existing.id)
   else await supabaseAdmin.from('ad_connections').insert(row)
   return { account_id, account_name }
 }
 
 // Google Ads access tokens are short-lived; refresh from the stored refresh token.
-async function googleValidToken(conn) {
-  if (conn.access_token && conn.token_expires_at && new Date(conn.token_expires_at).getTime() - 60000 > Date.now()) return conn.access_token
-  if (!conn.refresh_token) throw new Error('Google Ads session expired — reconnect.')
+export async function googleValidToken(conn) {
+  const creds = extractAdCredentials(conn)
+  if (creds.access_token && conn.token_expires_at && new Date(conn.token_expires_at).getTime() - 60000 > Date.now()) {
+    return creds.access_token
+  }
+  if (!creds.refresh_token) throw new Error('Google Ads session expired — reconnect.')
   const tok = await jsonFetch('https://oauth2.googleapis.com/token', {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ refresh_token: conn.refresh_token, client_id: GADS.id, client_secret: GADS.secret, grant_type: 'refresh_token' }),
+    body: new URLSearchParams({ refresh_token: creds.refresh_token, client_id: GADS.id, client_secret: GADS.secret, grant_type: 'refresh_token' }),
   })
   const access_token = tok.access_token
-  await supabaseAdmin.from('ad_connections').update({ access_token, token_expires_at: new Date(Date.now() + (Number(tok.expires_in) || 3500) * 1000).toISOString() }).eq('id', conn.id)
+  const token_expires_at = new Date(Date.now() + (Number(tok.expires_in) || 3500) * 1000).toISOString()
+
+  creds.access_token = access_token
+  if (tok.refresh_token) creds.refresh_token = tok.refresh_token
+
+  const enc = encryptJson(creds)
+  if (!enc) throw new Error('PII_ENCRYPTION_KEY required — failed to encrypt refreshed Google Ads credentials.')
+
+  await supabaseAdmin.from('ad_connections').update({
+    credentials_enc: enc,
+    credentials_encryption_version: PII_ENCRYPTION_VERSION,
+    access_token: null,
+    refresh_token: null,
+    token_expires_at,
+    updated_at: new Date().toISOString(),
+  }).eq('id', conn.id)
+
+  conn.credentials_enc = enc
   conn.access_token = access_token
+  conn.token_expires_at = token_expires_at
   return access_token
 }
 
@@ -132,12 +187,13 @@ export async function pullAdSpend(conn, { days = 120 } = {}) {
   const channel = CHANNEL_OF_PROVIDER[conn.provider]
   const byMonth = {}   // 'YYYY-MM' -> amount
   if (conn.provider === 'meta') {
-    if (!conn.access_token) throw new Error('Not connected.')
+    const creds = extractAdCredentials(conn)
+    if (!creds.access_token) throw new Error('Not connected.')
     if (conn.token_expires_at && new Date(conn.token_expires_at) < new Date()) throw new Error('Facebook token expired — reconnect.')
     const since = new Date(Date.now() - days * 86400000)
     const acct = conn.account_id.startsWith('act_') ? conn.account_id : `act_${conn.account_id}`
     const url = `https://graph.facebook.com/${META.ver}/${acct}/insights?` + new URLSearchParams({
-      fields: 'spend', level: 'account', time_increment: 'monthly', access_token: conn.access_token,
+      fields: 'spend', level: 'account', time_increment: 'monthly', access_token: creds.access_token,
       time_range: JSON.stringify({ since: since.toISOString().slice(0, 10), until: new Date().toISOString().slice(0, 10) }),
     })
     const data = await jsonFetch(url)

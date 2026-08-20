@@ -19,7 +19,9 @@ import { requestHasCronSecret } from '../cron-auth.js'
 import {
   PROVIDERS, providerConfigured, anyProviderConfigured, authUrl, signState, verifyState,
   exchangeCode, fetchProviderEmail, pushEvent, deleteEvent, pullEvents, getConnectionForUser,
+  extractCalendarCredentials,
 } from '../calendarSync.js'
+import { encryptJson, PII_ENCRYPTION_VERSION } from '../crypto-pii.js'
 
 const label = (p) => (p === 'google' ? 'Google Calendar' : p === 'microsoft' ? 'Outlook Calendar' : p)
 
@@ -66,17 +68,31 @@ export function registerCalendar(app) {
       if (!tok.access_token) return done(false, 'Could not complete the connection.')
       const expires = new Date(Date.now() + (Number(tok.expires_in) || 3500) * 1000).toISOString()
       const email = await fetchProviderEmail(provider, tok.access_token)
+      const creds = {
+        access_token: tok.access_token,
+        refresh_token: tok.refresh_token || null,
+        sync_token: null,
+      }
+      const { data: existing } = await supabaseAdmin.from('calendar_connections')
+        .select('id, credentials_enc, refresh_token')
+        .eq('user_id', st.uid).eq('provider', provider).maybeSingle()
+
+      if (existing && !creds.refresh_token) {
+        const oldCreds = extractCalendarCredentials(existing)
+        creds.refresh_token = oldCreds.refresh_token
+      }
+
+      const enc = encryptJson(creds)
+      if (!enc) return done(false, 'Failed to encrypt credentials — server encryption key missing.')
+
       const row = {
         dealership_id: st.did || null, user_id: st.uid, provider, provider_email: email,
-        access_token: tok.access_token, refresh_token: tok.refresh_token || null,
+        credentials_enc: enc, credentials_encryption_version: PII_ENCRYPTION_VERSION,
+        access_token: null, refresh_token: null,
         token_expires_at: expires, calendar_id: 'primary', sync_token: null,
         last_error: null, updated_at: new Date().toISOString(),
       }
-      // Upsert on (user_id, provider). Keep an existing refresh token if the
-      // provider didn't return a new one (Google only sends it on first consent).
-      const { data: existing } = await supabaseAdmin.from('calendar_connections').select('id, refresh_token').eq('user_id', st.uid).eq('provider', provider).maybeSingle()
       if (existing) {
-        if (!row.refresh_token) row.refresh_token = existing.refresh_token
         await supabaseAdmin.from('calendar_connections').update(row).eq('id', existing.id)
       } else {
         await supabaseAdmin.from('calendar_connections').insert(row)

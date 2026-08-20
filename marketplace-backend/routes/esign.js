@@ -15,17 +15,20 @@
  */
 import crypto from 'node:crypto'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
 import { rateLimit, getClientIp } from '../security.js'
 import { audit, AuditAction } from '../audit.js'
+import { logSensitiveAccess } from '../crypto-pii.js'
 
-const CONSENT ='By signing electronically, I agree that my electronic signature is the legal equivalent of my handwritten signature and that I have reviewed this document.'
+const CONSENT = 'By signing electronically, I agree that my electronic signature is the legal equivalent of my handwritten signature and that I have reviewed this document.'
 const signUrl = (token) => `${FRONTEND_URL.replace(/\/$/, '')}/esign.html?t=${token}`
+const hashToken = (raw) => crypto.createHash('sha256').update(String(raw || '')).digest('hex')
 
 export function registerEsign(app) {
-  // Create a signing request. Body: { doc_html, doc_title, doc_type, contact_id,
-  // deal_id, signer_name, signer_email }. Returns the public signing URL.
-  app.post('/esign/create', requireAuth, async (req, res) => {
+  // Create a signing request. Requires Auth, MFA, and deal.create permission.
+  // Body: { doc_html, doc_title, doc_type, contact_id, deal_id, signer_name, signer_email }.
+  app.post('/esign/create', requireAuth, requireMfa, requirePermission('deal.create'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const b = req.body || {}
     const doc_html = String(b.doc_html || '')
@@ -33,9 +36,12 @@ export function registerEsign(app) {
     if (doc_html.length > 400000) return res.status(400).json({ error: 'Document is too large to send for signature.' })
     const signer_email = String(b.signer_email || '').trim().slice(0, 160)
     const token = crypto.randomBytes(24).toString('base64url')
+    const token_hash = hashToken(token)
+
     const row = {
       dealership_id: req.dealershipId, contact_id: b.contact_id || null, deal_id: b.deal_id || null,
-      token, doc_type: String(b.doc_type || 'document').slice(0, 40), doc_title: String(b.doc_title || 'Document').slice(0, 160),
+      token, token_hash,
+      doc_type: String(b.doc_type || 'document').slice(0, 40), doc_title: String(b.doc_title || 'Document').slice(0, 160),
       doc_html, signer_name: String(b.signer_name || '').trim().slice(0, 120) || null, signer_email: signer_email || null,
       status: 'sent', consent_text: CONSENT, created_by: req.user?.id || null,
       expires_at: new Date(Date.now() + 30 * 86400000).toISOString(),
@@ -44,6 +50,7 @@ export function registerEsign(app) {
     const { data, error } = await supabaseAdmin.from('esign_requests').insert(row).select('id, token').single()
     if (error) { console.error('[esign] create failed:', error.message); return res.status(500).json({ error: 'Could not create the signing request.' }) }
     const url = signUrl(token)
+
     // Email the signer the link (best-effort).
     if (resend && signer_email) {
       const { data: d } = await supabaseAdmin.from('dealerships').select('name').eq('id', req.dealershipId).maybeSingle()
@@ -59,22 +66,32 @@ export function registerEsign(app) {
       }).catch(() => {})
     }
     audit(req, AuditAction.ESIGN_SENT, { esign_id: data.id, doc_title: row.doc_title, doc_type: row.doc_type, signer_email: signer_email || null, contact_id: b.contact_id || null })
-    res.json({ ok: true, id: data.id, token, url })
+    res.json({ ok: true, id: data.id, url })
   })
+
+  // Helper to resolve request by token hash with legacy fallback
+  async function resolveEsignRequest(rawToken, selectCols = '*') {
+    const raw = String(rawToken || '').trim()
+    if (!raw) return null
+    const hash = hashToken(raw)
+    const { data: byHash } = await supabaseAdmin.from('esign_requests')
+      .select(selectCols)
+      .eq('token_hash', hash).maybeSingle()
+    if (byHash) return byHash
+    // Legacy fallback for records created before token_hash
+    const { data: byRaw } = await supabaseAdmin.from('esign_requests')
+      .select(selectCols)
+      .eq('token', raw).maybeSingle()
+    return byRaw || null
+  }
 
   // PUBLIC: fetch the document to sign. Records a "viewed" event (once).
   app.get('/esign/:token', rateLimit('esignget', 60, 60000), async (req, res) => {
-    const { data: r } = await supabaseAdmin.from('esign_requests')
-      .select('id, dealership_id, doc_title, doc_type, doc_html, signer_name, status, consent_text, expires_at')
-      .eq('token', req.params.token).maybeSingle()
+    const r = await resolveEsignRequest(req.params.token, 'id, dealership_id, doc_title, doc_type, doc_html, signer_name, status, consent_text, expires_at')
     if (!r) return res.status(404).json({ error: 'This signing link is invalid.' })
     if (r.expires_at && new Date(r.expires_at) < new Date()) return res.status(410).json({ error: 'This signing link has expired.' })
     const { data: d } = await supabaseAdmin.from('dealerships').select('name, branding').eq('id', r.dealership_id).maybeSingle()
     if (r.status === 'sent') {
-      // Best effort: recording the view must never stop the signer seeing the document.
-      // This was `.eq(...).catch(() => {})`, and a supabase query builder is a thenable
-      // with NO .catch — so the first view of every document threw a TypeError and the
-      // signer got an error page instead of their contract.
       try {
         const { error } = await supabaseAdmin.from('esign_requests')
           .update({ status: 'viewed', audit: await appendAudit(r.id, { event: 'viewed', at: new Date().toISOString(), ip: getClientIp(req) }) })
@@ -94,7 +111,7 @@ export function registerEsign(app) {
 
   // PUBLIC: submit a signature. Body: { signature_name, signature_image (dataURL), agree }.
   app.post('/esign/:token/sign', rateLimit('esignsign', 20, 60000), async (req, res) => {
-    const { data: r } = await supabaseAdmin.from('esign_requests').select('*').eq('token', req.params.token).maybeSingle()
+    const r = await resolveEsignRequest(req.params.token, '*')
     if (!r) return res.status(404).json({ error: 'This signing link is invalid.' })
     if (r.status === 'signed') return res.status(409).json({ error: 'This document was already signed.' })
     if (r.expires_at && new Date(r.expires_at) < new Date()) return res.status(410).json({ error: 'This signing link has expired.' })
@@ -106,10 +123,10 @@ export function registerEsign(app) {
     if (!/^data:image\/(png|jpeg);base64,/.test(img) || img.length > 400000) return res.status(400).json({ error: 'Please draw your signature.' })
     const now = new Date().toISOString()
     const ip = getClientIp(req), ua = String(req.headers['user-agent'] || '').slice(0, 300)
-    const audit = Array.isArray(r.audit) ? r.audit : []
-    audit.push({ event: 'signed', at: now, ip, ua, name })
+    const auditEvents = Array.isArray(r.audit) ? r.audit : []
+    auditEvents.push({ event: 'signed', at: now, ip, ua, name })
     const { error } = await supabaseAdmin.from('esign_requests').update({
-      status: 'signed', signature_name: name, signature_image: img, signed_at: now, signed_ip: ip, signed_ua: ua, audit,
+      status: 'signed', signature_name: name, signature_image: img, signed_at: now, signed_ip: ip, signed_ua: ua, audit: auditEvents,
     }).eq('id', r.id).eq('status', r.status)   // guard against a double-sign race
     if (error) return res.status(500).json({ error: 'Could not record your signature — please try again.' })
 
@@ -133,32 +150,84 @@ export function registerEsign(app) {
     res.json({ ok: true, signed_at: now })
   })
 
+  // PUBLIC: decline signing
   app.post('/esign/:token/decline', rateLimit('esignsign', 20, 60000), async (req, res) => {
-    const { data: r } = await supabaseAdmin.from('esign_requests').select('id, status, audit').eq('token', req.params.token).maybeSingle()
+    const r = await resolveEsignRequest(req.params.token, 'id, status, audit')
     if (!r) return res.status(404).json({ error: 'Invalid link.' })
     if (r.status === 'signed') return res.status(409).json({ error: 'Already signed.' })
-    const audit = Array.isArray(r.audit) ? r.audit : []
-    audit.push({ event: 'declined', at: new Date().toISOString(), ip: getClientIp(req) })
-    await supabaseAdmin.from('esign_requests').update({ status: 'declined', audit }).eq('id', r.id)
+    const auditEvents = Array.isArray(r.audit) ? r.audit : []
+    auditEvents.push({ event: 'declined', at: new Date().toISOString(), ip: getClientIp(req) })
+    await supabaseAdmin.from('esign_requests').update({ status: 'declined', audit: auditEvents }).eq('id', r.id)
     res.json({ ok: true })
   })
 
-  // Manager: list this dealership's signing requests (no doc_html/signature blobs).
-  app.get('/esign', requireAuth, async (req, res) => {
+  // Manager: list this dealership's signing requests (metadata only, no doc_html or signature blobs).
+  app.get('/esign', requireAuth, requireMfa, requirePermission('deal.create'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { data } = await supabaseAdmin.from('esign_requests')
-      .select('id, token, doc_title, doc_type, signer_name, signer_email, status, signed_at, created_at, contact_id')
+      .select('id, token, doc_title, doc_type, signer_name, signer_email, status, signed_at, created_at, contact_id, expires_at')
       .eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).limit(200)
-    res.json({ ok: true, requests: (data || []).map(r => ({ ...r, url: signUrl(r.token) })) })
+    res.json({
+      ok: true,
+      requests: (data || []).map(r => ({
+        id: r.id,
+        doc_title: r.doc_title,
+        doc_type: r.doc_type,
+        signer_name: r.signer_name,
+        signer_email: r.signer_email,
+        status: r.status,
+        signed_at: r.signed_at,
+        created_at: r.created_at,
+        contact_id: r.contact_id,
+        expires_at: r.expires_at,
+        url: r.token ? signUrl(r.token) : null,
+      })),
+    })
   })
 
-  // Manager: full record incl. the signed document + signature (the file of record).
-  app.get('/esign/:id/detail', requireAuth, async (req, res) => {
+  // Manager: full record incl. the signed document + signature (file of record).
+  // Audits access to the sensitive completed agreement.
+  app.get('/esign/:id/detail', requireAuth, requireMfa, requirePermission('deal.create'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { data: r } = await supabaseAdmin.from('esign_requests').select('*')
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!r) return res.status(404).json({ error: 'Not found' })
-    res.json({ ok: true, request: { ...r, url: signUrl(r.token) } })
+
+    logSensitiveAccess({
+      dealershipId: req.dealershipId,
+      actorId: req.user?.id,
+      entity: 'esign_request',
+      entityId: r.id,
+      action: 'read_detail',
+      detail: `Viewed signed document: ${r.doc_title || r.id}`,
+      ip: getClientIp(req),
+    })
+
+    res.json({
+      ok: true,
+      request: {
+        id: r.id,
+        dealership_id: r.dealership_id,
+        contact_id: r.contact_id,
+        deal_id: r.deal_id,
+        doc_title: r.doc_title,
+        doc_type: r.doc_type,
+        doc_html: r.doc_html,
+        signer_name: r.signer_name,
+        signer_email: r.signer_email,
+        status: r.status,
+        consent_text: r.consent_text,
+        signature_name: r.signature_name,
+        signature_image: r.signature_image,
+        signed_at: r.signed_at,
+        signed_ip: r.signed_ip,
+        signed_ua: r.signed_ua,
+        expires_at: r.expires_at,
+        created_at: r.created_at,
+        audit: r.audit,
+        url: r.token ? signUrl(r.token) : null,
+      },
+    })
   })
 }
 
