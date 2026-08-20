@@ -750,6 +750,11 @@ const ENGINE_ACCENTS = {
 const ENGINES = {};                 // engineId -> config (registered below)
 const ENGINE_STATE = {};            // engineId -> active tab id
 const ENGINE_DATA = {};             // engineId -> memoized fetch result
+if (typeof window !== 'undefined') {
+  window.ENGINES = ENGINES;
+  window.ENGINE_STATE = ENGINE_STATE;
+  window.ENGINE_DATA = ENGINE_DATA;
+}
 
 // Shared building blocks so every engine's tabs look identical.
 function engKpi(label, val, tone, onclick) {

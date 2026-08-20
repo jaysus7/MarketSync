@@ -47,3 +47,19 @@ test('Marketing workspace tabOrder dynamically gates automations tab without bro
   // Verify that automations method is not overridden with email-sms
   assert.doesNotMatch(marketingWs, /automations\(body,\s*d\)\s*\{\s*this\['email-sms'\]/)
 })
+
+test('Single-product nav highlighting disambiguates tabs and prevents multiple simultaneous highlights', () => {
+  const part2 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part2.js', import.meta.url), 'utf8')
+  const part10 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part10.js', import.meta.url), 'utf8')
+
+  // ENGINE_STATE must be exposed on window so highlightDeptNav can read active tab
+  assert.match(part10, /window\.ENGINE_STATE\s*=\s*ENGINE_STATE/)
+
+  // highlightDeptNav must check b.dataset.tab and include mobile quickrow buttons
+  assert.match(part2, /#dept-nav \.dept-nav-item, #mobile-quickrow-dyn \.nav-item/)
+  assert.match(part2, /if \(on && b\.dataset\.tab\)/)
+
+  // switchPage must check btn.dataset.tab to avoid mass-highlighting buttons sharing the same data-page
+  assert.match(part2, /if \(active && btn\.dataset\.tab\)/)
+})
+

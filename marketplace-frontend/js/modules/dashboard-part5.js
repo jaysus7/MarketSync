@@ -209,10 +209,14 @@ function setupMobileMoreMenu() {
         b.addEventListener('click', () => {
           close();
           if (p.studioLaunch) { if (typeof window.openMarketSyncStudio === 'function') window.openMarketSyncStudio(); return; }
-          if (p.invmode) __inventoryMode = p.invmode;
-          switchPage(p.page);
-          if (p.tab && typeof engineTab === 'function') {
-            engineTab(p.page, p.tab, true);
+          if (typeof deptGo === 'function') {
+            deptGo(p.page, p.invmode, p.tab);
+          } else {
+            if (p.invmode) __inventoryMode = p.invmode;
+            switchPage(p.page);
+            if (p.tab && typeof engineTab === 'function') {
+              engineTab(p.page, p.tab, true);
+            }
           }
         });
         list.appendChild(b);

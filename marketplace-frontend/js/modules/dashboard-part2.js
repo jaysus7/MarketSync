@@ -1605,22 +1605,31 @@ window.deptOpen = deptOpen;
 function highlightDeptNav(pageId) {
   if (!__deptNavBuilt) return;
   const reg = __deptRegistry;
-  // Restricted tiers render a FLAT page list (no dept registry): highlight by data-page.
+  // Helper to resolve the currently active tab for tab-aware single-product pages
+  const getPageActiveTab = (pg) => {
+    if (pg === 'website') return window.__wsTab || 'setup';
+    if (pg === 'automation-builder') return window.__autoTab || 'overview';
+    if (pg === 'marketing-overview') {
+      const st = (typeof ENGINE_STATE !== 'undefined' ? ENGINE_STATE['marketing-overview'] : (typeof window !== 'undefined' ? window.ENGINE_STATE?.['marketing-overview'] : null));
+      return st || 'overview';
+    }
+    return null;
+  };
+
+  // Restricted tiers render a FLAT page list (no dept registry): highlight by data-page + data-tab.
   if (!reg) {
-    document.querySelectorAll('#dept-nav .dept-nav-item').forEach(b => {
+    document.querySelectorAll('#dept-nav .dept-nav-item, #mobile-quickrow-dyn .nav-item').forEach(b => {
       let on = b.dataset.page === pageId;
-      if (on && b.dataset.page === 'website' && b.dataset.tab) {
-        on = (b.dataset.tab === (window.__wsTab || 'builder'));
-      }
-      if (on && b.dataset.page === 'automation-builder' && b.dataset.tab) {
-        on = (b.dataset.tab === (window.__autoTab || 'overview'));
-      }
-      if (on && b.dataset.page === 'marketing-overview' && b.dataset.tab) {
-        on = (b.dataset.tab === (window.ENGINE_STATE?.['marketing-overview'] || 'overview'));
+      if (on && b.dataset.tab) {
+        const activeTab = getPageActiveTab(pageId);
+        if (activeTab) {
+          on = (b.dataset.tab === activeTab);
+        }
       }
       b.classList.toggle('bg-indigo-100', on); b.classList.toggle('dark:bg-indigo-950/50', on);
       b.classList.toggle('text-indigo-700', on); b.classList.toggle('dark:text-indigo-300', on);
       b.classList.toggle('text-slate-700', !on); b.classList.toggle('dark:text-slate-300', !on);
+      if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
     });
     return;
   }
@@ -1631,6 +1640,7 @@ function highlightDeptNav(pageId) {
     b.classList.toggle('bg-indigo-100', on); b.classList.toggle('dark:bg-indigo-950/50', on);
     b.classList.toggle('text-indigo-700', on); b.classList.toggle('dark:text-indigo-300', on);
     b.classList.toggle('text-slate-700', !on); b.classList.toggle('dark:text-slate-300', !on);
+    if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   });
 }
 
@@ -1774,6 +1784,15 @@ function switchPage(pageId) {
     if (active && pageId === 'crm') {
       if (btn.dataset.crmAction === 'add') active = false;                       // Add is an action, not a view
       else if (btn.dataset.crmView) active = (btn.dataset.crmView === 'all') === !!__crmSearchAll;
+    }
+    if (active && btn.dataset.tab) {
+      const activeTab = (pageId === 'website') ? (window.__wsTab || 'setup')
+                      : (pageId === 'automation-builder') ? (window.__autoTab || 'overview')
+                      : (pageId === 'marketing-overview') ? ((typeof ENGINE_STATE !== 'undefined' ? ENGINE_STATE['marketing-overview'] : (typeof window !== 'undefined' ? window.ENGINE_STATE?.['marketing-overview'] : null)) || 'overview')
+                      : null;
+      if (activeTab) {
+        active = (btn.dataset.tab === activeTab);
+      }
     }
     btn.classList.toggle('bg-indigo-100', active);
     btn.classList.toggle('dark:bg-indigo-950/50', active);

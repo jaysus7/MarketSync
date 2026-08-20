@@ -1370,7 +1370,12 @@ function applyMobileQuickRow() {
     host.className = 'contents md:hidden';   // display:contents → children join the flex row
     if (more && more.parentElement) more.parentElement.insertBefore(host, more);
   }
-  host.innerHTML = pages.map(p => `<button type="button" data-page="${esc(p.page)}" data-tab="${esc(p.tab || '')}" onclick="${p.studioLaunch ? 'window.openMarketSyncStudio()' : p.tab ? `(function(){ switchPage('${esc(p.page)}'); if(typeof engineTab==='function') engineTab('${esc(p.page)}','${esc(p.tab)}',true); })()` : `deptGo('${esc(p.page)}'${p.invmode ? `,'${esc(p.invmode)}'` : ''})`}" title="${esc(p.label)}" class="nav-item md:hidden flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="opacity-70">${svgIcon(p.icon || 'dot', 'w-[18px] h-[18px]')}</span><span class="text-[9px] leading-none">${esc(p.label.split(' ')[0])}</span></button>`).join('');
+  host.innerHTML = pages.map(p => {
+    const call = p.studioLaunch
+      ? 'window.openMarketSyncStudio()'
+      : `deptGo('${esc(p.page)}'${p.tab ? `,'${esc(p.invmode || '')}','${esc(p.tab)}'` : (p.invmode ? `,'${esc(p.invmode)}'` : '')})`;
+    return `<button type="button" data-page="${esc(p.page)}"${p.tab ? ` data-tab="${esc(p.tab)}"` : ''} onclick="${call}" title="${esc(p.label)}" class="nav-item md:hidden flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="opacity-70">${svgIcon(p.icon || 'dot', 'w-[18px] h-[18px]')}</span><span class="text-[9px] leading-none">${esc(p.label.split(' ')[0])}</span></button>`;
+  }).join('');
   more?.classList.toggle('hidden', !showMoreBtn);
 }
 window.applyMobileQuickRow = applyMobileQuickRow;
