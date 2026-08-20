@@ -221,3 +221,47 @@ test('Public generated endpoints /robots.txt, /sitemap.xml, /llms.txt', async ()
     await ts.close()
   }
 })
+
+test('SEO Frontend Suite: setSeoMainTab and all SEO tabs are defined and exposed on window', async () => {
+  const fs = await import('node:fs')
+  const path = await import('node:path')
+  const part17Path = path.resolve(process.cwd(), '../marketplace-frontend/js/modules/dashboard-part17.js')
+  const code = fs.readFileSync(part17Path, 'utf8')
+
+  // 1. setSeoMainTab definition and intentional window attachment
+  assert.ok(code.includes('function setSeoMainTab(tab)'), 'setSeoMainTab must be declared as a function')
+  assert.ok(code.includes('window.setSeoMainTab = setSeoMainTab'), 'setSeoMainTab must be explicitly attached to window')
+  assert.ok(code.includes('setSeoMainTab,') || code.includes('setSeoMainTab\n'), 'setSeoMainTab must be exposed via Object.assign(window)')
+
+  // 2. Centralized __seoMainTab state without duplicate declarations
+  const mainTabMatches = code.match(/let\s+__seoMainTab/g) || []
+  assert.equal(mainTabMatches.length, 1, 'let __seoMainTab must only be declared once in top-level state')
+
+  // 3. All required tabs are registered in navigation and handled in renderSeoMainBody
+  const requiredTabs = ['overview', 'settings', 'content', 'technical', 'redirects', 'analytics', 'competitors']
+  for (const tab of requiredTabs) {
+    assert.ok(
+      code.includes(`navTab('${tab}'`) ||
+      code.includes(`setSeoMainTab('${tab}')`) ||
+      code.includes(`__seoMainTab === '${tab}'`),
+      `Tab "${tab}" must be wired in SEO workspace`
+    )
+  }
+
+  // 4. View functions for all main tabs exist
+  const expectedViews = [
+    'renderSeoOverviewView',
+    'renderSeoSettingsWorkspace',
+    'renderSeoContentView',
+    'renderSeoTechnicalView',
+    'renderSeoRedirectsView',
+    'renderSeoAnalyticsView',
+    'renderSeoCompetitorsView',
+    'renderSeoAutopilotView',
+    'renderSeoHistoryView'
+  ]
+  for (const fn of expectedViews) {
+    assert.ok(code.includes(`function ${fn}`), `View function ${fn} must be defined in dashboard-part17.js`)
+  }
+})
+

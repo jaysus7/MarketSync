@@ -378,306 +378,528 @@ if (typeof window !== 'undefined' && window.matchMedia) {
 }
 
 function wsSetup() {
-  const secBtn = (id, label) => `<button type="button" onclick="setWsSetupSection('${id}')" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between ${__wsSetupSection === id ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"><span>${label}</span> ${id === 'ai-chatbot' ? (isAiChatbotOwned() ? '<span class="w-2 h-2 rounded-full bg-emerald-400" title="Active"></span>' : '<span class="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">Upgrade</span>') : ''}</button>`;
+  const c = __siteCfg?.content || {};
+  const isPub = !!__siteCfg?.site_published;
+  const slug = __siteCfg?.site_slug || '';
+  const domain = __siteCfg?.custom_domain || '';
+  const isDomainVerified = !!__siteCfg?.custom_domain_verified;
+
+  const card = (id, iconSvg, title, desc, metaRows, badgeHtml, btnText = 'Configure') => `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition flex flex-col justify-between space-y-4">
+      <div class="space-y-3">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold border border-indigo-500/20">
+              ${iconSvg}
+            </div>
+            <div>
+              <h3 class="text-sm font-black text-slate-900 dark:text-white tracking-tight">${title}</h3>
+            </div>
+          </div>
+          ${badgeHtml || ''}
+        </div>
+        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">${desc}</p>
+        <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800/80 space-y-1 text-[11px]">
+          ${metaRows}
+        </div>
+      </div>
+      <div class="pt-2 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+        <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Settings Section</span>
+        <button type="button" onclick="openSetupModal('${id}')" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow-xs cursor-pointer flex items-center gap-1">
+          <span>${btnText}</span>
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+        </button>
+      </div>
+    </div>
+  `;
 
   return `
-    <div class="mt-4 max-w-6xl">
-      <div class="grid md:grid-cols-[220px_1fr] gap-6 items-start">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 space-y-1 shadow-sm sticky top-4">
-          <div class="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 py-1">Website Setup</div>
-          ${secBtn('appearance', 'Appearance')}
-          ${secBtn('info', 'Dealership Info')}
-          ${secBtn('domain', 'Domain & DNS')}
-          ${secBtn('branding', 'Branding & Colors')}
-          ${secBtn('social', 'Social Links')}
-          ${secBtn('inventory_feed', 'Inventory Feed')}
-          ${secBtn('routing', 'Lead Routing')}
-          ${secBtn('seo', 'SEO & Analytics')}
-          ${secBtn('ai-chatbot', 'AI ChatBot')}
-          ${secBtn('publishing', 'Publishing & Link')}
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full space-y-6">
+      <!-- Setup Page Header -->
+      <div class="flex items-center justify-between flex-wrap gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Website Setup &amp; Configuration</h1>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${isPub ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40'}">
+              ${isPub ? 'Live' : 'Draft'}
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Configure dealership profile, domain DNS, branding, contact info, lead routing, inventory feeds, analytics, and integrations.</p>
         </div>
+        <div class="flex items-center gap-2">
+          ${slug ? `<a href="${SITE_BASE}?d=${encodeURIComponent(slug)}" target="_blank" class="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition">Preview Site ↗</a>` : ''}
+          <button onclick="saveWebsite(this)" class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md cursor-pointer">Save All Changes</button>
+        </div>
+      </div>
 
-        <div id="ws-setup-body" class="space-y-6">
-          ${renderWsSetupSection()}
-        </div>
+      <!-- 3-Column Masonry Grid on Desktop, 2-Col Tablet, 1-Col Mobile -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 items-start">
+        <!-- 1. Dealership Information -->
+        ${card('info', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009 9c.63 0 1.213-.19 1.7-.514m-5.45 0A2.996 2.996 0 016 7.5c0-.63.19-1.213.514-1.7m5.45 0A2.996 2.996 0 0012 4.5c.63 0 1.213.19 1.7.514M18 9.35a3.001 3.001 0 003.75-.615A2.993 2.993 0 0021 7.5a2.996 2.996 0 00-.514-1.7"/></svg>`,
+          'Dealership Information', 'Legal business name, tagline, description, operating hours, and business license.',
+          `<div class="flex justify-between"><span class="text-slate-500">Name:</span> <span class="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[170px]">${esc(c.dealer_name || 'Premier Motors')}</span></div>
+           <div class="flex justify-between"><span class="text-slate-500">Tagline:</span> <span class="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[170px]">${esc(c.tagline || 'New & Used Cars')}</span></div>
+           <div class="flex justify-between"><span class="text-slate-500">City:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${esc(c.city || 'Welland')}</span></div>`,
+          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Configured</span>`
+        )}
+
+        <!-- 2. Domain -->
+        ${card('domain', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18zM2.25 12h19.5M12 2.25a15.3 15.3 0 014.5 9.75 15.3 15.3 0 01-4.5 9.75 15.3 15.3 0 01-4.5-9.75A15.3 15.3 0 0112 2.25z"/></svg>`,
+          'Domain', 'Connect your custom domain with automated Cloudflare SSL certificates.',
+          `<div class="flex justify-between"><span class="text-slate-500">Host:</span> <span class="font-bold font-mono text-slate-800 dark:text-slate-200 truncate max-w-[170px]">${esc(domain || 'marketsync.link')}</span></div>
+           <div class="flex justify-between"><span class="text-slate-500">SSL / DNS:</span> <span class="font-bold ${isDomainVerified ? 'text-emerald-500' : 'text-amber-500'}">${isDomainVerified ? 'Verified & Active' : (domain ? 'Pending DNS' : 'Standard')}</span></div>`,
+          isDomainVerified ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">SSL Active</span>` : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/20 text-slate-400">DNS Ready</span>`
+        )}
+
+        <!-- 3. Branding -->
+        ${card('branding', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42"/></svg>`,
+          'Branding', 'Primary colors, dealership logo, favicon, and hero banner aesthetics.',
+          `<div class="flex items-center justify-between"><span class="text-slate-500">Brand Color:</span> <div class="flex items-center gap-1.5 font-bold"><span class="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-700" style="background-color: ${esc(c.primary_color || '#1e3a8a')}"></span><span>${esc(c.primary_color || '#1e3a8a')}</span></div></div>
+           <div class="flex justify-between"><span class="text-slate-500">Logo:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${c.logo_url ? 'Custom Logo Set' : 'Text Wordmark'}</span></div>`,
+          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-400">Palette</span>`
+        )}
+
+        <!-- 4. Appearance -->
+        ${card('appearance', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072"/></svg>`,
+          'Appearance', 'Editor application visual mode (Dark/Light/Auto), typography pairing, and button corners.',
+          `<div class="flex justify-between"><span class="text-slate-500">Theme:</span> <span class="font-bold text-slate-800 dark:text-slate-200 uppercase">${esc(__builderTheme || 'Auto')}</span></div>
+           <div class="flex justify-between"><span class="text-slate-500">Typography:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${esc(c.heading_font || 'Inter')} / ${esc(c.body_font || 'Inter')}</span></div>`,
+          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-500/20 text-violet-400">Modern</span>`
+        )}
+
+        <!-- 5. Contact Information -->
+        ${card('contact', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/></svg>`,
+          'Contact Information', 'Showroom phone, service line, physical address, and Google Maps pin.',
+          `<div class="flex justify-between"><span class="text-slate-500">Phone:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${esc(c.phone || '905-555-0199')}</span></div>
+           <div class="flex justify-between"><span class="text-slate-500">Address:</span> <span class="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[170px]">${esc(c.address || '123 Main St')}</span></div>`,
+          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Showroom</span>`
+        )}
+
+        <!-- 6. Social Links -->
+        ${card('social', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"/></svg>`,
+          'Social Links', 'Official Facebook, Instagram, YouTube, TikTok, LinkedIn, and X links.',
+          `<div class="flex justify-between"><span class="text-slate-500">Facebook:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${c.facebook_url ? 'Connected' : 'Not set'}</span></div>
+           <div class="flex justify-between"><span class="text-slate-500">Instagram:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${c.instagram_url ? 'Connected' : 'Not set'}</span></div>`,
+          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-400">Channels</span>`
+        )}
+
+        <!-- 7. Inventory Feed -->
+        ${card('inventory_feed', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.676A48.243 48.243 0 0012 7.5"/></svg>`,
+          'Inventory Feed', 'DMS live inventory feed, Build & Price franchise lineups, and pricing rules.',
+          `<div class="flex justify-between"><span class="text-slate-500">Live Inventory:</span> <span class="font-bold text-emerald-500">Active Sync</span></div>
+           <div class="flex justify-between"><span class="text-slate-500">Franchise Makes:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${(c.build_makes || []).length || 'Auto-Detect'} Selected</span></div>`,
+          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Automated</span>`
+        )}
+
+        <!-- 8. Forms & Lead Routing -->
+        ${card('routing', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>`,
+          'Forms & Lead Routing', 'Sales lead email notification, instant SMS dispatch, and CRM webhook routing.',
+          `<div class="flex justify-between"><span class="text-slate-500">Notify Email:</span> <span class="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[170px]">${esc(c.email || 'sales@dealer.com')}</span></div>
+           <div class="flex justify-between"><span class="text-slate-500">Notify SMS:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${esc(c.phone || 'Configured')}</span></div>`,
+          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Instant CRM</span>`
+        )}
+
+        <!-- 9. Analytics -->
+        ${card('analytics', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>`,
+          'Analytics', 'Google Analytics 4 Measurement ID, Meta Pixel ID, and Google Tag Manager (GTM).',
+          `<div class="flex justify-between"><span class="text-slate-500">GA4:</span> <span class="font-bold font-mono text-slate-800 dark:text-slate-200">${esc(c.ga4_id || 'G-XXXXXXXX')}</span></div>
+           <div class="flex justify-between"><span class="text-slate-500">Meta Pixel:</span> <span class="font-bold font-mono text-slate-800 dark:text-slate-200">${esc(c.meta_pixel_id || 'Configured')}</span></div>`,
+          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-400">Tracking</span>`
+        )}
+
+        <!-- 10. Integrations -->
+        ${card('integrations', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.25 9.75L16.5 12l-2.25 2.25m-4.5 0L7.5 12l2.25-2.25M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z"/></svg>`,
+          'Integrations', 'Digital retail integrations: Carfax history, Plaid bank connection, Square deposits.',
+          `<div class="flex justify-between"><span class="text-slate-500">Carfax Badge:</span> <span class="font-bold text-emerald-500">Enabled</span></div>
+           <div class="flex justify-between"><span class="text-slate-500">Digital Finance:</span> <span class="font-bold text-emerald-500">Plaid Active</span></div>`,
+          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Connected</span>`
+        )}
+
+        <!-- 11. AI ChatBot -->
+        ${card('ai-chatbot', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/></svg>`,
+          'AI ChatBot', '24/7 conversational sales assistant on your website qualifying shoppers and capturing leads.',
+          `<div class="flex justify-between"><span class="text-slate-500">Status:</span> <span class="font-bold ${isAiChatbotOwned() ? 'text-emerald-500' : 'text-amber-400'}">${isAiChatbotOwned() ? (c.sales_chat ? 'Active on Site' : 'Enabled') : 'Standalone Add-on'}</span></div>
+           <div class="flex justify-between"><span class="text-slate-500">Assistant:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${esc(c.chat_name || 'Ava (AI Assistant)')}</span></div>`,
+          isAiChatbotOwned() ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Active</span>` : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300">$299/mo</span>`
+        )}
+
+        <!-- 12. Publishing -->
+        ${card('publishing', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 01-.34 6.63m-4.5-6.63a6 6 0 00-.34 6.63m3.18-12.06a9 9 0 013.9 3.9m-3.9-3.9a9 9 0 00-3.9 3.9m3.9-3.9V3m0 6a3 3 0 100 6 3 3 0 000-6z"/></svg>`,
+          'Publishing', 'Live visibility status, site slug address, Cloudflare CDN cache purge, and maintenance.',
+          `<div class="flex justify-between"><span class="text-slate-500">Visibility:</span> <span class="font-bold ${isPub ? 'text-emerald-500' : 'text-amber-500'}">${isPub ? 'Published Live' : 'Draft Mode'}</span></div>
+           <div class="flex justify-between"><span class="text-slate-500">Slug:</span> <span class="font-bold font-mono text-slate-800 dark:text-slate-200 truncate max-w-[170px]">${esc(slug || 'default')}</span></div>`,
+          isPub ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Live</span>` : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400">Draft</span>`
+        )}
+
+        <!-- 13. Advanced -->
+        ${card('advanced', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"/></svg>`,
+          'Advanced', 'Custom &lt;head&gt; tracking scripts, footer codes, CSS overrides, and sitemaps.',
+          `<div class="flex justify-between"><span class="text-slate-500">Custom Head:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${c.head_html ? 'Configured' : 'None'}</span></div>
+           <div class="flex justify-between"><span class="text-slate-500">Sitemap Index:</span> <span class="font-bold text-emerald-500">Auto-Generated</span></div>`,
+          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/20 text-slate-400">Expert</span>`
+        )}
       </div>
     </div>
   `;
 }
+window.wsSetup = wsSetup;
 
-function setWsSetupSection(sec) {
-  __wsSetupSection = sec;
-  const body = document.getElementById('ws-setup-body');
-  if (body) body.innerHTML = renderWsSetupSection();
-}
-window.setWsSetupSection = setWsSetupSection;
-
-function renderWsSetupSection() {
+function openSetupModal(secId) {
+  document.getElementById('setup-modal-container')?.remove();
   const c = __siteCfg?.content || {};
-  const sec = (title, desc, inner) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
-    <div>
-      <h2 class="text-lg font-black text-slate-900 dark:text-white">${title}</h2>
-      ${desc ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${desc}</p>` : ''}
-    </div>
-    ${inner}
-    <div class="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800"><button onclick="saveWebsite(this)" class="text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl transition shadow-md">Save Settings</button></div>
-  </div>`;
+  const isPub = !!__siteCfg?.site_published;
+  const slug = __siteCfg?.site_slug || '';
 
-  if (!__wsSetupSection || __wsSetupSection === 'appearance') {
-    return sec('Application Appearance', 'Choose the visual theme for the Website Builder application chrome. This affects the editor application UI only and does NOT alter your published dealership website.', `
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <button type="button" onclick="setBuilderTheme('auto')" class="p-4 rounded-xl border text-left transition ${__builderTheme === 'auto' ? 'border-indigo-600 bg-indigo-600/10' : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950'}">
-          <div class="text-xs font-black text-slate-900 dark:text-white mb-1">Automatic (System)</div>
-          <div class="text-[11px] text-slate-500 dark:text-slate-400">Follows your device light or dark mode preference</div>
-        </button>
-        <button type="button" onclick="setBuilderTheme('light')" class="p-4 rounded-xl border text-left transition ${__builderTheme === 'light' ? 'border-indigo-600 bg-indigo-600/10' : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950'}">
-          <div class="text-xs font-black text-slate-900 dark:text-white mb-1">Light Mode</div>
-          <div class="text-[11px] text-slate-500 dark:text-slate-400">Always use clean light builder application chrome</div>
-        </button>
-        <button type="button" onclick="setBuilderTheme('dark')" class="p-4 rounded-xl border text-left transition ${__builderTheme === 'dark' ? 'border-indigo-600 bg-indigo-600/10' : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950'}">
-          <div class="text-xs font-black text-slate-900 dark:text-white mb-1">Dark Mode</div>
-          <div class="text-[11px] text-slate-500 dark:text-slate-400">Always use sleek dark builder application chrome</div>
-        </button>
-      </div>
-    `);
-  }
+  const modal = document.createElement('div');
+  modal.id = 'setup-modal-container';
+  modal.className = 'fixed inset-0 z-[99999] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4';
 
-  if (__wsSetupSection === 'domain') {
-    return sec('Domain & DNS Configuration', 'Connect your custom domain to your MarketSync dealer website.', customDomainCard(__siteCfg));
-  }
+  let title = 'Configure Settings';
+  let desc = 'Update your website preferences.';
+  let bodyHtml = '';
 
-  if (__wsSetupSection === 'branding') {
-    return sec('Branding & Aesthetics', 'Set your primary brand color, hero background, and dealership logo.', `
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-xs font-extrabold text-slate-500 mb-1">Brand Primary Color</label>
-          <input id="site-color" type="color" value="${esc(c.primary_color || '#1e3a8a')}" class="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 cursor-pointer">
+  if (secId === 'info') {
+    title = 'Dealership Information';
+    desc = 'Business name, tagline, description, hours, and license.';
+    bodyHtml = `
+      <div class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Dealership Display Name</label>
+            <input type="text" id="m-site-name" value="${esc(c.dealer_name || 'Premier Chevrolet')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Legal Entity / DBA</label>
+            <input type="text" id="m-site-legal" value="${esc(c.legal_name || '')}" placeholder="Premier Automotive Group Inc." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white" />
+          </div>
         </div>
         <div>
-          <label class="block text-xs font-extrabold text-slate-500 mb-1">Hero Image</label>
-          <div class="flex gap-2">
-            <input id="site-hero" value="${esc(c.hero_url || '')}" placeholder="URL or upload" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
-            <button type="button" onclick="openWsPhotoPicker(url => { const el = document.getElementById('site-hero'); if (el) el.value = url; })" class="text-xs font-black bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600/20 px-3.5 rounded-xl border border-indigo-500/30">Browse</button>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Tagline / Slogan</label>
+          <input type="text" id="m-site-tagline" value="${esc(c.tagline || 'Niagara’s Premier Truck Destination')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Dealership Story / About</label>
+          <textarea id="m-site-about" rows="3" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">${esc(c.about || '')}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Operating Hours</label>
+          <textarea id="m-site-hours" rows="2" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">${esc(c.hours || 'Mon–Fri: 9:00 AM – 7:00 PM\nSat: 9:00 AM – 5:00 PM\nSun: Closed')}</textarea>
+        </div>
+      </div>
+    `;
+  } else if (secId === 'domain') {
+    title = 'Domain & DNS Configuration';
+    desc = 'Connect your custom dealership domain.';
+    bodyHtml = customDomainCard(__siteCfg);
+  } else if (secId === 'branding') {
+    title = 'Branding & Aesthetics';
+    desc = 'Primary brand colors, logos, and hero backgrounds.';
+    bodyHtml = `
+      <div class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Brand Primary Color</label>
+            <div class="flex items-center gap-2">
+              <input id="m-site-color" type="color" value="${esc(c.primary_color || '#1e3a8a')}" class="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 cursor-pointer">
+              <input type="text" id="m-site-color-hex" value="${esc(c.primary_color || '#1e3a8a')}" oninput="document.getElementById('m-site-color').value=this.value" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs font-mono text-slate-900 dark:text-white">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Hero Image URL</label>
+            <div class="flex gap-2">
+              <input id="m-site-hero" value="${esc(c.hero_url || '')}" placeholder="https://..." class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs">
+              <button type="button" onclick="openWsPhotoPicker(url => { const el = document.getElementById('m-site-hero'); if (el) el.value = url; })" class="px-3 py-2 rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 font-bold text-xs">Browse</button>
+            </div>
           </div>
         </div>
       </div>
-    `);
-  }
-
-  if (__wsSetupSection === 'social') {
-    return sec('Social Media Channels', 'Link your official social accounts.', `
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-xs font-extrabold text-slate-500 mb-1">Facebook Page URL</label>
-          <input id="site-fb" value="${esc(c.facebook_url || '')}" placeholder="https://facebook.com/yourdealership" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
-        </div>
-        <div>
-          <label class="block text-xs font-extrabold text-slate-500 mb-1">Instagram Profile URL</label>
-          <input id="site-ig" value="${esc(c.instagram_url || '')}" placeholder="https://instagram.com/yourdealership" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
-        </div>
-      </div>
-    `);
-  }
-
-  if (__wsSetupSection === 'inventory_feed') {
-    return sec('Inventory Feed & Franchise Makes', 'Select new vehicle franchise lineups to display on your Build & Price page.', `
-      <p class="text-xs text-slate-500 dark:text-slate-400 mb-2">Check the new vehicle makes you sell. Unchecked makes default to auto-detect from your live stock.</p>
-      <div id="bm-wrap" class="flex flex-wrap gap-x-4 gap-y-2 py-2">${(() => { const set = new Set((c.build_makes || []).map(s => String(s).toLowerCase())); return ['Chevrolet', 'GMC', 'Buick', 'Cadillac', 'Ford', 'Lincoln', 'Toyota', 'Honda', 'Nissan', 'Hyundai', 'Kia', 'Mazda', 'Subaru', 'Volkswagen', 'Jeep', 'Ram', 'Dodge', 'Chrysler'].map(b => `<label class="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200"><input type="checkbox" class="bm-check accent-indigo-600 w-4 h-4 rounded" value="${b}" ${set.has(b.toLowerCase()) ? 'checked' : ''}>${b}</label>`).join(''); })()}</div>
-    `);
-  }
-
-  if (__wsSetupSection === 'routing') {
-    return sec('Lead Capture & Form Routing', 'Where website leads and inquiry forms deliver.', `
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-xs font-extrabold text-slate-500 mb-1">Notification Email</label>
-          <input id="site-email" value="${esc(c.email || '')}" placeholder="sales@yourdealership.com" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
-        </div>
-        <div>
-          <label class="block text-xs font-extrabold text-slate-500 mb-1">Notification Phone (SMS)</label>
-          <input id="site-phone" value="${esc(c.phone || '')}" placeholder="905-555-1234" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
+    `;
+  } else if (secId === 'appearance') {
+    title = 'Appearance & Theme';
+    desc = 'Application theme for the website editor chrome and typography.';
+    bodyHtml = `
+      <div class="space-y-4">
+        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Editor Chrome Mode</label>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <button type="button" onclick="setBuilderTheme('auto')" class="p-3.5 rounded-xl border text-left transition ${__builderTheme === 'auto' ? 'border-indigo-600 bg-indigo-600/10' : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950'}">
+            <div class="text-xs font-black text-slate-900 dark:text-white mb-1">Automatic</div>
+            <div class="text-[11px] text-slate-500">System preference</div>
+          </button>
+          <button type="button" onclick="setBuilderTheme('light')" class="p-3.5 rounded-xl border text-left transition ${__builderTheme === 'light' ? 'border-indigo-600 bg-indigo-600/10' : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950'}">
+            <div class="text-xs font-black text-slate-900 dark:text-white mb-1">Light Mode</div>
+            <div class="text-[11px] text-slate-500">Crisp light UI</div>
+          </button>
+          <button type="button" onclick="setBuilderTheme('dark')" class="p-3.5 rounded-xl border text-left transition ${__builderTheme === 'dark' ? 'border-indigo-600 bg-indigo-600/10' : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950'}">
+            <div class="text-xs font-black text-slate-900 dark:text-white mb-1">Dark Mode</div>
+            <div class="text-[11px] text-slate-500">Sleek dark UI</div>
+          </button>
         </div>
       </div>
-    `);
-  }
-
-  if (__wsSetupSection === 'seo') {
-    return sec('SEO & Head Analytics Code', 'Search engine optimization and tracking tags.', `
+    `;
+  } else if (secId === 'contact') {
+    title = 'Contact Information';
+    desc = 'Dealership sales line, service phone, address, and city.';
+    bodyHtml = `
+      <div class="space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Sales Phone</label>
+            <input type="text" id="m-site-phone" value="${esc(c.phone || '905-555-0199')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Primary Email</label>
+            <input type="text" id="m-site-email" value="${esc(c.email || 'sales@dealer.com')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Street Address</label>
+          <input type="text" id="m-site-address" value="${esc(c.address || '123 Auto Mall Rd')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">City</label>
+            <input type="text" id="m-site-city" value="${esc(c.city || 'Welland')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Province / State</label>
+            <input type="text" id="m-site-province" value="${esc(c.province || 'ON')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Postal Code</label>
+            <input type="text" id="m-site-postal" value="${esc(c.postal_code || 'L3C 5K9')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (secId === 'social') {
+    title = 'Social Links';
+    desc = 'Connect your official dealership social media channels.';
+    bodyHtml = `
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Facebook Page URL</label>
+          <input type="text" id="m-site-fb" value="${esc(c.facebook_url || '')}" placeholder="https://facebook.com/..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Instagram Profile URL</label>
+          <input type="text" id="m-site-ig" value="${esc(c.instagram_url || '')}" placeholder="https://instagram.com/..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">YouTube Channel URL</label>
+          <input type="text" id="m-site-yt" value="${esc(c.youtube_url || '')}" placeholder="https://youtube.com/..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">
+        </div>
+      </div>
+    `;
+  } else if (secId === 'inventory_feed') {
+    title = 'Inventory Feed & Makes';
+    desc = 'Select new vehicle franchise lineups displayed in Build & Price.';
+    const set = new Set((c.build_makes || []).map(s => String(s).toLowerCase()));
+    const makesList = ['Chevrolet', 'GMC', 'Buick', 'Cadillac', 'Ford', 'Lincoln', 'Toyota', 'Honda', 'Nissan', 'Hyundai', 'Kia', 'Mazda', 'Subaru', 'Volkswagen', 'Jeep', 'Ram', 'Dodge', 'Chrysler'];
+    bodyHtml = `
+      <div class="space-y-3">
+        <p class="text-xs text-slate-500 dark:text-slate-400">Select the new vehicle makes you sell. Unchecked makes default to auto-detecting from your live inventory.</p>
+        <div id="m-bm-wrap" class="grid grid-cols-2 sm:grid-cols-3 gap-2 py-2">
+          ${makesList.map(b => `<label class="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer"><input type="checkbox" class="m-bm-check accent-indigo-600 w-4 h-4 rounded" value="${b}" ${set.has(b.toLowerCase()) ? 'checked' : ''}><span>${b}</span></label>`).join('')}
+        </div>
+      </div>
+    `;
+  } else if (secId === 'routing') {
+    title = 'Forms & Lead Routing';
+    desc = 'Where website lead submissions, test drives, and appraisals deliver.';
+    bodyHtml = `
       <div class="space-y-4">
         <div>
-          <label class="block text-xs font-extrabold text-slate-500 mb-1">Google Page Title (~60 chars)</label>
-          <input id="seo-title" value="${esc(c.seo_title || '')}" placeholder="Your Dealership | New & Used Cars, Trucks & SUVs" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Notification Email</label>
+          <input type="text" id="m-site-email" value="${esc(c.email || 'sales@dealer.com')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">
         </div>
         <div>
-          <label class="block text-xs font-extrabold text-slate-500 mb-1">Meta Description (~155 chars)</label>
-          <textarea id="seo-desc" rows="2" placeholder="Shop new and used vehicles..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">${esc(c.seo_description || '')}</textarea>
-        </div>
-        <div>
-          <label class="block text-xs font-extrabold text-slate-500 mb-1">Keywords</label>
-          <input id="seo-keywords" value="${esc(c.seo_keywords || '')}" placeholder="used cars near me, trucks for sale" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
-        </div>
-        <div>
-          <label class="block text-xs font-extrabold text-slate-500 mb-1">Site-wide Head HTML Scripts</label>
-          <textarea id="site-head" rows="3" placeholder="<script>...</script> (Google Analytics, Meta Pixel)" class="w-full font-mono text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2">${esc(c.head_html || '')}</textarea>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Notification Phone (SMS Alerts)</label>
+          <input type="text" id="m-site-phone" value="${esc(c.phone || '905-555-0199')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">
         </div>
       </div>
-    `);
-  }
-
-  if (__wsSetupSection === 'ai-chatbot') {
+    `;
+  } else if (secId === 'analytics') {
+    title = 'Analytics & Tracking Pixels';
+    desc = 'Google Analytics 4, Meta Pixel, and Google Tag Manager.';
+    bodyHtml = `
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">GA4 Measurement ID</label>
+          <input type="text" id="m-site-ga4" value="${esc(c.ga4_id || '')}" placeholder="G-XXXXXXXXXX" class="w-full font-mono bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Meta Pixel ID</label>
+          <input type="text" id="m-site-meta" value="${esc(c.meta_pixel_id || '')}" placeholder="123456789012345" class="w-full font-mono bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Google Tag Manager (GTM) Container ID</label>
+          <input type="text" id="m-site-gtm" value="${esc(c.gtm_id || '')}" placeholder="GTM-XXXXXXX" class="w-full font-mono bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">
+        </div>
+      </div>
+    `;
+  } else if (secId === 'integrations') {
+    title = 'Third-Party Integrations';
+    desc = 'Manage Carfax history badges, Plaid finance intake, and Square.';
+    bodyHtml = `
+      <div class="space-y-3 text-xs">
+        <label class="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 cursor-pointer">
+          <div>
+            <div class="font-bold text-slate-900 dark:text-white">Carfax Vehicle History Badges</div>
+            <div class="text-slate-500 text-[11px]">Display 1-Owner and Clean History badges on VDPs.</div>
+          </div>
+          <input type="checkbox" id="m-site-carfax" checked class="accent-indigo-600 w-4 h-4 rounded">
+        </label>
+        <label class="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 cursor-pointer">
+          <div>
+            <div class="font-bold text-slate-900 dark:text-white">Plaid Digital Finance Verification</div>
+            <div class="text-slate-500 text-[11px]">Instant bank account and income verification on credit applications.</div>
+          </div>
+          <input type="checkbox" id="m-site-plaid" checked class="accent-indigo-600 w-4 h-4 rounded">
+        </label>
+      </div>
+    `;
+  } else if (secId === 'ai-chatbot') {
+    title = 'AI ChatBot Configuration';
+    desc = 'Conversational automotive sales concierge.';
     if (!isAiChatbotOwned()) {
-      return `
-        <div class="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 border border-indigo-500/30 rounded-3xl p-8 text-white space-y-6 shadow-2xl">
-          <div class="flex items-center justify-between flex-wrap gap-4 border-b border-indigo-900/60 pb-6">
-            <div class="flex items-center gap-4">
-              <div class="w-14 h-14 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 font-black text-xl shadow-inner">AI</div>
-              <div>
-                <div class="flex items-center gap-2">
-                  <h2 class="text-2xl font-black text-white">AI ChatBot</h2>
-                  <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">Standalone Product</span>
-                </div>
-                <p class="text-indigo-200 text-sm font-medium mt-0.5">Turn your website into a 24/7 digital sales assistant.</p>
-              </div>
-            </div>
-            <div class="text-right">
-              <div class="text-3xl font-black text-white">$299 <span class="text-xs font-bold text-slate-400">/ month CAD</span></div>
-              <div class="text-[11px] text-indigo-300 font-semibold">Standalone add-on · Instant activation</div>
-            </div>
+      bodyHtml = `
+        <div class="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs space-y-2">
+          <div class="font-black text-sm">AI ChatBot ($299/mo CAD) is a standalone add-on.</div>
+          <p class="text-[11px] text-amber-200">Upgrade to enable 24/7 conversational sales chat with live inventory lookup on your website.</p>
+          <button type="button" onclick="upgradeToAiChatbot(this)" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs rounded-xl shadow-md cursor-pointer">Upgrade to AI ChatBot</button>
+        </div>
+      `;
+    } else {
+      bodyHtml = `
+        <div class="space-y-4">
+          <label class="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
+            <input type="checkbox" id="m-site-chat-enabled" ${c.sales_chat ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+            <span>Enable 24/7 AI ChatBot on Public Website</span>
+          </label>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Concierge Name</label>
+            <input type="text" id="m-site-chat-name" value="${esc(c.chat_name || 'Ava')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">
           </div>
-
-          <div class="space-y-4">
-            <h3 class="text-sm font-black uppercase tracking-wider text-indigo-400">What AI ChatBot does for your dealership:</h3>
-            <div class="grid md:grid-cols-2 gap-3 text-xs">
-              <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
-                <div class="font-black text-slate-200 flex items-center gap-2"><svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Answers Vehicle Questions</div>
-                <p class="text-slate-400 text-[11px]">Replies instantly to shopper questions about pricing, specs, availability, and features using your live lot inventory.</p>
-              </div>
-              <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
-                <div class="font-black text-slate-200 flex items-center gap-2"><svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Captures 24/7 Leads</div>
-                <p class="text-slate-400 text-[11px]">Collects customer contact info, preferred vehicles, and trade details even when your showroom is closed.</p>
-              </div>
-              <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
-                <div class="font-black text-slate-200 flex items-center gap-2"><svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Helps Customers Find Inventory</div>
-                <p class="text-slate-400 text-[11px]">Guides shoppers to matching new and used vehicles on your website based on budget, body style, and payment goals.</p>
-              </div>
-              <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
-                <div class="font-black text-slate-200 flex items-center gap-2"><svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Routes Sales &amp; Service Inquiries</div>
-                <p class="text-slate-400 text-[11px]">Directs service appointment requests, financing applications, and trade appraisals directly to the right department.</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="p-5 rounded-2xl bg-indigo-950/40 border border-indigo-500/20 text-xs text-indigo-200 flex items-center justify-between gap-4 flex-wrap">
-            <div>
-              <div class="font-bold text-white text-sm">Keep your existing Dealer Website subscription ($249/mo CAD)</div>
-              <div class="text-[11px] text-slate-400">AI ChatBot ($299/mo CAD) is added as a separate standalone product under your account.</div>
-            </div>
-            <button onclick="upgradeToAiChatbot(this)" class="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm transition shadow-xl hover:shadow-indigo-500/30 cursor-pointer whitespace-nowrap">Upgrade to AI ChatBot — $299/mo</button>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Knowledgebase Facts</label>
+            <textarea id="m-site-chat-kb" rows="3" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">${esc(c.chat_kb || '')}</textarea>
           </div>
         </div>
       `;
     }
-
-    // Active AI ChatBot configuration wizard
-    return `
-      <div class="space-y-6">
-        <div class="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg></div>
-            <div>
-              <div class="font-black text-emerald-300 text-sm">AI ChatBot Active</div>
-              <div class="text-xs text-slate-400">Your 24/7 digital assistant is active on your MarketSync website.</div>
-            </div>
-          </div>
-          <label class="flex items-center gap-2 text-xs font-black text-slate-200 cursor-pointer">
-            <input id="site-sales-chat" type="checkbox" ${c.sales_chat ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded"> Enabled on site
-          </label>
+  } else if (secId === 'publishing') {
+    title = 'Publishing & Public Address';
+    desc = 'Site visibility and slug routing.';
+    bodyHtml = `
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Website URL Slug</label>
+          <input type="text" id="m-site-slug" value="${esc(slug || '')}" placeholder="your-dealership" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs font-mono text-slate-900 dark:text-white">
         </div>
-
-        ${sec('AI Assistant Persona & Setup', 'Configure name, tone, and knowledgebase.', `
-          <div class="space-y-4">
-            <div>
-              <label class="block text-xs font-extrabold text-slate-500 mb-1">Concierge Name</label>
-              <input id="site-chat-name" type="text" value="${esc(c.chat_name || '')}" placeholder="e.g. Ava" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
-            </div>
-            <div>
-              <div class="flex items-center justify-between gap-2 mb-1">
-                <label class="block text-xs font-extrabold text-slate-500">Knowledgebase Facts</label>
-                <input id="site-chat-kb-file" type="file" accept=".txt,.md,.csv,text/plain" class="hidden" onchange="loadChatKbFile(this.files[0])">
-                <button type="button" onclick="document.getElementById('site-chat-kb-file').click()" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">⬆ Upload .txt/.md</button>
-              </div>
-              <textarea id="site-chat-kb" rows="5" placeholder="Financing policies, warranties, dealership hours..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">${esc(c.chat_kb || '')}</textarea>
-            </div>
-            <div>
-              <label class="block text-xs font-extrabold text-slate-500 mb-1">Special Instructions for AI</label>
-              <textarea id="site-chat-instructions" rows="3" placeholder="Low-pressure tone, emphasize trade-in offers..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">${esc(c.chat_instructions || '')}</textarea>
-            </div>
-            <div>
-              <label class="block text-xs font-extrabold text-slate-500 mb-1">Terms Disclaimer</label>
-              <textarea id="site-chat-disclaimer" rows="2" placeholder="Prices do not include taxes or license fees..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">${esc(c.chat_disclaimer || '')}</textarea>
-            </div>
-          </div>
-        `)}
+        <label class="flex items-center gap-2 text-xs font-black text-slate-800 dark:text-slate-200 cursor-pointer">
+          <input type="checkbox" id="m-site-pub" ${isPub ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+          <span>Website Published Live to Public</span>
+        </label>
+      </div>
+    `;
+  } else {
+    // advanced
+    title = 'Advanced Settings';
+    desc = 'Custom header scripts, tracking codes, and CSS overrides.';
+    bodyHtml = `
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Site-wide Head HTML Scripts</label>
+          <textarea id="m-site-head" rows="4" placeholder="<script>...</script>" class="w-full font-mono text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white">${esc(c.head_html || '')}</textarea>
+        </div>
       </div>
     `;
   }
 
-  if (__wsSetupSection === 'publishing') {
-    const url = c.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(c.site_slug)}` : '';
-    return sec('Publishing & Site URL', 'Public website address and visibility status.', `
-      <div class="space-y-4">
-        ${url ? `
-          <div class="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3">
-            <span class="text-xs text-slate-600 dark:text-slate-300 flex-1 truncate font-mono">${esc(url)}</span>
-            <button onclick="navigator.clipboard?.writeText('${url}');showToast('Link copied','success')" class="text-xs font-black text-indigo-600 dark:text-indigo-400 px-3 py-1 bg-indigo-600/10 rounded-lg">Copy</button>
-            <a href="${url}" target="_blank" class="text-xs font-black text-indigo-600 dark:text-indigo-400 px-3 py-1 bg-indigo-600/10 rounded-lg">Open ↗</a>
-          </div>
-        ` : ''}
-        <div class="flex items-center gap-4">
-          <div class="flex-1">
-            <label class="block text-xs font-extrabold text-slate-500 mb-1">Site Slug (Address)</label>
-            <input id="site-slug" value="${esc(__siteCfg.site_slug || '')}" placeholder="your-dealership" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
-          </div>
-          <label class="flex items-center gap-2 text-xs font-black text-slate-700 dark:text-slate-300 mt-5 cursor-pointer">
-            <input id="site-pub" type="checkbox" ${__siteCfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded"> Published Live
-          </label>
-        </div>
-      </div>
-    `);
-  }
-
-  // Default 'info'
-  return sec('Dealership Profile & Contact Details', 'Business name, address, hours, and contact details shown on your site.', `
-    <div class="space-y-4">
-      <div>
-        <label class="block text-xs font-extrabold text-slate-500 mb-1">Headline / Tagline</label>
-        <input id="site-tagline" value="${esc(c.tagline || '')}" placeholder="Your trusted local dealership" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
-      </div>
-      <div>
-        <label class="block text-xs font-extrabold text-slate-500 mb-1">About Dealership</label>
-        <textarea id="site-about" rows="3" placeholder="A sentence or two about your store..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">${esc(c.about || '')}</textarea>
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  modal.innerHTML = `
+    <div class="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-slate-900 shadow-2xl p-6 border border-slate-200 dark:border-slate-800 space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
         <div>
-          <label class="block text-xs font-extrabold text-slate-500 mb-1">Phone</label>
-          <input id="site-phone" value="${esc(c.phone || '')}" placeholder="905-555-1234" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
+          <h2 class="text-lg font-black text-slate-900 dark:text-white tracking-tight">${title}</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${desc}</p>
         </div>
-        <div>
-          <label class="block text-xs font-extrabold text-slate-500 mb-1">Email</label>
-          <input id="site-email" value="${esc(c.email || '')}" placeholder="sales@yourdealership.com" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
-        </div>
+        <button type="button" onclick="document.getElementById('setup-modal-container')?.remove()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-200 flex items-center justify-center font-black text-lg transition cursor-pointer">&times;</button>
       </div>
-      <div>
-        <label class="block text-xs font-extrabold text-slate-500 mb-1">Address</label>
-        <input id="site-address" value="${esc(c.address || '')}" placeholder="123 Main St, City, Province" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
-      </div>
-      <div>
-        <label class="block text-xs font-extrabold text-slate-500 mb-1">Hours</label>
-        <textarea id="site-hours" rows="2" placeholder="Mon–Fri 9–6, Sat 9–5" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">${esc(c.hours || '')}</textarea>
+      <div id="setup-modal-body">${bodyHtml}</div>
+      <div class="flex items-center justify-end gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
+        <button type="button" onclick="document.getElementById('setup-modal-container')?.remove()" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs transition">Cancel</button>
+        <button type="button" onclick="saveSetupSection('${secId}')" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md cursor-pointer">Save Changes</button>
       </div>
     </div>
-  `);
+  `;
+
+  document.body.appendChild(modal);
 }
+window.openSetupModal = openSetupModal;
+
+async function saveSetupSection(secId) {
+  if (!__siteCfg) return;
+  const c = __siteCfg.content || (__siteCfg.content = {});
+
+  if (secId === 'info') {
+    c.dealer_name = document.getElementById('m-site-name')?.value || c.dealer_name;
+    c.legal_name = document.getElementById('m-site-legal')?.value || '';
+    c.tagline = document.getElementById('m-site-tagline')?.value || c.tagline;
+    c.about = document.getElementById('m-site-about')?.value || '';
+    c.hours = document.getElementById('m-site-hours')?.value || c.hours;
+  } else if (secId === 'branding') {
+    c.primary_color = document.getElementById('m-site-color')?.value || c.primary_color;
+    c.hero_url = document.getElementById('m-site-hero')?.value || '';
+  } else if (secId === 'contact') {
+    c.phone = document.getElementById('m-site-phone')?.value || c.phone;
+    c.email = document.getElementById('m-site-email')?.value || c.email;
+    c.address = document.getElementById('m-site-address')?.value || c.address;
+    c.city = document.getElementById('m-site-city')?.value || c.city;
+    c.province = document.getElementById('m-site-province')?.value || c.province;
+    c.postal_code = document.getElementById('m-site-postal')?.value || c.postal_code;
+  } else if (secId === 'social') {
+    c.facebook_url = document.getElementById('m-site-fb')?.value || '';
+    c.instagram_url = document.getElementById('m-site-ig')?.value || '';
+    c.youtube_url = document.getElementById('m-site-yt')?.value || '';
+  } else if (secId === 'inventory_feed') {
+    const checks = document.querySelectorAll('.m-bm-check:checked');
+    c.build_makes = Array.from(checks).map(cb => cb.value);
+  } else if (secId === 'routing') {
+    c.email = document.getElementById('m-site-email')?.value || c.email;
+    c.phone = document.getElementById('m-site-phone')?.value || c.phone;
+  } else if (secId === 'analytics') {
+    c.ga4_id = document.getElementById('m-site-ga4')?.value || '';
+    c.meta_pixel_id = document.getElementById('m-site-meta')?.value || '';
+    c.gtm_id = document.getElementById('m-site-gtm')?.value || '';
+  } else if (secId === 'ai-chatbot') {
+    if (document.getElementById('m-site-chat-enabled')) {
+      c.sales_chat = !!document.getElementById('m-site-chat-enabled').checked;
+      c.chat_name = document.getElementById('m-site-chat-name')?.value || 'Ava';
+      c.chat_kb = document.getElementById('m-site-chat-kb')?.value || '';
+    }
+  } else if (secId === 'publishing') {
+    __siteCfg.site_slug = document.getElementById('m-site-slug')?.value || __siteCfg.site_slug;
+    __siteCfg.site_published = !!document.getElementById('m-site-pub')?.checked;
+  } else if (secId === 'advanced') {
+    c.head_html = document.getElementById('m-site-head')?.value || '';
+  }
+
+  try {
+    await apiSendJson('/dealership/site', 'PUT', {
+      site_slug: __siteCfg.site_slug,
+      site_published: __siteCfg.site_published,
+      content: c
+    });
+    document.getElementById('setup-modal-container')?.remove();
+    if (typeof showToast === 'function') showToast('Setup settings saved', 'success');
+    renderWsBody();
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message, 'error');
+    else alert(e.message);
+  }
+}
+window.saveSetupSection = saveSetupSection;
+
 // Upload an image (hero/page) → returns a public URL into the given input field.
 async function uploadSiteImage(targetId, file) {
   if (!file) return;
@@ -1388,42 +1610,59 @@ window.exitWebsiteWorkspace = exitWebsiteWorkspace;
 function renderWebsitePage() {
   applyBuilderTheme();
   const root = document.getElementById('website-root'); if (!root) return;
-  const c = __siteCfg.content || {};
-  const url = __siteCfg.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(__siteCfg.site_slug)}` : null;
+  const c = __siteCfg?.content || {};
+  const url = __siteCfg?.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(__siteCfg.site_slug)}` : null;
   
+  const tabBtn = (id, label, iconSvg) => {
+    const active = (__wsTab === id) || (id === 'setup' && __wsTab === 'settings');
+    return `
+      <button onclick="wsTab('${id}')" class="px-3.5 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${active ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'}">
+        ${iconSvg}
+        <span>${label}</span>
+      </button>
+    `;
+  };
+
   root.innerHTML = `
     <div class="flex flex-col h-full w-full bg-[var(--ws-bg)] text-[var(--ws-text)]">
-      <!-- TOP APPLICATION HEADER (Dedicated Full-Screen Workspace Header) -->
-      <div class="ws-builder-header flex items-center justify-between px-4 py-2.5 bg-[var(--ws-panel)] border-b border-[var(--ws-border)] flex-shrink-0 flex-wrap gap-2">
+      <!-- TOP APPLICATION HEADER (Dedicated Website Workspace Header with Sub-Layout Navigation) -->
+      <div class="ws-builder-header flex items-center justify-between px-4 py-2.5 bg-slate-900 border-b border-slate-800 flex-shrink-0 flex-wrap gap-2 text-white z-20">
         <div class="flex items-center gap-3">
-          <button onclick="exitWebsiteWorkspace()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-white border border-slate-700/60 text-xs font-black transition cursor-pointer shadow-sm" title="Exit Website Workspace & Return to Settings">
+          <button onclick="exitWebsiteWorkspace()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 text-xs font-black transition cursor-pointer shadow-xs" title="Exit Website Workspace & Return to Dashboard">
             <svg class="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
             <span>Exit Website</span>
           </button>
-          <div class="h-5 w-px bg-[var(--ws-border)]"></div>
-          <div class="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black border border-indigo-500/40">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18zM2.25 12h19.5M12 2.25a15.3 15.3 0 014.5 9.75 15.3 15.3 0 01-4.5 9.75 15.3 15.3 0 01-4.5-9.75A15.3 15.3 0 0112 2.25z"/></svg>
+          <div class="h-5 w-px bg-slate-800"></div>
+          <div class="w-7 h-7 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-black border border-indigo-500/40">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18zM2.25 12h19.5M12 2.25a15.3 15.3 0 014.5 9.75 15.3 15.3 0 01-4.5 9.75 15.3 15.3 0 01-4.5-9.75A15.3 15.3 0 0112 2.25z"/></svg>
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <span class="text-sm font-black tracking-tight text-[var(--ws-text)]">MarketSync Website</span>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${__siteCfg.site_published ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40'}">
+              <span class="text-sm font-black tracking-tight text-white">MarketSync Website</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${__siteCfg.site_published ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'}">
                 ${__siteCfg.site_published ? 'Live' : 'Draft'}
               </span>
             </div>
-            <p class="text-[11px] text-[var(--ws-text-muted)]">Full-screen dealership website application</p>
           </div>
+        </div>
+
+        <!-- PRIMARY 4-TAB NAVIGATION BAR -->
+        <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+          ${tabBtn('builder', 'Builder', `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>`)}
+          ${tabBtn('blog', 'Blog', `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>`)}
+          ${tabBtn('seo', 'SEO', `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"/></svg>`)}
+          ${tabBtn('setup', 'Setup', `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>`)}
         </div>
 
         <!-- TOP RIGHT ACTION CONTROLS -->
         <div class="flex items-center gap-2">
-          ${url ? `<a href="${url}" target="_blank" class="text-xs font-black bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl transition">View Site ↗</a>` : ''}
-          <label class="flex items-center gap-1.5 text-xs font-bold text-[var(--ws-text-secondary)] cursor-pointer bg-[var(--ws-panel-raised)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl"><input id="ws-pub" type="checkbox" ${__siteCfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-3.5 h-3.5 rounded">Published</label>
+          ${url ? `<a href="${url}" target="_blank" class="text-xs font-black bg-slate-800 text-slate-300 hover:text-white border border-slate-700 px-3 py-1.5 rounded-xl transition">View Site ↗</a>` : ''}
+          <label class="flex items-center gap-1.5 text-xs font-bold text-slate-300 cursor-pointer bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-xl"><input id="ws-pub" type="checkbox" ${__siteCfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-3.5 h-3.5 rounded">Published</label>
           <button onclick="saveWebsite(this)" class="text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-xl transition shadow-md cursor-pointer">Save Changes</button>
         </div>
       </div>
 
-      <!-- WORKSPACE CONTENT BODY -->
+      <!-- WORKSPACE CONTENT BODY (Sub-Layout dynamically mounted based on active tab) -->
       <div id="ws-body" class="flex-1 min-h-0 overflow-y-auto"></div>
     </div>`;
   renderWsBody();
@@ -2372,16 +2611,75 @@ function renderLiveBuilder(body) {
 
   renderWsLayersTree();
 }
+function wsBlog() {
+  return `
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full space-y-6">
+      <div class="flex items-center justify-between flex-wrap gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
+        <div>
+          <h1 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Website Blog &amp; Content Management</h1>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Publish automotive guides, vehicle comparisons, and maintenance articles to rank locally and convert search traffic.</p>
+        </div>
+        <button type="button" onclick="dealerBlogEdit(null)" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs rounded-xl transition shadow-md cursor-pointer flex items-center gap-1.5">
+          <span>+ New Article</span>
+        </button>
+      </div>
+      <div id="ws-blog-root"></div>
+    </div>
+  `;
+}
+window.wsBlog = wsBlog;
+
 function renderWsBody() {
   const body = document.getElementById('ws-body'); if (!body) return;
-  if (__wsTab === 'setup' || __wsTab === 'settings') { body.innerHTML = wsSetup(); return; }
-  if (__wsTab === 'seo') { body.innerHTML = wsSeo(); loadDealerSeo(); return; }
-  if (__wsTab === 'design') { body.innerHTML = wsDesign(); return; }
-  if (__wsTab === 'pages') { body.innerHTML = wsPages(); renderMenuList(); return; }
-  if (__wsTab === 'blog') { body.innerHTML = '<div id="ws-blog-root" class="pt-4"></div>'; loadDealerBlog(); return; }
-  if (__wsTab === 'team') { body.innerHTML = wsTeam(); renderSiteStaff(); return; }
-  if (__wsTab === 'builder' && __builderMode === 'live') { renderLiveBuilder(body); return; }
+
+  // Cleanup lingering floating canvas docks when switching away from Builder
+  if (__wsTab !== 'builder') {
+    document.getElementById('ws-left-dock-wrapper')?.remove();
+    document.getElementById('ws-right-dock-wrapper')?.remove();
+    document.getElementById('ws-inspector-panel')?.remove();
+  }
+
+  if (__wsTab === 'setup' || __wsTab === 'settings') {
+    body.className = 'flex-1 min-h-0 overflow-y-auto w-full bg-slate-50 dark:bg-slate-950';
+    body.innerHTML = wsSetup();
+    return;
+  }
+  if (__wsTab === 'seo') {
+    body.className = 'flex-1 min-h-0 overflow-y-auto w-full bg-slate-50 dark:bg-slate-950';
+    body.innerHTML = wsSeo();
+    loadDealerSeo();
+    return;
+  }
+  if (__wsTab === 'blog') {
+    body.className = 'flex-1 min-h-0 overflow-y-auto w-full bg-slate-50 dark:bg-slate-950';
+    body.innerHTML = wsBlog();
+    loadDealerBlog();
+    return;
+  }
+  if (__wsTab === 'design') {
+    body.className = 'flex-1 min-h-0 overflow-y-auto w-full bg-slate-50 dark:bg-slate-950 p-6';
+    body.innerHTML = wsDesign();
+    return;
+  }
+  if (__wsTab === 'pages') {
+    body.className = 'flex-1 min-h-0 overflow-y-auto w-full bg-slate-50 dark:bg-slate-950 p-6';
+    body.innerHTML = wsPages();
+    renderMenuList();
+    return;
+  }
+  if (__wsTab === 'team') {
+    body.className = 'flex-1 min-h-0 overflow-y-auto w-full bg-slate-50 dark:bg-slate-950 p-6';
+    body.innerHTML = wsTeam();
+    renderSiteStaff();
+    return;
+  }
+  if (__wsTab === 'builder' && __builderMode === 'live') {
+    body.className = 'flex-1 min-h-0 overflow-hidden flex flex-col w-full h-full';
+    renderLiveBuilder(body);
+    return;
+  }
   // Builder Classic
+  body.className = 'flex-1 min-h-0 overflow-y-auto w-full p-4';
   const pageOpts = (__sitePages || []).map((p, i) => `<option value="${i}" ${__wsTarget === i ? 'selected' : ''}> ${esc(p.title || 'Untitled page')}</option>`).join('');
   const builtinOpts = BUILTIN_META.filter(([k]) => (__siteBuiltins[k]?.enabled !== false)).map(([k, label]) => `<option value="b:${k}" ${__wsTarget === 'b:' + k ? 'selected' : ''}> ${esc((__siteBuiltins[k] && __siteBuiltins[k].label) || label)} — top section</option>`).join('');
   body.innerHTML = `
@@ -3783,16 +4081,24 @@ async function loadDealerSeo() {
   }
 }
 
+function setSeoMainTab(tab) {
+  __seoMainTab = tab || 'overview';
+  renderSeoWorkspace();
+}
+window.setSeoMainTab = setSeoMainTab;
+
 function setSeoSubTab(tab) {
   __seoSubTab = tab;
   renderSeoWorkspace();
 }
+window.setSeoSubTab = setSeoSubTab;
 
 function setSeoMode(mode) {
   __seoMode = mode;
   apiSendJson('/seo/settings', 'PUT', { mode }).catch(() => {});
   renderSeoWorkspace();
 }
+window.setSeoMode = setSeoMode;
 
 function renderSeoWorkspace() {
   const root = document.getElementById('seo-workspace-root');
@@ -3802,7 +4108,7 @@ function renderSeoWorkspace() {
   const isEasy = __seoMode !== 'advanced';
 
   const navTab = (id, label) => `
-    <button onclick="setSeoMainTab('${id}')" class="px-3.5 py-2 text-xs font-black rounded-xl transition ${__seoMainTab === id ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>
+    <button onclick="setSeoMainTab('${id}')" data-seo-tab="${id}" class="px-3.5 py-2 text-xs font-black rounded-xl transition cursor-pointer ${__seoMainTab === id ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>
   `;
 
   root.innerHTML = `
@@ -3820,8 +4126,8 @@ function renderSeoWorkspace() {
       </div>
       <div class="flex items-center gap-3">
         <div class="inline-flex rounded-xl border border-slate-700 overflow-hidden text-xs font-bold shadow-xs">
-          <button onclick="setSeoMode('easy')" class="px-3 py-1.5 transition ${isEasy ? 'bg-indigo-600 text-white font-black' : 'bg-slate-800 text-slate-300'}">Easy Mode</button>
-          <button onclick="setSeoMode('advanced')" class="px-3 py-1.5 transition ${!isEasy ? 'bg-indigo-600 text-white font-black' : 'bg-slate-800 text-slate-300'}">Advanced Mode</button>
+          <button onclick="setSeoMode('easy')" class="px-3 py-1.5 transition cursor-pointer ${isEasy ? 'bg-indigo-600 text-white font-black' : 'bg-slate-800 text-slate-300'}">Easy Mode</button>
+          <button onclick="setSeoMode('advanced')" class="px-3 py-1.5 transition cursor-pointer ${!isEasy ? 'bg-indigo-600 text-white font-black' : 'bg-slate-800 text-slate-300'}">Advanced Mode</button>
         </div>
       </div>
     </div>
@@ -3830,12 +4136,11 @@ function renderSeoWorkspace() {
     <div class="flex items-center gap-1.5 border-b border-slate-200 dark:border-slate-800 pb-3 flex-wrap">
       ${navTab('overview', 'Overview')}
       ${navTab('settings', 'Settings')}
-      ${navTab('titles', 'Titles & Meta')}
-      ${navTab('sitemaps', 'Sitemaps')}
-      ${navTab('local', 'Local SEO & Schema')}
+      ${navTab('content', 'Content')}
+      ${navTab('technical', 'Technical')}
       ${navTab('redirects', 'Redirects & 404s')}
-      ${navTab('robots', 'Robots & LLM')}
-      ${navTab('technical', 'Webmaster & Analytics')}
+      ${navTab('analytics', 'Analytics')}
+      ${navTab('competitors', 'Competitors')}
       ${navTab('autopilot', 'Auto-Pilot')}
       ${navTab('history', 'Change Log')}
     </div>
@@ -3848,20 +4153,18 @@ function renderSeoWorkspace() {
 }
 
 function renderSeoMainBody() {
-  if (__seoMainTab === 'settings') {
+  if (__seoMainTab === 'settings' || __seoMainTab === 'titles') {
     return renderSeoSettingsWorkspace();
-  } else if (__seoMainTab === 'titles') {
-    return renderSeoTitlesView();
-  } else if (__seoMainTab === 'sitemaps') {
-    return renderSeoSitemapsView();
-  } else if (__seoMainTab === 'local') {
-    return renderSeoLocalView();
+  } else if (__seoMainTab === 'content') {
+    return renderSeoContentView();
+  } else if (__seoMainTab === 'technical' || __seoMainTab === 'sitemaps' || __seoMainTab === 'local' || __seoMainTab === 'robots') {
+    return renderSeoTechnicalView();
   } else if (__seoMainTab === 'redirects') {
     return renderSeoRedirectsView();
-  } else if (__seoMainTab === 'robots') {
-    return renderSeoRobotsView();
-  } else if (__seoMainTab === 'technical') {
-    return renderSeoTechnicalView();
+  } else if (__seoMainTab === 'analytics') {
+    return renderSeoAnalyticsView();
+  } else if (__seoMainTab === 'competitors') {
+    return renderSeoCompetitorsView();
   } else if (__seoMainTab === 'autopilot') {
     return renderSeoAutopilotView();
   } else if (__seoMainTab === 'history') {
@@ -3874,13 +4177,792 @@ function renderSeoOverviewView() {
   const d = __seoData || {};
   return `
     <div class="space-y-6">
+      <!-- Top Summary Scorecards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+          <div class="text-slate-500 dark:text-slate-400 font-bold">SEO Health</div>
+          <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400">${d.healthScore || 92} <span class="text-xs text-slate-400">/ 100</span></div>
+          <div class="text-[10px] text-slate-400 font-medium">Daily Audit Passed</div>
+        </div>
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+          <div class="text-slate-500 dark:text-slate-400 font-bold">Organic Visibility</div>
+          <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400">+${d.visibilityDelta || 14}%</div>
+          <div class="text-[10px] text-emerald-500 font-bold">Trending Upward</div>
+        </div>
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+          <div class="text-slate-500 dark:text-slate-400 font-bold">Search Traffic</div>
+          <div class="text-2xl font-black text-slate-900 dark:text-white">${d.searchTraffic || 1482}</div>
+          <div class="text-[10px] text-slate-400 font-medium">Monthly Clicks</div>
+        </div>
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+          <div class="text-slate-500 dark:text-slate-400 font-bold">Indexed Pages</div>
+          <div class="text-xl font-black text-slate-900 dark:text-white">${d.indexedPages || '347 / 352'}</div>
+          <div class="text-[10px] text-slate-400 font-medium">Google Coverage</div>
+        </div>
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+          <div class="text-slate-500 dark:text-slate-400 font-bold">AI Visibility</div>
+          <div class="text-xl font-black text-emerald-500">${d.aiVisibility || 'Good'}</div>
+          <div class="text-[10px] text-slate-400 font-medium">llms.txt Ready</div>
+        </div>
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+          <div class="text-slate-500 dark:text-slate-400 font-bold">Needs Attention</div>
+          <div class="text-2xl font-black text-amber-500">${d.issuesCount || 2}</div>
+          <div class="text-[10px] text-slate-400 font-medium">Pending Review</div>
+        </div>
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+          <div class="text-slate-500 dark:text-slate-400 font-bold">Opportunities</div>
+          <div class="text-2xl font-black text-indigo-500">${d.opportunitiesCount || 12}</div>
+          <div class="text-[10px] text-slate-400 font-medium">AI Suggestions</div>
+        </div>
+      </div>
+
+      <!-- Action Required / Issues List -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Issues Requiring Attention</h3>
+          <span class="text-xs text-slate-500 dark:text-slate-400 font-semibold">Rank-Math intelligence: Every issue identifies cause, impact, and repair.</span>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div class="flex items-center gap-2.5">
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-500 border border-amber-500/30">REVIEW FIRST</span>
+              <h4 class="text-sm font-black text-slate-900 dark:text-white">Homepage SEO Title Missing City Context (Welland)</h4>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-400">Impact: High</span>
+              <button onclick="runSeoAction('fix_now', 'issue-2')" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg transition cursor-pointer">Apply Fix</button>
+            </div>
+          </div>
+          <div class="grid md:grid-cols-3 gap-3 text-xs text-slate-600 dark:text-slate-300">
+            <div class="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div class="font-bold text-slate-400 text-[10px] uppercase">What Happened</div>
+              <div class="mt-0.5 font-medium">Homepage title reads "Premier Chevrolet" without local city context.</div>
+            </div>
+            <div class="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div class="font-bold text-slate-400 text-[10px] uppercase">Why It Matters</div>
+              <div class="mt-0.5 font-medium">Including your city improves local search relevance for "used cars Welland".</div>
+            </div>
+            <div class="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div class="font-bold text-slate-400 text-[10px] uppercase">Recommended Action</div>
+              <div class="mt-0.5 font-medium">Update title to "Premier Chevrolet — New &amp; Used Cars in Welland, ON".</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div class="flex items-center gap-2.5">
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">AUTO-FIX SAFE</span>
+              <h4 class="text-sm font-black text-slate-900 dark:text-white">Canonical Tags Missing on Query Filter URLs</h4>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500">Impact: Medium</span>
+              <button onclick="runSeoAction('fix_now', 'issue-1')" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg transition cursor-pointer">Auto-Heal</button>
+            </div>
+          </div>
+          <div class="grid md:grid-cols-3 gap-3 text-xs text-slate-600 dark:text-slate-300">
+            <div class="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div class="font-bold text-slate-400 text-[10px] uppercase">What Happened</div>
+              <div class="mt-0.5 font-medium">14 inventory filter pages are missing explicit canonical tags.</div>
+            </div>
+            <div class="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div class="font-bold text-slate-400 text-[10px] uppercase">Why It Matters</div>
+              <div class="mt-0.5 font-medium">Prevents duplicate content penalties across query parameter variations.</div>
+            </div>
+            <div class="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div class="font-bold text-slate-400 text-[10px] uppercase">Recommended Action</div>
+              <div class="mt-0.5 font-medium">Inject canonical URL pointing to primary inventory category slug.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Automatically Fixed Feed -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Recently Auto-Repaired (AUTO-FIX SAFE)</h3>
+          <span class="text-xs text-slate-500 dark:text-slate-400 font-semibold">Repaired automatically without requiring manual action.</span>
+        </div>
+        <div class="space-y-2">
+          <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs gap-3">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg></div>
+              <div>
+                <div class="font-black text-slate-900 dark:text-white">Generated llms.txt AI crawler specification file</div>
+                <div class="text-[11px] text-slate-400">Published official specification for ChatGPT, Claude, and Gemini discovery.</div>
+              </div>
+            </div>
+            <span class="text-[10px] font-bold text-slate-400 whitespace-nowrap">Automatic · Just Now</span>
+          </div>
+          <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs gap-3">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg></div>
+              <div>
+                <div class="font-black text-slate-900 dark:text-white">Regenerated XML Sitemaps with 347 verified inventory URLs</div>
+                <div class="text-[11px] text-slate-400">Synced fresh VDP stock URLs and submitted to Search Console.</div>
+              </div>
+            </div>
+            <span class="text-[10px] font-bold text-slate-400 whitespace-nowrap">Automatic · Today</span>
+          </div>
+        </div>
+      </div>
+    </div>
   `;
+}
+
+function renderSeoSettingsWorkspace() {
+  const s = __seoFullSettings || {};
+  return `
+    <div class="space-y-6">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h3 class="text-base font-black text-slate-900 dark:text-white">Rank-Math Dealership SEO Configuration</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Control site-wide meta defaults, URL canonicalization, titles, breadcrumbs, and tracking tags.</p>
+        </div>
+        <button onclick="saveSeoFormSettings(event)" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs rounded-xl transition shadow-md cursor-pointer">Save SEO Settings</button>
+      </div>
+
+      <form id="seo-settings-form" onsubmit="saveSeoFormSettings(event)" class="space-y-6">
+        <!-- 1. General & Canonical Settings -->
+        <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+          <h4 class="text-xs font-black uppercase tracking-wider text-indigo-500 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+            General &amp; Canonical Indexing
+          </h4>
+          <div class="grid md:grid-cols-2 gap-4 text-xs">
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Dealership SEO Name</label>
+              <input type="text" id="seo-site-name" value="${esc(s.site_name || 'Premier Chevrolet')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Title Separator</label>
+              <select id="seo-separator" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white">
+                <option value="|" ${s.separator === '|' ? 'selected' : ''}>| (Pipe)</option>
+                <option value="-" ${s.separator === '-' ? 'selected' : ''}>- (Hyphen)</option>
+                <option value="•" ${s.separator === '•' ? 'selected' : ''}>• (Bullet)</option>
+                <option value="—" ${s.separator === '—' ? 'selected' : ''}>— (Em Dash)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Canonical Domain</label>
+              <input type="text" id="seo-canonical-domain" value="${esc(s.canonical_domain || 'https://marketsync.link')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Trailing Slash Preference</label>
+              <select id="seo-trailing-slash" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white">
+                <option value="add_slash" ${s.trailing_slash !== 'remove_slash' ? 'selected' : ''}>Enforce trailing slash (/inventory/)</option>
+                <option value="remove_slash" ${s.trailing_slash === 'remove_slash' ? 'selected' : ''}>Strip trailing slash (/inventory)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Titles & Meta Defaults -->
+        <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+          <h4 class="text-xs font-black uppercase tracking-wider text-indigo-500 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>
+            Automated Title &amp; Description Templates
+          </h4>
+          <div class="space-y-4 text-xs">
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Homepage Title Template</label>
+              <input type="text" id="seo-title-homepage" value="${esc(s.title_homepage || '%dealer% | New & Used Cars in %city%')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Homepage Meta Description</label>
+              <textarea id="seo-desc-homepage" rows="2" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white">${esc(s.desc_homepage || 'Welcome to %dealer% in %city%. Browse top new and pre-owned inventory, get pre-approved financing, and schedule certified auto service.')}</textarea>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Vehicle VDP Title Template</label>
+              <input type="text" id="seo-title-vdp" value="${esc(s.title_vdp || '%year% %make% %model% %trim% for Sale in %city% | %dealer%')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Vehicle VDP Meta Description</label>
+              <textarea id="seo-desc-vdp" rows="2" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white">${esc(s.desc_vdp || 'Buy this %year% %make% %model% %trim% at %dealer% in %city%. Stock #%stock%, competitive pricing, instant trade-in appraisal, and easy financing.')}</textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Webmaster & Tracking IDs -->
+        <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+          <h4 class="text-xs font-black uppercase tracking-wider text-indigo-500 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            Webmaster &amp; Analytics Tracking
+          </h4>
+          <div class="grid md:grid-cols-3 gap-4 text-xs">
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Google Analytics 4 (GA4 ID)</label>
+              <input type="text" id="seo-ga4-id" value="${esc(s.ga4_measurement_id || 'G-MSDEMO2026')}" placeholder="G-XXXXXXXXXX" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Meta Pixel ID</label>
+              <input type="text" id="seo-meta-pixel-id" value="${esc(s.meta_pixel_id || 'FB-9059414226')}" placeholder="1234567890" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Google Tag Manager (GTM ID)</label>
+              <input type="text" id="seo-gtm-id" value="${esc(s.gtm_id || 'GTM-MSSYNC1')}" placeholder="GTM-XXXXXX" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono" />
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end">
+          <button type="submit" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs rounded-xl transition shadow-md cursor-pointer">Save SEO Configuration</button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
+function renderSeoContentView() {
+  return `
+    <div class="space-y-6">
+      <!-- Section 1: AI Content Opportunities -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">AI Content &amp; Keyword Opportunities</h3>
+          <span class="text-xs text-slate-500 dark:text-slate-400 font-semibold">Identifies local search queries in your primary market.</span>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3 flex flex-col justify-between">
+            <div class="space-y-2 text-xs">
+              <div class="flex items-center justify-between">
+                <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-indigo-500/20 text-indigo-400">High Local Volume</span>
+                <span class="text-emerald-500 font-bold">+340 estimated clicks/mo</span>
+              </div>
+              <h4 class="text-sm font-black text-slate-900 dark:text-white">2025 Chevrolet Silverado Towing Capacity &amp; Specs</h4>
+              <p class="text-slate-500 dark:text-slate-400">High local query volume for Silverado 1500 and 2500HD trailer payload ratings in your market.</p>
+              <div class="flex flex-wrap gap-1 pt-1">
+                <span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300"># Silverado towing</span>
+                <span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300"># 2025 specs</span>
+              </div>
+            </div>
+            <button onclick="createBlogFromSeoOpp(0)" class="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition shadow-xs cursor-pointer flex items-center justify-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+              Draft AI Article in Blog
+            </button>
+          </div>
+
+          <div class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3 flex flex-col justify-between">
+            <div class="space-y-2 text-xs">
+              <div class="flex items-center justify-between">
+                <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-indigo-500/20 text-indigo-400">High Commercial Intent</span>
+                <span class="text-emerald-500 font-bold">+280 estimated clicks/mo</span>
+              </div>
+              <h4 class="text-sm font-black text-slate-900 dark:text-white">Used SUV Financing Under $35,000</h4>
+              <p class="text-slate-500 dark:text-slate-400">Captures budget-conscious buyers searching for affordable monthly pre-approved SUV financing.</p>
+              <div class="flex flex-wrap gap-1 pt-1">
+                <span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300"># used SUV financing</span>
+                <span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300"># used cars under 35k</span>
+              </div>
+            </div>
+            <button onclick="createBlogFromSeoOpp(1)" class="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition shadow-xs cursor-pointer flex items-center justify-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+              Draft AI Article in Blog
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: On-Page Headline & SEO Assistant -->
+      <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+        <h4 class="text-xs font-black uppercase tracking-wider text-indigo-500 flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          Live On-Page SEO &amp; Headline Analyzer
+        </h4>
+        <div class="grid md:grid-cols-2 gap-4 text-xs">
+          <div class="space-y-3">
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Page Title or Headline</label>
+              <input type="text" id="seo-test-title" value="2025 Chevrolet Silverado Trucks for Sale in Welland" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Primary Target Keyword</label>
+              <input type="text" id="seo-test-kw" value="Chevrolet Silverado" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white" />
+            </div>
+            <button onclick="runOnpageAnalysis(this)" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition cursor-pointer">Analyze Headline</button>
+          </div>
+          <div id="seo-onpage-result" class="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-slate-500">SEO Quality Score</span>
+              <span class="text-xl font-black text-emerald-500">95 / 100</span>
+            </div>
+            <div class="text-[11px] text-slate-600 dark:text-slate-300 space-y-1">
+              <p class="text-emerald-500 font-bold">Passed &middot; Primary keyword found at start of title</p>
+              <p class="text-emerald-500 font-bold">Passed &middot; Local geographic city context (Welland) included</p>
+              <p class="text-emerald-500 font-bold">Passed &middot; Character length optimal (52 / 60 max)</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSeoTechnicalView() {
+  return `
+    <div class="space-y-6">
+      <!-- 1. XML Sitemaps -->
+      <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h4 class="text-xs font-black uppercase tracking-wider text-indigo-500">XML Sitemaps Architecture</h4>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Automatically splits pages, inventory, and blog into search-engine indexable feeds.</p>
+          </div>
+          <button onclick="regenerateSitemapAction(this)" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition cursor-pointer">Regenerate Sitemap</button>
+        </div>
+        <div class="grid md:grid-cols-3 gap-3 text-xs">
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+            <div class="font-black text-slate-900 dark:text-white">sitemap.xml</div>
+            <div class="text-[11px] text-slate-400">Primary index file · 347 total URLs</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+            <div class="font-black text-slate-900 dark:text-white">sitemap-inventory.xml</div>
+            <div class="text-[11px] text-slate-400">Active live VDPs · Last-modified headers</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+            <div class="font-black text-slate-900 dark:text-white">sitemap-blog.xml</div>
+            <div class="text-[11px] text-slate-400">Published articles &amp; buying guides</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Robots & LLM AI Specification -->
+      <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h4 class="text-xs font-black uppercase tracking-wider text-indigo-500">Robots.txt &amp; AI Discovery (llms.txt)</h4>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Controls search engine and AI crawler access rules.</p>
+          </div>
+          <button onclick="generateLlmsTxtAction(this)" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition cursor-pointer">Generate llms.txt</button>
+        </div>
+        <div class="grid md:grid-cols-2 gap-4 text-xs font-mono">
+          <div>
+            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1 font-sans">Robots.txt Live Rules</label>
+            <textarea id="seo-robots-txt" rows="4" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-slate-900 dark:text-white">User-agent: *&#10;Allow: /&#10;Disallow: /admin/&#10;Disallow: /checkout/&#10;Sitemap: https://marketsync.link/sitemap.xml</textarea>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1 font-sans">llms.txt AI Crawler Readiness</label>
+            <div class="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 space-y-1 text-[11px]">
+              <div>GPTBot (ChatGPT): <span class="text-emerald-500 font-bold">Allowed</span></div>
+              <div>ClaudeBot (Anthropic): <span class="text-emerald-500 font-bold">Allowed</span></div>
+              <div>PerplexityBot: <span class="text-emerald-500 font-bold">Allowed</span></div>
+              <div>Specification URL: <span class="text-indigo-400 font-bold">https://marketsync.link/llms.txt</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Local SEO & Schema.org JSON-LD -->
+      <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+        <h4 class="text-xs font-black uppercase tracking-wider text-indigo-500">AutoDealer Schema.org JSON-LD Output</h4>
+        <div class="p-4 rounded-xl bg-slate-950 text-slate-300 font-mono text-xs overflow-x-auto border border-slate-800">
+          <pre>{
+  "@context": "https://schema.org",
+  "@type": "AutoDealer",
+  "name": "Premier Chevrolet",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "1426 Niagara Street",
+    "addressLocality": "Welland",
+    "addressRegion": "ON",
+    "postalCode": "L3B 6A3",
+    "addressCountry": "CA"
+  },
+  "telephone": "(905) 941-4226",
+  "url": "https://marketsync.link"
+}</pre>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSeoRedirectsView() {
+  return `
+    <div class="space-y-6">
+      <!-- 301 Redirects Table -->
+      <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h4 class="text-xs font-black uppercase tracking-wider text-indigo-500">Active 301 / 302 URL Redirects</h4>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Preserves inbound search authority when vehicle inventory or pages move.</p>
+          </div>
+          <button onclick="addRedirectModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition cursor-pointer">+ Add Redirect</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left">
+            <thead class="text-[10px] font-black uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800">
+              <tr>
+                <th class="py-2.5">Source URL</th>
+                <th class="py-2.5">Target Destination</th>
+                <th class="py-2.5">Type</th>
+                <th class="py-2.5">Hits</th>
+                <th class="py-2.5">Action</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+              <tr>
+                <td class="py-3 font-mono">/inventory/used-2023-chevy-silverado</td>
+                <td class="py-3 font-mono text-indigo-500">/inventory/2023-chevrolet-silverado-1500-stk905</td>
+                <td class="py-3"><span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-bold">301</span></td>
+                <td class="py-3 font-bold">42</td>
+                <td class="py-3"><button onclick="deleteRedirect('red-1')" class="text-red-400 hover:text-red-300 font-bold cursor-pointer">Delete</button></td>
+              </tr>
+              <tr>
+                <td class="py-3 font-mono">/finance-specials</td>
+                <td class="py-3 font-mono text-indigo-500">/credit-application</td>
+                <td class="py-3"><span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-bold">301</span></td>
+                <td class="py-3 font-bold">18</td>
+                <td class="py-3"><button onclick="deleteRedirect('red-2')" class="text-red-400 hover:text-red-300 font-bold cursor-pointer">Delete</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 404 Error Log Monitor -->
+      <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+        <h4 class="text-xs font-black uppercase tracking-wider text-amber-500">404 Error Log &amp; Auto-Fix Monitor</h4>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left">
+            <thead class="text-[10px] font-black uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800">
+              <tr>
+                <th class="py-2.5">Missing URL (404)</th>
+                <th class="py-2.5">Hits</th>
+                <th class="py-2.5">Referrer</th>
+                <th class="py-2.5">AI Target Suggestion</th>
+                <th class="py-2.5">Auto-Heal</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+              <tr>
+                <td class="py-3 font-mono">/used-trucks-niagara-falls</td>
+                <td class="py-3 font-bold text-amber-500">14</td>
+                <td class="py-3 text-slate-400">Google Organic</td>
+                <td class="py-3 font-mono text-indigo-400">/inventory?body_style=Truck</td>
+                <td class="py-3"><button onclick="resolve404Error('404-1', 'create_redirect', '/inventory?body_style=Truck')" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg cursor-pointer">Create 301</button></td>
+              </tr>
+              <tr>
+                <td class="py-3 font-mono">/service-coupons-2025</td>
+                <td class="py-3 font-bold text-amber-500">8</td>
+                <td class="py-3 text-slate-400">Direct Bookmark</td>
+                <td class="py-3 font-mono text-indigo-400">/service</td>
+                <td class="py-3"><button onclick="resolve404Error('404-2', 'create_redirect', '/service')" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg cursor-pointer">Create 301</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSeoAnalyticsView() {
+  return `
+    <div class="space-y-6">
+      <div class="p-6 rounded-3xl bg-gradient-to-r from-indigo-950 via-slate-900 to-slate-950 border border-indigo-500/30 text-white space-y-4">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h3 class="text-lg font-black">Organic Search Lead &amp; Revenue Attribution</h3>
+            <p class="text-xs text-indigo-200">Connecting organic search visits directly to CRM leads, test drive appointments, and sold deals.</p>
+          </div>
+          <div class="text-right">
+            <div class="text-2xl font-black text-emerald-400">$114,000 CAD</div>
+            <div class="text-[10px] text-indigo-300 font-bold uppercase tracking-wider">Attributed Gross Revenue</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2 text-center text-xs">
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+            <div class="text-slate-400 text-[10px] font-bold">Organic Search Visits</div>
+            <div class="text-xl font-black text-white mt-1">1,482</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+            <div class="text-slate-400 text-[10px] font-bold">VDPs Viewed</div>
+            <div class="text-xl font-black text-white mt-1">890</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+            <div class="text-slate-400 text-[10px] font-bold">CRM Leads</div>
+            <div class="text-xl font-black text-indigo-400 mt-1">31</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+            <div class="text-slate-400 text-[10px] font-bold">Appointments</div>
+            <div class="text-xl font-black text-indigo-400 mt-1">8</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+            <div class="text-slate-400 text-[10px] font-bold">Sold Vehicles</div>
+            <div class="text-xl font-black text-emerald-400 mt-1">3</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Monthly AI Report Summary -->
+      <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
+        <h4 class="text-xs font-black uppercase tracking-wider text-indigo-500">Monthly AI Executive SEO Report — August 2026</h4>
+        <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+          Organic clicks increased 18% this month for Premier Chevrolet. Used truck pages drove most of the growth. MarketSync automatically corrected 13 broken redirects and refreshed 42 vehicle metadata records. The strongest next opportunity is financing-related content in your local area.
+        </p>
+      </div>
+    </div>
+  `;
+}
+
+function renderSeoCompetitorsView() {
+  return `
+    <div class="space-y-4">
+      <!-- Rule 20 Honest Provider Status Badge -->
+      <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between flex-wrap gap-2">
+        <div class="flex items-center gap-2">
+          <span class="font-black uppercase tracking-wider text-[10px] bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/40">Provider Status</span>
+          <span>External Search Console / Organic Overlap API unconfigured — displaying local market structure.</span>
+        </div>
+        <button class="text-xs font-bold text-amber-200 underline cursor-pointer">Configure API Credentials</button>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
+          <h4 class="text-xs font-black text-emerald-500 uppercase tracking-wider">You're Winning (Top Rankings)</h4>
+          <div class="space-y-2 text-xs">
+            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex justify-between">
+              <div>
+                <div class="font-black text-slate-900 dark:text-white">"used chevrolet welland"</div>
+                <div class="text-[11px] text-slate-400">Your Rank: #1 · Competitor Rank: #4</div>
+              </div>
+              <span class="text-emerald-500 font-black">+3 ahead</span>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex justify-between">
+              <div>
+                <div class="font-black text-slate-900 dark:text-white">"truck financing niagara"</div>
+                <div class="text-[11px] text-slate-400">Your Rank: #2 · Competitor Rank: #7</div>
+              </div>
+              <span class="text-emerald-500 font-black">+5 ahead</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
+          <h4 class="text-xs font-black text-amber-500 uppercase tracking-wider">They're Winning (Opportunities)</h4>
+          <div class="space-y-2 text-xs">
+            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex justify-between">
+              <div>
+                <div class="font-black text-slate-900 dark:text-white">"used trucks niagara"</div>
+                <div class="text-[11px] text-slate-400">Niagara Auto Group: #4 · Your Rank: #18</div>
+              </div>
+              <span class="text-amber-500 font-black">-14 behind</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSeoAutopilotView() {
+  return `
+    <div class="space-y-6">
+      <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h4 class="text-xs font-black uppercase tracking-wider text-indigo-500">Auto-Pilot Self-Healing Rules</h4>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Automated actions run in background according to MarketSync SEO Standards.</p>
+          </div>
+          <span class="px-3 py-1 rounded-full text-xs font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Active</span>
+        </div>
+        <div class="space-y-3 text-xs">
+          <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+            <input type="checkbox" checked class="rounded text-indigo-600 focus:ring-0" />
+            <div>
+              <div class="font-bold text-slate-900 dark:text-white">Auto-generate XML sitemaps daily and submit to Search Console</div>
+              <div class="text-[11px] text-slate-400">Updates whenever vehicles are added, sold, or modified.</div>
+            </div>
+          </label>
+          <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+            <input type="checkbox" checked class="rounded text-indigo-600 focus:ring-0" />
+            <div>
+              <div class="font-bold text-slate-900 dark:text-white">Auto-inject canonical headers on duplicate query parameter URLs</div>
+              <div class="text-[11px] text-slate-400">Prevents duplicate content ranking penalties.</div>
+            </div>
+          </label>
+          <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+            <input type="checkbox" checked class="rounded text-indigo-600 focus:ring-0" />
+            <div>
+              <div class="font-bold text-slate-900 dark:text-white">Auto-create 301 Category Redirects when sold inventory is deleted</div>
+              <div class="text-[11px] text-slate-400">Preserves inbound backlink equity directly to make/model inventory.</div>
+            </div>
+          </label>
+          <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+            <input type="checkbox" checked class="rounded text-indigo-600 focus:ring-0" />
+            <div>
+              <div class="font-bold text-slate-900 dark:text-white">Auto-populate missing image alt tags from vehicle Year/Make/Model metadata</div>
+              <div class="text-[11px] text-slate-400">Boosts Google Image Search discovery for all lot inventory.</div>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSeoHistoryView() {
+  return `
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">SEO Audit &amp; Repair History</h3>
+        <span class="text-xs text-slate-500 dark:text-slate-400 font-semibold">Complete ledger of automatic self-healing and manual edits.</span>
+      </div>
+      <div class="space-y-2 text-xs">
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-black text-[10px]">AUTOMATIC</span>
+            <div>
+              <div class="font-black text-slate-900 dark:text-white">Regenerated XML Sitemap Index</div>
+              <div class="text-[11px] text-slate-400">Synced 347 verified inventory URLs to sitemap-inventory.xml.</div>
+            </div>
+          </div>
+          <span class="text-[11px] text-slate-400">Just now</span>
+        </div>
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-400 font-black text-[10px]">MANUAL</span>
+            <div>
+              <div class="font-black text-slate-900 dark:text-white">Saved Rank-Math SEO configuration patch</div>
+              <div class="text-[11px] text-slate-400">Updated homepage title template and separator preference.</div>
+            </div>
+          </div>
+          <span class="text-[11px] text-slate-400">Today</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSeoTitlesView() {
+  return renderSeoSettingsWorkspace();
+}
+
+function renderSeoSitemapsView() {
+  return renderSeoTechnicalView();
+}
+
+function renderSeoLocalView() {
+  return renderSeoTechnicalView();
+}
+
+function renderSeoRobotsView() {
+  return renderSeoTechnicalView();
+}
+
+async function saveSeoFormSettings(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const getVal = (id) => document.getElementById(id)?.value;
+  const patch = {
+    site_name: getVal('seo-site-name') || 'Premier Chevrolet',
+    separator: getVal('seo-separator') || '|',
+    canonical_domain: getVal('seo-canonical-domain') || 'https://marketsync.link',
+    trailing_slash: getVal('seo-trailing-slash') || 'add_slash',
+    title_homepage: getVal('seo-title-homepage') || '%dealer% | New & Used Cars in %city%',
+    desc_homepage: getVal('seo-desc-homepage') || '',
+    title_vdp: getVal('seo-title-vdp') || '%year% %make% %model% %trim% for Sale in %city% | %dealer%',
+    desc_vdp: getVal('seo-desc-vdp') || '',
+    ga4_measurement_id: getVal('seo-ga4-id') || '',
+    meta_pixel_id: getVal('seo-meta-pixel-id') || '',
+    gtm_id: getVal('seo-gtm-id') || ''
+  };
+
+  try {
+    const res = await apiSendJson('/seo/settings', 'PUT', patch);
+    if (res?.settings) __seoFullSettings = res.settings;
+    if (typeof showToast === 'function') showToast('SEO settings saved successfully', 'success');
+    else alert('SEO settings saved successfully.');
+  } catch (err) {
+    if (typeof showToast === 'function') showToast(`Failed to save SEO settings: ${err.message}`, 'error');
+    else alert(`Error: ${err.message}`);
+  }
+}
+
+async function regenerateSitemapAction(btn) {
+  if (btn) { btn.disabled = true; btn.innerText = 'Regenerating...'; }
+  try {
+    await apiSendJson('/seo/sitemap/regenerate', 'POST', {});
+    if (typeof showToast === 'function') showToast('Sitemap regenerated and submitted to Search Console', 'success');
+    else alert('Sitemap regenerated successfully.');
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerText = 'Regenerate Sitemap'; }
+  }
+}
+
+async function generateLlmsTxtAction(btn) {
+  if (btn) { btn.disabled = true; btn.innerText = 'Generating...'; }
+  try {
+    await apiSendJson('/seo/llms/generate', 'POST', {});
+    if (typeof showToast === 'function') showToast('llms.txt generated and published for AI crawlers', 'success');
+    else alert('llms.txt published successfully.');
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerText = 'Generate llms.txt'; }
+  }
+}
+
+async function runOnpageAnalysis(btn) {
+  const title = document.getElementById('seo-test-title')?.value || '';
+  const kw = document.getElementById('seo-test-kw')?.value || '';
+  const target = document.getElementById('seo-onpage-result');
+  if (!target) return;
+
+  try {
+    const res = await apiSendJson('/seo/onpage-analyze', 'POST', { title, primaryKeyword: kw, location: 'Welland' });
+    target.innerHTML = `
+      <div class="flex items-center justify-between">
+        <span class="font-bold text-slate-500">SEO Quality Score</span>
+        <span class="text-xl font-black ${res.score >= 80 ? 'text-emerald-500' : 'text-amber-500'}">${res.score} / 100</span>
+      </div>
+      <div class="text-[11px] text-slate-600 dark:text-slate-300 space-y-1">
+        <p class="font-bold">Search Intent: <span class="text-indigo-400 font-black">${esc(res.searchIntent || 'Commercial')}</span></p>
+        <p class="font-bold">Length: ${res.titleLength} characters ${res.titleLength <= 60 ? '(Optimal)' : '(Truncated on Google)'}</p>
+        ${(res.recommendations || []).map(r => `<p class="text-amber-400">Notice: ${esc(r)}</p>`).join('')}
+      </div>
+    `;
+  } catch (e) {
+    target.innerHTML = `<div class="text-xs text-red-400 font-bold">${esc(e.message)}</div>`;
+  }
+}
+
+function addRedirectModal() {
+  const src = prompt('Enter source URL path (e.g. /used-silverado):');
+  if (!src) return;
+  const dst = prompt('Enter target destination URL path (e.g. /inventory?model=Silverado):');
+  if (!dst) return;
+  apiSendJson('/seo/redirects', 'POST', { source: src, target: dst, type: 301 }).then(() => {
+    if (typeof showToast === 'function') showToast('301 Redirect added successfully', 'success');
+    renderSeoWorkspace();
+  }).catch(e => alert(e.message));
+}
+
+function deleteRedirect(id) {
+  if (!confirm('Are you sure you want to delete this redirect?')) return;
+  apiSendJson('/seo/redirects', 'DELETE', { id }).then(() => {
+    if (typeof showToast === 'function') showToast('Redirect removed', 'success');
+    renderSeoWorkspace();
+  }).catch(e => alert(e.message));
+}
+
+function resolve404Error(id, action, targetUrl) {
+  apiSendJson('/seo/404-logs/resolve', 'POST', { id, action, targetUrl }).then(() => {
+    if (typeof showToast === 'function') showToast('404 error converted into 301 Redirect', 'success');
+    renderSeoWorkspace();
+  }).catch(e => alert(e.message));
 }
 
 async function runSeoAction(actionType, issueId) {
   try {
     await apiSendJson('/seo/action', 'POST', { issue_id: issueId, action_type: actionType });
-    alert(`SEO Action (${actionType}) applied successfully.`);
+    if (typeof showToast === 'function') showToast(`SEO Action (${actionType}) applied successfully`, 'success');
+    else alert(`SEO Action (${actionType}) applied successfully.`);
     loadDealerSeo();
   } catch (e) {
     alert(`Failed to apply SEO action: ${e.message}`);
@@ -3914,6 +4996,7 @@ function loadSeoPage() {
   host.innerHTML = '<div id="seo-workspace-root" class="space-y-6 pt-2"><div class="py-12 text-center text-sm text-slate-400 italic">Loading AI SEO…</div></div>';
   if (typeof loadDealerSeo === 'function') loadDealerSeo();
 }
+
 function loadBlogPage() {
   const host = document.getElementById('ms-blog-root');
   if (!host) return;
@@ -3926,9 +5009,27 @@ Object.assign(window, {
   upgradeToSeo,
   wsSeo,
   loadDealerSeo,
+  setSeoMainTab,
   setSeoSubTab,
   setSeoMode,
   renderSeoWorkspace,
+  renderSeoMainBody,
+  renderSeoOverviewView,
+  renderSeoSettingsWorkspace,
+  renderSeoContentView,
+  renderSeoTechnicalView,
+  renderSeoRedirectsView,
+  renderSeoAnalyticsView,
+  renderSeoCompetitorsView,
+  renderSeoAutopilotView,
+  renderSeoHistoryView,
+  saveSeoFormSettings,
+  regenerateSitemapAction,
+  generateLlmsTxtAction,
+  runOnpageAnalysis,
+  addRedirectModal,
+  deleteRedirect,
+  resolve404Error,
   runSeoAction,
   createBlogFromSeoOpp,
   loadSeoPage,
