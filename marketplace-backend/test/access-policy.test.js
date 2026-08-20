@@ -264,3 +264,75 @@ test('no access yields null route and empty nav', () => {
   assert.equal(getDefaultRoute(ctx), null)
   assert.deepEqual(getVisibleNavigation(ctx, FEATURES), [])
 })
+
+// 16. Multi-subscription product coverage unions active products and handles independent cancellation
+test('multi-subscription coverage unions active products and supports independent cancellation', () => {
+  const base = {
+    userId: 'u16', dealershipId: 'd16', roleIds: ['dealer_owner'],
+    rolePermissions: rolePerms('dealer_owner'),
+    now: '2026-08-20T00:00:00Z',
+  }
+
+  // Account has Dealer Website subscription (sub_web) AND MarketSync Digital bundle (sub_digital)
+  const dualCoverage = [
+    { subscription_id: 'sub_web', plan_id: 'dealer-website', product_id: 'marketsync_website', status: 'active' },
+    { subscription_id: 'sub_digital', plan_id: 'marketsync-digital', product_id: 'marketsync_website', status: 'active' },
+    { subscription_id: 'sub_digital', plan_id: 'marketsync-digital', product_id: 'ai_dealer', status: 'active' },
+    { subscription_id: 'sub_digital', plan_id: 'marketsync-digital', product_id: 'marketsync_seo', status: 'active' },
+  ]
+
+  const dualCtx = ctxFor({ ...base, productCoverage: dualCoverage })
+  assert.ok(hasProductAccess(dualCtx, 'marketsync_website'), 'website accessible from dual coverage')
+  assert.ok(hasProductAccess(dualCtx, 'ai_dealer'), 'ai_dealer accessible')
+  assert.ok(hasProductAccess(dualCtx, 'marketsync_seo'), 'seo accessible')
+
+  // Cancel Dealer Website subscription only: sub_web is cancelled, but sub_digital is still active
+  const cancelledWebCoverage = [
+    { subscription_id: 'sub_web', plan_id: 'dealer-website', product_id: 'marketsync_website', status: 'cancelled' },
+    { subscription_id: 'sub_digital', plan_id: 'marketsync-digital', product_id: 'marketsync_website', status: 'active' },
+    { subscription_id: 'sub_digital', plan_id: 'marketsync-digital', product_id: 'ai_dealer', status: 'active' },
+    { subscription_id: 'sub_digital', plan_id: 'marketsync-digital', product_id: 'marketsync_seo', status: 'active' },
+  ]
+
+  const singleCtx = ctxFor({ ...base, productCoverage: cancelledWebCoverage })
+  assert.ok(hasProductAccess(singleCtx, 'marketsync_website'), 'website remains accessible because digital subscription covers it')
+
+  // Cancel digital subscription as well: both are cancelled -> website access revoked
+  const allCancelledCoverage = [
+    { subscription_id: 'sub_web', plan_id: 'dealer-website', product_id: 'marketsync_website', status: 'cancelled' },
+    { subscription_id: 'sub_digital', plan_id: 'marketsync-digital', product_id: 'marketsync_website', status: 'cancelled' },
+    { subscription_id: 'sub_digital', plan_id: 'marketsync-digital', product_id: 'ai_dealer', status: 'cancelled' },
+    { subscription_id: 'sub_digital', plan_id: 'marketsync-digital', product_id: 'marketsync_seo', status: 'cancelled' },
+  ]
+  const revokedCtx = ctxFor({ ...base, productCoverage: allCancelledCoverage })
+  assert.ok(!hasProductAccess(revokedCtx, 'marketsync_website'), 'website revoked when all covering subscriptions cancel')
+  assert.ok(!hasProductAccess(revokedCtx, 'ai_dealer'), 'ai revoked')
+})
+
+test('cancel_at_period_end preserves access until period end', () => {
+  const base = {
+    userId: 'u17', dealershipId: 'd17', roleIds: ['dealer_owner'],
+    rolePermissions: rolePerms('dealer_owner'),
+    now: '2026-08-20T00:00:00Z',
+  }
+
+  // Active with cancel_at_period_end in future
+  const futurePeriod = ctxFor({
+    ...base,
+    productCoverage: [{
+      subscription_id: 'sub_1', plan_id: 'dealer-website', product_id: 'marketsync_website',
+      status: 'active', cancel_at_period_end: true, current_period_end: '2026-09-01T00:00:00Z',
+    }],
+  })
+  assert.ok(hasProductAccess(futurePeriod, 'marketsync_website'), 'access maintained before current_period_end')
+
+  // Period end in past
+  const pastPeriod = ctxFor({
+    ...base,
+    productCoverage: [{
+      subscription_id: 'sub_1', plan_id: 'dealer-website', product_id: 'marketsync_website',
+      status: 'active', cancel_at_period_end: true, current_period_end: '2026-08-15T00:00:00Z',
+    }],
+  })
+  assert.ok(!hasProductAccess(pastPeriod, 'marketsync_website'), 'access revoked after current_period_end')
+})

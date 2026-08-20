@@ -17,16 +17,9 @@ export default function registerSeoRoutes(app) {
       const isEntitled = hasProductAccess(ctx, 'marketsync_seo') || hasFeature(ctx, 'seo.overview')
       req.hasSeoEntitlement = !!isEntitled
       next()
-    } catch {
-      const { data: dealer } = await supabaseAdmin
-        .from('dealerships')
-        .select('id, seo_active, products')
-        .eq('id', req.dealershipId)
-        .maybeSingle()
-
-      const hasProduct = dealer?.seo_active === true ||
-        (dealer?.products && (dealer.products.marketsync_seo || dealer.products.seo))
-      req.hasSeoEntitlement = !!hasProduct
+    } catch (err) {
+      console.error('[seo] access check failed:', err.message)
+      req.hasSeoEntitlement = false
       next()
     }
   }
@@ -51,18 +44,27 @@ export default function registerSeoRoutes(app) {
       .eq('dealership_id', req.dealershipId)
       .maybeSingle()
 
+    const isGscConnected = !!settings?.gsc_connected
+
     res.json({
       entitled: true,
-      healthScore: audit?.healthScore || 92,
-      visibilityDelta: 14,
-      searchTraffic: 1482,
-      indexedPages: '347 / 352',
-      aiVisibility: 'Good',
-      issuesCount: audit?.issues?.filter(i => i.status === 'pending')?.length || 5,
-      opportunitiesCount: 12,
+      auditSource: 'marketsync_site_audit',
+      healthScore: audit?.healthScore ?? 85,
+      issuesCount: audit?.issues?.filter(i => i.status === 'pending')?.length ?? 0,
+      autoFixesAppliedCount: audit?.autoFixesAppliedCount ?? 0,
       mode: settings?.mode || 'easy',
       standardsVersion: 'MarketSync SEO Standards — 2026',
-      lastAuditAt: audit?.timestamp || new Date().toISOString()
+      lastAuditAt: audit?.timestamp || new Date().toISOString(),
+      providerStatus: {
+        connected: isGscConnected,
+        provider: 'Google Search Console',
+        status: isGscConnected ? 'active' : 'setup_required',
+        message: isGscConnected
+          ? 'Google Search Console is actively monitoring organic search performance.'
+          : 'Google Search Console is not connected. Connect your property to view live organic click data.'
+      },
+      searchTraffic: isGscConnected ? 0 : null,
+      searchTrafficStatus: isGscConnected ? 'active' : 'setup_required',
     })
   })
 
@@ -202,28 +204,25 @@ export default function registerSeoRoutes(app) {
   app.get('/seo/competitors', requireAuth, checkSeoEntitlement, async (req, res) => {
     if (!req.hasSeoEntitlement) return res.status(403).json({ error: 'SEO entitlement required' })
 
-    const { data: competitors } = await supabaseAdmin
-      .from('competitor_dealerships')
-      .select('*')
-      .eq('dealership_id', req.dealershipId)
+    const [{ data: competitors }, { data: settings }] = await Promise.all([
+      supabaseAdmin.from('competitor_dealerships').select('*').eq('dealership_id', req.dealershipId),
+      supabaseAdmin.from('seo_settings').select('gsc_connected').eq('dealership_id', req.dealershipId).maybeSingle()
+    ])
+
+    const isConnected = !!settings?.gsc_connected
 
     res.json({
-      // Rule 20 compliance: Report honest provider status if external Search Console / Semrush API keys are not connected
       providerStatus: {
-        connected: false,
-        provider: 'Google Search Console & Organic Overlap Engine',
-        message: 'External competitor API integration is unconfigured. Showing local market structure & manual target list.'
+        connected: isConnected,
+        provider: 'Google Search Console & Competitor Radar',
+        status: isConnected ? 'active' : 'setup_required',
+        message: isConnected
+          ? 'Competitor search intelligence is active.'
+          : 'External competitor tracking requires a connected Google Search Console property or competitor API.'
       },
-      winning: [
-        { query: 'used chevrolet welland', yourRank: 1, competitorRank: 4, diff: '+3' },
-        { query: 'truck financing niagara', yourRank: 2, competitorRank: 7, diff: '+5' }
-      ],
-      losing: [
-        { query: 'used trucks niagara', yourRank: 18, competitorRank: 4, diff: '-14', competitorName: 'Niagara Auto Group' }
-      ],
-      opportunities: [
-        { topic: 'Used Truck Landing Page Optimization', potentialTraffic: '+320 clicks/mo', action: 'Optimize Used Trucks Niagara page' }
-      ],
+      winning: [],
+      losing: [],
+      opportunities: [],
       competitors: competitors || []
     })
   })
@@ -384,15 +383,27 @@ export default function registerSeoRoutes(app) {
   app.get('/seo/attribution', requireAuth, checkSeoEntitlement, async (req, res) => {
     if (!req.hasSeoEntitlement) return res.status(403).json({ error: 'SEO entitlement required' })
 
+    const { data: contacts } = await supabaseAdmin
+      .from('contacts')
+      .select('id, status, source, created_at')
+      .eq('dealership_id', req.dealershipId)
+
+    const orgContacts = (contacts || []).filter(c => {
+      const s = String(c.source || '').toLowerCase()
+      return s.includes('organic') || s.includes('seo') || s.includes('website') || s.includes('direct')
+    })
+
+    const totalLeads = orgContacts.length
+    const appointments = orgContacts.filter(c => c.status === 'appointment' || c.status === 'show' || c.status === 'sold' || c.status === 'delivered').length
+    const sold = orgContacts.filter(c => c.status === 'sold' || c.status === 'delivered').length
+
     res.json({
       funnel: [
-        { stage: 'Organic Search Visitors', count: 1482 },
-        { stage: 'Vehicle VDP Viewed', count: 890 },
-        { stage: 'Leads Captured', count: 31 },
-        { stage: 'Appointments Scheduled', count: 8 },
-        { stage: 'Vehicles Sold', count: 3 }
+        { stage: 'Organic / Website Leads Captured', count: totalLeads },
+        { stage: 'Appointments Scheduled', count: appointments },
+        { stage: 'Vehicles Sold', count: sold }
       ],
-      estimatedRevenue: '$114,000 CAD',
+      estimatedRevenue: sold > 0 ? `$${(sold * 38000).toLocaleString('en-US')} CAD` : '$0 CAD',
       attributionModel: 'First-Touch / Last-Touch Canonical Lead Attribution'
     })
   })
@@ -402,12 +413,12 @@ export default function registerSeoRoutes(app) {
     mode: 'easy',
     standards_version: 'MarketSync SEO Standards — 2026',
     site_type: 'franchise',
-    site_name: 'Premier Chevrolet',
-    alt_site_name: 'Premier Chevy',
-    org_name: 'Premier Chevrolet Showcase',
+    site_name: '',
+    alt_site_name: '',
+    org_name: '',
     logo_url: '',
     default_social_image: '',
-    default_description: 'Premier Chevrolet dealership offering new and pre-owned trucks, SUVs, and cars with instant financing and certified service.',
+    default_description: '',
     separator: '|',
     canonical_domain: 'https://marketsync.link',
     www_preference: 'prefer_non_www',
@@ -447,15 +458,15 @@ export default function registerSeoRoutes(app) {
     lazy_loading_checks: true,
     broken_image_monitor: true,
     duplicate_alt_detection: true,
-    gsc_connected: true,
-    ga4_connected: true,
-    ga4_measurement_id: 'G-MSDEMO2026',
-    gbp_connected: true,
+    gsc_connected: false,
+    ga4_connected: false,
+    ga4_measurement_id: '',
+    gbp_connected: false,
     bing_connected: false,
     clarity_connected: false,
-    meta_pixel_id: 'FB-9059414226',
-    gtm_id: 'GTM-MSSYNC1',
-    google_ads_id: 'AW-9059414226',
+    meta_pixel_id: '',
+    gtm_id: '',
+    google_ads_id: '',
     robots_mode: 'recommended',
     robots_custom_rules: 'User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /checkout/\nSitemap: https://marketsync.link/sitemap.xml',
     llms_txt_enabled: true,

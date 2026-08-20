@@ -195,7 +195,7 @@ export const PLAN_CATALOG = Object.freeze({
   'design-studio': {
     id: 'design-studio', label: 'Design Studio', product_primary: 'design_studio',
     products: ['design_studio'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 19.99, tier: 0,
+    monthly: 5, tier: 0,
     priceEnvCad: 'STRIPE_PRICE_DESIGN_STUDIO_CAD', priceEnvUsd: 'STRIPE_PRICE_DESIGN_STUDIO_USD',
     features: [...FEATURES_BY_PRODUCT.design_studio],
     legacy: { ...legacyFlags({}), products: { design_studio: true } },
@@ -203,7 +203,7 @@ export const PLAN_CATALOG = Object.freeze({
   'autoposter-salesperson': {
     id: 'autoposter-salesperson', label: 'Facebook AutoPoster', product_primary: 'facebook',
     products: ['facebook'], org_type: 'solo', owner_role: 'OWNER',
-    monthly: 39, tier: 0,
+    monthly: 19, tier: 0,
     priceEnvCad: 'STRIPE_PRICE_AUTOPOSTER_SALESPERSON_CAD', priceEnvUsd: 'STRIPE_PRICE_AUTOPOSTER_SALESPERSON_USD',
     features: ['fb.inventory', 'fb.leaderboard'],
     legacy: { ...legacyFlags({ fbOnly: true }), products: { autoposter_salesperson: true, facebook_solo: true } },
@@ -211,7 +211,7 @@ export const PLAN_CATALOG = Object.freeze({
   'autoposter-dealer': {
     id: 'autoposter-dealer', label: 'Facebook AutoPoster — Dealer', product_primary: 'facebook',
     products: ['facebook'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 149, tier: 1,
+    monthly: 79, tier: 1,
     priceEnvCad: 'STRIPE_PRICE_AUTOPOSTER_DEALER_CAD', priceEnvUsd: 'STRIPE_PRICE_AUTOPOSTER_DEALER_USD',
     features: [...FEATURES_BY_PRODUCT.facebook],
     legacy: { ...legacyFlags({ fbOnly: true }), products: { autoposter_dealer: true, facebook_dealer: true } },
@@ -219,7 +219,7 @@ export const PLAN_CATALOG = Object.freeze({
   video: {
     id: 'video', label: 'Video', product_primary: 'marketsync_video',
     products: ['marketsync_video'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 149, tier: 0,
+    monthly: 99, tier: 0,
     priceEnvCad: 'STRIPE_PRICE_VIDEO_CAD', priceEnvUsd: 'STRIPE_PRICE_VIDEO_USD',
     features: [...FEATURES_BY_PRODUCT.marketsync_video],
     legacy: { ...legacyFlags({}), products: { marketsync_video: true, video: true } },
@@ -263,7 +263,7 @@ export const PLAN_CATALOG = Object.freeze({
   'ai-chatbot': {
     id: 'ai-chatbot', label: 'AI ChatBot', product_primary: 'ai_dealer',
     products: ['ai_dealer'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 599, tier: 0,
+    monthly: 299, tier: 0,
     priceEnvCad: 'STRIPE_PRICE_AI_CHATBOT_V2_CAD', priceEnvUsd: 'STRIPE_PRICE_AI_CHATBOT_V2_USD',
     features: [...FEATURES_BY_PRODUCT.ai_dealer],
     legacy: { ...legacyFlags({}), ai_chatbot_active: true, ai_chatbot_paid: true, products: { ai_chatbot: true } },
@@ -271,7 +271,7 @@ export const PLAN_CATALOG = Object.freeze({
   'sales-marketing-suite': {
     id: 'sales-marketing-suite', label: 'Sales Marketing Suite', product_primary: 'marketsync_social',
     products: ['design_studio', 'facebook', 'marketsync_social', 'marketsync_email'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 399, tier: 1,
+    monthly: 249, tier: 1,
     priceEnvCad: 'STRIPE_PRICE_SALES_SUITE_CAD', priceEnvUsd: 'STRIPE_PRICE_SALES_SUITE_USD',
     features: [...new Set([...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, 'social.scheduler', 'social.accounts', 'social.calendar', ...FEATURES_BY_PRODUCT.marketsync_email])],
     legacy: { ...legacyFlags({}), products: { design_studio: true, facebook_dealer: true, marketsync_social: true, marketsync_email: true, sales_marketing_suite: true } },
@@ -279,7 +279,7 @@ export const PLAN_CATALOG = Object.freeze({
   'service-marketing-suite': {
     id: 'service-marketing-suite', label: 'Service Marketing Suite', product_primary: 'marketsync_email',
     products: ['marketsync_email'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 399, tier: 1,
+    monthly: 249, tier: 1,
     priceEnvCad: 'STRIPE_PRICE_SERVICE_SUITE_CAD', priceEnvUsd: 'STRIPE_PRICE_SERVICE_SUITE_USD',
     features: [...FEATURES_BY_PRODUCT.marketsync_email],
     legacy: { ...legacyFlags({}), products: { marketsync_email: true, service_marketing_suite: true } },
@@ -287,7 +287,7 @@ export const PLAN_CATALOG = Object.freeze({
   'complete-marketing-suite': {
     id: 'complete-marketing-suite', label: 'Complete Marketing Suite', product_primary: 'marketsync_social',
     products: ['design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 699, tier: 2,
+    monthly: 399, tier: 2,
     priceEnvCad: 'STRIPE_PRICE_COMPLETE_SUITE_CAD', priceEnvUsd: 'STRIPE_PRICE_COMPLETE_SUITE_USD',
     features: [...new Set([...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, ...FEATURES_BY_PRODUCT.marketsync_social, ...FEATURES_BY_PRODUCT.marketsync_email, ...FEATURES_BY_PRODUCT.marketsync_video])],
     legacy: { ...legacyFlags({}), products: { design_studio: true, facebook_dealer: true, marketsync_social: true, marketsync_email: true, marketsync_video: true, complete_marketing_suite: true } },
@@ -295,7 +295,7 @@ export const PLAN_CATALOG = Object.freeze({
   'marketsync-digital': {
     id: 'marketsync-digital', label: 'MarketSync Digital', product_primary: 'marketsync_website',
     products: ['design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website', 'ai_dealer'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
-    monthly: 1199, tier: 2,
+    monthly: 599, tier: 2,
     priceEnvCad: 'STRIPE_PRICE_MARKETSYNC_DIGITAL_CAD', priceEnvUsd: 'STRIPE_PRICE_MARKETSYNC_DIGITAL_USD',
     features: [...new Set([...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, ...FEATURES_BY_PRODUCT.marketsync_social, ...FEATURES_BY_PRODUCT.marketsync_email, ...FEATURES_BY_PRODUCT.marketsync_video, ...FEATURES_BY_PRODUCT.marketsync_website, ...FEATURES_BY_PRODUCT.ai_dealer])],
     legacy: {
@@ -337,9 +337,22 @@ export const PLAN_CATALOG = Object.freeze({
   },
 })
 
+export const PLAN_ALIASES = Object.freeze({
+  campaigns: 'campaigns-email-sms',
+  marketsync_seo: 'marketsync-seo',
+  'sales-suite': 'sales-marketing-suite',
+  'service-suite': 'service-marketing-suite',
+  'complete-suite': 'complete-marketing-suite',
+  digital: 'marketsync-digital',
+})
+
 export const PLAN_IDS = Object.freeze(Object.keys(PLAN_CATALOG))
 
-export function getPlan(planId) { return PLAN_CATALOG[planId] || null }
+export function getPlan(planId) {
+  if (!planId) return null
+  const canonicalId = PLAN_ALIASES[planId] || planId
+  return PLAN_CATALOG[canonicalId] || null
+}
 
 // Resolve a Stripe Price ID → plan id, using the env vars declared in the catalog.
 // This is the ONLY place a price maps to a plan. env is passed in (process.env) so the
@@ -363,7 +376,7 @@ function priceFromEnv(env, primaryKey, aliases = []) {
 // The Stripe Price ID to charge for a plan in a given currency (falls back to the
 // other currency if only one is configured).
 export function stripePriceForPlan(planId, currency = 'usd', env = {}) {
-  const plan = PLAN_CATALOG[planId]
+  const plan = getPlan(planId)
   if (!plan) return null
   const cad = priceFromEnv(env, plan.priceEnvCad, plan.priceEnvCadAliases)
   const usd = priceFromEnv(env, plan.priceEnvUsd, plan.priceEnvUsdAliases)
@@ -372,10 +385,10 @@ export function stripePriceForPlan(planId, currency = 'usd', env = {}) {
 
 // The products a plan grants (the bundle expansion). Access is the union of these
 // across all of an org's active plans.
-export function productsForPlan(planId) { return PLAN_CATALOG[planId]?.products || [] }
+export function productsForPlan(planId) { return getPlan(planId)?.products || [] }
 
 // The features a plan grants.
-export function featuresForPlan(planId) { return PLAN_CATALOG[planId]?.features || [] }
+export function featuresForPlan(planId) { return getPlan(planId)?.features || [] }
 
 /**
  * Returns all products and features from the catalog that are showcaseable in demo mode.

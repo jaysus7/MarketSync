@@ -97,27 +97,35 @@ export function computeAccessContext(raw = {}) {
   // ── Layer 1: product access ──
   // A subscription grants access while active or trialing — but a TRIALING sub whose
   // trial_ends_at has passed no longer counts (the 39-day free trial has lapsed; the app
-  // shows the paywall). `now` is injectable for tests; defaults to the real clock.
+  // shows the paywall). If cancel_at_period_end is set, access remains until current_period_end.
   const now = raw.now ? new Date(raw.now).getTime() : Date.now()
-  const subLive = (s) => {
-    if (!SUBSCRIPTION_ACTIVE_STATUSES.includes(s.status)) return false
-    if (s.status === 'trialing' && s.trial_ends_at && new Date(s.trial_ends_at).getTime() < now) return false
+  const isItemLive = (item) => {
+    if (!SUBSCRIPTION_ACTIVE_STATUSES.includes(item.status)) return false
+    if (item.status === 'trialing' && item.trial_ends_at && new Date(item.trial_ends_at).getTime() < now) return false
+    if (item.cancel_at_period_end && item.current_period_end && new Date(item.current_period_end).getTime() < now) return false
     return true
   }
-  const activeSubs = (raw.subscriptions || []).filter(subLive)
-  const orgHasSubs = (raw.subscriptions || []).length > 0
+
   let orgProducts
-  if (orgHasSubs) {
-    orgProducts = new Set(activeSubs.map(s => s.product_id))
+  let activeItems = []
+  if (Array.isArray(raw.productCoverage) && raw.productCoverage.length > 0) {
+    activeItems = raw.productCoverage.filter(isItemLive)
+    orgProducts = new Set(activeItems.map(c => c.product_id))
   } else {
-    // Pre-backfill path: derive org products from the legacy jsonb ONLY. An org with no
-    // subscriptions AND no legacy product flags gets ZERO products (paywall) — there is
-    // no automatic dealer_os grant (matches profile.js resolveProducts). Legacy orgs must
-    // be backfilled with a subscription or explicit legacy flags before launch.
-    const legacy = (raw.legacyProducts && typeof raw.legacyProducts === 'object') ? raw.legacyProducts : {}
-    orgProducts = new Set(
-      Object.keys(legacy).filter(k => legacy[k]).map(k => LEGACY_PRODUCT_KEY_MAP[k]).filter(Boolean)
-    )
+    activeItems = (raw.subscriptions || []).filter(isItemLive)
+    const orgHasSubs = (raw.subscriptions || []).length > 0
+    if (orgHasSubs) {
+      orgProducts = new Set(activeItems.map(s => s.product_id))
+    } else {
+      // Pre-backfill path: derive org products from the legacy jsonb ONLY. An org with no
+      // subscriptions AND no legacy product flags gets ZERO products (paywall) — there is
+      // no automatic dealer_os grant (matches profile.js resolveProducts). Legacy orgs must
+      // be backfilled with a subscription or explicit legacy flags before launch.
+      const legacy = (raw.legacyProducts && typeof raw.legacyProducts === 'object') ? raw.legacyProducts : {}
+      orgProducts = new Set(
+        Object.keys(legacy).filter(k => legacy[k]).map(k => LEGACY_PRODUCT_KEY_MAP[k]).filter(Boolean)
+      )
+    }
   }
   // Platform staff can reach every product regardless of org subscriptions.
   if (isPlatformStaff) PRODUCTS.forEach(p => orgProducts.add(p))
@@ -131,7 +139,7 @@ export function computeAccessContext(raw = {}) {
 
   // ── Layer 2: subscription tier → entitled features per product ──
   const planByProduct = {}
-  for (const s of activeSubs) if (s.plan_id) planByProduct[s.product_id] = s.plan_id
+  for (const s of activeItems) if (s.plan_id) planByProduct[s.product_id] = s.plan_id
   const planFeatures = raw.planFeatures || []
   const featureCatalog = raw.features || []
   const featureProduct = {}
@@ -171,7 +179,11 @@ export function computeAccessContext(raw = {}) {
   if (isPlatformStaff) {
     permissions.add('*')
   } else {
-    for (const rp of (raw.rolePermissions || [])) permissions.add(rp.permission_id)
+    for (const rp of (raw.rolePermissions || [])) {
+      if (!rp.role_id || roleIds.includes(rp.role_id)) {
+        permissions.add(rp.permission_id)
+      }
+    }
     for (const o of (raw.overrides || [])) {
       if (o.effect === 'grant') permissions.add(o.permission_id)
       else if (o.effect === 'deny') permissions.delete(o.permission_id)

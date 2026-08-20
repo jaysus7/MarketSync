@@ -19,8 +19,8 @@ const MARKETSYNC_PRICING = {
     {
       id: 'design-studio',
       name: 'Design Studio',
-      price: 19.99,
-      priceFormatted: '$19.99',
+      price: 5,
+      priceFormatted: '$5',
       unit: '/month',
       badge: 'Creative Workspace',
       desc: 'Dealership design workspace for creating branded graphics, social assets, and marketing collateral — with AI generation and a social scheduler built in, one flat price.',
@@ -106,7 +106,7 @@ const MARKETSYNC_PRICING = {
         'Intelligence by MarketSync timing'
       ],
       ctaText: 'Start Campaigns',
-      ctaUrl: '/register.html?plan=campaigns'
+      ctaUrl: '/register.html?plan=campaigns-email-sms'
     },
     {
       id: 'dealer-website',
@@ -177,7 +177,7 @@ const MARKETSYNC_PRICING = {
       badge: 'Sales Growth Pack',
       desc: 'Connected marketing suite for dealership sales teams to capture, nurture, and close leads.',
       includedItems: [
-        'Design Studio ($19.99/mo value, with social scheduler & AI included)',
+        'Design Studio ($5/mo value, with social scheduler & AI included)',
         'Facebook AutoPoster Dealer ($79/mo value)',
         'Campaigns — Email + SMS ($129/mo value)'
       ],

@@ -21,24 +21,35 @@ export function resolvePlanId(planId) {
 // Only when all subscriptions are cancelled/expired does the account gate become INACTIVE.
 export async function reconcileDealershipBillingStatus(dealershipId) {
   if (!dealershipId) return 'INACTIVE'
-  const { data: subs, error } = await supabaseAdmin
-    .from('subscriptions')
-    .select('product_id, plan_id, status, trial_ends_at, current_period_end')
-    .eq('dealership_id', dealershipId)
+  let coverage = null
+  try {
+    const covQuery = supabaseAdmin.from('subscription_product_coverage')
+    if (covQuery && typeof covQuery.select === 'function') {
+      const res = await covQuery.select('product_id, plan_id, status, trial_ends_at, current_period_end, cancel_at_period_end').eq('dealership_id', dealershipId)
+      coverage = res?.data || null
+    }
+  } catch {}
 
-  if (error) {
-    console.error('[entitlements] failed to fetch subscriptions for reconciliation:', error)
-    return 'INACTIVE'
-  }
+  let subs = null
+  try {
+    const subQuery = supabaseAdmin.from('subscriptions')
+    if (subQuery && typeof subQuery.select === 'function') {
+      const res = await subQuery.select('product_id, plan_id, status, trial_ends_at, current_period_end').eq('dealership_id', dealershipId)
+      subs = res?.data || null
+    }
+  } catch {}
+
+  const activeItems = (coverage && coverage.length > 0) ? coverage : (subs || [])
 
   const now = Date.now()
   let hasActive = false
   let hasValidTrial = false
   let hasPastDue = false
 
-  for (const s of (subs || [])) {
+  for (const s of activeItems) {
     if (s.status === 'active') {
-      hasActive = true
+      const periodExpired = s.cancel_at_period_end && s.current_period_end && new Date(s.current_period_end).getTime() < now
+      if (!periodExpired) hasActive = true
     } else if (s.status === 'trialing') {
       const trialExpired = s.trial_ends_at && new Date(s.trial_ends_at).getTime() < now
       if (!trialExpired) hasValidTrial = true
@@ -75,19 +86,47 @@ export async function reconcileDealershipBillingStatus(dealershipId) {
 
 // ── THE ENTITLEMENT ENGINE ───────────────────────────────────────────────────
 // Grant a plan to an organization. This turns "active plan" into access:
-// it expands the plan into its products (the bundle), writes one subscription row
-// per product, preserves other products for multi-subscription accounts, merges legacy flags,
-// and reconciles the global billing status.
-export async function provisionPlan({ dealershipId, planId, status = 'trialing', trialEndsAt = null, stripe = null, preserveExisting = true }) {
+// it expands the plan into its products (the bundle), writes subscription coverage
+// per product per subscription, preserves other products for multi-subscription accounts,
+// merges legacy flags, and reconciles the global billing status.
+export async function provisionPlan({
+  dealershipId, planId, status = 'trialing', trialEndsAt = null,
+  stripe = null, subscriptionId = null, currentPeriodEnd = null,
+  cancelAtPeriodEnd = false, preserveExisting = true
+}) {
   const plan = getPlan(planId)
   if (!dealershipId || !plan) throw new Error(`provisionPlan: bad args (dealership=${dealershipId}, plan=${planId})`)
   const products = plan.products
   const now = new Date().toISOString()
+  const subId = subscriptionId || stripe?.stripe_subscription_id || `sub_${dealershipId}_${plan.id}`
 
-  // One subscription row per product the plan grants.
+  // 1. Write normalized multi-subscription product coverage rows
+  const coverageRows = products.map(product => ({
+    dealership_id: dealershipId,
+    subscription_id: subId,
+    plan_id: plan.id,
+    product_id: product,
+    status,
+    trial_ends_at: trialEndsAt,
+    current_period_end: currentPeriodEnd,
+    cancel_at_period_end: !!cancelAtPeriodEnd,
+    updated_at: now,
+  }))
+
+  try {
+    const { error: covErr } = await supabaseAdmin
+      .from('subscription_product_coverage')
+      .upsert(coverageRows, { onConflict: 'subscription_id,product_id' })
+    if (covErr && covErr.code !== '42P01') console.warn('[entitlements] coverage write warning:', covErr.message)
+  } catch (err) {
+    console.warn('[entitlements] coverage error:', err.message)
+  }
+
+  // 2. Also keep legacy/backward-compatible subscriptions table in sync
   const rows = products.map(product => ({
-    dealership_id: dealershipId, product_id: product, plan_id: planId,
-    status, trial_ends_at: trialEndsAt, updated_at: now, ...(stripe || {}),
+    dealership_id: dealershipId, product_id: product, plan_id: plan.id,
+    status, trial_ends_at: trialEndsAt, current_period_end: currentPeriodEnd,
+    updated_at: now, ...(stripe || {}),
   }))
   const { error: upErr } = await supabaseAdmin
     .from('subscriptions').upsert(rows, { onConflict: 'dealership_id,product_id' })
@@ -177,11 +216,42 @@ const SUB_STATUS_TO_BILLING = Object.freeze({
 })
 
 // Fully deactivate an org's plan (Stripe cancellation): mark every subscription row
+// Cancel individual subscription coverage without wiping other active subscriptions.
+export async function cancelSubscriptionCoverage({ dealershipId, subscriptionId, status = 'cancelled' }) {
+  if (!dealershipId || !subscriptionId) return
+  const now = new Date().toISOString()
+  try {
+    await supabaseAdmin.from('subscription_product_coverage')
+      .update({ status, updated_at: now })
+      .eq('dealership_id', dealershipId)
+      .eq('subscription_id', subscriptionId)
+  } catch (err) {
+    console.warn('[entitlements] cancelSubscriptionCoverage error:', err.message)
+  }
+
+  // Also update subscriptions table if matching stripe_subscription_id
+  await supabaseAdmin.from('subscriptions')
+    .update({ status, updated_at: now })
+    .eq('dealership_id', dealershipId)
+    .eq('stripe_subscription_id', subscriptionId)
+
+  await reconcileDealershipBillingStatus(dealershipId)
+}
+
+// Full account cancellation (e.g. churn or manual offboarding): mark every subscription
 // cancelled (access-policy grants only trialing/active) and clear the legacy paid flags.
 export async function cancelAllSubscriptions(dealershipId) {
   if (!dealershipId) return
+  const now = new Date().toISOString()
+  try {
+    await supabaseAdmin.from('subscription_product_coverage')
+      .update({ status: 'cancelled', updated_at: now })
+      .eq('dealership_id', dealershipId)
+  } catch (err) {
+    console.warn('[entitlements] cancelAllSubscriptions coverage error:', err.message)
+  }
   await supabaseAdmin.from('subscriptions')
-    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .update({ status: 'cancelled', updated_at: now })
     .eq('dealership_id', dealershipId)
   await supabaseAdmin.from('dealerships').update({
     plan: null, ai_boost_active: false, ai_boost_paid: false,
@@ -218,10 +288,12 @@ export async function syncSubscriptionFromStripe(dealershipId, stripeSub, { pres
   // If cancel_at_period_end is true but status is still active/trialing, preserve active access until period end.
   const status = isCanceled ? 'cancelled' : mapStripeStatus(stripeSub.status)
   const trialEndsAt = stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000).toISOString() : null
+  const currentPeriodEnd = stripeSub.current_period_end ? new Date(stripeSub.current_period_end * 1000).toISOString() : null
+  const cancelAtPeriodEnd = !!stripeSub.cancel_at_period_end
   const stripe = {
     stripe_subscription_id: stripeSub.id || null,
     stripe_customer_id: stripeSub.customer || null,
-    current_period_end: stripeSub.current_period_end ? new Date(stripeSub.current_period_end * 1000).toISOString() : null,
+    current_period_end: currentPeriodEnd,
   }
   // Find the line item whose price maps to a plan.
   let planId = null
@@ -230,7 +302,17 @@ export async function syncSubscriptionFromStripe(dealershipId, stripeSub, { pres
     if (p) { planId = p; break }
   }
   if (!planId) return
-  await provisionPlan({ dealershipId, planId, status, trialEndsAt, stripe, preserveExisting })
+  await provisionPlan({
+    dealershipId,
+    planId,
+    status,
+    trialEndsAt,
+    stripe,
+    subscriptionId: stripeSub.id,
+    currentPeriodEnd,
+    cancelAtPeriodEnd,
+    preserveExisting
+  })
 }
 
 // Apply per-member permission overrides (grant/deny) on top of their RBAC role. Validates

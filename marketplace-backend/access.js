@@ -65,11 +65,12 @@ export async function getCurrentAccessContext(req) {
 
   // Per-caller rows. Without a dealership (e.g. brand-new signup) only the catalog
   // matters; the membership/permission queries would return nothing anyway.
-  let roleRows = [], overrides = [], subscriptions = [], memberships = []
+  let roleRows = [], overrides = [], subscriptions = [], productCoverage = [], memberships = []
   if (dealershipId && userId) {
-    const [roleRes, subRes, memRes, ovrRes] = await Promise.all([
+    const [roleRes, subRes, covRes, memRes, ovrRes] = await Promise.all([
       supabaseAdmin.from('user_roles').select('role_id').eq('user_id', userId).eq('dealership_id', dealershipId),
-      supabaseAdmin.from('subscriptions').select('product_id, plan_id, status, trial_ends_at').eq('dealership_id', dealershipId),
+      supabaseAdmin.from('subscriptions').select('product_id, plan_id, status, trial_ends_at, current_period_end').eq('dealership_id', dealershipId),
+      supabaseAdmin.from('subscription_product_coverage').select('subscription_id, product_id, plan_id, status, trial_ends_at, current_period_end, cancel_at_period_end').eq('dealership_id', dealershipId),
       supabaseAdmin.from('product_memberships').select('product_id').eq('user_id', userId).eq('dealership_id', dealershipId),
       supabaseAdmin.from('member_permission_overrides').select('permission_id, effect').eq('user_id', userId).eq('dealership_id', dealershipId),
     ])
@@ -86,6 +87,7 @@ export async function getCurrentAccessContext(req) {
     }
     roleRows = roleRes.data || []
     subscriptions = subRes.data || []
+    productCoverage = covRes.data || []
     memberships = (memRes.data || []).map(m => m.product_id)
     overrides = ovrRes.data || []
   }
@@ -111,6 +113,7 @@ export async function getCurrentAccessContext(req) {
     rolePermissions,
     overrides,
     subscriptions,
+    productCoverage,
     productMemberships: memberships,
     features: catalog.features,
     planFeatures: catalog.planFeatures,
@@ -163,6 +166,38 @@ export function requireAnyFeature(...featureIds) {
       }
       return res.status(403).json({ error: 'FEATURE_ACCESS_REQUIRED', feature: featureIds[0] })
     } catch { return res.status(500).json({ error: 'Access check failed' }) }
+  }
+}
+
+/**
+ * Composition guard enforcing Product AND Feature AND Permission.
+ * Example: requireAccess({ product: 'marketsync_website', feature: 'website.builder', permission: 'site.manage' })
+ */
+export function requireAccess(opts = {}) {
+  return async (req, res, next) => {
+    try {
+      const ctx = await getCurrentAccessContext(req)
+      if (opts.product && !hasProductAccess(ctx, opts.product)) {
+        return res.status(403).json({ error: 'PRODUCT_ACCESS_REQUIRED', product: opts.product })
+      }
+      if (opts.feature && !hasFeature(ctx, opts.feature)) {
+        return res.status(403).json({ error: 'FEATURE_ACCESS_REQUIRED', feature: opts.feature })
+      }
+      if (Array.isArray(opts.anyFeature) && opts.anyFeature.length > 0) {
+        const matched = opts.anyFeature.some(f => hasFeature(ctx, f))
+        if (!matched) {
+          return res.status(403).json({ error: 'FEATURE_ACCESS_REQUIRED', feature: opts.anyFeature[0] })
+        }
+      }
+      if (opts.permission) {
+        if (!can(ctx, opts.permission)) {
+          return res.status(403).json({ error: 'PERMISSION_DENIED', permission: opts.permission })
+        }
+      }
+      next()
+    } catch {
+      return res.status(500).json({ error: 'Access check failed' })
+    }
   }
 }
 

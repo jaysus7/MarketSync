@@ -15,7 +15,7 @@ import { createNotification } from '../notifications.js'
 import { handleDepositCheckout } from './deposits.js'
 import { accrueAffiliateCommission } from './affiliate.js'
 import { postMarketsyncRevenue } from './accounting.js'
-import { syncSubscriptionFromStripe } from '../entitlements.js'
+import { syncSubscriptionFromStripe, cancelSubscriptionCoverage } from '../entitlements.js'
 import { getPlan, stripePriceForPlan, PLAN_CATALOG, PLAN_IDS } from '../plan-catalog.js'
 import { blockDemoStripeAction } from './demo.js'
 
@@ -254,8 +254,10 @@ export function registerRoutes(app) {
           // Reconcile normalized subscriptions → status 'cancelled'.
           try {
             const d = await dealerForCustomer(sub.customer)
-            if (d?.id) await syncSubscriptionFromStripe(d.id, sub)
-          } catch (e) { console.error('[stripe] sub sync failed:', e?.message || e) }
+            if (d?.id) {
+              await cancelSubscriptionCoverage({ dealershipId: d.id, subscriptionId: sub.id })
+            }
+          } catch (e) { console.error('[stripe] sub cancel failed:', e?.message || e) }
 
           // Trial expired email (no payment collected = trial_end cancellation)
           if (sub.cancellation_details?.reason === 'cancellation_requested' || sub.cancel_at_period_end) break
@@ -496,41 +498,42 @@ export function registerRoutes(app) {
     const planId = String(req.body?.plan || '')
     const plan = getPlan(planId)
     if (!plan) return res.status(400).json({ error: 'Unknown plan' })
+    const canonicalPlanId = plan.id
 
     let currency = String(req.body?.currency || '').toUpperCase()
     if (currency !== 'USD' && currency !== 'CAD') {
       const { data: dl } = await supabaseAdmin.from('dealerships').select('country').eq('id', req.dealershipId).maybeSingle()
       currency = String(dl?.country || '').toUpperCase() === 'US' ? 'USD' : 'CAD'
     }
-    const priceId = stripePriceForPlan(planId, currency, process.env)
+    const priceId = stripePriceForPlan(canonicalPlanId, currency, process.env)
     if (!priceId) return res.status(500).json({ error: `Price for ${plan.label} (${currency}) is not configured yet` })
 
     const existingCustomerId = req.profile.dealerships?.stripe_customer_id
     try {
       // Charge immediately (no Stripe trial): the 39-day free trial is granted at sign-up
       // with no card, so by the time someone reaches Checkout they're subscribing to pay.
-      const successUrl = (planId === 'ai-chatbot')
+      const successUrl = (canonicalPlanId === 'ai-chatbot')
         ? `${FRONTEND_URL}/dashboard.html?page=website&tab=setup&section=ai-chatbot&plan_session={CHECKOUT_SESSION_ID}`
-        : (planId === 'marketsync-seo' || planId === 'marketsync_seo')
+        : (canonicalPlanId === 'marketsync-seo' || canonicalPlanId === 'marketsync_seo')
         ? `${FRONTEND_URL}/dashboard.html?page=website&tab=seo&section=overview&plan_session={CHECKOUT_SESSION_ID}`
         : `${FRONTEND_URL}/dashboard.html?plan_session={CHECKOUT_SESSION_ID}`
-      const cancelUrl = (planId === 'ai-chatbot')
+      const cancelUrl = (canonicalPlanId === 'ai-chatbot')
         ? `${FRONTEND_URL}/dashboard.html?page=website&tab=setup&section=ai-chatbot`
-        : (planId === 'marketsync-seo' || planId === 'marketsync_seo')
+        : (canonicalPlanId === 'marketsync-seo' || canonicalPlanId === 'marketsync_seo')
         ? `${FRONTEND_URL}/dashboard.html?page=website&tab=seo`
         : `${FRONTEND_URL}/dashboard.html`
 
       const params = {
         line_items: [{ price: priceId, quantity: 1 }],
         mode: 'subscription',
-        metadata: { type: 'plan', plan: planId, currency, dealership_id: req.dealershipId },
-        subscription_data: { metadata: { type: 'plan', plan: planId, dealership_id: req.dealershipId } },
+        metadata: { type: 'plan', plan: canonicalPlanId, currency, dealership_id: req.dealershipId },
+        subscription_data: { metadata: { type: 'plan', plan: canonicalPlanId, dealership_id: req.dealershipId } },
         success_url: successUrl,
         cancel_url: cancelUrl,
       }
       if (existingCustomerId) params.customer = existingCustomerId
       const session = await stripe.checkout.sessions.create(params)
-      recordCheckoutStart({ sessionId: session.id, dealershipId: req.dealershipId, kind: 'plan', planKey: planId, currency })
+      recordCheckoutStart({ sessionId: session.id, dealershipId: req.dealershipId, kind: 'plan', planKey: canonicalPlanId, currency })
       res.json({ url: session.url })
     } catch (err) { res.status(500).json({ error: err.message }) }
   }

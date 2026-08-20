@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
+import { requireProduct } from '../access.js'
 import { audit } from '../audit.js'
 import { findOrCreateContact } from './crm.js'
 import { enqueueForTrigger } from './automation.js'
@@ -501,7 +502,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
   })
 
   // ── ADMIN: read the site config (slug, published, content) ─────────────────
-  app.get('/dealership/site', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+  app.get('/dealership/site', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { data: d } = await supabaseAdmin.from('dealerships')
       .select('name, branding, site_slug, site_published, custom_domain, custom_domain_verified, city, province, postal_code, website_url').eq('id', req.dealershipId).single()
@@ -517,7 +518,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
   })
 
   // ── ADMIN: update slug / publish / site content ────────────────────────────
-  app.put('/dealership/site', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+  app.put('/dealership/site', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const b = req.body || {}
     const update = {}
@@ -609,7 +610,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
   })
 
   // ── ADMIN: check whether the dealer's custom domain now points at us ─────────
-  app.post('/dealership/site/verify-domain', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+  app.post('/dealership/site/verify-domain', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     const { data: d } = await supabaseAdmin.from('dealerships').select('custom_domain, custom_domain_cf_id').eq('id', req.dealershipId).single()
     const dom = d?.custom_domain
     if (!dom) return res.status(400).json({ error: 'Add a domain first.' })
@@ -649,7 +650,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     }
   }
 
-  app.get('/dealership/blog', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+  app.get('/dealership/blog', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { data, error } = await req.supabase.from('dealer_blog_posts')
       .select(BLOG_COLS).eq('dealership_id', req.dealershipId).order('updated_at', { ascending: false })
@@ -657,7 +658,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     res.json({ posts: data || [] })
   })
 
-  app.post('/dealership/blog', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+  app.post('/dealership/blog', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const b = req.body || {}
     const title = String(b.title || '').trim()
@@ -680,7 +681,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     res.json({ post: data })
   })
 
-  app.patch('/dealership/blog/:id', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+  app.patch('/dealership/blog/:id', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const b = req.body || {}
     const { data: existing } = await req.supabase.from('dealer_blog_posts')
@@ -706,7 +707,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     res.json({ post: data })
   })
 
-  app.delete('/dealership/blog/:id', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+  app.delete('/dealership/blog/:id', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { error } = await req.supabase.from('dealer_blog_posts')
       .delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
