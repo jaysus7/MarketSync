@@ -290,3 +290,48 @@ test('MarketSync Digital navigation with SEO entitlement includes SEO', (t) => {
   assert.ok(pageLabels.includes('AI ChatBot'));
   assert.ok(pageLabels.includes('SEO'), 'SEO must be included when marketsync_seo product/feature is held');
 });
+
+test('Tracked migration 2026-08-20-marketing-suite-plan-entitlements.sql aligns plan_products and plan_features', (t) => {
+  const migPath = path.join(__dirname, '../migrations/2026-08-20-marketing-suite-plan-entitlements.sql');
+  assert.ok(fs.existsSync(migPath), 'Migration file must exist');
+
+  const sql = fs.readFileSync(migPath, 'utf8');
+
+  // Verify prices ($399 -> 39900, $399 -> 39900, $699 -> 69900, $1199 -> 119900)
+  assert.match(sql, /\('sales-marketing-suite',\s*'marketsync_social',\s*'Sales Marketing Suite',\s*1,\s*39900/);
+  assert.match(sql, /\('service-marketing-suite',\s*'marketsync_email',\s*'Service Marketing Suite',\s*1,\s*39900/);
+  assert.match(sql, /\('complete-marketing-suite',\s*'marketsync_social',\s*'Complete Marketing Suite',\s*2,\s*69900/);
+  assert.match(sql, /\('marketsync-digital',\s*'marketsync_website',\s*'MarketSync Digital',\s*2,\s*119900/);
+
+  // Verify plan_products mappings
+  assert.match(sql, /\('sales-marketing-suite',\s*'design_studio'\)/);
+  assert.match(sql, /\('sales-marketing-suite',\s*'facebook'\)/);
+  assert.match(sql, /\('sales-marketing-suite',\s*'marketsync_social'\)/);
+  assert.match(sql, /\('sales-marketing-suite',\s*'marketsync_email'\)/);
+  assert.match(sql, /\('sales-marketing-suite',\s*'marketsync_video'\)/);
+
+  assert.match(sql, /\('service-marketing-suite',\s*'design_studio'\)/);
+  assert.match(sql, /\('service-marketing-suite',\s*'facebook'\)/);
+  assert.match(sql, /\('service-marketing-suite',\s*'marketsync_social'\)/);
+  assert.match(sql, /\('service-marketing-suite',\s*'marketsync_email'\)/);
+  assert.match(sql, /\('service-marketing-suite',\s*'marketsync_video'\)/);
+
+  assert.match(sql, /\('complete-marketing-suite',\s*'design_studio'\)/);
+  assert.match(sql, /\('complete-marketing-suite',\s*'facebook'\)/);
+  assert.match(sql, /\('complete-marketing-suite',\s*'marketsync_social'\)/);
+  assert.match(sql, /\('complete-marketing-suite',\s*'marketsync_email'\)/);
+  assert.match(sql, /\('complete-marketing-suite',\s*'marketsync_video'\)/);
+
+  assert.match(sql, /\('marketsync-digital',\s*'design_studio'\)/);
+  assert.match(sql, /\('marketsync-digital',\s*'facebook'\)/);
+  assert.match(sql, /\('marketsync-digital',\s*'marketsync_social'\)/);
+  assert.match(sql, /\('marketsync-digital',\s*'marketsync_email'\)/);
+  assert.match(sql, /\('marketsync-digital',\s*'marketsync_video'\)/);
+  assert.match(sql, /\('marketsync-digital',\s*'marketsync_website'\)/);
+  assert.match(sql, /\('marketsync-digital',\s*'ai_dealer'\)/);
+
+  // Strictly no marketsync_seo in marketsync-digital
+  assert.doesNotMatch(sql, /\('marketsync-digital',\s*'marketsync_seo'\)/);
+  assert.doesNotMatch(sql, /\('marketsync-digital',\s*'seo\./);
+});
+
