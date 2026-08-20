@@ -84,18 +84,43 @@ async function syncLiveShiftState() {
   } catch {}
 }
 
+let __headerClockInterval = null;
+
 function initHeaderClock() {
   syncLiveShiftState();
   renderShiftDropdownActions();
 
   const updateClocks = () => {
     if (document.hidden) return;
+    
     // 1. Update Real-Time Clock
     const dateEl = document.getElementById('header-clock-date');
     const timeEl = document.getElementById('header-clock-time');
+    const periodEl = document.getElementById('header-clock-period');
     const now = new Date();
-    if (dateEl) dateEl.textContent = now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
-    if (timeEl) timeEl.textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+
+    if (dateEl) {
+      const dateStr = now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+      if (dateEl.textContent !== dateStr) dateEl.textContent = dateStr;
+    }
+
+    if (timeEl) {
+      let hours = now.getHours();
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      const formattedTime = `${hours}:${minutes}:${seconds}`;
+
+      if (periodEl) {
+        if (timeEl.textContent !== formattedTime) timeEl.textContent = formattedTime;
+        if (periodEl.textContent !== ampm) periodEl.textContent = ampm;
+      } else {
+        const fullTime = `${formattedTime} ${ampm}`;
+        if (timeEl.textContent !== fullTime) timeEl.textContent = fullTime;
+      }
+    }
 
     // 2. Update Shift Attendance Clock
     const timerDisplay = document.getElementById('header-shift-timer-display');
@@ -115,33 +140,61 @@ function initHeaderClock() {
       const elapsed = nowMs - __shiftState.startTime - currentBreak;
       const formatted = fmtHHMMSS(elapsed);
 
-      if (timerDisplay) timerDisplay.textContent = `Shift: ${formatted}`;
-      if (durEl) durEl.textContent = formatted;
-      if (startEl && __shiftState.startTime) startEl.textContent = new Date(__shiftState.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-      if (breakEl) breakEl.textContent = fmtHHMMSS(currentBreak);
+      if (timerDisplay && timerDisplay.textContent !== `Shift: ${formatted}`) {
+        timerDisplay.textContent = `Shift: ${formatted}`;
+      }
+      if (durEl && durEl.textContent !== formatted) durEl.textContent = formatted;
+      if (startEl && __shiftState.startTime) {
+        const startStr = new Date(__shiftState.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        if (startEl.textContent !== startStr) startEl.textContent = startStr;
+      }
+      if (breakEl) {
+        const breakStr = fmtHHMMSS(currentBreak);
+        if (breakEl.textContent !== breakStr) breakEl.textContent = breakStr;
+      }
 
       if (__shiftState.breakStart) {
-        if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
-        if (badge) { badge.textContent = 'On Break'; badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-700'; }
-        if (chipBtn) chipBtn.className = 'flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs font-mono font-bold text-amber-600 dark:text-amber-400 shadow-xs hover:bg-amber-500/20 transition cursor-pointer';
+        if (statusDot && statusDot.className !== 'w-2 h-2 rounded-full bg-amber-500 animate-pulse') {
+          statusDot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
+        }
+        if (badge && badge.textContent !== 'On Break') {
+          badge.textContent = 'On Break';
+          badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-700';
+        }
+        if (chipBtn && !chipBtn.classList.contains('border-amber-500/30')) {
+          chipBtn.className = 'flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs font-bold text-amber-600 dark:text-amber-400 shadow-xs hover:bg-amber-500/20 transition-colors cursor-pointer select-none flex-shrink-0';
+        }
       } else {
-        if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
-        if (badge) { badge.textContent = 'Clocked In'; badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-700'; }
-        if (chipBtn) chipBtn.className = 'flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 shadow-xs hover:bg-emerald-500/20 transition cursor-pointer';
+        if (statusDot && statusDot.className !== 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse') {
+          statusDot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+        }
+        if (badge && badge.textContent !== 'Clocked In') {
+          badge.textContent = 'Clocked In';
+          badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-700';
+        }
+        if (chipBtn && !chipBtn.classList.contains('border-emerald-500/30')) {
+          chipBtn.className = 'flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-xs font-bold text-emerald-600 dark:text-emerald-400 shadow-xs hover:bg-emerald-500/20 transition-colors cursor-pointer select-none flex-shrink-0';
+        }
       }
     } else {
-      if (timerDisplay) timerDisplay.textContent = 'Clock In';
-      if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-slate-400';
-      if (badge) { badge.textContent = 'Clocked Out'; badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-600'; }
-      if (durEl) durEl.textContent = '00:00:00';
-      if (startEl) startEl.textContent = '--:--';
-      if (breakEl) breakEl.textContent = '00:00:00';
-      if (chipBtn) chipBtn.className = 'flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-100 dark:bg-slate-800/90 text-xs font-mono font-bold text-slate-700 dark:text-slate-200 shadow-xs hover:bg-slate-200 dark:hover:bg-slate-700/80 transition cursor-pointer';
+      if (timerDisplay && timerDisplay.textContent !== 'Clock In') timerDisplay.textContent = 'Clock In';
+      if (statusDot && statusDot.className !== 'w-2 h-2 rounded-full bg-slate-400') statusDot.className = 'w-2 h-2 rounded-full bg-slate-400';
+      if (badge && badge.textContent !== 'Clocked Out') {
+        badge.textContent = 'Clocked Out';
+        badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-600';
+      }
+      if (durEl && durEl.textContent !== '00:00:00') durEl.textContent = '00:00:00';
+      if (startEl && startEl.textContent !== '--:--') startEl.textContent = '--:--';
+      if (breakEl && breakEl.textContent !== '00:00:00') breakEl.textContent = '00:00:00';
+      if (chipBtn && !chipBtn.classList.contains('border-slate-200')) {
+        chipBtn.className = 'flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-100 dark:bg-slate-800/90 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs hover:bg-slate-200 dark:hover:bg-slate-700/80 transition-colors cursor-pointer select-none flex-shrink-0';
+      }
     }
   };
 
+  if (__headerClockInterval) clearInterval(__headerClockInterval);
   updateClocks();
-  setInterval(updateClocks, 1000);
+  __headerClockInterval = setInterval(updateClocks, 1000);
 }
 
 function toggleShiftDropdown(e) {
@@ -1571,6 +1624,18 @@ function switchPage(pageId) {
     else if (pageId === 'auto-leads') __autoTab = 'leads';
     else if (pageId === 'email-marketing') __autoTab = 'marketing';
     pageId = 'automation-builder';
+  }
+
+  // Website canonical default route: website -> setup first; support deep links: website/builder, website/blog, website/seo, website/setup
+  if (typeof pageId === 'string' && pageId.startsWith('website/')) {
+    const sub = pageId.split('/')[1];
+    if (sub === 'builder') __wsTab = 'builder';
+    else if (sub === 'blog') { pageId = 'blog'; }
+    else if (sub === 'seo') { pageId = 'seo'; }
+    else { __wsTab = 'setup'; pageId = 'website'; }
+    if (pageId.startsWith('website/')) pageId = 'website';
+  } else if (pageId === 'website') {
+    if (!__wsTab || __wsTab === 'settings') __wsTab = 'setup';
   }
   // Facebook-only tier: only the Facebook hub, leaderboard and settings are reachable.
   if (__fbOnly && !FB_ONLY_PAGES.has(pageId)) { __inventoryMode = 'facebook'; pageId = 'inventory'; }

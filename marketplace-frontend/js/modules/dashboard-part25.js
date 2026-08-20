@@ -69,17 +69,22 @@ function updateShiftClockUI() {
   // Header chip updates
   if (clockChip && timerDisplay) {
     if (clockState.status === 'in') {
-      clockChip.className = 'inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black transition border shadow-sm cursor-pointer whitespace-nowrap bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20';
-      if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
-      timerDisplay.innerHTML = `SHIFT: <span class="font-mono font-bold">${formatDurationHMS(elapsedMs)}</span>`;
+      const formatted = formatDurationHMS(elapsedMs);
+      if (timerDisplay.textContent !== `Shift: ${formatted}`) timerDisplay.textContent = `Shift: ${formatted}`;
+      if (statusDot && statusDot.className !== 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse') {
+        statusDot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+      }
     } else if (clockState.status === 'break') {
-      clockChip.className = 'inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black transition border shadow-sm cursor-pointer whitespace-nowrap bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20';
-      if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
-      timerDisplay.innerHTML = `BREAK: <span class="font-mono font-bold">${formatDurationHMS(currentBreakMs)}</span>`;
+      const formatted = formatDurationHMS(currentBreakMs);
+      if (timerDisplay.textContent !== `Break: ${formatted}`) timerDisplay.textContent = `Break: ${formatted}`;
+      if (statusDot && statusDot.className !== 'w-2 h-2 rounded-full bg-amber-500 animate-pulse') {
+        statusDot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
+      }
     } else {
-      clockChip.className = 'inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer whitespace-nowrap';
-      if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-slate-400';
-      timerDisplay.innerHTML = `Off Shift — Clock In`;
+      if (timerDisplay.textContent !== 'Clock In') timerDisplay.textContent = 'Clock In';
+      if (statusDot && statusDot.className !== 'w-2 h-2 rounded-full bg-slate-400') {
+        statusDot.className = 'w-2 h-2 rounded-full bg-slate-400';
+      }
     }
   }
 

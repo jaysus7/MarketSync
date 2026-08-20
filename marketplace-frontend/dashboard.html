@@ -287,6 +287,43 @@
     .setup-flash { animation: setupFlash 1.3s ease-in-out 2; border-radius: 0.5rem; }
     #fb-post-btn, #idscan-btn, #ext-header-btn,
     #training-btn, #open-upgrades, #ui-tier-chip { display: none !important; }
+    /* Live Clock Glitch & Layout Shift Prevention */
+    .clock-display, #header-clock-display {
+      min-width: 11.5ch;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+      transition: none !important;
+      animation: none !important;
+    }
+    .clock-time, #header-clock-time {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+      transition: none !important;
+      animation: none !important;
+      display: inline-block;
+      min-width: 7.5ch;
+      text-align: right;
+    }
+    .clock-period, #header-clock-period {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+      transition: none !important;
+      animation: none !important;
+      display: inline-block;
+      min-width: 2.5ch;
+      text-align: left;
+    }
+    #header-shift-timer-display {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+      transition: none !important;
+      animation: none !important;
+    }
+    #header-shift-clock-chip {
+      transition-property: color, background-color, border-color, box-shadow !important;
+      transition-duration: 150ms !important;
+    }
     /* Workforce time clock is a DealerOS Complete entitlement. Keep it out of the
        shell until the authenticated access context proves this account owns Complete. */
     #header-shift-clock-wrapper { display: none !important; }
@@ -323,13 +360,16 @@
 
       <!-- Unified Live Real-Time & Punch Time Clock Widget -->
       <div class="relative inline-block text-left" id="header-shift-clock-wrapper">
-        <button id="header-shift-clock-chip" onclick="toggleShiftDropdown(event)" title="Live Clock &amp; Shift Attendance Punch Clock" aria-label="Shift Punch Clock" class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-100 dark:bg-slate-800/90 text-xs font-mono font-bold text-slate-700 dark:text-slate-200 shadow-xs hover:bg-slate-200 dark:hover:bg-slate-700/80 transition cursor-pointer">
-          <span id="header-clock-date" class="text-slate-500 dark:text-slate-400 font-sans text-[11px]">Date</span>
-          <span id="header-clock-time" class="font-bold text-slate-900 dark:text-white">12:00:00 PM</span>
-          <span class="h-3.5 w-px bg-slate-300 dark:bg-slate-700 mx-0.5"></span>
-          <div class="flex items-center gap-1.5">
-            <span id="header-shift-status-dot" class="w-2 h-2 rounded-full bg-slate-400"></span>
-            <span id="header-shift-timer-display" class="font-sans font-bold text-[11px]">Clock In</span>
+        <button id="header-shift-clock-chip" onclick="toggleShiftDropdown(event)" title="Live Clock &amp; Shift Attendance Punch Clock" aria-label="Shift Punch Clock" class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-100 dark:bg-slate-800/90 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs hover:bg-slate-200 dark:hover:bg-slate-700/80 transition-colors cursor-pointer select-none flex-shrink-0">
+          <span id="header-clock-date" class="text-slate-500 dark:text-slate-400 font-sans text-[11px] whitespace-nowrap min-w-[7.5ch] text-left">Date</span>
+          <span id="header-clock-display" class="clock-display inline-flex items-baseline font-mono font-bold text-slate-900 dark:text-white tabular-nums tracking-tight whitespace-nowrap min-w-[11.5ch] justify-center text-center select-none" style="font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; transition: none;">
+            <span id="header-clock-time" class="clock-time tabular-nums font-mono font-bold" style="font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; transition: none;">12:00:00</span>
+            <span id="header-clock-period" class="clock-period ml-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 select-none" style="transition: none;">PM</span>
+          </span>
+          <span class="h-3.5 w-px bg-slate-300 dark:bg-slate-700 mx-0.5 flex-shrink-0"></span>
+          <div class="flex items-center gap-1.5 min-w-[9ch] flex-shrink-0">
+            <span id="header-shift-status-dot" class="w-2 h-2 rounded-full bg-slate-400 flex-shrink-0"></span>
+            <span id="header-shift-timer-display" class="font-sans font-bold text-[11px] tabular-nums whitespace-nowrap min-w-[6ch] text-left" style="font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; transition: none;">Clock In</span>
           </div>
         </button>
 

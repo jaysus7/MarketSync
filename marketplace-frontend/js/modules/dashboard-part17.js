@@ -415,6 +415,26 @@ function wsSetup() {
 
   return `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full space-y-6">
+      <!-- Website Workspace Top Navigation Tabs -->
+      <div class="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+        <button onclick="wsTab('builder')" class="px-4 py-2 rounded-xl font-bold text-xs transition cursor-pointer flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
+          <span>Builder</span>
+        </button>
+        <button onclick="wsTab('blog')" class="px-4 py-2 rounded-xl font-bold text-xs transition cursor-pointer flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6v-3z"/></svg>
+          <span>Blog</span>
+        </button>
+        <button onclick="wsTab('seo')" class="px-4 py-2 rounded-xl font-bold text-xs transition cursor-pointer flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"/></svg>
+          <span>SEO</span>
+        </button>
+        <button onclick="wsTab('setup')" class="px-4 py-2 rounded-xl font-bold text-xs transition cursor-pointer flex items-center gap-1.5 bg-indigo-600 text-white shadow-xs">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span>Setup</span>
+        </button>
+      </div>
+
       <!-- Setup Page Header -->
       <div class="flex items-center justify-between flex-wrap gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
         <div>
@@ -1507,10 +1527,10 @@ async function loadWebsitePage() {
   const targetTab = params.get('tab');
   const targetSection = params.get('section');
 
-  if (targetTab === 'setup' || targetTab === 'settings') __wsTab = 'setup';
+  if (targetTab === 'builder') __wsTab = 'builder';
   else if (targetTab === 'blog') __wsTab = 'blog';
   else if (targetTab === 'seo') __wsTab = 'seo';
-  else if (!__wsTab || __wsTab === 'settings') __wsTab = 'builder';
+  else __wsTab = 'setup';
 
   if (targetSection) __wsSetupSection = targetSection;
 
@@ -1586,26 +1606,16 @@ function exitWebsiteWorkspace() {
   const chatDock = document.getElementById('staff-chat-dock-bar');
   if (chatDock) chatDock.style.display = '';
 
+  // Exiting Builder returns to Website -> Setup (unless previous route is explicitly outside website)
   const prev = window.websiteWorkspacePreviousRoute || {};
-  const isDemo = typeof isDemoAccount === 'function' && isDemoAccount();
-  const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
-  const isStandaloneWebsite = (access.products && access.products.length === 1 && (access.products.includes('marketsync_website') || access.products.includes('website')))
-    || (typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace())
-    || (typeof resolveWorkspaceContext === 'function' && resolveWorkspaceContext() === 'website');
-
-  let targetPage = null;
-
-  if (isStandaloneWebsite) {
-    targetPage = 'profile';
-  } else if (prev.dept === 'marketing' || (prev.page && (prev.page.includes('marketing') || prev.page === 'design-studio' || prev.page === 'seo' || prev.page === 'blog'))) {
-    targetPage = 'marketing-overview';
-  } else if (prev.page && prev.page !== 'website' && prev.page !== 'website-settings') {
-    targetPage = prev.page;
-  } else {
-    targetPage = 'profile';
+  if (prev.page && prev.page !== 'website' && prev.page !== 'website-settings' && prev.dept !== 'marketing') {
+    if (typeof switchPage === 'function') switchPage(prev.page);
+    return;
   }
 
-  if (typeof switchPage === 'function') switchPage(targetPage);
+  __wsTab = 'setup';
+  if (typeof switchPage === 'function') switchPage('website');
+  else renderWebsitePage();
 }
 window.exitWebsiteWorkspace = exitWebsiteWorkspace;
 
