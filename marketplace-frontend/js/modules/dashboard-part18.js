@@ -774,9 +774,9 @@ function renderAutoMetricsStrip() {
   });
 
   container.innerHTML = `
-    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-5">
+    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
-        <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Active Flows</div>
+        <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Active Automations</div>
         <div class="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1">${totalActive} <span class="text-xs font-semibold text-slate-400">/ ${totalCount}</span></div>
         <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">Live running</div>
       </div>
@@ -831,34 +831,21 @@ async function loadAutoBuilderPage() {
   renderAutoMetricsStrip();
 
   const tabBtn = (id, label, iconSvg) => `
-    <button onclick="autoTab('${id}')" class="px-4 py-2.5 text-xs font-black border-b-2 transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${__autoTab === id ? 'border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400 bg-indigo-50/60 dark:bg-indigo-950/40' : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}">
-      ${iconSvg || ''}
+    <button onclick="autoTab('${id}')" class="w-full px-3 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2.5 cursor-pointer ${__autoTab === id ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}">
+      <span class="flex-shrink-0 ${__autoTab === id ? 'text-white' : 'text-indigo-500'}">${iconSvg || ''}</span>
       <span>${label}</span>
     </button>
   `;
 
   tabsEl.innerHTML = `
-    <div class="flex items-center justify-between flex-wrap gap-2 w-full border-b border-slate-200 dark:border-slate-800 pb-1">
-      <div class="flex items-center gap-1 overflow-x-auto">
-        ${tabBtn('overview', 'Overview', `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>`)}
-        ${tabBtn('automations', 'Automations', `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>`)}
-        ${tabBtn('campaigns', 'Campaigns', `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/></svg>`)}
-        ${tabBtn('templates', 'Templates', `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>`)}
-        ${tabBtn('audiences', 'Audiences', `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>`)}
-        ${tabBtn('performance', 'Performance', `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"/></svg>`)}
-      </div>
-
-      <!-- Top Primary Builder Actions -->
-      <div class="flex items-center gap-2">
-        <button onclick="openVisualWorkflowBuilder()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs border border-slate-700 shadow-xs transition cursor-pointer">
-          <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
-          <span>Build Automation</span>
-        </button>
-        <button onclick="openEmailSmsBuilder({ mode: 'email' })" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-md transition cursor-pointer">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
-          <span>Build Email / SMS</span>
-        </button>
-      </div>
+    <div class="space-y-1">
+      <div class="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 py-1">Workspace Nav</div>
+      ${tabBtn('overview', 'Overview', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>`)}
+      ${tabBtn('automations', 'Automations', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>`)}
+      ${tabBtn('campaigns', 'Campaigns', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/></svg>`)}
+      ${tabBtn('templates', 'Templates', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>`)}
+      ${tabBtn('audiences', 'Audiences', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>`)}
+      ${tabBtn('performance', 'Performance', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"/></svg>`)}
     </div>
   `;
 
@@ -889,9 +876,7 @@ async function loadAutoBuilderPage() {
 }
 window.loadAutoBuilderPage = loadAutoBuilderPage;
 
-let __autoMode = 'simple';
-
-// ── Render Automations Tab with Simple vs Advanced Mode Support ───────────────
+// ── Render Automations Tab ───────────────────────────────────────────────────
 function renderAutoAutomationsTab(container) {
   const cats = [
     { key: 'all', label: 'All Automations' },
@@ -913,39 +898,33 @@ function renderAutoAutomationsTab(container) {
 
   container.innerHTML = `
     <div class="space-y-6">
-      <!-- Section Header -->
-      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 border border-indigo-500/20 shadow-md">
+      <!-- Clean App-like Section Header -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
         <div class="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 uppercase tracking-wider">Logic &amp; Journeys</span>
-            <h3 class="text-xl font-black text-white mt-1.5">Automated Communication Workflows</h3>
-            <p class="text-xs text-slate-300 mt-1 max-w-2xl">Event-driven automations, 90-second speed-to-lead, review requests, and service interval triggers.</p>
+            <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Logic &amp; Journeys</div>
+            <h3 class="text-xl font-black text-slate-900 dark:text-white mt-0.5">Automated Communication Workflows</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">Event-driven automations, 90-second speed-to-lead, review requests, and service interval triggers.</p>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
-            <!-- Simple vs Advanced Mode Toggle -->
-            <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-700">
-              <button onclick="__autoMode = 'simple'; renderAutoAutomationsTab(document.getElementById('auto-leads-root'))" class="px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${__autoMode === 'simple' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'}">Simple Mode</button>
-              <button onclick="openVisualWorkflowBuilder()" class="px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${__autoMode === 'advanced' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'}">Advanced Mode</button>
-            </div>
-            <button onclick="openMarketingEmailSettings()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition">Settings &amp; Providers</button>
             <button onclick="openVisualWorkflowBuilder()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer">
-              <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
+              <svg class="w-3.5 h-3.5 text-amber-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
               <span>+ Build Automation</span>
             </button>
           </div>
         </div>
 
         <!-- Filter Category Pills -->
-        <div class="flex items-center gap-1.5 overflow-x-auto pt-4 mt-4 border-t border-indigo-900/60">
+        <div class="flex items-center gap-1.5 overflow-x-auto pt-4 mt-4 border-t border-slate-100 dark:border-slate-800">
           ${cats.map(c => `
-            <button onclick="__autoCategoryFilter='${c.key}'; renderAutoAutomationsTab(document.getElementById('auto-leads-root'))" class="px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition ${__autoCategoryFilter === c.key ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700'}">
+            <button onclick="__autoCategoryFilter='${c.key}'; renderAutoAutomationsTab(document.getElementById('auto-leads-root'))" class="px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${__autoCategoryFilter === c.key ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">
               ${c.label}
             </button>
           `).join('')}
         </div>
       </div>
 
-      <!-- Workflow Cards Grid (Simple Mode) -->
+      <!-- Workflow Cards Grid -->
       <div class="grid gap-4">
         ${items.length ? items.map(wf => renderAutoWorkflowCard(wf)).join('') : `
           <div class="py-12 text-center text-sm text-slate-400 italic bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
@@ -1169,28 +1148,24 @@ function duplicateAutoWorkflow(key) {
 function renderAutoOverviewTab(container) {
   container.innerHTML = `
     <div class="space-y-6">
-      <!-- Welcome Hero Banner -->
-      <div class="rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 text-white border border-indigo-900/50 shadow-xl">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-bold uppercase tracking-wider mb-2">
-              Autonomous Dealership Communications
-            </div>
-            <h2 class="text-2xl font-black tracking-tight text-white">Email &amp; SMS Communication Engine</h2>
-            <p class="text-xs text-slate-300 mt-1 max-w-2xl">
-              MarketSync runs event-driven lead follow-up, post-delivery retention, service reminders, price drop alerts, and customer win-back journeys automatically without human delay.
-            </p>
-          </div>
-          <div class="flex items-center gap-2 flex-wrap">
-            <button onclick="openVisualWorkflowBuilder()" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 shadow-md transition flex items-center gap-1.5 cursor-pointer">
-              <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
-              <span>Build Automation</span>
-            </button>
-            <button onclick="openEmailSmsBuilder({ mode: 'email' })" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-lg transition flex items-center gap-1.5 cursor-pointer">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
-              <span>Build Email / SMS</span>
-            </button>
-          </div>
+      <!-- Clean Flat Header -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Autonomous Dealership Communications</div>
+          <h2 class="text-xl font-black text-slate-900 dark:text-white mt-0.5">Email &amp; SMS Communication Engine</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
+            MarketSync runs event-driven lead follow-up, post-delivery retention, service reminders, price drop alerts, and customer win-back journeys automatically without human delay.
+          </p>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button onclick="openVisualWorkflowBuilder()" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs border border-slate-700 shadow-xs transition flex items-center gap-1.5 cursor-pointer">
+            <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
+            <span>Build Automation</span>
+          </button>
+          <button onclick="openEmailSmsBuilder({ mode: 'email' })" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+            <span>Build Email / SMS</span>
+          </button>
         </div>
       </div>
 
@@ -1251,10 +1226,11 @@ function renderAutoOverviewTab(container) {
 
 // ── Render Campaigns Tab ──────────────────────────────────────────────────────
 const DEMO_CAMPAIGNS = [
-  { id: 'cmp_1', name: 'Summer Used Truck & SUV Clearance', channel: 'Email', status: 'sent', audience: 'Sales Leads (Unsold)', sent_count: 3420, open_rate: '64.2%', click_rate: '18.4%', reply_rate: '7.2%', rev: '$68,500', date: 'Yesterday' },
-  { id: 'cmp_2', name: 'Spring Tire Changeover & Brake Special', channel: 'Email + SMS', status: 'sending', audience: 'Service Due (30 Days)', sent_count: 1840, open_rate: '58.1%', click_rate: '22.0%', reply_rate: '14.5%', rev: '$24,200', date: 'In Progress' },
-  { id: 'cmp_3', name: 'High Trade-In Equity VIP Event Invite', channel: 'SMS', status: 'scheduled', audience: 'High Equity Vehicle Owners', sent_count: 980, open_rate: '—', click_rate: '—', reply_rate: '—', rev: '—', date: 'Tomorrow at 10:00 AM' },
-  { id: 'cmp_4', name: 'VIP Customer 1-Year Ownership Check-in', channel: 'Email', status: 'draft', audience: 'Sold Customers (2025)', sent_count: 0, open_rate: '—', click_rate: '—', reply_rate: '—', rev: '—', date: 'Draft' },
+  { id: 'cmp_1', name: 'Summer Used Truck & SUV Clearance', template_id: 'tpl_new_inventory', channel: 'Email', status: 'sent', audience: 'Sales Leads (Unsold)', sent_count: 3420, open_rate: '64.2%', click_rate: '18.4%', reply_rate: '7.2%', rev: '$68,500', date: 'Yesterday' },
+  { id: 'cmp_2', name: 'Spring Tire Changeover & Brake Special', template_id: 'tpl_service_reminder', channel: 'Email + SMS', status: 'sending', audience: 'Service Due (30 Days)', sent_count: 1840, open_rate: '58.1%', click_rate: '22.0%', reply_rate: '14.5%', rev: '$24,200', date: 'In Progress' },
+  { id: 'cmp_3', name: 'High Trade-In Equity VIP Event Invite', template_id: 'tpl_anniversary', channel: 'SMS', status: 'scheduled', audience: 'High Equity Vehicle Owners', sent_count: 980, open_rate: '—', click_rate: '—', reply_rate: '—', rev: '—', date: 'Tomorrow at 10:00 AM' },
+  { id: 'cmp_4', name: 'VIP Customer 1-Year Ownership Check-in', template_id: 'tpl_anniversary', channel: 'Email', status: 'draft', audience: 'Sold Customers (2025)', sent_count: 0, open_rate: '—', click_rate: '—', reply_rate: '—', rev: '—', date: 'Draft' },
+  { id: 'cmp_5', name: 'Monthly Dealership Newsletter', template_id: 'tpl_newsletter', channel: 'Email', status: 'sent', audience: 'All Opted-in Contacts', sent_count: 8940, open_rate: '49.2%', click_rate: '12.4%', reply_rate: '3.1%', rev: '$31,400', date: 'Last Week' },
 ];
 
 function renderAutoCampaignsTab(container) {
@@ -1267,25 +1243,25 @@ function renderAutoCampaignsTab(container) {
 
   container.innerHTML = `
     <div class="space-y-6">
-      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 border border-indigo-500/20 shadow-md">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
         <div class="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 uppercase tracking-wider">Broadcast Campaigns</span>
-            <h3 class="text-xl font-black text-white mt-1.5">Email &amp; SMS Campaigns</h3>
-            <p class="text-xs text-slate-300 mt-1 max-w-2xl">One-time broadcasts, scheduled promotions, VIP event invites, and seasonal clearance events.</p>
+            <span class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Broadcast Campaigns</span>
+            <h3 class="text-xl font-black text-slate-900 dark:text-white mt-0.5">Email &amp; SMS Campaigns</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">One-time broadcasts, scheduled promotions, VIP event invites, and seasonal clearance events.</p>
           </div>
           <div class="flex items-center gap-2">
             <button onclick="openEmailSmsBuilder({ mode: 'email', campaignType: 'onetime' })" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-              <span>New Campaign</span>
+              <span>+ New Campaign</span>
             </button>
           </div>
         </div>
 
         <!-- Filter Status Pills -->
-        <div class="flex items-center gap-1.5 overflow-x-auto pt-4 mt-4 border-t border-indigo-900/60">
+        <div class="flex items-center gap-1.5 overflow-x-auto pt-4 mt-4 border-t border-slate-100 dark:border-slate-800">
           ${statuses.map(st => `
-            <button onclick="__campaignStatusFilter='${st}'; renderAutoCampaignsTab(document.getElementById('auto-leads-root'))" class="px-3 py-1 rounded-xl text-xs font-bold capitalize whitespace-nowrap transition ${__campaignStatusFilter === st ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700'}">
+            <button onclick="__campaignStatusFilter='${st}'; renderAutoCampaignsTab(document.getElementById('auto-leads-root'))" class="px-3 py-1 rounded-xl text-xs font-bold capitalize whitespace-nowrap transition cursor-pointer ${__campaignStatusFilter === st ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">
               ${st}
             </button>
           `).join('')}
@@ -1318,14 +1294,14 @@ function renderAutoCampaignsTab(container) {
                 <div class="text-[10px] uppercase font-bold text-slate-400">Attributed Rev</div>
                 <div class="font-mono font-black text-emerald-600 dark:text-emerald-400">${c.rev}</div>
               </div>
-              <button onclick="openEmailSmsBuilder({ campaignId: '${c.id}', mode: '${c.channel.includes('SMS') ? 'sms' : 'email'}' })" class="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs transition">
+              <button onclick="openEmailSmsBuilder({ campaignId: '${c.id}', templateId: '${c.template_id || ''}', mode: '${c.channel.includes('SMS') ? 'sms' : 'email'}' })" class="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs transition cursor-pointer">
                 Edit Campaign &rarr;
               </button>
             </div>
           </div>
         `).join('') : `
           <div class="py-12 text-center text-sm text-slate-400 italic bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
-            No campaigns matching this filter. Click <b>New Campaign</b> to start one.
+            No campaigns matching this filter. Click <b>+ New Campaign</b> to start one.
           </div>
         `}
       </div>
@@ -1333,16 +1309,275 @@ function renderAutoCampaignsTab(container) {
   `;
 }
 
-// ── Render Templates Tab ──────────────────────────────────────────────────────
+// ── Complete 14 Canonical Communication Templates Registry ───────────────────
 const DEFAULT_COMMUNICATION_TEMPLATES = [
-  { id: 'tpl_1', name: 'Fresh Inventory Arrival Showcase', category: 'Sales', channel: 'Email', desc: 'Hero vehicle card + 3-unit inventory grid + test drive CTA.' },
-  { id: 'tpl_2', name: '90-Second Lead Rapid SMS Intro', category: 'Follow-up', channel: 'SMS', desc: 'Direct personal text with vehicle merge tag & rep phone.' },
-  { id: 'tpl_3', name: 'Synthetic Oil & Brake Service Coupon', category: 'Service', channel: 'Email', desc: 'Automotive service special card with barcode & online booking.' },
-  { id: 'tpl_4', name: '48-Hour 5-Star Google Review Ask', category: 'Review', channel: 'SMS', desc: 'High-converting Google review router with dynamic link.' },
-  { id: 'tpl_5', name: '$200 Customer Referral Reward Program', category: 'Referral', channel: 'Email', desc: 'Referral bonus banner, terms, and 1-click submission CTA.' },
-  { id: 'tpl_6', name: 'High Trade-In Equity VIP Valuation', category: 'Vehicle', channel: 'Email', desc: 'Appraisal valuation card with live trade-in value estimator.' },
-  { id: 'tpl_7', name: 'Monthly Dealership Community Newsletter', category: 'Newsletter', channel: 'Email', desc: 'Multi-story newsletter with community news, staff spotlight, and specials.' },
-  { id: 'tpl_8', name: 'Factory Holiday Sales Event Blast', category: 'Holiday', channel: 'Email + SMS', desc: '0% APR seasonal promotion with countdown timer and stock list.' },
+  {
+    id: 'tpl_lead_90s',
+    name: 'Instant 90-Second Rapid Lead Response',
+    category: 'Sales',
+    channel: 'Email + SMS',
+    desc: 'Salesperson-first intro with vehicle specs, history card, and 1-click test drive scheduler.',
+    used_by: 3,
+    subject: 'Your Vehicle Inquiry at {{dealership.name}}',
+    sms_message: "Hi {{customer.first_name|there}}, it's {{rep.first_name|the team}} at {{dealership.name}}. Saw you were looking at the {{vehicle.ymm|vehicle}} — is that still the one you had your eye on, or are you open to options? Happy to check live availability for you.",
+    blocks: [
+      { id: 'b1', type: 'logo', data: { align: 'center', logoUrl: '' } },
+      { id: 'b2', type: 'heading', data: { text: 'Your Vehicle Inquiry at {{dealership.name}}', level: 'h2', align: 'left' } },
+      { id: 'b3', type: 'text', data: { text: 'Hi {{customer.first_name}},<br><br>Thank you for inquiring about the <strong>{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}</strong>. I just pulled the vehicle history, live availability, and window sticker for you.' } },
+      { id: 'b4', type: 'vehicle_card', data: { title: '2024 Chevrolet Silverado 1500 RST', price: '$48,995', vin: '1GCPYFEF8RA129841', stock: 'TR-8492', mileage: '12,450 mi', fuel: '5.3L V8 EcoTec3', exterior: 'Glacier Blue Metallic', transmission: '10-Speed Automatic' } },
+      { id: 'b5', type: 'rep_card', data: { name: 'Michael Scott', role: 'Dedicated Sales Specialist', phone: '(555) 234-8901', email: 'm.scott@dealership.com' } },
+      { id: 'b6', type: 'button', data: { text: 'Schedule a 2-Minute Call or Test Drive', url: 'https://dealership.com/schedule', align: 'center', btnBg: '#4f46e5' } },
+      { id: 'b7', type: 'footer', data: { dealershipName: '{{dealership.name}}', address: '123 Automotive Parkway, Metro Area', phone: '(555) 321-4567', showUnsub: true } }
+    ]
+  },
+  {
+    id: 'tpl_lead_day3',
+    name: 'Day 3 "Still Looking" Alternative Showcase',
+    category: 'Follow-up',
+    channel: 'Email + SMS',
+    desc: '2-unit alternative inventory grid with trade appraisal callout and direct text bump.',
+    used_by: 2,
+    subject: 'Still shopping? 2 similar vehicles you might like at {{dealership.name}}',
+    sms_message: "Hey {{customer.first_name|there}} — did you end up finding something, or are you still shopping around for the {{vehicle.model|right vehicle}}?",
+    blocks: [
+      { id: 'b1', type: 'logo', data: { align: 'center' } },
+      { id: 'b2', type: 'heading', data: { text: 'Still Searching for the Right Match?', level: 'h2', align: 'left' } },
+      { id: 'b3', type: 'text', data: { text: 'Hi {{customer.first_name}},<br><br>Just checking in on your search. If you haven\'t settled on a unit yet, here are two fresh arrivals matching similar options and strong pricing:' } },
+      { id: 'b4', type: 'inventory_grid', data: { title: 'Similar Frontline Inventory', layout: '2-col', items: [
+        { title: '2023 GMC Sierra 1500 Elevation', price: '$46,750', mileage: '18,200 mi', stock: 'TR-7821' },
+        { title: '2024 Ford F-150 XLT Sport 4x4', price: '$49,200', mileage: '8,400 mi', stock: 'TR-9034' }
+      ] } },
+      { id: 'b5', type: 'trade_cta', data: { headline: 'Have a Trade-In? Get Guaranteed Cash Value', subheadline: 'Used vehicle trade values are at seasonal highs this week.', btnText: 'Get 2-Minute Trade Estimate' } },
+      { id: 'b6', type: 'rep_card', data: { name: 'Michael Scott', role: 'Dedicated Sales Specialist', phone: '(555) 234-8901' } },
+      { id: 'b7', type: 'footer', data: { dealershipName: '{{dealership.name}}', showUnsub: true } }
+    ]
+  },
+  {
+    id: 'tpl_sold_congrats',
+    name: 'Sold Congratulations & Digital Welcome Packet',
+    category: 'Sales',
+    channel: 'Email + SMS',
+    desc: 'Celebratory welcome hero, vehicle showcase, referral incentive, and Google review router.',
+    used_by: 4,
+    subject: 'Congratulations on your new {{vehicle.year}} {{vehicle.make}} {{vehicle.model}}!',
+    sms_message: "Congratulations {{customer.first_name|there}}! Everyone at {{dealership.name}} is thrilled for you and your new {{vehicle.ymm|vehicle}}. We appreciate your business and are here for anything you need!",
+    blocks: [
+      { id: 'b1', type: 'logo', data: { align: 'center' } },
+      { id: 'b2', type: 'heading', data: { text: 'Congratulations & Welcome to the Family!', level: 'h1', align: 'center' } },
+      { id: 'b3', type: 'text', data: { text: 'Dear {{customer.first_name}},<br><br>Everyone at {{dealership.name}} is thrilled for you! Driving home in your new <strong>{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}</strong> is an exciting milestone.<br><br>Below are key resources for your ownership journey, including your digital roadside assistance information and warranty overview.' } },
+      { id: 'b4', type: 'vehicle_card', data: { title: '2025 GMC Yukon Denali Ultimate', price: 'Delivered', vin: '1GKS2CKL9RR849201', stock: 'DLV-4921', exterior: 'Onyx Black', fuel: '6.2L EcoTec3 V8' } },
+      { id: 'b5', type: 'service_offer', data: { headline: '$200 Customer Referral Bonus', discount: '$200 CASH', desc: 'Know a friend or family member looking for a vehicle? We will send you $200 cash when they buy!', code: 'VIP-REF-200' } },
+      { id: 'b6', type: 'review_request', data: { headline: 'How Was Your Delivery Experience?', subheadline: 'Your feedback helps our team constantly improve.', btnText: 'Leave a 5-Star Google Review', reviewUrl: 'https://g.page/r/dealership/review' } },
+      { id: 'b7', type: 'footer', data: { dealershipName: '{{dealership.name}}', showUnsub: true } }
+    ]
+  },
+  {
+    id: 'tpl_delivery_reminder',
+    name: 'Vehicle Delivery Logistics & What-to-Bring',
+    category: 'Sales',
+    channel: 'Email + SMS',
+    desc: 'Delivery time, logistics checklist, delivery coordinator contact, and driving directions.',
+    used_by: 3,
+    subject: 'Delivery Checklist for Your {{vehicle.year}} {{vehicle.make}} {{vehicle.model}}',
+    sms_message: "Hi {{customer.first_name|there}}, your vehicle delivery is set for {{delivery_time|your scheduled time}}. Please remember to bring your driver's license and proof of insurance. We'll have everything ready!",
+    blocks: [
+      { id: 'b1', type: 'logo', data: { align: 'center' } },
+      { id: 'b2', type: 'heading', data: { text: 'Your Delivery is Scheduled!', level: 'h2', align: 'left' } },
+      { id: 'b3', type: 'text', data: { text: 'Hi {{customer.first_name}},<br><br>We are detailing and inspecting your <strong>{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}</strong> so it is in showroom-ready condition for delivery.<br><br><strong>What to bring with you:</strong><br>• Valid Driver\'s License for all registered parties<br>• Current Auto Insurance Card (or binder from your agent)<br>• Title/Registration and all key fobs if trading in a vehicle<br>• Certified funds or bank draft for down payment (if applicable)' } },
+      { id: 'b4', type: 'vehicle_card', data: { title: '2024 Chevrolet Tahoe RST', price: 'Scheduled for Delivery', stock: 'DLV-1094', exterior: 'Summit White' } },
+      { id: 'b5', type: 'rep_card', data: { name: 'Sarah Jenkins', role: 'Delivery Specialist', phone: '(555) 432-8921' } },
+      { id: 'b6', type: 'button', data: { text: 'View Delivery Location & Directions', url: 'https://dealership.com/directions', align: 'center' } },
+      { id: 'b7', type: 'footer', data: { dealershipName: '{{dealership.name}}', showUnsub: true } }
+    ]
+  },
+  {
+    id: 'tpl_review_request',
+    name: '48-Hour Google Review & Sentiment Ask',
+    category: 'Review',
+    channel: 'Email + SMS',
+    desc: 'Minimal, high-converting 5-star rating graphic with 1-click Google review router.',
+    used_by: 2,
+    subject: 'How did we do at {{dealership.name}}?',
+    sms_message: "Hi {{customer.first_name|there}}, thank you again for choosing {{dealership.name}}! If you have 30 seconds, a quick Google review would mean the world to our team: {{review_url|our review page}}",
+    blocks: [
+      { id: 'b1', type: 'logo', data: { align: 'center' } },
+      { id: 'b2', type: 'heading', data: { text: 'How Was Your Experience With Us?', level: 'h2', align: 'center' } },
+      { id: 'b3', type: 'text', data: { text: 'Hi {{customer.first_name}},<br><br>Thank you for choosing {{dealership.name}}! Our family-owned business thrives on honest feedback from valued customers like you.<br><br>If you have 30 seconds, tapping the link below to share your experience on Google makes a huge impact for our team:' } },
+      { id: 'b4', type: 'review_request', data: { headline: 'Share Your 5-Star Experience', subheadline: 'Click below to open Google Reviews directly.', btnText: 'Rate Us on Google (30 Seconds)', reviewUrl: 'https://g.page/r/dealership/review' } },
+      { id: 'b5', type: 'footer', data: { dealershipName: '{{dealership.name}}', showUnsub: true } }
+    ]
+  },
+  {
+    id: 'tpl_referral_request',
+    name: '$200 Customer Referral Reward Program',
+    category: 'Referral',
+    channel: 'Email + SMS',
+    desc: 'Reward-focused referral incentive with cash bonus badge and 1-click submission form.',
+    used_by: 2,
+    subject: 'Earn $200 cash for every friend you refer to {{dealership.name}}',
+    sms_message: "{{customer.first_name|Hey}} — hope you're loving the {{vehicle.model|new ride}}! Quick note: we pay {{referral_bonus|a $200 referral bonus}} for anyone you send our way who buys. Know a friend or family member shopping? Send them my way! — {{rep.first_name|Your team}}",
+    blocks: [
+      { id: 'b1', type: 'logo', data: { align: 'center' } },
+      { id: 'b2', type: 'heading', data: { text: 'Earn $200 Cash for Every Referral', level: 'h2', align: 'center' } },
+      { id: 'b3', type: 'text', data: { text: 'Hi {{customer.first_name}},<br><br>We love having you as part of our community! Did you know we pay a <strong>$200 cash referral bonus</strong> for any friend, coworker, or family member you refer who purchases a vehicle from us?' } },
+      { id: 'b4', type: 'service_offer', data: { headline: '$200 CASH Referral Bonus', discount: '$200 Cash', desc: 'No limits on referral rewards. Simply submit their name before they buy.', code: 'REF-200' } },
+      { id: 'b5', type: 'button', data: { text: 'Submit a Referral & Claim $200', url: 'https://dealership.com/referrals', align: 'center', btnBg: '#10b981' } },
+      { id: 'b6', type: 'rep_card', data: { name: 'Michael Scott', role: 'Sales Specialist', phone: '(555) 234-8901' } },
+      { id: 'b7', type: 'footer', data: { dealershipName: '{{dealership.name}}', showUnsub: true } }
+    ]
+  },
+  {
+    id: 'tpl_service_reminder',
+    name: '6-Month Routine Service Interval & Oil Special',
+    category: 'Service',
+    channel: 'Email + SMS',
+    desc: 'Factory service interval notice with $59.95 synthetic oil special and online scheduler.',
+    used_by: 5,
+    subject: 'Time for your 6-month routine maintenance at {{dealership.name}}',
+    sms_message: "Hi {{customer.first_name|there}}, our records indicate your {{vehicle.ymm|vehicle}} is due for its 6-month routine maintenance. Protect your warranty and book online here: {{service_url|book appointment}}",
+    blocks: [
+      { id: 'b1', type: 'logo', data: { align: 'center' } },
+      { id: 'b2', type: 'heading', data: { text: 'Time for Routine Service on Your {{vehicle.model}}', level: 'h2', align: 'left' } },
+      { id: 'b3', type: 'text', data: { text: 'Hi {{customer.first_name}},<br><br>Our records show your <strong>{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}</strong> is due for its factory-recommended 6-month maintenance interval. Regular service protects your engine, keeps your warranty valid, and maintains maximum resale value.' } },
+      { id: 'b4', type: 'service_offer', data: { headline: 'Full Synthetic Oil & Filter + Tire Rotation', discount: '$59.95 SPECIAL', desc: 'Includes complimentary 27-point multi-point safety inspection and fluid top-off.', code: 'SERV-5995' } },
+      { id: 'b5', type: 'button', data: { text: 'Book Service Appointment Online', url: 'https://dealership.com/service-booking', align: 'center', btnBg: '#059669' } },
+      { id: 'b6', type: 'footer', data: { dealershipName: '{{dealership.name}} Service Center', showUnsub: true } }
+    ]
+  },
+  {
+    id: 'tpl_service_declined',
+    name: 'Declined Service 14-Day Safety Notice & 10% Off',
+    category: 'Service',
+    channel: 'Email + SMS',
+    desc: '10% safety discount coupon on deferred repairs with direct booking CTA.',
+    used_by: 2,
+    subject: 'Safety follow-up regarding your {{vehicle.year}} {{vehicle.make}} {{vehicle.model}}',
+    sms_message: "Hi {{customer.first_name|there}}, our service team wanted to follow up on the maintenance recommendations for your {{vehicle.model|vehicle}}. Use code SAFETY10 for 10% off when you schedule: {{service_url|our service page}}",
+    blocks: [
+      { id: 'b1', type: 'logo', data: { align: 'center' } },
+      { id: 'b2', type: 'heading', data: { text: 'Important Safety Follow-up on Your {{vehicle.model}}', level: 'h2', align: 'left' } },
+      { id: 'b3', type: 'text', data: { text: 'Hi {{customer.first_name}},<br><br>During your recent visit to our service center, our certified technician identified maintenance items on your <strong>{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}</strong> that were deferred.<br><br>To make completing these safety items convenient and budget-friendly, we have applied an exclusive 10% discount to your customer account.' } },
+      { id: 'b4', type: 'service_offer', data: { headline: '10% Off Recommended Maintenance Items', discount: '10% OFF', desc: 'Valid for brake pads, rotors, fluid flushes, filters, and suspension repairs.', code: 'SAFETY10' } },
+      { id: 'b5', type: 'button', data: { text: 'Schedule Deferred Maintenance', url: 'https://dealership.com/service-booking', align: 'center', btnBg: '#dc2626' } },
+      { id: 'b6', type: 'footer', data: { dealershipName: '{{dealership.name}} Service Center', showUnsub: true } }
+    ]
+  },
+  {
+    id: 'tpl_win_back',
+    name: '12-Month Inactive Customer Win-Back & $25 Voucher',
+    category: 'Follow-up',
+    channel: 'Email + SMS',
+    desc: 'Warm personalized letter with $25 gift certificate and trade equity appraisal offer.',
+    used_by: 2,
+    subject: 'We miss you at {{dealership.name}} — $25 Service Gift Inside',
+    sms_message: "Hi {{customer.first_name|there}}, it's been over a year since we've seen your {{vehicle.model|vehicle}}! Enjoy $25 off your next service visit. Book online at {{service_url|our website}} with code WELCOMEBACK.",
+    blocks: [
+      { id: 'b1', type: 'logo', data: { align: 'center' } },
+      { id: 'b2', type: 'heading', data: { text: 'We Miss Seeing You at {{dealership.name}}!', level: 'h2', align: 'center' } },
+      { id: 'b3', type: 'text', data: { text: 'Dear {{customer.first_name}},<br><br>It has been over a year since your last visit to our store. We value your relationship and want to make sure your vehicle is still running at peak performance.<br><br>Please accept this complimentary $25 gift certificate towards any service, oil change, detailing, or parts purchase.' } },
+      { id: 'b4', type: 'service_offer', data: { headline: '$25 Welcome Back Gift Certificate', discount: '$25 CREDIT', desc: 'Applicable to any service or parts order over $50.', code: 'WELCOMEBACK' } },
+      { id: 'b5', type: 'trade_cta', data: { headline: 'Curious What Your Vehicle Is Worth Today?', subheadline: 'Pre-owned trade-in values have increased. Get a quick equity estimate.', btnText: 'Check My Vehicle Equity' } },
+      { id: 'b6', type: 'footer', data: { dealershipName: '{{dealership.name}}', showUnsub: true } }
+    ]
+  },
+  {
+    id: 'tpl_price_drop',
+    name: 'Price Reduction Alert on Saved Vehicle',
+    category: 'Promotions',
+    channel: 'Email + SMS',
+    desc: 'Price reduction alert with vehicle card, savings amount, and instant test drive reservation.',
+    used_by: 2,
+    subject: 'Price Drop Alert: Save on {{vehicle.year}} {{vehicle.make}} {{vehicle.model}}',
+    sms_message: "Great news {{customer.first_name|there}}! The price on the {{vehicle.ymm|vehicle}} you checked out has just dropped by {{price_drop_amount|$500}}. Want me to hold the keys for a test drive? — {{rep.first_name|Your sales rep}}",
+    blocks: [
+      { id: 'b1', type: 'logo', data: { align: 'center' } },
+      { id: 'b2', type: 'heading', data: { text: 'Price Reduced on Your Saved Vehicle!', level: 'h2', align: 'left' } },
+      { id: 'b3', type: 'text', data: { text: 'Great news {{customer.first_name}}!<br><br>The price on the <strong>{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}</strong> you viewed on our website has just been reduced by <strong>$1,200</strong>.<br><br>Because of high demand on this vehicle class, we recommend reserving a test drive before the weekend rush.' } },
+      { id: 'b4', type: 'vehicle_card', data: { title: '2024 Ford Explorer ST 4WD', price: '$44,795', vin: '1FM5K8GC8RGA19824', stock: 'SU-4192', mileage: '9,800 mi', exterior: 'Rapid Red Metallic', transmission: '10-Speed Automatic' } },
+      { id: 'b5', type: 'button', data: { text: 'Hold Keys & Reserve Test Drive', url: 'https://dealership.com/reserve', align: 'center', btnBg: '#e11d48' } },
+      { id: 'b6', type: 'rep_card', data: { name: 'Michael Scott', role: 'Sales Specialist', phone: '(555) 234-8901' } },
+      { id: 'b7', type: 'footer', data: { dealershipName: '{{dealership.name}}', showUnsub: true } }
+    ]
+  },
+  {
+    id: 'tpl_new_inventory',
+    name: 'Fresh Inventory Arrival & VIP First Look',
+    category: 'Promotions',
+    channel: 'Email + SMS',
+    desc: 'Fresh lot arrival showcase with 2-unit inventory grid and window sticker viewer.',
+    used_by: 3,
+    subject: 'Fresh Lot Arrival: {{vehicle.year}} {{vehicle.make}} {{vehicle.model}} at {{dealership.name}}',
+    sms_message: "Hi {{customer.first_name|there}}, a fresh {{vehicle.ymm|vehicle}} matching your preferences just landed on our lot! Want me to send over the photos & window sticker? — {{rep.first_name|Your team}}",
+    blocks: [
+      { id: 'b1', type: 'logo', data: { align: 'center' } },
+      { id: 'b2', type: 'heading', data: { text: 'Just Arrived: Fresh Frontline Trade-in', level: 'h2', align: 'left' } },
+      { id: 'b3', type: 'text', data: { text: 'Hi {{customer.first_name}},<br><br>A pristine <strong>{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}</strong> just finished multi-point reconditioning and arrived on our frontline lot. As a VIP shopper who saved similar criteria, you get first access before public advertising.' } },
+      { id: 'b4', type: 'vehicle_card', data: { title: '2024 RAM 1500 Laramie 4x4', price: '$51,450', vin: '1C6SRFJT8RN190248', stock: 'TR-3910', mileage: '14,100 mi', exterior: 'Diamond Black Crystal' } },
+      { id: 'b5', type: 'inventory_grid', data: { title: 'Other Fresh Arrivals This Week', layout: '2-col', items: [
+        { title: '2023 Chevrolet Tahoe Premier', price: '$58,900', mileage: '22,400 mi', stock: 'SU-8921' },
+        { title: '2024 Toyota Tundra Limited', price: '$53,200', mileage: '11,300 mi', stock: 'TR-4412' }
+      ] } },
+      { id: 'b6', type: 'rep_card', data: { name: 'Michael Scott', role: 'Sales Specialist', phone: '(555) 234-8901' } },
+      { id: 'b7', type: 'footer', data: { dealershipName: '{{dealership.name}}', showUnsub: true } }
+    ]
+  },
+  {
+    id: 'tpl_birthday',
+    name: 'Customer Birthday Celebration Greeting',
+    category: 'Holiday',
+    channel: 'SMS + Email',
+    desc: 'Warm personal greeting with celebratory visuals and zero sales pressure.',
+    used_by: 2,
+    subject: 'Happy Birthday from all of us at {{dealership.name}}!',
+    sms_message: "Happy Birthday, {{customer.first_name|there}}! Wishing you a fantastic year ahead from all of us at {{dealership.name}}. Enjoy your day! — {{rep.first_name|Your friends at the store}}",
+    blocks: [
+      { id: 'b1', type: 'logo', data: { align: 'center' } },
+      { id: 'b2', type: 'heading', data: { text: 'Happy Birthday, {{customer.first_name}}!', level: 'h1', align: 'center' } },
+      { id: 'b3', type: 'text', data: { text: 'Wishing you a wonderful birthday filled with happiness and celebration!<br><br>Everyone on our team at <strong>{{dealership.name}}</strong> appreciates having you in our community. Thank you for being a valued customer, and here\'s to great roads and adventures in the year ahead!' } },
+      { id: 'b4', type: 'rep_card', data: { name: 'The {{dealership.name}} Team', role: 'Your Dealership Family', phone: '(555) 321-4567', email: 'team@dealership.com' } },
+      { id: 'b5', type: 'footer', data: { dealershipName: '{{dealership.name}}', showUnsub: true } }
+    ]
+  },
+  {
+    id: 'tpl_anniversary',
+    name: '1-Year Ownership Anniversary & Equity Review',
+    category: 'Vehicle',
+    channel: 'Email + SMS',
+    desc: 'Ownership milestone celebration with complimentary trade valuation offer.',
+    used_by: 3,
+    subject: 'Happy 1-Year Anniversary With Your {{vehicle.model}}!',
+    sms_message: "Happy 1-Year Anniversary with your {{vehicle.ymm|vehicle}}, {{customer.first_name|there}}! Values are strong right now — if you ever want a complimentary trade equity review, let me know. Thank you for choosing {{dealership.name}}!",
+    blocks: [
+      { id: 'b1', type: 'logo', data: { align: 'center' } },
+      { id: 'b2', type: 'heading', data: { text: 'Happy 1-Year Ownership Anniversary!', level: 'h2', align: 'center' } },
+      { id: 'b3', type: 'text', data: { text: 'Dear {{customer.first_name}},<br><br>Can you believe it has already been one year since you drove home your <strong>{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}</strong>?<br><br>We hope every mile has been fantastic. Because pre-owned values remain high, we prepared a complimentary equity evaluation for your vehicle.' } },
+      { id: 'b4', type: 'vehicle_card', data: { title: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', price: '1 Year in Service', vin: '1GCPYFEF8RA129841', exterior: 'Glacier Blue' } },
+      { id: 'b5', type: 'trade_cta', data: { headline: 'Complimentary 1-Year Equity Check', subheadline: 'Find out what your vehicle is worth in today\'s market with zero obligation.', btnText: 'Review My Equity Calculation' } },
+      { id: 'b6', type: 'footer', data: { dealershipName: '{{dealership.name}}', showUnsub: true } }
+    ]
+  },
+  {
+    id: 'tpl_newsletter',
+    name: 'Dealership Monthly Community Newsletter',
+    category: 'Newsletter',
+    channel: 'Email',
+    desc: 'Multi-column editorial layout with lot specials, maintenance tips, and community news.',
+    used_by: 2,
+    subject: 'The {{dealership.name}} Monthly Insider: News, Specials & Highlights',
+    sms_message: "Check out this month's {{dealership.name}} community newsletter and service specials: {{service_url|our monthly update}}",
+    blocks: [
+      { id: 'b1', type: 'logo', data: { align: 'center' } },
+      { id: 'b2', type: 'heading', data: { text: 'The {{dealership.name}} Monthly Dispatch', level: 'h1', align: 'left' } },
+      { id: 'b3', type: 'text', data: { text: 'Welcome to this month\'s dealership update! Here is what is happening across our showroom, service bays, and local community.' } },
+      { id: 'b4', type: 'inventory_grid', data: { title: 'Featured Frontline Arrivals', layout: '2-col', items: [
+        { title: '2024 GMC Sierra Denali Ultimate', price: '$72,900', mileage: '6,200 mi', stock: 'TR-1192' },
+        { title: '2024 Ford Mustang Mach-E GT', price: '$49,850', mileage: '4,100 mi', stock: 'EV-3091' }
+      ] } },
+      { id: 'b5', type: 'service_offer', data: { headline: 'Seasonal Service Pass', discount: '$15 OFF', desc: 'Any fluid flush, brake inspection, or cabin air filter replacement.', code: 'NEWS-15' } },
+      { id: 'b6', type: 'trade_cta', data: { headline: 'We Need Pre-Owned Trades', subheadline: 'Get an instant appraisal on your current vehicle today.', btnText: 'Get Trade Estimate' } },
+      { id: 'b7', type: 'footer', data: { dealershipName: '{{dealership.name}}', showUnsub: true } }
+    ]
+  }
 ];
 
 function renderAutoTemplatesTab(container) {
@@ -1355,12 +1590,12 @@ function renderAutoTemplatesTab(container) {
 
   container.innerHTML = `
     <div class="space-y-6">
-      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 border border-indigo-500/20 shadow-md">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
         <div class="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 uppercase tracking-wider">Design &amp; Layouts</span>
-            <h3 class="text-xl font-black text-white mt-1.5">Communication Templates</h3>
-            <p class="text-xs text-slate-300 mt-1 max-w-2xl">Pre-designed automotive email layouts and SMS copy ready to deploy in campaigns or workflows.</p>
+            <span class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Design &amp; Layouts</span>
+            <h3 class="text-xl font-black text-slate-900 dark:text-white mt-0.5">Communication Templates</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">Pre-designed automotive email layouts and SMS copy ready to deploy in campaigns or workflows.</p>
           </div>
           <div class="flex items-center gap-2">
             <button onclick="openEmailSmsBuilder({ mode: 'email', isNewTemplate: true })" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer">
@@ -1371,30 +1606,71 @@ function renderAutoTemplatesTab(container) {
         </div>
 
         <!-- Filter Category Pills -->
-        <div class="flex items-center gap-1.5 overflow-x-auto pt-4 mt-4 border-t border-indigo-900/60">
+        <div class="flex items-center gap-1.5 overflow-x-auto pt-4 mt-4 border-t border-slate-100 dark:border-slate-800">
           ${cats.map(c => `
-            <button onclick="__templateCategoryFilter='${c}'; renderAutoTemplatesTab(document.getElementById('auto-leads-root'))" class="px-3 py-1 rounded-xl text-xs font-bold capitalize whitespace-nowrap transition ${__templateCategoryFilter.toLowerCase() === c.toLowerCase() ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700'}">
+            <button onclick="__templateCategoryFilter='${c}'; renderAutoTemplatesTab(document.getElementById('auto-leads-root'))" class="px-3 py-1 rounded-xl text-xs font-bold capitalize whitespace-nowrap transition cursor-pointer ${__templateCategoryFilter.toLowerCase() === c.toLowerCase() ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">
               ${c}
             </button>
           `).join('')}
         </div>
       </div>
 
-      <!-- Templates Grid -->
-      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Templates Grid with Simulated Thumbnail Preview -->
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         ${filtered.map(t => `
-          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:border-indigo-500 transition flex flex-col justify-between space-y-4">
-            <div class="space-y-2">
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs hover:border-indigo-500 transition flex flex-col justify-between space-y-3 group">
+            
+            <!-- Simulated Layout Thumbnail -->
+            <div class="w-full h-32 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 p-2.5 flex flex-col justify-between overflow-hidden relative select-none">
+              <div class="flex items-center justify-between pb-1 border-b border-slate-200/60 dark:border-slate-800">
+                <div class="w-8 h-2 rounded bg-indigo-500/40"></div>
+                <div class="w-12 h-1.5 rounded bg-slate-300 dark:bg-slate-700"></div>
+              </div>
+              
+              <div class="space-y-1.5 my-auto">
+                <div class="w-3/4 h-2.5 rounded bg-slate-800 dark:bg-slate-200 font-bold"></div>
+                <div class="w-full h-1.5 rounded bg-slate-300 dark:bg-slate-700"></div>
+                <div class="w-5/6 h-1.5 rounded bg-slate-300 dark:bg-slate-700"></div>
+                ${t.blocks && t.blocks.some(b => b.type === 'vehicle_card' || b.type === 'inventory_grid') ? `
+                  <div class="h-8 w-full rounded bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200/50 dark:border-indigo-900/30 flex items-center px-2 gap-2 mt-1">
+                    <div class="w-6 h-5 rounded bg-indigo-200 dark:bg-indigo-800/60"></div>
+                    <div class="space-y-0.5 flex-1">
+                      <div class="w-16 h-1.5 rounded bg-indigo-600/40"></div>
+                      <div class="w-10 h-1 rounded bg-slate-400"></div>
+                    </div>
+                  </div>
+                ` : t.blocks && t.blocks.some(b => b.type === 'service_offer') ? `
+                  <div class="h-8 w-full rounded bg-emerald-50 dark:bg-emerald-950/50 border border-dashed border-emerald-300 dark:border-emerald-800 flex items-center justify-between px-2 mt-1">
+                    <div class="w-12 h-2 rounded bg-emerald-600/50"></div>
+                    <div class="w-8 h-3 rounded bg-emerald-500/30"></div>
+                  </div>
+                ` : ''}
+              </div>
+
+              <div class="pt-1 flex items-center justify-between border-t border-slate-200/60 dark:border-slate-800">
+                <div class="w-14 h-2 rounded bg-indigo-600/80"></div>
+                <div class="w-10 h-1 rounded bg-slate-300 dark:bg-slate-700"></div>
+              </div>
+            </div>
+
+            <!-- Details -->
+            <div class="space-y-1.5">
               <div class="flex items-center justify-between">
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">${esc(t.category)}</span>
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${esc(t.channel)}</span>
               </div>
-              <h4 class="text-sm font-black text-slate-900 dark:text-white">${esc(t.name)}</h4>
-              <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">${esc(t.desc)}</p>
+              <h4 class="text-sm font-black text-slate-900 dark:text-white leading-snug">${esc(t.name)}</h4>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">${esc(t.desc)}</p>
+              <div class="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold pt-0.5">Used by ${t.used_by || 1} active workflow${t.used_by === 1 ? '' : 's'}</div>
             </div>
-            <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <button onclick="openEmailSmsBuilder({ templateId: '${t.id}', mode: '${t.channel.includes('SMS') ? 'sms' : 'email'}' })" class="w-full py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600 hover:text-white text-slate-800 dark:text-slate-200 font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer">
-                <span>Edit in Visual Designer</span>
+
+            <!-- Action Buttons -->
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-2 gap-1.5">
+              <button onclick="openEmailSmsBuilder({ templateId: '${t.id}', mode: '${t.channel.includes('SMS') ? 'sms' : 'email'}' })" class="py-1.5 px-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition text-center cursor-pointer">
+                Edit
+              </button>
+              <button onclick="openEmailSmsBuilder({ templateId: '${t.id}', mode: '${t.channel.includes('SMS') ? 'sms' : 'email'}', campaignType: 'onetime' })" class="py-1.5 px-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition text-center cursor-pointer">
+                Use Template
               </button>
             </div>
           </div>
@@ -1403,6 +1679,7 @@ function renderAutoTemplatesTab(container) {
     </div>
   `;
 }
+
 
 // ── Render Audiences Tab ──────────────────────────────────────────────────────
 const CRM_AUDIENCE_SEGMENTS = [
@@ -1419,15 +1696,15 @@ const CRM_AUDIENCE_SEGMENTS = [
 function renderAutoAudiencesTab(container) {
   container.innerHTML = `
     <div class="space-y-6">
-      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 border border-indigo-500/20 shadow-md">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
         <div class="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 uppercase tracking-wider">CRM Audiences</span>
-            <h3 class="text-xl font-black text-white mt-1.5">Target Audiences &amp; Segments</h3>
-            <p class="text-xs text-slate-300 mt-1 max-w-2xl">Live canonical CRM segments synced automatically with customer purchase history, service intervals, and equity status.</p>
+            <span class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">CRM Audiences</span>
+            <h3 class="text-xl font-black text-slate-900 dark:text-white mt-0.5">Target Audiences &amp; Segments</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">Live canonical CRM segments synced automatically with customer purchase history, service intervals, and equity status.</p>
           </div>
           <div class="flex items-center gap-2">
-            <button onclick="switchPage('crm')" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition">Open Customer Database</button>
+            <button onclick="switchPage('crm')" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition cursor-pointer">Open Customer Database</button>
           </div>
         </div>
       </div>
@@ -3256,7 +3533,43 @@ function openEmailSmsBuilder(opts = {}) {
   __esb.templateId = opts.templateId || null;
   __esb.returnToBuilder = !!opts.returnToBuilder;
   __esb.nodeId = opts.nodeId || null;
+
+  if (opts.templateId) {
+    const tpl = DEFAULT_COMMUNICATION_TEMPLATES.find(t => t.id === opts.templateId);
+    if (tpl) {
+      __esb.campaignName = tpl.name;
+      if (tpl.subject) __esb.email.subject = tpl.subject;
+      if (tpl.sms_message) __esb.sms.message = tpl.sms_message;
+      if (tpl.blocks && Array.isArray(tpl.blocks) && tpl.blocks.length > 0) {
+        __esb.email.blocks = JSON.parse(JSON.stringify(tpl.blocks));
+        __esb.email.selectedBlockId = tpl.blocks[0].id;
+      }
+      if (tpl.channel === 'SMS') __esb.mode = 'sms';
+    }
+  } else if (opts.campaignId) {
+    const cmp = DEMO_CAMPAIGNS.find(c => c.id === opts.campaignId);
+    if (cmp) {
+      __esb.campaignName = cmp.name;
+      if (cmp.template_id) {
+        const tpl = DEFAULT_COMMUNICATION_TEMPLATES.find(t => t.id === cmp.template_id);
+        if (tpl) {
+          if (tpl.subject) __esb.email.subject = tpl.subject;
+          if (tpl.sms_message) __esb.sms.message = tpl.sms_message;
+          if (tpl.blocks && Array.isArray(tpl.blocks) && tpl.blocks.length > 0) {
+            __esb.email.blocks = JSON.parse(JSON.stringify(tpl.blocks));
+            __esb.email.selectedBlockId = tpl.blocks[0].id;
+          }
+        }
+      }
+    }
+  }
+
   if (opts.name) __esb.campaignName = opts.name;
+  if (opts.campaignName) __esb.campaignName = opts.campaignName;
+  if (opts.isNewTemplate) {
+    __esb.campaignName = 'Custom Dealership Template';
+    __esb.templateId = null;
+  }
 
   let modal = document.getElementById('email-sms-builder-modal');
   if (!modal) {
