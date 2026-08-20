@@ -835,6 +835,14 @@ const PRODUCT_PAGES = {
   ai_chatbot: ['ai-home'],
   website: ['website', 'blog', 'seo'],
   marketsync_website: ['website', 'blog', 'seo'],
+  'sales-marketing-suite': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'sales-campaigns', 'sales-automations', 'leads', 'marketing-analytics', 'email-sms', 'email-marketing'],
+  sales_marketing_suite: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'sales-campaigns', 'sales-automations', 'leads', 'marketing-analytics', 'email-sms', 'email-marketing'],
+  'service-marketing-suite': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'service-campaigns', 'service-automations', 'crm', 'marketing-analytics', 'email-sms', 'email-marketing'],
+  service_marketing_suite: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'service-campaigns', 'service-automations', 'crm', 'marketing-analytics', 'email-sms', 'email-marketing'],
+  'complete-marketing-suite': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'email-sms', 'email-marketing', 'leads'],
+  complete_marketing_suite: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'email-sms', 'email-marketing', 'leads'],
+  'marketsync-digital': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'website', 'blog', 'seo', 'ai-home', 'email-sms', 'email-marketing', 'leads'],
+  marketsync_digital: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'website', 'blog', 'seo', 'ai-home', 'email-sms', 'email-marketing', 'leads'],
   dealer_os: null,
 };
 const PRODUCT_HOME = {
@@ -852,9 +860,35 @@ const PRODUCT_HOME = {
   ai_chatbot: 'ai-home',
   website: 'website',
   marketsync_website: 'website',
+  'sales-marketing-suite': 'marketing-overview',
+  sales_marketing_suite: 'marketing-overview',
+  'service-marketing-suite': 'marketing-overview',
+  service_marketing_suite: 'marketing-overview',
+  'complete-marketing-suite': 'marketing-overview',
+  complete_marketing_suite: 'marketing-overview',
+  'marketsync-digital': 'marketing-overview',
+  marketsync_digital: 'marketing-overview',
 };
 const FB_PRODUCTS = new Set(['facebook_solo', 'facebook_dealer']);
 let __productAllowedPages = null;   // Set of reachable pages under a restricted product, else null
+
+// Marketing Suite workspace detector
+function isMarketingSuite() {
+  const product = document.documentElement.getAttribute('data-product') || '';
+  const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+  const activePackage = profileContext?.package_id || window.__demoActivePackage || window.__demoActiveProduct || '';
+  if (activePackage === 'sales-marketing-suite' || activePackage === 'service-marketing-suite' || activePackage === 'complete-marketing-suite' || activePackage === 'marketsync-digital') {
+    return true;
+  }
+  if (/(?:^|\s)(?:sales[-_]marketing[-_]suite|service[-_]marketing[-_]suite|complete[-_]marketing[-_]suite|marketsync[-_]digital)(?:\s|$)/.test(product)) {
+    return true;
+  }
+  if (access.products && (access.products.includes('sales_marketing_suite') || access.products.includes('service_marketing_suite') || access.products.includes('complete_marketing_suite') || access.products.includes('marketsync_digital'))) {
+    return true;
+  }
+  return false;
+}
+window.isMarketingSuite = isMarketingSuite;
 
 // The standalone AI Chatbot plan deliberately has a smaller surface than DealerOS.
 // It must never show the internal "Ask MarketSync" assistant controls — that is a
@@ -906,8 +940,9 @@ window.isFacebookOnlyWorkspace = isFacebookOnlyWorkspace;
 function isSingleProductWorkspace() {
   if (typeof resolveWorkspaceContext === 'function') {
     const ctx = resolveWorkspaceContext();
-    if (ctx.type === 'website' || ctx.type === 'standalone') return true;
+    if (ctx.type === 'website' || ctx.type === 'standalone' || ctx.type === 'marketing_suite') return true;
   }
+  if (typeof isMarketingSuite === 'function' && isMarketingSuite()) return true;
   const products = (document.documentElement.getAttribute('data-product') || '').trim();
   const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
   if (window.__demoActiveProduct && window.__demoActiveProduct !== 'dealer_os' && window.__demoActiveProduct !== 'dealer-os') return true;
@@ -1376,6 +1411,74 @@ function restrictedNavPages() {
   if (activeProducts.length === 1 && /(marketsync_email|email_marketing|campaigns[-_]email[-_]sms)/.test(product)) {
     return [{ page: 'automation-builder', label: 'Email & SMS', icon: 'megaphone' }];
   }
+  const isSalesMarketingSuite = activeProducts.includes('sales_marketing_suite')
+    || (typeof profileContext !== 'undefined' && profileContext?.package_id === 'sales-marketing-suite')
+    || window.__demoActiveProduct === 'sales-marketing-suite'
+    || window.__demoActivePackage === 'sales-marketing-suite'
+    || /(?:^|\s)sales[-_]marketing[-_]suite(?:\s|$)/.test(product);
+
+  const isServiceMarketingSuite = activeProducts.includes('service_marketing_suite')
+    || (typeof profileContext !== 'undefined' && profileContext?.package_id === 'service-marketing-suite')
+    || window.__demoActiveProduct === 'service-marketing-suite'
+    || window.__demoActivePackage === 'service-marketing-suite'
+    || /(?:^|\s)service[-_]marketing[-_]suite(?:\s|$)/.test(product);
+
+  const isCompleteMarketingSuite = activeProducts.includes('complete_marketing_suite')
+    || activeProducts.includes('marketsync_digital')
+    || (typeof profileContext !== 'undefined' && (profileContext?.package_id === 'complete-marketing-suite' || profileContext?.package_id === 'marketsync-digital'))
+    || window.__demoActiveProduct === 'complete-marketing-suite'
+    || window.__demoActiveProduct === 'marketsync-digital'
+    || window.__demoActivePackage === 'complete-marketing-suite'
+    || window.__demoActivePackage === 'marketsync-digital'
+    || /(?:^|\s)(?:complete[-_]marketing[-_]suite|marketsync[-_]digital)(?:\s|$)/.test(product);
+
+  if (isSalesMarketingSuite || isServiceMarketingSuite || isCompleteMarketingSuite) {
+    const list = [
+      { page: 'marketing-overview', label: 'Pulse', icon: 'chart' },
+      { page: 'automation-builder', label: 'Email & SMS', icon: 'megaphone' },
+      { page: 'video-studio', label: 'Video Studio', icon: 'video' },
+      { page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true },
+    ];
+
+    if (isSalesMarketingSuite) {
+      list.push(
+        { page: 'sales-campaigns', label: 'Sales Campaigns', icon: 'megaphone' },
+        { page: 'sales-automations', label: 'Sales Automations', icon: 'bolt' },
+        { page: 'leads', label: 'Leads', icon: 'user' },
+        { page: 'marketing-analytics', label: 'Analytics', icon: 'chart' }
+      );
+    } else if (isServiceMarketingSuite) {
+      list.push(
+        { page: 'service-campaigns', label: 'Service Campaigns', icon: 'megaphone' },
+        { page: 'service-automations', label: 'Service Automations', icon: 'bolt' },
+        { page: 'crm', label: 'Customers', icon: 'user' },
+        { page: 'marketing-analytics', label: 'Analytics', icon: 'chart' }
+      );
+    } else if (isCompleteMarketingSuite) {
+      list.push(
+        { page: 'sales-campaigns', label: 'Sales Campaigns', icon: 'megaphone' },
+        { page: 'service-campaigns', label: 'Service Campaigns', icon: 'megaphone' },
+        { page: 'sales-automations', label: 'Sales Automations', icon: 'bolt' },
+        { page: 'service-automations', label: 'Service Automations', icon: 'bolt' },
+        { page: 'crm', label: 'Leads & Customers', icon: 'user' },
+        { page: 'marketing-analytics', label: 'Analytics', icon: 'chart' }
+      );
+    }
+
+    const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+    const hasWebsite = !!((access.products && (access.products.includes('marketsync_website') || access.products.includes('website')))
+      || /(?:^|\s)(?:marketsync_website|website|dealer[-_]website)(?:\s|$)/.test(product)
+      || window.__demoActiveProduct === 'marketsync-digital');
+    const hasAi = !!(window.__aiBoostActive || (window.__siteCfg && window.__siteCfg.ai_boost_active)
+      || (access.products && (access.products.includes('marketsync_ai') || access.products.includes('ai_boost') || access.products.includes('ai_chatbot') || access.products.includes('ai')))
+      || /(?:^|\s)(?:marketsync_ai|ai_boost|ai_chatbot|ai)(?:\s|$)/.test(product)
+      || window.__demoActiveProduct === 'marketsync-digital');
+
+    if (hasWebsite) list.push({ page: 'website', label: 'Website', icon: 'globe' });
+    if (hasAi) list.push({ page: 'ai-home', label: 'AI ChatBot', icon: 'sparkles' });
+    return list;
+  }
+
   const isWebsiteProduct = (typeof isStandaloneWebsiteWorkspace === 'function' && isStandaloneWebsiteWorkspace())
     || (window.__demoActiveProduct === 'dealer-website');
 

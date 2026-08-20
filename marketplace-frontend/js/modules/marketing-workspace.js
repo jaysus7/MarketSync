@@ -311,6 +311,9 @@ ENGINES['marketing-overview'] = {
   // Marketing navigation leads with Pulse, Video Studio, AI ChatBot, Email & SMS, Design Studio, and Website.
   tabLabels: { overview: 'Pulse', 'video-studio': 'Video Studio', chatbot: 'AI ChatBot', 'email-sms': 'Email & SMS', studio: 'Design Studio', website: 'Website', emails: 'Email & SMS', automations: 'Email & SMS' },
   get tabOrder() {
+    if (typeof window !== "undefined" && window.isMarketingSuite && window.isMarketingSuite()) {
+      return ['overview']; // In a marketing suite, navigation lives directly in the MAIN LEFT NAV — do NOT render horizontal top tabs!
+    }
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     return mgr ? ['overview', 'video-studio', 'chatbot', 'email-sms', 'studio', 'website']
                : ['overview', 'video-studio', 'chatbot', 'email-sms', 'studio'];
@@ -394,7 +397,7 @@ ENGINES['marketing-overview'] = {
           </div>
           <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
             <button onclick="engineTab('marketing-overview','chatbot')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Open AI ChatBot Inbox</button>
-            <button onclick="engineTab('marketing-overview','email-sms')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Review Email &amp; SMS</button>
+            <button onclick="switchPage('automation-builder')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Review Email &amp; SMS</button>
           </div>
         </div>
       `;
@@ -422,14 +425,9 @@ ENGINES['marketing-overview'] = {
     chatbot(body, d) {
       body.innerHTML = `
         <div class="space-y-4">
-          <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-            <div>
-              <h3 class="text-sm font-black text-slate-900 dark:text-white">AI ChatBot Product Workspace</h3>
-              <p class="text-xs text-slate-500 dark:text-slate-400">Live conversations, human takeovers, and AI dealership knowledgebase configuration.</p>
-            </div>
-            <button onclick="engineTab('marketing-overview','overview')" class="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition shadow-xs flex items-center gap-1.5">
-              <span>&larr; Back to Marketing Pulse</span>
-            </button>
+          <div class="pb-3 border-b border-slate-200 dark:border-slate-800">
+            <h3 class="text-sm font-black text-slate-900 dark:text-white">AI ChatBot Product Workspace</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Live conversations, human takeovers, and AI dealership knowledgebase configuration.</p>
           </div>
           <div id="mkt-chatbot-mount" class="space-y-4"></div>
         </div>
@@ -446,14 +444,9 @@ ENGINES['marketing-overview'] = {
     'email-sms'(body) {
       body.innerHTML = `
         <div class="space-y-4">
-          <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-            <div>
-              <h3 class="text-sm font-black text-slate-900 dark:text-white">Email &amp; SMS Automation Engine</h3>
-              <p class="text-xs text-slate-500 dark:text-slate-400">Automated lead response, service retention, reviews, and visual workflow journeys.</p>
-            </div>
-            <button onclick="engineTab('marketing-overview','overview')" class="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition shadow-xs flex items-center gap-1.5">
-              <span>&larr; Back to Marketing Pulse</span>
-            </button>
+          <div class="pb-3 border-b border-slate-200 dark:border-slate-800">
+            <h3 class="text-sm font-black text-slate-900 dark:text-white">Email &amp; SMS Automation Engine</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Automated lead response, service retention, reviews, and visual workflow journeys.</p>
           </div>
           <div id="mkt-email-sms-mount"></div>
         </div>
@@ -525,14 +518,9 @@ ENGINES['marketing-overview'] = {
     'video-studio'(body) {
       body.innerHTML = `
         <div class="space-y-4">
-          <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-            <div>
-              <h3 class="text-sm font-black text-slate-900 dark:text-white">Video Studio Product Workspace</h3>
-              <p class="text-xs text-slate-500 dark:text-slate-400">Customer video walkaround recorder, camera app, and delivery analytics.</p>
-            </div>
-            <button onclick="engineTab('marketing-overview','overview')" class="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition shadow-xs flex items-center gap-1.5">
-              <span>&larr; Back to Marketing Pulse</span>
-            </button>
+          <div class="pb-3 border-b border-slate-200 dark:border-slate-800">
+            <h3 class="text-sm font-black text-slate-900 dark:text-white">Video Studio Product Workspace</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Customer video walkaround recorder, camera app, and delivery analytics.</p>
           </div>
           <div id="mkt-video-studio-mount"></div>
         </div>

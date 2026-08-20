@@ -1420,6 +1420,9 @@ function resolveWorkspaceContext(userObj, accessObj, currentRouteStr) {
     if (window.__demoActiveProduct === 'dealer-website' || window.__demoActiveProduct === 'website') {
       return { type: 'website', product: 'website' };
     }
+    if (window.__demoActiveProduct === 'sales-marketing-suite' || window.__demoActiveProduct === 'service-marketing-suite' || window.__demoActiveProduct === 'complete-marketing-suite' || window.__demoActiveProduct === 'marketsync-digital') {
+      return { type: 'marketing_suite', suite: window.__demoActiveProduct };
+    }
     activeProd = window.__demoActiveProduct;
   } else {
     const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
@@ -1429,7 +1432,12 @@ function resolveWorkspaceContext(userObj, accessObj, currentRouteStr) {
     } else {
       products = (document.documentElement.getAttribute('data-product') || '').trim();
     }
-    
+
+    if (typeof isMarketingSuite === 'function' && isMarketingSuite()) {
+      const activePackage = (typeof profileContext !== 'undefined' && profileContext?.package_id) || window.__demoActivePackage || '';
+      return { type: 'marketing_suite', suite: activePackage || 'complete-marketing-suite' };
+    }
+
     if (!products || /(?:^|\s)dealer_os(?:\s|$)/.test(products)) {
       return { type: 'dealer_os', product: 'dealer_os' };
     }
@@ -1459,7 +1467,7 @@ window.resolveWorkspaceContext = resolveWorkspaceContext;
 
 function deptNavEligible(role) {
   const ctx = typeof resolveWorkspaceContext === 'function' ? resolveWorkspaceContext() : { type: 'dealer_os', product: 'dealer_os' };
-  if (ctx.type === 'website') {
+  if (ctx.type === 'website' || ctx.type === 'marketing_suite') {
     return false;
   }
   // The department (DealerOS) nav is the ONE nav for every dealership user — reps
@@ -1607,8 +1615,12 @@ function highlightDeptNav(pageId) {
 function switchPage(pageId) {
   ensurePanelsInOriginalLocations();
 
+  const inMktSuite = typeof isMarketingSuite === 'function' && isMarketingSuite();
+
   // Map legacy department page IDs directly to the single-source-of-truth workspace engines
-  if (pageId === 'crm' || pageId === 'pipeline' || pageId === 'leads' || pageId === 'appointments') pageId = 'sales';
+  if (pageId === 'crm' || pageId === 'pipeline' || pageId === 'leads' || pageId === 'appointments') {
+    if (!inMktSuite) pageId = 'sales';
+  }
   if (pageId === 'inventory') pageId = 'inventory-overview';
   if (pageId === 'fni') pageId = 'fni-overview';
   if (pageId === 'service' || pageId === 'service-ros' || pageId === 'service-appointments') pageId = 'service-overview';
@@ -1618,12 +1630,42 @@ function switchPage(pageId) {
   if (pageId === 'people' || pageId === 'hr') pageId = 'people-overview';
   // The three automation follow-up pages are now tabs inside one Builder page —
   // keep old deep links (notifications, mobile nav) working by mapping to the tab.
-  if (pageId === 'email-marketing' || pageId === 'email-sms' || pageId === 'automations' || pageId === 'auto-holidays' || pageId === 'auto-leads' || pageId === 'auto-delivery') {
+  if (pageId === 'email-marketing' || pageId === 'email-sms' || pageId === 'automations' || pageId === 'auto-holidays' || pageId === 'auto-leads' || pageId === 'auto-delivery' || pageId === 'sales-campaigns' || pageId === 'service-campaigns' || pageId === 'sales-automations' || pageId === 'service-automations' || pageId === 'marketing-analytics') {
     if (pageId === 'auto-holidays') __autoTab = 'lifecycle';
     else if (pageId === 'auto-delivery') __autoTab = 'sales';
     else if (pageId === 'auto-leads') __autoTab = 'leads';
-    else if (pageId === 'email-marketing') __autoTab = 'marketing';
+    else if (pageId === 'sales-campaigns' || pageId === 'service-campaigns') {
+      __autoTab = 'campaigns';
+      if (pageId === 'sales-campaigns') __campaignCategoryFilter = 'sales';
+      if (pageId === 'service-campaigns') __campaignCategoryFilter = 'service';
+    } else if (pageId === 'sales-automations' || pageId === 'service-automations') {
+      __autoTab = 'automations';
+      if (pageId === 'sales-automations') __autoCategoryFilter = 'sales';
+      if (pageId === 'service-automations') __autoCategoryFilter = 'service';
+    } else if (pageId === 'marketing-analytics') {
+      __autoTab = 'performance';
+    } else if (pageId === 'email-marketing' || pageId === 'email-sms' || pageId === 'automations') {
+      __autoTab = 'overview';
+    }
     pageId = 'automation-builder';
+  }
+
+  // Handle SEO direct/deep routes: seo, seo/easy, seo/advanced, website/seo, website/seo/easy, website/seo/advanced
+  if (typeof pageId === 'string' && (pageId === 'seo' || pageId.startsWith('seo/') || pageId === 'website/seo' || pageId.startsWith('website/seo/'))) {
+    if (pageId.endsWith('/easy')) {
+      __seoMode = 'easy';
+      if (typeof localStorage !== 'undefined') localStorage.setItem('marketsync_seo_mode', 'easy');
+    } else if (pageId.endsWith('/advanced')) {
+      __seoMode = 'advanced';
+      if (typeof localStorage !== 'undefined') localStorage.setItem('marketsync_seo_mode', 'advanced');
+    } else if (typeof __seoMode === 'undefined' || !__seoMode) {
+      if (typeof localStorage !== 'undefined') {
+        __seoMode = localStorage.getItem('marketsync_seo_mode') || 'easy';
+      } else {
+        __seoMode = 'easy';
+      }
+    }
+    pageId = 'seo';
   }
 
   // Website canonical default route: website -> setup first; support deep links: website/builder, website/blog, website/seo, website/setup

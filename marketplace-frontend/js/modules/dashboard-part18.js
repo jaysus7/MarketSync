@@ -3052,6 +3052,9 @@ function closeVisualBuilder() {
   const modal = document.getElementById('visual-workflow-builder-modal');
   if (modal) modal.remove();
   __vb.active = false;
+  if (typeof loadAutoBuilderPage === 'function') {
+    loadAutoBuilderPage();
+  }
 }
 window.closeVisualBuilder = closeVisualBuilder;
 
