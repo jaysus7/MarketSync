@@ -891,6 +891,7 @@ async function engineTab(engineId, tab, force) {
   try {
     localStorage.setItem('ms_last_tab_' + engineId, tab);
     if (typeof msSyncRoute === 'function') msSyncRoute(engineId, tab);
+    if (typeof highlightDeptNav === 'function' && typeof __currentPage !== 'undefined') highlightDeptNav(__currentPage);
   } catch {}
   document.querySelectorAll(`[data-engine-tabbar="${engineId}"] [data-engine-tab]`).forEach(b => {
     const on = b.dataset.engineTab === tab;

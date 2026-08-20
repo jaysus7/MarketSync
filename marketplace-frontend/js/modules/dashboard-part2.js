@@ -1389,7 +1389,15 @@ function deptGo(page, invmode, tab) {
     __autoTab = tab;
     if (typeof loadAutoBuilderPage === 'function') loadAutoBuilderPage();
   }
+  if (page === 'marketing-overview' && tab) {
+    if (typeof ENGINE_STATE !== 'undefined') ENGINE_STATE['marketing-overview'] = tab;
+  }
   switchPage(page);
+  if (page === 'marketing-overview' && tab) {
+    if (typeof engineTab === 'function') {
+      engineTab('marketing-overview', tab);
+    }
+  }
 }
 window.deptGo = deptGo;
 
@@ -1606,6 +1614,9 @@ function highlightDeptNav(pageId) {
       }
       if (on && b.dataset.page === 'automation-builder' && b.dataset.tab) {
         on = (b.dataset.tab === (window.__autoTab || 'overview'));
+      }
+      if (on && b.dataset.page === 'marketing-overview' && b.dataset.tab) {
+        on = (b.dataset.tab === (window.ENGINE_STATE?.['marketing-overview'] || 'overview'));
       }
       b.classList.toggle('bg-indigo-100', on); b.classList.toggle('dark:bg-indigo-950/50', on);
       b.classList.toggle('text-indigo-700', on); b.classList.toggle('dark:text-indigo-300', on);
