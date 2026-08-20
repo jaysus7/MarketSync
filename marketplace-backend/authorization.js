@@ -43,13 +43,22 @@ async function permissionLookup(req, permission) {
   if (role === 'SALES_REP' && req.profile?.dealerships?.is_personal === true) {
     return { allowed: true, error: null }
   }
-  // On a Facebook-only dealership, every rep posts and syncs their own assigned
-  // inventory to their own Facebook profile — unlike a full DealerOS store, where
-  // inventory is centrally managed and sync stays admin-gated. Scoped to
-  // inventory.edit specifically (not every permission) so a Facebook dealer rep
-  // doesn't pick up unrelated admin-only capabilities (billing, staff management,
-  // ...) just to unlock the sync button.
+  // On a Facebook-only dealership or independent AutoPoster tier, every rep posts and
+  // syncs their own assigned inventory to their Facebook profile. Scoped to inventory.view
+  // and inventory.edit specifically so an AutoPoster rep can manage and sync feeds without
+  // picking up unrelated admin-only capabilities (billing, HR, etc.).
   if (role === 'SALES_REP' && permission === 'inventory.edit' && req.profile?.dealerships?.fb_only === true) {
+    return { allowed: true, error: null }
+  }
+  if (
+    (permission === 'inventory.edit' || permission === 'inventory.view') &&
+    (req.profile?.dealerships?.fb_only === true ||
+     req.profile?.dealerships?.is_personal === true ||
+     req.entitlements?.products?.includes('facebook') ||
+     req.entitlements?.features?.includes('fb.inventory') ||
+     req.profile?.package_id === 'autoposter-salesperson' ||
+     req.profile?.package_id === 'autoposter-dealer')
+  ) {
     return { allowed: true, error: null }
   }
 

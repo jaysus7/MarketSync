@@ -1513,22 +1513,6 @@ function renderAutoPerformanceTab(container) {
     </div>
   `;
 }
-px-2"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400">${esc(r.channel)}</span></td>
-                <td class="py-3 px-2 font-mono">${r.sent.toLocaleString()}</td>
-                <td class="py-3 px-2 font-mono text-emerald-600 dark:text-emerald-400 font-bold">${r.delivered}</td>
-                <td class="py-3 px-2 font-mono">${r.opened}</td>
-                <td class="py-3 px-2 font-mono text-indigo-600 dark:text-indigo-400 font-bold">${r.replied}</td>
-                <td class="py-3 px-2 font-mono font-bold">${r.appts}</td>
-                <td class="py-3 px-2 font-mono font-bold">${r.sales}</td>
-                <td class="py-3 px-2 font-mono font-black text-emerald-600 dark:text-emerald-400">${r.rev}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `;
-}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // VISUAL AUTOMATION BUILDER — N8N-STYLE, MARKETSYNC-SIMPLE

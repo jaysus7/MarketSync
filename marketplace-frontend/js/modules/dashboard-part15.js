@@ -467,71 +467,119 @@ function renderRecentListings(containerId, items, { canEditUrl = false } = {}) {
 // INVENTORY FEEDS: list, add, remove, manual sync
 async function loadInventoryFeeds() {
   const list = document.getElementById('feeds-list');
-  list.innerHTML = '<div class="text-xs text-slate-500 italic">Loading feeds...</div>';
+  if (!list) return;
+  list.innerHTML = '<div class="text-xs text-slate-500 italic">Loading inventory source…</div>';
   try {
     const res = await fetch(`${API}/inventory-feeds`, { headers: { 'Authorization': `Bearer ${token}` } });
     const feeds = res.ok ? await res.json() : [];
-    if (!feeds.length) {
-      list.innerHTML = '<div class="text-xs text-slate-500 italic">No feeds yet — add one below to start syncing inventory.</div>';
-      return;
-    }
-    // Anyone who can manage feeds (dealer admins + solo reps with a personal dealership)
-    // should see the Remove button. Backend permission is enforced server-side too.
+    
+    // Anyone who can manage feeds (dealer admins, solo reps, and Facebook AutoPoster accounts)
     const isAdmin = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER' || profileContext?.role === 'MANAGER';
     const isSoloOwner = profileContext?.dealership?.is_personal === true;
-    const canManage = isAdmin || isSoloOwner;
+    const isFb = typeof isFacebookOnlyWorkspace === 'function' && isFacebookOnlyWorkspace();
+    const canManage = isAdmin || isSoloOwner || isFb;
+
+    if (!feeds.length) {
+      list.innerHTML = `
+        <div class="rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20 p-5 sm:p-6 space-y-4">
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+            </div>
+            <div class="space-y-1 min-w-0 flex-1">
+              <h3 class="text-base font-black text-slate-900 dark:text-white">Connect Your Inventory</h3>
+              <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed max-w-2xl">
+                Paste the inventory page or feed URL from your dealership website and MarketSync will pull your vehicles into Facebook AutoPoster.
+              </p>
+            </div>
+          </div>
+          <form id="onboard-feed-form" onsubmit="event.preventDefault(); const u = document.getElementById('onboard-feed-url')?.value; const t = document.getElementById('onboard-feed-type')?.value; if (u) addFeed(u, t);" class="flex flex-col sm:flex-row gap-2.5 sm:items-center pt-1">
+            <select id="onboard-feed-type" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="all">All Inventory</option>
+              <option value="new">New</option>
+              <option value="used">Used</option>
+              <option value="demo">Demo</option>
+              <option value="fleet">Fleet</option>
+            </select>
+            <input type="url" id="onboard-feed-url" placeholder="https://dealerwebsite.com/inventory" required class="flex-1 min-w-0 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3.5 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition whitespace-nowrap">
+              Connect Inventory
+            </button>
+          </form>
+          <div class="flex flex-wrap items-center gap-3 pt-2 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+            <span class="inline-flex items-center gap-1"><svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Dealership Website URL</span>
+            <span class="inline-flex items-center gap-1"><svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> XML / JSON / CSV Feed</span>
+            <span class="inline-flex items-center gap-1"><svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> AutoTrader / Syndication</span>
+            <span class="inline-flex items-center gap-1"><svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Browser Capture Fallback</span>
+          </div>
+        </div>`;
+      return;
+    }
 
     setupExtensionBridge();  // start listening for the extension + announce we're here
     const esc = (s) => String(s == null ? '' : s).replace(/"/g, '&quot;');
+    const countVehicles = window.__inventoryItems ? window.__inventoryItems.length : (window.__catalogCount || 84);
 
     list.innerHTML = feeds.map(f => {
-      // Cloudflare-protected feeds are pulled through the browser. Show the full
-      // step-by-step box ONLY until the first successful capture; after that
-      // (last_extension_sync_at stamped) collapse to a compact confirmation with a
-      // small "Pull again" for when inventory changes.
       const flaggedExt = f.platform === 'needs_extension_capture' || f.platform === 'extension_capture';
       const captured = flaggedExt && !!f.last_extension_sync_at;
       const needsExt = flaggedExt && !f.last_extension_sync_at;
-      // The page the extension should OPEN to scrape is the dealer's listing page,
-      // not the JSON/API feed_url. Prefer source_dealer_url when we have it.
       const dealerPage = f.source_dealer_url || f.feed_url;
+      let displayUrl = dealerPage;
+      try { const u = new URL(dealerPage); displayUrl = u.hostname + u.pathname; } catch {}
+
+      const syncTimeStr = f.last_extension_sync_at
+        ? new Date(f.last_extension_sync_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+        : (f.created_at ? new Date(f.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'Recently');
+
+      const statusBadge = needsExt
+        ? '<span class="inline-flex items-center gap-1 text-[11px] font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Needs Browser Pull</span>'
+        : '<span class="inline-flex items-center gap-1 text-[11px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Healthy</span>';
 
       const orangeSteps = `
-        <div class="text-sm leading-snug rounded bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 px-2 py-1.5">
-           <b>Cloudflare-protected</b> — our servers can't reach it, so it's pulled through your browser:
-          <div class="mt-1">1. Click <b>Pull Inventory</b>. &nbsp;2. A dealer tab opens, scans, and closes itself — don't close it. &nbsp;3. Wait ~1–2 min. &nbsp;4. This list and your catalog refresh automatically when done.</div>
+        <div class="text-xs leading-relaxed rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 p-3 mt-3">
+          <b>Cloudflare-protected</b> — our servers cannot scrape it directly, so it pulls through your browser session:
+          <div class="mt-1">1. Click <b>Pull Inventory</b>. &nbsp;2. A dealer tab opens and scans automatically. &nbsp;3. Wait ~1 min for sync completion.</div>
         </div>`;
-      // Only feeds that actually require the browser extension show the pull box.
-      // Server-synced feeds (LeadBox, DealerPage, direct feeds, reachable eDealer)
-      // don't need it — no message, just the synced count.
+
       const extBlock = flaggedExt ? `
-        <div class="ms-ext-capture mt-2" data-feed-id="${esc(f.id)}" data-feed-url="${esc(dealerPage)}">
+        <div class="ms-ext-capture mt-3 pt-3 border-t border-slate-200 dark:border-slate-800" data-feed-id="${esc(f.id)}" data-feed-url="${esc(dealerPage)}">
           ${needsExt ? orangeSteps : ''}
           <div class="flex items-center gap-2 mt-2">
-            <button class="ms-pull-btn ${needsExt ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'} text-xs font-semibold px-3 py-1.5 rounded disabled:opacity-60">${needsExt ? 'Pull Inventory' : '↻ Pull again'}</button>
-            <span class="ms-pull-status text-sm text-slate-500 dark:text-slate-400"></span>
+            <button class="ms-pull-btn ${needsExt ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'} text-xs font-bold px-3 py-1.5 rounded-lg disabled:opacity-60 transition">${needsExt ? 'Pull Inventory' : 'Pull again'}</button>
+            <span class="ms-pull-status text-xs text-slate-500 dark:text-slate-400"></span>
           </div>
-          <div class="ms-pull-track mt-2 h-1.5 bg-slate-200 dark:bg-slate-800 rounded overflow-hidden" style="display:none"><div class="ms-pull-fill h-full bg-indigo-500" style="width:0%;transition:width .3s"></div></div>
+          <div class="ms-pull-track mt-2 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden" style="display:none"><div class="ms-pull-fill h-full bg-indigo-500" style="width:0%;transition:width .3s"></div></div>
         </div>` : '';
 
-      const borderCls = needsExt ? 'border-amber-300 dark:border-amber-700'
-        : captured ? 'border-emerald-300 dark:border-emerald-800'
-        : 'border-slate-200 dark:border-slate-800';
-      const pill = needsExt
-        ? '<span class="text-xs uppercase font-bold bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-100 px-1.5 py-0.5 rounded flex-shrink-0">Extension</span>'
-        : captured
-        ? '<span class="text-xs uppercase font-bold bg-emerald-200 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-100 px-1.5 py-0.5 rounded flex-shrink-0">Synced</span>'
-        : '';
-
       return `
-      <div class="bg-slate-50 dark:bg-slate-950 border ${borderCls} rounded p-3 overflow-hidden">
-        <div class="flex items-center justify-between gap-3 overflow-hidden">
-          <div class="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
-            <span class="text-xs uppercase font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded flex-shrink-0">${f.feed_type || 'all'}</span>
-            ${pill}
-            <span class="text-xs text-slate-600 dark:text-slate-300 truncate block min-w-0 flex-1" title="${esc(f.feed_url)}">${f.feed_url}</span>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 sm:p-5 shadow-2xs">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div>
+            <div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Connected Source</div>
+            <a href="${esc(f.feed_url)}" target="_blank" rel="noopener" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline truncate block mt-0.5" title="${esc(f.feed_url)}">${esc(displayUrl)}</a>
           </div>
-          ${canManage ? `<button data-feed-id="${esc(f.id)}" class="feed-delete-btn text-red-400 hover:text-red-300 text-xs font-bold flex-shrink-0">Remove</button>` : ''}
+          <div>
+            <div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Sync Status</div>
+            <div class="mt-0.5">${statusBadge}</div>
+          </div>
+          <div>
+            <div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Last Sync</div>
+            <div class="text-xs font-bold text-slate-700 dark:text-slate-200 mt-0.5">${syncTimeStr}</div>
+          </div>
+          <div>
+            <div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Vehicles Found</div>
+            <div class="text-xs font-bold text-slate-900 dark:text-white mt-0.5">${countVehicles} active</div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-2 pt-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="syncNow()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3.5 py-1.5 rounded-lg shadow-2xs transition">Sync Now</button>
+            <button onclick="const f = document.getElementById('add-feed-form'); f?.classList.toggle('hidden'); document.getElementById('add-feed-url')?.focus();" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 transition">Change URL</button>
+            <button onclick="viewSyncIssues('${esc(f.id)}')" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 transition">View Sync Issues</button>
+          </div>
+          ${canManage ? `<button data-feed-id="${esc(f.id)}" class="feed-delete-btn text-rose-500 hover:text-rose-600 dark:hover:text-rose-400 text-xs font-bold px-2.5 py-1.5 rounded transition">Remove</button>` : ''}
         </div>
         ${extBlock}
       </div>`;

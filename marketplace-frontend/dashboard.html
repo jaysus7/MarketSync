@@ -285,7 +285,7 @@
     /* Guided setup: pulse the integration card we sent the user to finish. */
     @keyframes setupFlash { 0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); } 30% { box-shadow: 0 0 0 4px rgba(99,102,241,.45); } }
     .setup-flash { animation: setupFlash 1.3s ease-in-out 2; border-radius: 0.5rem; }
-    #fb-post-btn, #idscan-btn, #ext-header-btn,
+    #fb-post-btn, #idscan-btn,
     #training-btn, #open-upgrades, #ui-tier-chip { display: none !important; }
     /* Live Clock Glitch & Layout Shift Prevention */
     .clock-display, #header-clock-display {
@@ -412,9 +412,11 @@
       <!-- Chrome extension — Facebook posting needs it, so it stays reachable from the
            main nav always, not just in the dismissible banner (dashboard-part14.js's
            applyExtensionVisibility() shows/hides this by extensionRelevant()). -->
-      <a id="ext-header-btn" href="https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada" target="_blank" rel="noopener" title="Use the MarketSync Chrome extension to post to Facebook" aria-label="Use the MarketSync Chrome extension" class="hidden inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition">
+      <a id="ext-header-btn" href="https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada" target="_blank" rel="noopener" title="Open Google Extension — Use Chrome extension to post to Facebook Marketplace" aria-label="Open Google Extension" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50/90 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition shadow-2xs">
         <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3a2 2 0 012 2 2 2 0 002 2h1a2 2 0 012 2v1a2 2 0 01-2 2 2 2 0 000 4 2 2 0 012 2v1a2 2 0 01-2 2h-1a2 2 0 00-2 2 2 2 0 01-4 0 2 2 0 00-2-2H8a2 2 0 01-2-2v-1a2 2 0 00-2-2 2 2 0 010-4 2 2 0 002-2V9a2 2 0 012-2h1a2 2 0 002-2 2 2 0 012-2z"/></svg>
-        <span class="hidden sm:inline">Use Chrome</span>
+        <span class="hidden sm:inline">Open Google Extension</span>
+        <span class="sm:hidden">Extension</span>
+        <span class="sr-only">Use Chrome</span>
       </a>
       <button id="header-profile-btn" onclick="switchPage('profile');settingsTab('account')" title="My profile" aria-label="My profile" class="inline-flex items-center justify-center p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.12a7.5 7.5 0 0115 0A17.93 17.93 0 0112 21.75a17.93 17.93 0 01-7.5-1.63z"/></svg>
@@ -1966,8 +1968,8 @@
       <div id="feeds-panel" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
         <div class="flex flex-wrap justify-between items-start mb-4 gap-3">
           <div>
-            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Inventory Feeds</h2>
-            <p class="text-slate-500 dark:text-slate-400 text-xs">Manage data feed sources and pull the latest inventory.</p>
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Inventory Source &amp; Feeds</h2>
+            <p class="text-slate-500 dark:text-slate-400 text-xs">Connect your dealership website or inventory feed URL to sync vehicles for 1-click Facebook posting.</p>
           </div>
           <button id="sync-now-btn" data-admin-only class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition whitespace-nowrap">
             Sync Now
@@ -1975,9 +1977,9 @@
         </div>
         <div id="sync-status" class="hidden mb-3 p-2 text-xs rounded"></div>
         <div id="feeds-list" class="space-y-2 mb-4">
-          <div class="text-xs text-slate-500 italic">Loading feeds...</div>
+          <div class="text-xs text-slate-500 italic">Loading inventory source…</div>
         </div>
-        <form id="add-feed-form" data-admin-only class="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:items-center pt-3 border-t border-slate-200 dark:border-slate-800">
+        <form id="add-feed-form" class="hidden flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:items-center pt-3 border-t border-slate-200 dark:border-slate-800">
           <select id="add-feed-type" class="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-2 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
             <option value="all">All Inventory</option>
             <option value="new">New</option>
@@ -1985,8 +1987,8 @@
             <option value="demo">Demo</option>
             <option value="fleet">Fleet</option>
           </select>
-          <input type="url" id="add-feed-url" placeholder="https://.../inventory.json" required class="w-full sm:flex-1 sm:min-w-[200px] min-w-0 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
-          <button type="submit" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold px-3 py-2 rounded border border-slate-300 dark:border-slate-700 transition">Add Feed</button>
+          <input type="url" id="add-feed-url" placeholder="https://dealerwebsite.com/inventory" required class="w-full sm:flex-1 sm:min-w-[200px] min-w-0 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+          <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3.5 py-2 rounded transition shadow-2xs">Connect Source</button>
         </form>
       </div>
 

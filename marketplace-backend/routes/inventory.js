@@ -494,6 +494,16 @@ export function registerRoutes(app) {
   })
 
   app.post('/inventory/sync', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
+    const isDemo = req.user?.email === 'sales@marketsync.link' || req.dealershipId === 'demo-dealership'
+    if (isDemo) {
+      return res.json({
+        success: true,
+        unique_vehicles: 84,
+        available_after_sync: 84,
+        duplicates_merged: 0,
+        skipped: 0
+      })
+    }
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated with this account' })
     try {
       const result = await runInventorySync(req.dealershipId)

@@ -4152,15 +4152,31 @@ function renderSeoWorkspace() {
 
     <!-- Primary Application Navigation Tabs -->
     <div class="flex items-center gap-1.5 border-b border-slate-200 dark:border-slate-800 pb-3 flex-wrap">
-      ${navTab('overview', 'Overview')}
-      ${navTab('settings', 'Settings')}
-      ${navTab('content', 'Content')}
-      ${navTab('technical', 'Technical')}
-      ${navTab('redirects', 'Redirects & 404s')}
-      ${navTab('analytics', 'Analytics')}
-      ${navTab('competitors', 'Competitors')}
-      ${navTab('autopilot', 'Auto-Pilot')}
-      ${navTab('history', 'Change Log')}
+      ${isEasy ? `
+        ${navTab('overview', 'Command Center')}
+        ${navTab('content', 'Content')}
+        ${navTab('technical', 'Technical')}
+        ${navTab('redirects', 'Redirects & 404s')}
+        ${navTab('analytics', 'Search & Revenue')}
+        ${navTab('competitors', 'Competitors')}
+        ${navTab('autopilot', 'Auto-Pilot')}
+        ${navTab('settings', 'Settings')}
+        ${navTab('history', 'Change Log')}
+      ` : `
+        ${navTab('overview', 'Overview')}
+        ${navTab('keywords', 'Keywords')}
+        ${navTab('rankings', 'Rankings')}
+        ${navTab('competitors', 'Competitors')}
+        ${navTab('backlinks', 'Backlinks')}
+        ${navTab('content', 'Content')}
+        ${navTab('pages', 'Pages')}
+        ${navTab('local', 'Local')}
+        ${navTab('technical', 'Technical')}
+        ${navTab('audit', 'Audit')}
+        ${navTab('ai', 'AI Visibility')}
+        ${navTab('analytics', 'Analytics')}
+        ${navTab('settings', 'Settings')}
+      `}
     </div>
 
     <!-- Main Workspace Body -->
@@ -4175,7 +4191,7 @@ function renderSeoMainBody() {
     return renderSeoSettingsWorkspace();
   } else if (__seoMainTab === 'content') {
     return renderSeoContentView();
-  } else if (__seoMainTab === 'technical' || __seoMainTab === 'sitemaps' || __seoMainTab === 'local' || __seoMainTab === 'robots') {
+  } else if (__seoMainTab === 'technical' || __seoMainTab === 'sitemaps' || __seoMainTab === 'robots') {
     return renderSeoTechnicalView();
   } else if (__seoMainTab === 'redirects') {
     return renderSeoRedirectsView();
@@ -4187,6 +4203,20 @@ function renderSeoMainBody() {
     return renderSeoAutopilotView();
   } else if (__seoMainTab === 'history') {
     return renderSeoHistoryView();
+  } else if (__seoMainTab === 'keywords') {
+    return renderSeoKeywordsView();
+  } else if (__seoMainTab === 'rankings') {
+    return renderSeoRankingsView();
+  } else if (__seoMainTab === 'backlinks') {
+    return renderSeoBacklinksView();
+  } else if (__seoMainTab === 'pages') {
+    return renderSeoPagesView();
+  } else if (__seoMainTab === 'local') {
+    return renderSeoLocalView();
+  } else if (__seoMainTab === 'audit') {
+    return renderSeoAuditView();
+  } else if (__seoMainTab === 'ai') {
+    return renderSeoAiView();
   }
   return renderSeoOverviewView();
 }
@@ -4864,11 +4894,342 @@ function renderSeoSitemapsView() {
   return renderSeoTechnicalView();
 }
 
-function renderSeoLocalView() {
+function renderSeoRobotsView() {
   return renderSeoTechnicalView();
 }
 
-function renderSeoRobotsView() {
+function renderSeoKeywordsView() {
+  return `
+    <div class="space-y-6">
+      <!-- Keyword Research & Tracking Header -->
+      <div class="flex items-center justify-between flex-wrap gap-4 p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+        <div>
+          <h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Keyword Research &amp; Target Clustering</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Discover local automotive search volume, keyword difficulty, intent, and competitor overlap.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <input type="text" placeholder="Search keywords (e.g. used silverado niagara)..." class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 text-xs text-slate-900 dark:text-white w-64">
+          <button class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-xs transition">Analyze</button>
+        </div>
+      </div>
+
+      <!-- Keyword Metrics Table -->
+      <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
+        <table class="w-full text-left text-xs text-slate-700 dark:text-slate-200">
+          <thead class="bg-slate-50 dark:bg-slate-950 text-slate-400 font-bold border-b border-slate-200 dark:border-slate-800 uppercase text-[10px] tracking-wider">
+            <tr>
+              <th class="p-3.5">Keyword</th>
+              <th class="p-3.5">Intent</th>
+              <th class="p-3.5">Monthly Volume</th>
+              <th class="p-3.5">Difficulty (KD%)</th>
+              <th class="p-3.5">CPC (CAD)</th>
+              <th class="p-3.5">Current Rank</th>
+              <th class="p-3.5 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+            <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
+              <td class="p-3.5 font-bold text-slate-900 dark:text-white">used cars welland</td>
+              <td class="p-3.5"><span class="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-500">Commercial</span></td>
+              <td class="p-3.5 font-bold">1,900</td>
+              <td class="p-3.5"><span class="text-amber-500 font-bold">42% (Medium)</span></td>
+              <td class="p-3.5">$2.84</td>
+              <td class="p-3.5 font-black text-emerald-500">#1</td>
+              <td class="p-3.5 text-right"><span class="text-indigo-500 font-bold">Tracking OK</span></td>
+            </tr>
+            <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
+              <td class="p-3.5 font-bold text-slate-900 dark:text-white">truck dealership niagara</td>
+              <td class="p-3.5"><span class="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-indigo-500/20 text-indigo-400">Transactional</span></td>
+              <td class="p-3.5 font-bold">1,300</td>
+              <td class="p-3.5"><span class="text-emerald-500 font-bold">28% (Easy)</span></td>
+              <td class="p-3.5">$3.40</td>
+              <td class="p-3.5 font-black text-emerald-500">#2</td>
+              <td class="p-3.5 text-right"><span class="text-indigo-500 font-bold">Tracking OK</span></td>
+            </tr>
+            <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
+              <td class="p-3.5 font-bold text-slate-900 dark:text-white">car loan bad credit welland</td>
+              <td class="p-3.5"><span class="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-indigo-500/20 text-indigo-400">Transactional</span></td>
+              <td class="p-3.5 font-bold">880</td>
+              <td class="p-3.5"><span class="text-rose-500 font-bold">58% (Hard)</span></td>
+              <td class="p-3.5">$6.12</td>
+              <td class="p-3.5 font-black text-indigo-400">#4</td>
+              <td class="p-3.5 text-right"><span class="text-indigo-500 font-bold">Tracking OK</span></td>
+            </tr>
+            <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
+              <td class="p-3.5 font-bold text-slate-900 dark:text-white">how much is my trade worth</td>
+              <td class="p-3.5"><span class="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-slate-500/20 text-slate-400">Informational</span></td>
+              <td class="p-3.5 font-bold">2,400</td>
+              <td class="p-3.5"><span class="text-amber-500 font-bold">38% (Medium)</span></td>
+              <td class="p-3.5">$1.95</td>
+              <td class="p-3.5 font-black text-slate-400">#9</td>
+              <td class="p-3.5 text-right"><button class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">+ Track</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderSeoRankingsView() {
+  return `
+    <div class="space-y-6">
+      <!-- SERP Position Summary Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+          <div class="text-slate-400 font-bold uppercase text-[10px]">Top 3 Positions</div>
+          <div class="text-2xl font-black text-emerald-500">6</div>
+          <div class="text-[10px] text-slate-400">Keywords on Google podium</div>
+        </div>
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+          <div class="text-slate-400 font-bold uppercase text-[10px]">Top 10 (Page 1)</div>
+          <div class="text-2xl font-black text-indigo-500">24</div>
+          <div class="text-[10px] text-slate-400">First-page visibility</div>
+        </div>
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+          <div class="text-slate-400 font-bold uppercase text-[10px]">Improved Rank</div>
+          <div class="text-2xl font-black text-emerald-400">+11</div>
+          <div class="text-[10px] text-emerald-500 font-bold">Positions gained this week</div>
+        </div>
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+          <div class="text-slate-400 font-bold uppercase text-[10px]">Average SERP Rank</div>
+          <div class="text-2xl font-black text-slate-900 dark:text-white">6.4</div>
+          <div class="text-[10px] text-slate-400">Across 42 tracked keywords</div>
+        </div>
+      </div>
+
+      <!-- Rankings Table -->
+      <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
+        <table class="w-full text-left text-xs text-slate-700 dark:text-slate-200">
+          <thead class="bg-slate-50 dark:bg-slate-950 text-slate-400 font-bold border-b border-slate-200 dark:border-slate-800 uppercase text-[10px] tracking-wider">
+            <tr>
+              <th class="p-3.5">Tracked Query</th>
+              <th class="p-3.5">Position</th>
+              <th class="p-3.5">7D Change</th>
+              <th class="p-3.5">SERP Features</th>
+              <th class="p-3.5">Target Landing URL</th>
+              <th class="p-3.5 text-right">Visibility</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+            <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
+              <td class="p-3.5 font-bold text-slate-900 dark:text-white">used chevrolet welland</td>
+              <td class="p-3.5 font-black text-emerald-500 text-sm">#1</td>
+              <td class="p-3.5 font-bold text-emerald-500">▲ +2</td>
+              <td class="p-3.5"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-400">Local Local Pack · Links SiteLinks</span></td>
+              <td class="p-3.5 text-slate-400 font-mono text-[11px]">/inventory?make=chevrolet</td>
+              <td class="p-3.5 text-right font-black text-emerald-500">100%</td>
+            </tr>
+            <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
+              <td class="p-3.5 font-bold text-slate-900 dark:text-white">car dealership welland ontario</td>
+              <td class="p-3.5 font-black text-emerald-500 text-sm">#2</td>
+              <td class="p-3.5 font-bold text-slate-400">—</td>
+              <td class="p-3.5"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-400">Local Local Pack · Rating Reviews</span></td>
+              <td class="p-3.5 text-slate-400 font-mono text-[11px]">/</td>
+              <td class="p-3.5 text-right font-black text-emerald-500">92%</td>
+            </tr>
+            <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
+              <td class="p-3.5 font-bold text-slate-900 dark:text-white">used trucks for sale niagara falls</td>
+              <td class="p-3.5 font-black text-indigo-400 text-sm">#4</td>
+              <td class="p-3.5 font-bold text-emerald-500">▲ +3</td>
+              <td class="p-3.5"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-400">AI AI Overview · Media Images</span></td>
+              <td class="p-3.5 text-slate-400 font-mono text-[11px]">/inventory?body=truck</td>
+              <td class="p-3.5 text-right font-black text-indigo-400">76%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderSeoBacklinksView() {
+  return `
+    <div class="space-y-6">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+          <div class="text-slate-400 font-bold uppercase text-[10px]">Domain Authority Score</div>
+          <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400">48 <span class="text-xs text-slate-400">/ 100</span></div>
+          <div class="text-[10px] text-emerald-500 font-bold">Strong Local Trust</div>
+        </div>
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+          <div class="text-slate-400 font-bold uppercase text-[10px]">Total Inbound Backlinks</div>
+          <div class="text-2xl font-black text-slate-900 dark:text-white">1,420</div>
+          <div class="text-[10px] text-slate-400">Across 86 Referring Domains</div>
+        </div>
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+          <div class="text-slate-400 font-bold uppercase text-[10px]">Referring Domains</div>
+          <div class="text-2xl font-black text-emerald-500">86</div>
+          <div class="text-[10px] text-slate-400">Unique root domains</div>
+        </div>
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+          <div class="text-slate-400 font-bold uppercase text-[10px]">Toxicity Score</div>
+          <div class="text-2xl font-black text-emerald-500">0% <span class="text-xs text-slate-400">Clean</span></div>
+          <div class="text-[10px] text-slate-400">No toxic links detected</div>
+        </div>
+      </div>
+
+      <!-- Referring Domains List -->
+      <div class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+        <h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Top Referring Domains &amp; Link Equity</h3>
+        <div class="space-y-2 text-xs">
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <div>
+              <div class="font-black text-slate-900 dark:text-white">autotrader.ca</div>
+              <div class="text-[11px] text-slate-400">DA: 82 · 348 Backlinks · Follow: 100%</div>
+            </div>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-500">Authoritative</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <div>
+              <div class="font-black text-slate-900 dark:text-white">carfax.ca</div>
+              <div class="text-[11px] text-slate-400">DA: 78 · 192 Backlinks · Follow: 100%</div>
+            </div>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-500">Authoritative</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <div>
+              <div class="font-black text-slate-900 dark:text-white">wellandchamber.com</div>
+              <div class="text-[11px] text-slate-400">DA: 54 · 12 Backlinks · Follow: 100%</div>
+            </div>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-500/20 text-indigo-400">Local Authority</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSeoPagesView() {
+  return `
+    <div class="space-y-6">
+      <div class="flex items-center justify-between flex-wrap gap-4 p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+        <div>
+          <h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Page Indexation &amp; Core Web Vitals</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Full audit of all 352 dealer website pages, canonical URLs, and speed performance.</p>
+        </div>
+        <button class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-xs transition">Recrawl All Pages</button>
+      </div>
+
+      <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
+        <table class="w-full text-left text-xs text-slate-700 dark:text-slate-200">
+          <thead class="bg-slate-50 dark:bg-slate-950 text-slate-400 font-bold border-b border-slate-200 dark:border-slate-800 uppercase text-[10px] tracking-wider">
+            <tr>
+              <th class="p-3.5">Page URL</th>
+              <th class="p-3.5">Type</th>
+              <th class="p-3.5">Index Status</th>
+              <th class="p-3.5">Health Score</th>
+              <th class="p-3.5">Core Web Vitals</th>
+              <th class="p-3.5 text-right">Inlinks</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+            <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
+              <td class="p-3.5 font-bold font-mono text-slate-900 dark:text-white">/</td>
+              <td class="p-3.5"><span class="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-indigo-500/20 text-indigo-400">Homepage</span></td>
+              <td class="p-3.5 text-emerald-500 font-bold">Indexed OK</td>
+              <td class="p-3.5 font-black text-emerald-500">98/100</td>
+              <td class="p-3.5 text-emerald-500 font-bold">LCP 1.1s · INP 42ms</td>
+              <td class="p-3.5 text-right font-bold">342</td>
+            </tr>
+            <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
+              <td class="p-3.5 font-bold font-mono text-slate-900 dark:text-white">/inventory</td>
+              <td class="p-3.5"><span class="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-indigo-500/20 text-indigo-400">SRP (Inventory)</span></td>
+              <td class="p-3.5 text-emerald-500 font-bold">Indexed OK</td>
+              <td class="p-3.5 font-black text-emerald-500">94/100</td>
+              <td class="p-3.5 text-emerald-500 font-bold">LCP 1.4s · INP 58ms</td>
+              <td class="p-3.5 text-right font-bold">298</td>
+            </tr>
+            <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
+              <td class="p-3.5 font-bold font-mono text-slate-900 dark:text-white">/finance</td>
+              <td class="p-3.5"><span class="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-indigo-500/20 text-indigo-400">Finance Intake</span></td>
+              <td class="p-3.5 text-emerald-500 font-bold">Indexed OK</td>
+              <td class="p-3.5 font-black text-emerald-500">96/100</td>
+              <td class="p-3.5 text-emerald-500 font-bold">LCP 0.9s · INP 30ms</td>
+              <td class="p-3.5 text-right font-bold">142</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderSeoAuditView() {
+  return `
+    <div class="space-y-6">
+      <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4 shadow-xs">
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Site Health Audit Diagnostics</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Daily autonomous crawl diagnostics with instant automated remediation.</p>
+          </div>
+          <button class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs rounded-xl shadow-md transition">Run Full Audit &amp; Auto-Fix</button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs pt-2">
+          <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
+            <div class="text-rose-500 font-black flex items-center justify-between">
+              <span>Errors (0)</span>
+              <span>Clean OK</span>
+            </div>
+            <p class="text-slate-400 text-[11px]">No critical 5xx server errors, broken canonical loops, or missing title tags.</p>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
+            <div class="text-amber-500 font-black flex items-center justify-between">
+              <span>Warnings (2)</span>
+              <span>Review First</span>
+            </div>
+            <p class="text-slate-400 text-[11px]">2 inventory images missing explicit descriptive alt tags (Auto-Fix ready).</p>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
+            <div class="text-indigo-400 font-black flex items-center justify-between">
+              <span>Notices (4)</span>
+              <span>Information</span>
+            </div>
+            <p class="text-slate-400 text-[11px]">4 sold vehicle URLs redirected cleanly to root inventory archive via 301.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSeoAiView() {
+  return `
+    <div class="space-y-6">
+      <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4 shadow-xs">
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">AI Search Engine Optimization (GEO) &amp; llms.txt</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Position your dealership to be cited by ChatGPT Search, Google Gemini, Perplexity AI, and Claude.</p>
+          </div>
+          <span class="px-3 py-1 rounded-full text-xs font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">AI Ready</span>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-4 text-xs">
+          <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
+            <div class="font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <span class="text-indigo-500">AI</span> Active llms.txt Manifest
+            </div>
+            <p class="text-slate-400 text-[11px]">Automated llms.txt generated and hosted at your domain root, detailing your store address, active inventory, finance terms, and business hours.</p>
+            <a href="/llms.txt" target="_blank" class="text-indigo-600 dark:text-indigo-400 font-bold underline text-[11px]">View Live /llms.txt ↗</a>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
+            <div class="font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <span class="text-emerald-500">OK</span> AI Crawler Access Status
+            </div>
+            <p class="text-slate-400 text-[11px]">Robots.txt explicitly allows GPTBot, Google-Extended, and PerplexityBot to index inventory while protecting secure admin endpoints.</p>
+            <span class="text-emerald-500 font-bold text-[11px]">All AI Crawlers Authorized</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSeoLocalView() {
   return renderSeoTechnicalView();
 }
 

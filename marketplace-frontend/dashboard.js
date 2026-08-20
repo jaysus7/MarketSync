@@ -888,8 +888,14 @@ window.isVideoOnlyWorkspace = isVideoOnlyWorkspace;
 // were seeing the full DealerOS Administration tab.
 function isFacebookOnlyWorkspace() {
   const products = document.documentElement.getAttribute('data-product') || '';
-  return (/(?:^|\s)facebook_solo(?:\s|$)/.test(products) || /(?:^|\s)facebook_dealer(?:\s|$)/.test(products))
-    && !/(?:^|\s)dealer_os(?:\s|$)/.test(products);
+  const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+  const isFb = (/(?:^|\s)facebook_solo(?:\s|$)/.test(products)
+    || /(?:^|\s)facebook_dealer(?:\s|$)/.test(products)
+    || /(?:^|\s)autoposter-salesperson(?:\s|$)/.test(products)
+    || /(?:^|\s)autoposter-dealer(?:\s|$)/.test(products)
+    || /(?:^|\s)facebook(?:\s|$)/.test(products)
+    || (access.products && access.products.includes('facebook') && !access.products.includes('dealer_os')));
+  return isFb && !/(?:^|\s)dealer_os(?:\s|$)/.test(products);
 }
 window.isFacebookOnlyWorkspace = isFacebookOnlyWorkspace;
 

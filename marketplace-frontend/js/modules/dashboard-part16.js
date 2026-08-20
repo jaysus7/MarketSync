@@ -358,6 +358,7 @@ async function addFeed(feedUrl, feedType) {
           ` Feed added. Synced ${syncData.unique_vehicles} unique vehicles (${syncData.available_after_sync} available)${skipNote}.`,
           'ok'
         );
+        window.__lastSyncResult = syncData;
         loadInsights?.()
         loadInventoryCatalog?.()
       } else {
@@ -376,9 +377,9 @@ async function addFeed(feedUrl, feedType) {
 
 async function syncNow() {
   const btn = document.getElementById('sync-now-btn');
-  btn.disabled = true;
-  const originalText = btn.textContent;
-  btn.textContent = 'Syncing… 0%';
+  if (btn) btn.disabled = true;
+  const originalText = btn ? btn.textContent : 'Sync Now';
+  if (btn) btn.textContent = 'Syncing… 0%';
   showSyncStatus('Sync running — this can take a minute depending on inventory size.', 'info');
 
   // Poll live progress so the user sees an accurate, moving percentage (and knows
@@ -389,7 +390,7 @@ async function syncNow() {
       if (!r.ok) return;
       const p = await r.json();
       if (p && typeof p.pct === 'number' && p.phase !== 'idle' && p.phase !== 'done' && p.phase !== 'error') {
-        btn.textContent = `Syncing… ${p.pct}%`;
+        if (btn) btn.textContent = `Syncing… ${p.pct}%`;
         if (p.message) showSyncStatus(p.message, 'info');
       }
     } catch { /* transient — keep polling */ }
@@ -403,6 +404,7 @@ async function syncNow() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Sync failed');
+    window.__lastSyncResult = data;
     const dupNote = data.duplicates_merged > 0 ? ` · ${data.duplicates_merged} duplicate VINs merged` : '';
     // Build a real skip reason from the breakdown — replaces the misleading "sale-pending / offline" generic
     let skipNote = '';
@@ -434,13 +436,31 @@ async function syncNow() {
     // Refresh insights + catalog after a sync
     loadInsights();
     loadInventoryCatalog();
+    loadInventoryFeeds?.();
   } catch (err) {
     showSyncStatus(err.message, 'err');
   } finally {
     clearInterval(progressTimer);
-    btn.disabled = false;
-    btn.textContent = originalText;
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
   }
+}
+
+function viewSyncIssues(feedId) {
+  const lastSyncData = window.__lastSyncResult;
+  let detail = 'All inventory feeds are synced and active in your catalog.';
+  if (lastSyncData) {
+    const b = lastSyncData.skip_breakdown || {};
+    const issues = [];
+    if (b.feed_type > 0) issues.push(`${b.feed_type} vehicles skipped (did not match selected feed condition).`);
+    if (b.offline > 0) issues.push(`${b.offline} vehicles marked offline / pending removal.`);
+    if (b.no_identifier > 0) issues.push(`${b.no_identifier} vehicles skipped due to missing VIN or stock number.`);
+    if (b.upsert_error > 0) issues.push(`${b.upsert_error} database write errors.`);
+    if (issues.length > 0) detail = issues.join('\n- ');
+  }
+  alert(`Inventory Sync Diagnostics:\n\n- ${detail}\n\nFrontline units remain ready to post to Facebook Marketplace.`);
 }
 
 function showSyncStatus(text, kind) {
@@ -458,6 +478,7 @@ function showSyncStatus(text, kind) {
 window.syncNow = syncNow;
 window.addFeed = addFeed;
 window.addFeedFromInput = addFeed;
+window.viewSyncIssues = viewSyncIssues;
 window.showSyncStatus = showSyncStatus;
 
 // INVENTORY CATALOG: full vehicle browser

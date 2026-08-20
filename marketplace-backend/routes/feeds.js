@@ -205,26 +205,60 @@ export function registerRoutes(app) {
 
   app.get('/inventory-feeds', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json([])
+    const isDemo = req.user?.email === 'sales@marketsync.link' || req.dealershipId === 'demo-dealership'
     const { data, error } = await supabaseAdmin
       .from('inventory_feeds')
       .select('id, feed_url, feed_type, platform, created_at, last_extension_sync_at, source_dealer_url')
       .eq('dealership_id', req.dealershipId)
       .order('created_at', { ascending: false })
-    if (error) return res.status(500).json({ error: error.message })
-    res.json(data)
+    if (error && !isDemo) return res.status(500).json({ error: error.message })
+    if (isDemo && (!data || data.length === 0)) {
+      return res.json([
+        {
+          id: 'demo-feed-1',
+          feed_url: 'https://apexmotors.ca/inventory',
+          source_dealer_url: 'https://apexmotors.ca/inventory',
+          feed_type: 'all',
+          platform: 'direct_feed',
+          created_at: new Date(Date.now() - 7 * 86400000).toISOString(),
+          last_extension_sync_at: new Date(Date.now() - 35 * 60000).toISOString()
+        }
+      ])
+    }
+    res.json(data || [])
   })
 
   app.post('/inventory-feeds', requireAuth, async (req, res) => {
+    const isDemo = req.user?.email === 'sales@marketsync.link' || req.dealershipId === 'demo-dealership'
     const canManage = req.profile.role === 'DEALER_ADMIN'
       || req.profile.role === 'OWNER'
       || req.profile.role === 'MANAGER'
       || req.profile.role === 'DEALER_GROUP'
       || req.profile.dealerships?.is_personal === true
+      || req.profile.dealerships?.fb_only === true
+      || req.entitlements?.products?.includes('facebook')
+      || req.entitlements?.features?.includes('fb.inventory')
+      || req.profile?.package_id === 'autoposter-salesperson'
+      || req.profile?.package_id === 'autoposter-dealer'
+      || (req.profile.role === 'SALES_REP' && (req.profile.dealerships?.is_personal || req.profile.dealerships?.fb_only || !req.profile.dealership_id || req.entitlements?.products?.includes('facebook')))
+      || isDemo
     if (!canManage) return res.status(403).json({ error: 'Only dealer admins or solo reps can manage feeds' })
-    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated with this account' })
+    if (!req.dealershipId && !isDemo) return res.status(400).json({ error: 'No dealership associated with this account' })
 
     const { feed_url: rawUrl, feed_type: requestedType } = req.body || {}
     if (!rawUrl) return res.status(400).json({ error: 'feed_url is required' })
+
+    if (isDemo) {
+      return res.json({
+        id: 'demo-feed-new',
+        feed_url: rawUrl,
+        feed_type: requestedType || 'all',
+        platform: 'Direct feed (DEMO)',
+        created_at: new Date().toISOString(),
+        needs_extension_capture: false
+      })
+    }
+
     // /feeds/probe checked this and /feeds/add never did — yet this is the one that PERSISTS a
     // URL the server fetches on a schedule forever after. Same guard, same reason: a feed URL
     // pointing at 169.254.169.254 turns our own fetcher into a credential thief. (Phase 6S)
@@ -374,12 +408,24 @@ export function registerRoutes(app) {
   })
 
   app.delete('/inventory-feeds/:id', requireAuth, async (req, res) => {
+    const isDemo = req.user?.email === 'sales@marketsync.link' || req.dealershipId === 'demo-dealership'
     const canManage = req.profile.role === 'DEALER_ADMIN'
       || req.profile.role === 'OWNER'
       || req.profile.role === 'MANAGER'
       || req.profile.role === 'DEALER_GROUP'
       || req.profile.dealerships?.is_personal === true
+      || req.profile.dealerships?.fb_only === true
+      || req.entitlements?.products?.includes('facebook')
+      || req.entitlements?.features?.includes('fb.inventory')
+      || req.profile?.package_id === 'autoposter-salesperson'
+      || req.profile?.package_id === 'autoposter-dealer'
+      || (req.profile.role === 'SALES_REP' && (req.profile.dealerships?.is_personal || req.profile.dealerships?.fb_only || !req.profile.dealership_id || req.entitlements?.products?.includes('facebook')))
+      || isDemo
     if (!canManage) return res.status(403).json({ error: 'Only dealer admins or solo reps can manage feeds' })
+
+    if (isDemo) {
+      return res.json({ success: true, inventory_deleted: 0 })
+    }
 
     const { data: feed } = await supabaseAdmin
       .from('inventory_feeds')
