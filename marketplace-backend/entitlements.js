@@ -15,13 +15,70 @@ export function resolvePlanId(planId) {
   return planId
 }
 
+// Reconcile the overall account billing status from the union of all subscriptions.
+// If any subscription is active or in a valid trial, the account remains viable (ACTIVE/TRIALING).
+// If no active subscriptions exist but at least one is past_due, the account is PAST_DUE.
+// Only when all subscriptions are cancelled/expired does the account gate become INACTIVE.
+export async function reconcileDealershipBillingStatus(dealershipId) {
+  if (!dealershipId) return 'INACTIVE'
+  const { data: subs, error } = await supabaseAdmin
+    .from('subscriptions')
+    .select('product_id, plan_id, status, trial_ends_at, current_period_end')
+    .eq('dealership_id', dealershipId)
+
+  if (error) {
+    console.error('[entitlements] failed to fetch subscriptions for reconciliation:', error)
+    return 'INACTIVE'
+  }
+
+  const now = Date.now()
+  let hasActive = false
+  let hasValidTrial = false
+  let hasPastDue = false
+
+  for (const s of (subs || [])) {
+    if (s.status === 'active') {
+      hasActive = true
+    } else if (s.status === 'trialing') {
+      const trialExpired = s.trial_ends_at && new Date(s.trial_ends_at).getTime() < now
+      if (!trialExpired) hasValidTrial = true
+    } else if (s.status === 'past_due') {
+      hasPastDue = true
+    }
+  }
+
+  let reconciled = 'INACTIVE'
+  if (hasActive) {
+    reconciled = 'ACTIVE'
+  } else if (hasValidTrial) {
+    reconciled = 'TRIALING'
+  } else if (hasPastDue) {
+    reconciled = 'PAST_DUE'
+  } else {
+    reconciled = 'INACTIVE'
+  }
+
+  await supabaseAdmin.from('dealerships').update({ billing_status: reconciled }).eq('id', dealershipId)
+
+  const { data: dealer } = await supabaseAdmin
+    .from('dealerships')
+    .select('is_personal')
+    .eq('id', dealershipId)
+    .maybeSingle()
+
+  if (dealer?.is_personal) {
+    await supabaseAdmin.from('profiles').update({ billing_status: reconciled }).eq('dealership_id', dealershipId)
+  }
+
+  return reconciled
+}
+
 // ── THE ENTITLEMENT ENGINE ───────────────────────────────────────────────────
-// Grant a plan to an organization. This is the ONE function that turns "active plan" into
-// access: it expands the plan into its products (the bundle), writes one subscription row
-// per product, PRUNES any product no longer covered (so a downgrade revokes it), and
-// dual-writes the legacy dealership flags the existing app still reads. Access = the union
-// of the org's active-subscription products; features come from the plan's plan_features.
-export async function provisionPlan({ dealershipId, planId, status = 'trialing', trialEndsAt = null, stripe = null, preserveExisting = false }) {
+// Grant a plan to an organization. This turns "active plan" into access:
+// it expands the plan into its products (the bundle), writes one subscription row
+// per product, preserves other products for multi-subscription accounts, merges legacy flags,
+// and reconciles the global billing status.
+export async function provisionPlan({ dealershipId, planId, status = 'trialing', trialEndsAt = null, stripe = null, preserveExisting = true }) {
   const plan = getPlan(planId)
   if (!dealershipId || !plan) throw new Error(`provisionPlan: bad args (dealership=${dealershipId}, plan=${planId})`)
   const products = plan.products
@@ -36,46 +93,83 @@ export async function provisionPlan({ dealershipId, planId, status = 'trialing',
     .from('subscriptions').upsert(rows, { onConflict: 'dealership_id,product_id' })
   if (upErr) throw upErr
 
-  // Prune products this plan no longer covers only if preserveExisting is false.
-  if (!preserveExisting) {
+  // Prune products this plan no longer covers only when preserveExisting is explicitly false.
+  if (preserveExisting === false) {
     const { error: delErr } = await supabaseAdmin
       .from('subscriptions').delete().eq('dealership_id', dealershipId).not('product_id', 'in', `(${products.join(',')})`)
     if (delErr) throw delErr
   }
 
-  // Keep the legacy dealership flags + account_type + billing gate in sync so the
-  // middleware (requireAuth) reflects the plan: trialing→TRIALING (with trial_ends_at),
-  // active→ACTIVE, past_due→PAST_DUE, cancelled/expired→INACTIVE. This is what makes the
-  // paywall appear at trial end and disappear once they pay.
-  const billing_status = SUB_STATUS_TO_BILLING[status] || null
-  const dealerUpdate = { ...(plan.legacy || {}), account_type: plan.org_type, billing_status }
+  // Fetch current dealership to merge legacy compatibility flags without clobbering other products.
+  const { data: currentDealer } = await supabaseAdmin
+    .from('dealerships')
+    .select('products, ai_chatbot_active, ai_chatbot_paid, inv_intel_active, inv_intel_paid, ai_boost_active, ai_boost_paid, seo_active, vin_sticker_active, ai_vision_active, fb_only, plan, account_type')
+    .eq('id', dealershipId)
+    .maybeSingle()
+
+  const currentProducts = (currentDealer?.products && typeof currentDealer.products === 'object') ? { ...currentDealer.products } : {}
+  const dealerUpdate = { account_type: plan.org_type }
   if (trialEndsAt !== null) dealerUpdate.trial_ends_at = trialEndsAt
 
-  if (preserveExisting) {
-    // Preserve existing true flags so multi-product purchases do not overwrite each other
-    const { data: currentDealer } = await supabaseAdmin
-      .from('dealerships')
-      .select('ai_chatbot_active, ai_chatbot_paid, inv_intel_active, inv_intel_paid, ai_boost_active, ai_boost_paid, vin_sticker_active, ai_vision_active, fb_only')
-      .eq('id', dealershipId)
-      .maybeSingle()
-    if (currentDealer) {
-      if (currentDealer.ai_chatbot_active) { dealerUpdate.ai_chatbot_active = true; dealerUpdate.ai_chatbot_paid = true; }
-      if (currentDealer.inv_intel_active) { dealerUpdate.inv_intel_active = true; dealerUpdate.inv_intel_paid = true; }
-      if (currentDealer.ai_boost_active) { dealerUpdate.ai_boost_active = true; dealerUpdate.ai_boost_paid = true; }
+  const isLive = status === 'active' || status === 'trialing'
+
+  if (isLive) {
+    for (const p of products) {
+      currentProducts[p] = true
+    }
+    if (plan.legacy?.products) {
+      Object.assign(currentProducts, plan.legacy.products)
+    }
+    dealerUpdate.products = currentProducts
+
+    if (plan.legacy) {
+      if (plan.legacy.plan !== undefined && (plan.legacy.plan || !currentDealer?.plan)) {
+        dealerUpdate.plan = plan.legacy.plan
+      }
+      if (plan.legacy.ai_chatbot_active !== undefined) {
+        dealerUpdate.ai_chatbot_active = plan.legacy.ai_chatbot_active
+        dealerUpdate.ai_chatbot_paid = plan.legacy.ai_chatbot_paid ?? plan.legacy.ai_chatbot_active
+      }
+      if (plan.legacy.ai_boost_active !== undefined) {
+        dealerUpdate.ai_boost_active = plan.legacy.ai_boost_active
+        dealerUpdate.ai_boost_paid = plan.legacy.ai_boost_paid ?? plan.legacy.ai_boost_active
+      }
+      if (plan.legacy.inv_intel_active !== undefined) {
+        dealerUpdate.inv_intel_active = plan.legacy.inv_intel_active
+        dealerUpdate.inv_intel_paid = plan.legacy.inv_intel_paid ?? plan.legacy.inv_intel_active
+      }
+      if (plan.legacy.vin_sticker_active !== undefined) dealerUpdate.vin_sticker_active = plan.legacy.vin_sticker_active
+      if (plan.legacy.ai_vision_active !== undefined) dealerUpdate.ai_vision_active = plan.legacy.ai_vision_active
+      if (plan.legacy.fb_only !== undefined && !currentDealer?.products?.dealer_os) dealerUpdate.fb_only = plan.legacy.fb_only
+    }
+    if (products.includes('marketsync_seo')) {
+      dealerUpdate.seo_active = true
+    }
+  } else {
+    for (const p of products) {
+      currentProducts[p] = false
+    }
+    if (plan.legacy?.products) {
+      for (const k of Object.keys(plan.legacy.products)) {
+        currentProducts[k] = false
+      }
+    }
+    dealerUpdate.products = currentProducts
+
+    if (products.includes('marketsync_seo')) {
+      dealerUpdate.seo_active = false
+    }
+    if (products.includes('ai_dealer') && planId === 'ai-chatbot') {
+      dealerUpdate.ai_chatbot_active = false
+      dealerUpdate.ai_chatbot_paid = false
     }
   }
 
   const { error: dErr } = await supabaseAdmin.from('dealerships').update(dealerUpdate).eq('id', dealershipId)
   if (dErr) throw dErr
 
-  // Personal/solo workspaces are billed on the OWNER's profile (requireAuth uses
-  // profile.billing_status when is_personal), so mirror the gate there too.
-  const { data: dealer } = await supabaseAdmin.from('dealerships').select('is_personal').eq('id', dealershipId).maybeSingle()
-  if (dealer?.is_personal) {
-    const profileUpdate = { billing_status }
-    if (trialEndsAt !== null) profileUpdate.trial_ends_at = trialEndsAt
-    await supabaseAdmin.from('profiles').update(profileUpdate).eq('dealership_id', dealershipId)
-  }
+  // Reconcile global billing status from all subscription rows
+  await reconcileDealershipBillingStatus(dealershipId)
 }
 // Subscription status → the legacy billing_status the middleware gate reads.
 const SUB_STATUS_TO_BILLING = Object.freeze({
@@ -92,6 +186,7 @@ export async function cancelAllSubscriptions(dealershipId) {
   await supabaseAdmin.from('dealerships').update({
     plan: null, ai_boost_active: false, ai_boost_paid: false,
     inv_intel_active: false, inv_intel_paid: false, ai_chatbot_active: false, ai_chatbot_paid: false,
+    seo_active: false, billing_status: 'INACTIVE',
   }).eq('id', dealershipId)
 }
 
@@ -119,14 +214,16 @@ export function planForStripePrice(priceId) {
 // à-la-carte add-ons keep their own dealership-flag webhook path).
 export async function syncSubscriptionFromStripe(dealershipId, stripeSub, { preserveExisting = true } = {}) {
   if (!dealershipId || !stripeSub) return
-  const status = mapStripeStatus(stripeSub.status)
+  const isCanceled = stripeSub.status === 'canceled'
+  // If cancel_at_period_end is true but status is still active/trialing, preserve active access until period end.
+  const status = isCanceled ? 'cancelled' : mapStripeStatus(stripeSub.status)
   const trialEndsAt = stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000).toISOString() : null
   const stripe = {
     stripe_subscription_id: stripeSub.id || null,
     stripe_customer_id: stripeSub.customer || null,
     current_period_end: stripeSub.current_period_end ? new Date(stripeSub.current_period_end * 1000).toISOString() : null,
   }
-  // Find the (first) line item whose price maps to a plan.
+  // Find the line item whose price maps to a plan.
   let planId = null
   for (const item of (stripeSub.items?.data || [])) {
     const p = planForStripePrice(item.price?.id)

@@ -13,17 +13,43 @@
 //
 // None of these is "menu hiding": every layer is also enforced in RLS + API guards.
 
-export const PRODUCTS = Object.freeze(['facebook', 'ai_dealer', 'dealer_os'])
+export const PRODUCTS = Object.freeze([
+  'facebook',
+  'ai_dealer',
+  'dealer_os',
+  'design_studio',
+  'marketsync_social',
+  'marketsync_video',
+  'marketsync_email',
+  'marketsync_website',
+  'marketsync_seo',
+])
 
 // When a caller can reach more than one product, this decides which one their default
 // landing route opens into. dealer_os (the full OS) wins over the point products so an
-// owner never lands on the Facebook-only screen — the bug this whole model fixes.
-export const PRODUCT_PRIORITY = Object.freeze({ dealer_os: 3, ai_dealer: 2, facebook: 1 })
+// owner never lands on a sub-product screen.
+export const PRODUCT_PRIORITY = Object.freeze({
+  dealer_os: 9,
+  ai_dealer: 4,
+  marketsync_website: 3,
+  marketsync_seo: 3,
+  marketsync_video: 2,
+  marketsync_email: 2,
+  marketsync_social: 2,
+  design_studio: 2,
+  facebook: 1,
+})
 
 export const PRODUCT_ROUTES = Object.freeze({
   facebook: '/facebook',
   ai_dealer: '/ai-dealer',
   dealer_os: '/dealer-os',
+  design_studio: '/design-studio',
+  marketsync_social: '/social',
+  marketsync_video: '/video',
+  marketsync_email: '/email-marketing',
+  marketsync_website: '/website',
+  marketsync_seo: '/seo',
 })
 
 // Legacy dealerships.products jsonb keys → normalized product ids. Used only as a
@@ -31,8 +57,21 @@ export const PRODUCT_ROUTES = Object.freeze({
 export const LEGACY_PRODUCT_KEY_MAP = Object.freeze({
   facebook_solo: 'facebook',
   facebook_dealer: 'facebook',
+  facebook: 'facebook',
   ai_chatbot: 'ai_dealer',
+  ai_dealer: 'ai_dealer',
   dealer_os: 'dealer_os',
+  design_studio: 'design_studio',
+  marketsync_social: 'marketsync_social',
+  social: 'marketsync_social',
+  marketsync_video: 'marketsync_video',
+  video: 'marketsync_video',
+  marketsync_email: 'marketsync_email',
+  email: 'marketsync_email',
+  marketsync_website: 'marketsync_website',
+  website: 'marketsync_website',
+  marketsync_seo: 'marketsync_seo',
+  seo: 'marketsync_seo',
 })
 
 // Record-level data scope per RBAC role. 'all' = every record in the dealership,

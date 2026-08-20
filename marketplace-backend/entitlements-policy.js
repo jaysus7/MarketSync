@@ -1,7 +1,17 @@
 // Pure entitlement policy — no IO, safe to import from tests. entitlements.js re-exports
 // these alongside its DB-backed provisioning helpers.
 
-export const PRODUCTS = Object.freeze(['facebook', 'ai_dealer', 'dealer_os'])
+export const PRODUCTS = Object.freeze([
+  'facebook',
+  'ai_dealer',
+  'dealer_os',
+  'design_studio',
+  'marketsync_social',
+  'marketsync_video',
+  'marketsync_email',
+  'marketsync_website',
+  'marketsync_seo',
+])
 export const ACCOUNT_TYPES = Object.freeze(['solo', 'dealership'])
 
 // The plan a fresh 30-day trial provisions per product. Dealer OS trials at the fullest

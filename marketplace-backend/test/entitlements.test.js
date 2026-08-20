@@ -10,8 +10,18 @@ test('defaultTrialPlan picks the right plan per product/account type', () => {
   assert.equal(defaultTrialPlan('dealer_os', 'solo'), 'os_enterprise')
 })
 
-test('catalog constants are the three products and two account types', () => {
-  assert.deepEqual([...PRODUCTS].sort(), ['ai_dealer', 'dealer_os', 'facebook'])
+test('catalog constants are the canonical products and two account types', () => {
+  assert.deepEqual([...PRODUCTS].sort(), [
+    'ai_dealer',
+    'dealer_os',
+    'design_studio',
+    'facebook',
+    'marketsync_email',
+    'marketsync_seo',
+    'marketsync_social',
+    'marketsync_video',
+    'marketsync_website',
+  ])
   assert.deepEqual([...ACCOUNT_TYPES].sort(), ['dealership', 'solo'])
 })
 

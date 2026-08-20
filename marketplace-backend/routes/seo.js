@@ -1,29 +1,34 @@
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { getCurrentAccessContext, hasProductAccess, hasFeature } from '../access.js'
 import { runAutomatedSeoAudit } from '../services/seoMonitoringService.js'
 
 /**
  * MarketSync SEO ($149/month CAD) Canonical API Engine
  */
 export default function registerSeoRoutes(app) {
-  // Check if caller's dealership owns MarketSync SEO entitlement
+  // Check if caller's dealership owns MarketSync SEO entitlement via canonical access engine
   async function checkSeoEntitlement(req, res, next) {
     if (!req.dealershipId) {
       return res.status(400).json({ error: 'No dealership associated' })
     }
-    const { data: dealer } = await supabaseAdmin
-      .from('dealerships')
-      .select('id, seo_active, products')
-      .eq('id', req.dealershipId)
-      .single()
+    try {
+      const ctx = await getCurrentAccessContext(req)
+      const isEntitled = hasProductAccess(ctx, 'marketsync_seo') || hasFeature(ctx, 'seo.overview')
+      req.hasSeoEntitlement = !!isEntitled
+      next()
+    } catch {
+      const { data: dealer } = await supabaseAdmin
+        .from('dealerships')
+        .select('id, seo_active, products')
+        .eq('id', req.dealershipId)
+        .maybeSingle()
 
-    const hasProduct = req.access?.products?.includes('marketsync_seo') ||
-      req.access?.products?.includes('seo') ||
-      dealer?.seo_active === true ||
-      (dealer?.products && (dealer.products.marketsync_seo || dealer.products.seo))
-
-    req.hasSeoEntitlement = !!hasProduct
-    next()
+      const hasProduct = dealer?.seo_active === true ||
+        (dealer?.products && (dealer.products.marketsync_seo || dealer.products.seo))
+      req.hasSeoEntitlement = !!hasProduct
+      next()
+    }
   }
 
   // ── 1. SEO Overview Command Center ─────────────────────────────────────────
