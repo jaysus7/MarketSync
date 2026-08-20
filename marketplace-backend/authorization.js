@@ -72,6 +72,21 @@ async function permissionLookup(req, permission) {
     return { allowed: true, error: null }
   }
 
+  if (
+    (permission === 'site.manage' || permission === 'site.view' || permission === 'website.manage') &&
+    (req.entitlements?.products?.some(p => ['marketsync_website', 'dealer_website', 'website', 'dealer_os', 'sales_marketing_suite', 'service_marketing_suite', 'complete_marketing_suite', 'marketsync_digital'].includes(p)) ||
+     req.entitlements?.features?.some(f => ['os.website', 'website.builder', 'website.pages', 'website.domains', 'website.settings'].includes(f)) ||
+     ['SALES_REP', 'MANAGER', 'MARKETING_MANAGER', 'SALES_MANAGER', 'GENERAL_MANAGER'].includes(role) ||
+     ['dealer-website', 'website', 'dealer_website', 'dealer-os', 'dealeros_pro', 'dealeros_complete', 'complete-marketing-suite', 'marketsync-digital', 'sales-marketing-suite', 'service-marketing-suite', 'marketing-suite'].includes(req.profile?.package_id) ||
+     req.profile?.dealerships?.is_personal === true ||
+     req.profile?.dealerships?.products?.website === true ||
+     req.profile?.dealerships?.products?.marketsync_website === true ||
+     req.profile?.dealerships?.products?.dealer_website === true ||
+     req.profile?.dealerships?.products?.dealer_os === true)
+  ) {
+    return { allowed: true, error: null }
+  }
+
   // `user_roles` and `role_permissions` both reference `roles`, but do not
   // directly reference one another. Querying them as an embedded PostgREST
   // relationship therefore fails in Supabase's schema cache. Resolve through

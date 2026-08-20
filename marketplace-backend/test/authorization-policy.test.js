@@ -57,3 +57,12 @@ test('a Facebook dealer rep can sync their own inventory — Facebook posting is
   assert.ok(fn, 'permissionLookup must exist')
   assert.match(fn, /role === 'SALES_REP' && permission === 'inventory\.edit' && req\.profile\?\.dealerships\?\.fb_only === true/)
 })
+
+test('site.manage permission is authorized for website subscribers, dealer-os, marketing packages, and management roles', () => {
+  const source = readFileSync(new URL('../authorization.js', import.meta.url), 'utf8')
+  const fn = source.match(/async function permissionLookup\(req, permission\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fn, 'permissionLookup must exist')
+  assert.match(fn, /permission === 'site\.manage'/)
+  assert.match(fn, /marketsync_website/)
+  assert.match(fn, /dealer-website/)
+})
