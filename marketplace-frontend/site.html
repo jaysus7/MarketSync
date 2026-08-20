@@ -40,25 +40,48 @@
     let SLUG=(new URLSearchParams(location.search).get('d')||location.pathname.split('/').filter(Boolean).pop()||'').toLowerCase();
     if(SLUG.endsWith('.html')) SLUG='';   // custom-domain root → resolve by hostname instead
     const esc=(s)=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    // Rich text for description fields: allows a safe subset of HTML so AI-inserted
-    // internal/external links render, while stripping anything unsafe. Plain text
-    // (no tags) is escaped and its line breaks preserved.
-    const RICH_TAGS={A:['href','target','rel'],STRONG:[],B:[],EM:[],I:[],BR:[],P:[],UL:[],OL:[],LI:[],SPAN:[]};
+    // Rich text for description fields & custom pages: allows a safe subset of HTML so AI-inserted
+    // internal/external links & basic formatting render, while stripping anything unsafe.
+    const RICH_TAGS={
+      A:['href','target','rel','class','title'],
+      STRONG:['class'],B:['class'],EM:['class'],I:['class'],U:['class'],S:['class'],
+      BR:[],HR:['class'],P:['class','style'],
+      UL:['class'],OL:['class'],LI:['class'],SPAN:['class','style'],DIV:['class','style'],
+      H1:['class'],H2:['class'],H3:['class'],H4:['class'],H5:['class'],H6:['class'],
+      BLOCKQUOTE:['class'],TABLE:['class'],THEAD:['class'],TBODY:['class'],TFOOT:['class'],
+      TR:['class'],TH:['class'],TD:['class'],IMG:['src','alt','class','width','height','loading'],
+      SECTION:['class'],ARTICLE:['class'],PRE:['class'],CODE:['class']
+    };
     function sanitizeRich(html){
       const tpl=document.createElement('template'); tpl.innerHTML=String(html||'');
       const walk=(node)=>{ for(const n of [...node.childNodes]){
         if(n.nodeType===3) continue;
         if(n.nodeType!==1){ n.remove(); continue; }
-        const allow=RICH_TAGS[n.tagName];
+        const tag=n.tagName.toUpperCase();
+        const allow=RICH_TAGS[tag];
         if(!allow){ n.replaceWith(...n.childNodes); continue; }
-        for(const a of [...n.attributes]){ if(!allow.includes(a.name.toLowerCase())) n.removeAttribute(a.name); }
-        if(n.tagName==='A'){ const href=n.getAttribute('href')||''; if(/^\s*(javascript|data):/i.test(href)) n.removeAttribute('href');
-          if(/^https?:/i.test(href)){ n.setAttribute('target','_blank'); n.setAttribute('rel','nofollow noopener'); } }
+        for(const a of [...n.attributes]){
+          const an=a.name.toLowerCase();
+          if(an.startsWith('on') || (!allow.includes(an) && !an.startsWith('aria-') && !an.startsWith('data-'))){
+            n.removeAttribute(a.name);
+          }
+        }
+        if(tag==='A'){
+          const href=n.getAttribute('href')||'';
+          if(/^\s*(javascript|vbscript|data):/i.test(href)) n.removeAttribute('href');
+          else if(/^https?:/i.test(href)){ n.setAttribute('target','_blank'); n.setAttribute('rel','noopener noreferrer'); }
+        }
+        if(tag==='IMG'){
+          const src=n.getAttribute('src')||'';
+          if(/^\s*(javascript|vbscript|data:(?!image\/))/i.test(src)) n.removeAttribute('src');
+        }
+        const st=n.getAttribute('style');
+        if(st && /expression|behavior|url\(|javascript:|-moz-binding/i.test(st)) n.removeAttribute('style');
         walk(n);
       } };
       walk(tpl.content); return tpl.innerHTML;
     }
-    function richText(str){ str=String(str==null?'':str); if(!str) return ''; return /<(a|strong|b|em|i|br|p|ul|ol|li|span)\b/i.test(str)?sanitizeRich(str):esc(str).replace(/\n/g,'<br>'); }
+    function richText(str){ str=String(str==null?'':str); if(!str) return ''; return /<[a-z][\s\S]*>/i.test(str)?sanitizeRich(str):esc(str).replace(/\n/g,'<br>'); }
     const attr=(s)=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     const money=(n)=>n?'$'+Number(n).toLocaleString():'Call for price';
     const km=(n)=>n?Number(n).toLocaleString()+' km':'—';
@@ -260,7 +283,7 @@
       on('f-sort','change',e=>{FILTERS.sort=e.target.value;applyFilters();renderGrid();});
     }
 
-    function widgetBlock(w){ const doc=`<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;font-family:-apple-system,Segoe UI,Arial,sans-serif}</style></head><body>${w.html}</body></html>`; return `<div class="w-full">${w.title?`<h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 max-w-6xl mx-auto px-4">${esc(w.title)}</h3>`:''}<iframe srcdoc="${attr(doc)}" style="width:100%;height:${w.height}px;border:0;display:block" sandbox="allow-scripts allow-forms allow-popups allow-same-origin allow-popups-to-escape-sandbox" loading="lazy"></iframe></div>`; }
+    function widgetBlock(w){ const doc=`<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;font-family:-apple-system,Segoe UI,Arial,sans-serif}</style></head><body>${w.html}</body></html>`; return `<div class="w-full">${w.title?`<h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 max-w-6xl mx-auto px-4">${esc(w.title)}</h3>`:''}<iframe srcdoc="${attr(doc)}" style="width:100%;height:${w.height}px;border:0;display:block" sandbox="allow-scripts allow-forms allow-popups" loading="lazy"></iframe></div>`; }
     const slotHtml=(name)=>{ const ws=(DATA.site.widgets||[]).filter(w=>w.slot===name); return ws.length?`<div class="space-y-4 py-2">${ws.map(widgetBlock).join('')}</div>`:''; };
 
     // ── Chrome (header + footer stay; #view swaps) ─────────────────────────────
@@ -738,7 +761,7 @@
           const imgSide=`<div class="sm:w-2/5 shrink-0 min-h-[160px]">${imgTag}</div>`;
           return wrap(`<div class="brand-bg text-white rounded-2xl overflow-hidden cshadow flex flex-col ${tpl==='imgleft'?'sm:flex-row-reverse':'sm:flex-row'}">${content}${imgSide}</div>`);
         }
-        case 'html': return `<section class="max-w-6xl mx-auto px-4 py-8"><div class="prose max-w-none">${g.html||''}</div></section>`;
+        case 'html': return `<section class="max-w-6xl mx-auto px-4 py-8"><div class="prose max-w-none">${richText(g.html||'')}</div></section>`;
         default: return '';
       }
     }
@@ -1133,14 +1156,14 @@
       if(Array.isArray(p.sections)&&p.sections.length){
         const html=p.sections.map(sectionHtml).join('');
         setTimeout(()=>{ if(p.sections.some(s=>s.type==='inventory_grid')) wireInventory(); },0);
-        return wrap(html + (p.body_html?`<section class="max-w-3xl mx-auto px-4 py-6"><div class="prose max-w-none text-slate-700">${p.body_html}</div></section>`:''));
+        return wrap(html + (p.body_html?`<section class="max-w-3xl mx-auto px-4 py-6"><div class="prose max-w-none text-slate-700">${richText(p.body_html)}</div></section>`:''));
       }
       if(p.make&&p.model){
         const vs=(DATA.vehicles||[]).filter(v=>(v.make||'').toLowerCase()===p.make.toLowerCase()&&(v.model||'').toLowerCase()===p.model.toLowerCase());
-        return wrap(`<section class="brand2-bg text-white"><div class="max-w-6xl mx-auto px-4 py-14"><h1 class="text-4xl font-black">${esc(p.title)}</h1>${p.body_html?`<div class="mt-3 text-white/80 max-w-2xl">${p.body_html}</div>`:''}<div class="mt-5 flex flex-wrap gap-3"><button onclick="go('trade')" class="bg-white text-slate-900 font-bold px-5 py-2.5 rounded-lg">Value your trade</button><button onclick="go('finance')" class="border border-white/40 font-bold px-5 py-2.5 rounded-lg hover:bg-white/10">Get pre-approved</button></div></div></section>
+        return wrap(`<section class="brand2-bg text-white"><div class="max-w-6xl mx-auto px-4 py-14"><h1 class="text-4xl font-black">${esc(p.title)}</h1>${p.body_html?`<div class="mt-3 text-white/80 max-w-2xl">${richText(p.body_html)}</div>`:''}<div class="mt-5 flex flex-wrap gap-3"><button onclick="go('trade')" class="bg-white text-slate-900 font-bold px-5 py-2.5 rounded-lg">Value your trade</button><button onclick="go('finance')" class="border border-white/40 font-bold px-5 py-2.5 rounded-lg hover:bg-white/10">Get pre-approved</button></div></div></section>
           <section class="max-w-6xl mx-auto px-4 py-8"><h2 class="text-2xl font-black mb-4">${esc(p.make)} ${esc(p.model)} in stock</h2><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">${vs.map(vehicleCard).join('')||`<div class="col-span-full text-slate-400">None in stock right now — <button onclick="go('inquiry')" class="brand-text font-bold">contact us</button> and we'll find you one.</div>`}</div></section>`);
       }
-      return wrap(`<section class="max-w-3xl mx-auto px-4 py-10"><h1 class="text-3xl font-black mb-4">${esc(p.title)}</h1><div class="prose max-w-none text-slate-700">${p.body_html||''}</div></section>`);
+      return wrap(`<section class="max-w-3xl mx-auto px-4 py-10"><h1 class="text-3xl font-black mb-4">${esc(p.title)}</h1><div class="prose max-w-none text-slate-700">${richText(p.body_html||'')}</div></section>`);
     }
 
     async function postLead(body,formEl,btn){ btn.disabled=true; const t=btn.textContent; btn.textContent='Sending…';

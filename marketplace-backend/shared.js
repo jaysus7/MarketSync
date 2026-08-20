@@ -61,6 +61,11 @@ export const CANONICAL_FRONTEND = 'https://marketsync.link'
 export const FRONTEND_URL = (process.env.FRONTEND_URL || CANONICAL_FRONTEND)
   .replace(/\/$/, '')  // strip trailing slash to avoid `//path` URLs
 
+// Separate origins for app authentication vs. untrusted dealer public sites
+export const APP_ORIGIN = (process.env.APP_ORIGIN || process.env.FRONTEND_URL || 'https://marketsync.link').replace(/\/$/, '')
+export const PUBLIC_SITE_ORIGIN = (process.env.PUBLIC_SITE_ORIGIN || 'https://sites.marketsync.link').replace(/\/$/, '')
+export const SITE_DOMAIN_TARGET = (process.env.SITE_DOMAIN_TARGET || 'marketsync.link').replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+
 // Chrome Web Store listing — linked from the onboarding drip ("get the extension").
 export const EXTENSION_URL = process.env.CHROME_EXTENSION_URL ||
   'https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada'

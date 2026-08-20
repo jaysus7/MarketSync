@@ -13,6 +13,7 @@
  */
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
 import { emitEvent } from './events.js'
 import { getContact } from './crm.js'
 
@@ -94,19 +95,25 @@ export async function getHistory(conversationId, limit = 50) {
   return data || []
 }
 
-// ── Memory-retrieval pipeline (fixed order, run before every AI response) ─────
-// Phase 2 appends viewed + current inventory and hands this to the LLM. For now it
-// assembles the customer-side context so the runtime can be dropped in cleanly.
-export async function assembleContext(dealershipId, { conversationId = null, contactId = null } = {}) {
-  const [history, profile, memory] = await Promise.all([
-    conversationId ? getHistory(conversationId) : Promise.resolve([]),
-    contactId ? getContact(dealershipId, contactId) : Promise.resolve(null),
-    contactId ? getMemory(dealershipId, contactId) : Promise.resolve([]),
-  ])
+// ── Context assembly ─────────────────────────────────────────────────────────
+export async function assembleContext(dealershipId, conversationId, contactId = null) {
+  const { data: messages } = await supabaseAdmin.from('ai_messages')
+    .select('role, content, created_at')
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: true })
+    .limit(100)
+
+  const history = messages || []
+  let profile = null
+  let memory = []
   let timeline = []
+
   if (contactId) {
-    const { data } = await supabaseAdmin.from('events').select('event_name, summary, created_at')
-      .eq('dealership_id', dealershipId).eq('entity_type', 'customer').eq('entity_id', contactId)
+    profile = await getContact(dealershipId, contactId)
+    memory = await getMemory(dealershipId, contactId)
+    const { data } = await supabaseAdmin.from('communications')
+      .select('channel, direction, subject, body, occurred_at')
+      .eq('dealership_id', dealershipId).eq('contact_id', contactId)
       .order('created_at', { ascending: false }).limit(30)
     timeline = data || []
   }
@@ -115,13 +122,16 @@ export async function assembleContext(dealershipId, { conversationId = null, con
 
 // ── HTTP surface — dealer console reads (managers) ───────────────────────────
 export function registerAiEngine(app) {
+  const canView = requirePermission('customer.view')
+  const canEdit = requirePermission('customer.edit')
+
   // Live conversations list for the dealer console + AI Chat feed.
   // Supports categorization filters used by the AI Chat dashboard:
   //   status, department, type (lead_type), booked, captured, tag
-  app.get('/ai/conversations', requireAuth, async (req, res) => {
+  app.get('/ai/conversations', requireAuth, canView, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const limit = Math.min(300, Math.max(1, parseInt(req.query.limit, 10) || 200))
-    let q = supabaseAdmin.from('ai_conversations').select('*')
+    let q = supabaseAdmin.from('ai_conversations').select(SAFE_CONVO_COLUMNS)
       .eq('dealership_id', req.dealershipId).order('last_message_at', { ascending: false }).limit(limit)
     if (req.query.status) q = q.eq('status', String(req.query.status))
     if (req.query.department) q = q.eq('department', String(req.query.department))
@@ -148,9 +158,9 @@ export function registerAiEngine(app) {
   })
 
   // One conversation + its full message history + (if captured) the customer memory.
-  app.get('/ai/conversations/:id', requireAuth, async (req, res) => {
+  app.get('/ai/conversations/:id', requireAuth, canView, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    const { data: convo } = await supabaseAdmin.from('ai_conversations').select('*')
+    const { data: convo } = await supabaseAdmin.from('ai_conversations').select(SAFE_CONVO_COLUMNS)
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!convo) return res.status(404).json({ error: 'not found' })
     const messages = await getHistory(convo.id, 500)
@@ -163,15 +173,14 @@ export function registerAiEngine(app) {
   })
 
   // Customer memory (for the CRM contact card).
-  app.get('/ai/memory/:contactId', requireAuth, async (req, res) => {
+  app.get('/ai/memory/:contactId', requireAuth, canView, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     res.json({ memory: await getMemory(req.dealershipId, req.params.contactId) })
   })
 
   // Manager takeover / hand-back (Phase 3 UI drives this).
-  app.post('/ai/conversations/:id/status', requireAuth, async (req, res) => {
+  app.post('/ai/conversations/:id/status', requireAuth, canEdit, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const status = String(req.body?.status || '')
     if (!['active', 'handoff', 'closed'].includes(status)) return res.status(400).json({ error: 'bad status' })
     const patch = { status }

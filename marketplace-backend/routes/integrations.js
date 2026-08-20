@@ -8,6 +8,7 @@ import { rateLimit } from '../security.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { encryptJson, decryptJson, piiConfigured, PII_ENCRYPTION_VERSION } from '../crypto-pii.js'
 import { emitWebhook, WEBHOOK_EVENTS } from '../webhooks.js'
+import { validateOutboundUrl } from '../outbound-http-policy.js'
 import { sendDealerSms, invalidateTwilioCache } from './automation.js'
 import { twilioProvisionConfigured, searchNumbers, provisionForDealer, releaseNumber } from '../providers/twilio-provision.js'
 import { twilioA2pConfigured, startDealerA2p, advanceDealerA2p } from '../providers/twilio-a2p.js'
@@ -416,7 +417,13 @@ export function registerIntegrations(app) {
     const patch = { dealership_id: req.dealershipId, provider, updated_by: req.user?.id || null, updated_at: new Date().toISOString() }
     if (b.enabled !== undefined) patch.enabled = !!b.enabled
     if (b.status !== undefined && typeof b.status === 'string') patch.status = b.status.slice(0, 30)
-    if (b.lender_code_map && typeof b.lender_code_map === 'object') patch.lender_code_map = b.lender_code_map
+    if (b.lender_code_map && typeof b.lender_code_map === 'object') {
+      if (provider === 'webhook' && b.lender_code_map.url) {
+        const check = await validateOutboundUrl(b.lender_code_map.url)
+        if (!check.ok) return res.status(400).json({ error: `Disallowed webhook URL: ${check.error}` })
+      }
+      patch.lender_code_map = b.lender_code_map
+    }
 
     // Encrypt a credential blob only if one was provided and non-empty.
     if (b.credentials && typeof b.credentials === 'object' && Object.keys(b.credentials).length) {

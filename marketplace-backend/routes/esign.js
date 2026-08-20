@@ -15,7 +15,7 @@
  */
 import crypto from 'node:crypto'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../shared.js'
-import { requireAuth, requireMfa } from '../middleware.js'
+import { requireAuth, requireMfa, requireStrongStepUp } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { rateLimit, getClientIp } from '../security.js'
 import { audit, AuditAction } from '../audit.js'
@@ -187,7 +187,7 @@ export function registerEsign(app) {
 
   // Manager: full record incl. the signed document + signature (file of record).
   // Audits access to the sensitive completed agreement.
-  app.get('/esign/:id/detail', requireAuth, requireMfa, requirePermission('deal.create'), async (req, res) => {
+  app.get('/esign/:id/detail', requireAuth, requireStrongStepUp, requirePermission('deal.create'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { data: r } = await supabaseAdmin.from('esign_requests').select('*')
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()

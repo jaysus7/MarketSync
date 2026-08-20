@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '../../shared.js'
-import { requireAuth } from '../../middleware.js'
+import { requireAuth, requireMfa, requireStrongStepUp, getSessionFingerprint } from '../../middleware.js'
 import { rateLimit, getClientIp, generateRecoveryCodes, hashRecoveryCode } from '../../security.js'
 import { audit, AuditAction } from '../../audit.js'
 import { createMfaLoginChallenge, consumeMfaLoginChallenge, getMfaLoginChallenge, createTrustedDeviceToken } from '../../mfa-login-challenges.js'
@@ -167,7 +167,7 @@ export function registerAuthMfaPasskeyRoutes(app) {
     }
   })
 
-  app.delete('/auth/2fa/unenroll', requireAuth, rateLimit('mfa-unenroll', 5, 60 * 60 * 1000), async (req, res) => {
+  app.delete('/auth/2fa/unenroll', requireAuth, requireStrongStepUp, rateLimit('mfa-unenroll', 5, 60 * 60 * 1000), async (req, res) => {
     const { factor_id } = req.body || {}
     if (!factor_id) return res.status(400).json({ error: 'factor_id is required' })
 
@@ -238,7 +238,7 @@ export function registerAuthMfaPasskeyRoutes(app) {
     }
   })
 
-  app.post('/auth/2fa/recovery-codes/regenerate', requireAuth, rateLimit('recovery-regen', 3, 60 * 60 * 1000), async (req, res) => {
+  app.post('/auth/2fa/recovery-codes/regenerate', requireAuth, requireStrongStepUp, rateLimit('recovery-regen', 3, 60 * 60 * 1000), async (req, res) => {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '')
       const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
@@ -271,7 +271,7 @@ export function registerAuthMfaPasskeyRoutes(app) {
     }
   })
 
-  app.post('/auth/passkey/register/begin', requireAuth, rateLimit('passkey-reg-begin', 10, 60 * 60 * 1000), async (req, res) => {
+  app.post('/auth/passkey/register/begin', requireAuth, requireMfa, rateLimit('passkey-reg-begin', 10, 60 * 60 * 1000), async (req, res) => {
     try {
       const options = await beginPasskeyRegistration({ user: req.user, userAgent: req.headers['user-agent'], reqOrigin: req.headers.origin })
       res.json(options)
@@ -328,7 +328,8 @@ export function registerAuthMfaPasskeyRoutes(app) {
 
   app.post('/auth/passkey/stepup/finish', requireAuth, rateLimit('passkey-stepup-finish', 20, 60 * 60 * 1000), async (req, res) => {
     try {
-      const result = await finishPasskeyStepUp({ supabaseAdmin, userId: req.user.id, response: req.body?.response || req.body || {}, reqOrigin: req.headers.origin })
+      const sessionFingerprint = getSessionFingerprint(req)
+      const result = await finishPasskeyStepUp({ supabaseAdmin, userId: req.user.id, response: req.body?.response || req.body || {}, reqOrigin: req.headers.origin, sessionFingerprint })
       if (!result.ok) {
         audit(req, AuditAction.MFA_CHALLENGE_FAILED, { method: 'passkey_stepup' })
         return res.status(400).json({ error: result.error })
@@ -340,7 +341,7 @@ export function registerAuthMfaPasskeyRoutes(app) {
     }
   })
 
-  app.delete('/auth/passkey/:id', requireAuth, rateLimit('passkey-delete', 10, 60 * 60 * 1000), async (req, res) => {
+  app.delete('/auth/passkey/:id', requireAuth, requireStrongStepUp, rateLimit('passkey-delete', 10, 60 * 60 * 1000), async (req, res) => {
     try {
       const id = String(req.params.id || '')
       const deleted = await deletePasskey({ supabaseAdmin, userId: req.user.id, passkeyId: id })

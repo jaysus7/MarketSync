@@ -1,4 +1,4 @@
-import { randomBytes, createHmac } from 'node:crypto'
+import { randomBytes, createHmac, timingSafeEqual } from 'node:crypto'
 
 // Supabase returns a real access token after password verification. Never send
 // that token to a client that still needs to complete MFA: it could otherwise
@@ -37,29 +37,38 @@ export function consumeMfaLoginChallenge(token) {
 }
 
 // ── 30-Day Trusted Device MFA Trust System ──────────────────────────────────
-const TRUST_SECRET = process.env.SUPABASE_JWT_SECRET || process.env.APP_SECRET || 'marketsync-trusted-device-secret-2026'
+// Requires dedicated TRUSTED_DEVICE_SECRET (fails closed if missing outside test)
+const TRUST_SECRET = process.env.TRUSTED_DEVICE_SECRET || (process.env.NODE_ENV === 'test' ? 'test-trusted-device-secret-32bytes-long-2026' : null)
 const TRUST_TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
 
 export function createTrustedDeviceToken(userId) {
-  if (!userId) return null
+  if (!userId || !TRUST_SECRET) return null
   const expiresAt = Date.now() + TRUST_TTL_MS
-  const payload = `${userId}:${expiresAt}`
+  const payload = `v1:${userId}:${expiresAt}`
   const signature = createHmac('sha256', TRUST_SECRET).update(payload).digest('hex')
-  return Buffer.from(JSON.stringify({ u: userId, exp: expiresAt, sig: signature })).toString('base64url')
+  return Buffer.from(JSON.stringify({ v: 1, u: userId, exp: expiresAt, sig: signature })).toString('base64url')
 }
 
 export function verifyTrustedDeviceToken(token, userId) {
-  if (!token || !userId) return false
+  if (!token || !userId || !TRUST_SECRET) return false
   try {
     const raw = JSON.parse(Buffer.from(token, 'base64url').toString('utf8'))
     if (!raw.u || !raw.exp || !raw.sig) return false
     if (raw.u !== userId) return false
     if (Number(raw.exp) < Date.now()) return false
-    const expectedPayload = `${raw.u}:${raw.exp}`
-    const expectedSig = createHmac('sha256', TRUST_SECRET).update(expectedPayload).digest('hex')
-    return raw.sig === expectedSig
+
+    // Versioned signature check (v1) or legacy fallback
+    const payload = raw.v === 1 ? `v1:${raw.u}:${raw.exp}` : `${raw.u}:${raw.exp}`
+    const expectedSig = createHmac('sha256', TRUST_SECRET).update(payload).digest('hex')
+
+    if (typeof raw.sig !== 'string' || raw.sig.length !== expectedSig.length) return false
+    const sigBuf = Buffer.from(raw.sig, 'hex')
+    const expBuf = Buffer.from(expectedSig, 'hex')
+    if (sigBuf.length !== expBuf.length) return false
+    return timingSafeEqual(sigBuf, expBuf)
   } catch (e) {
     return false
   }
 }
+
 

@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import { supabase, supabaseAdmin, isSaasStaff } from './shared.js'
 import { SYSTEM_ROLES, hasSystemRole } from './authorization.js'
 import { createClient } from '@supabase/supabase-js'
@@ -109,6 +110,12 @@ export async function requireAuth(req, res, next) {
   }
 }
 
+export function getSessionFingerprint(req, rawToken) {
+  const token = rawToken || req?.headers?.authorization?.replace('Bearer ', '') || ''
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
+  return crypto.createHash('sha256').update(`${req?.user?.id || 'anon'}:${tokenHash}`).digest('hex')
+}
+
 // Re-check Supabase's authenticated assurance level for high-risk operations.
 // A normal password/passkey/email-OTP session is aal1; a verified Supabase MFA
 // factor (TOTP or phone) promotes that specific session to aal2.
@@ -117,7 +124,8 @@ export async function requireMfa(req, res, next) {
   // A recent biometric passkey step-up (Touch ID / Face ID / Windows Hello /
   // fingerprint), verified via /auth/passkey/stepup/*, satisfies the gate without
   // a TOTP code. Runs after requireAuth, so req.user is populated.
-  if (hasRecentPasskeyStepUp(req.user?.id)) return next()
+  const fp = req.user?.id ? getSessionFingerprint(req) : null
+  if (hasRecentPasskeyStepUp(req.user?.id) || hasRecentPasskeyStepUp(req.user?.id, fp)) return next()
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ error: 'No token provided' })
   try {
@@ -136,3 +144,35 @@ export async function requireMfa(req, res, next) {
     return res.status(503).json({ error: 'MFA verification temporarily unavailable.' })
   }
 }
+
+// Strong step-up gate: requires AAL2 assurance (active MFA session) OR a recent
+// session-bound biometric passkey step-up. Unlike requireMfa, it NEVER allows
+// non-MFA users to pass through without step-up.
+export async function requireStrongStepUp(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: 'UNAUTHORIZED' })
+  const token = req.headers.authorization?.replace('Bearer ', '')
+  if (!token) return res.status(401).json({ error: 'No token provided' })
+
+  const fp = getSessionFingerprint(req, token)
+  if (hasRecentPasskeyStepUp(req.user.id, fp)) return next()
+
+  try {
+    const client = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    })
+    const { data: aal, error } = await client.auth.mfa.getAuthenticatorAssuranceLevel()
+    if (!error && aal?.currentLevel === 'aal2') {
+      return next()
+    }
+    return res.status(403).json({
+      error: 'STRONG_STEP_UP_REQUIRED',
+      message: 'A recent passkey or MFA verification is required for this action.'
+    })
+  } catch {
+    return res.status(403).json({
+      error: 'STRONG_STEP_UP_REQUIRED',
+      message: 'A recent passkey or MFA verification is required for this action.'
+    })
+  }
+}
+

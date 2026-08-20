@@ -17,6 +17,7 @@ import { depositConfigForSite } from './deposits.js'
 import { toolDefs, callTool } from './tool-registry.js'
 import { startOrContinueConversation, saveMessage } from './ai-engine.js'
 import { categorizeConversation, formatShownVehicles, summarizeConversation, verifyRecaptcha, RECAPTCHA_SITE_KEY } from './ai-runtime.js'
+import { sanitizeHtml, stripScriptsFromHead } from '../html-sanitizer.js'
 import { registerSitePublicRoutes } from './submodules/site-public.js'
 
 const slugOk = (s) => /^[a-z0-9]([a-z0-9-]{1,38})[a-z0-9]$/.test(s)   // 3–40, no leading/trailing dash
@@ -113,7 +114,7 @@ function cleanPages(arr) {
     return {
       // Stable id so the menu-order list can reference a page across saves.
       id: p.id ? String(p.id).slice(0, 40) : ('pg' + Math.random().toString(36).slice(2, 9)),
-      slug, title, body_html: String(p.body_html || '').slice(0, 40000), nav: p.nav !== false, kind,
+      slug, title, body_html: sanitizeHtml(String(p.body_html || '').slice(0, 40000)), nav: p.nav !== false, kind,
       // Optional dropdown group in the top nav (e.g. "New Vehicles", "Offers").
       menu: p.menu ? String(p.menu).slice(0, 40) : null,
       make: p.make ? String(p.make).slice(0, 40) : null,
@@ -188,8 +189,11 @@ const SECTION_TYPES = ['hero', 'feature_cards', 'featured_inventory', 'inventory
 function cleanSections(arr) {
   if (!Array.isArray(arr)) return []
   return arr.slice(0, 40).map((s, i) => {
-    let settings = (s.settings && typeof s.settings === 'object') ? s.settings : {}
+    let settings = (s.settings && typeof s.settings === 'object') ? { ...s.settings } : {}
     try { if (JSON.stringify(settings).length > 12000) settings = {} } catch { settings = {} }
+    if (settings.html && typeof settings.html === 'string') {
+      settings.html = sanitizeHtml(settings.html)
+    }
     return {
       id: String(s.id || `s${i}_${Math.random().toString(36).slice(2, 7)}`),
       type: SECTION_TYPES.includes(s.type) ? s.type : 'html',
@@ -208,7 +212,7 @@ function cleanWidgets(arr) {
     id: String(w.id || `w${i}_${Math.random().toString(36).slice(2, 7)}`),
     slot: WIDGET_SLOTS.includes(w.slot) ? w.slot : 'below_inventory',
     title: (w.title == null ? '' : String(w.title)).slice(0, 120) || null,
-    html: (w.html == null ? '' : String(w.html)).slice(0, 20000),
+    html: sanitizeHtml(String(w.html == null ? '' : w.html)).slice(0, 20000),
     height: Math.min(2000, Math.max(60, parseInt(w.height) || 400)),
   })).filter(w => w.html.trim())
 }
@@ -240,9 +244,8 @@ function siteContent(d) {
     seo_description: b.seo_description || null,
     seo_keywords: b.seo_keywords || null,
     seo_image: b.seo_image || null,
-    // Dealer-controlled custom code: global vendor scripts injected into <head>
-    // (analytics, chat, Keyloop tags) + placed embed widgets rendered in slots.
-    head_html: b.site_head_html || null,
+    // Dealer-controlled custom code: sanitized for shared-origin safety
+    head_html: b.site_head_html ? stripScriptsFromHead(b.site_head_html) : null,
     widgets: cleanWidgets(b.site_widgets),
     pages: cleanPages(b.site_pages),
     // Dealer-managed staff for the Team page (managers, sales, service, admin…).
@@ -585,7 +588,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       if (b.chat_kb !== undefined) branding.site_chat_kb = String(b.chat_kb || '').slice(0, 12000) || null
       if (b.chat_instructions !== undefined) branding.site_chat_instructions = String(b.chat_instructions || '').slice(0, 4000) || null
       if (b.chat_disclaimer !== undefined) branding.site_chat_disclaimer = String(b.chat_disclaimer || '').slice(0, 600) || null
-      if (b.head_html !== undefined) branding.site_head_html = String(b.head_html || '').slice(0, 20000) || null
+      if (b.head_html !== undefined) branding.site_head_html = stripScriptsFromHead(String(b.head_html || '')).slice(0, 20000) || null
       if (b.widgets !== undefined) branding.site_widgets = cleanWidgets(b.widgets)
       if (b.pages !== undefined) branding.site_pages = cleanPages(b.pages)
       if (b.staff !== undefined) branding.site_team = cleanStaff(b.staff)

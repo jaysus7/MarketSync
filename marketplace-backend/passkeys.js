@@ -315,7 +315,7 @@ export async function beginPasskeyStepUp({ supabaseAdmin, userId, reqOrigin }) {
   return { ok: true, options }
 }
 
-export async function finishPasskeyStepUp({ supabaseAdmin, userId, response, reqOrigin }) {
+export async function finishPasskeyStepUp({ supabaseAdmin, userId, response, reqOrigin, sessionFingerprint }) {
   const { rpID, origin } = rpFrom(reqOrigin)
   const expectedChallenge = takeChallenge(`stepup:${userId}`)
   if (!expectedChallenge) return { ok: false, error: 'Step-up challenge expired — please try again.' }
@@ -356,26 +356,34 @@ export async function finishPasskeyStepUp({ supabaseAdmin, userId, response, req
     .update({ counter: verification.authenticationInfo.newCounter, last_used_at: new Date().toISOString() })
     .eq('id', cred.id)
 
-  recordPasskeyStepUp(userId)
+  recordPasskeyStepUp(userId, sessionFingerprint)
   return { ok: true }
 }
 
-// Short-lived step-up markers so requireMfa can accept a recent biometric passkey
-// verification as satisfying the gate. In-memory with a TTL, matching the
 // challenge cache's single-node design tradeoff above.
 const STEP_UP_TTL_MS = 20 * 60 * 1000
 const stepUpCache = new Map()
 
-export function recordPasskeyStepUp(userId) {
+export function recordPasskeyStepUp(userId, sessionFingerprint) {
   if (!userId) return
-  stepUpCache.set(userId, Date.now() + STEP_UP_TTL_MS)
+  if (sessionFingerprint) {
+    stepUpCache.set(`${userId}:${sessionFingerprint}`, Date.now() + STEP_UP_TTL_MS)
+  } else {
+    stepUpCache.set(String(userId), Date.now() + STEP_UP_TTL_MS)
+  }
 }
 
-export function hasRecentPasskeyStepUp(userId) {
+export function hasRecentPasskeyStepUp(userId, sessionFingerprint) {
   if (!userId) return false
-  const expiresAt = stepUpCache.get(userId)
+  if (sessionFingerprint) {
+    const sessionKey = `${userId}:${sessionFingerprint}`
+    const exp = stepUpCache.get(sessionKey)
+    if (exp && exp >= Date.now()) return true
+    return false
+  }
+  const expiresAt = stepUpCache.get(String(userId))
   if (!expiresAt) return false
-  if (expiresAt < Date.now()) { stepUpCache.delete(userId); return false }
+  if (expiresAt < Date.now()) { stepUpCache.delete(String(userId)); return false }
   return true
 }
 

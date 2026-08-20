@@ -16,6 +16,7 @@ import { decryptJson } from './crypto-pii.js'
 import { requireAuth, requireMfa } from './middleware.js'
 import { requirePermission } from './authorization.js'
 import { audit } from './audit.js'
+import { safeOutboundFetch, validateOutboundUrl } from './outbound-http-policy.js'
 
 export const WEBHOOK_EVENTS = [
   'lead.created', 'deal.sold', 'deal.delivered', 'appointment.booked', 'test.ping',
@@ -54,13 +55,24 @@ export async function emitWebhook(dealershipId, event, data) {
     const { data: delivery } = await supabaseAdmin.from('webhook_deliveries').insert({
       dealership_id: dealershipId, event_name: event, destination_url: url, payload: data || {}
     }).select('id, event_id').single()
+
+    const check = await validateOutboundUrl(url)
+    if (!check.ok) {
+      if (delivery?.id) {
+        await supabaseAdmin.from('webhook_deliveries').update({
+          status: 'failed', attempts: 1, last_error: `Blocked by security policy: ${check.error}`, next_retry_at: null
+        }).eq('id', delivery.id)
+      }
+      return
+    }
+
     const eventId = delivery?.event_id || crypto.randomUUID()
     const timestamp = new Date().toISOString()
     const body = JSON.stringify({ event, event_id: eventId, dealership_id: dealershipId, at: timestamp, data: data || {} })
     const secret = row.credentials_enc ? decryptJson(row.credentials_enc)?.secret : null
     const headers = webhookHeaders({ event, eventId, timestamp, secret, body })
     try {
-      const response = await fetch(url, { method: 'POST', headers, body, signal: AbortSignal.timeout(8000) })
+      const response = await safeOutboundFetch(url, { method: 'POST', headers, body, timeout: 8000 })
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       if (delivery?.id) await supabaseAdmin.from('webhook_deliveries').update({ status: 'delivered', attempts: 1, response_status: response.status, delivered_at: new Date().toISOString() }).eq('id', delivery.id)
     } catch (error) {
@@ -85,11 +97,16 @@ export function startWebhookRetryWorker() {
         if (integrationError) throw integrationError
         if (!integration?.enabled) throw new Error('Webhook integration is no longer enabled')
 
+        const check = await validateOutboundUrl(row.destination_url)
+        if (!check.ok) {
+          throw new Error(`Blocked by security policy: ${check.error}`)
+        }
+
         const timestamp = new Date().toISOString()
         const body = JSON.stringify({ event: row.event_name, event_id: row.event_id, dealership_id: row.dealership_id, at: timestamp, data: row.payload || {} })
         const secret = integration.credentials_enc ? decryptJson(integration.credentials_enc)?.secret : null
         const headers = webhookHeaders({ event: row.event_name, eventId: row.event_id, timestamp, secret, body })
-        const r = await fetch(row.destination_url, { method: 'POST', headers, body, signal: AbortSignal.timeout(8000) })
+        const r = await safeOutboundFetch(row.destination_url, { method: 'POST', headers, body, timeout: 8000 })
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         await supabaseAdmin.from('webhook_deliveries').update({ status: 'delivered', attempts: row.attempts + 1, response_status: r.status, delivered_at: new Date().toISOString(), next_retry_at: null }).eq('id', row.id)
       } catch (e) {
