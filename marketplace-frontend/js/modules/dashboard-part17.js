@@ -540,7 +540,7 @@ function wsSetup() {
           'AI ChatBot', '24/7 conversational sales assistant on your website qualifying shoppers and capturing leads.',
           `<div class="flex justify-between"><span class="text-slate-500">Status:</span> <span class="font-bold ${isAiChatbotOwned() ? 'text-emerald-500' : 'text-amber-400'}">${isAiChatbotOwned() ? (c.sales_chat ? 'Active on Site' : 'Enabled') : 'Standalone Add-on'}</span></div>
            <div class="flex justify-between"><span class="text-slate-500">Assistant:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${esc(c.chat_name || 'Ava (AI Assistant)')}</span></div>`,
-          isAiChatbotOwned() ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Active</span>` : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300">$299/mo</span>`
+          isAiChatbotOwned() ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Active</span>` : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300">$599/mo</span>`
         )}
 
         <!-- 12. Publishing -->
