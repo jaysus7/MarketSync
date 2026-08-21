@@ -61,6 +61,9 @@ test('Marketing Suite — Horizontal Top Tabs & Clean Email & SMS Landing', asyn
   });
 
   await t.test('Email & SMS command center renders overview with 6 tabs and KPI metrics', () => {
+    assert.match(dashPart18Js, /role="tablist" aria-label="Campaigns and Automations" class="flex items-center/, 'renders the reports menu horizontally');
+    assert.doesNotMatch(dashPart18Js, /class="space-y-1">\s*<div[^>]*>Workspace Nav/, 'does not render the legacy vertical workspace menu');
+    assert.match(dashPart18Js, /role="tab" aria-selected=/, 'tabs expose accessible selected state');
     assert.match(dashPart18Js, /tabBtn\('overview', 'Overview'/, 'renders Overview tab');
     assert.match(dashPart18Js, /tabBtn\('automations', 'Automations'/, 'renders Automations tab');
     assert.match(dashPart18Js, /tabBtn\('campaigns', 'Campaigns'/, 'renders Campaigns tab');

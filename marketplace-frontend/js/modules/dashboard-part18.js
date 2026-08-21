@@ -831,15 +831,14 @@ async function loadAutoBuilderPage() {
   renderAutoMetricsStrip();
 
   const tabBtn = (id, label, iconSvg) => `
-    <button onclick="autoTab('${id}')" class="w-full px-3 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2.5 cursor-pointer ${__autoTab === id ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}">
-      <span class="flex-shrink-0 ${__autoTab === id ? 'text-white' : 'text-indigo-500'}">${iconSvg || ''}</span>
+    <button type="button" role="tab" aria-selected="${__autoTab === id}"${__autoTab === id ? ' aria-current="page"' : ''} onclick="autoTab('${id}')" class="flex-shrink-0 px-3.5 py-2 -mb-px text-xs font-bold border-b-2 transition flex items-center gap-2 cursor-pointer whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${__autoTab === id ? 'border-indigo-600 text-indigo-700 dark:text-indigo-300 font-black' : 'border-transparent text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'}">
+      <span class="flex-shrink-0 text-indigo-500">${iconSvg || ''}</span>
       <span>${label}</span>
     </button>
   `;
 
   tabsEl.innerHTML = `
-    <div class="space-y-1">
-      <div class="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 py-1">Workspace Nav</div>
+    <div role="tablist" aria-label="Campaigns and Automations" class="flex items-center gap-1 min-w-0 overflow-x-auto overscroll-x-contain">
       ${tabBtn('overview', 'Overview', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>`)}
       ${tabBtn('automations', 'Automations', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>`)}
       ${tabBtn('campaigns', 'Campaigns', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/></svg>`)}
