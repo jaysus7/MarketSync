@@ -12,6 +12,8 @@ const dashboard = read('marketplace-frontend/dashboard.js')
 const migration = read('marketplace-backend/migrations/2026-08-20-identity-verify-product.sql')
 const engineUi = read('marketplace-frontend/js/modules/dashboard-part10.js')
 const crmUi = read('marketplace-frontend/js/modules/dashboard-part4.js')
+const identityRoute = read('marketplace-backend/routes/identity.js')
+const crmRoute = read('marketplace-backend/routes/crm.js')
 
 test('Identity Verify is canonical, standalone, and included only in current DealerOS Complete', () => {
   assert.equal(getPlan('identity-verify')?.monthly, 299)
@@ -51,4 +53,19 @@ test('standalone Identity Verify renders CRM directly instead of recursively rou
   assert.match(loader, /isIdentityVerifyWorkspace\(\)/)
   assert.match(loader, /if \(!identityOnly && typeof switchPage/)
   assert.match(loader, /await crmLoadContacts\(body\)/)
+})
+
+test('standalone Identity Verify has a tenant-scoped scan dashboard backed by canonical customer and credit records', () => {
+  assert.match(identityRoute, /app\.get\('\/identity\/dashboard', requireAuth, requireMfa, hasIdentityProduct, requirePermission\('identity\.view'\)/)
+  assert.match(identityRoute, /from\('identity_verifications'\)[\s\S]*?\.eq\('dealership_id', req\.dealershipId\)/)
+  assert.match(identityRoute, /hasPermission\(req, 'fni\.credit_application\.view'\)/)
+  assert.match(identityRoute, /document_photo: null/)
+  assert.match(crmUi, /function loadIdentityVerifyDashboard\(\)/)
+  assert.match(crmUi, /apiGetJson\('\/identity\/dashboard'\)/)
+  assert.match(crmUi, /Scan ID \/ add customer/)
+  assert.match(crmUi, /Vehicle fit/)
+  assert.match(crmUi, /identity_intake: typeof isIdentityVerifyWorkspace/)
+  assert.match(crmRoute, /if \(b\.identity_intake === true\)/)
+  assert.match(crmRoute, /customer\.identity_intake_matched/)
+  assert.match(crmRoute, /existing\[key\] == null \|\| existing\[key\] === ''/)
 })

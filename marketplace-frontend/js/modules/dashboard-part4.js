@@ -9,11 +9,40 @@ async function loadCrmPage() {
     setTimeout(() => engineTab('sales', 'work'), 50);
     return;
   }
+  if (identityOnly) return loadIdentityVerifyDashboard();
   const body = document.getElementById('crm-body');
   if (!body) return;
   await crmLoadContacts(body);
   if (__crmPendingAdd) { __crmPendingAdd = false; if (typeof crmOpenForm === 'function') crmOpenForm(); }
 }
+
+let __idvDashboardRows = [];
+const idvOutcome = status => `<span class="inline-flex px-2 py-1 rounded-full border text-[10px] font-black uppercase ${status === 'verified' ? 'bg-emerald-950/50 text-emerald-300 border-emerald-800' : status === 'failed' ? 'bg-rose-950/50 text-rose-300 border-rose-800' : status === 'manual_review' ? 'bg-amber-950/50 text-amber-300 border-amber-800' : 'bg-sky-950/50 text-sky-300 border-sky-800'}">${esc(String(status || 'unstarted').replace(/_/g, ' '))}</span>`;
+function renderIdentityDashboardRows() {
+  const host = document.getElementById('idv-dashboard-list'); if (!host) return;
+  const q = (document.getElementById('idv-dashboard-search')?.value || '').trim().toLowerCase(), status = document.getElementById('idv-dashboard-status')?.value || '';
+  const rows = __idvDashboardRows.filter(r => (!status || r.status === status) && (!q || `${r.customer?.full_name || ''} ${r.customer?.email || ''} ${r.customer?.phone || ''} ${r.customer?.postal_code || ''}`.toLowerCase().includes(q)));
+  host.innerHTML = rows.length ? rows.map(r => {
+    const c = r.customer || {}, missing = r.missing_fields || [], initials = (c.full_name || '?').split(/\s+/).map(x => x[0]).filter(Boolean).slice(0,2).join('').toUpperCase();
+    const creditDecision = r.credit?.decision?.status || r.credit?.decision?.decision || r.credit?.status;
+    const credit = !window.__idvCanViewCredit ? 'Permission required' : creditDecision ? `${String(creditDecision).replace(/_/g,' ')}${r.credit.consent ? ' · consent recorded' : ' · no consent'}` : 'Not started';
+    return `<div class="grid lg:grid-cols-[minmax(220px,1.4fr)_140px_minmax(170px,.9fr)_150px_auto] gap-4 items-center px-4 py-3 border-b border-slate-800 last:border-0 hover:bg-slate-900/60"><button onclick="openCrmContact('${r.contact_id}')" class="flex items-center gap-3 text-left min-w-0"><span class="w-10 h-10 rounded-full bg-indigo-950 text-indigo-300 flex items-center justify-center font-black shrink-0">${esc(initials)}</span><span class="min-w-0"><span class="block font-bold text-white truncate">${esc(c.full_name || r.customer_name || 'Unknown customer')}</span><span class="block text-xs text-slate-500 truncate">${esc([c.email,c.phone_mobile || c.phone].filter(Boolean).join(' · ') || 'Contact details missing')}</span></span></button><div>${idvOutcome(r.status)}<div class="text-[10px] text-slate-500 mt-1">${esc(String(r.purpose || '').replace(/_/g,' '))}</div></div><div class="text-xs text-slate-300">${esc([c.city,c.province,c.postal_code].filter(Boolean).join(', ') || 'Postal address missing')}<div class="text-[10px] text-slate-500">${missing.length ? `Missing: ${esc(missing.join(', '))}` : 'Customer record complete'}</div></div><div class="text-xs text-slate-400 capitalize">${esc(credit)}</div><div class="flex gap-2 lg:justify-end"><button onclick="openCrmContact('${r.contact_id}')" class="px-3 py-1.5 rounded-lg border border-slate-700 text-xs font-bold text-slate-200">Customer</button><button onclick="idvDashboardFit('${r.contact_id}')" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold">Vehicle fit</button></div></div>`;
+  }).join('') : '<div class="py-16 text-center text-sm text-slate-500">No identity scans match this view.</div>';
+}
+function idvDashboardFit(contactId) { openCrmContact(contactId); setTimeout(() => document.getElementById('fit-payment')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350); }
+async function loadIdentityVerifyDashboard() {
+  const body = document.getElementById('crm-body'); if (!body) return;
+  const title = document.getElementById('crm-page-title'), sub = document.getElementById('crm-page-sub');
+  if (title) title.textContent = 'Identity Verify';
+  if (sub) sub.textContent = 'Scan intake, customer matching, outcomes, credit status, missing information, and vehicle-fit handoff.';
+  body.innerHTML = '<div class="py-16 text-center text-sm text-slate-500">Loading identity scans…</div>';
+  try {
+    const d = await apiGetJson('/identity/dashboard'); __idvDashboardRows = d.latest || []; window.__idvCanViewCredit = !!d.can_view_credit; const m = d.metrics || {};
+    body.innerHTML = `<div class="flex flex-wrap items-center justify-between gap-3 mb-5"><div><div class="text-xs font-black uppercase tracking-widest text-indigo-400">Verification operations</div><div class="text-sm text-slate-500 mt-1">Search for an existing customer or scan a licence to populate a customer record. Complete missing information inside the canonical Customer record.</div></div><button onclick="identityScan()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black">Scan ID / add customer</button></div><div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">${[['Customers',m.customers],['Verified',m.verified],['Failed',m.failed],['Manual review',m.manual_review],['In progress',m.in_progress]].map(([l,v]) => `<div class="rounded-xl border border-slate-800 bg-slate-900 p-4"><div class="text-2xl font-black text-white">${Number(v || 0)}</div><div class="text-xs text-slate-500">${l}</div></div>`).join('')}</div><div class="rounded-xl border border-slate-800 bg-slate-950 overflow-hidden"><div class="p-3 border-b border-slate-800 flex flex-wrap gap-2"><input id="idv-dashboard-search" oninput="renderIdentityDashboardRows()" placeholder="Search customer, phone, email or postal code" class="flex-1 min-w-[240px] bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm"><select id="idv-dashboard-status" onchange="renderIdentityDashboardRows()" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="">All outcomes</option><option value="verified">Verified</option><option value="failed">Failed</option><option value="manual_review">Manual review</option><option value="pending">Pending</option><option value="processing">Processing</option></select></div><div id="idv-dashboard-list"></div></div><div class="mt-3 text-[11px] text-slate-500">Privacy: MarketSync stores normalized verification results. Licence imagery, selfies, and liveness video remain with the certified provider and are not copied into this dashboard.</div>`;
+    renderIdentityDashboardRows();
+  } catch (e) { body.innerHTML = `<div class="py-16 text-center text-sm text-rose-400">${esc(e.message || 'Could not load identity dashboard')}<br><button onclick="loadIdentityVerifyDashboard()" class="mt-3 text-indigo-400 font-bold">Retry</button></div>`; }
+}
+Object.assign(window, { loadIdentityVerifyDashboard, renderIdentityDashboardRows, idvDashboardFit });
 
 // Legacy shim: old callers that flipped a CRM tab now navigate to that page.
 function crmSetTab(t) { switchPage(t === 'contacts' ? 'crm' : t); }
@@ -1545,6 +1574,7 @@ function crmScanLicense() {
       set('crm-f-address', x.address); set('crm-f-city', x.city);
       set('crm-f-province', x.province_state); set('crm-f-postal', x.postal_code);
       set('crm-f-dl', x.dl_number); set('crm-f-birthday', x.date_of_birth); set('crm-f-dlexp', x.expiry);
+      const source = document.getElementById('crm-f-source'); if (source) source.value = 'Identity Scan';
       const got = ['first_name','last_name','address','dl_number'].filter(k => x[k]).length;
       show(got ? 'Licence read — please double-check the fields, then Save.' : 'Couldn’t read much — try a sharper, straight-on photo.', got ? 'ok' : 'error');
     } catch (e) { show(e.message || 'Could not read the licence.', 'error'); }
@@ -1755,6 +1785,7 @@ async function crmSaveContact(btn, id) {
     source: val('crm-f-source'), assigned_rep: val('crm-f-rep') || null, status: val('crm-f-status') || 'uncontacted',
     trade_vehicle: trade, interest_inventory_id: val('crm-f-interest') || null,
     notes: val('crm-f-notes'),
+    identity_intake: typeof isIdentityVerifyWorkspace === 'function' && isIdentityVerifyWorkspace(),
   };
   const nameGiven = body.first_name || body.last_name || body.company_name;
   if (!nameGiven && !body.email && !body.phone) { showToast('Enter a name, phone, or email', 'error'); return; }

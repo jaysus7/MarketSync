@@ -203,6 +203,21 @@ export function registerCrm(app) {
     if (patch.phone == null) patch.phone = patch.phone_mobile || patch.phone_home || patch.phone_work || null
     const hasName = patch.full_name || patch.company_name || b.company_name
     if (!hasName && !patch.email && !patch.phone) return res.status(400).json({ error: 'Enter a name, phone, or email' })
+    // Identity intake resolves an existing canonical customer before inserting.
+    // Only blank fields are filled so a licence scan cannot overwrite reviewed CRM data.
+    if (b.identity_intake === true) {
+      let existing = null
+      if (patch.dl_number) ({ data: existing } = await req.supabase.from('contacts').select('*').eq('dealership_id', req.dealershipId).eq('dl_number', patch.dl_number).limit(1).maybeSingle())
+      if (!existing && patch.email) ({ data: existing } = await req.supabase.from('contacts').select('*').eq('dealership_id', req.dealershipId).ilike('email', patch.email).limit(1).maybeSingle())
+      if (!existing && patch.phone) ({ data: existing } = await req.supabase.from('contacts').select('*').eq('dealership_id', req.dealershipId).eq('phone', patch.phone).limit(1).maybeSingle())
+      if (existing) {
+        const fill = Object.fromEntries(Object.entries(patch).filter(([key, value]) => value != null && value !== '' && (existing[key] == null || existing[key] === '')))
+        const { data: updated, error: updateError } = await req.supabase.from('contacts').update({ ...fill, updated_at: new Date().toISOString(), last_activity_at: new Date().toISOString() }).eq('id', existing.id).eq('dealership_id', req.dealershipId).select('*').single()
+        if (updateError) return res.status(500).json({ error: updateError.message })
+        audit(req, 'customer.identity_intake_matched', { customer_id: existing.id, after_state: { filled_fields: Object.keys(fill) } })
+        return res.json({ ok: true, contact: updated, matched_existing: true, filled_fields: Object.keys(fill) })
+      }
+    }
     const { data, error } = await req.supabase.from('contacts').insert({
       dealership_id: req.dealershipId,
       ...patch,

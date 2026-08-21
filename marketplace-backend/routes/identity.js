@@ -12,7 +12,7 @@
  */
 import { stripe, supabaseAdmin, FRONTEND_URL } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
-import { requirePermission } from '../authorization.js'
+import { requirePermission, hasPermission } from '../authorization.js'
 import { requireProduct } from '../access.js'
 import { audit, AuditAction } from '../audit.js'
 
@@ -176,6 +176,33 @@ export async function identityAttention(dealershipId) {
 
 export function registerIdentity(app) {
   const hasIdentityProduct = requireProduct('marketsync_identity')
+  app.get('/identity/dashboard', requireAuth, requireMfa, hasIdentityProduct, requirePermission('identity.view'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data, error } = await supabaseAdmin.from('identity_verifications')
+      .select('*, contacts!identity_verifications_contact_id_fkey(id, full_name, email, phone, phone_mobile, address, city, province, postal_code, country, dl_number, dl_expiry, interest_inventory_id, interest_vehicle, updated_at)')
+      .eq('dealership_id', req.dealershipId).order('requested_at', { ascending: false }).limit(500)
+    if (error) return res.status(500).json({ error: error.message })
+    const contactIds = [...new Set((data || []).map(v => v.contact_id).filter(Boolean))]
+    let creditByContact = {}, canViewCredit = false
+    try { canViewCredit = await hasPermission(req, 'fni.credit_application.view') } catch { canViewCredit = false }
+    if (canViewCredit && contactIds.length) {
+      const { data: apps } = await supabaseAdmin.from('credit_applications')
+        .select('id, contact_id, status, consent, provider, decision, updated_at')
+        .eq('dealership_id', req.dealershipId).in('contact_id', contactIds).order('updated_at', { ascending: false })
+      for (const app of apps || []) if (!creditByContact[app.contact_id]) creditByContact[app.contact_id] = app
+    }
+    const rows = (data || []).map(v => {
+      const c = v.contacts || {}
+      return { ...publicVerification(v), customer: c,
+        missing_fields: [!c.full_name && 'name', !c.email && 'email', !(c.phone_mobile || c.phone) && 'phone', !c.postal_code && 'postal code', !c.dl_number && 'licence number'].filter(Boolean),
+        credit: creditByContact[v.contact_id] || null, document_photo: null,
+        document_photo_note: 'Government-ID and biometric images remain with the certified verification provider.' }
+    })
+    const latest = [], seen = new Set()
+    for (const row of rows) if (!seen.has(row.contact_id)) { seen.add(row.contact_id); latest.push(row) }
+    const count = status => latest.filter(r => r.status === status).length
+    res.json({ rows, latest, can_view_credit: canViewCredit, metrics: { customers: latest.length, verified: count('verified'), failed: count('failed'), manual_review: count('manual_review'), in_progress: latest.filter(r => ['pending', 'processing'].includes(r.status)).length } })
+  })
   app.get('/identity/config', requireAuth, requireMfa, hasIdentityProduct, requirePermission('integrations.manage'), async (req, res) => {
     const available = availableProviders()
     const selected = req.dealershipId ? await resolveProvider(req.dealershipId) : identityProvider()
