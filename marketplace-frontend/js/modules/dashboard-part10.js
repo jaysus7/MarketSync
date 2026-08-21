@@ -932,8 +932,11 @@ window.engineTab = engineTab;
 // wired actions are shown (no fabricated timelines).
 function engineRail(eng, d) {
   const A = ENGINE_ACCENTS[eng.accent] || ENGINE_ACCENTS.indigo;
-  const sec = (title, icon, inner) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5">
-    <div class="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 mb-2.5">${svgIcon(icon, 'w-3.5 h-3.5')}${esc(title)}</div>${inner}</div>`;
+  const sec = (title, icon, inner) => `<details open class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
+    <summary class="list-none cursor-pointer select-none p-3.5 flex items-center justify-between gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-xl" aria-label="Expand or collapse ${esc(title)}">
+      <span class="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">${svgIcon(icon, 'w-3.5 h-3.5')}${esc(title)}</span>
+      <span aria-hidden="true" class="text-slate-400 transition-transform group-open:rotate-180">${svgIcon('chevronDown', 'w-3.5 h-3.5')}</span>
+    </summary><div class="px-3.5 pb-3.5">${inner}</div></details>`;
   // Team Messages coordinates staff across a dealership's departments — a
   // single-product (one-tool) account has no department staff to message.
   // Facebook Dealer is the one exception: it's a real dealership sales team,

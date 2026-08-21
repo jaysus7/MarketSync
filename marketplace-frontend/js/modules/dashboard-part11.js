@@ -1123,6 +1123,41 @@ function cmdUnavailableNote(sources) {
   return `<div class="rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-4 py-3 text-[13px] text-amber-800 dark:text-amber-200 mb-3">
     <b>This view is incomplete.</b> ${missing.map(x => esc(x?.__unavailable || 'A source')).join(', ')} could not be loaded, so the numbers below are partial.</div>`;
 }
+
+// Executive Pulse predates the shared engCard/engSection primitives. Upgrade its
+// top-level panels in place so every department and command-centre section uses the
+// same native, keyboard-accessible disclosure behaviour without duplicating content.
+function enableExecutivePulseDisclosures(body) {
+  if (!body) return;
+  const candidates = [...body.querySelectorAll(':scope > div.mb-8, :scope > div.mb-6')];
+  candidates.forEach(container => {
+    if (container.tagName === 'DETAILS' || container.querySelector(':scope > details')) return;
+    const header = container.firstElementChild;
+    if (!header) return;
+    const labelNode = header.querySelector('h2, h3') || (header.matches('h2, h3') ? header : null)
+      || header.querySelector('.uppercase') || (header.matches('.uppercase') ? header : null);
+    const label = String(labelNode?.textContent || '').trim();
+    if (!label) return;
+
+    const details = document.createElement('details');
+    details.open = true;
+    details.className = `group ${container.className}`;
+    const summary = document.createElement('summary');
+    summary.className = `${header.className} list-none cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg`;
+    summary.setAttribute('aria-label', `Expand or collapse ${label}`);
+    while (header.firstChild) summary.appendChild(header.firstChild);
+    const chevron = document.createElement('span');
+    chevron.className = 'ml-2 text-slate-400 transition-transform group-open:rotate-180 flex-shrink-0';
+    chevron.setAttribute('aria-hidden', 'true');
+    chevron.innerHTML = svgIcon('chevronDown', 'w-4 h-4');
+    summary.appendChild(chevron);
+    summary.querySelectorAll('button, a').forEach(action => action.addEventListener('click', event => event.stopPropagation()));
+    details.appendChild(summary);
+    header.remove();
+    while (container.firstChild) details.appendChild(container.firstChild);
+    container.replaceWith(details);
+  });
+}
 window.pulseSalesDeptSection = function(d) {
   const contacts = d.contacts || d.day?.opportunities || [];
   const leadsWaiting = contacts.filter(c => c.status === 'uncontacted' || c.status === 'new' || !c.status);
@@ -2014,6 +2049,8 @@ ENGINES['command'] = {
         ${cmdAcademyStrip(d)}
         ${notCovered}
       `;
+
+      enableExecutivePulseDisclosures(body);
 
       if (typeof loadMarketcheckStatus === 'function') {
         setTimeout(loadMarketcheckStatus, 100);

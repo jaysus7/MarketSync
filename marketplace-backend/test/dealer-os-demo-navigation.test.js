@@ -5,6 +5,8 @@ import { featuresForPlan } from '../plan-catalog.js'
 
 const registry = readFileSync(new URL('../../marketplace-frontend/js/modules/workspace-registry.js', import.meta.url), 'utf8')
 const dashboard = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part2.js', import.meta.url), 'utf8')
+const commandCenter = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part11.js', import.meta.url), 'utf8')
+const engineShell = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part10.js', import.meta.url), 'utf8')
 const demoPanel = readFileSync(new URL('../../marketplace-frontend/js/modules/demo-control-panel.js', import.meta.url), 'utf8')
 
 test('DealerOS keeps its existing workspace registry and applies role and package gates in the renderer', () => {
@@ -50,6 +52,16 @@ test('Cleanup follows Complete automations, while messaging and Intelligence rem
   const assistant = readFileSync(new URL('../routes/submodules/ai-assistant-chat.js', import.meta.url), 'utf8')
   assert.match(assistant, /const entitled = isDealerOS \|\| isMarketSyncDigital/)
   assert.match(assistant, /entitlementPlans\.includes\('marketsync-digital'\)/)
+})
+
+test('Executive Pulse departments and persistent rail sections are collapsible', () => {
+  assert.match(commandCenter, /function enableExecutivePulseDisclosures\(body\)/)
+  assert.match(commandCenter, /querySelectorAll\(':scope > div\.mb-8, :scope > div\.mb-6'\)/)
+  assert.match(commandCenter, /enableExecutivePulseDisclosures\(body\)/)
+  assert.match(commandCenter, /document\.createElement\('details'\)/)
+  assert.match(commandCenter, /document\.createElement\('summary'\)/)
+  assert.match(engineShell, /<details open class="group bg-white/)
+  assert.match(engineShell, /Expand or collapse \$\{esc\(title\)\}/)
 })
 
 test('Demo Control Center preserves exact package id and separate selected-plan entitlements', () => {
