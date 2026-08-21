@@ -205,6 +205,10 @@
             website: { marketsync_website: true },
             ai_chatbot: { ai_chatbot: true },
             marketsync_identity: { marketsync_identity: true },
+            'sales-marketing-suite': { 'sales-marketing-suite': true },
+            'service-marketing-suite': { 'service-marketing-suite': true },
+            'complete-marketing-suite': { 'complete-marketing-suite': true },
+            'marketsync-digital': { 'marketsync-digital': true },
             dealer_os: { dealer_os: true },
           };
           const prodObj = legacyMap[window.__demoActiveProduct] || { dealer_os: true };
@@ -213,8 +217,17 @@
         } catch (e) { /* nav narrowing is best-effort; the badge/panel stay up */ }
       }
 
+      const suiteProducts = new Set(['sales-marketing-suite', 'service-marketing-suite', 'complete-marketing-suite', 'marketsync-digital']);
+      const isMarketingSuiteDemo = suiteProducts.has(window.__demoActiveProduct);
       const singleProduct = typeof window.isSingleProductWorkspace === 'function' && window.isSingleProductWorkspace();
-      if (typeof switchPage === 'function' && !singleProduct) switchPage('inventory');
+      if (isMarketingSuiteDemo) {
+        // Suite home is always Pulse. Set the engine tab as well as the page so a
+        // previous Marketing tab cannot survive a package switch or browser refresh.
+        if (typeof deptGo === 'function') deptGo('marketing-overview', '', 'overview');
+        else if (typeof switchPage === 'function') switchPage('marketing-overview');
+      } else if (typeof switchPage === 'function' && !singleProduct) {
+        switchPage('inventory');
+      }
     } catch (e) { /* network hiccup — no demo panel this load, not fatal */ }
   }
 

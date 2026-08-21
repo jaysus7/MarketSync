@@ -76,8 +76,10 @@ function marketingSuiteAreaForPage(config, page, tab) {
 }
 
 function getActiveMarketingSuite() {
-  const activePackage = (typeof profileContext !== 'undefined' && profileContext?.package_id)
-    || (typeof window !== 'undefined' ? (window.__demoActiveProduct || window.__demoActivePackage) : '')
+  // The demo selector intentionally overlays the demo tenant's real subscription.
+  // Prefer that explicit selection so package switching cannot render a stale suite.
+  const activePackage = (typeof window !== 'undefined' ? (window.__demoActiveProduct || window.__demoActivePackage) : '')
+    || (typeof profileContext !== 'undefined' && profileContext?.package_id)
     || (typeof document !== 'undefined' ? (document.documentElement.getAttribute('data-package') || document.documentElement.getAttribute('data-product') || '') : '')
     || '';
 

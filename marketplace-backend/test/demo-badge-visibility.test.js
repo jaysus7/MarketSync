@@ -33,5 +33,16 @@ test('the demo badge is appended before the control panel is built, so a panel e
   assert.ok(badgeAppend < panelBuild, 'the badge must be appended BEFORE the panel is constructed')
   // And it must not force a single-product demo onto the (nonexistent) Inventory page.
   assert.match(demoPanel, /isSingleProductWorkspace\(\)/)
-  assert.match(demoPanel, /!singleProduct\) switchPage\('inventory'\)/)
+  assert.match(demoPanel, /isMarketingSuiteDemo/)
+  assert.match(demoPanel, /deptGo\('marketing-overview', '', 'overview'\)/,
+    'marketing suite demos must load their Pulse engine and overview tab')
+  assert.match(demoPanel, /else if \(typeof switchPage === 'function' && !singleProduct\)/,
+    'the legacy inventory fallback remains limited to non-suite, non-standalone demos')
+})
+
+test('all four marketing suite demo packages use their canonical suite product gate', () => {
+  for (const suite of ['sales-marketing-suite', 'service-marketing-suite', 'complete-marketing-suite', 'marketsync-digital']) {
+    assert.match(demoPanel, new RegExp(`'${suite.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}'\\s*:\\s*\\{\\s*'${suite.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}'\\s*:\\s*true`),
+      `${suite} must not fall through to DealerOS`)
+  }
 })

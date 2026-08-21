@@ -885,7 +885,9 @@ let __productAllowedPages = null;   // Set of reachable pages under a restricted
 function isMarketingSuite() {
   const product = document.documentElement.getAttribute('data-product') || '';
   const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
-  const activePackage = profileContext?.package_id || window.__demoActivePackage || window.__demoActiveProduct || '';
+  // Demo selection is a presentation-only entitlement context and must win over the
+  // demo tenant's persisted subscription package. Real accounts never set these values.
+  const activePackage = window.__demoActivePackage || window.__demoActiveProduct || profileContext?.package_id || '';
   if (activePackage === 'sales-marketing-suite' || activePackage === 'service-marketing-suite' || activePackage === 'complete-marketing-suite' || activePackage === 'marketsync-digital') {
     return true;
   }
