@@ -1253,7 +1253,16 @@ async function renderStudioDesignAndPublish() {
       // studioSchedulerCompose() is the self-contained equivalent (studio-scheduler.js)
       // — it overlays on top of the Studio instead of closing it.
       if (typeof window.studioSchedulerCompose === 'function') {
-        window.studioSchedulerCompose(res.asset.public_url);
+        const designId = window.__studioCurrentDesign?.id;
+        let editableAssetUrl = res.asset.public_url;
+        if (designId) {
+          try {
+            const linkedAsset = new URL(editableAssetUrl, window.location.origin);
+            linkedAsset.searchParams.set('studio_design', designId);
+            editableAssetUrl = linkedAsset.toString();
+          } catch {}
+        }
+        window.studioSchedulerCompose(editableAssetUrl);
       } else if (typeof window.mktCompose === 'function') {
         closeMarketSyncStudio();
         window.mktCompose({ assetUrl: res.asset.public_url });

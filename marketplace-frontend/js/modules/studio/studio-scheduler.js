@@ -1,13 +1,13 @@
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * MarketSync Social Scheduler — Standalone Product & Workspace Engine
+ * MarketSync Social Scheduler — Design Studio publishing workspace
  * ─────────────────────────────────────────────────────────────────────────────
- * Complete, standalone social media scheduling, multi-platform publishing,
+ * Complete social media scheduling, multi-platform publishing,
  * calendar management, content library, connected social accounts, approval
  * workflows, and analytics engine.
  * 
  * Works seamlessly as:
- * 1. Standalone Social Scheduler product dashboard ($99/mo)
+ * 1. Scheduler and calendar inside Design Studio
  * 2. Dedicated Social Scheduler tab in Marketing Suite / MarketSync Digital / DealerOS
  * 3. Schedule & Publish launcher inside Design Studio & Video Studio
  * ─────────────────────────────────────────────────────────────────────────────
@@ -108,9 +108,6 @@ const STUDIO_SOCIAL_PLATFORMS = {
  * Ensures the canonical full-screen Design Studio workspace is active before opening any Schedule UI
  */
 async function ensureStudioWorkspaceActive() {
-  if (typeof __currentPage !== 'undefined' && __currentPage === 'social-scheduler') {
-    return;
-  }
   const masterModal = document.getElementById('ms-studio-master-modal');
   if (!masterModal || masterModal.classList.contains('hidden') || masterModal.style.display === 'none') {
     if (typeof window.openMarketSyncStudio === 'function') {
@@ -132,7 +129,7 @@ async function openStudioScheduler(options = {}) {
 
   const overlay = document.createElement('div');
   overlay.id = 'studio-scheduler-overlay';
-  overlay.className = 'fixed inset-0 z-[100000] bg-slate-950/80 backdrop-blur-md flex flex-col justify-center items-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-150';
+  overlay.className = 'absolute inset-0 z-[100000] bg-slate-950/80 backdrop-blur-md flex flex-col justify-center items-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-150';
   overlay.innerHTML = `
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-6xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
       <!-- Modal Top Header -->
@@ -1507,6 +1504,17 @@ window.studioSchedulerSaveReschedule = studioSchedulerSaveReschedule;
 function studioSchedulerEditPost(postId) {
   const post = __studioSchedulerPosts.find(p => p.id === postId);
   if (!post) return;
+
+  const mediaUrl = (post.media_urls && post.media_urls[0]) || (post.media && post.media[0]) || post.asset_url || post.image_url || '';
+  let designId = post.design_id || post.studio_design_id || '';
+  if (!designId && mediaUrl) {
+    try { designId = new URL(mediaUrl, window.location.origin).searchParams.get('studio_design') || ''; } catch {}
+  }
+  if (designId && typeof window.openMarketSyncStudio === 'function') {
+    closeStudioScheduler();
+    window.openMarketSyncStudio(designId);
+    return;
+  }
 
   const currentCap = post.caption || post.content || '';
   const currentSched = post.scheduled_for || post.scheduled_local || '';

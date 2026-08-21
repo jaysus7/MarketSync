@@ -75,7 +75,7 @@ test('renderStudioDesignAndPublish keeps the user inside the Studio interface in
   // for a single-product account) while mktCompose() itself silently failed to mount.
   const fn = studioShell.match(/async function renderStudioDesignAndPublish\(\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(fn, 'renderStudioDesignAndPublish must exist')
-  assert.match(fn, /window\.studioSchedulerCompose\(res\.asset\.public_url\)/,
+  assert.match(fn, /window\.studioSchedulerCompose\(editableAssetUrl\)/,
     'the render+publish flow must hand off to the self-contained studio scheduler, on top of the Studio')
   assert.doesNotMatch(fn.split("typeof window.studioSchedulerCompose === 'function'")[0], /closeMarketSyncStudio\(\)/,
     'the Studio must not be closed before attempting the self-contained compose path')
@@ -104,6 +104,15 @@ test('the scheduler has a calendar view with clickable, editable posts, toggleab
   assert.match(editFn, /studioSchedulerSaveReschedule/, 'the edit popover must be able to reschedule')
   assert.match(editFn, /studioSchedulerPublishNow/, 'the edit popover must be able to publish now')
   assert.match(editFn, /studioSchedulerCancelPost/, 'the edit popover must be able to cancel')
+})
+
+test('calendar stays inside Design Studio and linked posts reopen their editable canvas', () => {
+  assert.match(scheduler, /overlay\.className = 'absolute inset-0/)
+  assert.doesNotMatch(scheduler, /__currentPage === 'social-scheduler'/)
+  const editFn = scheduler.match(/function studioSchedulerEditPost\(postId\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(editFn, /searchParams\.get\('studio_design'\)/)
+  assert.match(editFn, /window\.openMarketSyncStudio\(designId\)/)
+  assert.match(studioShell, /searchParams\.set\('studio_design', designId\)/)
 })
 
 test('a rendered design pre-attaches into the compose form instead of requiring the user to find it again', () => {

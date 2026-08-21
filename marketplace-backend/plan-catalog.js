@@ -27,7 +27,7 @@ export const FEATURES_BY_PRODUCT = Object.freeze({
   marketsync_identity: ['identity.verify', 'identity.reports', 'identity.settings'],
   // Sold standalone ($19.99/mo flat) and also bundled into every Marketing Suite /
   // DealerOS tier. Graphic design & creative editor.
-  design_studio: ['design.templates', 'design.assets', 'design.canvas', 'design.suggestions'],
+  design_studio: ['design.templates', 'design.assets', 'design.canvas', 'design.suggestions', 'social.scheduler', 'social.accounts', 'social.calendar'],
   dealer_os: [
     'os.dashboard', 'os.crm', 'os.inventory', 'os.sales', 'os.accounting', 'os.service',
     'os.marketing', 'os.website', 'os.reports', 'os.automations', 'os.email_marketing',

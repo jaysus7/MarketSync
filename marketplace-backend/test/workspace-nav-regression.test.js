@@ -31,7 +31,7 @@ const marketingStudioRouteCode = fs.readFileSync(marketingStudioRoutePath, 'utf8
 const demoControlRouteCode = fs.readFileSync(demoControlRoutePath, 'utf8');
 const cssContent = fs.readFileSync(cssPath, 'utf8');
 
-test('1. Standalone Social Scheduler Plan is active in PLAN_CATALOG with correct features & price', () => {
+test('1. Legacy Social Scheduler remains compatible while Design Studio owns Scheduler', () => {
   const plan = PLAN_CATALOG['social-scheduler'];
   assert.ok(plan, 'social-scheduler exists in PLAN_CATALOG');
   assert.equal(plan.product_primary, 'marketsync_social');
@@ -45,14 +45,14 @@ test('1. Standalone Social Scheduler Plan is active in PLAN_CATALOG with correct
   assert.equal(socialFeatures.includes('design.templates'), false);
   assert.equal(socialFeatures.includes('design.canvas'), false);
 
-  // Standalone Design Studio has only design features
+  // Design Studio now owns both creation and scheduling.
   const designPlan = PLAN_CATALOG['design-studio'];
   assert.ok(designPlan, 'design-studio exists in PLAN_CATALOG');
   assert.equal(designPlan.product_primary, 'design_studio');
   const designFeatures = featuresForPlan('design-studio');
   assert.ok(designFeatures.includes('design.templates'));
   assert.ok(designFeatures.includes('design.canvas'));
-  assert.equal(designFeatures.includes('social.scheduler'), false);
+  assert.equal(designFeatures.includes('social.scheduler'), true);
 });
 
 test('2. Product entitlement vs RBAC separation on media uploads', () => {

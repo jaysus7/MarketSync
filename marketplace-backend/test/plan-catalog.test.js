@@ -58,15 +58,13 @@ test('autoposter-salesperson is labelled plainly "Facebook AutoPoster" — the R
   assert.equal(PLAN_CATALOG['autoposter-salesperson'].label, 'Facebook AutoPoster')
 })
 
-test('Design Studio is a standalone single-product plan, separate from Social Scheduler', () => {
-  // Design Studio and Social Scheduler are separate standalone products:
-  // Design Studio creates graphics, Social Scheduler publishes/distributes.
+test('Design Studio includes its Scheduler while retaining one canonical product id', () => {
   assert.deepEqual(productsForPlan('design-studio'), ['design_studio'])
   assert.ok(featuresForPlan('design-studio').includes('design.canvas'))
   assert.ok(featuresForPlan('design-studio').includes('design.templates'))
-  assert.ok(!featuresForPlan('design-studio').includes('social.scheduler'), 'Design Studio standalone does not include social scheduler')
+  assert.ok(featuresForPlan('design-studio').includes('social.scheduler'), 'Design Studio includes its scheduler')
   assert.ok(!featuresForPlan('design-studio').includes('social.studio'))
-  assert.ok(featuresForPlan('social-scheduler').includes('social.scheduler'), 'Social Scheduler standalone includes scheduler')
+  assert.ok(featuresForPlan('social-scheduler').includes('social.scheduler'), 'retired plan remains compatible for existing subscribers')
   assert.ok(featuresForPlan('sales-marketing-suite').includes('design.canvas'), 'Sales Marketing Suite bundles Design Studio')
   assert.ok(featuresForPlan('sales-marketing-suite').includes('social.scheduler'), 'Sales Marketing Suite bundles Social Scheduler')
 })

@@ -54,24 +54,6 @@ const MARKETSYNC_PRICING = {
       ctaUrl: '/register.html?plan=autoposter-salesperson'
     },
     {
-      id: 'social-scheduler',
-      name: 'Social Scheduler',
-      price: 99,
-      priceFormatted: '$99',
-      unit: '/month',
-      badge: 'Social Media Suite',
-      desc: 'Multi-platform social media scheduling and calendar for publishing finished content across Facebook, Instagram, LinkedIn, X, and TikTok.',
-      features: [
-        'Multi-platform social scheduler & calendar',
-        'Connected Facebook, Instagram, LinkedIn, X & TikTok accounts',
-        'Upload finished assets from Canva, Adobe, phone, or agency',
-        'Draft, schedule, and immediate publish workflows',
-        'Cross-platform post queue & status tracking'
-      ],
-      ctaText: 'Start Social Scheduler',
-      ctaUrl: '/register.html?plan=social-scheduler'
-    },
-    {
       id: 'autoposter-dealer',
       name: 'Facebook AutoPoster — Dealer',
       price: 149,

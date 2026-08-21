@@ -55,7 +55,6 @@
     if (pkgId === 'design-studio') return 'design_studio';
     if (pkgId.includes('autoposter') || pkgId.includes('facebook') || pkgId === 'fb_solo' || pkgId === 'fb_dealership') return 'facebook';
     if (pkgId === 'video' || pkgId === 'marketsync_video') return 'video';
-    if (pkgId === 'social-scheduler' || pkgId.includes('social') || pkgId.includes('scheduler')) return 'social-scheduler';
     if (pkgId.includes('campaign') || pkgId.includes('email')) return 'campaigns';
     if (pkgId.includes('website') || pkgId === 'dealer-website') return 'website';
     if (pkgId.includes('chatbot') || pkgId.includes('ai_')) return 'ai_chatbot';
