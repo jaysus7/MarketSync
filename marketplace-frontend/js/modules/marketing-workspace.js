@@ -33,7 +33,7 @@ function buildMarketingSuiteConfig(key) {
   const areas = [
     { id: 'pulse', label: 'Pulse', icon: 'chart', items: [suiteItem('marketing-overview', 'Pulse', 'chart', { tab: 'overview' })] },
     { id: 'marketing', label: 'Marketing', icon: 'megaphone', items: marketing },
-    { id: 'content', label: 'Content', icon: 'camera', items: [
+    { id: 'content', label: 'Content', icon: 'camera', defaultPage: 'social-scheduler', items: [
       suiteItem('studio', 'Design Studio', 'camera', { studioLaunch: true }),
       suiteItem('social-scheduler', 'Social Scheduler', 'calendar'),
       suiteItem('video-studio', 'Video', 'video'),

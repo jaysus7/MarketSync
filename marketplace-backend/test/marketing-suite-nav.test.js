@@ -43,6 +43,10 @@ test('Marketing Suite — Left Navigation & Workspace Context', async (t) => {
     assert.match(mktWorkspaceJs, /complete: \{ packageId: 'complete-marketing-suite'.*marketingModes: \['sales', 'service'\]/, 'Complete exposes both marketing modes');
     assert.match(mktWorkspaceJs, /digital: \{ packageId: 'marketsync-digital'.*digitalPresence: true/, 'Digital adds Digital Presence');
     assert.match(mktWorkspaceJs, /id: 'pulse', label: 'Pulse'/, 'every generated suite begins with Pulse');
+    assert.match(mktWorkspaceJs, /id: 'content'.*defaultPage: 'social-scheduler'.*Design Studio.*Social Scheduler.*Video/s,
+      'Content opens Scheduler while retaining Design Studio, Scheduler, Video header order');
+    assert.match(dashPart2Js, /find\(item => item\.page === area\.defaultPage\)/,
+      'major areas honor their configured landing product');
   });
 });
 

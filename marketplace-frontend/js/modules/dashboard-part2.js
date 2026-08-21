@@ -1604,7 +1604,9 @@ function suiteAreaOpen(areaId) {
   const suite = typeof getActiveMarketingSuite === 'function' ? getActiveMarketingSuite() : null;
   const cfg = suite && typeof getMarketingSuiteConfig === 'function' ? getMarketingSuiteConfig(suite) : null;
   const area = cfg?.areas?.find(candidate => candidate.id === areaId);
-  const home = area?.items?.[0];
+  // Content keeps Design Studio first in its header, but opens the Scheduler as
+  // its practical landing workspace instead of launching a full-screen tool.
+  const home = area?.items?.find(item => item.page === area.defaultPage) || area?.items?.[0];
   if (!home) return;
   if (home.studioLaunch) return window.openMarketSyncStudio?.();
   deptGo(home.page, home.invmode || '', home.tab || '');
