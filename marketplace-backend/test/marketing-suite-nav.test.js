@@ -27,6 +27,8 @@ test('Marketing Suite — Left Navigation & Workspace Context', async (t) => {
     assert.match(dashPart2Js, /type:\s*'marketing_suite'/, 'resolveWorkspaceContext maps marketing suites');
     assert.match(dashPart2Js, /ctx\.type === 'marketing_suite'/, 'deptNavEligible excludes marketing suites');
     assert.match(dashPart2Js, /renderMarketingSuiteNav/, 'renders suite-specific sectioned navigation');
+    assert.match(dashPart2Js, /settledWorkspace\?\.type === 'marketing_suite'[\s\S]*?deptGo\('marketing-overview', '', 'overview'\)/,
+      'suite boot must land on its marketing Pulse instead of DealerOS command');
   });
 
   await t.test('defines MARKETING_SUITE_CONFIG for Sales, Service, Complete, and Digital', () => {
@@ -51,6 +53,8 @@ test('Marketing Suite — Left Navigation & Workspace Context', async (t) => {
       'Sales Marketing has a distinct route from suite Pulse');
     assert.match(mktWorkspaceJs, /'Service Marketing'.*tab: 'service_overview'/,
       'Service Marketing has a distinct route from suite Pulse');
+    assert.match(mktWorkspaceJs, /if \(suite === 'service'\)[\s\S]*?Service Marketing Header[\s\S]*?Build Service Automation/,
+      'Service Marketing Suite Pulse renders service-specific marketing operations');
   });
 
   await t.test('organizes Sales Marketing tools and featured workflows in responsive three-column grids', () => {

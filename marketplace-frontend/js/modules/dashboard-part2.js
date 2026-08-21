@@ -1006,13 +1006,18 @@ async function initializeDashboardEcosystem() {
     // authoritative and switchPage will refuse any destination the caller cannot open.
     const bootRoute = typeof msRouteFromHash === 'function' ? msRouteFromHash() : null;
     const bootPage = (bootRoute && bootRoute.page) ? bootRoute.page : null;
-    if (typeof resolveWorkspaceContext === 'function' && resolveWorkspaceContext() === 'website') {
+    const settledWorkspace = typeof resolveWorkspaceContext === 'function' ? resolveWorkspaceContext() : null;
+    if (settledWorkspace?.type === 'website' || settledWorkspace === 'website') {
       switchPage('website');
     } else if (bootPage) {
       switchPage(bootPage);
       if (bootRoute.tab && typeof engineTab === 'function' && typeof ENGINES !== 'undefined' && ENGINES[bootPage]) {
         engineTab(bootPage, bootRoute.tab);
       }
+    } else if (settledWorkspace?.type === 'marketing_suite') {
+      // Suite Pulse is marketing-specific. Do not let an admin/manager role's
+      // DealerOS landing override it with the executive command center.
+      deptGo('marketing-overview', '', 'overview');
     } else if (__dashMode === 'marketsync' && (profileContext?.workspace === 'saas_admin' || document.documentElement.getAttribute('data-dash-owner') === '1')) {
       switchPage('saas-command');
     } else {
