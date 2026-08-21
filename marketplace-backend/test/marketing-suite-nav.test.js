@@ -55,7 +55,7 @@ test('Marketing Suite — Horizontal Top Tabs & Clean Email & SMS Landing', asyn
   });
 
   await t.test('routes marketing suite pages directly in switchPage without hijacking to sales', () => {
-    assert.match(dashPart2Js, /if \(!inMktSuite\) pageId = 'sales';/, 'preserves CRM/Leads for marketing suite');
+    assert.match(dashPart2Js, /if \(!inMktSuite && !identityOnly\) pageId = 'sales';/, 'preserves CRM/Leads for marketing suite and Identity Verify');
     assert.match(dashPart2Js, /sales-campaigns|service-campaigns/, 'maps campaigns to automation-builder tabs');
     assert.match(dashPart2Js, /sales-automations|service-automations/, 'maps automations to automation-builder tabs');
   });

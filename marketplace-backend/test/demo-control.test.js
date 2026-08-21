@@ -12,9 +12,10 @@ test('every Product Switcher package id is a real, resolvable plan', () => {
   // autoposter-dealer was dropped — one Facebook AutoPoster entry is enough now that
   // the Role Switcher's Independent/Dealer Admin split already covers rep vs dealer.
   // social-scheduler is offered as an active standalone plan.
-  assert.equal(ids.length, 14, 'the demo catalog should offer 14 SKUs (15 minus autoposter-dealer)')
+  assert.equal(ids.length, 15, 'the demo catalog should offer the active SKUs, including Identity Verify and excluding redundant autoposter-dealer')
   assert.ok(!ids.includes('autoposter-dealer'), 'autoposter-dealer is redundant with the Role Switcher and must not be offered')
   assert.ok(ids.includes('social-scheduler'), 'social-scheduler is offered as a demo plan')
+  assert.ok(ids.includes('identity-verify'), 'Identity Verify is offered as a demo plan')
   for (const id of ids) assert.ok(getPlan(id), `DEMO_PACKAGES references an unknown plan: ${id}`)
 })
 

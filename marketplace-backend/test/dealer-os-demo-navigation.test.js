@@ -23,11 +23,33 @@ test('DealerOS Core, Pro and Complete retain their advertised department boundar
   const complete = new Set(featuresForPlan('dealer-os-complete'))
 
   assert.ok(core.has('os.crm') && core.has('os.inventory'))
-  assert.ok(!core.has('os.service') && !core.has('os.accounting'))
-  assert.ok(pro.has('os.service'))
+  assert.ok(!core.has('os.sales') && !core.has('os.service') && !core.has('os.accounting') && !core.has('os.team'))
+  assert.ok(pro.has('os.sales') && pro.has('os.service'))
+  assert.ok(!pro.has('os.team'), 'Pro must not reveal the HR department')
   assert.ok(!pro.has('os.accounting') && !pro.has('os.automations'))
-  assert.ok(complete.has('os.service') && complete.has('os.accounting'))
+  assert.ok(complete.has('os.service') && complete.has('os.accounting') && complete.has('os.team'))
   assert.ok(complete.has('os.automations') && complete.has('os.integrations'))
+})
+
+test('DealerOS marketing bundles match Core Sales Suite and Pro MarketSync Digital', async () => {
+  const { productsForPlan } = await import('../plan-catalog.js')
+  const coreProducts = new Set(productsForPlan('dealer-os-core'))
+  const proProducts = new Set(productsForPlan('dealer-os-pro'))
+  for (const product of ['design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video']) {
+    assert.ok(coreProducts.has(product), `Core Sales Marketing Suite should include ${product}`)
+  }
+  assert.ok(!coreProducts.has('marketsync_website') && !coreProducts.has('ai_dealer') && !coreProducts.has('marketsync_seo'))
+  for (const product of ['marketsync_website', 'ai_dealer', 'marketsync_seo']) {
+    assert.ok(proProducts.has(product), `Pro MarketSync Digital should include ${product}`)
+  }
+})
+
+test('Cleanup follows Complete automations, while messaging and Intelligence remain global capabilities', () => {
+  assert.match(dashboard, /inventory: 'os\.inventory', recon: 'os\.automations'/)
+  assert.match(dashboard, /academy[\s\S]*ai-inbox[\s\S]*deliberately ABSENT/)
+  const assistant = readFileSync(new URL('../routes/submodules/ai-assistant-chat.js', import.meta.url), 'utf8')
+  assert.match(assistant, /const entitled = isDealerOS \|\| isMarketSyncDigital/)
+  assert.match(assistant, /entitlementPlans\.includes\('marketsync-digital'\)/)
 })
 
 test('Demo Control Center preserves exact package id and separate selected-plan entitlements', () => {

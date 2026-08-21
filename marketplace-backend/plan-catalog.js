@@ -24,6 +24,7 @@ export const FEATURES_BY_PRODUCT = Object.freeze({
   marketsync_social: ['social.scheduler', 'social.accounts', 'social.calendar', 'social.studio'],
   marketsync_email: ['email.campaigns', 'email.templates', 'email.audiences', 'email.automations'],
   marketsync_seo: ['seo.overview', 'seo.audit', 'seo.autofix', 'seo.content', 'seo.competitors', 'seo.local', 'seo.inventory', 'seo.ai_search', 'seo.reports', 'seo.settings'],
+  marketsync_identity: ['identity.verify', 'identity.reports', 'identity.settings'],
   // Sold standalone ($19.99/mo flat) and also bundled into every Marketing Suite /
   // DealerOS tier. Graphic design & creative editor.
   design_studio: ['design.templates', 'design.assets', 'design.canvas', 'design.suggestions'],
@@ -48,10 +49,10 @@ const OS_PRO = [...OS] // every Dealer OS feature, including service
 // Starter/Growth/Pro catalog above: the public Core/Pro/Complete packages have
 // different promises and must produce visibly different department navigation.
 const CURRENT_CORE_OS = ['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.settings']
-const CURRENT_PRO_OS = [...new Set([...CURRENT_CORE_OS, 'os.sales', 'os.service', 'os.team'])]
+const CURRENT_PRO_OS = [...new Set([...CURRENT_CORE_OS, 'os.sales', 'os.service'])]
 const CURRENT_COMPLETE_OS = [...new Set([...CURRENT_PRO_OS,
   'os.accounting', 'os.marketing', 'os.website', 'os.automations',
-  'os.email_marketing', 'os.integrations'])]
+  'os.email_marketing', 'os.integrations', 'os.team'])]
 
 // Legacy dealership flags a plan should set (the existing app still reads these).
 // Kept in sync so the transition to the entitlement engine never regresses behavior.
@@ -277,6 +278,14 @@ export const PLAN_CATALOG = Object.freeze({
     features: [...FEATURES_BY_PRODUCT.ai_dealer],
     legacy: { ...legacyFlags({}), ai_chatbot_active: true, ai_chatbot_paid: true, products: { ai_chatbot: true } },
   },
+  'identity-verify': {
+    id: 'identity-verify', label: 'MarketSync Identity Verify', product_primary: 'marketsync_identity',
+    products: ['marketsync_identity'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
+    monthly: 299, tier: 0,
+    priceEnvCad: 'STRIPE_PRICE_IDENTITY_VERIFY_CAD', priceEnvUsd: 'STRIPE_PRICE_IDENTITY_VERIFY_USD',
+    features: [...FEATURES_BY_PRODUCT.marketsync_identity],
+    legacy: { ...legacyFlags({}), products: { marketsync_identity: true, identity_verify: true } },
+  },
   'sales-marketing-suite': {
     id: 'sales-marketing-suite', label: 'Sales Marketing Suite', product_primary: 'marketsync_social',
     products: ['design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
@@ -314,34 +323,34 @@ export const PLAN_CATALOG = Object.freeze({
   },
   'dealer-os-core': {
     id: 'dealer-os-core', label: 'DealerOS Core', product_primary: 'dealer_os',
-    products: ['dealer_os', 'design_studio', 'facebook', 'marketsync_social', 'marketsync_email'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
+    products: ['dealer_os', 'design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
     monthly: 1499, tier: 0,
     priceEnvCad: 'STRIPE_PKG_CORE_CAD', priceEnvUsd: 'STRIPE_PKG_CORE_USD',
-    features: [...new Set([...CURRENT_CORE_OS, ...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, 'social.scheduler', 'social.accounts', 'social.calendar', ...FEATURES_BY_PRODUCT.marketsync_email])],
-    legacy: { ...legacyFlags({ plan: 'core', ai: false, invIntel: false }), products: { dealer_os: true, design_studio: true, facebook_dealer: true, marketsync_social: true, marketsync_email: true } },
+    features: [...new Set([...CURRENT_CORE_OS, ...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, ...FEATURES_BY_PRODUCT.marketsync_social, ...FEATURES_BY_PRODUCT.marketsync_email, ...FEATURES_BY_PRODUCT.marketsync_video])],
+    legacy: { ...legacyFlags({ plan: 'core', ai: false, invIntel: false }), products: { dealer_os: true, design_studio: true, facebook_dealer: true, marketsync_social: true, marketsync_email: true, marketsync_video: true } },
   },
   'dealer-os-pro': {
     id: 'dealer-os-pro', label: 'DealerOS Pro', product_primary: 'dealer_os',
-    products: ['dealer_os', 'design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website', 'ai_dealer'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
+    products: ['dealer_os', 'design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website', 'ai_dealer', 'marketsync_seo'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
     monthly: 2499, tier: 1,
     priceEnvCad: 'STRIPE_PKG_DEALEROS_PRO_CAD', priceEnvUsd: 'STRIPE_PKG_DEALEROS_PRO_USD',
-    features: [...new Set([...CURRENT_PRO_OS, ...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, ...FEATURES_BY_PRODUCT.marketsync_social, ...FEATURES_BY_PRODUCT.marketsync_email, ...FEATURES_BY_PRODUCT.marketsync_video, ...FEATURES_BY_PRODUCT.marketsync_website, ...FEATURES_BY_PRODUCT.ai_dealer])],
+    features: [...new Set([...CURRENT_PRO_OS, ...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, ...FEATURES_BY_PRODUCT.marketsync_social, ...FEATURES_BY_PRODUCT.marketsync_email, ...FEATURES_BY_PRODUCT.marketsync_video, ...FEATURES_BY_PRODUCT.marketsync_website, ...FEATURES_BY_PRODUCT.ai_dealer, ...FEATURES_BY_PRODUCT.marketsync_seo])],
     legacy: {
       ...legacyFlags({ plan: 'dealeros_pro', ai: true, invIntel: true }), ai_chatbot_active: true, ai_chatbot_paid: true,
-      products: { dealer_os: true, design_studio: true, facebook_dealer: true, marketsync_social: true, marketsync_email: true, marketsync_video: true, marketsync_website: true, ai_chatbot: true },
+      products: { dealer_os: true, design_studio: true, facebook_dealer: true, marketsync_social: true, marketsync_email: true, marketsync_video: true, marketsync_website: true, ai_chatbot: true, marketsync_seo: true },
     },
   },
   // Complete retains Pro's product bundle and adds the operating departments promised
   // by the public package: Accounting, Automations and Integrations/API access.
   'dealer-os-complete': {
     id: 'dealer-os-complete', label: 'DealerOS Complete', product_primary: 'dealer_os',
-    products: ['dealer_os', 'design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website', 'ai_dealer'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
+    products: ['dealer_os', 'design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website', 'ai_dealer', 'marketsync_identity'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
     monthly: 3999, tier: 2,
     priceEnvCad: 'STRIPE_PKG_DEALEROS_COMPLETE_CAD', priceEnvUsd: 'STRIPE_PKG_DEALEROS_COMPLETE_USD',
-    features: [...new Set([...CURRENT_COMPLETE_OS, ...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, ...FEATURES_BY_PRODUCT.marketsync_social, ...FEATURES_BY_PRODUCT.marketsync_email, ...FEATURES_BY_PRODUCT.marketsync_video, ...FEATURES_BY_PRODUCT.marketsync_website, ...FEATURES_BY_PRODUCT.ai_dealer])],
+    features: [...new Set([...CURRENT_COMPLETE_OS, ...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, ...FEATURES_BY_PRODUCT.marketsync_social, ...FEATURES_BY_PRODUCT.marketsync_email, ...FEATURES_BY_PRODUCT.marketsync_video, ...FEATURES_BY_PRODUCT.marketsync_website, ...FEATURES_BY_PRODUCT.ai_dealer, ...FEATURES_BY_PRODUCT.marketsync_identity])],
     legacy: {
       ...legacyFlags({ plan: 'dealeros_complete', ai: true, invIntel: true }), ai_chatbot_active: true, ai_chatbot_paid: true,
-      products: { dealer_os: true, design_studio: true, facebook_dealer: true, marketsync_social: true, marketsync_email: true, marketsync_video: true, marketsync_website: true, ai_chatbot: true },
+      products: { dealer_os: true, design_studio: true, facebook_dealer: true, marketsync_social: true, marketsync_email: true, marketsync_video: true, marketsync_website: true, ai_chatbot: true, marketsync_identity: true, identity_verify: true },
     },
   },
 })
@@ -422,4 +431,3 @@ export function getShowcaseOverlay() {
     features: [...features],
   }
 }
-

@@ -59,6 +59,7 @@
     if (pkgId.includes('campaign') || pkgId.includes('email')) return 'campaigns';
     if (pkgId.includes('website') || pkgId === 'dealer-website') return 'website';
     if (pkgId.includes('chatbot') || pkgId.includes('ai_')) return 'ai_chatbot';
+    if (pkgId.includes('identity')) return 'marketsync_identity';
     if (pkgId === 'sales-marketing-suite' || pkgId === 'sales_marketing_suite') return 'sales-marketing-suite';
     if (pkgId === 'service-marketing-suite' || pkgId === 'service_marketing_suite') return 'service-marketing-suite';
     if (pkgId === 'complete-marketing-suite' || pkgId === 'complete_marketing_suite') return 'complete-marketing-suite';
@@ -203,6 +204,7 @@
             campaigns: { marketsync_social: true },
             website: { marketsync_website: true },
             ai_chatbot: { ai_chatbot: true },
+            marketsync_identity: { marketsync_identity: true },
             dealer_os: { dealer_os: true },
           };
           const prodObj = legacyMap[window.__demoActiveProduct] || { dealer_os: true };

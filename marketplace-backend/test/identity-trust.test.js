@@ -79,8 +79,21 @@ test('identity attention is a reference to the canonical verification, not a cop
 })
 
 test('manual review queue is tenant-scoped and permission-gated', () => {
-  assert.match(route, /app\.get\('\/identity\/reviews', requireAuth, requireMfa, requirePermission\('identity\.review'\)/)
+  assert.match(route, /app\.get\('\/identity\/reviews', requireAuth, requireMfa, hasIdentityProduct, requirePermission\('identity\.review'\)/)
   assert.match(route, /from\('identity_verifications'\)[\s\S]*?\.eq\('dealership_id', req\.dealershipId\)\.eq\('decision', 'manual_review'\)/)
+})
+
+test('every identity operation requires the sold product as well as role permission', () => {
+  assert.match(route, /const hasIdentityProduct = requireProduct\('marketsync_identity'\)/)
+  for (const permission of ['integrations.manage', 'identity.request', 'identity.view', 'identity.review', 'identity.override']) {
+    assert.match(route, new RegExp(`hasIdentityProduct, requirePermission\\('${permission.replace('.', '\\.')}'\\)`))
+  }
+})
+
+test('customer verification fails closed unless reviewed active video liveness is enabled', () => {
+  assert.match(route, /PERSONA_ACTIVE_VIDEO_LIVENESS === 'true'/)
+  assert.match(route, /if \(!capabilities\.active_video_liveness\)/)
+  assert.match(route, /code: 'ACTIVE_VIDEO_LIVENESS_REQUIRED'/)
 })
 
 test('customer embeds name the intended foreign key when two relationships exist', () => {

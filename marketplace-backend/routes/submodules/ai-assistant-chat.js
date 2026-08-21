@@ -182,11 +182,13 @@ DOCUMENT TEXT END`
       .eq('dealership_id', req.dealershipId)
       .in('status', ['active', 'trialing'])
     const subProducts = (subData || []).map(s => s.product_id)
-    const isDealerOS = isOwner || subProducts.includes('dealer_os')
-    if (!isDealerOS) return res.status(403).json({ error: 'AI Intelligence Chat is a DealerOS capability and is not included with standalone subscriptions.' })
+    const entitlementPlans = Object.values(req.entitlements?.planByProduct || {})
+    const isDealerOS = isOwner || subProducts.includes('dealer_os') || req.entitlements?.products?.includes('dealer_os')
+    const isMarketSyncDigital = entitlementPlans.includes('marketsync-digital')
+    if (!isDealerOS && !isMarketSyncDigital) return res.status(403).json({ error: 'AI Intelligence Chat is included with DealerOS and MarketSync Digital.' })
 
-    const entitled = isOwner || !!dealer?.ai_boost_active || !!dealer?.inv_intel_active
-    if (!entitled) return res.status(403).json({ error: 'The AI assistant needs AI Boost or Inventory Intelligence.' })
+    const entitled = isDealerOS || isMarketSyncDigital || !!dealer?.ai_boost_active || !!dealer?.inv_intel_active
+    if (!entitled) return res.status(403).json({ error: 'AI Intelligence Chat is not included with this subscription.' })
     const canManageLeads = await hasPermission(req, 'lead.assign')
     if (!canManageLeads && dealer?.ai_assistant_reps === false) {
       return res.status(403).json({ error: 'The AI assistant is limited to managers at your dealership.' })

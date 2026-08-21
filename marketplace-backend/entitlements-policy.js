@@ -11,6 +11,7 @@ export const PRODUCTS = Object.freeze([
   'marketsync_email',
   'marketsync_website',
   'marketsync_seo',
+  'marketsync_identity',
 ])
 export const ACCOUNT_TYPES = Object.freeze(['solo', 'dealership'])
 

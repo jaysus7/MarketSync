@@ -24,7 +24,7 @@ test('the legacy sold plans still exist with correct prices (real subscribers re
 test('the current public catalog is fully represented, priced to match public-config.js', () => {
   const CURRENT_CATALOG_IDS = [
     'design-studio', 'social-scheduler', 'autoposter-salesperson', 'autoposter-dealer',
-    'video', 'campaigns-email-sms', 'dealer-website', 'ai-chatbot',
+    'video', 'campaigns-email-sms', 'dealer-website', 'ai-chatbot', 'identity-verify',
     'sales-marketing-suite', 'service-marketing-suite', 'complete-marketing-suite', 'marketsync-digital',
     'dealer-os-core', 'dealer-os-pro', 'dealer-os-complete',
   ]
@@ -38,7 +38,7 @@ test('the current public catalog is fully represented, priced to match public-co
 
   const prices = {
     'design-studio': 19.99, 'social-scheduler': 99, 'autoposter-salesperson': 39, 'autoposter-dealer': 149,
-    video: 149, 'campaigns-email-sms': 199, 'dealer-website': 249, 'ai-chatbot': 599,
+    video: 149, 'campaigns-email-sms': 199, 'dealer-website': 249, 'ai-chatbot': 599, 'identity-verify': 299,
     'sales-marketing-suite': 399, 'service-marketing-suite': 399, 'complete-marketing-suite': 699, 'marketsync-digital': 1199,
     'dealer-os-core': 1499, 'dealer-os-pro': 2499, 'dealer-os-complete': 3999,
   }
@@ -82,6 +82,15 @@ test('DealerOS tiers bundle the current standalone products, not the legacy plan
   assert.ok(featuresForPlan('dealer-os-complete').includes('os.accounting'), 'Complete adds accounting')
   assert.ok(featuresForPlan('dealer-os-complete').includes('os.automations'), 'Complete adds automations')
   assert.ok(featuresForPlan('dealer-os-complete').includes('os.integrations'), 'Complete adds integrations')
+  assert.ok(productsForPlan('dealer-os-complete').includes('marketsync_identity'), 'Complete includes Identity Verify')
+  assert.ok(featuresForPlan('dealer-os-complete').includes('identity.verify'), 'Complete can run identity verification')
+  assert.ok(!productsForPlan('dealer-os-pro').includes('marketsync_identity'), 'Pro does not include Identity Verify')
+})
+
+test('Identity Verify is a standalone product with its own entitlement boundary', () => {
+  assert.deepEqual(productsForPlan('identity-verify'), ['marketsync_identity'])
+  assert.deepEqual(featuresForPlan('identity-verify'), ['identity.verify', 'identity.reports', 'identity.settings'])
+  assert.equal(getPlan('identity-verify').monthly, 299)
 })
 
 test('AI Dealer is a standalone product plan', () => {

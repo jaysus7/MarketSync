@@ -846,6 +846,8 @@ const PRODUCT_PAGES = {
   complete_marketing_suite: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'email-sms', 'email-marketing', 'leads', 'academy', 'profile'],
   'marketsync-digital': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'website', 'blog', 'seo', 'ai-home', 'email-sms', 'email-marketing', 'leads', 'academy', 'profile'],
   marketsync_digital: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'website', 'blog', 'seo', 'ai-home', 'email-sms', 'email-marketing', 'leads', 'academy', 'profile'],
+  marketsync_identity: ['crm', 'command'],
+  identity_verify: ['crm', 'command'],
   dealer_os: null,
 };
 const PRODUCT_HOME = {
@@ -873,6 +875,8 @@ const PRODUCT_HOME = {
   complete_marketing_suite: 'marketing-overview',
   'marketsync-digital': 'marketing-overview',
   marketsync_digital: 'marketing-overview',
+  marketsync_identity: 'crm',
+  identity_verify: 'crm',
 };
 const FB_PRODUCTS = new Set(['facebook_solo', 'facebook_dealer']);
 let __productAllowedPages = null;   // Set of reachable pages under a restricted product, else null
@@ -956,6 +960,15 @@ function isSingleProductWorkspace() {
 }
 window.isSingleProductWorkspace = isSingleProductWorkspace;
 
+function isIdentityVerifyWorkspace() {
+  const products = document.documentElement.getAttribute('data-product') || '';
+  const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+  return !/(?:^|\s)dealer_os(?:\s|$)/.test(products)
+    && (/(?:^|\s)(?:marketsync_identity|identity_verify)(?:\s|$)/.test(products)
+      || (access.products?.length === 1 && access.products.includes('marketsync_identity')));
+}
+window.isIdentityVerifyWorkspace = isIdentityVerifyWorkspace;
+
 function isStandaloneWebsiteWorkspace() {
   if (typeof resolveWorkspaceContext === 'function') {
     return resolveWorkspaceContext().type === 'website';
@@ -1018,6 +1031,7 @@ function legacyProductsFromAccess(access) {
       campaigns: { marketsync_social: true },
       website: { marketsync_website: true },
       ai_chatbot: { ai_chatbot: true },
+      marketsync_identity: { marketsync_identity: true },
     }[demoProd];
     if (demoNav) return demoNav;
   }
@@ -1035,6 +1049,7 @@ function legacyProductsFromAccess(access) {
   if (access.products.includes('marketsync_website')) out.marketsync_website = true;
   if (access.products.includes('marketsync_social')) out.marketsync_social = true;
   if (access.products.includes('marketsync_email')) out.marketsync_email = true;
+  if (access.products.includes('marketsync_identity')) out.marketsync_identity = true;
   return Object.keys(out).length ? out : null;
 }
 window.legacyProductsFromAccess = legacyProductsFromAccess;
@@ -1080,7 +1095,7 @@ window.startPlanCheckout = startPlanCheckout;
 const MS_PRODUCT_LABELS = {
   dealer_os: 'Dealer OS', facebook: 'Facebook', ai_dealer: 'AI Dealer',
   design_studio: 'Design Studio', marketsync_video: 'Video', marketsync_website: 'Website',
-  marketsync_social: 'Social', marketsync_email: 'Email & SMS', marketsync_seo: 'MarketSync SEO',
+  marketsync_social: 'Social', marketsync_email: 'Email & SMS', marketsync_seo: 'MarketSync SEO', marketsync_identity: 'Identity Verify',
 };
 function msPlanProductLine(p) {
   return [...new Set(p.products)].map(x => MS_PRODUCT_LABELS[x] || x).join(' + ');
@@ -1459,6 +1474,9 @@ function restrictedNavPages() {
     // and never needs to fight Settings for the highlighted state.
     return [{ page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true }];
   }
+  if (activeProducts.length === 1 && /(marketsync_identity|identity_verify)/.test(product)) {
+    return [{ page: 'crm', label: 'Customer Verification', icon: 'shield' }];
+  }
   if (activeProducts.length === 1 && /(marketsync_social|social[-_]scheduler)/.test(product)) {
     return [
       { page: 'social-scheduler', tab: 'overview', label: 'Overview', icon: 'chart' },
@@ -1522,6 +1540,8 @@ function restrictedNavPages() {
   // page any more, Staff management lives in Settings for all of them.
   if (__productAllowedPages) {
     const meta = { ...META, 'ai-home': AI, leaderboard: LEADER, inventory: INV('Inventory') };
+    const identity = { page: 'crm', label: 'Customer Verification', icon: 'shield' };
+    if (__productAllowedPages.has('crm')) return [identity];
     return ['marketing-overview', 'email-marketing', 'video-studio', 'website', 'ai-home', 'inventory', 'leaderboard']
       .filter(p => __productAllowedPages.has(p)).map(p => meta[p]);
   }

@@ -1,18 +1,19 @@
 /**
- * Identity verification — Stripe Identity. A rep starts a real check on a customer
- * (government-ID document authentication + a matching selfie / liveness). Stripe
- * does the document + biometric work; we store only the pass/fail status and a
- * non-sensitive summary on the contact. The ID images live at Stripe, not here.
+ * MarketSync Identity Verify. A rep starts government-ID authentication, selfie
+ * matching, and active-video liveness. A certified provider hosts capture so raw
+ * documents and biometrics never touch MarketSync; only normalized decisions and
+ * audit metadata are stored here.
  *
  *   POST /identity/start    { contact_id } -> { url }  (hosted verification link)
  *   GET  /identity/status?contact_id       -> current status (polls Stripe)
  *
- * Uses the existing STRIPE_SECRET_KEY. Requires Stripe Identity to be enabled on
- * the Stripe account; if it isn't, Stripe returns an error we surface plainly.
+ * Provider credentials and an explicitly reviewed active-liveness template are
+ * required. The flow fails closed when active-video capability is unavailable.
  */
 import { stripe, supabaseAdmin, FRONTEND_URL } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
+import { requireProduct } from '../access.js'
 import { audit, AuditAction } from '../audit.js'
 
 // Two interchangeable identity providers, chosen by env so the customer-facing flow
@@ -39,6 +40,17 @@ function availableProviders() {
   return a
 }
 const PROVIDER_LABELS = { stripe: 'Stripe Identity', persona: 'Persona' }
+function providerCapabilities(provider) {
+  // Active video liveness is a materially stronger promise than a still-selfie match.
+  // It may only be advertised when the configured hosted provider/template has been
+  // reviewed and explicitly enabled by operations. Never infer it from an API key.
+  const activeVideoLiveness = provider === 'persona' && process.env.PERSONA_ACTIVE_VIDEO_LIVENESS === 'true'
+  return {
+    document_live_capture: provider === 'stripe' || provider === 'persona',
+    selfie_match: provider === 'stripe' || provider === 'persona',
+    active_video_liveness: activeVideoLiveness,
+  }
+}
 
 // A dealer may pin a provider (stored on a dealer_integrations 'identity' row); we honour
 // it only if that provider is configured, else fall back to the env default.
@@ -163,19 +175,21 @@ export async function identityAttention(dealershipId) {
 }
 
 export function registerIdentity(app) {
-  app.get('/identity/config', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
+  const hasIdentityProduct = requireProduct('marketsync_identity')
+  app.get('/identity/config', requireAuth, requireMfa, hasIdentityProduct, requirePermission('integrations.manage'), async (req, res) => {
     const available = availableProviders()
     const selected = req.dealershipId ? await resolveProvider(req.dealershipId) : identityProvider()
     res.json({
       ok: true, configured: configured(), available,
       providers: available.map(p => ({ value: p, label: PROVIDER_LABELS[p] || p })),
+      capabilities: selected ? providerCapabilities(selected) : null,
       selected, native: { available: false, reason: 'No vetted native liveness and face-match stack is configured.' },
     })
   })
 
   // Managers pin which verification provider this dealership uses (only among the ones
   // the server actually has keys for). Stored on a dealer_integrations 'identity' row.
-  app.put('/identity/provider', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
+  app.put('/identity/provider', requireAuth, requireMfa, hasIdentityProduct, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const provider = String(req.body?.provider || '').toLowerCase()
     if (!availableProviders().includes(provider)) return res.status(400).json({ error: 'That verification provider isn’t available.' })
@@ -187,7 +201,7 @@ export function registerIdentity(app) {
     res.json({ ok: true, selected: provider })
   })
 
-  app.post('/identity/start', requireAuth, requireMfa, requirePermission('identity.request'), async (req, res) => {
+  app.post('/identity/start', requireAuth, requireMfa, hasIdentityProduct, requirePermission('identity.request'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!configured()) return res.status(501).json({ error: 'Identity verification isn’t configured on this server yet.' })
     const contactId = String(req.body?.contact_id || '')
@@ -198,6 +212,13 @@ export function registerIdentity(app) {
       .select('id, full_name, email').eq('id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!contact) return res.status(404).json({ error: 'Customer not found' })
     const provider = await resolveProvider(req.dealershipId)
+    const capabilities = providerCapabilities(provider)
+    if (!capabilities.active_video_liveness) {
+      return res.status(501).json({
+        error: 'Active video liveness is not enabled for this verification provider. Configure a reviewed guided-liveness template before requesting customer verification.',
+        code: 'ACTIVE_VIDEO_LIVENESS_REQUIRED',
+      })
+    }
     const returnUrl = `${FRONTEND_URL.replace(/\/$/, '')}/dashboard.html?idv=done&contact=${encodeURIComponent(contactId)}`
     try {
       let sessionId, url
@@ -220,7 +241,7 @@ export function registerIdentity(app) {
       }).select('*').single()
       if (writeError) throw writeError
       audit(req, 'customer.identity_verification_started', { contact_id: contactId, verification_id: verification.id, provider, purpose })
-      res.json({ ok: true, url, status: 'pending', verification_id: verification.id, purpose })
+      res.json({ ok: true, url, status: 'pending', verification_id: verification.id, purpose, capabilities })
     } catch (e) {
       const msg = provider === 'stripe' && /not.*enabled|activate|identity/i.test(e.message || '')
         ? 'Turn on Stripe Identity in your Stripe dashboard (Settings → Identity) to use verification.'
@@ -229,7 +250,7 @@ export function registerIdentity(app) {
     }
   })
 
-  app.get('/identity/status', requireAuth, requireMfa, requirePermission('identity.view'), async (req, res) => {
+  app.get('/identity/status', requireAuth, requireMfa, hasIdentityProduct, requirePermission('identity.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const contactId = String(req.query.contact_id || '')
     if (!contactId) return res.status(400).json({ error: 'contact_id required' })
@@ -272,7 +293,7 @@ export function registerIdentity(app) {
     }
   })
 
-  app.get('/identity/reviews', requireAuth, requireMfa, requirePermission('identity.review'), async (req, res) => {
+  app.get('/identity/reviews', requireAuth, requireMfa, hasIdentityProduct, requirePermission('identity.review'), async (req, res) => {
     try {
       const { data, error } = await supabaseAdmin.from('identity_verifications').select('*, contacts!identity_verifications_contact_id_fkey(full_name)')
         .eq('dealership_id', req.dealershipId).eq('decision', 'manual_review')
@@ -282,7 +303,7 @@ export function registerIdentity(app) {
     } catch { res.json({ reviews: [] }) }
   })
 
-  app.post('/identity/:id/review', requireAuth, requireMfa, requirePermission('identity.review'), async (req, res) => {
+  app.post('/identity/:id/review', requireAuth, requireMfa, hasIdentityProduct, requirePermission('identity.review'), async (req, res) => {
     const decision = String(req.body?.decision || '')
     const reason = String(req.body?.reason || '').trim()
     if (!['verified', 'failed'].includes(decision) || !reason) return res.status(400).json({ error: 'Decision and review reason are required.' })
@@ -304,7 +325,7 @@ export function registerIdentity(app) {
 
   // Override is deliberately separate from ordinary review. It never rewrites the provider's
   // machine result and is available only to the small identity.override permission set.
-  app.post('/identity/:id/override', requireAuth, requireMfa, requirePermission('identity.override'), async (req, res) => {
+  app.post('/identity/:id/override', requireAuth, requireMfa, hasIdentityProduct, requirePermission('identity.override'), async (req, res) => {
     const decision = String(req.body?.decision || '')
     const reason = String(req.body?.reason || '').trim()
     if (!['verified', 'failed'].includes(decision) || reason.length < 10) {

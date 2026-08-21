@@ -23,6 +23,7 @@ export const PRODUCTS = Object.freeze([
   'marketsync_email',
   'marketsync_website',
   'marketsync_seo',
+  'marketsync_identity',
 ])
 
 // When a caller can reach more than one product, this decides which one their default
@@ -33,6 +34,7 @@ export const PRODUCT_PRIORITY = Object.freeze({
   ai_dealer: 4,
   marketsync_website: 3,
   marketsync_seo: 3,
+  marketsync_identity: 3,
   marketsync_video: 2,
   marketsync_email: 2,
   marketsync_social: 2,
@@ -50,6 +52,7 @@ export const PRODUCT_ROUTES = Object.freeze({
   marketsync_email: '/email-marketing',
   marketsync_website: '/website',
   marketsync_seo: '/seo',
+  marketsync_identity: '/identity-verify',
 })
 
 // Legacy dealerships.products jsonb keys → normalized product ids. Used only as a
@@ -72,6 +75,8 @@ export const LEGACY_PRODUCT_KEY_MAP = Object.freeze({
   website: 'marketsync_website',
   marketsync_seo: 'marketsync_seo',
   seo: 'marketsync_seo',
+  marketsync_identity: 'marketsync_identity',
+  identity_verify: 'marketsync_identity',
 })
 
 // Record-level data scope per RBAC role. 'all' = every record in the dealership,

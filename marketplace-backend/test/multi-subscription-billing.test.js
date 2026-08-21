@@ -179,7 +179,7 @@ test('Test J: DealerOS pro downgrade to starter -> separate SEO subscription una
 
 // ── Default Routing & Product Isolation for all 9 canonical products ────────
 
-test('All 9 canonical products resolve correct default routes and access', () => {
+test('All canonical products resolve correct default routes and access', () => {
   for (const product of PRODUCTS) {
     const singleSubCtx = computeContextForSubs([
       { product_id: product, plan_id: `plan_${product}`, status: 'active' },

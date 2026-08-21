@@ -17,6 +17,7 @@ test('catalog constants are the canonical products and two account types', () =>
     'design_studio',
     'facebook',
     'marketsync_email',
+    'marketsync_identity',
     'marketsync_seo',
     'marketsync_social',
     'marketsync_video',

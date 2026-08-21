@@ -23,12 +23,15 @@ on conflict (id) do update set
   sort_order = excluded.sort_order;
 
 insert into public.plan_products (plan_id, product_id)
-values ('marketsync-digital', 'marketsync_seo')
+values
+  ('marketsync-digital', 'marketsync_seo'),
+  ('dealer-os-pro', 'marketsync_seo')
 on conflict (plan_id, product_id) do nothing;
 
 insert into public.plan_features (plan_id, feature_id)
-select 'marketsync-digital', feature_id
-from (values
+select entitled_plan.plan_id, entitled.feature_id
+from (values ('marketsync-digital'), ('dealer-os-pro')) as entitled_plan(plan_id)
+cross join (values
   ('seo.overview'), ('seo.audit'), ('seo.autofix'), ('seo.content'),
   ('seo.competitors'), ('seo.local'), ('seo.inventory'), ('seo.ai_search'),
   ('seo.reports'), ('seo.settings')

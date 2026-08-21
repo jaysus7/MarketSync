@@ -1241,7 +1241,7 @@ const PAGE_FEATURE = {
   'inventory-overview': 'os.inventory', 'fni-overview': 'os.sales', 'service-overview': 'os.service', 'parts-overview': 'os.service', 'accounting-overview': 'os.accounting', 'marketing-overview': 'os.marketing',
   crm: 'os.crm', leads: 'os.crm', appointments: 'os.crm', tasks: 'os.crm',
   appraisal: 'os.crm', equity: 'os.crm',
-  inventory: 'os.inventory', recon: 'os.inventory',
+  inventory: 'os.inventory', recon: 'os.automations',
   accounting: 'os.accounting',
   'service-ros': 'os.service', 'service-appointments': 'os.service', 'service-parts': 'os.service',
   website: 'os.website', seo: 'os.marketing',
@@ -1264,6 +1264,8 @@ const PAGE_PRODUCT = { leaderboard: 'facebook', 'social-scheduler': 'marketsync_
 // DealerOS engine. These alternatives keep standalone and Marketing/Digital nav
 // honest while still using the same server-authored feature list.
 const PAGE_ANY_FEATURE = {
+  crm: ['os.crm', 'identity.verify'],
+  command: ['os.dashboard', 'identity.reports'],
   'marketing-overview': ['os.marketing', 'design.canvas', 'social.scheduler'],
   studio: ['design.canvas', 'os.marketing'],
   'social-scheduler': ['social.scheduler', 'os.marketing'],
@@ -1281,8 +1283,8 @@ const DEALER_OS_PLAN_FEATURES = {
   starter: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.team', 'os.settings']),
   growth: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.team', 'os.settings', 'os.sales', 'os.accounting', 'os.marketing', 'os.website', 'os.automations', 'os.integrations']),
   pro: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.sales', 'os.accounting', 'os.service', 'os.marketing', 'os.website', 'os.reports', 'os.automations', 'os.email_marketing', 'os.integrations', 'os.team', 'os.settings', 'fb.inventory', 'fb.leaderboard', 'fb.sales_reps', 'ai.overview', 'ai.conversations', 'ai.agents', 'ai.knowledge', 'ai.settings', 'video.library', 'video.record', 'video.templates', 'video.settings', 'social.scheduler', 'social.accounts', 'social.calendar', 'social.studio', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations', 'website.builder', 'website.pages', 'website.domains', 'website.settings']),
-  core: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.settings', 'fb.inventory', 'fb.leaderboard', 'fb.sales_reps', 'design.canvas', 'social.scheduler', 'social.accounts', 'social.calendar', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations']),
-  dealeros_pro: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.settings', 'os.sales', 'os.service', 'os.team', 'fb.inventory', 'fb.leaderboard', 'fb.sales_reps', 'design.canvas', 'social.scheduler', 'social.accounts', 'social.calendar', 'social.studio', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations', 'video.library', 'video.record', 'video.templates', 'video.settings', 'website.builder', 'website.pages', 'website.domains', 'website.settings', 'ai.overview', 'ai.conversations', 'ai.agents', 'ai.knowledge', 'ai.settings']),
+  core: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.settings', 'fb.inventory', 'fb.leaderboard', 'fb.sales_reps', 'design.canvas', 'social.scheduler', 'social.accounts', 'social.calendar', 'social.studio', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations', 'video.library', 'video.record', 'video.templates', 'video.settings']),
+  dealeros_pro: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.settings', 'os.sales', 'os.service', 'fb.inventory', 'fb.leaderboard', 'fb.sales_reps', 'design.canvas', 'social.scheduler', 'social.accounts', 'social.calendar', 'social.studio', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations', 'video.library', 'video.record', 'video.templates', 'video.settings', 'website.builder', 'website.pages', 'website.domains', 'website.settings', 'ai.overview', 'ai.conversations', 'ai.agents', 'ai.knowledge', 'ai.settings', 'seo.overview', 'seo.audit', 'seo.autofix', 'seo.content', 'seo.competitors', 'seo.local', 'seo.inventory', 'seo.ai_search', 'seo.reports', 'seo.settings']),
   dealeros_complete: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.settings', 'os.sales', 'os.service', 'os.team', 'os.accounting', 'os.marketing', 'os.website', 'os.automations', 'os.email_marketing', 'os.integrations', 'fb.inventory', 'fb.leaderboard', 'fb.sales_reps', 'design.canvas', 'social.scheduler', 'social.accounts', 'social.calendar', 'social.studio', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations', 'video.library', 'video.record', 'video.templates', 'video.settings', 'website.builder', 'website.pages', 'website.domains', 'website.settings', 'ai.overview', 'ai.conversations', 'ai.agents', 'ai.knowledge', 'ai.settings']),
 };
 function dealerPlanFallback() {
@@ -1294,9 +1296,9 @@ function dealerPlanFallback() {
   return {
     features,
     products: digital
-      ? new Set(['dealer_os', 'facebook', 'ai_dealer', 'design_studio', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website'])
+      ? new Set(['dealer_os', 'facebook', 'ai_dealer', 'design_studio', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website', 'marketsync_seo'])
       : core
-        ? new Set(['dealer_os', 'facebook', 'design_studio', 'marketsync_social', 'marketsync_email'])
+        ? new Set(['dealer_os', 'facebook', 'design_studio', 'marketsync_social', 'marketsync_email', 'marketsync_video'])
         : new Set(['dealer_os']),
   };
 }
@@ -1754,7 +1756,8 @@ function switchPage(pageId) {
 
   // Map legacy department page IDs directly to the single-source-of-truth workspace engines
   if (pageId === 'crm' || pageId === 'pipeline' || pageId === 'leads' || pageId === 'appointments') {
-    if (!inMktSuite) pageId = 'sales';
+    const identityOnly = typeof isIdentityVerifyWorkspace === 'function' && isIdentityVerifyWorkspace();
+    if (!inMktSuite && !identityOnly) pageId = 'sales';
   }
   if (pageId === 'inventory') pageId = 'inventory-overview';
   if (pageId === 'fni') pageId = 'fni-overview';

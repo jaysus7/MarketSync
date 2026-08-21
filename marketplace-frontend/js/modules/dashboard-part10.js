@@ -760,8 +760,14 @@ function engKpi(label, val, tone, onclick) {
   </div>`;
 }
 function engCard(title, inner, extra) {
-  return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 ${extra || ''}">
-    ${title ? `<div class="text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200 font-black mb-2.5">${esc(title)}</div>` : ''}${inner}</div>`;
+  if (!title) return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 ${extra || ''}">${inner}</div>`;
+  return `<details open class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl ${extra || ''}">
+    <summary class="list-none cursor-pointer select-none px-4 py-3 flex items-center justify-between gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-xl" aria-label="Expand or collapse ${esc(title)}">
+      <span class="text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200 font-black">${esc(title)}</span>
+      <svg class="w-4 h-4 text-slate-400 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+    </summary>
+    <div class="px-4 pb-4">${inner}</div>
+  </details>`;
 }
 function engEmpty(msg) { return `<div class="text-sm font-bold text-slate-700 dark:text-slate-300 py-8 text-center">${esc(msg)}</div>`; }
 
@@ -775,11 +781,13 @@ function engEmpty(msg) { return `<div class="text-sm font-bold text-slate-700 da
 // in it under a heading and reached by scrolling. Use engSection for those headings;
 // engCard is still the right thing for a single panel inside one.
 function engSection(title, inner, sub) {
-  return `<section class="mt-7 first:mt-0">
-    <h3 class="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight">${esc(title)}</h3>
-    ${sub ? `<p class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mt-1 mb-3">${esc(sub)}</p>` : '<div class="mb-2"></div>'}
-    ${inner}
-  </section>`;
+  return `<details open class="group mt-7 first:mt-0">
+    <summary class="list-none cursor-pointer select-none flex items-start justify-between gap-3 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+      <span><span class="block text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight">${esc(title)}</span>${sub ? `<span class="block text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mt-1">${esc(sub)}</span>` : ''}</span>
+      <svg class="w-5 h-5 mt-1 text-slate-400 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+    </summary>
+    <div class="mt-3">${inner}</div>
+  </details>`;
 }
 
 // ── Show the page, don't link to it ──────────────────────────────────────────

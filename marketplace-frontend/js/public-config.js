@@ -180,6 +180,25 @@ const MARKETSYNC_PRICING = {
       ],
       ctaText: 'Deploy AI ChatBot',
       ctaUrl: '/register.html?plan=ai-chatbot'
+    },
+    {
+      id: 'identity-verify',
+      name: 'MarketSync Identity Verify',
+      price: 299,
+      priceFormatted: '$299',
+      unit: '/month + usage',
+      badge: 'Fraud Prevention',
+      desc: 'Driver licence authentication, selfie matching, active video liveness, and an auditable dealership verification workflow.',
+      features: [
+        'Driver licence front and back capture',
+        'Selfie-to-ID face matching',
+        'Guided active video liveness',
+        'QR code and secure customer links',
+        'DealerOS review queue and audit report',
+        '25 completed verifications included'
+      ],
+      ctaText: 'Start Identity Verify',
+      ctaUrl: '/register.html?plan=identity-verify'
     }
   ],
 
@@ -269,15 +288,12 @@ const MARKETSYNC_PRICING = {
       price: 1499,
       priceFormatted: '$1,499',
       unit: '/month',
-      badge: 'Connected OS Base',
-      desc: 'The connected dealership operating system bringing Sales, CRM, Inventory, and Workflows together.',
+      badge: 'Connected Core',
+      desc: 'CRM, inventory, desking, appraisals, sales workflows, marketing, and reporting.',
       features: [
-        'Connected Automotive CRM & Pipeline',
-        'Inventory Management & VinSticker',
-        'Sales Marketing Suite Included',
-        'Desking & Trade Appraisals',
-        'Manager Command Center & Reporting',
-        'Standard Onboarding & Support'
+        'Connected CRM and lead management',
+        'Inventory and desking',
+        'Sales Marketing Suite'
       ],
       ctaText: 'Book Core Demo',
       ctaUrl: '/demo.html?plan=dealer-os-core'
@@ -289,14 +305,11 @@ const MARKETSYNC_PRICING = {
       priceFormatted: '$2,499',
       unit: '/month',
       badge: 'Expanded Departments',
-      desc: 'Comprehensive dealership operating system adding Fixed Ops, F&I, Parts, and MarketSync Digital.',
+      desc: 'Adds service, parts, F&I, and MarketSync Digital to the connected operating platform.',
       features: [
-        'All DealerOS Core Features',
-        'Service & Parts Department Workspaces',
-        'F&I Deal Structuring & Lender Submissions',
-        'MarketSync Digital Suite Included ($1,199/mo value)',
-        'HR Dossier & Staff Directory',
-        'Priority Phone & Dedicated Onboarding'
+        'Everything in DealerOS Core',
+        'Service, Parts, and F&I',
+        'MarketSync Digital included'
       ],
       ctaText: 'Book Pro Demo',
       ctaUrl: '/demo.html?plan=dealer-os-pro',
@@ -308,12 +321,13 @@ const MARKETSYNC_PRICING = {
       price: 3999,
       priceFormatted: '$3,999',
       unit: '/month',
-      badge: 'Flagship Enterprise OS',
-      desc: 'The complete enterprise operating system for full dealership groups with unlimited intelligence.',
+      badge: 'Enterprise OS',
+      desc: 'The complete multi-store operating system with accounting, automations, integrations, and intelligence.',
       features: [
-        'Full DealerOS Pro Platform',
+        'Everything in DealerOS Pro',
+        'MarketSync Identity Verify with 50 completed checks',
         'Accounting Ledger & General Ledger Sync',
-        'Unlimited Intelligence by MarketSync AI',
+        'Generous monthly AI usage included',
         'Multi-Store & Dealership Group Aggregation',
         'Custom API Integrations & Webhooks',
         '24/7 Executive Support & Dedicated Manager'

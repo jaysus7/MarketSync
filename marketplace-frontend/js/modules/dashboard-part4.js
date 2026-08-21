@@ -1565,10 +1565,9 @@ function crmDownscaleImage(fileOrBlob, maxDim) {
     img.src = URL.createObjectURL(fileOrBlob);
   });
 }
-// ── ID verification (Stripe Identity) ───────────────────────────────────────
-// Real government-ID + selfie/liveness check on a saved customer. Stripe does the
-// document + biometric work on a hosted page; we only track pass/fail here. The ID
-// images never touch our servers. Only shown on an already-saved contact.
+// ── MarketSync Identity Verify ───────────────────────────────────────────────
+// Government-ID, selfie-match, and guided active-video liveness. A certified provider
+// hosts biometric capture; only the normalized result is tracked here.
 function idvBadge(status, verifiedAt) {
   const map = {
     verified: ['bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300', 'ID verified'],
@@ -1595,8 +1594,8 @@ function idvBlock(c) {
     <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-3">
       <div class="flex items-center justify-between gap-2">
         <div>
-          <div class="flex items-center gap-2"><span class="text-sm font-bold text-slate-800 dark:text-slate-100">Government ID + selfie</span> <span id="idv-badge">${idvBadge(status, c.id_verified_at)}</span></div>
-          <div class="text-[11px] text-slate-500 dark:text-slate-400">The customer photographs their ID and takes a selfie; images stay with the verification provider.</div>
+          <div class="flex items-center gap-2"><span class="text-sm font-bold text-slate-800 dark:text-slate-100">ID + selfie + active video</span> <span id="idv-badge">${idvBadge(status, c.id_verified_at)}</span></div>
+          <div class="text-[11px] text-slate-500 dark:text-slate-400">The customer scans their driver's licence, takes a selfie, then follows guided face-turn prompts. Raw images and video stay with the certified provider.</div>
           <label class="mt-2 flex items-center gap-2 text-[11px] font-semibold text-slate-500">Purpose
             <select id="idv-purpose" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-[11px] text-slate-700 dark:text-slate-200"><option value="test_drive">Test drive</option><option value="credit_application">Credit application</option><option value="remote_purchase">Remote purchase</option><option value="esign">E-sign</option><option value="payment">Payment</option><option value="delivery">Delivery</option></select>
           </label>
@@ -1678,7 +1677,7 @@ window.crmScanLicense = crmScanLicense;
 window.idvStart = idvStart; window.idvRefresh = idvRefresh;
 // Header "Add customer" button — opens a fresh contact and immediately fires the
 // licence camera scan so the AI fills in all the details. After saving, the contact
-// record offers the full ID + selfie verification (Persona / Stripe Identity).
+// record offers the full document, selfie-match, and active-video verification flow.
 async function identityScan() {
   try { await crmOpenForm(); } catch (e) { showToast(e.message || 'Could not open the form', 'error'); return; }
   setTimeout(() => { try { crmScanLicense(); } catch (e) {} }, 200);
@@ -2217,4 +2216,3 @@ Object.assign(window, {
   crmCancelTaskNote,
   crmSubmitTaskCompletion
 });
-

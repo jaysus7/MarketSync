@@ -16,9 +16,10 @@ test('AGENTS.md contains the authoritative MarketSync Product Boundary Rules', (
   assert.match(agentsMd, /Product access must always be determined by canonical backend entitlements/)
 })
 
-test('AI Intelligence Chat backend requires DealerOS subscription', () => {
+test('AI Intelligence Chat backend requires DealerOS or MarketSync Digital', () => {
   assert.match(aiAssistant, /subProducts\.includes\('dealer_os'\)/)
-  assert.match(aiAssistant, /AI Intelligence Chat is a DealerOS capability/)
+  assert.match(aiAssistant, /entitlementPlans\.includes\('marketsync-digital'\)/)
+  assert.match(aiAssistant, /AI Intelligence Chat is included with DealerOS and MarketSync Digital/)
 })
 
 test('Team Messaging backend requires DealerOS or Facebook Dealer subscription', () => {
