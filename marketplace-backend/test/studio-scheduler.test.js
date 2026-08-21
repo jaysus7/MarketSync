@@ -31,7 +31,11 @@ test('the studio scheduler never reuses ENGINE_DATA/mktReload/engineTab — thos
 
 test('openStudioScheduler loads accounts and posts directly from /social/*, independent of the Marketing engine fetch', () => {
   assert.match(scheduler, /function openStudioScheduler/)
-  assert.match(scheduler, /apiGetJson\('\/social\/accounts'\)/)
+  assert.match(scheduler, /apiGetJson\('\/social\/accounts', \{ retries: 0, timeoutMs: 8000 \}\)/)
+  assert.match(scheduler, /renderAccounts\(Array\.isArray\(__studioSchedulerAccounts\)/,
+    'Social Accounts must paint cached connection cards before its live request completes')
+  assert.match(scheduler, /Live account status is temporarily unavailable/,
+    'a failed refresh must leave useful controls visible with a retry action')
   assert.match(scheduler, /apiGetJson\('\/social\/posts'\)/)
   assert.match(scheduler, /window\.openStudioScheduler = openStudioScheduler/)
 })

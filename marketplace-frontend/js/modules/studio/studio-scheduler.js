@@ -1654,10 +1654,7 @@ window.studioSchedulerUploadMedia = studioSchedulerUploadMedia;
 async function studioSocialConnectionsRender() {
   const list = document.getElementById('studio-social-list');
   if (!list) return;
-  list.innerHTML = '<div class="text-xs text-slate-500 italic">Loading…</div>';
-  try {
-    const r = await apiGetJson('/social/accounts');
-    const accounts = r.accounts || [];
+  const renderAccounts = (accounts) => {
     const platformKeys = ['facebook', 'instagram', 'linkedin', 'tiktok', 'youtube'];
 
     const cardsHtml = platformKeys.map(p => {
@@ -1697,11 +1694,22 @@ async function studioSocialConnectionsRender() {
 
     const studioHandoffBtn = `<div class="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end"><button type="button" onclick="openStudioScheduler()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition">Open Social Calendar in Design Studio</button></div>`;
     list.innerHTML = `<div class="grid grid-cols-1 gap-3">${cardsHtml}</div>${studioHandoffBtn}`;
+  };
+
+  // Never hold this tab behind a cold backend. Show the connection choices from
+  // cached scheduler state immediately, then reconcile with the server once.
+  renderAccounts(Array.isArray(__studioSchedulerAccounts) ? __studioSchedulerAccounts : []);
+  try {
+    const r = await apiGetJson('/social/accounts', { retries: 0, timeoutMs: 8000 });
+    const accounts = Array.isArray(r?.accounts) ? r.accounts : [];
+    __studioSchedulerAccounts = accounts;
+    if (list.isConnected) renderAccounts(accounts);
   } catch (e) {
+    if (!list.isConnected) return;
     if (e.message === 'MFA_REQUIRED') {
       list.innerHTML = `<div class="text-[12px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5">Complete multi-factor authentication above to manage connected accounts.</div>`;
     } else {
-      list.innerHTML = `<div class="text-xs text-rose-500">${esc(e.message || 'Could not load')}</div>`;
+      list.insertAdjacentHTML('afterbegin', `<div class="flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-300"><span>Live account status is temporarily unavailable. The connection options below are still ready.</span><button type="button" onclick="studioSocialConnectionsRender()" class="shrink-0 rounded-lg bg-amber-400 px-3 py-1.5 font-black text-slate-950">Retry</button></div>`);
     }
   }
 }
@@ -1787,4 +1795,3 @@ async function studioSchedulerCompose(preselectedAssetUrl) {
 }
 window.studioSchedulerCompose = studioSchedulerCompose;
 window.loadSocialSchedulerPage = loadSocialSchedulerPage;
-
