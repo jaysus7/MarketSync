@@ -9,6 +9,7 @@ const schedulerCode = scheduler.replace(/^\/\*\*[\s\S]*?\*\/\n*/, '')
 const dashboardHtml = readFileSync(new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8')
 const studioShell = readFileSync(new URL('../../marketplace-frontend/js/modules/studio/studio-shell.js', import.meta.url), 'utf8')
 const part2 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part2.js', import.meta.url), 'utf8')
+const dashboard = readFileSync(new URL('../../marketplace-frontend/dashboard.js', import.meta.url), 'utf8')
 
 test('studio-scheduler.js is registered as a script in dashboard.html, after fabric-adapter.js', () => {
   const fabricIdx = dashboardHtml.indexOf('js/modules/studio/fabric-adapter.js')
@@ -48,10 +49,19 @@ test('publish/reschedule/cancel actions hit the same /social/posts endpoints as 
   assert.match(scheduler, /apiSendJson\(`\/social\/posts\/\$\{postId\}\/cancel`, 'POST', \{\}\)/)
 })
 
-test('the Studio header has a Schedule button wired to openStudioScheduler', () => {
-  assert.match(studioShell, /onclick="if\(typeof openStudioScheduler === 'function'\) openStudioScheduler\(\)"/)
-  const btn = studioShell.match(/<button onclick="if\(typeof openStudioScheduler[\s\S]*?<\/button>/)?.[0] || ''
+test('the Studio header has a Schedule button wired through the entitlement-aware launcher', () => {
+  assert.match(studioShell, /onclick="if\(typeof openStudioSchedulerWithEntitlementCheck === 'function'\) openStudioSchedulerWithEntitlementCheck\(\)"/)
+  const btn = studioShell.match(/<button onclick="if\(typeof openStudioSchedulerWithEntitlementCheck[\s\S]*?<\/button>/)?.[0] || ''
   assert.match(btn, />Schedule\s*<\/button>/)
+})
+
+test('standalone Design Studio navigation exposes its merged Scheduler without routing to the standalone Social Scheduler dashboard', () => {
+  const branch = dashboard.match(/if \(activeProducts\.length === 1 && \/design_studio\/\.test\(product\)\) \{[\s\S]*?\n {2}\}/)?.[0] || ''
+  assert.match(branch, /label: 'Design Studio'/)
+  assert.match(branch, /label: 'Scheduler'/)
+  assert.match(branch, /studioSchedulerLaunch: true/)
+  assert.doesNotMatch(branch, /page: 'social-scheduler'/)
+  assert.match(part2, /p\.studioSchedulerLaunch[\s\S]*?window\.openStudioSchedulerWithEntitlementCheck\(\)/)
 })
 
 test('renderStudioDesignAndPublish keeps the user inside the Studio interface instead of closing it and calling the Marketing engine composer', () => {

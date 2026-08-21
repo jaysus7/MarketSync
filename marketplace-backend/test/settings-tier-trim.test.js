@@ -134,12 +134,13 @@ test('every single-product tier (not just Design Studio) gets the simplified hea
   assert.ok(fn.indexOf("active.length === 1) {") < fn.indexOf("active[0] === 'design_studio'"), 'the general single-product block must not be nested inside the design_studio-specific one')
 })
 
-test('Design Studio sidebar is the one launcher button, not a second Settings row — Settings lives under the header Profile icon for every single-product tier', () => {
+test('Design Studio sidebar exposes Studio and its merged Scheduler, but not a second Settings row', () => {
   const fn = dashboard.match(/function restrictedNavPages\(\) \{[\s\S]*?\nwindow\.restrictedNavPages = restrictedNavPages;/)?.[0] || ''
   const branch = fn.match(/if \(activeProducts\.length === 1 && \/design_studio\/\.test\(product\)\) \{[\s\S]*?\n {2}\}/)?.[0] || ''
   assert.ok(branch, 'the design_studio branch of restrictedNavPages must exist')
   const itemCount = (branch.match(/\{ page:/g) || []).length
-  assert.equal(itemCount, 1, 'Design Studio should return exactly one nav entry, not a separate Settings row')
+  assert.equal(itemCount, 2, 'Design Studio should return Studio and Scheduler entries')
+  assert.match(branch, /label: 'Scheduler'/, 'the merged scheduler must remain visible')
   assert.doesNotMatch(branch, /label: 'Settings'/, 'Settings must not be a sidebar row — it lives under the header Profile icon')
 })
 

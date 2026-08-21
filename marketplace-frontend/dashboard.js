@@ -1397,7 +1397,9 @@ function applyMobileQuickRow() {
     if (more && more.parentElement) more.parentElement.insertBefore(host, more);
   }
   host.innerHTML = pages.map(p => {
-    const call = p.studioLaunch
+    const call = p.studioSchedulerLaunch
+      ? 'window.openStudioSchedulerWithEntitlementCheck()'
+      : p.studioLaunch
       ? 'window.openMarketSyncStudio()'
       : `deptGo('${esc(p.page)}'${p.tab ? `,'${esc(p.invmode || '')}','${esc(p.tab)}'` : (p.invmode ? `,'${esc(p.invmode)}'` : '')})`;
     return `<button type="button" data-page="${esc(p.page)}"${p.tab ? ` data-tab="${esc(p.tab)}"` : ''} onclick="${call}" title="${esc(p.label)}" class="nav-item md:hidden flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="opacity-70">${svgIcon(p.icon || 'dot', 'w-[18px] h-[18px]')}</span><span class="text-[9px] leading-none">${esc(p.label.split(' ')[0])}</span></button>`;
@@ -1468,11 +1470,12 @@ function restrictedNavPages() {
     ];
   }
   if (activeProducts.length === 1 && /design_studio/.test(product)) {
-    // The one and only sidebar entry — launches the editor. Settings is reached
-    // through the header's Profile icon now (every single-product tier's rule), not
-    // a second sidebar row, so this never needs to double as a "current page" link
-    // and never needs to fight Settings for the highlighted state.
-    return [{ page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true }];
+    // Keep the merged Design Studio + Scheduler experience visible without routing
+    // into the separate Social Scheduler dashboard. Settings remains under Profile.
+    return [
+      { page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true },
+      { page: 'studio-scheduler', label: 'Scheduler', icon: 'calendar', studioSchedulerLaunch: true }
+    ];
   }
   if (activeProducts.length === 1 && /(marketsync_identity|identity_verify)/.test(product)) {
     return [{ page: 'crm', label: 'Customer Verification', icon: 'shield' }];
