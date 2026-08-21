@@ -24,11 +24,11 @@ const labels = area => area.items.map(item => item.label);
 
 test('all marketing suites generate the same DealerOS-style major-area shell', () => {
   const configs = suiteConfigs();
-  const common = ['Pulse', 'Marketing', 'Content', 'Reports', 'Academy', 'Settings'];
+  const common = ['Pulse', 'Marketing', 'Content', 'Reports', 'Academy'];
   assert.deepEqual(configs.sales.areas.map(area => area.label), common);
   assert.deepEqual(configs.service.areas.map(area => area.label), common);
   assert.deepEqual(configs.complete.areas.map(area => area.label), common);
-  assert.deepEqual(configs.digital.areas.map(area => area.label), ['Pulse', 'Marketing', 'Content', 'Digital Presence', 'Reports', 'Academy', 'Settings']);
+  assert.deepEqual(configs.digital.areas.map(area => area.label), ['Pulse', 'Marketing', 'Content', 'Digital Presence', 'Reports', 'Academy']);
 });
 
 test('suite page headers expose canonical products without moving them into the sidebar', () => {

@@ -49,7 +49,6 @@ function buildMarketingSuiteConfig(key) {
   areas.push(
     { id: 'reports', label: 'Reports', icon: 'chart', items: [suiteItem('automation-builder', 'Overview', 'chart', { tab: 'performance' })] },
     { id: 'academy', label: 'Academy', icon: 'sparkles', items: [suiteItem('academy', 'Academy', 'sparkles')] },
-    { id: 'settings', label: 'Settings', icon: 'shield', items: [suiteItem('profile', 'Settings', 'shield', { tab: 'marketing' })] },
   );
 
   return {
