@@ -142,7 +142,7 @@ export async function provisionPlan({
   // Fetch current dealership to merge legacy compatibility flags without clobbering other products.
   const { data: currentDealer } = await supabaseAdmin
     .from('dealerships')
-    .select('products, ai_chatbot_active, ai_chatbot_paid, inv_intel_active, inv_intel_paid, ai_boost_active, ai_boost_paid, seo_active, vin_sticker_active, ai_vision_active, fb_only, plan, account_type')
+    .select('products, ai_chatbot_active, ai_chatbot_paid, inv_intel_active, inv_intel_paid, ai_boost_active, ai_boost_paid, vin_sticker_active, ai_vision_active, fb_only, plan, account_type')
     .eq('id', dealershipId)
     .maybeSingle()
 
@@ -181,9 +181,6 @@ export async function provisionPlan({
       if (plan.legacy.ai_vision_active !== undefined) dealerUpdate.ai_vision_active = plan.legacy.ai_vision_active
       if (plan.legacy.fb_only !== undefined && !currentDealer?.products?.dealer_os) dealerUpdate.fb_only = plan.legacy.fb_only
     }
-    if (products.includes('marketsync_seo')) {
-      dealerUpdate.seo_active = true
-    }
   } else {
     for (const p of products) {
       currentProducts[p] = false
@@ -195,9 +192,6 @@ export async function provisionPlan({
     }
     dealerUpdate.products = currentProducts
 
-    if (products.includes('marketsync_seo')) {
-      dealerUpdate.seo_active = false
-    }
     if (products.includes('ai_dealer') && planId === 'ai-chatbot') {
       dealerUpdate.ai_chatbot_active = false
       dealerUpdate.ai_chatbot_paid = false
@@ -256,7 +250,7 @@ export async function cancelAllSubscriptions(dealershipId) {
   await supabaseAdmin.from('dealerships').update({
     plan: null, ai_boost_active: false, ai_boost_paid: false,
     inv_intel_active: false, inv_intel_paid: false, ai_chatbot_active: false, ai_chatbot_paid: false,
-    seo_active: false, billing_status: 'INACTIVE',
+    billing_status: 'INACTIVE',
   }).eq('id', dealershipId)
 }
 

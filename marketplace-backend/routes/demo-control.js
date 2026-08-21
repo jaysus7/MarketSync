@@ -118,7 +118,6 @@ async function replaceDemoDealershipPackage({ dealershipId, planId, status = 'ac
     inv_intel_paid: false,
     ai_boost_active: false,
     ai_boost_paid: false,
-    seo_active: false,
     vin_sticker_active: false,
     ai_vision_active: false,
     fb_only: false,
