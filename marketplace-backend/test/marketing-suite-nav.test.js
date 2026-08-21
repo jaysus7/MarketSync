@@ -65,6 +65,15 @@ test('Marketing Suite — Left Navigation & Workspace Context', async (t) => {
     assert.match(dashPart18Js, /col-span-2[\s\S]*?<span>Edit in Advanced Builder<\/span>/,
       'workflow cards emphasize the primary edit action');
   });
+
+  await t.test('gives Service Marketing the same responsive tool and action hierarchy', () => {
+    assert.match(mktWorkspaceJs, /Service Quick Action Cards[\s\S]*?grid sm:grid-cols-2 xl:grid-cols-3 gap-5/,
+      'Service tools use the shared responsive three-column layout');
+    for (const label of ['Manage Reminder Flows', 'Manage Declined Recapture', 'Manage Win-Back', 'Explore Campaigns']) {
+      assert.match(mktWorkspaceJs, new RegExp(`bg-(?:emerald|amber|sky|violet)-600[^>]*>${label}`),
+        `${label} is rendered as a prominent action`);
+    }
+  });
 });
 
 test('Marketing Suite — Horizontal Top Tabs & Clean Email & SMS Landing', async (t) => {

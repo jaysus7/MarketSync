@@ -666,14 +666,14 @@ ENGINES['marketing-overview'] = {
             </div>
 
             <!-- Service Quick Action Cards -->
-            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
               <div onclick="switchPage('automation-builder'); autoTab('automations'); __autoCategoryFilter='service'; loadAutoBuilderPage();" class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-emerald-500 transition cursor-pointer group">
                 <div class="w-10 h-10 rounded-xl bg-emerald-600/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black mb-3 group-hover:bg-emerald-600 group-hover:text-white transition">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.07a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091.491.077.994-.04 1.48"/></svg>
                 </div>
                 <h4 class="text-base font-black text-slate-900 dark:text-white">Service Reminders</h4>
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Mileage intervals, seasonal tire changeovers, brake alerts, oil change reminders.</p>
-                <div class="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-3 flex items-center gap-1">Manage Reminder Flows &rarr;</div>
+                <div class="mt-4 w-full px-3 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black text-center shadow-md group-hover:bg-emerald-500 transition">Manage Reminder Flows &rarr;</div>
               </div>
 
               <div onclick="switchPage('automation-builder'); autoTab('automations'); __autoCategoryFilter='service'; loadAutoBuilderPage();" class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-amber-500 transition cursor-pointer group">
@@ -682,7 +682,7 @@ ENGINES['marketing-overview'] = {
                 </div>
                 <h4 class="text-base font-black text-slate-900 dark:text-white">Declined Service Follow-Up</h4>
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Automated recapture sequences on unperformed technician recommendations.</p>
-                <div class="text-xs font-bold text-amber-600 dark:text-amber-400 mt-3 flex items-center gap-1">Manage Declined Recapture &rarr;</div>
+                <div class="mt-4 w-full px-3 py-2.5 rounded-xl bg-amber-600 text-white text-xs font-black text-center shadow-md group-hover:bg-amber-500 transition">Manage Declined Recapture &rarr;</div>
               </div>
 
               <div onclick="switchPage('automation-builder'); autoTab('automations'); __autoCategoryFilter='lifecycle'; loadAutoBuilderPage();" class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-sky-500 transition cursor-pointer group">
@@ -691,7 +691,7 @@ ENGINES['marketing-overview'] = {
                 </div>
                 <h4 class="text-base font-black text-slate-900 dark:text-white">Customer Reactivation</h4>
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Win back drivers who haven't visited for service in 9 to 18 months automatically.</p>
-                <div class="text-xs font-bold text-sky-600 dark:text-sky-400 mt-3 flex items-center gap-1">Manage Win-Back &rarr;</div>
+                <div class="mt-4 w-full px-3 py-2.5 rounded-xl bg-sky-600 text-white text-xs font-black text-center shadow-md group-hover:bg-sky-500 transition">Manage Win-Back &rarr;</div>
               </div>
 
               <div onclick="engineTab('marketing-overview','campaigns')" class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-violet-500 transition cursor-pointer group">
@@ -700,7 +700,7 @@ ENGINES['marketing-overview'] = {
                 </div>
                 <h4 class="text-base font-black text-slate-900 dark:text-white">Service Campaigns</h4>
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Spring tire changeover specials, brake service discounts, battery health check blasts.</p>
-                <div class="text-xs font-bold text-violet-600 dark:text-violet-400 mt-3 flex items-center gap-1">Explore Campaigns &rarr;</div>
+                <div class="mt-4 w-full px-3 py-2.5 rounded-xl bg-violet-600 text-white text-xs font-black text-center shadow-md group-hover:bg-violet-500 transition">Explore Campaigns &rarr;</div>
               </div>
             </div>
 
