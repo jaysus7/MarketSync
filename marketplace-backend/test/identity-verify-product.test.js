@@ -11,6 +11,7 @@ const registration = read('marketplace-frontend/register.html')
 const dashboard = read('marketplace-frontend/dashboard.js')
 const migration = read('marketplace-backend/migrations/2026-08-20-identity-verify-product.sql')
 const engineUi = read('marketplace-frontend/js/modules/dashboard-part10.js')
+const crmUi = read('marketplace-frontend/js/modules/dashboard-part4.js')
 
 test('Identity Verify is canonical, standalone, and included only in current DealerOS Complete', () => {
   assert.equal(getPlan('identity-verify')?.monthly, 299)
@@ -42,4 +43,12 @@ test('shared DealerOS cards and sections use native accessible disclosure contro
   assert.match(engineUi, /function engCard[\s\S]*?<details open class="group/)
   assert.match(engineUi, /function engSection[\s\S]*?<details open class="group/)
   assert.match(engineUi, /<summary class="list-none cursor-pointer/)
+})
+
+test('standalone Identity Verify renders CRM directly instead of recursively routing through DealerOS Sales', () => {
+  const loader = crmUi.match(/async function loadCrmPage\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(loader, 'loadCrmPage must exist')
+  assert.match(loader, /isIdentityVerifyWorkspace\(\)/)
+  assert.match(loader, /if \(!identityOnly && typeof switchPage/)
+  assert.match(loader, /await crmLoadContacts\(body\)/)
 })

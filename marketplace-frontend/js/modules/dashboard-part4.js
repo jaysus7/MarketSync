@@ -3,7 +3,8 @@
 // CRM is now split into separate pages (Customers / Leads / Appointments /
 // Tasks). This page renders just the Customers (contacts) view.
 async function loadCrmPage() {
-  if (typeof switchPage === 'function' && typeof engineTab === 'function') {
+  const identityOnly = typeof isIdentityVerifyWorkspace === 'function' && isIdentityVerifyWorkspace();
+  if (!identityOnly && typeof switchPage === 'function' && typeof engineTab === 'function') {
     switchPage('sales');
     setTimeout(() => engineTab('sales', 'work'), 50);
     return;
