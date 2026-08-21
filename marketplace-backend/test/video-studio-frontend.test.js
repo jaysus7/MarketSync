@@ -8,6 +8,21 @@ const part2 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashbo
 const part17 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part17.js', import.meta.url), 'utf8')
 const dashboardHtml = readFileSync(new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8')
 
+test('Content → Video paints immediately and refreshes its library without blocking navigation', () => {
+  const loadFn = videoStudio.match(/function loadVideoStudioPage\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(loadFn, 'loadVideoStudioPage must be synchronous so navigation can paint immediately')
+  assert.match(loadFn, /root\.innerHTML = renderVideoStudioWorkspace\(__videoLibraryVideos\)/,
+    'cached or demo videos render before the network refresh')
+  assert.match(loadFn, /void refreshVideoLibrary\(\)\.then/,
+    'the live library refresh runs in the background')
+  assert.doesNotMatch(loadFn, /await apiGetJson/,
+    'opening Video must never await the backend')
+  assert.match(videoStudio, /if \(__videoLibraryRequest\) return __videoLibraryRequest/,
+    'concurrent search/filter renders deduplicate library requests')
+  assert.match(videoStudio, /freshForMs = 30000/,
+    'recent library results are reused while users search and filter')
+})
+
 test('Video has a real nav icon — "video" was referenced but never defined in SVG_ICONS, silently falling back to a plain dot', () => {
   const iconsBlock = dashboardJs.match(/const SVG_ICONS = \{[\s\S]*?\n\};/)?.[0] || ''
   assert.ok(iconsBlock, 'SVG_ICONS must exist')

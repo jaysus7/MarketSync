@@ -1649,38 +1649,63 @@ const DEMO_SENT_VIDEOS = [
   }
 ];
 
-async function loadVideoStudioPage() {
+let __videoLibraryVideos = DEMO_SENT_VIDEOS;
+let __videoLibraryFetchedAt = 0;
+let __videoLibraryRequest = null;
+
+function normalizeVideoLibrary(videos) {
+  return videos.map(v => ({
+    id: v.id,
+    title: v.title || 'Personalized Video Message',
+    contact_name: v.contact_name || 'Customer',
+    contact_phone: v.contact_phone || '',
+    contact_id: v.contact_id,
+    vehicle: v.vehicle || 'Vehicle',
+    sender: v.sender_name || v.sender || 'Sales Rep',
+    department: v.department || 'Sales',
+    channel: v.channel || 'link',
+    status: v.first_played_at ? 'viewed' : (v.sent_at ? 'sent' : 'draft'),
+    duration_seconds: v.duration_seconds || 120,
+    sent_at: v.sent_at,
+    first_opened_at: v.first_opened_at,
+    first_played_at: v.first_played_at,
+    total_views: v.play_count || v.total_views || (v.first_played_at ? 1 : 0),
+    watch_percent: v.watch_percent || 0,
+    share_token: v.share_token,
+    public_url: v.public_url || '',
+  }));
+}
+
+function refreshVideoLibrary() {
+  const freshForMs = 30000;
+  if (Date.now() - __videoLibraryFetchedAt < freshForMs) return Promise.resolve(__videoLibraryVideos);
+  if (__videoLibraryRequest) return __videoLibraryRequest;
+
+  __videoLibraryRequest = apiGetJson('/sales-videos')
+    .then(res => {
+      if (Array.isArray(res?.videos) && res.videos.length > 0) {
+        __videoLibraryVideos = normalizeVideoLibrary(res.videos);
+      }
+      __videoLibraryFetchedAt = Date.now();
+      return __videoLibraryVideos;
+    })
+    .catch(() => __videoLibraryVideos)
+    .finally(() => { __videoLibraryRequest = null; });
+  return __videoLibraryRequest;
+}
+
+function loadVideoStudioPage() {
   const root = document.getElementById('video-studio-root');
   if (!root) return;
 
-  let videos = DEMO_SENT_VIDEOS;
-  try {
-    const res = await apiGetJson('/sales-videos').catch(() => null);
-    if (res?.videos && res.videos.length > 0) {
-      videos = res.videos.map(v => ({
-        id: v.id,
-        title: v.title || 'Personalized Video Message',
-        contact_name: v.contact_name || 'Customer',
-        contact_phone: v.contact_phone || '',
-        contact_id: v.contact_id,
-        vehicle: v.vehicle || 'Vehicle',
-        sender: v.sender_name || 'Sales Rep',
-        department: v.department || 'Sales',
-        channel: v.channel || 'link',
-        status: v.first_played_at ? 'viewed' : (v.sent_at ? 'sent' : 'draft'),
-        duration_seconds: v.duration_seconds || 120,
-        sent_at: v.sent_at,
-        first_opened_at: v.first_opened_at,
-        first_played_at: v.first_played_at,
-        total_views: v.play_count || (v.first_played_at ? 1 : 0),
-        watch_percent: v.watch_percent || 0,
-        share_token: v.share_token,
-        public_url: v.public_url || '',
-      }));
+  // Paint immediately. A cold backend must not block opening Content → Video.
+  root.innerHTML = renderVideoStudioWorkspace(__videoLibraryVideos);
+  void refreshVideoLibrary().then(videos => {
+    const currentRoot = document.getElementById('video-studio-root');
+    if (currentRoot === root && root.isConnected) {
+      root.innerHTML = renderVideoStudioWorkspace(videos);
     }
-  } catch {}
-
-  root.innerHTML = renderVideoStudioWorkspace(videos);
+  });
 }
 
 function renderVideoStudioWorkspace(videos, isSaas = false) {
@@ -1854,4 +1879,3 @@ window.loadSaasVideoStudio = loadSaasVideoStudio;
 window.msFilterVideoStatus = msFilterVideoStatus;
 window.msFilterVideoDept = msFilterVideoDept;
 window.msSearchVideos = msSearchVideos;
-
