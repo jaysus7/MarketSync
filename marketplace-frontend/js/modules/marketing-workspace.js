@@ -20,10 +20,10 @@ function buildMarketingSuiteConfig(key) {
   const definition = MARKETING_SUITE_DEFINITIONS[key] || MARKETING_SUITE_DEFINITIONS.complete;
   const marketing = [];
   if (definition.marketingModes.includes('sales')) {
-    marketing.push(suiteItem('marketing-overview', 'Sales Marketing', 'currency', { tab: key === 'sales' ? 'overview' : 'sales_overview' }));
+    marketing.push(suiteItem('marketing-overview', 'Sales Marketing', 'currency', { tab: 'sales_overview' }));
   }
   if (definition.marketingModes.includes('service')) {
-    marketing.push(suiteItem('marketing-overview', 'Service Marketing', 'wrench', { tab: key === 'service' ? 'overview' : 'service_overview' }));
+    marketing.push(suiteItem('marketing-overview', 'Service Marketing', 'wrench', { tab: 'service_overview' }));
   }
   marketing.push(
     suiteItem('marketing-overview', 'Campaigns', 'megaphone', { tab: 'campaigns' }),
@@ -552,14 +552,14 @@ ENGINES['marketing-overview'] = {
             </div>
 
             <!-- Sales Quick Action Cards -->
-            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
               <div onclick="switchPage('automation-builder'); autoTab('automations'); __autoCategoryFilter='leads'; loadAutoBuilderPage();" class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-indigo-500 transition cursor-pointer group">
                 <div class="w-10 h-10 rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black mb-3 group-hover:bg-indigo-600 group-hover:text-white transition">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
                 </div>
                 <h4 class="text-base font-black text-slate-900 dark:text-white">Lead Follow-Up</h4>
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">90-second rapid response, missed calls, day 1-7 lead follow-ups, appointments.</p>
-                <div class="text-xs font-bold text-indigo-600 dark:text-indigo-400 mt-3 flex items-center gap-1">Manage Lead Flows &rarr;</div>
+                <div class="mt-4 w-full px-3 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-black text-center shadow-md group-hover:bg-indigo-500 transition">Manage Lead Flows &rarr;</div>
               </div>
 
               <div onclick="switchPage('automation-builder'); autoTab('automations'); __autoCategoryFilter='sales'; loadAutoBuilderPage();" class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-emerald-500 transition cursor-pointer group">
@@ -568,7 +568,7 @@ ENGINES['marketing-overview'] = {
                 </div>
                 <h4 class="text-base font-black text-slate-900 dark:text-white">Sold &amp; Delivery</h4>
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Delivery checklists, Google review requests, referrals, and equity check-ins.</p>
-                <div class="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-3 flex items-center gap-1">Manage Sales Flows &rarr;</div>
+                <div class="mt-4 w-full px-3 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black text-center shadow-md group-hover:bg-emerald-500 transition">Manage Sales Flows &rarr;</div>
               </div>
 
               <div onclick="engineTab('marketing-overview','campaigns')" class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-sky-500 transition cursor-pointer group">
@@ -577,7 +577,7 @@ ENGINES['marketing-overview'] = {
                 </div>
                 <h4 class="text-base font-black text-slate-900 dark:text-white">Sales Campaigns</h4>
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Vehicle clearance blasts, trade-in VIP events, holiday inventory sales.</p>
-                <div class="text-xs font-bold text-sky-600 dark:text-sky-400 mt-3 flex items-center gap-1">Manage Campaigns &rarr;</div>
+                <div class="mt-4 w-full px-3 py-2.5 rounded-xl bg-sky-600 text-white text-xs font-black text-center shadow-md group-hover:bg-sky-500 transition">Manage Campaigns &rarr;</div>
               </div>
 
               <div onclick="window.openMarketSyncStudio ? window.openMarketSyncStudio() : switchPage('studio')" class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-violet-500 transition cursor-pointer group">
@@ -586,7 +586,7 @@ ENGINES['marketing-overview'] = {
                 </div>
                 <h4 class="text-base font-black text-slate-900 dark:text-white">Design Studio</h4>
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Vehicle graphics, social banners, flyer templates, and promotional assets.</p>
-                <div class="text-xs font-bold text-violet-600 dark:text-violet-400 mt-3 flex items-center gap-1">Open Design Studio &rarr;</div>
+                <div class="mt-4 w-full px-3 py-2.5 rounded-xl bg-violet-600 text-white text-xs font-black text-center shadow-md group-hover:bg-violet-500 transition">Open Design Studio &rarr;</div>
               </div>
             </div>
 

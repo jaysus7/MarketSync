@@ -47,6 +47,19 @@ test('Marketing Suite — Left Navigation & Workspace Context', async (t) => {
       'Content opens Scheduler while retaining Design Studio, Scheduler, Video header order');
     assert.match(dashPart2Js, /find\(item => item\.page === area\.defaultPage\)/,
       'major areas honor their configured landing product');
+    assert.match(mktWorkspaceJs, /'Sales Marketing'.*tab: 'sales_overview'/,
+      'Sales Marketing has a distinct route from suite Pulse');
+    assert.match(mktWorkspaceJs, /'Service Marketing'.*tab: 'service_overview'/,
+      'Service Marketing has a distinct route from suite Pulse');
+  });
+
+  await t.test('organizes Sales Marketing tools and featured workflows in responsive three-column grids', () => {
+    assert.match(mktWorkspaceJs, /Sales Quick Action Cards[\s\S]*?grid sm:grid-cols-2 xl:grid-cols-3 gap-5/,
+      'Sales tools use a responsive three-column grid');
+    assert.match(dashPart18Js, /Featured Active Automations[\s\S]*?grid md:grid-cols-2 2xl:grid-cols-3 gap-4/,
+      'featured automations use three columns on wide screens');
+    assert.match(dashPart18Js, /col-span-2[\s\S]*?<span>Edit in Advanced Builder<\/span>/,
+      'workflow cards emphasize the primary edit action');
   });
 });
 

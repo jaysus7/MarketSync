@@ -1010,18 +1010,18 @@ function renderAutoWorkflowCard(wf) {
       </div>
 
       <!-- Action Buttons -->
-      <div class="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800/80 flex-wrap gap-2">
-        <div class="flex items-center gap-2 flex-wrap">
-          <button onclick="openVisualWorkflowBuilder('${wf.key}')" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow-xs flex items-center gap-1.5 cursor-pointer">
+      <div class="pt-3 border-t border-slate-100 dark:border-slate-800/80 space-y-2">
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="openVisualWorkflowBuilder('${wf.key}')" class="col-span-2 px-3 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer">
             <svg class="w-3.5 h-3.5 text-amber-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
             <span>Edit in Advanced Builder</span>
           </button>
-          <button onclick="openQuickEditAutoModal('${wf.key}')" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition cursor-pointer">Quick Edit</button>
-          <button onclick="duplicateAutoWorkflow('${wf.key}')" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition cursor-pointer">Duplicate</button>
-          <button onclick="quickAiRewriteWorkflow('${wf.key}')" class="px-3 py-1.5 rounded-xl bg-violet-600/10 hover:bg-violet-600/20 text-violet-600 dark:text-violet-400 font-bold text-xs transition cursor-pointer">AI Rewrite</button>
-          <button onclick="testSendWorkflowModal('${wf.key}')" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition cursor-pointer">Test Send</button>
+          <button onclick="openQuickEditAutoModal('${wf.key}')" class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition cursor-pointer">Quick Edit</button>
+          <button onclick="duplicateAutoWorkflow('${wf.key}')" class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition cursor-pointer">Duplicate</button>
+          <button onclick="quickAiRewriteWorkflow('${wf.key}')" class="px-3 py-2 rounded-xl bg-violet-600/10 hover:bg-violet-600/20 text-violet-600 dark:text-violet-400 font-bold text-xs transition cursor-pointer">AI Rewrite</button>
+          <button onclick="testSendWorkflowModal('${wf.key}')" class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition cursor-pointer">Test Send</button>
         </div>
-        <div class="text-[11px] text-slate-400">
+        <div class="text-[10px] text-slate-400 text-center uppercase tracking-wider">
           Canonical Graph Synchronized
         </div>
       </div>
@@ -1191,7 +1191,7 @@ function renderAutoOverviewTab(container) {
       </div>
 
       <!-- Core Navigation Launch Cards -->
-      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
         <div onclick="autoTab('automations'); __autoCategoryFilter='leads'; loadAutoBuilderPage();" class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-indigo-500 transition cursor-pointer group">
           <div class="w-10 h-10 rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black mb-3 group-hover:bg-indigo-600 group-hover:text-white transition">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
@@ -1235,7 +1235,7 @@ function renderAutoOverviewTab(container) {
           <h3 class="text-sm font-black uppercase tracking-wider text-slate-400">Featured Active Automations</h3>
           <button onclick="autoTab('automations')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">View All &rarr;</button>
         </div>
-        <div class="space-y-4">
+        <div class="grid md:grid-cols-2 2xl:grid-cols-3 gap-4 items-start">
           ${renderAutoWorkflowCard(ALL_AUTOMATIONS_CATALOG.leads[0])}
           ${renderAutoWorkflowCard(ALL_AUTOMATIONS_CATALOG.sales[10])}
           ${renderAutoWorkflowCard(ALL_AUTOMATIONS_CATALOG.service[0])}
