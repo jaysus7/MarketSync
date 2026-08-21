@@ -21,11 +21,12 @@ describe('Website Product — Default Landing Setup & Contained Dashboard Archit
     assert.ok(part17Content.includes("else __wsTab = 'setup';"), 'Defaults to setup when tab is not specified');
   });
 
-  it('renders top navigation tabs for Builder, Blog, SEO, and Setup inside wsSetup', () => {
-    assert.ok(part17Content.includes("onclick=\"wsTab('builder')\""), 'Contains Builder tab button');
-    assert.ok(part17Content.includes("onclick=\"wsTab('blog')\""), 'Contains Blog tab button');
-    assert.ok(part17Content.includes("onclick=\"wsTab('seo')\""), 'Contains SEO tab button');
-    assert.ok(part17Content.includes("onclick=\"wsTab('setup')\""), 'Contains Setup tab button');
+  it('does not render the redundant Builder, Blog, SEO, and Setup tab strip inside wsSetup', () => {
+    const setupSource = part17Content.slice(part17Content.indexOf('function wsSetup()'), part17Content.indexOf('window.wsSetup = wsSetup'));
+    assert.ok(!setupSource.includes('Website Workspace Top Navigation Tabs'), 'Redundant Website tab strip is absent');
+    assert.ok(!setupSource.includes("onclick=\"wsTab('builder')\""), 'Builder tab is not duplicated in Setup');
+    assert.ok(!setupSource.includes("onclick=\"wsTab('blog')\""), 'Blog tab is not duplicated in Setup');
+    assert.ok(!setupSource.includes("onclick=\"wsTab('seo')\""), 'SEO tab is not duplicated in Setup');
   });
 
   it('surfaces all 13 core configuration cards in wsSetup', () => {

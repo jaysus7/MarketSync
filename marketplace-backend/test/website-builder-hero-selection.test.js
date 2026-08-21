@@ -22,5 +22,5 @@ test('Hero has canonical editable fields and the dashboard loads the fixed build
   assert.match(builder, /\['headline','Headline','text'\]/)
   assert.match(builder, /\['subheadline','Subheadline','text'\]/)
   assert.match(builder, /\['image','Or upload a photo','image'\]/)
-  assert.match(dashboard, /dashboard-part17\.js\?v=20260821_hero_editor_v1/)
+  assert.match(dashboard, /dashboard-part17\.js\?v=20260821_website_setup_v2/)
 })
