@@ -133,12 +133,13 @@ test('Sales page is wired into the shell and the registry', () => {
     'sales-workspace.js must load after the dashboard parts')
   assert.match(part2, /if \(pageId === 'sales'\) loadSalesWorkspace\(\);/, 'switchPage must load the workspace')
   assert.match(part2, /sales: 'os\.crm'/, 'the sales page must carry an entitlement key')
-  // Sales leads with Today, and the existing pages remain reachable (no deletion).
+  // Sales leads with its own Pulse. The obsolete app-wide Insights pseudo-Pulse is retired.
   const block = registry.match(/sales: \{[\s\S]*?\n  \},/)?.[0] || ''
   assert.match(block, /\{ page: 'sales', label: 'Pulse' \}/, 'Sales must lead with Pulse')
-  for (const p of ['crm', 'appointments', 'tasks', 'leads', 'insights', 'commissions']) {
+  for (const p of ['crm', 'appointments', 'tasks', 'leads', 'commissions']) {
     assert.ok(block.includes(`page: '${p}'`), `existing Sales page "${p}" must stay reachable`)
   }
+  assert.ok(!block.includes("page: 'insights'"), 'Sales must not expose the retired global Insights/Pulse')
 })
 
 test('Sales navigation stays free of other departments’ work', () => {

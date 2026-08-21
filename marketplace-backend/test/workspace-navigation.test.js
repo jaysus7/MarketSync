@@ -122,7 +122,7 @@ test('each MarketSync Internal page owns specific operational header tabs', () =
 // reorganization: none of these may become unreachable.
 const PRE_PHASE1_PAGES = [
   'accounting', 'ai-home', 'api-keys', 'appointments', 'appraisal', 'automation-builder',
-  'command', 'config', 'crm', 'delivery', 'email-marketing', 'equity', 'fni', 'insights',
+  'command', 'config', 'crm', 'delivery', 'email-marketing', 'equity', 'fni',
   'inv-intel', 'inventory', 'leaderboard', 'leads', 'market', 'operations', 'people-compliance',
   'recon', 'reports', 'sales-team', 'service-appointments', 'service-parts', 'service-ros',
   'taskboard', 'tasks', 'website',
@@ -173,6 +173,13 @@ test('no feature deletion — every pre-Phase-1 page is still reachable', () => 
   for (const page of PRE_PHASE1_PAGES) {
     assert.ok(now.has(page), `page "${page}" was reachable before Phase 1 and must remain reachable`)
   }
+})
+
+test('the obsolete global Insights pseudo-Pulse is intentionally retired', () => {
+  const { MS_WORKSPACES, msAllWorkspacePages } = loadRegistry()
+  assert.ok(!msAllWorkspacePages(MS_WORKSPACES).includes('insights'))
+  assert.match(part2, /if \(pageId === 'insights'\)[\s\S]*?dealerRoleLanding/,
+    'old bookmarks must redirect to the caller workspace Pulse')
 })
 
 test('the two orphaned pages are reachable again', () => {

@@ -63,7 +63,6 @@ const MS_WORKSPACES = {
       { page: 'appointments', label: 'Appointments', legacy: true },
       { page: 'tasks', label: 'Tasks', legacy: true },
       { page: 'leads', label: 'Leads', mgr: true, legacy: true },
-      { page: 'insights', label: 'Insights', mgr: true, legacy: true },
       { page: 'commissions', label: 'My Commission', legacy: true },
       // Appraisals lives ONLY in Sales now — it used to also be mounted inside
       // Inventory's own engine tabs, so the same content appeared to "switch" contexts
@@ -226,7 +225,7 @@ const MS_ROLE_MOBILE_NAV = {
   OWNER:        ['command', 'sales', 'inventory-overview'],
   DEALER_ADMIN: ['command', 'sales', 'inventory-overview'],
 };
-const MS_MOBILE_NAV_DEFAULT = ['insights', 'crm', 'tasks'];
+const MS_MOBILE_NAV_DEFAULT = ['sales', 'crm', 'tasks'];
 
 // ── Pure structural helpers (no DOM, no gating — safe to unit test) ──────────
 

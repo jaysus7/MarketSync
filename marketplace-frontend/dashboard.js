@@ -487,7 +487,7 @@ let profileContext = null;
 // html[data-dash-mode] attribute). Persisted per-browser.
 let __dashMode = localStorage.getItem('ms_dash_mode') === 'marketsync' ? 'marketsync' : 'demo';
 // The pages that remain in MarketSync mode (everything else is vehicle-only).
-const MS_ALLOWED_PAGES = new Set(['command', 'saas-command', 'saas-customers', 'saas-followups', 'saas-funnel', 'saas-automation', 'saas-employees', 'insights', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin', 'owner-users']);
+const MS_ALLOWED_PAGES = new Set(['command', 'saas-command', 'saas-customers', 'saas-followups', 'saas-funnel', 'saas-automation', 'saas-employees', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin', 'owner-users']);
 
 // ── Specialized dealership sub-roles ─────────────────────────────────────────
 // Beyond DEALER_ADMIN / OWNER / MANAGER / SALES_REP, a store can give a login one
@@ -801,7 +801,7 @@ Object.assign(window, { openSetupCenter, setupRun, setupSaveForm, setupTour, ren
 let __fbOnly = false;
 // The leaderboard panel lives on the Dashboard (insights) — in fb tier the insights
 // page is stripped by CSS to just the leaderboard, so 'insights' is the leaderboard.
-const FB_ONLY_PAGES = new Set(['inventory', 'leaderboard', 'insights', 'profile']);
+const FB_ONLY_PAGES = new Set(['inventory', 'leaderboard', 'profile']);
 function applyFbOnlyMode() {
   if (__fbOnly) document.documentElement.setAttribute('data-dash-tier', 'fb');
   else document.documentElement.removeAttribute('data-dash-tier');

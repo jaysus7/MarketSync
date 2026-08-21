@@ -39,7 +39,7 @@ function dealerRoleLanding(role) {
     SALES_REP: 'sales', BDC: 'sales', FNI: 'fni-overview', SERVICE: 'service-overview',
     ACCOUNTING: 'accounting-overview', CLEANUP: 'recon',
   };
-  return routes[String(role || '').toUpperCase()] || 'insights';
+  return routes[String(role || '').toUpperCase()] || 'sales';
 }
 window.dealerRoleLanding = dealerRoleLanding;
 
@@ -464,9 +464,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // (or if there's genuinely no session) — otherwise the init fires auth'd requests
   // with no token and flashes a broken UI before the redirect/reload lands.
   if (__authPending || !localStorage.getItem('token')) return;
-  // Show insights immediately — mobile sees content before the auth fetch completes.
-  // role-gated items (data-admin-nav etc.) stay hidden until ms-role-ready is set inside init.
-  switchPage('insights');
+  // The retired global Insights/Pulse must never flash before access context resolves.
+  // Every workspace now owns its own Pulse; old deep links are redirected in switchPage.
+  document.querySelector('[data-page-content="insights"]')?.remove();
+  switchPage(dealerRoleLanding(profileContext?.role));
   initializeDashboardEcosystem();
   setupActionListeners();
 });
@@ -1171,7 +1172,7 @@ window.postToFacebook = postToFacebook;
 // still lives on the dashboard).
 function openLeaderboardOnDash() {
   if (__fbOnly) {
-    switchPage('insights');
+    switchPage('leaderboard');
     setTimeout(() => { try { document.getElementById('leaderboard-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch {} }, 120);
     return;
   }
@@ -1213,7 +1214,7 @@ const DEPARTMENTS = (typeof MS_WORKSPACES !== 'undefined' && MS_WORKSPACES) || {
   sales: {
     label: 'Sales', icon: 'currency', accent: 'amber',
     pages: [
-      { page: 'insights', label: 'Overview' },
+      { page: 'sales', label: 'Pulse' },
       { page: 'crm', label: 'Customers' },
       { page: 'appointments', label: 'Appointments' },
       { page: 'tasks', label: 'Tasks' },
@@ -1756,6 +1757,15 @@ function highlightDeptNav(pageId) {
 function switchPage(pageId) {
   ensurePanelsInOriginalLocations();
 
+  // The old global Insights page was an app-wide pseudo-Pulse. It is retired:
+  // each workspace owns its own Pulse now. Preserve old bookmarks by resolving
+  // them to the caller's current workspace rather than rendering legacy markup.
+  if (pageId === 'insights') {
+    pageId = __fbOnly ? 'leaderboard'
+      : (typeof marketsyncOwnerMode === 'function' && marketsyncOwnerMode()) ? 'saas-command'
+      : dealerRoleLanding(profileContext?.role);
+  }
+
   const inMktSuite = typeof isMarketingSuite === 'function' && isMarketingSuite();
 
   // Map legacy department page IDs directly to the single-source-of-truth workspace engines
@@ -1867,7 +1877,7 @@ function switchPage(pageId) {
   // safe home. The API + RLS already deny the data; this keeps the UI from opening an
   // empty/403 page from a stale link. profile (settings) is always reachable.
   if (pageId !== 'profile' && !pageFeatureOk(pageId)) {
-    pageId = (typeof deptNavEligible === 'function' && deptNavEligible(profileContext?.role)) ? 'command' : 'insights';
+    pageId = (typeof deptNavEligible === 'function' && deptNavEligible(profileContext?.role)) ? 'command' : dealerRoleLanding(profileContext?.role);
   }
 
   // Accounting has one container but each nav leaf (acct-insights, acct-tax, …) is
