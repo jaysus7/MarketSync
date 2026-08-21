@@ -1533,6 +1533,7 @@ async function loadWebsitePage() {
   else __wsTab = 'setup';
 
   if (targetSection) __wsSetupSection = targetSection;
+  if (__wsTab === 'builder') selectFirstEditableWsSection();
 
   if (planSession) {
     try {
@@ -1558,6 +1559,7 @@ async function loadWebsitePage() {
 // Canonical website builder entry point
 function openWebsiteBuilder() {
   __wsTab = 'builder';
+  selectFirstEditableWsSection();
   if (typeof switchPage === 'function' && typeof __currentPage !== 'undefined' && __currentPage !== 'website') {
     switchPage('website');
   } else {
@@ -1635,6 +1637,7 @@ function wsSetTarget(v) {
   if (v === 'home') { __wsTarget = 'home'; __siteSections = __homeSections || []; }
   else if (typeof v === 'string' && v.startsWith('b:')) { __wsTarget = v; const k = v.slice(2); const b = (__siteBuiltins[k] = __siteBuiltins[k] || { enabled: true, label: k, menu: '' }); b.sections = Array.isArray(b.sections) ? b.sections : []; __siteSections = b.sections; }
   else { __wsTarget = parseInt(v); __siteSections = Array.isArray(__sitePages[__wsTarget]?.sections) ? __sitePages[__wsTarget].sections : []; }
+  selectFirstEditableWsSection();
   __wsTab = 'builder'; renderWebsitePage();
 }
 
@@ -2060,6 +2063,14 @@ let __wsActiveLeftNav = 'layers'; // 'layers', 'blocks', 'pages', 'design', 'ai'
 let __wsLeftDockCollapsed = false;
 let __wsRightDockCollapsed = false;
 
+// A global header/footer selection has no section fields. Do not carry that empty
+// inspector into a fresh Builder session or across page changes: the first actual
+// page section (normally Hero) should be immediately editable.
+function selectFirstEditableWsSection() {
+  __wsSelectedSecIdx = (__siteSections || []).length ? 0 : null;
+  __wsInspectorTab = 'content';
+}
+
 function toggleWsLeftDock() {
   __wsLeftDockCollapsed = !__wsLeftDockCollapsed;
   const drawer = document.getElementById('ws-left-drawer-content');
@@ -2213,7 +2224,12 @@ function setWsInspectorTab(tab) {
 window.setWsInspectorTab = setWsInspectorTab;
 
 function selectWsSection(idx) {
-  __wsSelectedSecIdx = idx;
+  const nextIdx = Number(idx);
+  if (!Number.isInteger(nextIdx)) return;
+  if (nextIdx >= 0 && !__siteSections[nextIdx]) return;
+  if (nextIdx < -2) return;
+  __wsSelectedSecIdx = nextIdx;
+  __wsInspectorTab = 'content';
   const panel = document.getElementById('ws-inspector-panel');
   if (panel) panel.innerHTML = renderWsRightInspectorHtml();
   renderWsLayersTree();
