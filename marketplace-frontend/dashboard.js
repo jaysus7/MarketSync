@@ -828,13 +828,13 @@ const PRODUCT_PAGES = {
   facebook_dealer: ['leaderboard', 'inventory'],
   video: ['video-studio', 'leaderboard'],
   marketsync_video: ['video-studio', 'leaderboard'],
-  campaigns: ['marketing-overview', 'automation-builder', 'email-marketing', 'saas-automation'],
+  campaigns: ['email-marketing', 'automation-builder'],
   social: ['social-scheduler'],
   marketsync_social: ['social-scheduler'],
   'social-scheduler': ['social-scheduler'],
   social_scheduler: ['social-scheduler'],
-  email_marketing: ['marketing-overview', 'automation-builder', 'email-marketing'],
-  marketsync_email: ['marketing-overview', 'automation-builder', 'email-marketing'],
+  email_marketing: ['email-marketing', 'automation-builder'],
+  marketsync_email: ['email-marketing', 'automation-builder'],
   ai_chatbot: ['ai-home'],
   website: ['website', 'blog', 'seo'],
   marketsync_website: ['website', 'blog', 'seo'],
@@ -857,13 +857,13 @@ const PRODUCT_HOME = {
   facebook_dealer: 'leaderboard',
   video: 'video-studio',
   marketsync_video: 'video-studio',
-  campaigns: 'marketing-overview',
+  campaigns: 'email-marketing',
   social: 'social-scheduler',
   marketsync_social: 'social-scheduler',
   'social-scheduler': 'social-scheduler',
   social_scheduler: 'social-scheduler',
-  email_marketing: 'marketing-overview',
-  marketsync_email: 'marketing-overview',
+  email_marketing: 'email-marketing',
+  marketsync_email: 'email-marketing',
   ai_chatbot: 'ai-home',
   website: 'website',
   marketsync_website: 'website',
@@ -1497,22 +1497,10 @@ function restrictedNavPages() {
     ];
   }
   if (activeProducts.length === 1 && /(marketsync_email|email_marketing|campaigns[-_]email[-_]sms|marketing[-_]overview|marketing|campaigns|automations)/.test(product)) {
-    const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
-    const feats = access.features || [];
-    const hasAuto = access.isPlatformStaff || feats.includes('email.automations') || feats.includes('os.automations') || !access.features;
-    const items = [
-      { page: 'marketing-overview', tab: 'overview', label: 'Overview', icon: 'chart' },
+    return [
+      { page: 'email-marketing', label: 'Emails', icon: 'megaphone' },
+      { page: 'automation-builder', tab: 'overview', label: 'Automations', icon: 'bolt' },
     ];
-    if (hasAuto) {
-      items.push({ page: 'marketing-overview', tab: 'automations', label: 'Automations', icon: 'bolt' });
-    }
-    items.push(
-      { page: 'marketing-overview', tab: 'campaigns', label: 'Campaigns', icon: 'megaphone' },
-      { page: 'marketing-overview', tab: 'templates', label: 'Templates', icon: 'document' },
-      { page: 'marketing-overview', tab: 'audiences', label: 'Audiences', icon: 'users' },
-      { page: 'marketing-overview', tab: 'performance', label: 'Performance', icon: 'sparkles' },
-    );
-    return items;
   }
 
   const isWebsiteProduct = (typeof isStandaloneWebsiteWorkspace === 'function' && isStandaloneWebsiteWorkspace())

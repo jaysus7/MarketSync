@@ -201,7 +201,7 @@
             design_studio: { design_studio: true },
             facebook: { facebook_solo: true },
             video: { marketsync_video: true },
-            campaigns: { marketsync_social: true },
+            campaigns: { marketsync_email: true },
             website: { marketsync_website: true },
             ai_chatbot: { ai_chatbot: true },
             marketsync_identity: { marketsync_identity: true },

@@ -36,9 +36,17 @@ test('Email single product (marketsync_email) has correct canonical catalog and 
   assert.ok(access.features.includes('email.campaigns'), 'email.campaigns must be in entitled features')
 })
 
-test('Frontend dashboard includes automation-builder and marketing-overview in marketsync_email PRODUCT_PAGES', () => {
-  assert.match(dashboardJs, /marketsync_email:\s*\[\s*'marketing-overview',\s*'automation-builder',\s*'email-marketing'\s*\]/)
-  assert.match(dashboardJs, /marketsync_email:\s*'marketing-overview'/)
+test('Frontend dashboard limits standalone email navigation to Emails and Automations', () => {
+  assert.match(dashboardJs, /marketsync_email:\s*\[\s*'email-marketing',\s*'automation-builder'\s*\]/)
+  assert.match(dashboardJs, /marketsync_email:\s*'email-marketing'/)
+  assert.match(dashboardJs, /page: 'email-marketing', label: 'Emails'/)
+  assert.match(dashboardJs, /page: 'automation-builder', tab: 'overview', label: 'Automations'/)
+})
+
+test('Campaigns demo maps to the email product rather than Social Scheduler', () => {
+  const demoControl = readFileSync(new URL('../../marketplace-frontend/js/modules/demo-control-panel.js', import.meta.url), 'utf8')
+  assert.match(demoControl, /campaigns:\s*\{ marketsync_email: true \}/)
+  assert.doesNotMatch(demoControl, /campaigns:\s*\{ marketsync_social: true \}/)
 })
 
 test('Marketing workspace tabOrder dynamically gates automations tab without broken override', () => {
@@ -62,4 +70,3 @@ test('Single-product nav highlighting disambiguates tabs and prevents multiple s
   // switchPage must check btn.dataset.tab to avoid mass-highlighting buttons sharing the same data-page
   assert.match(part2, /if \(active && btn\.dataset\.tab\)/)
 })
-
