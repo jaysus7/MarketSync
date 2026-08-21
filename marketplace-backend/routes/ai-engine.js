@@ -19,6 +19,17 @@ import { getContact } from './crm.js'
 
 const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'].includes(req.profile?.role)
 
+// Dealer-facing conversation responses are intentionally minimized. In
+// particular, visitor_token is a public-chat credential and must never leave
+// the backend through an authenticated dashboard list or detail response.
+const SAFE_CONVO_COLUMNS = [
+  'id', 'contact_id', 'website', 'source', 'status', 'assigned_salesperson',
+  'summary', 'sentiment', 'lead_score', 'started_at', 'last_message_at',
+  'created_at', 'department', 'lead_type', 'tags', 'booked', 'requested_rep',
+  'channel', 'takeover_by', 'takeover_at', 'last_customer_at', 'last_dealer_at',
+  'closed_at', 'closed_by', 'merged_into',
+].join(',')
+
 // ── Long-term memory ─────────────────────────────────────────────────────────
 export async function getMemory(dealershipId, contactId) {
   if (!dealershipId || !contactId) return []

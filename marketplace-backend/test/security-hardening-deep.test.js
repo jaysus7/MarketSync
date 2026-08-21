@@ -151,7 +151,12 @@ describe('Security Hardening — Deep Verification Suite', () => {
       const aiEnginePath = path.resolve(__dirname, '../routes/ai-engine.js')
       const code = fs.readFileSync(aiEnginePath, 'utf8')
       assert.ok(code.includes('SAFE_CONVO_COLUMNS'), 'Must define SAFE_CONVO_COLUMNS')
-      assert.ok(!code.match(/SAFE_CONVO_COLUMNS\s*=\s*['"][^'"]*visitor_token/), 'Must not include visitor_token in SAFE_CONVO_COLUMNS')
+      const safeColumns = code.match(/const SAFE_CONVO_COLUMNS = \[[\s\S]*?\]\.join\(','\)/)?.[0] || ''
+      assert.ok(safeColumns, 'SAFE_CONVO_COLUMNS must have an actual minimized definition')
+      assert.ok(!safeColumns.includes('visitor_token'), 'Must not include visitor_token in SAFE_CONVO_COLUMNS')
+      for (const required of ["'id'", "'contact_id'", "'status'", "'summary'", "'last_message_at'", "'department'", "'lead_type'", "'tags'"]) {
+        assert.ok(safeColumns.includes(required), `SAFE_CONVO_COLUMNS must include ${required}`)
+      }
       assert.ok(code.includes("requirePermission('customer.view')"), 'GET /ai/conversations must require customer.view')
       assert.ok(code.includes("requirePermission('customer.edit')"), 'POST /ai/conversations/:id/status must require customer.edit')
     })
