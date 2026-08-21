@@ -63,6 +63,8 @@ test('standalone Identity Verify has a tenant-scoped scan dashboard backed by ca
   assert.match(crmUi, /function loadIdentityVerifyDashboard\(\)/)
   assert.match(crmUi, /apiGetJson\('\/identity\/dashboard'\)/)
   assert.match(crmUi, /Scan ID \/ add customer/)
+  assert.match(crmUi, /getElementById\('crm-page-actions'\)\?\.classList\.add\('hidden'\)/,
+    'Identity Verify hides the generic Bulk message and New contact actions')
   assert.match(crmUi, /Vehicle fit/)
   assert.match(crmUi, /identity_intake: typeof isIdentityVerifyWorkspace/)
   assert.match(crmRoute, /if \(b\.identity_intake === true\)/)

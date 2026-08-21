@@ -33,6 +33,7 @@ function idvDashboardFit(contactId) { openCrmContact(contactId); setTimeout(() =
 async function loadIdentityVerifyDashboard() {
   const body = document.getElementById('crm-body'); if (!body) return;
   const title = document.getElementById('crm-page-title'), sub = document.getElementById('crm-page-sub');
+  document.getElementById('crm-page-actions')?.classList.add('hidden');
   if (title) title.textContent = 'Identity Verify';
   if (sub) sub.textContent = 'Scan intake, customer matching, outcomes, credit status, missing information, and vehicle-fit handoff.';
   body.innerHTML = '<div class="py-16 text-center text-sm text-slate-500">Loading identity scans…</div>';
@@ -132,6 +133,7 @@ window.crmClearStatusFilter = crmClearStatusFilter;
 // Sold Customers view (both live on the same page container).
 function crmApplyPageChrome() {
   const t = document.getElementById('crm-page-title'), s = document.getElementById('crm-page-sub');
+  document.getElementById('crm-page-actions')?.classList.remove('hidden');
   const search = document.getElementById('crm-search');
   if (crmIsSoldView()) {
     if (t) t.textContent = 'Sold Customers';
