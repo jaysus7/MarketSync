@@ -15,6 +15,7 @@
  * seeded on first use.
  */
 import { supabaseAdmin } from '../shared.js'
+import { rateLimit } from '../security.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { requestHasCronSecret } from '../cron-auth.js'
@@ -481,7 +482,7 @@ export function registerAccounting(app) {
   })
 
   // ── Cron: reconcile yesterday for every dealership, alert on anything off ─────
-  app.post('/cron/accounting-reconcile', async (req, res) => {
+  app.post('/cron/accounting-reconcile', rateLimit('cron-acct-recon', 60, 60000), async (req, res) => {
     if (!cronOk(req)) return res.status(401).json({ error: 'unauthorized' })
     const y = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
     const { data: dealers } = await supabaseAdmin.from('dealerships').select('id, accounting_settings')

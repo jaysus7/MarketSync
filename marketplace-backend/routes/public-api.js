@@ -18,7 +18,12 @@ import { audit, AuditAction } from '../audit.js'
 import { keyIsExpired, requestedExpiry, requestedScopes } from '../api-key-policy.js'
 import { consumeQuota, getClientIp } from '../security.js'
 
-const hashKey = (raw) => crypto.createHash('sha256').update(String(raw)).digest('hex')
+// API keys are 'msk_live_' + crypto.randomBytes(24) — 192 bits of cryptographic
+// entropy, NOT a human-chosen password. SHA-256 is the correct choice here: it gives
+// constant-time-lengthed, unguessable lookup by key_hash without a per-key salt/KDF.
+// A slow KDF (bcrypt/argon2) would only add latency to every API request and cannot
+// be looked up by hash, breaking the equality lookup below. Not a weak-hash finding.
+const hashKey = (raw) => crypto.createHash('sha256').update(String(raw)).digest('hex') // codeql[js/insufficient-password-hash]
 
 // ── Input Sanitization / Validation Helpers ────────────────────────────────────
 function sanitizeString(val, maxLen = 200) {

@@ -10,7 +10,7 @@ import { enqueueForTrigger } from './automation.js'
 import { routeAndNotifyLead } from '../lead-routing.js'
 import { createNotification } from '../notifications.js'
 import { aiAllowed, recordUsage } from '../usage.js'
-import { rateLimit, getClientIp, consumeQuota } from '../security.js'
+import { rateLimit, getClientIp, consumeQuota, randomToken } from '../security.js'
 import { getConfig } from './config-engine.js'
 import { offTopicRefusal, scopeClause, sanitizeTranscript, CHAT_LIMITS } from '../chatGuard.js'
 import { runAutoResponder } from '../autoresponder.js'
@@ -25,7 +25,17 @@ const slugOk = (s) => /^[a-z0-9]([a-z0-9-]{1,38})[a-z0-9]$/.test(s)   // 3–40,
 // The host a dealer points their custom domain's CNAME at (the static-site domain,
 // or the Cloudflare-for-SaaS CNAME target once that's set up).
 const SITE_HOST = (process.env.SITE_DOMAIN_TARGET || 'marketsync.link').replace(/^https?:\/\//, '').replace(/\/.*$/, '')
-const domainOk = (s) => /^(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/.test(s)   // basic FQDN
+// FQDN check without a backtracking regex. The old single pattern nested a
+// bounded quantifier inside a `(...)+` group over user-controlled input, which
+// CodeQL flags as polynomial ReDoS. Bound the total length first, then validate
+// each dot-separated label with a linear, non-ambiguous per-label regex.
+const LABEL_OK = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/   // 1–63 chars, no leading/trailing dash
+const domainOk = (s) => {
+  if (typeof s !== 'string' || s.length === 0 || s.length > 253) return false
+  const labels = s.split('.')
+  if (labels.length < 2) return false                       // require at least one dot (FQDN)
+  return labels.every((l) => LABEL_OK.test(l))
+}
 
 // ── Cloudflare for SaaS (Custom Hostnames) — auto-provisions a TLS cert per domain.
 // Inert until CF_API_TOKEN + CF_ZONE_ID are set on the backend; falls back to a
@@ -435,7 +445,9 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     // A conversation handle so the agentic tools (book_appointment, create_lead,
     // request_human, save_memory) can persist to the CRM / timeline / AI Chat home.
     // The visitor token is echoed back so follow-up turns continue the same thread.
-    const visitorToken = String(req.body?.visitor_token || '') || ('v_' + Math.random().toString(36).slice(2) + Date.now().toString(36))
+    // This token IS a credential: the conversation is looked up by it, so a predictable
+    // one would let a stranger resume another visitor's thread. Must be crypto-random.
+    const visitorToken = String(req.body?.visitor_token || '') || ('v_' + randomToken(12))
     let conversation = null
     if (req.body?.conversation_id) {
       const { data } = await supabaseAdmin.from('ai_conversations').select('*').eq('id', req.body.conversation_id).eq('dealership_id', d.id).maybeSingle()
@@ -722,7 +734,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     const { data } = await supabaseAdmin.from('dealerships').select('id, name, site_published').ilike('site_slug', s).maybeSingle()
     return (data && data.site_published) ? data : null
   }
-  app.get('/site/:slug/blog', async (req, res) => {
+  app.get('/site/:slug/blog', rateLimit('pub-site-blog', 120, 60000), async (req, res) => {
     const d = await dealerBySlug(req.params.slug)
     if (!d) return res.status(404).json({ error: 'Site not found' })
     const { data } = await supabaseAdmin.from('dealer_blog_posts')
@@ -730,7 +742,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       .eq('dealership_id', d.id).eq('status', 'published').order('published_at', { ascending: false }).limit(100)
     res.json({ posts: data || [] })
   })
-  app.get('/site/:slug/blog/:postSlug', async (req, res) => {
+  app.get('/site/:slug/blog/:postSlug', rateLimit('pub-site-blogpost', 120, 60000), async (req, res) => {
     const d = await dealerBySlug(req.params.slug)
     if (!d) return res.status(404).json({ error: 'Site not found' })
     const { data } = await supabaseAdmin.from('dealer_blog_posts')

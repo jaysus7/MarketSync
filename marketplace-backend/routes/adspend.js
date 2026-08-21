@@ -10,6 +10,7 @@
  *   POST /cron/adspend-pull               nightly sweep of all connections (CRON_SECRET)
  */
 import { supabaseAdmin, FRONTEND_URL } from '../shared.js'
+import { rateLimit } from '../security.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { audit, AuditAction } from '../audit.js'
@@ -47,7 +48,7 @@ export function registerAdSpend(app) {
     res.json({ ok: true, url: adAuthUrl(provider, state) })
   })
 
-  app.get('/adspend/callback/:provider', async (req, res) => {
+  app.get('/adspend/callback/:provider', rateLimit('oauth-cb-adspend', 20, 60000), async (req, res) => {
     const provider = req.params.provider
     const done = (ok, msg) => res.redirect(`${FRONTEND_URL}/dashboard.html?adspend=${ok ? 'connected' : 'error'}&provider=${provider}&msg=${encodeURIComponent(msg || '')}`)
     try {
@@ -83,7 +84,7 @@ export function registerAdSpend(app) {
 
   // Nightly sweep. Render Cron Job:
   //   curl -X POST https://<backend>/cron/adspend-pull -H "x-cron-secret: $CRON_SECRET"
-  app.post('/cron/adspend-pull', async (req, res) => {
+  app.post('/cron/adspend-pull', rateLimit('cron-adspend-pull', 60, 60000), async (req, res) => {
     if (!requestHasCronSecret(req)) return res.status(403).json({ error: 'Forbidden' })
     const { data: conns } = await supabaseAdmin.from('ad_connections').select('*').limit(1000)
     let ok = 0, failed = 0

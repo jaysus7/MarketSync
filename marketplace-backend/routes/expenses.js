@@ -9,6 +9,7 @@
  */
 import multer from 'multer'
 import { supabaseAdmin } from '../shared.js'
+import { randomBytes } from 'crypto'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { audit, AuditAction, exportReason } from '../audit.js'
@@ -161,7 +162,7 @@ export function registerExpenses(app) {
     const isPdf = mime === 'application/pdf'
     const ext = isPdf ? 'pdf' : (mime.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
     if (!isPdf && !mime.startsWith('image/')) return res.status(400).json({ error: 'Upload an image or PDF' })
-    const path = `${req.dealershipId}/expenses/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+    const path = `${req.dealershipId}/expenses/${Date.now()}-${randomBytes(6).toString("hex")}.${ext}`
     const { error } = await supabaseAdmin.storage.from('vehicle-pdfs').upload(path, req.file.buffer, { contentType: mime, upsert: true })
     if (error) return res.status(500).json({ error: 'Upload failed' })
     const { data: { publicUrl } } = supabaseAdmin.storage.from('vehicle-pdfs').getPublicUrl(path)

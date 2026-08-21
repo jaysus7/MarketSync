@@ -10,6 +10,7 @@
  * platforms that want a structured feed.
  */
 import { supabaseAdmin, CANONICAL_FRONTEND } from '../shared.js'
+import { rateLimit } from '../security.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 
@@ -85,7 +86,7 @@ const xmlEsc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(
 
 export function registerSyndication(app) {
   // ── PUBLIC: CSV feed (spreadsheet + most aggregators). ───────────────────────
-  app.get('/syndication/:slug/inventory.csv', async (req, res) => {
+  app.get('/syndication/:slug/inventory.csv', rateLimit('pub-synd-csv', 60, 60000), async (req, res) => {
     const d = await loadDealerBySlug(req.params.slug)
     if (!d || !d.site_published) return res.status(404).type('text/plain').send('Feed not available')
     const currency = currencyFor(d.country)
@@ -100,7 +101,7 @@ export function registerSyndication(app) {
   })
 
   // ── PUBLIC: XML feed (platforms that want a structured pull). ────────────────
-  app.get('/syndication/:slug/inventory.xml', async (req, res) => {
+  app.get('/syndication/:slug/inventory.xml', rateLimit('pub-synd-xml', 60, 60000), async (req, res) => {
     const d = await loadDealerBySlug(req.params.slug)
     if (!d || !d.site_published) return res.status(404).type('text/plain').send('Feed not available')
     const currency = currencyFor(d.country)
@@ -120,7 +121,7 @@ export function registerSyndication(app) {
   // ── PUBLIC: Google vehicle-listings feed (RSS 2.0 + g: namespace). ──────────
   // The shape Google Merchant Center / Vehicle ads expect, for platforms that reject
   // the generic feed. Condition/price/mileage follow Google's attribute rules.
-  app.get('/syndication/:slug/google.xml', async (req, res) => {
+  app.get('/syndication/:slug/google.xml', rateLimit('pub-synd-google', 60, 60000), async (req, res) => {
     const d = await loadDealerBySlug(req.params.slug)
     if (!d || !d.site_published) return res.status(404).type('text/plain').send('Feed not available')
     const currency = currencyFor(d.country)

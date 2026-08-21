@@ -1,4 +1,5 @@
 import { supabaseAdmin, FRONTEND_URL } from '../shared.js'
+import { rateLimit } from '../security.js'
 
 const slugify = (s) => String(s || '')
   .toLowerCase().trim()
@@ -109,7 +110,7 @@ async function relatedPosts(post, limit = 4) {
 
 export function registerRoutes(app) {
   // List published posts (newest first). Lightweight — no full body.
-  app.get('/blog', async (req, res) => {
+  app.get('/blog', rateLimit('pub-blog-list', 120, 60000), async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 50, 100)
     let q = supabaseAdmin
       .from('blog_posts')
@@ -124,7 +125,7 @@ export function registerRoutes(app) {
   })
 
   // Single published post (full body).
-  app.get('/blog/:slug', async (req, res) => {
+  app.get('/blog/:slug', rateLimit('pub-blog-slug', 120, 60000), async (req, res) => {
     const { data, error } = await supabaseAdmin
       .from('blog_posts')
       .select('*')
@@ -136,7 +137,7 @@ export function registerRoutes(app) {
   })
 
   // Related posts for a given slug — topical internal-linking for SEO + engagement.
-  app.get('/blog/:slug/related', async (req, res) => {
+  app.get('/blog/:slug/related', rateLimit('pub-blog-related', 120, 60000), async (req, res) => {
     const { data: p } = await supabaseAdmin
       .from('blog_posts').select('slug, title, tags').eq('slug', req.params.slug).eq('status', 'published').maybeSingle()
     if (!p) return res.json({ related: [] })
@@ -146,7 +147,7 @@ export function registerRoutes(app) {
   })
 
   // Create / update a post (upsert on slug). For n8n.
-  app.post('/blog', async (req, res) => {
+  app.post('/blog', rateLimit('blog-write', 30, 60000), async (req, res) => {
     if (!requireBlogKey(req, res)) return
     const b = req.body || {}
     const title = (b.title || '').trim()
@@ -194,7 +195,7 @@ export function registerRoutes(app) {
 
   // Server-side rendered blog post — full HTML for crawlers that don't execute JavaScript.
   // Proxied under marketsync.link/blog/:slug via the frontend _redirects file.
-  app.get('/ssr/blog/:slug', async (req, res) => {
+  app.get('/ssr/blog/:slug', rateLimit('pub-blog-ssr', 120, 60000), async (req, res) => {
     const { data: p, error } = await supabaseAdmin
       .from('blog_posts')
       .select('*')
@@ -306,7 +307,7 @@ export function registerRoutes(app) {
   // Dynamic sitemap of all published posts — submit this URL in Google Search Console
   // so new n8n posts get crawled without touching the static sitemap.
   // Proxied under marketsync.link/blog-sitemap.xml via the frontend _redirects file.
-  app.get('/blog-sitemap.xml', async (req, res) => {
+  app.get('/blog-sitemap.xml', rateLimit('pub-blog-sitemap', 60, 60000), async (req, res) => {
     const { data } = await supabaseAdmin
       .from('blog_posts')
       .select('slug, updated_at, published_at')
@@ -323,7 +324,7 @@ export function registerRoutes(app) {
   })
 
   // Delete a post. For n8n.
-  app.delete('/blog/:slug', async (req, res) => {
+  app.delete('/blog/:slug', rateLimit('blog-delete', 30, 60000), async (req, res) => {
     if (!requireBlogKey(req, res)) return
     const { error } = await supabaseAdmin.from('blog_posts').delete().eq('slug', req.params.slug)
     if (error) return res.status(500).json({ error: error.message })

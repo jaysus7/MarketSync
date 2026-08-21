@@ -25,6 +25,7 @@
  *      the two pages the dealership meant to reach and never did.
  */
 import { supabaseAdmin } from '../shared.js'
+import { rateLimit } from '../security.js'
 import { requireAuth } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
@@ -258,7 +259,7 @@ export function registerSocialPublish(app) {
    *
    *   curl -X POST https://<backend>/cron/social-publish -H "x-cron-secret: $CRON_SECRET"
    */
-  app.post('/cron/social-publish', async (req, res) => {
+  app.post('/cron/social-publish', rateLimit('cron-social-pub', 60, 60000), async (req, res) => {
     if (!requestHasCronSecret(req)) return res.status(403).json({ error: 'Forbidden' })
     try {
       res.json(await runDuePublishes({ limit: Number(req.query.limit) || 25 }))

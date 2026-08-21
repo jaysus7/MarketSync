@@ -275,7 +275,7 @@ export function registerIntegrations(app) {
 
   // Intuit redirects the browser back here (no JWT) — the signed `state` proves which
   // dealership started the flow. Exchange the code, store tokens, bounce to the app.
-  app.get('/integrations/quickbooks/callback', async (req, res) => {
+  app.get('/integrations/quickbooks/callback', rateLimit('oauth-cb-qbo', 20, 60000), async (req, res) => {
     const backTo = (ok, msg) => res.redirect(`${FRONTEND_URL}/dashboard.html?integration=quickbooks&status=${ok ? 'connected' : 'error'}${msg ? '&msg=' + encodeURIComponent(msg) : ''}`)
     try {
       const { code, state, realmId } = req.query
@@ -352,7 +352,7 @@ export function registerIntegrations(app) {
     res.json({ url: oauthAuthorizeUrl(provider, signOAuthState(req.dealershipId, provider)) })
   })
 
-  app.get('/integrations/:provider/callback', async (req, res) => {
+  app.get('/integrations/:provider/callback', rateLimit('oauth-cb-integrations', 20, 60000), async (req, res) => {
     const provider = String(req.params.provider || '')
     const backTo = (ok, msg) => res.redirect(`${FRONTEND_URL}/dashboard.html?integration=${provider}&status=${ok ? 'connected' : 'error'}${msg ? '&msg=' + encodeURIComponent(msg) : ''}`)
     if (!OAUTH_PROVIDERS.includes(provider)) return backTo(false, 'Unknown provider')

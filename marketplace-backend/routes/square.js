@@ -31,7 +31,7 @@ export function registerSquare(app) {
   })
 
   // Square redirects the browser here (no JWT) — the signed `state` proves the dealership.
-  app.get('/square/callback', async (req, res) => {
+  app.get('/square/callback', rateLimit('oauth-cb-square', 20, 60000), async (req, res) => {
     const backTo = (ok, msg) => res.redirect(`${FRONTEND_URL}/dashboard.html?integration=square&status=${ok ? 'connected' : 'error'}${msg ? '&msg=' + encodeURIComponent(msg) : ''}`)
     try {
       const { code, state } = req.query

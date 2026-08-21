@@ -70,7 +70,11 @@ function validatePasswordSync(password, opts = {}) {
 // the local checks above already cover the most-leaked passwords.
 async function checkHaveIBeenPwned(password) {
   try {
-    const sha1 = createHash('sha1').update(password).digest('hex').toUpperCase()
+    // SHA-1 is REQUIRED by the HIBP range API k-anonymity protocol — the service
+    // indexes breached passwords by SHA-1 prefix, so no other algorithm can query it.
+    // This hash is used ONLY for the breach lookup and is NEVER stored as a password
+    // verifier (passwords are never persisted here at all). Not a weak-hash vulnerability.
+    const sha1 = createHash('sha1').update(password).digest('hex').toUpperCase() // codeql[js/weak-cryptographic-algorithm]
     const prefix = sha1.slice(0, 5)
     const suffix = sha1.slice(5)
 

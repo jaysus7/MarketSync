@@ -119,7 +119,7 @@ export function registerRoutes(app) {
     res.json(result)
   })
 
-  app.get('/unsubscribe', async (req, res) => {
+  app.get('/unsubscribe', rateLimit('unsub-get', 30, 60000), async (req, res) => {
     const ok = await applyDripUnsubscribe(req)
     if (!ok) {
       return res.status(400).type('html').send('<p>This unsubscribe link is invalid or expired.</p>')
@@ -133,7 +133,7 @@ export function registerRoutes(app) {
     )
   })
 
-  app.post('/unsubscribe', async (req, res) => {
+  app.post('/unsubscribe', rateLimit('unsub-post', 30, 60000), async (req, res) => {
     const ok = await applyDripUnsubscribe(req)
     res.status(ok ? 200 : 400).json({ success: ok })
   })

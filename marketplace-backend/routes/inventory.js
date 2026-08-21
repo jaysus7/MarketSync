@@ -1,4 +1,5 @@
 import { supabaseAdmin, browserFetch } from '../shared.js'
+import { randomBytes } from 'crypto'
 import { emitEvent } from './events.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { createNotifications } from '../notifications.js'
@@ -238,7 +239,7 @@ export function registerRoutes(app) {
       }
       let webp
       try { webp = await toWebp(buf) } catch (e) { console.warn('[inv-photo] webp encode failed:', e.message); webp = f.buffer }
-      const path = `${req.dealershipId}/${req.params.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`
+      const path = `${req.dealershipId}/${req.params.id}/${Date.now()}-${randomBytes(6).toString("hex")}.webp`
       const { error: upErr } = await supabaseAdmin.storage.from('vehicle-photos')
         .upload(path, webp, { contentType: 'image/webp', upsert: false })
       if (upErr) { console.warn('[inv-photo] upload failed:', upErr.message); continue }
@@ -297,7 +298,7 @@ export function registerRoutes(app) {
     if (!req.file) return res.status(400).json({ error: 'No image uploaded' })
     let webp
     try { webp = await toWebp(req.file.buffer, { max: 2200, quality: 85 }) } catch (e) { return res.status(500).json({ error: 'Could not process image: ' + e.message }) }
-    const path = `${req.dealershipId}/_site/img-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.webp`
+    const path = `${req.dealershipId}/_site/img-${Date.now()}-${randomBytes(6).toString("hex")}.webp`
     const { error: upErr } = await supabaseAdmin.storage.from('vehicle-photos').upload(path, webp, { contentType: 'image/webp', upsert: false })
     if (upErr) return res.status(500).json({ error: upErr.message })
     const { data: { publicUrl } } = supabaseAdmin.storage.from('vehicle-photos').getPublicUrl(path)
