@@ -5,258 +5,75 @@
 // 3. Complete Marketing Suite
 // 4. MarketSync Digital
 
-const MARKETING_SUITE_CONFIG = {
-  sales: {
-    id: 'sales',
-    packageId: 'sales-marketing-suite',
-    title: 'Sales Marketing',
-    subtitle: 'Turn leads into appointments, appointments into sales, and customers into repeat buyers.',
-    badge: 'Sales Marketing Suite',
-    sections: [
-      {
-        title: 'OVERVIEW',
-        items: [
-          { page: 'marketing-overview', tab: 'overview', label: 'Sales Marketing Overview', icon: 'chart' },
-        ]
-      },
-      {
-        title: 'CAMPAIGNS',
-        items: [
-          { page: 'marketing-overview', tab: 'campaigns', category: 'sales', label: 'Campaigns', icon: 'megaphone' },
-          { page: 'marketing-overview', tab: 'templates', category: 'sales', label: 'Templates', icon: 'document' },
-          { page: 'marketing-overview', tab: 'audiences', category: 'sales', label: 'Audiences', icon: 'users' },
-        ]
-      },
-      {
-        title: 'AUTOMATIONS',
-        items: [
-          { page: 'automation-builder', tab: 'leads', label: 'Lead Follow-Up', icon: 'bolt' },
-          { page: 'automation-builder', tab: 'appointments', label: 'Appointment Follow-Up', icon: 'calendar' },
-          { page: 'automation-builder', tab: 'no_show', label: 'No-Show Follow-Up', icon: 'user' },
-          { page: 'automation-builder', tab: 'sales', label: 'Sold / Delivery Follow-Up', icon: 'sparkles' },
-          { page: 'automation-builder', tab: 'reviews', label: 'Review Requests', icon: 'star' },
-          { page: 'automation-builder', tab: 'referrals', label: 'Referral Campaigns', icon: 'share' },
-        ]
-      },
-      {
-        title: 'CREATE',
-        items: [
-          { page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true },
-          { page: 'social-scheduler', label: 'Social Scheduler', icon: 'calendar' },
-          { page: 'video-studio', label: 'Video', icon: 'video' },
-        ]
-      },
-      {
-        title: 'INSIGHTS',
-        items: [
-          { page: 'marketing-analytics', tab: 'sales', label: 'Sales Marketing Reports', icon: 'chart' },
-        ]
-      },
-      {
-        title: 'SETTINGS',
-        items: [
-          { page: 'profile', tab: 'marketing', label: 'Product Settings', icon: 'shield' },
-        ]
-      }
-    ],
-    mobileQuickRow: [
-      { page: 'marketing-overview', tab: 'overview', label: 'Overview', icon: 'chart' },
-      { page: 'marketing-overview', tab: 'campaigns', label: 'Campaigns', icon: 'megaphone' },
-      { page: 'automation-builder', tab: 'leads', label: 'Automations', icon: 'bolt' },
-      { page: 'video-studio', label: 'Video', icon: 'video' },
-    ]
-  },
-
-  service: {
-    id: 'service',
-    packageId: 'service-marketing-suite',
-    title: 'Service Marketing',
-    subtitle: 'Keep customers returning with service reminders, retention campaigns and automated follow-up.',
-    badge: 'Service Marketing Suite',
-    sections: [
-      {
-        title: 'OVERVIEW',
-        items: [
-          { page: 'marketing-overview', tab: 'overview', label: 'Service Marketing Overview', icon: 'chart' },
-        ]
-      },
-      {
-        title: 'CAMPAIGNS',
-        items: [
-          { page: 'marketing-overview', tab: 'campaigns', category: 'service', label: 'Service Campaigns', icon: 'megaphone' },
-          { page: 'marketing-overview', tab: 'templates', category: 'service', label: 'Templates', icon: 'document' },
-          { page: 'marketing-overview', tab: 'audiences', category: 'service', label: 'Audiences', icon: 'users' },
-        ]
-      },
-      {
-        title: 'AUTOMATIONS',
-        items: [
-          { page: 'automation-builder', tab: 'service_reminders', label: 'Service Reminders', icon: 'wrench' },
-          { page: 'automation-builder', tab: 'maintenance', label: 'Maintenance Follow-Up', icon: 'bolt' },
-          { page: 'automation-builder', tab: 'declined_service', label: 'Declined Service Follow-Up', icon: 'clock' },
-          { page: 'automation-builder', tab: 'reactivation', label: 'Customer Reactivation', icon: 'users' },
-          { page: 'automation-builder', tab: 'service_appts', label: 'Appointment Reminders', icon: 'calendar' },
-          { page: 'automation-builder', tab: 'post_service', label: 'Post-Service Follow-Up', icon: 'sparkles' },
-          { page: 'automation-builder', tab: 'reviews', label: 'Review Requests', icon: 'star' },
-        ]
-      },
-      {
-        title: 'CREATE',
-        items: [
-          { page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true },
-          { page: 'social-scheduler', label: 'Social Scheduler', icon: 'calendar' },
-          { page: 'video-studio', label: 'Video', icon: 'video' },
-        ]
-      },
-      {
-        title: 'INSIGHTS',
-        items: [
-          { page: 'marketing-analytics', tab: 'service', label: 'Service Marketing Reports', icon: 'chart' },
-        ]
-      },
-      {
-        title: 'SETTINGS',
-        items: [
-          { page: 'profile', tab: 'marketing', label: 'Product Settings', icon: 'shield' },
-        ]
-      }
-    ],
-    mobileQuickRow: [
-      { page: 'marketing-overview', tab: 'overview', label: 'Overview', icon: 'chart' },
-      { page: 'marketing-overview', tab: 'campaigns', label: 'Campaigns', icon: 'megaphone' },
-      { page: 'automation-builder', tab: 'service_reminders', label: 'Reminders', icon: 'wrench' },
-      { page: 'video-studio', label: 'Video', icon: 'video' },
-    ]
-  },
-
-  complete: {
-    id: 'complete',
-    packageId: 'complete-marketing-suite',
-    title: 'Marketing Command Center',
-    subtitle: 'Sales and service marketing in one connected workspace.',
-    badge: 'Complete Marketing Suite',
-    sections: [
-      {
-        title: 'OVERVIEW',
-        items: [
-          { page: 'marketing-overview', tab: 'overview', label: 'Marketing Overview', icon: 'chart' },
-        ]
-      },
-      {
-        title: 'SALES MARKETING',
-        items: [
-          { page: 'marketing-overview', tab: 'sales_overview', label: 'Sales Overview', icon: 'currency' },
-          { page: 'marketing-overview', tab: 'sales_campaigns', label: 'Sales Campaigns', icon: 'megaphone' },
-          { page: 'automation-builder', tab: 'sales', label: 'Sales Automations', icon: 'bolt' },
-        ]
-      },
-      {
-        title: 'SERVICE MARKETING',
-        items: [
-          { page: 'marketing-overview', tab: 'service_overview', label: 'Service Overview', icon: 'wrench' },
-          { page: 'marketing-overview', tab: 'service_campaigns', label: 'Service Campaigns', icon: 'megaphone' },
-          { page: 'automation-builder', tab: 'service', label: 'Service Automations', icon: 'bolt' },
-        ]
-      },
-      {
-        title: 'CAMPAIGNS',
-        items: [
-          { page: 'marketing-overview', tab: 'campaigns', label: 'All Campaigns', icon: 'megaphone' },
-          { page: 'marketing-overview', tab: 'templates', label: 'Templates', icon: 'document' },
-          { page: 'marketing-overview', tab: 'audiences', label: 'Audiences', icon: 'users' },
-        ]
-      },
-      {
-        title: 'CREATE',
-        items: [
-          { page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true },
-          { page: 'social-scheduler', label: 'Social Scheduler', icon: 'calendar' },
-          { page: 'video-studio', label: 'Video', icon: 'video' },
-        ]
-      },
-      {
-        title: 'INSIGHTS',
-        items: [
-          { page: 'marketing-analytics', tab: 'overview', label: 'Marketing Reports', icon: 'chart' },
-          { page: 'marketing-analytics', tab: 'sales', label: 'Sales Marketing', icon: 'currency' },
-          { page: 'marketing-analytics', tab: 'service', label: 'Service Marketing', icon: 'wrench' },
-        ]
-      },
-      {
-        title: 'SETTINGS',
-        items: [
-          { page: 'profile', tab: 'marketing', label: 'Product Settings', icon: 'shield' },
-        ]
-      }
-    ],
-    mobileQuickRow: [
-      { page: 'marketing-overview', tab: 'overview', label: 'Overview', icon: 'chart' },
-      { page: 'marketing-overview', tab: 'sales_overview', label: 'Sales', icon: 'currency' },
-      { page: 'marketing-overview', tab: 'service_overview', label: 'Service', icon: 'wrench' },
-      { page: 'video-studio', label: 'Video', icon: 'video' },
-    ]
-  },
-
-  digital: {
-    id: 'digital',
-    packageId: 'marketsync-digital',
-    title: 'Digital Command Center',
-    subtitle: "Manage your dealership's complete digital presence from one workspace.",
-    badge: 'MarketSync Digital',
-    sections: [
-      {
-        title: 'OVERVIEW',
-        items: [
-          { page: 'marketing-overview', tab: 'overview', label: 'Digital Overview', icon: 'chart' },
-        ]
-      },
-      {
-        title: 'MARKETING',
-        items: [
-          { page: 'marketing-overview', tab: 'sales_overview', label: 'Sales Marketing', icon: 'currency' },
-          { page: 'marketing-overview', tab: 'service_overview', label: 'Service Marketing', icon: 'wrench' },
-          { page: 'marketing-overview', tab: 'campaigns', label: 'Campaigns', icon: 'megaphone' },
-          { page: 'automation-builder', tab: 'overview', label: 'Automations', icon: 'bolt' },
-        ]
-      },
-      {
-        title: 'CREATE',
-        items: [
-          { page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true },
-          { page: 'social-scheduler', label: 'Social Scheduler', icon: 'calendar' },
-          { page: 'video-studio', label: 'Video', icon: 'video' },
-        ]
-      },
-      {
-        title: 'DIGITAL PRESENCE',
-        items: [
-          { page: 'website', label: 'Website', icon: 'globe' },
-          { page: 'ai-home', tab: 'conversations', label: 'AI ChatBot', icon: 'sparkles' },
-          { page: 'ai-home', tab: 'setup', label: 'AI Setup', icon: 'wrench' },
-          { page: 'seo', label: 'SEO', icon: 'chart', requiresSeo: true },
-        ]
-      },
-      {
-        title: 'INSIGHTS',
-        items: [
-          { page: 'marketing-analytics', tab: 'digital', label: 'Digital Marketing Reports', icon: 'chart' },
-        ]
-      },
-      {
-        title: 'SETTINGS',
-        items: [
-          { page: 'profile', tab: 'marketing', label: 'Product Settings', icon: 'shield' },
-        ]
-      }
-    ],
-    mobileQuickRow: [
-      { page: 'marketing-overview', tab: 'overview', label: 'Overview', icon: 'chart' },
-      { page: 'website', label: 'Website', icon: 'globe' },
-      { page: 'ai-home', label: 'AI Chat', icon: 'sparkles' },
-      { page: 'marketing-overview', tab: 'campaigns', label: 'Campaigns', icon: 'megaphone' },
-    ]
-  }
+// Suite navigation is deliberately expressed as a small entitlement overlay on one
+// shared shell. Product pages remain canonical; only their placement changes.
+const MARKETING_SUITE_DEFINITIONS = {
+  sales: { packageId: 'sales-marketing-suite', badge: 'Sales Marketing Suite', marketingModes: ['sales'] },
+  service: { packageId: 'service-marketing-suite', badge: 'Service Marketing Suite', marketingModes: ['service'] },
+  complete: { packageId: 'complete-marketing-suite', badge: 'Complete Marketing Suite', marketingModes: ['sales', 'service'] },
+  digital: { packageId: 'marketsync-digital', badge: 'MarketSync Digital', marketingModes: ['sales', 'service'], digitalPresence: true },
 };
+
+const suiteItem = (page, label, icon, extra = {}) => ({ page, label, icon, ...extra });
+
+function buildMarketingSuiteConfig(key) {
+  const definition = MARKETING_SUITE_DEFINITIONS[key] || MARKETING_SUITE_DEFINITIONS.complete;
+  const marketing = [];
+  if (definition.marketingModes.includes('sales')) {
+    marketing.push(suiteItem('marketing-overview', 'Sales Marketing', 'currency', { tab: key === 'sales' ? 'overview' : 'sales_overview' }));
+  }
+  if (definition.marketingModes.includes('service')) {
+    marketing.push(suiteItem('marketing-overview', 'Service Marketing', 'wrench', { tab: key === 'service' ? 'overview' : 'service_overview' }));
+  }
+  marketing.push(
+    suiteItem('marketing-overview', 'Campaigns', 'megaphone', { tab: 'campaigns' }),
+    suiteItem('automation-builder', 'Automations', 'bolt', { tab: 'overview' }),
+  );
+
+  const areas = [
+    { id: 'pulse', label: 'Pulse', icon: 'chart', items: [suiteItem('marketing-overview', 'Pulse', 'chart', { tab: 'overview' })] },
+    { id: 'marketing', label: 'Marketing', icon: 'megaphone', items: marketing },
+    { id: 'content', label: 'Content', icon: 'camera', items: [
+      suiteItem('studio', 'Design Studio', 'camera', { studioLaunch: true }),
+      suiteItem('social-scheduler', 'Social Scheduler', 'calendar'),
+      suiteItem('video-studio', 'Video', 'video'),
+    ] },
+  ];
+  if (definition.digitalPresence) {
+    areas.push({ id: 'digital-presence', label: 'Digital Presence', icon: 'globe', items: [
+      suiteItem('website', 'Website', 'globe'),
+      suiteItem('ai-home', 'AI ChatBot', 'sparkles', { tab: 'conversations' }),
+      suiteItem('seo', 'SEO', 'chart'),
+    ] });
+  }
+  areas.push(
+    { id: 'reports', label: 'Reports', icon: 'chart', items: [suiteItem('automation-builder', 'Overview', 'chart', { tab: 'performance' })] },
+    { id: 'academy', label: 'Academy', icon: 'sparkles', items: [suiteItem('academy', 'Academy', 'sparkles')] },
+    { id: 'settings', label: 'Settings', icon: 'shield', items: [suiteItem('profile', 'Settings', 'shield', { tab: 'marketing' })] },
+  );
+
+  return {
+    id: key,
+    packageId: definition.packageId,
+    badge: definition.badge,
+    title: definition.badge,
+    areas,
+    // Compatibility for older consumers while all navigation renders from areas.
+    sections: areas.map(area => ({ title: area.label.toUpperCase(), items: area.items })),
+    mobileQuickRow: areas.slice(0, 3).map(area => ({ ...area.items[0], label: area.label })),
+  };
+}
+
+const MARKETING_SUITE_CONFIG = Object.fromEntries(
+  Object.keys(MARKETING_SUITE_DEFINITIONS).map(key => [key, buildMarketingSuiteConfig(key)])
+);
+
+function marketingSuiteAreaForPage(config, page, tab) {
+  if (!config) return null;
+  const exact = config.areas.find(area => area.items.some(item => item.page === page && (!item.tab || item.tab === tab)));
+  if (exact) return exact;
+  return config.areas.find(area => area.items.some(item => item.page === page)) || null;
+}
 
 function getActiveMarketingSuite() {
   const activePackage = (typeof profileContext !== 'undefined' && profileContext?.package_id)
@@ -296,6 +113,7 @@ if (typeof window !== 'undefined') {
   window.MARKETING_SUITE_CONFIG = MARKETING_SUITE_CONFIG;
   window.getActiveMarketingSuite = getActiveMarketingSuite;
   window.getMarketingSuiteConfig = getMarketingSuiteConfig;
+  window.marketingSuiteAreaForPage = marketingSuiteAreaForPage;
 }
 let __socialView = 'calendar';
 let __socialCalendarMode = 'month';

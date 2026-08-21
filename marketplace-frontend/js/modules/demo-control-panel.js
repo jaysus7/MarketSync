@@ -166,6 +166,17 @@
       if (!res.ok) return; // not the demo account — render nothing
       const data = await res.json();
       window.__demoControlData = data;
+      // Keep demo navigation tied to the exact package selected in the control center.
+      // This is intentionally separate from window.__access: the dedicated demo tenant
+      // has a broad showcase authorization overlay, while its visible navigation should
+      // match the canonical Core / Pro / Complete (or standalone) plan being presented.
+      if (data.activePackage && Array.isArray(data.activePackage.products) && Array.isArray(data.activePackage.features)) {
+        window.__demoEntitlements = {
+          packageId: data.activePackage.id,
+          products: data.activePackage.products,
+          features: data.activePackage.features,
+        };
+      }
 
       // Build the badge + panel FIRST so the operator can always reach the switcher —
       // even if the product-nav narrowing below throws on some tier. boot()'s outer catch
@@ -182,6 +193,7 @@
       if (data?.state?.packageId) {
         try {
           window.__demoPackageId = data.state.packageId;
+          window.__demoActivePackage = data.state.packageId;
           window.__demoActiveProduct = mapDemoPackageToProduct(data.state.packageId);
 
           const legacyMap = {

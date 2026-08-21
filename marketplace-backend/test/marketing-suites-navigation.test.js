@@ -112,11 +112,7 @@ test('Marketing Suites Plan Catalog definitions adhere to product boundaries', (
   assert.deepEqual(sales.products, ['design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video']);
   assert.deepEqual(service.products, ['design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video']);
   assert.deepEqual(complete.products, ['design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video']);
-  assert.deepEqual(digital.products, ['design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website', 'ai_dealer']);
-
-  // SEO must NOT be in MarketSync Digital products by default (separate add-on)
-  assert.equal(digital.products.includes('marketsync_seo'), false);
-  assert.equal(digital.products.includes('seo'), false);
+  assert.deepEqual(digital.products, ['design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website', 'ai_dealer', 'marketsync_seo']);
 });
 
 test('Sales Marketing Suite navigation and workspace isolation', (t) => {
@@ -141,19 +137,18 @@ test('Sales Marketing Suite navigation and workspace isolation', (t) => {
 
   const pageLabels = pages.map(p => p.label);
   
-  // Must include Sales items
-  assert.ok(pageLabels.includes('Sales Marketing Overview'));
-  assert.ok(pageLabels.includes('Lead Follow-Up'));
-  assert.ok(pageLabels.includes('Sold / Delivery Follow-Up'));
+  // Major areas flatten to these canonical page-header destinations for mobile/More.
+  assert.ok(pageLabels.includes('Pulse'));
+  assert.ok(pageLabels.includes('Sales Marketing'));
+  assert.ok(pageLabels.includes('Campaigns'));
+  assert.ok(pageLabels.includes('Automations'));
   assert.ok(pageLabels.includes('Design Studio'));
   assert.ok(pageLabels.includes('Social Scheduler'));
   assert.ok(pageLabels.includes('Video'));
-  assert.ok(pageLabels.includes('Sales Marketing Reports'));
+  assert.ok(pageLabels.includes('Overview'));
 
   // Must NOT include Service-specific or Digital/DealerOS items
-  assert.equal(pageLabels.includes('Service Reminders'), false);
-  assert.equal(pageLabels.includes('Declined Service Follow-Up'), false);
-  assert.equal(pageLabels.includes('Customer Reactivation'), false);
+  assert.equal(pageLabels.includes('Service Marketing'), false);
   assert.equal(pageLabels.includes('Website'), false);
   assert.equal(pageLabels.includes('AI ChatBot'), false);
   assert.equal(pageLabels.includes('SEO'), false);
@@ -183,19 +178,17 @@ test('Service Marketing Suite navigation and workspace isolation', (t) => {
 
   const pageLabels = pages.map(p => p.label);
   
-  // Must include Service items
-  assert.ok(pageLabels.includes('Service Marketing Overview'));
-  assert.ok(pageLabels.includes('Service Reminders'));
-  assert.ok(pageLabels.includes('Declined Service Follow-Up'));
-  assert.ok(pageLabels.includes('Customer Reactivation'));
+  assert.ok(pageLabels.includes('Pulse'));
+  assert.ok(pageLabels.includes('Service Marketing'));
+  assert.ok(pageLabels.includes('Campaigns'));
+  assert.ok(pageLabels.includes('Automations'));
   assert.ok(pageLabels.includes('Design Studio'));
   assert.ok(pageLabels.includes('Social Scheduler'));
   assert.ok(pageLabels.includes('Video'));
-  assert.ok(pageLabels.includes('Service Marketing Reports'));
+  assert.ok(pageLabels.includes('Overview'));
 
   // Must NOT include Sales-specific or Digital/DealerOS items
-  assert.equal(pageLabels.includes('Lead Follow-Up'), false);
-  assert.equal(pageLabels.includes('Sold / Delivery Follow-Up'), false);
+  assert.equal(pageLabels.includes('Sales Marketing'), false);
   assert.equal(pageLabels.includes('Website'), false);
   assert.equal(pageLabels.includes('AI ChatBot'), false);
   assert.equal(pageLabels.includes('SEO'), false);
@@ -222,14 +215,11 @@ test('Complete Marketing Suite navigation includes distinct Sales & Service sect
   const pages = sandbox.restrictedNavPages();
   const pageLabels = pages.map(p => p.label);
   
-  // Must include both Sales and Service sections
-  assert.ok(pageLabels.includes('Marketing Overview'));
-  assert.ok(pageLabels.includes('Sales Overview'));
-  assert.ok(pageLabels.includes('Sales Campaigns'));
-  assert.ok(pageLabels.includes('Sales Automations'));
-  assert.ok(pageLabels.includes('Service Overview'));
-  assert.ok(pageLabels.includes('Service Campaigns'));
-  assert.ok(pageLabels.includes('Service Automations'));
+  assert.ok(pageLabels.includes('Pulse'));
+  assert.ok(pageLabels.includes('Sales Marketing'));
+  assert.ok(pageLabels.includes('Service Marketing'));
+  assert.ok(pageLabels.includes('Campaigns'));
+  assert.ok(pageLabels.includes('Automations'));
   assert.ok(pageLabels.includes('Design Studio'));
   assert.ok(pageLabels.includes('Video'));
 
@@ -240,7 +230,7 @@ test('Complete Marketing Suite navigation includes distinct Sales & Service sect
   assert.equal(pageLabels.includes('Accounting'), false);
 });
 
-test('MarketSync Digital navigation without SEO entitlement does not show SEO', (t) => {
+test('MarketSync Digital package exposes its complete Digital Presence area', (t) => {
   const sandbox = createFrontendSandbox({
     productAttr: 'marketsync-digital',
     profileContext: { package_id: 'marketsync-digital', role: 'DEALER_ADMIN' },
@@ -260,15 +250,13 @@ test('MarketSync Digital navigation without SEO entitlement does not show SEO', 
   const pageLabels = pages.map(p => p.label);
   
   // Must include Digital items
-  assert.ok(pageLabels.includes('Digital Overview'));
+  assert.ok(pageLabels.includes('Pulse'));
   assert.ok(pageLabels.includes('Website'));
   assert.ok(pageLabels.includes('AI ChatBot'));
   assert.ok(pageLabels.includes('Design Studio'));
   assert.ok(pageLabels.includes('Video'));
-  assert.ok(pageLabels.includes('Digital Marketing Reports'));
-
-  // SEO must NOT be in the navigation without marketsync_seo entitlement
-  assert.equal(pageLabels.includes('SEO'), false);
+  assert.ok(pageLabels.includes('Overview'));
+  assert.ok(pageLabels.includes('SEO'));
   assert.equal(pageLabels.includes('Accounting'), false);
 });
 
@@ -285,7 +273,7 @@ test('MarketSync Digital navigation with SEO entitlement includes SEO', (t) => {
   const pages = sandbox.restrictedNavPages();
   const pageLabels = pages.map(p => p.label);
   
-  assert.ok(pageLabels.includes('Digital Overview'));
+  assert.ok(pageLabels.includes('Pulse'));
   assert.ok(pageLabels.includes('Website'));
   assert.ok(pageLabels.includes('AI ChatBot'));
   assert.ok(pageLabels.includes('SEO'), 'SEO must be included when marketsync_seo product/feature is held');
@@ -330,8 +318,9 @@ test('Tracked migration 2026-08-20-marketing-suite-plan-entitlements.sql aligns 
   assert.match(sql, /\('marketsync-digital',\s*'marketsync_website'\)/);
   assert.match(sql, /\('marketsync-digital',\s*'ai_dealer'\)/);
 
-  // Strictly no marketsync_seo in marketsync-digital
-  assert.doesNotMatch(sql, /\('marketsync-digital',\s*'marketsync_seo'\)/);
-  assert.doesNotMatch(sql, /\('marketsync-digital',\s*'seo\./);
+  const seoMigration = fs.readFileSync(path.join(__dirname, '../migrations/2026-08-20-marketsync-digital-seo-entitlement.sql'), 'utf8');
+  assert.match(seoMigration, /\('marketsync-digital',\s*'marketsync_seo'\)/);
+  for (const feature of ['seo.overview', 'seo.audit', 'seo.autofix', 'seo.content', 'seo.competitors', 'seo.local', 'seo.inventory', 'seo.ai_search', 'seo.reports', 'seo.settings']) {
+    assert.match(seoMigration, new RegExp(feature.replace('.', '\\\.')));
+  }
 });
-

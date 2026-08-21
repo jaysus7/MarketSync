@@ -1318,7 +1318,15 @@ const PAGE_DEALER_FLAG = {
 // and an older backend are never over-filtered.
 function pageFeatureOk(pg, invmode = null) {
   if (__productAllowedPages || __fbOnly) return true;   // restricted tiers handled by product nav
-  const access = window.__access;
+  // A dedicated demo tenant has a broad server-side showcase overlay so its operator
+  // can switch packages. For navigation presentation, use the selected package's
+  // canonical catalog entitlements returned by /demo/control instead. This keeps the
+  // normal DealerOS registry unchanged while Core / Pro / Complete reveal only their
+  // included work areas. Real-customer authorization continues to use __access.
+  const demoEntitlements = window.__demoEntitlements;
+  const access = demoEntitlements && Array.isArray(demoEntitlements.products) && Array.isArray(demoEntitlements.features)
+    ? demoEntitlements
+    : window.__access;
   const fallback = dealerPlanFallback();
   const requiredProduct = (pg === 'inventory' && (invmode || __inventoryMode) === 'facebook')
     ? 'facebook' : PAGE_PRODUCT[pg];
@@ -1351,6 +1359,29 @@ function renderDeptTabbar(pageId) {
   const bar = document.getElementById('dept-tabbar');
   if (!bar) return;
   const hide = () => { bar.classList.add('hidden'); bar.innerHTML = ''; };
+  const suite = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;
+  if (suite && typeof getMarketingSuiteConfig === 'function') {
+    const cfg = getMarketingSuiteConfig(suite);
+    const activeTab = pageId === 'marketing-overview'
+      ? ((typeof ENGINE_STATE !== 'undefined' && ENGINE_STATE['marketing-overview']) || 'overview')
+      : pageId === 'automation-builder' ? (__autoTab || 'overview')
+      : pageId === 'ai-home' ? (window.__aiHomeTab || 'conversations')
+      : pageId === 'social-scheduler' ? (window.__socialTab || window.__studioSchedulerTab || 'overview')
+      : null;
+    const area = typeof marketingSuiteAreaForPage === 'function'
+      ? marketingSuiteAreaForPage(cfg, pageId, activeTab) : null;
+    if (!area || area.id === 'pulse' || area.items.length <= 1) return hide();
+    const tabs = area.items.map(item => {
+      const on = item.page === pageId && (!item.tab || item.tab === activeTab);
+      const call = item.studioLaunch
+        ? 'window.openMarketSyncStudio()'
+        : `deptGo('${esc(item.page)}'${item.tab ? `,'','${esc(item.tab)}'` : ''})`;
+      return `<button type="button" role="tab" aria-selected="${on}"${on ? ' aria-current="page"' : ''} onclick="${call}" class="px-3.5 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${on ? 'text-indigo-700 dark:text-indigo-300 border-current' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}">${esc(item.label)}</button>`;
+    }).join('');
+    bar.innerHTML = `<div class="flex items-center gap-2 mb-1"><span class="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 flex items-center justify-center flex-shrink-0">${svgIcon(area.icon || 'dot', 'w-4 h-4')}</span><span class="text-sm font-black text-slate-900 dark:text-white">${esc(area.label)}</span></div><div role="tablist" aria-label="${esc(area.label)}" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto overscroll-x-contain">${tabs}</div>`;
+    bar.classList.remove('hidden');
+    return;
+  }
   if (pageId === 'website' || (typeof resolveWorkspaceContext === 'function' && resolveWorkspaceContext() === 'website')) { __activeDept = null; return hide(); }
   if (__fbOnly) { __activeDept = null; return hide(); }   // stripped Facebook-only tier
   if (__productAllowedPages) { __activeDept = null; return hide(); }   // restricted product tiers use their flat nav, no dept tab-bar
@@ -1549,35 +1580,15 @@ function deptVisible(dept) {
 
 function renderMarketingSuiteNav(suiteKey, host, navRoot) {
   const cfg = (typeof getMarketingSuiteConfig === 'function') ? getMarketingSuiteConfig(suiteKey) : null;
-  if (!cfg || !Array.isArray(cfg.sections)) return;
-
-  const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
-  const hasSeo = access.isPlatformStaff || !!(
-    (access.products && (access.products.includes('marketsync_seo') || access.products.includes('seo')))
-    || (access.features && access.features.includes('seo.manage'))
-    || /(?:^|\s)(?:marketsync_seo|seo)(?:\s|$)/.test(document.documentElement.getAttribute('data-product') || '')
-  );
+  if (!cfg || !Array.isArray(cfg.areas)) return;
 
   __deptRegistry = null;
 
-  let html = '';
-  html += `<div class="px-3 pt-1 pb-2 mb-1 border-b border-slate-200/80 dark:border-slate-800">
+  let html = `<div class="px-3 pt-1 pb-2 mb-1 border-b border-slate-200/80 dark:border-slate-800">
     <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">${esc(cfg.badge)}</div>
-    <div class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">${esc(cfg.title)}</div>
+    <div class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">MarketSync</div>
   </div>`;
-
-  for (const section of cfg.sections) {
-    const visibleItems = (section.items || []).filter(it => !it.requiresSeo || hasSeo);
-    if (!visibleItems.length) continue;
-
-    html += `<div class="pt-2.5 pb-1 px-3 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">${esc(section.title)}</div>`;
-    html += visibleItems.map(p => {
-      const call = p.studioLaunch
-        ? 'window.openMarketSyncStudio()'
-        : `deptGo('${esc(p.page)}'${p.tab ? `,'${esc(p.invmode || '')}','${esc(p.tab)}'` : (p.invmode ? `,'${esc(p.invmode)}'` : '')})`;
-      return `<button type="button" data-page="${esc(p.page)}"${p.tab ? ` data-tab="${esc(p.tab)}"` : ''} onclick="${call}" title="${esc(p.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-1.5 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-[13px]"><span class="text-indigo-500 flex-shrink-0">${svgIcon(p.icon || 'dot', 'w-4 h-4')}</span><span class="truncate">${esc(p.label)}</span></button>`;
-    }).join('');
-  }
+  html += cfg.areas.map(area => `<button type="button" data-suite-area="${esc(area.id)}" onclick="suiteAreaOpen('${esc(area.id)}')" title="${esc(area.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-[13px]"><span class="text-indigo-500 flex-shrink-0">${svgIcon(area.icon || 'dot', 'w-4 h-4')}</span><span class="truncate">${esc(area.label)}</span></button>`).join('');
 
   host.innerHTML = html;
   navRoot.classList.add('dept-mode');
@@ -1586,6 +1597,17 @@ function renderMarketingSuiteNav(suiteKey, host, navRoot) {
   applyMobileQuickRow();
 }
 window.renderMarketingSuiteNav = renderMarketingSuiteNav;
+
+function suiteAreaOpen(areaId) {
+  const suite = typeof getActiveMarketingSuite === 'function' ? getActiveMarketingSuite() : null;
+  const cfg = suite && typeof getMarketingSuiteConfig === 'function' ? getMarketingSuiteConfig(suite) : null;
+  const area = cfg?.areas?.find(candidate => candidate.id === areaId);
+  const home = area?.items?.[0];
+  if (!home) return;
+  if (home.studioLaunch) return window.openMarketSyncStudio?.();
+  deptGo(home.page, home.invmode || '', home.tab || '');
+}
+window.suiteAreaOpen = suiteAreaOpen;
 
 function renderDeptNav(role) {
   const navRoot = document.getElementById('nav-desktop');
@@ -1691,8 +1713,16 @@ function highlightDeptNav(pageId) {
 
   // Restricted tiers render a FLAT page list (no dept registry): highlight by data-page + data-tab.
   if (!reg) {
+    const suite = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;
+    const cfg = suite && typeof getMarketingSuiteConfig === 'function' ? getMarketingSuiteConfig(suite) : null;
+    const activeTab = pageId === 'marketing-overview'
+      ? ((typeof ENGINE_STATE !== 'undefined' && ENGINE_STATE['marketing-overview']) || 'overview')
+      : pageId === 'automation-builder' ? (__autoTab || 'overview')
+      : pageId === 'ai-home' ? (window.__aiHomeTab || 'conversations') : null;
+    const activeArea = cfg && typeof marketingSuiteAreaForPage === 'function'
+      ? marketingSuiteAreaForPage(cfg, pageId, activeTab)?.id : null;
     document.querySelectorAll('#dept-nav .dept-nav-item, #mobile-quickrow-dyn .nav-item').forEach(b => {
-      let on = b.dataset.page === pageId;
+      let on = b.dataset.suiteArea ? b.dataset.suiteArea === activeArea : b.dataset.page === pageId;
       if (on && b.dataset.tab) {
         const activeTab = getPageActiveTab(pageId);
         if (activeTab) {

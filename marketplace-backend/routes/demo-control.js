@@ -137,9 +137,20 @@ async function replaceDemoDealershipPackage({ dealershipId, planId, status = 'ac
 export function registerDemoControl(app) {
   app.get('/demo/control', requireAuth, requireDemoAccount, async (req, res) => {
     const state = await getConfig(req.dealershipId, CONTROL_KEY, DEFAULT_STATE)
+    const activePlan = getPlan(state.packageId) || getPlan(DEFAULT_STATE.packageId)
     res.json({
       dealership: { id: req._demoDealership.id, name: req._demoDealership.name },
       state,
+      // The demo dealership deliberately has a broad server-side showcase overlay so
+      // the operator can switch packages without losing the control center. Navigation
+      // must not use that overlay to advertise features outside the selected package,
+      // so return the selected plan's canonical catalog entitlements separately. The
+      // browser uses this for presentation only; API authorization remains server-side.
+      activePackage: activePlan ? {
+        id: activePlan.id,
+        products: [...activePlan.products],
+        features: [...activePlan.features],
+      } : null,
       packages: DEMO_PACKAGES.map(id => ({ id, label: getPlan(id)?.label, monthly: getPlan(id)?.monthly })),
       roles: Object.entries(DEMO_ROLES).map(([key, r]) => ({ key, label: r.label, approximated: !!r.approximated })),
     })

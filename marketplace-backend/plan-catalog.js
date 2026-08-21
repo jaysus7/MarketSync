@@ -303,13 +303,13 @@ export const PLAN_CATALOG = Object.freeze({
   },
   'marketsync-digital': {
     id: 'marketsync-digital', label: 'MarketSync Digital', product_primary: 'marketsync_website',
-    products: ['design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website', 'ai_dealer'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
+    products: ['design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website', 'ai_dealer', 'marketsync_seo'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
     monthly: 1199, tier: 2,
     priceEnvCad: 'STRIPE_PRICE_MARKETSYNC_DIGITAL_CAD', priceEnvUsd: 'STRIPE_PRICE_MARKETSYNC_DIGITAL_USD',
-    features: [...new Set([...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, ...FEATURES_BY_PRODUCT.marketsync_social, ...FEATURES_BY_PRODUCT.marketsync_email, ...FEATURES_BY_PRODUCT.marketsync_video, ...FEATURES_BY_PRODUCT.marketsync_website, ...FEATURES_BY_PRODUCT.ai_dealer])],
+    features: [...new Set([...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, ...FEATURES_BY_PRODUCT.marketsync_social, ...FEATURES_BY_PRODUCT.marketsync_email, ...FEATURES_BY_PRODUCT.marketsync_video, ...FEATURES_BY_PRODUCT.marketsync_website, ...FEATURES_BY_PRODUCT.ai_dealer, ...FEATURES_BY_PRODUCT.marketsync_seo])],
     legacy: {
       ...legacyFlags({}), ai_chatbot_active: true, ai_chatbot_paid: true,
-      products: { design_studio: true, facebook_dealer: true, marketsync_social: true, marketsync_email: true, marketsync_video: true, marketsync_website: true, ai_chatbot: true, marketsync_digital: true },
+      products: { design_studio: true, facebook_dealer: true, marketsync_social: true, marketsync_email: true, marketsync_video: true, marketsync_website: true, ai_chatbot: true, marketsync_seo: true, marketsync_digital: true },
     },
   },
   'dealer-os-core': {

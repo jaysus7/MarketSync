@@ -74,8 +74,9 @@ test('3. Marketing suites include both Design Studio and Social Scheduler capabi
   });
 
   // Marketing workspace navigation surfaces Social Scheduler & Video Studio
-  assert.ok(marketingWorkspaceCode.includes("page: 'social-scheduler'"), 'Marketing suite config contains social-scheduler');
-  assert.ok(marketingWorkspaceCode.includes("page: 'video-studio'"), 'Marketing suite config contains video-studio');
+  assert.ok(marketingWorkspaceCode.includes("suiteItem('social-scheduler', 'Social Scheduler'"), 'Marketing suite config contains canonical Social Scheduler');
+  assert.ok(marketingWorkspaceCode.includes("suiteItem('video-studio', 'Video'"), 'Marketing suite config contains canonical Video');
+  assert.ok(marketingWorkspaceCode.includes("suiteItem('studio', 'Design Studio'"), 'Marketing suite config keeps Design Studio separate');
 });
 
 test('4. Dedicated demo package replacement flow defaults role to dealer_admin on DealerOS tiers', () => {

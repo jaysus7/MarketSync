@@ -86,3 +86,11 @@ test('demo control state is server-side (dealer_config), never trusts a client-s
   assert.doesNotMatch(source, /req\.body\.dealershipId|req\.query\.dealershipId/)
   assert.match(source, /getConfig\(req\.dealershipId, CONTROL_KEY/)
 })
+
+test('demo GET exposes the selected canonical plan entitlements for navigation presentation', () => {
+  const route = source.match(/app\.get\('\/demo\/control'[\s\S]*?\n {2}\}\)/)?.[0] || ''
+  assert.match(route, /const activePlan = getPlan\(state\.packageId\) \|\| getPlan\(DEFAULT_STATE\.packageId\)/)
+  assert.match(route, /activePackage: activePlan \? \{/)
+  assert.match(route, /products: \[\.\.\.activePlan\.products\]/)
+  assert.match(route, /features: \[\.\.\.activePlan\.features\]/)
+})

@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 import { supabase, supabaseAdmin, isSaasStaff } from './shared.js'
 import { SYSTEM_ROLES, hasSystemRole } from './authorization.js'
 import { createClient } from '@supabase/supabase-js'
+import WebSocket from 'ws'
 import { mfaStepUpSatisfied } from './mfa-assurance.js'
 import { hasRecentPasskeyStepUp } from './passkeys.js'
 
@@ -18,6 +19,7 @@ function requestScopedClient(token) {
   return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
+    realtime: { transport: WebSocket },
   })
 }
 

@@ -37,10 +37,11 @@ test('Marketing Suite — Left Navigation & Workspace Context', async (t) => {
   });
 
   await t.test('provides distinct navigation structure across all 4 suites', () => {
-    assert.match(mktWorkspaceJs, /Sales Marketing Overview/, 'Sales overview title');
-    assert.match(mktWorkspaceJs, /Service Marketing Overview/, 'Service overview title');
-    assert.match(mktWorkspaceJs, /Marketing Command Center|Marketing Overview/, 'Complete overview title');
-    assert.match(mktWorkspaceJs, /Digital Command Center|Digital Overview/, 'Digital overview title');
+    assert.match(mktWorkspaceJs, /sales: \{ packageId: 'sales-marketing-suite'.*marketingModes: \['sales'\]/, 'Sales exposes Sales Marketing');
+    assert.match(mktWorkspaceJs, /service: \{ packageId: 'service-marketing-suite'.*marketingModes: \['service'\]/, 'Service exposes Service Marketing');
+    assert.match(mktWorkspaceJs, /complete: \{ packageId: 'complete-marketing-suite'.*marketingModes: \['sales', 'service'\]/, 'Complete exposes both marketing modes');
+    assert.match(mktWorkspaceJs, /digital: \{ packageId: 'marketsync-digital'.*digitalPresence: true/, 'Digital adds Digital Presence');
+    assert.match(mktWorkspaceJs, /id: 'pulse', label: 'Pulse'/, 'every generated suite begins with Pulse');
   });
 });
 
