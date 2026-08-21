@@ -29,7 +29,7 @@ const CONTROL_KEY = 'demo_control'
 // the Product Switcher's options. Every id here resolves through getPlan() AND through
 // the DB plans/plan_products tables (see migrations/2026-08-17-current-catalog-db-plans.sql).
 const DEMO_PACKAGES = [
-  'design-studio', 'social-scheduler', 'autoposter-salesperson',
+  'design-studio', 'autoposter-salesperson',
   'video', 'campaigns-email-sms', 'dealer-website', 'ai-chatbot', 'identity-verify',
   'sales-marketing-suite', 'service-marketing-suite', 'complete-marketing-suite', 'marketsync-digital',
   'dealer-os-core', 'dealer-os-pro', 'dealer-os-complete',

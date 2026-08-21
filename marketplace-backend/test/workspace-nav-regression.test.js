@@ -83,7 +83,8 @@ test('4. Dedicated demo package replacement flow defaults role to dealer_admin o
   assert.ok(demoControlRouteCode.includes('replaceDemoDealershipPackage'), 'replaceDemoDealershipPackage exists');
   assert.ok(demoControlRouteCode.includes("roleKey = 'dealer_admin'"), 'Defaults roleKey to dealer_admin on DealerOS tiers');
   assert.ok(demoControlRouteCode.includes("preserveExisting: false"), 'Clears previous demo subscriptions on replacement');
-  assert.ok(demoControlRouteCode.includes("social-scheduler"), 'DEMO_PACKAGES includes social-scheduler');
+  const demoPackages = demoControlRouteCode.match(/const DEMO_PACKAGES = \[([\s\S]*?)\]/)?.[1] || '';
+  assert.ok(!demoPackages.includes("social-scheduler"), 'DEMO_PACKAGES excludes the retired standalone scheduler');
 });
 
 test('5. DealerOS navigation distinguishes manager from restricted roles', () => {
