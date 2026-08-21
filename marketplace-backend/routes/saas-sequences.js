@@ -14,6 +14,7 @@
  * throughout. Trial onboarding stays in drip.js to avoid double-emailing.
  */
 import { supabaseAdmin, sendEmail, FRONTEND_URL } from '../shared.js'
+import { rateLimit } from '../security.js'
 import { requireAuth } from '../middleware.js'
 import { requestHasCronSecret } from '../cron-auth.js'
 import { saasCan } from './profile.js'
@@ -415,7 +416,7 @@ export function registerSaasSequences(app) {
   })
 
   // Cron: auto-enroll + advance sequences, then run the exception scan.
-  app.post('/cron/saas-sequences', async (req, res) => {
+  app.post('/cron/saas-sequences', rateLimit('cron-saas-seq', 60, 60000), async (req, res) => {
     if (!requestHasCronSecret(req)) return res.status(401).json({ error: 'Unauthorized' })
     try {
       const sequences = await runSaasSequences({ trigger: 'cron' })

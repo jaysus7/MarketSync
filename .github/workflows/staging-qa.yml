@@ -18,6 +18,11 @@ on:
           - links
           - performance
 
+# Least-privilege default token: this suite only needs to read the repo to check
+# it out. Anything broader (writing to the repo, packages, etc.) is denied.
+permissions:
+  contents: read
+
 jobs:
   staging-qa:
     name: Playwright Staging QA & Performance
@@ -45,10 +50,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Node 22+: @supabase/supabase-js builds a Realtime client that needs a
+          # native WebSocket, which only exists from Node 22. On Node 20 createClient()
+          # throws and every authenticated route 500s, so the QA suite must match CI.
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: marketplace-backend/package-lock.json
 

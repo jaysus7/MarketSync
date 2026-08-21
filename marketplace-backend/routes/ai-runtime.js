@@ -749,7 +749,7 @@ export function registerAiRuntime(app) {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     if (!req.file || !(req.file.mimetype || '').startsWith('image/')) return res.status(400).json({ error: 'Upload an image' })
     const ext = (req.file.mimetype.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
-    const path = `${req.dealershipId}/ai-avatar/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+    const path = `${req.dealershipId}/ai-avatar/${Date.now()}-${randomToken(6)}.${ext}`
     const { error } = await supabaseAdmin.storage.from('vehicle-pdfs').upload(path, req.file.buffer, { contentType: req.file.mimetype, upsert: true })
     if (error) return res.status(500).json({ error: 'Upload failed' })
     const { data: { publicUrl } } = supabaseAdmin.storage.from('vehicle-pdfs').getPublicUrl(path)

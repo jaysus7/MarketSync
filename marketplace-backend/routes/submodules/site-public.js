@@ -187,7 +187,7 @@ function tradeVehicleFromFields(fields) {
 }
 
 export function registerSitePublicRoutes(app) {
-  app.get('/site/:slug', async (req, res) => {
+  app.get('/site/:slug', rateLimit('pub-site', 120, 60000), async (req, res) => {
     const slug = String(req.params.slug || '').toLowerCase().trim()
     if (!slug) return res.status(404).json({ error: 'Not found' })
     const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS).ilike('site_slug', slug).maybeSingle()
@@ -195,7 +195,7 @@ export function registerSitePublicRoutes(app) {
     res.json(await buildSiteResponse(d))
   })
 
-  app.get('/site-by-domain', async (req, res) => {
+  app.get('/site-by-domain', rateLimit('pub-site-domain', 120, 60000), async (req, res) => {
     const host = String(req.query.host || '').toLowerCase().trim().replace(/^www\./, '').replace(/:\d+$/, '')
     if (!host) return res.status(404).json({ error: 'Not found' })
     const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS)

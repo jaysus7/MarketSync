@@ -1,4 +1,5 @@
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../../shared.js'
+import { rateLimit } from '../../security.js'
 import { requireAuth, requireMfa } from '../../middleware.js'
 import { requirePermission } from '../../authorization.js'
 import { requestHasCronSecret } from '../../cron-auth.js'
@@ -547,7 +548,7 @@ export function registerAiReportsCronRoutes(app) {
   })
 
   // POST /cron/expire-full-access
-  app.post('/cron/expire-full-access', async (req, res) => {
+  app.post('/cron/expire-full-access', rateLimit('cron-expire-access', 60, 60000), async (req, res) => {
     if (!requestHasCronSecret(req)) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
@@ -570,7 +571,7 @@ export function registerAiReportsCronRoutes(app) {
   })
 
   // POST /cron/weekly-reports
-  app.post('/cron/weekly-reports', async (req, res) => {
+  app.post('/cron/weekly-reports', rateLimit('cron-weekly-reports', 60, 60000), async (req, res) => {
     if (!requestHasCronSecret(req)) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
@@ -818,7 +819,7 @@ export function registerAiReportsCronRoutes(app) {
   })
 
   // POST /cron/daily-digest
-  app.post('/cron/daily-digest', async (req, res) => {
+  app.post('/cron/daily-digest', rateLimit('cron-daily-digest', 60, 60000), async (req, res) => {
     if (!requestHasCronSecret(req)) {
       return res.status(401).json({ error: 'unauthorized' })
     }

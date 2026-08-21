@@ -1,4 +1,5 @@
 import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
+import { rateLimit } from '../security.js'
 import { requireAuth } from '../middleware.js'
 import { createNotification } from '../notifications.js'
 import { requestHasCronSecret } from '../cron-auth.js'
@@ -278,7 +279,7 @@ export function registerPipeline(app) {
   // Cron: remind on appointments happening within the next 24h (once each).
   // Creates an in-app notification for the store and emails the manager address
   // when set. Schedule this hourly/daily with the x-cron-secret header.
-  app.post('/cron/appointment-reminders', async (req, res) => {
+  app.post('/cron/appointment-reminders', rateLimit('cron-appt-remind', 60, 60000), async (req, res) => {
     if (!requestHasCronSecret(req)) {
       return res.status(401).json({ error: 'Unauthorized' })
     }

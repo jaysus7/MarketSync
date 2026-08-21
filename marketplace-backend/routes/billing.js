@@ -734,7 +734,7 @@ export function registerRoutes(app) {
   // ── Cron: trial expiry warnings ────────────────────────────────────────────
   // Hit daily by Render Cron (or any scheduler). Sends warning emails to any
   // dealership whose trial ends within the next 24 hours.
-  app.post('/cron/trial-expiry', async (req, res) => {
+  app.post('/cron/trial-expiry', rateLimit('cron-trial-expiry', 60, 60000), async (req, res) => {
     if (!requestHasCronSecret(req)) {
       return res.status(401).json({ error: 'Unauthorized' })
     }

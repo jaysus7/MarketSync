@@ -20,6 +20,7 @@
  * into a response. Every read in this file lists its columns explicitly for that reason.
  */
 import { supabaseAdmin, FRONTEND_URL } from '../shared.js'
+import { rateLimit } from '../security.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission, hasPermission } from '../authorization.js'
 import { audit } from '../audit.js'
@@ -281,7 +282,7 @@ export function registerSocial(app) {
   })
 
   // Authoritative Provider OAuth Redirect Target (Public callback verified via signed state)
-  app.get('/social/callback/:provider', async (req, res) => {
+  app.get('/social/callback/:provider', rateLimit('oauth-cb-social', 20, 60000), async (req, res) => {
     const provider = String(req.params.provider || '').toLowerCase()
     const done = (ok, msg) => res.redirect(`${FRONTEND_URL}/dashboard.html?social=${ok ? 'connected' : 'error'}&provider=${encodeURIComponent(provider)}&msg=${encodeURIComponent(msg || '')}`)
 

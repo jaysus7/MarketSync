@@ -1,4 +1,5 @@
 import { supabaseAdmin, FRONTEND_URL } from '../shared.js'
+import { rateLimit } from '../security.js'
 import { requireAuth } from '../middleware.js'
 
 // Shared helper: after a vehicle is sold via any path, snapshot identity onto the listing
@@ -488,7 +489,7 @@ export function registerRoutes(app) {
   // required (Facebook strips referrer auth headers, and the link must work for
   // anonymous buyers). The listing_id alone is enough since each listing row stores
   // the dealer source_url via its linked inventory row.
-  app.get('/r/:listingId', async (req, res) => {
+  app.get('/r/:listingId', rateLimit('pub-listing-r', 120, 60000), async (req, res) => {
     const { listingId } = req.params
 
     // Look up the destination URL: prefer the inventory row's source_url, fall back
@@ -523,7 +524,7 @@ export function registerRoutes(app) {
   // Marketplace description, where the listing row doesn't exist yet at fill time. At
   // click time the post is live, so we resolve the dealer URL from inventory and
   // attribute the click to the most recent posted listing for that vehicle.
-  app.get('/r/v/:inventoryId', async (req, res) => {
+  app.get('/r/v/:inventoryId', rateLimit('pub-listing-rv', 120, 60000), async (req, res) => {
     const { inventoryId } = req.params
 
     let destination = null

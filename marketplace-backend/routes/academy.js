@@ -20,7 +20,7 @@ import { supabaseAdmin } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
-import { randomToken } from '../security.js'
+import { randomToken, rateLimit } from '../security.js'
 import { ROLE_CURRICULUM, CERTIFICATIONS } from '../academy-curriculum.js'
 
 // Global catalog rows carry `dealership_id = null`; a dealership may add its own on top.
@@ -418,7 +418,7 @@ export function registerAcademy(app) {
    * that is what makes it shareable. It exposes the credential and nothing else about the
    * person, because this URL ends up on LinkedIn.
    */
-  app.get('/verify/:credentialId', async (req, res) => {
+  app.get('/verify/:credentialId', rateLimit('pub-verify-cred', 60, 60000), async (req, res) => {
     try {
       const { data: cert } = await supabaseAdmin.from('staff_certifications')
         .select('credential_id, certification_name, certification_version, issued_on, expires_on, status, staff_member_id')

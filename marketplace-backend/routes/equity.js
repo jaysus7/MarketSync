@@ -8,6 +8,7 @@
 //     compliance kill-switch layer (never a raw insert) + a high-priority task.
 // ─────────────────────────────────────────────────────────────────────────────
 import { supabaseAdmin } from '../shared.js'
+import { rateLimit } from '../security.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
@@ -389,7 +390,7 @@ export function registerEquity(app) {
   })
 
   // ── Cron: refresh estimated values (approx wholesale) for all leased rows ────
-  app.post('/cron/equity-revalue', async (req, res) => {
+  app.post('/cron/equity-revalue', rateLimit('cron-equity', 60, 60000), async (req, res) => {
     if (!cronOk(req)) return res.status(401).json({ error: 'unauthorized' })
     const { data: dealers } = await supabaseAdmin.from('dealerships').select('id, automation_settings, province, country')
     let updated = 0

@@ -8,6 +8,7 @@
  */
 import multer from 'multer'
 import { supabaseAdmin } from '../shared.js'
+import { randomBytes } from 'crypto'
 import { requireAuth } from '../middleware.js'
 import { carfaxDeepLink } from '../providers/history.js'
 import { audit } from '../audit.js'
@@ -53,7 +54,7 @@ export function registerHistory(app) {
     let file_url = null, file_path = null
     if (f) {
       const safe = (f.originalname || 'report.pdf').replace(/[^\w.\-]+/g, '_').slice(-80)
-      file_path = `history/${req.dealershipId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safe}`
+      file_path = `history/${req.dealershipId}/${Date.now()}-${randomBytes(6).toString("hex")}-${safe}`
       const { error: upErr } = await supabaseAdmin.storage.from('vehicle-pdfs')
         .upload(file_path, f.buffer, { contentType: f.mimetype || 'application/pdf', upsert: false })
       if (upErr) { console.warn('[history] upload failed:', upErr.message); return res.status(500).json({ error: 'Upload failed' }) }

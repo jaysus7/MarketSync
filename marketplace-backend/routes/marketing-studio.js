@@ -238,7 +238,7 @@ export function registerMarketingStudio(app) {
       return res.status(400).json({ error: 'File processing error: ' + e.message })
     }
 
-    const path = `${req.dealershipId}/_marketing/asset-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.webp`
+    const path = `${req.dealershipId}/_marketing/asset-${Date.now()}-${crypto.randomBytes(6).toString("hex")}.webp`
     const { error: upErr } = await supabaseAdmin.storage.from('vehicle-photos')
       .upload(path, webp, { contentType: 'image/webp', upsert: false })
     if (upErr) return res.status(500).json({ error: 'Upload failed: ' + upErr.message })
@@ -573,7 +573,7 @@ export function registerMarketingStudio(app) {
       const buffer = Buffer.from(await resp.arrayBuffer())
       const webp = await toWebp(buffer, { max: 2200, quality: 86 })
 
-      const path = `${req.dealershipId}/_marketing/imported-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.webp`
+      const path = `${req.dealershipId}/_marketing/imported-${Date.now()}-${crypto.randomBytes(6).toString("hex")}.webp`
       const { error: upErr } = await supabaseAdmin.storage.from('vehicle-photos')
         .upload(path, webp, { contentType: 'image/webp', upsert: false })
       if (upErr) throw upErr
@@ -673,7 +673,7 @@ export function registerMarketingStudio(app) {
         .webp({ quality: 90 })
         .toBuffer()
 
-      const path = `${req.dealershipId}/_marketing/design-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.webp`
+      const path = `${req.dealershipId}/_marketing/design-${Date.now()}-${crypto.randomBytes(6).toString("hex")}.webp`
       const { error: upErr } = await supabaseAdmin.storage.from('vehicle-photos').upload(path, webp, { contentType: 'image/webp', upsert: false })
       if (upErr) return res.status(500).json({ error: 'Render upload failed: ' + upErr.message })
 

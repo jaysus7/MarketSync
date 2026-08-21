@@ -12,6 +12,7 @@
 //   • AI copy generation hook                            → /automation/ai-copy
 // ─────────────────────────────────────────────────────────────────────────────
 import Anthropic from '@anthropic-ai/sdk'
+import { rateLimit } from '../security.js'
 import { emitTradeReceived } from './trade-receipt.js'
 import { timingSafeEqual } from 'crypto'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../shared.js'
@@ -693,17 +694,17 @@ export function registerAutomation(app) {
   })
 
   // ── Background worker cron endpoints ───────────────────────────────────────
-  app.post('/cron/automation-run', async (req, res) => {
+  app.post('/cron/automation-run', rateLimit('cron-auto-run', 60, 60000), async (req, res) => {
     if (!cronOk(req)) return res.status(401).json({ error: 'unauthorized' })
     try { const pre = await runPrecheck(); const run = await runDue(); res.json({ ok: true, precheck: pre, dispatch: run }) }
     catch (e) { res.status(500).json({ error: e.message }) }
   })
-  app.post('/cron/automation-daily', async (req, res) => {
+  app.post('/cron/automation-daily', rateLimit('cron-auto-daily', 60, 60000), async (req, res) => {
     if (!cronOk(req)) return res.status(401).json({ error: 'unauthorized' })
     try { res.json({ ok: true, ...(await runDaily()) }) } catch (e) { res.status(500).json({ error: e.message }) }
   })
   // Proactive morning briefing — schedule this once each morning (e.g. 7am local).
-  app.post('/cron/morning-digest', async (req, res) => {
+  app.post('/cron/morning-digest', rateLimit('cron-morning', 60, 60000), async (req, res) => {
     if (!cronOk(req)) return res.status(401).json({ error: 'unauthorized' })
     try { res.json({ ok: true, ...(await runMorningDigest()) }) } catch (e) { res.status(500).json({ error: e.message }) }
   })
@@ -723,7 +724,7 @@ export function registerAutomation(app) {
 
   // Proactive weekly briefing — schedule this daily; it only fires for dealers whose
   // configured weekly_day matches today (so one cron covers everyone's chosen day).
-  app.post('/cron/weekly-briefing', async (req, res) => {
+  app.post('/cron/weekly-briefing', rateLimit('cron-weekly-brief', 60, 60000), async (req, res) => {
     if (!cronOk(req)) return res.status(401).json({ error: 'unauthorized' })
     try { res.json({ ok: true, ...(await runWeeklyBriefing(false)) }) } catch (e) { res.status(500).json({ error: e.message }) }
   })

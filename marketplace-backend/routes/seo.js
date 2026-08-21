@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../shared.js'
+import { rateLimit } from '../security.js'
 import { requireAuth } from '../middleware.js'
 import { getCurrentAccessContext, hasProductAccess, hasFeature } from '../access.js'
 import { runAutomatedSeoAudit } from '../services/seoMonitoringService.js'
@@ -713,7 +714,7 @@ Sitemap: https://marketsync.link/sitemap-inventory.xml
 `)
   })
 
-  app.get('/sitemap.xml', (req, res) => {
+  app.get('/sitemap.xml', rateLimit('pub-sitemap', 60, 60000), (req, res) => {
     res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap>

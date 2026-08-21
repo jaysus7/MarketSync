@@ -13,6 +13,7 @@
  * fire-and-forget after they create/update/complete an appointment task.
  */
 import { supabaseAdmin, FRONTEND_URL } from '../shared.js'
+import { rateLimit } from '../security.js'
 import { requireAuth } from '../middleware.js'
 import { audit, AuditAction } from '../audit.js'
 import { requestHasCronSecret } from '../cron-auth.js'
@@ -56,7 +57,7 @@ export function registerCalendar(app) {
   // OAuth redirect target. Public (the provider calls it), but the signed state
   // carries + verifies which user started the flow. Always redirects back to the
   // dashboard with a friendly status rather than returning JSON.
-  app.get('/calendar/callback/:provider', async (req, res) => {
+  app.get('/calendar/callback/:provider', rateLimit('oauth-cb-calendar', 20, 60000), async (req, res) => {
     const provider = req.params.provider
     const done = (ok, msg) => res.redirect(`${FRONTEND_URL}/dashboard.html?calendar=${ok ? 'connected' : 'error'}&provider=${provider}&msg=${encodeURIComponent(msg || '')}`)
     try {
@@ -128,7 +129,7 @@ export function registerCalendar(app) {
 
   // Periodic inbound sweep for every connection. Set up as a Render Cron Job:
   //   curl -X POST https://<backend>/cron/calendar-pull -H "x-cron-secret: $CRON_SECRET"
-  app.post('/cron/calendar-pull', async (req, res) => {
+  app.post('/cron/calendar-pull', rateLimit('cron-calendar-pull', 60, 60000), async (req, res) => {
     if (!requestHasCronSecret(req)) {
       return res.status(403).json({ error: 'Forbidden' })
     }
