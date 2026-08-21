@@ -219,8 +219,14 @@
 
       const suiteProducts = new Set(['sales-marketing-suite', 'service-marketing-suite', 'complete-marketing-suite', 'marketsync-digital']);
       const isMarketingSuiteDemo = suiteProducts.has(window.__demoActiveProduct);
+      const isIdentityVerifyDemo = window.__demoActiveProduct === 'marketsync_identity';
       const singleProduct = typeof window.isSingleProductWorkspace === 'function' && window.isSingleProductWorkspace();
-      if (isMarketingSuiteDemo) {
+      if (isIdentityVerifyDemo) {
+        // applyProductNav can already have consumed its one-time home redirect before
+        // the Demo selector resolves. Identity Verify must always land on its scan
+        // operations dashboard, never retain the previous package's Pulse page.
+        if (typeof switchPage === 'function') switchPage('crm');
+      } else if (isMarketingSuiteDemo) {
         // Suite home is always Pulse. Set the engine tab as well as the page so a
         // previous Marketing tab cannot survive a package switch or browser refresh.
         if (typeof deptGo === 'function') deptGo('marketing-overview', '', 'overview');

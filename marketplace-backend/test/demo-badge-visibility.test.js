@@ -46,3 +46,7 @@ test('all four marketing suite demo packages use their canonical suite product g
       `${suite} must not fall through to DealerOS`)
   }
 })
+
+test('Identity Verify demo always opens its verification dashboard', () => {
+  assert.match(demoPanel, /isIdentityVerifyDemo[\s\S]*?switchPage\('crm'\)/)
+})
