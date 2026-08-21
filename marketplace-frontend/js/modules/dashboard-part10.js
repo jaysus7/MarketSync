@@ -893,6 +893,11 @@ async function engineTab(engineId, tab, force) {
     localStorage.setItem('ms_last_tab_' + engineId, tab);
     if (typeof msSyncRoute === 'function') msSyncRoute(engineId, tab);
     if (typeof highlightDeptNav === 'function' && typeof __currentPage !== 'undefined') highlightDeptNav(__currentPage);
+    // Marketing suites replace the engine's legacy tab row with the shared page
+    // header. Refresh it only after the engine has committed its selected tab.
+    if (engineId === 'marketing-overview' && typeof renderDeptTabbar === 'function') {
+      renderDeptTabbar(engineId);
+    }
   } catch {}
   document.querySelectorAll(`[data-engine-tabbar="${engineId}"] [data-engine-tab]`).forEach(b => {
     const on = b.dataset.engineTab === tab;

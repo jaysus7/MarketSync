@@ -10,6 +10,7 @@ const rootDir = path.resolve(__dirname, '..', '..');
 const dashJs = fs.readFileSync(path.join(rootDir, 'marketplace-frontend', 'dashboard.js'), 'utf8');
 const dashPart2Js = fs.readFileSync(path.join(rootDir, 'marketplace-frontend', 'js', 'modules', 'dashboard-part2.js'), 'utf8');
 const dashPart18Js = fs.readFileSync(path.join(rootDir, 'marketplace-frontend', 'js', 'modules', 'dashboard-part18.js'), 'utf8');
+const dashPart10Js = fs.readFileSync(path.join(rootDir, 'marketplace-frontend', 'js', 'modules', 'dashboard-part10.js'), 'utf8');
 const mktWorkspaceJs = fs.readFileSync(path.join(rootDir, 'marketplace-frontend', 'js', 'modules', 'marketing-workspace.js'), 'utf8');
 const dashHtml = fs.readFileSync(path.join(rootDir, 'marketplace-frontend', 'dashboard.html'), 'utf8');
 
@@ -58,6 +59,11 @@ test('Marketing Suite — Horizontal Top Tabs & Clean Email & SMS Landing', asyn
     assert.match(dashPart2Js, /if \(!inMktSuite && !identityOnly\) pageId = 'sales';/, 'preserves CRM/Leads for marketing suite and Identity Verify');
     assert.match(dashPart2Js, /sales-campaigns|service-campaigns/, 'maps campaigns to automation-builder tabs');
     assert.match(dashPart2Js, /sales-automations|service-automations/, 'maps automations to automation-builder tabs');
+  });
+
+  await t.test('keeps the suite page header synchronized when Marketing engine tabs change', () => {
+    assert.match(dashPart10Js, /engineId === 'marketing-overview'[\s\S]*?renderDeptTabbar\(engineId\)/,
+      'Marketing engine state changes must re-render the shared horizontal suite header');
   });
 
   await t.test('Email & SMS command center renders overview with 6 tabs and KPI metrics', () => {
