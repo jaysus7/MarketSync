@@ -412,7 +412,7 @@ export function registerAccounting(app) {
   app.put('/accounting/settings', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
     const b = req.body || {}
-    const parseEmails = (v) => (Array.isArray(v) ? v : String(v || '').split(/[,\s]+/)).map(s => String(s).trim().toLowerCase()).filter(e => /.+@.+\..+/.test(e)).slice(0, 20)
+    const parseEmails = (v) => (Array.isArray(v) ? v : String(v || '').split(/[,\s]+/)).map(s => String(s).trim().toLowerCase()).filter(e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)).slice(0, 20)
     // Carry over the parts of accounting_settings this form doesn't own (budgets),
     // since the write replaces the whole object.
     const { data: curRow } = await supabaseAdmin.from('dealerships').select('accounting_settings').eq('id', req.dealershipId).maybeSingle()
