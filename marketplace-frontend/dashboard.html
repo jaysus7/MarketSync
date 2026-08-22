@@ -2960,12 +2960,17 @@
           </button>
         </div>
 
-        <!-- Two-column layout: appraisal flow on the left, Appraisals list pinned right -->
-        <div class="grid gap-6 items-start lg:grid-cols-[minmax(0,1fr)_360px]">
+        <!-- Appraisal flow (3-column workflow) on the left; Appraisals list pinned right on wide screens -->
+        <div class="grid gap-6 items-start xl:grid-cols-[minmax(0,1fr)_340px]">
           <div class="space-y-6 min-w-0">
 
-        <!-- Card: the appraisal form -->
+        <!-- Appraisal workflow — three columns: Vehicle & VIN · Condition & Appraisal · Market & Value.
+             One column on mobile, two on tablet, three on desktop; no control is ever squeezed. -->
+        <div class="grid gap-4 items-start md:grid-cols-2 xl:grid-cols-3">
+
+        <!-- Column / Card 1 — Vehicle & VIN -->
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+          <div class="flex items-center gap-2"><span class="w-1.5 h-4 rounded-full bg-sky-500 flex-shrink-0"></span><h3 class="text-sm font-bold text-slate-900 dark:text-white">Vehicle &amp; VIN</h3></div>
           <!-- Customer search (optional — search & link customer before appraisal) -->
           <div class="pb-3 border-b border-slate-100 dark:border-slate-800">
             <div class="flex items-center justify-between gap-2 mb-1.5">
@@ -3021,14 +3026,19 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div class="grid grid-cols-2 gap-3">
             <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Year</label><input id="appr-year" inputmode="numeric" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
             <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Make</label><input id="appr-make" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
             <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Model</label><input id="appr-model" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
             <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Trim</label><input id="appr-trim" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
           </div>
+        </div>
 
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <!-- Column / Card 2 — Condition & Appraisal -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+          <div class="flex items-center gap-2"><span class="w-1.5 h-4 rounded-full bg-amber-500 flex-shrink-0"></span><h3 class="text-sm font-bold text-slate-900 dark:text-white">Condition &amp; Appraisal</h3></div>
+
+          <div class="grid grid-cols-2 gap-3">
             <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Mileage</label><input id="appr-mileage" inputmode="numeric" data-money class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
             <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Condition</label><select id="appr-condition" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="good">Good</option><option value="excellent">Excellent</option><option value="fair">Fair</option><option value="rough">Rough</option></select></div>
             <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Recon ($)</label><input id="appr-recon" inputmode="numeric" data-money value="1,200" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
@@ -3037,7 +3047,7 @@
           </div>
           <div id="appr-defaults-slot"></div>
 
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div class="grid grid-cols-2 gap-3">
             <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Drivetrain</label><select id="appr-drivetrain" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="">Any</option><option value="FWD">FWD</option><option value="RWD">RWD</option><option value="AWD">AWD</option><option value="4WD">4WD / 4x4</option></select></div>
             <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Engine</label><input id="appr-engine" placeholder="e.g. 3.5L V6" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
             <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Comp radius</label><select id="appr-radius" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="100">100</option><option value="250" selected>250</option><option value="500">500</option><option value="1000">1000</option><option value="0">Nationwide</option></select></div>
@@ -3057,10 +3067,17 @@
             <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Reported damage ($) <span class="font-normal text-slate-400">optional</span></label><input id="appr-damage" inputmode="numeric" data-money placeholder="e.g. 4200" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
           </div>
 
-          <button id="appr-run" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-5 py-2.5 rounded-lg transition">Appraise</button>
         </div>
 
-        <div id="appr-result"></div>
+        <!-- Column / Card 3 — Market & Value -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+          <div class="flex items-center gap-2"><span class="w-1.5 h-4 rounded-full bg-emerald-500 flex-shrink-0"></span><h3 class="text-sm font-bold text-slate-900 dark:text-white">Market &amp; Value</h3></div>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Live retail comps and a suggested cash/trade offer from MarketCheck.</p>
+          <button id="appr-run" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-5 py-2.5 rounded-lg transition">Appraise</button>
+          <div id="appr-result" class="min-w-0"></div>
+        </div>
+
+        </div>
 
         <!-- ── Deal Details: customer + disclosure + salesperson ─────────────── -->
         <div class="space-y-6">
