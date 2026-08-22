@@ -1,0 +1,1686 @@
+<div data-page-content="profile" class="page-content hidden space-y-6">
+        <div>
+          <h1 class="text-2xl font-black text-slate-900 dark:text-white">Settings</h1>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Your team, account, branding, billing and add-ons — all in one place.</p>
+        </div>
+        <!-- Settings sub-nav — each tab reveals only its own section(s). -->
+        <div id="settings-tabs" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none -mx-1 px-1">
+          <button data-stab="account" onclick="settingsTab('account')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">My Account</button>
+          <button data-stab="admin" data-admin-only onclick="settingsTab('admin')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Administration</button>
+          <button data-stab="sales" data-admin-only onclick="settingsTab('sales')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Sales</button>
+          <button data-stab="marketing" data-admin-only onclick="settingsTab('marketing')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Marketing</button>
+          <button data-stab="inventory" data-admin-only onclick="settingsTab('inventory')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Inventory</button>
+          <button data-stab="service" data-admin-only onclick="settingsTab('service')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Service</button>
+          <button data-stab="accounting" data-admin-only onclick="settingsTab('accounting')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Accounting</button>
+        </div>
+
+        <!-- These tab sections flow into two columns on wide screens (settings-cols);
+             JS adds .is-multi only when the active tab has more than one card. -->
+        <div id="settings-panel-extra" class="settings-cols gap-5 [column-fill:_balance]">
+        <!-- Integrations Hub — connect MarketSync to the rest of the dealership stack.
+             Webhooks are our own outbound "glue" (live today); the F&I / accounting
+             rails show as coming-soon until we're certified with the partner. -->
+        <div id="integrations-section" data-admin-only data-full-width="true" class="stab-hide space-y-4 break-inside-avoid mb-5">
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Integrations</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Connect MarketSync to the tools you already use. Send events out to Zapier, Make, or your own app — and plug in the F&amp;I and accounting rails as they come online.</p>
+          </div>
+          <div id="integrations-list"><div class="py-10 text-center text-sm text-slate-400 italic">Loading…</div></div>
+        </div>
+
+        <!-- Staff host. The standalone "Team" roster (team picker + read-only member
+             list) was removed — staff management is the Staff panel that folds in
+             here: Invite Rep / Invite Manager, roles, and lead routing. Kept as a
+             bare, full-width wrapper so that panel (and the owner SaaS-roles panel)
+             has a home without nesting a card inside a card. -->
+        <div id="settings-team" data-stab-panel="team" data-full-width="true" class="break-inside-avoid mb-5"></div>
+
+        <!-- CRM / DMS connection (ADF lead delivery) — moved here from the CRM Leads tab -->
+        <div id="crm-dms-card" data-admin-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">CRM / DMS connection</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Your CRM/DMS lead-intake address (VinSolutions, DealerSocket, Elead, PBS, etc.). Leads captured in MarketSync are emailed here as ADF XML and auto-imported. Not sure? Ask your CRM admin for your "ADF" or "email lead" address.</p>
+          <div class="flex gap-2">
+            <input id="crm-adf-email" type="email" placeholder="leads@yourcrm-intake.com" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+            <button id="crm-adf-save" onclick="saveCrmAdfEmail(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Save</button>
+          </div>
+          <p id="crm-adf-msg" class="hidden text-xs mt-2"></p>
+        </div>
+        <!-- Feature toggles — hide paid features this dealer doesn't use -->
+        <div id="dealer-features-card" data-admin-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Features</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Turn features on or off for your whole store. Switching one off hides it from the menu for everyone; you can turn it back on any time.</p>
+          <div id="dealer-features-list" class="space-y-2"><div class="text-sm text-slate-400 italic py-3">Loading…</div></div>
+        </div>
+        <!-- Dealer details for documents — legal identifiers printed on the bill of sale -->
+        <div id="dealer-docs-card" data-admin-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Dealer details for documents</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Your legal / trade name, address and registration numbers — these print on every estimate and bill of sale.</p>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div class="col-span-2 sm:col-span-3"><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">Legal / trade name</label><input id="dd-legal_name" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div class="col-span-2 sm:col-span-3"><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">Street address</label><input id="dd-street_address" placeholder="915 Niagara St" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">Phone</label><input id="dd-phone" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">Fax</label><input id="dd-fax" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">HST #</label><input id="dd-hst_number" placeholder="R715748679" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">OMVIC / dealer reg #</label><input id="dd-omvic_reg" placeholder="5686852" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+          </div>
+          <div class="mt-3"><button id="dealer-docs-save" onclick="saveDealerDocs(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Save dealer details</button></div>
+        </div>
+        <!-- Deal Desk: management-controlled fee schedule (prefilled + lockable) -->
+        <div id="desk-fees-card" data-admin-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Deal Desk — fees</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Set the fees that prefill on every deal. <b>Locked</b> fees can't be changed on the desk (consistent across all deals); unlocked ones can be adjusted per-deal. Mark each taxable or not.</p>
+          <div id="desk-fees-list" class="space-y-2"><div class="text-sm text-slate-400 italic py-3">Loading…</div></div>
+          <div class="flex items-center justify-between mt-3">
+            <button onclick="deskFeeAddRow()" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500">＋ Add a fee</button>
+            <button id="desk-fees-save" onclick="saveDeskFees(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Save fees</button>
+          </div>
+        </div>
+        <!-- Language: per-rep dashboard translation (Google Translate) + AI listing-copy language -->
+        <div id="settings-language-card" data-full-width="true" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 notranslate break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Language</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Translate your dashboard into any language — it's saved to your browser, just for you. Your choice also becomes the language for your AI-written Facebook listings.</p>
+          <div id="google_translate_element"></div>
+        </div>
+        <!-- Text messaging — provision a dedicated SMS number under MarketSync, no
+             Twilio account needed. Powers automated follow-ups + AI autoresponder texts. -->
+        <div id="settings-texting-card" data-admin-only class="stab-hide bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Text messaging (SMS)</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Get your own texting number to send automated follow-ups and AI replies — carrier-compliant, no Twilio account to set up.</p>
+          <div id="texting-root"><div class="text-sm text-slate-400 italic py-3">Loading…</div></div>
+        </div>
+        <!-- Service department settings live on their own page — linked here so the
+             Service section exists under Settings without duplicating those controls. -->
+        <div id="settings-service-card" data-admin-only class="stab-hide bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Service &amp; Parts</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Labour rate, tax, shop supplies, parts markup and RO prefix.</p>
+          <button onclick="switchPage('service-settings')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Open Service settings →</button>
+        </div>
+        <!-- Accounting department settings live on the Accounting page. -->
+        <div id="settings-accounting-card" data-admin-only class="stab-hide bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Accounting</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Chart of accounts, auto-posting rules and cost tracking.</p>
+          <button onclick="switchPage('accounting')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Open Accounting →</button>
+        </div>
+        </div><!-- /#settings-panel-extra -->
+      </div>
+
+<div data-page-content="commissions" class="page-content hidden hidden space-y-6">
+        <div id="commissions-root"></div>
+      </div>
+
+<div data-page-content="taskboard" class="page-content hidden hidden space-y-6">
+        <div id="taskboard-root"></div>
+      </div>
+
+<div data-page-content="command" class="page-content hidden space-y-6">
+        <div id="command-root"></div>
+      </div>
+
+<div data-page-content="solo-home" class="page-content hidden hidden space-y-6">
+        <div id="solo-home-root"></div>
+      </div>
+
+<div data-page-content="ai-home" class="page-content hidden space-y-6">
+        <div id="ai-home-root"></div>
+      </div>
+
+<div data-page-content="operations" class="page-content hidden hidden space-y-6">
+        <div id="operations-root"></div>
+      </div>
+
+<div data-page-content="delivery" class="page-content hidden space-y-6">
+        <div id="delivery-root"></div>
+      </div>
+
+<div data-page-content="service-ros" class="page-content hidden hidden space-y-6">
+        <div id="service-ros-root"></div>
+      </div>
+
+<div data-page-content="service-parts" class="page-content hidden hidden space-y-6">
+        <div id="service-parts-root"></div>
+      </div>
+
+<div data-page-content="saas-command" class="page-content hidden hidden space-y-6">
+        <div id="saas-command-root"></div>
+      </div>
+
+<div data-page-content="saas-customers" class="page-content hidden hidden space-y-6">
+        <div id="saas-customers-root"></div>
+      </div>
+
+<div data-page-content="saas-followups" class="page-content hidden hidden space-y-6">
+        <div id="saas-followups-root"></div>
+      </div>
+
+<div data-page-content="saas-funnel" class="page-content hidden hidden space-y-6">
+        <div id="saas-funnel-root"></div>
+      </div>
+
+<div data-page-content="saas-automation" class="page-content hidden hidden space-y-6">
+        <div id="saas-automation-root"></div>
+      </div>
+
+<div data-page-content="email-marketing" class="page-content hidden hidden space-y-6">
+        <div id="dealer-email-root"></div>
+      </div>
+
+<div data-page-content="saas-employees" class="page-content hidden hidden space-y-6">
+        <div id="saas-employees-root"></div>
+      </div>
+
+<div data-page-content="saas-accounting" class="page-content hidden hidden space-y-6">
+        <div id="saas-accounting-root"></div>
+      </div>
+
+<div data-page-content="owner-users" class="page-content hidden hidden space-y-6">
+        <div id="owner-users-root"></div>
+      </div>
+
+<div data-page-content="people-compliance" class="page-content hidden hidden space-y-6">
+        <div id="people-compliance-root"></div>
+      </div>
+
+<div data-page-content="config" class="page-content hidden space-y-6">
+        <div id="config-root"></div>
+      </div>
+
+<div data-page-content="api-keys" class="page-content hidden space-y-6">
+        <div id="api-keys-root"></div>
+      </div>
+
+<div data-page-content="ai-inbox" class="page-content hidden space-y-6">
+        <div id="ai-inbox-root"></div>
+      </div>
+
+<div data-page-content="accounting" class="page-content hidden hidden space-y-6">
+        <div id="accounting-root"></div>
+      </div>
+
+<div data-page-content="affiliates-admin" class="page-content hidden hidden space-y-6">
+        <div id="affadmin-root"></div>
+      </div>
+
+<div data-page-content="reports" class="page-content hidden space-y-6">
+        <div>
+          <h1 class="text-2xl font-black text-slate-900 dark:text-white">Reports</h1>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Every number in the store — pick a report, or build your own.</p>
+        </div>
+
+        <!-- Report category picker — rendered by renderReportTabs() -->
+        <div id="reports-tabs" class="flex flex-wrap gap-1.5"></div>
+
+        <!-- Overview: the original always-on report sections -->
+        <div id="reports-overview" class="space-y-10">
+          <!-- Custom report builder — pick who/what with dropdowns -->
+          <div id="report-builder"></div>
+          <!-- Executive ROI dashboard (managers) — injected by loadExecutiveRoi() -->
+          <div id="exec-roi"></div>
+          <!-- Inventory mix & aging report (managers) — injected by loadInventoryMix() -->
+          <div id="inv-mix"></div>
+          <!-- Sales analysis report (managers) — injected by loadSalesAnalysis() -->
+          <div id="sales-analysis"></div>
+          <!-- Marketing ROI report (managers) — injected by loadMarketingRoi() -->
+          <div id="marketing-roi"></div>
+        </div>
+
+        <!-- Deep reports (sales, F&I, leads, reps, appraisals, service, activity, customers) -->
+        <div id="reports-dynamic" class="hidden"></div>
+      </div>
+
+<div data-page-content="desk" class="page-content hidden">
+        <div id="desk-root"></div>
+      </div>
+
+<div data-page-content="insights" class="page-content hidden space-y-8">
+
+      <!-- MarketSync mode: the dashboard is the SaaS lead + revenue view, not vehicle metrics. -->
+      <div id="ms-insights"></div>
+
+      <!-- Loading skeleton — visible until JS resolves the profile and hides it -->
+      <div id="insights-skeleton" class="space-y-4">
+        <div class="h-7 w-40 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="h-24 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse"></div>
+          <div class="h-24 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse"></div>
+          <div class="h-24 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse"></div>
+          <div class="h-24 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse"></div>
+        </div>
+      </div>
+
+      <!-- Sales snapshot — clickable "what needs me now" tiles (managers / DealerOS).
+           Populated by loadSalesSnapshot(); each tile deep-links to its filtered view. -->
+      <div id="sales-snapshot" class="hidden"></div>
+
+      <!-- Today's Briefing — AI daily operator digest (dealer admins) -->
+      <div id="daily-digest" data-admin-only class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+        <div class="flex items-center gap-2 mb-2">
+          <svg viewBox="0 0 24 24" width="16" height="16" class="flex-shrink-0" aria-hidden="true"><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg>
+          <h3 class="text-sm font-bold text-slate-900 dark:text-white">Today's Briefing</h3>
+          <span id="digest-date" class="text-xs text-slate-400"></span>
+        </div>
+        <p id="digest-summary" class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed mb-3"></p>
+        <div id="digest-items" class="flex flex-wrap gap-2"></div>
+      </div>
+
+      <!-- AI Boost upsell banner — shown to dealer admins who haven't activated AI Boost -->
+      <div id="ai-boost-upsell-banner" class="hidden" data-admin-only>
+        <div class="flex items-start justify-between gap-4 bg-indigo-600/10 dark:bg-indigo-900/30 border border-indigo-400/40 dark:border-indigo-600/50 rounded-xl px-5 py-4">
+          <div class="flex items-start gap-3">
+            <svg viewBox="0 0 24 24" width="26" height="26" class="flex-shrink-0 mt-0.5" aria-hidden="true"><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg>
+            <div>
+              <p class="font-bold text-slate-900 dark:text-white text-sm">AI Boost — $129/month add-on</p>
+              <p class="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">Let AI write your listing copy, flag missing photos or price, and check if your vehicles are priced competitively — all before you post.</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <button id="ai-boost-upsell-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Try Free for 30 Days</button>
+            <button id="ai-boost-upsell-close" aria-label="Dismiss" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl leading-none p-1 transition">×</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sync staleness banner (Cloudflare/extension feeds that haven't refreshed) -->
+      <div id="sync-health-banner" class="hidden items-start gap-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-lg p-4">
+        <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-bold text-amber-800 dark:text-amber-200">Inventory sync is behind</div>
+          <div id="sync-health-msg" class="text-xs text-amber-700 dark:text-amber-300 mt-0.5"></div>
+        </div>
+        <a id="sync-health-open" target="_blank" rel="noopener" class="hidden flex-shrink-0 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg transition">Open dealer site</a>
+        <button id="sync-health-dismiss" aria-label="Dismiss" class="flex-shrink-0 text-amber-400 hover:text-amber-600 text-lg leading-none p-1">×</button>
+      </div>
+
+      <!-- Time range toggle. Reusable component — same markup is used on Team Insights too. -->
+      <div class="range-toggle flex items-center justify-between flex-wrap gap-3">
+        <h2 class="text-lg font-bold text-slate-900 dark:text-white">Insights · <span class="range-label font-normal text-slate-500 text-sm">lifetime</span></h2>
+        <div class="inline-flex bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 text-xs font-bold">
+          <button type="button" data-range="7" class="range-pill px-3 py-1.5 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition">7d</button>
+          <button type="button" data-range="30" class="range-pill px-3 py-1.5 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition">30d</button>
+          <button type="button" data-range="90" class="range-pill px-3 py-1.5 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition">90d</button>
+          <button type="button" data-range="365" class="range-pill px-3 py-1.5 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition">1y</button>
+          <button type="button" data-range="lifetime" class="range-pill px-3 py-1.5 rounded bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 transition">Lifetime</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="metrics-strip">
+        <button type="button" onclick="switchPage('inventory')" title="Open your inventory" class="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-sm transition cursor-pointer">
+          <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Available Inventory</div>
+          <div class="text-2xl font-black text-slate-900 dark:text-white mt-1" id="metric-synced">—</div>
+          <div class="text-xs text-slate-500 mt-0.5"><span id="metric-synced-total">—</span> total synced</div>
+        </button>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg">
+          <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Listings Posted</div>
+          <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1" id="metric-listings">—</div>
+          <div class="text-xs text-slate-500 mt-0.5" id="metric-listings-scope">lifetime</div>
+          <div class="hidden mt-2 pt-2 border-t border-slate-200/80 dark:border-slate-800/60 grid grid-cols-2 gap-2" id="metric-listings-breakdown">
+            <div>
+              <div class="text-sm uppercase font-bold text-slate-500 tracking-wider">Admin</div>
+              <div class="text-sm font-bold text-slate-900 dark:text-white" id="metric-listings-admin">0</div>
+            </div>
+            <div>
+              <div class="text-sm uppercase font-bold text-slate-500 tracking-wider">Sales reps</div>
+              <div class="text-sm font-bold text-slate-900 dark:text-white" id="metric-listings-reps">0</div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg">
+          <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Sold via Marketplace</div>
+          <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1" id="metric-sold">—</div>
+          <div class="text-xs text-slate-500 mt-0.5">lifetime</div>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg">
+          <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Active Days</div>
+          <div class="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1" id="metric-active-days">—</div>
+          <div class="text-xs text-slate-500 mt-0.5">this week</div>
+        </div>
+      </div>
+
+      <!-- Second row: derived insights. 4-col to line up with the row above. -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg" title="Average number of days between when a vehicle was posted to Marketplace and when it sold.">
+          <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Avg Time to Sell</div>
+          <div class="text-2xl font-black text-slate-900 dark:text-white mt-1"><span id="metric-time-to-sell">—</span><span class="text-sm font-normal text-slate-500 ml-1">days</span></div>
+          <div class="text-xs text-slate-500 mt-0.5">posted → sold</div>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg" title="Average listings posted per day in this range.">
+          <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Posts / Day</div>
+          <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1" id="metric-posts-per-day">—</div>
+          <div class="text-xs text-slate-500 mt-0.5">average rate</div>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg" title="Of vehicles you posted to Marketplace, how many sold? Higher is better.">
+          <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Sell-Through</div>
+          <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1"><span id="metric-sell-through">—</span><span class="text-sm font-normal text-slate-500 ml-0.5">%</span></div>
+          <div class="text-xs text-slate-500 mt-0.5">sold ÷ posted</div>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg" title="Available cars that have sat on your lot longer than 60 days.">
+          <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Aged Inventory</div>
+          <div class="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1" id="metric-aged">—</div>
+          <div class="text-xs text-slate-500 mt-0.5">on lot &gt; 60 days</div>
+        </div>
+      </div>
+
+      <!-- ───────── TEAM SECTION (admin only) — trend charts ───────── -->
+      <!-- Per-rep "players" cards moved to the Sales Team page — click a rep's
+           name there to see their tier, points & stats in a modal. -->
+      <div id="insights-team-section" class="hidden space-y-6">
+
+      <!-- Charts grid — 3x2 = 6 charts -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
+        <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-3">Trends</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <div class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">Listings posted (daily)</div>
+            <div class="relative h-72"><canvas id="chart-listings-daily"></canvas></div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <div class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">Listings by rep</div>
+            <div class="relative h-72"><canvas id="chart-listings-by-rep"></canvas></div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <div class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">Sold by rep</div>
+            <div class="relative h-72"><canvas id="chart-sold-by-rep"></canvas></div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <div class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">Active days by rep</div>
+            <div class="relative h-72"><canvas id="chart-active-by-rep"></canvas></div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <div class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">Sell-through % by rep</div>
+            <div class="relative h-72"><canvas id="chart-sell-through-by-rep"></canvas></div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <div class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">Avg time to sell by rep (days)</div>
+            <div class="relative h-72"><canvas id="chart-time-to-sell-by-rep"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      </div>
+
+      <!-- rep-view-panel: My Performance (reps only) -->
+      <div id="rep-view-panel" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
+        <h2 class="text-lg font-bold text-slate-900 dark:text-white mb-1">My Performance</h2>
+        <p class="text-slate-500 dark:text-slate-400 text-xs mb-4">Your personal listing activity.</p>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
+            <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Total Posts</div>
+            <div class="text-2xl font-black text-slate-900 dark:text-white mt-1" id="rep-stat-total">0</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
+            <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Active</div>
+            <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1" id="rep-stat-active">0</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
+            <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Sold</div>
+            <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1" id="rep-stat-sold">0</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
+            <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Removed</div>
+            <div class="text-2xl font-black text-slate-500 mt-1" id="rep-stat-deleted">0</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <h3 class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold mb-2">Listings &amp; sales over time</h3>
+            <div class="relative h-48"><canvas id="chart-my-trend"></canvas></div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <h3 class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold mb-2">Listing status</h3>
+            <div class="relative h-48"><canvas id="chart-my-status"></canvas></div>
+          </div>
+        </div>
+
+       <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">Recent Listings</h3>
+          <div class="flex gap-1">
+            <button id="rep-listings-filter-posted" class="text-xs px-2 py-1 rounded border border-indigo-600 bg-indigo-600 text-white" onclick="loadMyListingsFiltered('posted')">Active</button>
+            <button id="rep-listings-filter-sold" class="text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400" onclick="loadMyListingsFiltered('sold')">Sold</button>
+            <button id="rep-listings-filter-all" class="text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400" onclick="loadMyListingsFiltered('all')">All</button>
+          </div>
+        </div>
+        <div id="rep-recent-list" class="space-y-2 max-h-[600px] overflow-y-auto">
+          <div class="text-xs text-slate-500 italic">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Dealer-level insights (managers/admins): sales/appointments/e-sign KPIs,
+           marketing ROI snapshot, and the full CRM/lead insight panel. -->
+      <div id="dealer-dash" class="hidden space-y-6"></div>
+
+      <!-- Leaderboard — relocated here from its own nav page so the dashboard is home base. -->
+      <div id="dash-leaderboard-slot" class="space-y-6"></div>
+
+      </div>
+
+<div data-page-content="inventory" class="page-content hidden hidden space-y-8">
+
+
+      <div id="feeds-panel" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
+        <div class="flex flex-wrap justify-between items-start mb-4 gap-3">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Inventory Source &amp; Feeds</h2>
+            <p class="text-slate-500 dark:text-slate-400 text-xs">Connect your dealership website or inventory feed URL to sync vehicles for 1-click Facebook posting.</p>
+          </div>
+          <button id="sync-now-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition whitespace-nowrap">
+            Sync Now
+          </button>
+        </div>
+        <div id="sync-status" class="hidden mb-3 p-2 text-xs rounded"></div>
+        <div id="feeds-list" class="space-y-2 mb-4">
+          <div class="text-xs text-slate-500 italic">Loading inventory source…</div>
+        </div>
+        <form id="add-feed-form" class="hidden flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:items-center pt-3 border-t border-slate-200 dark:border-slate-800">
+          <select id="add-feed-type" class="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-2 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+            <option value="all">All Inventory</option>
+            <option value="new">New</option>
+            <option value="used">Used</option>
+            <option value="demo">Demo</option>
+            <option value="fleet">Fleet</option>
+          </select>
+          <input type="url" id="add-feed-url" placeholder="https://dealerwebsite.com/inventory" required class="w-full sm:flex-1 sm:min-w-[200px] min-w-0 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+          <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3.5 py-2 rounded transition shadow-2xs">Connect Source</button>
+        </form>
+      </div>
+
+      <div id="catalog-panel" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
+        <div class="sticky top-0 z-20 bg-white dark:bg-slate-900 space-y-3 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-1 pb-3 mb-3 border-b border-slate-200 dark:border-slate-800">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <h2 id="catalog-title" class="text-lg font-bold text-slate-900 dark:text-white">Inventory Catalog</h2>
+              <p id="catalog-sub" class="text-slate-500 dark:text-slate-400 text-xs">Your added vehicles &amp; trades — plus feed-synced stock to post on Facebook.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <input type="text" id="catalog-search" placeholder="Search make, model, VIN, stock..." class="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 w-full sm:w-64">
+              <button id="site-manage-btn" data-admin-only onclick="switchPage('website')" class="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0 border border-slate-300 dark:border-slate-700">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18"/></svg>
+                Website
+              </button>
+              <button id="gen-pitches-btn" data-admin-only onclick="generateAllPitches(this)" title="Write an AI sales pitch for every car that doesn't have one" class="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0">✨ Sales pitches</button>
+              <input type="file" id="inv-import-file" accept=".csv,text/csv" class="hidden" onchange="invImportCsv(this.files[0])">
+              <button data-admin-only onclick="document.getElementById('inv-import-file').click()" title="Bulk import vehicles from a CSV" class="inv-raw-add flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0 border border-slate-300 dark:border-slate-700">Import CSV</button>
+              <button data-admin-only onclick="invExportCsv(this)" title="Download all inventory as CSV" class="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0 border border-slate-300 dark:border-slate-700">Export CSV</button>
+              <!-- Sync Inventory: reveals the (otherwise hidden) feed panel on demand. -->
+              <button id="sync-inventory-btn" data-admin-only onclick="toggleFeedsPanel(this)" title="Pull inventory from your website feed" class="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0 border border-slate-300 dark:border-slate-700">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Sync Inventory
+              </button>
+              <button id="add-vehicle-btn" data-admin-only onclick="openVehicleForm()" class="inv-raw-add flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                Add vehicle
+              </button>
+            </div>
+          </div>
+          <!-- Status pill row -->
+          <div class="flex flex-wrap gap-1.5" id="catalog-status-pills">
+            <button data-status="all"       class="catalog-status-pill active px-3 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition">All</button>
+            <button data-status="available" class="catalog-status-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Available</button>
+            <button data-status="posted"    class="catalog-status-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Posted</button>
+            <button data-status="pending"   class="catalog-status-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Pending</button>
+            <button data-status="sold"      class="catalog-status-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Sold</button>
+          </div>
+          <!-- Type pill row -->
+          <div class="flex flex-wrap gap-1.5" id="catalog-type-pills">
+            <button data-type="all"  class="catalog-type-pill active px-3 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition">All</button>
+            <button data-type="new"  class="catalog-type-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">New</button>
+            <button data-type="used" class="catalog-type-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Used</button>
+            <button data-type="demo" class="catalog-type-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Demo</button>
+          </div>
+          <!-- Segment pill row (AI Boost only — hidden until caches load) -->
+          <div class="flex flex-wrap gap-1.5 hidden" id="catalog-segment-pills">
+            <button data-seg="all"  class="catalog-segment-pill active px-3 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition">All</button>
+            <button data-seg="hot"  class="catalog-segment-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Hot</button>
+            <button data-seg="cold" class="catalog-segment-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">❄️ Cold</button>
+          </div>
+          <!-- hidden select kept for JS compatibility -->
+          <select id="catalog-status" class="hidden"></select>
+        </div>
+        <div id="catalog-value-summary" class="hidden grid-cols-2 sm:grid-cols-4 gap-2 mb-3"></div>
+        <div id="catalog-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div class="text-xs text-slate-500 italic col-span-full">Loading catalog...</div>
+        </div>
+      </div>
+
+      </div>
+
+<div data-page-content="recon" class="page-content hidden space-y-5">
+        <div class="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h2 class="text-xl font-black text-slate-900 dark:text-white">Cleanup</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Get-ready list for cars going out — delivery times, what each car needs, and sign-off. Cars land here automatically when a deal is approved in FNI.</p>
+          </div>
+        </div>
+        <div id="recon-root">
+          <div class="py-16 text-center text-sm text-slate-400 italic">Loading cleanup…</div>
+        </div>
+      </div>
+
+<div data-page-content="fni" class="page-content hidden space-y-5">
+        <div class="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h2 class="text-xl font-black text-slate-900 dark:text-white">Deals</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pending &amp; pushed deals waiting for delivery. Do the credit app &amp; F&amp;I products, hit <b>Approve</b> to send get-ready to cleanup/service, then <b>Delivered</b> to close it out.</p>
+          </div>
+        </div>
+        <div id="fni-root">
+          <div class="py-16 text-center text-sm text-slate-400 italic">Loading deals…</div>
+        </div>
+      </div>
+
+<div data-page-content="leaderboard" class="page-content hidden hidden space-y-6">
+
+      <!-- Single combined card with carousel tabs -->
+      <div id="leaderboard-panel" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6 space-y-6">
+
+        <!-- Header row: title + team conversion + carousel tabs -->
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 id="lb-title" class="text-lg font-bold text-slate-900 dark:text-white">Leaderboard</h2>
+            <p id="lb-subtitle" class="text-slate-500 dark:text-slate-400 text-xs">500 pts / deal · 50 pts / appraisal · 100 pts / listing · Climb the tiers, top the team.</p>
+          </div>
+          <div class="flex items-center gap-3 flex-wrap">
+            <!-- Team conversion (hidden on global view) -->
+            <div id="lb-conv-wrap" class="text-right">
+              <div id="lb-conv-label" class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">Team Conversion</div>
+              <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 leading-none"><span id="lb-conv">—</span>%</div>
+              <div id="lb-team-summary" class="text-xs text-slate-500"><span id="lb-team-sold">0</span> sold of <span id="lb-team-total">0</span> posted</div>
+            </div>
+            <!-- Carousel tab pills -->
+            <div class="inline-flex bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 text-xs font-bold">
+              <button type="button" id="lb-tab-team" class="lb-view-tab px-3 py-1.5 rounded bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm transition">My Team</button>
+              <button type="button" id="lb-tab-global" class="lb-view-tab px-3 py-1.5 rounded text-slate-500 dark:text-slate-400 transition">🌎 Global</button>
+            </div>
+          </div>
+        <!-- Department Selector Tabs -->
+        <div class="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800">
+          <button type="button" onclick="switchLeaderboardDept('facebook')" id="lb-dept-facebook" class="lb-dept-btn px-3.5 py-2 rounded-xl text-xs font-extrabold transition bg-indigo-600 text-white shadow-sm flex items-center gap-1.5 shrink-0">
+            <span>Facebook AutoPoster</span>
+          </button>
+          <button type="button" onclick="switchLeaderboardDept('sales')" id="lb-dept-sales" class="lb-dept-btn px-3.5 py-2 rounded-xl text-xs font-bold transition bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 shrink-0">
+            <span>Internal Sales</span>
+          </button>
+          <button type="button" onclick="switchLeaderboardDept('service')" id="lb-dept-service" class="lb-dept-btn px-3.5 py-2 rounded-xl text-xs font-bold transition bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 shrink-0">
+            <span>Service Department</span>
+          </button>
+          <button type="button" onclick="switchLeaderboardDept('fni')" id="lb-dept-fni" class="lb-dept-btn px-3.5 py-2 rounded-xl text-xs font-bold transition bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 shrink-0">
+            <span>F&amp;I Finance</span>
+          </button>
+        </div>
+
+        <!-- ── Legend (compact, always visible at top) ── -->
+        <div class="lb-legend border-b border-slate-200 dark:border-slate-800 pb-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+          <span data-lb-non-fb><span class="font-bold text-emerald-600 dark:text-emerald-400">+500</span> Close a deal</span>
+          <span data-lb-non-fb><span class="font-bold text-amber-600 dark:text-amber-400">+50</span> Trade appraisal</span>
+          <span><span class="font-bold text-indigo-600 dark:text-indigo-400">+100</span> Post a car</span>
+          <span><span class="font-bold text-emerald-600 dark:text-emerald-400">+500</span> Sell what you posted</span>
+          <div id="lb-legend-tiers" class="w-full flex flex-wrap gap-x-5 gap-y-0.5 mt-0.5"></div>
+        </div>
+
+        <!-- ── MY TEAM VIEW ── -->
+        <div id="lb-view-team">
+          <!-- Podium for top 3 -->
+          <div id="lb-podium" class="grid grid-cols-3 gap-2 sm:gap-3 items-end max-w-2xl mx-auto mb-6">
+            <div class="text-center text-xs text-slate-500 italic col-span-3 py-6">Loading podium...</div>
+          </div>
+
+          <!-- Your position / progress -->
+          <div id="lb-you" class="bg-gradient-to-br from-indigo-50 to-slate-50 dark:from-indigo-950/40 dark:to-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-lg p-5 hidden mb-6">
+            <div class="flex items-center justify-between mb-3 gap-4 flex-wrap">
+              <div>
+                <div class="text-xs uppercase font-bold tracking-wider text-indigo-700 dark:text-indigo-300">Your position</div>
+                <div class="flex items-baseline gap-2 mt-1">
+                  <span class="text-3xl font-black text-slate-900 dark:text-white">#<span id="lb-you-rank">—</span></span>
+                  <span class="text-sm font-semibold text-slate-600 dark:text-slate-300">of <span id="lb-you-total">—</span></span>
+                </div>
+              </div>
+              <div class="text-right">
+                <div id="lb-you-tier-badge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"></div>
+                <div class="text-2xl font-black text-slate-900 dark:text-white mt-1"><span id="lb-you-points">0</span> <span class="text-xs font-medium text-slate-500">pts</span></div>
+              </div>
+            </div>
+            <div class="mt-2">
+              <div class="flex justify-between text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+                <span id="lb-you-current-tier">—</span>
+                <span><span id="lb-you-progress-pct">0</span>% to <span id="lb-you-next-tier">—</span></span>
+              </div>
+              <div class="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div id="lb-you-progress-bar" class="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-700" style="width:0%"></div>
+              </div>
+              <div class="text-xs text-slate-500 mt-1"><span id="lb-you-points-to-next">0</span> pts to next tier</div>
+            </div>
+          </div>
+
+          <!-- Achievements (rep + dealership badges) -->
+          <div id="lb-achievements" class="mb-6"></div>
+
+          <!-- Full ranking table -->
+          <div>
+            <div id="lb-rankings-title" class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">Full rankings</div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm border-collapse">
+                <thead>
+                  <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold text-xs">
+                    <th class="py-3 px-3 text-left w-12">Rank</th>
+                    <th class="py-3 px-3 text-left">Player</th>
+                    <th class="py-3 px-3 text-left">Tier</th>
+                    <th class="py-3 px-3 text-right">Points</th>
+                    <th data-lb-non-fb class="py-3 px-3 text-right">Deals</th>
+                    <th data-lb-non-fb class="py-3 px-3 text-right">Appr.</th>
+                    <th class="py-3 px-3 text-right">Listings</th>
+                    <th class="py-3 px-3 text-right">FB Sold</th>
+                    <th class="py-3 px-3 text-right">Conv.</th>
+                  </tr>
+                </thead>
+                <tbody id="leaderboard-body" class="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  <tr><td colspan="9" class="p-6 text-center text-slate-500 italic">Loading leaderboard...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Activity feed -->
+          <div class="mt-6">
+            <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">Recent activity</div>
+            <div id="lb-activity" class="space-y-2 max-h-72 overflow-y-auto pr-1">
+              <div class="text-xs text-slate-500 italic">Loading activity...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── GLOBAL VIEW ── (hidden by default) -->
+        <div id="lb-view-global" class="hidden" id="global-leaderboard-panel">
+          <div class="flex items-center justify-between mb-3">
+            <p id="gl-subtitle" class="text-xs text-slate-500 dark:text-slate-400">How you stack up across every dealer &amp; rep on MarketSync. Others are anonymized — only you see your name.</p>
+            <!-- Reps / Dealers toggle -->
+            <div class="inline-flex bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 text-xs font-bold flex-shrink-0 ml-3">
+              <button type="button" data-gl-tab="reps" class="gl-tab px-3 py-1.5 rounded bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 transition">Reps</button>
+              <button type="button" data-gl-tab="dealers" class="gl-tab px-3 py-1.5 rounded text-slate-600 dark:text-slate-300 transition">Dealers</button>
+            </div>
+          </div>
+          <!-- Global podium -->
+          <div id="gl-podium" class="grid grid-cols-3 gap-2 sm:gap-3 items-end max-w-2xl mx-auto mb-5"></div>
+
+          <!-- Global avg comparison strip -->
+          <div id="gl-avg-strip" class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+            <div class="bg-slate-50 dark:bg-slate-800/60 rounded-lg px-4 py-3 text-center">
+              <div class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Your Points</div>
+              <div id="gl-your-pts" class="text-xl font-black text-indigo-600 dark:text-indigo-400">—</div>
+              <div class="text-xs text-slate-400 mt-0.5">Avg: <span id="gl-avg-pts">—</span></div>
+            </div>
+            <div class="bg-slate-50 dark:bg-slate-800/60 rounded-lg px-4 py-3 text-center">
+              <div id="gl-posted-label" class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Your Listings</div>
+              <div id="gl-your-posted" class="text-xl font-black text-indigo-600 dark:text-indigo-400">—</div>
+              <div class="text-xs text-slate-400 mt-0.5">Avg: <span id="gl-avg-posted">—</span></div>
+            </div>
+            <div class="bg-slate-50 dark:bg-slate-800/60 rounded-lg px-4 py-3 text-center">
+              <div class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Your Conv %</div>
+              <div id="gl-your-conv" class="text-xl font-black text-amber-600 dark:text-amber-400">—</div>
+              <div class="text-xs text-slate-400 mt-0.5">Avg: <span id="gl-avg-conv">—</span></div>
+            </div>
+          </div>
+          <div id="gl-you" class="hidden text-xs rounded bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-800 dark:text-indigo-200 px-3 py-2 mb-3"></div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm border-collapse">
+              <thead>
+                <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold text-xs">
+                  <th class="py-3 px-3 text-left w-12">Rank</th>
+                  <th class="py-3 px-3 text-left">Name</th>
+                  <th class="py-3 px-3 text-right">Points</th>
+                  <th class="py-3 px-3 text-right">Listings</th>
+                  <th class="py-3 px-3 text-right">Sold</th>
+                </tr>
+              </thead>
+              <tbody id="gl-body" class="divide-y divide-slate-100 dark:divide-slate-800/60">
+                <tr><td colspan="5" class="p-6 text-center text-slate-500 italic">Loading global leaderboard…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      </div>
+
+<div data-page-content="sales-team" class="page-content hidden hidden space-y-8">
+
+      <div id="lead-routing-card" data-admin-only class="hidden"></div>
+
+      <div id="dealer-view-panel" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
+        <div class="flex justify-between items-start mb-4 gap-4 flex-wrap">
+          <div>
+            <h2 id="dealer-team-title" class="text-lg font-bold text-slate-900 dark:text-white">Staff &amp; Team</h2>
+            <p id="dealer-team-subtitle" class="text-slate-500 dark:text-slate-400 text-xs">Invite, edit, assign roles, comp plans, and manage staff members.</p>
+          </div>
+          <div class="flex gap-2">
+            <button id="invite-rep-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition whitespace-nowrap">
+              + Invite Staff
+            </button>
+            <button id="invite-manager-btn" data-admin-only class="bg-slate-800 dark:bg-slate-700 hover:bg-slate-700 dark:hover:bg-slate-600 text-white text-xs font-bold px-4 py-2 rounded transition whitespace-nowrap">
+              + Invite Manager
+            </button>
+          </div>
+        </div>
+
+        <form id="invite-rep-form" class="hidden mb-4 p-3 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded space-y-2">
+          <div id="invite-form-title" class="text-xs font-bold text-slate-700 dark:text-slate-200">Invite a staff member</div>
+          <input type="hidden" id="invite-role" value="SALES_REP">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <input type="text" id="invite-name" required placeholder="Full name" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+            <input type="email" id="invite-email" required placeholder="staff@dealership.com" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div class="relative w-full">
+            <input type="password" id="invite-password" placeholder="Temporary password (leave blank to auto-generate)" class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div class="flex gap-2 justify-end">
+            <button type="button" id="invite-cancel-btn" class="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white dark:hover:text-slate-700 dark:text-slate-200 px-3 py-2">Cancel</button>
+            <button type="submit" id="invite-submit-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition">Create Staff Member</button>
+          </div>
+        </form>
+
+        <div id="invite-result" class="hidden mb-3 p-2 text-xs rounded"></div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse min-w-[640px]">
+            <thead>
+              <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold text-xs">
+                <th class="py-3 px-3">Name</th>
+                <th class="py-3 px-3 max-w-[160px]">Email</th>
+                <th class="py-3 px-3">Role</th>
+                <th class="py-3 px-3">Account</th>
+                <th class="py-3 px-3">Linked employee</th>
+                <th class="py-3 px-3">Department</th>
+                <th class="py-3 px-3 text-right">Logins</th>
+                <th class="py-3 px-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="dealer-team-table-body" class="divide-y divide-slate-800/60 text-slate-700 dark:text-slate-200">
+              <tr><td colspan="8" class="p-4 text-slate-500 italic">Loading team...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      </div>
+
+<div data-page-content="market" class="page-content hidden space-y-6">
+        <div>
+          <h1 class="text-2xl font-black text-slate-900 dark:text-white">Market &amp; Competitors</h1>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Live market snapshots and nearby-lot pricing — part of Inventory Intelligence.</p>
+        </div>
+        <div id="market-upsell" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 text-sm text-slate-500 dark:text-slate-400">Market &amp; Competitors is part of <span class="font-bold text-slate-700 dark:text-slate-200">Inventory Intelligence</span>. Activate it to track nearby lots and pull live market snapshots.</div>
+        <div id="market-content" class="space-y-6">
+          <!-- ── Market & Competitors section header ───────────────────────── -->
+          <div class="pt-2">
+            <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span class="w-1.5 h-4 rounded-full bg-sky-500 flex-shrink-0"></span> Market &amp; Competitors
+            </h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 ml-3.5">Track nearby dealership lots and compare their pricing against your lot at a glance.</p>
+          </div>
+
+          <!-- ── Market Snapshot (MarketCheck) ───────────────────────────── -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+            <div class="flex items-center gap-2 mb-1">
+              <h3 class="text-sm font-bold text-slate-900 dark:text-white">Market Snapshot</h3>
+              <span class="text-[9px] font-black uppercase tracking-wider bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 px-1.5 py-0.5 rounded-full leading-none">Live</span>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Active listing count, median price and days-on-market for any make/model — live from MarketCheck.</p>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <input id="msnap-make" placeholder="Make" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+              <input id="msnap-model" placeholder="Model" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+              <input id="msnap-year" inputmode="numeric" placeholder="Year (optional)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+              <input id="msnap-trim" placeholder="Trim (optional)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+            </div>
+            <button id="msnap-run" class="mt-3 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Get snapshot</button>
+            <div id="msnap-result" class="mt-3"></div>
+          </div>
+
+          <!-- ── Competitor Monitoring ───────────────────────────────────── -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden ai-accordion-open">
+            <button type="button" onclick="this.closest('.rounded-xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-sky-500 flex-shrink-0"></span>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">Direct Competition <svg viewBox="0 0 24 24" width="14" height="14" class="inline-block flex-shrink-0" aria-hidden="true"><title>AI Boost feature — included in your plan</title><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg></h3>
+                <span class="text-xs text-slate-400 font-normal">— track nearby dealership lots</span>
+              </div>
+              <svg class="w-4 h-4 text-slate-400 transition-transform ai-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div class="ai-accordion-body p-5 space-y-4">
+              <!-- Your lot — compact, for quick side-by-side comparison with competitors -->
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-900 px-3 py-2 text-xs">
+                <span class="font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">Your lot</span>
+                <span class="text-slate-600 dark:text-slate-300"><span id="lot-mini-count" class="font-bold text-slate-900 dark:text-white">—</span> vehicles</span>
+                <span class="text-slate-600 dark:text-slate-300"><span id="lot-mini-range" class="font-bold text-slate-900 dark:text-white">—</span></span>
+                <span class="text-slate-600 dark:text-slate-300">avg <span id="lot-mini-avg" class="font-bold text-slate-900 dark:text-white">—</span></span>
+              </div>
+              <div id="competitors-list" class="space-y-2">
+                <div class="text-xs text-slate-400 italic" id="competitors-loading">Loading…</div>
+              </div>
+              <!-- Add competitor form -->
+              <div class="pt-3 border-t border-slate-200 dark:border-slate-700">
+                <div class="text-xs uppercase font-bold text-slate-400 mb-2 tracking-wider">Add Competitor</div>
+                <div class="flex flex-col sm:flex-row gap-2">
+                  <input type="text" id="competitor-name-input" placeholder="Dealership name" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <input type="url" id="competitor-url-input" placeholder="Inventory URL (dealership site or autotrader.ca/dealers/…)" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <button id="competitor-add-btn" class="bg-sky-600 hover:bg-sky-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Add</button>
+                </div>
+              </div>
+              <button id="competitors-scan-btn" class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold px-5 py-2 rounded-lg transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                Scan All
+              </button>
+              <!-- Comparison panel — populated by JS after scan -->
+              <div id="competitor-comparison" class="hidden"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+<div data-page-content="inv-intel" class="page-content hidden hidden space-y-6">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <svg class="w-5 h-5 text-violet-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
+              Inventory Intelligence
+            </h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Turn rate, health scores, vehicle gaps, and AI insights for your lot.</p>
+          </div>
+        </div>
+
+        <!-- ── Upsell — non-subscribers ──────────────────────────────────── -->
+        <div id="inv-intel-page-upsell" class="hidden">
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800">
+              <h3 class="text-base font-bold text-slate-900 dark:text-white">Everything in Inventory Intelligence — $299/month</h3>
+              <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Start with a free 30-day trial. No credit card required.</p>
+            </div>
+            <div class="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2.5">
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-violet-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Hot &amp; cold vehicle detection</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-violet-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Turn rate per vehicle</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-violet-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Per-vehicle health scores (0–100)</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-violet-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>AI-written lot narrative — plain English insights</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-violet-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Duplicate VIN detection across your lot</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-violet-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Months-of-supply analysis by make &amp; model</div>
+            </div>
+            <div class="px-6 py-5 border-t border-slate-200 dark:border-slate-800">
+              <button id="inv-intel-page-upgrade-btn" class="bg-violet-600 hover:bg-violet-500 text-white font-bold px-6 py-3 rounded-lg transition text-sm">Start 30-Day Free Trial</button>
+              <span class="ml-4 text-xs text-slate-400">No credit card required · $299/month after trial</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Active content ─────────────────────────────────────────────── -->
+        <div id="inv-intel-active-content" class="space-y-5">
+
+          <!-- MarketCheck live-data status — tells the dealer if the licensed feed is on -->
+          <div id="marketcheck-status" class="hidden text-xs font-semibold px-3 py-2 rounded-lg border flex items-center gap-2"></div>
+
+          <!-- ── Your lot at a glance — the baseline for competitor comparison ──── -->
+          <div>
+            <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span class="w-1.5 h-4 rounded-full bg-violet-500 flex-shrink-0"></span> Your Lot at a Glance
+            </h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 ml-3.5">Your live inventory totals — compare these against the competitor lots you track further down.</p>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+              <div class="text-[11px] uppercase font-bold tracking-wider text-slate-400 mb-1">Vehicles on lot</div>
+              <div class="text-2xl font-black text-slate-900 dark:text-white" id="lot-ov-count">—</div>
+            </div>
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+              <div class="text-[11px] uppercase font-bold tracking-wider text-slate-400 mb-1">Price range</div>
+              <div class="text-2xl font-black text-slate-900 dark:text-white" id="lot-ov-range">—</div>
+            </div>
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+              <div class="text-[11px] uppercase font-bold tracking-wider text-slate-400 mb-1">Average price</div>
+              <div class="text-2xl font-black text-slate-900 dark:text-white" id="lot-ov-avg">—</div>
+            </div>
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+              <div class="text-[11px] uppercase font-bold tracking-wider text-slate-400 mb-1">New / Used</div>
+              <div class="text-2xl font-black text-slate-900 dark:text-white" id="lot-ov-split">—</div>
+            </div>
+          </div>
+
+          <!-- ── Inventory Scan — part of the Inventory Intelligence add-on ────────── -->
+      <div id="inv-scan-card" data-admin-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <svg viewBox="0 0 24 24" width="18" height="18" class="flex-shrink-0" aria-hidden="true"><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg>
+              Inventory Scan
+            </h2>
+            <p class="text-slate-500 dark:text-slate-400 text-xs mt-0.5 max-w-xl">Run live-market checks across every active listing — refreshes each vehicle's “% to market”, flags mispriced units, and powers your Lot Average Report and trade appraisals.</p>
+          </div>
+          <!-- Active controls — Inventory Intelligence subscribers -->
+          <div id="inv-scan-controls" class="hidden flex flex-wrap gap-2 sm:justify-end">
+            <button id="ai-sync-all-btn" class="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2.5 rounded-lg transition whitespace-nowrap">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              Scan All Inventory
+            </button>
+            <button id="ai-activity-refresh" class="flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-bold px-4 py-2.5 rounded-lg transition border border-slate-200 dark:border-slate-700 whitespace-nowrap">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              Refresh Log
+            </button>
+            <button id="ai-lot-report-btn" class="flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold px-4 py-2.5 rounded-lg transition whitespace-nowrap">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17V9m4 8V5m4 12v-4M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+              Lot Average Report
+            </button>
+          </div>
+        </div>
+
+        <!-- Upsell — non-subscribers -->
+        <div id="inv-scan-upsell" class="hidden mt-3 flex flex-col sm:flex-row sm:items-center gap-3 bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-900 rounded-lg px-4 py-3">
+          <p class="text-sm text-violet-800 dark:text-violet-200 flex-1">Inventory Scan is part of <strong>Inventory Intelligence</strong> — see exactly how every unit is priced against the live market, flag mispriced stock, and value trades.</p>
+          <button type="button" onclick="openUpgradeModal('inv_intel')" class="bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Unlock — $299/mo</button>
+        </div>
+
+        <!-- Active content — progress, stats, results -->
+        <div id="inv-scan-active" class="hidden mt-4 space-y-4">
+          <div id="ai-sync-status" class="hidden space-y-2">
+            <div class="flex items-center gap-2 text-xs font-medium text-indigo-600 dark:text-indigo-400">
+              <svg class="w-3.5 h-3.5 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+              <span id="ai-sync-status-text">Starting scan…</span>
+            </div>
+            <div class="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div id="ai-sync-progress-bar" class="h-full bg-indigo-500 rounded-full transition-all duration-500" style="width:0%"></div>
+            </div>
+            <div class="text-xs text-slate-400" id="ai-sync-progress-label"></div>
+          </div>
+
+          <!-- Monthly live-market usage vs cap (cached lookups don't count) -->
+          <div id="inv-scan-usage" class="hidden text-[11px] text-slate-400"></div>
+
+          <!-- Summary stat cards — click to filter the list below -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <button type="button" data-ai-filter="all" class="ai-stat-card text-left bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 transition hover:border-slate-300 dark:hover:border-slate-600 focus:outline-none">
+              <div class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Total Checks</div>
+              <div class="text-3xl font-black text-slate-900 dark:text-white" id="ai-stat-total">—</div>
+            </button>
+            <button type="button" data-ai-filter="price" class="ai-stat-card text-left bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 transition hover:border-red-300 dark:hover:border-red-700 focus:outline-none">
+              <div class="text-xs uppercase font-bold tracking-wider text-red-500 mb-1">Price Flags</div>
+              <div class="text-3xl font-black text-red-500" id="ai-stat-price-flags">—</div>
+            </button>
+            <button type="button" data-ai-filter="missing" class="ai-stat-card text-left bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 transition hover:border-amber-300 dark:hover:border-amber-700 focus:outline-none">
+              <div class="text-xs uppercase font-bold tracking-wider text-amber-500 mb-1">Missing Info</div>
+              <div class="text-3xl font-black text-amber-500" id="ai-stat-warnings">—</div>
+            </button>
+            <button type="button" data-ai-filter="copies" class="ai-stat-card text-left bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 transition hover:border-emerald-300 dark:hover:border-emerald-700 focus:outline-none">
+              <div class="text-xs uppercase font-bold tracking-wider text-emerald-500 mb-1">Copies Written</div>
+              <div class="text-3xl font-black text-emerald-500" id="ai-stat-copies">—</div>
+            </button>
+          </div>
+
+          <!-- Activity feed -->
+          <div class="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <h3 class="text-sm font-bold text-slate-900 dark:text-white">Inventory Scan Results — per-vehicle checks</h3>
+              <span id="ai-activity-count" class="text-xs text-slate-400"></span>
+            </div>
+            <div class="max-h-[500px] overflow-y-auto">
+              <div id="ai-activity-loading" class="py-12 text-center text-sm text-slate-400 italic">Loading…</div>
+              <div id="ai-activity-empty" class="hidden py-12 text-center text-sm text-slate-400 px-6">No activity yet — click <strong class="text-slate-600 dark:text-slate-300">Scan All Inventory</strong> to run the first check.</div>
+              <div id="ai-activity-error" class="hidden py-6 px-5 text-sm text-red-500"></div>
+              <ul id="ai-activity-list" class="hidden divide-y divide-slate-100 dark:divide-slate-800"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+          <!-- VIN decode, recalls, window stickers & brochures now live on each
+               vehicle in the Inventory page (part of Inventory Intelligence). -->
+          <div class="bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-900 rounded-xl px-4 py-3 text-sm text-violet-800 dark:text-violet-200 flex items-center gap-2">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>VIN decode, recall checks, window stickers &amp; brochures are now on each vehicle under <button type="button" onclick="switchPage('inventory')" class="font-bold underline hover:no-underline">Inventory</button>.</span>
+          </div>
+
+
+
+          <!-- ── Lot Analysis ──────────────────────────────────────────────── -->
+          <div class="pt-2">
+            <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span class="w-1.5 h-4 rounded-full bg-emerald-500 flex-shrink-0"></span> Lot Analysis
+            </h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 ml-3.5">Turn rate, health scores, hot &amp; cold movers, duplicate VINs, and an AI-written read on your whole lot.</p>
+          </div>
+          <div class="space-y-4">
+            <div class="flex items-center justify-end gap-3">
+              <button id="inv-intel-refresh-btn" class="flex items-center gap-1.5 text-xs font-bold text-violet-600 hover:text-violet-500 dark:text-violet-400 transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                Refresh
+              </button>
+            </div>
+
+            <!-- Loading state -->
+            <div id="inv-intel-loading" class="hidden flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
+              <svg class="animate-spin w-8 h-8 text-violet-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+              <span class="text-sm">Analyzing your inventory…</span>
+            </div>
+
+            <!-- Content -->
+            <div id="inv-intel-content" class="hidden space-y-6">
+
+              <!-- Summary stat row -->
+              <div id="inv-intel-stats" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+
+              <!-- AI Narrative -->
+              <div id="inv-intel-narrative" class="hidden bg-gradient-to-br from-violet-50 to-slate-50 dark:from-violet-950/30 dark:to-slate-900 border border-violet-200 dark:border-violet-800/50 rounded-xl p-5">
+                <div class="flex items-center gap-2 mb-3">
+                  <svg viewBox="0 0 24 24" width="14" height="14" class="inline-block flex-shrink-0" aria-hidden="true"><title>AI Boost feature — included in your plan</title><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg>
+                  <span class="text-sm font-bold text-slate-900 dark:text-white">AI Lot Analysis</span>
+                  <span class="text-[10px] text-slate-400">Generated now</span>
+                </div>
+                <ul id="inv-intel-narrative-list" class="space-y-1.5"></ul>
+              </div>
+
+              <!-- Hot / Cold Segments -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="bg-white dark:bg-slate-800/60 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-4">
+                  <div class="flex items-center gap-2 mb-3">
+                    <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z"/></svg>
+                    <span class="text-sm font-bold text-slate-900 dark:text-white">Top 5 Hot Vehicles</span>
+                    <span class="text-xs text-slate-400">Low stock · selling fast</span>
+                  </div>
+                  <div id="inv-intel-hot" class="space-y-2 text-sm text-slate-500">—</div>
+                </div>
+                <div class="bg-white dark:bg-slate-800/60 border border-red-200 dark:border-red-800/50 rounded-xl p-4">
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="text-base">🧊</span>
+                    <span class="text-sm font-bold text-slate-900 dark:text-white">Top 5 Cold Vehicles</span>
+                    <span class="text-xs text-slate-400">High stock · slow moving</span>
+                  </div>
+                  <div id="inv-intel-cold" class="space-y-2 text-sm text-slate-500">—</div>
+                </div>
+              </div>
+
+              <!-- Duplicate VINs alert -->
+              <div id="inv-intel-dups-wrap" class="hidden bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-xl p-4">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="text-base">⚠️</span>
+                  <span class="text-sm font-bold text-red-800 dark:text-red-300">Duplicate VINs Detected</span>
+                </div>
+                <div id="inv-intel-dups" class="space-y-2 text-sm"></div>
+              </div>
+
+              <!-- Turn Rate table -->
+              <div class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                  <span class="text-sm font-bold text-slate-900 dark:text-white">Turn Rate</span>
+                  <span class="text-xs text-slate-400">Last 90 days · sorted by volume</span>
+                </div>
+                <div style="-webkit-overflow-scrolling:touch;max-height:360px;overflow-x:auto;overflow-y:auto">
+                  <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 dark:bg-slate-900/50 sticky top-0 z-10">
+                      <tr>
+                        <th class="text-left px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Vehicle</th>
+                        <th class="text-right px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Sold 30d</th>
+                        <th class="text-right px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Sold 90d</th>
+                        <th class="text-right px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">In Stock</th>
+                        <th class="text-right px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Mo. Supply</th>
+                      </tr>
+                    </thead>
+                    <tbody id="inv-intel-velocity-body" class="divide-y divide-slate-100 dark:divide-slate-700"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Vehicle Health Scores -->
+              <div class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl">
+                <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between gap-3 flex-wrap">
+                  <span class="text-sm font-bold text-slate-900 dark:text-white">Vehicle Health Scores</span>
+                  <div class="flex items-center gap-3">
+                    <span class="text-xs text-slate-400 hidden sm:inline">Lowest scores first · click to open unit</span>
+                    <button type="button" id="health-score-photos-btn" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white transition">Score photos (AI Vision)</button>
+                  </div>
+                </div>
+                <div style="max-height:420px;overflow-x:auto;overflow-y:auto">
+                  <table class="w-full text-sm">
+                    <thead class="bg-slate-50 dark:bg-slate-900/50 sticky top-0 z-10">
+                      <tr>
+                        <th class="text-left px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Unit</th>
+                        <th class="text-center px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Score</th>
+                        <th class="text-center px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Photos</th>
+                        <th class="text-center px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Days</th>
+                        <th class="px-4 py-2.5"></th>
+                      </tr>
+                    </thead>
+                    <tbody id="inv-intel-health-body"></tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div><!-- /inv-intel-content -->
+          </div><!-- /analysis section -->
+
+          <!-- ── Pricing & Acquisition section header ──────────────────────── -->
+          <div class="pt-2">
+            <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span class="w-1.5 h-4 rounded-full bg-orange-500 flex-shrink-0"></span> Inventory Intelligence
+            </h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 ml-3.5">Auto-flag stale, overpriced units and get AI recommendations on what to stock next.</p>
+          </div>
+
+          <!-- ── Repricing Rules ─────────────────────────────────────────── -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden ai-accordion-open">
+            <button type="button" onclick="this.closest('.rounded-xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0"></span>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">Repricing Rules <svg viewBox="0 0 24 24" width="14" height="14" class="inline-block flex-shrink-0" aria-hidden="true"><title>AI Boost feature — included in your plan</title><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg></h3>
+                <span class="text-xs text-slate-400 font-normal">— auto-flag stale overpriced units</span>
+              </div>
+              <svg class="w-4 h-4 text-slate-400 transition-transform ai-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div class="ai-accordion-body p-5 space-y-4">
+              <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2">
+                <strong class="text-slate-700 dark:text-slate-200">What this is:</strong> a watchdog that flags units sitting too long or priced above market so you can act before they go stale.
+                <strong class="text-slate-700 dark:text-slate-200">How to use it:</strong> turn it on, set the days-on-lot trigger and how far above market counts as "overpriced," and MarketSync raises a Needs-Attention flag on each unit that trips a rule (prices are never changed automatically — you stay in control).
+              </p>
+              <div class="flex items-center gap-3">
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="repricing-enabled" class="sr-only peer">
+                  <div class="w-10 h-5 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+                <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Enable automated repricing alerts</span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label class="block text-xs uppercase font-bold text-slate-400 mb-1.5 tracking-wider">Days on Lot</label>
+                  <input type="number" id="repricing-days" min="1" max="365" value="45" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <p class="text-xs text-slate-400 mt-1">Flag vehicles on lot longer than this.</p>
+                </div>
+                <div>
+                  <label class="block text-xs uppercase font-bold text-slate-400 mb-1.5 tracking-wider">Suggested Price Drop %</label>
+                  <input type="number" id="repricing-drop-pct" min="1" max="50" value="5" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <p class="text-xs text-slate-400 mt-1">Recommended reduction when flagged.</p>
+                </div>
+                <div>
+                  <label class="block text-xs uppercase font-bold text-slate-400 mb-1.5 tracking-wider">Overprice Threshold %</label>
+                  <input type="number" id="repricing-overprice-pct" min="1" max="100" value="20" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <p class="text-xs text-slate-400 mt-1">% above median to consider overpriced.</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <button id="repricing-save-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-5 py-2 rounded-lg transition">Save Rules</button>
+                <button id="repricing-apply-btn" class="bg-orange-600 hover:bg-orange-500 text-white text-sm font-bold px-5 py-2 rounded-lg transition">Apply Rules Now</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Stocking Recommendations ────────────────────────────────── -->
+          <div id="stocking-accordion" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden ai-accordion-open">
+            <button type="button" onclick="this.closest('.rounded-xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Stock Recommendations</h3>
+                <span class="text-xs text-slate-400 font-normal">— AI-driven acquisition targets</span>
+              </div>
+              <svg class="w-4 h-4 text-slate-400 transition-transform ai-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div class="ai-accordion-body p-5 space-y-4">
+              <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Analyzes your recent sell-through history, current stock, and nearby competitor lots to recommend the 5 best vehicles to acquire next.</p>
+              <button id="stocking-generate-btn" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold px-5 py-2 rounded-lg transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+                Refresh
+              </button>
+              <div id="stocking-results" class="space-y-3"></div>
+            </div>
+          </div>
+
+          <!-- ── Reports & Alerts section header ───────────────────────────── -->
+          <div class="pt-2">
+            <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span class="w-1.5 h-4 rounded-full bg-violet-500 flex-shrink-0"></span> Reports &amp; Alerts
+            </h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 ml-3.5">Email digests of aging units, price drift and gaps — sent to your alert address.</p>
+          </div>
+
+          <!-- ── Weekly Lot Health Report ────────────────────────────────── -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden ai-accordion-open">
+            <button type="button" onclick="this.closest('.rounded-xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-violet-500 flex-shrink-0"></span>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Weekly Lot Health Report</h3>
+                <span class="text-xs text-slate-400 font-normal">— email digest of aging, drift &amp; gaps</span>
+              </div>
+              <svg class="w-4 h-4 text-slate-400 transition-transform ai-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div class="ai-accordion-body p-5 space-y-4">
+              <!-- Daily briefing email opt-in -->
+              <div class="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div>
+                  <div class="text-sm font-semibold text-slate-800 dark:text-slate-200">Daily briefing email</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">A short “Today's Briefing” to your alert email — only on days there's something to act on.</div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                  <input type="checkbox" id="daily-digest-toggle" class="sr-only peer">
+                  <div class="w-10 h-5 bg-slate-200 dark:bg-slate-700 rounded-full peer peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+              </div>
+              <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Sends a full lot health email to your alert address: aging units (60+ days), price drift flags, slow movers, and missing-info alerts from the last 7 days.</p>
+              <div class="flex items-center gap-3 flex-wrap">
+                <button id="weekly-report-btn" class="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold px-5 py-2 rounded-lg transition">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+                  Send Report Now
+                </button>
+                <button id="weekly-report-pdf-btn" class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold px-5 py-2 rounded-lg transition">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+                  Download PDF
+                </button>
+                <span id="weekly-report-last-sent" class="text-xs text-slate-400"></span>
+              </div>
+            </div>
+          </div>
+
+
+
+        </div><!-- /inv-intel-active-content -->
+      </div>
+
+<div data-page-content="ai-vision" class="page-content hidden hidden space-y-6">
+
+        <div class="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              AI Vision
+            </h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">AI photo-quality scoring — find the listings with weak photos before buyers scroll past them.</p>
+          </div>
+        </div>
+
+        <!-- Upsell — non-subscribers -->
+        <div id="ai-vision-page-upsell" class="hidden">
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800">
+              <h3 class="text-base font-bold text-slate-900 dark:text-white">AI Vision — included with AI Boost</h3>
+              <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Start with a free 30-day trial. No credit card required.</p>
+            </div>
+            <div class="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2.5">
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>AI scores every listing's photos 0–100</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Flags blurry, dark &amp; placeholder photos</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Checks the hero photo actually shows the car</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Worst listings surface first — fix them fast</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Runs automatically on every inventory sync</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Flags photo counts that are too low to convert</div>
+            </div>
+            <div class="px-6 py-5 border-t border-slate-200 dark:border-slate-800">
+              <button id="ai-vision-upgrade-btn" class="bg-amber-500 hover:bg-amber-400 text-white font-bold px-6 py-3 rounded-lg transition text-sm">Included with AI Boost →</button>
+              <span class="ml-4 text-xs text-slate-400">AI Vision is part of AI Boost — $129/month</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active content -->
+        <div id="ai-vision-active-content" class="hidden space-y-5">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div id="ai-vision-stats" class="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1"></div>
+            <button id="ai-vision-scan-btn" class="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-white text-sm font-bold px-5 py-2.5 rounded-lg transition whitespace-nowrap">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              Scan Photos <svg viewBox="0 0 24 24" width="14" height="14" class="inline-block flex-shrink-0" aria-hidden="true"><title>AI Boost feature — included in your plan</title><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <div class="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <h3 class="text-sm font-bold text-slate-900 dark:text-white">Lowest-scoring listings</h3>
+              <span class="text-xs text-slate-400">Worst photos first</span>
+            </div>
+            <div id="ai-vision-list" class="divide-y divide-slate-100 dark:divide-slate-800">
+              <div class="px-5 py-10 text-center text-sm text-slate-400 italic">Run a scan to score your photos.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+<div data-page-content="website" class="page-content hidden space-y-6">
+        <div id="website-root"><div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div></div>
+      </div>
+
+<div data-page-content="website-settings" class="page-content hidden hidden space-y-6">
+        <div>
+          <h1 class="text-2xl font-black text-slate-900 dark:text-white">Website Settings</h1>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Domain, SEO, tracking and lead-capture widgets for your dealer site.</p>
+        </div>
+        <div id="website-settings-root"><div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div></div>
+      </div>
+
+<div data-page-content="automation" class="page-content hidden hidden space-y-6">
+        <div id="automation-root"><div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div></div>
+      </div>
+
+<div data-page-content="automation-builder" class="page-content hidden hidden space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900 dark:text-white">Automation Builder</h2>
+          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Build the follow-up sequences that fire automatically.</p>
+        </div>
+        <div id="auto-builder-tabs" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 flex-wrap"></div>
+        <div id="auto-leads-root" class="space-y-6 hidden"><div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div></div>
+        <div id="auto-delivery-root" class="space-y-6 hidden"><div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div></div>
+        <div id="auto-holidays-root" class="space-y-6 hidden"><div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div></div>
+      </div>
+
+<div data-page-content="equity" class="page-content hidden space-y-6">
+        <div id="equity-root"><div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div></div>
+      </div>
+
+<div data-page-content="crm" class="page-content hidden space-y-6">
+        <div class="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h2 id="crm-page-title" class="text-xl font-bold text-slate-900 dark:text-white">Customers</h2>
+            <p id="crm-page-sub" class="text-sm text-slate-500 dark:text-slate-400 mt-1">Every lead, appraisal and sale on one customer record — with a full activity timeline, follow-up tasks, and one-click email.</p>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button type="button" id="crm-bulk-btn" data-admin-only onclick="openBulkOutreach()" class="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              Bulk message
+            </button>
+            <button type="button" onclick="openCrmContactModal()" class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+              New contact
+            </button>
+          </div>
+        </div>
+        <div id="crm-body"></div>
+      </div>
+
+<div data-page-content="leads" class="page-content hidden space-y-6">
+        <div id="leads-root"><div class="py-16 text-center text-sm text-slate-400 italic">Loading leads…</div></div>
+      </div>
+
+<div data-page-content="appointments" class="page-content hidden hidden space-y-6">
+        <div id="appointments-root"><div class="py-16 text-center text-sm text-slate-400 italic">Loading appointments…</div></div>
+      </div>
+
+<div data-page-content="service-appointments" class="page-content hidden hidden space-y-6">
+        <div id="service-appointments-root"><div class="py-16 text-center text-sm text-slate-400 italic">Loading service appointments…</div></div>
+      </div>
+
+<div data-page-content="service-settings" class="page-content hidden hidden space-y-6">
+        <div id="service-settings-root"><div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div></div>
+      </div>
+
+<div data-page-content="tasks" class="page-content hidden space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900 dark:text-white">Tasks</h2>
+          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Your follow-up queue — speed-to-lead calls and automated reach-outs land here.</p>
+        </div>
+        <div id="tasks-root"><div class="py-10 text-center text-sm text-slate-400 italic">Loading tasks…</div></div>
+      </div>
+
+<div data-page-content="appraisal" class="page-content hidden hidden space-y-6">
+        <div class="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Trade Appraisal</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Live retail market value + a suggested cash/trade offer, powered by MarketCheck. Enter a VIN to auto-fill, or type it in.</p>
+          </div>
+          <button type="button" onclick="resetAppraisal()" class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition flex-shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            New appraisal
+          </button>
+        </div>
+
+        <!-- Two-column layout: appraisal flow on the left, Appraisals list pinned right -->
+        <div class="grid gap-6 items-start lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div class="space-y-6 min-w-0">
+
+        <!-- Card: the appraisal form -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+          <!-- License plate → VIN (optional; shown only when a plate-decode provider is provisioned) -->
+          <div id="appr-plate-block" class="hidden">
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Look up by plate <span class="normal-case font-normal text-slate-400">(optional — finds the VIN, then fills the fields below)</span></label>
+            <div class="flex flex-wrap gap-2">
+              <input id="appr-plate" maxlength="10" placeholder="Plate #" class="flex-1 min-w-[120px] uppercase tracking-wider bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+              <select id="appr-plate-country" onchange="apprPlateFillRegions()" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-sm"><option value="US">US</option><option value="CA">CA</option></select>
+              <select id="appr-plate-region" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-sm w-28"></select>
+              <button id="appr-plate-btn" onclick="apprPlateLookup(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Find VIN</button>
+            </div>
+            <p id="appr-plate-msg" class="hidden text-xs mt-1.5"></p>
+          </div>
+          <!-- VIN → auto-fill the appraisal fields -->
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Decode VIN <span class="normal-case font-normal text-slate-400">(optional — only identifies the vehicle &amp; fills the fields below)</span></label>
+            <div class="flex gap-2">
+              <input id="appr-vin" maxlength="17" placeholder="e.g. 1GNSKBKC5FR123456" class="flex-1 uppercase tracking-wider bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+              <button type="button" onclick="openVinScanner('appr-vin', () => document.getElementById('appr-decode').click())" title="Scan VIN barcode" class="flex items-center gap-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-sm font-bold px-3 py-2 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 12h10"/></svg>Scan</button>
+              <button id="appr-decode" class="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 text-sm font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Decode</button>
+            </div>
+            <div id="appr-vin-decoded" class="hidden mt-2 flex items-start gap-2 text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 rounded-lg px-3 py-2">
+              <svg class="w-4 h-4 flex-shrink-0 mt-px" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+              <span><span class="font-bold">Decoded:</span> <span id="appr-vin-decoded-text"></span> — this only identifies the vehicle. Add mileage and click <span class="font-semibold">Appraise</span>; the value comes from live market comps, not the VIN.</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 mt-2">
+              <button type="button" id="appr-view-decode" class="text-xs font-bold px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-900 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 transition">View full VIN decode</button>
+              <button type="button" id="appr-oem-sticker" class="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition">OEM Window Sticker</button>
+              <button type="button" id="appr-oem-brochure" class="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition">OEM Brochure</button>
+              <span id="appr-oem-msg" class="text-xs text-slate-400"></span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Year</label><input id="appr-year" inputmode="numeric" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Make</label><input id="appr-make" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Model</label><input id="appr-model" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Trim</label><input id="appr-trim" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Mileage</label><input id="appr-mileage" inputmode="numeric" data-money class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Condition</label><select id="appr-condition" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="good">Good</option><option value="excellent">Excellent</option><option value="fair">Fair</option><option value="rough">Rough</option></select></div>
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Recon ($)</label><input id="appr-recon" inputmode="numeric" data-money value="1,200" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Target gross ($)</label><input id="appr-gross" inputmode="numeric" data-money value="2,500" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Book value ($) <span class="text-slate-400 font-normal">— optional</span></label><input id="appr-book" inputmode="numeric" data-money placeholder="Black Book / guide" title="Black Book or your guide value. If set, the suggested offer is capped so it never exceeds book." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+          </div>
+          <div id="appr-defaults-slot"></div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Drivetrain</label><select id="appr-drivetrain" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="">Any</option><option value="FWD">FWD</option><option value="RWD">RWD</option><option value="AWD">AWD</option><option value="4WD">4WD / 4x4</option></select></div>
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Engine</label><input id="appr-engine" placeholder="e.g. 3.5L V6" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Comp radius</label><select id="appr-radius" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="100">100</option><option value="250" selected>250</option><option value="500">500</option><option value="1000">1000</option><option value="0">Nationwide</option></select></div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Accident / history <span class="font-normal text-slate-400">(if known)</span></label>
+              <select id="appr-accident" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+                <option value="none">Clean — none reported</option>
+                <option value="minor">Minor (1 claim, cosmetic)</option>
+                <option value="moderate">Moderate (panel / multiple)</option>
+                <option value="major">Major / structural / airbags</option>
+                <option value="branded">Branded (salvage / rebuilt / flood)</option>
+              </select>
+            </div>
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Reported damage ($) <span class="font-normal text-slate-400">optional</span></label><input id="appr-damage" inputmode="numeric" data-money placeholder="e.g. 4200" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+          </div>
+
+          <button id="appr-run" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-5 py-2.5 rounded-lg transition">Appraise</button>
+        </div>
+
+        <div id="appr-result"></div>
+
+        <!-- ── Deal Details: customer + disclosure + salesperson ─────────────── -->
+        <div class="space-y-6">
+          <div class="flex items-center gap-2 pt-2">
+            <span class="w-1.5 h-4 rounded-full bg-indigo-500 flex-shrink-0"></span>
+            <h3 class="text-base font-bold text-slate-900 dark:text-white">Deal Details</h3>
+            <span class="text-xs text-slate-500 dark:text-slate-400">— fill in, save, and print a Customer Summary or Disclosure</span>
+          </div>
+
+          <!-- Salesperson + Notify Appraiser + disposition -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Salesperson</label>
+                <input id="appr-salesperson-input" placeholder="Salesperson name" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                <p class="text-[11px] text-slate-400 mt-1">Prefilled from your login — edit if a different rep handled it.</p>
+              </div>
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Notify Appraiser <span class="normal-case font-normal text-slate-400">(managers alerted on save)</span></label>
+                <div id="appr-notify-list" class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-slate-700 dark:text-slate-200">
+                  <div class="text-xs text-slate-400 italic col-span-full">Loading managers…</div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Disposition</label>
+              <div class="flex gap-2 max-w-md">
+                <label class="flex-1 flex items-center justify-center gap-2 cursor-pointer bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50 dark:has-[:checked]:bg-indigo-950/40">
+                  <input type="radio" name="appr-disposition" value="retail" checked class="accent-indigo-600"> Retail
+                </label>
+                <label class="flex-1 flex items-center justify-center gap-2 cursor-pointer bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50 dark:has-[:checked]:bg-indigo-950/40">
+                  <input type="radio" name="appr-disposition" value="wholesale" class="accent-indigo-600"> Wholesale
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Customer Information -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+            <div class="flex items-center justify-between gap-2 mb-3">
+              <h4 class="text-sm font-bold text-slate-900 dark:text-white">Customer Information</h4>
+              <span id="appr-cust-linked" class="hidden items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 rounded-full px-2 py-0.5">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                <span id="appr-cust-linked-name">Linked</span>
+                <button type="button" onclick="apprUnlinkCustomer()" class="ml-1 text-emerald-600/70 hover:text-emerald-600" title="Unlink">✕</button>
+              </span>
+            </div>
+            <!-- Search existing customer or start a new one -->
+            <div class="relative mb-3">
+              <div class="flex gap-2">
+                <input id="appr-cust-search" autocomplete="off" placeholder="Search customers by name, phone, or email…" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+                <button type="button" onclick="apprClearCustomer()" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 rounded-lg whitespace-nowrap">New customer</button>
+              </div>
+              <div id="appr-cust-results" class="hidden absolute z-20 mt-1 w-full max-h-64 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg"></div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">First name</label><input id="cust-first" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+              <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Last name</label><input id="cust-last" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+              <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Home phone</label><input id="cust-home-phone" inputmode="tel" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+              <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Mobile phone</label><input id="cust-mobile-phone" inputmode="tel" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+              <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Email</label><input id="cust-email" inputmode="email" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+              <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Postal / ZIP</label><input id="cust-postal" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+              <div class="sm:col-span-2"><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Address</label><input id="cust-address" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            </div>
+          </div>
+
+          <!-- Disclosure (collapsible) -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden ai-accordion-open">
+            <button type="button" onclick="this.closest('.rounded-xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+              <h4 class="text-sm font-bold text-slate-900 dark:text-white">Trade-In Disclosure</h4>
+              <svg class="ai-chevron w-4 h-4 text-slate-400 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div class="ai-accordion-body p-5 space-y-5">
+              <!-- Features -->
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Equipment &amp; features</label>
+                <div id="appr-features" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-2 text-sm text-slate-700 dark:text-slate-200"></div>
+              </div>
+
+              <!-- History Q&A -->
+              <div class="space-y-3 border-t border-slate-100 dark:border-slate-800 pt-4" id="appr-disclosure-qa"></div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Additional notes / disclosures</label>
+                <textarea id="disc-notes" rows="2" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></textarea>
+              </div>
+            </div>
+          </div>
+
+        </div>
+          </div><!-- /left column -->
+
+          <!-- ── Right sidebar: actions + Appraisals list (pinned on this page) ── -->
+          <aside class="space-y-3 lg:sticky lg:top-2 self-start">
+          <!-- Actions -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col gap-2">
+            <button id="appr-save-deal" class="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-bold px-5 py-2.5 rounded-lg transition">Save appraisal</button>
+            <button id="appr-pdf-summary" class="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-sm font-bold px-5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 transition">Customer Summary PDF</button>
+            <button id="appr-pdf-disclosure" class="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-sm font-bold px-5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 transition">Disclosure PDF</button>
+            <div id="appr-deal-msg" class="hidden text-sm rounded-lg px-3 py-2"></div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-1.5 h-4 rounded-full bg-slate-400 flex-shrink-0"></span>
+            <h3 class="text-base font-bold text-slate-900 dark:text-white">Appraisals</h3>
+            <span id="appr-list-scope" class="hidden text-[11px] text-slate-400"></span>
+          </div>
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <input id="appr-list-search" placeholder="Search customer, vehicle, VIN…" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+              <select id="appr-list-salesperson" class="hidden w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="">All salespeople</option></select>
+              <select id="appr-list-disposition" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="">All dispositions</option><option value="retail">Retail</option><option value="wholesale">Wholesale</option></select>
+            </div>
+            <div id="appr-list" class="divide-y divide-slate-100 dark:divide-slate-800 lg:max-h-[60vh] lg:overflow-y-auto"><div class="text-xs text-slate-400 italic py-4">Loading…</div></div>
+          </div>
+          </aside>
+        </div><!-- /appraisal grid -->
+      </div>
+
+<div data-page-content="vin-sticker" class="page-content hidden hidden space-y-6">
+
+        <!-- Page header -->
+        <div class="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h2 class="text-xl font-black text-slate-900 dark:text-white">VIN Sticker &amp; Brochure</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Decode any VIN, generate branded window stickers and 2-page vehicle brochures — cached and shareable.</p>
+          </div>
+          <div id="vin-sticker-status-badge"></div>
+        </div>
+
+        <!-- ── Upsell — non-subscribers ──────────────────────────────────── -->
+        <div id="vin-sticker-page-upsell" class="hidden">
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800">
+              <h3 class="text-base font-bold text-slate-900 dark:text-white">The VIN decoder is part of Inventory Intelligence — $299/month</h3>
+              <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Decode VINs, pull factory window stickers, and print branded stickers &amp; brochures (branded/AI versions need AI Boost).</p>
+            </div>
+            <div class="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2.5">
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>VIN decode via NHTSA — year, make, model, trim, engine</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Open recall lookup — shown on every sticker and brochure</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Branded window sticker PDF — your logo, colours, VIN barcode</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>2-page vehicle brochure — hero photo, specs, features, pricing</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Shareable permanent link — text or email to any customer</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Branding settings — logo, primary &amp; accent colours, tagline</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>PDFs cached until sold — auto-deleted on vehicle sale</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>One-click apply decoded data back to inventory record</div>
+            </div>
+            <div class="px-6 py-5 border-t border-slate-200 dark:border-slate-800">
+              <button id="vin-sticker-page-upgrade-btn" class="bg-violet-600 hover:bg-violet-500 text-white font-bold px-6 py-3 rounded-lg transition text-sm">Get Inventory Intelligence →</button>
+              <span class="ml-4 text-xs text-slate-400">Included with Inventory Intelligence · $299/month</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Active content ─────────────────────────────────────────────── -->
+        <div id="vin-sticker-active-content" class="space-y-5">
+
+          <!-- Quick VIN decode tool -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+            <h3 class="text-sm font-bold text-slate-900 dark:text-white mb-3">Quick VIN Decode</h3>
+            <div class="flex gap-2">
+              <input type="text" id="vin-page-input" maxlength="17" placeholder="Enter 17-character VIN…" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 uppercase">
+              <button id="vin-page-decode-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Decode</button>
+            </div>
+            <div id="vin-page-loading" class="hidden mt-3 text-sm text-slate-400 italic">Decoding…</div>
+            <div id="vin-page-error" class="hidden mt-3 text-sm text-red-500"></div>
+            <div id="vin-page-results" class="hidden mt-4 space-y-3">
+              <div id="vin-page-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+              <div id="vin-page-recalls" class="hidden"></div>
+            </div>
+          </div>
+
+          <!-- Inventory list with PDF actions -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <div class="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <h3 class="text-sm font-bold text-slate-900 dark:text-white">Your Inventory</h3>
+              <span class="text-xs text-slate-400">Click Sticker or Brochure to generate a branded PDF</span>
+            </div>
+            <div class="max-h-[60vh] overflow-y-auto scrollbar-none">
+              <div id="vin-sticker-inventory-loading" class="py-10 text-center text-sm text-slate-400 italic">Loading inventory…</div>
+              <div id="vin-sticker-inventory-empty" class="hidden py-10 text-center text-sm text-slate-400">No vehicles found. Add inventory first.</div>
+              <ul id="vin-sticker-inventory-list" class="hidden divide-y divide-slate-100 dark:divide-slate-800"></ul>
+            </div>
+          </div>
+
+        </div><!-- /vin-sticker-active-content -->
+
+      </div>

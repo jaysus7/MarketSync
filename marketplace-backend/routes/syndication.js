@@ -10,10 +10,11 @@
  * platforms that want a structured feed.
  */
 import { supabaseAdmin, CANONICAL_FRONTEND } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { rateLimit } from '../security.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
 
 const API_BASE = (process.env.PUBLIC_API_URL || process.env.API_URL || '').replace(/\/+$/, '')
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
 const currencyFor = (country) => /(^ca$|canada)/i.test(String(country || '')) ? 'CAD' : 'USD'
 
 // The dealer's public site base — custom domain if set, else marketsync.link/<slug>.
@@ -85,7 +86,7 @@ const xmlEsc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(
 
 export function registerSyndication(app) {
   // ── PUBLIC: CSV feed (spreadsheet + most aggregators). ───────────────────────
-  app.get('/syndication/:slug/inventory.csv', async (req, res) => {
+  app.get('/syndication/:slug/inventory.csv', rateLimit('pub-synd-csv', 60, 60000), async (req, res) => {
     const d = await loadDealerBySlug(req.params.slug)
     if (!d || !d.site_published) return res.status(404).type('text/plain').send('Feed not available')
     const currency = currencyFor(d.country)
@@ -100,7 +101,7 @@ export function registerSyndication(app) {
   })
 
   // ── PUBLIC: XML feed (platforms that want a structured pull). ────────────────
-  app.get('/syndication/:slug/inventory.xml', async (req, res) => {
+  app.get('/syndication/:slug/inventory.xml', rateLimit('pub-synd-xml', 60, 60000), async (req, res) => {
     const d = await loadDealerBySlug(req.params.slug)
     if (!d || !d.site_published) return res.status(404).type('text/plain').send('Feed not available')
     const currency = currencyFor(d.country)
@@ -120,7 +121,7 @@ export function registerSyndication(app) {
   // ── PUBLIC: Google vehicle-listings feed (RSS 2.0 + g: namespace). ──────────
   // The shape Google Merchant Center / Vehicle ads expect, for platforms that reject
   // the generic feed. Condition/price/mileage follow Google's attribute rules.
-  app.get('/syndication/:slug/google.xml', async (req, res) => {
+  app.get('/syndication/:slug/google.xml', rateLimit('pub-synd-google', 60, 60000), async (req, res) => {
     const d = await loadDealerBySlug(req.params.slug)
     if (!d || !d.site_published) return res.status(404).type('text/plain').send('Feed not available')
     const currency = currencyFor(d.country)
@@ -165,9 +166,8 @@ ${items}
   })
 
   // ── ADMIN: the dealer's feed URLs + a live count, for the Syndication card. ──
-  app.get('/syndication/config', requireAuth, async (req, res) => {
+  app.get('/syndication/config', requireAuth, requireMfa, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: d } = await supabaseAdmin.from('dealerships')
       .select('site_slug, site_published, country').eq('id', req.dealershipId).maybeSingle()
     if (!d?.site_slug || !d.site_published) {

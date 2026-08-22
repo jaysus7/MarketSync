@@ -3,21 +3,22 @@
 // get-ready details — which creates the Cleanup card and emails the teams — then
 // marks Delivered, which closes the deal out and drops it off the list.
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
+import { audit } from '../audit.js'
 import { sendEmail } from '../securityAlerts.js'
 import { ensureGetReadyCard } from './recon.js'
 import { emitWebhook } from '../webhooks.js'
 import { emitEvent } from './events.js'
+import { dealSettlement } from './dashboard.js'
 
-const MGR = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI']
-const isMgr = (req) => MGR.includes(req.profile?.role)
+const FNI_NOTIFICATION_ROLES = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI']
 const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 export function registerFni(app) {
   // Worklist: every deal that isn't delivered yet, newest first.
-  app.get('/fni/deals', requireAuth, async (req, res) => {
+  app.get('/fni/deals', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: deals, error } = await supabaseAdmin.from('deals')
       .select('id, deal_number, contact_id, inventory_id, deal_status, delivery_date, delivery_time, fni_products, notes, approved_at, created_by, created_at, selling_price')
       .eq('dealership_id', req.dealershipId)
@@ -58,9 +59,8 @@ export function registerFni(app) {
   // (the products the F&I office sold); penetration is which products attach and
   // how often. Everything is computed in-process from one bulk fetch + one name
   // lookup so the endpoint stays a couple of round-trips regardless of volume.
-  app.get('/fni/reports', requireAuth, async (req, res) => {
+  app.get('/fni/reports', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const allowed = [7, 30, 90, 365]
     let days = parseInt(req.query.days, 10)
     if (!allowed.includes(days)) days = 30
@@ -230,9 +230,8 @@ export function registerFni(app) {
   })
 
   // Approve → save get-ready details, create/refresh the Cleanup card, email teams.
-  app.post('/fni/deals/:id/approve', requireAuth, async (req, res) => {
+  app.post('/fni/deals/:id/approve', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const b = req.body || {}
     const { data: deal } = await supabaseAdmin.from('deals')
       .select('id, inventory_id, contact_id, created_by, deal_number')
@@ -272,6 +271,11 @@ export function registerFni(app) {
       })
     }
 
+    audit(req, 'deal.approved', {
+      deal_id: deal.id,
+      after_state: { delivery_date, delivery_time, fni_products, inventory_id: invId },
+    })
+
     // Best-effort notification email to managers + salesperson + cleanup/service.
     sendGetReadyEmails(req.dealershipId, deal, { delivery_date, delivery_time, fni_products, notes })
       .catch(e => console.warn('[fni] get-ready email failed:', e.message))
@@ -281,10 +285,150 @@ export function registerFni(app) {
     res.json({ ok: true, approved_at: now, cleanup: !!invId })
   })
 
-  // Delivered → deal delivered, vehicle sold, customer marked delivered; off the list.
-  app.post('/fni/deals/:id/delivered', requireAuth, async (req, res) => {
+  // ── Funding queue ──────────────────────────────────────────────────────────
+  // Real funding state on the canonical deal (funding_status / funding_submitted_at
+  // / funded_at) — not inferred from "delivered". One read for the whole queue,
+  // joined to the SELECTED lender decision so the UI needs no second round-trip.
+  app.get('/fni/funding', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
+    try {
+      const { data: deals, error } = await supabaseAdmin.from('deals')
+        .select('id, deal_number, contact_id, inventory_id, deal_status, selling_price, delivered_at, funding_status, funding_submitted_at, funded_at')
+        .eq('dealership_id', req.dealershipId)
+        .or('funding_status.not.is.null,deal_status.eq.delivered')
+        .order('delivered_at', { ascending: true, nullsFirst: false })
+      if (error) throw error
+      const ids = (deals || []).map(d => d.id)
+      const { data: decisions } = ids.length
+        ? await supabaseAdmin.from('deal_lender_decisions')
+            .select('deal_id, lender_id, decision, rate, term_months, approved_amount, conditions, approval_expires_on, submitted_at, selected')
+            .eq('dealership_id', req.dealershipId).in('deal_id', ids).eq('selected', true)
+        : { data: [] }
+      const byDeal = {}
+      for (const d of decisions || []) byDeal[d.deal_id] = d
+      const now = Date.now()
+      res.json({
+        deals: (deals || []).map(d => ({
+          ...d,
+          // Deals delivered before funding was tracked read as `pending`, not as a
+          // fabricated state — funding_status stays null in the database.
+          funding_state: d.funding_status || (d.deal_status === 'delivered' ? 'pending' : 'not_required'),
+          selected_decision: byDeal[d.id] || null,
+          days_in_funding: d.funding_submitted_at
+            ? Math.floor((now - new Date(d.funding_submitted_at).getTime()) / 864e5) : null,
+        })),
+      })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  // Advance a deal's funding state. This is the ONLY producer of `funding.received`.
+  //
+  // Idempotency (brief §2/§5): the event fires only on the transition INTO `funded`
+  // from something else. Re-saving an already-funded deal is a no-op, and unrelated
+  // lender edits never touch this path. Defence in depth — the Accounting Engine's
+  // postJournal() also dedupes on (dealership_id, source, reference, event_name), so
+  // even a duplicate emit yields exactly one journal.
+  const FUNDING_STATES = ['not_required', 'pending', 'submitted', 'conditions', 'funded', 'exception']
+  app.put('/fni/deals/:id/funding', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const next = String(req.body?.funding_status || '').trim()
+    if (!FUNDING_STATES.includes(next)) return res.status(400).json({ error: `funding_status must be one of ${FUNDING_STATES.join(', ')}` })
+    try {
+      const { data: deal } = await supabaseAdmin.from('deals')
+        .select('id, funding_status, funded_at, funding_submitted_at, selling_price')
+        .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+      if (!deal) return res.status(404).json({ error: 'Deal not found' })
+
+      const wasFunded = deal.funding_status === 'funded'
+      const now = new Date().toISOString()
+      const patch = { funding_status: next, updated_at: now }
+      if (next === 'submitted' && !deal.funding_submitted_at) patch.funding_submitted_at = now
+      if (next === 'funded' && !wasFunded) patch.funded_at = now
+
+      const { error } = await supabaseAdmin.from('deals').update(patch)
+        .eq('id', deal.id).eq('dealership_id', req.dealershipId)
+      if (error) throw error
+
+      // The transition — not the save — is the business event.
+      if (next === 'funded' && !wasFunded) {
+        const { data: sel } = await supabaseAdmin.from('deal_lender_decisions')
+          .select('lender_id').eq('deal_id', deal.id).eq('selected', true).maybeSingle()
+        // The SAME figure delivery debited to Contracts in Transit, from the one Deal
+        // Engine derivation — so funding clears CIT to exactly zero. Falling back to
+        // selling_price here (as this once did) would leave a permanent CIT residue,
+        // because delivery never debited selling_price.
+        const settlement = await dealSettlement(req.dealershipId, deal.id)
+        const amount = Number(settlement?.cit ?? 0)
+        // Accounting owns the ledger: it clears Contracts in Transit from this event.
+        // No journal logic here (kernel contract §1/§4).
+        emitEvent({
+          dealershipId: req.dealershipId, eventName: 'funding.received', entityType: 'deal', entityId: deal.id,
+          summary: `Funding received on deal ${deal.id}`, department: 'fni',
+          payload: { deal_id: deal.id, amount, lender_id: sel?.lender_id || null, ref: deal.id },
+          createdBy: req.user?.id || null,
+        })
+        audit(req, 'fni.funding_received', { deal_id: deal.id, amount })
+      }
+      res.json({ ok: true, funding_status: next, funded_at: patch.funded_at || deal.funded_at || null })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  // ── Lender decisions (one deal → many lender answers) ──────────────────────
+  app.get('/fni/deals/:id/lender-decisions', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    try {
+      const { data, error } = await supabaseAdmin.from('deal_lender_decisions')
+        .select('*').eq('dealership_id', req.dealershipId).eq('deal_id', req.params.id)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      res.json({ decisions: data || [] })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.post('/fni/deals/:id/lender-decisions', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const b = req.body || {}
+    try {
+      const { data: deal } = await supabaseAdmin.from('deals').select('id')
+        .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+      if (!deal) return res.status(404).json({ error: 'Deal not found' })
+      // The decision references the deal and the lender only — customer, vehicle and
+      // deal figures are never copied here.
+      const { data, error } = await supabaseAdmin.from('deal_lender_decisions').insert([{
+        dealership_id: req.dealershipId, deal_id: deal.id, lender_id: b.lender_id || null,
+        submission_status: b.submission_status || 'draft', submitted_at: b.submitted_at || null,
+        responded_at: b.responded_at || null, decision: b.decision || null,
+        rate: b.rate ?? null, term_months: b.term_months ?? null, approved_amount: b.approved_amount ?? null,
+        conditions: b.conditions || null, approval_expires_on: b.approval_expires_on || null,
+        notes: b.notes || null, created_by: req.user?.id || null, updated_by: req.user?.id || null,
+      }]).select().single()
+      if (error) throw error
+      audit(req, 'fni.lender_decision_created', { deal_id: deal.id, decision_id: data.id, lender_id: data.lender_id })
+      res.json({ decision: data })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  // Select the winning decision. Only one may be selected per deal — a partial unique
+  // index enforces that in the database, so a concurrent write cannot produce two.
+  app.put('/fni/deals/:dealId/lender-decisions/:id/select', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    try {
+      await supabaseAdmin.from('deal_lender_decisions').update({ selected: false, updated_by: req.user?.id || null })
+        .eq('dealership_id', req.dealershipId).eq('deal_id', req.params.dealId).eq('selected', true)
+      const { data, error } = await supabaseAdmin.from('deal_lender_decisions')
+        .update({ selected: true, updated_at: new Date().toISOString(), updated_by: req.user?.id || null })
+        .eq('dealership_id', req.dealershipId).eq('deal_id', req.params.dealId).eq('id', req.params.id)
+        .select().maybeSingle()
+      if (error) throw error
+      if (!data) return res.status(404).json({ error: 'Decision not found' })
+      audit(req, 'fni.lender_decision_selected', { deal_id: req.params.dealId, decision_id: data.id, lender_id: data.lender_id })
+      res.json({ decision: data })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  // Delivered → deal delivered, vehicle sold, customer marked delivered; off the list.
+  app.post('/fni/deals/:id/delivered', requireAuth, requireMfa, requirePermission('deal.finalize'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { data: deal } = await supabaseAdmin.from('deals')
       .select('id, inventory_id, contact_id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!deal) return res.status(404).json({ error: 'Deal not found' })
@@ -304,16 +448,21 @@ export function registerFni(app) {
       summary: 'Deal marked delivered', toState: 'delivered', department: 'F&I', createdBy: req.user?.id || null,
       payload: { contact_id: deal.contact_id || null, inventory_id: deal.inventory_id || null, action: 'fni_delivered' },
     })
+    audit(req, 'deal.delivered', {
+      deal_id: deal.id,
+      after_state: { deal_status: 'delivered', delivered_at: now, inventory_id: deal.inventory_id || null },
+    })
     res.json({ ok: true })
   })
 
   // Cleanup/service notification recipients (external addresses, comma/newline sep).
-  app.put('/fni/settings', requireAuth, async (req, res) => {
+  app.put('/fni/settings', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const emails = typeof req.body?.cleanup_notify_emails === 'string' ? req.body.cleanup_notify_emails.slice(0, 1000) : ''
+    const { data: before } = await supabaseAdmin.from('dealerships').select('cleanup_notify_emails').eq('id', req.dealershipId).maybeSingle()
     const { error } = await supabaseAdmin.from('dealerships').update({ cleanup_notify_emails: emails }).eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'fni.cleanup_notification_settings_updated', { before_state: before, after_state: { cleanup_notify_emails: emails } })
     res.json({ ok: true })
   })
 }
@@ -324,7 +473,7 @@ async function sendGetReadyEmails(dealershipId, deal, info) {
   const { data: dealer } = await supabaseAdmin.from('dealerships')
     .select('name, cleanup_notify_emails').eq('id', dealershipId).maybeSingle()
   const { data: mgrs } = await supabaseAdmin.from('profiles')
-    .select('business_email').eq('dealership_id', dealershipId).in('role', MGR)
+    .select('business_email').eq('dealership_id', dealershipId).in('role', FNI_NOTIFICATION_ROLES)
   const recips = new Set()
   for (const m of (mgrs || [])) if (m.business_email) recips.add(m.business_email.trim())
   if (deal.created_by) {

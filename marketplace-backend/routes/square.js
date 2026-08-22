@@ -10,28 +10,28 @@
  *   POST /square/webhook             -> Square payment.updated -> stamp "deposit paid"
  */
 import express from 'express'
+import { rateLimit } from '../security.js'
 import { supabaseAdmin, BACKEND_URL, FRONTEND_URL } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
+import { audit } from '../audit.js'
 import { stampDepositPaid } from './deposits.js'
 import {
   squareConfigured, signState, verifyState, squareAuthorizeUrl, squareExchangeCode,
   squareStoreGrant, squareStatus, squareDisconnect, squareGetOrderReference, verifySquareWebhook, PROVIDER,
 } from '../providers/square.js'
 
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
-
 export function registerSquare(app) {
   app.get('/square/config', requireAuth, (req, res) => res.json({ ok: true, configured: squareConfigured() }))
 
-  app.get('/square/connect', requireAuth, (req, res) => {
+  app.get('/square/connect', requireAuth, requireMfa, requirePermission('integrations.manage'), (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     if (!squareConfigured()) return res.status(501).json({ error: 'Square isn’t configured on this server yet.' })
     res.json({ url: squareAuthorizeUrl(signState(req.dealershipId)) })
   })
 
   // Square redirects the browser here (no JWT) — the signed `state` proves the dealership.
-  app.get('/square/callback', async (req, res) => {
+  app.get('/square/callback', rateLimit('oauth-cb-square', 20, 60000), async (req, res) => {
     const backTo = (ok, msg) => res.redirect(`${FRONTEND_URL}/dashboard.html?integration=square&status=${ok ? 'connected' : 'error'}${msg ? '&msg=' + encodeURIComponent(msg) : ''}`)
     try {
       const { code, state } = req.query
@@ -47,20 +47,22 @@ export function registerSquare(app) {
     }
   })
 
-  app.get('/square/status', requireAuth, async (req, res) => {
+  app.get('/square/status', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     res.json({ ok: true, configured: squareConfigured(), ...(await squareStatus(req.dealershipId)) })
   })
 
-  app.post('/square/disconnect', requireAuth, async (req, res) => {
+  app.post('/square/disconnect', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     await squareDisconnect(req.dealershipId)
+    audit(req, 'integration.square_disconnected')
     res.json({ ok: true })
   })
 
   // Inbound Square webhook (payment.updated). Raw body needed for signature verification.
-  app.post('/square/webhook', express.raw({ type: '*/*' }), async (req, res) => {
+  // Signature-verified, but reachable by anyone and each call costs an HMAC. Square's own
+  // bursts stay well under this. (Phase 6S)
+  app.post('/square/webhook', rateLimit('square-webhook', 300, 5 * 60 * 1000), express.raw({ type: '*/*' }), async (req, res) => {
     const raw = req.body instanceof Buffer ? req.body.toString('utf8') : String(req.body || '')
     const notificationUrl = `${BACKEND_URL}/square/webhook`
     if (!verifySquareWebhook(raw, req.get('x-square-hmacsha256-signature'), notificationUrl)) {

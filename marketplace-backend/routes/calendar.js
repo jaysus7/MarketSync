@@ -13,12 +13,16 @@
  * fire-and-forget after they create/update/complete an appointment task.
  */
 import { supabaseAdmin, FRONTEND_URL } from '../shared.js'
+import { rateLimit } from '../security.js'
 import { requireAuth } from '../middleware.js'
 import { audit, AuditAction } from '../audit.js'
+import { requestHasCronSecret } from '../cron-auth.js'
 import {
   PROVIDERS, providerConfigured, anyProviderConfigured, authUrl, signState, verifyState,
   exchangeCode, fetchProviderEmail, pushEvent, deleteEvent, pullEvents, getConnectionForUser,
+  extractCalendarCredentials,
 } from '../calendarSync.js'
+import { encryptJson, PII_ENCRYPTION_VERSION } from '../crypto-pii.js'
 
 const label = (p) => (p === 'google' ? 'Google Calendar' : p === 'microsoft' ? 'Outlook Calendar' : p)
 
@@ -53,7 +57,7 @@ export function registerCalendar(app) {
   // OAuth redirect target. Public (the provider calls it), but the signed state
   // carries + verifies which user started the flow. Always redirects back to the
   // dashboard with a friendly status rather than returning JSON.
-  app.get('/calendar/callback/:provider', async (req, res) => {
+  app.get('/calendar/callback/:provider', rateLimit('oauth-cb-calendar', 20, 60000), async (req, res) => {
     const provider = req.params.provider
     const done = (ok, msg) => res.redirect(`${FRONTEND_URL}/dashboard.html?calendar=${ok ? 'connected' : 'error'}&provider=${provider}&msg=${encodeURIComponent(msg || '')}`)
     try {
@@ -65,17 +69,31 @@ export function registerCalendar(app) {
       if (!tok.access_token) return done(false, 'Could not complete the connection.')
       const expires = new Date(Date.now() + (Number(tok.expires_in) || 3500) * 1000).toISOString()
       const email = await fetchProviderEmail(provider, tok.access_token)
+      const creds = {
+        access_token: tok.access_token,
+        refresh_token: tok.refresh_token || null,
+        sync_token: null,
+      }
+      const { data: existing } = await supabaseAdmin.from('calendar_connections')
+        .select('id, credentials_enc, refresh_token')
+        .eq('user_id', st.uid).eq('provider', provider).maybeSingle()
+
+      if (existing && !creds.refresh_token) {
+        const oldCreds = extractCalendarCredentials(existing)
+        creds.refresh_token = oldCreds.refresh_token
+      }
+
+      const enc = encryptJson(creds)
+      if (!enc) return done(false, 'Failed to encrypt credentials — server encryption key missing.')
+
       const row = {
         dealership_id: st.did || null, user_id: st.uid, provider, provider_email: email,
-        access_token: tok.access_token, refresh_token: tok.refresh_token || null,
+        credentials_enc: enc, credentials_encryption_version: PII_ENCRYPTION_VERSION,
+        access_token: null, refresh_token: null,
         token_expires_at: expires, calendar_id: 'primary', sync_token: null,
         last_error: null, updated_at: new Date().toISOString(),
       }
-      // Upsert on (user_id, provider). Keep an existing refresh token if the
-      // provider didn't return a new one (Google only sends it on first consent).
-      const { data: existing } = await supabaseAdmin.from('calendar_connections').select('id, refresh_token').eq('user_id', st.uid).eq('provider', provider).maybeSingle()
       if (existing) {
-        if (!row.refresh_token) row.refresh_token = existing.refresh_token
         await supabaseAdmin.from('calendar_connections').update(row).eq('id', existing.id)
       } else {
         await supabaseAdmin.from('calendar_connections').insert(row)
@@ -111,8 +129,8 @@ export function registerCalendar(app) {
 
   // Periodic inbound sweep for every connection. Set up as a Render Cron Job:
   //   curl -X POST https://<backend>/cron/calendar-pull -H "x-cron-secret: $CRON_SECRET"
-  app.post('/cron/calendar-pull', async (req, res) => {
-    if ((req.headers['x-cron-secret'] || '').trim() !== (process.env.CRON_SECRET || '').trim()) {
+  app.post('/cron/calendar-pull', rateLimit('cron-calendar-pull', 60, 60000), async (req, res) => {
+    if (!requestHasCronSecret(req)) {
       return res.status(403).json({ error: 'Forbidden' })
     }
     const { data: conns } = await supabaseAdmin.from('calendar_connections').select('*').limit(1000)

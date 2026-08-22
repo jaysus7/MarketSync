@@ -19,66 +19,25 @@
  * gross uses the internally-tracked vehicle cost and is never shown to customers.
  */
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
 import { emitEvent, onEvent } from './events.js'
+import { audit } from '../audit.js'
+// The deterministic commission math lives in a pure, IO-free module so it can be
+// unit-tested without a DB/env. AI never computes payable amounts — these are fixed
+// formulas. commissions.js keeps all the DB + event orchestration and re-exports the
+// calc so existing importers (accounting engine, tests) are unaffected.
+import { n, round2, mergeConfig, computeCommission, computeBackAmount, volumeBonus } from '../commissions-calc.js'
+// Pure pay-period date math + lifecycle rules (unit-tested, no IO).
+import { periodBounds, periodLabel, canTransition, isAssignable, canReview, canApprove, payReady, PERIOD_TYPES } from '../commission-periods.js'
+import { detectExceptions } from '../commission-exceptions.js'
+import { buildCsv, toCsv } from '../payroll-export.js'
+import { statementTotals } from '../commission-statements.js'
 
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(req.profile?.role)
-const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
-const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100
+export { computeCommission }   // preserve the existing public export
+
 const monthStart = (d) => { const t = new Date(d); return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), 1)) }
 const monthEnd = (d) => { const t = new Date(d); return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 1)) }
-
-// Merge a per-deal override on top of the plan config (per-vehicle customization).
-function mergeConfig(plan, override) {
-  const base = plan || {}
-  if (!override || typeof override !== 'object') return base
-  return {
-    ...base,
-    front: { ...(base.front || {}), ...(override.front || {}) },
-    back: { ...(base.back || {}), ...(override.back || {}) },
-    spiff_per_deal: override.spiff_per_deal != null ? override.spiff_per_deal : base.spiff_per_deal,
-    bonuses: base.bonuses || [],
-  }
-}
-
-// The core calc. Front: percent of (gross − pack), a flat amount, or the greater of
-// the two. Back (F&I): percent of the F&I product revenue, or a flat amount.
-export function computeCommission(deal, planConfig, override) {
-  const cfg = mergeConfig(planConfig, override)
-  const front = cfg.front || {}
-  const back = cfg.back || {}
-  const price = n(deal.selling_price)
-  const hasCost = deal.cost != null && n(deal.cost) > 0
-  // Pack is what the store keeps off the top before the rep's %. It can be a flat
-  // dollar amount or a percentage of the selling price.
-  const pack = (front.pack_type === 'percent') ? round2(price * (n(front.pack) / 100)) : n(front.pack)
-  const frontGross = hasCost ? Math.max(0, price - n(deal.cost) - pack) : null
-  const pct = frontGross != null ? frontGross * (n(front.percent) / 100) : 0
-  const flat = n(front.flat)
-  const method = front.method || 'greater'
-  let frontAmt
-  if (method === 'flat') frontAmt = flat
-  else if (method === 'percent') frontAmt = frontGross != null ? pct : flat   // no cost → fall back to the flat/mini
-  else frontAmt = Math.max(pct, flat)                                          // 'greater'
-
-  const fniItems = Array.isArray(deal.fni_items) ? deal.fni_items : []
-  const fniGross = fniItems.reduce((s, x) => s + n(x?.price), 0)
-  const backAmt = (back.method === 'flat') ? n(back.flat) : fniGross * (n(back.percent) / 100)
-
-  const spiff = n(cfg.spiff_per_deal)
-  return {
-    front_amount: round2(frontAmt),
-    back_amount: round2(backAmt),
-    spiff_amount: round2(spiff),
-    total: round2(frontAmt + backAmt + spiff),
-    breakdown: {
-      front_gross: frontGross, fni_gross: round2(fniGross), pack,
-      front_method: method, front_percent: n(front.percent), front_flat: flat,
-      back_method: back.method || 'percent', back_percent: n(back.percent), back_flat: n(back.flat),
-      cost_known: hasCost,
-    },
-  }
-}
 
 // Resolve the plan that applies to a deal's rep: the rep's assigned plan, else the
 // store default. Returns { id, config } or null when the store has no plan yet.
@@ -92,12 +51,6 @@ async function planForDeal(dealershipId, repId) {
   }
   const { data: def } = await supabaseAdmin.from('commission_plans').select('id, config').eq('dealership_id', dealershipId).eq('is_default', true).eq('active', true).maybeSingle()
   return def ? { id: def.id, config: def.config || {} } : null
-}
-
-// F&I (back-end) amount from a given back config.
-function computeBackAmount(deal, backCfg) {
-  const fniGross = (Array.isArray(deal.fni_items) ? deal.fni_items : []).reduce((s, x) => s + n(x?.price), 0)
-  return round2((backCfg?.method === 'flat') ? n(backCfg?.flat) : fniGross * (n(backCfg?.percent) / 100))
 }
 
 // Recompute + persist a deal's commission across everyone who earns on it: the
@@ -180,15 +133,29 @@ export async function recomputeDealCommission(dealershipId, dealId) {
     if (!keepRoles.has(r.role) && r.status !== 'clawed_back') await supabaseAdmin.from('deal_commissions').delete().eq('id', r.id)
   }
 
-  await supabaseAdmin.from('deals').update({ vehicle_commission: round2(frontSales + frontCo), fni_commission: round2(backSales + backMgr) }).eq('id', dealId)
+  // Write the deal's front/back totals back so the existing reports + leaderboard stay
+  // in sync. These mirror what /commissions/preview shows the desk: the selling side's
+  // vehicle commission (front + per-deal spiff) and the salesperson's F&I share
+  // (backSales — the portion NOT attributed to a separate F&I manager). Previously this
+  // referenced undefined `frontSales`/`frontCo`, which threw on every recompute and left
+  // the deal totals (and the commission.calculated event) permanently stale.
+  await supabaseAdmin.from('deals')
+    .update({ vehicle_commission: round2(front + spiff), fni_commission: round2(backSales) })
+    .eq('id', dealId)
   return calc
 }
 
-// Reverse a deal's commission with a reason (unwind / repair / chargeback).
+// Reverse a deal's commission with a reason (unwind / repair / chargeback). Emits
+// commission.clawed_back so the Accounting Engine posts a reversing journal (DR
+// Commission Payable / CR Commission Expense) — the accrual is reversed, never edited.
 export async function clawbackDealCommission(dealershipId, dealId, reason) {
   await supabaseAdmin.from('deal_commissions')
     .update({ status: 'clawed_back', reason: String(reason || 'Reversed').slice(0, 300), updated_at: new Date().toISOString() })
     .eq('deal_id', dealId).eq('dealership_id', dealershipId)
+  emitEvent({
+    dealershipId, eventName: 'commission.clawed_back', entityType: 'deal', entityId: dealId,
+    summary: 'Commission clawed back', department: 'Accounting', payload: { deal_id: dealId },
+  })
 }
 
 // Published read API — other engines get a deal's commission via this, never by
@@ -222,19 +189,6 @@ async function onDealEvent(event) {
       })
     }
   } catch (e) { console.warn('[commission] deal event failed:', e.message) }
-}
-
-// Volume bonus from a plan's tiers, given the rep's period units + gross. Pays the
-// single highest tier met per basis (units, gross), summed across bases.
-function volumeBonus(planConfig, units, gross) {
-  const rules = Array.isArray(planConfig?.bonuses) ? planConfig.bonuses : []
-  let byUnits = 0, byGross = 0
-  for (const r of rules) {
-    const thr = n(r.threshold), amt = n(r.amount)
-    if (r.basis === 'gross') { if (gross >= thr && amt > byGross) byGross = amt }
-    else { if (units >= thr && amt > byUnits) byUnits = amt }
-  }
-  return round2(byUnits + byGross)
 }
 
 // Build a commission summary for one rep over a month (default = current month).
@@ -304,9 +258,8 @@ export function registerCommissions(app) {
   onEvent(onDealEvent)   // subscribe the Commission Engine to deal save + state-change events
 
   // ── Plans (managers) ────────────────────────────────────────────────────────
-  app.get('/commissions/plans', requireAuth, async (req, res) => {
+  app.get('/commissions/plans', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const [{ data: plans }, { data: reps }] = await Promise.all([
       supabaseAdmin.from('commission_plans').select('*').eq('dealership_id', req.dealershipId).order('created_at', { ascending: true }),
       supabaseAdmin.from('profiles').select('id, full_name, display_name, role, commission_plan_id').eq('dealership_id', req.dealershipId),
@@ -314,9 +267,8 @@ export function registerCommissions(app) {
     res.json({ ok: true, plans: plans || [], reps: (reps || []).filter(r => r.role !== 'CUSTOMER') })
   })
 
-  app.post('/commissions/plans', requireAuth, async (req, res) => {
+  app.post('/commissions/plans', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const name = String(req.body?.name || '').trim().slice(0, 80)
     if (!name) return res.status(400).json({ error: 'Name required' })
     const isDefault = !!req.body?.is_default
@@ -326,12 +278,14 @@ export function registerCommissions(app) {
       config: req.body?.config && typeof req.body.config === 'object' ? req.body.config : {},
     }).select().single()
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'commission.plan_created', { after_state: data })
     res.json({ ok: true, plan: data })
   })
 
-  app.put('/commissions/plans/:id', requireAuth, async (req, res) => {
+  app.put('/commissions/plans/:id', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
+    const { data: before } = await supabaseAdmin.from('commission_plans').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'Commission plan not found' })
     const patch = { updated_at: new Date().toISOString() }
     if (req.body?.name !== undefined) patch.name = String(req.body.name || '').trim().slice(0, 80)
     if (req.body?.active !== undefined) patch.active = !!req.body.active
@@ -340,32 +294,40 @@ export function registerCommissions(app) {
     else if (req.body?.is_default === false) patch.is_default = false
     const { data, error } = await supabaseAdmin.from('commission_plans').update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().maybeSingle()
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'commission.plan_updated', { before_state: before, after_state: data })
     res.json({ ok: true, plan: data })
   })
 
-  app.delete('/commissions/plans/:id', requireAuth, async (req, res) => {
+  app.delete('/commissions/plans/:id', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
+    const { data: before } = await supabaseAdmin.from('commission_plans').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'Commission plan not found' })
     await supabaseAdmin.from('profiles').update({ commission_plan_id: null }).eq('dealership_id', req.dealershipId).eq('commission_plan_id', req.params.id)
-    await supabaseAdmin.from('commission_plans').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
-    res.json({ ok: true })
+    const { data, error } = await supabaseAdmin.from('commission_plans')
+      .update({ active: false, is_default: false, updated_at: new Date().toISOString() })
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().maybeSingle()
+    if (error) return res.status(500).json({ error: 'Could not deactivate commission plan' })
+    audit(req, 'commission.plan_deactivated', { before_state: before, after_state: data })
+    res.json({ ok: true, deactivated: true })
   })
 
   // Assign a plan to a rep (or clear it to fall back to the default).
-  app.put('/commissions/assign', requireAuth, async (req, res) => {
+  app.put('/commissions/assign', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const repId = String(req.body?.rep_id || '')
     const planId = req.body?.plan_id || null
     if (!repId) return res.status(400).json({ error: 'rep_id required' })
-    await supabaseAdmin.from('profiles').update({ commission_plan_id: planId }).eq('id', repId).eq('dealership_id', req.dealershipId)
+    const { data: before } = await supabaseAdmin.from('profiles').select('id, commission_plan_id').eq('id', repId).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'Team member not found' })
+    const { data, error } = await supabaseAdmin.from('profiles').update({ commission_plan_id: planId }).eq('id', repId).eq('dealership_id', req.dealershipId).select('id, commission_plan_id').single()
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'commission.plan_assigned', { target_user_id: repId, before_state: before, after_state: data })
     res.json({ ok: true })
   })
 
   // Manual bonus / spiff / clawback / adjustment on a rep (managers).
-  app.post('/commissions/adjust', requireAuth, async (req, res) => {
+  app.post('/commissions/adjust', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const repId = String(req.body?.rep_id || '')
     const type = String(req.body?.type || '').toLowerCase()
     if (!repId || !['bonus', 'spiff', 'clawback', 'adjustment'].includes(type)) return res.status(400).json({ error: 'rep_id and a valid type required' })
@@ -376,13 +338,13 @@ export function registerCommissions(app) {
       reason: String(req.body?.reason || '').slice(0, 300) || null, created_by: req.user?.id || null,
     }).select().single()
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'commission.adjusted', { target_user_id: repId, after_state: data })
     res.json({ ok: true, adjustment: data })
   })
 
   // Mark a deal funded/paid → its commission becomes "earned".
-  app.post('/commissions/mark-funded', requireAuth, async (req, res) => {
+  app.post('/commissions/mark-funded', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const dealId = String(req.body?.deal_id || '')
     if (!dealId) return res.status(400).json({ error: 'deal_id required' })
     const funded = req.body?.funded !== false
@@ -391,13 +353,13 @@ export function registerCommissions(app) {
     await supabaseAdmin.from('deal_commissions')
       .update({ status: funded ? 'earned' : 'pending', updated_at: new Date().toISOString() })
       .eq('deal_id', dealId).eq('dealership_id', req.dealershipId).in('status', funded ? ['pending'] : ['earned'])
+    audit(req, 'commission.funding_updated', { entity_type: 'deal', entity_id: dealId, after_state: { funded } })
     res.json({ ok: true, funded })
   })
 
   // Mark earned commissions paid (payroll run). Optional rep_id + month scope.
-  app.post('/commissions/mark-paid', requireAuth, async (req, res) => {
+  app.post('/commissions/mark-paid', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     // Select the rows first so we know the total being paid (for the accounting event).
     let sel = supabaseAdmin.from('deal_commissions').select('id, total').eq('dealership_id', req.dealershipId).eq('status', 'earned')
     if (req.body?.rep_id) sel = sel.eq('rep_id', String(req.body.rep_id))
@@ -415,16 +377,17 @@ export function registerCommissions(app) {
       summary: `Commission pay run — $${total.toLocaleString('en-US')}`, department: 'Accounting', createdBy: req.user?.id || null,
       payload: { amount: total, ref: `payrun:${new Date().toISOString().slice(0, 10)}:${req.body?.rep_id || 'all'}:${req.body?.month || 'all'}` },
     })
+    audit(req, 'commission.marked_paid', { after_state: { count: ids.length, total, rep_id: req.body?.rep_id || null, month: req.body?.month || null } })
     res.json({ ok: true, paid: total })
   })
 
   // Manual clawback on a specific deal (repair came back, chargeback, unwound).
-  app.post('/commissions/clawback', requireAuth, async (req, res) => {
+  app.post('/commissions/clawback', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const dealId = String(req.body?.deal_id || '')
     if (!dealId) return res.status(400).json({ error: 'deal_id required' })
     await clawbackDealCommission(req.dealershipId, dealId, req.body?.reason || 'Reversed')
+    audit(req, 'commission.clawed_back', { entity_type: 'deal', entity_id: dealId, after_state: { reason: String(req.body?.reason || 'Reversed').slice(0, 300) } })
     res.json({ ok: true })
   })
 
@@ -467,16 +430,14 @@ export function registerCommissions(app) {
   })
 
   // A specific rep (managers).
-  app.get('/commissions/rep/:repId', requireAuth, async (req, res) => {
+  app.get('/commissions/rep/:repId', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     res.json({ ok: true, ...(await repSummary(req.dealershipId, req.params.repId, req.query.month || null)) })
   })
 
   // Whole-team rollup for a month (managers).
-  app.get('/commissions/team', requireAuth, async (req, res) => {
+  app.get('/commissions/team', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const month = req.query.month || null
     const base = month ? new Date(month + '-01T00:00:00Z') : new Date()
     const from = monthStart(base).toISOString().slice(0, 10)
@@ -495,5 +456,327 @@ export function registerCommissions(app) {
       bonus: round2(t.bonus + s.volume_bonus), total: round2(t.total + s.total),
     }), { units: 0, pending: 0, earned: 0, paid: 0, clawed_back: 0, bonus: 0, total: 0 })
     res.json({ ok: true, month: from.slice(0, 7), reps: summaries, totals })
+  })
+
+  // ── Pay periods (payroll organizing + lock) ──────────────────────────────────
+  // A pay period groups the commission lines that get reviewed and paid together and
+  // gives payroll a lockable boundary. It sits ON TOP of the existing per-line
+  // lifecycle (pending/earned/paid/clawed_back) — it does not replace it.
+
+  // List periods (newest first) with a live count + earned total of their lines.
+  app.get('/commissions/pay-periods', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: periods } = await supabaseAdmin.from('commission_pay_periods')
+      .select('*').eq('dealership_id', req.dealershipId).order('start_date', { ascending: false }).limit(60)
+    const ids = (periods || []).map(p => p.id)
+    const totals = {}
+    if (ids.length) {
+      const { data: lines } = await supabaseAdmin.from('deal_commissions')
+        .select('pay_period_id, total, status').eq('dealership_id', req.dealershipId).in('pay_period_id', ids)
+      for (const l of lines || []) {
+        const t = (totals[l.pay_period_id] ||= { lines: 0, total: 0 })
+        t.lines++; if (l.status !== 'clawed_back') t.total = round2(t.total + n(l.total))
+      }
+    }
+    res.json({ ok: true, periods: (periods || []).map(p => ({ ...p, ...(totals[p.id] || { lines: 0, total: 0 }) })), period_types: PERIOD_TYPES })
+  })
+
+  // Create a period. Bounds auto-computed from period_type + anchor_date, unless custom
+  // (then start_date + end_date are required). Idempotent-ish: a duplicate (same
+  // dealership + exact bounds) is rejected by the table's UNIQUE constraint.
+  app.post('/commissions/pay-periods', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const type = String(req.body?.period_type || 'monthly')
+    if (!PERIOD_TYPES.includes(type)) return res.status(400).json({ error: 'Invalid period_type' })
+    let start, end
+    try {
+      if (type === 'custom') {
+        start = String(req.body?.start_date || '').slice(0, 10)
+        end = String(req.body?.end_date || '').slice(0, 10)
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || end < start) {
+          return res.status(400).json({ error: 'custom period needs valid start_date ≤ end_date' })
+        }
+      } else {
+        const anchor = String(req.body?.anchor_date || new Date().toISOString()).slice(0, 10)
+        ;({ start, end } = periodBounds(type, anchor))
+      }
+    } catch (e) { return res.status(400).json({ error: e.message }) }
+    const name = String(req.body?.name || '').trim().slice(0, 120) || periodLabel(type, start, end)
+    const { data, error } = await supabaseAdmin.from('commission_pay_periods').insert({
+      dealership_id: req.dealershipId, name, period_type: type, start_date: start, end_date: end,
+    }).select().single()
+    if (error) return res.status(error.code === '23505' ? 409 : 500).json({ error: error.code === '23505' ? 'A pay period with those exact dates already exists.' : error.message })
+    audit(req, 'commission.pay_period_created', { after_state: data })
+    res.json({ ok: true, period: data })
+  })
+
+  // Assign this period's in-range EARNED lines to it (or an explicit line_ids list).
+  // Only allowed while the period is open. Never touches paid/clawed-back lines.
+  app.post('/commissions/pay-periods/:id/assign', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: period } = await supabaseAdmin.from('commission_pay_periods').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!period) return res.status(404).json({ error: 'Pay period not found' })
+    if (!isAssignable(period.status)) return res.status(409).json({ error: `Period is ${period.status}; assign only when open.` })
+    let q = supabaseAdmin.from('deal_commissions').update({ pay_period_id: period.id, updated_at: new Date().toISOString() })
+      .eq('dealership_id', req.dealershipId).in('status', ['earned'])
+    if (Array.isArray(req.body?.line_ids) && req.body.line_ids.length) {
+      q = q.in('id', req.body.line_ids.map(String))
+    } else {
+      q = q.gte('period', period.start_date).lte('period', period.end_date).is('pay_period_id', null)
+    }
+    const { data, error } = await q.select('id')
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'commission.pay_period_assigned', { entity_type: 'commission_pay_period', entity_id: period.id, after_state: { count: (data || []).length } })
+    res.json({ ok: true, assigned: (data || []).length })
+  })
+
+  // Advance a period's status (open⇄locked, locked→paid). paid transition also marks
+  // its earned lines paid and emits commission.paid so the Accounting Engine books the
+  // pay-run journal — reusing the exact same event the manual mark-paid route emits.
+  app.post('/commissions/pay-periods/:id/status', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const to = String(req.body?.status || '')
+    const { data: period } = await supabaseAdmin.from('commission_pay_periods').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!period) return res.status(404).json({ error: 'Pay period not found' })
+    if (!canTransition(period.status, to)) return res.status(409).json({ error: `Cannot move a pay period from ${period.status} to ${to}.` })
+    // A period must be reviewed AND approved before payout (separation of duties).
+    if (to === 'paid' && !payReady(period)) return res.status(409).json({ error: 'Pay period must be reviewed and approved before it can be paid.' })
+    const now = new Date().toISOString()
+    const patch = { status: to, updated_at: now }
+    if (to === 'locked') { patch.locked_at = now; patch.locked_by = req.user?.id || null }
+    if (to === 'open') { patch.locked_at = null; patch.locked_by = null }
+
+    if (to === 'paid') {
+      // Total the earned lines in this period, mark them paid, then book the pay run.
+      const { data: toPay } = await supabaseAdmin.from('deal_commissions')
+        .select('id, total').eq('dealership_id', req.dealershipId).eq('pay_period_id', period.id).eq('status', 'earned')
+      const ids = (toPay || []).map(r => r.id)
+      const total = round2((toPay || []).reduce((s, r) => s + n(r.total), 0))
+      if (ids.length) await supabaseAdmin.from('deal_commissions').update({ status: 'paid', updated_at: now }).in('id', ids)
+      patch.paid_at = now; patch.paid_by = req.user?.id || null
+      if (total > 0) emitEvent({
+        dealershipId: req.dealershipId, eventName: 'commission.paid', entityType: 'deal', entityId: ids[0] || period.id,
+        summary: `Commission pay run — ${period.name}`, department: 'Accounting', createdBy: req.user?.id || null,
+        payload: { amount: total, ref: `payperiod:${period.id}` },
+      })
+    }
+    const { data, error } = await supabaseAdmin.from('commission_pay_periods').update(patch).eq('id', period.id).eq('dealership_id', req.dealershipId).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'commission.pay_period_status', { entity_type: 'commission_pay_period', entity_id: period.id, before_state: { status: period.status }, after_state: { status: to } })
+    res.json({ ok: true, period: data })
+  })
+
+  // Review a locked period (first sign-off). Approval (below) is a SEPARATE action so a
+  // different person can approve than reviewed — separation of duties before payout.
+  app.post('/commissions/pay-periods/:id/review', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: period } = await supabaseAdmin.from('commission_pay_periods').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!period) return res.status(404).json({ error: 'Pay period not found' })
+    if (!canReview(period)) return res.status(409).json({ error: 'Only a locked, not-yet-reviewed period can be reviewed.' })
+    const now = new Date().toISOString()
+    const { data, error } = await supabaseAdmin.from('commission_pay_periods')
+      .update({ reviewed_at: now, reviewed_by: req.user?.id || null, updated_at: now })
+      .eq('id', period.id).eq('dealership_id', req.dealershipId).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'commission.pay_period_reviewed', { entity_type: 'commission_pay_period', entity_id: period.id })
+    res.json({ ok: true, period: data })
+  })
+
+  // Approve a reviewed period → it becomes payable.
+  app.post('/commissions/pay-periods/:id/approve', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: period } = await supabaseAdmin.from('commission_pay_periods').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!period) return res.status(404).json({ error: 'Pay period not found' })
+    if (!canApprove(period)) return res.status(409).json({ error: 'A period must be locked and reviewed (and not already approved) before approval.' })
+    const now = new Date().toISOString()
+    const { data, error } = await supabaseAdmin.from('commission_pay_periods')
+      .update({ approved_at: now, approved_by: req.user?.id || null, updated_at: now })
+      .eq('id', period.id).eq('dealership_id', req.dealershipId).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'commission.pay_period_approved', { entity_type: 'commission_pay_period', entity_id: period.id })
+    res.json({ ok: true, period: data })
+  })
+
+  // Provider-neutral payroll export (CSV) for a pay period — one row per rep. The CSV
+  // shape is built by a pure, tested module; any payroll provider maps from these
+  // generic columns. Managers only.
+  app.get('/commissions/pay-periods/:id/export.csv', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: period } = await supabaseAdmin.from('commission_pay_periods').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!period) return res.status(404).json({ error: 'Pay period not found' })
+    const { data: lines } = await supabaseAdmin.from('deal_commissions')
+      .select('rep_id, deal_id, front_amount, back_amount, spiff_amount, total, status')
+      .eq('dealership_id', req.dealershipId).eq('pay_period_id', period.id)
+    const repIds = [...new Set((lines || []).map(l => l.rep_id).filter(Boolean))]
+    let repsById = {}
+    if (repIds.length) {
+      const { data: reps } = await supabaseAdmin.from('profiles').select('id, full_name, display_name, email').in('id', repIds)
+      repsById = Object.fromEntries((reps || []).map(r => [r.id, { name: r.display_name || r.full_name || '', email: r.email || '' }]))
+    }
+    const csv = buildCsv(period, lines || [], repsById)
+    audit(req, 'commission.payroll_exported', { entity_type: 'commission_pay_period', entity_id: period.id, after_state: { rows: (lines || []).length } })
+    const fname = `payroll-${String(period.name || period.id).replace(/[^a-z0-9-]+/gi, '_')}.csv`
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="${fname}"`)
+    res.send(csv)
+  })
+
+  // ── Employee statements (rep-facing: view / CSV / print / acknowledge / dispute) ──
+  // A statement is the rep's OWN commission lines for a pay period. Any authenticated rep
+  // can see their own — no accounting permission required — but only their own (scoped to
+  // req.user.id). The frontend renders the JSON for on-screen view + browser print→PDF;
+  // the CSV route is the machine-readable copy.
+  const STATEMENT_COLUMNS = [
+    { key: 'deal_number', header: 'Deal' }, { key: 'customer', header: 'Customer' },
+    { key: 'selling_price', header: 'Selling Price' }, { key: 'front', header: 'Front' },
+    { key: 'back', header: 'F&I' }, { key: 'spiff', header: 'Spiff' },
+    { key: 'total', header: 'Total' }, { key: 'status', header: 'Status' }, { key: 'period', header: 'Earned' },
+  ]
+  async function repStatement(dealershipId, repId, periodId) {
+    const { data: period } = await supabaseAdmin.from('commission_pay_periods').select('*').eq('id', periodId).eq('dealership_id', dealershipId).maybeSingle()
+    if (!period) return null
+    const { data: rows } = await supabaseAdmin.from('deal_commissions')
+      .select('deal_id, front_amount, back_amount, spiff_amount, total, status, period')
+      .eq('dealership_id', dealershipId).eq('rep_id', repId).eq('pay_period_id', periodId)
+    const dealIds = (rows || []).map(r => r.deal_id).filter(Boolean)
+    let deals = [], contacts = []
+    if (dealIds.length) { const { data } = await supabaseAdmin.from('deals').select('id, deal_number, contact_id, selling_price').in('id', dealIds); deals = data || [] }
+    const contactIds = deals.map(d => d.contact_id).filter(Boolean)
+    if (contactIds.length) { const { data } = await supabaseAdmin.from('contacts').select('id, full_name').in('id', contactIds); contacts = data || [] }
+    const dealById = Object.fromEntries(deals.map(d => [d.id, d]))
+    const custById = Object.fromEntries(contacts.map(c => [c.id, c.full_name]))
+    const lines = (rows || []).map(r => {
+      const d = dealById[r.deal_id] || {}
+      return {
+        deal_number: d.deal_number || null, customer: custById[d.contact_id] || null,
+        selling_price: d.selling_price != null ? Number(d.selling_price) : null,
+        front: Number(r.front_amount), back: Number(r.back_amount), spiff: Number(r.spiff_amount),
+        total: Number(r.total), status: r.status, period: r.period,
+      }
+    })
+    const { data: ack } = await supabaseAdmin.from('commission_statement_acks').select('*').eq('pay_period_id', periodId).eq('rep_id', repId).maybeSingle()
+    return { period, totals: statementTotals(rows || []), lines, acknowledgment: ack || null }
+  }
+
+  // The rep's own statements. No period_id → list the periods they have lines in (+ ack
+  // status). With period_id → the detailed statement.
+  app.get('/commissions/statements/mine', requireAuth, async (req, res) => {
+    if (!req.dealershipId || !req.user?.id) return res.status(400).json({ error: 'No dealership/user' })
+    if (req.query.period_id) {
+      const st = await repStatement(req.dealershipId, req.user.id, String(req.query.period_id))
+      if (!st) return res.status(404).json({ error: 'Statement not found' })
+      return res.json({ ok: true, ...st })
+    }
+    const { data: myLines } = await supabaseAdmin.from('deal_commissions').select('pay_period_id').eq('dealership_id', req.dealershipId).eq('rep_id', req.user.id).not('pay_period_id', 'is', null)
+    const periodIds = [...new Set((myLines || []).map(l => l.pay_period_id))]
+    if (!periodIds.length) return res.json({ ok: true, statements: [] })
+    const [{ data: periods }, { data: acks }] = await Promise.all([
+      supabaseAdmin.from('commission_pay_periods').select('*').in('id', periodIds).eq('dealership_id', req.dealershipId).order('start_date', { ascending: false }),
+      supabaseAdmin.from('commission_statement_acks').select('*').in('pay_period_id', periodIds).eq('rep_id', req.user.id),
+    ])
+    const ackBy = Object.fromEntries((acks || []).map(a => [a.pay_period_id, a]))
+    res.json({ ok: true, statements: (periods || []).map(p => ({ period: p, acknowledgment: ackBy[p.id] || null })) })
+  })
+
+  // CSV of the rep's own statement for a period.
+  app.get('/commissions/statements/mine.csv', requireAuth, async (req, res) => {
+    if (!req.dealershipId || !req.user?.id) return res.status(400).json({ error: 'No dealership/user' })
+    const st = await repStatement(req.dealershipId, req.user.id, String(req.query.period_id || ''))
+    if (!st) return res.status(404).json({ error: 'Statement not found' })
+    const csv = toCsv(STATEMENT_COLUMNS, st.lines)
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="statement-${String(st.period.name || st.period.id).replace(/[^a-z0-9-]+/gi, '_')}.csv"`)
+    res.send(csv)
+  })
+
+  // Rep acknowledges or disputes their own statement (upsert, one row per period+rep).
+  const recordAck = (status) => async (req, res) => {
+    if (!req.dealershipId || !req.user?.id) return res.status(400).json({ error: 'No dealership/user' })
+    const periodId = String(req.params.periodId)
+    const { data: period } = await supabaseAdmin.from('commission_pay_periods').select('id').eq('id', periodId).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!period) return res.status(404).json({ error: 'Pay period not found' })
+    const row = {
+      dealership_id: req.dealershipId, pay_period_id: periodId, rep_id: req.user.id, status,
+      note: status === 'disputed' ? String(req.body?.note || '').slice(0, 500) : null, updated_at: new Date().toISOString(),
+    }
+    const { data, error } = await supabaseAdmin.from('commission_statement_acks').upsert(row, { onConflict: 'pay_period_id,rep_id' }).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    // Disputes surface to managers via the acks table + the per-period statements view
+    // (GET /commissions/pay-periods/:id/statements) — no separate exception row needed.
+    audit(req, `commission.statement_${status}`, { entity_type: 'commission_pay_period', entity_id: periodId })
+    res.json({ ok: true, acknowledgment: data })
+  }
+  app.post('/commissions/statements/:periodId/acknowledge', requireAuth, requireMfa, recordAck('acknowledged'))
+  app.post('/commissions/statements/:periodId/dispute', requireAuth, requireMfa, recordAck('disputed'))
+
+  // Manager view: every rep's ack/dispute status for a period.
+  app.get('/commissions/pay-periods/:id/statements', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: acks } = await supabaseAdmin.from('commission_statement_acks').select('*').eq('dealership_id', req.dealershipId).eq('pay_period_id', req.params.id)
+    res.json({ ok: true, statements: acks || [] })
+  })
+
+  // ── Exceptions queue ─────────────────────────────────────────────────────────
+  // Scan the store's recent commission lines for anomalies (no plan, zero/negative
+  // payout, unwound-but-not-reversed, cost unknown, stale pending) and upsert them into
+  // commission_exceptions. Detection is a pure, tested function — this route is just IO.
+  // Anomalies that have since cleared are auto-resolved so the queue reflects reality.
+  app.post('/commissions/exceptions/scan', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: lines } = await supabaseAdmin.from('deal_commissions')
+      .select('id, deal_id, rep_id, plan_id, total, status, breakdown').eq('dealership_id', req.dealershipId).limit(5000)
+    const dealIds = [...new Set((lines || []).map(l => l.deal_id).filter(Boolean))]
+    let deals = []
+    if (dealIds.length) {
+      const { data: dd } = await supabaseAdmin.from('deals').select('id, selling_price, deal_status, sold_at, delivered_at').in('id', dealIds)
+      deals = dd || []
+    }
+    const dealById = Object.fromEntries(deals.map(d => [d.id, d]))
+    const now = Date.now()
+    const found = []   // { deal_id, line_id, rep_id, type, severity, detail }
+    for (const l of lines || []) {
+      for (const ex of detectExceptions(l, dealById[l.deal_id], now)) {
+        found.push({ dealership_id: req.dealershipId, deal_id: l.deal_id || null, line_id: l.id, rep_id: l.rep_id || null, ...ex, updated_at: new Date().toISOString() })
+      }
+    }
+    // Upsert current anomalies (keeps status if already open/acknowledged).
+    if (found.length) {
+      await supabaseAdmin.from('commission_exceptions').upsert(found, { onConflict: 'dealership_id,deal_id,type', ignoreDuplicates: false })
+    }
+    // Auto-resolve previously-open exceptions that no longer reproduce.
+    const stillOpenKeys = new Set(found.map(f => `${f.deal_id}|${f.type}`))
+    const { data: openRows } = await supabaseAdmin.from('commission_exceptions')
+      .select('id, deal_id, type').eq('dealership_id', req.dealershipId).neq('status', 'resolved')
+    const toResolve = (openRows || []).filter(r => !stillOpenKeys.has(`${r.deal_id}|${r.type}`)).map(r => r.id)
+    if (toResolve.length) {
+      await supabaseAdmin.from('commission_exceptions').update({ status: 'resolved', resolved_at: new Date().toISOString(), updated_at: new Date().toISOString() }).in('id', toResolve)
+    }
+    audit(req, 'commission.exceptions_scanned', { after_state: { found: found.length, auto_resolved: toResolve.length } })
+    res.json({ ok: true, found: found.length, auto_resolved: toResolve.length })
+  })
+
+  // List exceptions (open + acknowledged by default; ?all=1 includes resolved).
+  app.get('/commissions/exceptions', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    let q = supabaseAdmin.from('commission_exceptions').select('*').eq('dealership_id', req.dealershipId)
+    if (req.query.all !== '1') q = q.neq('status', 'resolved')
+    const { data } = await q.order('severity', { ascending: true }).order('created_at', { ascending: false }).limit(500)
+    res.json({ ok: true, exceptions: data || [] })
+  })
+
+  // Acknowledge or resolve an exception (managers). status ∈ acknowledged|resolved|open.
+  app.post('/commissions/exceptions/:id/status', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const to = String(req.body?.status || '')
+    if (!['open', 'acknowledged', 'resolved'].includes(to)) return res.status(400).json({ error: 'Invalid status' })
+    const now = new Date().toISOString()
+    const patch = { status: to, updated_at: now }
+    if (to === 'resolved') { patch.resolved_by = req.user?.id || null; patch.resolved_at = now }
+    else { patch.resolved_by = null; patch.resolved_at = null }
+    const { data, error } = await supabaseAdmin.from('commission_exceptions').update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().maybeSingle()
+    if (error) return res.status(500).json({ error: error.message })
+    if (!data) return res.status(404).json({ error: 'Exception not found' })
+    audit(req, 'commission.exception_updated', { entity_type: 'commission_exception', entity_id: req.params.id, after_state: { status: to } })
+    res.json({ ok: true, exception: data })
   })
 }

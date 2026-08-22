@@ -8,6 +8,7 @@
 //   - CASL + CAN-SPAM (newsletter consent is captured at registration; tracked elsewhere)
 
 import { createHash, randomBytes } from 'crypto'
+export { corsOriginCheck } from './cors-policy.js'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // PASSWORD POLICY
@@ -69,7 +70,11 @@ function validatePasswordSync(password, opts = {}) {
 // the local checks above already cover the most-leaked passwords.
 async function checkHaveIBeenPwned(password) {
   try {
-    const sha1 = createHash('sha1').update(password).digest('hex').toUpperCase()
+    // SHA-1 is REQUIRED by the HIBP range API k-anonymity protocol — the service
+    // indexes breached passwords by SHA-1 prefix, so no other algorithm can query it.
+    // This hash is used ONLY for the breach lookup and is NEVER stored as a password
+    // verifier (passwords are never persisted here at all). Not a weak-hash vulnerability.
+    const sha1 = createHash('sha1').update(password).digest('hex').toUpperCase() // codeql[js/weak-cryptographic-algorithm]
     const prefix = sha1.slice(0, 5)
     const suffix = sha1.slice(5)
 
@@ -122,6 +127,24 @@ export async function validatePassword(password, opts = {}) {
 // We store SHA-256 hashes (the codes themselves are 10-char base32 — high entropy)
 // so even a DB leak doesn't expose them.
 
+/**
+ * The ONE way to make an unguessable identifier (Phase 6S).
+ *
+ * `Math.random()` is not random enough to protect anything. V8 implements it as xorshift128+,
+ * whose internal state is recoverable from a handful of observed outputs — so an attacker who
+ * can see a few generated values can predict every later one. That is fine for a DOM id and
+ * fatal for anything that grants access.
+ *
+ * Use this whenever the value is the thing standing between a stranger and someone's data:
+ * session/visitor tokens, share links, meeting room names, invitation codes.
+ *
+ * 18 bytes → 24 base64url chars, ~144 bits. Short enough to survive an SMS, long enough that
+ * guessing is not a strategy.
+ */
+export function randomToken(bytes = 18) {
+  return randomBytes(bytes).toString('base64url')
+}
+
 // Generate 10 random codes in the format "XXXX-XXXX" (8 base32 chars with a dash)
 export function generateRecoveryCodes(count = 10) {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'  // unambiguous: no 0/O, 1/I
@@ -155,20 +178,38 @@ export function hashRecoveryCode(code) {
 import Redis from 'ioredis'
 
 let redis = null
+const requireRedisRateLimiting = process.env.REQUIRE_REDIS_RATE_LIMITING === 'true'
+let redisHealthy = false
 if (process.env.REDIS_URL) {
   redis = new Redis(process.env.REDIS_URL, {
     maxRetriesPerRequest: 1,
     enableReadyCheck: false,
     lazyConnect: true
   })
+  // ioredis connects lazily on the first command; treat a configured client as
+  // available until it reports a connection error, then fail closed in strict mode.
+  redisHealthy = true
   redis.on('error', (e) => {
-    // Log but don't crash — fall through to in-memory on Redis errors
-    console.warn('[rate-limit] Redis error, falling back to in-memory:', e.message)
+    redisHealthy = false
+    console.warn('[rate-limit] Redis error:', e.message)
     redis = null
   })
+  redis.on('ready', () => { redisHealthy = true })
   console.log('[rate-limit] Redis-backed rate limiting enabled (multi-node safe)')
 } else {
   console.log('[rate-limit] No REDIS_URL — using in-memory rate limiting (single-node only)')
+}
+
+// Safe dependency signal for readiness checks and uptime monitors. It never
+// exposes the Redis URL or credentials, only whether strict production mode is
+// actually protected by a working shared limiter.
+export function rateLimitHealth() {
+  const redisReady = !!redis && redisHealthy
+  return {
+    ok: !requireRedisRateLimiting || redisReady,
+    mode: redisReady ? 'redis' : 'memory',
+    redis_required: requireRedisRateLimiting,
+  }
 }
 
 // In-memory fallback store
@@ -181,6 +222,9 @@ setInterval(() => {
 }, 10 * 60 * 1000).unref?.()
 
 async function checkRateLimit(key, max, windowSecs) {
+  if (requireRedisRateLimiting && (!redis || !redisHealthy)) {
+    return { allowed: false, unavailable: true, retryAfter: 30 }
+  }
   // Redis path: atomic INCR + EXPIRE (fixed window)
   if (redis) {
     try {
@@ -192,7 +236,8 @@ async function checkRateLimit(key, max, windowSecs) {
       }
       return { allowed: true }
     } catch (e) {
-      console.warn('[rate-limit] Redis check failed, falling back:', e.message)
+      console.warn('[rate-limit] Redis check failed:', e.message)
+      if (requireRedisRateLimiting) return { allowed: false, unavailable: true, retryAfter: 30 }
     }
   }
 
@@ -219,16 +264,20 @@ export async function consumeQuota(key, max, windowSecs) {
   return checkRateLimit(`q:${key}`, max, windowSecs)
 }
 
-export function rateLimit(name, max, windowMs) {
+export function rateLimit(name, max, windowMs, { email = false, dealership = false } = {}) {
   const windowSecs = Math.ceil(windowMs / 1000)
   return async (req, res, next) => {
     const ip = (req.headers['x-forwarded-for']?.toString().split(',')[0].trim())
              || req.socket?.remoteAddress
              || 'unknown'
-    const key = `rl:${name}:${ip}`
-    const { allowed, retryAfter } = await checkRateLimit(key, max, windowSecs)
+    const parts = [ip]
+    if (email) parts.push(String(req.body?.email || '').trim().toLowerCase() || 'no-email')
+    if (dealership) parts.push(String(req.dealershipId || req.body?.dealership_id || 'no-dealer'))
+    const key = `rl:${name}:${parts.join(':')}`
+    const { allowed, unavailable = false, retryAfter } = await checkRateLimit(key, max, windowSecs)
     if (!allowed) {
       res.set('Retry-After', String(retryAfter))
+      if (unavailable) return res.status(503).json({ error: 'Rate limiting is temporarily unavailable. Try again shortly.' })
       return res.status(429).json({
         error: `Too many requests. Try again in ${retryAfter} seconds.`,
         retry_after_seconds: retryAfter
@@ -250,27 +299,27 @@ export function rateLimit(name, max, windowMs) {
 // Chart.js, Stripe, Supabase, GTM, Calendly, CookieYes). Adjust here if you add a new CDN.
 const CSP_DIRECTIVES = [
   "default-src 'self'",
-  // Scripts: own origin + CDN, GA, Stripe, Calendly, CookieYes. 'unsafe-inline' is
-  // required because Tailwind CDN injects styles via inline <style>; eval'd inline
-  // tag handlers (onclick) are also used in places. To tighten further we'd need to
-  // self-host Tailwind + replace all inline event handlers.
+  // Scripts: own origin + CDN, GA, Stripe, Calendly, CookieYes, Google Translate.
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' " +
     "https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net " +
     "https://www.googletagmanager.com https://www.google-analytics.com " +
-    "https://js.stripe.com https://assets.calendly.com https://cdn-cookieyes.com",
+    "https://js.stripe.com https://assets.calendly.com https://cdn-cookieyes.com " +
+    "https://translate.google.com https://translate.googleapis.com",
   "style-src 'self' 'unsafe-inline' " +
     "https://cdnjs.cloudflare.com https://cdn.jsdelivr.net " +
-    "https://fonts.googleapis.com https://assets.calendly.com",
+    "https://fonts.googleapis.com https://assets.calendly.com https://translate.googleapis.com",
   "font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com",
   "img-src 'self' data: blob: https:",  // dealer photo proxies make this broad
+  "media-src 'self' blob: https://*.supabase.co https://*.supabase.in https:",
   "connect-src 'self' " +
+    "https://marketsync-staging-backend.onrender.com " +
     "https://vehicle-marketplace-s0e4.onrender.com " +
     "https://*.supabase.co https://*.supabase.in " +
     "https://www.google-analytics.com https://stats.g.doubleclick.net " +
     "https://api.stripe.com https://calendly.com " +
-    "https://api.pwnedpasswords.com",
+    "https://api.pwnedpasswords.com https://translate.googleapis.com",
   "frame-src 'self' https://www.youtube.com https://js.stripe.com " +
-    "https://hooks.stripe.com https://calendly.com",
+    "https://hooks.stripe.com https://calendly.com https://*.supabase.co",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self' https://hooks.stripe.com",
@@ -287,38 +336,13 @@ export function securityHeaders(req, res, next) {
   res.set('X-Frame-Options', 'DENY')
   // Don't leak full URL paths to other origins via Referer
   res.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-  // Limit powerful browser features we don't use
-  res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), interest-cohort=()')
-  // Disable cross-origin window opener access (tabnabbing prevention)
-  res.set('Cross-Origin-Opener-Policy', 'same-origin')
+  // Allow camera/microphone for first-party video walkaround studio, block geolocation/floc
+  res.set('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=(), interest-cohort=()')
+  // Allow popups for OAuth/Stripe
+  res.set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups')
   // Content Security Policy — see CSP_DIRECTIVES above for what's allowed
   res.set('Content-Security-Policy', CSP_DIRECTIVES)
   next()
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// CORS — locked down to known origins
-// ──────────────────────────────────────────────────────────────────────────────
-// Pass to cors({ origin: corsOriginCheck }) so dev (localhost), the marketing
-// site, the dashboard, and the Chrome extension all work — and nothing else.
-
-export function corsOriginCheck(origin, callback) {
-  if (!origin) return callback(null, true)  // server-to-server, curl, etc.
-  const allowed = [
-    'https://marketsync.link',
-    'https://www.marketsync.link',
-    'https://www.facebook.com',
-    'https://facebook.com',
-    'https://m.facebook.com'
-  ]
-  if (allowed.includes(origin)) return callback(null, true)
-  if (origin.startsWith('chrome-extension://')) return callback(null, true)
-  if (process.env.NODE_ENV !== 'production') {
-    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
-      return callback(null, true)
-    }
-  }
-  return callback(new Error(`CORS blocked: ${origin}`), false)
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

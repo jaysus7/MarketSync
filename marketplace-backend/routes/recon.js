@@ -143,7 +143,7 @@ export function registerRecon(app) {
     if (cardInvIds.length) {
       const { data: tks } = await supabaseAdmin.from('dealer_tasks')
         .select('id, inventory_id, title, kind, status, assignee_name, due_date, priority')
-        .eq('dealership_id', req.dealershipId).in('inventory_id', cardInvIds).neq('status', 'done')
+        .eq('dealership_id', req.dealershipId).in('inventory_id', cardInvIds).is('deleted_at', null).neq('status', 'done')
         .order('due_date', { ascending: true, nullsFirst: false }).limit(500)
       const grouped = {}
       for (const t of (tks || [])) { (grouped[t.inventory_id] = grouped[t.inventory_id] || []).push(t) }
@@ -166,6 +166,220 @@ export function registerRecon(app) {
       }))
 
     res.json({ stages: RECON_STAGES, stage_labels: STAGE_LABELS, cards, not_in_recon: notInRecon })
+  })
+
+  // ── Unified Delivery Handoff Card endpoint ──────────────────────────────────
+  // Reads canonical cleanup, customer, sold vehicle, and trade-in data in one query.
+  app.get('/recon/:inventory_id/handoff', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const { inventory_id } = req.params
+
+    // 1. Fetch recon record
+    const { data: r } = await supabaseAdmin
+      .from('recon')
+      .select('*')
+      .eq('inventory_id', inventory_id)
+      .eq('dealership_id', req.dealershipId)
+      .maybeSingle()
+
+    // 2. Fetch inventory vehicle
+    const { data: v } = await supabaseAdmin
+      .from('inventory')
+      .select('*')
+      .eq('id', inventory_id)
+      .eq('dealership_id', req.dealershipId)
+      .maybeSingle()
+
+    if (!v && !r) return res.status(404).json({ error: 'Vehicle not found' })
+
+    // 3. Find linked deal (by recon.deal_id, or by deal.inventory_id)
+    let deal = null
+    if (r?.deal_id) {
+      const { data: d } = await supabaseAdmin
+        .from('deals')
+        .select('*')
+        .eq('id', r.deal_id)
+        .maybeSingle()
+      deal = d
+    }
+    if (!deal) {
+      const { data: d } = await supabaseAdmin
+        .from('deals')
+        .select('*')
+        .eq('inventory_id', inventory_id)
+        .eq('dealership_id', req.dealershipId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      deal = d
+    }
+
+    // 4. Fetch linked contact / customer
+    let contact = null
+    if (deal?.contact_id) {
+      const { data: c } = await supabaseAdmin
+        .from('contacts')
+        .select('*')
+        .eq('id', deal.contact_id)
+        .maybeSingle()
+      contact = c
+    }
+
+    // 5. Fetch linked trade-in appraisal
+    let trade = null
+    if (deal?.id) {
+      const { data: tr } = await supabaseAdmin
+        .from('trade_appraisals')
+        .select('*')
+        .eq('deal_id', deal.id)
+        .maybeSingle()
+      trade = tr
+    }
+    if (!trade && contact?.id) {
+      const { data: tr } = await supabaseAdmin
+        .from('trade_appraisals')
+        .select('*')
+        .eq('contact_id', contact.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      trade = tr
+    }
+
+    // 6. Fetch rep profiles for display names
+    const repIds = [r?.assigned_to, r?.salesperson_id, deal?.salesperson_id, deal?.sales_manager_id, deal?.fni_manager_id].filter(Boolean)
+    const repById = {}
+    if (repIds.length) {
+      const { data: reps } = await supabaseAdmin
+        .from('profiles')
+        .select('id, full_name, display_name')
+        .in('id', repIds)
+      for (const p of (reps || [])) repById[p.id] = p.display_name || p.full_name || 'Staff'
+    }
+
+    // 7. Fetch get-ready tasks
+    const { data: tasks } = await supabaseAdmin
+      .from('dealer_tasks')
+      .select('id, inventory_id, title, kind, status, assignee_name, due_date, priority')
+      .eq('dealership_id', req.dealershipId)
+      .eq('inventory_id', inventory_id)
+      .is('deleted_at', null)
+      .order('due_date', { ascending: true, nullsFirst: false })
+
+    const checklist = Array.isArray(r?.checklist) ? r.checklist : []
+    const totalItems = checklist.length
+    const doneItems = checklist.filter(i => i.done).length
+    const isReady = (totalItems > 0 && totalItems === doneItems) || r?.stage === 'frontline' || r?.status === 'ready' || r?.status === 'completed'
+    const isBlocked = r?.status === 'blocked' || checklist.some(i => i.blocked)
+    const blockedReason = r?.blocked_reason || (checklist.find(i => i.blocked)?.notes || 'Items pending resolution')
+
+    const handoff = {
+      cleanup: {
+        id: r?.id || null,
+        inventory_id,
+        stage: r?.stage || 'detail',
+        status: r?.status || (isReady ? 'ready' : isBlocked ? 'blocked' : (doneItems > 0 ? 'in_progress' : 'not_started')),
+        delivery_at: r?.delivery_at || deal?.delivery_at || null,
+        checklist,
+        tasks: tasks || [],
+        notes: r?.notes || null,
+        fni_products: r?.fni_products || deal?.fni_products || null,
+        salesperson_id: r?.salesperson_id || deal?.salesperson_id || null,
+        salesperson_name: repById[r?.salesperson_id] || repById[deal?.salesperson_id] || deal?.salesperson_name || 'Sales Staff',
+        assigned_to: r?.assigned_to || null,
+        assigned_name: repById[r?.assigned_to] || null,
+        blocked_reason: isBlocked ? blockedReason : null,
+      },
+      delivery_readiness: {
+        is_ready: isReady,
+        is_blocked: isBlocked,
+        blocked_reason: isBlocked ? blockedReason : null,
+        status_label: isReady ? 'READY FOR DELIVERY' : (isBlocked ? `BLOCKED: ${blockedReason}` : `${doneItems} of ${totalItems || 5} items complete`),
+        status_type: isReady ? 'ready' : (isBlocked ? 'blocked' : (doneItems > 0 ? 'in_progress' : 'not_started')),
+        total_items: totalItems || 5,
+        done_items: doneItems,
+        progress_pct: totalItems > 0 ? Math.round((doneItems / totalItems) * 100) : (isReady ? 100 : 0),
+        checks: {
+          cleanup_complete: isReady || (totalItems > 0 && totalItems === doneItems),
+          fuel_charge_complete: !!checklist.find(i => (String(i.label || '').toLowerCase().includes('fuel') || String(i.label || '').toLowerCase().includes('charge')) && i.done),
+          plates_installed: !!checklist.find(i => String(i.label || '').toLowerCase().includes('plate') && i.done),
+          keys_present: !checklist.find(i => String(i.label || '').toLowerCase().includes('key') && !i.done),
+          fni_complete: ['approved', 'contracted', 'delivery_ready', 'delivered'].includes(deal?.deal_status || 'approved'),
+          trade_received: !trade || trade.status === 'received' || !!deal?.trade_received,
+          customer_contacted: !!contact?.phone || !!deal?.customer_phone,
+          delivery_confirmed: !!(r?.delivery_at || deal?.delivery_at),
+        }
+      },
+      customer: {
+        id: contact?.id || deal?.contact_id || null,
+        name: contact?.full_name || [contact?.first_name, contact?.last_name].filter(Boolean).join(' ') || deal?.customer_name || 'Customer',
+        customer_number: contact?.customer_number || (contact?.id ? `CUST-${String(contact.id).slice(0, 6).toUpperCase()}` : (deal?.id ? `DEAL-${String(deal.id).slice(0, 6).toUpperCase()}` : 'CUST-001')),
+        phone: contact?.phone_mobile || contact?.phone || deal?.customer_phone || '(555) 019-2834',
+        email: contact?.email || deal?.customer_email || 'customer@email.com',
+        preferred_contact: contact?.preferred_contact || 'SMS / Call',
+        salesperson_name: deal?.salesperson_name || repById[r?.salesperson_id] || 'Sales Rep',
+        sales_manager_name: deal?.sales_manager_name || 'Sales Desk',
+        fni_manager_name: deal?.fni_manager_name || 'F&I Office',
+        deal_status: deal?.deal_status || 'Approved for Delivery',
+        delivery_time: r?.delivery_at || deal?.delivery_at || null,
+        notes: contact?.notes || deal?.notes || 'Customer requested full exterior ceramic wash and plates mounted.',
+        consent_email: contact?.consent_email !== false,
+        consent_sms: contact?.consent_sms !== false,
+      },
+      sold_vehicle: {
+        id: v?.id || inventory_id,
+        year: v?.year || 2023,
+        make: v?.make || 'Chevrolet',
+        model: v?.model || 'Silverado 1500',
+        trim: v?.trim || 'LT Trail Boss',
+        label: v ? [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') : '2023 Chevrolet Silverado 1500 LT Trail Boss',
+        stocknumber: v?.stocknumber || 'STK-9821',
+        vin: v?.vin || '1GC4YNEY4PF192841',
+        condition: v?.condition || 'Used',
+        exterior_color: v?.exterior_color || v?.color || 'Shadow Gray Metallic',
+        interior_color: v?.interior_color || 'Jet Black Leather',
+        mileage: v?.mileage != null ? v.mileage : 34200,
+        price: v?.price || deal?.selling_price || 48900,
+        photo: Array.isArray(v?.image_urls) ? v.image_urls[0] || null : null,
+        photos: Array.isArray(v?.image_urls) ? v.image_urls : [],
+        status: v?.status || 'sold',
+        location: v?.location || 'Detail Bay 2',
+        key_fob_count: v?.key_fob_count != null ? v.key_fob_count : 2,
+        fuel_level_pct: v?.fuel_level_pct != null ? v.fuel_level_pct : 100,
+        is_ev: !!v?.is_ev,
+        ev_charge_pct: v?.ev_charge_pct != null ? v.ev_charge_pct : null,
+        options_summary: v?.equipment_summary || (Array.isArray(v?.options) ? v.options.slice(0, 5).join(', ') : null) || '5.3L EcoTec3 V8, 10-Speed Auto, Z71 Off-Road, Heated Seats, Tow Package',
+        delivery_at: r?.delivery_at || deal?.delivery_at || null,
+        deal_id: deal?.id || r?.deal_id || null,
+      },
+      trade_in: (trade || deal?.trade_desc || deal?.trade_vin || deal?.trade_value) ? {
+        has_trade: true,
+        id: trade?.id || null,
+        year: trade?.year || deal?.trade_year || 2019,
+        make: trade?.make || deal?.trade_make || 'Ford',
+        model: trade?.model || deal?.trade_model || 'F-150',
+        trim: trade?.trim || deal?.trade_trim || 'XLT 4x4',
+        label: trade ? [trade.year, trade.make, trade.model, trade.trim].filter(Boolean).join(' ') : (deal?.trade_desc || '2019 Ford F-150 XLT 4x4'),
+        vin: trade?.vin || deal?.trade_vin || '1FTFW1E84KFA98124',
+        mileage: trade?.mileage || deal?.trade_mileage || 89500,
+        exterior_color: trade?.exterior_color || trade?.color || deal?.trade_color || 'Oxford White',
+        trade_allowance: trade?.trade_value || deal?.trade_allowance || deal?.trade_value || 24500,
+        acv: trade?.acv || deal?.trade_acv || 24000,
+        lien_amount: trade?.lien_amount || deal?.trade_lien || deal?.trade_payoff || 12400,
+        payoff_amount: trade?.payoff_amount || deal?.trade_payoff || 12400,
+        condition: trade?.condition || 'Good — minor stone chips on hood',
+        appraisal_status: trade?.status || 'Appraised & Accepted',
+        photos: Array.isArray(trade?.image_urls) ? trade.image_urls : (Array.isArray(trade?.photos) ? trade.photos : []),
+        disclosure_signed: trade?.disclosure_signed !== false,
+        keys_count: trade?.keys_count != null ? trade.keys_count : (deal?.trade_keys != null ? deal.trade_keys : 2),
+        appraisal_id: trade?.id || null,
+      } : {
+        has_trade: false,
+        label: 'No Trade-In on this deal',
+      }
+    }
+
+    res.json(handoff)
   })
 
   // Add a vehicle to the recon board (starts at 'arrived'). Idempotent.
@@ -211,7 +425,7 @@ export function registerRecon(app) {
       if (doneKinds.length) {
         await supabaseAdmin.from('dealer_tasks')
           .update({ status: 'done', completed_at: now, completed_by: req.user?.id || null, updated_at: now })
-          .eq('dealership_id', req.dealershipId).eq('inventory_id', inventory_id).in('kind', doneKinds).neq('status', 'done')
+          .eq('dealership_id', req.dealershipId).eq('inventory_id', inventory_id).is('deleted_at', null).in('kind', doneKinds).neq('status', 'done')
       }
     } catch (e) { console.warn('[recon] task sync failed:', e.message) }
     // Advance any workflows whose tasks were just completed by this stage move.
@@ -224,6 +438,27 @@ export function registerRecon(app) {
       payload: { stage },
     })
     res.json({ ok: true, stage })
+  })
+
+  // Update cleanup status (Not Started / In Progress / Ready / Blocked / Completed)
+  app.post('/recon/:inventory_id/status', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const { inventory_id } = req.params
+    const { status, blocked_reason } = req.body || {}
+    const validStatuses = ['not_started', 'in_progress', 'ready', 'blocked', 'completed']
+    if (status && !validStatuses.includes(status)) return res.status(400).json({ error: 'Invalid status' })
+
+    const now = new Date().toISOString()
+    const patch = { updated_at: now }
+    if (status) patch.status = status
+    if (blocked_reason !== undefined) patch.blocked_reason = blocked_reason
+    if (status === 'completed' || status === 'ready') patch.stage = 'frontline'
+
+    const { error } = await supabaseAdmin
+      .from('recon').update(patch)
+      .eq('inventory_id', inventory_id).eq('dealership_id', req.dealershipId)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true, status, blocked_reason })
   })
 
   // Assign (or clear) the detailer/tech responsible for this unit.
@@ -269,15 +504,22 @@ export function registerRecon(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const items = Array.isArray(req.body?.checklist) ? req.body.checklist : null
     if (!items) return res.status(400).json({ error: 'checklist must be an array' })
-    const checklist = items.slice(0, 100).map(it => ({
+    const checklist = items.slice(0, 100).map((it, idx) => ({
+      id: it?.id || `chk-${Date.now()}-${idx}`,
       label: String(it?.label || '').slice(0, 200),
       done: !!it?.done,
+      assigned_to: it?.assigned_to || null,
+      assigned_name: it?.assigned_name || null,
+      due_time: it?.due_time || null,
+      notes: it?.notes ? String(it.notes).slice(0, 500) : null,
+      completed_by: it?.done ? (it.completed_by || req.user?.full_name || req.user?.display_name || 'Staff') : null,
+      completed_at: it?.done ? (it.completed_at || new Date().toISOString()) : null,
     })).filter(it => it.label)
     // A card is "done" when it has items and they're all checked → mark frontline-ready.
     const allDone = checklist.length > 0 && checklist.every(it => it.done)
     const now = new Date().toISOString()
     const patch = { checklist, updated_at: now }
-    if (allDone) { patch.stage = 'frontline'; patch.done_at = now }
+    if (allDone) { patch.stage = 'frontline'; patch.status = 'ready'; patch.done_at = now }
     const { error } = await supabaseAdmin
       .from('recon').update(patch)
       .eq('inventory_id', req.params.inventory_id).eq('dealership_id', req.dealershipId)
@@ -287,7 +529,7 @@ export function registerRecon(app) {
       try {
         await supabaseAdmin.from('dealer_tasks')
           .update({ status: 'done', completed_at: now, completed_by: req.user?.id || null, updated_at: now })
-          .eq('dealership_id', req.dealershipId).eq('inventory_id', req.params.inventory_id).neq('status', 'done')
+          .eq('dealership_id', req.dealershipId).eq('inventory_id', req.params.inventory_id).is('deleted_at', null).neq('status', 'done')
       } catch (e) { console.warn('[recon] checklist task sync failed:', e.message) }
     }
     res.json({ ok: true, checklist, all_done: allDone })

@@ -4,18 +4,23 @@
  * client — the UI only learns whether a provider is configured/enabled and its status.
  */
 import { supabaseAdmin, FRONTEND_URL } from '../shared.js'
-import { requireAuth } from '../middleware.js'
-import { encryptJson, decryptJson, piiConfigured } from '../crypto-pii.js'
+import { rateLimit } from '../security.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { encryptJson, decryptJson, piiConfigured, PII_ENCRYPTION_VERSION } from '../crypto-pii.js'
 import { emitWebhook, WEBHOOK_EVENTS } from '../webhooks.js'
+import { validateOutboundUrl } from '../outbound-http-policy.js'
 import { sendDealerSms, invalidateTwilioCache } from './automation.js'
+import { twilioProvisionConfigured, searchNumbers, provisionForDealer, releaseNumber } from '../providers/twilio-provision.js'
+import { twilioA2pConfigured, startDealerA2p, advanceDealerA2p } from '../providers/twilio-a2p.js'
+import { isDemoDealershipId } from './demo.js'
 import { qboConfigured, qboAuthorizeUrl, signState, verifyState, qboExchangeCode, qboEnsureToken, qboCompanyName } from '../providers/quickbooks.js'
-import { OAUTH_PROVIDERS, oauthConfigured, oauthAuthorizeUrl, oauthExchangeCode, oauthEnsureToken, oauthAfterToken, oauthTest, gbpCreatePost, signState as signOAuthState, verifyState as verifyOAuthState } from '../providers/oauth.js'
+import { OAUTH_PROVIDERS, oauthConfigured, oauthAuthorizeUrl, oauthRedirectUri, oauthExchangeCode, oauthEnsureToken, oauthAfterToken, oauthTest, gbpCreatePost, signState as signOAuthState, verifyState as verifyOAuthState } from '../providers/oauth.js'
 import { stripeDepositsConfigured } from './deposits.js'
 import { squareConfigured } from '../providers/square.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { aiAllowed, recordUsage } from '../usage.js'
-
-const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
+import { SYSTEM_ROLES, hasSystemRole, requirePermission } from '../authorization.js'
+import { audit } from '../audit.js'
 
 /**
  * The Integrations Hub catalog. Each entry is a connectable service. `live: true`
@@ -56,13 +61,10 @@ const CATALOG = {
   square_deposits: { category: 'Payments',    label: 'Deposits (Square)',    square: true, oauth: true, desc: 'Run on Square? Take the same refundable deposit — on your website and inside a deal — paid straight into your own Square account.' },
 }
 const PROVIDERS = Object.keys(CATALOG)
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
-
 export function registerIntegrations(app) {
   // List all providers with their (non-secret) status for this dealership.
-  app.get('/integrations', requireAuth, async (req, res) => {
+  app.get('/integrations', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: rows } = await supabaseAdmin.from('dealer_integrations')
       .select('provider, enabled, status, lender_code_map, updated_at, credentials_enc')
       .eq('dealership_id', req.dealershipId)
@@ -98,9 +100,8 @@ export function registerIntegrations(app) {
   })
 
   // Fire a test webhook so the dealer can confirm their endpoint is wired up.
-  app.post('/integrations/webhook/test', requireAuth, async (req, res) => {
+  app.post('/integrations/webhook/test', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: row } = await supabaseAdmin.from('dealer_integrations')
       .select('enabled, lender_code_map')
       .eq('dealership_id', req.dealershipId).eq('provider', 'webhook').maybeSingle()
@@ -111,9 +112,8 @@ export function registerIntegrations(app) {
   })
 
   // Send a real test SMS through the dealer's connected Twilio account.
-  app.post('/integrations/twilio/test', requireAuth, async (req, res) => {
+  app.post('/integrations/twilio/test', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const to = String(req.body?.to || '').trim()
     if (!/^\+?[0-9][0-9\s()-]{8,}$/.test(to)) return res.status(400).json({ error: 'Enter a valid phone number to text.' })
     invalidateTwilioCache(req.dealershipId)   // pick up a just-saved config
@@ -123,11 +123,151 @@ export function registerIntegrations(app) {
     res.json({ ok: true })
   })
 
+  // ── Twilio provisioning under MarketSync's master account ───────────────────
+  // Gives a dealer their own dedicated texting number without them ever touching
+  // Twilio. Non-secret metadata (number, messaging service, A2P status) lives in
+  // lender_code_map; the master credentials come from env, never per-dealer.
+  const inboundUrl = () => process.env.PUBLIC_API_URL ? `${String(process.env.PUBLIC_API_URL).replace(/\/$/, '')}/automation/twilio-inbound` : ''
+
+  app.get('/integrations/twilio/provision/status', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: row } = await supabaseAdmin.from('dealer_integrations')
+      .select('enabled, credentials_enc, lender_code_map').eq('dealership_id', req.dealershipId).eq('provider', 'twilio').maybeSingle()
+    const meta = row?.lender_code_map || {}
+    res.json({
+      available: twilioProvisionConfigured(),
+      platform_managed: !!meta.platform_managed,
+      byo: !!row?.credentials_enc && !meta.platform_managed,
+      enabled: !!row?.enabled,
+      number: meta.from || null,
+      a2p_status: meta.a2p_status || null,
+      a2p_profile: meta.a2p_profile || null,
+      a2p_registration: meta.a2p_registration || null,
+      a2p_configured: twilioA2pConfigured(),
+    })
+  })
+
+  app.get('/integrations/twilio/provision/search', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
+    if (!twilioProvisionConfigured()) return res.status(503).json({ error: 'Number provisioning is not configured on this server yet.' })
+    try {
+      const numbers = await searchNumbers({ country: (req.query.country || 'US'), region: (req.query.region || ''), city: (req.query.city || ''), areaCode: (req.query.area || ''), contains: (req.query.contains || ''), limit: 12 })
+      res.json({ numbers })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+
+  app.post('/integrations/twilio/provision/buy', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!twilioProvisionConfigured()) return res.status(503).json({ error: 'Number provisioning is not configured on this server yet.' })
+    const number = String(req.body?.number || '').trim()
+    if (!/^\+[1-9]\d{6,15}$/.test(number)) return res.status(400).json({ error: 'Pick a number to provision.' })
+    try {
+      const { data: d } = await supabaseAdmin.from('dealerships').select('name').eq('id', req.dealershipId).maybeSingle()
+      const { data: existing } = await supabaseAdmin.from('dealer_integrations')
+        .select('lender_code_map').eq('dealership_id', req.dealershipId).eq('provider', 'twilio').maybeSingle()
+      const meta = await provisionForDealer({ chosenNumber: number, dealerName: d?.name || '', inboundUrl: inboundUrl() })
+      await supabaseAdmin.from('dealer_integrations').upsert({
+        dealership_id: req.dealershipId, provider: 'twilio', enabled: true, status: 'connected',
+        lender_code_map: { ...(existing?.lender_code_map || {}), ...meta },
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'dealership_id,provider' })
+      invalidateTwilioCache(req.dealershipId)
+      audit(req, 'twilio.number_provisioned', { after_state: { number: meta.from } })
+      res.json({ ok: true, number: meta.from, a2p_status: meta.a2p_status })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+
+  // Messaging Verification (A2P 10DLC) for the dealer. This is once-per-dealership,
+  // not once-per-number: the profile the dealer enters here drives the actual Twilio
+  // ISV registration (Secondary Customer Profile → Brand → Campaign), and any future
+  // number they provision is attached to the already-approved Messaging Service.
+  const a2pStatusCallback = () => process.env.PUBLIC_API_URL ? `${String(process.env.PUBLIC_API_URL).replace(/\/$/, '')}/integrations/twilio/a2p/callback` : ''
+  app.post('/integrations/twilio/a2p', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const b = req.body || {}
+    // Prefill the non-secret fields from the dealership record so the dealer only
+    // has to supply what we can't already know (legal name + tax ID). Submitted
+    // values still win over the stored defaults.
+    const { data: d } = await supabaseAdmin.from('dealerships')
+      .select('name, street_address, city, province, postal_code, country, phone, website_url').eq('id', req.dealershipId).maybeSingle()
+    const address = String(b.address || [d?.street_address, d?.city, d?.province, d?.postal_code].filter(Boolean).join(', ') || '').slice(0, 200)
+    const profile = {
+      legal_name: String(b.legal_name || d?.name || '').slice(0, 160),
+      business_type: String(b.business_type || '').slice(0, 60),
+      tax_id: String(b.tax_id || '').slice(0, 40),           // EIN (US) / BN (CA)
+      tax_id_type: String(b.tax_id_type || (d?.country === 'CA' ? 'Other' : 'EIN')).slice(0, 20),
+      country: String(b.country || d?.country || 'US').slice(0, 4),
+      address,
+      website: String(b.website || d?.website_url || '').slice(0, 200),
+      email: String(b.email || '').slice(0, 160),
+      phone: String(b.phone || d?.phone || '').slice(0, 40),
+      contact_name: String(b.contact_name || '').slice(0, 120),
+      contact_title: String(b.contact_title || '').slice(0, 80),
+      company_type: String(b.company_type || 'private').slice(0, 20),
+    }
+    if (!profile.legal_name || !profile.tax_id) return res.status(400).json({ error: 'Legal business name and tax ID (EIN / BN) are required for messaging verification.' })
+
+    const { data: existing } = await supabaseAdmin.from('dealer_integrations')
+      .select('lender_code_map').eq('dealership_id', req.dealershipId).eq('provider', 'twilio').maybeSingle()
+    const meta = existing?.lender_code_map || {}
+
+    // Kick off the real ISV registration when configured; otherwise store as pending
+    // so nothing breaks before MarketSync's ISV account/creds are in place.
+    let a2p_status = 'pending', a2p_registration = meta.a2p_registration || null, note = null
+    // Demo dealerships never trigger a real (paid) Twilio brand/campaign registration.
+    if (twilioA2pConfigured() && !(await isDemoDealershipId(req.dealershipId))) {
+      try {
+        const started = await startDealerA2p({ profile, messagingServiceSid: meta.messaging_service_sid || null, statusCallbackUrl: a2pStatusCallback() })
+        if (started.configured) { a2p_registration = started.state; a2p_status = started.state.status }
+      } catch (e) {
+        // A registration error must not lose the dealer's details or wedge the UI.
+        a2p_status = 'error'; note = e.message
+      }
+    }
+
+    await supabaseAdmin.from('dealer_integrations').upsert({
+      dealership_id: req.dealershipId, provider: 'twilio', enabled: true, status: 'connected',
+      lender_code_map: { ...meta, a2p_profile: profile, a2p_status, a2p_registration, a2p_submitted_at: new Date().toISOString() },
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'dealership_id,provider' })
+    audit(req, 'twilio.a2p_submitted', { after_state: { legal_name: profile.legal_name, a2p_status } })
+    res.json({ ok: true, a2p_status, configured: twilioA2pConfigured(), error: note })
+  })
+
+  // Poll Twilio and advance the dealer's registration (idempotent). Called by the UI
+  // when the settings panel opens; also safe as a Twilio status-callback target.
+  app.post('/integrations/twilio/a2p/refresh', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: row } = await supabaseAdmin.from('dealer_integrations')
+      .select('lender_code_map').eq('dealership_id', req.dealershipId).eq('provider', 'twilio').maybeSingle()
+    const meta = row?.lender_code_map || {}
+    if (!meta.a2p_registration || !twilioA2pConfigured() || await isDemoDealershipId(req.dealershipId)) return res.json({ ok: true, a2p_status: meta.a2p_status || 'pending' })
+    try {
+      const state = await advanceDealerA2p(meta.a2p_registration, { profile: meta.a2p_profile })
+      await supabaseAdmin.from('dealer_integrations').update({
+        lender_code_map: { ...meta, a2p_registration: state, a2p_status: state.status }, updated_at: new Date().toISOString(),
+      }).eq('dealership_id', req.dealershipId).eq('provider', 'twilio')
+      res.json({ ok: true, a2p_status: state.status })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+
+  app.post('/integrations/twilio/provision/release', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: row } = await supabaseAdmin.from('dealer_integrations')
+      .select('lender_code_map').eq('dealership_id', req.dealershipId).eq('provider', 'twilio').maybeSingle()
+    const meta = row?.lender_code_map || {}
+    try { if (meta.platform_managed && meta.number_sid) await releaseNumber(meta.number_sid) } catch (e) { /* release best-effort */ }
+    const cleaned = { ...meta }
+    delete cleaned.platform_managed; delete cleaned.from; delete cleaned.number_sid; delete cleaned.messaging_service_sid; delete cleaned.a2p_status; delete cleaned.a2p_profile
+    await supabaseAdmin.from('dealer_integrations').update({ enabled: false, lender_code_map: cleaned, updated_at: new Date().toISOString() })
+      .eq('dealership_id', req.dealershipId).eq('provider', 'twilio')
+    invalidateTwilioCache(req.dealershipId)
+    res.json({ ok: true })
+  })
+
   // ── QuickBooks Online (Intuit OAuth2) ───────────────────────────────────────
   // Start the connect flow: returns the Intuit authorize URL for the dealer to open.
-  app.get('/integrations/quickbooks/connect', requireAuth, async (req, res) => {
+  app.get('/integrations/quickbooks/connect', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     if (!qboConfigured()) return res.status(503).json({ error: 'QuickBooks isn’t enabled on this MarketSync account yet.' })
     if (!piiConfigured()) return res.status(400).json({ error: 'Set PII_ENCRYPTION_KEY before connecting QuickBooks.' })
     res.json({ url: qboAuthorizeUrl(signState(req.dealershipId)) })
@@ -135,7 +275,7 @@ export function registerIntegrations(app) {
 
   // Intuit redirects the browser back here (no JWT) — the signed `state` proves which
   // dealership started the flow. Exchange the code, store tokens, bounce to the app.
-  app.get('/integrations/quickbooks/callback', async (req, res) => {
+  app.get('/integrations/quickbooks/callback', rateLimit('oauth-cb-qbo', 20, 60000), async (req, res) => {
     const backTo = (ok, msg) => res.redirect(`${FRONTEND_URL}/dashboard.html?integration=quickbooks&status=${ok ? 'connected' : 'error'}${msg ? '&msg=' + encodeURIComponent(msg) : ''}`)
     try {
       const { code, state, realmId } = req.query
@@ -146,6 +286,7 @@ export function registerIntegrations(app) {
         dealership_id: dealershipId, provider: 'quickbooks',
         enabled: true, status: 'connected',
         credentials_enc: encryptJson(creds),
+        credentials_encryption_version: PII_ENCRYPTION_VERSION,
         lender_code_map: { realm_id: String(realmId), connected_at: new Date().toISOString() },
         last_status_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }, { onConflict: 'dealership_id,provider' })
@@ -158,9 +299,8 @@ export function registerIntegrations(app) {
 
   // Verify the connection by naming the linked QuickBooks company. Refreshes + persists
   // a rotated token when the access token has expired.
-  app.post('/integrations/quickbooks/test', requireAuth, async (req, res) => {
+  app.post('/integrations/quickbooks/test', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: row } = await supabaseAdmin.from('dealer_integrations')
       .select('credentials_enc, lender_code_map').eq('dealership_id', req.dealershipId).eq('provider', 'quickbooks').maybeSingle()
     if (!row?.credentials_enc || !row.lender_code_map?.realm_id) return res.status(400).json({ error: 'Connect QuickBooks first.' })
@@ -169,7 +309,7 @@ export function registerIntegrations(app) {
       const ensured = await qboEnsureToken(creds)
       if (ensured.refreshed) {
         creds = ensured.creds
-        await supabaseAdmin.from('dealer_integrations').update({ credentials_enc: encryptJson(creds), updated_at: new Date().toISOString() })
+        await supabaseAdmin.from('dealer_integrations').update({ credentials_enc: encryptJson(creds), credentials_encryption_version: PII_ENCRYPTION_VERSION, updated_at: new Date().toISOString() })
           .eq('dealership_id', req.dealershipId).eq('provider', 'quickbooks')
       }
       const name = await qboCompanyName({ accessToken: creds.access_token, realmId: row.lender_code_map.realm_id })
@@ -181,11 +321,10 @@ export function registerIntegrations(app) {
 
   // Toggle "auto-post income on delivery" for a connected accounting provider.
   // Merges into lender_code_map so the stored tokens/tenant are preserved.
-  app.put('/integrations/:provider/autosync', requireAuth, async (req, res) => {
+  app.put('/integrations/:provider/autosync', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     const provider = String(req.params.provider || '')
     if (!['quickbooks', 'xero'].includes(provider)) return res.status(400).json({ error: 'Not an accounting provider' })
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: row } = await supabaseAdmin.from('dealer_integrations')
       .select('lender_code_map, credentials_enc').eq('dealership_id', req.dealershipId).eq('provider', provider).maybeSingle()
     if (!row?.credentials_enc) return res.status(400).json({ error: 'Connect it first.' })
@@ -200,22 +339,29 @@ export function registerIntegrations(app) {
   // ── Generic OAuth2 connectors (Xero, Google Business) ───────────────────────
   // Same flow as QuickBooks, driven by the provider registry in providers/oauth.js.
   // Registered after the QuickBooks-specific routes so those win for `quickbooks`.
-  app.get('/integrations/:provider/connect', requireAuth, async (req, res) => {
+  app.get('/integrations/:provider/connect', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     const provider = String(req.params.provider || '')
     if (!OAUTH_PROVIDERS.includes(provider)) return res.status(404).json({ error: 'Unknown provider' })
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     if (!oauthConfigured(provider)) return res.status(503).json({ error: `${CATALOG[provider]?.label || provider} isn’t enabled on this MarketSync account yet.` })
     if (!piiConfigured()) return res.status(400).json({ error: 'Set PII_ENCRYPTION_KEY before connecting.' })
+    const redirectUri = oauthRedirectUri(provider)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[oauth] ${provider} authorization redirect_uri:`, redirectUri)
+    }
     res.json({ url: oauthAuthorizeUrl(provider, signOAuthState(req.dealershipId, provider)) })
   })
 
-  app.get('/integrations/:provider/callback', async (req, res) => {
+  app.get('/integrations/:provider/callback', rateLimit('oauth-cb-integrations', 20, 60000), async (req, res) => {
     const provider = String(req.params.provider || '')
     const backTo = (ok, msg) => res.redirect(`${FRONTEND_URL}/dashboard.html?integration=${provider}&status=${ok ? 'connected' : 'error'}${msg ? '&msg=' + encodeURIComponent(msg) : ''}`)
     if (!OAUTH_PROVIDERS.includes(provider)) return backTo(false, 'Unknown provider')
     try {
       const { code, state } = req.query
+      const redirectUri = oauthRedirectUri(provider)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[oauth] ${provider} callback redirect_uri:`, redirectUri)
+      }
       const dealershipId = verifyOAuthState(state, provider)
       if (!dealershipId || !code) return backTo(false, 'Link expired — try connecting again.')
       const creds = await oauthExchangeCode(provider, String(code))
@@ -223,6 +369,7 @@ export function registerIntegrations(app) {
       await supabaseAdmin.from('dealer_integrations').upsert({
         dealership_id: dealershipId, provider, enabled: true, status: 'connected',
         credentials_enc: encryptJson(creds),
+        credentials_encryption_version: PII_ENCRYPTION_VERSION,
         lender_code_map: { ...(tenant || {}), connected_at: new Date().toISOString() },
         last_status_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }, { onConflict: 'dealership_id,provider' })
@@ -233,11 +380,14 @@ export function registerIntegrations(app) {
     }
   })
 
-  app.post('/integrations/:provider/test', requireAuth, async (req, res) => {
+  // Both of these make outbound provider calls on the dealership's credentials. The caller is
+  // already permissioned, so this bounds cost and third-party rate-limit exposure rather than
+  // access. (Phase 6S)
+  app.post('/integrations/:provider/test', requireAuth, requireMfa, requirePermission('integrations.manage'),
+    rateLimit('integration-test', 30, 15 * 60 * 1000, { dealership: true }), async (req, res) => {
     const provider = String(req.params.provider || '')
     if (!OAUTH_PROVIDERS.includes(provider)) return res.status(404).json({ error: 'Unknown provider' })
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: row } = await supabaseAdmin.from('dealer_integrations')
       .select('credentials_enc, lender_code_map').eq('dealership_id', req.dealershipId).eq('provider', provider).maybeSingle()
     if (!row?.credentials_enc) return res.status(400).json({ error: 'Connect it first.' })
@@ -246,7 +396,7 @@ export function registerIntegrations(app) {
       const ensured = await oauthEnsureToken(provider, creds)
       if (ensured.refreshed) {
         creds = ensured.creds
-        await supabaseAdmin.from('dealer_integrations').update({ credentials_enc: encryptJson(creds), updated_at: new Date().toISOString() })
+        await supabaseAdmin.from('dealer_integrations').update({ credentials_enc: encryptJson(creds), credentials_encryption_version: PII_ENCRYPTION_VERSION, updated_at: new Date().toISOString() })
           .eq('dealership_id', req.dealershipId).eq('provider', provider)
       }
       const msg = await oauthTest(provider, creds, row.lender_code_map || {})
@@ -258,9 +408,8 @@ export function registerIntegrations(app) {
 
   // Create/update a provider's config. Only overwrites the secret when new
   // credentials are supplied, so toggling `enabled` doesn't wipe stored creds.
-  app.put('/integrations/:provider', requireAuth, async (req, res) => {
+  app.put('/integrations/:provider', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const provider = String(req.params.provider || '').toLowerCase()
     if (!PROVIDERS.includes(provider)) return res.status(400).json({ error: 'Unknown provider' })
     const b = req.body || {}
@@ -268,12 +417,19 @@ export function registerIntegrations(app) {
     const patch = { dealership_id: req.dealershipId, provider, updated_by: req.user?.id || null, updated_at: new Date().toISOString() }
     if (b.enabled !== undefined) patch.enabled = !!b.enabled
     if (b.status !== undefined && typeof b.status === 'string') patch.status = b.status.slice(0, 30)
-    if (b.lender_code_map && typeof b.lender_code_map === 'object') patch.lender_code_map = b.lender_code_map
+    if (b.lender_code_map && typeof b.lender_code_map === 'object') {
+      if (provider === 'webhook' && b.lender_code_map.url) {
+        const check = await validateOutboundUrl(b.lender_code_map.url)
+        if (!check.ok) return res.status(400).json({ error: `Disallowed webhook URL: ${check.error}` })
+      }
+      patch.lender_code_map = b.lender_code_map
+    }
 
     // Encrypt a credential blob only if one was provided and non-empty.
     if (b.credentials && typeof b.credentials === 'object' && Object.keys(b.credentials).length) {
       if (!piiConfigured()) return res.status(400).json({ error: 'Set the PII_ENCRYPTION_KEY environment variable before storing credentials.' })
       patch.credentials_enc = encryptJson(b.credentials)
+      patch.credentials_encryption_version = PII_ENCRYPTION_VERSION
       if (patch.status === undefined) patch.status = 'configured'
       patch.last_status_at = new Date().toISOString()
     }
@@ -282,27 +438,27 @@ export function registerIntegrations(app) {
       .upsert(patch, { onConflict: 'dealership_id,provider' })
     if (error) { console.error('[integrations] save failed:', error.message); return res.status(500).json({ error: 'Save failed' }) }
     if (provider === 'twilio') invalidateTwilioCache(req.dealershipId)
+    audit(req, 'integration.config_updated', { provider, after_state: { enabled: patch.enabled, status: patch.status, credentials_updated: !!patch.credentials_enc } })
     res.json({ ok: true })
   })
 
   // Disconnect: remove the stored config (and secret) for a provider.
-  app.delete('/integrations/:provider', requireAuth, async (req, res) => {
+  app.delete('/integrations/:provider', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const provider = String(req.params.provider || '').toLowerCase()
     await supabaseAdmin.from('dealer_integrations').delete()
       .eq('dealership_id', req.dealershipId).eq('provider', provider)
     if (provider === 'twilio') invalidateTwilioCache(req.dealershipId)
+    audit(req, 'integration.config_deleted', { provider })
     res.json({ ok: true })
   })
 
   // ── Google Business Profile posts ───────────────────────────────────────────
   // AI-write a Google Business post (new arrival / offer / update), optionally about
   // a specific vehicle. Gated to AI Boost, same as the other AI writers.
-  app.post('/integrations/google_business/compose', requireAuth, async (req, res) => {
+  app.post('/integrations/google_business/compose', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)
     const { data: dealer } = await supabaseAdmin.from('dealerships')
       .select('name, ai_tone, ai_boost_active, city, province').eq('id', req.dealershipId).maybeSingle()
     if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
@@ -353,9 +509,9 @@ Rules: 1 short paragraph, roughly 30–80 words, plain text only (no markdown, n
   // dealer's connected token; when Google hasn't approved the API for our project
   // yet it returns { staged:true } so the UI can fall back to assisted posting
   // (copy the text, open Google Business). No change needed here once approved.
-  app.post('/integrations/google_business/post', requireAuth, async (req, res) => {
+  app.post('/integrations/google_business/post', requireAuth, requireMfa, requirePermission('integrations.manage'),
+    rateLimit('gbp-post', 30, 15 * 60 * 1000, { dealership: true }), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const text = String(req.body?.text || '').trim()
     if (!text) return res.status(400).json({ error: 'Write the post text first.' })
     const { data: row } = await supabaseAdmin.from('dealer_integrations')
@@ -366,7 +522,7 @@ Rules: 1 short paragraph, roughly 30–80 words, plain text only (no markdown, n
       const ensured = await oauthEnsureToken('google_business', creds)
       if (ensured.refreshed) {
         creds = ensured.creds
-        await supabaseAdmin.from('dealer_integrations').update({ credentials_enc: encryptJson(creds), updated_at: new Date().toISOString() })
+        await supabaseAdmin.from('dealer_integrations').update({ credentials_enc: encryptJson(creds), credentials_encryption_version: PII_ENCRYPTION_VERSION, updated_at: new Date().toISOString() })
           .eq('dealership_id', req.dealershipId).eq('provider', 'google_business')
       }
       const cta = req.body?.cta_url ? { cta: 'LEARN_MORE', ctaUrl: String(req.body.cta_url).slice(0, 300) } : {}

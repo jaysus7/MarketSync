@@ -1,13 +1,16 @@
 import dns from 'node:dns/promises'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
+import { requireProduct } from '../access.js'
+import { audit } from '../audit.js'
 import { findOrCreateContact } from './crm.js'
 import { enqueueForTrigger } from './automation.js'
 import { routeAndNotifyLead } from '../lead-routing.js'
 import { createNotification } from '../notifications.js'
 import { aiAllowed, recordUsage } from '../usage.js'
-import { rateLimit, getClientIp, consumeQuota } from '../security.js'
+import { rateLimit, getClientIp, consumeQuota, randomToken } from '../security.js'
 import { getConfig } from './config-engine.js'
 import { offTopicRefusal, scopeClause, sanitizeTranscript, CHAT_LIMITS } from '../chatGuard.js'
 import { runAutoResponder } from '../autoresponder.js'
@@ -15,14 +18,24 @@ import { depositConfigForSite } from './deposits.js'
 import { toolDefs, callTool } from './tool-registry.js'
 import { startOrContinueConversation, saveMessage } from './ai-engine.js'
 import { categorizeConversation, formatShownVehicles, summarizeConversation, verifyRecaptcha, RECAPTCHA_SITE_KEY } from './ai-runtime.js'
+import { sanitizeHtml, stripScriptsFromHead } from '../html-sanitizer.js'
+import { registerSitePublicRoutes } from './submodules/site-public.js'
 
-const SITE_ADMINS = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
-const isSiteAdmin = (req) => SITE_ADMINS.includes(req.profile?.role)
 const slugOk = (s) => /^[a-z0-9]([a-z0-9-]{1,38})[a-z0-9]$/.test(s)   // 3–40, no leading/trailing dash
 // The host a dealer points their custom domain's CNAME at (the static-site domain,
 // or the Cloudflare-for-SaaS CNAME target once that's set up).
 const SITE_HOST = (process.env.SITE_DOMAIN_TARGET || 'marketsync.link').replace(/^https?:\/\//, '').replace(/\/.*$/, '')
-const domainOk = (s) => /^(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/.test(s)   // basic FQDN
+// FQDN check without a backtracking regex. The old single pattern nested a
+// bounded quantifier inside a `(...)+` group over user-controlled input, which
+// CodeQL flags as polynomial ReDoS. Bound the total length first, then validate
+// each dot-separated label with a linear, non-ambiguous per-label regex.
+const LABEL_OK = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/   // 1–63 chars, no leading/trailing dash
+const domainOk = (s) => {
+  if (typeof s !== 'string' || s.length === 0 || s.length > 253) return false
+  const labels = s.split('.')
+  if (labels.length < 2) return false                       // require at least one dot (FQDN)
+  return labels.every((l) => LABEL_OK.test(l))
+}
 
 // ── Cloudflare for SaaS (Custom Hostnames) — auto-provisions a TLS cert per domain.
 // Inert until CF_API_TOKEN + CF_ZONE_ID are set on the backend; falls back to a
@@ -112,7 +125,7 @@ function cleanPages(arr) {
     return {
       // Stable id so the menu-order list can reference a page across saves.
       id: p.id ? String(p.id).slice(0, 40) : ('pg' + Math.random().toString(36).slice(2, 9)),
-      slug, title, body_html: String(p.body_html || '').slice(0, 40000), nav: p.nav !== false, kind,
+      slug, title, body_html: sanitizeHtml(String(p.body_html || '').slice(0, 40000)), nav: p.nav !== false, kind,
       // Optional dropdown group in the top nav (e.g. "New Vehicles", "Offers").
       menu: p.menu ? String(p.menu).slice(0, 40) : null,
       make: p.make ? String(p.make).slice(0, 40) : null,
@@ -183,12 +196,15 @@ function cleanStaff(arr) {
 }
 
 // The section palette for the page builder. Each is dealership-aware on render.
-const SECTION_TYPES = ['hero', 'feature_cards', 'featured_inventory', 'inventory_grid', 'text_image', 'body_style', 'payment_calc', 'ad_banner', 'finance_cta', 'trade_cta', 'service_cta', 'staff', 'reviews', 'faq', 'cta_banner', 'gallery', 'map', 'contact', 'html']
+const SECTION_TYPES = ['hero', 'feature_cards', 'featured_inventory', 'inventory_grid', 'text_image', 'body_style', 'payment_calc', 'ad_banner', 'finance_cta', 'trade_cta', 'service_cta', 'staff', 'reviews', 'faq', 'blog', 'cta_banner', 'gallery', 'map', 'contact', 'html']
 function cleanSections(arr) {
   if (!Array.isArray(arr)) return []
   return arr.slice(0, 40).map((s, i) => {
-    let settings = (s.settings && typeof s.settings === 'object') ? s.settings : {}
+    let settings = (s.settings && typeof s.settings === 'object') ? { ...s.settings } : {}
     try { if (JSON.stringify(settings).length > 12000) settings = {} } catch { settings = {} }
+    if (settings.html && typeof settings.html === 'string') {
+      settings.html = sanitizeHtml(settings.html)
+    }
     return {
       id: String(s.id || `s${i}_${Math.random().toString(36).slice(2, 7)}`),
       type: SECTION_TYPES.includes(s.type) ? s.type : 'html',
@@ -197,6 +213,7 @@ function cleanSections(arr) {
   })
 }
 const TYPOGRAPHY = ['modern', 'luxury', 'bold', 'corporate', 'minimal']
+const SITE_THEMES = ['classic', 'prestige', 'modern', 'bold', 'minimal']
 
 // Placed widgets: where they can go and their shape.
 const WIDGET_SLOTS = ['top_banner', 'hero_below', 'above_inventory', 'below_inventory', 'above_footer']
@@ -206,7 +223,7 @@ function cleanWidgets(arr) {
     id: String(w.id || `w${i}_${Math.random().toString(36).slice(2, 7)}`),
     slot: WIDGET_SLOTS.includes(w.slot) ? w.slot : 'below_inventory',
     title: (w.title == null ? '' : String(w.title)).slice(0, 120) || null,
-    html: (w.html == null ? '' : String(w.html)).slice(0, 20000),
+    html: sanitizeHtml(String(w.html == null ? '' : w.html)).slice(0, 20000),
     height: Math.min(2000, Math.max(60, parseInt(w.height) || 400)),
   })).filter(w => w.html.trim())
 }
@@ -238,9 +255,8 @@ function siteContent(d) {
     seo_description: b.seo_description || null,
     seo_keywords: b.seo_keywords || null,
     seo_image: b.seo_image || null,
-    // Dealer-controlled custom code: global vendor scripts injected into <head>
-    // (analytics, chat, Keyloop tags) + placed embed widgets rendered in slots.
-    head_html: b.site_head_html || null,
+    // Dealer-controlled custom code: sanitized for shared-origin safety
+    head_html: b.site_head_html ? stripScriptsFromHead(b.site_head_html) : null,
     widgets: cleanWidgets(b.site_widgets),
     pages: cleanPages(b.site_pages),
     // Dealer-managed staff for the Team page (managers, sales, service, admin…).
@@ -254,6 +270,9 @@ function siteContent(d) {
     // Page builder: ordered sections + global styling.
     sections: cleanSections(b.site_sections),
     typography: TYPOGRAPHY.includes(b.typography) ? b.typography : 'modern',
+    // One-click design theme — a bundle of tokens (radius, shadow, spacing, hero/card
+    // style) applied by the public site for an eDealer/LeadBox-grade look.
+    theme: SITE_THEMES.includes(b.site_theme) ? b.site_theme : 'classic',
     // Optional dealer-chosen Google Fonts (override the typography preset).
     heading_font: b.heading_font || null,
     body_font: b.body_font || null,
@@ -312,290 +331,10 @@ async function buildSiteResponse(d) {
   return { site, vehicles, team: roster, count: vehicles.length, deposits }
 }
 
+// Public site data, lead capture, and booking routes extracted to routes/submodules/site-public.js
 export function registerSite(app) {
-  // ── PUBLIC: a dealer's live site data by slug (no auth) ────────────────────
-  app.get('/site/:slug', async (req, res) => {
-    const slug = String(req.params.slug || '').toLowerCase().trim()
-    if (!slug) return res.status(404).json({ error: 'Not found' })
-    const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS).ilike('site_slug', slug).maybeSingle()
-    if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
-    res.json(await buildSiteResponse(d))
-  })
+  registerSitePublicRoutes(app)
 
-  // ── PUBLIC: resolve a dealer's site by its custom domain (Host header) ──────
-  app.get('/site-by-domain', async (req, res) => {
-    const host = String(req.query.host || '').toLowerCase().trim().replace(/^www\./, '').replace(/:\d+$/, '')
-    if (!host) return res.status(404).json({ error: 'Not found' })
-    const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS)
-      .or(`custom_domain.ilike.${host},custom_domain.ilike.www.${host}`).maybeSingle()
-    if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
-    res.json(await buildSiteResponse(d))
-  })
-
-  // ── Trade-in ballpark (zero-cost heuristic) ────────────────────────────────
-  // A rough, dependency-free trade-in range so a rep has a number to quote back
-  // FAST when a website trade lead lands — NOT a real appraisal. The one-click
-  // MarketCheck appraisal (POST /ai/appraise) replaces it with live comps.
-  // Never surfaced on the public site; used only in the rep's alert + CRM note.
-  const LUX_MAKES = new Set(['bmw', 'mercedes', 'mercedes-benz', 'audi', 'lexus', 'acura', 'infiniti', 'cadillac', 'lincoln', 'porsche', 'land rover', 'range rover', 'jaguar', 'volvo', 'tesla', 'genesis', 'maserati', 'bentley'])
-  const TRUCK_RE = /silverado|sierra|f-?150|f-?250|f-?350|\bram\b|ram\s?1500|tundra|titan|tahoe|suburban|yukon|expedition|sequoia|super\s?duty|colorado|canyon|ranger|tacoma|frontier/i
-  const numish = (v) => { const n = Number(String(v ?? '').replace(/[^0-9.]/g, '')); return Number.isFinite(n) && n > 0 ? n : null }
-  function heuristicTradeRange({ year, make, model, mileage }) {
-    const now = new Date().getFullYear()
-    const yr = numish(year)
-    if (!yr || yr < 1990 || yr > now + 1) return null
-    const age = Math.max(0, now - yr)
-    const mk = String(make || '').toLowerCase().trim()
-    const md = String(model || '')
-    // Baseline original transaction price by segment.
-    let base = 34000
-    if (LUX_MAKES.has(mk)) base = 58000
-    else if (TRUCK_RE.test(md) || TRUCK_RE.test(mk)) base = 52000
-    // Depreciation: ~16% year one, ~11%/yr after, with a residual floor.
-    let val = base
-    for (let i = 0; i < age; i++) val *= (i === 0 ? 0.84 : 0.89)
-    val = Math.max(val, base * 0.09)
-    // Mileage vs an expected ~18k/yr; ~$0.06 per unit over/under, asymmetric + capped.
-    const mi = numish(mileage)
-    if (mi != null) {
-      const expected = Math.max(age, 1) * 18000
-      const delta = (expected - mi) * 0.06
-      val = Math.max(base * 0.06, val + Math.max(-val * 0.35, Math.min(val * 0.25, delta)))
-    }
-    const lo = Math.round((val * 0.88) / 250) * 250
-    const hi = Math.round((val * 1.12) / 250) * 250
-    if (hi <= 0 || lo <= 0) return null
-    return { low: lo, high: hi }
-  }
-  // Pull whatever the trade shell captured into a vehicle-ish shape (keys vary by form).
-  function tradeVehicleFromFields(fields) {
-    if (!fields || typeof fields !== 'object') return {}
-    const pick = (...names) => {
-      for (const [k, v] of Object.entries(fields)) {
-        const key = k.toLowerCase().replace(/[^a-z]/g, '')
-        if (names.includes(key) && v != null && String(v).trim()) return String(v).trim()
-      }
-      return null
-    }
-    return {
-      year: pick('year', 'vehicleyear'),
-      make: pick('make', 'vehiclemake'),
-      model: pick('model', 'vehiclemodel'),
-      trim: pick('trim', 'vehicletrim', 'series'),
-      mileage: pick('mileage', 'kilometers', 'kilometres', 'km', 'miles', 'odometer'),
-    }
-  }
-
-  // ── PUBLIC: capture a lead from the site → lands in the CRM ─────────────────
-  app.post('/site/:slug/lead', async (req, res) => {
-    const slug = String(req.params.slug || '').toLowerCase().trim()
-    const { data: d } = await supabaseAdmin.from('dealerships')
-      .select('id, site_published').ilike('site_slug', slug).maybeSingle()
-    if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
-    if (!(await verifyRecaptcha(req.body?.recaptcha_token))) return res.status(403).json({ error: 'recaptcha_failed' })
-    const b = req.body || {}
-    const name = String(b.name || '').trim().slice(0, 120)
-    const email = String(b.email || '').trim().slice(0, 160)
-    const phone = String(b.phone || '').trim().slice(0, 40)
-    const message = String(b.message || '').trim().slice(0, 2000)
-    if (!name && !email && !phone) return res.status(400).json({ error: 'Enter a name, phone, or email' })
-
-    // Which shell form: general Inquiry, Trade-In quote, or Credit Application.
-    const FORMS = { trade: 'Trade-In', credit: 'Credit Application', inquiry: 'Website', build: 'Build & Price', chat: 'Website Chat', reserve: 'Reserve / Deposit', payment: 'Payment Quote' }
-    const source = FORMS[String(b.form_type || '').toLowerCase()] || 'Website'
-    // Fold any extra shell fields (trade vehicle, employment, etc.) into the comments.
-    let comments = message
-    if (b.fields && typeof b.fields === 'object') {
-      const extra = Object.entries(b.fields)
-        .filter(([, v]) => v != null && String(v).trim())
-        .map(([k, v]) => `${k}: ${String(v).slice(0, 200)}`).join('\n').slice(0, 3000)
-      if (extra) comments = [message, `— ${source} details —`, extra].filter(Boolean).join('\n')
-    }
-
-    let inventory_id = null
-    if (b.vehicle_id) {
-      const { data: v } = await supabaseAdmin.from('inventory').select('id, dealership_id').eq('id', b.vehicle_id).maybeSingle()
-      if (v && v.dealership_id === d.id) inventory_id = v.id
-    }
-    try {
-      const { data: lead } = await supabaseAdmin.from('leads').insert({
-        dealership_id: d.id, name: name || null, email: email || null, phone: phone || null,
-        comments: comments || null, source, inventory_id,
-      }).select('id').single()
-      const contactId = await findOrCreateContact({ dealershipId: d.id, name, email, phone, source: 'Website' })
-      if (contactId && lead?.id) await supabaseAdmin.from('leads').update({ contact_id: contactId }).eq('id', lead.id)
-      if (contactId) {
-        // Auto-assign + notify, then kick off the speed-to-lead sequence with the routed rep.
-        const routed = await routeAndNotifyLead(d.id, { contactId, vehicleId: inventory_id || null, name, source: source })
-        enqueueForTrigger(d.id, 'internet_lead', { contactId, vehicleId: inventory_id || null, repId: routed?.assignee || null })
-        // Instant AI first-touch (dealer opt-in: off/draft/auto). Fire-and-forget so
-        // the customer's submit returns immediately; the reply follows within seconds.
-        runAutoResponder(d.id, { contactId, name, email, phone, source, vehicleId: inventory_id || null, repId: routed?.assignee || null }).catch(() => {})
-
-        // Trade-in leads: hand the rep an instant ballpark range so they have an
-        // answer to quote back — internal only, never shown on the site. They can
-        // one-click the full MarketCheck appraisal from the CRM for a firm number.
-        if (String(b.form_type || '').toLowerCase() === 'trade') {
-          const tv = tradeVehicleFromFields(b.fields)
-          const range = heuristicTradeRange(tv)
-          if (range) {
-            const veh = [tv.year, tv.make, tv.model, tv.trim].filter(Boolean).join(' ').trim() || 'their trade'
-            const fmt = (n) => '$' + Math.round(n).toLocaleString('en-US')
-            const rangeStr = `${fmt(range.low)}–${fmt(range.high)}`
-            // Timeline note on the contact (internal), so the range is in the CRM record.
-            try {
-              await supabaseAdmin.from('communications').insert({
-                dealership_id: d.id, contact_id: contactId, channel: 'note', direction: 'internal',
-                subject: 'Trade-in ballpark (auto)',
-                body: `Rough trade range for ${veh}: ${rangeStr}. Estimate only — run the full appraisal for a firm number.`,
-                meta: { kind: 'trade_ballpark', low: range.low, high: range.high, vehicle: tv },
-              })
-              await supabaseAdmin.from('contacts')
-                .update({ last_activity_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-                .eq('id', contactId)
-            } catch (err) { console.warn('[site] trade note failed:', err.message) }
-            // Alert the assigned rep with the number front-and-centre.
-            await createNotification({
-              dealershipId: d.id, type: 'new_lead',
-              title: `Trade lead${name ? ': ' + name : ''} — approx ${rangeStr}`,
-              body: `${veh}. Ballpark only — open the contact and run the full appraisal for a firm offer.`,
-              linkPage: 'crm', targetUserId: routed?.assignee || null,
-            })
-          }
-        }
-
-        // Digital-retailing credit application → seed a DRAFT in the F&I credit
-        // pipeline (no SIN collected online — soft/pre-approval), with consent stamped.
-        const formType = String(b.form_type || '').toLowerCase()
-        if (formType === 'credit') {
-          try {
-            const f = b.fields || {}
-            const parts = String(name || '').trim().split(/\s+/)
-            const incomeM = parseFloat(String(f['Monthly income'] || '').replace(/[^0-9.]/g, '')) || null
-            await supabaseAdmin.from('credit_applications').insert({
-              dealership_id: d.id, contact_id: contactId, status: 'draft',
-              applicant: {
-                first: parts[0] || null, last: parts.slice(1).join(' ') || null, email: email || null, phone: phone || null,
-                address: { street: f.Address || null },
-                employment: { employer: f.Employer || null, occupation: f['Job title'] || null, income_monthly: incomeM },
-              },
-              vehicle: inventory_id ? { inventory_id } : (f['Vehicle of interest'] ? { note: f['Vehicle of interest'] } : {}),
-              financing: f['Credit tier'] ? { credit_tier: f['Credit tier'] } : {},
-              consent: !!b.consent, consent_at: b.consent ? new Date().toISOString() : null,
-              consent_ip: b.consent ? getClientIp(req) : null, consent_method: b.consent ? 'e-sign' : null,
-            })
-          } catch (err) { console.warn('[site] credit draft failed:', err.message) }
-        }
-
-        // AI website chat → save the full transcript on the customer record so the
-        // rep can read exactly what the concierge said. Shows as a "View AI
-        // conversation" link on the contact's timeline.
-        if (formType === 'chat' && Array.isArray(b.chat_transcript) && b.chat_transcript.length) {
-          try {
-            const tx = b.chat_transcript
-              .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
-              .slice(-60).map(m => ({ role: m.role, content: m.content.trim().slice(0, 2000) }))
-            if (tx.length) {
-              await supabaseAdmin.from('communications').insert({
-                dealership_id: d.id, contact_id: contactId, channel: 'chat', direction: 'in',
-                subject: 'Website AI chat',
-                body: `AI website chat — ${tx.length} message${tx.length === 1 ? '' : 's'}. Open to read the full conversation.`,
-                meta: { kind: 'ai_chat', source: 'website', transcript: tx },
-              })
-            }
-          } catch (err) { console.warn('[site] chat transcript save failed:', err.message) }
-        }
-
-        // High-intent alerts for reserve / deposit requests.
-        if (formType === 'reserve') {
-          await createNotification({
-            dealershipId: d.id, type: 'new_lead',
-            title: `Reserve request${name ? ': ' + name : ''}`,
-            body: `A shopper wants to reserve a vehicle online — follow up fast to take the deposit.`,
-            linkPage: 'crm', targetUserId: routed?.assignee || null,
-          })
-        }
-      }
-      res.json({ ok: true })
-    } catch (e) { res.status(500).json({ error: e.message }) }
-  })
-
-  // ── PUBLIC: native appointment booking (test drive / consult) ───────────────
-  // Shopper picks a date + time on the dealer site → lands on the dealer's CRM
-  // calendar as an appointment, routed + assigned to a rep, with a video-meeting
-  // link, and emails the customer + the assigned rep + the store.
-  app.post('/site/:slug/book', rateLimit('sitebook', 12, 60000), async (req, res) => {
-    const slug = String(req.params.slug || '').toLowerCase().trim()
-    const { data: d } = await supabaseAdmin.from('dealerships').select('id, name, branding, site_published, city, province').ilike('site_slug', slug).maybeSingle()
-    if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
-    if (!(await verifyRecaptcha(req.body?.recaptcha_token))) return res.status(403).json({ error: 'recaptcha_failed' })
-    const b = req.body || {}
-    const name = String(b.name || '').trim().slice(0, 120)
-    const email = String(b.email || '').trim().slice(0, 160)
-    const phone = String(b.phone || '').trim().slice(0, 40)
-    const notes = String(b.notes || b.message || '').trim().slice(0, 1000)
-    if (!name || (!email && !phone)) return res.status(400).json({ error: 'Add your name and an email or phone.' })
-    const when = new Date(b.when)
-    if (isNaN(when.getTime())) return res.status(400).json({ error: 'Pick a valid date and time.' })
-    if (when.getTime() < Date.now() + 15 * 60 * 1000) return res.status(400).json({ error: 'Please choose a time at least 15 minutes out.' })
-    if (when.getTime() > Date.now() + 120 * 86400000) return res.status(400).json({ error: 'Please choose a time within the next few months.' })
-    const durationMin = 30
-    const kind = String(b.kind || 'Test drive').slice(0, 40)
-
-    let inventory_id = null, vehicleLabel = ''
-    if (b.vehicle_id) {
-      const { data: v } = await supabaseAdmin.from('inventory').select('id, dealership_id, year, make, model, trim').eq('id', b.vehicle_id).maybeSingle()
-      if (v && v.dealership_id === d.id) { inventory_id = v.id; vehicleLabel = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') }
-    }
-    const endAt = new Date(when.getTime() + durationMin * 60000)
-    const whenLabel = (() => { try { return new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short', timeZone: b.tz || 'America/Toronto' }).format(when) } catch { return when.toISOString() } })()
-    const rand = Math.random().toString(36).slice(2, 8)
-    const meetUrl = `https://meet.jit.si/${(d.name || 'dealer').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'dealer'}-${rand}`
-
-    try {
-      const { data: lead } = await supabaseAdmin.from('leads').insert({
-        dealership_id: d.id, name: name || null, email: email || null, phone: phone || null,
-        comments: `${kind} booked for ${whenLabel}${vehicleLabel ? ' — ' + vehicleLabel : ''}${notes ? ' · ' + notes : ''}`, source: 'Website', inventory_id,
-      }).select('id').single()
-      const contactId = await findOrCreateContact({ dealershipId: d.id, name, email, phone, source: 'Website' })
-      if (contactId && lead?.id) await supabaseAdmin.from('leads').update({ contact_id: contactId }).eq('id', lead.id)
-      const routed = await routeAndNotifyLead(d.id, { contactId, vehicleId: inventory_id || null, name, source: 'Website' })
-      const repId = routed?.assignee || null
-      await supabaseAdmin.from('contacts').update({ status: 'appointment', updated_at: new Date().toISOString() }).eq('id', contactId)
-      await supabaseAdmin.from('crm_tasks').insert({
-        dealership_id: d.id, contact_id: contactId, assigned_to: repId, created_by: repId,
-        title: `${kind} — ${name}${vehicleLabel ? ' — ' + vehicleLabel : ''}`, type: 'appointment', due_at: when.toISOString(),
-      })
-      await supabaseAdmin.from('communications').insert({
-        dealership_id: d.id, contact_id: contactId, channel: 'note', direction: 'internal',
-        subject: `${kind} booked`, body: `${whenLabel} (${durationMin} min)${vehicleLabel ? '\nVehicle: ' + vehicleLabel : ''}\nVideo: ${meetUrl}${notes ? '\nNotes: ' + notes : ''}`,
-        meta: { kind: 'appointment', meet_url: meetUrl, when: when.toISOString(), duration_min: durationMin },
-      })
-      enqueueForTrigger(d.id, 'appointment_booked', { contactId, vehicleId: inventory_id || null, repId })
-      await createNotification({
-        dealershipId: d.id, type: 'new_lead', title: `📅 ${kind} booked — ${name}`,
-        body: `${whenLabel}${vehicleLabel ? ' · ' + vehicleLabel : ''}. Confirm with the customer.`, linkPage: 'appointments', targetUserId: repId,
-      })
-
-      // Emails: customer + assigned rep + the store's general inbox.
-      if (resend) {
-        const gS = when.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, ''), gE = endAt.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
-        const gcal = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(kind + ' — ' + d.name)}&dates=${gS}/${gE}&details=${encodeURIComponent((vehicleLabel ? vehicleLabel + '\n' : '') + 'Join: ' + meetUrl)}`
-        const btn = (h, l, bg) => `<a href="${h}" style="display:inline-block;background:${bg};color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:10px 18px;border-radius:8px;margin:4px 6px 4px 0">${l}</a>`
-        const shell = (heading, intro) => `<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:520px;margin:0 auto"><div style="background:#1e3a8a;color:#fff;padding:16px 20px;border-radius:12px 12px 0 0"><div style="font-size:19px;font-weight:800">${heading}</div></div><div style="border:1px solid #e2e8f0;border-top:0;border-radius:0 0 12px 12px;padding:20px"><p style="font-size:15px;color:#0f172a;margin:0 0 12px">${intro}</p><table style="width:100%;font-size:14px;color:#334155"><tr><td style="padding:6px 0;color:#64748b;width:90px">When</td><td style="padding:6px 0;font-weight:700">${whenLabel}</td></tr>${vehicleLabel ? `<tr><td style="padding:6px 0;color:#64748b">Vehicle</td><td style="padding:6px 0">${vehicleLabel}</td></tr>` : ''}<tr><td style="padding:6px 0;color:#64748b">Video</td><td style="padding:6px 0"><a href="${meetUrl}" style="color:#1e3a8a;font-weight:700">${meetUrl}</a></td></tr></table><div style="margin-top:16px">${btn(meetUrl, '▶ Join', '#16a34a')}${btn(gcal, '+ Add to calendar', '#1e3a8a')}</div></div></div>`
-        if (email) resend.emails.send({ from: EMAIL_FROM, to: email, subject: `Your ${kind.toLowerCase()} at ${d.name} — ${whenLabel}`, html: shell(`${kind} confirmed`, `Thanks ${name.split(' ')[0] || ''}! We've got you down for a ${kind.toLowerCase()}. See you then.`) }).catch(() => {})
-        const inboxes = new Set()
-        const house = d.branding?.email || d.automation_settings?.house_email
-        if (house) inboxes.add(String(house).toLowerCase())
-        if (repId) { const { data: rp } = await supabaseAdmin.from('profiles').select('email').eq('id', repId).maybeSingle(); if (rp?.email) inboxes.add(rp.email.toLowerCase()) }
-        for (const to of inboxes) resend.emails.send({ from: EMAIL_FROM, to, subject: `New ${kind.toLowerCase()} booked — ${name} — ${whenLabel}`, html: shell(`New ${kind.toLowerCase()} booked`, `${name} booked a ${kind.toLowerCase()}${vehicleLabel ? ` for the ${vehicleLabel}` : ''}. It's on the calendar.${notes ? `<br><br><b>Notes:</b> ${notes}` : ''}`) }).catch(() => {})
-      }
-      res.json({ ok: true, when: when.toISOString(), meet_url: meetUrl })
-    } catch (e) {
-      console.warn('[site] booking failed:', e.message)
-      res.status(500).json({ error: 'Could not book that time — please try again.' })
-    }
-  })
 
   // ── PUBLIC: AI sales concierge chat for a dealer's website ─────────────────
   // Answers shopper questions strictly from THIS dealer's live inventory + info,
@@ -644,8 +383,10 @@ export function registerSite(app) {
     let facts = [
       `Dealership: ${d.name}${loc ? ` — ${loc}` : ''}.`,
       b.phone ? `Phone: ${b.phone}.` : '',
+      b.email ? `Email: ${b.email}.` : '',
       b.address ? `Address: ${b.address}.` : '',
       b.hours ? `Hours: ${String(b.hours).slice(0, 300)}.` : '',
+      b.about ? `About: ${String(b.about).slice(0, 600)}.` : '',
       `Vehicles in stock: ${list.length}. By make: ${byMake || 'n/a'}.`,
       `Financing available: ${can('finance') ? 'yes' : 'ask'}. Trade-in appraisals: ${can('trade') ? 'yes' : 'ask'}.`,
     ].filter(Boolean).join('\n')
@@ -704,7 +445,9 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     // A conversation handle so the agentic tools (book_appointment, create_lead,
     // request_human, save_memory) can persist to the CRM / timeline / AI Chat home.
     // The visitor token is echoed back so follow-up turns continue the same thread.
-    const visitorToken = String(req.body?.visitor_token || '') || ('v_' + Math.random().toString(36).slice(2) + Date.now().toString(36))
+    // This token IS a credential: the conversation is looked up by it, so a predictable
+    // one would let a stranger resume another visitor's thread. Must be crypto-random.
+    const visitorToken = String(req.body?.visitor_token || '') || ('v_' + randomToken(12))
     let conversation = null
     if (req.body?.conversation_id) {
       const { data } = await supabaseAdmin.from('ai_conversations').select('*').eq('id', req.body.conversation_id).eq('dealership_id', d.id).maybeSingle()
@@ -771,7 +514,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
   })
 
   // ── ADMIN: read the site config (slug, published, content) ─────────────────
-  app.get('/dealership/site', requireAuth, async (req, res) => {
+  app.get('/dealership/site', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { data: d } = await supabaseAdmin.from('dealerships')
       .select('name, branding, site_slug, site_published, custom_domain, custom_domain_verified, city, province, postal_code, website_url').eq('id', req.dealershipId).single()
@@ -781,15 +524,14 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       custom_domain: d.custom_domain || null,
       custom_domain_verified: !!d.custom_domain_verified,
       domain_target: SITE_HOST,   // where the dealer points their CNAME
-      can_manage: isSiteAdmin(req),
+      can_manage: true,
       content: siteContent(d),
     })
   })
 
   // ── ADMIN: update slug / publish / site content ────────────────────────────
-  app.put('/dealership/site', requireAuth, async (req, res) => {
+  app.put('/dealership/site', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Manager access required' })
     const b = req.body || {}
     const update = {}
 
@@ -804,6 +546,26 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       } else update.site_slug = null
     }
     if (b.site_published !== undefined) update.site_published = !!b.site_published
+
+    // Auto-assign a web address the first time a site is published (e.g. right after a
+    // template is applied) so it goes live immediately without the dealer hand-picking a
+    // slug. Derived from the dealership name; de-duplicated with a numeric suffix.
+    if (update.site_published === true && update.site_slug === undefined) {
+      const { data: cur } = await supabaseAdmin.from('dealerships').select('name, site_slug').eq('id', req.dealershipId).maybeSingle()
+      if (!cur?.site_slug) {
+        let base = slugify(cur?.name || '') || 'dealer'
+        if (base.length < 3) base = ('dealer-' + base).replace(/-$/, '').slice(0, 40)
+        let slug = base, n = 1
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const { data: taken } = await supabaseAdmin.from('dealerships')
+            .select('id').ilike('site_slug', slug).neq('id', req.dealershipId).maybeSingle()
+          if (!taken) break
+          slug = (base.slice(0, 36) + '-' + (++n)).slice(0, 40)
+        }
+        update.site_slug = slug
+      }
+    }
 
     if (b.custom_domain !== undefined) {
       const dom = String(b.custom_domain || '').toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
@@ -829,7 +591,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
 
     // Merge site content into the shared branding jsonb (don't wipe sticker fields).
     const contentKeys = ['tagline', 'about', 'hours', 'phone', 'email', 'address', 'hero_url', 'primary_color', 'secondary_color', 'accent_color', 'facebook_url', 'instagram_url', 'typography', 'heading_font', 'body_font', 'hero_photos', 'seo_title', 'seo_description', 'seo_keywords', 'seo_image']
-    const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined || b.staff !== undefined || b.build_makes !== undefined || b.builtins !== undefined || b.menu_order !== undefined || b.sales_chat !== undefined || b.chat_name !== undefined || b.chat_kb !== undefined || b.chat_instructions !== undefined || b.chat_disclaimer !== undefined
+    const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.theme !== undefined || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined || b.staff !== undefined || b.build_makes !== undefined || b.builtins !== undefined || b.menu_order !== undefined || b.sales_chat !== undefined || b.chat_name !== undefined || b.chat_kb !== undefined || b.chat_instructions !== undefined || b.chat_disclaimer !== undefined
     if (touchesContent) {
       const { data: cur } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
       const branding = { ...(cur?.branding || {}) }
@@ -839,7 +601,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       if (b.chat_kb !== undefined) branding.site_chat_kb = String(b.chat_kb || '').slice(0, 12000) || null
       if (b.chat_instructions !== undefined) branding.site_chat_instructions = String(b.chat_instructions || '').slice(0, 4000) || null
       if (b.chat_disclaimer !== undefined) branding.site_chat_disclaimer = String(b.chat_disclaimer || '').slice(0, 600) || null
-      if (b.head_html !== undefined) branding.site_head_html = String(b.head_html || '').slice(0, 20000) || null
+      if (b.head_html !== undefined) branding.site_head_html = stripScriptsFromHead(String(b.head_html || '')).slice(0, 20000) || null
       if (b.widgets !== undefined) branding.site_widgets = cleanWidgets(b.widgets)
       if (b.pages !== undefined) branding.site_pages = cleanPages(b.pages)
       if (b.staff !== undefined) branding.site_team = cleanStaff(b.staff)
@@ -848,18 +610,19 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       if (b.menu_order !== undefined) branding.site_menu_order = cleanMenuOrder(b.menu_order)
       if (b.sections !== undefined) branding.site_sections = cleanSections(b.sections)
       if (b.typography !== undefined) branding.typography = TYPOGRAPHY.includes(b.typography) ? b.typography : 'modern'
+      if (b.theme !== undefined) branding.site_theme = SITE_THEMES.includes(b.theme) ? b.theme : 'classic'
       update.branding = branding
     }
 
     if (!Object.keys(update).length) return res.json({ ok: true })
     const { error } = await supabaseAdmin.from('dealerships').update(update).eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'site.configuration_updated', { after_state: { fields: Object.keys(update), site_published: update.site_published, site_slug: update.site_slug, custom_domain: update.custom_domain } })
     res.json({ ok: true, site_slug: update.site_slug, site_published: update.site_published, custom_domain: update.custom_domain, domain_target: SITE_HOST })
   })
 
   // ── ADMIN: check whether the dealer's custom domain now points at us ─────────
-  app.post('/dealership/site/verify-domain', requireAuth, async (req, res) => {
-    if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.post('/dealership/site/verify-domain', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     const { data: d } = await supabaseAdmin.from('dealerships').select('custom_domain, custom_domain_cf_id').eq('id', req.dealershipId).single()
     const dom = d?.custom_domain
     if (!dom) return res.status(400).json({ error: 'Add a domain first.' })
@@ -882,6 +645,110 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       }
     }
     await supabaseAdmin.from('dealerships').update({ custom_domain_verified: ok }).eq('id', req.dealershipId)
+    audit(req, 'site.domain_verified', { after_state: { domain: dom, verified: ok } })
     res.json({ verified: ok, domain: dom, target: SITE_HOST, message: ok ? 'Connected! Your domain is live with a secure certificate.' : 'Not live yet — DNS/SSL can take a few minutes to an hour after you add the record. Try again shortly.' })
+  })
+
+  // ── Dealer blog — authoring (owner / GM), RLS-scoped via req.supabase ────────
+  const BLOG_COLS = 'id, slug, title, excerpt, content_html, cover_image_url, author, tags, status, seo_title, seo_description, published_at, created_at, updated_at'
+  async function uniqueBlogSlug(supa, dealershipId, base, ignoreId) {
+    let slug = slugify(base) || 'post'; let n = 1
+    while (true) {
+      let q = supa.from('dealer_blog_posts').select('id').eq('dealership_id', dealershipId).eq('slug', slug)
+      if (ignoreId) q = q.neq('id', ignoreId)
+      const { data } = await q.maybeSingle()
+      if (!data) return slug
+      slug = `${slugify(base) || 'post'}-${++n}`
+    }
+  }
+
+  app.get('/dealership/blog', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data, error } = await req.supabase.from('dealer_blog_posts')
+      .select(BLOG_COLS).eq('dealership_id', req.dealershipId).order('updated_at', { ascending: false })
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ posts: data || [] })
+  })
+
+  app.post('/dealership/blog', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const b = req.body || {}
+    const title = String(b.title || '').trim()
+    if (!title) return res.status(400).json({ error: 'Title is required' })
+    const slug = await uniqueBlogSlug(req.supabase, req.dealershipId, b.slug || title)
+    const status = b.status === 'published' ? 'published' : 'draft'
+    const row = {
+      dealership_id: req.dealershipId, slug, title,
+      excerpt: String(b.excerpt || '').trim(),
+      content_html: String(b.content_html || ''),
+      cover_image_url: b.cover_image_url || null,
+      author: String(b.author || '').trim() || null,
+      tags: Array.isArray(b.tags) ? b.tags.filter(Boolean).map(String) : [],
+      status, seo_title: b.seo_title || null, seo_description: b.seo_description || null,
+      published_at: status === 'published' ? new Date().toISOString() : null,
+      created_by: req.user.id,
+    }
+    const { data, error } = await req.supabase.from('dealer_blog_posts').insert(row).select(BLOG_COLS).single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ post: data })
+  })
+
+  app.patch('/dealership/blog/:id', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const b = req.body || {}
+    const { data: existing } = await req.supabase.from('dealer_blog_posts')
+      .select('id, status, published_at').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!existing) return res.status(404).json({ error: 'Post not found' })
+    const patch = { updated_at: new Date().toISOString() }
+    if (b.title !== undefined) patch.title = String(b.title || '').trim()
+    if (b.excerpt !== undefined) patch.excerpt = String(b.excerpt || '').trim()
+    if (b.content_html !== undefined) patch.content_html = String(b.content_html || '')
+    if (b.cover_image_url !== undefined) patch.cover_image_url = b.cover_image_url || null
+    if (b.author !== undefined) patch.author = String(b.author || '').trim() || null
+    if (b.tags !== undefined) patch.tags = Array.isArray(b.tags) ? b.tags.filter(Boolean).map(String) : []
+    if (b.seo_title !== undefined) patch.seo_title = b.seo_title || null
+    if (b.seo_description !== undefined) patch.seo_description = b.seo_description || null
+    if (b.slug !== undefined && b.slug) patch.slug = await uniqueBlogSlug(req.supabase, req.dealershipId, b.slug, existing.id)
+    if (b.status !== undefined) {
+      patch.status = b.status === 'published' ? 'published' : 'draft'
+      if (patch.status === 'published' && !existing.published_at) patch.published_at = new Date().toISOString()
+    }
+    const { data, error } = await req.supabase.from('dealer_blog_posts')
+      .update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select(BLOG_COLS).single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ post: data })
+  })
+
+  app.delete('/dealership/blog/:id', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { error } = await req.supabase.from('dealer_blog_posts')
+      .delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true })
+  })
+
+  // ── PUBLIC: a dealer's published blog (served for the public site) ───────────
+  async function dealerBySlug(slug) {
+    const s = String(slug || '').toLowerCase().trim()
+    if (!s) return null
+    const { data } = await supabaseAdmin.from('dealerships').select('id, name, site_published').ilike('site_slug', s).maybeSingle()
+    return (data && data.site_published) ? data : null
+  }
+  app.get('/site/:slug/blog', rateLimit('pub-site-blog', 120, 60000), async (req, res) => {
+    const d = await dealerBySlug(req.params.slug)
+    if (!d) return res.status(404).json({ error: 'Site not found' })
+    const { data } = await supabaseAdmin.from('dealer_blog_posts')
+      .select('slug, title, excerpt, cover_image_url, author, tags, published_at')
+      .eq('dealership_id', d.id).eq('status', 'published').order('published_at', { ascending: false }).limit(100)
+    res.json({ posts: data || [] })
+  })
+  app.get('/site/:slug/blog/:postSlug', rateLimit('pub-site-blogpost', 120, 60000), async (req, res) => {
+    const d = await dealerBySlug(req.params.slug)
+    if (!d) return res.status(404).json({ error: 'Site not found' })
+    const { data } = await supabaseAdmin.from('dealer_blog_posts')
+      .select('slug, title, excerpt, content_html, cover_image_url, author, tags, published_at, seo_title, seo_description')
+      .eq('dealership_id', d.id).eq('slug', String(req.params.postSlug || '').toLowerCase()).eq('status', 'published').maybeSingle()
+    if (!data) return res.status(404).json({ error: 'Post not found' })
+    res.json({ post: data })
   })
 }

@@ -1,16 +1,36 @@
 import { createClient } from '@supabase/supabase-js'
 import { randomBytes, createHash } from 'crypto'
-import { supabase, supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { supabase, supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL, isEmailLike } from '../shared.js'
+import { requireAuth, requireMfa } from '../middleware.js'
 import { validatePassword, rateLimit, getClientIp, generateRecoveryCodes, hashRecoveryCode } from '../security.js'
 import { maybeAlertSuspiciousLogin } from '../securityAlerts.js'
 import { audit, AuditAction } from '../audit.js'
 import { recordReferralSignup } from './affiliate.js'
+import { syncDealerRole } from '../authorization.js'
+import { ACCOUNT_TYPES, provisionPlan } from '../entitlements.js'
+import { getPlan } from '../plan-catalog.js'
+import { createMfaLoginChallenge, consumeMfaLoginChallenge, getMfaLoginChallenge } from '../mfa-login-challenges.js'
+import { ensureStaffMember } from './people-identity.js'
 import {
   beginPasskeyRegistration, finishPasskeyRegistration,
   beginPasskeyLogin, finishPasskeyLogin,
   listUserPasskeys, deletePasskey
 } from '../passkeys.js'
+
+function maskPhone(phone) {
+  const value = String(phone || '')
+  if (value.length < 5) return 'your phone'
+  return `${value.slice(0, 2)}••• ••• ${value.slice(-4)}`
+}
+
+async function replaceMfaRecoveryCodes(userId) {
+  const codes = generateRecoveryCodes(10)
+  const rows = codes.map(code => ({ user_id: userId, code_hash: hashRecoveryCode(code) }))
+  await supabaseAdmin.from('recovery_codes').delete().eq('user_id', userId)
+  const { error } = await supabaseAdmin.from('recovery_codes').insert(rows)
+  if (error) throw error
+  return codes
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // EMAIL TEMPLATES — plain language, branded, with a clear call to action
@@ -98,11 +118,55 @@ async function sendVerificationEmail({ email, actionLink, name }) {
   } catch (e) { console.warn('[auth] verification email send failed:', e.message); return false }
 }
 
+import { registerAuthMfaPasskeyRoutes } from './submodules/auth-mfa-passkeys.js'
+
+
+// ── Issuing a password reset ─────────────────────────────────────────────────
+// Extracted so HR's admin-triggered reset (routes/people-dossier.js) uses the SAME
+// one-shot hashed-token flow rather than a second reset path. A duplicate would be a
+// second place to get token expiry, hashing or single-use wrong.
+//
+// Returns { sent, reason } — never throws, and never sets a password. The raw token is
+// emailed and only its SHA-256 hash is stored, so a full database dump cannot be used
+// to reset anybody.
+export async function issuePasswordReset({ userId, email, req }) {
+  if (!userId || !email) return { sent: false, reason: 'no login on file' }
+  if (!resend) return { sent: false, reason: 'email is not configured on this deployment' }
+  const normEmail = String(email).toLowerCase().trim()
+  try {
+    const rawToken = randomBytes(32).toString('hex')
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex')
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString()
+    const ip = req ? getClientIp(req) : null
+
+    const { error: insErr } = await supabaseAdmin.from('password_reset_tokens').insert({
+      user_id: userId, email: normEmail, token_hash: tokenHash, expires_at: expiresAt, requested_ip: ip,
+    })
+    if (insErr) return { sent: false, reason: 'the reset token could not be stored' }
+
+    const resetUrl = `${FRONTEND_URL}/reset-password.html?token=${rawToken}`
+    const { error: sendErr } = await resend.emails.send({
+      from: EMAIL_FROM, to: normEmail, subject: 'Reset your MarketSync password',
+      html: buildResetEmailHtml({ resetUrl, ip }), text: buildResetEmailText({ resetUrl, ip }),
+      headers: {
+        'List-Unsubscribe': `<mailto:unsubscribe@marketsync.link?subject=unsub-${userId}>`,
+        'X-Entity-Ref-ID': tokenHash.slice(0, 16),
+      },
+    })
+    if (sendErr) return { sent: false, reason: sendErr.message || 'the email provider refused it' }
+    return { sent: true }
+  } catch (e) {
+    return { sent: false, reason: e?.message || 'unknown failure' }
+  }
+}
+
 export function registerRoutes(app) {
+  registerAuthMfaPasskeyRoutes(app)
+
   // ── 3. AUTH ENDPOINTS ──
   // 5 login attempts per IP per 15 minutes — slows credential stuffing without
   // hurting real users who fat-finger their password.
-  app.post('/auth/login', rateLimit('login', 5, 15 * 60 * 1000), async (req, res) => {
+  app.post('/auth/login', rateLimit('login', 5, 15 * 60 * 1000, { email: true }), async (req, res) => {
     const { email, password } = req.body
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
@@ -118,63 +182,99 @@ export function registerRoutes(app) {
       })
     }
 
-    // 2FA gate — if user has a verified TOTP factor, return a partial session and require
-    // a code via /auth/2fa/challenge before they get a usable access token.
+    // MFA gate — if the user has a verified Supabase TOTP or phone factor, retain
+    // the aal1 session server-side and require one chosen factor before returning
+    // a usable token. Passkeys/email OTP are first-factor sign-in methods, not aal2.
     try {
       const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
         global: { headers: { Authorization: `Bearer ${data.session.access_token}` } }
       })
-      const { data: factors } = await userClient.auth.mfa.listFactors()
-      const verified = (factors?.totp || []).find(f => f.status === 'verified')
-      if (verified) {
+      const { data: factors, error: factorError } = await userClient.auth.mfa.listFactors()
+      if (factorError) throw factorError
+      const verifiedFactors = [
+        ...(factors?.totp || []).filter(f => f.status === 'verified').map(f => ({ id: f.id, factor_type: 'totp', friendly_name: f.friendly_name || 'Authenticator app' })),
+        ...(factors?.phone || []).filter(f => f.status === 'verified').map(f => ({ id: f.id, factor_type: 'phone', friendly_name: f.friendly_name || 'Text message', phone: maskPhone(f.phone) })),
+      ]
+      
+      const clientTrustedToken = req.headers['x-trusted-device'] || req.body?.trusted_device
+      const isDeviceTrusted = clientTrustedToken && verifyTrustedDeviceToken(clientTrustedToken, data.user?.id)
+
+      if (verifiedFactors.length && !isDeviceTrusted) {
+        const preferred = verifiedFactors[0]
         return res.status(202).json({
           mfa_required: true,
-          factor_id: verified.id,
-          partial_token: data.session.access_token,
+          factor_id: preferred.id,
+          factor_type: preferred.factor_type,
+          factors: verifiedFactors,
+          partial_token: createMfaLoginChallenge({
+            accessToken: data.session.access_token,
+            refreshToken: data.session.refresh_token,
+          }),
           message: 'Two-factor code required.'
         })
       }
-    } catch (mfaErr) {
-      console.warn('MFA status check failed (allowing login):', mfaErr.message)
-    }
 
-    const currentIp = getClientIp(req)
-    const currentUa = (req.headers['user-agent'] || '').slice(0, 500)
+      const currentIp = getClientIp(req)
+      const currentUa = (req.headers['user-agent'] || '').slice(0, 500)
 
-    supabaseAdmin.from('logins').insert({
-      user_id: data.user.id,
-      ip: currentIp,
-      user_agent: currentUa
-    }).then(async ({ error: logErr }) => {
-      if (logErr) console.warn('Failed to log login event:', logErr.message)
-      // Best-effort suspicious-login alert (never blocks login response)
-      await maybeAlertSuspiciousLogin({
-        supabaseAdmin,
-        userId: data.user.id,
-        userEmail: data.user.email,
-        currentIp,
-        currentUserAgent: currentUa
+      supabaseAdmin.from('logins').insert({
+        user_id: data.user.id,
+        ip: currentIp,
+        user_agent: currentUa
+      }).then(async ({ error: logErr }) => {
+        if (logErr) console.warn('Failed to log login event:', logErr.message)
+        // Best-effort suspicious-login alert (never blocks login response)
+        await maybeAlertSuspiciousLogin({
+          supabaseAdmin,
+          userId: data.user.id,
+          userEmail: data.user.email,
+          currentIp,
+          currentUserAgent: currentUa
+        })
       })
-    })
 
-    audit(req, AuditAction.USER_LOGIN, { method: 'password', user_id: data.user.id })
-    res.json({
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
-      user: { id: data.user.id, email: data.user.email }
-    })
+      audit(req, AuditAction.USER_LOGIN, { method: 'password', user_id: data.user.id })
+      
+      const freshTrustedToken = isDeviceTrusted ? createTrustedDeviceToken(data.user?.id) : null
+      res.json({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+        user: { id: data.user.id, email: data.user.email },
+        ...(freshTrustedToken ? { trusted_device_token: freshTrustedToken } : {})
+      })
+    } catch (mfaErr) {
+      // Failing open here would issue a full password session to an account that
+      // may have MFA enabled. Make the user retry instead of weakening MFA when
+      // Supabase's factor lookup is temporarily unavailable.
+      console.warn('MFA status check failed (blocking login):', mfaErr.message)
+      return res.status(503).json({
+        error: 'MFA_STATUS_UNAVAILABLE',
+        message: 'We could not verify your multi-factor sign-in status. Please try again shortly.'
+      })
+    }
   })
 
   // 3 registrations per IP per hour — stops bot-driven sign-up abuse
   app.post('/auth/register', rateLimit('register', 3, 60 * 60 * 1000), async (req, res) => {
     const { accountRole, fullName, email, password, dealershipName, websiteUrl, feeds,
-            newsletterConsent, termsAccepted, affiliateCode } = req.body
+            newsletterConsent, termsAccepted, affiliateCode, product, plan } = req.body
 
     if (!email || !password || !fullName || !accountRole) {
       return res.status(400).json({ error: 'Missing required registration fields' })
     }
-    if (accountRole === 'dealer_admin' && !dealershipName) {
-      return res.status(400).json({ error: 'Dealership name required for admin accounts' })
+    // The chosen plan drives org type, owner role, trial and all entitlements. Never
+    // create a dealer account without one: an unplanned account can log in but has no
+    // reliable product/tier navigation.
+    const chosenPlan = plan ? getPlan(plan) : null
+    if (!plan) return res.status(400).json({ error: 'Please choose a plan before creating your account' })
+    if (plan && !chosenPlan) return res.status(400).json({ error: `Unknown plan: ${plan}` })
+
+    // Org type: from the plan when present, else the legacy accountRole heuristic.
+    const isDealership = chosenPlan ? chosenPlan.org_type === 'dealership' : accountRole === 'dealer_admin'
+    const accountType = chosenPlan?.org_type
+      || (ACCOUNT_TYPES.includes(req.body.accountType) ? req.body.accountType : (isDealership ? 'dealership' : 'solo'))
+    if (isDealership && !dealershipName) {
+      return res.status(400).json({ error: 'Dealership name required for a dealership account' })
     }
 
     // 2026 password policy — NIST 800-63B compliant
@@ -199,17 +299,17 @@ export function registerRoutes(app) {
       createdUserId = authData.user.id
       confirmActionLink = authData.properties?.action_link || null
 
-      // Auto-confirm the email so the account can sign in immediately. The
-      // confirmation email is a welcome/nice-to-have, NOT a gate — this keeps
-      // sign-up and sign-in working even when email delivery is down (e.g. the
-      // sending domain isn't verified in Resend yet).
-      try { await supabaseAdmin.auth.admin.updateUserById(createdUserId, { email_confirm: true }) }
-      catch (e) { console.error('[register] auto-confirm failed:', e?.message || e) }
+      // Email verification is a REAL gate — do NOT auto-confirm. The account stays
+      // unconfirmed until the user clicks the link we email below (sendVerificationEmail);
+      // until then login is blocked with 403 EMAIL_NOT_VERIFIED and the user can re-send
+      // via /auth/resend-verification. NOTE: this requires working email delivery in
+      // production (Resend sending domain verified) — otherwise users cannot verify.
 
-      // 30-day free trial: full account access AND every add-on switched on. When
-      // it ends, add-ons drop to whatever the dealer actually paid for (see the
-      // expiry sweep in /ai/config + /cron/expire-full-access).
-      const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      // 30-day free trial — NO credit card required at sign-up. The account gets full
+      // access to the chosen plan for the trial window; when it ends, the middleware
+      // billing gate returns 402 and the app shows the paywall popup to pick + pay.
+      const TRIAL_DAYS = 30
+      const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString()
 
       // Newsletter consent (CASL/GDPR/CAN-SPAM): only record if explicitly opted in.
       // Stamp the timestamp + IP so we have audit trail of when consent was given.
@@ -223,12 +323,13 @@ export function registerRoutes(app) {
         ? { terms_accepted_at: new Date().toISOString(), terms_accepted_ip: getClientIp(req) }
         : {}
 
-      if (accountRole === 'dealer_admin') {
+      if (isDealership) {
         const { data: dealership, error: dealerError } = await supabaseAdmin
           .from('dealerships')
           .insert({
             name: dealershipName,
             website_url: websiteUrl || null,
+            account_type: accountType,
             billing_status: 'TRIALING',
             trial_ends_at: trialEndsAt,
             // Everything unlocked for the 30-day trial; drops to paid-only after.
@@ -275,6 +376,7 @@ export function registerRoutes(app) {
           .insert({
             name: `${fullName} — Personal`,
             website_url: null,
+            account_type: accountType,
             billing_status: null,
             is_personal: true,
             // Same 30-day everything-unlocked onboarding.
@@ -304,6 +406,27 @@ export function registerRoutes(app) {
         if (profileError) throw profileError
       }
 
+      // Grant the registrant the OWNER role in RBAC (user_roles). Without this the new
+      // owner has no role row and every RLS permission check fails — they would be locked
+      // out of their own workspace. This runs inside the try so a failure rolls the whole
+      // registration back (see catch), matching the team-invite flow.
+      await syncDealerRole(createdUserId, createdDealershipId, chosenPlan?.owner_role || (isDealership ? 'DEALER_ADMIN' : 'OWNER'), createdUserId)
+
+      // A dealership owner is also its first employee. This is part of registration success,
+      // not a lazy repair: People, Academy and My Day must agree on the first login immediately.
+      if (isDealership) {
+        const employment = await ensureStaffMember(createdDealershipId, createdUserId, {
+          name: fullName, email, role: 'DEALER_ADMIN', startDate: new Date().toISOString().slice(0, 10),
+          createdBy: createdUserId, status: 'active',
+        })
+        if (employment.error) throw new Error(`Could not create the owner employment record: ${employment.error}`)
+      }
+
+      // Grant the chosen plan as a 30-day FREE TRIAL — no card. This is part of the
+      // registration success condition. If it fails, throw so the outer catch removes
+      // the incomplete user/dealership instead of creating a login with no tier.
+      await provisionPlan({ dealershipId: createdDealershipId, planId: chosenPlan.id, status: 'trialing', trialEndsAt })
+
       // Affiliate attribution — if they arrived via a ?ref link, stamp the dealership
       // and open a referral for the affiliate (best-effort; never blocks signup).
       if (affiliateCode) { try { await recordReferralSignup({ code: affiliateCode, dealershipId: createdDealershipId, email, name: dealershipName || fullName }) } catch {} }
@@ -315,18 +438,37 @@ export function registerRoutes(app) {
         user_id: createdUserId,
         verification_required: true,
         email_sent: emailed,
+        // No checkout at sign-up — the 30-day trial is already active (no card). The
+        // client signs in and goes straight to the dashboard; payment happens later via
+        // the paywall popup when the trial ends.
+        requires_checkout: false,
+        trial_days: TRIAL_DAYS,
+        plan: chosenPlan?.id || null,
         message: emailed
           ? 'Account created. Check your email and click the verification link to activate your account.'
           : 'Account created. If you don\'t receive a verification email shortly, use “Resend verification”.'
       })
     } catch (err) {
+      // Keep enough server-side context to diagnose a failed signup without
+      // putting registration details (email, password, or name) in the logs.
+      console.warn('[register] failed', { code: err?.code || null, message: err?.message || 'Registration failed' })
       if (createdDealershipId) {
         await supabaseAdmin.from('dealerships').delete().eq('id', createdDealershipId)
       }
       if (createdUserId) {
         await supabaseAdmin.auth.admin.deleteUser(createdUserId)
       }
-      res.status(400).json({ error: err.message || 'Registration failed' })
+      // Never let public sign-up attach a dealership to an account it does not own.
+      // A logged-in owner can add another workspace through the authenticated flow;
+      // this anonymous endpoint may only create a brand-new account.
+      const message = err?.message || 'Registration failed'
+      const emailAlreadyRegistered = /already registered|already exists|user.*exists/i.test(message)
+      res.status(emailAlreadyRegistered ? 409 : 400).json({
+        error: emailAlreadyRegistered
+          ? 'An account already exists for this email. Sign in, or use a different email for this dealership owner.'
+          : message,
+        code: emailAlreadyRegistered ? 'EMAIL_ALREADY_REGISTERED' : undefined
+      })
     }
   })
 
@@ -367,329 +509,8 @@ export function registerRoutes(app) {
     res.json({ success: true })
   })
 
-  // ── TOTP 2FA ──────────────────────────────────────────────────────────────────
-  // Optional but strongly encouraged. Uses Supabase Auth's built-in MFA (TOTP).
-  // Users enroll once via Google Authenticator / 1Password / Authy / etc., then
-  // every login challenges them for a 6-digit code after password verification.
-  //
-  // Flow:
-  //   1. POST /auth/2fa/enroll          → returns QR code + secret to user
-  //   2. User scans into authenticator app
-  //   3. POST /auth/2fa/verify-enroll   → user enters first code; we activate
-  //   4. From this point, /auth/login responds with MFA_REQUIRED instead of a session
-  //   5. POST /auth/2fa/challenge       → user submits code; gets full session
+  // MFA and Passkey endpoints extracted to routes/submodules/auth-mfa-passkeys.js
 
-  // Step 1 — Start enrollment. Returns the TOTP secret + a provisioning URI the
-  // frontend renders into a QR code.
-  app.post('/auth/2fa/enroll', requireAuth, rateLimit('mfa-enroll', 5, 60 * 60 * 1000), async (req, res) => {
-    try {
-      const token = req.headers.authorization?.replace('Bearer ', '')
-      const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-        global: { headers: { Authorization: `Bearer ${token}` } }
-      })
-
-      const { data, error } = await userClient.auth.mfa.enroll({
-        factorType: 'totp',
-        friendlyName: `MarketSync (${new Date().toISOString().slice(0, 10)})`
-      })
-      if (error) return res.status(400).json({ error: error.message })
-
-      // Supabase returns the TOTP secret + a URI like
-      // "otpauth://totp/MarketSync:email?secret=BASE32&issuer=MarketSync"
-      res.json({
-        factor_id: data.id,
-        qr_code_uri: data.totp?.uri || null,
-        secret: data.totp?.secret || null
-      })
-    } catch (err) {
-      res.status(500).json({ error: err.message })
-    }
-  })
-
-  // Step 2 — Verify the user can produce a valid TOTP code, finalizing enrollment
-  app.post('/auth/2fa/verify-enroll', requireAuth, rateLimit('mfa-verify', 10, 60 * 60 * 1000), async (req, res) => {
-    const { factor_id, code } = req.body || {}
-    if (!factor_id || !code) return res.status(400).json({ error: 'factor_id and code are required' })
-
-    try {
-      const token = req.headers.authorization?.replace('Bearer ', '')
-      const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-        global: { headers: { Authorization: `Bearer ${token}` } }
-      })
-
-      // Create challenge then verify in one shot — Supabase requires this pattern
-      const { data: challenge, error: chErr } = await userClient.auth.mfa.challenge({ factorId: factor_id })
-      if (chErr) return res.status(400).json({ error: chErr.message })
-
-      const { error: verifyErr } = await userClient.auth.mfa.verify({
-        factorId: factor_id,
-        challengeId: challenge.id,
-        code
-      })
-      if (verifyErr) return res.status(400).json({ error: 'Invalid code. Make sure your authenticator app is in sync.' })
-
-      // Issue 10 recovery codes — returned ONCE, hashed in DB. If the user loses
-      // their phone they can use one of these to get back in.
-      const codes = generateRecoveryCodes(10)
-      const rows = codes.map(c => ({
-        user_id: req.user.id,
-        code_hash: hashRecoveryCode(c)
-      }))
-      // Wipe any previous codes (e.g. user re-enrolled after disabling) then write fresh ones
-      await supabaseAdmin.from('recovery_codes').delete().eq('user_id', req.user.id)
-      const { error: codeErr } = await supabaseAdmin.from('recovery_codes').insert(rows)
-      if (codeErr) console.warn('recovery_codes insert failed:', codeErr.message)
-
-      audit(req, AuditAction.MFA_ENROLLED, { factor_id })
-      res.json({
-        success: true,
-        message: 'Two-factor authentication is now active on this account.',
-        recovery_codes: codes,
-        recovery_codes_note: 'Save these somewhere safe (password manager, printed). Each one works ONCE if you lose your phone. They will not be shown again.'
-      })
-    } catch (err) {
-      res.status(500).json({ error: err.message })
-    }
-  })
-
-  // Regenerate recovery codes (invalidates old ones). Available from the security panel.
-  app.post('/auth/2fa/regenerate-recovery-codes', requireAuth, rateLimit('mfa-regen', 3, 60 * 60 * 1000), async (req, res) => {
-    try {
-      const codes = generateRecoveryCodes(10)
-      const rows = codes.map(c => ({ user_id: req.user.id, code_hash: hashRecoveryCode(c) }))
-      await supabaseAdmin.from('recovery_codes').delete().eq('user_id', req.user.id)
-      const { error } = await supabaseAdmin.from('recovery_codes').insert(rows)
-      if (error) throw error
-      res.json({ recovery_codes: codes, message: 'New recovery codes generated. Old codes no longer work.' })
-    } catch (err) {
-      res.status(500).json({ error: err.message })
-    }
-  })
-
-  // ── WEBAUTHN / PASSKEYS ───────────────────────────────────────────────────────
-  // Register a new passkey (user must be signed in)
-  app.post('/auth/passkey/register/begin', requireAuth, rateLimit('passkey-reg', 10, 60 * 60 * 1000), async (req, res) => {
-    try {
-      const options = await beginPasskeyRegistration({
-        supabaseAdmin, userId: req.user.id, userEmail: req.user.email
-      })
-      res.json(options)
-    } catch (err) { res.status(500).json({ error: err.message }) }
-  })
-
-  app.post('/auth/passkey/register/finish', requireAuth, async (req, res) => {
-    const { response, device_name } = req.body || {}
-    if (!response) return res.status(400).json({ error: 'response required' })
-    const result = await finishPasskeyRegistration({
-      supabaseAdmin, userId: req.user.id, response, deviceName: device_name
-    })
-    if (!result.ok) return res.status(400).json({ error: result.error })
-    audit(req, AuditAction.PASSKEY_REGISTERED, { device_name: device_name || null })
-    res.json({ success: true, message: 'Passkey registered.' })
-  })
-
-  // List & delete passkeys (for the security panel UI)
-  app.get('/auth/passkey/list', requireAuth, async (req, res) => {
-    const items = await listUserPasskeys({ supabaseAdmin, userId: req.user.id })
-    res.json({ passkeys: items })
-  })
-
-  app.delete('/auth/passkey/:id', requireAuth, async (req, res) => {
-    const ok = await deletePasskey({ supabaseAdmin, userId: req.user.id, passkeyId: req.params.id })
-    if (!ok) return res.status(404).json({ error: 'Passkey not found' })
-    audit(req, AuditAction.PASSKEY_DELETED, { passkey_id: req.params.id })
-    res.json({ success: true })
-  })
-
-  // Passwordless login via passkey — no password required
-  app.post('/auth/passkey/login/begin', rateLimit('passkey-login', 10, 15 * 60 * 1000), async (req, res) => {
-    const { email } = req.body || {}
-    try {
-      const options = await beginPasskeyLogin({ supabaseAdmin, email })
-      res.json(options)
-    } catch (err) { res.status(500).json({ error: err.message }) }
-  })
-
-  app.post('/auth/passkey/login/finish', rateLimit('passkey-login', 10, 15 * 60 * 1000), async (req, res) => {
-    const { email, response } = req.body || {}
-    if (!response) return res.status(400).json({ error: 'response required' })
-    const result = await finishPasskeyLogin({ supabaseAdmin, email, response })
-    if (!result.ok) return res.status(401).json({ error: result.error })
-
-    // Mint a Supabase session for the verified user. We use the admin API to
-    // generate a fresh access token via magic link (server-side) without sending
-    // an email.
-    try {
-      const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(result.userId)
-      if (!user) return res.status(401).json({ error: 'User no longer exists' })
-
-      // Use generateLink to produce a one-time recovery URL we'll consume server-side
-      const { data: link, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
-        type: 'magiclink',
-        email: user.email,
-        options: { redirectTo: `${FRONTEND_URL}/dashboard.html` }
-      })
-      if (linkErr) return res.status(500).json({ error: 'Could not mint session: ' + linkErr.message })
-
-      // Pull the access token out of the hashed verification URL
-      const params = new URL(link.properties.action_link).searchParams
-      const tokenHash = params.get('token_hash') || link.properties.hashed_token
-      if (!tokenHash) return res.status(500).json({ error: 'No token returned by Supabase' })
-
-      const { data: verifyData, error: verifyErr } = await supabase.auth.verifyOtp({
-        token_hash: tokenHash,
-        type: 'magiclink'
-      })
-      if (verifyErr || !verifyData?.session) {
-        return res.status(500).json({ error: 'Session mint failed: ' + (verifyErr?.message || 'unknown') })
-      }
-
-      // Log + suspicious-login check (best-effort)
-      const currentIp = getClientIp(req)
-      const currentUa = (req.headers['user-agent'] || '').slice(0, 500) + ' [passkey]'
-      supabaseAdmin.from('logins').insert({
-        user_id: user.id, ip: currentIp, user_agent: currentUa
-      }).then(async ({ error: logErr }) => {
-        if (logErr) console.warn('login log failed:', logErr.message)
-        await maybeAlertSuspiciousLogin({
-          supabaseAdmin, userId: user.id, userEmail: user.email,
-          currentIp, currentUserAgent: currentUa
-        })
-      })
-
-      res.json({
-        access_token: verifyData.session.access_token,
-        refresh_token: verifyData.session.refresh_token,
-        user: { id: user.id, email: user.email }
-      })
-    } catch (err) {
-      res.status(500).json({ error: err.message })
-    }
-  })
-
-  // Step 3 — Disable 2FA (requires fresh authentication, i.e. current session)
-  app.post('/auth/2fa/disable', requireAuth, rateLimit('mfa-disable', 5, 60 * 60 * 1000), async (req, res) => {
-    try {
-      const token = req.headers.authorization?.replace('Bearer ', '')
-      const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-        global: { headers: { Authorization: `Bearer ${token}` } }
-      })
-
-      const { data: factors } = await userClient.auth.mfa.listFactors()
-      const totp = (factors?.totp || []).find(f => f.status === 'verified')
-      if (!totp) return res.json({ success: true, message: 'No active 2FA factor.' })
-
-      const { error } = await userClient.auth.mfa.unenroll({ factorId: totp.id })
-      if (error) throw error
-      res.json({ success: true, message: 'Two-factor authentication has been disabled.' })
-    } catch (err) {
-      res.status(500).json({ error: err.message })
-    }
-  })
-
-  // Status — returns whether the current user has 2FA active. Used by the profile UI.
-  app.get('/auth/2fa/status', requireAuth, async (req, res) => {
-    try {
-      const token = req.headers.authorization?.replace('Bearer ', '')
-      const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-        global: { headers: { Authorization: `Bearer ${token}` } }
-      })
-      const { data: factors } = await userClient.auth.mfa.listFactors()
-      const verified = (factors?.totp || []).find(f => f.status === 'verified')
-      res.json({ enabled: !!verified, factor_id: verified?.id || null })
-    } catch (err) {
-      res.status(500).json({ error: err.message })
-    }
-  })
-
-  // Login-time challenge. Called after the password step when login responds with
-  // MFA_REQUIRED. Accepts a TOTP code OR an 8-char recovery code (XXXX-XXXX format).
-  app.post('/auth/2fa/challenge', rateLimit('mfa-challenge', 5, 15 * 60 * 1000), async (req, res) => {
-    const { factor_id, code, partial_token } = req.body || {}
-    if (!factor_id || !code || !partial_token) {
-      return res.status(400).json({ error: 'factor_id, code, and partial_token are required' })
-    }
-
-    try {
-      const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-        global: { headers: { Authorization: `Bearer ${partial_token}` } }
-      })
-
-      // Detect recovery code by shape (8 alphanumeric chars with optional dash) —
-      // distinguishes from 6-digit TOTP. Lets users paste codes as XXXX-XXXX or XXXXXXXX.
-      const normalized = code.replace(/[\s-]/g, '').toUpperCase()
-      const isRecoveryCode = /^[A-Z2-9]{8}$/.test(normalized)
-
-      if (isRecoveryCode) {
-        // Recover via recovery code — look up the hash + delete it (single-use)
-        const { data: { user } } = await userClient.auth.getUser()
-        if (!user) return res.status(401).json({ error: 'Invalid session.' })
-
-        const hash = hashRecoveryCode(normalized)
-        const { data: codeRow, error: lookupErr } = await supabaseAdmin
-          .from('recovery_codes')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('code_hash', hash)
-          .maybeSingle()
-        if (lookupErr || !codeRow) return res.status(401).json({ error: 'Invalid recovery code.' })
-
-        // Burn the code immediately
-        await supabaseAdmin.from('recovery_codes').delete().eq('id', codeRow.id)
-
-        // The partial_token is already a valid Supabase access token at this point —
-        // we accept the recovery code as proof and return it as the session.
-        // (Recovery code use is logged via the logins insert below.)
-        supabaseAdmin.from('logins').insert({
-          user_id: user.id,
-          ip: getClientIp(req),
-          user_agent: (req.headers['user-agent'] || '').slice(0, 500) + ' [recovery-code]'
-        }).then(({ error: logErr }) => {
-          if (logErr) console.warn('login log failed:', logErr.message)
-        })
-
-        // Count remaining codes so the UI can nag the user to regenerate
-        const { count: remaining } = await supabaseAdmin
-          .from('recovery_codes').select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-
-        return res.json({
-          access_token: partial_token,
-          user: { id: user.id, email: user.email },
-          used_recovery_code: true,
-          recovery_codes_remaining: remaining || 0
-        })
-      }
-
-      // Otherwise treat as TOTP code
-      const { data: challenge, error: chErr } = await userClient.auth.mfa.challenge({ factorId: factor_id })
-      if (chErr) return res.status(400).json({ error: chErr.message })
-
-      const { data, error } = await userClient.auth.mfa.verify({
-        factorId: factor_id,
-        challengeId: challenge.id,
-        code
-      })
-      if (error) return res.status(401).json({ error: 'Invalid 2FA code.' })
-
-      // Log successful TOTP login
-      supabaseAdmin.from('logins').insert({
-        user_id: data.user?.id,
-        ip: getClientIp(req),
-        user_agent: (req.headers['user-agent'] || '').slice(0, 500) + ' [totp]'
-      }).then(({ error: logErr }) => {
-        if (logErr) console.warn('login log failed:', logErr.message)
-      })
-
-      res.json({
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
-        user: { id: data.user?.id, email: data.user?.email }
-      })
-    } catch (err) {
-      res.status(500).json({ error: err.message })
-    }
-  })
 
   // Exchange a refresh token for a fresh session — powers "keep me signed in".
   app.post('/auth/refresh', rateLimit('token-refresh', 60, 15 * 60 * 1000), async (req, res) => {
@@ -708,18 +529,61 @@ export function registerRoutes(app) {
     }
   })
 
-  app.post('/support', async (req, res) => {
-    const { name, email, subject, message } = req.body || {}
+  app.post('/support', rateLimit('support', 5, 60 * 60 * 1000, { email: true }), async (req, res) => {
+    const name = String(req.body?.name || '').trim().slice(0, 120)
+    const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 254)
+    const subject = String(req.body?.subject || '').trim().slice(0, 200) || null
+    const message = String(req.body?.message || '').trim().slice(0, 5000)
     if (!name || !email || !message) return res.status(400).json({ error: 'name, email, and message are required' })
+    if (!isEmailLike(email)) return res.status(400).json({ error: 'A valid email address is required' })
 
     const { error } = await supabaseAdmin
       .from('support_requests')
-      .insert({ name, email, subject: subject || null, message })
+      .insert({ name, email, subject, message })
     if (error) {
       console.error('Support insert failed:', error.message)
       return res.status(500).json({ error: 'Could not submit your request. Please try again.' })
     }
     console.log('📩 Support request:', { name, email, subject })
+    res.json({ success: true })
+  })
+
+  // "Book a demo" lead from the public marketing site (demo.html). Platform-level,
+  // not tied to any dealership — captured for sales follow-up and emailed straight
+  // to admin@marketsync.link so a real human sees it, same day.
+  app.post('/public/demo-request', rateLimit('demo-request', 5, 60 * 60 * 1000, { email: true }), async (req, res) => {
+    const name = String(req.body?.name || '').trim().slice(0, 120)
+    const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 254)
+    const phone = String(req.body?.phone || '').trim().slice(0, 40) || null
+    const dealership_name = String(req.body?.dealership_name || '').trim().slice(0, 160) || null
+    const plan = String(req.body?.plan || '').trim().slice(0, 80) || null
+    const message = String(req.body?.message || '').trim().slice(0, 2000) || null
+    if (!name || !email) return res.status(400).json({ error: 'name and email are required' })
+    if (!isEmailLike(email)) return res.status(400).json({ error: 'A valid email address is required' })
+
+    const { error } = await supabaseAdmin
+      .from('demo_requests')
+      .insert({ name, email, phone, dealership_name, plan, message })
+    if (error) {
+      console.error('Demo request insert failed:', error.message)
+      return res.status(500).json({ error: 'Could not submit your request. Please try again.' })
+    }
+    console.log('🚗 Demo request:', { name, email, dealership_name, plan })
+    if (resend) {
+      const escapeHtml = (s) => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+      const lines = [
+        `<p><strong>${escapeHtml(name)}</strong> asked for a demo.</p>`,
+        `<p>Email: ${escapeHtml(email)}${phone ? ' &middot; Phone: ' + escapeHtml(phone) : ''}</p>`,
+        dealership_name ? `<p>Dealership: ${escapeHtml(dealership_name)}</p>` : '',
+        plan ? `<p>Plan interest: ${escapeHtml(plan)}</p>` : '',
+        message ? `<p>Message: ${escapeHtml(message)}</p>` : '',
+      ].filter(Boolean).join('\n')
+      resend.emails.send({
+        from: EMAIL_FROM, to: 'admin@marketsync.link', replyTo: email,
+        subject: `New demo request — ${name}${dealership_name ? ' (' + dealership_name + ')' : ''}`,
+        html: lines,
+      }).catch(e => console.error('Demo request email failed:', e?.message || e))
+    }
     res.json({ success: true })
   })
 

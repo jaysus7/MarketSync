@@ -7,9 +7,9 @@ name: CI — audit & sanity
 # Kept intentionally fast and dependency-light so it never blocks a hotfix.
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
-    branches: [main]
+    branches: [main, staging]
   workflow_dispatch: {}
 
 jobs:
@@ -22,7 +22,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Node 22+: @supabase/supabase-js (^2.106) builds a Realtime client that
+          # requires a native WebSocket, which only exists from Node 22. On Node 20,
+          # createClient() throws, so every authenticated route 500s under test.
+          # Production (Render) already runs a current Node, so this only aligns CI.
+          node-version: '22'
           cache: npm
           cache-dependency-path: marketplace-backend/package-lock.json
       - name: Install (locked)
@@ -30,6 +34,20 @@ jobs:
       - name: Audit — fail on high/critical
         run: npm audit --audit-level=high --omit=dev
       - name: Syntax-check all backend sources
-        run: |
-          find . -path ./node_modules -prune -o -name '*.js' -print \
-            | xargs -r -n1 node --check
+        run: npm run check:syntax
+      - name: Validate ESM module import resolution
+        run: npm run check:imports
+      - name: Validate named export bindings
+        run: npm run check:exports
+      - name: Validate Express route registration
+        run: npm run check:routes
+      - name: Validate frontend scripts & top-level identifiers
+        run: npm run check:frontend
+      - name: Validate server startup (dry-run mode)
+        run: npm run check:startup
+      # Full behavioral/security test suite. This is the real release gate: a commit
+      # can parse, import and start cleanly while still failing business/security tests.
+      # Make this a REQUIRED status check in branch protection for `main` (and `staging`)
+      # once the suite is green.
+      - name: Run test suite
+        run: npm test

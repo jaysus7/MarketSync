@@ -17,11 +17,12 @@
  * cancelling an appointment mirrors it to that user's calendar. Inbound — pulling
  * the calendar creates/updates matching appointments (mapped by external_event_id).
  *
- * Tokens live in calendar_connections (service-role-only table). Access tokens are
- * refreshed on demand; only the refresh token is long-lived.
+ * Tokens live encrypted in calendar_connections (service-role-only table). Access tokens are
+ * refreshed on demand; credentials are encrypted at rest using AES-256-GCM.
  */
 import crypto from 'node:crypto'
 import { supabaseAdmin, BACKEND_URL } from './shared.js'
+import { encryptJson, decryptJson, PII_ENCRYPTION_VERSION } from './crypto-pii.js'
 
 const GOOGLE = {
   id: process.env.GOOGLE_CALENDAR_CLIENT_ID || '',
@@ -34,7 +35,9 @@ const MS = {
   tenant: process.env.MS_CALENDAR_TENANT || 'common',
   scopes: ['offline_access', 'openid', 'email', 'Calendars.ReadWrite', 'User.Read'],
 }
-const STATE_SECRET = process.env.SUPABASE_SERVICE_ROLE_KEY || 'dev-secret'
+// shared.js refuses to start without SUPABASE_SERVICE_ROLE_KEY, so this can
+// never silently fall back to a predictable development secret.
+const STATE_SECRET = process.env.OAUTH_STATE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY
 const APPT_MINUTES = 60   // appointments carry a start (due_at) only; assume a 1h block
 
 export const PROVIDERS = ['google', 'microsoft']
@@ -116,20 +119,50 @@ async function refreshToken(provider, refresh_token) {
   })
 }
 
+export function extractCalendarCredentials(conn) {
+  if (conn.credentials_enc) {
+    const creds = decryptJson(conn.credentials_enc)
+    if (creds) return creds
+  }
+  // Migration fallback: return legacy plaintext if present
+  return {
+    access_token: conn.access_token || null,
+    refresh_token: conn.refresh_token || null,
+    sync_token: conn.sync_token || null,
+  }
+}
+
 // Return a valid access token for a connection, refreshing + persisting if stale.
 async function validAccessToken(conn) {
   const skew = 60 * 1000
-  if (conn.access_token && conn.token_expires_at && new Date(conn.token_expires_at).getTime() - skew > Date.now()) {
-    return conn.access_token
+  const creds = extractCalendarCredentials(conn)
+
+  if (creds.access_token && conn.token_expires_at && new Date(conn.token_expires_at).getTime() - skew > Date.now()) {
+    return creds.access_token
   }
-  if (!conn.refresh_token) throw new Error('No refresh token — reconnect the calendar.')
-  const t = await refreshToken(conn.provider, conn.refresh_token)
+  if (!creds.refresh_token) throw new Error('No refresh token — reconnect the calendar.')
+  const t = await refreshToken(conn.provider, creds.refresh_token)
   const access_token = t.access_token
   const token_expires_at = new Date(Date.now() + (Number(t.expires_in) || 3500) * 1000).toISOString()
-  const patch = { access_token, token_expires_at, updated_at: new Date().toISOString() }
-  if (t.refresh_token) patch.refresh_token = t.refresh_token   // MS rotates refresh tokens
+
+  creds.access_token = access_token
+  if (t.refresh_token) creds.refresh_token = t.refresh_token // MS rotates refresh tokens
+
+  const enc = encryptJson(creds)
+  if (!enc) throw new Error('PII_ENCRYPTION_KEY required — failed to encrypt credentials.')
+
+  const patch = {
+    credentials_enc: enc,
+    credentials_encryption_version: PII_ENCRYPTION_VERSION,
+    token_expires_at,
+    access_token: null, // Clear plaintext token
+    refresh_token: null, // Clear plaintext refresh token
+    updated_at: new Date().toISOString(),
+  }
   await supabaseAdmin.from('calendar_connections').update(patch).eq('id', conn.id)
-  conn.access_token = access_token; conn.token_expires_at = token_expires_at
+  conn.credentials_enc = enc
+  conn.access_token = access_token
+  conn.token_expires_at = token_expires_at
   return access_token
 }
 
@@ -212,8 +245,6 @@ export async function deleteEvent(conn, eventId) {
 }
 
 // ── Inbound: pull external events → upsert appointments ──────────────────────
-// Returns { imported, updated, cancelled }. Uses an incremental cursor when the
-// provider gives one; falls back to a time-boxed window otherwise.
 export async function pullEvents(conn) {
   const token = await validAccessToken(conn)
   let imported = 0, updated = 0, cancelled = 0
@@ -250,7 +281,7 @@ export async function pullEvents(conn) {
       const page = await apiFetch(url, token)
       for (const ev of (page.value || [])) {
         const removed = ev['@removed'] || ev.isCancelled
-        const raw = ev.start?.dateTime || null   // Graph returns UTC (no suffix) unless a Prefer tz is sent
+        const raw = ev.start?.dateTime || null
         const start = raw ? (raw.endsWith('Z') ? raw : raw + 'Z') : null
         const r = await upsertFromExternal(conn, {
           id: ev.id, status: removed ? 'cancelled' : 'confirmed', title: ev.subject, start,
@@ -288,7 +319,7 @@ async function upsertFromExternal(conn, ev) {
   return { imported: 1, updated: 0, cancelled: 0 }
 }
 
-// ── Convenience: fetch the connection for a user (or dealership sweep) ────────
+// ── Convenience: fetch the connection for a user ──────────────────────────────
 export async function getConnectionForUser(userId, provider = null) {
   let q = supabaseAdmin.from('calendar_connections').select('*').eq('user_id', userId)
   if (provider) q = q.eq('provider', provider)

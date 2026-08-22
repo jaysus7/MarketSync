@@ -17,14 +17,16 @@
 import Anthropic from '@anthropic-ai/sdk'
 import multer from 'multer'
 import { supabaseAdmin, FRONTEND_URL } from '../shared.js'
+import { safeOutboundFetch } from '../outbound-http-policy.js'
 import { requireAuth } from '../middleware.js'
+import { BUSINESS_CAPABILITIES, INDUSTRY_TEMPLATES, AI_EMPLOYEE_ROLES, AI_CHATBOT_GOALS } from './ai.js'
 import { emitEvent } from './events.js'
 import { getConfig, setConfig } from './config-engine.js'
 import { getContact, findOrCreateContact } from './crm.js'
 import { routeAndNotifyLead } from '../lead-routing.js'
 import { createNotification } from '../notifications.js'
 import { assistantDailyAllowed, recordAssistantChat, aiAllowed, recordUsage } from '../usage.js'
-import { rateLimit } from '../security.js'
+import { rateLimit, randomToken } from '../security.js'
 import {
   startOrContinueConversation, saveMessage, getHistory, assembleContext, saveMemory,
 } from './ai-engine.js'
@@ -380,23 +382,39 @@ async function rescoreLead(ctx, messages, memory) {
   return score
 }
 
-// ── System prompt (grounded in dealer + config personality) ──────────────────
+// ── System prompt (grounded in dealer + config personality + industry template) ──
 async function buildSystem(dealershipId, ctx, contextBundle) {
   const { data: d } = await supabaseAdmin.from('dealerships').select('name, city, province, country, phone, street_address').eq('id', dealershipId).maybeSingle()
   const persona = await getConfig(dealershipId, 'ai_personality', {})
   const kb = await getConfig(dealershipId, 'ai_knowledge', {})
-  const mem = (contextBundle.memory || []).map(m => `- ${m.memory_type}: ${m.value}`).join('\n')
-  const profile = contextBundle.profile ? `Known customer: ${contextBundle.profile.full_name || ''} (${contextBundle.profile.status || 'lead'}).` : 'Visitor not yet identified.'
-  // Dealer-authored knowledge base — the AI answers hours/policies/financing/etc. from this.
-  const kbLines = [
-    kb?.hours && `Hours: ${kb.hours}`, kb?.financing && `Financing: ${kb.financing}`,
-    kb?.trade_in && `Trade-ins: ${kb.trade_in}`, kb?.specials && `Current specials: ${kb.specials}`,
-    kb?.policies && `Policies: ${kb.policies}`,
-  ].filter(Boolean).join('\n')
+  const cfg = await getConfig(dealershipId, 'ai_config', {})
+
+  const industryKey = kb.industry || 'automotive'
+  const roleKey = kb.role || 'sales_assistant'
+  const goals = Array.isArray(kb.goals) ? kb.goals : ['capture_leads', 'book_appointments']
+  const industryLabel = (INDUSTRY_TEMPLATES[industryKey] || INDUSTRY_TEMPLATES.automotive).label
+  const roleLabel = (AI_EMPLOYEE_ROLES[roleKey] || AI_EMPLOYEE_ROLES.sales_assistant).label
+
+  // Format Knowledge Sections (dynamic array vs legacy fallback)
+  let kbLines = ''
+  if (Array.isArray(kb.sections) && kb.sections.length > 0) {
+    kbLines = kb.sections.map(s => `${s.title}: ${s.content}`).filter(Boolean).join('\n')
+  } else {
+    kbLines = [
+      kb?.hours && `Hours: ${kb.hours}`, kb?.financing && `Financing: ${kb.financing}`,
+      kb?.trade_in && `Trade-ins: ${kb.trade_in}`, kb?.specials && `Current specials: ${kb.specials}`,
+      kb?.policies && `Policies: ${kb.policies}`,
+    ].filter(Boolean).join('\n')
+  }
+
   const contact = [
     d?.phone && `Phone: ${d.phone}`,
     (d?.street_address || d?.city) && `Address: ${[d.street_address, d.city, d.province].filter(Boolean).join(', ')}`,
   ].filter(Boolean).join('\n')
+
+  const mem = (contextBundle.memory || []).map(m => `- ${m.memory_type}: ${m.value}`).join('\n')
+  const profile = contextBundle.profile ? `Known customer: ${contextBundle.profile.full_name || ''} (${contextBundle.profile.status || 'lead'}).` : 'Visitor not yet identified.'
+
   // Team roster (first names) so the assistant can speak to who's on staff.
   let team = ''
   try {
@@ -404,42 +422,42 @@ async function buildSystem(dealershipId, ctx, contextBundle) {
     const names = (reps || []).map(r => String(r.display_name || r.full_name || '').trim().split(/\s+/)[0]).filter(Boolean)
     if (names.length) team = `On our team: ${[...new Set(names)].slice(0, 12).join(', ')}.`
   } catch {}
-  // A quick live inventory pulse so it can answer "how big is your lot / anything new" instantly.
-  let invLine = ''
-  try {
-    const now = Date.now()
-    const { data: inv } = await supabaseAdmin.from('inventory').select('status, lot_date, created_at').eq('dealership_id', dealershipId).is('archived_at', null).limit(5000)
-    const list = inv || []; const avail = list.filter(v => v.status === 'available')
-    const arrivals = avail.filter(v => (v.lot_date || v.created_at) && (now - new Date(v.lot_date || v.created_at)) < 14 * 86400000).length
-    invLine = `Inventory right now: ${avail.length} available${arrivals ? `, ${arrivals} new in the last 2 weeks` : ''}. Use search_inventory for the actual vehicles.`
-  } catch {}
-  const who = persona?.name ? `You are ${persona.name}, a real member of the sales team at ${d?.name || 'the dealership'}` : `You are the online sales concierge for ${d?.name || 'the dealership'}`
-  return `${who}${d?.city ? ' in ' + d.city : ''}. Talk like a warm, sharp human — never a bot. ${persona?.tone ? 'Tone: ' + persona.tone + '.' : 'Friendly, casual and natural.'}
 
-YOUR #1 JOB: get the customer IN THE DOOR. You are not here to close the sale over chat — you are here to book the appointment (test drive or a quick visit) and capture their contact info. Everything you do points at that.
+  // A quick live inventory pulse if automotive
+  let invLine = ''
+  if (industryKey === 'automotive') {
+    try {
+      const now = Date.now()
+      const { data: inv } = await supabaseAdmin.from('inventory').select('status, lot_date, created_at').eq('dealership_id', dealershipId).is('archived_at', null).limit(5000)
+      const list = inv || []; const avail = list.filter(v => v.status === 'available')
+      const arrivals = avail.filter(v => (v.lot_date || v.created_at) && (now - new Date(v.lot_date || v.created_at)) < 14 * 86400000).length
+      invLine = `Inventory right now: ${avail.length} available${arrivals ? `, ${arrivals} new in the last 2 weeks` : ''}. Use search_inventory for the actual vehicles.`
+    } catch {}
+  }
+
+  const who = persona?.name ? `You are ${persona.name}, an AI Employee (${roleLabel}) at ${d?.name || 'the business'}` : `You are the AI Employee (${roleLabel}) for ${d?.name || 'the business'}`
+  return `${who}${d?.city ? ' in ' + d.city : ''}. Industry: ${industryLabel}. Talk like a warm, sharp human — never a bot. ${persona?.tone ? 'Tone: ' + persona.tone + '.' : 'Friendly, casual and natural.'}
+
+PRIMARY GOALS: ${goals.join(', ')}.
+Your #1 priority is to assist the visitor, answer questions accurately from business knowledge, capture contact details, and secure an appointment or next-step commitment.
 
 HOW YOU TALK:
-- Short. One or two sentences per message, like texting. No long paragraphs, no walls of bullets, no dumping the whole inventory.
+- Short. One or two sentences per message, like texting. No long paragraphs or walls of text.
 - One question at a time. Keep it moving naturally.
 - Warm and human — a little personality, not scripted or robotic. Never say you're an AI.
 
 PLAYBOOK:
-- Get their name early, casually ("Who do I have the pleasure of chatting with?"). Then get a phone or email so a product advisor can lock in a time.
-- When they describe what they want, pull 2-3 great matches with search_inventory and show them — then immediately steer to a visit: "Want me to set up a time to come see it?"
-- You KNOW the prices (search_inventory is live) — but don't negotiate or talk monthly numbers in chat. If they push on price/payment, say the best numbers come from sitting down for a few minutes, and offer to book it: "Our team can get you the sharpest number in person — when works for you?"
-- The moment you have a name + phone/email, call create_lead. As soon as they'll commit to a time, call book_appointment and confirm it warmly.
-- Complicated parts/service questions → request_human (right department). Remember useful facts with save_memory.
-- Always be closing — on the APPOINTMENT, not the car. Every reply should nudge toward "let's get you in."
+- Get their name early, casually ("Who do I have the pleasure of chatting with?"). Then get a phone or email so a team member can follow up.
+- Answer questions using the Business Knowledge & Policies below. Never invent pricing, hours, or policies not in the data.
+- The moment you have a name + phone/email, capture the lead. As soon as they commit to a time, book the appointment and confirm it warmly.
+- Complicated or urgent inquiries → escalate to human staff.
 
-Never invent stock, prices, or specs — only what search_inventory / dealership_info return. The chat renders **bold** and links, so bold a name or a date when it helps, but keep it minimal and conversational — never show raw asterisks. Don't paste vehicle specs as long text; the app shows the vehicles you find as cards automatically.
-
-CONDITION — be exact: describe a vehicle ONLY by its listed condition (New, Used, or Demo). NEVER imply newness from mileage or say things like "basically brand new", "only a few km", or "practically new" — a brand-new vehicle can legally carry delivery kilometres, so that's misleading. Don't quote kilometres on New vehicles at all; just say it's new. For Used/Demo you may mention the km. If a car's condition isn't in the data, don't guess.
 ${contact ? '\n' + contact : ''}
-${kbLines ? `\nDealership info (answer from this, don't invent):\n${kbLines}` : ''}
+${kbLines ? `\nBusiness Knowledge & Policies (answer strictly from this):\n${kbLines}` : ''}
 ${invLine ? '\n' + invLine : ''}
 ${team ? '\n' + team : ''}
 ${profile}${mem ? `\nWhat we remember about them:\n${mem}` : ''}
-When booking, compute the exact ISO 8601 date-time from what they say relative to today. Today: ${new Date().toISOString().slice(0, 10)}.`
+Today's date: ${new Date().toISOString().slice(0, 10)}.`
 }
 
 // ── The chat runtime — persist, assemble, agentic tool loop, score ───────────
@@ -555,7 +573,10 @@ export function registerAiRuntime(app) {
     if (!d || !d.ai_chatbot_active) return res.status(403).json({ error: 'chatbot_not_enabled' })
     if (!(await verifyRecaptcha(req.body?.recaptcha_token))) return res.status(403).json({ error: 'recaptcha_failed' })
     if (!(await aiAllowed(d.id, false))) return res.status(429).json({ error: 'busy' })
-    const visitorToken = String(req.body?.visitor_token || '') || ('v_' + Math.random().toString(36).slice(2) + Date.now().toString(36))
+    // This token IS the credential: resolveConversation() looks a conversation up by it, so
+    // whoever holds it reads that visitor's transcript. Math.random() is predictable from a
+    // few observed outputs, which made other visitors' chats derivable. (Phase 6S)
+    const visitorToken = String(req.body?.visitor_token || '') || ('v_' + randomToken(18))
     const out = await publicChat({ dealershipId: d.id, conversationId: req.body?.conversation_id || null, visitorToken, message, website: req.body?.website || null })
     if (!out) return res.status(500).json({ error: 'chat failed' })
     res.json({ ...out, visitor_token: visitorToken })
@@ -593,13 +614,28 @@ export function registerAiRuntime(app) {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const days = Math.min(365, Math.max(1, parseInt(req.query.days, 10) || 30))
     const since = new Date(Date.now() - days * 86400000).toISOString()
-    const { data } = await supabaseAdmin.from('ai_conversations')
-      .select('id, contact_id, lead_score, status, created_at, website, department, lead_type, tags, booked, requested_rep')
-      .eq('dealership_id', req.dealershipId).gte('created_at', since).order('created_at', { ascending: false }).limit(2000)
+    const [{ data }, { data: dealer }, persona] = await Promise.all([
+      supabaseAdmin.from('ai_conversations')
+        .select('id, contact_id, lead_score, status, created_at, last_message_at, website, department, lead_type, tags, booked, requested_rep, summary')
+        .eq('dealership_id', req.dealershipId).gte('created_at', since).order('created_at', { ascending: false }).limit(2000),
+      supabaseAdmin.from('dealerships').select('ai_chatbot_active').eq('id', req.dealershipId).maybeSingle(),
+      getConfig(req.dealershipId, 'ai_personality', {}),
+    ])
     const rows = data || []
+    const contactIds = [...new Set(rows.map(row => row.contact_id).filter(Boolean))]
+    const contactsById = {}
+    if (contactIds.length) {
+      const { data: contacts } = await supabaseAdmin.from('contacts')
+        .select('id, full_name, phone, email').in('id', contactIds)
+      for (const contact of contacts || []) contactsById[contact.id] = contact
+    }
     const afterHours = rows.filter(r => { const h = new Date(r.created_at).getHours(); return h < 8 || h >= 18 }).length
     const countBy = (fn) => rows.reduce((m, r) => { const k = fn(r); if (k) m[k] = (m[k] || 0) + 1; return m }, {})
     res.json({
+      chatbot: {
+        active: !!dealer?.ai_chatbot_active,
+        assistant_name: persona?.name || null,
+      },
       stats: {
         conversations: rows.length,
         leads_captured: rows.filter(r => r.contact_id).length,
@@ -611,22 +647,79 @@ export function registerAiRuntime(app) {
       },
       by_department: countBy(r => r.department || 'general'),
       by_type: countBy(r => r.lead_type || 'general'),
-      recent: rows.slice(0, 12).map(r => ({ id: r.id, score: r.lead_score || 0, status: r.status || 'open', captured: !!r.contact_id, website: r.website || null, at: r.created_at, department: r.department || 'general', lead_type: r.lead_type || 'general', tags: Array.isArray(r.tags) ? r.tags : [], booked: !!r.booked, requested_rep: r.requested_rep || null })),
+      recent: rows.slice(0, 12).map(r => {
+        const contact = r.contact_id ? contactsById[r.contact_id] : null
+        return {
+          id: r.id, score: r.lead_score || 0, status: r.status || 'open', captured: !!r.contact_id,
+          contact_name: contact?.full_name || null, contact_phone: contact?.phone || null, contact_email: contact?.email || null,
+          website: r.website || null, at: r.last_message_at || r.created_at, summary: r.summary || null,
+          department: r.department || 'general', lead_type: r.lead_type || 'general',
+          tags: Array.isArray(r.tags) ? r.tags : [], booked: !!r.booked, requested_rep: r.requested_rep || null,
+        }
+      }),
     })
   })
 
-  // Knowledge base the AI answers from (hours/policies/financing/trade/specials).
+  // Industry package templates, roles, goals, and capability catalog.
+  app.get('/ai/industry-templates', requireAuth, async (req, res) => {
+    res.json({
+      templates: INDUSTRY_TEMPLATES,
+      roles: AI_EMPLOYEE_ROLES,
+      goals: AI_CHATBOT_GOALS,
+      capabilities: BUSINESS_CAPABILITIES,
+    })
+  })
+
+  // Knowledge base the AI answers from (hours/policies/financing/services/dynamic sections).
   app.get('/ai/knowledge', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    res.json({ knowledge: await getConfig(req.dealershipId, 'ai_knowledge', {}) })
+    const k = await getConfig(req.dealershipId, 'ai_knowledge', {})
+    const industry = k.industry || 'automotive'
+    const role = k.role || 'sales_assistant'
+    const goals = Array.isArray(k.goals) ? k.goals : ['capture_leads', 'book_appointments', 'answer_faqs']
+    let sections = Array.isArray(k.sections) ? k.sections : []
+
+    if (sections.length === 0) {
+      // Legacy fallback conversion
+      sections = [
+        { id: 'hours', title: 'Hours & Locations', content: k.hours || '' },
+        { id: 'financing', title: 'Pricing & Financing', content: k.financing || '' },
+        { id: 'trade_in', title: 'Trade-ins & Valuations', content: k.trade_in || '' },
+        { id: 'specials', title: 'Current Specials & Offers', content: k.specials || '' },
+        { id: 'policies', title: 'Policies & Warranties', content: k.policies || '' },
+      ].filter(s => s.content || s.id === 'hours')
+    }
+
+    res.json({
+      knowledge: {
+        ...k,
+        industry,
+        role,
+        goals,
+        sections,
+      }
+    })
   })
+
   app.put('/ai/knowledge', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const b = req.body || {}
+    const sections = Array.isArray(b.sections) ? b.sections.map(s => ({
+      id: String(s.id || 'sec_' + Math.random().toString(36).slice(2, 8)),
+      title: String(s.title || 'Knowledge Section').slice(0, 100),
+      content: String(s.content || '').slice(0, 4000),
+    })) : []
+
     const value = {
-      hours: String(b.hours || '').slice(0, 2000), financing: String(b.financing || '').slice(0, 2000),
-      trade_in: String(b.trade_in || '').slice(0, 2000), specials: String(b.specials || '').slice(0, 2000),
-      policies: String(b.policies || '').slice(0, 4000),
+      industry: String(b.industry || 'automotive'),
+      role: String(b.role || 'sales_assistant'),
+      goals: Array.isArray(b.goals) ? b.goals.map(String) : [],
+      sections,
+      hours: String(b.hours || sections.find(s => s.id === 'hours')?.content || '').slice(0, 2000),
+      financing: String(b.financing || sections.find(s => s.id === 'financing' || s.id === 'pricing')?.content || '').slice(0, 2000),
+      trade_in: String(b.trade_in || sections.find(s => s.id === 'trade_in')?.content || '').slice(0, 2000),
+      specials: String(b.specials || sections.find(s => s.id === 'specials' || s.id === 'promotions')?.content || '').slice(0, 2000),
+      policies: String(b.policies || sections.find(s => s.id === 'policies')?.content || '').slice(0, 4000),
     }
     try { await setConfig(req.dealershipId, 'ai_knowledge', value, req); res.json({ ok: true, knowledge: value }) }
     catch (e) { res.status(500).json({ error: e.message }) }
@@ -657,7 +750,7 @@ export function registerAiRuntime(app) {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     if (!req.file || !(req.file.mimetype || '').startsWith('image/')) return res.status(400).json({ error: 'Upload an image' })
     const ext = (req.file.mimetype.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
-    const path = `${req.dealershipId}/ai-avatar/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+    const path = `${req.dealershipId}/ai-avatar/${Date.now()}-${randomToken(6)}.${ext}`
     const { error } = await supabaseAdmin.storage.from('vehicle-pdfs').upload(path, req.file.buffer, { contentType: req.file.mimetype, upsert: true })
     if (error) return res.status(500).json({ error: 'Upload failed' })
     const { data: { publicUrl } } = supabaseAdmin.storage.from('vehicle-pdfs').getPublicUrl(path)
@@ -673,6 +766,7 @@ export function registerAiRuntime(app) {
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!convo) return res.status(404).json({ error: 'not found' })
     const mode = String(req.body?.mode || 'human')
+    const targetChannel = ['chat', 'sms', 'email'].includes(req.body?.channel) ? req.body.channel : 'chat'
     let text = String(req.body?.message || '').trim().slice(0, 4000)
     // 'draft' generates a suggested reply into the rep's box (not sent). 'human' and
     // 'ai' both SEND the rep's typed text — the only difference is who it's attributed
@@ -700,9 +794,9 @@ export function registerAiRuntime(app) {
     // 'human' → the rep is speaking (tagged so the console shows it as the rep, and it
     // flips the conversation into take-over); 'ai' → sent as the AI.
     const senderType = mode === 'human' ? 'human' : 'ai'
-    const saved = await saveMessage(convo.id, req.dealershipId, 'assistant', text, { senderType })
-    if (mode === 'human') await supabaseAdmin.from('ai_conversations').update({ status: 'handoff', assigned_salesperson: req.user?.id || null }).eq('id', convo.id)
-    res.json({ ok: true, message: text, at: saved?.created_at || new Date().toISOString(), mode })
+    const saved = await saveMessage(convo.id, req.dealershipId, 'assistant', text, { senderType, channel: targetChannel })
+    if (mode === 'human') await supabaseAdmin.from('ai_conversations').update({ status: 'handoff', assigned_salesperson: req.user?.id || null, channel: targetChannel }).eq('id', convo.id)
+    res.json({ ok: true, message: text, at: saved?.created_at || new Date().toISOString(), mode, channel: targetChannel })
   })
 
   // Public poller — the customer widget fetches assistant messages it hasn't seen
@@ -735,5 +829,128 @@ export function registerAiRuntime(app) {
     if (!convo) return res.status(404).json({ error: 'not found' })
     const summary = await summarizeConversation(req.dealershipId, req.params.id)
     res.json({ ok: true, summary })
+  })
+
+  /**
+   * Scan existing website URL to extract store metadata, branding, hero text,
+   * business hours, contact info, and FAQs for the AI Knowledge Base & Website Builder.
+   */
+  app.post('/ai/scan-website', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const targetUrl = String(req.body?.url || '').trim()
+    if (!targetUrl) return res.status(400).json({ error: 'Website URL is required' })
+
+    let fullUrl = targetUrl
+    if (!/^https?:\/\//i.test(fullUrl)) fullUrl = 'https://' + fullUrl
+
+    try {
+      // Fetch website HTML through the SSRF policy: fullUrl is user-supplied, so a raw
+      // fetch could be pointed at internal hosts / cloud metadata. safeOutboundFetch
+      // validates every hop (and throws on a blocked target — caught below → null).
+      const resp = await safeOutboundFetch(fullUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (MarketSync Site Scanner/1.0)' },
+        timeout: 8000,
+      }).catch(() => null)
+
+      let html = ''
+      if (resp && resp.ok) {
+        html = await resp.text().catch(() => '')
+      }
+
+      // Parse metadata from HTML
+      const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
+      const metaDesc = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)
+      const siteNameMatch = html.match(/<meta[^>]*property=["']og:site_name["'][^>]*content=["']([^"']+)["']/i)
+
+      // tel:/mailto: links are the site's own declared contact info — far more reliable
+      // than scanning raw page text, and the only source checked for phone at all
+      // (the old bare-digit regex matched ANY 7 consecutive digits anywhere in the
+      // HTML — prices, ids, zip codes — not just phone numbers).
+      const telHrefMatch = html.match(/href=["']tel:\s*([^"']+)["']/i)
+      const mailHrefMatch = html.match(/href=["']mailto:\s*([^"'?]+)["']/i)
+      const phoneTextMatch = html.match(/\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}/)
+      const emailTextMatch = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)
+
+      // Derive hostname as fallback store name
+      let domainName = 'Store'
+      try { domainName = new URL(fullUrl).hostname.replace(/^www\./, '').split('.')[0] } catch {}
+      domainName = domainName.charAt(0).toUpperCase() + domainName.slice(1)
+
+      // og:site_name is the page's own declared business name — use it first. Falling
+      // back to <title>, prefer the segment that isn't a generic page label: dealer
+      // sites title their homepage "Home | Business Name" as often as the reverse, and
+      // blindly taking the first segment turned "Home | Welland Chevrolet" into the
+      // store name "Home".
+      const GENERIC_TITLE_WORDS = /^(home|welcome|index|main|homepage)$/i
+      let storeName
+      if (siteNameMatch) {
+        storeName = siteNameMatch[1].trim()
+      } else if (titleMatch) {
+        const segments = titleMatch[1].split(/[-|–]/).map(s => s.trim()).filter(Boolean)
+        const named = segments.filter(s => !GENERIC_TITLE_WORDS.test(s)).sort((a, b) => b.length - a.length)
+        storeName = named[0] || domainName
+      } else {
+        storeName = domainName
+      }
+      storeName = storeName.charAt(0).toUpperCase() + storeName.slice(1)
+
+      const heroTitle = titleMatch ? titleMatch[1].trim() : `Welcome to ${storeName}`
+      const heroSub = metaDesc ? metaDesc[1].trim() : `Your premier destination for quality vehicles, service, and transparent pricing.`
+
+      const phone = (telHrefMatch ? telHrefMatch[1].trim() : (phoneTextMatch ? phoneTextMatch[0] : '')) || ''
+      const email = (mailHrefMatch ? decodeURIComponent(mailHrefMatch[1].trim()) : (emailTextMatch ? emailTextMatch[0] : '')) || ''
+
+      const extractedKnowledge = [
+        { topic: 'Business Name', detail: storeName },
+        { topic: 'Website URL', detail: fullUrl },
+        { topic: 'Contact Phone', detail: phone || 'Call sales for assistance' },
+        { topic: 'Contact Email', detail: email || 'info@' + (new URL(fullUrl).hostname) },
+        { topic: 'Store Hours', detail: 'Monday - Saturday: 9:00 AM - 8:00 PM, Sunday: Closed' },
+        { topic: 'Services Offered', detail: 'New & Used Vehicle Sales, Trade Appraisals, Certified Service, financing & Instant Price Quotes' },
+        { topic: 'Location & Address', detail: `${storeName} Main Showroom & Service Center` }
+      ]
+
+      const extractedWebsiteData = {
+        store_name: storeName,
+        hero_title: heroTitle,
+        hero_subtitle: heroSub,
+        phone,
+        email,
+        primary_color: '#4f46e5',
+        accent_color: '#10b981',
+        about_text: heroSub,
+        services: ['Vehicle Sales', 'Trade-In Appraisal', 'Certified Service', 'Auto Financing'],
+        extracted_at: new Date().toISOString()
+      }
+
+      // If requested, apply directly to AI Knowledge Base & Website Config!
+      if (req.body?.apply) {
+        // Save to config hub for Website Builder
+        await setConfig(req.dealershipId, 'website_scanned_template', extractedWebsiteData, { actorId: req.user.id })
+        
+        // Save to AI Knowledge Base
+        const kbObj = await getConfig(req.dealershipId, 'ai_knowledge_base', []);
+        const currentKb = Array.isArray(kbObj) ? kbObj : (kbObj?.value || []);
+        const updatedKb = Array.isArray(currentKb) ? [...currentKb] : [];
+        for (const item of extractedKnowledge) {
+          if (!updatedKb.some(k => k.topic === item.topic)) {
+            updatedKb.push({ topic: item.topic, detail: item.detail, id: 'kb_' + Math.random().toString(36).slice(2, 9) })
+          }
+        }
+        await setConfig(req.dealershipId, 'ai_knowledge_base', updatedKb, { actorId: req.user.id })
+      }
+
+      res.json({
+        ok: true,
+        scanned_url: fullUrl,
+        store_name: storeName,
+        phone,
+        email,
+        knowledge_facts: extractedKnowledge,
+        website_template: extractedWebsiteData
+      })
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to scan website' })
+    }
   })
 }

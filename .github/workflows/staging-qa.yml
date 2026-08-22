@@ -1,0 +1,121 @@
+name: Staging QA & Performance Suite
+
+on:
+  push:
+    branches: [ staging ]
+  schedule:
+    - cron: '0 3 * * *' # Nightly full crawl & performance audit at 3 AM UTC
+  workflow_dispatch:
+    inputs:
+      test_suite:
+        description: 'Suite to run'
+        required: true
+        default: 'smoke'
+        type: choice
+        options:
+          - smoke
+          - full
+          - links
+          - performance
+
+# Least-privilege default token: this suite only needs to read the repo to check
+# it out. Anything broader (writing to the repo, packages, etc.) is denied.
+permissions:
+  contents: read
+
+jobs:
+  staging-qa:
+    name: Playwright Staging QA & Performance
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: marketplace-backend
+    env:
+      # No silent localhost fallback: real staging QA must run against the deployed site.
+      # The "Verify staging configuration" step below fails loudly if these are unset.
+      STAGING_URL: ${{ secrets.STAGING_URL }}
+      STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+      STAGING_TEST_OWNER_USER: ${{ secrets.STAGING_TEST_OWNER_USER }}
+      STAGING_TEST_OWNER_PASS: ${{ secrets.STAGING_TEST_OWNER_PASS }}
+      STAGING_TEST_MANAGER_USER: ${{ secrets.STAGING_TEST_MANAGER_USER }}
+      STAGING_TEST_MANAGER_PASS: ${{ secrets.STAGING_TEST_MANAGER_PASS }}
+      STAGING_TEST_SALESPERSON_USER: ${{ secrets.STAGING_TEST_SALESPERSON_USER }}
+      STAGING_TEST_SALESPERSON_PASS: ${{ secrets.STAGING_TEST_SALESPERSON_PASS }}
+      STAGING_TEST_SERVICE_TECH_USER: ${{ secrets.STAGING_TEST_SERVICE_TECH_USER }}
+      STAGING_TEST_SERVICE_TECH_PASS: ${{ secrets.STAGING_TEST_SERVICE_TECH_PASS }}
+      STAGING_TEST_RESTRICTED_USER: ${{ secrets.STAGING_TEST_RESTRICTED_USER }}
+      STAGING_TEST_RESTRICTED_PASS: ${{ secrets.STAGING_TEST_RESTRICTED_PASS }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          # Node 22+: @supabase/supabase-js builds a Realtime client that needs a
+          # native WebSocket, which only exists from Node 22. On Node 20 createClient()
+          # throws and every authenticated route 500s, so the QA suite must match CI.
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: marketplace-backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium Browser
+        run: npx playwright install --with-deps chromium
+
+      # Fail clearly when the deployed-staging target or QA credentials are missing,
+      # instead of silently passing against a dead localhost.
+      - name: Verify staging configuration
+        run: |
+          missing=""
+          case "$STAGING_URL" in
+            "" ) missing="$missing STAGING_URL" ;;
+            http://localhost*|http://127.0.0.1* )
+              echo "::error::STAGING_URL points at localhost ($STAGING_URL). Configure the deployed staging origin as a repository secret." ; exit 1 ;;
+          esac
+          [ -z "$STAGING_TEST_OWNER_USER" ] && missing="$missing STAGING_TEST_OWNER_USER"
+          [ -z "$STAGING_TEST_OWNER_PASS" ] && missing="$missing STAGING_TEST_OWNER_PASS"
+          [ -z "$STAGING_TEST_RESTRICTED_USER" ] && missing="$missing STAGING_TEST_RESTRICTED_USER"
+          [ -z "$STAGING_TEST_RESTRICTED_PASS" ] && missing="$missing STAGING_TEST_RESTRICTED_PASS"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required staging QA secrets:$missing"
+            echo "Set these repository secrets so the suite authenticates against real staging QA accounts."
+            exit 1
+          fi
+          echo "Staging QA target: $STAGING_URL"
+
+      - name: Run Staging Fast Smoke Tests (Push Event)
+        if: github.event_name == 'push'
+        run: npm run test:smoke
+
+      - name: Run Full Staging QA Suite (Schedule Event)
+        if: github.event_name == 'schedule'
+        run: npm run test:e2e
+
+      - name: Run Selected Test Suite (Manual Workflow Dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "${{ inputs.test_suite }}" = "smoke" ]; then
+            npm run test:smoke
+          elif [ "${{ inputs.test_suite }}" = "links" ]; then
+            npm run test:links
+          elif [ "${{ inputs.test_suite }}" = "performance" ]; then
+            npm run test:performance
+          else
+            npm run test:e2e
+          fi
+
+      - name: Upload Playwright HTML & Artifact Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-qa-report
+          path: |
+            marketplace-backend/playwright-report/
+            marketplace-backend/e2e-report.json
+            marketplace-backend/e2e-report.md
+            marketplace-backend/test-results/
+          retention-days: 14

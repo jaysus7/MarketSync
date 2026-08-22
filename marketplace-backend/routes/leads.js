@@ -1,8 +1,9 @@
-import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { supabaseAdmin, resend, EMAIL_FROM, isEmailLike } from '../shared.js'
+import { requireAuth, requireMfa } from '../middleware.js'
 import { findOrCreateContact } from './crm.js'
 import { routeAndNotifyLead } from '../lead-routing.js'
-import { audit, AuditAction } from '../audit.js'
+import { audit, AuditAction, exportReason } from '../audit.js'
+import { hasPermission, requirePermission } from '../authorization.js'
 import { emitEvent } from './events.js'
 import { getConfig } from './config-engine.js'
 
@@ -113,10 +114,10 @@ function scoreLead(lead, { status, hasInbound, hasAny }) {
 
 export function registerLeads(app) {
   // List leads for the dealership (reps see their own; dealer-level sees all).
-  app.get('/leads', requireAuth, async (req, res) => {
+  app.get('/leads', requireAuth, requirePermission('customer.view'), async (req, res) => {
     if (!req.dealershipId) return res.json({ leads: [], crm_adf_email: null })
-    const dealerLevel = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)
-    let q = supabaseAdmin.from('leads')
+    const dealerLevel = await hasPermission(req, 'lead.assign')
+    let q = req.supabase.from('leads')
       .select('id, name, email, phone, comments, source, status, adf_sent_at, adf_error, inventory_id, contact_id, created_by, created_at, responded_at, responded_by')
       .eq('dealership_id', req.dealershipId)
       .order('created_at', { ascending: false })
@@ -125,7 +126,7 @@ export function registerLeads(app) {
       // A rep sees leads they logged OR leads whose linked contact is assigned to
       // them — the latter covers website leads auto-routed to the rep, which have
       // no created_by (nobody keyed them in) but do own the contact.
-      const { data: mine } = await supabaseAdmin.from('contacts')
+      const { data: mine } = await req.supabase.from('contacts')
         .select('id').eq('dealership_id', req.dealershipId).eq('assigned_rep', req.user.id).limit(2000)
       const ids = (mine || []).map(c => c.id)
       q = ids.length
@@ -141,11 +142,11 @@ export function registerLeads(app) {
     const contactIds = [...new Set((data || []).map(l => l.contact_id).filter(Boolean))]
     let assignedByContact = {}, statusByContact = {}, inboundByContact = {}, anyCommByContact = {}
     if (contactIds.length) {
-      const { data: cs } = await supabaseAdmin.from('contacts').select('id, assigned_rep, status').in('id', contactIds)
+      const { data: cs } = await req.supabase.from('contacts').select('id, assigned_rep, status').in('id', contactIds)
       assignedByContact = Object.fromEntries((cs || []).map(c => [c.id, c.assigned_rep]).filter(([, r]) => r))
       statusByContact = Object.fromEntries((cs || []).map(c => [c.id, c.status]))
       // Engagement signal for scoring: did the customer reply (inbound), any contact at all.
-      const { data: comms } = await supabaseAdmin.from('communications')
+      const { data: comms } = await req.supabase.from('communications')
         .select('contact_id, direction').eq('dealership_id', req.dealershipId).in('contact_id', contactIds.slice(0, 2000)).limit(20000)
       for (const c of (comms || [])) {
         if (!c.contact_id) continue
@@ -156,6 +157,7 @@ export function registerLeads(app) {
     const repIds = [...new Set([...(data || []).map(l => l.created_by), ...(data || []).map(l => l.responded_by), ...Object.values(assignedByContact)].filter(Boolean))]
     let repNames = {}
     if (repIds.length) {
+      // Rep-name lookup kept on supabaseAdmin (profiles RLS restricts cross-user reads).
       const { data: reps } = await supabaseAdmin
         .from('profiles').select('id, full_name, display_name').in('id', repIds)
       repNames = Object.fromEntries((reps || []).map(r => [r.id, r.full_name || r.display_name || '—']))
@@ -166,12 +168,13 @@ export function registerLeads(app) {
       return { ...l, rep: ownerId ? (repNames[ownerId] || null) : null, owner_id: ownerId, responded_by_name: l.responded_by ? (repNames[l.responded_by] || null) : null, score: sc.score, score_tier: sc.tier, score_reason: sc.reason }
     })
 
-    const { data: dealer } = await supabaseAdmin
+    const { data: dealer } = await req.supabase
       .from('dealerships').select('crm_adf_email').eq('id', req.dealershipId).maybeSingle()
 
     // Managers/dealer-admins can reassign leads — hand the roster to the picker.
     let reps = []
     if (dealerLevel) {
+      // Roster kept on supabaseAdmin (profiles RLS restricts cross-user reads).
       const { data: r } = await supabaseAdmin
         .from('profiles').select('id, full_name, display_name').eq('dealership_id', req.dealershipId)
       reps = (r || []).map(p => ({ id: p.id, name: p.display_name || p.full_name || '—' }))
@@ -181,17 +184,14 @@ export function registerLeads(app) {
 
   // Reassign a lead to a different salesperson (manager/dealer-admin only). Ownership
   // lives on the linked contact's assigned_rep — the same field the routing + list use.
-  app.put('/leads/:id/assign', requireAuth, async (req, res) => {
+  app.put('/leads/:id/assign', requireAuth, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
-      return res.status(403).json({ error: 'Manager access required' })
-    }
     const repId = req.body?.rep_id || null
-    const { data: lead } = await supabaseAdmin.from('leads')
+    const { data: lead } = await req.supabase.from('leads')
       .select('id, contact_id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!lead) return res.status(404).json({ error: 'Lead not found' })
     if (!lead.contact_id) return res.status(400).json({ error: 'This lead has no linked contact to reassign.' })
-    const { error } = await supabaseAdmin.from('contacts')
+    const { error } = await req.supabase.from('contacts')
       .update({ assigned_rep: repId }).eq('id', lead.contact_id).eq('dealership_id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
     res.json({ ok: true })
@@ -200,14 +200,27 @@ export function registerLeads(app) {
   // Mark a lead as answered — stops the speed-to-lead clock. First response wins
   // (idempotent: a second call won't overwrite the original answer time). Any user in
   // the dealership can answer; we record who did for the per-rep report.
-  app.post('/leads/:id/answered', requireAuth, async (req, res) => {
+  app.post('/leads/:id/answered', requireAuth, requirePermission('customer.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    const { data: lead } = await supabaseAdmin.from('leads')
-      .select('id, responded_at, created_at').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    const { data: lead } = await req.supabase.from('leads')
+      .select('id, contact_id, created_by, responded_at, created_at').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!lead) return res.status(404).json({ error: 'Lead not found' })
+    // A salesperson may acknowledge only a lead they created or that is assigned
+    // to them. Lead-routing authority is required to acknowledge another rep's lead.
+    if (!(await hasPermission(req, 'lead.assign')) && lead.created_by !== req.user.id) {
+      const { data: contact } = lead.contact_id
+        ? await req.supabase.from('contacts').select('assigned_rep').eq('id', lead.contact_id).eq('dealership_id', req.dealershipId).maybeSingle()
+        : { data: null }
+      if (contact?.assigned_rep !== req.user.id) return res.status(403).json({ error: 'You can only answer your own assigned leads' })
+    }
     if (lead.responded_at) return res.json({ ok: true, responded_at: lead.responded_at, already: true })
     const now = new Date().toISOString()
-    const { error } = await supabaseAdmin.from('leads')
+    // RLS-enforced: the leads UPDATE policy requires lead.assign/lead.create, held by
+    // every role that actually works leads (salesperson, BDC, managers). We keep the
+    // leads policy tight rather than widening it to customer.view (which would let any
+    // CRM viewer mutate any lead); a view-only F&I role acknowledging leads is not a
+    // real workflow, so leaving it out is the correct, more-secure behaviour.
+    const { error } = await req.supabase.from('leads')
       .update({ responded_at: now, responded_by: req.user.id }).eq('id', lead.id).eq('dealership_id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
     const seconds = Math.max(0, Math.round((new Date(now) - new Date(lead.created_at)) / 1000))
@@ -217,14 +230,11 @@ export function registerLeads(app) {
   // Speed-to-lead reporting (manager/dealer-admin). Aggregates time-to-answer over a
   // window: overall median/avg, how many were answered inside 5/15/60 min, still-open
   // count, and a per-responder breakdown. All timing is created_at → responded_at.
-  app.get('/leads/response-metrics', requireAuth, async (req, res) => {
+  app.get('/leads/response-metrics', requireAuth, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
-      return res.status(403).json({ error: 'Manager access required' })
-    }
     const days = Math.min(365, Math.max(1, parseInt(req.query.days) || 30))
     const since = new Date(Date.now() - days * 86400000).toISOString()
-    const { data, error } = await supabaseAdmin.from('leads')
+    const { data, error } = await req.supabase.from('leads')
       .select('created_at, responded_at, responded_by')
       .eq('dealership_id', req.dealershipId).gte('created_at', since).limit(10000)
     if (error) return res.status(500).json({ error: error.message })
@@ -244,6 +254,7 @@ export function registerLeads(app) {
     const repIds = Object.keys(byRep).filter(k => k !== 'unknown')
     let repNames = {}
     if (repIds.length) {
+      // Rep-name lookup kept on supabaseAdmin (profiles RLS restricts cross-user reads).
       const { data: reps } = await supabaseAdmin.from('profiles').select('id, full_name, display_name').in('id', repIds)
       repNames = Object.fromEntries((reps || []).map(r => [r.id, r.full_name || r.display_name || '—']))
     }
@@ -261,10 +272,10 @@ export function registerLeads(app) {
   })
 
   // Export leads as CSV. Reps get their own; dealer-level gets the whole team.
-  app.get('/leads/export.csv', requireAuth, async (req, res) => {
+  app.get('/leads/export.csv', requireAuth, requireMfa, requirePermission('customer.export'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const dealerLevel = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)
-    let q = supabaseAdmin.from('leads')
+    const dealerLevel = await hasPermission(req, 'lead.assign')
+    let q = req.supabase.from('leads')
       .select('name, email, phone, source, status, comments, inventory_id, contact_id, created_by, created_at')
       .eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).limit(5000)
     if (!dealerLevel) q = q.eq('created_by', req.user.id)
@@ -276,16 +287,17 @@ export function registerLeads(app) {
     const contactIds = [...new Set((data || []).map(l => l.contact_id).filter(Boolean))]
     let assignedByContact = {}
     if (contactIds.length) {
-      const { data: cs } = await supabaseAdmin.from('contacts').select('id, assigned_rep').in('id', contactIds)
+      const { data: cs } = await req.supabase.from('contacts').select('id, assigned_rep').in('id', contactIds)
       assignedByContact = Object.fromEntries((cs || []).map(c => [c.id, c.assigned_rep]).filter(([, r]) => r))
     }
     const repIds = [...new Set([...(data || []).map(l => l.created_by), ...Object.values(assignedByContact)].filter(Boolean))]
     let veh = {}, reps = {}
     if (invIds.length) {
-      const { data: iv } = await supabaseAdmin.from('inventory').select('id, year, make, model, trim').in('id', invIds)
+      const { data: iv } = await req.supabase.from('inventory').select('id, year, make, model, trim').in('id', invIds)
       veh = Object.fromEntries((iv || []).map(v => [v.id, [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ')]))
     }
     if (repIds.length) {
+      // Rep-name lookup kept on supabaseAdmin (profiles RLS restricts cross-user reads).
       const { data: rp } = await supabaseAdmin.from('profiles').select('id, full_name, display_name').in('id', repIds)
       reps = Object.fromEntries((rp || []).map(r => [r.id, r.full_name || r.display_name || '']))
     }
@@ -295,7 +307,7 @@ export function registerLeads(app) {
       rep: reps[assignedByContact[l.contact_id] || l.created_by] || '',
       created_at: l.created_at,
     }))
-    audit(req, AuditAction.LEADS_EXPORTED, { count: rows.length, scope: dealerLevel ? 'dealership' : 'own' })
+    audit(req, AuditAction.LEADS_EXPORTED, { count: rows.length, scope: dealerLevel ? 'dealership' : 'own', reason: exportReason(req) })
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
     res.setHeader('Content-Disposition', `attachment; filename="leads-${new Date().toISOString().slice(0, 10)}.csv"`)
     res.send(toCsv(rows))
@@ -303,11 +315,15 @@ export function registerLeads(app) {
 
   // Import leads from CSV (manager only). Matches header names to fields; each row
   // becomes a lead + CRM contact (deduped) and is routed/notified like a normal lead.
-  app.post('/leads/import', requireAuth, async (req, res) => {
+  app.post('/leads/import', requireAuth, requirePermission('lead.create'), requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) return res.status(403).json({ error: 'Manager access required' })
     const csv = String(req.body?.csv || '')
     if (!csv.trim()) return res.status(400).json({ error: 'Empty file' })
+    // The parser walks every character, so an unbounded body is CPU an authenticated user
+    // should not be able to spend. 8MB is far more lead CSV than any dealership has. (Phase 6S)
+    if (csv.length > 8 * 1024 * 1024) {
+      return res.status(413).json({ error: 'That file is too large. Split it into smaller batches.' })
+    }
     const rows = parseCsv(csv)
     if (rows.length < 2) return res.status(400).json({ error: 'No data rows found' })
     const header = rows[0].map(h => String(h).trim().toLowerCase().replace(/\s+/g, '_'))
@@ -322,7 +338,7 @@ export function registerLeads(app) {
       const name = get(iName).slice(0, 120), email = get(iEmail).slice(0, 160), phone = get(iPhone).slice(0, 40)
       if (!name && !email && !phone) { skipped++; continue }
       try {
-        const { data: lead, error } = await supabaseAdmin.from('leads').insert({
+        const { data: lead, error } = await req.supabase.from('leads').insert({
           dealership_id: req.dealershipId, created_by: req.user.id,
           name: name || null, email: email || null, phone: phone || null,
           comments: get(iComments).slice(0, 2000) || null,
@@ -334,7 +350,7 @@ export function registerLeads(app) {
           dealershipId: req.dealershipId, name, email, phone, repId: req.user.id, source: get(iSource) || 'Import',
         })
         if (contactId && lead?.id) {
-          await supabaseAdmin.from('leads').update({ contact_id: contactId }).eq('id', lead.id)
+          await req.supabase.from('leads').update({ contact_id: contactId }).eq('id', lead.id)
           routeAndNotifyLead(req.dealershipId, { contactId, vehicleId: null, name, source: get(iSource) || 'Import' })
         }
         created++
@@ -344,12 +360,14 @@ export function registerLeads(app) {
   })
 
   // Capture a lead and (if a CRM address is set) deliver it as ADF XML by email.
-  app.post('/leads', requireAuth, async (req, res) => {
+  app.post('/leads', requireAuth, requirePermission('lead.create'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { name, email, phone, comments, inventory_id, source } = req.body || {}
     if (!name && !email && !phone) return res.status(400).json({ error: 'Enter at least a name, phone, or email' })
 
     // Attach the vehicle of interest when one is chosen (verify it's ours).
+    // Kept on supabaseAdmin: lead.create (this route's guard) does not imply
+    // inventory.view (e.g. BDC), and the code explicitly checks dealership ownership.
     let vehicle = null
     if (inventory_id) {
       const { data: v } = await supabaseAdmin
@@ -358,7 +376,7 @@ export function registerLeads(app) {
       if (v && v.dealership_id === req.dealershipId) vehicle = v
     }
 
-    const { data: lead, error } = await supabaseAdmin
+    const { data: lead, error } = await req.supabase
       .from('leads')
       .insert({
         dealership_id: req.dealershipId,
@@ -378,7 +396,7 @@ export function registerLeads(app) {
         phone: lead.phone, repId: req.user.id, source: lead.source,
       })
       if (contactId) {
-        await supabaseAdmin.from('leads').update({ contact_id: contactId }).eq('id', lead.id)
+        await req.supabase.from('leads').update({ contact_id: contactId }).eq('id', lead.id)
         // Auto-assign to the right team + notify management (fire-and-forget).
         routeAndNotifyLead(req.dealershipId, { contactId, vehicleId: vehicle?.id || null, name: lead.name, source: lead.source })
         // Emit to the unified activity spine — drives the New Lead Follow-Up workflow.
@@ -395,44 +413,42 @@ export function registerLeads(app) {
     // method (ADF email / webhook / CRM API / Chrome extension), deduped so it fires
     // once. Here we only report whether an outbound method is configured.
     const cfg = await getConfig(req.dealershipId, 'crm_integration', {})
-    const { data: dealer } = await supabaseAdmin.from('dealerships').select('crm_adf_email').eq('id', req.dealershipId).maybeSingle()
+    const { data: dealer } = await req.supabase.from('dealerships').select('crm_adf_email').eq('id', req.dealershipId).maybeSingle()
     const configured = (!!cfg?.method && cfg.method !== 'none') || !!dealer?.crm_adf_email
     res.json({ ok: true, lead, delivered: configured, crm_configured: configured })
   })
 
   // Dealer admins set/clear the CRM's ADF intake email.
   // Light read of just the CRM/DMS (ADF) connection — used by the Settings page.
-  app.get('/leads/crm-email', requireAuth, async (req, res) => {
+  app.get('/leads/crm-email', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.json({ crm_adf_email: null, can_configure: false })
-    const { data: dealer } = await supabaseAdmin
+    const { data: dealer } = await req.supabase
       .from('dealerships').select('crm_adf_email').eq('id', req.dealershipId).maybeSingle()
-    res.json({ crm_adf_email: dealer?.crm_adf_email || null, can_configure: ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role) })
+    res.json({ crm_adf_email: dealer?.crm_adf_email || null, can_configure: true })
   })
 
   // Lead routing config (auto-assignment + who gets notified).
-  app.get('/leads/routing', requireAuth, async (req, res) => {
+  app.get('/leads/routing', requireAuth, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.json({ routing: {}, can_manage: false })
-    const { data: d } = await supabaseAdmin.from('dealerships').select('lead_routing').eq('id', req.dealershipId).maybeSingle()
+    const { data: d } = await req.supabase.from('dealerships').select('lead_routing').eq('id', req.dealershipId).maybeSingle()
     const r = (d?.lead_routing && typeof d.lead_routing === 'object') ? d.lead_routing : {}
-    res.json({ routing: { mode: r.mode === 'all' ? 'all' : 'targeted', notify_reps: r.notify_reps !== false, notify_managers: r.notify_managers !== false, notify_all_sales: !!r.notify_all_sales }, can_manage: ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role) })
+    res.json({ routing: { mode: r.mode === 'all' ? 'all' : 'targeted', notify_reps: r.notify_reps !== false, notify_managers: r.notify_managers !== false, notify_all_sales: !!r.notify_all_sales }, can_manage: true })
   })
-  app.put('/leads/routing', requireAuth, async (req, res) => {
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) return res.status(403).json({ error: 'Manager access required' })
+  app.put('/leads/routing', requireAuth, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const b = req.body || {}
     const routing = { mode: b.mode === 'all' ? 'all' : 'targeted', notify_reps: b.notify_reps !== false, notify_managers: b.notify_managers !== false, notify_all_sales: !!b.notify_all_sales }
+    // dealerships has no RLS UPDATE policy — kept on supabaseAdmin (route is MFA + lead.assign gated).
     const { error } = await supabaseAdmin.from('dealerships').update({ lead_routing: routing }).eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
     res.json({ ok: true, routing })
   })
 
-  app.put('/leads/crm-email', requireAuth, async (req, res) => {
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
-      return res.status(403).json({ error: 'Dealer admin required' })
-    }
+  app.put('/leads/crm-email', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const email = String(req.body?.crm_adf_email || '').trim() || null
-    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Invalid email' })
+    if (email && !isEmailLike(email)) return res.status(400).json({ error: 'Invalid email' })
+    // dealerships has no RLS UPDATE policy — kept on supabaseAdmin (route is MFA + integrations.manage gated).
     const { error } = await supabaseAdmin
       .from('dealerships').update({ crm_adf_email: email }).eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
@@ -440,19 +456,19 @@ export function registerLeads(app) {
   })
 
   // Re-send a lead's ADF (e.g. after fixing the CRM address).
-  app.post('/leads/:id/resend', requireAuth, async (req, res) => {
+  app.post('/leads/:id/resend', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data: lead } = await supabaseAdmin
+    const { data: lead } = await req.supabase
       .from('leads').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!lead) return res.status(404).json({ error: 'Lead not found' })
-    const { data: dealer } = await supabaseAdmin
+    const { data: dealer } = await req.supabase
       .from('dealerships').select('name, crm_adf_email').eq('id', req.dealershipId).maybeSingle()
     if (!dealer?.crm_adf_email) return res.status(400).json({ error: 'Set your CRM ADF email first' })
     if (!resend) return res.status(503).json({ error: 'Email not configured' })
 
     let vehicle = null
     if (lead.inventory_id) {
-      const { data: v } = await supabaseAdmin.from('inventory')
+      const { data: v } = await req.supabase.from('inventory')
         .select('id, year, make, model, trim, vin, stocknumber, price, condition').eq('id', lead.inventory_id).maybeSingle()
       vehicle = v || null
     }
@@ -464,10 +480,10 @@ export function registerLeads(app) {
         text: adf,
         attachments: [{ filename: 'lead.adf.xml', content: Buffer.from(adf).toString('base64') }],
       })
-      await supabaseAdmin.from('leads').update({ adf_sent_at: new Date().toISOString(), status: 'sent', adf_error: null }).eq('id', lead.id)
+      await req.supabase.from('leads').update({ adf_sent_at: new Date().toISOString(), status: 'sent', adf_error: null }).eq('id', lead.id)
       res.json({ ok: true })
     } catch (e) {
-      await supabaseAdmin.from('leads').update({ adf_error: e.message }).eq('id', lead.id)
+      await req.supabase.from('leads').update({ adf_error: e.message }).eq('id', lead.id)
       res.status(500).json({ error: e.message })
     }
   })

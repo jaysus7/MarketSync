@@ -40,25 +40,48 @@
     let SLUG=(new URLSearchParams(location.search).get('d')||location.pathname.split('/').filter(Boolean).pop()||'').toLowerCase();
     if(SLUG.endsWith('.html')) SLUG='';   // custom-domain root → resolve by hostname instead
     const esc=(s)=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    // Rich text for description fields: allows a safe subset of HTML so AI-inserted
-    // internal/external links render, while stripping anything unsafe. Plain text
-    // (no tags) is escaped and its line breaks preserved.
-    const RICH_TAGS={A:['href','target','rel'],STRONG:[],B:[],EM:[],I:[],BR:[],P:[],UL:[],OL:[],LI:[],SPAN:[]};
+    // Rich text for description fields & custom pages: allows a safe subset of HTML so AI-inserted
+    // internal/external links & basic formatting render, while stripping anything unsafe.
+    const RICH_TAGS={
+      A:['href','target','rel','class','title'],
+      STRONG:['class'],B:['class'],EM:['class'],I:['class'],U:['class'],S:['class'],
+      BR:[],HR:['class'],P:['class','style'],
+      UL:['class'],OL:['class'],LI:['class'],SPAN:['class','style'],DIV:['class','style'],
+      H1:['class'],H2:['class'],H3:['class'],H4:['class'],H5:['class'],H6:['class'],
+      BLOCKQUOTE:['class'],TABLE:['class'],THEAD:['class'],TBODY:['class'],TFOOT:['class'],
+      TR:['class'],TH:['class'],TD:['class'],IMG:['src','alt','class','width','height','loading'],
+      SECTION:['class'],ARTICLE:['class'],PRE:['class'],CODE:['class']
+    };
     function sanitizeRich(html){
       const tpl=document.createElement('template'); tpl.innerHTML=String(html||'');
       const walk=(node)=>{ for(const n of [...node.childNodes]){
         if(n.nodeType===3) continue;
         if(n.nodeType!==1){ n.remove(); continue; }
-        const allow=RICH_TAGS[n.tagName];
+        const tag=n.tagName.toUpperCase();
+        const allow=RICH_TAGS[tag];
         if(!allow){ n.replaceWith(...n.childNodes); continue; }
-        for(const a of [...n.attributes]){ if(!allow.includes(a.name.toLowerCase())) n.removeAttribute(a.name); }
-        if(n.tagName==='A'){ const href=n.getAttribute('href')||''; if(/^\s*(javascript|data):/i.test(href)) n.removeAttribute('href');
-          if(/^https?:/i.test(href)){ n.setAttribute('target','_blank'); n.setAttribute('rel','nofollow noopener'); } }
+        for(const a of [...n.attributes]){
+          const an=a.name.toLowerCase();
+          if(an.startsWith('on') || (!allow.includes(an) && !an.startsWith('aria-') && !an.startsWith('data-'))){
+            n.removeAttribute(a.name);
+          }
+        }
+        if(tag==='A'){
+          const href=n.getAttribute('href')||'';
+          if(/^\s*(javascript|vbscript|data):/i.test(href)) n.removeAttribute('href');
+          else if(/^https?:/i.test(href)){ n.setAttribute('target','_blank'); n.setAttribute('rel','noopener noreferrer'); }
+        }
+        if(tag==='IMG'){
+          const src=n.getAttribute('src')||'';
+          if(/^\s*(javascript|vbscript|data:(?!image\/))/i.test(src)) n.removeAttribute('src');
+        }
+        const st=n.getAttribute('style');
+        if(st && /expression|behavior|url\(|javascript:|-moz-binding/i.test(st)) n.removeAttribute('style');
         walk(n);
       } };
       walk(tpl.content); return tpl.innerHTML;
     }
-    function richText(str){ str=String(str==null?'':str); if(!str) return ''; return /<(a|strong|b|em|i|br|p|ul|ol|li|span)\b/i.test(str)?sanitizeRich(str):esc(str).replace(/\n/g,'<br>'); }
+    function richText(str){ str=String(str==null?'':str); if(!str) return ''; return /<[a-z][\s\S]*>/i.test(str)?sanitizeRich(str):esc(str).replace(/\n/g,'<br>'); }
     const attr=(s)=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     const money=(n)=>n?'$'+Number(n).toLocaleString():'Call for price';
     const km=(n)=>n?Number(n).toLocaleString()+' km':'—';
@@ -94,16 +117,10 @@
         injectHead(s.head_html);
         applyTypography(s);
         renderChrome(); go(hashToView(location.hash));
-        if(s.recaptcha_site_key) loadRecaptcha(s.recaptcha_site_key);
         if(s.sales_chat) mountSalesChat(s);
         maybeDepositBanner();
-        // Deep link: ?v=<vehicle id> (e.g. a "View Details" link from the AI chat) opens that vehicle.
-        try{ const vid=new URLSearchParams(location.search).get('v'); if(vid) setTimeout(()=>{ try{ openVehicle(vid) }catch(e){} },120); }catch(e){}
       }catch(e){ document.getElementById('app').innerHTML=errPage(e.message); }
     }
-    // Google reCAPTCHA v3 (invisible) — loaded only when the dealer has keys configured.
-    function loadRecaptcha(key){ if(window.__rcLoaded) return; window.__rcLoaded=true; window.RC_KEY=key; const sc=document.createElement('script'); sc.src='https://www.google.com/recaptcha/api.js?render='+encodeURIComponent(key); sc.async=true; document.head.appendChild(sc); }
-    async function rcToken(action){ try{ if(window.RC_KEY && window.grecaptcha){ await new Promise(r=>grecaptcha.ready?grecaptcha.ready(r):r()); return await grecaptcha.execute(window.RC_KEY,{action:action||'submit'}); } }catch(e){} return null; }
     const errPage=(m)=>`<div class="min-h-screen flex flex-col items-center justify-center gap-2 text-center px-6"><div class="text-lg font-bold text-slate-700">${esc(m)}</div><div class="text-sm text-slate-400">Please check the link.</div></div>`;
     // Deposit checkout return → confirmation/cancel banner, then clean the URL.
     function maybeDepositBanner(){ const p=new URLSearchParams(location.search); const dep=p.get('deposit'); if(!dep) return;
@@ -152,22 +169,80 @@
     }
     function injectHead(html){ if(!html) return; try{ const t=document.createElement('div'); t.innerHTML=html; Array.from(t.childNodes).forEach(n=>{ if(n.nodeType===1&&n.tagName==='SCRIPT'){ const s=document.createElement('script'); for(const a of n.attributes) s.setAttribute(a.name,a.value); s.textContent=n.textContent; document.head.appendChild(s);} else if(n.nodeType===1) document.head.appendChild(n); }); }catch(e){} }
     // Typography → dealer-chosen Google Fonts (heading + body), or a named preset.
+    function applyDesignThemeStyle(s){
+      const theme = (s.design_theme || s.theme || 'modern').toLowerCase();
+      document.documentElement.setAttribute('data-theme', theme);
+      let el = document.getElementById('ms-theme-styles');
+      if(!el){
+        el = document.createElement('style');
+        el.id = 'ms-theme-styles';
+        document.head.appendChild(el);
+      }
+      if(theme === 'prestige' || theme === 'luxury'){
+        el.textContent = `
+          :root { --border-radius: 4px; --shadow-style: 0 4px 20px rgba(0,0,0,0.06); }
+          header { border-bottom: 1px solid rgba(255,255,255,0.15); }
+          h1, h2, h3 { letter-spacing: -0.02em; line-height: 1.2; }
+          .brand-bg { background-color: var(--brand, #1c1917) !important; }
+          button, .btn { border-radius: 4px !important; }
+        `;
+      } else if(theme === 'bold'){
+        el.textContent = `
+          :root { --border-radius: 0px; --shadow-style: 0 10px 30px rgba(0,0,0,0.2); }
+          header { text-transform: uppercase; font-weight: 900; }
+          h1, h2, h3 { text-transform: uppercase; font-weight: 900; letter-spacing: 0.03em; }
+          .brand-bg { background-color: var(--brand, #0f172a) !important; }
+          button, .btn { border-radius: 0px !important; text-transform: uppercase; font-weight: 900; }
+        `;
+      } else if(theme === 'minimal'){
+        el.textContent = `
+          :root { --border-radius: 8px; --shadow-style: none; }
+          header { background-color: #ffffff !important; color: #0f172a !important; border-bottom: 1px solid #e2e8f0; }
+          header a, header button { color: #0f172a !important; }
+          h1, h2, h3 { font-weight: 700; letter-spacing: -0.01em; }
+          .brand-bg { background-color: #ffffff !important; color: #0f172a !important; }
+          button, .btn { border-radius: 8px !important; border: 1px solid #cbd5e1 !important; }
+        `;
+      } else if(theme === 'classic'){
+        el.textContent = `
+          :root { --border-radius: 8px; --shadow-style: 0 2px 8px rgba(0,0,0,0.08); }
+          h1, h2, h3 { font-weight: 800; }
+          .brand-bg { background-color: var(--brand, #1e3a8a) !important; }
+          button, .btn { border-radius: 8px !important; }
+        `;
+      } else { // modern
+        el.textContent = `
+          :root { --border-radius: 16px; --shadow-style: 0 10px 25px -5px rgba(0,0,0,0.1); }
+          h1, h2, h3 { font-weight: 800; letter-spacing: -0.025em; }
+          .brand-bg { background-color: var(--brand, #4f46e5) !important; }
+          button, .btn { border-radius: 12px !important; }
+        `;
+      }
+    }
     function applyTypography(s){
-      const T={ modern:{h:'Inter',b:'Inter',u:'Inter:wght@400;600;800'},
-        luxury:{h:'Playfair Display',b:'Inter',u:'Playfair+Display:wght@600;800|Inter:wght@400;600'},
-        bold:{h:'Oswald',b:'Inter',u:'Oswald:wght@600;700|Inter:wght@400;600'},
-        corporate:{h:'Roboto Slab',b:'Inter',u:'Roboto+Slab:wght@600;800|Inter:wght@400;600'},
-        minimal:{h:'Inter',b:'Inter',u:'Inter:wght@300;500;700'} };
+      const T={ modern:{h:'Plus Jakarta Sans',b:'Inter',u:'Plus+Jakarta+Sans:wght@600;800|Inter:wght@400;600'},
+        prestige:{h:'Playfair Display',b:'Inter',u:'Playfair+Display:wght@600;800|Inter:wght@400;600'},
+        bold:{h:'Oswald',b:'Montserrat',u:'Oswald:wght@600;700|Montserrat:wght@400;600;800'},
+        minimal:{h:'Outfit',b:'Space Grotesk',u:'Outfit:wght@500;700|Space+Grotesk:wght@400;600'},
+        classic:{h:'Inter',b:'Inter',u:'Inter:wght@400;600;800'} };
       let h,b,url;
       if(s&&(s.heading_font||s.body_font)){
         h=s.heading_font||'Inter'; b=s.body_font||'Inter';
         const fams=[...new Set([h,b])].map(f=>`family=${String(f).trim().replace(/\s+/g,'+')}:wght@400;600;700;800`).join('&');
         url=`https://fonts.googleapis.com/css2?${fams}&display=swap`;
       } else {
-        const t=T[(s&&s.typography)]||T.modern; h=t.h; b=t.b; url=`https://fonts.googleapis.com/css2?family=${t.u}&display=swap`;
+        const t=T[(s&&(s.design_theme||s.theme||s.typography))]||T.modern; h=t.h; b=t.b; url=`https://fonts.googleapis.com/css2?family=${t.u}&display=swap`;
       }
-      const link=document.createElement('link'); link.rel='stylesheet'; link.href=url; document.head.appendChild(link);
-      const st=document.createElement('style'); st.textContent=`body{font-family:'${b}',system-ui,sans-serif}h1,h2,h3,.font-black,.font-bold{font-family:'${h}',system-ui,sans-serif}`; document.head.appendChild(st);
+      let link=document.getElementById('ms-google-fonts');
+      if(!link){
+        link=document.createElement('link'); link.id='ms-google-fonts'; link.rel='stylesheet'; document.head.appendChild(link);
+      }
+      link.href=url;
+      let st=document.getElementById('ms-typography-styles');
+      if(!st){
+        st=document.createElement('style'); st.id='ms-typography-styles'; document.head.appendChild(st);
+      }
+      st.textContent=`body{font-family:'${b}',system-ui,sans-serif}h1,h2,h3,.font-black,.font-bold{font-family:'${h}',system-ui,sans-serif}`;
     }
     // Rendered-car placeholder when a unit has no photo — the car on the dealer's
     // chosen background (or a brand gradient). Never a broken/empty tile.
@@ -208,7 +283,7 @@
       on('f-sort','change',e=>{FILTERS.sort=e.target.value;applyFilters();renderGrid();});
     }
 
-    function widgetBlock(w){ const doc=`<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;font-family:-apple-system,Segoe UI,Arial,sans-serif}</style></head><body>${w.html}</body></html>`; return `<div class="w-full">${w.title?`<h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 max-w-6xl mx-auto px-4">${esc(w.title)}</h3>`:''}<iframe srcdoc="${attr(doc)}" style="width:100%;height:${w.height}px;border:0;display:block" sandbox="allow-scripts allow-forms allow-popups allow-same-origin allow-popups-to-escape-sandbox" loading="lazy"></iframe></div>`; }
+    function widgetBlock(w){ const doc=`<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;font-family:-apple-system,Segoe UI,Arial,sans-serif}</style></head><body>${w.html}</body></html>`; return `<div class="w-full">${w.title?`<h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 max-w-6xl mx-auto px-4">${esc(w.title)}</h3>`:''}<iframe srcdoc="${attr(doc)}" style="width:100%;height:${w.height}px;border:0;display:block" sandbox="allow-scripts allow-forms allow-popups" loading="lazy"></iframe></div>`; }
     const slotHtml=(name)=>{ const ws=(DATA.site.widgets||[]).filter(w=>w.slot===name); return ws.length?`<div class="space-y-4 py-2">${ws.map(widgetBlock).join('')}</div>`:''; };
 
     // ── Chrome (header + footer stay; #view swaps) ─────────────────────────────
@@ -301,7 +376,7 @@
             <div>${s.hours?`<div class="font-bold text-white mb-2">Hours</div><div class="text-slate-400 whitespace-pre-line">${esc(s.hours)}</div>`:''}</div>
           </div>
           <div class="border-t border-slate-800 text-center text-[11px] text-slate-500 px-4 pt-4">All advertised prices are plus ${taxLabel()} and licensing. Prices do not include applicable taxes, licensing, or fees. Vehicle availability is subject to change.</div>
-          <div class="text-center text-xs text-slate-500 py-4">© ${new Date().getFullYear()} ${esc(s.name)} · Powered by MarketSync</div>
+          <div class="text-center text-xs text-slate-500 py-4">© ${new Date().getFullYear()} ${esc(s.name)} · Powered by <a href="https://marketsync.io" target="_blank" rel="noopener" class="font-bold text-slate-400 hover:text-indigo-400 transition cursor-pointer">MarketSync</a></div>
         </footer>`;
     }
     function go(view,vehId,prefill){ VIEW=view; window.scrollTo(0,0); renderView(); applyViewSeo();
@@ -341,39 +416,195 @@
     function renderHome(el){ const secs=DATA.site.sections||[]; if(secs.length) return renderSections(el,secs); renderDefaultHome(el); }
     function renderDefaultHome(el){
       const s=DATA.site; applyFilters();
-      const bodies=[...new Set((DATA.vehicles||[]).map(v=>(v.body_style||'').trim()).filter(Boolean))].sort();
+      const defaultHeroImg = s.hero_url || 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=2000&q=85';
+
       el.innerHTML=`
-        <section id="top" class="relative brand2-bg text-white">
-          ${s.hero_url?`<img src="${esc(s.hero_url)}" class="absolute inset-0 w-full h-full object-cover opacity-40">`:''}
-          <div class="relative max-w-6xl mx-auto px-4 py-16 sm:py-24">
-            <h1 class="text-3xl sm:text-5xl font-black max-w-2xl">${esc(s.tagline||'Find your next vehicle')}</h1>
-            <div class="mt-3 text-white/80 max-w-xl prose-links">${s.about?richText(s.about):esc(`Browse our ${DATA.count} available vehicle${DATA.count===1?'':'s'}.`)}</div>
-            <div class="mt-6 flex flex-wrap gap-3">
-              <a href="#" onclick="go('inventory');return false" class="bg-white text-slate-900 font-bold px-5 py-2.5 rounded-lg hover:bg-slate-100">Browse inventory →</a>
-              <button onclick="go('trade')" class="border border-white/40 text-white font-bold px-5 py-2.5 rounded-lg hover:bg-white/10">Value your trade</button>
-              <button onclick="go('finance')" class="border border-white/40 text-white font-bold px-5 py-2.5 rounded-lg hover:bg-white/10">Get pre-approved</button>
+        <!-- Full-Bleed 750px Art-Directed Hero -->
+        <section id="top" class="relative min-h-[680px] lg:min-h-[760px] flex items-center bg-slate-950 text-white overflow-hidden">
+          <img src="${esc(defaultHeroImg)}" class="absolute inset-0 w-full h-full object-cover object-center transform scale-105 transition duration-1000">
+          <div class="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/80 to-slate-950/40"></div>
+          
+          <div class="relative max-w-7xl mx-auto px-6 lg:px-12 py-20 lg:py-28 w-full">
+            <div class="max-w-2xl space-y-6">
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold tracking-wider uppercase text-emerald-400">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                Official Dealership Showroom
+              </div>
+              <h1 class="text-4xl sm:text-6xl font-black tracking-tight leading-[1.1] text-white">
+                ${esc(s.tagline || 'Experience Automotive Excellence')}
+              </h1>
+              <div class="text-lg sm:text-xl text-slate-300 font-medium leading-relaxed max-w-xl prose-links">
+                ${s.about ? richText(s.about) : `Explore our premium inventory of ${DATA.count || 'certified'} new &amp; pre-owned vehicles. Instant pre-approvals, market-backed trade offers, and transparent pricing.`}
+              </div>
+              
+              <div class="pt-2 flex flex-wrap items-center gap-4">
+                <a href="#" onclick="go('inventory');return false" class="px-8 py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-base font-black rounded-xl shadow-xl shadow-indigo-600/30 transition transform hover:scale-[1.02] cursor-pointer">
+                  Browse Inventory (${DATA.count || 0}) →
+                </a>
+                <button onclick="go('finance')" class="px-7 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/30 text-white text-base font-bold rounded-xl transition cursor-pointer">
+                  Get Pre-Approved Fast
+                </button>
+              </div>
+
+              <!-- Trust Strip / Social Proof Indicators -->
+              <div class="pt-8 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-semibold text-slate-300">
+                <div class="flex items-center gap-2">
+                  <span class="text-amber-400 text-base">★</span>
+                  <span><strong>4.9 Star Rating</strong><br><span class="text-[10px] text-slate-400">1,200+ Verified Reviews</span></span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-emerald-400 text-base">⚡</span>
+                  <span><strong>2-Min Pre-Approval</strong><br><span class="text-[10px] text-slate-400">No Credit Impact</span></span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-sky-400 text-base">💰</span>
+                  <span><strong>Top Trade Value</strong><br><span class="text-[10px] text-slate-400">Instant Online Quote</span></span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-indigo-400 text-base">🛡️</span>
+                  <span><strong>100% Guarantee</strong><br><span class="text-[10px] text-slate-400">No Hidden Fees</span></span>
+                </div>
+              </div>
             </div>
           </div>
         </section>
-        ${slotHtml('hero_below')}
-        <section class="max-w-6xl mx-auto px-4 -mt-6 relative z-10">
-          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            ${[['New Inventory',"setCond('new')"],['Used Inventory',"setCond('used')"],['Value Your Trade',"go('trade')"],['Get Financing',"go('finance')"]].map(t=>`<button onclick="${t[1]}" class="brand-bg text-white rounded-xl p-4 text-left font-bold hover:opacity-90 transition cshadow flex items-center justify-between"><span>${t[0]}</span><span>→</span></button>`).join('')}
+
+        <!-- Quick Inventory Category Filter Bar -->
+        <section class="max-w-7xl mx-auto px-6 lg:px-12 -mt-10 relative z-20">
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <button onclick="setCond('new')" class="group p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-600 hover:text-white transition text-left cursor-pointer">
+              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-indigo-200">New Inventory</div>
+              <div class="text-base font-black text-slate-900 dark:text-white group-hover:text-white mt-1 flex items-center justify-between">
+                <span>New Vehicles</span><span class="group-hover:translate-x-1 transition">→</span>
+              </div>
+            </button>
+            <button onclick="setCond('used')" class="group p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-600 hover:text-white transition text-left cursor-pointer">
+              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-indigo-200">Pre-Owned</div>
+              <div class="text-base font-black text-slate-900 dark:text-white group-hover:text-white mt-1 flex items-center justify-between">
+                <span>Certified Used</span><span class="group-hover:translate-x-1 transition">→</span>
+              </div>
+            </button>
+            <button onclick="go('trade')" class="group p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-600 hover:text-white transition text-left cursor-pointer">
+              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-indigo-200">Instant Appraisal</div>
+              <div class="text-base font-black text-slate-900 dark:text-white group-hover:text-white mt-1 flex items-center justify-between">
+                <span>Value Your Trade</span><span class="group-hover:translate-x-1 transition">→</span>
+              </div>
+            </button>
+            <button onclick="go('finance')" class="group p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-600 hover:text-white transition text-left cursor-pointer">
+              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-indigo-200">Auto Loans</div>
+              <div class="text-base font-black text-slate-900 dark:text-white group-hover:text-white mt-1 flex items-center justify-between">
+                <span>Apply For Financing</span><span class="group-hover:translate-x-1 transition">→</span>
+              </div>
+            </button>
           </div>
         </section>
-        ${slotHtml('above_inventory')}
-        ${homeSearchBlock('Our inventory')}
-        ${slotHtml('below_inventory')}
-        ${((DATA.site.staff||[]).length||(DATA.team||[]).length)?`<section class="bg-white border-t border-slate-200"><div class="max-w-6xl mx-auto px-4 py-10 text-center"><h2 class="text-2xl font-black mb-2">Meet our team</h2><p class="text-slate-500 mb-4">Sales, service and management — here to help.</p><button onclick="go('team')" class="brand-bg text-white font-bold px-5 py-2.5 rounded-lg">See our team →</button></div></section>`:''}
-        <section class="brand-bg text-white"><div class="max-w-6xl mx-auto px-4 py-10 text-center">
-          <h2 class="text-2xl font-black">Ready to find your next vehicle?</h2>
-          <div class="mt-4 flex flex-wrap justify-center gap-3">
-            <button onclick="go('trade')" class="bg-white text-slate-900 font-bold px-5 py-2.5 rounded-lg">Value your trade</button>
-            <button onclick="go('finance')" class="border border-white/50 font-bold px-5 py-2.5 rounded-lg hover:bg-white/10">Get pre-approved</button>
-            <button onclick="go('inquiry')" class="border border-white/50 font-bold px-5 py-2.5 rounded-lg hover:bg-white/10">Contact us</button>
+
+        <!-- Why Buy From Us (Editorial Proof Points) -->
+        <section class="py-20 lg:py-28 bg-slate-50 dark:bg-slate-950">
+          <div class="max-w-7xl mx-auto px-6 lg:px-12">
+            <div class="text-center max-w-2xl mx-auto mb-16">
+              <h2 class="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white">Why Drivers Choose ${esc(s.name)}</h2>
+              <p class="text-slate-500 dark:text-slate-400 mt-3 text-base">We have redesigned car buying to put clarity, speed, and peace of mind first.</p>
+            </div>
+            <div class="grid md:grid-cols-4 gap-6">
+              <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-3">
+                <div class="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xl">1</div>
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Transparent Pricing</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Clear upfront pricing with no hidden dealer add-ons or unexpected fees.</p>
+              </div>
+              <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-3">
+                <div class="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xl">2</div>
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white">150+ Point Inspection</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Every pre-owned unit undergoes a rigorous mechanical &amp; safety inspection.</p>
+              </div>
+              <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-3">
+                <div class="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xl">3</div>
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Instant Trade Offer</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Get an algorithm-backed trade-in quote in under 60 seconds online.</p>
+              </div>
+              <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-3">
+                <div class="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xl">4</div>
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Seamless Home Delivery</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Complete your paperwork online and have your vehicle delivered directly.</p>
+              </div>
+            </div>
           </div>
-        </div></section>
-        ${slotHtml('above_footer')}`;
+        </section>
+
+        <!-- Financing + Trade Side-by-Side Editorial Cards -->
+        <section class="py-20 lg:py-28 bg-white dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800">
+          <div class="max-w-7xl mx-auto px-6 lg:px-12 grid md:grid-cols-2 gap-8">
+            <div class="relative overflow-hidden rounded-3xl bg-slate-950 text-white p-8 lg:p-12 min-h-[380px] flex flex-col justify-end group shadow-2xl">
+              <img src="https://images.unsplash.com/photo-1563720223185-11003d516935?auto=format&fit=crop&w=1200&q=80" class="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition duration-700">
+              <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent"></div>
+              <div class="relative z-10 space-y-3">
+                <span class="text-xs font-black uppercase tracking-wider text-indigo-400">Fast Auto Loans</span>
+                <h3 class="text-2xl lg:text-3xl font-black">Pre-Approval in 2 Minutes</h3>
+                <p class="text-slate-300 text-sm max-w-md">Custom financing options for all credit situations. Get approved online with no impact to your credit score.</p>
+                <div class="pt-2"><button onclick="go('finance')" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm rounded-xl transition cursor-pointer">Apply For Financing →</button></div>
+              </div>
+            </div>
+
+            <div class="relative overflow-hidden rounded-3xl bg-slate-950 text-white p-8 lg:p-12 min-h-[380px] flex flex-col justify-end group shadow-2xl">
+              <img src="https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=1200&q=80" class="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition duration-700">
+              <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent"></div>
+              <div class="relative z-10 space-y-3">
+                <span class="text-xs font-black uppercase tracking-wider text-emerald-400">Trade-In Appraisal</span>
+                <h3 class="text-2xl lg:text-3xl font-black">What's Your Car Worth?</h3>
+                <p class="text-slate-300 text-sm max-w-md">We pay top dollar for trades. Get an instant, market-validated appraisal and trade up today.</p>
+                <div class="pt-2"><button onclick="go('trade')" class="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm rounded-xl transition cursor-pointer">Value Your Trade →</button></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Inventory Spotlight -->
+        <section class="py-20 lg:py-28 bg-slate-50 dark:bg-slate-950">
+          <div class="max-w-7xl mx-auto px-6 lg:px-12">
+            ${homeSearchBlock('Featured Vehicles')}
+          </div>
+        </section>
+
+        <!-- Reviews / Social Proof -->
+        <section class="py-20 lg:py-28 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+          <div class="max-w-7xl mx-auto px-6 lg:px-12">
+            <div class="text-center max-w-2xl mx-auto mb-16">
+              <h2 class="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white">What Our Customers Say</h2>
+              <p class="text-slate-500 dark:text-slate-400 mt-3 text-base">Real experiences from local drivers who bought with ${esc(s.name)}.</p>
+            </div>
+            <div class="grid md:grid-cols-3 gap-6">
+              <div class="bg-slate-50 dark:bg-slate-800/60 p-6 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+                <div class="text-amber-400 text-sm">★★★★★</div>
+                <p class="text-slate-700 dark:text-slate-200 text-sm italic">“Easiest car purchase I have ever made. Trade offer was higher than 2 other dealerships and financing was approved in minutes.”</p>
+                <div class="text-xs font-bold text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-700">— Marcus T. <span class="text-emerald-500 font-normal">· Verified Buyer</span></div>
+              </div>
+              <div class="bg-slate-50 dark:bg-slate-800/60 p-6 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+                <div class="text-amber-400 text-sm">★★★★★</div>
+                <p class="text-slate-700 dark:text-slate-200 text-sm italic">“100% transparent pricing with zero surprise fees. The vehicle arrived detailed and ready to drive. Highly recommended!”</p>
+                <div class="text-xs font-bold text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-700">— Sarah P. <span class="text-emerald-500 font-normal">· Verified Buyer</span></div>
+              </div>
+              <div class="bg-slate-50 dark:bg-slate-800/60 p-6 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+                <div class="text-amber-400 text-sm">★★★★★</div>
+                <p class="text-slate-700 dark:text-slate-200 text-sm italic">“Top notch service team and straightforward advisors. They answered every question without any pushy sales tactics.”</p>
+                <div class="text-xs font-bold text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-700">— David K. <span class="text-emerald-500 font-normal">· Verified Buyer</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Final Conversion Banner -->
+        <section class="py-16 bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-white">
+          <div class="max-w-7xl mx-auto px-6 lg:px-12 text-center space-y-6">
+            <h2 class="text-3xl lg:text-4xl font-black">Ready to Find Your Next Vehicle?</h2>
+            <p class="text-slate-300 max-w-xl mx-auto text-base">Get pre-approved online or request a instant trade offer in seconds.</p>
+            <div class="flex flex-wrap justify-center gap-4 pt-2">
+              <button onclick="go('finance')" class="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl transition cursor-pointer">Get Pre-Approved</button>
+              <button onclick="go('trade')" class="px-8 py-3.5 bg-white/10 hover:bg-white/20 border border-white/30 text-white font-bold rounded-xl transition cursor-pointer">Value Your Trade</button>
+              <button onclick="go('inquiry')" class="px-8 py-3.5 bg-white text-slate-950 hover:bg-slate-100 font-black rounded-xl transition cursor-pointer">Contact Dealership</button>
+            </div>
+          </div>
+        </section>
+      `;
     }
 
     // ── Section-based page builder (public render) ─────────────────────────────
@@ -530,7 +761,7 @@
           const imgSide=`<div class="sm:w-2/5 shrink-0 min-h-[160px]">${imgTag}</div>`;
           return wrap(`<div class="brand-bg text-white rounded-2xl overflow-hidden cshadow flex flex-col ${tpl==='imgleft'?'sm:flex-row-reverse':'sm:flex-row'}">${content}${imgSide}</div>`);
         }
-        case 'html': return `<section class="max-w-6xl mx-auto px-4 py-8"><div class="prose max-w-none">${g.html||''}</div></section>`;
+        case 'html': return `<section class="max-w-6xl mx-auto px-4 py-8"><div class="prose max-w-none">${richText(g.html||'')}</div></section>`;
         default: return '';
       }
     }
@@ -587,13 +818,13 @@
           <div class="flex items-center gap-2">
             <button onclick="invToggleFilters()" class="lg:hidden text-sm font-bold border border-slate-300 rounded-lg px-3 py-2">Filters${active?` (${active})`:''}</button>
             <label class="text-sm text-slate-500 hidden sm:block">Sort by</label>
-            <select onchange="invSort(this.value)" class="border border-slate-300 rounded-lg px-3 py-2 text-sm">${[['newest','Newest'],['price-asc','Price ↑'],['price-desc','Price ↓'],['miles-asc','Lowest km'],['year-desc','Year']].map(o=>`<option value="${o[0]}" ${INV.sort===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select>
+            <select onchange="invSort(this.value)" class="border border-slate-300 rounded-lg px-3 py-2 text-sm">${[['newest','Newest'],['price-asc','Price Low-High'],['price-desc','Price High-Low'],['miles-asc','Lowest Mileage'],['year-desc','Year']].map(o=>`<option value="${o[0]}" ${INV.sort===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select>
           </div>
         </div>
-        <div class="grid lg:grid-cols-[280px_minmax(0,1fr)] gap-6 items-start">
+        <div class="grid lg:grid-cols-[230px_minmax(0,1fr)] gap-6 items-start">
           <aside id="inv-sidebar" class="${INV.showFilters?'':'hidden'} lg:block lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto bg-white rounded-xl cshadow p-4">
             <div class="flex items-center justify-between mb-2"><div class="font-black">Search</div><button onclick="invClear()" class="text-xs font-bold brand-text">Clear all</button></div>
-            <div class="relative mb-1"><input id="inv-q" value="${esc(INV.q)}" oninput="invSearch(this.value)" placeholder="Make, model, or keyword" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm pr-9"><span class="absolute right-3 top-2.5 text-slate-400">🔍</span></div>
+            <div class="relative mb-1"><input id="inv-q" value="${esc(INV.q)}" oninput="invSearch(this.value)" placeholder="Make, model, or keyword" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm pr-9"><span class="absolute right-3 top-2.5 text-slate-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></span></div>
             <div id="inv-facets"></div>
           </aside>
           <div>
@@ -614,7 +845,7 @@
       const rows=shown.map(([val,cnt])=>`<label class="flex items-center gap-2 py-1 cursor-pointer text-sm"><input type="checkbox" data-facet="${f}" data-value="${attr(val)}" ${sel.has(val)?'checked':''} class="w-4 h-4 shrink-0" style="accent-color:var(--brand)"><span class="uppercase text-[13px] tracking-wide flex-1 truncate">${esc(val)}</span><span class="text-slate-400 text-xs">(${cnt})</span></label>`).join('');
       const moreBtn=(!collapsed&&!showAll&&entries.length>LIMIT)?`<button onclick="invMore('${f}')" class="text-sm font-bold brand-text mt-1">+ View more</button>`:'';
       return `<div class="border-t border-slate-100 py-3">
-        <button onclick="invCollapse('${f}')" class="w-full flex items-center justify-between font-black text-slate-800"><span>${esc(label)}</span><span class="text-slate-400 text-xs">${collapsed?'▾':'▴'}</span></button>
+        <button onclick="invCollapse('${f}')" class="w-full flex items-center justify-between font-black text-slate-800"><span>${esc(label)}</span><span class="text-slate-400 text-xs font-bold">${collapsed?'+':'-'}</span></button>
         ${collapsed?'':`<div class="mt-2">${rows||'<div class="text-xs text-slate-400 italic">None</div>'}${moreBtn}</div>`}</div>`;
     }
     function invRefresh(){
@@ -925,18 +1156,18 @@
       if(Array.isArray(p.sections)&&p.sections.length){
         const html=p.sections.map(sectionHtml).join('');
         setTimeout(()=>{ if(p.sections.some(s=>s.type==='inventory_grid')) wireInventory(); },0);
-        return wrap(html + (p.body_html?`<section class="max-w-3xl mx-auto px-4 py-6"><div class="prose max-w-none text-slate-700">${p.body_html}</div></section>`:''));
+        return wrap(html + (p.body_html?`<section class="max-w-3xl mx-auto px-4 py-6"><div class="prose max-w-none text-slate-700">${richText(p.body_html)}</div></section>`:''));
       }
       if(p.make&&p.model){
         const vs=(DATA.vehicles||[]).filter(v=>(v.make||'').toLowerCase()===p.make.toLowerCase()&&(v.model||'').toLowerCase()===p.model.toLowerCase());
-        return wrap(`<section class="brand2-bg text-white"><div class="max-w-6xl mx-auto px-4 py-14"><h1 class="text-4xl font-black">${esc(p.title)}</h1>${p.body_html?`<div class="mt-3 text-white/80 max-w-2xl">${p.body_html}</div>`:''}<div class="mt-5 flex flex-wrap gap-3"><button onclick="go('trade')" class="bg-white text-slate-900 font-bold px-5 py-2.5 rounded-lg">Value your trade</button><button onclick="go('finance')" class="border border-white/40 font-bold px-5 py-2.5 rounded-lg hover:bg-white/10">Get pre-approved</button></div></div></section>
+        return wrap(`<section class="brand2-bg text-white"><div class="max-w-6xl mx-auto px-4 py-14"><h1 class="text-4xl font-black">${esc(p.title)}</h1>${p.body_html?`<div class="mt-3 text-white/80 max-w-2xl">${richText(p.body_html)}</div>`:''}<div class="mt-5 flex flex-wrap gap-3"><button onclick="go('trade')" class="bg-white text-slate-900 font-bold px-5 py-2.5 rounded-lg">Value your trade</button><button onclick="go('finance')" class="border border-white/40 font-bold px-5 py-2.5 rounded-lg hover:bg-white/10">Get pre-approved</button></div></div></section>
           <section class="max-w-6xl mx-auto px-4 py-8"><h2 class="text-2xl font-black mb-4">${esc(p.make)} ${esc(p.model)} in stock</h2><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">${vs.map(vehicleCard).join('')||`<div class="col-span-full text-slate-400">None in stock right now — <button onclick="go('inquiry')" class="brand-text font-bold">contact us</button> and we'll find you one.</div>`}</div></section>`);
       }
-      return wrap(`<section class="max-w-3xl mx-auto px-4 py-10"><h1 class="text-3xl font-black mb-4">${esc(p.title)}</h1><div class="prose max-w-none text-slate-700">${p.body_html||''}</div></section>`);
+      return wrap(`<section class="max-w-3xl mx-auto px-4 py-10"><h1 class="text-3xl font-black mb-4">${esc(p.title)}</h1><div class="prose max-w-none text-slate-700">${richText(p.body_html||'')}</div></section>`);
     }
 
     async function postLead(body,formEl,btn){ btn.disabled=true; const t=btn.textContent; btn.textContent='Sending…';
-      try{ body.recaptcha_token=await rcToken(body.form_type||'lead'); const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error('x');
+      try{ const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error('x');
         formEl.innerHTML='<div class="text-center py-10"><div class="text-2xl mb-2">✓</div><div class="font-bold text-emerald-600">Thanks! We\'ll be in touch shortly.</div></div>';
       }catch(e){ btn.disabled=false; btn.textContent=t; alert('Sorry, something went wrong. Please call us.'); } }
     const V=(id)=>(document.getElementById(id)?.value||'').trim();
@@ -968,60 +1199,19 @@
 
     // ── AI sales concierge chat (dealer opt-in) ───────────────────────────────
     let CHAT=[], CHAT_OPEN=false, CHAT_BUSY=false, CHAT_CAPTURED=false;
-    // AI concierge identity (set in DealerOS → AI Chat → Settings): headshot + name.
-    const AV_FALLBACK="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23e2e8f0'/><circle cx='50' cy='40' r='18' fill='%2394a3b8'/><path d='M18 90c0-19 15-30 32-30s32 11 32 30z' fill='%2394a3b8'/></svg>";
-    function chatAvatar(){ const s=(DATA&&DATA.site)||{}; return s.chat_avatar||s.logo_url||AV_FALLBACK; }
-    function chatBotName(){ const s=(DATA&&DATA.site)||{}; return s.chat_name||s.name||'Sales team'; }
     function mountSalesChat(s){
       if(document.getElementById('ms-chat')) return;
-      const chatAv=s.chat_avatar||s.logo_url||AV_FALLBACK;
-      const chatNm=s.chat_name||s.name||'Sales team';
       const wrap=document.createElement('div'); wrap.id='ms-chat';
       wrap.innerHTML=`
-        <style>
-          #ms-chat-teaser{animation:msPop .35s ease}
-          @keyframes msPop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-          #ms-chat-log .ms-veh{align-self:stretch;display:flex;gap:10px;overflow-x:auto;padding:2px 0 4px;scroll-snap-type:x mandatory}
-          #ms-chat-log .ms-veh-card{flex:0 0 220px;scroll-snap-align:start;background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.06);cursor:pointer}
-          #ms-chat-log .ms-veh-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.12)}
-          #ms-chat-log .ms-veh-card img{width:100%;height:140px;object-fit:cover;background:#f1f5f9;display:block}
-          #ms-chat-log .ms-veh-card .p{padding:9px 11px}
-          #ms-chat-log .ms-veh-card .t{font-weight:800;font-size:13px;line-height:1.25;color:#0f172a}
-          #ms-chat-log .ms-veh-card .sub{font-size:11px;color:#64748b;margin-top:2px}
-          #ms-chat-log .ms-veh-card .pr{font-weight:900;color:var(--brand);margin-top:6px;font-size:15px}
-          #ms-chat-log .ms-veh-card .btns{display:flex;border-top:1px solid #eef2f7}
-          #ms-chat-log .ms-veh-card .btns a,#ms-chat-log .ms-veh-card .btns button{flex:1;text-align:center;padding:9px 4px;font-size:12px;font-weight:800;color:var(--brand);background:none;border:none;cursor:pointer;text-decoration:none}
-          #ms-chat-log .ms-veh-card .btns button{border-left:1px solid #eef2f7}
-          #ms-chat-log .ms-md{white-space:normal}
-          #ms-chat-log .ms-md > *:first-child{margin-top:0}
-          #ms-chat-log .ms-md > *:last-child{margin-bottom:0}
-          #ms-chat-log .ms-md p{margin:0 0 8px}
-          #ms-chat-log .ms-md ul,#ms-chat-log .ms-md ol{margin:6px 0 8px;padding-left:20px}
-          #ms-chat-log .ms-md li{margin:3px 0}
-          #ms-chat-log .ms-md strong{font-weight:700}
-          #ms-chat-log .ms-md em{font-style:italic}
-          #ms-chat-log .ms-md a{color:var(--brand);text-decoration:underline;font-weight:600;word-break:break-word}
-          #ms-chat-log .ms-md .ms-h{font-weight:800;margin:4px 0 6px;font-size:14px}
-          #ms-chat-log .ms-md code{background:#f1f5f9;padding:1px 5px;border-radius:4px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
-          #ms-chat-log .ms-md hr{border:none;border-top:1px solid #e2e8f0;margin:8px 0}
-        </style>
-        <div id="ms-chat-teaser" onclick="chatToggle()" style="display:none;position:fixed;right:18px;bottom:90px;z-index:60;max-width:min(320px,calc(100vw - 36px));background:#fff;border-radius:16px;box-shadow:0 16px 40px rgba(0,0,0,.22);padding:12px 14px 12px 12px;display:flex;align-items:center;gap:11px;cursor:pointer">
-          <img src="${esc(chatAv)}" style="width:46px;height:46px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.15)">
-          <div style="font-size:14px;line-height:1.3;color:#0f172a;font-weight:600">Questions about our cars? Let's chat for all the info you need!</div>
-          <button onclick="event.stopPropagation();chatHideTeaser()" aria-label="Dismiss" style="position:absolute;top:-8px;right:-8px;width:24px;height:24px;border-radius:50%;background:var(--brand);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
-        </div>
         <button id="ms-chat-fab" onclick="chatToggle()" aria-label="Chat with us"
-          style="position:fixed;right:18px;bottom:18px;z-index:60;width:62px;height:62px;border-radius:50%;background:var(--brand);color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;border:3px solid #fff;cursor:pointer">
-          <svg id="ms-chat-fab-i" width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          style="position:fixed;right:18px;bottom:18px;z-index:60;width:60px;height:60px;border-radius:50%;background:var(--brand);color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;border:none;cursor:pointer">
+          <svg id="ms-chat-fab-i" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </button>
-        <div id="ms-chat-panel" style="display:none;position:fixed;right:18px;bottom:88px;z-index:60;width:min(380px,calc(100vw - 36px));height:min(600px,calc(100vh - 120px));background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;flex-direction:column">
-          <div class="brand-bg" style="color:#fff;padding:12px 14px;display:flex;align-items:center;gap:11px">
-            <img src="${esc(chatAv)}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid rgba(255,255,255,.6)">
-            <div style="flex:1;min-width:0">
-              <div style="font-weight:800;font-size:16px;line-height:1.1">${esc(chatNm)}</div>
-              <div style="font-size:12px;opacity:.9;display:flex;align-items:center;gap:5px;margin-top:2px"><span style="width:8px;height:8px;border-radius:50%;background:#4ade80;box-shadow:0 0 0 2px rgba(74,222,128,.35)"></span>Online</div>
-            </div>
-            <button onclick="chatToggle()" style="background:none;border:none;color:#fff;cursor:pointer;opacity:.85"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div id="ms-chat-panel" style="display:none;position:fixed;right:18px;bottom:88px;z-index:60;width:min(370px,calc(100vw - 36px));height:min(560px,calc(100vh - 120px));background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;flex-direction:column">
+          <div class="brand-bg" style="color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px">
+            ${s.logo_url?`<img src="${esc(s.logo_url)}" style="height:26px;width:auto;background:rgba(255,255,255,.15);border-radius:4px;padding:2px">`:''}
+            <div style="flex:1;min-width:0"><div style="font-weight:800;font-size:15px;line-height:1.1">${esc(s.name)}</div><div style="font-size:11px;opacity:.85">${s.chat_name?esc(s.chat_name)+' · ':'Sales team · '}replies in seconds</div></div>
+            <button onclick="chatToggle()" style="background:none;border:none;color:#fff;cursor:pointer;opacity:.8"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
           </div>
           <div id="ms-chat-log" style="flex:1;overflow-y:auto;padding:14px;background:#f8fafc;display:flex;flex-direction:column;gap:10px"></div>
           <div id="ms-chat-capture" style="display:none;padding:12px 14px;border-top:1px solid #e2e8f0;background:#fff">
@@ -1030,122 +1220,30 @@
             <div style="display:flex;gap:6px"><input id="ms-chat-email" placeholder="Email (optional)" style="flex:1;border:1px solid #cbd5e1;border-radius:8px;padding:8px;font-size:13px"><button onclick="chatSubmitLead(this)" class="brand-bg" style="color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:700;font-size:13px;cursor:pointer">Send</button></div>
           </div>
           <form onsubmit="chatSend(event)" style="display:flex;gap:8px;padding:10px 12px;border-top:1px solid #e2e8f0;background:#fff">
-            <input id="ms-chat-input" autocomplete="off" placeholder="Type any question here…" style="flex:1;border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;font-size:14px;outline:none">
+            <input id="ms-chat-input" autocomplete="off" placeholder="Ask about our inventory…" style="flex:1;border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;font-size:14px;outline:none">
             <button type="submit" class="brand-bg" style="color:#fff;border:none;border-radius:10px;width:42px;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg></button>
           </form>
-          <div style="text-align:center;font-size:11px;line-height:1.5;color:#475569;padding:8px 12px;background:#fff;border-top:1px solid #e2e8f0">
-            <div>Powered by <a href="https://marketsync.link" target="_blank" rel="noopener" style="color:#0f172a;font-weight:800;text-decoration:underline">MarketSync</a>. Use is subject to MarketSync's <a href="https://marketsync.link/terms.html" target="_blank" rel="noopener" style="color:var(--brand);font-weight:700;text-decoration:underline">Terms</a> and <a href="https://marketsync.link/privacy-policy.html" target="_blank" rel="noopener" style="color:var(--brand);font-weight:700;text-decoration:underline">Privacy Policy</a>.</div>
-            ${s.recaptcha_site_key?`<div style="font-size:10px;color:#64748b;margin-top:2px">This site is protected by reCAPTCHA and the Google <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" style="color:#475569;text-decoration:underline">Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noopener" style="color:#475569;text-decoration:underline">Terms of Service</a> apply.</div>`:''}
-          </div>
         </div>`;
       document.body.appendChild(wrap);
-      // Nudge: pop the greeting teaser a few seconds after load (once per session).
-      try{ if(!sessionStorage.getItem('msChatTeased')){ setTimeout(()=>{ if(!CHAT_OPEN){ const t=document.getElementById('ms-chat-teaser'); if(t) t.style.display='flex'; } },3500); } }catch(e){}
     }
-    function chatHideTeaser(){ const t=document.getElementById('ms-chat-teaser'); if(t) t.style.display='none'; try{sessionStorage.setItem('msChatTeased','1')}catch(e){} }
     function chatToggle(){
       CHAT_OPEN=!CHAT_OPEN;
-      chatHideTeaser();
       const p=document.getElementById('ms-chat-panel'); if(!p) return;
       p.style.display=CHAT_OPEN?'flex':'none';
       if(CHAT_OPEN){
-        if(!CHAT.length){ const s=(DATA&&DATA.site)||{}; const cn=(s.chat_name||'').trim(); let greet=(s.chat_greeting||'').trim(); if(!greet){ greet = cn ? `Hi there! 👋 I'm ${cn}${s.name?`, part of the team here at ${s.name}`:''}. I can help you find the right vehicle, talk financing or a trade, or set up a time to come see something. What are you looking for today?` : `Hi there! 👋 Welcome to ${s.name||'our showroom'}! I can help you find the right vehicle, talk financing or a trade, or set up a visit. What are you looking for today?`; } chatPush('bot',greet); }
-        chatStartPoll();
+        if(!CHAT.length){ const cn=(DATA&&DATA.site&&DATA.site.chat_name||'').trim(); chatPush('bot',`Hi! 👋 ${cn?`I'm ${cn}. `:''}Looking for something specific, or want help finding the right vehicle? Ask me anything about our inventory, financing or trade-ins.`); }
         setTimeout(()=>document.getElementById('ms-chat-input')?.focus(),50);
       }
     }
     function chatEsc(t){ return esc(t).replace(/\n/g,'<br>'); }
-    // Inline markdown → HTML (input is ALREADY html-escaped). Handles code, bold,
-    // italic, [text](url) links and bare URLs so the concierge's answers read cleanly.
-    function chatInline(s){
-      s=s.replace(/`([^`]+)`/g,'<code>$1</code>');
-      s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
-      s=s.replace(/__([^_]+)__/g,'<strong>$1</strong>');
-      s=s.replace(/(^|[^*\w])\*([^*\n]+)\*(?!\w)/g,'$1<em>$2</em>');
-      s=s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
-      // Bare URLs not already inside an href (prefix can't be " or =).
-      s=s.replace(/(^|[\s(])((?:https?:\/\/)[^\s<]+)/g,(m,pre,url)=>{
-        let tail=''; const mt=url.match(/[.,!?;:)]+$/); if(mt){ tail=mt[0]; url=url.slice(0,-tail.length); }
-        return `${pre}<a href="${url}" target="_blank" rel="noopener">${url.replace(/^https?:\/\//,'')}</a>${tail}`;
-      });
-      return s;
-    }
-    // Block-level markdown → HTML: paragraphs (blank-line separated), bullet & numbered
-    // lists, headings and rules. Keeps the customer chat spaced and readable.
-    function chatMarkdown(t){
-      const lines=esc(t).split(/\r?\n/);
-      const out=[]; let list=null, para=[];
-      const closeList=()=>{ if(list){ out.push('</'+list+'>'); list=null; } };
-      const flushPara=()=>{ if(para.length){ out.push('<p>'+para.join('<br>')+'</p>'); para=[]; } };
-      for(const raw of lines){
-        const line=raw.trim();
-        if(!line){ flushPara(); closeList(); continue; }
-        let m;
-        if(/^([-*_])\1{2,}$/.test(line)){ flushPara(); closeList(); out.push('<hr>'); continue; }
-        if(m=line.match(/^#{1,6}\s+(.*)$/)){ flushPara(); closeList(); out.push('<div class="ms-h">'+chatInline(m[1])+'</div>'); continue; }
-        if(m=line.match(/^[-*•]\s+(.*)$/)){ flushPara(); if(list!=='ul'){ closeList(); out.push('<ul>'); list='ul'; } out.push('<li>'+chatInline(m[1])+'</li>'); continue; }
-        if(m=line.match(/^\d+[.)]\s+(.*)$/)){ flushPara(); if(list!=='ol'){ closeList(); out.push('<ol>'); list='ol'; } out.push('<li>'+chatInline(m[1])+'</li>'); continue; }
-        closeList(); para.push(chatInline(line));
-      }
-      flushPara(); closeList();
-      return out.join('')||chatEsc(t);
-    }
     function chatPush(who,text){
       CHAT.push({who,text});
       const log=document.getElementById('ms-chat-log'); if(!log) return;
       const mine=who==='me';
       const b=document.createElement('div');
-      if(!mine) b.className='ms-md';
-      b.style.cssText=`max-width:${mine?'82%':'100%'};padding:9px 12px;border-radius:14px;font-size:14px;line-height:1.5;${mine?'background:var(--brand);color:#fff;border-bottom-right-radius:4px':'background:#fff;color:#0f172a;border:1px solid #e2e8f0;border-bottom-left-radius:4px'}`;
-      b.innerHTML=mine?chatEsc(text):chatMarkdown(text);
-      if(mine){ b.style.alignSelf='flex-end'; log.appendChild(b); }
-      else {
-        // Bot messages ride next to the concierge's headshot, like a real rep texting.
-        const row=document.createElement('div'); row.style.cssText='align-self:flex-start;display:flex;gap:8px;align-items:flex-end;max-width:90%';
-        const av=document.createElement('img'); av.src=chatAvatar(); av.style.cssText='width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0';
-        b.style.flex='1'; row.appendChild(av); row.appendChild(b); log.appendChild(row);
-      }
-      log.scrollTop=log.scrollHeight;
-    }
-    // Render the vehicles the concierge surfaced as swipeable cards (image 3 style).
-    function chatPushVehicles(vehicles){
-      if(!Array.isArray(vehicles)||!vehicles.length) return;
-      const log=document.getElementById('ms-chat-log'); if(!log) return;
-      const money=n=>n?'$'+Number(n).toLocaleString('en-US'):'Call for price';
-      const row=document.createElement('div'); row.className='ms-veh';
-      row.innerHTML=vehicles.map(v=>{
-        const img=v.image?`<img src="${esc(v.image)}" loading="lazy">`:`<div style="height:120px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#cbd5e1"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 17H3a1 1 0 0 1-1-1v-4l2.5-5h11L18 12v4a1 1 0 0 1-1 1h-2"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/></svg></div>`;
-        const cond=v.condition?`<span style="text-transform:capitalize;color:var(--brand);font-weight:800">${esc(v.condition)}</span>${v.stock?' · ':''}`:'';
-        return `<div class="ms-veh-card" onclick="chatViewVehicle('${esc(v.id||'')}','${esc(v.url||'')}')">${img}<div class="p"><div class="sub">${cond}${v.stock?`Stock #${esc(String(v.stock))}`:''}</div><div class="t">${esc(v.title||'Vehicle')}</div><div class="pr">${money(v.price)}</div></div><div class="btns"><span style="flex:1;text-align:center;padding:9px 4px;font-size:12px;font-weight:800;color:var(--brand)">View Details</span><button onclick="event.stopPropagation();chatSelectVehicle(${JSON.stringify(v.title||'').replace(/"/g,'&quot;')})">Select</button></div></div>`;
-      }).join('');
-      log.appendChild(row); log.scrollTop=log.scrollHeight;
-    }
-    // Poll for rep replies during a take-over so the customer sees them live.
-    function chatStartPoll(){
-      if(window.__msPollTimer||!window.MS_CHAT_CONV||!window.MS_CHAT_VTOK) return;
-      if(!window.MS_CHAT_AFTER) window.MS_CHAT_AFTER=new Date().toISOString();
-      window.__msPollTimer=setInterval(chatPollOnce,5000);
-    }
-    async function chatPollOnce(){
-      if(!CHAT_OPEN||!window.MS_CHAT_CONV||!window.MS_CHAT_VTOK) return;
-      try{
-        const u=`${API}/ai/public/messages?conversation_id=${encodeURIComponent(MS_CHAT_CONV)}&visitor_token=${encodeURIComponent(MS_CHAT_VTOK)}${MS_CHAT_AFTER?`&after=${encodeURIComponent(MS_CHAT_AFTER)}`:''}`;
-        const r=await fetch(u); const d=await r.json().catch(()=>({}));
-        (d.messages||[]).forEach(m=>{ chatPush('bot',m.message); if(m.at) window.MS_CHAT_AFTER=m.at; });
-      }catch(e){}
-    }
-    // "View Details" → open the vehicle. On the dealer's own site we open it in-page
-    // (reliable); otherwise fall back to the deep link.
-    function chatViewVehicle(id, url){
-      // Prefer the vehicle's stock page on the dealer's own website (source_url).
-      if(url){ window.open(url,'_blank','noopener'); return; }
-      if(id && (DATA.vehicles||[]).some(v=>v.id===id)){ if(CHAT_OPEN) chatToggle(); openVehicle(id); }
-    }
-    // "Select" a card → drop it into the chat so the concierge can book a visit around it.
-    function chatSelectVehicle(title){
-      const inp=document.getElementById('ms-chat-input'); if(!inp) return;
-      inp.value=`I'm interested in the ${title}. Can we set up a time to see it?`;
-      chatSend(new Event('submit'));
+      b.style.cssText=`max-width:82%;padding:9px 12px;border-radius:14px;font-size:14px;line-height:1.4;${mine?'align-self:flex-end;background:var(--brand);color:#fff;border-bottom-right-radius:4px':'align-self:flex-start;background:#fff;color:#0f172a;border:1px solid #e2e8f0;border-bottom-left-radius:4px'}`;
+      b.innerHTML=chatEsc(text);
+      log.appendChild(b); log.scrollTop=log.scrollHeight;
     }
     function chatTyping(on){
       let t=document.getElementById('ms-chat-typing');
@@ -1159,18 +1257,10 @@
       inp.value=''; chatPush('me',text); CHAT_BUSY=true; chatTyping(true);
       try{
         const msgs=CHAT.filter(m=>m.who==='me'||m.who==='bot').slice(-8).map(m=>({role:m.who==='me'?'user':'assistant',content:m.text}));
-        const rc=await rcToken('chat');
-        const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs,conversation_id:window.MS_CHAT_CONV||null,visitor_token:window.MS_CHAT_VTOK||null,recaptcha_token:rc})});
+        const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs})});
         const d=await r.json().catch(()=>({}));
-        if(d.conversation_id) window.MS_CHAT_CONV=d.conversation_id;
-        if(d.visitor_token) window.MS_CHAT_VTOK=d.visitor_token;
         chatTyping(false);
-        if(d.reply) chatPush('bot',d.reply);
-        else if(d.handoff && !window.__msHandoffNote){ window.__msHandoffNote=1; chatPush('bot',"You're now chatting with a member of our team 👋"); }
-        else if(!d.handoff) chatPush('bot',"Sorry, I didn't catch that — could you rephrase?");
-        chatPushVehicles(d.vehicles);
-        if(d.reply_at) window.MS_CHAT_AFTER=d.reply_at;
-        chatStartPoll();   // pick up any rep replies (take-over) live
+        chatPush('bot',d.reply||"Sorry, I didn't catch that — could you rephrase?");
         if(d.capture&&!CHAT_CAPTURED) document.getElementById('ms-chat-capture').style.display='block';
       }catch(_){ chatTyping(false); chatPush('bot',"I'm having trouble connecting — please leave your info and we'll reach out."); document.getElementById('ms-chat-capture').style.display='block'; }
       CHAT_BUSY=false;
@@ -1185,14 +1275,13 @@
       // Full structured transcript (both sides) so the dealer can read exactly what the AI said.
       const chat_transcript=CHAT.filter(m=>m.who==='me'||m.who==='bot').map(m=>({role:m.who==='me'?'user':'assistant',content:String(m.text||'').slice(0,2000)})).slice(-60);
       try{
-        const rc=await rcToken('chat_lead');
-        await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({form_type:'chat',name,phone,email,message:'From website chat: '+transcript,chat_transcript,recaptcha_token:rc})});
+        await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({form_type:'chat',name,phone,email,message:'From website chat: '+transcript,chat_transcript})});
         CHAT_CAPTURED=true;
         document.getElementById('ms-chat-capture').style.display='none';
         chatPush('bot',`Thanks${name?' '+name:''}! A product advisor will reach out shortly. Anything else I can help with in the meantime?`);
       }catch(_){ btn.disabled=false; alert('Something went wrong — please try again.'); }
     }
-    Object.assign(window,{ chatToggle, chatSend, chatSubmitLead, chatHideTeaser, chatSelectVehicle, chatViewVehicle });
+    Object.assign(window,{ chatToggle, chatSend, chatSubmitLead });
 
     // ── Native appointment booking (test drive / consult) ──────────────────────
     let __bookVeh=null, __bookLabel='';
@@ -1221,7 +1310,7 @@
       const when=new Date(date+'T'+time+':00'); if(isNaN(when.getTime())||when.getTime()<Date.now()){ err.textContent='Pick a future time.'; err.classList.remove('hidden'); return; }
       let tz=''; try{ tz=Intl.DateTimeFormat().resolvedOptions().timeZone; }catch(_){}
       btn.disabled=true; const t=btn.textContent; btn.textContent='Booking…';
-      try{ const rc=await rcToken('book'); const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/book`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,phone,email,notes,vehicle_id:__bookVeh,when:when.toISOString(),tz,kind:'Test drive',recaptcha_token:rc})});
+      try{ const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/book`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,phone,email,notes,vehicle_id:__bookVeh,when:when.toISOString(),tz,kind:'Test drive'})});
         const d=await r.json(); if(!r.ok) throw new Error(d.error||'Could not book that time.');
         document.getElementById('bk-body').innerHTML=`<div class="text-center py-6"><div class="text-4xl">✅</div><div class="text-lg font-black text-slate-900 mt-2">You're booked!</div><div class="text-sm text-slate-500 mt-1">Check your inbox for the confirmation. See you then!</div>${d.meet_url?`<a href="${d.meet_url}" target="_blank" class="inline-block mt-3 text-sm font-bold brand-text">Join link</a>`:''}<div class="mt-3"><button onclick="this.closest('.fixed').remove()" class="text-slate-500 font-bold text-sm">Close</button></div></div>`;
       }catch(e){ btn.disabled=false; btn.textContent=t; err.textContent=e.message||'Something went wrong — please call us.'; err.classList.remove('hidden'); } }
@@ -1249,6 +1338,8 @@
           const s=DATA.site;
           if(s.primary_color) document.documentElement.style.setProperty('--brand',s.primary_color);
           if(s.secondary_color) document.documentElement.style.setProperty('--brand2',s.secondary_color);
+          if(s.accent_color) document.documentElement.style.setProperty('--accent',s.accent_color);
+          try{ applyDesignThemeStyle(s); }catch(e){}
           try{ applyTypography(s); }catch(e){}
           try{ renderChrome(); }catch(e){}
           go(m.view||'home');

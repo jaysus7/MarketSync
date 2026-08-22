@@ -9,67 +9,28 @@
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f8fafc; }
     .wrap { display: flex; flex-direction: column; height: 100vh; }
-    .hd { background: var(--accent); color: #fff; padding: 12px 14px; display: flex; align-items: center; gap: 11px; }
-    .hd img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid rgba(255,255,255,.6); }
-    .hd .nm { font-weight: 800; font-size: 16px; line-height: 1.1; }
-    .hd .st { font-size: 12px; opacity: .9; display: flex; align-items: center; gap: 5px; margin-top: 2px; }
-    .hd .dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 2px rgba(74,222,128,.35); }
+    .hd { background: var(--accent); color: #fff; padding: 14px 16px; font-weight: 700; font-size: 15px; }
+    .hd small { display: block; font-weight: 500; opacity: .85; font-size: 12px; margin-top: 2px; }
     .msgs { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
-    .brow { align-self: flex-start; display: flex; gap: 8px; align-items: flex-end; max-width: 92%; }
-    .brow img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
-    .veh { align-self: stretch; display: flex; gap: 10px; overflow-x: auto; padding: 2px 0 4px; }
-    .veh .card { flex: 0 0 220px; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,.06); cursor: pointer; }
-    .veh .card:hover { box-shadow: 0 6px 20px rgba(0,0,0,.12); }
-    .veh .card img { width: 100%; height: 140px; object-fit: cover; background: #f1f5f9; display: block; }
-    .veh .card .p { padding: 9px 11px; }
-    .veh .card .sub { font-size: 11px; color: #64748b; }
-    .veh .card .t { font-weight: 800; font-size: 13px; line-height: 1.25; color: #0f172a; margin-top: 2px; }
-    .veh .card .pr { font-weight: 900; color: var(--accent); margin-top: 6px; font-size: 15px; }
-    .veh .card .btns { display: flex; border-top: 1px solid #eef2f7; }
-    .veh .card .btns a, .veh .card .btns button { flex: 1; text-align: center; padding: 9px 4px; font-size: 12px; font-weight: 800; color: var(--accent); background: none; border: none; cursor: pointer; text-decoration: none; }
-    .veh .card .btns button { border-left: 1px solid #eef2f7; }
-    .b { max-width: 100%; padding: 9px 12px; border-radius: 14px; font-size: 14px; line-height: 1.5; word-wrap: break-word; }
-    .u { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; white-space: pre-wrap; }
+    .b { max-width: 82%; padding: 9px 12px; border-radius: 14px; font-size: 14px; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; }
+    .u { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
     .a { align-self: flex-start; background: #fff; color: #1e293b; border: 1px solid #e2e8f0; border-bottom-left-radius: 4px; }
-    .a > *:first-child { margin-top: 0; }
-    .a > *:last-child { margin-bottom: 0; }
-    .a p { margin: 0 0 8px; }
-    .a ul, .a ol { margin: 6px 0 8px; padding-left: 20px; }
-    .a li { margin: 3px 0; }
-    .a strong { font-weight: 700; }
-    .a em { font-style: italic; }
-    .a a { color: var(--accent); text-decoration: underline; font-weight: 600; word-break: break-word; }
-    .a .h { font-weight: 800; margin: 4px 0 6px; }
-    .a code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
-    .a hr { border: none; border-top: 1px solid #e2e8f0; margin: 8px 0; }
     .typing { align-self: flex-start; color: #94a3b8; font-size: 13px; padding: 4px 12px; }
     .ft { padding: 10px; border-top: 1px solid #e2e8f0; background: #fff; display: flex; gap: 8px; }
     .ft input { flex: 1; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 12px; font-size: 14px; outline: none; }
     .ft input:focus { border-color: var(--accent); }
     .ft button { border: 0; background: var(--accent); color: #fff; border-radius: 10px; padding: 0 14px; font-weight: 700; cursor: pointer; }
     .ft button:disabled { opacity: .5; cursor: default; }
-    .brand { text-align: center; font-size: 11px; line-height: 1.5; color: #475569; padding: 8px 12px; background: #fff; border-top: 1px solid #e2e8f0; }
-    .brand a { color: var(--accent); font-weight: 700; text-decoration: underline; }
-    .brand .wm { font-weight: 800; color: #0f172a; }
-    .brand .sm { font-size: 10px; color: #64748b; margin-top: 2px; }
-    .brand .sm a { color: #475569; }
     .off { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; color: #64748b; padding: 24px; font-size: 14px; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="hd" id="hd">
-      <img id="hd-av" alt="">
-      <div style="flex:1;min-width:0"><div class="nm" id="hd-nm">Chat</div><div class="st"><span class="dot"></span>Online</div></div>
-    </div>
+    <div class="hd" id="hd">Chat<small id="hd-sub">We usually reply in seconds</small></div>
     <div class="msgs" id="msgs"></div>
     <div class="ft" id="ft" style="display:none;">
-      <input id="inp" placeholder="Type any question here…" autocomplete="off">
+      <input id="inp" placeholder="Type a message…" autocomplete="off">
       <button id="send">Send</button>
-    </div>
-    <div class="brand" id="brand" style="display:none;">
-      <div>Powered by <a class="wm" href="https://marketsync.link" target="_blank" rel="noopener">MarketSync</a>. Use is subject to MarketSync's <a href="https://marketsync.link/terms.html" target="_blank" rel="noopener">Terms</a> and <a href="https://marketsync.link/privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a>.</div>
-      <div class="sm">This site is protected by reCAPTCHA and the Google <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noopener">Terms of Service</a> apply.</div>
     </div>
     <div class="off" id="off" style="display:none;">Chat isn't available right now.</div>
   </div>
@@ -84,61 +45,7 @@
     var inp = document.getElementById('inp'), sendBtn = document.getElementById('send');
 
     function esc(t){ var d=document.createElement('div'); d.textContent=t==null?'':String(t); return d.innerHTML; }
-    // Inline markdown → HTML (input already escaped): code, bold, italic, links, bare URLs.
-    function mdInline(s){
-      s=s.replace(/`([^`]+)`/g,'<code>$1</code>');
-      s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
-      s=s.replace(/__([^_]+)__/g,'<strong>$1</strong>');
-      s=s.replace(/(^|[^*\w])\*([^*\n]+)\*(?!\w)/g,'$1<em>$2</em>');
-      s=s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
-      s=s.replace(/(^|[\s(])((?:https?:\/\/)[^\s<]+)/g,function(m,pre,url){
-        var tail=''; var mt=url.match(/[.,!?;:)]+$/); if(mt){ tail=mt[0]; url=url.slice(0,-tail.length); }
-        return pre+'<a href="'+url+'" target="_blank" rel="noopener">'+url.replace(/^https?:\/\//,'')+'</a>'+tail;
-      });
-      return s;
-    }
-    // Block markdown → HTML: paragraphs, bullet/numbered lists, headings, rules.
-    function md(t){
-      var lines=esc(t).split(/\r?\n/), out=[], list=null, para=[];
-      function closeList(){ if(list){ out.push('</'+list+'>'); list=null; } }
-      function flushPara(){ if(para.length){ out.push('<p>'+para.join('<br>')+'</p>'); para=[]; } }
-      for(var i=0;i<lines.length;i++){
-        var line=lines[i].trim(), m;
-        if(!line){ flushPara(); closeList(); continue; }
-        if(/^([-*_])\1{2,}$/.test(line)){ flushPara(); closeList(); out.push('<hr>'); continue; }
-        if(m=line.match(/^#{1,6}\s+(.*)$/)){ flushPara(); closeList(); out.push('<div class="h">'+mdInline(m[1])+'</div>'); continue; }
-        if(m=line.match(/^[-*•]\s+(.*)$/)){ flushPara(); if(list!=='ul'){ closeList(); out.push('<ul>'); list='ul'; } out.push('<li>'+mdInline(m[1])+'</li>'); continue; }
-        if(m=line.match(/^\d+[.)]\s+(.*)$/)){ flushPara(); if(list!=='ol'){ closeList(); out.push('<ol>'); list='ol'; } out.push('<li>'+mdInline(m[1])+'</li>'); continue; }
-        closeList(); para.push(mdInline(line));
-      }
-      flushPara(); closeList();
-      return out.join('')||esc(t).replace(/\n/g,'<br>');
-    }
-    var AV_FALLBACK="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23e2e8f0'/><circle cx='50' cy='40' r='18' fill='%2394a3b8'/><path d='M18 90c0-19 15-30 32-30s32 11 32 30z' fill='%2394a3b8'/></svg>";
-    var AVATAR = AV_FALLBACK;
-    function bubble(text, who){
-      if(who==='user'){ var el=document.createElement('div'); el.className='b u'; el.innerHTML=esc(text); msgsEl.appendChild(el); msgsEl.scrollTop=msgsEl.scrollHeight; return el; }
-      // AI/rep messages ride next to the concierge's headshot.
-      var row=document.createElement('div'); row.className='brow';
-      var av=document.createElement('img'); av.src=AVATAR; av.alt='';
-      var el=document.createElement('div'); el.className='b a'; el.style.flex='1'; el.innerHTML=md(text);
-      row.appendChild(av); row.appendChild(el); msgsEl.appendChild(row); msgsEl.scrollTop=msgsEl.scrollHeight; return el;
-    }
-    function money(n){ return n?'$'+Number(n).toLocaleString('en-US'):'Call for price'; }
-    // Render surfaced vehicles as swipeable cards (image 3 style).
-    function vehicleCards(vehicles){
-      if(!Array.isArray(vehicles)||!vehicles.length) return;
-      var row=document.createElement('div'); row.className='veh';
-      row.innerHTML=vehicles.map(function(v){
-        var img=v.image?'<img src="'+esc(v.image)+'" loading="lazy">':'<div style="height:140px;background:#f1f5f9"></div>';
-        var cond=v.condition?'<span style="text-transform:capitalize;color:var(--accent);font-weight:800">'+esc(v.condition)+'</span>'+(v.stock?' · ':''):'';
-        return '<div class="card" data-url="'+esc(v.url||'')+'">'+img+'<div class="p"><div class="sub">'+cond+(v.stock?'Stock #'+esc(String(v.stock)):'')+'</div><div class="t">'+esc(v.title||'Vehicle')+'</div><div class="pr">'+money(v.price)+'</div></div><div class="btns"><span style="flex:1;text-align:center;padding:9px 4px;font-size:12px;font-weight:800;color:var(--accent)">View Details</span><button data-sel="'+esc(v.title||'')+'">Select</button></div></div>';
-      }).join('');
-      // Whole card → open the vehicle page; Select drops it into the chat.
-      row.querySelectorAll('.card[data-url]').forEach(function(card){ card.onclick=function(){ var u=card.getAttribute('data-url'); if(u) window.open(u,'_blank','noopener'); }; });
-      row.querySelectorAll('button[data-sel]').forEach(function(btn){ btn.onclick=function(e){ e.stopPropagation(); inp.value="I'm interested in the "+btn.getAttribute('data-sel')+". Can we set up a time to see it?"; send(); }; });
-      msgsEl.appendChild(row); msgsEl.scrollTop=msgsEl.scrollHeight;
-    }
+    function bubble(text, who){ var el=document.createElement('div'); el.className='b '+(who==='user'?'u':'a'); el.innerHTML=esc(text); msgsEl.appendChild(el); msgsEl.scrollTop=msgsEl.scrollHeight; return el; }
     function typing(on){ var t=document.getElementById('typing'); if(on){ if(!t){ t=document.createElement('div'); t.id='typing'; t.className='typing'; t.textContent='…'; msgsEl.appendChild(t); msgsEl.scrollTop=msgsEl.scrollHeight; } } else if(t){ t.remove(); } }
 
     async function init(){
@@ -146,51 +53,25 @@
       try{
         var cfg = await (await fetch(API+'/ai/widget/config?dealer='+encodeURIComponent(dealer))).json();
         if(!cfg.enabled){ document.getElementById('off').style.display='flex'; return; }
-        AVATAR = cfg.avatar || AV_FALLBACK;
-        document.getElementById('hd-av').src = AVATAR;
-        document.getElementById('hd-nm').textContent = cfg.assistant_name || cfg.name || 'Chat';
+        document.getElementById('hd').firstChild.textContent = cfg.name ? cfg.name : 'Chat';
         document.getElementById('ft').style.display='flex';
-        document.getElementById('brand').style.display='block';
-        // reCAPTCHA v3 (invisible) — load only if the dealer has keys configured; otherwise
-        // hide the "protected by reCAPTCHA" line so it isn't shown untruthfully.
-        if(cfg.recaptcha_site_key){ window.RC_KEY=cfg.recaptcha_site_key; var rs=document.createElement('script'); rs.src='https://www.google.com/recaptcha/api.js?render='+encodeURIComponent(cfg.recaptcha_site_key); rs.async=true; document.head.appendChild(rs); }
-        else { var sm=document.querySelector('#brand .sm'); if(sm) sm.style.display='none'; }
         bubble(cfg.greeting || 'Hi! How can I help you find your next vehicle?', 'ai');
-        if(convId&&visTok) startPoll();   // returning visitor — catch live rep replies
         inp.focus();
       }catch(e){ document.getElementById('off').style.display='flex'; }
     }
 
-    async function rcToken(action){ try{ if(window.RC_KEY && window.grecaptcha){ await new Promise(function(r){ grecaptcha.ready?grecaptcha.ready(r):r(); }); return await grecaptcha.execute(window.RC_KEY,{action:action||'chat'}); } }catch(e){} return null; }
     async function send(){
       var text = inp.value.trim(); if(!text) return;
       inp.value=''; sendBtn.disabled=true; bubble(text,'user'); typing(true);
       try{
-        var rc = await rcToken('chat');
         var r = await fetch(API+'/ai/widget/chat', { method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ dealer: dealer, message: text, conversation_id: convId, visitor_token: visTok, website: document.referrer || null, recaptcha_token: rc }) });
+          body: JSON.stringify({ dealer: dealer, message: text, conversation_id: convId, visitor_token: visTok, website: document.referrer || null }) });
         var d = await r.json(); typing(false);
         if(d.conversation_id){ convId=d.conversation_id; localStorage.setItem(LS_CONV,convId); }
         if(d.visitor_token){ visTok=d.visitor_token; localStorage.setItem(LS_VIS,visTok); }
-        if(d.reply) bubble(d.reply,'ai');
-        else if(d.handoff && !window.__hoNote){ window.__hoNote=1; bubble("You're now chatting with a member of our team 👋",'ai'); }
-        else if(!d.handoff) bubble("Thanks — someone will follow up shortly.",'ai');
-        vehicleCards(d.vehicles);
-        if(d.reply_at) widgetAfter=d.reply_at;
-        startPoll();
+        bubble(d.reply || "Thanks — someone will follow up shortly.", 'ai');
       }catch(e){ typing(false); bubble("Sorry, something went wrong. Please try again.", 'ai'); }
       sendBtn.disabled=false; inp.focus();
-    }
-    // Poll for rep replies during a take-over so the visitor sees them live.
-    var widgetAfter=null, pollTimer=null;
-    function startPoll(){ if(pollTimer||!convId||!visTok) return; if(!widgetAfter) widgetAfter=new Date().toISOString(); pollTimer=setInterval(pollOnce,5000); }
-    async function pollOnce(){
-      if(!convId||!visTok) return;
-      try{
-        var u=API+'/ai/public/messages?conversation_id='+encodeURIComponent(convId)+'&visitor_token='+encodeURIComponent(visTok)+(widgetAfter?'&after='+encodeURIComponent(widgetAfter):'');
-        var r=await fetch(u); var d=await r.json();
-        (d.messages||[]).forEach(function(m){ bubble(m.message,'ai'); if(m.at) widgetAfter=m.at; });
-      }catch(e){}
     }
     sendBtn.onclick = send;
     inp.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); send(); } });

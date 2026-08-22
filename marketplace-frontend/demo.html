@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-80X981D9FP"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-80X981D9FP');</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6366F1">
+  <title>Book a Demo — MarketSync Dealer Operating System</title>
+  <meta name="description" content="See MarketSync running your store. Book a live walkthrough with a product specialist — CRM, inventory, desking, fixed ops and marketing in one login.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://marketsync.link/demo.html">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="MarketSync">
+  <meta property="og:title" content="Book a Demo — MarketSync Dealer Operating System">
+  <meta property="og:description" content="See MarketSync running your store. Book a live walkthrough with a product specialist.">
+  <meta property="og:url" content="https://marketsync.link/demo.html">
+  <meta property="og:image" content="https://marketsync.link/og/home.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/favicon.png">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="/site-marketing.css">
+  <link rel="stylesheet" href="/assets/public-shell.css">
+  <style>
+    .demo-wrap{max-width:1080px;margin:0 auto;padding:0 32px;}
+    .demo-grid{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:start;padding:56px 0 100px;}
+    @media (max-width:900px){.demo-grid{grid-template-columns:1fr;padding:32px 0 64px;}}
+
+    .demo-copy .kick{margin-bottom:18px;}
+    .demo-copy h1{font-size:clamp(32px,4.4vw,48px);font-weight:800;letter-spacing:-.03em;line-height:1.08;margin:0 0 16px;}
+    .demo-copy .lead{font-size:18px;margin:0 0 32px;}
+    .demo-points{list-style:none;padding:0;margin:0 0 32px;display:grid;gap:14px;}
+    .demo-points li{display:flex;gap:12px;align-items:flex-start;font-size:15px;color:#334155;}
+    .demo-points li svg{flex:0 0 20px;margin-top:2px;color:#10b981;}
+    @media (prefers-color-scheme:dark){.demo-points li{color:#c4cedd;}}
+
+    .plan-card{border-radius:16px;padding:18px 20px;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);margin-bottom:8px;}
+    .plan-card .pc-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#6366F1;margin-bottom:4px;}
+    .plan-card .pc-name{font-size:17px;font-weight:800;letter-spacing:-.01em;}
+    .plan-card .pc-price{font-size:14px;color:#64748b;margin-top:2px;}
+    @media (prefers-color-scheme:dark){.plan-card .pc-price{color:#94a3b8;}}
+
+    .quote{border-top:1px solid rgba(0,0,0,.08);padding-top:24px;margin-top:8px;}
+    @media (prefers-color-scheme:dark){.quote{border-top-color:rgba(255,255,255,.1);}}
+    .quote p{font-size:15px;line-height:1.6;color:#334155;font-style:italic;margin:0 0 10px;}
+    @media (prefers-color-scheme:dark){.quote p{color:#c4cedd;}}
+    .quote .who{font-size:13px;font-weight:700;color:#64748b;}
+    @media (prefers-color-scheme:dark){.quote .who{color:#94a3b8;}}
+
+    .demo-card{background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:24px;padding:36px;box-shadow:0 30px 70px -34px rgba(15,23,42,.35);}
+    @media (prefers-color-scheme:dark){.demo-card{background:#111a2e;border-color:rgba(255,255,255,.1);}}
+    .demo-card h2{font-size:20px;font-weight:800;margin:0 0 4px;}
+    .demo-card .sub{font-size:14px;color:#64748b;margin:0 0 24px;}
+    @media (prefers-color-scheme:dark){.demo-card .sub{color:#94a3b8;}}
+
+    .field{margin-bottom:16px;}
+    .field label{display:block;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin-bottom:6px;}
+    @media (prefers-color-scheme:dark){.field label{color:#94a3b8;}}
+    .field input,.field textarea{width:100%;font:inherit;font-size:15px;padding:12px 14px;border-radius:11px;border:1px solid rgba(0,0,0,.14);background:#f8fafc;color:#0b1220;transition:border-color .15s,background .15s;}
+    .field input:focus,.field textarea:focus{outline:none;border-color:#6366F1;background:#fff;}
+    @media (prefers-color-scheme:dark){
+      .field input,.field textarea{background:#0b1220;border-color:rgba(255,255,255,.14);color:#f1f5f9;}
+      .field input:focus,.field textarea:focus{border-color:#818cf8;background:#0b1220;}
+    }
+    .field textarea{resize:vertical;min-height:88px;font-family:inherit;}
+    .field-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+    @media (max-width:520px){.field-row{grid-template-columns:1fr;}}
+
+    #demo-msg{display:none;font-size:14px;border-radius:11px;padding:12px 14px;margin-bottom:16px;}
+    #demo-msg.show{display:block;}
+    #demo-msg.err{background:rgba(239,68,68,.1);color:#b91c1c;border:1px solid rgba(239,68,68,.25);}
+    #demo-msg.ok{background:rgba(16,185,129,.1);color:#047857;border:1px solid rgba(16,185,129,.25);}
+    @media (prefers-color-scheme:dark){
+      #demo-msg.err{color:#fca5a5;}
+      #demo-msg.ok{color:#6ee7b7;}
+    }
+
+    #demo-success{display:none;text-align:center;padding:24px 0;}
+    #demo-success.show{display:block;}
+    #demo-success .ic{width:56px;height:56px;border-radius:50%;background:rgba(16,185,129,.12);color:#10b981;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;}
+    #demo-success h3{font-size:19px;font-weight:800;margin:0 0 8px;}
+    #demo-success p{font-size:14.5px;color:#64748b;line-height:1.6;margin:0 0 22px;}
+    @media (prefers-color-scheme:dark){#demo-success p{color:#94a3b8;}}
+
+    .submit-btn{width:100%;justify-content:center;font-size:16px;padding:15px 28px;}
+    .submit-btn[disabled]{opacity:.6;cursor:default;}
+    .form-note{font-size:12.5px;color:#94a3b8;text-align:center;margin-top:16px;}
+  </style>
+</head>
+<body>
+  <div id="ms-public-header"></div>
+
+  <main>
+    <div class="demo-wrap demo-grid">
+      <div class="demo-copy ms-reveal">
+        <span class="kick">Book a demo</span>
+        <h1>See MarketSync running your store.</h1>
+        <p class="lead">A 30-minute walkthrough with a product specialist — using your inventory, your workflows. No script, no fluff.</p>
+        <ul class="demo-points">
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg> CRM, desking, inventory &amp; fixed ops in one login</li>
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg> We'll show it with real answers to your actual questions</li>
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg> No pressure — you decide the plan after, not before</li>
+        </ul>
+        <div id="plan-card" class="plan-card" style="display:none;">
+          <div class="pc-label">You're booking for</div>
+          <div class="pc-name" id="plan-name"></div>
+          <div class="pc-price" id="plan-price"></div>
+        </div>
+        <div class="quote">
+          <p>"We replaced four separate logins with one. Setup took a day, not a quarter."</p>
+          <div class="who">Dealer principal, MarketSync customer</div>
+        </div>
+      </div>
+
+      <div class="demo-card ms-reveal" data-ms-delay="80">
+        <div id="demo-form-wrap">
+          <h2>Get your demo</h2>
+          <p class="sub">A specialist replies within one business day.</p>
+          <div id="demo-msg"></div>
+          <form id="demo-form" novalidate>
+            <div class="field-row">
+              <div class="field">
+                <label for="df-name">Full name</label>
+                <input type="text" id="df-name" autocomplete="name" required>
+              </div>
+              <div class="field">
+                <label for="df-email">Work email</label>
+                <input type="email" id="df-email" autocomplete="email" required>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="df-phone">Phone <span style="text-transform:none;font-weight:600;">(optional)</span></label>
+                <input type="tel" id="df-phone" autocomplete="tel">
+              </div>
+              <div class="field">
+                <label for="df-dealer">Dealership name</label>
+                <input type="text" id="df-dealer" autocomplete="organization">
+              </div>
+            </div>
+            <div class="field">
+              <label for="df-message">What are you hoping to fix? <span style="text-transform:none;font-weight:600;">(optional)</span></label>
+              <textarea id="df-message" placeholder="e.g. too many separate tools, slow lead response, messy trade-in process…"></textarea>
+            </div>
+            <button type="submit" id="df-submit" class="btn btn-p submit-btn">Book my demo</button>
+            <div class="form-note">No credit card required · We'll never share your info</div>
+          </form>
+        </div>
+        <div id="demo-success">
+          <div class="ic"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></div>
+          <h3>Request received</h3>
+          <p>Thanks — a MarketSync product specialist will reach out within one business day to find a time that works. In the meantime, take a look around.</p>
+          <a href="/pricing.html" class="btn btn-g btn-block">See pricing</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div id="ms-public-footer"></div>
+
+  <script>
+    const API = (location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com');
+
+    const PLANS = {
+      'dealer-os-core': { name: 'DealerOS Core', price: '$1,499/mo CAD' },
+      'dealer-os-pro': { name: 'DealerOS Pro', price: '$2,499/mo CAD' },
+      'dealer-os-complete': { name: 'DealerOS Complete', price: '$3,999/mo CAD' },
+    };
+    const params = new URLSearchParams(location.search);
+    const planKey = params.get('plan') || '';
+    if (PLANS[planKey]) {
+      document.getElementById('plan-card').style.display = 'block';
+      document.getElementById('plan-name').textContent = PLANS[planKey].name;
+      document.getElementById('plan-price').textContent = PLANS[planKey].price;
+    }
+
+    const form = document.getElementById('demo-form');
+    const msg = document.getElementById('demo-msg');
+    const submitBtn = document.getElementById('df-submit');
+
+    function showMsg(text, kind) {
+      msg.textContent = text;
+      msg.className = 'show ' + kind;
+    }
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const name = document.getElementById('df-name').value.trim();
+      const email = document.getElementById('df-email').value.trim();
+      const phone = document.getElementById('df-phone').value.trim();
+      const dealership_name = document.getElementById('df-dealer').value.trim();
+      const message = document.getElementById('df-message').value.trim();
+
+      if (!name || !email) { showMsg('Please enter your name and email.', 'err'); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showMsg('Enter a valid email address.', 'err'); return; }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Sending…';
+      msg.className = '';
+
+      try {
+        const res = await fetch(`${API}/public/demo-request`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, phone, dealership_name, plan: planKey || null, message }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Something went wrong. Please try again.');
+        document.getElementById('demo-form-wrap').style.display = 'none';
+        document.getElementById('demo-success').classList.add('show');
+      } catch (err) {
+        showMsg(err.message || 'Something went wrong. Please try again.', 'err');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Book my demo';
+      }
+    });
+  </script>
+  <script src="/assets/auth.js" defer></script>
+  <script src="/assets/public-shell.js" defer></script>
+</body>
+</html>

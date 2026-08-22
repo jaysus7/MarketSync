@@ -12,16 +12,27 @@
 </script>
 <script id="cookieyes" type="text/javascript" src="https://cdn-cookieyes.com/client_data/4313ff69152b93899edaa7a8/script.js"></script>
   <meta charset="UTF-8">
+  <!-- See login.html for why this exists: darkMode:'class' below needs the .dark class set
+       somewhere, and nothing in the whole dashboard bundle did — dark: utilities silently
+       never applied and dark-mode phones fell back to their own inconsistent forced-dark
+       repaint (dark background, unrepainted dark text). -->
+  <script>(function(){var m=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)');function apply(){document.documentElement.classList.toggle('dark',!!(m&&m.matches));}apply();if(m){if(m.addEventListener)m.addEventListener('change',apply);else if(m.addListener)m.addListener(apply);}})();</script>
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard · MarketSync</title>
-  <script>tailwind = { config: { darkMode: 'media' } }</script>
+  <title>DealerOS by MarketSync · Dashboard</title>
+  <link rel="preconnect" href="https://api.fontshare.com">
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260817_v4">
+  <link rel="stylesheet" href="css/dashboard-nav.css">
+  <link rel="stylesheet" href="css/dashboard-brand-repaint.css">
+  <script>tailwind = { config: { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Satoshi', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'] } } } } }</script>
   <script src="https://cdn.tailwindcss.com"></script>
   <meta name="color-scheme" content="light dark">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@simplewebauthn/browser@11/dist/bundle/index.umd.min.js"></script>
+  <script src="password-toggle.js" defer></script>
   <style>
     /* Role-gated UI (dealer/admin/team links) stays hidden until the signed-in
        user's role is resolved, so a solo rep never sees dealer links flash on load.
@@ -37,11 +48,12 @@
 
     /* Settings hub: each tab shows only its own section cards. */
     .stab-hide { display: none !important; }
-    /* Settings cards flow into two columns on wide screens — but only when the
-       active tab actually has more than one card (JS adds .is-multi), so a lone
-       card stays full-width instead of hugging the left half. */
-    .settings-cols { column-count: 1; }
-    @media (min-width: 1024px) { .settings-cols.is-multi { column-count: 2; } }
+    /* Settings cards flow into aligned 3-column grid on wide screens */
+    .settings-cols { display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 1.25rem; width: 100%; align-items: start; }
+    @media (min-width: 1024px) { .settings-cols.is-multi { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .settings-cols > .col-span-full,
+    .settings-cols > .lg\:col-span-3,
+    .settings-cols > [data-full-width="true"] { grid-column: 1 / -1; }
 
     /* Per-dealer feature toggle: hides a nav item independent of role gating. */
     .ff-off { display: none !important; }
@@ -49,7 +61,7 @@
     /* ── MarketSync workspace mode ─────────────────────────────────────────────
        The owner's dashboard flips between a vehicle-dealer DEMO and running
        MarketSync itself. In MarketSync mode we trim the nav to the SaaS-relevant
-       pages, trim Settings, and repaint the whole UI purple to make the mode
+       pages, trim Settings, and repaint the whole UI MarketSync blue to make the mode
        unmistakable. The mode switcher itself is hidden unless JS reveals it. */
     #ms-mode-switch { display: none; }
     html[data-dash-owner="1"] #ms-mode-switch { display: flex; }
@@ -92,6 +104,9 @@
     html[data-dash-tier="fb"] .fb-only-nav { display: flex !important; }
     /* In the Facebook-only tier the Dashboard is trimmed to just the leaderboard. */
     html[data-dash-tier="fb"] [data-page-content="insights"] > *:not(#dash-leaderboard-slot) { display: none !important; }
+    /* Facebook plans rank Facebook activity only. Keep general deal-desk columns and
+       point rules out of this focused posting leaderboard. */
+    html[data-dash-tier="fb"] [data-lb-non-fb] { display: none !important; }
     /* Report rail in MarketSync mode: hide the vehicle / F&I reports — MarketSync
        sells software, so keep only the SaaS-relevant reports (leads, marketing,
        appointments, activity, customers, rep scorecard, all). */
@@ -112,62 +127,90 @@
     /* Affiliate admin lives in the MarketSync workspace only. */
     html[data-dash-mode="marketsync"] #nav-affiliates { display: flex !important; }
     /* Trimmed Settings tabs in MarketSync mode (hide vehicle-specific tabs). */
-    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="branding"],
-    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="language"],
-    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="aiboost"],
-    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="dealermgmt"] { display: none !important; }
+    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="sales"],
+    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="marketing"],
+    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="inventory"],
+    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="service"],
+    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="accounting"] { display: none !important; }
 
-    /* Repaint indigo → violet across the app while in MarketSync mode. */
-    html[data-dash-mode="marketsync"] .bg-indigo-600{background-color:#7c3aed!important}
-    html[data-dash-mode="marketsync"] .bg-indigo-500{background-color:#8b5cf6!important}
-    html[data-dash-mode="marketsync"] .bg-indigo-700{background-color:#6d28d9!important}
-    html[data-dash-mode="marketsync"] .bg-indigo-50{background-color:#f5f3ff!important}
-    html[data-dash-mode="marketsync"] .hover\:bg-indigo-500:hover{background-color:#8b5cf6!important}
-    html[data-dash-mode="marketsync"] .hover\:bg-indigo-100:hover{background-color:#ede9fe!important}
-    html[data-dash-mode="marketsync"] .text-indigo-600{color:#7c3aed!important}
-    html[data-dash-mode="marketsync"] .text-indigo-700{color:#6d28d9!important}
-    html[data-dash-mode="marketsync"] .text-indigo-400{color:#a78bfa!important}
-    html[data-dash-mode="marketsync"] .text-indigo-300{color:#c4b5fd!important}
-    html[data-dash-mode="marketsync"] .border-indigo-200{border-color:#ddd6fe!important}
-    html[data-dash-mode="marketsync"] .border-indigo-600{border-color:#7c3aed!important}
-    html[data-dash-mode="marketsync"] .border-indigo-800{border-color:#5b21b6!important}
-    html[data-dash-mode="marketsync"] .accent-indigo-600{accent-color:#7c3aed!important}
-    html[data-dash-mode="marketsync"] .ring-indigo-500{--tw-ring-color:#8b5cf6!important}
-    html[data-dash-mode="marketsync"] .from-indigo-600{--tw-gradient-from:#7c3aed var(--tw-gradient-from-position)!important}
-    html[data-dash-mode="marketsync"] .to-indigo-700{--tw-gradient-to:#6d28d9 var(--tw-gradient-to-position)!important}
-    html[data-dash-mode="marketsync"] .dark\:bg-indigo-950\/40{background-color:rgba(46,16,101,.4)!important}
-    html[data-dash-mode="marketsync"] .dark\:text-indigo-300{color:#c4b5fd!important}
-    html[data-dash-mode="marketsync"] .dark\:text-indigo-400{color:#a78bfa!important}
-    html[data-dash-mode="marketsync"] [aria-current="page"]{background-color:#ede9fe!important;color:#6d28d9!important}
-    html[data-dash-mode="marketsync"].dark [aria-current="page"]{background-color:rgba(76,29,149,.4)!important;color:#c4b5fd!important}
-    /* Deeper purple identity: tint the page + cards. Dark mode here is driven by the
-       OS setting (prefers-color-scheme) via Tailwind's media strategy — there is NO
-       .dark class — so the light tints MUST live under @media light, or they'd force
-       white cards in OS night mode and leave white text invisible on them. */
+    /* One MarketSync blue identity across legacy indigo and violet utilities. */
+    html[data-dash-mode="marketsync"] :is(.bg-indigo-600,.bg-violet-600){background-color:#2563eb!important}
+    html[data-dash-mode="marketsync"] :is(.bg-indigo-500,.bg-violet-500){background-color:#3b82f6!important}
+    html[data-dash-mode="marketsync"] :is(.bg-indigo-700,.bg-violet-700){background-color:#1d4ed8!important}
+    html[data-dash-mode="marketsync"] :is(.bg-indigo-50,.bg-violet-50){background-color:#eff6ff!important}
+    html[data-dash-mode="marketsync"] :is(.text-indigo-600,.text-indigo-700,.text-violet-600,.text-violet-700){color:#2563eb!important}
+    html[data-dash-mode="marketsync"] :is(.text-indigo-400,.text-violet-400){color:#60a5fa!important}
+    html[data-dash-mode="marketsync"] :is(.text-indigo-300,.text-violet-300){color:#93c5fd!important}
+    html[data-dash-mode="marketsync"] :is(.border-indigo-200,.border-violet-200){border-color:#bfdbfe!important}
+    html[data-dash-mode="marketsync"] :is(.border-indigo-600,.border-violet-600){border-color:#2563eb!important}
+    html[data-dash-mode="marketsync"] :is(.border-indigo-800,.border-violet-800){border-color:#1e40af!important}
+    html[data-dash-mode="marketsync"] [aria-current="page"]{background-color:#dbeafe!important;color:#1d4ed8!important}
+    html[data-dash-mode="marketsync"].dark [aria-current="page"]{background-color:rgba(30,64,175,.42)!important;color:#bfdbfe!important}
+    /* MarketSync blue identity: tint the page + cards. These @media rules target the same
+       literal dark:* class names Tailwind's own .dark-scoped rules use, so they still need
+       their own @media gating (not just "not .dark") — the light tints MUST live under
+       @media light, or they'd force white cards in OS night mode and leave white text
+       invisible on them, regardless of whether the .dark class is also present. */
     @media (prefers-color-scheme: light) {
       html[data-dash-mode="marketsync"] body,
-      html[data-dash-mode="marketsync"] .bg-slate-50{background-color:#faf8ff!important}
-      html[data-dash-mode="marketsync"] .border-slate-200{border-color:#e7e0fb!important}
-      html[data-dash-mode="marketsync"] .bg-white{background-color:#fffdff!important}
-      html[data-dash-mode="marketsync"] .bg-slate-100{background-color:#f1ecfe!important}
+      html[data-dash-mode="marketsync"] .bg-slate-50{background-color:#f7faff!important}
+      html[data-dash-mode="marketsync"] .border-slate-200{border-color:#dbeafe!important}
+      html[data-dash-mode="marketsync"] .bg-white{background-color:#ffffff!important}
+      html[data-dash-mode="marketsync"] .bg-slate-100{background-color:#eff6ff!important}
     }
     @media (prefers-color-scheme: dark) {
-      html[data-dash-mode="marketsync"] body{background-color:#0f0a1e!important}
-      html[data-dash-mode="marketsync"] .dark\:bg-slate-950{background-color:#0f0a1e!important}
-      html[data-dash-mode="marketsync"] .dark\:bg-slate-900{background-color:#160f2b!important}
-      html[data-dash-mode="marketsync"] .dark\:bg-slate-800{background-color:#241a45!important}
-      html[data-dash-mode="marketsync"] .dark\:border-slate-800{border-color:#2e1065!important}
+      html[data-dash-mode="marketsync"] body{background-color:#071426!important}
+      html[data-dash-mode="marketsync"] .dark\:bg-slate-950{background-color:#071426!important}
+      html[data-dash-mode="marketsync"] .dark\:bg-slate-900{background-color:#0b1f3a!important}
+      html[data-dash-mode="marketsync"] .dark\:bg-slate-800{background-color:#12325a!important}
+      html[data-dash-mode="marketsync"] .dark\:border-slate-800{border-color:#1e3a5f!important}
     }
     html[data-dash-mode="marketsync"] button.bg-indigo-600,
-    html[data-dash-mode="marketsync"] a.bg-indigo-600{box-shadow:0 1px 2px rgba(124,58,237,.35),0 4px 12px -2px rgba(124,58,237,.35)!important}
-    html[data-dash-mode="marketsync"] .text-slate-400{color:#8b7fb0!important}
-    /* The mode switch sits on a stronger purple in MarketSync mode. */
-    html[data-dash-mode="marketsync"] #ms-mode-switch{background:#ede9fe}
-    html[data-dash-mode="marketsync"].dark #ms-mode-switch{background:#2e1065}
+    html[data-dash-mode="marketsync"] a.bg-indigo-600{box-shadow:0 1px 2px rgba(37,99,235,.35),0 4px 12px -2px rgba(37,99,235,.35)!important}
+    html[data-dash-mode="marketsync"] .text-slate-400{color:#8da9c7!important}
+    /* Catch every legacy violet/purple utility used by dynamically-rendered Internal panels. */
+    html[data-dash-mode="marketsync"] [class*="bg-violet"],
+    html[data-dash-mode="marketsync"] [class*="bg-purple"]{background-color:#12325a!important}
+    html[data-dash-mode="marketsync"] [class*="border-violet"],
+    html[data-dash-mode="marketsync"] [class*="border-purple"]{border-color:#2563eb!important}
+    html[data-dash-mode="marketsync"] [class*="text-violet"],
+    html[data-dash-mode="marketsync"] [class*="text-purple"]{color:#60a5fa!important}
+    html[data-dash-mode="marketsync"] [class*="from-violet"],
+    html[data-dash-mode="marketsync"] [class*="from-purple"]{--tw-gradient-from:#2563eb var(--tw-gradient-from-position)!important}
+    html[data-dash-mode="marketsync"] [class*="to-violet"],
+    html[data-dash-mode="marketsync"] [class*="to-purple"]{--tw-gradient-to:#0ea5e9 var(--tw-gradient-to-position)!important}
+    html[data-dash-mode="marketsync"] #dashboard-nav,
+    html[data-dash-mode="marketsync"] #ms-insights > section,
+    html[data-dash-mode="marketsync"] #ms-insights > div{border-color:#1d4f7a!important}
+    /* The mode switch sits on a stronger blue in MarketSync mode. */
+    html[data-dash-mode="marketsync"] #ms-mode-switch{background:#dbeafe}
+    html[data-dash-mode="marketsync"].dark #ms-mode-switch{background:#172554}
+    /* Both logo PNGs contain substantial transparent canvas. Crop that canvas in every
+       dashboard mode so the visible MarketSync mark—not its empty image box—is large. */
+    #dashboard-brand{width:15rem;height:4rem;overflow:hidden;position:relative}
+    #dashboard-brand img[alt="MarketSync DealerOS"]{position:absolute;width:17rem!important;height:auto!important;max-width:none;left:-1.45rem;top:-4.35rem}
+    @media (max-width:639px){
+      #dashboard-brand{width:10.5rem;height:3.25rem}
+      #dashboard-brand img[alt="MarketSync DealerOS"]{width:13rem!important;left:-1.1rem;top:-3.33rem}
+    }
+    html[data-dash-mode="marketsync"] #ui-role-pill{font-size:0;background:#0b2a50!important;border-color:#2563eb!important;color:#bfdbfe!important;padding:.4rem .65rem}
+    html[data-dash-mode="marketsync"] #ui-role-pill::after{content:"MARKETSYNC INTERNAL";font-size:.75rem;font-weight:800;letter-spacing:.08em}
     /* Dashboard reflects MarketSync leads: show only the MarketSync panel there. */
     #ms-insights{display:none}
     html[data-dash-mode="marketsync"] #ms-insights{display:block}
     html[data-dash-mode="marketsync"] [data-page-content="insights"] > *:not(#ms-insights){display:none!important}
+    /* Academy Full-Screen Studio Immersion Mode */
+    [data-page-content="academy"]:not(.hidden) {
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 60 !important;
+      background-color: #f8fafc !important;
+      overflow-y: auto !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+    }
     /* Department mode: the legacy deep nav tree is replaced by a flat department
        list (#dept-nav). Hide every legacy child except the owner controls, the
        setup bar, and the department list itself. Reversible: remove .dept-mode. */
@@ -182,7 +225,7 @@
     #ms-mode-switch button{flex:1;font-size:12px;font-weight:800;padding:6px 8px;border-radius:7px;border:0;cursor:pointer;color:#64748b;background:transparent}
     #ms-mode-switch button[data-on="1"]{background:#fff;color:#0f172a;box-shadow:0 1px 2px rgba(0,0,0,.08)}
     html.dark #ms-mode-switch button[data-on="1"]{background:#0f172a;color:#fff}
-    html[data-dash-mode="marketsync"] #ms-mode-switch button[data-mode="marketsync"][data-on="1"]{background:#7c3aed;color:#fff}
+    html[data-dash-mode="marketsync"] #ms-mode-switch button[data-mode="marketsync"][data-on="1"]{background:#2563eb;color:#fff}
     /* Reset-demo link: only in Demo mode for the owner. */
     #ms-demo-reset{display:none;width:100%;margin:0 0 8px;font-size:11px;font-weight:700;color:#94a3b8;background:none;border:0;cursor:pointer;text-align:center}
     #ms-demo-reset:hover{color:#64748b}
@@ -198,7 +241,7 @@
     #reports-overview > div:empty { display: none; }
   </style>
   <style id="ms-font-bump">html{font-size:17px}@media (max-width:640px){html{font-size:16px}}</style>
-  <style>.chip{display:inline-flex;align-items:center;font-size:0.7rem;padding:1px 7px;border-radius:999px;background:rgb(241 245 249);color:rgb(71 85 105);border:1px solid rgb(226 232 240);white-space:nowrap}.dark .chip{background:rgb(30 41 59);color:rgb(148 163 184);border-color:rgb(51 65 85)}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}.scrollbar-none::-webkit-scrollbar{display:none}</style>
+  <style>.chip{display:inline-flex;align-items:center;font-size:0.7rem;padding:1px 7px;border-radius:999px;background:rgb(241 245 249);color:rgb(71 85 105);border:1px solid rgb(226 232 240);white-space:nowrap}.dark .chip{background:rgb(30 41 59);color:rgb(148 163 184);border-color:rgb(51 65 85)}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}.scrollbar-none::-webkit-scrollbar{display:none}.dark img[src*="logo.png"]{filter:brightness(0) invert(1);}</style>
   <!-- DealerOS department layer: order the desktop sidebar top-to-bottom by department
        and give each a color stripe. Pure CSS over the flex column (#nav-desktop) — it
        reorders without moving any DOM, so all role-gating / feature-flag / group-toggle
@@ -222,7 +265,7 @@
     #nav-desktop > #nav-commissions        { order:22; border-left-color:#10b981; }  /* Commissions — emerald */
     #nav-desktop > .nav-group[data-group="auto"]    { order:23; border-left-color:#64748b; }  /* Automation — slate */
     #nav-desktop > #nav-affiliates         { order:24; border-left-color:#8b5cf6; }  /* Affiliates (owner) — violet */
-    #nav-desktop > #nav-owner-users        { order:25; border-left-color:#d946ef; }  /* All Users (owner) — fuchsia */
+    #nav-desktop > #nav-owner-users        { order:25; border-left-color:#d946ef; }  /* All Users (owner) — violet */
     #nav-desktop > #nav-config             { order:26; border-left-color:#64748b; }  /* Configuration — slate */
     #nav-desktop > #nav-api                { order:27; border-left-color:#64748b; }  /* API & MCP — slate */
   </style>
@@ -242,58 +285,166 @@
     /* Guided setup: pulse the integration card we sent the user to finish. */
     @keyframes setupFlash { 0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); } 30% { box-shadow: 0 0 0 4px rgba(99,102,241,.45); } }
     .setup-flash { animation: setupFlash 1.3s ease-in-out 2; border-radius: 0.5rem; }
+    #fb-post-btn, #idscan-btn,
+    #training-btn, #open-upgrades, #ui-tier-chip { display: none !important; }
+    /* Live Clock Glitch & Layout Shift Prevention */
+    .clock-display, #header-clock-display {
+      min-width: 11.5ch;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+      transition: none !important;
+      animation: none !important;
+    }
+    .clock-time, #header-clock-time {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+      transition: none !important;
+      animation: none !important;
+      display: inline-block;
+      min-width: 7.5ch;
+      text-align: right;
+    }
+    .clock-period, #header-clock-period {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+      transition: none !important;
+      animation: none !important;
+      display: inline-block;
+      min-width: 2.5ch;
+      text-align: left;
+    }
+    #header-shift-timer-display {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+      transition: none !important;
+      animation: none !important;
+    }
+    #header-shift-clock-chip {
+      transition-property: color, background-color, border-color, box-shadow !important;
+      transition-duration: 150ms !important;
+    }
+    /* Workforce time clock is a DealerOS Complete entitlement. Keep it out of the
+       shell until the authenticated access context proves this account owns Complete. */
+    #header-shift-clock-wrapper { display: none !important; }
+    #header-shift-clock-wrapper.ms-timeclock-entitled { display: inline-block !important; }
+    /* Never paint a legacy/default page while access context and the workspace
+       registry are still deciding the one canonical destination. JS removes this
+       class only after product gates + department nav + final route are settled. */
+    body.ms-app-booting [data-page-content] { visibility: hidden !important; }
   </style>
 </head>
-<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased h-[100dvh] flex flex-col overflow-hidden">
+<body class="ms-app-booting bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased h-[100dvh] flex flex-col overflow-hidden">
 
-  <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-wrap justify-between items-center gap-3 sm:gap-5 flex-shrink-0 sticky top-0 z-40">
-    <div class="flex items-center gap-2 sm:gap-3 min-w-0">
-      <div class="flex items-center gap-2 flex-shrink-0">
-        <span class="w-1.5 h-6 bg-indigo-500 rounded-sm"></span>
-        <span class="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white">Market<span class="text-indigo-600 dark:text-indigo-400">Sync</span></span>
+  <!-- ── The main heading ───────────────────────────────────────────────────────
+       Logo, then the role you are signed in as. On the right: appraise a vehicle,
+       desk a deal, the bell. Nothing else competes with those.
+
+       Everything that used to crowd this row still EXISTS — it moved into the menu
+       below, ids and classes intact, because live code drives each one (the shift
+       clock ticks into #header-shift-timer-display, entitlement code toggles
+       #fb-post-btn and #ext-header-btn, the tour points at #idscan-btn). Moving
+       them keeps every one of those working; deleting them would not. -->
+  <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 sm:px-4 lg:px-4 py-2.5 sm:py-3 flex justify-between items-center gap-1 sm:gap-4 flex-shrink-0 sticky top-0 z-40">
+    <!-- LEFT SIDE: Logo + Role Pill + Live Shift Punch Clock -->
+    <div class="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
+      <a id="dashboard-brand" href="#" onclick="switchPage('command'); return false;" class="flex items-center gap-2 flex-shrink-0" aria-label="MarketSync home">
+        <img src="/Logo 2.0.png" alt="MarketSync DealerOS" class="h-12 w-auto dark:hidden">
+        <img src="/Logo 2.1.png" alt="MarketSync DealerOS" class="h-12 w-auto hidden dark:block">
+      </a>
+      <!-- Who you are signed in AS -->
+      <span class="hidden sm:inline-block text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 font-mono px-2 py-0.5 rounded truncate" id="ui-role-pill">Loading...</span>
+      
+      <!-- Demo Switcher Container (rendered for the dedicated demo account only) -->
+      <div id="header-demo-switcher-container" class="relative inline-block text-left"></div>
+
+      <!-- Unified Live Real-Time & Punch Time Clock Widget -->
+      <div class="relative inline-block text-left" id="header-shift-clock-wrapper">
+        <button id="header-shift-clock-chip" onclick="toggleShiftDropdown(event)" title="Live Clock &amp; Shift Attendance Punch Clock" aria-label="Shift Punch Clock" class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-100 dark:bg-slate-800/90 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs hover:bg-slate-200 dark:hover:bg-slate-700/80 transition-colors cursor-pointer select-none flex-shrink-0">
+          <span id="header-clock-date" class="text-slate-500 dark:text-slate-400 font-sans text-[11px] whitespace-nowrap min-w-[7.5ch] text-left">Date</span>
+          <span id="header-clock-display" class="clock-display inline-flex items-baseline font-mono font-bold text-slate-900 dark:text-white tabular-nums tracking-tight whitespace-nowrap min-w-[11.5ch] justify-center text-center select-none" style="font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; transition: none;">
+            <span id="header-clock-time" class="clock-time tabular-nums font-mono font-bold" style="font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; transition: none;">12:00:00</span>
+            <span id="header-clock-period" class="clock-period ml-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 select-none" style="transition: none;">PM</span>
+          </span>
+          <span class="h-3.5 w-px bg-slate-300 dark:bg-slate-700 mx-0.5 flex-shrink-0"></span>
+          <div class="flex items-center gap-1.5 min-w-[9ch] flex-shrink-0">
+            <span id="header-shift-status-dot" class="w-2 h-2 rounded-full bg-slate-400 flex-shrink-0"></span>
+            <span id="header-shift-timer-display" class="font-sans font-bold text-[11px] tabular-nums whitespace-nowrap min-w-[6ch] text-left" style="font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; transition: none;">Clock In</span>
+          </div>
+        </button>
+
+        <!-- Punch Clock Dropdown Menu -->
+        <div id="header-shift-dropdown" class="hidden absolute left-0 mt-2 w-80 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-4 z-50 space-y-3 text-xs">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+            <div class="font-black text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">Employee Punch Attendance</div>
+            <span id="shift-dropdown-status-badge" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-600">Clocked Out</span>
+          </div>
+
+          <!-- Live Timers Breakdown -->
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-1.5">
+            <div class="flex justify-between text-slate-500">
+              <span>Shift Duration:</span>
+              <strong id="shift-dropdown-duration" class="text-slate-900 dark:text-white font-mono font-bold">00:00:00</strong>
+            </div>
+            <div class="flex justify-between text-slate-500">
+              <span>Clock-In Time:</span>
+              <strong id="shift-dropdown-start-time" class="text-slate-700 dark:text-slate-300">--:--</strong>
+            </div>
+            <div class="flex justify-between text-slate-500">
+              <span>Total Break Time:</span>
+              <strong id="shift-dropdown-break-time" class="text-slate-700 dark:text-slate-300">00:00:00</strong>
+            </div>
+          </div>
+
+          <!-- Action Buttons (Clock In / Take Break / End Shift) -->
+          <div class="space-y-1.5 pt-1" id="shift-dropdown-actions">
+            <!-- Dynamically filled by updateShiftClockUI() -->
+          </div>
+        </div>
       </div>
-      <span class="hidden sm:inline-block text-xs sm:text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 font-mono px-2 py-0.5 rounded" id="ui-role-pill">Loading...</span>
-      <!-- Desk a deal — prominent quick-launch on the LEFT (managers + F&I); revealed in JS -->
-      <button id="header-desk-btn" onclick="switchPage('desk')" title="Desk a deal" class="hidden items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm shadow-purple-500/40 transition whitespace-nowrap">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m3 6V7m3 10v-4M4 4h16v16H4z"/></svg>
-        <span class="hidden sm:inline">Desk a deal</span>
-      </button>
-      <button id="header-appraise-btn" onclick="switchPage('appraisal')" title="Appraise a vehicle" class="hidden items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm shadow-indigo-500/40 transition whitespace-nowrap">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-        <span class="hidden sm:inline">Appraise a vehicle</span>
-      </button>
     </div>
-    <div class="flex flex-wrap items-center justify-end gap-2 sm:gap-4 min-w-0 max-w-full">
-      <div class="text-right min-w-0">
-        <div class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate max-w-[120px] sm:max-w-none" id="ui-profile-name">---</div>
-        <div class="text-xs sm:text-xs text-slate-500 dark:text-slate-400 truncate max-w-[120px] sm:max-w-none" id="ui-dealership-name">---</div>
-      </div>
-      <!-- Rank/tier chip — always-visible gamification status; opens the leaderboard -->
-      <button id="ui-tier-chip" onclick="openLeaderboardOnDash()" title="Your rank & badges — open the leaderboard" class="hidden items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition hover:brightness-110 whitespace-nowrap"></button>
-      <button id="fb-post-btn" onclick="postToFacebook()" title="Post inventory to Facebook Marketplace" class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-bold border border-blue-600 shadow-sm shadow-blue-500/40 transition whitespace-nowrap"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>Post to Facebook</button>
-      <button id="idscan-btn" onclick="identityScan()" title="Add a customer — scan their driver's licence to fill in all the details" class="inline-flex items-center gap-1.5 bg-teal-600 hover:bg-teal-500 text-white px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-bold border border-teal-600 shadow-sm shadow-teal-500/40 transition whitespace-nowrap"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM19 8v6M22 11h-6"/></svg>Add customer</button>
-      <a id="ext-header-btn" href="https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada" target="_blank" rel="noopener" class="hidden bg-purple-600 hover:bg-purple-500 text-white px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-bold border border-purple-600 shadow-sm shadow-purple-500/40 transition whitespace-nowrap">Install extension</a>
-      <!-- How-to guide -->
-      <button type="button" id="guide-btn" onclick="openGuideModal()" title="How-to guide — learn every feature" aria-label="How-to guide" class="p-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition">
-        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 640 512"><path d="M320 32c-8.1 0-16.1 1.4-23.7 4.1L15.8 137.4C6.3 140.9 0 149.9 0 160s6.3 19.1 15.8 22.6l57.9 20.9C57.3 229.3 48 259.8 48 292.6l0 3.4c0 28.6-8.9 57.1-25.1 82.9c-6.8 10.9-8.4 24.4-4.3 36.6c4 12.1 13.2 21.9 25.1 26.6l7 2.8c-3.5 27.6-13.3 51.9-26.5 71.6c-3.3 4.9-3.6 11.2-.8 16.4c2.8 5.2 8.2 8.5 14.2 8.5l72 0c6 0 11.4-3.3 14.2-8.5c2.8-5.2 2.5-11.5-.8-16.4c-13.2-19.7-23-44-26.5-71.6l7-2.8c11.9-4.7 21.1-14.5 25.1-26.6c4.1-12.2 2.5-25.7-4.3-36.6C121 353.1 112 324.6 112 296l0-3.4c0-27 7.6-52.5 20.9-74.4l163.4 59c7.6 2.7 15.6 4.1 23.7 4.1s16.1-1.4 23.7-4.1L624.2 182.6c9.5-3.5 15.8-12.5 15.8-22.6s-6.3-19.1-15.8-22.6L343.7 36.1C336.1 33.4 328.1 32 320 32zM178.3 315.9L160 320l0 80c0 44.2 71.6 80 160 80s160-35.8 160-80l0-80-18.3-4.1L343.7 356c-7.6 2.7-15.6 4.1-23.7 4.1s-16.1-1.4-23.7-4.1l-118-40.1z"/></svg>
+
+    <!-- RIGHT SIDE: Dealership Social Media Links + Action Icons (Profile, Settings, Notifications, Logout) -->
+    <div class="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
+      <!-- Dealership / Company Social Media Profiles -->
+      <div id="header-social-icons" class="flex items-center gap-1 sm:gap-1.5 mr-1 border-r border-slate-200 dark:border-slate-800 pr-2"></div>
+
+      <!-- Chrome extension — Facebook posting needs it, so it stays reachable from the
+           main nav always, not just in the dismissible banner (dashboard-part14.js's
+           applyExtensionVisibility() shows/hides this by extensionRelevant()). -->
+      <a id="ext-header-btn" href="https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada" target="_blank" rel="noopener" title="Open Google Extension — Use Chrome extension to post to Facebook Marketplace" aria-label="Open Google Extension" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50/90 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition shadow-2xs">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3a2 2 0 012 2 2 2 0 002 2h1a2 2 0 012 2v1a2 2 0 01-2 2 2 2 0 000 4 2 2 0 012 2v1a2 2 0 01-2 2h-1a2 2 0 00-2 2 2 2 0 01-4 0 2 2 0 00-2-2H8a2 2 0 01-2-2v-1a2 2 0 00-2-2 2 2 0 010-4 2 2 0 002-2V9a2 2 0 012-2h1a2 2 0 002-2 2 2 0 012-2z"/></svg>
+        <span class="hidden sm:inline">Open Google Extension</span>
+        <span class="sm:hidden">Extension</span>
+        <span class="sr-only">Use Chrome</span>
+      </a>
+      <button id="header-profile-btn" onclick="switchPage('profile');settingsTab('account')" title="My profile" aria-label="My profile" class="inline-flex items-center justify-center p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.12a7.5 7.5 0 0115 0A17.93 17.93 0 0112 21.75a17.93 17.93 0 01-7.5-1.63z"/></svg>
       </button>
-      <!-- Upgrades / add-ons hub -->
-      <button id="open-upgrades" onclick="openUpgradesHub()" title="Upgrades & add-ons" aria-label="Upgrades and add-ons" class="relative p-1.5 rounded-lg text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/40 transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6 7 18.2l1.9-5.8L4 8.8h6.1L12 3z"/></svg>
-        <span id="upg-days-badge" class="hidden absolute -top-1 -right-1 min-w-[18px] h-4 bg-violet-600 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none border border-white dark:border-slate-900"></span>
-      </button>
-      <!-- Settings / profile — quick top-level access (also in the nav footer) -->
-      <button id="header-settings" onclick="switchPage('profile')" title="Profile & settings" aria-label="Profile and settings" class="relative p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      <button id="header-settings" onclick="openSettingsAdmin()" title="Settings" aria-label="Settings" class="inline-flex items-center justify-center p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.59 4.24A1.98 1.98 0 0111.5 2.75h1a1.98 1.98 0 011.91 1.49l.2.77a2 2 0 002.73 1.25l.72-.3a1.98 1.98 0 012.4.84l.5.87a1.98 1.98 0 01-.49 2.5l-.61.48a2 2 0 000 3.14l.61.48a1.98 1.98 0 01.49 2.5l-.5.87a1.98 1.98 0 01-2.4.84l-.72-.3a2 2 0 00-2.73 1.25l-.2.77a1.98 1.98 0 01-1.91 1.49h-1a1.98 1.98 0 01-1.91-1.49l-.2-.77a2 2 0 00-2.73-1.25l-.72.3a1.98 1.98 0 01-2.4-.84l-.5-.87a1.98 1.98 0 01.49-2.5l.61-.48a2 2 0 000-3.14l-.61-.48a1.98 1.98 0 01-.49-2.5l.5-.87a1.98 1.98 0 012.4-.84l.72.3a2 2 0 002.73-1.25l.2-.77z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
       </button>
       <!-- Notification bell -->
       <button id="notif-bell" aria-label="Notifications" class="relative p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"/></svg>
         <span id="notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none"></span>
       </button>
-      <button id="logout-btn" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-medium border border-slate-300 dark:border-slate-700 transition whitespace-nowrap">Sign Out</button>
+      <button id="logout-btn" onclick="msSignOut()" title="Sign out" aria-label="Sign out" class="inline-flex items-center justify-center p-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M18 15l3-3m0 0l-3-3m3 3H9"/></svg>
+      </button>
     </div>
   </header>
+
+  <!-- Runtime compatibility targets for entitlement/profile code. These are not a
+       second menu and never render; their functions remain reachable in canonical
+       workspaces after the retired hamburger was removed. -->
+  <div class="hidden" aria-hidden="true">
+    <span id="ui-profile-name">---</span><span id="ui-dealership-name">---</span>
+    <button id="header-desk-btn"></button><button id="header-appraise-btn"></button>
+    <button id="ui-tier-chip"></button><button id="idscan-btn"></button><button id="fb-post-btn"></button>
+    <button id="open-upgrades"><span id="upg-days-badge"></span></button><a id="training-btn"></a>
+  </div>
+
 
   <!-- Notification slideout panel -->
   <div id="notif-panel" class="fixed inset-0 z-50 hidden" aria-modal="true">
@@ -315,7 +466,7 @@
     </aside>
   </div>
 
-  <main class="flex-1 w-full p-4 sm:p-6 lg:p-8 flex flex-col md:grid md:grid-cols-[248px_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] gap-4 md:gap-8 min-h-0 overflow-hidden">
+  <main class="flex-1 w-full p-3 sm:p-4 lg:p-4 flex flex-col md:grid md:grid-cols-[248px_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] gap-3 md:gap-4 min-h-0 overflow-hidden">
 
     <section class="flex flex-col shrink-0 md:col-span-1 md:h-full md:min-h-0 md:overflow-y-auto">
 
@@ -365,7 +516,9 @@
             </div>
             <div>
               <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">New Password</label>
-              <input type="password" id="prof-password" placeholder="Leave blank to keep current" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+              <div class="relative w-full">
+                <input type="password" id="prof-password" placeholder="Leave blank to keep current" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+              </div>
             </div>
             <div data-dealer-only>
               <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">Dealership Name</label>
@@ -378,6 +531,16 @@
             <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded transition">Save Changes</button>
           </form>
 
+          <!-- Email sending, Billing and Language share ONE grid cell (column 2),
+               stacked in normal document flow, instead of being independent grid
+               items on separate rows — a CSS grid row's height is set by its
+               TALLEST cell, so placing them on their own explicit rows left a
+               visible gap whenever Profile/Security (row 1's tall cells) ran
+               longer, and pushed Security out of row 1 into a row of its own once
+               a tier folds in Email sending (Video's My Account does). Nesting
+               them together means this column sizes independently and Security
+               always lands beside it as row 1's third cell. -->
+          <div id="billing-language-col" class="flex flex-col">
           <!-- Email sending — how the CRM emails you send go out (per-person) -->
           <div id="email-sending-card" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
             <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Email sending</h3>
@@ -396,15 +559,149 @@
               <button type="button" id="es-save" onclick="saveEmailSettings(this)" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded transition">Save email settings</button>
             </div>
           </div>
-
           <div id="billing-section" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
             <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Billing &amp; Subscription</h3>
-            <p class="text-sm text-slate-500 leading-relaxed mb-3">Choose or change your package, download invoices, or update payment method.</p>
-            <button onclick="openUpgradesHub()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded transition mb-2">View plans &amp; upgrade</button>
+            <!-- Current plan (populated from /billing/plans; the active subscription is what grants access) -->
+            <div id="current-plan-box" class="hidden mb-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2.5">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Current plan</div>
+              <div id="current-plan-name" class="text-sm font-black text-slate-900 dark:text-white">—</div>
+              <div id="current-plan-detail" class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5"></div>
+            </div>
+            <p class="text-sm text-slate-500 leading-relaxed mb-3">Change your plan, download invoices, or update payment method.</p>
+            <button onclick="openPlanUpgradeModal()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded transition mb-2">Change plan</button>
+            <button onclick="openPlanUpgradeModal()" class="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold py-2 rounded border border-slate-300 dark:border-slate-700 transition mb-2">Add-ons</button>
             <button id="launch-portal-btn" class="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold py-2 rounded border border-slate-300 dark:border-slate-700 transition">Manage Billing</button>
           </div>
+          <!-- Language: per-rep dashboard translation (Google Translate) + AI listing-copy
+               language. Sized like every other My Account card, snug under Billing
+               (same grid cell) — the JS moves the whole column, not this card alone,
+               so the fix works regardless of which single-product tier is active. -->
+          <div id="settings-language-card" class="overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 notranslate break-inside-avoid mb-5">
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Language</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Translate your dashboard into any language — it's saved to your browser, just for you. Your choice also becomes the language for your AI-written Facebook listings.</p>
+            <div id="google_translate_element"></div>
+          </div>
+          </div>
 
-          <div id="guardrail-settings-section" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5" data-dealer-only>
+          <!-- Sits to the right of Billing + Language (same grid row) — moved out of its
+               old spot further down the page, where two data-full-width cards ahead of it
+               (Facebook Posting Safety, Your record) always forced it onto its own row with
+               nothing beside it. -->
+          <div id="security-section" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">Multi-factor authentication (MFA) &amp; account security</h3>
+
+            <!-- ─── Extra login code (2FA) ─────────────────────────────── -->
+            <div id="mfa-status-row" class="flex items-start justify-between gap-2 mb-3">
+              <div class="flex-1">
+                <div class="text-xs font-bold text-slate-900 dark:text-white">Multi-factor authentication (MFA)</div>
+                <div id="mfa-status-text" class="text-xs text-slate-500 leading-snug mt-0.5">Loading…</div>
+              </div>
+              <button id="mfa-toggle-btn" class="text-xs font-bold px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white transition whitespace-nowrap">Turn On</button>
+            </div>
+
+            <div id="mfa-enroll-panel" class="hidden p-3 rounded bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 mb-3">
+              <p class="text-xs font-bold text-slate-900 dark:text-white mb-1">Step 1: Scan this with an app</p>
+              <p class="text-sm text-slate-600 dark:text-slate-300 mb-2 leading-relaxed">
+                Open Google Authenticator, 1Password, Authy, or any code app on your phone. Tap "+" and scan this picture:
+              </p>
+              <div id="mfa-qr-container" class="bg-white p-2 rounded inline-block mb-2"><canvas id="mfa-qr-canvas"></canvas></div>
+              <p class="text-xs text-slate-500 mb-1">Can't scan? Type this code into your app instead:</p>
+              <p class="text-xs text-slate-700 dark:text-slate-300 font-mono break-all mb-3 bg-white dark:bg-slate-900 p-1.5 rounded border border-slate-200 dark:border-slate-700" id="mfa-secret-text"></p>
+
+              <p class="text-xs font-bold text-slate-900 dark:text-white mb-1">Step 2: Type the 6 numbers your app shows</p>
+              <input type="text" id="mfa-enroll-code" inputmode="numeric" maxlength="6" placeholder="123456"
+                class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2 py-1.5 text-base text-center font-mono mb-2 tracking-widest">
+              <button id="mfa-enroll-verify-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 rounded">Turn It On</button>
+              <div id="mfa-enroll-error" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></div>
+            </div>
+
+            <!-- Native Supabase Phone MFA (requires Phone MFA + SMS provider in the project). -->
+            <div class="rounded-lg border border-slate-200 dark:border-slate-800 p-3 mb-3">
+              <div class="flex items-start justify-between gap-3">
+                <div><div class="text-xs font-bold text-slate-900 dark:text-white">Text-message code</div><div id="phone-mfa-status" class="text-xs text-slate-500 mt-0.5">Add a verified mobile number as another true MFA method.</div></div>
+                <button id="phone-mfa-start" class="text-xs font-bold px-3 py-1.5 rounded border border-indigo-300 text-indigo-700 dark:border-indigo-800 dark:text-indigo-300 whitespace-nowrap">Set up</button>
+              </div>
+              <div id="phone-mfa-enroll" class="hidden mt-3 space-y-2">
+                <input id="phone-mfa-number" type="tel" autocomplete="tel" placeholder="+19055551234" class="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-2 text-sm">
+                <p class="text-[10px] text-slate-500">Include country code. MarketSync uses Supabase Phone MFA and the configured SMS provider.</p>
+                <button id="phone-mfa-send" class="w-full rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2">Send verification text</button>
+              </div>
+              <div id="phone-mfa-verify" class="hidden mt-3 space-y-2">
+                <input id="phone-mfa-code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="Verification code" class="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-2 text-center text-base font-mono tracking-widest">
+                <button id="phone-mfa-confirm" class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2">Verify and turn on</button>
+              </div>
+              <div id="phone-mfa-error" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></div>
+            </div>
+
+            <div class="rounded-lg bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 p-3 mb-3 text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
+              <strong class="text-slate-800 dark:text-slate-200">About the other sign-in choices:</strong> Passkeys are available below for fingerprint/face passwordless sign-in. Email codes are a first sign-in factor, and voice-call codes are not a native Supabase MFA method, so MarketSync does not falsely label either one as completed MFA.
+            </div>
+
+            <!-- ─── Backup codes shown ONCE after enrollment ─────────────── -->
+            <div id="backup-codes-panel" class="hidden p-3 rounded bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-300 dark:border-amber-700 mb-3">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-lg"></span>
+                <p class="text-xs font-bold text-amber-900 dark:text-amber-200">Save these backup codes NOW</p>
+              </div>
+              <p class="text-sm text-amber-800 dark:text-amber-300 mb-3 leading-relaxed">
+                If you ever lose your phone, type one of these codes instead of the 6-digit code. <strong>Each code works only once.</strong> We will NEVER show them again.
+              </p>
+              <div id="backup-codes-grid" class="grid grid-cols-2 gap-1.5 font-mono text-xs text-slate-900 dark:text-white mb-3"></div>
+              <div class="flex gap-2">
+                <button id="backup-codes-download" class="flex-1 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold py-2 rounded transition"> Download as a file</button>
+                <button id="backup-codes-copy" class="flex-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white text-xs font-bold py-2 rounded transition"> Copy</button>
+              </div>
+              <button id="backup-codes-done" class="w-full mt-2 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">I saved them — hide this</button>
+            </div>
+
+            <button id="regen-codes-btn" class="hidden w-full text-xs text-indigo-600 dark:text-indigo-400 hover:underline text-left mb-3">Make new backup codes (old ones stop working)</button>
+
+            <!-- ─── Passkeys (fingerprint / face / hardware key) ──────────── -->
+            <div class="border-t border-slate-200 dark:border-slate-800 pt-3 mt-3">
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <div class="flex-1">
+                  <div class="text-xs font-bold text-slate-900 dark:text-white">Sign in with your fingerprint or face</div>
+                  <div class="text-xs text-slate-500 leading-snug mt-0.5">Skip typing your password — use Touch ID, Face ID, or Windows Hello.</div>
+                </div>
+                <button id="add-passkey-btn" class="text-xs font-bold px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white transition whitespace-nowrap">+ Add</button>
+              </div>
+              <div id="passkey-list" class="space-y-1.5"></div>
+              <div id="passkey-error" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></div>
+            </div>
+
+            <!-- ─── Recent sign-ins ─────────────────────────────────────── -->
+            <button id="show-sessions-btn" class="w-full text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-left py-1.5 mt-3 border-t border-slate-200 dark:border-slate-800 pt-3">See where you're signed in →</button>
+
+            <div id="sessions-panel" class="hidden mt-2 p-3 rounded bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Your last 20 sign-ins</h4>
+              <div id="sessions-list" class="space-y-1.5 max-h-48 overflow-y-auto text-xs">Loading…</div>
+              <button id="revoke-sessions-btn" class="w-full mt-3 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold py-1.5 rounded transition">Sign me out everywhere else</button>
+            </div>
+
+            <!-- ─── Dealership activity log (admins/owners only) ─────────── -->
+            <div id="audit-log-block" class="hidden mt-3 border-t border-slate-200 dark:border-slate-800 pt-3">
+              <button id="show-audit-btn" class="w-full text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-left py-1.5">See the dealership activity log →</button>
+              <div id="audit-panel" class="hidden mt-2 p-3 rounded bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700">
+                <div class="flex items-center justify-between gap-2 mb-2">
+                  <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500">Who did what</h4>
+                  <select id="audit-filter" class="text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-slate-700 dark:text-slate-200"><option value="">All actions</option></select>
+                </div>
+                <div id="audit-list" class="space-y-1.5 max-h-72 overflow-y-auto text-xs">Loading…</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Real, functional connect flow (studio-scheduler.js's studioSocialConnectionsRender()) —
+               not the demo-data mock in marketing-workspace.js's renderSocialConnectorsPanelHtml().
+               Reads/writes the actual /social/accounts API. -->
+          <div id="studio-social-connections" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5" data-full-width="true">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Connected social accounts</h3>
+            <p class="text-sm text-slate-500 leading-relaxed mb-3">Accounts your Design Studio posts and schedules can publish to.</p>
+            <div id="studio-social-list" class="space-y-3"><div class="text-xs text-slate-500 italic">Loading…</div></div>
+            <button type="button" onclick="studioSocialConnectForm()" class="hidden"></button>
+          </div>
+
+          <div id="guardrail-settings-section" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5" data-dealer-only data-full-width="true">
             <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Facebook Posting Safety</h3>
             <p class="text-sm text-slate-500 leading-relaxed mb-3">Protect your reps' Facebook accounts by capping daily posts and letting them post in short bursts with a rest between — a high posting rate is what triggers Marketplace bans.</p>
             <label class="flex items-center gap-2 mb-3 text-sm text-slate-700 dark:text-slate-300">
@@ -593,12 +890,12 @@
                 <div>
                   <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1 tracking-wider">Assistant name</label>
                   <input id="ai-assistant-name" type="text" maxlength="60" placeholder="MarketSync" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
-                  <p class="text-[11px] text-slate-400 mt-1">What your team's AI assistant calls itself (the “Ask MarketSync” dock). Leave blank for “MarketSync”.</p>
+                  <p class="text-[11px] text-slate-400 mt-1">What your team's Intelligence assistant calls itself. Leave blank for “MarketSync”.</p>
                 </div>
                 <div>
                   <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1 tracking-wider">Internal assistant style</label>
                   <textarea id="ai-internal-style" rows="2" placeholder="e.g. Talk like a sharp GM. Blunt, numbers first, no fluff. Use our lingo (units, gross, ups)." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"></textarea>
-                  <p class="text-[11px] text-slate-400 mt-1">How “Ask MarketSync” talks to your team.</p>
+                  <p class="text-[11px] text-slate-400 mt-1">How Intelligence talks to your team.</p>
                 </div>
                 <div>
                   <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1 tracking-wider">Customer-facing chat style</label>
@@ -613,14 +910,14 @@
                     <button type="button" id="ai-kb-upload-btn" class="text-[11px] font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg transition">Upload a file</button>
                     <span id="ai-kb-name" class="text-[11px] text-slate-400"></span>
                   </div>
-                  <p class="text-[11px] text-slate-400 mt-1">Used by both the internal assistant and your website chat. .txt/.md/.csv/.json, or a text-based PDF.</p>
+                  <p class="text-[11px] text-slate-400 mt-1">Used by both Intelligence and your website chat. .txt/.md/.csv/.json, or a text-based PDF.</p>
                 </div>
               </div>
 
               <!-- AI assistant — capabilities & access (management controls) -->
               <div id="ai-assistant-mgmt" class="pt-3 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-3 hidden">
                 <label class="block text-[11px] uppercase font-bold text-slate-400 tracking-wider">Assistant access</label>
-                <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200"><input type="checkbox" id="ai-assistant-reps" class="accent-indigo-600 w-4 h-4">Let sales reps use “Ask MarketSync” (managers always can)</label>
+                <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200"><input type="checkbox" id="ai-assistant-reps" class="accent-indigo-600 w-4 h-4">Let sales reps use Intelligence (managers always can)</label>
                 <div>
                   <div class="text-[11px] uppercase font-bold text-slate-400 tracking-wider mb-1.5">Assistant capabilities</div>
                   <p class="text-[11px] text-slate-400 mb-2">Turn off any tool the assistant shouldn't use. With everything off it still answers from your live data and knowledge base.</p>
@@ -727,87 +1024,11 @@
             </div>
           </div>
 
-          <div id="security-section" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
-            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">Keep Your Account Safe</h3>
-
-            <!-- ─── Extra login code (2FA) ─────────────────────────────── -->
-            <div id="mfa-status-row" class="flex items-start justify-between gap-2 mb-3">
-              <div class="flex-1">
-                <div class="text-xs font-bold text-slate-900 dark:text-white">Extra Login Code</div>
-                <div id="mfa-status-text" class="text-xs text-slate-500 leading-snug mt-0.5">Loading…</div>
-              </div>
-              <button id="mfa-toggle-btn" class="text-xs font-bold px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white transition whitespace-nowrap">Turn On</button>
-            </div>
-
-            <div id="mfa-enroll-panel" class="hidden p-3 rounded bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 mb-3">
-              <p class="text-xs font-bold text-slate-900 dark:text-white mb-1">Step 1: Scan this with an app</p>
-              <p class="text-sm text-slate-600 dark:text-slate-300 mb-2 leading-relaxed">
-                Open Google Authenticator, 1Password, Authy, or any code app on your phone. Tap "+" and scan this picture:
-              </p>
-              <div id="mfa-qr-container" class="bg-white p-2 rounded inline-block mb-2"><canvas id="mfa-qr-canvas"></canvas></div>
-              <p class="text-xs text-slate-500 mb-1">Can't scan? Type this code into your app instead:</p>
-              <p class="text-xs text-slate-700 dark:text-slate-300 font-mono break-all mb-3 bg-white dark:bg-slate-900 p-1.5 rounded border border-slate-200 dark:border-slate-700" id="mfa-secret-text"></p>
-
-              <p class="text-xs font-bold text-slate-900 dark:text-white mb-1">Step 2: Type the 6 numbers your app shows</p>
-              <input type="text" id="mfa-enroll-code" inputmode="numeric" maxlength="6" placeholder="123456"
-                class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2 py-1.5 text-base text-center font-mono mb-2 tracking-widest">
-              <button id="mfa-enroll-verify-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 rounded">Turn It On</button>
-              <div id="mfa-enroll-error" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></div>
-            </div>
-
-            <!-- ─── Backup codes shown ONCE after enrollment ─────────────── -->
-            <div id="backup-codes-panel" class="hidden p-3 rounded bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-300 dark:border-amber-700 mb-3">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="text-lg">🔑</span>
-                <p class="text-xs font-bold text-amber-900 dark:text-amber-200">Save these backup codes NOW</p>
-              </div>
-              <p class="text-sm text-amber-800 dark:text-amber-300 mb-3 leading-relaxed">
-                If you ever lose your phone, type one of these codes instead of the 6-digit code. <strong>Each code works only once.</strong> We will NEVER show them again.
-              </p>
-              <div id="backup-codes-grid" class="grid grid-cols-2 gap-1.5 font-mono text-xs text-slate-900 dark:text-white mb-3"></div>
-              <div class="flex gap-2">
-                <button id="backup-codes-download" class="flex-1 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold py-2 rounded transition">📥 Download as a file</button>
-                <button id="backup-codes-copy" class="flex-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white text-xs font-bold py-2 rounded transition">📋 Copy</button>
-              </div>
-              <button id="backup-codes-done" class="w-full mt-2 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">I saved them — hide this</button>
-            </div>
-
-            <button id="regen-codes-btn" class="hidden w-full text-xs text-indigo-600 dark:text-indigo-400 hover:underline text-left mb-3">Make new backup codes (old ones stop working)</button>
-
-            <!-- ─── Passkeys (fingerprint / face / hardware key) ──────────── -->
-            <div class="border-t border-slate-200 dark:border-slate-800 pt-3 mt-3">
-              <div class="flex items-start justify-between gap-2 mb-2">
-                <div class="flex-1">
-                  <div class="text-xs font-bold text-slate-900 dark:text-white">Sign in with your fingerprint or face</div>
-                  <div class="text-xs text-slate-500 leading-snug mt-0.5">Skip typing your password — use Touch ID, Face ID, or Windows Hello.</div>
-                </div>
-                <button id="add-passkey-btn" class="text-xs font-bold px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white transition whitespace-nowrap">+ Add</button>
-              </div>
-              <div id="passkey-list" class="space-y-1.5"></div>
-              <div id="passkey-error" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></div>
-            </div>
-
-            <!-- ─── Recent sign-ins ─────────────────────────────────────── -->
-            <button id="show-sessions-btn" class="w-full text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-left py-1.5 mt-3 border-t border-slate-200 dark:border-slate-800 pt-3">See where you're signed in →</button>
-
-            <div id="sessions-panel" class="hidden mt-2 p-3 rounded bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700">
-              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Your last 20 sign-ins</h4>
-              <div id="sessions-list" class="space-y-1.5 max-h-48 overflow-y-auto text-xs">Loading…</div>
-              <button id="revoke-sessions-btn" class="w-full mt-3 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold py-1.5 rounded transition">Sign me out everywhere else</button>
-            </div>
-
-            <!-- ─── Dealership activity log (admins/owners only) ─────────── -->
-            <div id="audit-log-block" class="hidden mt-3 border-t border-slate-200 dark:border-slate-800 pt-3">
-              <button id="show-audit-btn" class="w-full text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-left py-1.5">See the dealership activity log →</button>
-              <div id="audit-panel" class="hidden mt-2 p-3 rounded bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700">
-                <div class="flex items-center justify-between gap-2 mb-2">
-                  <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500">Who did what</h4>
-                  <select id="audit-filter" class="text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-slate-700 dark:text-slate-200"><option value="">All actions</option></select>
-                </div>
-                <div id="audit-list" class="space-y-1.5 max-h-72 overflow-y-auto text-xs">Loading…</div>
-              </div>
-            </div>
-          </div>
+          <!-- Your employment record — read-only, and yours. Rendered by renderMyRecordCard()
+               from GET /hr/me. You can SEE what HR holds about you (onboarding, training,
+               certificates, the contracts you signed) and download the documents shared with
+               you; what you can CHANGE stays your password and your picture, above. -->
+          <div id="settings-my-record" data-full-width="true" class="stab-hide break-inside-avoid mb-5"></div>
         </div>
       </div>
 
@@ -836,7 +1057,22 @@
           <span class="text-[9px] leading-none">Menu</span>
         </button>
 
-        <!-- ═══════ DESKTOP grouped sidebar ═══════ -->
+        <!-- ═══════════════════════════════════════════════════════════════════
+              LEGACY HARDCODED SIDEBAR — DO NOT EDIT / DO NOT ADD NAV ITEMS HERE.
+
+             This static #nav-desktop tree is NOT the live navigation. At runtime it
+             is hidden (.nav-init / .dept-mode) and REPLACED by the data-driven
+             department nav (#dept-nav), which renderDeptNav() builds from the
+             DEPARTMENTS registry in js/modules/dashboard-part2.js.
+
+             → To change the dashboard navigation, edit DEPARTMENTS (and
+               SAAS_DEPARTMENTS) in js/modules/dashboard-part2.js — nowhere else.
+
+             This block is kept ONLY so existing role/tier feature-gating selectors
+             (#nav-desktop .nav-group / .nav-item, data-dash-tier CSS) keep working.
+             Agents: do not "restore", expand, surface, or wire up this tree.
+             ═══════════════════════════════════════════════════════════════════ -->
+        <!-- ═══════ DESKTOP grouped sidebar (LEGACY — see banner above) ═══════ -->
         <div id="nav-desktop" class="nav-init hidden md:flex md:flex-col md:w-full md:space-y-0.5">
           <!-- Guided-setup progress bar (populated by renderSetupBar; hidden when complete) -->
           <div id="setup-bar-host"></div>
@@ -865,11 +1101,8 @@
             <span>Dashboard</span>
           </button>
 
-          <!-- Sales Reps — Facebook Dealer product (rep management; revealed by product) -->
-          <button type="button" id="nav-sales-team" data-page="sales-team" title="Sales Reps" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
-            <span>Sales Reps</span>
-          </button>
+          <!-- Facebook Dealer / Video Staff management now lives in Settings -> My
+               Account (folded into the Team card), not as its own nav button. -->
 
           <!-- Facebook posting moved to the "Post to Facebook" header button; the
                Leaderboard now lives on the Dashboard. -->
@@ -884,10 +1117,8 @@
             <svg class="w-4 h-4 flex-shrink-0 text-amber-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52 6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-3.044 0"/></svg>
             <span>Leaderboard</span>
           </button>
-          <button type="button" data-page="profile" title="Settings" class="nav-item fb-only-nav hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 text-slate-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.108-1.204l-.526-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            <span>Settings</span>
-          </button>
+          <!-- Settings is not a sidebar row for this tier — the header Profile icon is
+               the one settings entry point for every single-product dashboard. -->
 
           <!-- ─── CRM ─── -->
           <!-- ─── CRM (customers, tasks, appointments, leads) ─── -->
@@ -924,25 +1155,48 @@
 
           <!-- ─── MarketSync HQ (owner) — SaaS Command Center: revenue, trials, churn ─── -->
           <button type="button" id="nav-saas-command" data-page="saas-command" title="MarketSync HQ" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 text-fuchsia-600 dark:text-fuchsia-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"/></svg>
+            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"/></svg>
             <span>MarketSync HQ</span>
           </button>
 
           <!-- ─── Customer Pipeline (owner) — SaaS retention board ─── -->
           <button type="button" id="nav-saas-customers" data-page="saas-customers" title="Customer Pipeline" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 text-fuchsia-600 dark:text-fuchsia-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>
+            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>
             <span>Customer Pipeline</span>
+          </button>
+
+          <button type="button" id="nav-saas-followups" data-page="saas-followups" title="Follow-ups" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a3 3 0 016 0M9 12h6m-6 4h6"/></svg>
+            <span>Follow-ups</span>
+          </button>
+
+          <!-- ─── Funnel (checkout / abandoned carts) ─── -->
+          <button type="button" id="nav-saas-funnel" data-page="saas-funnel" title="Funnel" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4h18l-7 8v6l-4 2v-8L3 4z"/></svg>
+            <span>Funnel</span>
+          </button>
+
+          <!-- ─── Automation & Email (editable drips + templates) ─── -->
+          <button type="button" id="nav-saas-automation" data-page="saas-automation" title="Automation" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <span>Automation</span>
           </button>
 
           <!-- ─── Employees (owner) — MarketSync staff + permissions ─── -->
           <button type="button" id="nav-saas-employees" data-page="saas-employees" title="Employees" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 text-fuchsia-600 dark:text-fuchsia-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
             <span>Employees</span>
+          </button>
+
+          <!-- ─── HR & Compliance Engine (People & Safety Engine) ─── -->
+          <button type="button" id="nav-people-compliance" data-page="people-compliance" data-admin-nav title="HR & Compliance" class="nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <svg class="w-4 h-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>
+            <span>HR &amp; Compliance</span><span id="people-compliance-badge" class="hidden ml-auto text-[10px] font-black bg-indigo-600 text-white rounded-full px-1.5 py-0.5 leading-none"></span>
           </button>
 
           <!-- ─── Platform admin (MarketSync owner only) — all accounts + billing/engines ─── -->
           <button type="button" id="nav-owner-users" data-page="owner-users" title="All Users (owner)" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 text-fuchsia-600 dark:text-fuchsia-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>
+            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>
             <span>All Users</span>
           </button>
 
@@ -1143,7 +1397,7 @@
     <section class="w-full md:col-span-1 min-w-0 flex-1 md:flex-none min-h-0 overflow-y-auto md:h-full md:overflow-y-auto">
       <!-- Full-width scroll region (scrollbar hugs the screen edge); an inner
            wrapper caps the readable content width so nothing sprawls edge-to-edge. -->
-      <div class="w-full md:max-w-[1450px]">
+      <div class="w-full pt-1 pb-4">
 
       <!-- Department tab-bar — when the active page belongs to a multi-page
            department (Sales, Service, …), its sibling pages appear here as tabs.
@@ -1176,25 +1430,28 @@
         </div>
         <!-- Settings sub-nav — each tab reveals only its own section(s). -->
         <div id="settings-tabs" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none -mx-1 px-1">
-          <button data-stab="team" data-admin-only onclick="settingsTab('team')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Team</button>
-          <button data-stab="account" onclick="settingsTab('account')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Account</button>
-          <button data-stab="branding" data-dealer-only onclick="settingsTab('branding')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Branding</button>
-          <button data-stab="language" onclick="settingsTab('language')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Language</button>
-          <button data-stab="billing" onclick="settingsTab('billing')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Billing</button>
-          <button data-stab="aiboost" data-admin-only onclick="settingsTab('aiboost')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">AI Boost</button>
-          <button data-stab="group" data-admin-only onclick="settingsTab('group')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Dealer Group</button>
-          <button data-stab="dealermgmt" data-admin-only onclick="settingsTab('dealermgmt')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Dealer Management</button>
-          <button data-stab="integrations" data-admin-only onclick="settingsTab('integrations')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Integrations</button>
-          <button data-stab="security" onclick="settingsTab('security')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Security</button>
+          <button data-stab="account" onclick="settingsTab('account')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">My Account</button>
+          <button data-stab="admin" data-admin-only onclick="settingsTab('admin')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Administration</button>
+          <button data-stab="hr" data-admin-only onclick="settingsTab('hr')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">HR &amp; Compliance</button>
+          <button data-stab="sales" data-admin-only onclick="settingsTab('sales')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Sales</button>
+          <button data-stab="marketing" data-admin-only onclick="settingsTab('marketing')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Marketing</button>
+          <button data-stab="inventory" data-admin-only onclick="settingsTab('inventory')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Inventory</button>
+          <button data-stab="service" data-admin-only onclick="settingsTab('service')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Service</button>
+          <button data-stab="accounting" data-admin-only onclick="settingsTab('accounting')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Accounting</button>
+          <button data-stab="email_sms" data-admin-only onclick="settingsTab('email_sms')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Email &amp; SMS</button>
         </div>
 
         <!-- These tab sections flow into two columns on wide screens (settings-cols);
              JS adds .is-multi only when the active tab has more than one card. -->
         <div id="settings-panel-extra" class="settings-cols gap-5 [column-fill:_balance]">
+        <!-- Email & SMS Global Configuration Section in Settings -->
+        <div id="settings-email-sms-card" data-admin-only data-full-width="true" class="stab-hide space-y-4 break-inside-avoid mb-5"></div>
+        <!-- HR & Compliance section in Settings -->
+        <div id="settings-hr-card" data-admin-only data-full-width="true" class="stab-hide space-y-4 break-inside-avoid mb-5"></div>
         <!-- Integrations Hub — connect MarketSync to the rest of the dealership stack.
              Webhooks are our own outbound "glue" (live today); the F&I / accounting
              rails show as coming-soon until we're certified with the partner. -->
-        <div id="integrations-section" data-admin-only class="stab-hide space-y-4 break-inside-avoid mb-5">
+        <div id="integrations-section" data-admin-only data-full-width="true" class="stab-hide space-y-4 break-inside-avoid mb-5">
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
             <h2 class="text-lg font-bold text-slate-900 dark:text-white">Integrations</h2>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Connect MarketSync to the tools you already use. Send events out to Zapier, Make, or your own app — and plug in the F&amp;I and accounting rails as they come online.</p>
@@ -1202,24 +1459,12 @@
           <div id="integrations-list"><div class="py-10 text-center text-sm text-slate-400 italic">Loading…</div></div>
         </div>
 
-        <!-- Team — Sales/Management are login users; Service/Admin/Cleanup/Lot are label rosters -->
-        <div id="settings-team" data-stab-panel="team" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
-          <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
-            <div>
-              <h2 class="text-lg font-bold text-slate-900 dark:text-white">Team</h2>
-              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pick a team to see its members. Sales &amp; Management sign in; the rest are roster labels.</p>
-            </div>
-            <select id="team-picker" onchange="loadSettingsTeam(this.value)" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-semibold">
-              <option value="sales">Sales team</option>
-              <option value="management">Management team</option>
-              <option value="service">Service team</option>
-              <option value="admin">Admin team</option>
-              <option value="cleanup">Cleanup team</option>
-              <option value="lot">Lot team</option>
-            </select>
-          </div>
-          <div id="team-roster"><div class="py-10 text-center text-sm text-slate-400 italic">Loading…</div></div>
-        </div>
+        <!-- Staff host. The standalone "Team" roster (team picker + read-only member
+             list) was removed — staff management is the Staff panel that folds in
+             here: Invite Rep / Invite Manager, roles, and lead routing. Kept as a
+             bare, full-width wrapper so that panel (and the owner SaaS-roles panel)
+             has a home without nesting a card inside a card. -->
+        <div id="settings-team" data-stab-panel="team" data-full-width="true" class="break-inside-avoid mb-5"></div>
 
         <!-- CRM / DMS connection (ADF lead delivery) — moved here from the CRM Leads tab -->
         <div id="crm-dms-card" data-admin-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
@@ -1261,11 +1506,25 @@
             <button id="desk-fees-save" onclick="saveDeskFees(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Save fees</button>
           </div>
         </div>
-        <!-- Language: per-rep dashboard translation (Google Translate) + AI listing-copy language -->
-        <div id="settings-language-card" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 notranslate break-inside-avoid mb-5">
-          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Language</h2>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Translate your dashboard into any language — it's saved to your browser, just for you. Your choice also becomes the language for your AI-written Facebook listings.</p>
-          <div id="google_translate_element"></div>
+        <!-- Text messaging — provision a dedicated SMS number under MarketSync, no
+             Twilio account needed. Powers automated follow-ups + AI autoresponder texts. -->
+        <div id="settings-texting-card" data-admin-only class="stab-hide bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Text messaging (SMS)</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Get your own texting number to send automated follow-ups and AI replies — carrier-compliant, no Twilio account to set up.</p>
+          <div id="texting-root"><div class="text-sm text-slate-400 italic py-3">Loading…</div></div>
+        </div>
+        <!-- Service department settings live on their own page — linked here so the
+             Service section exists under Settings without duplicating those controls. -->
+        <div id="settings-service-card" data-admin-only class="stab-hide bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Service &amp; Parts</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Labour rate, tax, shop supplies, parts markup and RO prefix.</p>
+          <button onclick="switchPage('service-settings')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Open Service settings →</button>
+        </div>
+        <!-- Accounting department settings live on the Accounting page. -->
+        <div id="settings-accounting-card" data-admin-only class="stab-hide bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Accounting</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Chart of accounts, auto-posting rules and cost tracking.</p>
+          <button onclick="switchPage('accounting')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Open Accounting →</button>
         </div>
         </div><!-- /#settings-panel-extra -->
       </div>
@@ -1284,6 +1543,56 @@
       </div>
 
       <!-- Operations — workflow exceptions dashboard + entity timeline lookup (managers). -->
+      <!-- Sales workspace — DealerOS reference department (engine shell). See
+           docs/SALES_PHASE2_AUDIT.md. Rendered by js/modules/sales-workspace.js. -->
+      <!-- Inventory & F&I workspaces (Stage 3) — same engine-shell pattern as Sales.
+           See docs/DEALER_OS_UX_ARCHITECTURE.md §11-12. -->
+      <div data-page-content="inventory-overview" class="page-content hidden space-y-6">
+        <div id="inventory-overview-root"></div>
+      </div>
+
+      <div data-page-content="fni-overview" class="page-content hidden space-y-6">
+        <div id="fni-overview-root"></div>
+      </div>
+
+      <!-- Service department. Rendered by js/modules/service-workspace.js; the backend
+           owns the repair-order state machine, so this surface asks it what is legal. -->
+      <div data-page-content="service-overview" class="page-content hidden space-y-6">
+        <div id="service-overview-root"></div>
+      </div>
+
+      <!-- Parts as its own department, on the same canonical stock records as Service. -->
+      <div data-page-content="parts-overview" class="page-content hidden space-y-6">
+        <div id="parts-overview-root"></div>
+      </div>
+
+      <div data-page-content="accounting-overview" class="page-content hidden space-y-6">
+        <div id="accounting-overview-root"></div>
+      </div>
+
+      <div data-page-content="marketing-overview" class="page-content hidden space-y-6">
+        <div id="marketing-overview-root"></div>
+      </div>
+
+      <!-- Academy had no mount of its own and rendered into the generic #page-content. -->
+      <div data-page-content="academy" class="page-content hidden space-y-6">
+        <div id="academy-root"></div>
+      </div>
+
+      <!-- The Launch Hub: ONE setup surface. It gates nothing — see launch-workspace.js. -->
+      <div data-page-content="launch" class="page-content hidden space-y-6">
+        <div id="launch-root"></div>
+      </div>
+
+      <!-- People was the last department with real capabilities and no workspace. -->
+      <div data-page-content="people-overview" class="page-content hidden space-y-6">
+        <div id="people-overview-root"></div>
+      </div>
+
+      <div data-page-content="sales" class="page-content hidden space-y-6">
+        <div id="sales-root"></div>
+      </div>
+
       <div data-page-content="command" class="page-content hidden space-y-6">
         <div id="command-root"></div>
       </div>
@@ -1294,6 +1603,18 @@
 
       <div data-page-content="ai-home" class="page-content hidden space-y-6">
         <div id="ai-home-root"></div>
+      </div>
+
+      <div data-page-content="video-studio" class="page-content hidden space-y-6">
+        <div id="video-studio-root"></div>
+      </div>
+
+      <div data-page-content="social-scheduler" class="page-content hidden space-y-6">
+        <div id="social-scheduler-root"></div>
+      </div>
+
+      <div data-page-content="studio" class="page-content hidden space-y-6">
+        <div id="studio-root"></div>
       </div>
 
       <div data-page-content="operations" class="page-content hidden space-y-6">
@@ -1320,6 +1641,42 @@
         <div id="saas-customers-root"></div>
       </div>
 
+      <div data-page-content="saas-followups" class="page-content hidden space-y-6">
+        <div id="saas-followups-root"></div>
+      </div>
+
+      <div data-page-content="saas-funnel" class="page-content hidden space-y-6">
+        <div id="saas-funnel-root"></div>
+      </div>
+
+      <div data-page-content="saas-automation" class="page-content hidden space-y-6">
+        <div id="saas-automation-root"></div>
+      </div>
+
+      <div data-page-content="saas-email-marketing" class="page-content hidden space-y-6">
+        <div id="saas-email-marketing-root"></div>
+      </div>
+
+      <div data-page-content="saas-studio" class="page-content hidden space-y-6">
+        <div id="saas-studio-root"></div>
+      </div>
+
+      <div data-page-content="saas-website" class="page-content hidden space-y-6">
+        <div id="saas-website-root"></div>
+      </div>
+
+      <div data-page-content="email-marketing" class="page-content hidden space-y-6">
+        <div id="dealer-email-root"></div>
+      </div>
+
+      <div data-page-content="seo" class="page-content hidden space-y-6">
+        <div id="ms-seo-root"></div>
+      </div>
+
+      <div data-page-content="blog" class="page-content hidden space-y-6">
+        <div id="ms-blog-root"></div>
+      </div>
+
       <div data-page-content="saas-employees" class="page-content hidden space-y-6">
         <div id="saas-employees-root"></div>
       </div>
@@ -1331,6 +1688,10 @@
 
       <div data-page-content="owner-users" class="page-content hidden space-y-6">
         <div id="owner-users-root"></div>
+      </div>
+
+      <div data-page-content="people-compliance" class="page-content hidden space-y-6">
+        <div id="people-compliance-root"></div>
       </div>
 
       <div data-page-content="config" class="page-content hidden space-y-6">
@@ -1618,18 +1979,18 @@
       <div id="feeds-panel" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
         <div class="flex flex-wrap justify-between items-start mb-4 gap-3">
           <div>
-            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Inventory Feeds</h2>
-            <p class="text-slate-500 dark:text-slate-400 text-xs">Manage data feed sources and pull the latest inventory.</p>
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Inventory Source &amp; Feeds</h2>
+            <p class="text-slate-500 dark:text-slate-400 text-xs">Connect your dealership website or inventory feed URL to sync vehicles for 1-click Facebook posting.</p>
           </div>
-          <button id="sync-now-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition whitespace-nowrap">
+          <button id="sync-now-btn" data-admin-only class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition whitespace-nowrap">
             Sync Now
           </button>
         </div>
         <div id="sync-status" class="hidden mb-3 p-2 text-xs rounded"></div>
         <div id="feeds-list" class="space-y-2 mb-4">
-          <div class="text-xs text-slate-500 italic">Loading feeds...</div>
+          <div class="text-xs text-slate-500 italic">Loading inventory source…</div>
         </div>
-        <form id="add-feed-form" data-admin-only class="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:items-center pt-3 border-t border-slate-200 dark:border-slate-800">
+        <form id="add-feed-form" class="hidden flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:items-center pt-3 border-t border-slate-200 dark:border-slate-800">
           <select id="add-feed-type" class="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-2 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
             <option value="all">All Inventory</option>
             <option value="new">New</option>
@@ -1637,8 +1998,8 @@
             <option value="demo">Demo</option>
             <option value="fleet">Fleet</option>
           </select>
-          <input type="url" id="add-feed-url" placeholder="https://.../inventory.json" required class="w-full sm:flex-1 sm:min-w-[200px] min-w-0 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
-          <button type="submit" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold px-3 py-2 rounded border border-slate-300 dark:border-slate-700 transition">Add Feed</button>
+          <input type="url" id="add-feed-url" placeholder="https://dealerwebsite.com/inventory" required class="w-full sm:flex-1 sm:min-w-[200px] min-w-0 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+          <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3.5 py-2 rounded transition shadow-2xs">Connect Source</button>
         </form>
       </div>
 
@@ -1655,7 +2016,7 @@
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18"/></svg>
                 Website
               </button>
-              <button id="gen-pitches-btn" data-admin-only onclick="generateAllPitches(this)" title="Write an AI sales pitch for every car that doesn't have one" class="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0">✨ Sales pitches</button>
+              <button id="gen-pitches-btn" data-admin-only onclick="generateAllPitches(this)" title="Write an AI sales pitch for every car that doesn't have one" class="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0"> Sales pitches</button>
               <input type="file" id="inv-import-file" accept=".csv,text/csv" class="hidden" onchange="invImportCsv(this.files[0])">
               <button data-admin-only onclick="document.getElementById('inv-import-file').click()" title="Bulk import vehicles from a CSV" class="inv-raw-add flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0 border border-slate-300 dark:border-slate-700">Import CSV</button>
               <button data-admin-only onclick="invExportCsv(this)" title="Download all inventory as CSV" class="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0 border border-slate-300 dark:border-slate-700">Export CSV</button>
@@ -1689,7 +2050,7 @@
           <div class="flex flex-wrap gap-1.5 hidden" id="catalog-segment-pills">
             <button data-seg="all"  class="catalog-segment-pill active px-3 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition">All</button>
             <button data-seg="hot"  class="catalog-segment-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Hot</button>
-            <button data-seg="cold" class="catalog-segment-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">❄️ Cold</button>
+            <button data-seg="cold" class="catalog-segment-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"> Cold</button>
           </div>
           <!-- hidden select kept for JS compatibility -->
           <select id="catalog-status" class="hidden"></select>
@@ -1734,28 +2095,46 @@
         <!-- Header row: title + team conversion + carousel tabs -->
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 class="text-lg font-bold text-slate-900 dark:text-white">🏆 Leaderboard</h2>
-            <p class="text-slate-500 dark:text-slate-400 text-xs">500 pts / deal · 50 pts / appraisal · 100 pts / listing · Climb the tiers, top the team.</p>
+            <h2 id="lb-title" class="text-lg font-bold text-slate-900 dark:text-white"> Leaderboard</h2>
+            <p id="lb-subtitle" class="text-slate-500 dark:text-slate-400 text-xs">500 pts / deal · 50 pts / appraisal · 100 pts / listing · Climb the tiers, top the team.</p>
           </div>
           <div class="flex items-center gap-3 flex-wrap">
             <!-- Team conversion (hidden on global view) -->
             <div id="lb-conv-wrap" class="text-right">
-              <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">Team Conversion</div>
+              <div id="lb-conv-label" class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">Team Conversion</div>
               <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 leading-none"><span id="lb-conv">—</span>%</div>
-              <div class="text-xs text-slate-500"><span id="lb-team-sold">0</span> sold of <span id="lb-team-total">0</span> posted</div>
+              <div id="lb-team-summary" class="text-xs text-slate-500"><span id="lb-team-sold">0</span> sold of <span id="lb-team-total">0</span> posted</div>
             </div>
             <!-- Carousel tab pills -->
             <div class="inline-flex bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 text-xs font-bold">
               <button type="button" id="lb-tab-team" class="lb-view-tab px-3 py-1.5 rounded bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm transition">My Team</button>
-              <button type="button" id="lb-tab-global" class="lb-view-tab px-3 py-1.5 rounded text-slate-500 dark:text-slate-400 transition">🌎 Global</button>
+              <button type="button" id="lb-tab-global" class="lb-view-tab px-3 py-1.5 rounded text-slate-500 dark:text-slate-400 transition"> Global</button>
             </div>
           </div>
+        </div>
+        <!-- Department Selector Tabs -->
+        <div id="lb-dept-tabs" class="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800">
+          <button type="button" onclick="switchLeaderboardDept('facebook')" id="lb-dept-facebook" class="lb-dept-btn px-3.5 py-2 rounded-xl text-xs font-extrabold transition bg-indigo-600 text-white shadow-sm flex items-center gap-1.5 shrink-0">
+            <span>Facebook AutoPoster</span>
+          </button>
+          <button type="button" onclick="switchLeaderboardDept('sales')" id="lb-dept-sales" class="lb-dept-btn px-3.5 py-2 rounded-xl text-xs font-bold transition bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 shrink-0">
+            <span>Internal Sales</span>
+          </button>
+          <button type="button" onclick="switchLeaderboardDept('service')" id="lb-dept-service" class="lb-dept-btn px-3.5 py-2 rounded-xl text-xs font-bold transition bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 shrink-0">
+            <span>Service Department</span>
+          </button>
+          <button type="button" onclick="switchLeaderboardDept('fni')" id="lb-dept-fni" class="lb-dept-btn px-3.5 py-2 rounded-xl text-xs font-bold transition bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 shrink-0">
+            <span>F&amp;I Finance</span>
+          </button>
+          <button type="button" onclick="switchLeaderboardDept('video')" id="lb-dept-video" class="lb-dept-btn px-3.5 py-2 rounded-xl text-xs font-bold transition bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 shrink-0">
+            <span>Sales Video</span>
+          </button>
         </div>
 
         <!-- ── Legend (compact, always visible at top) ── -->
         <div class="lb-legend border-b border-slate-200 dark:border-slate-800 pb-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
-          <span><span class="font-bold text-emerald-600 dark:text-emerald-400">+500</span> Close a deal</span>
-          <span><span class="font-bold text-amber-600 dark:text-amber-400">+50</span> Trade appraisal</span>
+          <span data-lb-non-fb><span class="font-bold text-emerald-600 dark:text-emerald-400">+500</span> Close a deal</span>
+          <span data-lb-non-fb><span class="font-bold text-amber-600 dark:text-amber-400">+50</span> Trade appraisal</span>
           <span><span class="font-bold text-indigo-600 dark:text-indigo-400">+100</span> Post a car</span>
           <span><span class="font-bold text-emerald-600 dark:text-emerald-400">+500</span> Sell what you posted</span>
           <div id="lb-legend-tiers" class="w-full flex flex-wrap gap-x-5 gap-y-0.5 mt-0.5"></div>
@@ -1800,7 +2179,7 @@
 
           <!-- Full ranking table -->
           <div>
-            <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">Full rankings</div>
+            <div id="lb-rankings-title" class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">Full rankings</div>
             <div class="overflow-x-auto">
               <table class="w-full text-sm border-collapse">
                 <thead>
@@ -1808,12 +2187,12 @@
                     <th class="py-3 px-3 text-left w-12">Rank</th>
                     <th class="py-3 px-3 text-left">Player</th>
                     <th class="py-3 px-3 text-left">Tier</th>
+                    <th id="lb-col-1" data-lb-non-fb class="py-3 px-3 text-right">Deals</th>
+                    <th id="lb-col-2" data-lb-non-fb class="py-3 px-3 text-right">Appr.</th>
+                    <th id="lb-col-3" class="py-3 px-3 text-right">Listings</th>
+                    <th id="lb-col-4" class="py-3 px-3 text-right">FB Sold</th>
+                    <th id="lb-col-5" class="py-3 px-3 text-right">Conv.</th>
                     <th class="py-3 px-3 text-right">Points</th>
-                    <th class="py-3 px-3 text-right">Deals</th>
-                    <th class="py-3 px-3 text-right">Appr.</th>
-                    <th class="py-3 px-3 text-right">Listings</th>
-                    <th class="py-3 px-3 text-right">FB Sold</th>
-                    <th class="py-3 px-3 text-right">Conv.</th>
                   </tr>
                 </thead>
                 <tbody id="leaderboard-body" class="divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -1824,7 +2203,7 @@
           </div>
 
           <!-- Activity feed -->
-          <div class="mt-6">
+          <div id="lb-activity-section" class="mt-6">
             <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">Recent activity</div>
             <div id="lb-activity" class="space-y-2 max-h-72 overflow-y-auto pr-1">
               <div class="text-xs text-slate-500 italic">Loading activity...</div>
@@ -1835,7 +2214,7 @@
         <!-- ── GLOBAL VIEW ── (hidden by default) -->
         <div id="lb-view-global" class="hidden" id="global-leaderboard-panel">
           <div class="flex items-center justify-between mb-3">
-            <p class="text-xs text-slate-500 dark:text-slate-400">How you stack up across every dealer &amp; rep on MarketSync. Others are anonymized — only you see your name.</p>
+            <p id="gl-subtitle" class="text-xs text-slate-500 dark:text-slate-400">How you stack up across every dealer &amp; rep on MarketSync. Others are anonymized — only you see your name.</p>
             <!-- Reps / Dealers toggle -->
             <div class="inline-flex bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 text-xs font-bold flex-shrink-0 ml-3">
               <button type="button" data-gl-tab="reps" class="gl-tab px-3 py-1.5 rounded bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 transition">Reps</button>
@@ -1853,7 +2232,7 @@
               <div class="text-xs text-slate-400 mt-0.5">Avg: <span id="gl-avg-pts">—</span></div>
             </div>
             <div class="bg-slate-50 dark:bg-slate-800/60 rounded-lg px-4 py-3 text-center">
-              <div class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Your Listings</div>
+              <div id="gl-posted-label" class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Your Listings</div>
               <div id="gl-your-posted" class="text-xl font-black text-indigo-600 dark:text-indigo-400">—</div>
               <div class="text-xs text-slate-400 mt-0.5">Avg: <span id="gl-avg-posted">—</span></div>
             </div>
@@ -1893,8 +2272,8 @@
       <div id="dealer-view-panel" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
         <div class="flex justify-between items-start mb-4 gap-4 flex-wrap">
           <div>
-            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Sales Team</h2>
-            <p class="text-slate-500 dark:text-slate-400 text-xs">Add or remove sales reps for your dealership.</p>
+            <h2 id="dealer-team-title" class="text-lg font-bold text-slate-900 dark:text-white">Users &amp; Team</h2>
+            <p id="dealer-team-subtitle" class="text-slate-500 dark:text-slate-400 text-xs">Invite, edit, assign roles, pause, or remove users in this dealership.</p>
           </div>
           <div class="flex gap-2">
             <button id="invite-rep-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition whitespace-nowrap">
@@ -1913,7 +2292,9 @@
             <input type="text" id="invite-name" required placeholder="Full name" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
             <input type="email" id="invite-email" required placeholder="rep@dealership.com" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
           </div>
-          <input type="password" id="invite-password" placeholder="Temporary password (leave blank to auto-generate)" class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+          <div class="relative w-full">
+            <input type="password" id="invite-password" placeholder="Temporary password (leave blank to auto-generate)" class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+          </div>
           <div class="flex gap-2 justify-end">
             <button type="button" id="invite-cancel-btn" class="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white dark:hover:text-slate-700 dark:text-slate-200 px-3 py-2">Cancel</button>
             <button type="submit" id="invite-submit-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition">Create Rep</button>
@@ -1929,9 +2310,9 @@
                 <th class="py-3 px-3">Name</th>
                 <th class="py-3 px-3 max-w-[160px]">Email</th>
                 <th class="py-3 px-3">Role</th>
-                <th class="py-3 px-3 text-right">Listed</th>
-                <th class="py-3 px-3 text-right">Sold</th>
-                <th class="py-3 px-3 text-right">Conv.</th>
+                <th class="py-3 px-3">Account</th>
+                <th class="py-3 px-3">Linked employee</th>
+                <th class="py-3 px-3">Department</th>
                 <th class="py-3 px-3 text-right">Logins</th>
                 <th class="py-3 px-3 text-right">Action</th>
               </tr>
@@ -2058,7 +2439,7 @@
         </div>
 
         <!-- ── Active content ─────────────────────────────────────────────── -->
-        <div id="inv-intel-active-content" class="hidden space-y-5">
+        <div id="inv-intel-active-content" class="space-y-5">
 
           <!-- MarketCheck live-data status — tells the dealer if the licensed feed is on -->
           <div id="marketcheck-status" class="hidden text-xs font-semibold px-3 py-2 rounded-lg border flex items-center gap-2"></div>
@@ -2233,7 +2614,7 @@
                 </div>
                 <div class="bg-white dark:bg-slate-800/60 border border-red-200 dark:border-red-800/50 rounded-xl p-4">
                   <div class="flex items-center gap-2 mb-3">
-                    <span class="text-base">🧊</span>
+                    <span class="text-base"></span>
                     <span class="text-sm font-bold text-slate-900 dark:text-white">Top 5 Cold Vehicles</span>
                     <span class="text-xs text-slate-400">High stock · slow moving</span>
                   </div>
@@ -2244,7 +2625,7 @@
               <!-- Duplicate VINs alert -->
               <div id="inv-intel-dups-wrap" class="hidden bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-xl p-4">
                 <div class="flex items-center gap-2 mb-2">
-                  <span class="text-base">⚠️</span>
+                  <span class="text-base"></span>
                   <span class="text-sm font-bold text-red-800 dark:text-red-300">Duplicate VINs Detected</span>
                 </div>
                 <div id="inv-intel-dups" class="space-y-2 text-sm"></div>
@@ -2499,13 +2880,13 @@
         <div id="automation-root"><div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div></div>
       </div>
 
-      <!-- Automation Builder — one page, tabbed like the Website builder. Each tab's
-           body keeps its original root id so the existing bucket loaders work unchanged. -->
+      <!-- Email & SMS Automation Engine -->
       <div data-page-content="automation-builder" class="page-content hidden space-y-6">
         <div>
-          <h2 class="text-xl font-bold text-slate-900 dark:text-white">Automation Builder</h2>
-          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Build the follow-up sequences that fire automatically.</p>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">Campaigns and Automations</h2>
+          <p class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mt-1">Automated lead response, service retention, reviews, and visual workflow journeys.</p>
         </div>
+        <div id="auto-builder-metrics"></div>
         <div id="auto-builder-tabs" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 flex-wrap"></div>
         <div id="auto-leads-root" class="space-y-6 hidden"><div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div></div>
         <div id="auto-delivery-root" class="space-y-6 hidden"><div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div></div>
@@ -2523,7 +2904,7 @@
             <h2 id="crm-page-title" class="text-xl font-bold text-slate-900 dark:text-white">Customers</h2>
             <p id="crm-page-sub" class="text-sm text-slate-500 dark:text-slate-400 mt-1">Every lead, appraisal and sale on one customer record — with a full activity timeline, follow-up tasks, and one-click email.</p>
           </div>
-          <div class="flex items-center gap-2 flex-wrap">
+          <div id="crm-page-actions" class="flex items-center gap-2 flex-wrap">
             <button type="button" id="crm-bulk-btn" data-admin-only onclick="openBulkOutreach()" class="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
               Bulk message
@@ -2585,6 +2966,30 @@
 
         <!-- Card: the appraisal form -->
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+          <!-- Customer search (optional — search & link customer before appraisal) -->
+          <div class="pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div class="flex items-center justify-between gap-2 mb-1.5">
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">Customer <span class="normal-case font-normal text-slate-400">(optional — search to link customer)</span></label>
+              <span id="appr-cust-linked" class="hidden items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 rounded-full px-2 py-0.5">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                <span id="appr-cust-linked-name">Linked</span>
+                <button type="button" onclick="apprUnlinkCustomer()" class="ml-1 text-emerald-600/70 hover:text-emerald-600 font-bold" title="Unlink">&times;</button>
+              </span>
+            </div>
+            <div class="relative">
+              <div class="flex gap-2">
+                <div class="relative flex-1">
+                  <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                  </div>
+                  <input id="appr-cust-search" autocomplete="off" placeholder="Search customer by name, phone, or email…" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm">
+                </div>
+                <button type="button" onclick="apprClearCustomer()" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg whitespace-nowrap transition">Clear</button>
+              </div>
+              <div id="appr-cust-results" class="hidden absolute z-20 mt-1 w-full max-h-64 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg"></div>
+            </div>
+          </div>
+
           <!-- License plate → VIN (optional; shown only when a plate-decode provider is provisioned) -->
           <div id="appr-plate-block" class="hidden">
             <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Look up by plate <span class="normal-case font-normal text-slate-400">(optional — finds the VIN, then fills the fields below)</span></label>
@@ -2693,24 +3098,13 @@
             </div>
           </div>
 
-          <!-- Customer Information -->
-          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
-            <div class="flex items-center justify-between gap-2 mb-3">
-              <h4 class="text-sm font-bold text-slate-900 dark:text-white">Customer Information</h4>
-              <span id="appr-cust-linked" class="hidden items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 rounded-full px-2 py-0.5">
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-                <span id="appr-cust-linked-name">Linked</span>
-                <button type="button" onclick="apprUnlinkCustomer()" class="ml-1 text-emerald-600/70 hover:text-emerald-600" title="Unlink">✕</button>
-              </span>
-            </div>
-            <!-- Search existing customer or start a new one -->
-            <div class="relative mb-3">
-              <div class="flex gap-2">
-                <input id="appr-cust-search" autocomplete="off" placeholder="Search customers by name, phone, or email…" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
-                <button type="button" onclick="apprClearCustomer()" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 rounded-lg whitespace-nowrap">New customer</button>
-              </div>
-              <div id="appr-cust-results" class="hidden absolute z-20 mt-1 w-full max-h-64 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg"></div>
-            </div>
+          <!-- Customer Details (collapsible / pre-filled from search) -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <button type="button" onclick="this.closest('.rounded-xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+              <h4 class="text-sm font-bold text-slate-900 dark:text-white">Customer Contact Details <span class="text-xs font-normal text-slate-400">(optional)</span></h4>
+              <svg class="ai-chevron w-4 h-4 text-slate-400 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div class="p-5">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">First name</label><input id="cust-first" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
               <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Last name</label><input id="cust-last" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
@@ -2869,6 +3263,11 @@
     </section>
   </main>
 
+  <!-- ── Setup status banner — foot of the shell, below all page content. Routes to the
+       canonical Launch Hub and removes itself the moment the dealership is fully configured.
+       Populated + toggled by refreshSetupIndicator() in dashboard-part2.js. ── -->
+  <div id="setup-status-banner" onclick="switchPage('launch')" role="button" tabindex="0" aria-label="Finish dealership setup" class="hidden fixed bottom-0 inset-x-0 z-30 px-3 pb-3 cursor-pointer"></div>
+
   <!-- ── Reports rail — fixed quick-access to every lot-wide report (II; shown via JS) ── -->
   <div id="report-rail" class="hidden fixed right-0 top-1/2 -translate-y-1/2 z-30 flex-col items-stretch gap-1 bg-white/95 dark:bg-slate-900/95 backdrop-blur border border-r-0 border-slate-200 dark:border-slate-800 rounded-l-2xl shadow-xl shadow-slate-900/10 py-2.5 pl-2 pr-2.5 max-h-[94vh] overflow-y-auto">
     <div class="flex items-center justify-between gap-1 px-1 pb-1.5">
@@ -2877,6 +3276,15 @@
         <svg id="rr-chevron" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
       </button>
     </div>
+    <!-- Team Messages Trigger (Top of Right Rail) -->
+    <button type="button" data-report="messages" onclick="toggleTeamChatWidget()" title="Team Messages — direct chat with colleagues" class="group flex items-center justify-between gap-2.5 w-full text-left px-2.5 py-2 rounded-lg text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 font-bold transition mb-1 border border-sky-200 dark:border-sky-800/60">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <svg class="w-5 h-5 flex-shrink-0 text-sky-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 0 1-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        <span class="text-xs whitespace-nowrap">Messages</span>
+      </div>
+      <span id="rail-msg-badge" class="hidden bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full leading-none"></span>
+    </button>
+    <div class="h-px bg-slate-200 dark:bg-slate-800 mb-1"></div>
     <button type="button" data-report="lot" title="Lot Average Report — your whole lot vs the market" class="group flex items-center gap-2.5 w-full text-left px-2.5 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-violet-50 dark:hover:bg-violet-950/40 hover:text-violet-700 dark:hover:text-violet-300 transition">
       <svg class="w-5 h-5 flex-shrink-0 text-violet-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17V9m4 8V5m4 12v-4M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
       <span class="text-xs font-bold whitespace-nowrap">Lot Average</span>
@@ -2901,8 +3309,8 @@
       <svg class="w-5 h-5 flex-shrink-0 text-teal-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       <span class="text-xs font-bold whitespace-nowrap">Equity Mining</span>
     </button>
-    <button type="button" data-report="marketing" title="Marketing ROI — spend vs leads, sales & ROI by channel" class="group flex items-center gap-2.5 w-full text-left px-2.5 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-950/40 hover:text-fuchsia-700 dark:hover:text-fuchsia-300 transition">
-      <svg class="w-5 h-5 flex-shrink-0 text-fuchsia-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path stroke-linecap="round" stroke-linejoin="round" d="M20.488 9A9.004 9.004 0 0015 3.512V9h5.488z"/></svg>
+    <button type="button" data-report="marketing" title="Marketing ROI — spend vs leads, sales & ROI by channel" class="group flex items-center gap-2.5 w-full text-left px-2.5 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-violet-50 dark:hover:bg-violet-950/40 hover:text-violet-700 dark:hover:text-violet-300 transition">
+      <svg class="w-5 h-5 flex-shrink-0 text-violet-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path stroke-linecap="round" stroke-linejoin="round" d="M20.488 9A9.004 9.004 0 0015 3.512V9h5.488z"/></svg>
       <span class="text-xs font-bold whitespace-nowrap">Marketing ROI</span>
     </button>
     <button type="button" data-report="appointments" title="Appointments & show-rate — booked, shown, no-show by rep" class="group flex items-center gap-2.5 w-full text-left px-2.5 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-700 dark:hover:text-blue-300 transition">
@@ -2951,39 +3359,111 @@
     </button>
   </div>
 
-  <!-- ── AI Assistant dock — floating "Ask MarketSync" chat (paid; shown via JS) ── -->
-  <button id="ai-dock-btn" type="button" aria-label="Ask MarketSync" class="hidden fixed bottom-5 right-5 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm pl-4 pr-5 py-3 rounded-full shadow-lg shadow-indigo-600/40 transition">
-    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h8M8 14h5M21 12a8.5 8.5 0 0 1-12.4 7.55L3 21l1.5-5.4A8.5 8.5 0 1 1 21 12Z"/></svg>
-    <span id="ai-dock-btn-label">Ask MarketSync</span>
+  <!-- ── Floating Intelligence Assistant (Bottom Right) ── -->
+  <button id="ai-dock-btn" onclick="toggleAiDock()" type="button" aria-label="Intelligence" class="fixed bottom-5 right-5 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm pl-4 pr-5 py-3 rounded-full shadow-lg shadow-indigo-600/40 transition">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z"/></svg>
+    <span id="ai-dock-btn-label">Intelligence</span>
   </button>
 
   <div id="ai-dock-panel" class="hidden fixed z-50 bottom-4 right-4 left-4 sm:left-auto sm:w-[390px] max-h-[calc(100dvh-2rem)] h-[560px] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
     <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
       <div class="flex items-center gap-2 min-w-0">
         <span class="flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-600 text-white flex-shrink-0">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h8M8 14h5M21 12a8.5 8.5 0 0 1-12.4 7.55L3 21l1.5-5.4A8.5 8.5 0 1 1 21 12Z"/></svg>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z"/></svg>
         </span>
         <div class="min-w-0">
-          <div id="ai-dock-title" class="text-sm font-bold text-slate-900 dark:text-white leading-tight">Ask MarketSync</div>
-          <div class="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">Answers from your live lot data</div>
+          <div id="ai-dock-title" class="text-sm font-bold text-slate-900 dark:text-white leading-tight">Intelligence</div>
+          <div class="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">Answers from your live lot &amp; team data</div>
         </div>
       </div>
       <div class="flex items-center gap-1 flex-shrink-0">
-        <button id="ai-dock-clear" title="New chat" class="p-1.5 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition">
+        <button id="ai-dock-clear" onclick="clearAiDockChat()" title="New chat" class="p-1.5 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/></svg>
         </button>
-        <button id="ai-dock-close" title="Close" class="p-1.5 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition">
+        <button id="ai-dock-close" onclick="closeAiDock()" title="Close" class="p-1.5 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
         </button>
       </div>
     </div>
     <div id="ai-dock-messages" class="flex-1 overflow-y-auto px-3.5 py-3 space-y-3 text-sm"></div>
-    <form id="ai-dock-form" class="border-t border-slate-200 dark:border-slate-800 p-2.5 flex items-end gap-2">
-      <textarea id="ai-dock-input" rows="1" placeholder="Ask about your lot, leads, pricing…" class="flex-1 resize-none max-h-28 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+    <div id="ai-dock-file-status" class="hidden border-t border-slate-200 dark:border-slate-800 px-3 py-2 text-xs text-slate-600 dark:text-slate-300 bg-indigo-50 dark:bg-indigo-950/30"></div>
+    <form id="ai-dock-form" onsubmit="sendAiDockMessage(event)" class="border-t border-slate-200 dark:border-slate-800 p-2.5 flex items-end gap-2">
+      <input id="ai-dock-file" type="file" accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.txt,.md,.csv,.json,.rtf" class="hidden">
+      <button id="ai-dock-attach" type="button" title="Attach a document" class="flex-shrink-0 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition" aria-label="Attach document">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m20.5 11.5-8.8 8.8a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>
+      </button>
+      <textarea id="ai-dock-input" rows="1" placeholder="Ask about lot, leads, pricing, or staff…" class="flex-1 resize-none max-h-28 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
       <button id="ai-dock-send" type="submit" class="flex-shrink-0 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white p-2 rounded-lg transition" aria-label="Send">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/></svg>
       </button>
     </form>
+  </div>
+
+  <!-- ── Google Hangouts style Team Messaging Widget Panel ── -->
+  <div id="team-chat-dock-panel" class="hidden fixed z-50 bottom-4 left-4 right-4 sm:right-auto sm:w-[380px] max-h-[calc(100dvh-2rem)] h-[560px] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+    <!-- View 1: Roster View -->
+    <div id="widget-roster-view" class="flex flex-col h-full">
+      <div class="p-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-between">
+        <div>
+          <div class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <span>Team Messages</span>
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">90-day retention</span>
+          </div>
+          <div class="text-[11px] text-slate-500 dark:text-slate-400">Message colleagues directly across departments</div>
+        </div>
+        <button onclick="toggleTeamChatWidget()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="p-2.5 border-b border-slate-200 dark:border-slate-800 space-y-2 bg-white dark:bg-slate-900">
+        <input type="text" id="widget-search" placeholder="Search staff members…" oninput="filterWidgetRoster(this.value)" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500" />
+        <div class="flex items-center gap-1">
+          <button onclick="setWidgetFilter('all')" id="wf-all" class="flex-1 text-[11px] font-bold py-1 rounded-lg bg-sky-600 text-white transition">All</button>
+          <button onclick="setWidgetFilter('online')" id="wf-online" class="flex-1 text-[11px] font-bold py-1 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Online</button>
+          <button onclick="setWidgetFilter('unread')" id="wf-unread" class="flex-1 text-[11px] font-bold py-1 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Unread</button>
+        </div>
+      </div>
+      <div id="widget-roster-list" class="flex-1 overflow-y-auto p-2 space-y-1 bg-white dark:bg-slate-900">
+        <div class="p-6 text-center text-xs text-slate-400">Loading staff roster…</div>
+      </div>
+    </div>
+
+    <!-- View 2: Direct Chat Thread -->
+    <div id="widget-chat-view" class="hidden flex-col h-full bg-white dark:bg-slate-900">
+      <div class="px-3 py-2.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-between">
+        <div class="flex items-center gap-2 min-w-0">
+          <button onclick="backToWidgetRoster()" class="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 mr-0.5" title="Back to staff list">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <div class="relative flex-shrink-0">
+            <div id="widget-active-avatar" class="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold grid place-items-center text-xs"></div>
+            <span id="widget-active-dot" class="absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white dark:border-slate-900 bg-emerald-500"></span>
+          </div>
+          <div class="min-w-0">
+            <div id="widget-active-name" class="text-xs font-bold text-slate-900 dark:text-white truncate">Staff Member</div>
+            <div id="widget-active-status" class="text-[10px] text-slate-400"><span class="inline-block w-2 h-2 rounded-full bg-emerald-500 align-middle mr-1"></span>Online</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-1">
+          <button onclick="deleteWidgetChatHistory()" title="Clear chat history" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+          </button>
+          <button onclick="toggleTeamChatWidget()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="px-3 py-1 bg-slate-100 dark:bg-slate-950/80 text-[10px] text-center text-slate-400 border-b border-slate-200 dark:border-slate-800">
+        Conversations are stored and automatically delete after 90 days.
+      </div>
+      <div id="widget-msg-body" class="flex-1 overflow-y-auto p-3 space-y-2.5 text-xs"></div>
+      <form id="widget-chat-form" onsubmit="sendWidgetMessage(event)" class="p-2 border-t border-slate-200 dark:border-slate-800 flex items-center gap-1.5 bg-white dark:bg-slate-900">
+        <input type="text" id="widget-chat-input" placeholder="Type a message…" class="flex-1 text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500" autocomplete="off" />
+        <button type="submit" class="p-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white transition flex items-center justify-center">
+          <svg class="w-4 h-4 rotate-90" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m-7 7l7-7 7 7"/></svg>
+        </button>
+      </form>
+    </div>
   </div>
 
   <!-- Rep detail modal — top-level so it opens from the Sales Team page too -->
@@ -3329,7 +3809,164 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260730k"></script>
+  <!-- ── 1. Department Opening: Full-Page "Things to Know" Modal ── -->
+  <div id="dept-things-to-know-modal" class="hidden fixed inset-0 z-[85] bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto flex flex-col max-h-[90vh]">
+      <!-- Header banner -->
+      <div class="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 p-6 text-white shrink-0 relative">
+        <button onclick="closeThingsToKnowModal()" class="absolute top-4 right-4 text-white/80 hover:text-white text-2xl font-bold leading-none">&times;</button>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-xs font-bold uppercase tracking-wider mb-2">
+          <span id="ttk-dept-badge-icon"></span> Department Onboarding
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-black tracking-tight" id="ttk-dept-title">Opening CRM &amp; Customers</h2>
+        <p class="text-xs sm:text-sm text-indigo-100 mt-1" id="ttk-dept-subtitle">Things to know before you start operating this department.</p>
+      </div>
+      <!-- Body content -->
+      <div class="p-6 space-y-6 overflow-y-auto flex-1">
+        <div class="space-y-4">
+          <h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider text-xs">Left-to-Right Workflow Overview</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" id="ttk-workflow-stages">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider text-xs">Tutorial Highlights &amp; Key Features</h3>
+          <ul class="space-y-2.5 text-sm text-slate-600 dark:text-slate-300" id="ttk-tutorial-list">
+            <!-- Rendered by JS -->
+          </ul>
+        </div>
+      </div>
+      <!-- Footer actions -->
+      <div class="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <button type="button" onclick="closeThingsToKnowModal()" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">Skip to Page</button>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="closeThingsToKnowModal(); openDepartmentSetupWizard(__activeOpenDeptId);" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 font-bold px-4 py-2.5 rounded-xl text-xs transition">
+             Configure Setup Wizard
+          </button>
+          <button type="button" id="ttk-start-btn" onclick="startDepartmentTourAndWizard()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm shadow-md shadow-indigo-500/30 transition flex items-center gap-2">
+            <span>Start Guided Tour</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 2. Department Setup Wizard Modal ── -->
+  <div id="dept-setup-wizard-modal" class="hidden fixed inset-0 z-[86] bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto flex flex-col max-h-[90vh]">
+      <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950 shrink-0">
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400" id="dsw-dept-tag">Setup Wizard</div>
+          <h3 class="text-lg font-black text-slate-900 dark:text-white" id="dsw-dept-title">Configure Integrations &amp; Store Info</h3>
+        </div>
+        <button onclick="closeSetupWizardModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold leading-none">&times;</button>
+      </div>
+
+      <div class="p-6 space-y-5 overflow-y-auto flex-1">
+        <div class="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+          <svg class="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <div>
+            <strong>Cross-Platform Auto-Sync Active:</strong> Information entered here (Legal Name, Address, Phone, Website, CRM Intake Email) automatically syncs across all department wizards and settings. No double-entry!
+          </div>
+        </div>
+
+        <form id="dsw-form" class="space-y-4">
+          <!-- Dynamically populated per department -->
+          <div id="dsw-fields-container" class="space-y-4"></div>
+        </form>
+      </div>
+
+      <div class="p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-between shrink-0">
+        <button type="button" onclick="closeSetupWizardModal()" class="text-xs font-bold text-slate-500">Cancel</button>
+        <button type="button" onclick="completeDepartmentWizard()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm shadow-md shadow-emerald-500/30 transition flex items-center gap-2">
+          <span>Complete Setup &amp; Unlock Badge </span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 3. Dealer Gamification Badge Reveal Modal ── -->
+  <div id="dealer-badge-reveal-modal" class="hidden fixed inset-0 z-[90] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl p-8 text-center shadow-2xl border border-amber-500/40 relative overflow-hidden animate-bounce-short">
+      <div class="w-24 h-24 rounded-full bg-gradient-to-tr from-amber-400 via-amber-500 to-yellow-300 mx-auto flex items-center justify-center text-4xl shadow-xl shadow-amber-500/30 mb-4" id="dbr-badge-icon">
+
+      </div>
+      <div class="text-xs font-black uppercase tracking-widest text-amber-500">DEALER Gamification Badge Earned!</div>
+      <h3 class="text-2xl font-black text-slate-900 dark:text-white mt-1" id="dbr-badge-title">CRM Commander</h3>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" id="dbr-badge-desc">You have successfully Opened and configured the CRM &amp; Customer Management department!</p>
+
+      <div class="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800 flex items-center justify-center gap-3">
+        <button type="button" onclick="closeBadgeRevealModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition">
+          Claim Badge &amp; Continue
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- The printable diploma modal that used to live here was removed in Phase 7 PR 7.3.
+       It rendered a hard-coded name, a hard-coded date and an invented certificate number,
+       and it opened whenever somebody clicked "Complete Course". A credential is a claim the
+       dealership makes in public, so it is now issued by the server only when every required
+       course is actually complete, and rendered from the same public verification endpoint a
+       stranger following the link would see. -->
+
+  <!-- Bump this revision whenever dashboard.js changes so an already-open browser
+       cannot reuse an older bundle from its cache after a staging deployment. -->
+  <!-- Workspace registry: SINGLE SOURCE OF TRUTH for sidebar, workspace tabs and
+       mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
+  <script src="js/modules/workspace-registry.js?v=20260814_v12"></script>
+  <script src="dashboard.js?v=20260821_email_product_nav_v1"></script>
+  <script src="js/modules/dashboard-part2.js?v=20260821_suite_pulse_route_v1"></script>
+  <script src="js/modules/dashboard-part3.js?v=20260814_v12"></script>
+  <script src="js/modules/dashboard-part4.js?v=20260820_identity_actions_v1"></script>
+  <script src="js/modules/dashboard-part5.js?v=20260817_studiolaunch_v1"></script>
+  <script src="js/modules/dashboard-part6.js?v=20260814_v12"></script>
+  <script src="js/modules/dashboard-part7.js?v=20260814_v12"></script>
+  <script src="js/modules/dashboard-part8.js?v=20260818_videostaff_v2"></script>
+  <script src="js/modules/dashboard-part9.js?v=20260817_designstudio_v1"></script>
+  <script src="js/modules/dashboard-part10.js?v=20260820_marketing_tabs_v1"></script>
+  <script src="js/modules/dashboard-part11.js?v=20260820_pulse_disclosures_v1"></script>
+  <script src="js/modules/dashboard-part12.js?v=20260814_v12"></script>
+  <script src="js/modules/dashboard-part13.js?v=20260817_simple_departments"></script>
+  <script src="js/modules/dashboard-part14.js?v=20260818_videolb_v2"></script>
+  <script src="js/modules/dashboard-part15.js?v=20260814_v12"></script>
+  <script src="js/modules/dashboard-part16.js?v=20260814_v12"></script>
+  <script src="js/modules/dashboard-part17.js?v=20260821_website_setup_v2"></script>
+  <script src="js/modules/dashboard-part18.js?v=20260820_sales_marketing_layout_v1"></script>
+  <script src="js/modules/dashboard-part19.js?v=20260814_v12"></script>
+  <script src="js/modules/dashboard-part20.js?v=20260817_addons_v1"></script>
+  <script src="js/modules/dashboard-part21.js?v=20260814_v12"></script>
+  <script src="js/modules/dashboard-part22.js?v=20260814_v12"></script>
+  <script src="js/modules/dashboard-part23.js?v=20260819_website_nav_v1"></script>
+  <script src="js/modules/dashboard-part24.js?v=20260814_v12"></script>
+  <script src="js/modules/dashboard-part25.js?v=20260817_punchclock_v1"></script>
+  <script src="js/modules/dashboard-part26.js?v=20260814_v12"></script>
+  <!-- Sales workspace: registers ENGINES['sales']; must load after the parts. -->
+  <script src="js/modules/sales-workspace.js?v=20260818_v13"></script>
+  <script src="js/modules/inventory-workspace.js?v=20260814_v12"></script>
+  <script src="js/modules/fni-workspace.js?v=20260814_v12"></script>
+  <!-- Vehicle Record: one unit, one surface. Loads after inventory-workspace.js,
+       whose merchandising/acquisition definitions it renders. -->
+  <script src="js/modules/vehicle-record.js?v=20260814_v12"></script>
+  <script src="js/modules/receipt-engine.js?v=20260814_v12"></script>
+  <script src="js/modules/video-studio.js?v=20260820_fast_library_v1"></script>
+  <script src="js/modules/service-views.js?v=20260814_v12"></script>
+  <script src="js/modules/service-workspace.js?v=20260814_v12"></script>
+  <script src="js/modules/parts-views.js?v=20260814_v12"></script>
+  <script src="js/modules/parts-workspace.js?v=20260814_v12"></script>
+  <script src="js/modules/accounting-views.js?v=20260817_simple_internal"></script>
+  <script src="js/modules/accounting-workspace.js?v=20260814_v12"></script>
+  <script src="js/modules/studio/scene-model.js?v=20260814_v12"></script>
+  <script src="js/modules/studio/fabric-adapter.js?v=20260818_fontfamily_v1"></script>
+  <script src="js/modules/studio/studio-scheduler.js?v=20260821_embedded_calendar_v1"></script>
+  <script src="js/modules/studio/studio-shell.js?v=20260821_edit_scheduled_design_v1"></script>
+  <script src="js/modules/marketing-workspace.js?v=20260821_service_marketing_layout_v1"></script>
+  <script src="js/modules/academy-workspace.js?v=20260814_v12"></script>
+  <script src="js/modules/launch-workspace.js?v=20260814_v12"></script>
+  <script src="js/modules/people-views.js?v=20260814_v12"></script>
+  <script src="js/modules/people-workspace.js?v=20260817_v13"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
@@ -3337,7 +3974,8 @@
     };
   </script>
   <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async></script>
-  <script src="tour.js?v=20260727k"></script>
-  <script src="table-sort.js?v=20260706a"></script>
+  <script src="js/modules/staff-chat-dock.js?v=20260817_v2"></script>
+  <script src="js/modules/demo-control-panel.js?v=20260821_campaign_email_v1"></script>
+  <script src="table-sort.js?v=20260706a_noemoji"></script>
 </body>
 </html>

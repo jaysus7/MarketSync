@@ -4,14 +4,14 @@
  * revenue-first Command Center overview; Customers/Trials/CRM/Support/Marketing/
  * Employees are subsequent stages that register into the same workspace.
  *
- * Owner-gated (OWNER_EMAIL / MarketSync org). Reads across accounts — no new tables.
+ * Access is derived from server-managed MarketSync staff roles. Reads across
+ * accounts — no new tables.
  */
-import { supabaseAdmin } from '../shared.js'
+import { supabaseAdmin, stripe } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { resolveProducts, saasCan, saasRoleOf, SAAS_ROLES, SAAS_PERMISSIONS } from './profile.js'
-
-const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
-const isOwner = (req) => (req.user?.email || '').toLowerCase() === OWNER_EMAIL || req.profile?.is_marketsync === true
+import Anthropic from '@anthropic-ai/sdk'
+import { SMART_MODEL } from '../aiModels.js'
 
 // Monthly price per product (used for MRR estimation from entitlements).
 const PRODUCT_MRR = { facebook_solo: 79, facebook_dealer: 499, ai_chatbot: 499, dealer_os: 499 }
@@ -166,6 +166,274 @@ export function registerSaasAdmin(app) {
     for (const r of rows) (byStage[r.stage] = byStage[r.stage] || []).push(r)
     for (const s of STAGES) byStage[s].sort((x, y) => x.health - y.health)   // most at-risk first
     res.json({ stages: STAGES, by_stage: byStage, counts: Object.fromEntries(STAGES.map(s => [s, byStage[s].length])) })
+  })
+
+  // ── Account follow-ups — internal customer-success / sales work queue ───────
+  // Kept separate from crm_tasks because MarketSync staff work accounts, not a
+  // dealer's individual shoppers. Every mutation is permission-gated and uses the
+  // service role only after that gate.
+  app.get('/saas/followups', requireAuth, async (req, res) => {
+    if (!need('view_pipeline')(req, res)) return
+    const includeCompleted = String(req.query?.completed || '') === 'true'
+    let query = supabaseAdmin.from('saas_account_followups').select('*').order('due_at', { ascending: true, nullsFirst: false }).limit(1000)
+    query = includeCompleted ? query.not('completed_at', 'is', null) : query.is('completed_at', null)
+    const { data: tasks, error } = await query
+    if (error) return res.status(500).json({ error: error.message })
+    const dealerIds = [...new Set((tasks || []).map(t => t.dealership_id).filter(Boolean))]
+    const userIds = [...new Set((tasks || []).flatMap(t => [t.assigned_to, t.created_by, t.completed_by]).filter(Boolean))]
+    const [{ data: dealers }, { data: people }] = await Promise.all([
+      dealerIds.length ? supabaseAdmin.from('dealerships').select('id, name').in('id', dealerIds) : Promise.resolve({ data: [] }),
+      userIds.length ? supabaseAdmin.from('profiles').select('id, full_name').in('id', userIds) : Promise.resolve({ data: [] }),
+    ])
+    const dealerById = Object.fromEntries((dealers || []).map(d => [d.id, d.name]))
+    const personById = Object.fromEntries((people || []).map(p => [p.id, p.full_name || '—']))
+    res.json({ followups: (tasks || []).map(t => ({ ...t, account_name: dealerById[t.dealership_id] || 'Unknown account', assigned_name: personById[t.assigned_to] || null })) })
+  })
+
+  app.post('/saas/followups', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const body = req.body || {}
+    const title = String(body.title || '').trim().slice(0, 240)
+    const dealershipId = String(body.dealership_id || '').trim()
+    if (!title || !dealershipId) return res.status(400).json({ error: 'Account and follow-up title are required' })
+    const priority = ['low', 'normal', 'high'].includes(body.priority) ? body.priority : 'normal'
+    const dueAt = body.due_at ? new Date(body.due_at) : null
+    if (dueAt && Number.isNaN(dueAt.getTime())) return res.status(400).json({ error: 'Invalid due date' })
+    const { data: account } = await supabaseAdmin.from('dealerships').select('id').eq('id', dealershipId).maybeSingle()
+    if (!account) return res.status(404).json({ error: 'Account not found' })
+    const { data, error } = await supabaseAdmin.from('saas_account_followups').insert({
+      dealership_id: dealershipId, title, priority,
+      note: String(body.note || '').trim().slice(0, 4000) || null,
+      due_at: dueAt ? dueAt.toISOString() : null,
+      assigned_to: body.assigned_to || req.user.id,
+      created_by: req.user.id,
+    }).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.status(201).json({ followup: data })
+  })
+
+  app.patch('/saas/followups/:id', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const body = req.body || {}, patch = { updated_at: new Date().toISOString() }
+    if (body.title !== undefined) { const title = String(body.title || '').trim().slice(0, 240); if (!title) return res.status(400).json({ error: 'Title cannot be empty' }); patch.title = title }
+    if (body.note !== undefined) patch.note = String(body.note || '').trim().slice(0, 4000) || null
+    if (body.priority !== undefined) { if (!['low', 'normal', 'high'].includes(body.priority)) return res.status(400).json({ error: 'Invalid priority' }); patch.priority = body.priority }
+    if (body.due_at !== undefined) { const dueAt = body.due_at ? new Date(body.due_at) : null; if (dueAt && Number.isNaN(dueAt.getTime())) return res.status(400).json({ error: 'Invalid due date' }); patch.due_at = dueAt ? dueAt.toISOString() : null }
+    if (body.assigned_to !== undefined) patch.assigned_to = body.assigned_to || null
+    if (body.done !== undefined) { patch.completed_at = body.done ? new Date().toISOString() : null; patch.completed_by = body.done ? req.user.id : null }
+    const { data, error } = await supabaseAdmin.from('saas_account_followups').update(patch).eq('id', req.params.id).select().maybeSingle()
+    if (error) return res.status(500).json({ error: error.message })
+    if (!data) return res.status(404).json({ error: 'Follow-up not found' })
+    res.json({ followup: data })
+  })
+
+  // ── Customer 360 — one account: products, MRR/ARR, LTV, tenure, usage timeline,
+  // team, billing history, and follow-ups. LTV is real (paid Stripe invoices) when we
+  // have a Stripe customer, otherwise an MRR×tenure estimate (flagged as such). ──
+  app.get('/saas/customers/:id', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const id = req.params.id
+    const since = new Date(Date.now() - 90 * 86400000).toISOString()
+    const [{ data: dealer }, { data: team }, { data: events }, { data: subs }, { data: followups }, { data: enrollments }, { data: seqDefs }, { data: seqSteps }, { data: allProfiles }] = await Promise.all([
+      supabaseAdmin.from('dealerships').select('*').eq('id', id).maybeSingle(),
+      supabaseAdmin.from('profiles').select('id, full_name, role, saas_role, billing_status, trial_ends_at, phone, created_at').eq('dealership_id', id).limit(100),
+      supabaseAdmin.from('events').select('event_name, created_at').eq('dealership_id', id).order('created_at', { ascending: false }).limit(60),
+      supabaseAdmin.from('subscriptions').select('*').eq('dealership_id', id),
+      supabaseAdmin.from('saas_account_followups').select('*').eq('dealership_id', id).order('due_at', { ascending: true }).limit(100),
+      supabaseAdmin.from('saas_sequence_enrollments').select('*').eq('dealership_id', id).order('created_at', { ascending: false }).limit(50),
+      supabaseAdmin.from('saas_sequences').select('id, key, name, trigger, enabled'),
+      supabaseAdmin.from('saas_sequence_steps').select('sequence_id'),
+      supabaseAdmin.from('profiles').select('id, full_name, saas_role, system_role'),
+    ])
+    const seqByKey = Object.fromEntries((seqDefs || []).map(s => [s.key, s]))
+    const stepCount = {}
+    for (const st of seqSteps || []) stepCount[st.sequence_id] = (stepCount[st.sequence_id] || 0) + 1
+    // HQ staff = anyone with a saas_role or a platform system_role — the reassignable owners.
+    const hqStaff = (allProfiles || []).filter(p => p.saas_role || ['platform_owner', 'platform_admin'].includes(p.system_role))
+    const ownerName = dealer.hq_owner_id ? (hqStaff.find(p => p.id === dealer.hq_owner_id)?.full_name || null) : null
+    if (!dealer) return res.status(404).json({ error: 'Customer not found' })
+
+    // Effective billing (personal orgs bill on the single profile).
+    let status = dealer.billing_status, trialEnds = dealer.trial_ends_at
+    if (dealer.is_personal) { const u = (team || [])[0]; if (u) { status = u.billing_status; trialEnds = u.trial_ends_at } }
+
+    const products = resolveProducts(dealer)
+    const productKeys = Object.keys(products).filter(k => products[k])
+    const mrr = productKeys.reduce((s, k) => s + (PRODUCT_MRR[k] || 0), 0)
+    const createdAt = dealer.created_at ? new Date(dealer.created_at) : null
+    const tenureMonths = createdAt ? Math.max(1, Math.round((Date.now() - createdAt) / (30 * 86400000))) : null
+
+    // Usage: 90-day timeline + engines touched + last-seen.
+    const now = Date.now()
+    const engines = new Set()
+    for (const e of events || []) { const ns = String(e.event_name || '').split('.')[0]; if (ns) engines.add(ns) }
+    const recent = (events || []).filter(e => e.created_at >= since)
+    const lastAt = (events || [])[0]?.created_at || null
+    const lastDays = lastAt ? Math.floor((now - new Date(lastAt)) / 86400000) : null
+
+    // LTV — real paid invoices from Stripe when we can, else MRR×tenure estimate.
+    let ltv = null, ltvSource = 'estimate', billingHistory = []
+    const custId = dealer.stripe_customer_id || (subs || []).map(s => s.stripe_customer_id).find(Boolean)
+    if (custId && stripe) {
+      try {
+        const inv = await stripe.invoices.list({ customer: custId, limit: 100 })
+        const paid = (inv.data || []).filter(i => i.status === 'paid')
+        ltv = paid.reduce((s, i) => s + (i.amount_paid || 0), 0) / 100
+        ltvSource = 'stripe'
+        billingHistory = (inv.data || []).slice(0, 12).map(i => ({
+          date: new Date(i.created * 1000).toISOString(), amount: (i.amount_paid || i.amount_due || 0) / 100,
+          currency: (i.currency || 'usd').toUpperCase(), number: i.number, status: i.status, url: i.hosted_invoice_url,
+        }))
+      } catch (e) { /* keep estimate */ }
+    }
+    if (ltv == null) ltv = tenureMonths != null ? mrr * tenureMonths : mrr
+
+    res.json({
+      id: dealer.id, name: dealer.name, website_url: dealer.website_url || null,
+      is_personal: !!dealer.is_personal, status: (status || '').toUpperCase() || null,
+      created_at: dealer.created_at, trial_ends_at: trialEnds,
+      products, product_keys: productKeys, plan: dealer.plan || null,
+      mrr, arr: mrr * 12, ltv, ltv_source: ltvSource, tenure_months: tenureMonths,
+      engines_used: [...engines], activity_90d: recent.length, last_activity_days: lastDays,
+      team: (team || []).map(t => ({ id: t.id, name: t.full_name, role: t.role, saas_role: t.saas_role })),
+      timeline: (events || []).map(e => ({ name: e.event_name, at: e.created_at })),
+      subscriptions: subs || [], billing_history: billingHistory,
+      followups: followups || [],
+      sequences: (enrollments || []).map(e => {
+        const seq = seqByKey[e.sequence_key]
+        return { id: e.id, key: e.sequence_key, name: seq?.name || e.sequence_key, status: e.status,
+          current_step: e.current_step, total_steps: seq ? (stepCount[seq.id] || 0) : 0, started_at: e.started_at }
+      }),
+      sequence_catalog: (seqDefs || []).filter(s => s.enabled !== false).map(s => ({ key: s.key, name: s.name, trigger: s.trigger })),
+      owner_id: dealer.hq_owner_id || null,
+      owner_name: ownerName,
+      owner_options: hqStaff.map(p => ({ id: p.id, name: p.full_name || '—' })),
+      stripe_customer_id: custId || null,
+    })
+  })
+
+  // Reassign an account to an HQ owner / CSM (or clear it).
+  app.patch('/saas/customers/:id/owner', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const { data, error } = await supabaseAdmin.from('dealerships')
+      .update({ hq_owner_id: req.body?.owner_id || null }).eq('id', req.params.id).select('id, hq_owner_id').single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
+  })
+
+  // (Follow-up GET/POST/PATCH routes are defined once above — a duplicate block was
+  // removed here; Express would only ever serve the first registration anyway.)
+
+  // ── Checkout funnel (Phase 2) — signup → checkout → paid, and abandoned carts.
+  // A cart is a Stripe Checkout Session we started; the webhook flips it to
+  // 'completed'. Anything still 'started' past a 1-hour grace window is abandoned. ──
+  app.get('/saas/carts', requireAuth, async (req, res) => {
+    if (!need('view_pipeline')(req, res)) return
+    const GRACE_MS = 60 * 60 * 1000
+    const { data: rows } = await supabaseAdmin.from('saas_checkout_sessions')
+      .select('*').order('created_at', { ascending: false }).limit(2000)
+    const all = rows || []
+    const now = Date.now()
+    const completed = all.filter(r => r.status === 'completed').length
+    const started = all.length
+    const abandonedRows = all.filter(r => r.status !== 'completed' && (now - new Date(r.created_at).getTime()) > GRACE_MS)
+    const ids = [...new Set(abandonedRows.map(r => r.dealership_id).filter(Boolean))]
+    const { data: dealers } = ids.length ? await supabaseAdmin.from('dealerships').select('id, name').in('id', ids) : { data: [] }
+    const dName = Object.fromEntries((dealers || []).map(d => [d.id, d.name]))
+    res.json({
+      started, completed, abandoned: abandonedRows.length,
+      conversion: started ? Math.round(completed / started * 100) : 0,
+      abandoned_list: abandonedRows.slice(0, 60).map(r => ({
+        id: r.id, dealership_id: r.dealership_id, account: dName[r.dealership_id] || 'Account',
+        kind: r.kind, plan: r.plan_key, currency: r.currency,
+        age_hours: Math.round((now - new Date(r.created_at).getTime()) / 3600000), created_at: r.created_at,
+      })),
+    })
+  })
+
+  // Recover an abandoned cart → drop a high-priority follow-up on the account.
+  app.post('/saas/carts/:id/recover', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const { data: cart } = await supabaseAdmin.from('saas_checkout_sessions').select('*').eq('id', req.params.id).maybeSingle()
+    if (!cart) return res.status(404).json({ error: 'Cart not found' })
+    if (!cart.dealership_id) return res.status(400).json({ error: 'No account linked to this cart' })
+    const { data, error } = await supabaseAdmin.from('saas_account_followups').insert({
+      dealership_id: cart.dealership_id,
+      title: `Recover abandoned checkout (${cart.plan_key || cart.kind || 'plan'})`,
+      note: `Checkout started ${new Date(cart.created_at).toLocaleString()} and was never completed — reach out to finish signup.`,
+      priority: 'high', due_at: new Date().toISOString(), created_by: req.user.id,
+    }).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
+  })
+
+  // ── HQ copilot — MarketSync's OWN internal AI assistant (the 4th bot). Answers
+  // about the SaaS business from a live snapshot; platform-staff only. Distinct from
+  // the dealer /ai/assistant (a single store) and the customer/marketing bots. ──
+  app.post('/saas/assistant', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI is not configured.' })
+    const raw = Array.isArray(req.body?.messages) ? req.body.messages : []
+    const messages = raw
+      .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
+      .slice(-10).map(m => ({ role: m.role, content: m.content.trim().slice(0, 2000) }))
+    if (!messages.length || messages[messages.length - 1].role !== 'user') return res.status(400).json({ error: 'Send a question.' })
+
+    const now = Date.now()
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0)
+    const since30 = new Date(now - 30 * 86400000).toISOString()
+    const [{ data: dealers }, { data: profiles }, { data: events }, { data: followups }, { data: carts }, { data: seqs }] = await Promise.all([
+      supabaseAdmin.from('dealerships').select('id, name, is_personal, billing_status, trial_ends_at, products, created_at').limit(3000),
+      supabaseAdmin.from('profiles').select('dealership_id, billing_status, trial_ends_at').limit(8000),
+      supabaseAdmin.from('events').select('dealership_id').gte('created_at', since30).limit(20000),
+      supabaseAdmin.from('saas_account_followups').select('due_at').is('completed_at', null).limit(2000),
+      supabaseAdmin.from('saas_checkout_sessions').select('status, created_at').limit(2000),
+      supabaseAdmin.from('saas_sequences').select('name, enabled').limit(100),
+    ])
+    const profByDealer = {}
+    for (const p of profiles || []) (profByDealer[p.dealership_id] = profByDealer[p.dealership_id] || []).push(p)
+    let mrr = 0, active = 0, trials = 0, churn = 0, newThis = 0
+    const top = []
+    for (const d of dealers || []) {
+      let status = d.billing_status, trialEnds = d.trial_ends_at
+      if (d.is_personal) { const u = (profByDealer[d.id] || [])[0]; if (u) { status = u.billing_status; trialEnds = u.trial_ends_at } }
+      const products = resolveProducts(d)
+      const acctMrr = Object.keys(PRODUCT_MRR).reduce((s, k) => s + (products[k] ? PRODUCT_MRR[k] : 0), 0)
+      const futureTrial = trialEnds && new Date(trialEnds) > new Date()
+      if (activeStatus(status)) { active++; mrr += acctMrr; top.push({ name: d.name, mrr: acctMrr }) }
+      else if (dunningStatus(status)) churn++
+      else if (trialingStatus(status) || futureTrial) { if (futureTrial) { trials++; if (new Date(trialEnds).getTime() < now + 5 * 86400000) churn++ } else churn++ }
+      if (d.created_at && new Date(d.created_at) >= monthStart) newThis++
+    }
+    top.sort((a, b) => b.mrr - a.mrr)
+    const openF = (followups || []).length
+    const overdueF = (followups || []).filter(f => f.due_at && new Date(f.due_at) < new Date()).length
+    const startedC = (carts || []).length
+    const completedC = (carts || []).filter(c => c.status === 'completed').length
+    const abandonedC = (carts || []).filter(c => c.status !== 'completed' && (now - new Date(c.created_at).getTime()) > 3600000).length
+    const conv = startedC ? Math.round(completedC / startedC * 100) : 0
+    const seqOn = (seqs || []).filter(s => s.enabled).map(s => s.name)
+
+    const facts = [
+      `MRR: $${Math.round(mrr).toLocaleString()} (ARR $${Math.round(mrr * 12).toLocaleString()}).`,
+      `Customers: ${active} active, ${trials} on trial, ${churn} at churn risk. New accounts this month: ${newThis}. Total accounts: ${(dealers || []).length}.`,
+      `Top accounts by MRR: ${top.slice(0, 6).map(t => `${t.name} $${t.mrr}`).join(', ') || 'n/a'}.`,
+      `Checkout funnel: ${startedC} started, ${completedC} completed (${conv}% conversion), ${abandonedC} abandoned carts to recover.`,
+      `Customer-success: ${openF} open follow-ups (${overdueF} overdue).`,
+      `Automation sequences ON: ${seqOn.join(', ') || 'none'}.`,
+    ].join('\n')
+
+    const system = `You are the MarketSync HQ copilot — the analyst for MarketSync's OWN SaaS business. MarketSync sells three products to car dealerships: DealerOS (a full dealership operating system), Facebook AutoPoster, and an AI ChatBot. You help the MarketSync operator run the company: answer questions about revenue (MRR/ARR), active vs trial customers, churn risk, new signups, top accounts, the checkout funnel and abandoned carts, open customer-success follow-ups, and which automation sequences are running — all from the LIVE HQ SNAPSHOT below. Be direct: lead with the number, then one crisp takeaway or recommended next step. Keep it tight — a couple of sentences or a short list, no headings, no fluff. Never invent numbers beyond the snapshot. Today: ${new Date().toISOString().slice(0, 10)}.\n\nLIVE HQ SNAPSHOT (MarketSync, right now):\n${facts}`
+
+    try {
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+      const r = await Promise.race([
+        anthropic.messages.create({ model: SMART_MODEL, max_tokens: 700, system, messages }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('ai timeout')), 25000)),
+      ])
+      const reply = (r.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim() || 'No reply.'
+      res.json({ reply })
+    } catch (e) { res.status(500).json({ error: e.message || 'AI request failed' }) }
   })
 
   // ── SaaS Accounting — MarketSync's OWN books (recurring revenue + program cost) ──

@@ -5,11 +5,25 @@
 /*.html
   Cache-Control: no-cache, must-revalidate
 
+/chat-widget.html
+  X-Frame-Options: ALLOWALL
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://www.googletagmanager.com https://www.google-analytics.com https://js.stripe.com https://translate.google.com https://translate.googleapis.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com https://translate.googleapis.com; font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://marketsync-staging-backend.onrender.com https://vehicle-marketplace-s0e4.onrender.com https://*.supabase.co https://*.supabase.in https://www.google-analytics.com https://translate.googleapis.com; frame-ancestors *; upgrade-insecure-requests
+
+/watch.html
+  X-Frame-Options: ALLOWALL
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https://*.supabase.co https://*.supabase.in https:; connect-src 'self' https://marketsync-staging-backend.onrender.com https://vehicle-marketplace-s0e4.onrender.com https://*.supabase.co https://*.supabase.in https://www.google-analytics.com; frame-ancestors *; upgrade-insecure-requests
+
+/esign.html
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://marketsync-staging-backend.onrender.com https://vehicle-marketplace-s0e4.onrender.com https://*.supabase.co https://*.supabase.in https://www.google-analytics.com; frame-ancestors 'self' https://marketsync.link https://www.marketsync.link https://*.onrender.com; upgrade-insecure-requests
+
 /*
   Strict-Transport-Security: max-age=63072000; includeSubDomains
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
-  Cross-Origin-Opener-Policy: same-origin
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://www.googletagmanager.com https://www.google-analytics.com https://js.stripe.com https://assets.calendly.com https://cdn-cookieyes.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com https://assets.calendly.com; font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://vehicle-marketplace-s0e4.onrender.com https://*.supabase.co https://*.supabase.in https://www.google-analytics.com https://stats.g.doubleclick.net https://api.stripe.com https://calendly.com https://api.pwnedpasswords.com; frame-src 'self' https://www.youtube.com https://js.stripe.com https://hooks.stripe.com https://calendly.com; object-src 'none'; base-uri 'self'; form-action 'self' https://hooks.stripe.com; frame-ancestors 'none'; upgrade-insecure-requests
+  Permissions-Policy: camera=(self), microphone=(self), geolocation=(), interest-cohort=()
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://www.googletagmanager.com https://www.google-analytics.com https://js.stripe.com https://assets.calendly.com https://cdn-cookieyes.com https://translate.google.com https://translate.googleapis.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com https://assets.calendly.com https://translate.googleapis.com; font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https://*.supabase.co https://*.supabase.in https:; connect-src 'self' https://marketsync-staging-backend.onrender.com https://vehicle-marketplace-s0e4.onrender.com https://*.supabase.co https://*.supabase.in https://www.google-analytics.com https://stats.g.doubleclick.net https://api.stripe.com https://calendly.com https://api.pwnedpasswords.com https://translate.googleapis.com; frame-src 'self' https://www.youtube.com https://js.stripe.com https://hooks.stripe.com https://calendly.com https://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self' https://hooks.stripe.com; frame-ancestors 'none'; upgrade-insecure-requests

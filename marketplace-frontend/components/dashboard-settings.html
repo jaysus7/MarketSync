@@ -1,0 +1,1013 @@
+      <div id="profile-card" class="hidden">
+        <div class="mb-4 hidden">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Profile &amp; Settings</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Update your identity, password, billing &amp; account security.</p>
+        </div>
+        <div id="profile-panel" class="settings-cols gap-5 [column-fill:_balance]">
+          <div id="profile-msg" class="hidden mb-3 p-2 text-xs rounded"></div>
+          <form id="profile-form" class="space-y-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 -mb-1">Your Profile</h3>
+            <!-- Avatar upload -->
+            <div class="flex items-center gap-4 pb-3 border-b border-slate-200 dark:border-slate-800">
+              <div class="relative flex-shrink-0">
+                <div id="prof-avatar-preview" class="w-16 h-16 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-700 dark:text-indigo-300 font-black text-2xl overflow-hidden">
+                  <span id="prof-avatar-initial">?</span>
+                  <img id="prof-avatar-img" class="hidden w-full h-full object-cover" alt="avatar">
+                </div>
+                <label for="prof-avatar-file" class="absolute -bottom-1 -right-1 w-6 h-6 bg-indigo-600 hover:bg-indigo-500 rounded-full flex items-center justify-center cursor-pointer shadow transition">
+                  <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                </label>
+                <input type="file" id="prof-avatar-file" accept="image/*" class="hidden">
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Profile Photo</div>
+                <div class="text-xs text-slate-500">JPG, PNG or GIF · max 2 MB</div>
+                <button type="button" id="prof-avatar-remove" class="hidden text-xs text-red-400 hover:text-red-300 mt-1 transition">Remove photo</button>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">Full Name</label>
+              <input type="text" id="prof-name" placeholder="John Doe" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+            </div>
+            <div>
+              <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">Display Name <span class="normal-case font-normal text-slate-400">(shown on leaderboard instead of real name)</span></label>
+              <input type="text" id="prof-display-name" placeholder="e.g. TopSeller or SilverFox" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+            </div>
+            <div>
+              <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">Email Address</label>
+              <input type="email" id="prof-email" placeholder="name@dealership.com" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+            </div>
+            <div>
+              <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">Contact Phone <span class="normal-case font-normal text-slate-400">(shown on your Facebook listings)</span></label>
+              <input type="tel" id="prof-phone" placeholder="(555) 123-4567" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+            </div>
+            <div>
+              <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">New Password</label>
+              <div class="relative w-full">
+                <input type="password" id="prof-password" placeholder="Leave blank to keep current" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+              </div>
+            </div>
+            <div data-dealer-only>
+              <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">Dealership Name</label>
+              <input type="text" id="prof-dealername" placeholder="Your dealership name" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+            </div>
+            <div data-dealer-only>
+              <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">Website URL</label>
+              <input type="url" id="prof-website" placeholder="https://www.dealership.com" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+            </div>
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded transition">Save Changes</button>
+          </form>
+
+          <!-- Email sending — how the CRM emails you send go out (per-person) -->
+          <div id="email-sending-card" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Email sending</h3>
+            <p class="text-sm text-slate-500 leading-relaxed mb-3">Emails you send from the CRM go out through MarketSync (so they're tracked and logged), and <strong>replies come straight to your own inbox</strong> — no setup needed. Set where replies land and add your signature below.</p>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">Replies go to</label>
+                <input type="email" id="es-reply-to" placeholder="your login email" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                <p class="text-[11px] text-slate-400 mt-1">Leave blank to use your login email. Set an Outlook / Gmail / personal address here if you'd rather replies land there.</p>
+              </div>
+              <div>
+                <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">Email signature</label>
+                <textarea id="es-signature" rows="4" placeholder="Jane Smith&#10;Sales Consultant · Your Dealership&#10;(555) 555-0123" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"></textarea>
+                <p class="text-[11px] text-slate-400 mt-1">Added to the bottom of every email you send from the CRM.</p>
+              </div>
+              <button type="button" id="es-save" onclick="saveEmailSettings(this)" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded transition">Save email settings</button>
+            </div>
+          </div>
+
+          <div id="billing-section" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Billing &amp; Subscription</h3>
+            <!-- Current plan (populated from /billing/plans; the active subscription is what grants access) -->
+            <div id="current-plan-box" class="hidden mb-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2.5">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Current plan</div>
+              <div id="current-plan-name" class="text-sm font-black text-slate-900 dark:text-white">—</div>
+              <div id="current-plan-detail" class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5"></div>
+            </div>
+            <p class="text-sm text-slate-500 leading-relaxed mb-3">Change your plan, download invoices, or update payment method.</p>
+            <button onclick="openPlanUpgradeModal()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded transition mb-2">Change plan</button>
+            <button onclick="openPlanUpgradeModal()" class="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold py-2 rounded border border-slate-300 dark:border-slate-700 transition mb-2">Add-ons</button>
+            <button id="launch-portal-btn" class="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold py-2 rounded border border-slate-300 dark:border-slate-700 transition">Manage Billing</button>
+          </div>
+
+          <div id="guardrail-settings-section" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5" data-dealer-only data-full-width="true">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Facebook Posting Safety</h3>
+            <p class="text-sm text-slate-500 leading-relaxed mb-3">Protect your reps' Facebook accounts by capping daily posts and letting them post in short bursts with a rest between — a high posting rate is what triggers Marketplace bans.</p>
+            <label class="flex items-center gap-2 mb-3 text-sm text-slate-700 dark:text-slate-300">
+              <input type="checkbox" id="gr-enabled" class="rounded"> Enable posting guardrails
+            </label>
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1">Max posts / rep / day</label>
+                <input type="number" id="gr-cap" min="1" max="500" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2.5 py-1.5 text-sm">
+              </div>
+              <div>
+                <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1">Posts per burst</label>
+                <input type="number" id="gr-burst" min="1" max="50" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2.5 py-1.5 text-sm">
+              </div>
+              <div>
+                <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1">Rest minutes after a burst</label>
+                <input type="number" id="gr-spacing" min="0" max="120" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2.5 py-1.5 text-sm">
+              </div>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-2">Default: 5 posts, then a 2-minute rest.</p>
+            <button id="gr-save" class="mt-3 w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded transition">Save posting safety</button>
+            <p id="gr-msg" class="hidden text-xs mt-2"></p>
+          </div>
+
+          <div id="groups-settings-section" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Dealer Groups</h3>
+            <p class="text-sm text-slate-500 leading-relaxed mb-3">Create a dealer group or join one with a code to roll up multiple stores.</p>
+            <a href="group.html" class="block text-center w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold py-2 rounded border border-slate-300 dark:border-slate-700 transition">Manage Groups</a>
+          </div>
+
+          <!-- Dealership Branding — dealer admins only -->
+          <div id="prof-branding-section" data-dealer-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5 space-y-4">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Dealership Branding</h3>
+
+            <!-- AI Tone -->
+            <div>
+              <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">Listing Tone &amp; Personality</label>
+              <select id="prof-ai-tone" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                <option value="professional">Professional — clear &amp; factual</option>
+                <option value="friendly">Friendly — warm &amp; approachable</option>
+                <option value="aggressive">Aggressive — urgent &amp; deal-focused</option>
+              </select>
+              <p class="text-xs text-slate-400 mt-1">Controls the voice of AI-generated listing copy.</p>
+            </div>
+
+            <!-- Logo -->
+            <div>
+              <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">Dealer Logo</label>
+              <div id="prof-brand-logo-preview" class="w-full h-16 bg-slate-100 dark:bg-slate-800 rounded border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center overflow-hidden mb-2">
+                <span class="text-xs text-slate-400">No logo uploaded</span>
+              </div>
+              <label class="cursor-pointer flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold px-3 py-1.5 rounded border border-slate-200 dark:border-slate-700 transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+                Upload Logo
+                <input type="file" id="prof-brand-logo-input" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="hidden">
+              </label>
+              <p class="text-xs text-slate-400 mt-1">PNG, JPG, SVG — max 3 MB. Used on PDF stickers &amp; brochures.</p>
+            </div>
+
+            <!-- Colours -->
+            <div>
+              <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">Primary Colour</label>
+              <div class="flex items-center gap-2 mb-3">
+                <input type="color" id="prof-brand-primary-color" value="#1a2e4a" class="w-9 h-9 rounded cursor-pointer border border-slate-200 dark:border-slate-700 bg-transparent flex-shrink-0">
+                <input type="text" id="prof-brand-primary-hex" value="#1a2e4a" maxlength="7" placeholder="#1a2e4a" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+              </div>
+              <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">Accent Colour</label>
+              <div class="flex items-center gap-2">
+                <input type="color" id="prof-brand-accent-color" value="#c8a84b" class="w-9 h-9 rounded cursor-pointer border border-slate-200 dark:border-slate-700 bg-transparent flex-shrink-0">
+                <input type="text" id="prof-brand-accent-hex" value="#c8a84b" maxlength="7" placeholder="#c8a84b" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+              </div>
+            </div>
+
+            <!-- Tagline -->
+            <div>
+              <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">Tagline / Slogan</label>
+              <input type="text" id="prof-brand-tagline" maxlength="80" placeholder="Drive with confidence…" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+              <p class="text-xs text-slate-400 mt-1">Printed at the bottom of PDFs.</p>
+            </div>
+
+            <!-- Colour preview -->
+            <div id="prof-brand-swatch" class="rounded overflow-hidden border border-slate-200 dark:border-slate-700">
+              <div id="prof-brand-swatch-header" class="px-3 py-1.5 text-white text-xs font-bold" style="background:#1a2e4a;">Header / Footer</div>
+              <div id="prof-brand-swatch-accent" class="px-3 py-1 text-white text-xs font-semibold" style="background:#c8a84b;">Accent Strip</div>
+              <div class="px-3 py-1.5 text-xs text-slate-500 bg-white dark:bg-slate-900">Body content area</div>
+            </div>
+
+            <!-- Photo overlays -->
+            <div class="pt-3 border-t border-slate-200 dark:border-slate-800">
+              <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <input type="checkbox" id="prof-overlay-enabled" class="rounded"> Brand listing photos
+              </label>
+              <p class="text-xs text-slate-400 mb-2.5">Stamp your phone number (and logo) onto every photo before posting — free advertising on every share.</p>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1">Phone on photos</label>
+                  <input type="text" id="prof-overlay-phone" placeholder="(905) 555-1234" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                  <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1">Bar position</label>
+                  <select id="prof-overlay-position" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                    <option value="bottom">Bottom</option>
+                    <option value="top">Top</option>
+                  </select>
+                </div>
+              </div>
+              <label class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 mt-2.5">
+                <input type="checkbox" id="prof-overlay-logo" class="rounded" checked> Also overlay my logo
+              </label>
+            </div>
+
+            <!-- Dealership & Company Social Profiles -->
+            <div class="pt-3 border-t border-slate-200 dark:border-slate-800">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Company Social Profiles</h4>
+              <p class="text-xs text-slate-400 mb-2.5">Set up your store's social media pages. Icons appear in the top header bar and public listings.</p>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1">Facebook URL</label>
+                  <input type="url" id="prof-social-facebook" placeholder="https://facebook.com/yourdealership" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                  <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1">Instagram URL</label>
+                  <input type="url" id="prof-social-instagram" placeholder="https://instagram.com/yourdealership" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                  <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1">X / Twitter URL</label>
+                  <input type="url" id="prof-social-twitter" placeholder="https://x.com/yourdealership" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                  <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1">LinkedIn URL</label>
+                  <input type="url" id="prof-social-linkedin" placeholder="https://linkedin.com/company/yourdealership" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                  <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1">YouTube URL</label>
+                  <input type="url" id="prof-social-youtube" placeholder="https://youtube.com/@yourdealership" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                  <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1">TikTok URL</label>
+                  <input type="url" id="prof-social-tiktok" placeholder="https://tiktok.com/@yourdealership" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <button id="prof-brand-save-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition">Save Branding</button>
+              <div id="prof-brand-save-msg" class="hidden text-xs font-medium px-2.5 py-1 rounded-md"></div>
+            </div>
+          </div>
+
+          <!-- ── AI Boost Add-On ── (dealer admin only) -->
+          <div id="ai-boost-section" data-admin-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
+            <div class="flex items-center gap-2 mb-1">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">AI Boost</h3>
+              <span id="ai-boost-badge" class="hidden text-xs font-bold px-2 py-0.5 rounded-full border"></span>
+            </div>
+            <p class="text-sm text-slate-500 leading-relaxed mb-3">AI-powered listing copy, missing-info alerts, and price comp checks — $129/month add-on.</p>
+
+            <!-- Not active: show upgrade button -->
+            <div id="ai-boost-inactive" class="hidden">
+              <button id="ai-boost-upgrade-btn" class="w-full bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold py-2 rounded transition">Start 30-Day Free Trial — $129/month after</button>
+            </div>
+
+            <!-- Active: AI Boost configuration (relocated here from the old AI Boost page) -->
+            <div id="ai-boost-active" class="hidden space-y-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Active — AI tools are live on every vehicle</span>
+                <div id="ai-config-msg" class="hidden text-xs font-medium px-2 py-0.5 rounded"></div>
+              </div>
+
+              <div>
+                <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1 tracking-wider">Listing Tone</label>
+                <select id="ai-tone" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                  <option value="professional">Professional — clear &amp; factual</option>
+                  <option value="friendly">Friendly — warm &amp; approachable</option>
+                  <option value="aggressive">Aggressive — urgent &amp; deal-focused</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1 tracking-wider">Missing-Info Alert Email</label>
+                <input type="email" id="ai-manager-email" placeholder="manager@example.com" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+              </div>
+
+              <div>
+                <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1 tracking-wider">Market &amp; Location</label>
+                <div class="grid grid-cols-2 gap-2">
+                  <select id="ai-country" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                    <option value="CA">Canada</option>
+                    <option value="US">United States</option>
+                  </select>
+                  <input id="ai-province" placeholder="Province / State" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                  <input id="ai-city" placeholder="City" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                  <input id="ai-postal" placeholder="Postal / ZIP" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1">Sets whether market comps use US or Canadian pricing.</p>
+              </div>
+
+              <div>
+                <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1.5 tracking-wider">Flag listing if missing</label>
+                <div class="grid grid-cols-2 gap-2">
+                  <label class="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2.5 py-1.5 cursor-pointer transition has-[:checked]:border-indigo-400 has-[:checked]:bg-indigo-50 dark:has-[:checked]:bg-indigo-950/60">
+                    <input type="checkbox" id="ai-req-price" value="price" class="accent-indigo-500"><span class="text-sm text-slate-700 dark:text-slate-300 font-medium">Price</span>
+                  </label>
+                  <label class="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2.5 py-1.5 cursor-pointer transition has-[:checked]:border-indigo-400 has-[:checked]:bg-indigo-50 dark:has-[:checked]:bg-indigo-950/60">
+                    <input type="checkbox" id="ai-req-mileage" value="mileage" class="accent-indigo-500"><span class="text-sm text-slate-700 dark:text-slate-300 font-medium">Mileage</span>
+                  </label>
+                  <label class="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2.5 py-1.5 cursor-pointer transition has-[:checked]:border-indigo-400 has-[:checked]:bg-indigo-50 dark:has-[:checked]:bg-indigo-950/60">
+                    <input type="checkbox" id="ai-req-photos" value="image_urls" class="accent-indigo-500"><span class="text-sm text-slate-700 dark:text-slate-300 font-medium">Photos</span>
+                  </label>
+                  <label class="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2.5 py-1.5 cursor-pointer transition has-[:checked]:border-indigo-400 has-[:checked]:bg-indigo-50 dark:has-[:checked]:bg-indigo-950/60">
+                    <input type="checkbox" id="ai-req-description" value="description" class="accent-indigo-500"><span class="text-sm text-slate-700 dark:text-slate-300 font-medium">Description</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- AI persona / voice — steer how the assistant + customer chat speak -->
+              <div class="pt-3 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                <div>
+                  <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1 tracking-wider">Assistant name</label>
+                  <input id="ai-assistant-name" type="text" maxlength="60" placeholder="MarketSync" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                  <p class="text-[11px] text-slate-400 mt-1">What your team's AI assistant calls itself (the “Ask MarketSync” dock). Leave blank for “MarketSync”.</p>
+                </div>
+                <div>
+                  <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1 tracking-wider">Internal assistant style</label>
+                  <textarea id="ai-internal-style" rows="2" placeholder="e.g. Talk like a sharp GM. Blunt, numbers first, no fluff. Use our lingo (units, gross, ups)." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"></textarea>
+                  <p class="text-[11px] text-slate-400 mt-1">How “Ask MarketSync” talks to your team.</p>
+                </div>
+                <div>
+                  <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1 tracking-wider">Customer-facing chat style</label>
+                  <textarea id="ai-customer-style" rows="2" placeholder="e.g. Warm, upbeat, concise. Always offer a test drive. Never talk price before value." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"></textarea>
+                  <p class="text-[11px] text-slate-400 mt-1">How the website sales chat speaks to shoppers.</p>
+                </div>
+                <div>
+                  <label class="block text-[11px] uppercase font-bold text-slate-400 mb-1 tracking-wider">Knowledge base</label>
+                  <textarea id="ai-knowledge" rows="4" placeholder="Paste anything the AI should know: policies, warranty terms, financing partners, hours, FAQs, process steps…" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"></textarea>
+                  <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                    <input type="file" id="ai-kb-file" accept=".txt,.md,.csv,.json,.pdf" class="hidden">
+                    <button type="button" id="ai-kb-upload-btn" class="text-[11px] font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg transition">Upload a file</button>
+                    <span id="ai-kb-name" class="text-[11px] text-slate-400"></span>
+                  </div>
+                  <p class="text-[11px] text-slate-400 mt-1">Used by both the internal assistant and your website chat. .txt/.md/.csv/.json, or a text-based PDF.</p>
+                </div>
+              </div>
+
+              <!-- AI assistant — capabilities & access (management controls) -->
+              <div id="ai-assistant-mgmt" class="pt-3 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-3 hidden">
+                <label class="block text-[11px] uppercase font-bold text-slate-400 tracking-wider">Assistant access</label>
+                <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200"><input type="checkbox" id="ai-assistant-reps" class="accent-indigo-600 w-4 h-4">Let sales reps use “Ask MarketSync” (managers always can)</label>
+                <div>
+                  <div class="text-[11px] uppercase font-bold text-slate-400 tracking-wider mb-1.5">Assistant capabilities</div>
+                  <p class="text-[11px] text-slate-400 mb-2">Turn off any tool the assistant shouldn't use. With everything off it still answers from your live data and knowledge base.</p>
+                  <div id="ai-tools-list" class="space-y-2"></div>
+                </div>
+                <div class="pt-1">
+                  <button type="button" onclick="openAiHistory()" class="text-xs font-bold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">View chat history →</button>
+                  <p class="text-[11px] text-slate-400 mt-0.5">See what your team has been asking the assistant.</p>
+                </div>
+              </div>
+
+              <!-- AI usage — today's assistant questions + this month's AI/market ops -->
+              <div id="ai-usage-panel" class="pt-3 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-3 hidden">
+                <label class="block text-[11px] uppercase font-bold text-slate-400 tracking-wider">Usage</label>
+                <div>
+                  <div class="flex items-center justify-between text-[12px] mb-1"><span class="font-semibold text-slate-700 dark:text-slate-200">Assistant questions — today</span><span id="ai-use-asst-txt" class="text-slate-500 dark:text-slate-400 tabular-nums">—</span></div>
+                  <div class="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div id="ai-use-asst-bar" class="h-full bg-indigo-600 rounded-full" style="width:0%"></div></div>
+                </div>
+                <div>
+                  <div class="flex items-center justify-between text-[12px] mb-1"><span class="font-semibold text-slate-700 dark:text-slate-200">AI operations — this month</span><span id="ai-use-ai-txt" class="text-slate-500 dark:text-slate-400 tabular-nums">—</span></div>
+                  <div class="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div id="ai-use-ai-bar" class="h-full bg-emerald-600 rounded-full" style="width:0%"></div></div>
+                </div>
+                <div>
+                  <div class="flex items-center justify-between text-[12px] mb-1"><span class="font-semibold text-slate-700 dark:text-slate-200">Market lookups — this month</span><span id="ai-use-mc-txt" class="text-slate-500 dark:text-slate-400 tabular-nums">—</span></div>
+                  <div class="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div id="ai-use-mc-bar" class="h-full bg-amber-500 rounded-full" style="width:0%"></div></div>
+                </div>
+                <p class="text-[11px] text-slate-400">Caching keeps real market usage well below the cap. Limits are soft — the assistant falls back rather than hard-stopping mid-task.</p>
+              </div>
+
+              <!-- Vehicle cost & gross — internal only, never shown to customers -->
+              <div class="pt-3 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                <label class="block text-[11px] uppercase font-bold text-slate-400 tracking-wider">Vehicle cost &amp; gross</label>
+                <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200"><input type="checkbox" id="ai-cost-enabled" class="accent-indigo-600 w-4 h-4">Track vehicle cost on deals &amp; show gross in reports</label>
+                <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200"><input type="checkbox" id="ai-cost-rep" class="accent-indigo-600 w-4 h-4">Let sales reps see cost &amp; gross (managers always can)</label>
+                <p class="text-[11px] text-slate-400">Cost and gross are internal — they never appear on any customer estimate, bill of sale or email.</p>
+              </div>
+
+              <!-- Instant AI lead auto-responder -->
+              <div class="pt-3 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                <label class="block text-[11px] uppercase font-bold text-slate-400 tracking-wider">Instant lead auto-responder</label>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">When a new website lead comes in, AI sends a personalized first reply within seconds — the #1 driver of close rate.</p>
+                <div class="grid grid-cols-2 gap-2">
+                  <div><label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Mode</label>
+                    <select id="ai-ar-mode" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white">
+                      <option value="off">Off</option>
+                      <option value="draft">Draft — AI writes it, rep reviews &amp; sends</option>
+                      <option value="auto">Auto — AI writes &amp; sends instantly</option>
+                    </select></div>
+                  <div><label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Channel</label>
+                    <select id="ai-ar-channel" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white">
+                      <option value="email">Email</option>
+                      <option value="sms">Text (SMS — needs Twilio)</option>
+                    </select></div>
+                </div>
+                <p class="text-[11px] text-slate-400">Respects consent &amp; opt-out, needs AI Boost, and only fires on real inbound leads (never on imports). Uses your customer-facing chat style &amp; knowledge base.</p>
+              </div>
+
+              <button id="ai-config-save-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded transition">Save AI Settings</button>
+            </div>
+          </div>
+
+          <!-- ── Inventory Intelligence Add-On ── (dealer admin only) -->
+          <div id="inv-intel-section" data-admin-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
+            <div class="flex items-center gap-2 mb-1">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Inv. Intelligence</h3>
+              <span id="inv-intel-badge" class="hidden text-xs font-bold px-2 py-0.5 rounded-full border"></span>
+            </div>
+            <p class="text-sm text-slate-500 leading-relaxed mb-3">Turn rate, health scores, vehicle gaps, and AI insights — Included in your MarketSync package.</p>
+            <div id="inv-intel-sidebar-active">
+              <button id="inv-intel-goto-page-btn" class="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold py-2 rounded transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
+                Open Intelligence
+              </button>
+            </div>
+          </div>
+
+          <!-- AI Enrichment Modal -->
+          <div id="ai-enrich-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div class="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 w-full max-w-lg max-h-[80vh] overflow-y-auto p-5 space-y-4">
+              <div class="flex items-center justify-between">
+                <h3 class="font-bold text-slate-900 dark:text-white">AI Enrichment</h3>
+                <button id="ai-enrich-close" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl leading-none">&times;</button>
+              </div>
+              <div id="ai-enrich-loading" class="text-sm text-slate-500 italic">Generating...</div>
+              <div id="ai-enrich-content" class="hidden space-y-4">
+                <div id="ai-enrich-warnings" class="hidden">
+                  <div class="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">Missing Info Alerts</div>
+                  <ul id="ai-enrich-warnings-list" class="text-sm text-amber-700 dark:text-amber-300 space-y-1 list-disc list-inside"></ul>
+                </div>
+                <div id="ai-enrich-price-flag" class="hidden p-3 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20">
+                  <div class="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">Price Flag</div>
+                  <div id="ai-enrich-price-flag-text" class="text-sm text-amber-700 dark:text-amber-300"></div>
+                </div>
+                <div>
+                  <div class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Generated Listing Copy</div>
+                  <div id="ai-enrich-copy" class="text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap bg-slate-50 dark:bg-slate-950 rounded p-3 border border-slate-200 dark:border-slate-800"></div>
+                  <button id="ai-enrich-copy-btn" class="mt-2 text-xs text-indigo-600 dark:text-indigo-400 hover:underline">Copy to clipboard</button>
+                </div>
+              </div>
+              <div id="ai-enrich-error" class="hidden text-sm text-red-500"></div>
+            </div>
+          </div>
+
+          <div id="security-section" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">Multi-factor authentication (MFA) &amp; account security</h3>
+
+            <!-- ─── Extra login code (2FA) ─────────────────────────────── -->
+            <div id="mfa-status-row" class="flex items-start justify-between gap-2 mb-3">
+              <div class="flex-1">
+                <div class="text-xs font-bold text-slate-900 dark:text-white">Multi-factor authentication (MFA)</div>
+                <div id="mfa-status-text" class="text-xs text-slate-500 leading-snug mt-0.5">Loading…</div>
+              </div>
+              <button id="mfa-toggle-btn" class="text-xs font-bold px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white transition whitespace-nowrap">Turn On</button>
+            </div>
+
+            <div id="mfa-enroll-panel" class="hidden p-3 rounded bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 mb-3">
+              <p class="text-xs font-bold text-slate-900 dark:text-white mb-1">Step 1: Scan this with an app</p>
+              <p class="text-sm text-slate-600 dark:text-slate-300 mb-2 leading-relaxed">
+                Open Google Authenticator, 1Password, Authy, or any code app on your phone. Tap "+" and scan this picture:
+              </p>
+              <div id="mfa-qr-container" class="bg-white p-2 rounded inline-block mb-2"><canvas id="mfa-qr-canvas"></canvas></div>
+              <p class="text-xs text-slate-500 mb-1">Can't scan? Type this code into your app instead:</p>
+              <p class="text-xs text-slate-700 dark:text-slate-300 font-mono break-all mb-3 bg-white dark:bg-slate-900 p-1.5 rounded border border-slate-200 dark:border-slate-700" id="mfa-secret-text"></p>
+
+              <p class="text-xs font-bold text-slate-900 dark:text-white mb-1">Step 2: Type the 6 numbers your app shows</p>
+              <input type="text" id="mfa-enroll-code" inputmode="numeric" maxlength="6" placeholder="123456"
+                class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2 py-1.5 text-base text-center font-mono mb-2 tracking-widest">
+              <button id="mfa-enroll-verify-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 rounded">Turn It On</button>
+              <div id="mfa-enroll-error" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></div>
+            </div>
+
+            <!-- Native Supabase Phone MFA (requires Phone MFA + SMS provider in the project). -->
+            <div class="rounded-lg border border-slate-200 dark:border-slate-800 p-3 mb-3">
+              <div class="flex items-start justify-between gap-3">
+                <div><div class="text-xs font-bold text-slate-900 dark:text-white">Text-message code</div><div id="phone-mfa-status" class="text-xs text-slate-500 mt-0.5">Add a verified mobile number as another true MFA method.</div></div>
+                <button id="phone-mfa-start" class="text-xs font-bold px-3 py-1.5 rounded border border-indigo-300 text-indigo-700 dark:border-indigo-800 dark:text-indigo-300 whitespace-nowrap">Set up</button>
+              </div>
+              <div id="phone-mfa-enroll" class="hidden mt-3 space-y-2">
+                <input id="phone-mfa-number" type="tel" autocomplete="tel" placeholder="+19055551234" class="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-2 text-sm">
+                <p class="text-[10px] text-slate-500">Include country code. MarketSync uses Supabase Phone MFA and the configured SMS provider.</p>
+                <button id="phone-mfa-send" class="w-full rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2">Send verification text</button>
+              </div>
+              <div id="phone-mfa-verify" class="hidden mt-3 space-y-2">
+                <input id="phone-mfa-code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="Verification code" class="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-2 text-center text-base font-mono tracking-widest">
+                <button id="phone-mfa-confirm" class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2">Verify and turn on</button>
+              </div>
+              <div id="phone-mfa-error" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></div>
+            </div>
+
+            <div class="rounded-lg bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 p-3 mb-3 text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
+              <strong class="text-slate-800 dark:text-slate-200">About the other sign-in choices:</strong> Passkeys are available below for fingerprint/face passwordless sign-in. Email codes are a first sign-in factor, and voice-call codes are not a native Supabase MFA method, so MarketSync does not falsely label either one as completed MFA.
+            </div>
+
+            <!-- ─── Backup codes shown ONCE after enrollment ─────────────── -->
+            <div id="backup-codes-panel" class="hidden p-3 rounded bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-300 dark:border-amber-700 mb-3">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-lg">🔑</span>
+                <p class="text-xs font-bold text-amber-900 dark:text-amber-200">Save these backup codes NOW</p>
+              </div>
+              <p class="text-sm text-amber-800 dark:text-amber-300 mb-3 leading-relaxed">
+                If you ever lose your phone, type one of these codes instead of the 6-digit code. <strong>Each code works only once.</strong> We will NEVER show them again.
+              </p>
+              <div id="backup-codes-grid" class="grid grid-cols-2 gap-1.5 font-mono text-xs text-slate-900 dark:text-white mb-3"></div>
+              <div class="flex gap-2">
+                <button id="backup-codes-download" class="flex-1 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold py-2 rounded transition">📥 Download as a file</button>
+                <button id="backup-codes-copy" class="flex-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white text-xs font-bold py-2 rounded transition">📋 Copy</button>
+              </div>
+              <button id="backup-codes-done" class="w-full mt-2 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">I saved them — hide this</button>
+            </div>
+
+            <button id="regen-codes-btn" class="hidden w-full text-xs text-indigo-600 dark:text-indigo-400 hover:underline text-left mb-3">Make new backup codes (old ones stop working)</button>
+
+            <!-- ─── Passkeys (fingerprint / face / hardware key) ──────────── -->
+            <div class="border-t border-slate-200 dark:border-slate-800 pt-3 mt-3">
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <div class="flex-1">
+                  <div class="text-xs font-bold text-slate-900 dark:text-white">Sign in with your fingerprint or face</div>
+                  <div class="text-xs text-slate-500 leading-snug mt-0.5">Skip typing your password — use Touch ID, Face ID, or Windows Hello.</div>
+                </div>
+                <button id="add-passkey-btn" class="text-xs font-bold px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white transition whitespace-nowrap">+ Add</button>
+              </div>
+              <div id="passkey-list" class="space-y-1.5"></div>
+              <div id="passkey-error" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></div>
+            </div>
+
+            <!-- ─── Recent sign-ins ─────────────────────────────────────── -->
+            <button id="show-sessions-btn" class="w-full text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-left py-1.5 mt-3 border-t border-slate-200 dark:border-slate-800 pt-3">See where you're signed in →</button>
+
+            <div id="sessions-panel" class="hidden mt-2 p-3 rounded bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Your last 20 sign-ins</h4>
+              <div id="sessions-list" class="space-y-1.5 max-h-48 overflow-y-auto text-xs">Loading…</div>
+              <button id="revoke-sessions-btn" class="w-full mt-3 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold py-1.5 rounded transition">Sign me out everywhere else</button>
+            </div>
+
+            <!-- ─── Dealership activity log (admins/owners only) ─────────── -->
+            <div id="audit-log-block" class="hidden mt-3 border-t border-slate-200 dark:border-slate-800 pt-3">
+              <button id="show-audit-btn" class="w-full text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-left py-1.5">See the dealership activity log →</button>
+              <div id="audit-panel" class="hidden mt-2 p-3 rounded bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700">
+                <div class="flex items-center justify-between gap-2 mb-2">
+                  <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500">Who did what</h4>
+                  <select id="audit-filter" class="text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-slate-700 dark:text-slate-200"><option value="">All actions</option></select>
+                </div>
+                <div id="audit-list" class="space-y-1.5 max-h-72 overflow-y-auto text-xs">Loading…</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+<!-- Settings Sub-Tab Panels -->
+      <div data-page-content="profile" class="page-content hidden space-y-6">
+        <div>
+          <h1 class="text-2xl font-black text-slate-900 dark:text-white">Settings</h1>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Your team, account, branding, billing and add-ons — all in one place.</p>
+        </div>
+        <!-- Settings sub-nav — each tab reveals only its own section(s). -->
+        <div id="settings-tabs" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none -mx-1 px-1">
+          <button data-stab="account" onclick="settingsTab('account')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">My Account</button>
+          <button data-stab="admin" data-admin-only onclick="settingsTab('admin')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Administration</button>
+          <button data-stab="sales" data-admin-only onclick="settingsTab('sales')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Sales</button>
+          <button data-stab="marketing" data-admin-only onclick="settingsTab('marketing')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Marketing</button>
+          <button data-stab="inventory" data-admin-only onclick="settingsTab('inventory')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Inventory</button>
+          <button data-stab="service" data-admin-only onclick="settingsTab('service')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Service</button>
+          <button data-stab="accounting" data-admin-only onclick="settingsTab('accounting')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Accounting</button>
+        </div>
+
+        <!-- These tab sections flow into two columns on wide screens (settings-cols);
+             JS adds .is-multi only when the active tab has more than one card. -->
+        <div id="settings-panel-extra" class="settings-cols gap-5 [column-fill:_balance]">
+        <!-- Integrations Hub — connect MarketSync to the rest of the dealership stack.
+             Webhooks are our own outbound "glue" (live today); the F&I / accounting
+             rails show as coming-soon until we're certified with the partner. -->
+        <div id="integrations-section" data-admin-only data-full-width="true" class="stab-hide space-y-4 break-inside-avoid mb-5">
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Integrations</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Connect MarketSync to the tools you already use. Send events out to Zapier, Make, or your own app — and plug in the F&amp;I and accounting rails as they come online.</p>
+          </div>
+          <div id="integrations-list"><div class="py-10 text-center text-sm text-slate-400 italic">Loading…</div></div>
+        </div>
+
+        <!-- Staff host. The standalone "Team" roster (team picker + read-only member
+             list) was removed — staff management is the Staff panel that folds in
+             here: Invite Rep / Invite Manager, roles, and lead routing. Kept as a
+             bare, full-width wrapper so that panel (and the owner SaaS-roles panel)
+             has a home without nesting a card inside a card. -->
+        <div id="settings-team" data-stab-panel="team" data-full-width="true" class="break-inside-avoid mb-5"></div>
+
+        <!-- CRM / DMS connection (ADF lead delivery) — moved here from the CRM Leads tab -->
+        <div id="crm-dms-card" data-admin-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">CRM / DMS connection</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Your CRM/DMS lead-intake address (VinSolutions, DealerSocket, Elead, PBS, etc.). Leads captured in MarketSync are emailed here as ADF XML and auto-imported. Not sure? Ask your CRM admin for your "ADF" or "email lead" address.</p>
+          <div class="flex gap-2">
+            <input id="crm-adf-email" type="email" placeholder="leads@yourcrm-intake.com" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+            <button id="crm-adf-save" onclick="saveCrmAdfEmail(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Save</button>
+          </div>
+          <p id="crm-adf-msg" class="hidden text-xs mt-2"></p>
+        </div>
+        <!-- Feature toggles — hide paid features this dealer doesn't use -->
+        <div id="dealer-features-card" data-admin-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Features</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Turn features on or off for your whole store. Switching one off hides it from the menu for everyone; you can turn it back on any time.</p>
+          <div id="dealer-features-list" class="space-y-2"><div class="text-sm text-slate-400 italic py-3">Loading…</div></div>
+        </div>
+        <!-- Dealer details for documents — legal identifiers printed on the bill of sale -->
+        <div id="dealer-docs-card" data-admin-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Dealer details for documents</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Your legal / trade name, address and registration numbers — these print on every estimate and bill of sale.</p>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div class="col-span-2 sm:col-span-3"><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">Legal / trade name</label><input id="dd-legal_name" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div class="col-span-2 sm:col-span-3"><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">Street address</label><input id="dd-street_address" placeholder="915 Niagara St" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">Phone</label><input id="dd-phone" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">Fax</label><input id="dd-fax" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">HST #</label><input id="dd-hst_number" placeholder="R715748679" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">OMVIC / dealer reg #</label><input id="dd-omvic_reg" placeholder="5686852" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+          </div>
+          <div class="mt-3"><button id="dealer-docs-save" onclick="saveDealerDocs(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Save dealer details</button></div>
+        </div>
+        <!-- Deal Desk: management-controlled fee schedule (prefilled + lockable) -->
+        <div id="desk-fees-card" data-admin-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Deal Desk — fees</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Set the fees that prefill on every deal. <b>Locked</b> fees can't be changed on the desk (consistent across all deals); unlocked ones can be adjusted per-deal. Mark each taxable or not.</p>
+          <div id="desk-fees-list" class="space-y-2"><div class="text-sm text-slate-400 italic py-3">Loading…</div></div>
+          <div class="flex items-center justify-between mt-3">
+            <button onclick="deskFeeAddRow()" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500">＋ Add a fee</button>
+            <button id="desk-fees-save" onclick="saveDeskFees(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Save fees</button>
+          </div>
+        </div>
+        <!-- Language: per-rep dashboard translation (Google Translate) + AI listing-copy language -->
+        <div id="settings-language-card" data-full-width="true" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 notranslate break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Language</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Translate your dashboard into any language — it's saved to your browser, just for you. Your choice also becomes the language for your AI-written Facebook listings.</p>
+          <div id="google_translate_element"></div>
+        </div>
+        <!-- Text messaging — provision a dedicated SMS number under MarketSync, no
+             Twilio account needed. Powers automated follow-ups + AI autoresponder texts. -->
+        <div id="settings-texting-card" data-admin-only class="stab-hide bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Text messaging (SMS)</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Get your own texting number to send automated follow-ups and AI replies — carrier-compliant, no Twilio account to set up.</p>
+          <div id="texting-root"><div class="text-sm text-slate-400 italic py-3">Loading…</div></div>
+        </div>
+        <!-- Service department settings live on their own page — linked here so the
+             Service section exists under Settings without duplicating those controls. -->
+        <div id="settings-service-card" data-admin-only class="stab-hide bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Service &amp; Parts</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Labour rate, tax, shop supplies, parts markup and RO prefix.</p>
+          <button onclick="switchPage('service-settings')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Open Service settings →</button>
+        </div>
+        <!-- Accounting department settings live on the Accounting page. -->
+        <div id="settings-accounting-card" data-admin-only class="stab-hide bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Accounting</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Chart of accounts, auto-posting rules and cost tracking.</p>
+          <button onclick="switchPage('accounting')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Open Accounting →</button>
+        </div>
+        </div><!-- /#settings-panel-extra -->
+      </div>
+
+      <!-- ───────── REPORTS PAGE (managers) ───────── -->
+      <!-- The three manager reports are stacked here, plus the Sold-per-rep report
+           and a custom report builder. Manager-gated (nav revealed in JS). -->
+      <!-- Commissions — reps see their own earnings; managers get Team + Plans tabs. -->
+      <div data-page-content="commissions" class="page-content hidden space-y-6">
+        <div id="commissions-root"></div>
+      </div>
+
+      <!-- Task board — shared operational tasks (detail, fuel, plates, transport, deliver…). -->
+      <div data-page-content="taskboard" class="page-content hidden space-y-6">
+        <div id="taskboard-root"></div>
+      </div>
+
+      <!-- Operations — workflow exceptions dashboard + entity timeline lookup (managers). -->
+      <div data-page-content="command" class="page-content hidden space-y-6">
+        <div id="command-root"></div>
+      </div>
+
+      <div data-page-content="solo-home" class="page-content hidden space-y-6">
+        <div id="solo-home-root"></div>
+      </div>
+
+      <div data-page-content="ai-home" class="page-content hidden space-y-6">
+        <div id="ai-home-root"></div>
+      </div>
+
+      <div data-page-content="operations" class="page-content hidden space-y-6">
+        <div id="operations-root"></div>
+      </div>
+
+      <div data-page-content="delivery" class="page-content hidden space-y-6">
+        <div id="delivery-root"></div>
+      </div>
+
+      <div data-page-content="service-ros" class="page-content hidden space-y-6">
+        <div id="service-ros-root"></div>
+      </div>
+
+      <div data-page-content="service-parts" class="page-content hidden space-y-6">
+        <div id="service-parts-root"></div>
+      </div>
+
+      <div data-page-content="saas-command" class="page-content hidden space-y-6">
+        <div id="saas-command-root"></div>
+      </div>
+
+      <div data-page-content="saas-customers" class="page-content hidden space-y-6">
+        <div id="saas-customers-root"></div>
+      </div>
+
+      <div data-page-content="saas-followups" class="page-content hidden space-y-6">
+        <div id="saas-followups-root"></div>
+      </div>
+
+      <div data-page-content="saas-funnel" class="page-content hidden space-y-6">
+        <div id="saas-funnel-root"></div>
+      </div>
+
+      <div data-page-content="saas-automation" class="page-content hidden space-y-6">
+        <div id="saas-automation-root"></div>
+      </div>
+
+      <div data-page-content="email-marketing" class="page-content hidden space-y-6">
+        <div id="dealer-email-root"></div>
+      </div>
+
+      <div data-page-content="saas-employees" class="page-content hidden space-y-6">
+        <div id="saas-employees-root"></div>
+      </div>
+
+      <!-- MarketSync SaaS Accounting — the company P&L (recurring revenue + program cost). -->
+      <div data-page-content="saas-accounting" class="page-content hidden space-y-6">
+        <div id="saas-accounting-root"></div>
+      </div>
+
+      <div data-page-content="owner-users" class="page-content hidden space-y-6">
+        <div id="owner-users-root"></div>
+      </div>
+
+      <div data-page-content="people-compliance" class="page-content hidden space-y-6">
+        <div id="people-compliance-root"></div>
+      </div>
+
+      <div data-page-content="config" class="page-content hidden space-y-6">
+        <div id="config-root"></div>
+      </div>
+
+      <div data-page-content="api-keys" class="page-content hidden space-y-6">
+        <div id="api-keys-root"></div>
+      </div>
+
+      <!-- AI Chat inbox — live AI conversations + the embeddable widget snippet. -->
+      <div data-page-content="ai-inbox" class="page-content hidden space-y-6">
+        <div id="ai-inbox-root"></div>
+      </div>
+
+      <!-- Accounting — daily ledger, reconciliation, chart of accounts, P&L (managers). -->
+      <div data-page-content="accounting" class="page-content hidden space-y-6">
+        <div id="accounting-root"></div>
+      </div>
+
+      <!-- Affiliates admin — MarketSync owner manages affiliates + payouts. -->
+      <div data-page-content="affiliates-admin" class="page-content hidden space-y-6">
+        <div id="affadmin-root"></div>
+      </div>
+
+      <div data-page-content="reports" class="page-content hidden space-y-6">
+        <div>
+          <h1 class="text-2xl font-black text-slate-900 dark:text-white">Reports</h1>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Every number in the store — pick a report, or build your own.</p>
+        </div>
+
+        <!-- Report category picker — rendered by renderReportTabs() -->
+        <div id="reports-tabs" class="flex flex-wrap gap-1.5"></div>
+
+        <!-- Overview: the original always-on report sections -->
+        <div id="reports-overview" class="space-y-10">
+          <!-- Custom report builder — pick who/what with dropdowns -->
+          <div id="report-builder"></div>
+          <!-- Executive ROI dashboard (managers) — injected by loadExecutiveRoi() -->
+          <div id="exec-roi"></div>
+          <!-- Inventory mix & aging report (managers) — injected by loadInventoryMix() -->
+          <div id="inv-mix"></div>
+          <!-- Sales analysis report (managers) — injected by loadSalesAnalysis() -->
+          <div id="sales-analysis"></div>
+          <!-- Marketing ROI report (managers) — injected by loadMarketingRoi() -->
+          <div id="marketing-roi"></div>
+        </div>
+
+        <!-- Deep reports (sales, F&I, leads, reps, appraisals, service, activity, customers) -->
+        <div id="reports-dynamic" class="hidden"></div>
+      </div>
+
+      <!-- ───────── DESK A DEAL PAGE (managers) ───────── -->
+      <div data-page-content="desk" class="page-content hidden">
+        <div id="desk-root"></div>
+      </div>
+
+      <!-- ───────── INSIGHTS PAGE ───────── -->
+      <div data-page-content="insights" class="page-content space-y-8">
+
+      <!-- MarketSync mode: the dashboard is the SaaS lead + revenue view, not vehicle metrics. -->
+      <div id="ms-insights"></div>
+
+      <!-- Loading skeleton — visible until JS resolves the profile and hides it -->
+      <div id="insights-skeleton" class="space-y-4">
+        <div class="h-7 w-40 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="h-24 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse"></div>
+          <div class="h-24 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse"></div>
+          <div class="h-24 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse"></div>
+          <div class="h-24 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse"></div>
+        </div>
+      </div>
+
+      <!-- Sales snapshot — clickable "what needs me now" tiles (managers / DealerOS).
+           Populated by loadSalesSnapshot(); each tile deep-links to its filtered view. -->
+      <div id="sales-snapshot" class="hidden"></div>
+
+      <!-- Today's Briefing — AI daily operator digest (dealer admins) -->
+      <div id="daily-digest" data-admin-only class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+        <div class="flex items-center gap-2 mb-2">
+          <svg viewBox="0 0 24 24" width="16" height="16" class="flex-shrink-0" aria-hidden="true"><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg>
+          <h3 class="text-sm font-bold text-slate-900 dark:text-white">Today's Briefing</h3>
+          <span id="digest-date" class="text-xs text-slate-400"></span>
+        </div>
+        <p id="digest-summary" class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed mb-3"></p>
+        <div id="digest-items" class="flex flex-wrap gap-2"></div>
+      </div>
+
+      <!-- AI Boost upsell banner — shown to dealer admins who haven't activated AI Boost -->
+      <div id="ai-boost-upsell-banner" class="hidden" data-admin-only>
+        <div class="flex items-start justify-between gap-4 bg-indigo-600/10 dark:bg-indigo-900/30 border border-indigo-400/40 dark:border-indigo-600/50 rounded-xl px-5 py-4">
+          <div class="flex items-start gap-3">
+            <svg viewBox="0 0 24 24" width="26" height="26" class="flex-shrink-0 mt-0.5" aria-hidden="true"><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg>
+            <div>
+              <p class="font-bold text-slate-900 dark:text-white text-sm">AI Boost — $129/month add-on</p>
+              <p class="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">Let AI write your listing copy, flag missing photos or price, and check if your vehicles are priced competitively — all before you post.</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <button id="ai-boost-upsell-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Try Free for 30 Days</button>
+            <button id="ai-boost-upsell-close" aria-label="Dismiss" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl leading-none p-1 transition">×</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sync staleness banner (Cloudflare/extension feeds that haven't refreshed) -->
+      <div id="sync-health-banner" class="hidden items-start gap-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-lg p-4">
+        <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-bold text-amber-800 dark:text-amber-200">Inventory sync is behind</div>
+          <div id="sync-health-msg" class="text-xs text-amber-700 dark:text-amber-300 mt-0.5"></div>
+        </div>
+        <a id="sync-health-open" target="_blank" rel="noopener" class="hidden flex-shrink-0 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg transition">Open dealer site</a>
+        <button id="sync-health-dismiss" aria-label="Dismiss" class="flex-shrink-0 text-amber-400 hover:text-amber-600 text-lg leading-none p-1">×</button>
+      </div>
+
+      <!-- Time range toggle. Reusable component — same markup is used on Team Insights too. -->
+      <div class="range-toggle flex items-center justify-between flex-wrap gap-3">
+        <h2 class="text-lg font-bold text-slate-900 dark:text-white">Insights · <span class="range-label font-normal text-slate-500 text-sm">lifetime</span></h2>
+        <div class="inline-flex bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 text-xs font-bold">
+          <button type="button" data-range="7" class="range-pill px-3 py-1.5 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition">7d</button>
+          <button type="button" data-range="30" class="range-pill px-3 py-1.5 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition">30d</button>
+          <button type="button" data-range="90" class="range-pill px-3 py-1.5 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition">90d</button>
+          <button type="button" data-range="365" class="range-pill px-3 py-1.5 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition">1y</button>
+          <button type="button" data-range="lifetime" class="range-pill px-3 py-1.5 rounded bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 transition">Lifetime</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="metrics-strip">
+        <button type="button" onclick="switchPage('inventory')" title="Open your inventory" class="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-sm transition cursor-pointer">
+          <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Available Inventory</div>
+          <div class="text-2xl font-black text-slate-900 dark:text-white mt-1" id="metric-synced">—</div>
+          <div class="text-xs text-slate-500 mt-0.5"><span id="metric-synced-total">—</span> total synced</div>
+        </button>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg">
+          <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Listings Posted</div>
+          <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1" id="metric-listings">—</div>
+          <div class="text-xs text-slate-500 mt-0.5" id="metric-listings-scope">lifetime</div>
+          <div class="hidden mt-2 pt-2 border-t border-slate-200/80 dark:border-slate-800/60 grid grid-cols-2 gap-2" id="metric-listings-breakdown">
+            <div>
+              <div class="text-sm uppercase font-bold text-slate-500 tracking-wider">Admin</div>
+              <div class="text-sm font-bold text-slate-900 dark:text-white" id="metric-listings-admin">0</div>
+            </div>
+            <div>
+              <div class="text-sm uppercase font-bold text-slate-500 tracking-wider">Sales reps</div>
+              <div class="text-sm font-bold text-slate-900 dark:text-white" id="metric-listings-reps">0</div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg">
+          <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Sold via Marketplace</div>
+          <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1" id="metric-sold">—</div>
+          <div class="text-xs text-slate-500 mt-0.5">lifetime</div>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg">
+          <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Active Days</div>
+          <div class="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1" id="metric-active-days">—</div>
+          <div class="text-xs text-slate-500 mt-0.5">this week</div>
+        </div>
+      </div>
+
+      <!-- Second row: derived insights. 4-col to line up with the row above. -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg" title="Average number of days between when a vehicle was posted to Marketplace and when it sold.">
+          <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Avg Time to Sell</div>
+          <div class="text-2xl font-black text-slate-900 dark:text-white mt-1"><span id="metric-time-to-sell">—</span><span class="text-sm font-normal text-slate-500 ml-1">days</span></div>
+          <div class="text-xs text-slate-500 mt-0.5">posted → sold</div>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg" title="Average listings posted per day in this range.">
+          <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Posts / Day</div>
+          <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1" id="metric-posts-per-day">—</div>
+          <div class="text-xs text-slate-500 mt-0.5">average rate</div>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg" title="Of vehicles you posted to Marketplace, how many sold? Higher is better.">
+          <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Sell-Through</div>
+          <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1"><span id="metric-sell-through">—</span><span class="text-sm font-normal text-slate-500 ml-0.5">%</span></div>
+          <div class="text-xs text-slate-500 mt-0.5">sold ÷ posted</div>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg" title="Available cars that have sat on your lot longer than 60 days.">
+          <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Aged Inventory</div>
+          <div class="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1" id="metric-aged">—</div>
+          <div class="text-xs text-slate-500 mt-0.5">on lot &gt; 60 days</div>
+        </div>
+      </div>
+
+      <!-- ───────── TEAM SECTION (admin only) — trend charts ───────── -->
+      <!-- Per-rep "players" cards moved to the Sales Team page — click a rep's
+           name there to see their tier, points & stats in a modal. -->
+      <div id="insights-team-section" class="hidden space-y-6">
+
+      <!-- Charts grid — 3x2 = 6 charts -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
+        <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-3">Trends</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <div class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">Listings posted (daily)</div>
+            <div class="relative h-72"><canvas id="chart-listings-daily"></canvas></div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <div class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">Listings by rep</div>
+            <div class="relative h-72"><canvas id="chart-listings-by-rep"></canvas></div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <div class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">Sold by rep</div>
+            <div class="relative h-72"><canvas id="chart-sold-by-rep"></canvas></div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <div class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">Active days by rep</div>
+            <div class="relative h-72"><canvas id="chart-active-by-rep"></canvas></div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <div class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">Sell-through % by rep</div>
+            <div class="relative h-72"><canvas id="chart-sell-through-by-rep"></canvas></div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <div class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">Avg time to sell by rep (days)</div>
+            <div class="relative h-72"><canvas id="chart-time-to-sell-by-rep"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      </div>
+
+      <!-- rep-view-panel: My Performance (reps only) -->
+      <div id="rep-view-panel" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
+        <h2 class="text-lg font-bold text-slate-900 dark:text-white mb-1">My Performance</h2>
+        <p class="text-slate-500 dark:text-slate-400 text-xs mb-4">Your personal listing activity.</p>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
+            <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Total Posts</div>
+            <div class="text-2xl font-black text-slate-900 dark:text-white mt-1" id="rep-stat-total">0</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
+            <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Active</div>
+            <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1" id="rep-stat-active">0</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
+            <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Sold</div>
+            <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1" id="rep-stat-sold">0</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
+            <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Removed</div>
+            <div class="text-2xl font-black text-slate-500 mt-1" id="rep-stat-deleted">0</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <h3 class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold mb-2">Listings &amp; sales over time</h3>
+            <div class="relative h-48"><canvas id="chart-my-trend"></canvas></div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <h3 class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold mb-2">Listing status</h3>
+            <div class="relative h-48"><canvas id="chart-my-status"></canvas></div>
+          </div>
+        </div>
+
+       <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">Recent Listings</h3>
+          <div class="flex gap-1">
+            <button id="rep-listings-filter-posted" class="text-xs px-2 py-1 rounded border border-indigo-600 bg-indigo-600 text-white" onclick="loadMyListingsFiltered('posted')">Active</button>
+            <button id="rep-listings-filter-sold" class="text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400" onclick="loadMyListingsFiltered('sold')">Sold</button>
+            <button id="rep-listings-filter-all" class="text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400" onclick="loadMyListingsFiltered('all')">All</button>
+          </div>
+        </div>
+        <div id="rep-recent-list" class="space-y-2 max-h-[600px] overflow-y-auto">
+          <div class="text-xs text-slate-500 italic">Loading...</div>
+        </div>
+      </div>
+

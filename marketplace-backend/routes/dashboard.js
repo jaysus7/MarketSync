@@ -1,9 +1,11 @@
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { hasPermission, requirePermission } from '../authorization.js'
 import { emitWebhook } from '../webhooks.js'
 import { ensureGetReadyCard } from './recon.js'
 import { ensureDealTasks } from './dealertasks.js'
 import { emitEvent } from './events.js'
+import { audit } from '../audit.js'
 
 async function buildUserStats(userId) {
   const countOf = async (status) => {
@@ -58,17 +60,119 @@ async function buildUserStats(userId) {
   }
 }
 
+import { registerDashboardGamificationRoutes } from './submodules/dashboard-gamification.js'
+import { registerDashboardReportsRoutes } from './submodules/dashboard-reports.js'
+
 // Published read API for the Deal Engine — other engines get a deal via this, never
 // by reading the deals table directly (kernel contract §4).
 export async function getDeal(dealershipId, id) {
   if (!dealershipId || !id) return null
   const { data } = await supabaseAdmin.from('deals')
-    .select('id, deal_number, selling_price, cost, fni_items, tax_amount, deal_status, sold_at, delivered_at, funded_at, inventory_id, contact_id')
+    .select('id, deal_number, selling_price, cost, fni_items, tax_amount, deal_status, sold_at, delivered_at, funded_at, inventory_id, contact_id, ' +
+            'deal_type, amount_financed, down_payment, deposit_amount, trade_value, trade_payoff, finance_company, funding_status')
     .eq('id', id).eq('dealership_id', dealershipId).maybeSingle()
   return data || null
 }
 
+// ── Deal settlement — how a delivered deal is actually paid for ──────────────
+// The Deal Engine's published answer to: this customer owes X, and here is the
+// consideration that settles it. Accounting posts from this; F&I clears Contracts in
+// Transit from the same figure, so CIT cannot fail to zero out.
+//
+// This is NOT a second deal-calculation engine. Every number is read from the finalized
+// deal; the only arithmetic is apportioning what is already there.
+//
+// `settled` deliberately stays what the accounting engine has always recognised —
+// selling price + F&I gross + tax — so revenue treatment is unchanged. What this fixes
+// is the DEBIT side: the whole amount used to land in customer Accounts Receivable,
+// including the part a lender owes, which left AR overstated and Contracts in Transit
+// negative once funding credited it.
+const dsN = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
+const ds2 = (x) => Math.round((Number(x) || 0) * 100) / 100
+
+// The lender's commitment. The selected lender decision is authoritative — it is what
+// `funding.received` credits — with the deal's own amount_financed as the fallback for
+// deals that never went through lender selection.
+export async function dealLenderAmount(dealershipId, deal) {
+  if (!deal || deal.deal_type === 'cash') return 0
+  const { data: sel } = await supabaseAdmin.from('deal_lender_decisions')
+    .select('approved_amount').eq('deal_id', deal.id).eq('dealership_id', dealershipId)
+    .eq('selected', true).maybeSingle()
+  const approved = sel?.approved_amount
+  return ds2(approved != null ? dsN(approved) : dsN(deal.amount_financed))
+}
+
+// The apportionment itself, kept pure so it can be tested with real numbers rather than
+// only asserted about. Consideration already in hand comes off first, the lender's
+// promise next, and whatever is left is the only thing that is genuinely a customer
+// receivable.
+//
+// Capping each component at the remaining balance is what keeps the journal balanced when
+// a deal's own figures disagree with its total. The excess is REPORTED as `over_settled`
+// rather than quietly absorbed — inventing a liability out of bad data is worse than
+// saying the data is bad.
+export function apportionSettlement({ settled, deposit = 0, trade = 0, cash = 0, financed = 0 }) {
+  const total = ds2(settled)
+  const raw = { deposit: ds2(deposit), trade: ds2(trade), cash: ds2(cash), financed: ds2(financed) }
+  let remaining = total
+  const applied = {}
+  for (const key of ['deposit', 'trade', 'cash', 'financed']) {
+    const take = Math.max(0, Math.min(raw[key], remaining))
+    applied[key] = ds2(take)
+    remaining = ds2(remaining - take)
+  }
+  const offered = ds2(raw.deposit + raw.trade + raw.cash + raw.financed)
+  return {
+    ...applied,
+    customer_ar: remaining,
+    over_settled: ds2(Math.max(0, offered - total)),
+    // The invariant the whole correction rests on: the settlement equals what is settled.
+    balanced: ds2(applied.deposit + applied.trade + applied.cash + applied.financed + remaining) === total,
+  }
+}
+
+export async function dealSettlement(dealershipId, dealId) {
+  const deal = typeof dealId === 'object' ? dealId : await getDeal(dealershipId, dealId)
+  if (!deal) return null
+
+  const sellingPrice = ds2(deal.selling_price)
+  const fniGross = ds2((Array.isArray(deal.fni_items) ? deal.fni_items : []).reduce((s, x) => s + dsN(x?.price), 0))
+  const tax = ds2(deal.tax_amount)
+  const settled = ds2(sellingPrice + fniGross + tax)
+
+  const lenderAmount = await dealLenderAmount(dealershipId, deal)
+  const applied = apportionSettlement({
+    settled,
+    deposit: deal.deposit_amount,
+    // Equity only. Negative equity is rolled into the financed amount, not consideration.
+    trade: Math.max(0, dsN(deal.trade_value) - dsN(deal.trade_payoff)),
+    cash: deal.down_payment,
+    financed: lenderAmount,
+  })
+
+  return {
+    deal_id: deal.id, deal_number: deal.deal_number ?? null,
+    deal_type: deal.deal_type || null, finance_company: deal.finance_company || null,
+    is_financed: lenderAmount > 0,
+    settled, selling_price: sellingPrice, fni_gross: fniGross, tax,
+    cost: ds2(deal.cost),
+    // What each kind of consideration actually settles.
+    cit: applied.financed,              // lender receivable — NOT customer AR
+    cash_received: applied.cash,
+    deposit_applied: applied.deposit,
+    trade_applied: applied.trade,
+    customer_ar: applied.customer_ar,   // the genuine customer balance
+    // Reported, never silently absorbed.
+    over_settled: applied.over_settled,
+    lender_amount: lenderAmount,
+    balanced: applied.balanced,
+  }
+}
+
 export function registerRoutes(app) {
+  registerDashboardGamificationRoutes(app)
+  registerDashboardReportsRoutes(app)
+
   // ── Per-dealer feature toggles ───────────────────────────────────────────
   // Managers hide paid features they don't use. Nav gates on this + entitlement.
   const FEATURE_KEYS = ['website', 'automation', 'equity', 'inv_intel', 'appraisals', 'reports']
@@ -77,22 +181,21 @@ export function registerRoutes(app) {
     const { data } = await supabaseAdmin.from('dealerships').select('feature_flags').eq('id', req.dealershipId).maybeSingle()
     const f = (data?.feature_flags && typeof data.feature_flags === 'object') ? data.feature_flags : {}
     const features = Object.fromEntries(FEATURE_KEYS.map(k => [k, f[k] !== false]))   // default on
-    res.json({ features, can_manage: ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role) })
+    res.json({ features, can_manage: await hasPermission(req, 'billing.manage') })
   })
-  app.put('/dealership/features', requireAuth, async (req, res) => {
+  app.put('/dealership/features', requireAuth, requireMfa, requirePermission('billing.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!['DEALER_ADMIN', 'OWNER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Admin access required' })
     const body = req.body || {}
     const flags = {}
     for (const k of FEATURE_KEYS) if (k in body) flags[k] = !!body[k]
     const { error } = await supabaseAdmin.from('dealerships').update({ feature_flags: flags }).eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: 'Save failed' })
+    audit(req, 'billing.feature_flags_updated', { after_state: { feature_flags: flags } })
     res.json({ ok: true, features: Object.fromEntries(FEATURE_KEYS.map(k => [k, flags[k] !== false])) })
   })
 
   app.get('/dealership/leaderboard', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ ranking: [], total_members: 0 })
-    if (req.profile.dealerships?.is_personal === true) return res.json({ ranking: [], total_members: 0 })
 
     const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
 
@@ -234,10 +337,7 @@ export function registerRoutes(app) {
     res.json({ events: events.slice(0, 25) })
   })
 
-  app.get('/dealership/charts', requireAuth, async (req, res) => {
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
-      return res.status(403).json({ error: 'Admins only' })
-    }
+  app.get('/dealership/charts', requireAuth, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.json({ daily: [], by_rep: [] })
 
     // Honor the same ?range= filter as /dashboard/insights. Lifetime means no filter.
@@ -404,11 +504,19 @@ export function registerRoutes(app) {
   // competitors' identities. Points = listings·100 + sold·500 (same as team board).
   app.get('/leaderboard/global', requireAuth, async (req, res) => {
     try {
-      const [{ data: listings }, { data: profiles }] = await Promise.all([
+      const [{ data: listings }, { data: profiles }, { data: dealerships }] = await Promise.all([
         supabaseAdmin.from('listings').select('posted_by, status'),
-        supabaseAdmin.from('profiles').select('id, full_name, display_name, avatar_url, dealership_id, dealerships(name, is_personal)')
+        // Keep this separate from profiles: there are multiple foreign-key paths
+        // between profiles and dealerships, so an unqualified PostgREST embed is
+        // ambiguous on the staged schema.
+        supabaseAdmin.from('profiles').select('id, full_name, display_name, avatar_url, dealership_id'),
+        supabaseAdmin.from('dealerships').select('id, name, is_personal')
       ])
-      const profById = new Map((profiles || []).map(p => [p.id, p]))
+      const dealerById = new Map((dealerships || []).map(d => [d.id, d]))
+      const profById = new Map((profiles || []).map(p => [p.id, {
+        ...p,
+        dealerships: dealerById.get(p.dealership_id) || null,
+      }]))
 
       // Tally listings + sold per rep (include current user even with 0 activity).
       const repTally = new Map()
@@ -475,12 +583,6 @@ export function registerRoutes(app) {
         dealers: dealersOut.slice(0, 100),
         you_rep: repsOut.find(r => r.isYou) || null,
         you_dealer: dealersOut.find(d => d.isYou) || null,
-        avg_rep_points: avg(repsOut, 'points'),
-        avg_rep_posted: avg(repsOut, 'posted'),
-        avg_rep_sold: avg(repsOut, 'sold'),
-        avg_rep_conv: avgConv(repsOut),
-        avg_dealer_points: avg(dealersOut, 'points'),
-        avg_dealer_posted: avg(dealersOut, 'posted'),
         avg_dealer_sold: avg(dealersOut, 'sold'),
         avg_dealer_conv: avgConv(dealersOut),
       })
@@ -490,135 +592,8 @@ export function registerRoutes(app) {
     }
   })
 
-  // ── Gamification: achievement badges (rep level + dealership level) ────────────
-  // Everything is DERIVED from data we already write (listings, trade_appraisals,
-  // inventory) and scoped to ONE dealership, so the queries are bounded — no new
-  // tables, no platform-wide aggregates. Cached 10 min per dealership to keep the
-  // 512MB box calm even if the whole team opens the page at once.
-  const _gamCache = new Map()   // dealershipId -> { exp, data }
-  const GAM_TTL_MS = 10 * 60 * 1000
-  const HR = 60 * 60 * 1000
+  // Gamification routes extracted to routes/submodules/dashboard-gamification.js
 
-  // Ascending badge (higher value = better). Returns level (0..N) + progress to next.
-  const ascBadge = (key, icon, label, description, value, thresholds, unit = '') => {
-    let level = 0
-    for (const t of thresholds) if (value >= t) level++
-    const next = thresholds[level] ?? null
-    const prev = level > 0 ? thresholds[level - 1] : 0
-    const progress_pct = next == null ? 100
-      : Math.max(0, Math.min(100, Math.round(((value - prev) / (next - prev)) * 100)))
-    return { key, icon, label, description, value, unit, level, max_level: thresholds.length, thresholds, next, progress_pct }
-  }
-  // Descending badge (lower value = better, e.g. hours-to-post). thresholds hardest last.
-  const descBadge = (key, icon, label, description, value, thresholds, unit = '') => {
-    let level = 0
-    if (value != null) for (const t of thresholds) if (value <= t) level++
-    const next = thresholds[level] ?? null
-    return { key, icon, label, description, value, unit, level, max_level: thresholds.length, thresholds, next, progress_pct: null }
-  }
-
-  app.get('/gamification', requireAuth, async (req, res) => {
-    if (!req.dealershipId) return res.json({ me: null, dealership: null })
-    try {
-      const cached = _gamCache.get(req.dealershipId)
-      if (cached && cached.exp > Date.now()) {
-        const me = cached.data.repBadges[req.user.id] || cached.data.emptyMe(req)
-        return res.json({ dealership: cached.data.dealership, me })
-      }
-
-      const { data: members } = await supabaseAdmin
-        .from('profiles').select('id, full_name').eq('dealership_id', req.dealershipId)
-      const memberIds = (members || []).map(m => m.id)
-      const nameOf = new Map((members || []).map(m => [m.id, m.full_name]))
-
-      // One bounded pull of the team's listings (+ the inventory add-date for the
-      // speed-to-market metric), plus appraisals and the available-inventory count.
-      const [{ data: listings }, { data: appraisals }, { count: availCount }] = await Promise.all([
-        memberIds.length ? supabaseAdmin
-          .from('listings')
-          .select('posted_by, status, posted_at, inventory:inventory_id(created_at)')
-          .in('posted_by', memberIds).limit(20000)
-          : Promise.resolve({ data: [] }),
-        supabaseAdmin
-          .from('trade_appraisals').select('created_by').eq('dealership_id', req.dealershipId).limit(20000),
-        supabaseAdmin
-          .from('inventory').select('id', { count: 'exact', head: true })
-          .eq('dealership_id', req.dealershipId).eq('status', 'available'),
-      ])
-
-      // Per-rep aggregation.
-      const agg = new Map()   // repId -> { posted, sold, apprs, fastFlags:[{t,fast}] }
-      const bump = (id) => { if (!agg.has(id)) agg.set(id, { posted: 0, sold: 0, apprs: 0, fastFlags: [] }); return agg.get(id) }
-      for (const l of listings || []) {
-        const a = bump(l.posted_by)
-        a.posted++
-        if (l.status === 'sold') a.sold++
-        const addedAt = l.inventory?.created_at
-        if (l.posted_at && addedAt) {
-          a.fastFlags.push({ t: l.posted_at, fast: (new Date(l.posted_at) - new Date(addedAt)) <= 24 * HR })
-        }
-      }
-      for (const ap of appraisals || []) { if (ap.created_by) bump(ap.created_by).apprs++ }
-
-      // Current speed-to-market streak = consecutive most-recent posts under 24h.
-      const streakOf = (flags) => {
-        const ordered = flags.slice().sort((x, y) => (y.t || '').localeCompare(x.t || ''))
-        let s = 0
-        for (const f of ordered) { if (f.fast) s++; else break }
-        return s
-      }
-
-      const repBadgesFor = (id) => {
-        const a = agg.get(id) || { posted: 0, sold: 0, apprs: 0, fastFlags: [] }
-        return [
-          ascBadge('closer', '🏆', 'Closer', 'Cars you\'ve sold', a.sold, [10, 50, 250], 'sold'),
-          ascBadge('mover', '📣', 'Marketplace Mover', 'Cars you\'ve posted to Facebook', a.posted, [25, 100, 500], 'posted'),
-          ascBadge('speed', '⚡', 'Speed to Market', 'Consecutive cars posted within 24h of hitting inventory', streakOf(a.fastFlags), [5, 15, 40], 'streak'),
-          ascBadge('hunter', '🔍', 'Trade Hunter', 'Trade appraisals completed', a.apprs, [10, 50, 200], 'appraisals'),
-        ]
-      }
-
-      // Build a badge map for every rep (so the cache serves any rep instantly).
-      const repBadges = {}
-      for (const id of memberIds) repBadges[id] = { name: nameOf.get(id) || 'You', badges: repBadgesFor(id) }
-
-      // ── Dealership-level badges ──
-      const teamSold = [...agg.values()].reduce((s, a) => s + a.sold, 0)
-      // Sold this (calendar) month, team-wide.
-      const monthStart = new Date(); monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0)
-      let soldThisMonth = 0
-      for (const l of listings || []) {
-        if (l.status === 'sold' && l.posted_at && new Date(l.posted_at) >= monthStart) soldThisMonth++
-      }
-      // Coverage = posted listings / available inventory (capped at 100%).
-      const postedCount = (listings || []).filter(l => l.status === 'posted').length
-      const coverage = availCount ? Math.min(100, Math.round((postedCount / availCount) * 100)) : 0
-      // Median hours-to-post across the team.
-      const gaps = (listings || [])
-        .filter(l => l.posted_at && l.inventory?.created_at)
-        .map(l => (new Date(l.posted_at) - new Date(l.inventory.created_at)) / HR)
-        .filter(h => h >= 0).sort((x, y) => x - y)
-      const medianGap = gaps.length ? Math.round(gaps[Math.floor(gaps.length / 2)]) : null
-
-      const dealershipBadges = [
-        ascBadge('coverage', '🛡️', 'Full Coverage', 'Share of available inventory listed on Facebook', coverage, [60, 80, 95], '%'),
-        descBadge('fastlot', '🏁', 'Fast Lot', 'Median hours from inventory add to Facebook post (lower is better)', medianGap, [48, 24, 6], 'h'),
-        ascBadge('sellthrough', '💰', 'Sell-Through', 'Cars sold this month', soldThisMonth, [5, 15, 40], 'this month'),
-      ]
-
-      const dealerName = req.profile?.dealerships?.name || 'Your dealership'
-      const data = {
-        repBadges,
-        emptyMe: (r) => ({ name: r.profile?.full_name || 'You', badges: repBadgesFor('__none__') }),
-        dealership: { name: dealerName, badges: dealershipBadges, team_sold: teamSold, coverage },
-      }
-      _gamCache.set(req.dealershipId, { exp: Date.now() + GAM_TTL_MS, data })
-      res.json({ dealership: data.dealership, me: repBadges[req.user.id] || data.emptyMe(req) })
-    } catch (e) {
-      console.error('[gamification] failed:', e.message)
-      res.status(500).json({ error: e.message })
-    }
-  })
 
   // ── Sync health / staleness monitor ───────────────────────────────────────────
   // Server-side feeds refresh every night hands-off. Cloudflare feeds
@@ -664,7 +639,7 @@ export function registerRoutes(app) {
   })
 
   app.get('/dashboard/insights', requireAuth, async (req, res) => {
-    const isAdmin = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)
+    const isAdmin = await hasPermission(req, 'lead.assign')
     const now = new Date()
 
     // Time range filter: lifetime | 365 | 90 | 30 | 7 (days). Defaults to lifetime.
@@ -850,11 +825,7 @@ export function registerRoutes(app) {
     })
   })
 
-  app.get('/dealership/team/:userId/stats', requireAuth, async (req, res) => {
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
-      return res.status(403).json({ error: 'Admins only' })
-    }
-
+  app.get('/dealership/team/:userId/stats', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
     const { data: target } = await supabaseAdmin
       .from('profiles')
       .select('id, full_name, role, dealership_id, created_at')
@@ -886,7 +857,7 @@ export function registerRoutes(app) {
   // (once captured) attributed sales by source.
   app.get('/dashboard/executive', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, empty: true })
-    const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
+    const isMgr = await hasPermission(req, 'lead.assign')
     const selfId = req.user.id
     const days = ({ '7': 7, '30': 30, '90': 90, '365': 365 }[String(req.query.range || '90')]) || 90
     const now = Date.now()
@@ -1042,728 +1013,6 @@ export function registerRoutes(app) {
       finance: salesFinance,
       per_rep,
     })
-  })
-
-  // ── Inventory mix & aging report (managers) ─────────────────────────────────
-  // The classic lot breakdown: age buckets (0-30 / 31-60 / 61-90 / 90+), plus mix
-  // by colour, by mileage band, and by make — count, value, and average age each.
-  app.get('/dashboard/inventory-mix', requireAuth, async (req, res) => {
-    if (!req.dealershipId) return res.json({ ok: true, empty: true })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
-    const { data: dealer } = await supabaseAdmin.from('dealerships').select('country').eq('id', req.dealershipId).maybeSingle()
-    const c = (dealer?.country || '').trim().toUpperCase()
-    const isUS = c === 'US' || c === 'USA' || c === 'UNITED STATES'
-    const unit = isUS ? 'mi' : 'km'
-
-    const { data: inv } = await supabaseAdmin.from('inventory')
-      .select('price, mileage, exterior_color, make, condition, lot_date, created_at, last_synced_at')
-      .eq('dealership_id', req.dealershipId).eq('status', 'available').is('archived_at', null).limit(20000)
-    const list = inv || []
-    const now = Date.now()
-    const ageOf = (v) => { const ref = v.lot_date || v.created_at || v.last_synced_at; return ref ? Math.floor((now - new Date(ref).getTime()) / 86400000) : 0 }
-    const num = (n) => { const x = Number(n); return Number.isFinite(x) ? x : null }
-
-    // Generic bucketer → [{key, count, value, avg_price, avg_age}]
-    const groupBy = (rows, keyFn, order) => {
-      const m = {}
-      for (const v of rows) {
-        const k = keyFn(v); if (k == null) continue
-        const g = m[k] || (m[k] = { key: k, count: 0, value: 0, priced: 0, ageSum: 0 })
-        g.count++; g.ageSum += ageOf(v)
-        const p = num(v.price); if (p) { g.value += p; g.priced++ }
-      }
-      let arr = Object.values(m).map(g => ({
-        key: g.key, count: g.count, value: Math.round(g.value),
-        avg_price: g.priced ? Math.round(g.value / g.priced) : null,
-        avg_age: g.count ? Math.round(g.ageSum / g.count) : null,
-      }))
-      if (order) arr.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key))
-      else arr.sort((a, b) => b.count - a.count)
-      return arr
-    }
-
-    const ageBucket = (v) => { const d = ageOf(v); return d <= 30 ? '0–30' : d <= 60 ? '31–60' : d <= 90 ? '61–90' : '90+' }
-    const AGE_ORDER = ['0–30', '31–60', '61–90', '90+']
-    const kmBucket = (v) => {
-      const m = num(v.mileage); if (m == null) return 'Unknown'
-      return m < 50000 ? `Under 50k` : m < 100000 ? `50–100k` : m < 150000 ? `100–150k` : `150k+`
-    }
-    const KM_ORDER = ['Under 50k', '50–100k', '100–150k', '150k+', 'Unknown']
-
-    const totalValue = list.reduce((s, v) => s + (num(v.price) || 0), 0)
-    const avgAge = list.length ? Math.round(list.reduce((s, v) => s + ageOf(v), 0) / list.length) : 0
-    const aged60 = list.filter(v => ageOf(v) > 60).length
-
-    res.json({
-      ok: true, distance_unit: unit,
-      summary: { total_units: list.length, total_value: Math.round(totalValue), avg_age: avgAge, aged_over_60: aged60 },
-      by_age: groupBy(list, ageBucket, AGE_ORDER),
-      by_color: groupBy(list, v => (v.exterior_color || '').trim() || 'Unspecified').slice(0, 12),
-      by_mileage: groupBy(list, kmBucket, KM_ORDER),
-      by_make: groupBy(list, v => (v.make || '').trim() || 'Unspecified').slice(0, 12),
-      by_condition: groupBy(list, v => { const x = (v.condition || '').toLowerCase(); return x === 'new' ? 'New' : x === 'demo' ? 'Demo' : x === 'certified' ? 'Certified' : 'Used' }),
-    })
-  })
-
-  // ── Sales analysis (managers) — what actually sold, sliced by attribute ─────
-  // A "sale" is a unit that left the lot: status 'sold' (feed-flagged or manual) or
-  // 'archived' (dropped off the feed). Sale date = sold_at ?? archived_at, and
-  // days-to-sell = sale date − lot date. Grouped by colour, mileage band, make,
-  // condition, and price band — count + avg days-to-sell + total value each.
-  app.get('/dashboard/sales-analysis', requireAuth, async (req, res) => {
-    if (!req.dealershipId) return res.json({ ok: true, empty: true })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
-    const days = ({ '30': 30, '90': 90, '180': 180, '365': 365 }[String(req.query.range || '90')]) || 90
-    const startMs = Date.now() - days * 86400000
-    const { data: dealer } = await supabaseAdmin.from('dealerships').select('country').eq('id', req.dealershipId).maybeSingle()
-    const c = (dealer?.country || '').trim().toUpperCase()
-    const unit = (c === 'US' || c === 'USA' || c === 'UNITED STATES') ? 'mi' : 'km'
-
-    const { data: rows } = await supabaseAdmin.from('inventory')
-      .select('price, mileage, exterior_color, make, condition, lot_date, created_at, sold_at, archived_at, last_synced_at, status')
-      .eq('dealership_id', req.dealershipId).in('status', ['sold', 'archived']).limit(50000)
-    const num = (n) => { const x = Number(n); return Number.isFinite(x) ? x : null }
-    // Keep only units whose sale date falls in the window; compute days-to-sell.
-    const sold = []
-    for (const v of (rows || [])) {
-      const saleRef = v.sold_at || v.archived_at || v.last_synced_at
-      if (!saleRef) continue
-      const saleMs = new Date(saleRef).getTime()
-      if (!(saleMs >= startMs)) continue
-      const lotRef = v.lot_date || v.created_at
-      const dts = lotRef ? Math.max(0, Math.round((saleMs - new Date(lotRef).getTime()) / 86400000)) : null
-      sold.push({ ...v, _dts: dts })
-    }
-
-    const groupBy = (keyFn, order) => {
-      const m = {}
-      for (const v of sold) {
-        const k = keyFn(v); if (k == null) continue
-        const g = m[k] || (m[k] = { key: k, count: 0, value: 0, priced: 0, dtsSum: 0, dtsN: 0 })
-        g.count++; const p = num(v.price); if (p) { g.value += p; g.priced++ }
-        if (v._dts != null) { g.dtsSum += v._dts; g.dtsN++ }
-      }
-      let arr = Object.values(m).map(g => ({
-        key: g.key, count: g.count, value: Math.round(g.value),
-        avg_price: g.priced ? Math.round(g.value / g.priced) : null,
-        avg_days_to_sell: g.dtsN ? Math.round(g.dtsSum / g.dtsN) : null,
-      }))
-      if (order) arr.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key))
-      else arr.sort((a, b) => b.count - a.count)
-      return arr
-    }
-    const kmBucket = (v) => { const m = num(v.mileage); if (m == null) return 'Unknown'; return m < 50000 ? 'Under 50k' : m < 100000 ? '50–100k' : m < 150000 ? '100–150k' : '150k+' }
-    const dtsBucket = (v) => { const d = v._dts; if (d == null) return 'Unknown'; return d <= 30 ? '0–30' : d <= 60 ? '31–60' : d <= 90 ? '61–90' : '90+' }
-    const dtsAll = sold.map(v => v._dts).filter(x => x != null).sort((a, b) => a - b)
-    const medianDts = dtsAll.length ? dtsAll[Math.floor(dtsAll.length / 2)] : null
-    const totalValue = sold.reduce((s, v) => s + (num(v.price) || 0), 0)
-
-    // Turn rate: how fast the lot recycles. Needs the current live-lot count,
-    // split Used / New / Demo (certified counts as Used).
-    const condOf = (c) => { const x = (c || '').toLowerCase(); return x === 'new' ? 'new' : x === 'demo' ? 'demo' : 'used' }
-    const { data: liveRows } = await supabaseAdmin.from('inventory')
-      .select('condition')
-      .eq('dealership_id', req.dealershipId).is('archived_at', null).neq('status', 'sold').limit(50000)
-    const liveByCond = { used: 0, new: 0, demo: 0 }
-    for (const r of (liveRows || [])) liveByCond[condOf(r.condition)]++
-    const soldByCond = { used: 0, new: 0, demo: 0 }
-    for (const v of sold) soldByCond[condOf(v.condition)]++
-    const live = (liveRows || []).length
-    const dailyRate = sold.length / days                       // units sold per day in the window
-    const salesPerMonth = Math.round(dailyRate * 30 * 10) / 10 // one-decimal monthly pace
-    // Inventory turns per year = annual sales pace ÷ units on the ground.
-    const turnsPerYear = live > 0 ? Math.round((dailyRate * 365 / live) * 10) / 10 : null
-    // Days of supply = how long the current lot lasts at the recent sales pace.
-    const daysSupply = dailyRate > 0 ? Math.round(live / dailyRate) : null
-    // Per-condition turn: same maths scoped to each vehicle class.
-    const turnFor = (k) => {
-      const dr = soldByCond[k] / days, lv = liveByCond[k]
-      return {
-        label: k === 'used' ? 'Used' : k === 'new' ? 'New' : 'Demo',
-        live: lv, sold: soldByCond[k],
-        sales_per_month: Math.round(dr * 30 * 10) / 10,
-        turns_per_year: lv > 0 ? Math.round((dr * 365 / lv) * 10) / 10 : null,
-        days_supply: dr > 0 ? Math.round(lv / dr) : null,
-      }
-    }
-
-    res.json({
-      ok: true, range_days: days, distance_unit: unit,
-      summary: {
-        units_sold: sold.length,
-        total_value: Math.round(totalValue),
-        avg_days_to_sell: dtsAll.length ? Math.round(dtsAll.reduce((a, b) => a + b, 0) / dtsAll.length) : null,
-        median_days_to_sell: medianDts,
-        live_units: live,
-        sales_per_month: salesPerMonth,
-        turns_per_year: turnsPerYear,
-        days_supply: daysSupply,
-      },
-      turn_by_condition: ['used', 'new', 'demo'].map(turnFor).filter(t => t.live > 0 || t.sold > 0),
-      by_days_to_sell: groupBy(dtsBucket, ['0–30', '31–60', '61–90', '90+', 'Unknown']),
-      by_color: groupBy(v => (v.exterior_color || '').trim() || 'Unspecified').slice(0, 12),
-      by_mileage: groupBy(kmBucket, ['Under 50k', '50–100k', '100–150k', '150k+', 'Unknown']),
-      by_make: groupBy(v => (v.make || '').trim() || 'Unspecified').slice(0, 12),
-      by_condition: groupBy(v => { const x = (v.condition || '').toLowerCase(); return x === 'new' ? 'New' : x === 'demo' ? 'Demo' : x === 'certified' ? 'Certified' : 'Used' }),
-    })
-  })
-
-  // ── Sales snapshot: the "what needs me now" counts for the Sales dashboard ────
-  // Live counts that each deep-link to a filtered view: unanswered leads, follow-ups
-  // due today / overdue, appointments today, deals working, deliveries pending, and
-  // units sold this month. Manager/admin scoped (dealership-wide).
-  app.get('/dashboard/sales-snapshot', requireAuth, async (req, res) => {
-    const did = req.dealershipId
-    if (!did) return res.json({ ok: true, empty: true })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
-    const now = new Date()
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-    const nowIso = now.toISOString()
-    const count = async (table, build) => {
-      try { const { count, error } = await build(supabaseAdmin.from(table).select('id', { count: 'exact', head: true }).eq('dealership_id', did)); return error ? 0 : (count || 0) }
-      catch { return 0 }
-    }
-    const [unansweredLeads, followupsToday, followupsOverdue, apptsToday, dealsWorking, deliveriesPending, soldThisMonth] = await Promise.all([
-      count('leads', q => q.is('responded_at', null)),
-      count('crm_tasks', q => q.eq('done', false).neq('type', 'appointment').gte('due_at', startOfToday).lt('due_at', endOfToday)),
-      count('crm_tasks', q => q.eq('done', false).neq('type', 'appointment').lt('due_at', startOfToday).not('due_at', 'is', null)),
-      count('crm_tasks', q => q.eq('done', false).eq('type', 'appointment').gte('due_at', startOfToday).lt('due_at', endOfToday)),
-      count('deals', q => q.in('deal_status', ['working', 'pending_credit'])),
-      count('deals', q => q.eq('deal_status', 'sold')),   // sold but not yet delivered
-      count('deals', q => q.gte('sold_at', startOfMonth)),
-    ])
-    res.json({
-      ok: true,
-      unanswered_leads: unansweredLeads,
-      followups_today: followupsToday,
-      followups_overdue: followupsOverdue,
-      appointments_today: apptsToday,
-      deals_working: dealsWorking,
-      deliveries_pending: deliveriesPending,
-      sold_this_month: soldThisMonth,
-    })
-  })
-
-  // ── Sold deals report (managers) — the per-rep sold sheet + custom filters ──
-  // One row per won contact (Sold/F&I/Delivered) with the customer, the vehicle of
-  // interest, and delivery/ownership. F&I desk fields (manager, deposit, term,
-  // products, gross, commissions, surveys) are returned as null — they need a deal
-  // record that isn't captured yet, so they ship as empty columns to fill later.
-  app.get('/reports/sold-deals', requireAuth, async (req, res) => {
-    if (!req.dealershipId) return res.json({ ok: true, rows: [], reps: [] })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
-    const did = req.dealershipId
-    const days = ({ '30': 30, '90': 90, '180': 180, '365': 365, 'all': null }[String(req.query.range || '365')])
-    const startIso = days ? new Date(Date.now() - days * 86400000).toISOString() : null
-    const repFilter = req.query.rep && req.query.rep !== 'all' ? String(req.query.rep) : null
-    const statuses = ['sold', 'fni', 'delivered']
-
-    let q = supabaseAdmin.from('contacts')
-      .select('id, first_name, last_name, full_name, email, phone, phone_mobile, phone_home, address, city, province, postal_code, country, birthday, status, source, sold_source, sold_at, assigned_rep, interest_inventory_id, trade_vehicle, opt_out, consent_email, consent_sms, created_at')
-      .eq('dealership_id', did).in('status', statuses).limit(20000)
-    if (repFilter) q = q.eq('assigned_rep', repFilter)
-    if (startIso) q = q.or(`sold_at.gte.${startIso},and(sold_at.is.null,created_at.gte.${startIso})`)
-    const { data: contacts } = await q
-
-    // Roster (names + the dropdown), vehicles, and ownership in bulk.
-    const { data: staff } = await supabaseAdmin.from('profiles')
-      .select('id, full_name, display_name, role').eq('dealership_id', did)
-    const repName = (id) => { const p = (staff || []).find(s => s.id === id); return p ? (p.full_name || p.display_name || '') : '' }
-    const reps = (staff || []).filter(p => p.role !== 'DEALER_GROUP').map(p => ({ id: p.id, name: p.full_name || p.display_name || '—' })).sort((a, b) => a.name.localeCompare(b.name))
-
-    const invIds = [...new Set((contacts || []).map(c => c.interest_inventory_id).filter(Boolean))]
-    let veh = {}
-    if (invIds.length) {
-      const { data: iv } = await supabaseAdmin.from('inventory')
-        .select('id, year, make, model, trim, vin, stocknumber, drivetrain, condition, body_style').in('id', invIds)
-      veh = Object.fromEntries((iv || []).map(v => [v.id, v]))
-    }
-    const contactIds = (contacts || []).map(c => c.id)
-    let own = {}, deals = {}
-    if (contactIds.length) {
-      const { data: ot } = await supabaseAdmin.from('customer_ownership_tracking')
-        .select('customer_id, delivery_date, owns_vehicle, vehicle_status').in('customer_id', contactIds)
-      own = Object.fromEntries((ot || []).map(o => [o.customer_id, o]))
-      const { data: dl } = await supabaseAdmin.from('deals')
-        .select('*').eq('dealership_id', did).in('contact_id', contactIds)
-      deals = Object.fromEntries((dl || []).map(d => [d.contact_id, d]))
-    }
-    const money = (n) => (n == null || n === '') ? null : Number(n).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
-    const yn = (b) => b === true ? 'Yes' : b === false ? 'No' : null
-
-    const STATUS_LABEL = { sold: 'Sold', fni: 'F&I', delivered: 'Delivered' }
-    const rows = (contacts || [])
-      .sort((a, b) => new Date(b.sold_at || b.created_at) - new Date(a.sold_at || a.created_at))
-      .map(c => {
-        const v = veh[c.interest_inventory_id] || {}
-        const o = own[c.id] || {}
-        const dl = deals[c.id] || {}
-        const delivered = dl.delivery_date || o.delivery_date || (c.status === 'delivered' ? c.sold_at : null)
-        const noLongerOwns = o.owns_vehicle === false || ['traded_in', 'sold_private', 'totaled'].includes(o.vehicle_status)
-        const cond = (v.condition || '').toLowerCase()
-        return {
-          contact_id: c.id,
-          has_deal: !!deals[c.id],
-          sold_date: c.sold_at || null,
-          source: c.sold_source || c.source || null,
-          first_name: c.first_name || null,
-          last_name: c.last_name || (c.full_name && !c.first_name ? c.full_name : null),
-          phone: c.phone || c.phone_mobile || c.phone_home || null,
-          email: c.email || null,
-          street_address: c.address || null,
-          city: c.city || null,
-          region: c.province || null,
-          postal_code: c.postal_code || null,
-          country: c.country || null,
-          birthday: c.birthday || null,
-          status: STATUS_LABEL[c.status] || c.status,
-          delivery_date: delivered || null,
-          delivery_time: dl.delivery_time || null,
-          fni_manager: dl.fni_manager || null,
-          deposit_amount: money(dl.deposit_amount),
-          type_of_vehicle: cond === 'new' ? 'New' : cond === 'demo' ? 'Demo' : cond === 'certified' ? 'Certified' : cond ? 'Used' : (v.body_style || null),
-          stock_number: v.stocknumber || null,
-          vin: v.vin || null,
-          year: v.year || null, make: v.make || null, model: v.model || null, trim: v.trim || null,
-          drivetrain: v.drivetrain || null,
-          deal_type: dl.deal_type || null,
-          term: dl.term != null ? String(dl.term) : null,
-          plates: dl.plates || null,
-          fni_products: dl.fni_products || null,
-          trade_type: c.trade_vehicle ? 'Trade' : null,
-          google_review: yn(dl.google_review),
-          gm_survey: yn(dl.gm_survey),
-          gm_survey_pct: dl.gm_survey_pct != null ? dl.gm_survey_pct + '%' : null,
-          fni_gross_1500: yn(dl.fni_gross_1500),
-          split_deal: yn(dl.split_deal),
-          split_with: dl.split_with || null,
-          vehicle_commission: money(dl.vehicle_commission),
-          fni_commission: money(dl.fni_commission),
-          unsubscribed: (c.opt_out || c.consent_email === false || c.consent_sms === false) ? 'Yes' : 'No',
-          no_longer_owns: noLongerOwns ? 'Yes' : 'No',
-          salesperson: repName(c.assigned_rep) || null,
-        }
-      })
-    res.json({ ok: true, rows, reps, count: rows.length })
-  })
-
-  // Desk / F&I record for a sold deal — managers enter the fields MarketSync
-  // doesn't otherwise capture. Keyed one-per-contact; upserted on contact_id.
-  // Numeric money/rate fields (stored denormalised for reporting + the printed docs).
-  const DEAL_NUM_FIELDS = ['deposit_amount', 'gm_survey_pct', 'vehicle_commission', 'fni_commission', 'term',
-    'selling_price', 'trade_value', 'trade_payoff', 'down_payment', 'rebate', 'apr',
-    'amount_financed', 'payment', 'tax_rate', 'tax_amount', 'total_price',
-    'retail', 'rebate_before_tax', 'adjustment', 'balloon', 'deferral_days',
-    'buy_rate', 'residual_amount', 'mileage_allowance', 'split_pct', 'cost']   // `cost` written only when cost-tracking is on (internal — never on customer docs)
-  const DEAL_BOOL_FIELDS = ['google_review', 'gm_survey', 'fni_gross_1500', 'split_deal', 'tax_on_difference']
-  const DEAL_TEXT_FIELDS = ['inventory_id', 'delivery_date', 'delivery_time', 'fni_manager', 'fni_manager_id', 'deal_type', 'plates',
-    'fni_products', 'split_with', 'split_rep_id', 'notes', 'deal_status', 'payment_freq', 'trade_desc', 'trade_vin',
-    'finance_company', 'first_payment_date', 'sale_type', 'program', 'co_buyer', 'tax_province', 'tax_country']
-  // JSONB line-item / block fields — the full deal detail for the estimate + bill of sale.
-  const DEAL_JSON_FIELDS = ['addons', 'fni_items', 'fees', 'insurance', 'vehicle']
-
-  app.get('/reports/deal', requireAuth, async (req, res) => {
-    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
-    const contactId = String(req.query.contact_id || '')
-    if (!contactId) return res.status(400).json({ error: 'contact_id required' })
-    const { data } = await supabaseAdmin.from('deals')
-      .select('*').eq('dealership_id', req.dealershipId).eq('contact_id', contactId).maybeSingle()
-    // Vehicle cost is internal + feature-flagged. Strip it from the payload unless
-    // cost tracking is on (managers reach this endpoint; the flags drive UI display).
-    const { data: dlr } = await supabaseAdmin.from('dealerships')
-      .select('cost_tracking_enabled, cost_rep_visible').eq('id', req.dealershipId).maybeSingle()
-    if (data && !dlr?.cost_tracking_enabled) delete data.cost
-    // Customer # lives on the contact; the deal carries deal #. Surface both plus the
-    // salesperson (name + registration/OMVIC #) so the bill of sale can print them.
-    const { data: cust } = await supabaseAdmin.from('contacts')
-      .select('customer_number').eq('id', contactId).maybeSingle()
-    let salesperson = null
-    const repId = data?.created_by
-    if (repId) {
-      const { data: rep } = await supabaseAdmin.from('profiles').select('full_name, registration_id').eq('id', repId).maybeSingle()
-      if (rep) salesperson = { name: rep.full_name || null, registration_id: rep.registration_id || null }
-    }
-    res.json({ ok: true, deal: data || null, customer_number: cust?.customer_number || null, salesperson, cost_tracking_enabled: !!dlr?.cost_tracking_enabled, cost_rep_visible: !!dlr?.cost_rep_visible })
-  })
-
-  // Next sequential number for a dealership (max+1, base-offset so it reads like a
-  // real dealer number). Low-concurrency per dealer, so max+1 is safe enough.
-  async function nextDealershipNumber(table, col, dealershipId, base) {
-    const { data } = await supabaseAdmin.from(table).select(col)
-      .eq('dealership_id', dealershipId).not(col, 'is', null).order(col, { ascending: false }).limit(1).maybeSingle()
-    const cur = data?.[col]
-    return (cur && cur >= base) ? cur + 1 : base
-  }
-
-  app.post('/reports/deal', requireAuth, async (req, res) => {
-    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
-    const contactId = String(req.body?.contact_id || '')
-    if (!contactId) return res.status(400).json({ error: 'contact_id required' })
-    // Confirm the contact belongs to this dealership before writing.
-    const { data: ct } = await supabaseAdmin.from('contacts').select('id').eq('id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
-    if (!ct) return res.status(404).json({ error: 'Contact not found' })
-
-    const num = (v) => { if (v == null || v === '') return null; const n = Number(v); return Number.isFinite(n) ? n : null }
-    const bool = (v) => v === true || v === 'true' || v === 'on' || v === 1 || v === '1'
-    const str = (v) => { const s = (v == null ? '' : String(v)).trim(); return s || null }
-    // Accept a JSON block whether it arrived as an object/array or a stringified one.
-    const json = (v) => { if (v == null || v === '') return null; if (typeof v === 'string') { try { return JSON.parse(v) } catch { return null } } return v }
-    const row = { dealership_id: req.dealershipId, contact_id: contactId, created_by: req.user?.id || null, updated_at: new Date().toISOString() }
-    const body = req.body || {}
-    for (const f of DEAL_NUM_FIELDS)  if (f in body) row[f] = num(body[f])
-    for (const f of DEAL_BOOL_FIELDS) if (f in body) row[f] = bool(body[f])
-    for (const f of DEAL_TEXT_FIELDS) if (f in body) row[f] = str(body[f])
-    for (const f of DEAL_JSON_FIELDS) if (f in body) row[f] = json(body[f])
-    // Vehicle cost only persists when cost tracking is switched on for the store —
-    // otherwise never touch it (so it can't be set by accident, and stays internal).
-    if ('cost' in row) {
-      const { data: dlrCost } = await supabaseAdmin.from('dealerships').select('cost_tracking_enabled').eq('id', req.dealershipId).maybeSingle()
-      if (!dlrCost?.cost_tracking_enabled) delete row.cost
-    }
-
-    // Assign a permanent deal # (once) and make sure the customer has a customer #.
-    // Both are per-dealership sequential and stay attached: the deal references the
-    // contact, and the bill of sale prints both numbers together.
-    const { data: existingDeal } = await supabaseAdmin.from('deals')
-      .select('deal_number').eq('contact_id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
-    if (existingDeal?.deal_number) row.deal_number = existingDeal.deal_number
-    else row.deal_number = await nextDealershipNumber('deals', 'deal_number', req.dealershipId, 1000)
-
-    const { data: custRow } = await supabaseAdmin.from('contacts').select('customer_number').eq('id', contactId).maybeSingle()
-    let customerNumber = custRow?.customer_number || null
-    if (!customerNumber) {
-      customerNumber = await nextDealershipNumber('contacts', 'customer_number', req.dealershipId, 1000)
-      await supabaseAdmin.from('contacts').update({ customer_number: customerNumber }).eq('id', contactId)
-    }
-
-    const { data, error } = await supabaseAdmin.from('deals')
-      .upsert(row, { onConflict: 'contact_id' }).select().maybeSingle()
-    if (error) { console.error('deal upsert failed:', error.message); return res.status(500).json({ error: 'Save failed' }) }
-    // Once F&I has added products and saved, the vehicle is no longer up for grabs —
-    // mark it pending sale (only if it's still an available unit, never overriding a
-    // sold car). This is the "desk a deal → pending on F&I save" behavior.
-    let vehiclePending = false
-    const fniItems = Array.isArray(data?.fni_items) ? data.fni_items : []
-    if (data?.inventory_id && fniItems.some(x => (x?.name || '').trim() || Number(x?.price) > 0)) {
-      const { data: veh } = await supabaseAdmin.from('inventory')
-        .select('status').eq('id', data.inventory_id).eq('dealership_id', req.dealershipId).maybeSingle()
-      if (veh && String(veh.status || 'available').toLowerCase() === 'available') {
-        await supabaseAdmin.from('inventory').update({ status: 'pending' }).eq('id', data.inventory_id).eq('dealership_id', req.dealershipId)
-        vehiclePending = true
-      }
-    }
-    // If this deal is already sold (not delivered), make sure it's on the Cleanup /
-    // get-ready board — saving a sold deal must never drop the car off it.
-    if (data?.inventory_id && data.deal_status === 'sold') {
-      await ensureGetReadyCard(req.dealershipId, { inventoryId: data.inventory_id, dealId: data.id })
-    }
-    // Auto-generate the get-ready task set on the Task Board when a deal is sold.
-    if (data?.id && ['sold', 'delivered'].includes(data.deal_status)) {
-      ensureDealTasks(req.dealershipId, { dealId: data.id, inventoryId: data.inventory_id || null, contactId, createdBy: req.user?.id || null }).catch(() => {})
-    }
-    // Emit to the unified activity spine: a brand-new deal (no prior deal_number).
-    if (data?.id && !existingDeal) {
-      emitEvent({
-        dealershipId: req.dealershipId, eventName: 'deal.created', entityType: 'deal', entityId: data.id,
-        summary: `Deal #${data.deal_number || ''} created`.trim(), toState: data.deal_status || 'open',
-        department: 'Sales', createdBy: req.user?.id || null,
-        payload: { contact_id: contactId, inventory_id: data.inventory_id || null, deal_number: data.deal_number || null },
-      })
-    }
-    let salesperson = null
-    if (row.created_by) {
-      const { data: rep } = await supabaseAdmin.from('profiles').select('full_name, registration_id').eq('id', row.created_by).maybeSingle()
-      if (rep) salesperson = { name: rep.full_name || null, registration_id: rep.registration_id || null }
-    }
-    // Commission is recomputed by the Commission Engine, which subscribes to this
-    // deal.saved event (kernel contract: no direct cross-engine calls).
-    if (data?.id) {
-      emitEvent({
-        dealershipId: req.dealershipId, eventName: 'deal.saved', entityType: 'deal', entityId: data.id,
-        summary: 'Deal saved', department: 'Sales', createdBy: req.user?.id || null,
-        payload: { contact_id: contactId, inventory_id: data.inventory_id || null },
-      })
-    }
-    res.json({ ok: true, deal: data, customer_number: customerNumber, salesperson, vehicle_pending: vehiclePending })
-  })
-
-  // Move a deal through its lifecycle from the desk. Managers + F&I only.
-  //   pending_credit → credit app submitted; car pending, customer "turned over"
-  //   cash / sold    → deal closed; car sold, customer sold (not yet delivered)
-  //   delivered      → vehicle handed over; car sold, customer delivered
-  // Updates the deal + its linked inventory unit. The CONTACT status is updated
-  // separately by the client (via /crm/contacts/:id) so pipeline automation fires.
-  app.post('/reports/deal/status', requireAuth, async (req, res) => {
-    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
-    const contactId = String(req.body?.contact_id || '')
-    const action = String(req.body?.action || '').toLowerCase()
-    if (!contactId) return res.status(400).json({ error: 'contact_id required' })
-    const now = new Date().toISOString()
-    // action → { deal_status, inventory status, timestamp column }
-    const MAP = {
-      working:        { deal: 'working',        inv: 'available' },
-      pending_credit: { deal: 'pending_credit', inv: 'pending', stamp: 'credit_app_at' },
-      cash:           { deal: 'sold',           inv: 'sold', stamp: 'sold_at' },
-      sold:           { deal: 'sold',           inv: 'sold', stamp: 'sold_at' },
-      delivered:      { deal: 'delivered',      inv: 'sold', stamp: 'delivered_at' },
-    }
-    const m = MAP[action]
-    if (!m) return res.status(400).json({ error: 'Invalid action' })
-    const { data: deal } = await supabaseAdmin.from('deals')
-      .select('id, inventory_id').eq('contact_id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
-    if (!deal) return res.status(404).json({ error: 'Save the deal first, then set its status.' })
-    const patch = { deal_status: m.deal, updated_at: now }
-    if (m.stamp) patch[m.stamp] = now
-    const { error } = await supabaseAdmin.from('deals').update(patch).eq('id', deal.id).eq('dealership_id', req.dealershipId)
-    if (error) { console.error('deal status update failed:', error.message); return res.status(500).json({ error: 'Update failed' }) }
-    // Flip the vehicle to match. Never touch a car that isn't linked to this deal.
-    if (deal.inventory_id) {
-      const invPatch = { status: m.inv }
-      if (m.inv === 'sold') invPatch.sold_at = now
-      if (m.inv === 'available') invPatch.sold_at = null
-      await supabaseAdmin.from('inventory').update(invPatch).eq('id', deal.inventory_id).eq('dealership_id', req.dealershipId)
-      // Sold → make sure the car shows on the Cleanup/get-ready board. Marking sold
-      // is enough; the F&I "Approve" step is optional. (Delivered leaves the board.)
-      if (m.deal === 'sold') {
-        await ensureGetReadyCard(req.dealershipId, { inventoryId: deal.inventory_id, dealId: deal.id })
-      }
-    }
-    // Auto-generate the get-ready Task Board checklist when the deal is sold/delivered.
-    if (['sold', 'delivered'].includes(m.deal)) {
-      ensureDealTasks(req.dealershipId, { dealId: deal.id, inventoryId: deal.inventory_id || null, contactId, createdBy: req.user?.id || null }).catch(() => {})
-    }
-    // Fire outbound webhooks on the milestone transitions (glue for accounting/Zapier).
-    if (m.deal === 'sold' || m.deal === 'delivered') {
-      emitWebhook(req.dealershipId, m.deal === 'delivered' ? 'deal.delivered' : 'deal.sold', {
-        deal_id: deal.id, contact_id: contactId, inventory_id: deal.inventory_id || null, at: now,
-      })
-    }
-    // Emit to the unified activity spine. to_state is the new deal status; the workflow
-    // engine matches templates on `deal.status_changed:<to_state>` (e.g. Sold Vehicle Delivery).
-    emitEvent({
-      dealershipId: req.dealershipId, eventName: 'deal.status_changed', entityType: 'deal', entityId: deal.id,
-      summary: `Deal marked ${m.deal}`, toState: m.deal, department: 'Sales', createdBy: req.user?.id || null,
-      payload: { contact_id: contactId, inventory_id: deal.inventory_id || null, action },
-    })
-    // Both the internal ledger AND any external accounting sync (QuickBooks/Xero) now
-    // hang off the deal.status_changed:delivered event above — the Accounting Engine
-    // posts balanced double-entry journals and the Integration Engine SUBSCRIBES to
-    // push the sale to the connected books. No direct cross-engine calls here.
-    // Commission recompute/clawback + the commission.calculated accounting event are
-    // now handled by the Commission Engine, which SUBSCRIBES to the deal.status_changed
-    // event emitted above (kernel contract: no direct cross-engine calls).
-    res.json({ ok: true, deal_status: m.deal, vehicle_status: m.inv })
-  })
-
-  // ── Desk-a-deal helpers: search customers, prefill one, search inventory ──────
-  // Search ALL contacts (not just sold) so a deal can be started for anyone.
-  app.get('/deals/customers', requireAuth, async (req, res) => {
-    if (!req.dealershipId) return res.json({ ok: true, rows: [] })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
-    const q = String(req.query.q || '').trim()
-    let query = supabaseAdmin.from('contacts')
-      .select('id, first_name, last_name, full_name, email, phone, phone_mobile, city, province')
-      .eq('dealership_id', req.dealershipId).order('last_activity_at', { ascending: false, nullsFirst: false }).limit(25)
-    if (q) {
-      const like = `%${q.replace(/[%,]/g, ' ')}%`
-      query = query.or(`full_name.ilike.${like},first_name.ilike.${like},last_name.ilike.${like},email.ilike.${like},phone.ilike.${like},phone_mobile.ilike.${like}`)
-    }
-    const { data } = await query
-    const rows = (data || []).map(c => ({
-      id: c.id,
-      name: c.full_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || 'Customer',
-      email: c.email || null, phone: c.phone || c.phone_mobile || null,
-      city: c.city || null, province: c.province || null,
-    }))
-    res.json({ ok: true, rows })
-  })
-
-  // Full buyer block for the bill of sale (address, DL, phones), plus any vehicle
-  // of interest so the desk can prefill the vehicle section.
-  app.get('/deals/customer', requireAuth, async (req, res) => {
-    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
-    const id = String(req.query.id || '')
-    if (!id) return res.status(400).json({ error: 'id required' })
-    const { data: c } = await supabaseAdmin.from('contacts')
-      .select('id, first_name, last_name, full_name, email, phone, phone_mobile, phone_home, phone_work, address, city, province, postal_code, country, dl_number, dl_expiry, interest_inventory_id, interest_vehicle, trade_vehicle')
-      .eq('id', id).eq('dealership_id', req.dealershipId).maybeSingle()
-    if (!c) return res.status(404).json({ error: 'Contact not found' })
-    let vehicle = null
-    if (c.interest_inventory_id) {
-      const { data: v } = await supabaseAdmin.from('inventory')
-        .select('id, vin, year, make, model, trim, mileage, exterior_color, stocknumber, price')
-        .eq('id', c.interest_inventory_id).eq('dealership_id', req.dealershipId).maybeSingle()
-      if (v) vehicle = v
-    }
-    res.json({ ok: true, contact: c, vehicle })
-  })
-
-  // Saved trade appraisals for this customer — to pull into the desk's trade section.
-  app.get('/deals/trades', requireAuth, async (req, res) => {
-    if (!req.dealershipId) return res.json({ ok: true, rows: [] })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
-    const contactId = String(req.query.contact_id || '')
-    if (!contactId) return res.json({ ok: true, rows: [] })
-    const cols = 'id, year, make, model, trim, vin, mileage, color, suggested_offer, retail_median, created_at, contact_id, customer'
-    // Primary match: appraisals explicitly linked to this contact.
-    const { data: linked } = await supabaseAdmin.from('trade_appraisals')
-      .select(cols).eq('dealership_id', req.dealershipId).eq('contact_id', contactId)
-      .order('created_at', { ascending: false }).limit(10)
-    const rows = [...(linked || [])]
-    // Fallback: an appraisal may have been saved before the contact existed (or under a
-    // separate contact record for the same person) — match on the customer's email/phone
-    // captured on the appraisal so it still pulls into the deal.
-    const { data: c } = await supabaseAdmin.from('contacts')
-      .select('email, phone, phone_mobile').eq('id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
-    const email = (c?.email || '').trim().toLowerCase()
-    const phone = (c?.phone || c?.phone_mobile || '').replace(/\D/g, '')
-    if (email || phone) {
-      const { data: recent } = await supabaseAdmin.from('trade_appraisals')
-        .select(cols).eq('dealership_id', req.dealershipId)
-        .order('created_at', { ascending: false }).limit(200)
-      const seen = new Set(rows.map(r => r.id))
-      for (const a of (recent || [])) {
-        if (seen.has(a.id)) continue
-        const cust = a.customer || {}
-        const aEmail = String(cust.email || '').trim().toLowerCase()
-        const aPhone = String(cust.mobile_phone || cust.phone || cust.home_phone || '').replace(/\D/g, '')
-        if ((email && aEmail && aEmail === email) || (phone && aPhone && aPhone === phone)) {
-          rows.push(a); seen.add(a.id)
-          if (rows.length >= 10) break
-        }
-      }
-    }
-    // Strip the customer blob from the response (only needed for matching above).
-    res.json({ ok: true, rows: rows.map(({ customer, ...r }) => r) })
-  })
-
-  // Search this dealer's inventory for the vehicle section (VIN / stock / name).
-  app.get('/deals/vehicles', requireAuth, async (req, res) => {
-    if (!req.dealershipId) return res.json({ ok: true, rows: [] })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
-    const q = String(req.query.q || '').trim()
-    let query = supabaseAdmin.from('inventory')
-      .select('id, vin, year, make, model, trim, mileage, exterior_color, stocknumber, price, status')
-      .eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).limit(25)
-    if (q) {
-      const like = `%${q.replace(/[%,]/g, ' ')}%`
-      query = query.or(`vin.ilike.${like},stocknumber.ilike.${like},make.ilike.${like},model.ilike.${like},trim.ilike.${like}`)
-    }
-    const { data } = await query
-    res.json({ ok: true, rows: data || [] })
-  })
-
-  // Inventory report — the "what" data source for the custom report builder.
-  // Filters by status and (lot-date) range; returns a flat row per vehicle.
-  app.get('/reports/inventory', requireAuth, async (req, res) => {
-    if (!req.dealershipId) return res.json({ ok: true, rows: [] })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
-    const did = req.dealershipId
-    const days = ({ '30': 30, '90': 90, '180': 180, '365': 365, 'all': null }[String(req.query.range || 'all')])
-    const startIso = days ? new Date(Date.now() - days * 86400000).toISOString() : null
-    const status = String(req.query.status || 'all')
-
-    let q = supabaseAdmin.from('inventory')
-      .select('stocknumber, vin, year, make, model, trim, condition, body_style, exterior_color, interior_color, mileage, price, status, drivetrain, fuel_type, transmission, lot_date, created_at, sold_at, archived_at')
-      .eq('dealership_id', did).limit(20000)
-    if (status === 'available') q = q.eq('status', 'available').is('archived_at', null)
-    else if (status === 'sold') q = q.eq('status', 'sold')
-    else if (status === 'archived') q = q.not('archived_at', 'is', null)
-    if (startIso) q = q.or(`lot_date.gte.${startIso},and(lot_date.is.null,created_at.gte.${startIso})`)
-    const { data: inv } = await q
-
-    const now = Date.now()
-    const money = (n) => (n == null || n === '') ? null : Number(n).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
-    const STATUS_LABEL = { available: 'Available', sold: 'Sold', archived: 'Archived', pending: 'Pending' }
-    const rows = (inv || [])
-      .sort((a, b) => new Date(b.lot_date || b.created_at || 0) - new Date(a.lot_date || a.created_at || 0))
-      .map(v => {
-        const ref = v.lot_date || v.created_at
-        const end = v.sold_at || v.archived_at || (v.status === 'available' ? null : null)
-        const daysOnLot = ref ? Math.floor(((end ? new Date(end).getTime() : now) - new Date(ref).getTime()) / 86400000) : null
-        const st = (v.archived_at && v.status !== 'sold') ? 'archived' : v.status
-        return {
-          stock_number: v.stocknumber || null,
-          vin: v.vin || null,
-          year: v.year || null, make: v.make || null, model: v.model || null, trim: v.trim || null,
-          condition: v.condition || null,
-          body_style: v.body_style || null,
-          exterior_color: v.exterior_color || null,
-          interior_color: v.interior_color || null,
-          mileage: v.mileage != null ? Number(v.mileage).toLocaleString('en-US') : null,
-          price: money(v.price),
-          status: STATUS_LABEL[st] || st || null,
-          drivetrain: v.drivetrain || null,
-          fuel_type: v.fuel_type || null,
-          transmission: v.transmission || null,
-          days_on_lot: daysOnLot != null ? String(daysOnLot) : null,
-          lot_date: ref || null,
-          sold_date: v.sold_at || null,
-        }
-      })
-    res.json({ ok: true, rows, count: rows.length })
-  })
-
-  // ── Teams ────────────────────────────────────────────────────────────────
-  // Sales & Management are login users (profiles); Service/Admin/Cleanup/Lot are
-  // label-only staff records. One roster endpoint serves both.
-  const LOGIN_TEAMS = { sales: ['SALES_REP'], management: ['MANAGER', 'DEALER_ADMIN', 'OWNER'] }
-  const LABEL_TEAMS = ['service', 'admin', 'cleanup', 'lot']
-  const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
-
-  app.get('/team/roster', requireAuth, async (req, res) => {
-    if (!req.dealershipId) return res.json({ ok: true, team: 'sales', members: [], login: false })
-    const team = String(req.query.team || 'sales').toLowerCase()
-    if (LOGIN_TEAMS[team]) {
-      const { data } = await supabaseAdmin.from('profiles')
-        .select('id, full_name, display_name, role, avatar_url').eq('dealership_id', req.dealershipId).in('role', LOGIN_TEAMS[team])
-      const members = (data || []).map(p => ({ id: p.id, name: p.full_name || p.display_name || '—', role: p.role, avatar_url: p.avatar_url || null, login: true }))
-        .sort((a, b) => a.name.localeCompare(b.name))
-      return res.json({ ok: true, team, login: true, members })
-    }
-    if (LABEL_TEAMS.includes(team)) {
-      const { data } = await supabaseAdmin.from('staff_members')
-        .select('id, name, phone, email, notes, active').eq('dealership_id', req.dealershipId).eq('team', team).order('name')
-      return res.json({ ok: true, team, login: false, members: (data || []).map(m => ({ ...m, login: false })) })
-    }
-    res.status(400).json({ error: 'Unknown team' })
-  })
-
-  app.post('/team/staff', requireAuth, async (req, res) => {
-    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
-    const team = String(req.body?.team || '').toLowerCase()
-    const name = String(req.body?.name || '').trim()
-    if (!LABEL_TEAMS.includes(team)) return res.status(400).json({ error: 'Invalid team' })
-    if (!name) return res.status(400).json({ error: 'Name required' })
-    const row = {
-      dealership_id: req.dealershipId, team, name,
-      phone: String(req.body?.phone || '').trim() || null,
-      email: String(req.body?.email || '').trim() || null,
-      notes: String(req.body?.notes || '').trim() || null,
-      created_by: req.user?.id || null, updated_at: new Date().toISOString(),
-    }
-    if (req.body?.id) {
-      const { data, error } = await supabaseAdmin.from('staff_members').update(row).eq('id', req.body.id).eq('dealership_id', req.dealershipId).select().maybeSingle()
-      if (error) return res.status(500).json({ error: 'Save failed' })
-      return res.json({ ok: true, member: data })
-    }
-    const { data, error } = await supabaseAdmin.from('staff_members').insert(row).select().maybeSingle()
-    if (error) return res.status(500).json({ error: 'Save failed' })
-    res.json({ ok: true, member: data })
-  })
-
-  app.delete('/team/staff/:id', requireAuth, async (req, res) => {
-    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
-    const { error } = await supabaseAdmin.from('staff_members').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
-    if (error) return res.status(500).json({ error: 'Delete failed' })
-    res.json({ ok: true })
-  })
+  })  // Dashboard & reports routes extracted to routes/submodules/dashboard-reports.js
 }
+

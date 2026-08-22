@@ -10,12 +10,14 @@
  */
 import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
 import { findOrCreateContact } from './crm.js'
+import { checkInAppointment } from './service-engine.js'
 import { createNotification } from '../notifications.js'
 import { rateLimit } from '../security.js'
 import { syncAppointmentOut } from './calendar.js'
+import { audit } from '../audit.js'
 
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'SERVICE'].includes(req.profile?.role)
 const isDealerLevel = (p) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'SERVICE'].includes(p?.role)
 const DEFAULT_TYPES = ['Oil change', 'Tire change / rotation', 'Brakes', 'Diagnostic', 'Scheduled maintenance', 'Recall', 'Detailing', 'Other']
 
@@ -31,11 +33,19 @@ function serviceSettings(dealer) {
   }
 }
 
+// Appointment state. `status` is the canonical column (Phase 4); `done` predates it and
+// still means "dealt with", so an older appointment with no status is derived rather
+// than guessed — a done appointment with no status is simply closed out.
+const APPT_STATES = ['scheduled', 'arrived', 'no_show', 'converted', 'canceled']
+const apptStatus = (t) => APPT_STATES.includes(t.status) ? t.status : (t.done ? 'converted' : 'scheduled')
+
 // Shape a service crm_task + its contact for the dashboard list.
-function apptRow(t, contactName, repName) {
+function apptRow(t, contactName, repName, roId) {
   return {
     id: t.id, contact_id: t.contact_id, title: t.title,
-    when: t.due_at, done: !!t.done, status: t.status || null,
+    when: t.due_at, done: !!t.done, status: apptStatus(t),
+    arrived_at: t.arrived_at || null,
+    repair_order_id: roId || null,
     customer: contactName || 'Customer', rep: repName || null,
     service_type: t.service_type || null,
   }
@@ -43,16 +53,14 @@ function apptRow(t, contactName, repName) {
 
 export function registerService(app) {
   // ── Settings ────────────────────────────────────────────────────────────────
-  app.get('/service/config', requireAuth, async (req, res) => {
+  app.get('/service/config', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: d } = await supabaseAdmin.from('dealerships').select('service_settings, site_slug, site_published').eq('id', req.dealershipId).maybeSingle()
     res.json({ ok: true, settings: serviceSettings(d), site_slug: d?.site_slug || null, site_published: !!d?.site_published, default_types: DEFAULT_TYPES })
   })
 
-  app.put('/service/config', requireAuth, async (req, res) => {
+  app.put('/service/config', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: cur } = await supabaseAdmin.from('dealerships').select('service_settings').eq('id', req.dealershipId).maybeSingle()
     const s = { ...(cur?.service_settings || {}) }
     const b = req.body || {}
@@ -64,6 +72,14 @@ export function registerService(app) {
     if (b.duration_min !== undefined) { const n = parseInt(b.duration_min); if (Number.isFinite(n) && n > 0 && n <= 480) s.duration_min = n }
     const { error } = await supabaseAdmin.from('dealerships').update({ service_settings: s }).eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: 'Save failed' })
+    audit(req, 'service.configuration_updated', {
+      after_state: {
+        enabled: s.enabled === true,
+        service_type_count: Array.isArray(s.service_types) ? s.service_types.length : 0,
+        desk_email_configured: !!s.desk_email,
+        duration_min: s.duration_min || null,
+      },
+    })
     res.json({ ok: true, settings: serviceSettings({ service_settings: s }) })
   })
 
@@ -71,18 +87,67 @@ export function registerService(app) {
   app.get('/service/appointments', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ appointments: [] })
     let q = supabaseAdmin.from('crm_tasks')
-      .select('id, contact_id, assigned_to, title, due_at, done, status, service_type')
+      .select('id, contact_id, assigned_to, title, due_at, done, status, arrived_at, service_type')
       .eq('dealership_id', req.dealershipId).eq('category', 'service')
       .order('due_at', { ascending: true }).limit(2000)
     if (!isDealerLevel(req.profile)) q = q.eq('assigned_to', req.user.id)
-    const { data: rows } = await q
+    const { data: rows, error } = await q
+    // This query silently returned nothing for every dealership because it selected a
+    // column that did not exist and the error was discarded (Stage 4A finding B1). The
+    // column now exists — and a failure here is reported instead of looking like an
+    // empty appointment book.
+    if (error) return res.status(500).json({ error: error.message })
     const list = rows || []
     const cIds = [...new Set(list.map(t => t.contact_id).filter(Boolean))]
     const rIds = [...new Set(list.map(t => t.assigned_to).filter(Boolean))]
-    let cNames = {}, rNames = {}
+    let cNames = {}, rNames = {}, roByTask = {}
     if (cIds.length) { const { data: cs } = await supabaseAdmin.from('contacts').select('id, full_name, first_name, last_name').in('id', cIds); cNames = Object.fromEntries((cs || []).map(c => [c.id, c.full_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Customer'])) }
     if (rIds.length) { const { data: rs } = await supabaseAdmin.from('profiles').select('id, full_name, display_name').in('id', rIds); rNames = Object.fromEntries((rs || []).map(r => [r.id, r.full_name || r.display_name || '—'])) }
-    res.json({ ok: true, appointments: list.map(t => apptRow(t, cNames[t.contact_id], rNames[t.assigned_to])), can_manage_all: isDealerLevel(req.profile) })
+    // Which appointments already produced a repair order — the check-in is idempotent,
+    // so this is what the UI reads to know an arrival is already converted.
+    if (list.length) {
+      const { data: ros } = await supabaseAdmin.from('repair_orders').select('id, appointment_task_id')
+        .eq('dealership_id', req.dealershipId).in('appointment_task_id', list.map(t => t.id))
+      roByTask = Object.fromEntries((ros || []).map(r => [r.appointment_task_id, r.id]))
+    }
+    res.json({ ok: true, appointments: list.map(t => apptRow(t, cNames[t.contact_id], rNames[t.assigned_to], roByTask[t.id])), can_manage_all: isDealerLevel(req.profile) })
+  })
+
+  // ── Check-in: the canonical arrival transition ──────────────────────────────
+  // Appointment → customer arrives → canonical customer + vehicle resolved → concern
+  // carried forward → exactly ONE repair order. Idempotent in the database (unique
+  // index on repair_orders.appointment_task_id), not in the interface: a double-click,
+  // a retry, or two advisors checking the same customer in all land on the same RO.
+  app.post('/service/appointments/:id/check-in', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const b = req.body || {}
+    try {
+      const result = await checkInAppointment(req.dealershipId, req.params.id, {
+        vin: b.vin || null, odometer: b.odometer ?? b.mileage_in ?? null,
+        mileage_in: b.mileage_in ?? b.odometer ?? null, fuel_in: b.fuel_in || null,
+        customerVehicleId: b.customer_vehicle_id || null,
+        complaint: b.complaint || null, year: b.year ?? null, make: b.make || null, model: b.model || null,
+        trim: b.trim || null, plate: b.plate || null, advisorId: b.advisor_id || req.user?.id || null,
+        userId: req.user?.id || null,
+      })
+      if (result.created) audit(req, 'service.checked_in', { after_state: { ro_id: result.ro.id, ro_number: result.ro.ro_number, appointment_task_id: req.params.id } })
+      res.json({ ok: true, created: result.created, ro: result.ro, vehicle: result.vehicle || null })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+
+  // Mark an appointment arrived or no-show without opening an RO yet.
+  app.post('/service/appointments/:id/status', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const to = String(req.body?.status || '')
+    if (!['scheduled', 'arrived', 'no_show', 'canceled'].includes(to)) return res.status(400).json({ error: 'invalid appointment status' })
+    const patch = { status: to }
+    if (to === 'arrived') patch.arrived_at = new Date().toISOString()
+    if (to === 'no_show' || to === 'canceled') { patch.done = true; patch.done_at = new Date().toISOString() }
+    const { data, error } = await supabaseAdmin.from('crm_tasks').update(patch)
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).eq('category', 'service').select('*').maybeSingle()
+    if (error) return res.status(500).json({ error: error.message })
+    if (!data) return res.status(404).json({ error: 'Not found' })
+    res.json({ ok: true, appointment: apptRow(data, null, null, null) })
   })
 
   // Book a service appointment internally (attaches to an existing contact, or

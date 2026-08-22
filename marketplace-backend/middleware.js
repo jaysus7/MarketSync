@@ -1,14 +1,26 @@
-import { supabase, supabaseAdmin } from './shared.js'
+import crypto from 'node:crypto'
+import { supabase, supabaseAdmin, isSaasStaff } from './shared.js'
+import { SYSTEM_ROLES, hasSystemRole } from './authorization.js'
+import { createClient } from '@supabase/supabase-js'
+import WebSocket from 'ws'
+import { mfaStepUpSatisfied } from './mfa-assurance.js'
+import { hasRecentPasskeyStepUp } from './passkeys.js'
 
-// Cache the demo dealership id (created by POST /demo/seed). Only positive results
-// are cached, so it resolves as soon as the workspace is seeded.
-let _demoDealerId = null
-export function bustDemoDealerCache(id) { _demoDealerId = id || null }
-async function resolveDemoDealership() {
-  if (_demoDealerId) return _demoDealerId
-  const { data } = await supabaseAdmin.from('dealerships').select('id').eq('name', 'MarketSync Demo').maybeSingle()
-  if (data?.id) _demoDealerId = data.id
-  return data?.id || null
+// A Supabase client scoped to the CALLER'S JWT. Queries run as the `authenticated`
+// Postgres role with auth.uid() set, so RLS (authz.has_permission(dealership_id, …))
+// enforces tenant isolation AND permission on every row — defence in depth beyond the
+// app-layer .eq('dealership_id', …) filters.
+//
+// Use req.supabase for ALL dealer-facing data access. Reserve supabaseAdmin (service
+// role, which BYPASSES RLS) strictly for: Supabase Auth administration, platform
+// administration, verified webhook processing, cron jobs / background workers, audit &
+// security-event writes, and maintenance operations.
+function requestScopedClient(token) {
+  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+    realtime: { transport: WebSocket },
+  })
 }
 
 // ── AUTH MIDDLEWARE ──
@@ -20,15 +32,39 @@ export async function requireAuth(req, res, next) {
     const { data: { user }, error } = await supabase.auth.getUser(token)
     if (error || !user) return res.status(401).json({ error: 'AUTH_EXPIRED — please sign in again' })
 
+    // Do not embed `dealerships(*)` here. The schema has more than one
+    // profiles↔dealerships relationship (for example, a dealership owner), so
+    // PostgREST rejects the unqualified embed as ambiguous. That used to turn a
+    // perfectly valid fresh login into `Profile not found` / 401.
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('*, dealerships(*)')
+      .select('*')
       .eq('id', user.id)
       .single()
 
     if (profileError || !profile) return res.status(401).json({ error: 'Profile not found' })
+    if (profile.dealership_id) {
+      const { data: dealership, error: dealershipError } = await supabaseAdmin
+        .from('dealerships')
+        .select('*')
+        .eq('id', profile.dealership_id)
+        .maybeSingle()
+      if (dealershipError) {
+        console.warn('[auth] dealership lookup failed:', dealershipError.message)
+      }
+      // Preserve the existing request shape for downstream billing and role code.
+      profile.dealerships = dealership || null
+    } else {
+      profile.dealerships = null
+    }
+    // Retain deactivated team members for audit/history, but never allow their
+    // existing or newly issued sessions to reach the application.
+    if (profile.active === false) return res.status(403).json({ error: 'ACCOUNT_DEACTIVATED' })
 
-    if (!req.path.startsWith('/billing')) {
+    // MarketSync HQ staff (the saas_admin workspace) have no dealership and no
+    // subscription of their own — they operate the platform. Skip the dealership
+    // billing gate entirely for them.
+    if (!req.path.startsWith('/billing') && !isSaasStaff(profile, user.email)) {
       const isPersonal = profile.dealerships?.is_personal === true
       const useProfileBilling = !profile.dealership_id || isPersonal
       const status = useProfileBilling
@@ -67,20 +103,78 @@ export async function requireAuth(req, res, next) {
     req.user = user
     req.profile = profile
     req.dealershipId = profile.dealership_id
+    // RLS-enforcing client bound to this caller's token (see requestScopedClient).
+    req.supabase = requestScopedClient(token)
 
-    // Owner-only DEMO workspace override: the MarketSync owner can flip the whole
-    // dashboard into a sandboxed demo dealership (seeded fake cars/customers) without
-    // touching their real MarketSync data. Gated to the JMS Automotive owner + an
-    // explicit header, and scoped by dealership_id like everything else.
-    const ownerEmail = (process.env.OWNER_EMAIL || '').toLowerCase()
-    const isMsOwner = (ownerEmail && (user.email || '').toLowerCase() === ownerEmail)
-      || ['JMS Automotive', 'MarketSync'].includes(profile.dealerships?.name)
-    if (req.headers['x-act-demo'] === '1' && isMsOwner) {
-      const demoId = await resolveDemoDealership()
-      if (demoId) { req.dealershipId = demoId; req.isDemo = true }
-    }
     next()
   } catch (err) {
     return res.status(500).json({ error: 'Internal server authorization error' })
   }
 }
+
+export function getSessionFingerprint(req, rawToken) {
+  const token = rawToken || req?.headers?.authorization?.replace('Bearer ', '') || ''
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
+  return crypto.createHash('sha256').update(`${req?.user?.id || 'anon'}:${tokenHash}`).digest('hex')
+}
+
+// Re-check Supabase's authenticated assurance level for high-risk operations.
+// A normal password/passkey/email-OTP session is aal1; a verified Supabase MFA
+// factor (TOTP or phone) promotes that specific session to aal2.
+//
+export async function requireMfa(req, res, next) {
+  // A recent biometric passkey step-up (Touch ID / Face ID / Windows Hello /
+  // fingerprint), verified via /auth/passkey/stepup/*, satisfies the gate without
+  // a TOTP code. Runs after requireAuth, so req.user is populated.
+  const fp = req.user?.id ? getSessionFingerprint(req) : null
+  if (hasRecentPasskeyStepUp(req.user?.id) || hasRecentPasskeyStepUp(req.user?.id, fp)) return next()
+  const token = req.headers.authorization?.replace('Bearer ', '')
+  if (!token) return res.status(401).json({ error: 'No token provided' })
+  try {
+    const client = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    })
+    // Eased policy: only accounts that actually have MFA enrolled are asked to
+    // step up. Users without a verified factor pass through instead of being
+    // locked out of the whole app. (Still 503s, never bypasses, if the level
+    // can't be verified — see the catch below.)
+    if (!(await mfaStepUpSatisfied(client, token))) {
+      return res.status(403).json({ error: 'MFA_REQUIRED', message: 'Complete multi-factor authentication to continue.' })
+    }
+    next()
+  } catch {
+    return res.status(503).json({ error: 'MFA verification temporarily unavailable.' })
+  }
+}
+
+// Strong step-up gate: requires AAL2 assurance (active MFA session) OR a recent
+// session-bound biometric passkey step-up. Unlike requireMfa, it NEVER allows
+// non-MFA users to pass through without step-up.
+export async function requireStrongStepUp(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: 'UNAUTHORIZED' })
+  const token = req.headers.authorization?.replace('Bearer ', '')
+  if (!token) return res.status(401).json({ error: 'No token provided' })
+
+  const fp = getSessionFingerprint(req, token)
+  if (hasRecentPasskeyStepUp(req.user.id, fp)) return next()
+
+  try {
+    const client = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    })
+    const { data: aal, error } = await client.auth.mfa.getAuthenticatorAssuranceLevel()
+    if (!error && aal?.currentLevel === 'aal2') {
+      return next()
+    }
+    return res.status(403).json({
+      error: 'STRONG_STEP_UP_REQUIRED',
+      message: 'A recent passkey or MFA verification is required for this action.'
+    })
+  } catch {
+    return res.status(403).json({
+      error: 'STRONG_STEP_UP_REQUIRED',
+      message: 'A recent passkey or MFA verification is required for this action.'
+    })
+  }
+}
+

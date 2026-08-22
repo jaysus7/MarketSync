@@ -5,3 +5,25 @@
 # Proxy server-rendered blog post pages for crawlers that don't execute JavaScript.
 # The backend /ssr/blog/:slug route returns a full HTML document with all SEO metadata.
 /blog/:slug  https://vehicle-marketplace-s0e4.onrender.com/ssr/blog/:slug  200
+
+# Clean URL aliases for core SPA and customer flow routes (serving real HTML without extension)
+/login          /login.html          200
+/register       /register.html       200
+/dashboard      /dashboard.html      200
+/pricing        /pricing.html        200
+/features       /features.html       200
+/watch          /watch.html          200
+/esign          /esign.html          200
+/chat-widget    /chat-widget.html    200
+/site           /site.html           200
+/demo           /demo.html           200
+/support        /support.html        200
+/faq            /faq.html            200
+/security       /security.html       200
+/privacy        /privacy-policy.html 200
+/terms          /terms.html          200
+/affiliate      /affiliate.html      200
+/affiliates     /affiliates.html     200
+/upgrade        /upgrade.html        200
+/training       /training.html       200
+/verify         /verify.html         200

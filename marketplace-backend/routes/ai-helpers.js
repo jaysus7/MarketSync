@@ -5,6 +5,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL, browserFetch } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
 import { marketcheckMarket, marketcheckListings, marketcheckEnabled, marketcheckCompetitorStats, marketcheckPing, marketcheckDecodeVin, marketcheckPredictPrice, marketcheckMarketStats } from '../marketcheck.js'
 import { getMarketData, getSoldData, recordUsage, aiAllowed, getUsage, assistantDailyAllowed, recordAssistantChat, ASSISTANT_DAILY_LIMIT, marketcheckAllowed, recordMarketcheckCall } from '../usage.js'
 import { findOrCreateContact } from './crm.js'
@@ -15,7 +16,11 @@ import { runPhotoVision, scoreVehiclePhotos } from '../sync/photoVision.js'
 import { fetchOemWindowStickerPdf } from '../utils/oemWindowSticker.js'
 import { lookupPlate, plateLookupConfigured } from '../providers/plateLookup.js'
 
-const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
+// Platform-only entitlement overrides must come from the server-managed role,
+// never from an email string or editable profile field.
+function isPlatformOwner(req) {
+  return hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)
+}
 
 // Best-effort: pull the factory (OEM) window sticker for an acquired unit's VIN and
 // attach it, so a freshly-taken trade carries real factory documentation before the
@@ -689,16 +694,12 @@ async function marketMedianForScan({ vehicle, dealer, isUS, dealershipId, isOwne
     return null
   } catch { return null }
 }
-
 function requireDealerAdmin(req, res, next) {
-  // Dealer-level access: dealer admins, owners, and managers (a manager has full
-  // dealer access, just scoped to the store they're logged into).
   if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) {
     return res.status(403).json({ error: 'Dealer-level access required' })
   }
   next()
 }
-
 // Calculate median from a sorted array of numbers
 function median(sorted) {
   if (!sorted.length) return null
@@ -787,7 +788,7 @@ async function computeDailyDigest(dealershipId, isOwner = false) {
 }
 
 export {
-  OWNER_EMAIL, attachOemStickerToInventory, LANG_NAME, langName,
+  isPlatformOwner, attachOemStickerToInventory, LANG_NAME, langName,
   PRODUCT_KB, ASSISTANT_TOOLS, REPORT_TOPICS,
   buildDealershipReport, runAssistantTool,
   skipPriceComp, PRICE_MIN_COMPS, buildPriceFlag, aiErrorMessage,

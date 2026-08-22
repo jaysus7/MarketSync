@@ -1,0 +1,206 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+
+const videoStudio = readFileSync(new URL('../../marketplace-frontend/js/modules/video-studio.js', import.meta.url), 'utf8')
+const dashboardJs = readFileSync(new URL('../../marketplace-frontend/dashboard.js', import.meta.url), 'utf8')
+const salesWorkspace = readFileSync(new URL('../../marketplace-frontend/js/modules/sales-workspace.js', import.meta.url), 'utf8')
+const watchHtml = readFileSync(new URL('../../marketplace-frontend/watch.html', import.meta.url), 'utf8')
+const salesVideoBackend = readFileSync(new URL('../routes/sales-video.js', import.meta.url), 'utf8')
+
+test('the backend send endpoint ACTUALLY delivers — it was a no-op that only stamped status=sent, so the customer got nothing', () => {
+  // The one bug behind "I sent it and nothing arrived": the endpoint updated the row
+  // but never called any email/SMS provider.
+  assert.match(salesVideoBackend, /import \{ supabaseAdmin, sendEmail, emailHealth, FRONTEND_URL \} from '\.\.\/shared\.js'/)
+  assert.match(salesVideoBackend, /import \{ sendDealerSms \} from '\.\/automation\.js'/)
+
+  const sendHandler = salesVideoBackend.match(/app\.post\('\/sales-videos\/:id\/send'[\s\S]*?\n  \}\)/)?.[0] || ''
+  assert.ok(sendHandler, 'the send route handler must exist')
+  assert.match(sendHandler, /await sendEmail\(/, 'the email channel must call the real mailer')
+  assert.match(sendHandler, /await sendDealerSms\(req\.dealershipId,/, 'the sms channel must call the real Twilio sender')
+
+  // Fail closed: a failed delivery must NOT be recorded as sent. The 502 guard has to come
+  // BEFORE the status update, or a bounced email would still read "Sent" to the rep.
+  const failGuardIdx = sendHandler.indexOf('if (!delivery?.ok)')
+  const markSentIdx = sendHandler.indexOf("status: 'sent'")
+  assert.ok(failGuardIdx > -1, 'must guard on delivery success')
+  assert.ok(markSentIdx > -1, 'must still mark sent on success')
+  assert.ok(failGuardIdx < markSentIdx, 'the delivery-failure guard must run before the status is set to sent')
+
+  // A customer with no address/number on the chosen channel is a hard error, not a silent send.
+  assert.match(sendHandler, /has no email address on file/)
+  assert.match(sendHandler, /has no mobile number on file/)
+
+  // The emailed/texted link must be the same public watch URL the studio builds.
+  assert.match(salesVideoBackend, /function watchUrl\(shareToken\)/)
+  assert.match(salesVideoBackend, /\/watch\.html\?t=\$\{encodeURIComponent\(shareToken\)\}/)
+})
+
+test('when the server has no sender configured, the send endpoint hands the recipient + link back for a device fallback instead of failing', () => {
+  const sendHandler = salesVideoBackend.match(/app\.post\('\/sales-videos\/:id\/send'[\s\S]*?\n  \}\)/)?.[0] || ''
+  // Email with no Resend key, or SMS with no usable number, is "unconfigured", not an error.
+  assert.match(sendHandler, /emailHealth\(\)\.configured/, 'email uses the real email-health check to detect an unconfigured server')
+  assert.match(sendHandler, /delivery\?\.simulated/, 'a simulated SMS result (no sender) counts as unconfigured')
+  // The unconfigured response is a 200 with the code + recipient + link (NOT a 502),
+  // and it must not mark the video sent (the guard/return comes before the update).
+  assert.match(sendHandler, /code: 'delivery_unconfigured', channel, to, watch_url: url/)
+  const unconfIdx = sendHandler.indexOf("delivery_unconfigured")
+  const markSentIdx = sendHandler.indexOf("status: 'sent'")
+  assert.ok(unconfIdx > -1 && markSentIdx > -1 && unconfIdx < markSentIdx, 'the device-fallback return must come before the status is set to sent')
+})
+
+test('the studio opens the device Messages/Mail app when the server cannot send', () => {
+  // vidSendExistingVideo detects the fallback code and hands off to the device.
+  const sendFn = videoStudio.match(/async function vidSendExistingVideo\(videoId, channel\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(sendFn, /res\.code === 'delivery_unconfigured'/)
+  assert.match(sendFn, /vidDeviceHandoff\(channel, res\.to, res\.watch_url\)/)
+
+  // The handoff builds real sms: and mailto: composer links with the watch URL.
+  const handoff = videoStudio.match(/function vidDeviceHandoff\(channel, to, url\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(handoff, 'vidDeviceHandoff must exist')
+  assert.match(handoff, /`sms:\$\{to \|\| ''\}\?&body=\$\{encodeURIComponent\(body\)\}`/)
+  assert.match(handoff, /`mailto:\$\{to \|\| ''\}\?subject=/)
+  // The rep's typed note, when present on screen, is carried into the composer.
+  assert.match(handoff, /getElementById\('vid-message-input'\)/)
+})
+
+test('apiSendFormData actually exists — the old send flow called it and it was never defined anywhere, so every video upload silently threw and was swallowed', () => {
+  assert.doesNotMatch(videoStudio, /\bsendCustomerVideo\b/, 'the old fake-success sender must be gone, not left as dead code')
+  const fn = dashboardJs.match(/async function apiSendFormData\(path, method = 'POST', formData, \{ timeoutMs = \d+ \} = \{\}\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fn, 'apiSendFormData must exist in dashboard.js, where the other api* helpers live')
+  // Must NOT set Content-Type — the browser has to generate the multipart
+  // boundary itself, which only happens if this header is left unset.
+  assert.doesNotMatch(fn, /'Content-Type'/)
+  assert.match(fn, /body: formData/)
+  assert.match(fn, /if \(!r\.ok\) throw new Error\(data\?\.error \|\| `HTTP \$\{r\.status\}`\);/, 'must throw on failure like apiSendJson, not swallow it')
+})
+
+test('sending a video now actually calls the real backend endpoints, not a fake always-succeeds toast', () => {
+  const sendFn = videoStudio.match(/async function vidSendExistingVideo\(videoId, channel\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(sendFn, 'vidSendExistingVideo must exist')
+  assert.match(sendFn, /apiSendJson\(`\/sales-videos\/\$\{videoId\}\/send`, 'POST', \{ channel \}\)/)
+  // A real failure (including MFA_REQUIRED) must surface to the rep, not be
+  // silently treated as a success.
+  assert.match(sendFn, /catch \(e\) \{/)
+  assert.match(sendFn, /throw e;/)
+
+  const uploadFn = videoStudio.match(/async function vidEnsureUploadedFor\(contactId\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(uploadFn, 'vidEnsureUploadedFor must exist')
+  assert.match(uploadFn, /apiSendFormData\('\/sales-videos', 'POST', formData\)/)
+  assert.match(uploadFn, /if \(!res\?\.video\?\.id\) throw new Error/, 'a failed upload must not be treated as success')
+})
+
+test('an independent Video account with no CRM contact can still send — typing a name/phone/email creates one instead of silently sending to nobody', () => {
+  const ensureFn = videoStudio.match(/async function vidEnsureContact\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(ensureFn, 'vidEnsureContact must exist')
+  assert.match(ensureFn, /apiSendJson\('\/crm\/contacts', 'POST', \{/)
+  // Reuses the studio's own real CRM contact when the fields are untouched,
+  // rather than creating a duplicate every time.
+  assert.match(ensureFn, /isRealContact/)
+  assert.match(ensureFn, /return contact\.id;/)
+  // Repeat clicks with the same typed values must not create a second contact.
+  assert.match(ensureFn, /window\.__videoStudioState\.adhocContact/)
+
+  const sendToFn = videoStudio.match(/async function vidSendVideoTo\(channel\) \{[\s\S]*?\n\}\nwindow\.vidSendVideoTo/)?.[0] || ''
+  assert.ok(sendToFn, 'vidSendVideoTo must exist')
+  // Required field per channel — no silent "sent" with nothing to actually
+  // reach the customer through.
+  assert.match(sendToFn, /if \(channel === 'sms' && !fields\.phone\)/)
+  assert.match(sendToFn, /if \(channel === 'email' && !fields\.email\)/)
+  assert.match(sendToFn, /if \(!contactId\) throw new Error/)
+})
+
+test('the share link "just is there" — it prepares itself automatically as soon as the Review screen opens, not only after a tap', () => {
+  const enterFn = videoStudio.match(/function vidEnterReview\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(enterFn, 'vidEnterReview must exist')
+  assert.match(enterFn, /vidAutoPrepareShareLink\(\);/)
+
+  const autoFn = videoStudio.match(/async function vidAutoPrepareShareLink\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(autoFn, 'vidAutoPrepareShareLink must exist')
+  assert.match(autoFn, /vidEnsureContact\(\)/)
+  assert.match(autoFn, /vidEnsureUploadedFor\(contactId\)/)
+  assert.match(autoFn, /vidUpdateShareLinkBox\(video\.share_token\)/)
+
+  // A manual tap of Copy Link must share the SAME upload/contact requests the
+  // auto-prepare kicked off, not start a second one — that's both what avoids
+  // duplicate contacts/uploads and what makes the tap's clipboard write land
+  // within the click's user-activation window instead of racing a fresh upload.
+  const uploadFn = videoStudio.match(/async function vidEnsureUploadedFor\(contactId\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(uploadFn, 'vidEnsureUploadedFor must exist')
+  assert.match(uploadFn, /window\.__videoStudioState\.uploadPromise/)
+
+  const contactFn = videoStudio.match(/async function vidEnsureContact\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(contactFn, 'vidEnsureContact must exist')
+  assert.match(contactFn, /window\.__videoStudioState\.adhocContactPromise/)
+})
+
+test('a shareable link can be copied independent of naming a customer — "copy the link, or send to a customer"', () => {
+  const buildFn = videoStudio.match(/function vidBuildShareUrl\(shareToken\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(buildFn, 'vidBuildShareUrl must exist')
+  assert.match(buildFn, /watch\.html\?t=\$\{encodeURIComponent\(shareToken\)\}/)
+
+  const copyFn = videoStudio.match(/async function vidCopyShareLink\(\) \{[\s\S]*?\n\}\nwindow\.vidCopyShareLink/)?.[0] || ''
+  assert.ok(copyFn, 'vidCopyShareLink must exist')
+  assert.match(copyFn, /navigator\.clipboard\?\.writeText/)
+  assert.match(copyFn, /vidEnsureUploadedFor\(contactId\)/)
+
+  assert.match(videoStudio, /id="vid-copy-link-btn"/)
+  assert.match(videoStudio, /id="vid-share-link-box"/)
+})
+
+test('the Resend button on the video library sends for real, through the right channel, not a hardcoded SMS', () => {
+  assert.match(salesWorkspace, /onclick="vidSendExistingVideo\('\$\{v\.id\}', '\$\{v\.channel === 'email' \? 'email' : 'sms'\}'\)"/)
+  assert.doesNotMatch(salesWorkspace, /sendCustomerVideo/)
+})
+
+test('the watch page reads the token from ?t= first — the only link shape a plain static file server can actually route', () => {
+  // location.pathname for a bare /watch.html?t=X request is just "/watch.html",
+  // so path-splitting alone would treat the literal string "watch.html" as the
+  // token unless the query string is checked first.
+  const idx = watchHtml.indexOf('const token =')
+  assert.ok(idx > -1, 'token parsing must exist')
+  const tokenLine = watchHtml.slice(idx, idx + 300)
+  const searchIdx = tokenLine.indexOf('URLSearchParams(location.search)')
+  const pathIdx = tokenLine.indexOf('location.pathname')
+  assert.ok(searchIdx > -1 && pathIdx > -1, 'both the query-string and path forms must be present')
+  assert.ok(searchIdx < pathIdx, 'the query string (?t=) must be checked before the path fallback')
+})
+
+test('an MFA_REQUIRED failure is impossible to miss — a persistent notice, not just a toast that can flash by unnoticed', () => {
+  assert.match(videoStudio, /id="vid-mfa-notice"/)
+  assert.match(videoStudio, /Complete MFA</)
+
+  const showFn = videoStudio.match(/function vidShowMfaNotice\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(showFn, 'vidShowMfaNotice must exist')
+  assert.match(showFn, /getElementById\('vid-mfa-notice'\)\?\.classList\.remove\('hidden'\)/)
+
+  // There is no in-app step-up prompt once already logged in — only the login
+  // screen challenges an existing factor — so if a factor is already enrolled,
+  // sending the rep to Settings' enrollment panel would be a dead end (2FA
+  // already reads "On" there, nothing to submit). The fix in that case is
+  // signing out and back in to actually complete the step-up challenge.
+  const goFn = videoStudio.match(/async function vidGoCompleteMfa\(\) \{[\s\S]*?\n\}\nwindow\.vidGoCompleteMfa/)?.[0] || ''
+  assert.ok(goFn, 'vidGoCompleteMfa must exist')
+  assert.match(goFn, /vidCloseStudio\(\)/)
+  assert.match(goFn, /apiGetJson\('\/auth\/2fa\/status'\)/)
+  assert.match(goFn, /if \(status\?\.enabled\) \{/)
+  assert.match(goFn, /window\.msSignOut\(true\)/)
+  assert.match(goFn, /switchPage\('profile'\)/)
+  assert.match(goFn, /settingsTab\('account'\)/)
+
+  // Every path that can hit MFA_REQUIRED must call vidShowMfaNotice — including
+  // the auto-prepare that fires with no user action at all, which previously
+  // swallowed every error silently and just left the link box saying "Tap Copy
+  // Link to generate it" forever with no explanation.
+  const autoFn = videoStudio.match(/async function vidAutoPrepareShareLink\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(autoFn, /vidShowMfaNotice\(\)/)
+
+  const copyFn = videoStudio.match(/async function vidCopyShareLink\(\) \{[\s\S]*?\n\}\nwindow\.vidCopyShareLink/)?.[0] || ''
+  assert.match(copyFn, /vidShowMfaNotice\(\)/)
+
+  const sendExistingFn = videoStudio.match(/async function vidSendExistingVideo\(videoId, channel\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(sendExistingFn, /vidShowMfaNotice\(\)/)
+
+  const sendToFn = videoStudio.match(/async function vidSendVideoTo\(channel\) \{[\s\S]*?\n\}\nwindow\.vidSendVideoTo/)?.[0] || ''
+  assert.match(sendToFn, /vidShowMfaNotice\(\)/)
+})

@@ -8,7 +8,23 @@ import { Resend } from 'resend'
 // from this backend instead of going through Supabase Auth. Lower latency,
 // better deliverability, no shared-tenant rate limits.
 export const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
-export const EMAIL_FROM = process.env.EMAIL_FROM || 'MarketSync <noreply@marketsync.link>'
+// Render should set EMAIL_FROM once the domain is verified in Resend. The
+// MarketSync address below is the intended branded default for all invite and
+// transactional messages.
+export const EMAIL_FROM = process.env.EMAIL_FROM || 'MarketSync <noreply@marketsync.com>'
+
+// Linear, backtracking-free email check. The previous /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+// regex is polynomial ReDoS: `.` is a member of [^\s@], so the `\.` boundary can slide
+// across a long run of characters and force quadratic backtracking. This performs the
+// same validation with bounded indexOf scans and no ambiguous quantifiers.
+export function isEmailLike(v) {
+  const s = String(v == null ? '' : v)
+  if (s.length > 254 || /\s/.test(s)) return false          // one bounded, single-char test
+  const at = s.indexOf('@')
+  if (at <= 0 || at !== s.lastIndexOf('@') || at >= s.length - 1) return false
+  const dot = s.indexOf('.', at + 1)                        // a dot in the domain, not adjacent
+  return dot > at + 1 && dot < s.length - 1
+}
 
 // Central mailer. Every failure mode is made explicit and LOGGED (most call sites
 // used to swallow errors, which is why a mis-configured key or an unverified
@@ -58,6 +74,11 @@ export const CANONICAL_FRONTEND = 'https://marketsync.link'
 export const FRONTEND_URL = (process.env.FRONTEND_URL || CANONICAL_FRONTEND)
   .replace(/\/$/, '')  // strip trailing slash to avoid `//path` URLs
 
+// Separate origins for app authentication vs. untrusted dealer public sites
+export const APP_ORIGIN = (process.env.APP_ORIGIN || process.env.FRONTEND_URL || 'https://marketsync.link').replace(/\/$/, '')
+export const PUBLIC_SITE_ORIGIN = (process.env.PUBLIC_SITE_ORIGIN || 'https://sites.marketsync.link').replace(/\/$/, '')
+export const SITE_DOMAIN_TARGET = (process.env.SITE_DOMAIN_TARGET || 'marketsync.link').replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+
 // Chrome Web Store listing — linked from the onboarding drip ("get the extension").
 export const EXTENSION_URL = process.env.CHROME_EXTENSION_URL ||
   'https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada'
@@ -72,11 +93,28 @@ if (!process.env.SUPABASE_URL) missingEnvVars.push('SUPABASE_URL');
 if (!process.env.SUPABASE_ANON_KEY) missingEnvVars.push('SUPABASE_ANON_KEY');
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) missingEnvVars.push('SUPABASE_SERVICE_ROLE_KEY');
 
+// Under `NODE_ENV=test` the process must be IMPORTABLE without live credentials: the
+// test runner exercises pure helpers in modules that transitively import this file, and
+// CI has no Supabase project. We substitute inert placeholders so the Supabase/Stripe
+// clients construct (they never connect during unit tests). In every real environment a
+// missing key is still fatal exactly as before.
+const IS_TEST = process.env.NODE_ENV === 'test';
 if (missingEnvVars.length > 0) {
-  console.error('❌ CRITICAL CONFIGURATION ERROR: Missing Render Environment Keys:');
-  console.error(JSON.stringify(missingEnvVars, null, 2));
-  process.exit(1);
+  if (IS_TEST) {
+    console.warn('[shared] Missing Supabase env under NODE_ENV=test — using inert placeholders:', missingEnvVars.join(', '));
+  } else {
+    console.error('❌ CRITICAL CONFIGURATION ERROR: Missing Render Environment Keys:');
+    console.error(JSON.stringify(missingEnvVars, null, 2));
+    process.exit(1);
+  }
 }
+
+// Placeholders apply ONLY when the real value is absent (test/CI). Production always sets
+// these, so the `||` fallbacks never trigger there and behavior is byte-for-byte identical.
+const SB_URL = process.env.SUPABASE_URL || 'https://placeholder.supabase.co';
+const SB_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'placeholder-anon-key';
+const SB_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-service-role-key';
+const STRIPE_KEY = process.env.STRIPE_SECRET_KEY || (IS_TEST ? 'sk_test_placeholder' : process.env.STRIPE_SECRET_KEY);
 
 // Realistic browser headers. Many dealer sites (Performance Auto Group, etc.) sit
 // behind Cloudflare / WAF rules that 403 any request whose User-Agent isn't a real
@@ -114,7 +152,24 @@ export function browserFetch(url, init = {}) {
 }
 
 export const sleep = ms => new Promise(r => setTimeout(r, ms))
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+export const stripe = new Stripe(STRIPE_KEY)
 
-export const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, { realtime: { transport: ws } })
-export const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { realtime: { transport: ws } })
+export const supabase = createClient(SB_URL, SB_ANON_KEY, { realtime: { transport: ws } })
+export const supabaseAdmin = createClient(SB_URL, SB_SERVICE_KEY, { realtime: { transport: ws } })
+
+// ── MarketSync staff — the saas_admin / HQ workspace ──
+// HQ is MarketSync's own back office, NOT a dealership. Staff are identified by a
+// `saas_role` on their profile (or the owner email). Such an account needs no
+// dealership_id and is exempt from the dealership billing gate. The legacy internal
+// dealership names stay recognised so pre-existing owner logins keep HQ access.
+export const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
+export const SAAS_ROLES = ['owner', 'sales', 'support', 'marketing', 'developer']
+// Platform system roles (authoritative, from profiles.system_role) that open HQ.
+export const PLATFORM_SYSTEM_ROLES = ['platform_owner', 'platform_admin']
+export function isSaasStaff(profile, email) {
+  if (profile && PLATFORM_SYSTEM_ROLES.includes(profile.system_role)) return true
+  if (email && String(email).toLowerCase() === OWNER_EMAIL) return true
+  if (profile && SAAS_ROLES.includes(profile.saas_role)) return true
+  const dn = profile?.dealerships?.name
+  return dn === 'MarketSync' || dn === 'JMS Automotive'
+}

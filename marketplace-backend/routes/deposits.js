@@ -13,14 +13,19 @@
  * The account id is not a secret, so it lives in lender_code_map.
  */
 import { stripe, supabaseAdmin, FRONTEND_URL } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
+import { audit } from '../audit.js'
 import { createNotification } from '../notifications.js'
 import { findOrCreateContact } from './crm.js'
+import { blockDemoStripeAction } from './demo.js'
 import { squareStatus, squareCreateDepositLink } from '../providers/square.js'
 import { emitEvent } from './events.js'
+import { recordPayment, publishPaymentReceived } from './payments.js'
+import { rateLimit } from '../security.js'
+import { depositReturnUrl, safePublicReturnBase } from '../public-return-url.js'
 
 const PROVIDER = 'stripe_deposits'
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
 export const stripeDepositsConfigured = () => !!process.env.STRIPE_SECRET_KEY
 const clampAmount = (n) => Math.min(100000, Math.max(1, Math.round(Number(n) || 0)))
 const currencyFor = (country) => /(^ca$|canada)/i.test(String(country || '')) ? 'cad' : 'usd'
@@ -98,14 +103,49 @@ export async function stampDepositPaid({ dealershipId, contactId, leadId, amount
     body: `${amountStr} paid to reserve ${vehicle}. Confirm the hold and follow up.`,
     linkPage: 'crm', targetUserId: repId || null,
   })
-  // Emit to the unified activity spine. The accounting engine's listener posts the
-  // deposit journal (DR Cash / CR Customer Deposits) from this event — journals are
-  // now the single posting path (no direct ledger write here anymore).
+  // ── Canonical money first ───────────────────────────────────────────────────
+  // A deposit is not its own kind of thing: it is a PAYMENT that happens to be
+  // unapplied. Persist it through the core primitive BEFORE anything downstream
+  // relies on it, so the money is durable and queryable rather than existing only as
+  // an event and a journal line.
+  //
+  // Idempotency comes from the processor reference (Stripe's payment_intent), which is
+  // unique per dealership in the database — so a webhook retry returns the existing
+  // Payment and emits nothing.
+  let payment = null, createdPayment = false
+  if (amountCents != null && Number(amountCents) > 0) {
+    try {
+      const res = await recordPayment(dealershipId, {
+        amount: Number(amountCents) / 100,
+        method: 'card',
+        contactId: contactId || null,
+        processor: (provider || 'stripe').toLowerCase(),
+        processorReference: paymentRef || null,
+        status: 'received',
+        metadata: { kind: 'deposit', vehicle, currency, lead_id: leadId || null },
+        userId: repId || null,
+      })
+      payment = res.payment; createdPayment = res.created
+      // No allocation: the money is not applied to an obligation yet. That unapplied
+      // balance IS the deposit, and Accounting credits customer_deposits for it.
+      if (createdPayment) await publishPaymentReceived(dealershipId, payment.id, { userId: repId || null })
+    } catch (e) { console.warn('[deposits] canonical payment failed:', e.message) }
+  }
+
+  // The activity-spine event stays for its NON-financial side effects (timeline, CRM).
+  // `posted_via` tells the accounting engine this money already posted through the
+  // canonical payment path, so the legacy deposit_received rule does not post it a
+  // second time. Production still carries that rule; staging does not.
   if (contactId) {
     emitEvent({
       dealershipId, eventName: 'deposit.paid', entityType: 'customer', entityId: contactId,
       summary: `Deposit paid — ${amountStr}`, department: 'Accounting', createdBy: repId || null,
-      payload: { amount_cents: amountCents, currency, vehicle, provider: provider || 'stripe', payment_ref: paymentRef || null, lead_id: leadId || null },
+      payload: {
+        amount_cents: amountCents, currency, vehicle, provider: provider || 'stripe',
+        payment_ref: paymentRef || null, lead_id: leadId || null,
+        payment_id: payment?.id || null,
+        posted_via: payment ? 'payment' : null,
+      },
     })
   }
 }
@@ -124,9 +164,8 @@ export async function handleDepositCheckout(session) {
 
 export function registerDeposits(app) {
   // ── Dealer status: connected? charges enabled? current deposit config. ───────
-  app.get('/deposits/config', requireAuth, async (req, res) => {
+  app.get('/deposits/config', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     if (!stripeDepositsConfigured()) return res.json({ available: false })
     const row = await getRow(req.dealershipId)
     const m = row?.lender_code_map || {}
@@ -142,9 +181,11 @@ export function registerDeposits(app) {
   })
 
   // ── Start / resume Connect onboarding → returns a Stripe-hosted onboarding URL.
-  app.post('/deposits/connect', requireAuth, async (req, res) => {
+  // Blocking this route also transitively protects the public /site/:slug/deposit
+  // checkout below: the demo dealership can never acquire a real connected account id,
+  // so that route's own accountId check always 400s for it regardless.
+  app.post('/deposits/connect', requireAuth, requireMfa, requirePermission('integrations.manage'), blockDemoStripeAction, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     if (!stripeDepositsConfigured()) return res.status(503).json({ error: 'Online deposits aren’t enabled on this MarketSync account yet.' })
     try {
       const row = await getRow(req.dealershipId)
@@ -186,9 +227,8 @@ export function registerDeposits(app) {
   })
 
   // ── Re-check account status with Stripe (call after returning from onboarding).
-  app.post('/deposits/refresh', requireAuth, async (req, res) => {
+  app.post('/deposits/refresh', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const row = await getRow(req.dealershipId)
     const m = row?.lender_code_map || {}
     if (!m.account_id) return res.status(400).json({ error: 'Connect your Stripe account first.' })
@@ -201,9 +241,8 @@ export function registerDeposits(app) {
   })
 
   // ── Save deposit config: on/off + amount. ────────────────────────────────────
-  app.put('/deposits/config', requireAuth, async (req, res) => {
+  app.put('/deposits/config', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const row = await getRow(req.dealershipId)
     const m = row?.lender_code_map || {}
     if (!m.account_id) return res.status(400).json({ error: 'Connect your Stripe account first.' })
@@ -213,21 +252,22 @@ export function registerDeposits(app) {
     if (b.accept_bank !== undefined) patch.lender_code_map.accept_bank = !!b.accept_bank
     if (b.enabled !== undefined) patch.enabled = !!b.enabled && !!m.charges_enabled
     await saveRow(req.dealershipId, patch)
+    audit(req, 'deposit.configuration_updated', { after_state: { enabled: patch.enabled ?? !!row?.enabled, deposit_amount: patch.lender_code_map.deposit_amount ?? clampAmount(m.deposit_amount || 500), accept_bank: patch.lender_code_map.accept_bank ?? !!m.accept_bank } })
     res.json({ ok: true, deposit_amount: patch.lender_code_map.deposit_amount ?? clampAmount(m.deposit_amount || 500), enabled: patch.enabled ?? !!row?.enabled })
   })
 
   // ── Disconnect (keeps the Stripe account itself; just unlinks it here). ───────
-  app.delete('/deposits/config', requireAuth, async (req, res) => {
+  app.delete('/deposits/config', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     await supabaseAdmin.from('dealer_integrations').delete().eq('dealership_id', req.dealershipId).eq('provider', PROVIDER)
+    audit(req, 'deposit.configuration_disconnected')
     res.json({ ok: true })
   })
 
   // ── PUBLIC: shopper pays a deposit to reserve a vehicle → Checkout Session. ──
-  app.post('/site/:slug/deposit', async (req, res) => {
+  app.post('/site/:slug/deposit', rateLimit('sitedeposit', 6, 60 * 1000), async (req, res) => {
     const slug = String(req.params.slug || '').toLowerCase().trim()
-    const { data: d } = await supabaseAdmin.from('dealerships').select('id, name, country, site_published').ilike('site_slug', slug).maybeSingle()
+    const { data: d } = await supabaseAdmin.from('dealerships').select('id, name, country, site_published, site_slug, custom_domain, custom_domain_verified').ilike('site_slug', slug).maybeSingle()
     if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
     const cfg = await depositConfigForSite(d.id)
     if (!cfg.enabled) return res.status(400).json({ error: 'Online deposits aren’t available right now.' })
@@ -240,9 +280,15 @@ export function registerDeposits(app) {
     const email = String(b.email || '').trim().slice(0, 160)
     const phone = String(b.phone || '').trim().slice(0, 40)
     if (!email && !phone) return res.status(400).json({ error: 'Enter an email or phone so we can reach you.' })
-    // Return here after Checkout (the shopper's current site page).
-    const rawReturn = String(b.return_url || '').trim()
-    const backBase = /^https?:\/\//i.test(rawReturn) ? rawReturn.split('#')[0].split('?')[0] : `${FRONTEND_URL}/`
+    // Return after Checkout only to the hosted MarketSync site or this dealer's
+    // verified domain. Never reflect a shopper-supplied third-party URL.
+    const backBase = safePublicReturnBase({
+      rawReturn: b.return_url,
+      frontendUrl: FRONTEND_URL,
+      siteSlug: d.site_slug,
+      customDomain: d.custom_domain,
+      customDomainVerified: d.custom_domain_verified,
+    })
 
     // Which vehicle (optional) — for the receipt line + rep follow-up.
     let inventory_id = null, vehicleLabel = 'a vehicle'
@@ -277,8 +323,8 @@ export function registerDeposits(app) {
           description: `Website reserve deposit — ${vehicleLabel} — ${d.name}`,
         },
         customer_email: email || undefined,
-        success_url: `${backBase}?deposit=success`,
-        cancel_url: `${backBase}?deposit=cancelled`,
+        success_url: depositReturnUrl(backBase, 'success'),
+        cancel_url: depositReturnUrl(backBase, 'cancelled'),
         metadata: {
           kind: 'deposit', dealership_id: d.id, contact_id: contactId || '', lead_id: lead?.id || '',
           vehicle_id: inventory_id || '', vehicle_label: vehicleLabel,
@@ -295,7 +341,7 @@ export function registerDeposits(app) {
   // part of desking a deal. Same destination-charge flow as the website route, but
   // authenticated and tied to an existing CRM contact (and optional vehicle). The
   // link is sent to / opened for the customer; the shared webhook stamps it paid.
-  app.post('/deposits/checkout', requireAuth, async (req, res) => {
+  app.post('/deposits/checkout', requireAuth, requirePermission('deal.create'), blockDemoStripeAction, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const b = req.body || {}
     const contactId = String(b.contact_id || '')
@@ -329,6 +375,7 @@ export function registerDeposits(app) {
           redirectUrl: `${FRONTEND_URL}/dashboard.html?deposit=success`,
         })
         if (!link.url) throw new Error('Square did not return a link.')
+        audit(req, 'deposit.checkout_link_created', { after_state: { provider: 'square', contact_id: contactId, inventory_id, amount, currency: link.currency } })
         return res.json({ ok: true, url: link.url, amount, currency: link.currency, provider: 'square' })
       } catch (e) {
         console.error('[deposits] square link failed:', e.message)
@@ -366,6 +413,7 @@ export function registerDeposits(app) {
           vehicle_id: inventory_id || '', vehicle_label: vehicleLabel, source: 'deal_desk',
         },
       }, depositMethodTypes(dealer?.country, m.accept_bank))
+      audit(req, 'deposit.checkout_link_created', { after_state: { provider: 'stripe', contact_id: contactId, inventory_id, amount, currency } })
       res.json({ ok: true, url: session.url, amount, currency })
     } catch (e) {
       console.error('[deposits] deal checkout failed:', e.message)

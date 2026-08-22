@@ -11,10 +11,11 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
-import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../shared.js'
+import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL, isEmailLike } from '../shared.js'
 import { requireAuth } from '../middleware.js'
-import { rateLimit, consumeQuota } from '../security.js'
+import { rateLimit, consumeQuota, randomToken } from '../security.js'
 import { offTopicRefusal, scopeClause, sanitizeTranscript, CHAT_LIMITS } from '../chatGuard.js'
+import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
 
 const PRICE_POINTS = [
   { key: 'starter', label: 'Starter', monthly: 999 },
@@ -49,10 +50,10 @@ export function registerMarketsync(app) {
   async function jms() {
     if (_jms && Date.now() - _jmsAt < 10 * 60 * 1000) return _jms
     // Resolve the MarketSync ops workspace by name (either the seed name or a
-    // renamed 'MarketSync'), else via the owner-email profile's dealership.
+    // renamed 'MarketSync'), else via the platform owner's dealership.
     let { data: d } = await supabaseAdmin.from('dealerships').select('id').in('name', ['JMS Automotive', 'MarketSync']).limit(1).maybeSingle()
-    if (!d?.id && process.env.OWNER_EMAIL) {
-      const { data: op } = await supabaseAdmin.from('profiles').select('dealership_id').ilike('email', process.env.OWNER_EMAIL).not('dealership_id', 'is', null).limit(1).maybeSingle()
+    if (!d?.id) {
+      const { data: op } = await supabaseAdmin.from('profiles').select('dealership_id').eq('system_role', SYSTEM_ROLES.PLATFORM_OWNER).not('dealership_id', 'is', null).limit(1).maybeSingle()
       if (op?.dealership_id) d = { id: op.dealership_id }
     }
     let ownerId = null
@@ -114,7 +115,7 @@ export function registerMarketsync(app) {
     const phone = String(b.phone || '').trim().slice(0, 40)
     const message = String(b.message || '').trim().slice(0, 1500)
     const wantsDemo = b.demo === true || b.demo === 'true' || /demo|meeting|call/i.test(message)
-    if (!name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    if (!name || !isEmailLike(email)) {
       return res.status(400).json({ error: 'Please provide a name and a valid email.' })
     }
 
@@ -179,7 +180,7 @@ export function registerMarketsync(app) {
     const company = String(b.company || b.dealership || '').trim().slice(0, 160)
     const phone = String(b.phone || '').trim().slice(0, 40)
     const notes = String(b.notes || b.message || '').trim().slice(0, 1000)
-    if (!name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Please provide a name and a valid email.' })
+    if (!name || !isEmailLike(email)) return res.status(400).json({ error: 'Please provide a name and a valid email.' })
     const when = new Date(b.when)
     if (isNaN(when.getTime())) return res.status(400).json({ error: 'Pick a valid date and time.' })
     if (when.getTime() < Date.now() + 15 * 60 * 1000) return res.status(400).json({ error: 'Please choose a time at least 15 minutes out.' })
@@ -190,7 +191,8 @@ export function registerMarketsync(app) {
     if (!dealershipId) { console.warn('[marketsync] booking received but JMS not seeded:', email); return res.json({ ok: true, saved: false }) }
 
     // No-account video room — instant, native, no Calendly/Google dependency.
-    const rand = Math.random().toString(36).slice(2, 8)
+    // The room URL is the only access control on this meeting. (Phase 6S)
+    const rand = randomToken(12)
     const roomSlug = (company || name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'demo'
     const meetUrl = `https://meet.jit.si/MarketSync-${roomSlug}-${rand}`
     const endAt = new Date(when.getTime() + durationMin * 60000)
@@ -226,7 +228,7 @@ export function registerMarketsync(app) {
         meta: { kind: 'appointment', meet_url: meetUrl, when: when.toISOString(), duration_min: durationMin },
       })
 
-      // Emails: customer + the MarketSync team (owner profile + OWNER_EMAIL).
+      // Emails: customer + the server-managed MarketSync platform owners.
       if (resend) {
         const gcalStart = when.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
         const gcalEnd = endAt.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
@@ -248,8 +250,9 @@ export function registerMarketsync(app) {
         resend.emails.send({ from: EMAIL_FROM, to: email, subject: `Your MarketSync demo — ${whenLabel}`, html: shell('Your demo is booked 🎉', `Thanks ${name.split(' ')[0] || ''}! Here are your details. Just click to join at the scheduled time — no download needed.`) }).catch(() => {})
         // Team notification
         const team = new Set()
-        if (process.env.OWNER_EMAIL) team.add(process.env.OWNER_EMAIL.toLowerCase())
         if (ownerId) { const { data: op } = await supabaseAdmin.from('profiles').select('email').eq('id', ownerId).maybeSingle(); if (op?.email) team.add(op.email.toLowerCase()) }
+        const { data: owners } = await supabaseAdmin.from('profiles').select('email').eq('system_role', SYSTEM_ROLES.PLATFORM_OWNER).limit(20)
+        for (const owner of owners || []) if (owner.email) team.add(owner.email.toLowerCase())
         for (const to of team) {
           resend.emails.send({ from: EMAIL_FROM, to, subject: `New demo booked — ${name}${company ? ' (' + company + ')' : ''} — ${whenLabel}`, html: shell('New demo booked', `${name}${company ? ` from ${company}` : ''} booked a demo. It's on your CRM calendar.${notes ? `<br><br><b>Notes:</b> ${notes}` : ''}`) }).catch(() => {})
         }
@@ -261,8 +264,7 @@ export function registerMarketsync(app) {
     }
   })
 
-  const ownerOnly = (req) => (!!process.env.OWNER_EMAIL && (req.user?.email || '').toLowerCase() === process.env.OWNER_EMAIL.toLowerCase())
-    || ['JMS Automotive', 'MarketSync'].includes(req.profile?.dealerships?.name)
+  const ownerOnly = (req) => hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)
 
   // ── OWNER: MarketSync dashboard insights — leads + revenue potential ────────
   app.get('/marketsync/insights', requireAuth, async (req, res) => {
@@ -319,7 +321,7 @@ export function registerMarketsync(app) {
           // Next weekday at ~10am ET (15:00 UTC).
           const w = new Date(); w.setUTCDate(w.getUTCDate() + 1); w.setUTCHours(15, 0, 0, 0)
           if (w.getUTCDay() === 6) w.setUTCDate(w.getUTCDate() + 2); else if (w.getUTCDay() === 0) w.setUTCDate(w.getUTCDate() + 1)
-          const meetUrl = `https://meet.jit.si/MarketSync-agostino-${Math.random().toString(36).slice(2, 8)}`
+          const meetUrl = `https://meet.jit.si/MarketSync-agostino-${randomToken(12)}`
           await supabaseAdmin.from('crm_tasks').insert({
             dealership_id: dealershipId, contact_id: sean.id, assigned_to: sean.assigned_rep || ownerId, created_by: ownerId,
             title: `Demo — Sean Agostino (Sean's Autocare)`, type: 'appointment', due_at: w.toISOString(),

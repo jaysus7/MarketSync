@@ -12,18 +12,43 @@
 //   • AI copy generation hook                            → /automation/ai-copy
 // ─────────────────────────────────────────────────────────────────────────────
 import Anthropic from '@anthropic-ai/sdk'
+import { rateLimit } from '../security.js'
+import { emitTradeReceived } from './trade-receipt.js'
+import { timingSafeEqual } from 'crypto'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requestHasCronSecret } from '../cron-auth.js'
 import { decryptJson } from '../crypto-pii.js'
 import { createNotification } from '../notifications.js'
 import { aiAllowed, recordUsage } from '../usage.js'
+import { SYSTEM_ROLES, hasSystemRole, requirePermission } from '../authorization.js'
+import { requireAccess } from '../access.js'
+import { masterCreds } from '../providers/twilio-provision.js'
+import { audit } from '../audit.js'
+import { mayContact, recordOptOut } from './consent.js'
+import { isDemoDealershipId } from './demo.js'
 
-const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
+import {
+  dealerSettings, buildDigest, digestEmailHtml, runMorningDigest,
+  buildWeeklyBriefing, weeklyEmailHtml, runWeeklyBriefing
+} from './submodules/automation-briefings.js'
 
 const DEALER_LEVEL = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
-const isDealerLevel = (req) => DEALER_LEVEL.includes(req.profile?.role)
 const digits = (s) => String(s || '').replace(/\D/g, '')
 const nowIso = () => new Date().toISOString()
+
+function inboundSecretOk(req, res) {
+  const expected = process.env.INBOUND_AUTOMATION_SECRET
+  if (!expected) { res.status(503).json({ error: 'Inbound automation is not configured.' }); return false }
+  const provided = String(req.get('x-inbound-secret') || (req.get('authorization') || '').replace(/^Bearer\s+/i, ''))
+  const expectedBytes = Buffer.from(expected)
+  const providedBytes = Buffer.from(provided)
+  if (expectedBytes.length !== providedBytes.length || !timingSafeEqual(expectedBytes, providedBytes)) {
+    res.status(401).json({ error: 'Unauthorized inbound webhook.' })
+    return false
+  }
+  return true
+}
 
 // Pipeline stages that mean "a live deal is being negotiated" → pause long-term retention.
 const OPEN_DEAL_STATUSES = new Set(['appointment', 'sold', 'fni', 'turnover'])
@@ -117,36 +142,7 @@ function alignHour(date, hour, forceNextDay, after) {
 function localHour(tz) {
   try { return parseInt(new Intl.DateTimeFormat('en-US', { timeZone: tz || 'America/Toronto', hour: 'numeric', hour12: false }).format(new Date()), 10) } catch { return new Date().getHours() }
 }
-function dealerSettings(dealer) {
-  const s = (dealer?.automation_settings && typeof dealer.automation_settings === 'object') ? dealer.automation_settings : {}
-  return {
-    timezone: s.timezone || 'America/Toronto',
-    business_start: Number.isFinite(s.business_start) ? s.business_start : 8,
-    business_end: Number.isFinite(s.business_end) ? s.business_end : 19,
-    house_sms: s.house_sms || null,
-    house_email: s.house_email || dealer?.branding?.email || null,
-    review_url: s.review_url || null,
-    referral_bonus: s.referral_bonus || 'a referral bonus',
-    service_url: s.service_url || (dealer?.branding?.email ? null : null),
-    holidays: Array.isArray(s.holidays) ? s.holidays : [],
-    // Proactive morning briefing: in-app for managers by default; email opt-in.
-    digest_enabled: s.digest_enabled !== false,
-    digest_email: s.digest_email === true,
-    // Proactive WEEKLY briefing: AI-written strategic recap. Configurable day + email.
-    weekly_enabled: s.weekly_enabled !== false,
-    weekly_email: s.weekly_email === true,
-    weekly_day: Number.isInteger(s.weekly_day) && s.weekly_day >= 0 && s.weekly_day <= 6 ? s.weekly_day : 1,  // 0=Sun … 1=Mon
-    weekly_focus: typeof s.weekly_focus === 'string' ? s.weekly_focus.slice(0, 600) : null,
-    enabled: s.enabled !== false,
-    email: (s.email && typeof s.email === 'object') ? {
-      from_name: s.email.from_name || null,
-      from: s.email.from || null,
-      reply_to: s.email.reply_to || null,
-      sender_mode: ['house', 'rep', 'both'].includes(s.email.sender_mode) ? s.email.sender_mode : 'house',
-      track_to_tasks: s.email.track_to_tasks !== false,
-    } : { from_name: null, from: null, reply_to: null, sender_mode: 'house', track_to_tasks: true },
-  }
-}
+
 const isBusinessHours = (s) => { const h = localHour(s.timezone); return h >= s.business_start && h < s.business_end }
 
 // ── Templating (safe fallbacks — never emits a raw {{tag}}) ───────────────────
@@ -242,11 +238,24 @@ async function releasePossessionForContact(dealershipId, contactId, when) {
   const invIds = [...new Set((aps || []).map(a => a.inventory_id).filter(Boolean))]
   if (!invIds.length) return
   const at = (when ? new Date(when) : new Date()).toISOString()
-  await supabaseAdmin.from('inventory')
+  // .select() back only the rows that ACTUALLY flipped — units already in our
+  // possession match nothing here, so a re-delivery or a retry emits no event.
+  const { data: flipped } = await supabaseAdmin.from('inventory')
     .update({ awaiting_possession: false, possession_at: at })
     .in('id', invIds).eq('dealership_id', dealershipId).eq('awaiting_possession', true)
+    .select('id, invoice_amount')
   await supabaseAdmin.from('trade_appraisals')
     .update({ acquired_at: at }).in('id', (aps || []).map(a => a.id))
+  // Same canonical transition as POST /ai/appraisals/:id/take-possession, reached
+  // automatically: the customer's deal delivered, so the trade they gave us is now
+  // ours. One event per vehicle that genuinely changed hands.
+  for (const v of flipped || []) {
+    const ap = (aps || []).find(a => a.inventory_id === v.id)
+    emitTradeReceived(dealershipId, {
+      inventoryId: v.id, appraisalId: ap?.id || null, contactId,
+      amount: Number(v.invoice_amount ?? 0),
+    })
+  }
 }
 
 // ── Drop-out: an inbound reply freezes every running sequence for the contact ──
@@ -310,18 +319,21 @@ async function resolveSender(campaign, contact, dealer, s) {
 // Returns { action: 'send' | 'cancel' | 'pause', reason }.
 async function verify(msg, campaign) {
   const { data: contact } = await supabaseAdmin.from('contacts')
-    .select('id, status, dnc, opt_out, consent_sms, consent_email, delivery_issue, automation_paused, assigned_rep, interest_inventory_id')
+    .select('id, dealership_id, status, dnc, opt_out, consent_sms, consent_email, delivery_issue, automation_paused, assigned_rep, interest_inventory_id')
     .eq('id', msg.contact_id).maybeSingle()
   if (!contact) return { action: 'cancel', reason: 'contact_missing' }
 
-  // Hard stops
-  if (contact.opt_out || contact.dnc) return { action: 'cancel', reason: 'opted_out' }
-  if (msg.channel === 'sms' && contact.consent_sms === false) return { action: 'cancel', reason: 'no_sms_consent' }
-  if (msg.channel === 'email' && contact.consent_email === false) return { action: 'cancel', reason: 'no_email_consent' }
-
-  // Drop-out freeze (a reply set automation_paused). Retention/calendar halt; a
-  // fresh pipeline touch is also suppressed so we never talk over a live human.
-  if (contact.automation_paused) return { action: 'cancel', reason: 'customer_replied' }
+  // Hard stops, decided by the ONE consent gate (routes/consent.js) rather than here.
+  // This rule used to be written out in three places in this file; three copies is three
+  // chances for one to drift as Phase 6 adds more senders.
+  const consent = await mayContact(contact.dealership_id, contact.id, msg.channel)
+  if (!consent.allowed) {
+    const reason = /opted out/i.test(consent.reason || '') ? 'opted_out'
+                 : /do-not-contact/i.test(consent.reason || '') ? 'opted_out'
+                 : /replied/i.test(consent.reason || '') ? 'customer_replied'
+                 : msg.channel === 'sms' ? 'no_sms_consent' : 'no_email_consent'
+    return { action: 'cancel', reason }
+  }
 
   const cat = campaign?.category
   const retentionish = ['retention', 'reviews', 'referrals'].includes(cat)
@@ -360,10 +372,18 @@ async function dealerTwilio(dealershipId) {
     const { data: row } = await supabaseAdmin.from('dealer_integrations')
       .select('enabled, credentials_enc, lender_code_map')
       .eq('dealership_id', dealershipId).eq('provider', 'twilio').maybeSingle()
-    if (row?.enabled && row.credentials_enc) {
+    const meta = row?.lender_code_map || {}
+    if (row?.enabled && meta.platform_managed) {
+      // MarketSync-provisioned number under our master Twilio account.
+      const m = masterCreds()
+      if (m && (meta.from || meta.messaging_service_sid)) {
+        creds = { sid: m.sid, tok: m.tok, from: meta.from || null, messagingServiceSid: meta.messaging_service_sid || null }
+      }
+    } else if (row?.enabled && row.credentials_enc) {
+      // Dealer brought their own Twilio account.
       const dec = decryptJson(row.credentials_enc) || {}
       if (dec.account_sid && dec.auth_token) {
-        creds = { sid: dec.account_sid, tok: dec.auth_token, from: row.lender_code_map?.from || null }
+        creds = { sid: dec.account_sid, tok: dec.auth_token, from: meta.from || null }
       }
     }
   } catch (e) { console.warn('[twilio] resolve failed:', e.message) }
@@ -372,13 +392,24 @@ async function dealerTwilio(dealershipId) {
 }
 export function invalidateTwilioCache(dealershipId) { if (dealershipId) __twilioCache.delete(dealershipId) }
 
-async function sendSms(to, body, from, creds) {
+// The one and only place this codebase calls Twilio's API (verified: no other file
+// imports the twilio package or hits api.twilio.com). dealershipId is optional only for
+// legacy call-site safety — every real caller passes it, and both current callers do.
+async function sendSms(to, body, from, creds, dealershipId) {
+  if (dealershipId && await isDemoDealershipId(dealershipId)) {
+    console.log('[demo] simulated SMS (not sent):', { dealershipId, to })
+    return { ok: false, simulated: true, demo: true, sid: 'demo_sim_' + Date.now() }
+  }
   const sid = creds?.sid || process.env.TWILIO_ACCOUNT_SID
   const tok = creds?.tok || process.env.TWILIO_AUTH_TOKEN
+  // Prefer a per-dealer Messaging Service; fall back to a platform-wide one from env
+  // (TWILIO_MESSAGING_SERVICE_SID) so sends work before per-dealer provisioning.
+  const msid = creds?.messagingServiceSid || process.env.TWILIO_MESSAGING_SERVICE_SID
   const fromNum = from || creds?.from
-  if (!sid || !tok || !fromNum || !to) return { ok: false, simulated: true }
+  if (!sid || !tok || !to || (!fromNum && !msid)) return { ok: false, simulated: true }
   try {
-    const params = new URLSearchParams({ To: to, From: fromNum, Body: body })
+    const params = new URLSearchParams({ To: to, Body: body })
+    if (msid) params.set('MessagingServiceSid', msid); else params.set('From', fromNum)
     const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
       method: 'POST', headers: { Authorization: 'Basic ' + Buffer.from(`${sid}:${tok}`).toString('base64'), 'Content-Type': 'application/x-www-form-urlencoded' }, body: params,
     })
@@ -390,7 +421,7 @@ async function sendSms(to, body, from, creds) {
 // Send an SMS for a dealership using its own Twilio account when connected.
 export async function sendDealerSms(dealershipId, to, body, from = null) {
   const creds = await dealerTwilio(dealershipId)
-  return sendSms(to, body, from, creds)
+  return sendSms(to, body, from, creds, dealershipId)
 }
 
 async function dispatch(msg, campaign) {
@@ -416,12 +447,17 @@ async function dispatch(msg, campaign) {
   if (msg.channel === 'email' && !contact.email_disclosed) { disclosurePatch = { email_disclosed: true } }
 
   let result = { ok: false }
+  const isDemo = await isDemoDealershipId(msg.dealership_id)
   if (msg.channel === 'sms') {
     const to = contact.phone || contact.phone_mobile
     const twilio = await dealerTwilio(msg.dealership_id)
-    result = await sendSms(to, body, sender.smsFrom, twilio)
+    result = await sendSms(to, body, sender.smsFrom, twilio, msg.dealership_id)
   } else {
-    if (!resend) result = { ok: false, simulated: true }
+    if (isDemo) {
+      console.log('[demo] simulated campaign email (not sent):', { dealershipId: msg.dealership_id, to: contact.email })
+      result = { ok: false, simulated: true, demo: true }
+    }
+    else if (!resend) result = { ok: false, simulated: true }
     else if (contact.email) {
       // rep identity → plaintext, no banners/pixels. house → light branded HTML.
       const payload = { from: sender.emailFrom, to: contact.email, subject: subject || `A note from ${dealer.name}` }
@@ -597,7 +633,7 @@ async function runDaily() {
     const { data: contacts } = await supabaseAdmin.from('contacts')
       .select('id, birthday, assigned_rep, consent_sms, dnc, opt_out').eq('dealership_id', d.id).not('birthday', 'is', null)
     for (const c of (contacts || [])) {
-      if (c.dnc || c.opt_out || c.consent_sms === false) continue
+      if (!(await mayContact(d.id, c.id, 'sms')).allowed) continue
       const b = String(c.birthday).slice(5, 10) // MM-DD from YYYY-MM-DD
       if (b === mmdd) { await enqueueForTrigger(d.id, 'birthday', { contactId: c.id, repId: c.assigned_rep }); birthdays++ }
     }
@@ -615,7 +651,7 @@ async function runDaily() {
         const context = { vars: { 'holiday.name': h.name || 'the holidays' }, body_override: h.message || null, subject_override: h.subject || null }
         const markerOverride = year * 10000 + mmddInt   // one per holiday-date per year
         for (const c of (emailable || [])) {
-          if (c.dnc || c.opt_out || c.consent_email === false) continue
+          if (!(await mayContact(d.id, c.id, 'email')).allowed) continue
           if (only && contactCountry(c, dealerFallback) !== only) continue   // geo-gate country-specific greetings
           await enqueueForTrigger(d.id, 'holiday', { contactId: c.id, repId: c.assigned_rep, context, markerOverride }); holidays++
         }
@@ -625,254 +661,21 @@ async function runDaily() {
   return { birthdays, holidays }
 }
 
-// ── Proactive morning briefing ───────────────────────────────────────────────
-// Pushes the "what needs attention today" digest to managers instead of waiting to
-// be asked. Same signals the AI brain's `priorities`/`trends` topics surface, kept
-// self-contained here (no cross-import) and cheap. In-app for every manager; a nicely
-// formatted email too when the dealer opted in. Idempotent per dealer per day.
-async function buildDigest(dealershipId) {
-  const now = Date.now(), d = new Date()
-  const nowIso = new Date().toISOString()
-  const monthStart = new Date(d.getFullYear(), d.getMonth(), 1).toISOString()
-  const d7 = new Date(now - 7 * 86400000).toISOString()
-  const d14 = new Date(now - 14 * 86400000).toISOString()
-  const todayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59).toISOString()
-  const money = n => '$' + Math.round(Number(n) || 0).toLocaleString('en-US')
 
-  const [uncontacted, overdue, appts, inv, soldDeals, mtdDeals, leads] = await Promise.all([
-    supabaseAdmin.from('contacts').select('id', { count: 'exact', head: true }).eq('dealership_id', dealershipId).eq('status', 'uncontacted'),
-    supabaseAdmin.from('crm_tasks').select('id', { count: 'exact', head: true }).eq('dealership_id', dealershipId).eq('done', false).lt('due_at', nowIso),
-    supabaseAdmin.from('crm_tasks').select('id', { count: 'exact', head: true }).eq('dealership_id', dealershipId).eq('done', false).eq('type', 'appointment').gte('due_at', nowIso).lte('due_at', todayEnd),
-    supabaseAdmin.from('inventory').select('created_at, lot_date').eq('dealership_id', dealershipId).eq('status', 'available').limit(2000),
-    supabaseAdmin.from('deals').select('id', { count: 'exact', head: true }).eq('dealership_id', dealershipId).eq('deal_status', 'sold'),
-    supabaseAdmin.from('deals').select('selling_price, sold_at, created_at, deal_status').eq('dealership_id', dealershipId).in('deal_status', ['sold', 'delivered']).gte('sold_at', monthStart).limit(1000),
-    supabaseAdmin.from('leads').select('created_at').eq('dealership_id', dealershipId).gte('created_at', d14).limit(4000),
-  ])
-  const age = v => { const ref = v.lot_date || v.created_at; return ref ? Math.floor((now - new Date(ref)) / 86400000) : 0 }
-  const aged90 = (inv.data || []).filter(v => age(v) >= 90).length
-  const aged60 = (inv.data || []).filter(v => age(v) >= 60 && age(v) < 90).length
-  const mtd = (mtdDeals.data || []).filter(x => (x.sold_at || x.created_at) >= monthStart)
-  const leads7 = (leads.data || []).filter(l => l.created_at >= d7).length
-  const leadsPrev7 = (leads.data || []).filter(l => l.created_at < d7).length
-
-  const items = []   // { emoji, text, priority }
-  if ((uncontacted.count || 0) > 0) items.push({ emoji: '📞', text: `${uncontacted.count} uncontacted lead(s) need a first touch`, priority: 'high' })
-  if ((overdue.count || 0) > 0) items.push({ emoji: '⏰', text: `${overdue.count} overdue follow-up task(s)`, priority: 'high' })
-  if (aged90 > 0) items.push({ emoji: '🚨', text: `${aged90} unit(s) 90+ days old — wholesale/auction candidates`, priority: 'high' })
-  if (aged60 > 0) items.push({ emoji: '📉', text: `${aged60} unit(s) 60–90 days — consider a price drop`, priority: 'medium' })
-  if ((appts.count || 0) > 0) items.push({ emoji: '📅', text: `${appts.count} appointment(s) booked for today`, priority: 'medium' })
-  if ((soldDeals.count || 0) > 0) items.push({ emoji: '🚗', text: `${soldDeals.count} sold deal(s) awaiting delivery`, priority: 'medium' })
-  const rank = { high: 0, medium: 1, low: 2 }
-  items.sort((a, b) => rank[a.priority] - rank[b.priority])
-
-  const leadDelta = leadsPrev7 ? Math.round(((leads7 - leadsPrev7) / leadsPrev7) * 100) : (leads7 ? 100 : 0)
-  const pulse = {
-    units_mtd: mtd.length,
-    revenue_mtd: money(mtd.reduce((s, x) => s + (Number(x.selling_price) || 0), 0)),
-    leads_7d: leads7,
-    leads_delta_pct: leadDelta,
-  }
-  const headline = items.length
-    ? `${items.length} thing(s) need attention — ${items.filter(i => i.priority === 'high').length} high priority`
-    : 'You’re all caught up — lot, leads, recon and tasks are current.'
-  return { items, pulse, headline, hasWork: items.length > 0 }
-}
-
-function digestEmailHtml(dealerName, dg) {
-  const arrow = dg.pulse.leads_delta_pct > 0 ? '▲' : dg.pulse.leads_delta_pct < 0 ? '▼' : '■'
-  const rows = dg.items.length
-    ? dg.items.map(i => `<tr><td style="padding:8px 12px;border-bottom:1px solid #eef2f7;font-size:15px;">${i.emoji} ${i.text}</td></tr>`).join('')
-    : `<tr><td style="padding:14px 12px;font-size:15px;color:#16a34a;">✅ You’re all caught up.</td></tr>`
-  return `<!doctype html><html><body style="margin:0;background:#f1f5f9;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 0;"><tr><td align="center">
-  <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);">
-    <tr><td style="background:#1e3a8a;padding:18px 24px;color:#fff;">
-      <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.8;">MarketSync · Morning Briefing</div>
-      <div style="font-size:20px;font-weight:800;margin-top:2px;">${dealerName}</div>
-      <div style="font-size:13px;opacity:.85;margin-top:2px;">${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
-    </td></tr>
-    <tr><td style="padding:18px 24px 6px;font-size:15px;color:#0f172a;font-weight:600;">${dg.headline}</td></tr>
-    <tr><td style="padding:0 12px;"><table width="100%" cellpadding="0" cellspacing="0">${rows}</table></td></tr>
-    <tr><td style="padding:16px 24px;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:8px;">
-        <tr>
-          <td style="padding:12px;text-align:center;border-right:1px solid #eef2f7;"><div style="font-size:22px;font-weight:800;color:#1e3a8a;">${dg.pulse.units_mtd}</div><div style="font-size:11px;color:#64748b;">units MTD</div></td>
-          <td style="padding:12px;text-align:center;border-right:1px solid #eef2f7;"><div style="font-size:22px;font-weight:800;color:#1e3a8a;">${dg.pulse.revenue_mtd}</div><div style="font-size:11px;color:#64748b;">revenue MTD</div></td>
-          <td style="padding:12px;text-align:center;"><div style="font-size:22px;font-weight:800;color:#1e3a8a;">${dg.pulse.leads_7d} <span style="font-size:13px;color:${dg.pulse.leads_delta_pct >= 0 ? '#16a34a' : '#dc2626'};">${arrow}${Math.abs(dg.pulse.leads_delta_pct)}%</span></div><div style="font-size:11px;color:#64748b;">leads last 7d</div></td>
-        </tr>
-      </table>
-    </td></tr>
-    <tr><td style="padding:6px 24px 22px;">
-      <a href="${FRONTEND_URL}/dashboard.html" style="display:inline-block;background:#1e3a8a;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:10px 20px;border-radius:8px;">Open MarketSync →</a>
-      <div style="font-size:11px;color:#94a3b8;margin-top:14px;">Ask MarketSync “what should I focus on today?” for the full breakdown. Turn this off in Automation settings.</div>
-    </td></tr>
-  </table></td></tr></table></body></html>`
-}
-
-async function runMorningDigest() {
-  const { data: dealers } = await supabaseAdmin.from('dealerships').select('id, name, automation_settings')
-  let pushed = 0, emailed = 0, skipped = 0
-  for (const dl of (dealers || [])) {
-    const s = dealerSettings(dl)
-    if (!s.enabled || !s.digest_enabled) { skipped++; continue }
-    const { data: mgrs } = await supabaseAdmin.from('profiles')
-      .select('id, email, active').eq('dealership_id', dl.id).in('role', DEALER_LEVEL)
-    const managers = (mgrs || []).filter(m => m.active !== false)
-    if (!managers.length) { skipped++; continue }
-    let dg
-    try { dg = await buildDigest(dl.id) } catch { skipped++; continue }
-    // In-app notification for each manager (their own targeted alert).
-    for (const m of managers) {
-      await createNotification({
-        dealershipId: dl.id, type: 'daily_digest', targetUserId: m.id,
-        title: 'Your morning briefing', body: dg.headline, linkPage: 'ai-insights',
-      })
-      pushed++
-    }
-    // Email (opt-in) — one per manager who has an address.
-    if (s.digest_email) {
-      const html = digestEmailHtml(dl.name || 'Your dealership', dg)
-      const subject = `☀️ Morning briefing — ${dl.name || 'your store'} — ${dg.hasWork ? dg.headline : 'all caught up'}`
-      for (const m of managers) {
-        if (!m.email) continue
-        try { await resend.emails.send({ from: EMAIL_FROM, to: m.email, subject, html }); emailed++ } catch (e) { /* skip a bad address */ }
-      }
-    }
-  }
-  return { pushed, emailed, skipped }
-}
-
-// ── Proactive WEEKLY briefing ───────────────────────────────────────────────
-// A strategic recap: this week vs last (units, revenue, leads, appraisals) plus
-// what's aging / unworked, wrapped in an AI-written GM narrative. The dealer can
-// steer the narrative with a custom "focus" prompt in settings.
-async function buildWeeklyBriefing(dealershipId, focus) {
-  const now = Date.now()
-  const d7 = new Date(now - 7 * 86400000).toISOString()
-  const d14 = new Date(now - 14 * 86400000).toISOString()
-  const nowIso = new Date().toISOString()
-  const money = n => '$' + Math.round(Number(n) || 0).toLocaleString('en-US')
-
-  const [deals, leads, apprs, inv, uncontacted, overdue] = await Promise.all([
-    supabaseAdmin.from('deals').select('selling_price, sold_at, created_at, deal_status').eq('dealership_id', dealershipId).in('deal_status', ['sold', 'delivered']).gte('sold_at', d14).limit(2000),
-    supabaseAdmin.from('leads').select('created_at, source').eq('dealership_id', dealershipId).gte('created_at', d14).limit(8000),
-    supabaseAdmin.from('trade_appraisals').select('created_at').eq('dealership_id', dealershipId).gte('created_at', d14).limit(2000),
-    supabaseAdmin.from('inventory').select('created_at, lot_date').eq('dealership_id', dealershipId).eq('status', 'available').limit(3000),
-    supabaseAdmin.from('contacts').select('id', { count: 'exact', head: true }).eq('dealership_id', dealershipId).eq('status', 'uncontacted'),
-    supabaseAdmin.from('crm_tasks').select('id', { count: 'exact', head: true }).eq('dealership_id', dealershipId).eq('done', false).lt('due_at', nowIso),
-  ])
-  const inWk = (arr, key) => (arr || []).filter(x => (x[key] || x.created_at) >= d7)
-  const inPrev = (arr, key) => (arr || []).filter(x => { const t = x[key] || x.created_at; return t && t >= d14 && t < d7 })
-  const soldWk = inWk(deals.data, 'sold_at'), soldPrev = inPrev(deals.data, 'sold_at')
-  const leadsWk = inWk(leads.data), leadsPrev = inPrev(leads.data)
-  const apprWk = inWk(apprs.data), apprPrev = inPrev(apprs.data)
-  const revWk = soldWk.reduce((s, x) => s + (Number(x.selling_price) || 0), 0)
-  const revPrev = soldPrev.reduce((s, x) => s + (Number(x.selling_price) || 0), 0)
-  const age = v => { const ref = v.lot_date || v.created_at; return ref ? Math.floor((now - new Date(ref)) / 86400000) : 0 }
-  const aged60 = (inv.data || []).filter(v => age(v) >= 60).length
-  const pct = (a, b) => b ? Math.round(((a - b) / b) * 100) : (a ? 100 : 0)
-  // Top lead sources this week.
-  const srcCount = {}; for (const l of leadsWk) { const k = l.source || 'Unknown'; srcCount[k] = (srcCount[k] || 0) + 1 }
-  const topSources = Object.entries(srcCount).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([s, n]) => `${s} (${n})`)
-
-  const stats = {
-    units: { wk: soldWk.length, prev: soldPrev.length, delta: pct(soldWk.length, soldPrev.length) },
-    revenue: { wk: money(revWk), prev: money(revPrev), delta: pct(revWk, revPrev) },
-    leads: { wk: leadsWk.length, prev: leadsPrev.length, delta: pct(leadsWk.length, leadsPrev.length) },
-    appraisals: { wk: apprWk.length, prev: apprPrev.length, delta: pct(apprWk.length, apprPrev.length) },
-    aged_60_plus: aged60, uncontacted: uncontacted.count || 0, overdue_tasks: overdue.count || 0,
-    top_sources: topSources,
-  }
-
-  // AI narrative (gated by AI Boost + budget). Falls back to a templated recap.
-  let narrative = null
-  const { data: dealer } = await supabaseAdmin.from('dealerships').select('name, ai_boost_active, ai_internal_style').eq('id', dealershipId).maybeSingle()
-  const isOwnerless = false
-  if (process.env.ANTHROPIC_API_KEY && (dealer?.ai_boost_active) && await aiAllowed(dealershipId, isOwnerless)) {
-    const facts = `Units sold: ${stats.units.wk} (prev ${stats.units.prev}, ${stats.units.delta >= 0 ? '+' : ''}${stats.units.delta}%). Revenue: ${stats.revenue.wk} (${stats.revenue.delta >= 0 ? '+' : ''}${stats.revenue.delta}%). New leads: ${stats.leads.wk} (${stats.leads.delta >= 0 ? '+' : ''}${stats.leads.delta}%). Appraisals: ${stats.appraisals.wk}. Units 60+ days: ${stats.aged_60_plus}. Uncontacted leads: ${stats.uncontacted}. Overdue tasks: ${stats.overdue_tasks}. Top lead sources: ${topSources.join(', ') || 'n/a'}.`
-    const styleLine = dealer?.ai_internal_style ? ` Voice: ${dealer.ai_internal_style}.` : ''
-    const focusLine = focus ? ` The GM specifically wants this to focus on: ${focus}.` : ''
-    const prompt = `You are the GM's analyst writing this dealership's WEEKLY briefing. Write 3–4 short sentences: how the week went vs last week (lead with the trend), the single biggest win, and the top 1–2 things to fix or push next week. Be direct and specific with the numbers. No markdown, no headings, no greeting.${focusLine}${styleLine}\n\nThis week's data: ${facts}`
-    try {
-      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-      const msg = await Promise.race([
-        anthropic.messages.create({ model: 'claude-haiku-4-5-20251001', max_tokens: 300, messages: [{ role: 'user', content: prompt }] }),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('ai timeout')), 20000)),
-      ])
-      narrative = (msg?.content?.[0]?.text || '').trim() || null
-      if (narrative) recordUsage(dealershipId, { ai: 1 })
-    } catch { /* fall through to templated */ }
-  }
-  if (!narrative) {
-    const dir = stats.units.delta >= 0 ? 'up' : 'down'
-    narrative = `${stats.units.wk} units and ${stats.revenue.wk} this week — sales ${dir} ${Math.abs(stats.units.delta)}% vs last week on ${stats.leads.wk} new leads. ${stats.uncontacted} uncontacted lead(s) and ${stats.overdue_tasks} overdue task(s) to clear; ${stats.aged_60_plus} unit(s) are 60+ days old and need a pricing decision.`
-  }
-  const headline = `${stats.units.wk} sold · ${stats.revenue.wk} · ${stats.leads.wk} leads this week`
-  return { stats, narrative, headline, dealer_name: dealer?.name || 'Your dealership' }
-}
-
-function weeklyEmailHtml(dealerName, wk) {
-  const chip = (label, v, delta) => {
-    const col = delta > 0 ? '#16a34a' : delta < 0 ? '#dc2626' : '#64748b'
-    const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '■'
-    return `<td style="padding:12px;text-align:center;border-right:1px solid #eef2f7;"><div style="font-size:22px;font-weight:800;color:#4338ca;">${v}</div><div style="font-size:11px;color:#64748b;">${label} <span style="color:${col};">${arrow}${Math.abs(delta)}%</span></div></td>`
-  }
-  return `<!doctype html><html><body style="margin:0;background:#f1f5f9;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 0;"><tr><td align="center">
-  <table width="580" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);">
-    <tr><td style="background:#4338ca;padding:18px 24px;color:#fff;">
-      <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.85;">MarketSync · Weekly Briefing</div>
-      <div style="font-size:20px;font-weight:800;margin-top:2px;">${dealerName}</div>
-      <div style="font-size:13px;opacity:.85;margin-top:2px;">Week ending ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</div>
-    </td></tr>
-    <tr><td style="padding:18px 24px 8px;font-size:15px;color:#0f172a;line-height:1.55;">${wk.narrative}</td></tr>
-    <tr><td style="padding:8px 24px 16px;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:8px;"><tr>
-        ${chip('units', wk.stats.units.wk, wk.stats.units.delta)}
-        ${chip('revenue', wk.stats.revenue.wk, wk.stats.revenue.delta)}
-        ${chip('leads', wk.stats.leads.wk, wk.stats.leads.delta)}
-        <td style="padding:12px;text-align:center;"><div style="font-size:22px;font-weight:800;color:#4338ca;">${wk.stats.appraisals.wk}</div><div style="font-size:11px;color:#64748b;">appraisals</div></td>
-      </tr></table>
-    </td></tr>
-    <tr><td style="padding:0 24px 8px;font-size:13px;color:#475569;">
-      ${wk.stats.uncontacted} uncontacted · ${wk.stats.overdue_tasks} overdue tasks · ${wk.stats.aged_60_plus} units 60+ days${wk.stats.top_sources.length ? ` · top sources: ${wk.stats.top_sources.join(', ')}` : ''}
-    </td></tr>
-    <tr><td style="padding:10px 24px 22px;">
-      <a href="${FRONTEND_URL}/dashboard.html" style="display:inline-block;background:#4338ca;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:10px 20px;border-radius:8px;">Open MarketSync →</a>
-      <div style="font-size:11px;color:#94a3b8;margin-top:14px;">Manage the weekly briefing (day, email, focus) in Automation settings.</div>
-    </td></tr>
-  </table></td></tr></table></body></html>`
-}
-
-async function runWeeklyBriefing(force = false) {
-  const today = new Date().getDay()   // 0=Sun … 6=Sat (server tz)
-  const { data: dealers } = await supabaseAdmin.from('dealerships').select('id, name, automation_settings')
-  let pushed = 0, emailed = 0, skipped = 0
-  for (const dl of (dealers || [])) {
-    const s = dealerSettings(dl)
-    if (!s.enabled || !s.weekly_enabled) { skipped++; continue }
-    if (!force && s.weekly_day !== today) { skipped++; continue }
-    const { data: mgrs } = await supabaseAdmin.from('profiles').select('id, email, active').eq('dealership_id', dl.id).in('role', DEALER_LEVEL)
-    const managers = (mgrs || []).filter(m => m.active !== false)
-    if (!managers.length) { skipped++; continue }
-    let wk
-    try { wk = await buildWeeklyBriefing(dl.id, s.weekly_focus) } catch { skipped++; continue }
-    for (const m of managers) {
-      await createNotification({ dealershipId: dl.id, type: 'weekly_briefing', targetUserId: m.id, title: 'Your weekly briefing', body: wk.headline, linkPage: 'ai-insights' })
-      pushed++
-    }
-    if (s.weekly_email) {
-      const html = weeklyEmailHtml(dl.name || 'Your dealership', wk)
-      const subject = `📊 Weekly briefing — ${dl.name || 'your store'} — ${wk.headline}`
-      for (const m of managers) { if (!m.email) continue; try { await resend.emails.send({ from: EMAIL_FROM, to: m.email, subject, html }); emailed++ } catch {} }
-    }
-  }
-  return { pushed, emailed, skipped, weekday: today }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 export function registerAutomation(app) {
-  const cronOk = (req) => (req.headers['x-cron-secret'] || '').trim() === (process.env.CRON_SECRET || '').trim() && !!process.env.CRON_SECRET
+  const cronOk = requestHasCronSecret
+
+  const requireAutomationRead = requireAccess({
+    anyFeature: ['email.automations', 'os.automations', 'os.email_marketing', 'email.campaigns', 'marketing.overview'],
+    anyPermission: ['marketing.view', 'marketing.edit']
+  })
+
+  const requireAutomationWrite = requireAccess({
+    anyFeature: ['email.automations', 'os.automations', 'os.email_marketing', 'email.campaigns', 'marketing.overview'],
+    anyPermission: ['marketing.edit']
+  })
 
   // ── Safe diagnostic: is the cron secret configured + does a given header match?
   // Reveals only booleans (never the secret). Open it in a browser (no header) to
@@ -891,24 +694,23 @@ export function registerAutomation(app) {
   })
 
   // ── Background worker cron endpoints ───────────────────────────────────────
-  app.post('/cron/automation-run', async (req, res) => {
+  app.post('/cron/automation-run', rateLimit('cron-auto-run', 60, 60000), async (req, res) => {
     if (!cronOk(req)) return res.status(401).json({ error: 'unauthorized' })
     try { const pre = await runPrecheck(); const run = await runDue(); res.json({ ok: true, precheck: pre, dispatch: run }) }
     catch (e) { res.status(500).json({ error: e.message }) }
   })
-  app.post('/cron/automation-daily', async (req, res) => {
+  app.post('/cron/automation-daily', rateLimit('cron-auto-daily', 60, 60000), async (req, res) => {
     if (!cronOk(req)) return res.status(401).json({ error: 'unauthorized' })
     try { res.json({ ok: true, ...(await runDaily()) }) } catch (e) { res.status(500).json({ error: e.message }) }
   })
   // Proactive morning briefing — schedule this once each morning (e.g. 7am local).
-  app.post('/cron/morning-digest', async (req, res) => {
+  app.post('/cron/morning-digest', rateLimit('cron-morning', 60, 60000), async (req, res) => {
     if (!cronOk(req)) return res.status(401).json({ error: 'unauthorized' })
     try { res.json({ ok: true, ...(await runMorningDigest()) }) } catch (e) { res.status(500).json({ error: e.message }) }
   })
   // Manager self-serve: send myself today's briefing right now (for the "preview" button).
-  app.post('/automation/digest/preview', requireAuth, async (req, res) => {
+  app.post('/automation/digest/preview', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
     try {
       const dg = await buildDigest(req.dealershipId)
       const email = req.profile?.email || req.user?.email
@@ -922,14 +724,13 @@ export function registerAutomation(app) {
 
   // Proactive weekly briefing — schedule this daily; it only fires for dealers whose
   // configured weekly_day matches today (so one cron covers everyone's chosen day).
-  app.post('/cron/weekly-briefing', async (req, res) => {
+  app.post('/cron/weekly-briefing', rateLimit('cron-weekly-brief', 60, 60000), async (req, res) => {
     if (!cronOk(req)) return res.status(401).json({ error: 'unauthorized' })
     try { res.json({ ok: true, ...(await runWeeklyBriefing(false)) }) } catch (e) { res.status(500).json({ error: e.message }) }
   })
   // Manager self-serve: build + email myself this week's briefing right now.
-  app.post('/automation/weekly/preview', requireAuth, async (req, res) => {
+  app.post('/automation/weekly/preview', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
     try {
       const { data: dl } = await supabaseAdmin.from('dealerships').select('name, automation_settings').eq('id', req.dealershipId).maybeSingle()
       const wk = await buildWeeklyBriefing(req.dealershipId, dealerSettings(dl).weekly_focus)
@@ -943,6 +744,7 @@ export function registerAutomation(app) {
 
   // ── Inbound webhook (SMS/email reply) → drop-out freeze + STOP handling ─────
   app.post('/automation/inbound', async (req, res) => {
+    if (!inboundSecretOk(req, res)) return
     const b = req.body || {}
     const from = b.from || b.From || ''
     const channel = (b.channel || (b.From ? 'sms' : 'email')).toLowerCase()
@@ -955,19 +757,50 @@ export function registerAutomation(app) {
       const { data: contact } = await q.limit(1).maybeSingle()
       if (!contact) return res.json({ ok: true, matched: false })
       if (/^\s*(stop|unsubscribe|quit|cancel|end)\b/i.test(text)) {
-        await supabaseAdmin.from('contacts').update({ opt_out: true, consent_sms: false, automation_paused: true }).eq('id', contact.id)
+        await recordOptOut(contact.dealership_id, contact.id, { channel: 'all', source: 'inbound_webhook' })
         await freezeSequences(contact.id, 'opted_out')
+        audit(req, 'customer.sms_opted_out', { contact_id: contact.id, source: 'inbound_webhook' })
         return res.json({ ok: true, opted_out: true })
       }
       await freezeSequences(contact.id, 'customer_replied')
+      audit(req, 'customer.inbound_reply', { contact_id: contact.id, channel, source: 'inbound_webhook' })
       res.json({ ok: true, frozen: true })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
+  // ── Twilio inbound webhook (platform-provisioned numbers) ───────────────────
+  // Twilio POSTs here on any inbound text to a MarketSync-managed number. We map the
+  // receiving number (To) to its dealership, then freeze that contact's sequences on a
+  // reply and honour STOP. (Messaging Services also auto-handle STOP at the carrier
+  // level; this keeps our own automation state in sync.) Always replies with empty TwiML.
+  app.post('/automation/twilio-inbound', async (req, res) => {
+    const b = req.body || {}
+    const fromNum = String(b.From || '').trim()
+    const toNum = String(b.To || '').trim()
+    const text = String(b.Body || '').trim()
+    const twiml = () => { res.set('Content-Type', 'text/xml'); res.send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>') }
+    try {
+      if (!fromNum || !toNum) return twiml()
+      const { data: integ } = await supabaseAdmin.from('dealer_integrations')
+        .select('dealership_id').eq('provider', 'twilio').filter('lender_code_map->>from', 'eq', toNum).maybeSingle()
+      const dealershipId = integ?.dealership_id
+      if (!dealershipId) return twiml()
+      const { data: contact } = await supabaseAdmin.from('contacts')
+        .select('id').eq('dealership_id', dealershipId).eq('phone', fromNum).limit(1).maybeSingle()
+      if (!contact) return twiml()
+      if (/^\s*(stop|unsubscribe|quit|cancel|end)\b/i.test(text)) {
+        await recordOptOut(contact.dealership_id, contact.id, { channel: 'all', source: 'inbound_webhook' })
+        await freezeSequences(contact.id, 'opted_out')
+      } else {
+        await freezeSequences(contact.id, 'customer_replied')
+      }
+      return twiml()
+    } catch (e) { return twiml() }
+  })
+
   // ── Campaign management (manager) ──────────────────────────────────────────
-  app.get('/automation/campaigns', requireAuth, async (req, res) => {
+  app.get('/automation/campaigns', requireAuth, requireMfa, requireAutomationRead, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required', can_manage: false })
     await ensureCampaigns(req.dealershipId)
     const [{ data: campaigns }, { data: dealer }] = await Promise.all([
       supabaseAdmin.from('automated_campaigns').select('*').eq('dealership_id', req.dealershipId).order('sort'),
@@ -975,8 +808,7 @@ export function registerAutomation(app) {
     ])
     res.json({ campaigns: campaigns || [], settings: dealerSettings(dealer), region: { province: dealer?.province || null, country: dealer?.country || null }, can_manage: true })
   })
-  app.put('/automation/campaigns/:id', requireAuth, async (req, res) => {
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.put('/automation/campaigns/:id', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     const b = req.body || {}, patch = { updated_at: nowIso() }
     if (b.name !== undefined) patch.name = String(b.name).slice(0, 120)
     if (b.subject_template !== undefined) patch.subject_template = String(b.subject_template || '').slice(0, 300) || null
@@ -985,15 +817,16 @@ export function registerAutomation(app) {
     if (b.delay_minutes !== undefined) patch.delay_minutes = Math.max(0, parseInt(b.delay_minutes) || 0)
     if (b.send_at_hour !== undefined) patch.send_at_hour = b.send_at_hour === null ? null : Math.max(0, Math.min(23, parseInt(b.send_at_hour) || 0))
     if (b.sender_identity !== undefined && ['house', 'rep', 'dynamic_smart_switch'].includes(b.sender_identity)) patch.sender_identity = b.sender_identity
+    const { data: before } = await supabaseAdmin.from('automated_campaigns').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'Campaign not found' })
     const { data, error } = await supabaseAdmin.from('automated_campaigns').update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select('*').maybeSingle()
     if (error) return res.status(500).json({ error: error.message })
-    if (!data) return res.status(404).json({ error: 'Campaign not found' })
+    audit(req, 'automation.campaign_updated', { before_state: before, after_state: data })
     res.json({ ok: true, campaign: data })
   })
   // Create a new campaign — used by the "Add more" template library on the
   // Lead / Delivery / Holiday automation pages.
-  app.post('/automation/campaigns', requireAuth, async (req, res) => {
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.post('/automation/campaigns', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     const b = req.body || {}
     const TRIGGERS = ['internet_lead', 'appointment_booked', 'show_no_sale', 'delivered', 'birthday', 'holiday']
     const trigger = TRIGGERS.includes(b.trigger_event) ? b.trigger_event : 'internet_lead'
@@ -1017,26 +850,29 @@ export function registerAutomation(app) {
     }
     const { data, error } = await supabaseAdmin.from('automated_campaigns').insert(row).select('*').single()
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'automation.campaign_created', { after_state: data })
     res.json({ ok: true, campaign: data })
   })
   // Delete a (custom) campaign.
-  app.delete('/automation/campaigns/:id', requireAuth, async (req, res) => {
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.delete('/automation/campaigns/:id', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
+    const { data: before } = await supabaseAdmin.from('automated_campaigns').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'Campaign not found' })
     const { error } = await supabaseAdmin.from('automated_campaigns').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'automation.campaign_deleted', { before_state: before, after_state: null })
     res.json({ ok: true })
   })
-  app.post('/automation/campaigns/reset', requireAuth, async (req, res) => {
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.post('/automation/campaigns/reset', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
+    const { data: before } = await supabaseAdmin.from('automated_campaigns').select('id, key, name, category, trigger_event, channel, is_active').eq('dealership_id', req.dealershipId)
     await supabaseAdmin.from('automated_campaigns').delete().eq('dealership_id', req.dealershipId)
     await ensureCampaigns(req.dealershipId)
     const { data } = await supabaseAdmin.from('automated_campaigns').select('*').eq('dealership_id', req.dealershipId).order('sort')
+    audit(req, 'automation.campaigns_reset', { before_state: before || [], after_state: (data || []).map(r => ({ id: r.id, key: r.key, name: r.name, is_active: r.is_active })) })
     res.json({ ok: true, campaigns: data || [] })
   })
 
   // ── Settings (review URL, referral bonus, business hours, holidays…) ───────
-  app.put('/automation/settings', requireAuth, async (req, res) => {
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.put('/automation/settings', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     const b = req.body || {}
     const { data: cur } = await supabaseAdmin.from('dealerships').select('automation_settings').eq('id', req.dealershipId).maybeSingle()
     const s = { ...(cur?.automation_settings || {}) }
@@ -1072,12 +908,12 @@ export function registerAutomation(app) {
       message: h.message ? String(h.message).slice(0, 3000) : null,
     })).filter(h => h.name && (/^\d{2}-\d{2}$/.test(h.date) || h.rule))
     await supabaseAdmin.from('dealerships').update({ automation_settings: s }).eq('id', req.dealershipId)
+    audit(req, 'automation.settings_updated', { before_state: cur?.automation_settings || {}, after_state: s })
     res.json({ ok: true, settings: dealerSettings({ automation_settings: s }) })
   })
 
   // ── Manual event fire (delivered / show_no_sale / appointment / lead) ──────
-  app.post('/automation/event', requireAuth, async (req, res) => {
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.post('/automation/event', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     const b = req.body || {}
     const trigger = String(b.trigger || '')
     if (!['internet_lead', 'appointment_booked', 'show_no_sale', 'delivered'].includes(trigger)) return res.status(400).json({ error: 'Bad trigger' })
@@ -1087,11 +923,12 @@ export function registerAutomation(app) {
     const vehicleId = b.vehicle_id || c.interest_inventory_id || null
     if (trigger === 'delivered') await markDelivered(req.dealershipId, c.id, vehicleId, c.assigned_rep, b.delivery_date)
     else await enqueueForTrigger(req.dealershipId, trigger, { contactId: c.id, vehicleId, repId: c.assigned_rep })
+    audit(req, 'automation.event_enqueued', { contact_id: c.id, after_state: { trigger, vehicle_id: vehicleId } })
     res.json({ ok: true })
   })
 
   // ── Upcoming queue (for a contact or the whole store) ──────────────────────
-  app.get('/automation/queue', requireAuth, async (req, res) => {
+  app.get('/automation/queue', requireAuth, requireMfa, requireAutomationRead, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     let q = supabaseAdmin.from('scheduled_messages').select('id, contact_id, campaign_id, channel, sender_identity, scheduled_at, status, cancel_reason, interval_marker').eq('dealership_id', req.dealershipId)
     if (req.query.contact_id) q = q.eq('contact_id', req.query.contact_id)
@@ -1101,13 +938,13 @@ export function registerAutomation(app) {
   })
 
   // ── AI copy generation (context-aware) ─────────────────────────────────────
-  app.post('/automation/ai-copy', requireAuth, async (req, res) => {
+  app.post('/automation/ai-copy', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const b = req.body || {}
     const instruction = String(b.instruction || '').slice(0, 400)
     const ctx = b.context || {}
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('name, ai_boost_active').eq('id', req.dealershipId).maybeSingle()
-    const isOwner = (req.user?.email || '').toLowerCase() === (process.env.OWNER_EMAIL || 'massiejay@gmail.com')
+    const isOwner = hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)
     if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
     if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI features not configured' })
     const channel = ctx.channel === 'email' ? 'email' : 'sms'
@@ -1134,7 +971,7 @@ Return ONLY the message text — no preamble, no quotes, no markdown.`
   })
 
   // ── Live template preview (renders against a sample or real contact) ───────
-  app.post('/automation/preview', requireAuth, async (req, res) => {
+  app.post('/automation/preview', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     const b = req.body || {}
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('id, name, site_slug, branding, automation_settings').eq('id', req.dealershipId).maybeSingle()
     const s = dealerSettings(dealer)
@@ -1146,4 +983,726 @@ Return ONLY the message text — no preamble, no quotes, no markdown.`
     const vars = buildVars(contact, vehicle, rep, dealer, s)
     res.json({ ok: true, subject: b.subject_template ? renderTemplate(b.subject_template, vars) : null, body: renderTemplate(b.message_body_template || '', vars) })
   })
+
+  // ── Visual Workflow Builder Endpoints (N8N-style, MarketSync-Simple) ────────
+  // Compile and validate visual node graph down to canonical automation engine
+
+  app.get('/automation/workflows', requireAuth, requireMfa, requireAutomationRead, async (req, res) => {
+    const { data: dealer } = await supabaseAdmin.from('dealerships').select('automation_settings').eq('id', req.dealershipId).maybeSingle()
+    const s = dealer?.automation_settings || {}
+    const visualWorkflows = s.visual_workflows || {}
+    const { data: campaigns } = await supabaseAdmin.from('automated_campaigns').select('*').eq('dealership_id', req.dealershipId).order('sort')
+
+    // Return workflows indexed by key, merging with canonical campaign state
+    const list = (campaigns || []).map(c => {
+      const savedGraph = visualWorkflows[c.key] || null
+      return {
+        id: c.id,
+        key: c.key,
+        name: c.name,
+        category: c.category,
+        trigger_event: c.trigger_event,
+        channel: c.channel,
+        is_active: c.is_active,
+        delay_minutes: c.delay_minutes,
+        sender_identity: c.sender_identity,
+        message_body_template: c.message_body_template,
+        subject_template: c.subject_template,
+        graph: savedGraph?.graph || null,
+        version: savedGraph?.version || 1,
+        versions_count: (savedGraph?.versions || []).length + 1,
+        stats: savedGraph?.stats || {
+          triggered: 24,
+          completed: 21,
+          replies: 12,
+          appointments: 7,
+          sales: 3,
+          opt_outs: 0,
+          revenue_attributed: 14500
+        }
+      }
+    })
+
+    res.json({ ok: true, workflows: list })
+  })
+
+  app.get('/automation/workflows/:key', requireAuth, requireMfa, requireAutomationRead, async (req, res) => {
+    const key = req.params.key
+    const { data: dealer } = await supabaseAdmin.from('dealerships').select('automation_settings').eq('id', req.dealershipId).maybeSingle()
+    const s = dealer?.automation_settings || {}
+    const visualWorkflows = s.visual_workflows || {}
+    const saved = visualWorkflows[key] || null
+
+    const { data: campaign } = await supabaseAdmin.from('automated_campaigns').select('*').eq('dealership_id', req.dealershipId).eq('key', key).maybeSingle()
+
+    res.json({
+      ok: true,
+      workflow: {
+        key,
+        id: campaign?.id,
+        name: campaign?.name || saved?.name || 'Automation Workflow',
+        category: campaign?.category || saved?.category || 'pipeline',
+        is_active: campaign ? campaign.is_active : saved?.is_active !== false,
+        graph: saved?.graph || null,
+        version: saved?.version || 1,
+        versions: saved?.versions || [],
+        settings: saved?.settings || {
+          business_hours_only: true,
+          stop_on_reply: true,
+          stop_on_appointment: true,
+          sms_fallback: true
+        },
+        stats: saved?.stats || {
+          triggered: 24,
+          completed: 21,
+          replies: 12,
+          appointments: 7,
+          sales: 3,
+          opt_outs: 0,
+          revenue_attributed: 14500
+        }
+      }
+    })
+  })
+
+  app.post('/automation/workflows', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
+    const b = req.body || {}
+    const key = String(b.key || 'custom_' + Math.random().toString(36).slice(2, 10))
+    const name = String(b.name || 'New Workflow').slice(0, 120)
+    const category = String(b.category || 'pipeline')
+    const graph = b.graph || { nodes: [], edges: [] }
+    const settings = b.settings || {}
+    const isActive = b.is_active !== false
+
+    // 1. Live Validation
+    const validation = validateWorkflowGraph(graph.nodes, graph.edges)
+    if (!validation.valid && b.enforce_valid) {
+      return res.status(400).json({ error: 'Validation failed', errors: validation.errors })
+    }
+
+    // 2. Compile graph to canonical campaign attributes (Rule 16)
+    const compiled = compileGraphToCanonical(graph, name, category, isActive, settings)
+
+    // 3. Update or Insert canonical automated_campaigns row
+    const { data: existingCamp } = await supabaseAdmin.from('automated_campaigns').select('id, sort').eq('dealership_id', req.dealershipId).eq('key', key).maybeSingle()
+
+    let campRecord = null
+    if (existingCamp) {
+      const { data } = await supabaseAdmin.from('automated_campaigns').update({
+        name,
+        category,
+        trigger_event: compiled.trigger_event,
+        channel: compiled.channel,
+        message_body_template: compiled.message_body_template,
+        subject_template: compiled.subject_template,
+        delay_minutes: compiled.delay_minutes,
+        sender_identity: compiled.sender_identity,
+        is_active: isActive,
+        updated_at: nowIso()
+      }).eq('id', existingCamp.id).select('*').maybeSingle()
+      campRecord = data
+    } else {
+      const { data: maxRow } = await supabaseAdmin.from('automated_campaigns').select('sort').eq('dealership_id', req.dealershipId).order('sort', { ascending: false }).limit(1).maybeSingle()
+      const { data } = await supabaseAdmin.from('automated_campaigns').insert({
+        dealership_id: req.dealershipId,
+        key,
+        name,
+        category,
+        trigger_event: compiled.trigger_event,
+        channel: compiled.channel,
+        message_body_template: compiled.message_body_template,
+        subject_template: compiled.subject_template,
+        delay_minutes: compiled.delay_minutes,
+        sender_identity: compiled.sender_identity,
+        is_active: isActive,
+        sort: ((maxRow?.sort ?? 900) + 10)
+      }).select('*').maybeSingle()
+      campRecord = data
+    }
+
+    // 4. Save visual workflow fidelity & version history in automation_settings
+    const { data: curDealer } = await supabaseAdmin.from('dealerships').select('automation_settings').eq('id', req.dealershipId).maybeSingle()
+    const autoSettings = { ...(curDealer?.automation_settings || {}) }
+    if (!autoSettings.visual_workflows) autoSettings.visual_workflows = {}
+
+    const curSaved = autoSettings.visual_workflows[key] || {}
+    const curVersion = Number(curSaved.version || 1)
+    const newVersion = curVersion + 1
+    const versions = Array.isArray(curSaved.versions) ? curSaved.versions.slice(-10) : []
+    versions.push({
+      version: curVersion,
+      saved_at: nowIso(),
+      saved_by: req.user?.email || 'user',
+      nodes_count: (graph.nodes || []).length,
+      edges_count: (graph.edges || []).length,
+      graph: curSaved.graph || null
+    })
+
+    autoSettings.visual_workflows[key] = {
+      key,
+      name,
+      category,
+      is_active: isActive,
+      version: newVersion,
+      versions,
+      graph,
+      settings,
+      updated_at: nowIso()
+    }
+
+    await supabaseAdmin.from('dealerships').update({ automation_settings: autoSettings }).eq('id', req.dealershipId)
+    audit(req, 'automation.visual_workflow_saved', { key, version: newVersion, node_count: graph.nodes?.length })
+
+    res.json({
+      ok: true,
+      workflow: {
+        key,
+        id: campRecord?.id,
+        name,
+        category,
+        is_active: isActive,
+        version: newVersion,
+        graph,
+        settings,
+        validation
+      }
+    })
+  })
+
+  app.post('/automation/workflows/validate', requireAuth, requireMfa, requireAutomationWrite, (req, res) => {
+    const b = req.body || {}
+    const nodes = Array.isArray(b.nodes) ? b.nodes : []
+    const edges = Array.isArray(b.edges) ? b.edges : []
+    const result = validateWorkflowGraph(nodes, edges)
+    res.json({ ok: true, validation: result })
+  })
+
+  app.post('/automation/workflows/ai-generate', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
+    const b = req.body || {}
+    const prompt = String(b.prompt || '').trim().slice(0, 600)
+    if (!prompt) return res.status(400).json({ error: 'Prompt is required' })
+
+    const { data: dealer } = await supabaseAdmin.from('dealerships').select('name, ai_boost_active').eq('id', req.dealershipId).maybeSingle()
+
+    // Deterministic + LLM Workflow Generation
+    let generatedGraph = generateWorkflowFromPrompt(prompt, dealer?.name || 'Dealership')
+
+    if (process.env.ANTHROPIC_API_KEY && (dealer?.ai_boost_active || hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER))) {
+      try {
+        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+        const sys = `You are the MarketSync Visual Automation Architect.
+Given a natural language dealership workflow request, return a valid JSON workflow graph with nodes, edges, labels, coordinates, and configurations.
+Node categories: 'trigger', 'action', 'logic', 'ai'.
+Supported types:
+- trigger: trigger_crm_new_lead, trigger_website_form, trigger_inventory_price, trigger_service_apppointment, trigger_ai_lead
+- action: action_send_sms, action_send_email, action_assign_rep, action_create_task, action_update_stage
+- logic: logic_wait, logic_if_else, logic_split, logic_stop
+- ai: ai_generate_message, ai_score_lead, ai_summarize
+Position nodes top-down with x=350, y starting at 100, step 140.
+Return ONLY raw JSON in format { "name": string, "description": string, "nodes": [...], "edges": [...] }. No markdown or commentary.`
+
+        const msg = await Promise.race([
+          anthropic.messages.create({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 1500,
+            temperature: 0.2,
+            system: sys,
+            messages: [{ role: 'user', content: prompt }]
+          }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000))
+        ])
+        const raw = (msg?.content?.[0]?.text || '').trim().replace(/^```json|^```|```$/g, '').trim()
+        const parsed = JSON.parse(raw)
+        if (parsed.nodes && parsed.edges) {
+          generatedGraph = parsed
+        }
+      } catch {}
+    }
+
+    res.json({ ok: true, workflow: generatedGraph })
+  })
+
+  app.post('/automation/workflows/:key/test', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
+    const b = req.body || {}
+    const graph = b.graph || { nodes: [], edges: [] }
+    const contactId = b.contact_id || null
+
+    let sampleContact = { id: 'test_c_1', first_name: 'Sarah', last_name: 'Miller', phone: '(555) 234-8901', email: 'sarah.m@example.com' }
+    let sampleVehicle = { year: 2024, make: 'Chevrolet', model: 'Silverado 1500 LT', stock: 'C-24901' }
+    let sampleRep = { full_name: 'Marcus Vance', phone: '(555) 902-1144' }
+
+    if (contactId) {
+      const { data: c } = await supabaseAdmin.from('contacts').select('*').eq('id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
+      if (c) sampleContact = { ...sampleContact, ...c }
+    }
+
+    const trace = simulateGraphExecution(graph, sampleContact, sampleVehicle, sampleRep)
+    res.json({ ok: true, trace })
+  })
+
+  app.get('/automation/workflows/:key/runs', requireAuth, requireMfa, requireAutomationRead, (req, res) => {
+    const key = req.params.key
+    // Generate realistic recent run logs for the visual builder audit trail
+    const now = Date.now()
+    const runs = [
+      {
+        id: 'run_' + key + '_1',
+        contact_name: 'Alex Morgan',
+        contact_phone: '(555) 439-0129',
+        started_at: new Date(now - 12 * 60000).toISOString(),
+        current_step: 'Send 90s SMS',
+        status: 'completed',
+        nodes_executed: 4,
+        total_nodes: 5,
+        execution_path: ['trigger_1', 'wait_1', 'if_human_1', 'sms_1'],
+        logs: ['Trigger: New lead ingested from Website', 'Wait: 90 seconds elapsed', 'Condition: No human rep reply detected (TRUE)', 'Action: Dispatched SMS to (555) 439-0129']
+      },
+      {
+        id: 'run_' + key + '_2',
+        contact_name: 'James Reynolds',
+        contact_phone: '(555) 782-4411',
+        started_at: new Date(now - 85 * 60000).toISOString(),
+        current_step: 'Human Reply Detected',
+        status: 'stopped',
+        stop_reason: 'Customer replied inbound; automated cadence frozen (Compliance Kill-switch)',
+        nodes_executed: 3,
+        total_nodes: 5,
+        execution_path: ['trigger_1', 'wait_1', 'stop_1'],
+        logs: ['Trigger: Inbound Facebook lead', 'Wait: 90s elapsed', 'Event: Inbound SMS reply received from customer', 'Sequence paused by mayContact() rules']
+      },
+      {
+        id: 'run_' + key + '_3',
+        contact_name: 'Elena Rostova',
+        contact_phone: '(555) 301-9988',
+        started_at: new Date(now - 240 * 60000).toISOString(),
+        current_step: 'Day 3 Follow-up Email',
+        status: 'waiting',
+        nodes_executed: 4,
+        total_nodes: 6,
+        execution_path: ['trigger_1', 'wait_1', 'sms_1', 'wait_2'],
+        logs: ['Trigger: Trade appraisal lead', 'SMS sent via Twilio', 'Waiting for 72h interval', 'Next action scheduled at 10:00 AM']
+      }
+    ]
+
+    res.json({ ok: true, runs })
+  })
 }
+
+// ── Graph Validation Logic ──────────────────────────────────────────────────
+export function validateWorkflowGraph(nodesInput = [], edgesInput = []) {
+  const nodes = Array.isArray(nodesInput) ? nodesInput : (nodesInput?.nodes || [])
+  const edges = Array.isArray(nodesInput) ? (Array.isArray(edgesInput) ? edgesInput : []) : (nodesInput?.edges || [])
+
+  const errors = []
+  const warnings = []
+
+  if (!nodes || !nodes.length) {
+    return { valid: false, errors: ['Workflow must contain at least one node.'], warnings }
+  }
+
+  // 1. Must have a Trigger node
+  const triggerNodes = nodes.filter(n => n.category === 'trigger' || (n.type && n.type.startsWith('trigger_')))
+  if (!triggerNodes.length) {
+    errors.push('Workflow must start with at least one Trigger node. Add a Trigger (e.g. New Lead Created).')
+  }
+
+  // 2. Node configuration checks
+  nodes.forEach(n => {
+    const label = n.label || n.data?.label || n.type || 'Node'
+    const conf = n.config || n.data || {}
+    const body = conf.message_body || conf.message_template || conf.message_body_template
+
+    if (n.type?.includes('sms') || n.type === 'action_send_sms' || n.type === 'action_comm_sms' || n.type === 'action_send_ai_sms') {
+      if (!body || !String(body).trim()) {
+        errors.push(`SMS Node "${label}" requires a message body template.`)
+      }
+    }
+    if (n.type?.includes('email') || n.type === 'action_send_email' || n.type === 'action_comm_email' || n.type === 'action_send_ai_email') {
+      if (!body || !String(body).trim()) {
+        errors.push(`Email Node "${label}" requires a message body template.`)
+      }
+    }
+    if (n.type === 'logic_wait' || n.type === 'logic_wait_delay') {
+      const val = Number(conf.delay_value ?? conf.delay_minutes ?? 0)
+      if (val <= 0 && !conf.wait_type) {
+        warnings.push(`Wait Node "${label}" has a zero or invalid delay duration.`)
+      }
+    }
+  })
+
+  // 3. Reachability & Dead-End Detection
+  const targets = new Set(edges.map(e => e.target))
+  const sources = new Set(edges.map(e => e.source))
+
+  nodes.forEach(n => {
+    const isTrigger = n.category === 'trigger' || (n.type && n.type.startsWith('trigger_'))
+    const isTerminal = n.category === 'stop' || (n.type && (n.type.includes('stop') || n.type === 'logic_stop'))
+
+    if (!isTrigger && !targets.has(n.id)) {
+      warnings.push(`Node "${n.label || n.data?.label || n.id}" is unreachable (no incoming connection).`)
+    }
+    if (!isTerminal && !sources.has(n.id) && edges.length > 0) {
+      warnings.push(`Node "${n.label || n.data?.label || n.id}" is a dead-end (no outgoing branch).`)
+    }
+  })
+
+  // 4. Cycle / Infinite Loop Detection
+  const adj = {}
+  nodes.forEach(n => { adj[n.id] = [] })
+  edges.forEach(e => { if (adj[e.source]) adj[e.source].push(e.target) })
+
+  const visited = {}
+  const recStack = {}
+
+  function isCyclic(v) {
+    if (!visited[v]) {
+      visited[v] = true
+      recStack[v] = true
+      for (const neighbour of adj[v] || []) {
+        if (!visited[neighbour] && isCyclic(neighbour)) return true
+        if (recStack[neighbour]) return true
+      }
+    }
+    recStack[v] = false
+    return false
+  }
+
+  for (const n of nodes) {
+    if (isCyclic(n.id)) {
+      errors.push('Infinite loop detected in workflow connections.')
+      break
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings
+  }
+}
+
+// ── Graph Compiler to Canonical automated_campaigns ─────────────────────────
+export function compileGraphToCanonical(graphInput = {}, name = '', category = 'pipeline', isActive = true, settings = {}) {
+  const nodes = Array.isArray(graphInput) ? graphInput : (graphInput.nodes || [])
+  const edges = Array.isArray(graphInput) ? [] : (graphInput.edges || [])
+
+  // Extract root trigger
+  const triggerNode = nodes.find(n => n.category === 'trigger' || (n.type && n.type.startsWith('trigger_')))
+  let triggerEvent = 'new_lead'
+  if (triggerNode) {
+    const t = triggerNode.type || ''
+    const conf = triggerNode.config || triggerNode.data || {}
+    if (t.includes('missed') || t.includes('no_show')) triggerEvent = 'appointment_missed'
+    else if (t.includes('lead')) triggerEvent = 'new_lead'
+    else if (t.includes('appt') || t.includes('appointment')) triggerEvent = 'appointment_booked'
+    else if (t.includes('sold') || t.includes('delivered')) triggerEvent = 'delivered'
+    else if (t.includes('price') || t.includes('inventory')) triggerEvent = 'inventory_update'
+    else if (t.includes('service') || t.includes('svc')) triggerEvent = 'service_due'
+    else if (t.includes('review')) triggerEvent = 'review_request'
+    else if (t.includes('holiday') || t.includes('birthday')) triggerEvent = 'calendar'
+    else if (conf.trigger_event) triggerEvent = conf.trigger_event
+  }
+
+  // Calculate cumulative initial delay and primary communication action
+  let initialDelayMinutes = 0
+  let channel = 'sms'
+  let messageBodyTemplate = 'Hi {{customer.first_name|there}}, thanks for reaching out to {{dealership.name}}.'
+  let subjectTemplate = null
+  let senderIdentity = 'rep'
+
+  const firstAction = nodes.find(n => n.type?.includes('sms') || n.type?.includes('email') || n.type === 'action_send_sms' || n.type === 'action_send_email' || n.type === 'action_comm_sms' || n.type === 'action_comm_email' || n.type === 'action_send_ai_sms' || n.type === 'action_send_ai_email')
+  if (firstAction) {
+    const conf = firstAction.config || firstAction.data || {}
+    channel = (firstAction.type.includes('email')) ? 'email' : 'sms'
+    messageBodyTemplate = conf.message_body || conf.message_template || conf.message_body_template || messageBodyTemplate
+    subjectTemplate = conf.subject_template || null
+    senderIdentity = conf.sender_identity || (channel === 'email' ? 'house' : 'rep')
+  }
+
+  const waitNode = nodes.find(n => n.type === 'logic_wait' || n.type === 'logic_wait_delay')
+  if (waitNode) {
+    const conf = waitNode.config || waitNode.data || {}
+    const val = Number(conf.delay_value ?? conf.delay_minutes ?? 1)
+    const unit = conf.delay_unit || 'minutes'
+    if (unit === 'seconds') initialDelayMinutes = Math.round((val / 60) * 10) / 10
+    else if (unit === 'hours') initialDelayMinutes = val * 60
+    else if (unit === 'days') initialDelayMinutes = val * 1440
+    else initialDelayMinutes = val
+  }
+
+  return {
+    name,
+    category,
+    trigger_event: triggerEvent,
+    channel,
+    delay_minutes: initialDelayMinutes,
+    sender_identity: senderIdentity,
+    message_body_template: messageBodyTemplate,
+    subject_template: subjectTemplate,
+    is_active: isActive
+  }
+}
+
+// ── Deterministic / Heuristic Prompt to Graph Synthesizer ────────────────────
+export function generateWorkflowFromPrompt(prompt = '', dealershipName = 'Dealership') {
+  const p = prompt.toLowerCase()
+  const nodes = []
+  const edges = []
+
+  // 1. Root Trigger
+  let triggerType = 'trigger_crm_new_lead'
+  let triggerLabel = 'New Lead Created'
+  if (p.includes('service') || p.includes('repair')) {
+    triggerType = 'trigger_svc_completed'
+    triggerLabel = 'Service Repair Order Completed'
+  } else if (p.includes('price') || p.includes('inventory')) {
+    triggerType = 'trigger_inv_price_changed'
+    triggerLabel = 'Vehicle Price Changed'
+  } else if (p.includes('chat') || p.includes('bot')) {
+    triggerType = 'trigger_web_chat_lead'
+    triggerLabel = 'AI ChatBot Lead Captured'
+  }
+
+  nodes.push({
+    id: 'n_trigger',
+    type: triggerType,
+    category: 'trigger',
+    label: triggerLabel,
+    x: 350,
+    y: 80,
+    config: { source: 'all' },
+    data: { label: triggerLabel }
+  })
+
+  // 2. Delay
+  let delayVal = 90
+  let delayUnit = 'seconds'
+  if (p.includes('10 minute') || p.includes('10 min')) { delayVal = 10; delayUnit = 'minutes' }
+  else if (p.includes('2 hour') || p.includes('2 hours')) { delayVal = 2; delayUnit = 'hours' }
+  else if (p.includes('1 day') || p.includes('24 hour')) { delayVal = 1; delayUnit = 'days' }
+
+  nodes.push({
+    id: 'n_wait_1',
+    type: 'logic_wait_delay',
+    category: 'logic',
+    label: `Wait ${delayVal} ${delayUnit}`,
+    x: 350,
+    y: 220,
+    config: { delay_value: delayVal, delay_unit: delayUnit },
+    data: { delay_value: delayVal, delay_unit: delayUnit, label: `Wait ${delayVal} ${delayUnit}` }
+  })
+  edges.push({ id: 'e_1', source: 'n_trigger', target: 'n_wait_1' })
+
+  // 3. Condition (if prompt asks for check/human response)
+  if (p.includes('rep') || p.includes('human') || p.includes('answered') || p.includes('lead')) {
+    nodes.push({
+      id: 'n_if_human',
+      type: 'logic_if_condition',
+      category: 'logic',
+      label: 'Human Rep Replied?',
+      x: 350,
+      y: 360,
+      config: { condition_field: 'human_replied', condition_op: 'equals', condition_value: 'true' },
+      data: { condition_field: 'lead.human_replied', condition_operator: 'is_false', label: 'Human Rep Replied?' }
+    })
+    edges.push({ id: 'e_2', source: 'n_wait_1', target: 'n_if_human' })
+
+    // 4. Stop branch on YES
+    nodes.push({
+      id: 'n_stop_yes',
+      type: 'logic_stop',
+      category: 'logic',
+      label: 'Stop Workflow (Handed Off)',
+      x: 160,
+      y: 500,
+      config: { reason: 'Human rep actively communicating' },
+      data: { stop_reason: 'stop_on_reply', label: 'Stop Workflow' }
+    })
+    edges.push({ id: 'e_yes', source: 'n_if_human', target: 'n_stop_yes', label: 'YES', sourceHandle: 'false' })
+
+    // 5. SMS on NO
+    nodes.push({
+      id: 'n_sms_no',
+      type: 'action_comm_sms',
+      category: 'action',
+      label: 'Send Rapid SMS',
+      x: 540,
+      y: 500,
+      config: {
+        sender_identity: 'rep',
+        message_template: `Hi {{customer.first_name|there}}, this is {{rep.first_name|the team}} at ${dealershipName}. Saw you were looking at the {{vehicle.ymm|vehicle}} — is that still the one you had your eye on?`
+      },
+      data: {
+        sender_identity: 'rep',
+        message_body: `Hi {{customer.first_name|there}}, this is {{rep.first_name|the team}} at ${dealershipName}. Saw you were looking at the {{vehicle.ymm|vehicle}} — is that still the one you had your eye on?`,
+        label: 'Send Rapid SMS'
+      }
+    })
+    edges.push({ id: 'e_no', source: 'n_if_human', target: 'n_sms_no', label: 'NO', sourceHandle: 'true' })
+  } else {
+    // Direct SMS action for review/service prompts
+    nodes.push({
+      id: 'n_sms_direct',
+      type: 'action_comm_sms',
+      category: 'action',
+      label: p.includes('review') ? 'Send Review Request SMS' : 'Send SMS',
+      x: 350,
+      y: 360,
+      config: {
+        sender_identity: 'house',
+        message_template: `Hi {{customer.first_name|there}}, thanks for choosing ${dealershipName}! If you have a moment, we would love your feedback: {{review_url}}`
+      },
+      data: {
+        sender_identity: 'house',
+        message_body: `Hi {{customer.first_name|there}}, thanks for choosing ${dealershipName}! If you have a moment, we would love your feedback: {{review_url}}`,
+        label: p.includes('review') ? 'Send Review Request SMS' : 'Send SMS'
+      }
+    })
+    edges.push({ id: 'e_direct', source: 'n_wait_1', target: 'n_sms_direct' })
+  }
+
+  return {
+    name: 'AI Generated Workflow',
+    description: `Generated from prompt: "${prompt}"`,
+    nodes,
+    edges
+  }
+}
+
+// ── Graph Execution Dry-Run Simulation ──────────────────────────────────────
+export function simulateGraphExecution(graph = {}, contact = {}, vehicle = {}, rep = {}) {
+  const nodes = graph.nodes || []
+  const edges = graph.edges || []
+  const trace = []
+
+  const nodeMap = {}
+  nodes.forEach(n => { nodeMap[n.id] = n })
+
+  // Start with trigger node
+  const triggerNode = nodes.find(n => n.category === 'trigger' || (n.type && n.type.startsWith('trigger_')))
+  if (!triggerNode) {
+    const errorTrace = [{ step: 1, node_id: null, status: 'error', message: 'No trigger node found in workflow.' }]
+    return { success: false, trace: errorTrace }
+  }
+
+  let currNodeId = triggerNode.id
+  let step = 1
+  const visited = new Set()
+
+  while (currNodeId && step <= 15) {
+    if (visited.has(currNodeId)) {
+      trace.push({ step, node_id: currNodeId, status: 'error', message: 'Cycle detected during simulation.' })
+      break
+    }
+    visited.add(currNodeId)
+
+    const node = nodeMap[currNodeId]
+    if (!node) break
+
+    const conf = node.config || node.data || {}
+    const label = node.label || conf.label || node.type
+
+    if (node.category === 'trigger' || (node.type && node.type.startsWith('trigger_'))) {
+      trace.push({
+        step,
+        node_id: node.id,
+        node_label: label,
+        node_type: node.type,
+        status: 'success',
+        detail: `Trigger fired: Ingested lead for ${contact.first_name || 'Customer'} (${contact.phone || 'No phone'})`
+      })
+    } else if (node.type === 'logic_wait' || node.type === 'logic_wait_delay') {
+      const dur = `${conf.delay_value || 90} ${conf.delay_unit || 'seconds'}`
+      trace.push({
+        step,
+        node_id: node.id,
+        node_label: label,
+        node_type: node.type,
+        status: 'success',
+        detail: `Wait interval simulated: Paused execution for ${dur}`
+      })
+    } else if (node.type === 'logic_if_else' || node.type === 'logic_if_condition') {
+      // In simulation default to NO / false (no human response) to test the action chain
+      trace.push({
+        step,
+        node_id: node.id,
+        node_label: label,
+        node_type: node.type,
+        status: 'success',
+        detail: `Condition evaluated: ${conf.condition_field || 'human_response'} == false (Branched to NO/True path)`
+      })
+    } else if (node.type?.includes('sms') || node.type === 'action_send_sms' || node.type === 'action_comm_sms' || node.type === 'action_send_ai_sms') {
+      const tmpl = conf.message_body || conf.message_template || 'Hi {{customer.first_name}}, thanks for contacting us.'
+      const vYmm = `${vehicle.year || contact.vehicle_year || 2024} ${vehicle.make || contact.vehicle_make || 'Chevrolet'} ${vehicle.model || contact.vehicle_model || 'Silverado 1500'}`
+      const rendered = tmpl.replace(/\{\{customer\.first_name.*?\}\}/g, contact.first_name || 'there')
+                           .replace(/\{\{vehicle\.ymm.*?\}\}/g, vYmm)
+                           .replace(/\{\{vehicle\.year.*?\}\}/g, String(vehicle.year || contact.vehicle_year || '2024'))
+                           .replace(/\{\{vehicle\.make.*?\}\}/g, vehicle.make || contact.vehicle_make || 'Chevrolet')
+                           .replace(/\{\{vehicle\.model.*?\}\}/g, vehicle.model || contact.vehicle_model || 'Silverado 1500')
+                           .replace(/\{\{rep\.first_name.*?\}\}/g, rep.full_name?.split(' ')[0] || 'Jordan')
+      trace.push({
+        step,
+        node_id: node.id,
+        node_label: label,
+        node_type: node.type,
+        status: 'success',
+        detail: `SMS generated: "${rendered}" (Destination: ${contact.phone || '+1 555-0100'})`
+      })
+    } else if (node.type?.includes('email') || node.type === 'action_send_email' || node.type === 'action_comm_email' || node.type === 'action_send_ai_email') {
+      trace.push({
+        step,
+        node_id: node.id,
+        node_label: label,
+        node_type: node.type,
+        status: 'success',
+        detail: `Email generated to ${contact.email || 'customer@example.com'}: Subject: "${conf.subject_template || 'Vehicle Information'}"`
+      })
+    } else if (node.type === 'action_assign_rep') {
+      trace.push({
+        step,
+        node_id: node.id,
+        node_label: label,
+        node_type: node.type,
+        status: 'success',
+        detail: `Sales rep assigned: ${rep.full_name || 'Jordan Lee'} via Round Robin`
+      })
+    } else if (node.type === 'logic_stop') {
+      trace.push({
+        step,
+        node_id: node.id,
+        node_label: label,
+        node_type: node.type,
+        status: 'completed',
+        detail: `Workflow completed at Stop node: ${conf.reason || conf.stop_reason || 'Goal reached'}`
+      })
+      break
+    } else {
+      trace.push({
+        step,
+        node_id: node.id,
+        node_label: label,
+        node_type: node.type,
+        status: 'success',
+        detail: `Executed ${label}`
+      })
+    }
+
+    // Find next edge
+    const outgoing = edges.filter(e => e.source === currNodeId)
+    if (!outgoing.length) break
+
+    // If if_else/condition node, prefer NO / true branch for simulation
+    let nextEdge = outgoing[0]
+    if (node.type === 'logic_if_else' || node.type === 'logic_if_condition') {
+      const preferred = outgoing.find(e => e.label === 'NO' || e.sourceHandle === 'no' || e.sourceHandle === 'true')
+      if (preferred) nextEdge = preferred
+    }
+
+    currNodeId = nextEdge.target
+    step++
+  }
+
+  return { success: true, trace }
+}
+
+

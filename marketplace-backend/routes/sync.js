@@ -1,8 +1,10 @@
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL, EXTENSION_URL, BACKEND_URL } from '../shared.js'
+import { rateLimit } from '../security.js'
 import { runInventorySync, syncAllDealerships, sweepStaleExtensionFeeds } from '../sync/engine.js'
 import { runDripCampaign, verifyUnsubToken } from '../drip.js'
 import { scanExceptions } from './workflow-scan.js'
 import { retryDueActions } from './action-executor.js'
+import { cronAuthorized } from '../cron-auth.js'
 
 function runDrip(trigger) {
   return runDripCampaign({
@@ -15,6 +17,12 @@ function runDrip(trigger) {
     unsubSecret: process.env.SYNC_SECRET || '',
     trigger
   })
+}
+
+function syncSecretAuthorized(req) {
+  // Secrets in query strings end up in reverse-proxy logs, browser history, and
+  // monitoring URLs. Schedulers must send this value as x-cron-secret instead.
+  return cronAuthorized(req.headers['x-cron-secret'], process.env.SYNC_SECRET)
 }
 
 async function applyDripUnsubscribe(req) {
@@ -53,7 +61,7 @@ async function cleanupExpiredSoldListings() {
   const ids = expired.map(l => l.id)
   const { error: updateErr } = await supabaseAdmin
     .from('listings')
-    .update({ status: 'deleted' })
+    .update({ status: 'deleted', deleted_at: new Date().toISOString() })
     .in('id', ids)
 
   if (updateErr) {
@@ -64,12 +72,18 @@ async function cleanupExpiredSoldListings() {
 }
 
 export function registerRoutes(app) {
-  app.get('/sync', async (req, res) => {
+  // Unauthenticated until the secret is checked, and a valid call starts a full inventory
+  // sync. Generous enough for any real scheduler, tight enough that guessing the secret is
+  // not something you can do quickly. (Phase 6S)
+  app.get('/sync', rateLimit('sync-manual', 60, 60 * 60 * 1000), async (req, res) => {
     if (!process.env.SYNC_SECRET) return res.status(503).json({ error: 'Sync endpoint not configured' })
-    if (req.query.secret !== process.env.SYNC_SECRET) {
+    if (!syncSecretAuthorized(req)) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
-    const targetDealershipId = req.query.dealership_id
+    // A repeated query param arrives as an array in Express, and everything downstream
+    // assumes a string. Coerce at the boundary. (Phase 6S)
+    const targetDealershipId = String(Array.isArray(req.query.dealership_id)
+      ? req.query.dealership_id[0] : (req.query.dealership_id || ''))
     if (!targetDealershipId) return res.status(400).json({ error: 'Missing target dealership parameter' })
 
     try {
@@ -81,32 +95,31 @@ export function registerRoutes(app) {
       // doesn't time out on large inventories or slow dealer sites.
       res.json({ success: true, message: 'Sync started' })
       runInventorySync(targetDealershipId).catch(e =>
-        console.error(`[sync] background sync failed for ${targetDealershipId}:`, e.message)
+        // Never put a user-controlled value in the format position. (Phase 6S)
+        console.error('[sync] background sync failed for %s: %s', targetDealershipId, e.message)
       )
     } catch (e) {
       res.status(500).json({ error: e.message })
     }
   })
 
-  app.post('/cron/sync-all', async (req, res) => {
+  app.post('/cron/sync-all', rateLimit('cron-sync-all', 60, 60 * 60 * 1000), async (req, res) => {
     if (!process.env.SYNC_SECRET) return res.status(503).json({ error: 'Cron endpoint not configured' })
-    const secret = req.headers['x-cron-secret'] || req.query.secret
-    if (secret !== process.env.SYNC_SECRET) return res.status(401).json({ error: 'Unauthorized' })
+    if (!syncSecretAuthorized(req)) return res.status(401).json({ error: 'Unauthorized' })
     res.json({ success: true, message: 'Full sync started' })
     syncAllDealerships('manual')
       .then(() => sweepStaleExtensionFeeds({ resend, emailFrom: EMAIL_FROM, frontendUrl: FRONTEND_URL }))
       .catch(e => console.error('[sync] background sync-all failed:', e.message))
   })
 
-  app.post('/cron/drip', async (req, res) => {
+  app.post('/cron/drip', rateLimit('cron-drip', 60, 60 * 60 * 1000), async (req, res) => {
     if (!process.env.SYNC_SECRET) return res.status(503).json({ error: 'Cron endpoint not configured' })
-    const secret = req.headers['x-cron-secret'] || req.query.secret
-    if (secret !== process.env.SYNC_SECRET) return res.status(401).json({ error: 'Unauthorized' })
+    if (!syncSecretAuthorized(req)) return res.status(401).json({ error: 'Unauthorized' })
     const result = await runDrip('manual')
     res.json(result)
   })
 
-  app.get('/unsubscribe', async (req, res) => {
+  app.get('/unsubscribe', rateLimit('unsub-get', 30, 60000), async (req, res) => {
     const ok = await applyDripUnsubscribe(req)
     if (!ok) {
       return res.status(400).type('html').send('<p>This unsubscribe link is invalid or expired.</p>')
@@ -120,77 +133,64 @@ export function registerRoutes(app) {
     )
   })
 
-  app.post('/unsubscribe', async (req, res) => {
+  app.post('/unsubscribe', rateLimit('unsub-post', 30, 60000), async (req, res) => {
     const ok = await applyDripUnsubscribe(req)
     res.status(ok ? 200 : 400).json({ success: ok })
   })
 
-  // Run once 5 minutes after boot, then every 24 hours
-  setTimeout(() => cleanupExpiredSoldListings(), 5 * 60 * 1000)
-  setInterval(() => cleanupExpiredSoldListings(), 24 * 60 * 60 * 1000)
-  console.log('🧹 Sold listing cleanup scheduled (daily, 14-day retention)')
+  if (process.env.RUN_WORKERS === 'true') {
+    // Run once 5 minutes after boot, then every 24 hours
+    setTimeout(() => cleanupExpiredSoldListings(), 5 * 60 * 1000)
+    setInterval(() => cleanupExpiredSoldListings(), 24 * 60 * 60 * 1000)
+    console.log('🧹 Sold listing cleanup scheduled (daily, 14-day retention)')
 
-  // ── Workflow exception scanner ──────────────────────────────────────────────
-  // Sweeps for time-based problems (stalled recon, sold-not-delivered, overdue
-  // tasks) and auto-resolves ones that have cleared. Feeds the Operations
-  // dashboard. Hourly by default; set EXC_SCAN_HOURS=0 to disable.
-  const EXC_SCAN_HOURS = Number(process.env.EXC_SCAN_HOURS ?? 1)
-  if (EXC_SCAN_HOURS > 0) {
-    setTimeout(() => scanExceptions('boot'), 6 * 60 * 1000)
-    setInterval(() => scanExceptions('interval'), EXC_SCAN_HOURS * 60 * 60 * 1000)
-    console.log(`🚦 Workflow exception scanner scheduled every ${EXC_SCAN_HOURS}h (set EXC_SCAN_HOURS=0 to disable)`)
-  }
-
-  // ── Action executor retry worker ────────────────────────────────────────────
-  // Re-drives failed system_action_runs whose backoff has elapsed. Every few
-  // minutes so transient provider failures recover quickly. ACTION_RETRY_MIN=0 off.
-  const ACTION_RETRY_MIN = Number(process.env.ACTION_RETRY_MIN ?? 5)
-  if (ACTION_RETRY_MIN > 0) {
-    setInterval(() => retryDueActions(), ACTION_RETRY_MIN * 60 * 1000)
-    console.log(`🔁 Action executor retry worker scheduled every ${ACTION_RETRY_MIN}m (set ACTION_RETRY_MIN=0 to disable)`)
-  }
-
-  const DRIP_INTERVAL_HOURS = Number(process.env.DRIP_INTERVAL_HOURS || 24)
-  if (DRIP_INTERVAL_HOURS > 0) {
-    setTimeout(() => runDrip('boot'), 2 * 60 * 1000)
-    setInterval(() => runDrip('interval'), DRIP_INTERVAL_HOURS * 60 * 60 * 1000)
-    console.log(`📧 Scheduled onboarding drip every ${DRIP_INTERVAL_HOURS}h (set DRIP_INTERVAL_HOURS=0 to disable)`)
-  }
-
-  // ── Nightly inventory sync ──────────────────────────────────────────────────
-  // Runs a full sync of every dealership once a night at NIGHTLY_SYNC_HOUR (server
-  // local time, default 3am). Self-reschedules so it anchors to a wall-clock hour
-  // rather than drifting from boot time. Set NIGHTLY_SYNC_HOUR=-1 to disable.
-  //
-  // NOTE: this only refreshes SERVER-SYNCABLE feeds (direct JSON/XML/CSV feeds,
-  // LeadBox, DealerPage, reachable eDealer). Cloudflare-blocked extension feeds
-  // (needs_extension_capture) are skipped — they can only be pulled manually from
-  // the browser, so a direct feed is required for hands-off nightly updates.
-  const NIGHTLY_SYNC_HOUR = Number(process.env.NIGHTLY_SYNC_HOUR ?? 3)
-  if (NIGHTLY_SYNC_HOUR >= 0) {
-    const scheduleNightlySync = () => {
-      const now = new Date()
-      const next = new Date(now)
-      next.setHours(NIGHTLY_SYNC_HOUR, 0, 0, 0)
-      if (next <= now) next.setDate(next.getDate() + 1)
-      const delay = next - now
-      setTimeout(async () => {
-        try {
-          console.log('🌙 Nightly inventory sync starting…')
-          const r = await syncAllDealerships('nightly')
-          console.log(`🌙 Nightly sync done: ${r.results?.length || 0} dealership(s)`)
-          // After syncing, nudge any Cloudflare/extension feeds that have gone stale.
-          try {
-            const s = await sweepStaleExtensionFeeds({ resend, emailFrom: EMAIL_FROM, frontendUrl: FRONTEND_URL })
-            if (s.alerted) console.log(`🌙 Staleness sweep: alerted ${s.alerted} dealer(s)`)
-          } catch (e) { console.error('[cron] staleness sweep failed:', e.message) }
-        } catch (e) {
-          console.error('[cron] nightly sync failed:', e.message)
-        }
-        scheduleNightlySync()  // arm the next night
-      }, delay)
-      console.log(`🌙 Nightly inventory sync scheduled for ${next.toISOString()} (in ${Math.round(delay / 3600000)}h; set NIGHTLY_SYNC_HOUR=-1 to disable)`)
+    // ── Workflow exception scanner ──────────────────────────────────────────────
+    const EXC_SCAN_HOURS = Number(process.env.EXC_SCAN_HOURS ?? 1)
+    if (EXC_SCAN_HOURS > 0) {
+      setTimeout(() => scanExceptions('boot'), 6 * 60 * 1000)
+      setInterval(() => scanExceptions('interval'), EXC_SCAN_HOURS * 60 * 60 * 1000)
+      console.log(`🚦 Workflow exception scanner scheduled every ${EXC_SCAN_HOURS}h (set EXC_SCAN_HOURS=0 to disable)`)
     }
-    scheduleNightlySync()
+
+    // ── Action executor retry worker ────────────────────────────────────────────
+    const ACTION_RETRY_MIN = Number(process.env.ACTION_RETRY_MIN ?? 5)
+    if (ACTION_RETRY_MIN > 0) {
+      setInterval(() => retryDueActions(), ACTION_RETRY_MIN * 60 * 1000)
+      console.log(`🔁 Action executor retry worker scheduled every ${ACTION_RETRY_MIN}m (set ACTION_RETRY_MIN=0 to disable)`)
+    }
+
+    const DRIP_INTERVAL_HOURS = Number(process.env.DRIP_INTERVAL_HOURS || 24)
+    if (DRIP_INTERVAL_HOURS > 0) {
+      setTimeout(() => runDrip('boot'), 2 * 60 * 1000)
+      setInterval(() => runDrip('interval'), DRIP_INTERVAL_HOURS * 60 * 60 * 1000)
+      console.log(`📧 Scheduled onboarding drip every ${DRIP_INTERVAL_HOURS}h (set DRIP_INTERVAL_HOURS=0 to disable)`)
+    }
+
+    const NIGHTLY_SYNC_HOUR = Number(process.env.NIGHTLY_SYNC_HOUR ?? 3)
+    if (NIGHTLY_SYNC_HOUR >= 0) {
+      const scheduleNightlySync = () => {
+        const now = new Date()
+        const next = new Date(now)
+        next.setHours(NIGHTLY_SYNC_HOUR, 0, 0, 0)
+        if (next <= now) next.setDate(next.getDate() + 1)
+        const delay = next - now
+        setTimeout(async () => {
+          try {
+            console.log('🌙 Nightly inventory sync starting…')
+            const r = await syncAllDealerships('nightly')
+            console.log(`🌙 Nightly sync done: ${r.results?.length || 0} dealership(s)`)
+            try {
+              const s = await sweepStaleExtensionFeeds({ resend, emailFrom: EMAIL_FROM, frontendUrl: FRONTEND_URL })
+              if (s.alerted) console.log(`🌙 Staleness sweep: alerted ${s.alerted} dealer(s)`)
+            } catch (e) { console.error('[cron] staleness sweep failed:', e.message) }
+          } catch (e) {
+            console.error('[cron] nightly sync failed:', e.message)
+          }
+          scheduleNightlySync()
+        }, delay)
+        console.log(`🌙 Nightly inventory sync scheduled for ${next.toISOString()} (in ${Math.round(delay / 3600000)}h; set NIGHTLY_SYNC_HOUR=-1 to disable)`)
+      }
+      scheduleNightlySync()
+    }
   }
 }

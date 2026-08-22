@@ -18,7 +18,7 @@ User → Role → Permissions → Workspace → Subscription/Relationship
 | `affiliate` | Partner network | Affiliate portal: performance, referrals, marketing tools, commission history/payouts |
 
 Resolution (live) — `/auth/me` returns `workspace`:
-- `saas_admin` if the user is the MarketSync owner (`OWNER_EMAIL`) or a MarketSync org
+- `saas_admin` if the user has a server-managed MarketSync platform role or is a MarketSync org
   member. *(Staff roles beyond owner are Stage 2.)*
 - `affiliate` if the user has an `affiliates` row (not suspended).
 - `dealer` otherwise → then `products` picks the product sub-mode (already built).
