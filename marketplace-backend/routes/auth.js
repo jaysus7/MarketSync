@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { randomBytes, createHash } from 'crypto'
-import { supabase, supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../shared.js'
+import { supabase, supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL, isEmailLike } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { validatePassword, rateLimit, getClientIp, generateRecoveryCodes, hashRecoveryCode } from '../security.js'
 import { maybeAlertSuspiciousLogin } from '../securityAlerts.js'
@@ -535,7 +535,7 @@ export function registerRoutes(app) {
     const subject = String(req.body?.subject || '').trim().slice(0, 200) || null
     const message = String(req.body?.message || '').trim().slice(0, 5000)
     if (!name || !email || !message) return res.status(400).json({ error: 'name, email, and message are required' })
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'A valid email address is required' })
+    if (!isEmailLike(email)) return res.status(400).json({ error: 'A valid email address is required' })
 
     const { error } = await supabaseAdmin
       .from('support_requests')
@@ -559,7 +559,7 @@ export function registerRoutes(app) {
     const plan = String(req.body?.plan || '').trim().slice(0, 80) || null
     const message = String(req.body?.message || '').trim().slice(0, 2000) || null
     if (!name || !email) return res.status(400).json({ error: 'name and email are required' })
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'A valid email address is required' })
+    if (!isEmailLike(email)) return res.status(400).json({ error: 'A valid email address is required' })
 
     const { error } = await supabaseAdmin
       .from('demo_requests')

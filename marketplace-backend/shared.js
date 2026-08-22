@@ -13,6 +13,19 @@ export const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND
 // transactional messages.
 export const EMAIL_FROM = process.env.EMAIL_FROM || 'MarketSync <noreply@marketsync.com>'
 
+// Linear, backtracking-free email check. The previous /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+// regex is polynomial ReDoS: `.` is a member of [^\s@], so the `\.` boundary can slide
+// across a long run of characters and force quadratic backtracking. This performs the
+// same validation with bounded indexOf scans and no ambiguous quantifiers.
+export function isEmailLike(v) {
+  const s = String(v == null ? '' : v)
+  if (s.length > 254 || /\s/.test(s)) return false          // one bounded, single-char test
+  const at = s.indexOf('@')
+  if (at <= 0 || at !== s.lastIndexOf('@') || at >= s.length - 1) return false
+  const dot = s.indexOf('.', at + 1)                        // a dot in the domain, not adjacent
+  return dot > at + 1 && dot < s.length - 1
+}
+
 // Central mailer. Every failure mode is made explicit and LOGGED (most call sites
 // used to swallow errors, which is why a mis-configured key or an unverified
 // sending domain looked like "no emails going through" with nothing in the logs).

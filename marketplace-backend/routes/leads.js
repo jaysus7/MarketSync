@@ -1,4 +1,4 @@
-import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
+import { supabaseAdmin, resend, EMAIL_FROM, isEmailLike } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { findOrCreateContact } from './crm.js'
 import { routeAndNotifyLead } from '../lead-routing.js'
@@ -447,7 +447,7 @@ export function registerLeads(app) {
   app.put('/leads/crm-email', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const email = String(req.body?.crm_adf_email || '').trim() || null
-    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Invalid email' })
+    if (email && !isEmailLike(email)) return res.status(400).json({ error: 'Invalid email' })
     // dealerships has no RLS UPDATE policy — kept on supabaseAdmin (route is MFA + integrations.manage gated).
     const { error } = await supabaseAdmin
       .from('dealerships').update({ crm_adf_email: email }).eq('id', req.dealershipId)
