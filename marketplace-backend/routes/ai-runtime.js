@@ -17,6 +17,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import multer from 'multer'
 import { supabaseAdmin, FRONTEND_URL } from '../shared.js'
+import { safeOutboundFetch } from '../outbound-http-policy.js'
 import { requireAuth } from '../middleware.js'
 import { BUSINESS_CAPABILITIES, INDUSTRY_TEMPLATES, AI_EMPLOYEE_ROLES, AI_CHATBOT_GOALS } from './ai.js'
 import { emitEvent } from './events.js'
@@ -843,10 +844,12 @@ export function registerAiRuntime(app) {
     if (!/^https?:\/\//i.test(fullUrl)) fullUrl = 'https://' + fullUrl
 
     try {
-      // Fetch website HTML
-      const resp = await fetch(fullUrl, {
+      // Fetch website HTML through the SSRF policy: fullUrl is user-supplied, so a raw
+      // fetch could be pointed at internal hosts / cloud metadata. safeOutboundFetch
+      // validates every hop (and throws on a blocked target — caught below → null).
+      const resp = await safeOutboundFetch(fullUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0 (MarketSync Site Scanner/1.0)' },
-        signal: AbortSignal.timeout(8000),
+        timeout: 8000,
       }).catch(() => null)
 
       let html = ''

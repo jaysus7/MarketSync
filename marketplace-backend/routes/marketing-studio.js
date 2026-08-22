@@ -9,6 +9,7 @@
  */
 
 import { supabaseAdmin } from '../shared.js'
+import { safeOutboundFetch } from '../outbound-http-policy.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission, hasPermission } from '../authorization.js'
 import { getCurrentAccessContext, hasFeature } from '../access.js'
@@ -568,7 +569,9 @@ export function registerMarketingStudio(app) {
     if (!sourceUrl) return res.status(400).json({ error: 'source_url is required' })
 
     try {
-      const resp = await fetch(sourceUrl)
+      // sourceUrl is user-supplied; fetch it through the SSRF policy so it cannot be
+      // aimed at internal hosts or cloud metadata endpoints.
+      const resp = await safeOutboundFetch(sourceUrl)
       if (!resp.ok) throw new Error('Could not download external image asset')
       const buffer = Buffer.from(await resp.arrayBuffer())
       const webp = await toWebp(buffer, { max: 2200, quality: 86 })
