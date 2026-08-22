@@ -71,7 +71,9 @@
 
       <!-- STEP 1: Choose a package before entering personal information -->
       <div id="step-1" class="step-panel space-y-4 block w-full">
-        <div class="text-center"><h2 class="text-lg font-black">What do you want to start with?</h2><p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose the closest fit. You can review a larger package before creating the account.</p></div>
+        <div class="text-center"><h2 class="text-lg font-black">What do you want to start with?</h2><p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Pick a category, then choose a product or suite. You can review a larger package before creating the account.</p></div>
+        <div id="plan-categories" class="flex flex-wrap gap-2 justify-center"></div>
+        <p id="plan-category-blurb" class="text-center text-xs text-slate-500 dark:text-slate-400"></p>
         <div id="plan-options" class="grid sm:grid-cols-2 gap-3"></div>
         <button type="button" onclick="goToStep(2)" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl text-sm shadow transition">Continue with selected package →</button>
       </div>
@@ -210,14 +212,33 @@
       'dealer-os-pro': { name: 'DealerOS Pro', price: '$2,499 / month', detail: 'The complete operating platform with advanced departments and MarketSync Digital.', level: 6 },
       'dealer-os-complete': { name: 'DealerOS Complete', price: '$3,999 / month', detail: 'Enterprise operating system with accounting, multi-store, and AI.', level: 7 }
     };
+
+    // Group every product (independent products AND bundled suites) into a few
+    // categories so step 1 shows a short, browsable list instead of the full menu.
+    // Each plan id appears in exactly one category.
+    const PLAN_CATEGORIES = [
+      { id: 'social',     name: 'Content & Social', blurb: 'Graphics, scheduling, Marketplace posting, and video.',
+        plans: ['design-studio', 'social-scheduler', 'autoposter-salesperson', 'autoposter-dealer', 'video'] },
+      { id: 'campaigns',  name: 'Campaigns & SEO', blurb: 'Email, SMS, and automated search visibility.',
+        plans: ['campaigns-email-sms', 'marketsync-seo'] },
+      { id: 'website-ai', name: 'Website & AI', blurb: 'Your dealer website, AI chatbot, and identity verification.',
+        plans: ['dealer-website', 'ai-chatbot', 'identity-verify'] },
+      { id: 'suites',     name: 'Marketing Suites', blurb: 'Bundled marketing for sales and service teams.',
+        plans: ['sales-marketing-suite', 'service-marketing-suite', 'complete-marketing-suite'] },
+      { id: 'platform',   name: 'Complete Platform', blurb: 'Full digital and DealerOS operating platforms.',
+        plans: ['marketsync-digital', 'dealer-os-core', 'dealer-os-pro', 'dealer-os-complete'] },
+    ];
+    const categoryOf = (planId) => (PLAN_CATEGORIES.find(c => c.plans.includes(planId)) || PLAN_CATEGORIES[0]).id;
     const requestedPlan = new URLSearchParams(location.search).get('plan');
     const PLAN_ALIASES = { campaigns: 'campaigns-email-sms', fb_solo: 'autoposter-salesperson', fb_dealership: 'autoposter-dealer', ai_standard: 'ai-chatbot', os_starter: 'dealer-os-core', os_growth: 'dealer-os-core', os_pro: 'dealer-os-pro' };
     const normalizedRequestedPlan = PLAN_ALIASES[requestedPlan] || requestedPlan;
     let selectedPlan = PLAN_OPTIONS[normalizedRequestedPlan] ? normalizedRequestedPlan : 'sales-marketing-suite';
+    let selectedCategory = categoryOf(selectedPlan);
 
     function choosePlan(planId) {
       if (!PLAN_OPTIONS[planId]) return;
       selectedPlan = planId;
+      selectedCategory = categoryOf(planId);
       if (PLAN_OPTIONS[planId].solo) {
         const rep = document.querySelector('input[name="accountRole"][value="sales_rep"]');
         if (rep) { rep.checked = true; toggleRoleFields('sales_rep'); }
@@ -236,10 +257,25 @@
       return `<button type="button" onclick="choosePlan('${planId}')" class="text-left p-4 rounded-xl border-2 transition ${active ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40 ring-2 ring-indigo-500/20' : 'border-slate-200 dark:border-slate-700 hover:border-blue-400 bg-slate-50 dark:bg-slate-950'}"><div class="flex items-start justify-between gap-2"><div class="font-black text-sm">${p.name}</div>${active ? '<span class="text-[9px] font-black text-indigo-600 dark:text-indigo-300">SELECTED</span>' : ''}</div><div class="text-blue-600 dark:text-blue-400 font-black mt-1">${p.price} CAD</div><p class="text-xs text-slate-500 dark:text-slate-400 mt-2">${p.detail}</p>${compact ? '' : '<div class="text-[10px] font-bold text-slate-400 mt-3">30-day trial · no card today</div>'}</button>`;
     }
 
+    function categoryChip(catId) {
+      const c = PLAN_CATEGORIES.find(x => x.id === catId);
+      const active = selectedCategory === catId;
+      return `<button type="button" onclick="chooseCategory('${catId}')" class="px-3 py-1.5 rounded-full text-xs font-black border-2 transition ${active ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-blue-400'}">${c.name}</button>`;
+    }
+
+    function chooseCategory(catId) {
+      if (!PLAN_CATEGORIES.some(c => c.id === catId)) return;
+      selectedCategory = catId;
+      renderPlanChoices();
+    }
+
     function renderPlanChoices() {
-      const featured = ['sales-marketing-suite', 'complete-marketing-suite', 'marketsync-digital', 'dealer-os-core'];
-      const original = normalizedRequestedPlan && PLAN_OPTIONS[normalizedRequestedPlan] && !featured.includes(normalizedRequestedPlan) ? [normalizedRequestedPlan] : [];
-      document.getElementById('plan-options').innerHTML = [...new Set([...original, ...featured])].map(id => planCard(id)).join('');
+      const cats = document.getElementById('plan-categories');
+      if (cats) cats.innerHTML = PLAN_CATEGORIES.map(c => categoryChip(c.id)).join('');
+      const cat = PLAN_CATEGORIES.find(c => c.id === selectedCategory) || PLAN_CATEGORIES[0];
+      const blurb = document.getElementById('plan-category-blurb');
+      if (blurb) blurb.textContent = cat.blurb;
+      document.getElementById('plan-options').innerHTML = cat.plans.map(id => planCard(id)).join('');
     }
 
     function recommendedUpgrade() {

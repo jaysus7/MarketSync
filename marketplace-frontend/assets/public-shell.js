@@ -41,13 +41,20 @@
       ],
     },
     {
-      // Collapsed to one row (was 7, one per tool) — the dropdown links straight to
-      // pricing.html's "Need just one tool?" section, which already lists every
-      // individual tool with what it does and its price; the menu doesn't need to
-      // duplicate that list.
+      // The individual à-la-carte tools, listed one per row so the full product
+      // range is browsable straight from the menu (desktop dropdown AND mobile
+      // sheet both render from these items). The group heading still links to
+      // pricing.html's "Need just one tool?" section for the priced overview.
       label: 'Individual Tools', href: '/pricing.html#standalone',
       items: [
-        { href: '/pricing.html#standalone', title: 'Individual Tools', desc: 'Design Studio, AutoPoster, Video, Campaigns, Website & AI ChatBot — buy just what you need' },
+        { href: '/design-studio.html', title: 'Design Studio', desc: 'Branded graphics & AI creative' },
+        { href: '/facebook-autoposter.html', title: 'Facebook AutoPoster', desc: 'Marketplace inventory posting' },
+        { href: '/social-scheduler.html', title: 'Social Scheduler', desc: 'Multi-platform social scheduling' },
+        { href: '/video-studio.html', title: 'Video Suite', desc: 'Walkarounds & social video' },
+        { href: '/campaigns.html', title: 'Campaigns', desc: 'Email + SMS automations' },
+        { href: '/dealer-website.html', title: 'Dealer Website', desc: 'Website, live inventory & SEO' },
+        { href: '/ai-chatbot.html', title: 'AI ChatBot', desc: 'Always-on lead capture' },
+        { href: '/pricing.html#standalone', title: 'MarketSync SEO', desc: 'Automated SEO & rank tracking' },
       ],
     },
   ];
