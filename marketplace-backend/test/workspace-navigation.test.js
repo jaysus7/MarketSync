@@ -395,8 +395,9 @@ test('Inventory is just Inventory and Pulse — Appraisals and Cleanup moved out
   assert.doesNotMatch(inv, /\bappraisals\(body/, 'Appraisals must not be mounted inside Inventory any more')
   assert.doesNotMatch(inv, /\bcleanup\(body/, 'Cleanup must not be mounted inside Inventory any more')
   assert.doesNotMatch(inv, /\bsettings\(body/, 'Settings must not be a separate Inventory tab any more')
-  // Cleanup's own summary card in Pulse still links out to the real Cleanup department.
-  assert.match(inv, /switchPage\('recon'\)/)
+  // Reconditioning is the Cleanup department's job — Inventory no longer renders a recon
+  // summary card or links into the recon board (one source of truth: the Cleanup dept).
+  assert.doesNotMatch(inv, /switchPage\('recon'\)/, 'Inventory must not link into the Cleanup/recon board')
 })
 
 test('Cleanup is its own department, not an Inventory tab', () => {

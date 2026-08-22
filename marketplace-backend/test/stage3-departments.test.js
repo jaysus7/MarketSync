@@ -69,7 +69,12 @@ for (const [name, src, id] of DEPTS) {
 
   test(`${name} landing payload is one parallel round-trip`, () => {
     const f = src.match(/fetch: async \(\) => \{[\s\S]*?\n  \},/)?.[0] || ''
-    assert.match(f, /Promise\.all/, `${name} landing data must load in parallel`)
+    // A workspace that reads more than one endpoint must fan them out in parallel (no
+    // waterfall). Inventory now reads inventory only (recon moved to the Cleanup
+    // department), so a single awaited call is correct and needs no Promise.all.
+    const calls = (f.match(/apiGetJson\(/g) || []).length
+    if (calls > 1) assert.match(f, /Promise\.all/, `${name} landing data must load in parallel`)
+    else assert.ok(calls <= 1, `${name} single-endpoint landing needs no parallel fetch`)
   })
 
   test(`${name} is wired into the shell and the registry`, () => {
@@ -84,17 +89,15 @@ for (const [name, src, id] of DEPTS) {
 }
 
 test('Inventory Work exposes the vehicle lifecycle', () => {
-  // These were a second row of tabs; they are sections of the inventory-overview engine
-  // now (Acquisition/Merchandising/Pricing and age in Pulse, Cleanup/Vehicles in the
-  // Inventory list tab), so the whole lifecycle is one scroll rather than six clicks —
-  // just split across the engine's two tabs instead of stacked in one. Every stage must
-  // still be here, and neither tab may still carry the OTHER's now-moved sections.
-  const fn = inv.slice(inv.indexOf('async function invRenderWork'), inv.indexOf("ENGINES['inventory-overview']"))
-  for (const heading of ['Cleanup', 'Vehicles']) {
+  // Acquisition/Merchandising/Pricing are sections of Pulse (overview); the work tab is
+  // the vehicle list itself. Cleanup/reconditioning is its OWN department, never a
+  // section of Inventory — so the work tab covers Vehicles and nothing else moved out.
+  const fn = code(inv.slice(inv.indexOf('async function invRenderWork'), inv.indexOf("ENGINES['inventory-overview']")))
+  for (const heading of ['Vehicles']) {
     assert.ok(fn.includes(heading), `Inventory (work tab) must still cover ${heading}`)
   }
-  for (const heading of ['Acquisition', 'Merchandising', 'Pricing and age']) {
-    assert.ok(!fn.includes(heading), `${heading} moved to Pulse and must not also render in the Inventory list tab`)
+  for (const heading of ['Acquisition', 'Merchandising', 'Pricing and age', 'Cleanup', 'Reconditioning']) {
+    assert.ok(!fn.includes(heading), `${heading} must not render in the Inventory list tab`)
   }
   const engineBlock = inv.slice(inv.indexOf("ENGINES['inventory-overview']"))
   for (const heading of ['Acquisition', 'Merchandising', 'Pricing and age']) {
@@ -163,10 +166,15 @@ test('every vehicle row opens the Vehicle Record', () => {
   assert.match(code(inv), /onclick="vehicleOpen\('\$\{v\.id\}'\)"/, 'a vehicle row must open its record')
 })
 
-test('a sold unit still in recon is the top Inventory exception', () => {
-  const block = code(inv).match(/function invAttention[\s\S]*?\n\}/)?.[0] || ''
-  assert.match(block, /if \(inRecon && recon\.deal_id\) \{ sev = 0/,
-    'a sold-but-unfinished unit risks a delivery and must outrank every other exception')
+test('Inventory does not render Cleanup / reconditioning — it is its own department', () => {
+  const src = code(inv)
+  // Regression for the nav simplification that left recon rendering inside Inventory.
+  // Cleanup owns reconditioning (workspace-registry.js `cleanup` → recon page); Inventory
+  // must not fetch it, derive it, render it, or navigate into it.
+  assert.doesNotMatch(src, /apiGetJson\('\/recon'\)/, 'Inventory must not fetch recon data — the Cleanup department owns it')
+  assert.doesNotMatch(src, /switchPage\('recon'\)/, 'Inventory must not link into the recon/Cleanup board')
+  assert.doesNotMatch(src, /Open Recon|Open Cleanup|In recon|Reconditioning|Cleanup/, 'Inventory must not render Cleanup navigation, cards or submenu items')
+  assert.doesNotMatch(src, /invReconOf|reconByInv/, 'Inventory must not derive per-vehicle recon state')
 })
 
 test('Vehicle Record is one surface over records that already exist', () => {
@@ -249,10 +257,12 @@ test('Sales → Inventory handoff uses the same appraisal record', () => {
   assert.doesNotMatch(inv, /appraisals\.push|createAppraisal|new Appraisal/i, 'must not create a second appraisal')
 })
 
-test('Inventory → recon → delivery handoff is surfaced, not reimplemented', () => {
-  assert.match(inv, /r\.deal_id/, 'recon rows must show when a vehicle is already sold')
-  assert.match(inv, /switchPage\('recon'\)/, 'Inventory must delegate to the existing recon board')
-  assert.doesNotMatch(inv, /function loadReconPage\b/, 'must not reimplement recon')
+test('Reconditioning lives in the Cleanup department, not reimplemented in Inventory', () => {
+  // The canonical recon board is loadReconPage (dashboard-part15.js), reached through the
+  // `cleanup` workspace. Inventory neither reimplements it nor reaches into it.
+  assert.doesNotMatch(code(inv), /function loadReconPage\b/, 'Inventory must not reimplement recon')
+  const reg = read('js/modules/workspace-registry.js')
+  assert.match(reg, /cleanup:\s*\{[\s\S]*?page:\s*'recon'/, 'Cleanup department must own the recon page')
 })
 
 test('Sales → F&I handoff keeps one customer, one vehicle, one deal', () => {

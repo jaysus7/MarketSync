@@ -19,6 +19,7 @@
     { page: 'sales', label: 'Sales' },
     { page: 'crm', label: 'CRM' },
     { page: 'inventory-overview', label: 'Inventory' },
+    { page: 'recon', label: 'Cleanup' },
     { page: 'fni-overview', label: 'F&I' },
     { page: 'service-overview', label: 'Service' },
     { page: 'parts-overview', label: 'Parts' },

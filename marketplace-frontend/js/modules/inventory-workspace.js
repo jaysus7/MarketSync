@@ -4,13 +4,13 @@
 // ENGINES shell, compose the existing Inventory pages, change no backend, derive
 // nothing that is already persisted.
 //
-// One vehicle lifecycle:  Acquire → Received → Recon → Priced → Published → Sold
+// Inventory's slice of the vehicle lifecycle:  Acquire → Received → Priced → Published → Sold
+// (Reconditioning between Received and Priced is the Cleanup department's workspace.)
 //
 // Reads only endpoints that already exist:
 //   /inventory        vehicles (status, price, image_urls, description, created_at,
 //                     awaiting_possession, source_appraisal_id, stocknumber,
 //                     window_sticker_*, sales_pitch, invoice_amount, source_url)
-//   /recon            recon rows (stage, inventory_id, deal_id, salesperson_id)
 //   /ai/appraisals    appraisal queue                  (Acquisition view, lazy)
 //
 // HANDOFF: `inventory.source_appraisal_id` is the Sales trade/appraisal this
@@ -58,18 +58,13 @@ function invMerchThin(v) { const p = invMerchChecks(v)[0]; return p.ok && !p.str
 let __invData = null;
 let __invAppraisals = null;   // lazily fetched inside the Acquire view
 
-// Recon stage for a vehicle, if any (the recon engine owns this state).
-function invReconOf(v, d) { return (d.reconByInv || {})[v.id] || null; }
-
 // What should happen to this vehicle next — derived from existing state only.
-// Anything that isn't another engine's job opens the Vehicle Record, which is the
-// one place a unit is worked from.
+// Reconditioning is the Cleanup department's concern (see the `cleanup` workspace),
+// so Inventory never surfaces recon here. Anything that isn't another engine's job
+// opens the Vehicle Record, which is the one place a unit is worked from.
 function invNextAction(v, d) {
-  const recon = invReconOf(v, d);
   if (invCanTakePossession(v)) return { label: 'Take Possession', reason: 'Awaiting possession', tone: 'amber', onclick: `invTakePossession('${v.id}')` };
   if (v.awaiting_possession) return { label: 'Open Appraisal', reason: 'Trade awaiting possession', tone: 'amber', onclick: `switchPage('appraisal')` };
-  if (recon && recon.deal_id && recon.stage && recon.stage !== 'done') return { label: 'Open Recon', reason: 'Sold — still in recon', tone: 'rose', onclick: `switchPage('recon')` };
-  if (recon && recon.stage && recon.stage !== 'done') return { label: 'Open Recon', reason: `In recon · ${recon.stage}`, tone: 'sky', onclick: `switchPage('recon')` };
   if (!invHasPhotos(v)) return { label: 'Add photos', reason: 'No photos — cannot merchandise', tone: 'rose', onclick: `vehicleOpen('${v.id}')` };
   if (!Number(v.price)) return { label: 'Set price', reason: 'No price set', tone: 'rose', onclick: `vehicleOpen('${v.id}')` };
   if (invMerchGaps(v).length) return { label: 'Merchandise', reason: invMerchGaps(v)[0].gap, tone: 'amber', onclick: `vehicleOpen('${v.id}')` };
@@ -81,17 +76,12 @@ function invNextAction(v, d) {
 function invAttention(d) {
   const items = [];
   for (const v of d.vehicles || []) {
-    const recon = invReconOf(v, d);
     const age = invDays(v.created_at);
-    const inRecon = !!(recon && recon.stage && recon.stage !== 'done');
     let sev = null, why = null;
-    // A sold unit still in recon is the one exception that can cost a delivery, so
-    // it outranks everything else on the lot.
-    if (inRecon && recon.deal_id) { sev = 0; why = `Sold — still in recon · ${recon.stage}`; }
-    else if (v.awaiting_possession) { sev = 1; why = 'Awaiting possession'; }
+    // Reconditioning status is owned by the Cleanup department, not surfaced here.
+    if (v.awaiting_possession) { sev = 1; why = 'Awaiting possession'; }
     else if (!invHasPhotos(v)) { sev = 2; why = 'No photos — cannot merchandise'; }
     else if (!Number(v.price)) { sev = 3; why = 'No price set'; }
-    else if (inRecon) { sev = 4; why = `In recon · ${recon.stage}`; }
     else if (invMerchGaps(v).length) { sev = 5; why = invMerchGaps(v).map(c => c.gap).join(' · '); }
     else if (age != null && age >= INV_AGED_DAYS) { sev = 6; why = `Aged ${age} days — review pricing`; }
     if (sev == null) continue;
@@ -157,9 +147,10 @@ window.invTakePossession = invTakePossession;
 
 // Work follows the vehicle lifecycle in order: what we have → what's coming in →
 // what's being fixed → what's ready to sell → what it's worth → where it's listed.
-// The six views that were a second row of tabs — Vehicles, Acquisition, Cleanup,
-// Merchandising, Inventory Intelligence, Market & Competitors — are now sections of
-// this one tab. You scroll the vehicle lifecycle instead of clicking through it.
+// The views that were a second row of tabs — Vehicles, Acquisition, Merchandising,
+// Inventory Intelligence, Market & Competitors — are now sections of this one tab.
+// You scroll the vehicle lifecycle instead of clicking through it. (Cleanup /
+// reconditioning is a separate department, not a section here.)
 
 // ── Acquisition — the intake pipeline, in the order a unit actually arrives ───
 //
@@ -257,14 +248,10 @@ function invRenderMerch(d) {
 }
 
 // Acquisition, Merchandising and Pricing/age now render in Pulse (overview() above)
-// only — this tab is the vehicle list itself, plus the way into Cleanup.
+// only — this tab is the vehicle list itself. Reconditioning lives in the Cleanup
+// department (its own workspace), never as a section of Inventory.
 async function invRenderWork(body, d) {
-  const reconRows = d.recon || [];
-  const atRisk = (r) => !!r.deal_id && r.stage !== 'done';
-  const sold = reconRows.filter(atRisk), rest = reconRows.filter(r => !atRisk(r));
-
   body.innerHTML = `
-    ${engSection('Cleanup', engCard('Reconditioning', `<div class="text-[13px] text-slate-600 dark:text-slate-300 mb-2">${reconRows.length ? `${rest.length} in recon${sold.length ? ` · ${sold.length} sold and waiting on cleanup` : ''}.` : 'Nothing in cleanup right now.'}</div><button onclick="switchPage('recon')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Open Cleanup</button>`), 'Reconditioning is its own department — this is the summary and the way in')}
     ${engSection('Vehicles', '', 'Every unit in stock — add one, edit one, publish one')}`;
 
   if (typeof engMountPage === 'function') {
@@ -275,7 +262,7 @@ async function invRenderWork(body, d) {
 }
 
 ENGINES['inventory-overview'] = {
-  rootId: 'inventory-overview-root', title: 'Inventory', subtitle: 'One vehicle lifecycle — acquire, recon, price, publish',
+  rootId: 'inventory-overview-root', title: 'Inventory', subtitle: 'Acquire, merchandise, price and publish every unit in stock',
   icon: 'gem', accent: 'sky',
   // Appraisals moved to Sales (its one home — see sales-workspace.js's "Appraise
   // Trade" tab), Cleanup is now its own department (workspace-registry.js), and
@@ -286,16 +273,13 @@ ENGINES['inventory-overview'] = {
   get tabOrder() { return ['work', 'overview']; },
 
   fetch: async () => {
-    const [inv, recon] = await Promise.all([
-      apiGetJson('/inventory').catch(() => ({ inventory: [], vehicles: [] })),
-      apiGetJson('/recon').catch(() => ({ recon: [], rows: [] })),
-    ]);
+    // Inventory reads inventory only. Reconditioning data belongs to the Cleanup
+    // department and is fetched by that workspace, never here.
+    const inv = await apiGetJson('/inventory').catch(() => ({ inventory: [], vehicles: [] }));
     const d = {
       vehicles: inv.inventory || inv.vehicles || inv.items || [],
-      recon: recon.recon || recon.rows || recon.items || [],
     };
     d.vehById = {}; for (const v of d.vehicles) d.vehById[v.id] = v;
-    d.reconByInv = {}; for (const r of d.recon) if (r.inventory_id) d.reconByInv[r.inventory_id] = r;
     __invData = d;
     return d;
   },
@@ -335,7 +319,6 @@ ENGINES['inventory-overview'] = {
           <div class="text-xs text-slate-300 space-y-1.5 mb-3">
             <p>• <strong>Aged Inventory Warning:</strong> ${agedCount ? `<span class="text-rose-400 font-bold">${agedCount} unit(s) in stock over 60 days requiring price alignment.</span>` : 'All inventory is currently within normal age thresholds.'}</p>
             <p>• <strong>Merchandising Gaps:</strong> ${missingPhotos} vehicle(s) missing photos or AI description notes before publication.</p>
-            <p>• <strong>Recon In-Progress:</strong> ${notReady.length} unit(s) currently undergoing detail, safety inspection, or reconditioning.</p>
             <p>• <strong>Acquisition Pipeline:</strong> ${awaiting} vehicle(s) awaiting transport possession check-in.</p>
           </div>
           <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
@@ -354,15 +337,8 @@ ENGINES['inventory-overview'] = {
           ${engKpi('Not frontline ready', notReady.length, notReady.length ? 'text-rose-600 dark:text-rose-400' : '')}
         </div>
         ${engCard('Needs attention', att.length ? att.map(salesAttentionRow).join('') : engEmpty('Every vehicle is frontline ready.'))}
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
-          ${engCard('Not frontline ready', notReady.length ? notReady.slice(0, 6).map(v => invRow(v, d, `<span class="text-rose-500">${esc(invMerchGaps(v).map(g => g.gap).join(' · '))}</span>`)).join('') : engEmpty('Every vehicle is merchandised.'))}
-          ${engCard('In recon', (d.recon || []).length ? (d.recon || []).slice(0, 6).map(r => {
-            const v = (d.vehById || {})[r.inventory_id] || r.inventory || {};
-            return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-              <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(invName(v))}</div>
-                <div class="text-[12px] text-slate-400 truncate">${esc(r.stage || 'in progress')}</div></div>
-              <button onclick="switchPage('recon')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Open Recon</button>
-            </div>`; }).join('') : engEmpty('Nothing in cleanup.'))}
+        <div class="mt-3">
+          ${engCard('Not frontline ready', notReady.length ? notReady.slice(0, 8).map(v => invRow(v, d, `<span class="text-rose-500">${esc(invMerchGaps(v).map(g => g.gap).join(' · '))}</span>`)).join('') : engEmpty('Every vehicle is merchandised.'))}
         </div>`;
 
       // Acquisition — what is coming in, and what has been taken possession of. Lives
@@ -402,7 +378,7 @@ ENGINES['inventory-overview'] = {
           ${engKpi('In stock', veh.length)}
           ${engKpi('Frontline ready', held.filter(v => !invMerchGaps(v).length).length)}
           ${engKpi('With photos', veh.filter(invHasPhotos).length)}
-          ${engKpi('In recon', (d.recon || []).filter(r => r.stage && r.stage !== 'done').length)}
+          ${engKpi('Aged 60+ days', veh.filter(v => { const a = invDays(v.created_at); return a != null && a >= INV_AGED_DAYS; }).length)}
         </div>
         ${engCard('Inventory age', rows.map(([l, n]) => `<div class="flex items-center gap-2 text-sm py-0.5">
           <div class="w-24 shrink-0 text-slate-600 dark:text-slate-300">${esc(l)}</div>
