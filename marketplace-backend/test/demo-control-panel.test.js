@@ -69,6 +69,6 @@ test('every requested department maps to a real workspace-registry page id', () 
   const deptMatch = source.match(/const DEPARTMENTS = \[([\s\S]*?)\];/)
   assert.ok(deptMatch)
   const pageIds = [...deptMatch[1].matchAll(/page: '([a-z-]+)'/g)].map(m => m[1])
-  assert.equal(pageIds.length, 12)
+  assert.equal(pageIds.length, 13)   // Pulse, Sales, CRM, Inventory, Cleanup, F&I, Service, Parts, Marketing, Accounting, Website, Academy, Administration
   for (const id of pageIds) assert.ok(registry.includes(`page: '${id}'`), `DEPARTMENTS references a page not in the workspace registry: ${id}`)
 })
