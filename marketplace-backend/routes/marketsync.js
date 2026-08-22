@@ -11,7 +11,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
-import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../shared.js'
+import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL, isEmailLike } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { rateLimit, consumeQuota, randomToken } from '../security.js'
 import { offTopicRefusal, scopeClause, sanitizeTranscript, CHAT_LIMITS } from '../chatGuard.js'
@@ -115,7 +115,7 @@ export function registerMarketsync(app) {
     const phone = String(b.phone || '').trim().slice(0, 40)
     const message = String(b.message || '').trim().slice(0, 1500)
     const wantsDemo = b.demo === true || b.demo === 'true' || /demo|meeting|call/i.test(message)
-    if (!name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    if (!name || !isEmailLike(email)) {
       return res.status(400).json({ error: 'Please provide a name and a valid email.' })
     }
 
@@ -180,7 +180,7 @@ export function registerMarketsync(app) {
     const company = String(b.company || b.dealership || '').trim().slice(0, 160)
     const phone = String(b.phone || '').trim().slice(0, 40)
     const notes = String(b.notes || b.message || '').trim().slice(0, 1000)
-    if (!name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Please provide a name and a valid email.' })
+    if (!name || !isEmailLike(email)) return res.status(400).json({ error: 'Please provide a name and a valid email.' })
     const when = new Date(b.when)
     if (isNaN(when.getTime())) return res.status(400).json({ error: 'Pick a valid date and time.' })
     if (when.getTime() < Date.now() + 15 * 60 * 1000) return res.status(400).json({ error: 'Please choose a time at least 15 minutes out.' })

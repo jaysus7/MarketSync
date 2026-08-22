@@ -1,4 +1,4 @@
-import { supabaseAdmin, sendEmail, FRONTEND_URL } from '../shared.js'
+import { supabaseAdmin, sendEmail, FRONTEND_URL, isEmailLike } from '../shared.js'
 import { ensureStaffMember } from './people-identity.js'
 import { ownedWork, offboardEmployee } from './people-offboarding.js'
 import { requireAuth, requireMfa } from '../middleware.js'
@@ -162,7 +162,7 @@ export function registerRoutes(app) {
       if (emailSignature !== undefined) profileUpdates.email_signature = (emailSignature || '').trim().slice(0, 2000) || null
       if (emailReplyTo !== undefined) {
         const rt = (emailReplyTo || '').trim()
-        if (rt && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rt)) return res.status(400).json({ error: 'Enter a valid reply-to email address' })
+        if (rt && !isEmailLike(rt)) return res.status(400).json({ error: 'Enter a valid reply-to email address' })
         profileUpdates.email_reply_to = rt || null
       }
       if (Object.keys(profileUpdates).length > 0) {

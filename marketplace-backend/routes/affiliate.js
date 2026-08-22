@@ -15,7 +15,7 @@
  * row is created; payments then map back to the affiliate through that code.
  */
 import { randomBytes } from 'crypto'
-import { supabase, supabaseAdmin, FRONTEND_URL } from '../shared.js'
+import { supabase, supabaseAdmin, FRONTEND_URL, isEmailLike } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { rateLimit, validatePassword } from '../security.js'
 import { postMarketsyncAffiliateExpense } from './accounting.js'
@@ -133,7 +133,7 @@ export function registerAffiliate(app) {
     const email = String(req.body?.email || '').trim().toLowerCase()
     const password = String(req.body?.password || '')
     const name = String(req.body?.name || '').trim().slice(0, 120)
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Enter a valid email.' })
+    if (!isEmailLike(email)) return res.status(400).json({ error: 'Enter a valid email.' })
     const pw = await validatePassword(password, { email })
     if (!pw.ok) return res.status(400).json({ error: pw.error || 'Weak password.' })
     const { data: existing } = await supabaseAdmin.from('affiliates').select('id').eq('email', email).maybeSingle()
@@ -185,7 +185,7 @@ export function registerAffiliate(app) {
 
   app.put('/affiliate/payout', requireAffiliate, async (req, res) => {
     const payout = String(req.body?.payout_email || '').trim().toLowerCase()
-    if (payout && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payout)) return res.status(400).json({ error: 'Enter a valid payout email.' })
+    if (payout && !isEmailLike(payout)) return res.status(400).json({ error: 'Enter a valid payout email.' })
     await supabaseAdmin.from('affiliates').update({ payout_email: payout || req.affiliate.email }).eq('id', req.affiliate.id)
     res.json({ ok: true })
   })
