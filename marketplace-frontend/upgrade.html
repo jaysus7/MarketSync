@@ -16,11 +16,11 @@
   <link rel="apple-touch-icon" href="/favicon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MarketSync Pricing &amp; Plans — Free 30-Day Trial</title>
-  <meta name="description" content="Choose your MarketSync plan: the Dealer Plan for a whole dealership or the Individual Sales Rep Plan for solo reps. Every account starts with a free 30-day trial, no credit card required.">
+  <meta name="description" content="Choose your MarketSync plan: MarketSync Digital for your full digital presence, or DealerOS (Core, Pro, Complete) to run your whole store. Every account starts with a free 30-day trial, no credit card required.">
   <link rel="canonical" href="https://marketsync.link/upgrade.html">
   <meta property="og:type" content="website">
   <meta property="og:title" content="MarketSync Pricing &amp; Plans — Free 30-Day Trial">
-  <meta property="og:description" content="Dealer Plan $79/mo for your whole team, or Individual Sales Rep $19/mo if you work solo. Both start with a free 30-day trial — no credit card required.">
+  <meta property="og:description" content="MarketSync Digital from $1,199 CAD/mo, or DealerOS from $1,499 CAD/mo (Core) to $3,999 CAD/mo (Complete). Every account starts with a free 30-day trial — no credit card required.">
   <meta property="og:url" content="https://marketsync.link/upgrade.html">
   <meta property="og:image" content="https://marketsync.link/og-image.png">
   <meta property="og:site_name" content="MarketSync">
@@ -30,20 +30,20 @@
     "@type": "SoftwareApplication",
     "name": "MarketSync",
     "applicationCategory": "BusinessApplication",
-    "operatingSystem": "Chrome",
-    "description": "MarketSync automatically syncs car dealership inventory to Facebook Marketplace. Chrome extension + backend dashboard for dealers and sales reps.",
+    "operatingSystem": "Web",
+    "description": "MarketSync is a dealership operating system: MarketSync Digital for a dealer's full digital presence, and DealerOS to run the whole store — inventory, CRM, sales, service, parts, F&I, accounting and more.",
     "url": "https://marketsync.link/",
     "offers": [
       {
         "@type": "Offer",
-        "name": "Individual Sales Rep Plan",
-        "description": "Personal inventory sync, Chrome extension auto-poster, listing tracking, and performance dashboard for solo sales reps.",
-        "price": "79.00",
-        "priceCurrency": "USD",
+        "name": "MarketSync Digital",
+        "description": "The complete MarketSync Digital bundle — Design Studio, Facebook, Social, Email, Video, Website, AI Dealer and MarketSync SEO.",
+        "price": "1199.00",
+        "priceCurrency": "CAD",
         "priceSpecification": {
           "@type": "UnitPriceSpecification",
-          "price": "79.00",
-          "priceCurrency": "USD",
+          "price": "1199.00",
+          "priceCurrency": "CAD",
           "billingDuration": "P1M",
           "billingIncrement": 1,
           "unitCode": "MON"
@@ -54,14 +54,32 @@
       },
       {
         "@type": "Offer",
-        "name": "Dealer Plan",
-        "description": "Everything in the Solo plan plus unlimited sales reps, team performance insights, multiple inventory feeds, and dealership-level billing.",
-        "price": "499.00",
-        "priceCurrency": "USD",
+        "name": "DealerOS Core",
+        "description": "The operational DealerOS platform — CRM, inventory, desking, appraisals, sales workflows and reporting.",
+        "price": "1499.00",
+        "priceCurrency": "CAD",
         "priceSpecification": {
           "@type": "UnitPriceSpecification",
-          "price": "499.00",
-          "priceCurrency": "USD",
+          "price": "1499.00",
+          "priceCurrency": "CAD",
+          "billingDuration": "P1M",
+          "billingIncrement": 1,
+          "unitCode": "MON"
+        },
+        "url": "https://marketsync.link/upgrade.html",
+        "availability": "https://schema.org/InStock",
+        "seller": { "@type": "Organization", "name": "MarketSync" }
+      },
+      {
+        "@type": "Offer",
+        "name": "DealerOS Complete",
+        "description": "The full multi-store operating system — everything in DealerOS Pro plus the complete MarketSync Digital bundle, accounting, automations, integrations and Intelligence by MarketSync.",
+        "price": "3999.00",
+        "priceCurrency": "CAD",
+        "priceSpecification": {
+          "@type": "UnitPriceSpecification",
+          "price": "3999.00",
+          "priceCurrency": "CAD",
           "billingDuration": "P1M",
           "billingIncrement": 1,
           "unitCode": "MON"
@@ -108,7 +126,7 @@
     // Package copy (features + tagline). Amounts + currency come live from the API.
     const PKG_META = {
       starter: { tagline: 'Core dealership platform to get selling.', popular: false, features: ['Inventory sync + Marketplace posting', 'CRM, leads & task board', 'Deal desk + bill of sale', 'Team + performance dashboards'] },
-      growth:  { tagline: 'Adds the AI + intelligence layer.', popular: true, features: ['Everything in Starter', 'AI Boost — listings, replies, window stickers', 'Inventory Intelligence + AI Vision', 'Pricing insights & market reports'] },
+      growth:  { tagline: 'Adds the AI + intelligence layer.', popular: true, features: ['Everything in Starter', 'AI listings, replies & window stickers', 'Intelligence by MarketSync + AI Vision', 'Pricing insights & market reports'] },
       pro:     { tagline: 'The full operating system.', popular: false, features: ['Everything in Growth', 'Equity mining + executive dashboard', 'Accounting, commissions & forecasting', 'Priority support'] },
     };
     const CHATBOT = { key: 'ai_chatbot', label: 'AI Chatbot only', amount: 499, tagline: 'Just the AI sales chatbot — embed it on your existing site (LeadBox, eDealer, WordPress, anywhere).', features: ['24/7 AI sales chat on any website', 'Answers from your live inventory', 'Captures leads into MarketSync CRM', 'One script tag — no site rebuild'] };
