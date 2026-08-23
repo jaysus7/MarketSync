@@ -51,6 +51,24 @@ test('the pricing pages do not reintroduce the retired Starter/Growth DealerOS p
   }
 })
 
+test('the SEO feature landing pages carry no retired "AI Boost" / add-on-pricing framing', () => {
+  // These pages used to frame features as paid add-ons ("AI Boost — $129/mo",
+  // "Inventory Intelligence at $299/month"). Those capabilities now ship inside DealerOS.
+  const SEO_PAGES = [
+    'ai-listing-copy.html', 'ai-vision-photo-scoring.html', 'automation-followups.html',
+    'guide.html', 'inventory-intelligence.html', 'vin-decoder-window-stickers.html',
+    'workflow.html', 'market-price-reports.html', 'trade-appraisal.html', 'features.html',
+  ]
+  for (const page of SEO_PAGES) {
+    const text = read(page)
+    assert.doesNotMatch(text, /\bAI Boost\b/, `${page} must not name the retired AI Boost add-on`)
+    assert.doesNotMatch(text, /\$129\s*\/\s*mo(nth)?/, `${page} must not quote the retired $129 AI add-on price`)
+    assert.doesNotMatch(text, /Inventory Intelligence (add-on|tier|at \$299)/i,
+      `${page} must not frame Inventory Intelligence as a paid add-on/tier`)
+    assert.doesNotMatch(text, /\$299\s*\/\s*month\b/, `${page} must not quote the retired $299 add-on price`)
+  }
+})
+
 test('the current architecture is present where it matters', () => {
   // A meaningful guard: the homepage and pricing page must still name the live products.
   for (const page of ['index.html', 'pricing.html']) {
