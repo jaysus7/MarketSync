@@ -321,36 +321,47 @@ export const PLAN_CATALOG = Object.freeze({
       products: { design_studio: true, facebook_dealer: true, marketsync_social: true, marketsync_email: true, marketsync_video: true, marketsync_website: true, ai_chatbot: true, marketsync_seo: true, marketsync_digital: true },
     },
   },
+  // Core = operational DealerOS ONLY. It deliberately does NOT grant any of the
+  // MarketSync Digital products (Design Studio, Facebook, Social, Email, Video, Website,
+  // AI Dealer, SEO) — Digital is sold separately (marketsync-digital) and bundled only
+  // into Complete. See the canonical architecture in AGENTS.md / plan-catalog tests.
   'dealer-os-core': {
     id: 'dealer-os-core', label: 'DealerOS Core', product_primary: 'dealer_os',
-    products: ['dealer_os', 'design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
+    products: ['dealer_os'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
     monthly: 1499, tier: 0,
     priceEnvCad: 'STRIPE_PKG_CORE_CAD', priceEnvUsd: 'STRIPE_PKG_CORE_USD',
-    features: [...new Set([...CURRENT_CORE_OS, ...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, ...FEATURES_BY_PRODUCT.marketsync_social, ...FEATURES_BY_PRODUCT.marketsync_email, ...FEATURES_BY_PRODUCT.marketsync_video])],
-    legacy: { ...legacyFlags({ plan: 'core', ai: false, invIntel: false }), products: { dealer_os: true, design_studio: true, facebook_dealer: true, marketsync_social: true, marketsync_email: true, marketsync_video: true } },
+    features: [...CURRENT_CORE_OS],
+    legacy: { ...legacyFlags({ plan: 'core', ai: false, invIntel: false }), products: { dealer_os: true } },
   },
+  // Pro = expanded operational DealerOS: the deeper operating departments (Sales,
+  // Service, Parts, F&I — Parts is gated by os.service, F&I by os.sales in PAGE_FEATURE).
+  // Like Core it does NOT grant MarketSync Digital; the operational AI/inventory
+  // intelligence flags (ai_boost/inv_intel → Vision/VIN/appraisal) are part of the
+  // operational tier, not the Digital marketing bundle.
   'dealer-os-pro': {
     id: 'dealer-os-pro', label: 'DealerOS Pro', product_primary: 'dealer_os',
-    products: ['dealer_os', 'design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website', 'ai_dealer', 'marketsync_seo'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
+    products: ['dealer_os'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
     monthly: 2499, tier: 1,
     priceEnvCad: 'STRIPE_PKG_DEALEROS_PRO_CAD', priceEnvUsd: 'STRIPE_PKG_DEALEROS_PRO_USD',
-    features: [...new Set([...CURRENT_PRO_OS, ...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, ...FEATURES_BY_PRODUCT.marketsync_social, ...FEATURES_BY_PRODUCT.marketsync_email, ...FEATURES_BY_PRODUCT.marketsync_video, ...FEATURES_BY_PRODUCT.marketsync_website, ...FEATURES_BY_PRODUCT.ai_dealer, ...FEATURES_BY_PRODUCT.marketsync_seo])],
+    features: [...CURRENT_PRO_OS],
     legacy: {
-      ...legacyFlags({ plan: 'dealeros_pro', ai: true, invIntel: true }), ai_chatbot_active: true, ai_chatbot_paid: true,
-      products: { dealer_os: true, design_studio: true, facebook_dealer: true, marketsync_social: true, marketsync_email: true, marketsync_video: true, marketsync_website: true, ai_chatbot: true, marketsync_seo: true },
+      ...legacyFlags({ plan: 'dealeros_pro', ai: true, invIntel: true }),
+      products: { dealer_os: true },
     },
   },
-  // Complete retains Pro's product bundle and adds the operating departments promised
-  // by the public package: Accounting, Automations and Integrations/API access.
+  // Complete = full operational DealerOS + the ENTIRE MarketSync Digital bundle
+  // (Design Studio, Facebook, Social, Email, Video, Website, AI Dealer, SEO — identical
+  // to the marketsync-digital plan) + Intelligence (Identity). It adds the operating
+  // departments promised by the public package: Accounting, Automations, Integrations/API.
   'dealer-os-complete': {
     id: 'dealer-os-complete', label: 'DealerOS Complete', product_primary: 'dealer_os',
-    products: ['dealer_os', 'design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website', 'ai_dealer', 'marketsync_identity'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
+    products: ['dealer_os', 'design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website', 'ai_dealer', 'marketsync_seo', 'marketsync_identity'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
     monthly: 3999, tier: 2,
     priceEnvCad: 'STRIPE_PKG_DEALEROS_COMPLETE_CAD', priceEnvUsd: 'STRIPE_PKG_DEALEROS_COMPLETE_USD',
-    features: [...new Set([...CURRENT_COMPLETE_OS, ...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, ...FEATURES_BY_PRODUCT.marketsync_social, ...FEATURES_BY_PRODUCT.marketsync_email, ...FEATURES_BY_PRODUCT.marketsync_video, ...FEATURES_BY_PRODUCT.marketsync_website, ...FEATURES_BY_PRODUCT.ai_dealer, ...FEATURES_BY_PRODUCT.marketsync_identity])],
+    features: [...new Set([...CURRENT_COMPLETE_OS, ...FEATURES_BY_PRODUCT.design_studio, ...FEATURES_BY_PRODUCT.facebook, ...FEATURES_BY_PRODUCT.marketsync_social, ...FEATURES_BY_PRODUCT.marketsync_email, ...FEATURES_BY_PRODUCT.marketsync_video, ...FEATURES_BY_PRODUCT.marketsync_website, ...FEATURES_BY_PRODUCT.ai_dealer, ...FEATURES_BY_PRODUCT.marketsync_seo, ...FEATURES_BY_PRODUCT.marketsync_identity])],
     legacy: {
       ...legacyFlags({ plan: 'dealeros_complete', ai: true, invIntel: true }), ai_chatbot_active: true, ai_chatbot_paid: true,
-      products: { dealer_os: true, design_studio: true, facebook_dealer: true, marketsync_social: true, marketsync_email: true, marketsync_video: true, marketsync_website: true, ai_chatbot: true, marketsync_identity: true, identity_verify: true },
+      products: { dealer_os: true, design_studio: true, facebook_dealer: true, marketsync_social: true, marketsync_email: true, marketsync_video: true, marketsync_website: true, ai_chatbot: true, marketsync_seo: true, marketsync_identity: true, identity_verify: true },
     },
   },
 })

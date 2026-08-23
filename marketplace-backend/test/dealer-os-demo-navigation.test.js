@@ -33,17 +33,22 @@ test('DealerOS Core, Pro and Complete retain their advertised department boundar
   assert.ok(complete.has('os.automations') && complete.has('os.integrations'))
 })
 
-test('DealerOS marketing bundles match Core Sales Suite and Pro MarketSync Digital', async () => {
+test('Core and Pro are operational-only; only Complete carries the MarketSync Digital bundle', async () => {
   const { productsForPlan } = await import('../plan-catalog.js')
   const coreProducts = new Set(productsForPlan('dealer-os-core'))
   const proProducts = new Set(productsForPlan('dealer-os-pro'))
-  for (const product of ['design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video']) {
-    assert.ok(coreProducts.has(product), `Core Sales Marketing Suite should include ${product}`)
+  const completeProducts = new Set(productsForPlan('dealer-os-complete'))
+  const digital = productsForPlan('marketsync-digital')
+  // Neither Core nor Pro grants ANY MarketSync Digital product.
+  for (const product of digital) {
+    assert.ok(!coreProducts.has(product), `Core must not include Digital product ${product}`)
+    assert.ok(!proProducts.has(product), `Pro must not include Digital product ${product}`)
   }
-  assert.ok(!coreProducts.has('marketsync_website') && !coreProducts.has('ai_dealer') && !coreProducts.has('marketsync_seo'))
-  for (const product of ['marketsync_website', 'ai_dealer', 'marketsync_seo']) {
-    assert.ok(proProducts.has(product), `Pro MarketSync Digital should include ${product}`)
+  // Complete carries the whole Digital bundle, including SEO.
+  for (const product of digital) {
+    assert.ok(completeProducts.has(product), `Complete must include Digital product ${product}`)
   }
+  assert.ok(completeProducts.has('marketsync_seo'), 'Complete includes MarketSync SEO')
 })
 
 test('Cleanup follows Complete automations, while messaging and Intelligence remain global capabilities', () => {
