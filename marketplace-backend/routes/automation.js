@@ -107,7 +107,44 @@ const DEFAULT_CAMPAIGNS = [
     message_body_template: `30-day check-in — still shopping? Re-engage.` },
   { key: 'task_day90', name: '90-Day Follow-Up', category: 'tasks', trigger_event: 'internet_lead', channel: 'task', delay_minutes: 129600, sender_identity: 'rep', is_active: false, sort: 150,
     message_body_template: `90-day check-in — long-term nurture touch.` },
+
+  // G. Dealership-data-native presets. These fire off dealership events (inventory
+  //    aging, service history, lease maturity, declined RO work) rather than generic
+  //    blasts, and target audiences from existing DealerOS data. Seeded INACTIVE: their
+  //    trigger events are not wired to fire yet (see TRIGGER_CATALOG `available:false`),
+  //    so the preset/config exists but nothing is faked — the UI marks them as preview.
+  { key: 'inventory_aged_60', name: 'Aged Unit — 60 Days on Lot', category: 'inventory', trigger_event: 'inventory_aged', channel: 'task', delay_minutes: 0, sender_identity: 'rep', is_active: false, sort: 160,
+    message_body_template: `This unit has hit 60 days on the lot. Review price-to-market and consider a reprice, feature refresh, or promotion for the {{vehicle.ymm|vehicle}}.` },
+  { key: 'service_lapsed_12mo', name: 'Service Win-Back — No Visit in 12 Months', category: 'retention', trigger_event: 'service_lapsed', channel: 'email', delay_minutes: 0, send_at_hour: 10, sender_identity: 'house', is_active: false, sort: 170,
+    subject_template: `We'd love to see your {{vehicle.model|vehicle}} back in service`,
+    message_body_template: `Hi {{customer.first_name|there}},\n\nIt's been a while since your {{vehicle.ymm|vehicle}} visited us. When you're due for maintenance, our team makes it easy — book online at {{service_url|our website}}. We'd love to help keep it running its best.` },
+  { key: 'lease_maturity_90', name: 'Lease Maturity — 90 Days Out', category: 'equity', trigger_event: 'lease_maturity', channel: 'sms', delay_minutes: 0, sender_identity: 'rep', is_active: false, sort: 180,
+    message_body_template: `Hi {{customer.first_name|there}}, your lease on the {{vehicle.ymm|vehicle}} is coming up in the next few months. Want me to walk you through your options — renew, buy out, or move into something new? No pressure. — {{rep.first_name|Your team}}` },
+  { key: 'declined_service_followup', name: 'Declined Service Work Follow-Up', category: 'retention', trigger_event: 'declined_service', channel: 'sms', delay_minutes: 0, sender_identity: 'rep', is_active: false, sort: 190,
+    message_body_template: `Hi {{customer.first_name|there}}, following up on the recommended work we flagged for your {{vehicle.ymm|vehicle}}. Ready to get it booked, or want me to go over what's most urgent first? — {{rep.first_name|Your service team}}` },
 ]
+
+// Trigger catalog — the single source of truth for which trigger events exist and
+// whether they are wired to fire. `available:true` means an event source enqueues this
+// trigger today (enqueueForTrigger is called for it); `available:false` means the preset
+// and config exist but the data/event source isn't wired yet, so the UI shows it as a
+// preview rather than pretending it runs. Nothing here fabricates a working trigger.
+export const TRIGGER_CATALOG = Object.freeze([
+  { key: 'internet_lead',     label: 'New internet lead',          category: 'pipeline',  available: true },
+  { key: 'appointment_booked', label: 'Appointment booked',        category: 'pipeline',  available: true },
+  { key: 'show_no_sale',      label: 'Showed, no sale',            category: 'pipeline',  available: true },
+  { key: 'delivered',         label: 'Vehicle delivered',          category: 'retention', available: true },
+  { key: 'equity',            label: 'Equity / lease pull-ahead opportunity', category: 'equity', available: true },
+  { key: 'birthday',          label: 'Customer birthday',          category: 'calendar',  available: true },
+  { key: 'holiday',           label: 'Holiday',                    category: 'calendar',  available: true },
+  // Dealership-data-native events — config/presets shipped, event sourcing pending.
+  { key: 'inventory_aged',    label: 'Vehicle aged on lot (e.g. 60 days)', category: 'inventory', available: false },
+  { key: 'service_lapsed',    label: 'No service visit in 12 months',       category: 'retention', available: false },
+  { key: 'lease_maturity',    label: 'Lease approaching maturity',          category: 'equity',    available: false },
+  { key: 'declined_service',  label: 'Declined service work',               category: 'retention', available: false },
+])
+const TRIGGER_KEYS = TRIGGER_CATALOG.map(t => t.key)
+const AVAILABLE_TRIGGERS = new Set(TRIGGER_CATALOG.filter(t => t.available).map(t => t.key))
 
 // Seed the default campaigns for a dealership the first time (idempotent).
 async function ensureCampaigns(dealershipId) {
@@ -181,6 +218,9 @@ function buildVars(contact, vehicle, rep, dealer, s) {
 export async function enqueueForTrigger(dealershipId, trigger, ctx = {}) {
   try {
     if (!dealershipId || !ctx.contactId) return
+    // Honesty guard: config-only trigger events (TRIGGER_CATALOG available:false) are
+    // not wired to a real data source yet, so never enqueue sends for them even if called.
+    if (!AVAILABLE_TRIGGERS.has(trigger)) return
     await ensureCampaigns(dealershipId)
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('automation_settings').eq('id', dealershipId).maybeSingle()
     if (!dealerSettings(dealer).enabled) return
@@ -799,6 +839,12 @@ export function registerAutomation(app) {
   })
 
   // ── Campaign management (manager) ──────────────────────────────────────────
+  // The trigger catalog — what events campaigns can fire on, and which are wired to
+  // fire today vs shipped as config-only previews. The builder uses `available` to mark
+  // a preset "coming soon" instead of implying it runs.
+  app.get('/automation/triggers', requireAuth, requireMfa, requireAutomationRead, (req, res) => {
+    res.json({ triggers: TRIGGER_CATALOG })
+  })
   app.get('/automation/campaigns', requireAuth, requireMfa, requireAutomationRead, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     await ensureCampaigns(req.dealershipId)
@@ -828,10 +874,9 @@ export function registerAutomation(app) {
   // Lead / Delivery / Holiday automation pages.
   app.post('/automation/campaigns', requireAuth, requireMfa, requireAutomationWrite, async (req, res) => {
     const b = req.body || {}
-    const TRIGGERS = ['internet_lead', 'appointment_booked', 'show_no_sale', 'delivered', 'birthday', 'holiday']
-    const trigger = TRIGGERS.includes(b.trigger_event) ? b.trigger_event : 'internet_lead'
+    const trigger = TRIGGER_KEYS.includes(b.trigger_event) ? b.trigger_event : 'internet_lead'
     const channel = ['sms', 'email', 'task'].includes(b.channel) ? b.channel : 'email'
-    const category = ['pipeline', 'retention', 'reviews', 'referrals', 'equity', 'calendar', 'tasks', 'custom'].includes(b.category) ? b.category : 'custom'
+    const category = ['pipeline', 'retention', 'reviews', 'referrals', 'equity', 'calendar', 'tasks', 'inventory', 'custom'].includes(b.category) ? b.category : 'custom'
     if (!b.message_body_template) return res.status(400).json({ error: 'message_body_template required' })
     // Highest current sort + 10, so new ones land at the bottom of their group.
     const { data: maxRow } = await supabaseAdmin.from('automated_campaigns').select('sort').eq('dealership_id', req.dealershipId).order('sort', { ascending: false }).limit(1).maybeSingle()
