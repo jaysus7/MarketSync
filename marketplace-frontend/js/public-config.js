@@ -119,7 +119,7 @@ const MARKETSYNC_PRICING = {
         'Live inventory & VDP showroom',
         'Custom domain & SSL included',
         'Mobile-first responsive UX',
-        'AI ChatBot integration ready',
+        'AI Customer Agent integration ready',
         'Automotive SEO optimization'
       ],
       ctaText: 'Get Dealer Website',
@@ -147,7 +147,7 @@ const MARKETSYNC_PRICING = {
     },
     {
       id: 'ai-chatbot',
-      name: 'AI ChatBot',
+      name: 'AI Customer Agent',
       price: 599,
       priceFormatted: '$599',
       unit: '/month',
@@ -160,7 +160,7 @@ const MARKETSYNC_PRICING = {
         '24/7 lead capture & CRM routing',
         'Dealership knowledgebase responses'
       ],
-      ctaText: 'Deploy AI ChatBot',
+      ctaText: 'Deploy AI Customer Agent',
       ctaUrl: '/register.html?plan=ai-chatbot'
     },
     {
@@ -248,11 +248,11 @@ const MARKETSYNC_PRICING = {
       priceFormatted: '$1,199',
       unit: '/month',
       badge: 'Complete Digital Presence',
-      desc: 'Complete Marketing Suite + Dealer Website + AI ChatBot in one unified platform.',
+      desc: 'Complete Marketing Suite + Dealer Website + AI Customer Agent in one unified platform.',
       includedItems: [
         'Complete Marketing Suite ($699/mo value)',
         'Dealer Website ($249/mo value)',
-        'AI ChatBot ($599/mo value)',
+        'AI Customer Agent ($599/mo value)',
         'Unified Digital Dashboard & CRM Lead Sync'
       ],
       idealFor: 'Dealerships seeking a modern website and 360-degree digital growth platform.',

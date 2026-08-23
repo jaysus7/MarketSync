@@ -54,7 +54,7 @@
         { href: '/video-studio.html', title: 'Video Suite', desc: 'Walkarounds & social video' },
         { href: '/campaigns.html', title: 'Campaigns', desc: 'Email + SMS automations' },
         { href: '/dealer-website.html', title: 'Dealer Website', desc: 'Website, live inventory & SEO' },
-        { href: '/ai-chatbot.html', title: 'AI ChatBot', desc: 'Always-on lead capture' },
+        { href: '/ai-chatbot.html', title: 'AI Customer Agent', desc: 'Always-on lead capture' },
         { href: '/pricing.html#standalone', title: 'MarketSync SEO', desc: 'Automated SEO & rank tracking' },
       ],
     },
@@ -77,7 +77,7 @@
       ['Campaigns', '/campaigns.html'],
       ['Dealer Website', '/dealer-website.html'],
       ['MarketSync SEO', '/pricing.html#standalone'],
-      ['AI ChatBot', '/ai-chatbot.html'],
+      ['AI Customer Agent', '/ai-chatbot.html'],
     ]],
     ['Suites & OS', [
       ['Sales Suite', '/marketing-suites.html'],
