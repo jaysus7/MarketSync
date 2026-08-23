@@ -414,13 +414,42 @@ function priceFromEnv(env, primaryKey, aliases = []) {
 }
 
 // The Stripe Price ID to charge for a plan in a given currency (falls back to the
-// other currency if only one is configured).
+// other currency if only one is configured). Kept for backward compatibility with
+// callers that tolerate a single-currency configuration; NOT for real checkout of a
+// specific currency — use stripePriceForPlanExact there so a USD purchase never
+// silently bills the CAD price (old pricing) and vice-versa.
 export function stripePriceForPlan(planId, currency = 'usd', env = {}) {
   const plan = getPlan(planId)
   if (!plan) return null
   const cad = priceFromEnv(env, plan.priceEnvCad, plan.priceEnvCadAliases)
   const usd = priceFromEnv(env, plan.priceEnvUsd, plan.priceEnvUsdAliases)
   return (String(currency).toLowerCase() === 'cad' ? cad : usd) || usd || cad || null
+}
+
+// The Stripe Price ID for a plan in an EXACT currency — no cross-currency fallback.
+// Returns null when that currency has no configured price, so checkout can fail
+// clearly instead of charging the wrong currency's price.
+export function stripePriceForPlanExact(planId, currency, env = {}) {
+  const plan = getPlan(planId)
+  if (!plan) return null
+  const cur = String(currency).toLowerCase()
+  if (cur === 'cad') return priceFromEnv(env, plan.priceEnvCad, plan.priceEnvCadAliases) || null
+  if (cur === 'usd') return priceFromEnv(env, plan.priceEnvUsd, plan.priceEnvUsdAliases) || null
+  return null
+}
+
+// Which currencies a plan can actually resolve a price for, given an env. Every plan
+// declares both a CAD and a USD price-env key (the "defined path"); this reports which
+// are configured with a real value so ops can see a missing USD before a US sale.
+export function planPricingStatus(planId, env = {}) {
+  const plan = getPlan(planId)
+  if (!plan) return { cad: false, usd: false, cadEnv: null, usdEnv: null }
+  return {
+    cad: !!stripePriceForPlanExact(planId, 'cad', env),
+    usd: !!stripePriceForPlanExact(planId, 'usd', env),
+    cadEnv: plan.priceEnvCad || null,
+    usdEnv: plan.priceEnvUsd || null,
+  }
 }
 
 // The products a plan grants (the bundle expansion). Access is the union of these

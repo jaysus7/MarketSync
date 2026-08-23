@@ -16,7 +16,7 @@ import { handleDepositCheckout } from './deposits.js'
 import { accrueAffiliateCommission } from './affiliate.js'
 import { postMarketsyncRevenue } from './accounting.js'
 import { syncSubscriptionFromStripe, cancelSubscriptionCoverage } from '../entitlements.js'
-import { getPlan, stripePriceForPlan, PLAN_CATALOG, PLAN_IDS, TRIAL_PERIOD_DAYS } from '../plan-catalog.js'
+import { getPlan, stripePriceForPlanExact, planPricingStatus, PLAN_CATALOG, PLAN_IDS, TRIAL_PERIOD_DAYS } from '../plan-catalog.js'
 import { blockDemoStripeAction } from './demo.js'
 
 // Inventory Intelligence price ID — accept the canonical name OR the
@@ -507,7 +507,10 @@ export function registerRoutes(app) {
       const { data: dl } = await supabaseAdmin.from('dealerships').select('country').eq('id', req.dealershipId).maybeSingle()
       currency = String(dl?.country || '').toUpperCase() === 'US' ? 'USD' : 'CAD'
     }
-    const priceId = stripePriceForPlan(canonicalPlanId, currency, process.env)
+    // Exact per-currency resolution: never silently fall back to the other currency's
+    // price. A USD checkout without a configured USD price fails clearly here rather
+    // than charging the CAD amount (or an obsolete USD price) under a USD label.
+    const priceId = stripePriceForPlanExact(canonicalPlanId, currency, process.env)
     if (!priceId) return res.status(500).json({ error: `Price for ${plan.label} (${currency}) is not configured yet` })
 
     const existingCustomerId = req.profile.dealerships?.stripe_customer_id
@@ -583,7 +586,10 @@ export function registerRoutes(app) {
         id, label: p.label, monthly: p.monthly, tier: p.tier,
         product_primary: p.product_primary, products: p.products, org_type: p.org_type,
         feature_count: p.features.length,
-        configured: !!(stripePriceForPlan(id, 'usd', process.env) || stripePriceForPlan(id, 'cad', process.env)),
+        configured: !!(stripePriceForPlanExact(id, 'usd', process.env) || stripePriceForPlanExact(id, 'cad', process.env)),
+        // Per-currency configuration so a missing USD (or CAD) price is visible to ops
+        // instead of being masked by the other currency.
+        pricing: planPricingStatus(id, process.env),
         // Grandfathered plans kept only so existing subscribers keep their exact
         // entitlements — never offered as a new purchase option. The frontend still
         // shows one if the account is currently on it (current includes its id).
