@@ -64,6 +64,22 @@ test('Marketing suppresses its engine tab bar only for standalone suites, not De
     'never unconditionally hidden — that left Marketing with no tabs in DealerOS')
 })
 
+test('Marketing tab order includes the Digital surfaces (Website, Design Studio, Video, AI ChatBot) when entitled', () => {
+  const order = marketingWs.match(/get tabOrder\(\)\s*\{[\s\S]*?\n  \},/)?.[0] || ''
+  assert.ok(order, 'tabOrder getter must exist')
+  // Each Digital surface is appended to the order, gated by its product entitlement.
+  assert.match(order, /base\.push\('studio'\)/, 'Design Studio tab must be in the order')
+  assert.match(order, /base\.push\('video-studio'\)/, 'Video Studio tab must be in the order')
+  assert.match(order, /base\.push\('chatbot'\)/, 'AI ChatBot tab must be in the order')
+  assert.match(order, /base\.push\('website'\)/, 'Website tab must be in the order')
+  assert.match(order, /website\.builder|os\.website/, 'Website tab is gated on a website entitlement')
+  // The handlers and labels for those tabs exist, so they can actually render.
+  for (const t of ['studio', "'video-studio'", 'chatbot', 'website']) {
+    assert.match(marketingWs, new RegExp(`${t.replace(/[-']/g, m => '\\' + m)}\\(body`), `handler for ${t} must exist`)
+  }
+  assert.match(marketingWs, /website: 'Website'/, 'Website tab label must exist')
+})
+
 // ── Team chat loads for entitled / demo dealerships ──────────────────────────
 test('requireTeamMessaging admits demo dealerships and DealerOS/Facebook entitlements', () => {
   const fn = staffChatRoute.match(/async function requireTeamMessaging\([\s\S]*?\n\}/)?.[0]

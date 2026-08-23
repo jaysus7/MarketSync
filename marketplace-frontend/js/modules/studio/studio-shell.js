@@ -595,10 +595,11 @@ function renderStudioToolPanelContent(tool) {
   } else if (tool === 'inventory') {
     return `
       <div class="p-4 space-y-3">
-        <h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Dealership Inventory</h3>
+        <h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Create from vehicle</h3>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 -mt-1">Pick a vehicle — its photo and details fill an automotive template, ready to edit and schedule.</p>
         <input type="text" placeholder="Search stock #, VIN, year make model..." oninput="searchStudioInventory(this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white">
         <div class="space-y-2" id="studio-inventory-list">
-          <button onclick="bindVehicleToStudio('demo_v1')" class="w-full text-left p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 transition flex items-center gap-3">
+          <button onclick="createFromVehicle('demo_v1')" class="w-full text-left p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 transition flex items-center gap-3">
             <div class="w-10 h-10 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-xs font-black text-indigo-400">VEH</div>
             <div class="min-w-0 flex-1">
               <div class="text-xs font-bold text-slate-900 dark:text-white">2024 Ford F-150 Lariat</div>
@@ -808,9 +809,27 @@ function setStudioTool(tool) {
   if (tool === 'text') setTimeout(loadStudioGoogleFonts, 0);
 }
 
+// The dealership photo for a vehicle, across the field names inventory returns.
+function studioVehiclePhoto(v) {
+  if (!v) return null;
+  return v.primary_photo_url || v.photo_url || v.image_url
+    || (Array.isArray(v.photos) && v.photos.length ? (v.photos[0]?.url || v.photos[0]) : null) || null;
+}
+
 async function loadStudioTemplate(tmplKey) {
   const tmpl = STUDIO_TEMPLATES_CATALOG[tmplKey] || STUDIO_TEMPLATES_CATALOG.tmpl_spotlight_square;
   const scene = JSON.parse(JSON.stringify(tmpl.scene));
+
+  // If a vehicle is selected (e.g. via "Create from vehicle"), populate the template
+  // with its real photo and details instead of the template's stock placeholder photo.
+  const veh = window.__studioCurrentVehicle;
+  if (veh) {
+    if (window.__studioAdapter) window.__studioAdapter.currentVehicle = veh;  // resolves {{vehicle.*}}
+    const photo = studioVehiclePhoto(veh);
+    if (photo && Array.isArray(scene.elements)) {
+      scene.elements.forEach(el => { if (el.type === 'vehicle-image') el.src = photo; });
+    }
+  }
 
   if (window.__studioAdapter) {
     await window.__studioAdapter.renderScene(scene);
@@ -824,6 +843,23 @@ async function loadStudioTemplate(tmplKey) {
   if (typeof showToast === 'function') showToast(`Loaded ${tmpl.name}`, 'success');
 }
 
+// "Create from vehicle" quick-start: pick a vehicle from dealership inventory, pull its
+// photo + details, drop them into an automotive template, and hand off to editing (and
+// then the social scheduler). Reuses loadStudioTemplate — no separate editor. Defaults to
+// the square vehicle spotlight when no template is specified.
+async function createFromVehicle(vehicleId, tmplKey) {
+  const inv = (ENGINE_DATA && ENGINE_DATA['marketing-overview']?.inventory) || [];
+  const v = inv.find(x => x.id === vehicleId) || window.__studioCurrentVehicle
+    || { id: vehicleId || 'demo_v1', year: 2024, make: 'Ford', model: 'F-150 Lariat', price: 54990, stock_number: 'F9041' };
+  window.__studioCurrentVehicle = v;
+  if (window.__studioAdapter) window.__studioAdapter.currentVehicle = v;
+  if (typeof setStudioTool === 'function') setStudioTool('templates');   // show the template rail
+  await loadStudioTemplate(tmplKey || 'tmpl_spotlight_square');          // populates with the vehicle
+  const ymm = `${v.year || ''} ${v.make || ''} ${v.model || ''}`.trim();
+  if (typeof showToast === 'function') showToast(`Created a design from ${ymm || 'the vehicle'} — edit it, then schedule.`, 'success');
+}
+window.createFromVehicle = createFromVehicle;
+
 function searchStudioInventory(query) {
   const listEl = document.getElementById('studio-inventory-list');
   if (!listEl) return;
@@ -834,7 +870,7 @@ function searchStudioInventory(query) {
   ]).filter(v => !q || `${v.year} ${v.make} ${v.model} ${v.stocknumber} ${v.vin || ''}`.toLowerCase().includes(q));
 
   listEl.innerHTML = inv.map(v => `
-    <button onclick="bindVehicleToStudio('${v.id}')" class="w-full text-left p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 transition flex items-center gap-3">
+    <button onclick="createFromVehicle('${v.id}')" class="w-full text-left p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 transition flex items-center gap-3">
       <div class="w-10 h-10 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-xs font-black text-indigo-400">VEH</div>
       <div class="min-w-0 flex-1">
         <div class="text-xs font-bold text-slate-900 dark:text-white truncate">${escS(`${v.year || ''} ${v.make || ''} ${v.model || ''}`.trim() || 'Vehicle')}</div>

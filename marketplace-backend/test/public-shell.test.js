@@ -148,7 +148,7 @@ test('public navigation is price-free and mobile exposes primary actions before 
   const solutionModel = js.slice(js.indexOf('var SOLUTIONS'), js.indexOf('var RESOURCES'))
   assert.doesNotMatch(solutionModel, /\$/, 'Solutions menu must not advertise individual prices')
   const mobileMarkup = js.slice(js.indexOf("'<div class=\"ms-mobile\""), js.indexOf('// ── Footer'))
-  for (const label of ['Pricing', 'Resources', 'Start free trial', 'Solutions', 'authHref']) {
+  for (const label of ['Pricing', 'Resources', 'Start with MarketSync Digital', 'Solutions', 'authHref']) {
     assert.match(mobileMarkup, new RegExp(label), `mobile navigation is missing ${label}`)
   }
   assert.ok(mobileMarkup.indexOf('ms-m-actions-top') < mobileMarkup.indexOf('>Solutions<'), 'account actions should be visible before the long Solutions list')

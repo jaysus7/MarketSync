@@ -69,20 +69,80 @@ test('Design Studio includes its Scheduler while retaining one canonical product
   assert.ok(featuresForPlan('sales-marketing-suite').includes('social.scheduler'), 'Sales Marketing Suite bundles Social Scheduler')
 })
 
-test('DealerOS tiers bundle the current standalone products, not the legacy plan ids', () => {
-  assert.ok(productsForPlan('dealer-os-core').includes('dealer_os'))
-  assert.ok(productsForPlan('dealer-os-core').includes('design_studio'), 'Core includes the Sales Marketing Suite bundle')
+// ── Canonical DealerOS architecture ──────────────────────────────────────────
+// MarketSync Digital ($1,199) = the digital/marketing bundle. DealerOS Core ($1,499)
+// and Pro ($2,499) are OPERATIONAL ONLY and must NOT grant Digital. DealerOS Complete
+// ($3,999) = DealerOS + the ENTIRE MarketSync Digital bundle (incl. SEO) + Intelligence.
+const DIGITAL_PRODUCTS = productsForPlan('marketsync-digital')      // the canonical Digital set
+const DIGITAL_FEATURES = featuresForPlan('marketsync-digital')
+
+test('DealerOS Core is operational only — it does NOT grant MarketSync Digital', () => {
+  assert.ok(productsForPlan('dealer-os-core').includes('dealer_os'), 'Core is DealerOS')
+  const coreProducts = new Set(productsForPlan('dealer-os-core'))
+  for (const p of DIGITAL_PRODUCTS) {
+    assert.ok(!coreProducts.has(p), `Core must not grant Digital product ${p}`)
+  }
+  const coreFeatures = new Set(featuresForPlan('dealer-os-core'))
+  for (const f of DIGITAL_FEATURES) {
+    assert.ok(!coreFeatures.has(f), `Core must not grant Digital feature ${f}`)
+  }
   assert.ok(!featuresForPlan('dealer-os-core').includes('os.service'), 'Core does not include Service')
-  assert.ok(featuresForPlan('dealer-os-pro').includes('os.service'), 'Pro adds the Service department')
-  assert.ok(featuresForPlan('dealer-os-pro').includes('ai.conversations'), 'Pro bundles MarketSync Digital (AI ChatBot)')
+  assert.ok(!featuresForPlan('dealer-os-core').includes('seo.overview'), 'Core does not include SEO')
+})
+
+test('DealerOS Pro is expanded operational (Sales/Service/Parts/F&I) — it does NOT grant MarketSync Digital', () => {
+  // Parts is gated by os.service and F&I by os.sales (PAGE_FEATURE), so the operational
+  // grant of os.sales + os.service already unlocks all four deeper departments.
+  assert.ok(featuresForPlan('dealer-os-pro').includes('os.sales'), 'Pro adds Sales (and F&I via os.sales)')
+  assert.ok(featuresForPlan('dealer-os-pro').includes('os.service'), 'Pro adds Service (and Parts via os.service)')
+  const proProducts = new Set(productsForPlan('dealer-os-pro'))
+  for (const p of DIGITAL_PRODUCTS) {
+    assert.ok(!proProducts.has(p), `Pro must not grant Digital product ${p}`)
+  }
+  const proFeatures = new Set(featuresForPlan('dealer-os-pro'))
+  for (const f of DIGITAL_FEATURES) {
+    assert.ok(!proFeatures.has(f), `Pro must not grant Digital feature ${f}`)
+  }
+  assert.ok(!featuresForPlan('dealer-os-pro').includes('ai.conversations'), 'Pro does not bundle AI Dealer (Digital)')
+  assert.ok(!featuresForPlan('dealer-os-pro').includes('seo.overview'), 'Pro does not include SEO (Digital)')
   assert.ok(!featuresForPlan('dealer-os-pro').includes('os.accounting'), 'Pro does not expose Complete accounting')
   assert.ok(!featuresForPlan('dealer-os-pro').includes('os.automations'), 'Pro does not expose Complete automations')
-  assert.ok(featuresForPlan('dealer-os-complete').includes('os.accounting'), 'Complete adds accounting')
-  assert.ok(featuresForPlan('dealer-os-complete').includes('os.automations'), 'Complete adds automations')
-  assert.ok(featuresForPlan('dealer-os-complete').includes('os.integrations'), 'Complete adds integrations')
-  assert.ok(productsForPlan('dealer-os-complete').includes('marketsync_identity'), 'Complete includes Identity Verify')
-  assert.ok(featuresForPlan('dealer-os-complete').includes('identity.verify'), 'Complete can run identity verification')
-  assert.ok(!productsForPlan('dealer-os-pro').includes('marketsync_identity'), 'Pro does not include Identity Verify')
+})
+
+test('DealerOS Complete grants the FULL MarketSync Digital bundle (including SEO) + Intelligence + full operational OS', () => {
+  const completeProducts = new Set(productsForPlan('dealer-os-complete'))
+  const completeFeatures = new Set(featuresForPlan('dealer-os-complete'))
+  // Superset of the entire Digital bundle.
+  for (const p of DIGITAL_PRODUCTS) {
+    assert.ok(completeProducts.has(p), `Complete must grant Digital product ${p}`)
+  }
+  for (const f of DIGITAL_FEATURES) {
+    assert.ok(completeFeatures.has(f), `Complete must grant Digital feature ${f}`)
+  }
+  // Explicitly: SEO.
+  assert.ok(completeProducts.has('marketsync_seo'), 'Complete includes MarketSync SEO')
+  assert.ok(completeFeatures.has('seo.overview') && completeFeatures.has('seo.audit'), 'Complete grants SEO features')
+  // Intelligence (Identity) + full operational departments.
+  assert.ok(completeProducts.has('marketsync_identity'), 'Complete includes Intelligence (Identity)')
+  assert.ok(completeFeatures.has('identity.verify'), 'Complete can run identity verification')
+  assert.ok(completeFeatures.has('os.accounting'), 'Complete adds accounting')
+  assert.ok(completeFeatures.has('os.automations'), 'Complete adds automations')
+  assert.ok(completeFeatures.has('os.integrations'), 'Complete adds integrations')
+})
+
+test('grandfathered os_starter/os_growth/os_pro subscriptions still resolve unchanged', () => {
+  for (const id of ['os_starter', 'os_growth', 'os_pro']) {
+    const plan = getPlan(id)
+    assert.ok(plan, `legacy plan ${id} must still resolve`)
+    assert.ok(plan.legacyPlan, `${id} stays flagged legacy`)
+    assert.ok(productsForPlan(id).includes('dealer_os'), `${id} still grants dealer_os`)
+  }
+  assert.equal(getPlan('os_starter').monthly, 999)
+  assert.equal(getPlan('os_growth').monthly, 1799)
+  assert.equal(getPlan('os_pro').monthly, 2499)
+  // os_pro keeps its historical full-bundle products (unchanged by the current-catalog fix).
+  assert.deepEqual(productsForPlan('os_pro'),
+    ['dealer_os', 'facebook', 'ai_dealer', 'marketsync_video', 'marketsync_website', 'marketsync_social', 'marketsync_email'])
 })
 
 test('Identity Verify is a standalone product with its own entitlement boundary', () => {

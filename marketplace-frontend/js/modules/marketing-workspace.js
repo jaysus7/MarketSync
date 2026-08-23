@@ -425,10 +425,19 @@ ENGINES['marketing-overview'] = {
   get tabOrder() {
     const access = (typeof window !== "undefined" && window.__access) ? window.__access : {};
     const feats = access.features || [];
-    const hasAuto = access.isPlatformStaff || feats.includes('email.automations') || feats.includes('os.automations') || !access.features;
+    // No resolvable access context (demo / full DealerOS Complete) → show everything.
+    const all = !access.features;
+    const has = (...ids) => all || access.isPlatformStaff || ids.some(id => feats.includes(id));
     const base = ['overview'];
-    if (hasAuto) base.push('automations');
+    if (has('email.automations', 'os.automations')) base.push('automations');
     base.push('campaigns', 'templates', 'audiences', 'performance');
+    // The MarketSync Digital surfaces — shown when the plan grants each product. In
+    // DealerOS Complete (full Digital bundle) all four appear; a Core/Pro operational
+    // plan without Digital shows none of them.
+    if (has('design.canvas', 'design.templates')) base.push('studio');
+    if (has('video.library', 'video.record')) base.push('video-studio');
+    if (has('ai.conversations', 'ai.overview')) base.push('chatbot');
+    if (has('website.builder', 'website.pages', 'os.website')) base.push('website');
     return base;
   },
 

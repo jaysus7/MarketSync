@@ -16,7 +16,7 @@ import { handleDepositCheckout } from './deposits.js'
 import { accrueAffiliateCommission } from './affiliate.js'
 import { postMarketsyncRevenue } from './accounting.js'
 import { syncSubscriptionFromStripe, cancelSubscriptionCoverage } from '../entitlements.js'
-import { getPlan, stripePriceForPlan, PLAN_CATALOG, PLAN_IDS } from '../plan-catalog.js'
+import { getPlan, stripePriceForPlanExact, planPricingStatus, PLAN_CATALOG, PLAN_IDS, TRIAL_PERIOD_DAYS } from '../plan-catalog.js'
 import { blockDemoStripeAction } from './demo.js'
 
 // Inventory Intelligence price ID — accept the canonical name OR the
@@ -403,8 +403,8 @@ export function registerRoutes(app) {
         mode: 'subscription',
         metadata: { type: addonKey, dealership_id: req.dealershipId },
         subscription_data: {
-          // Every add-on gets a 30-day free trial (no card required up front).
-          trial_period_days: 30,
+          // Every add-on gets the canonical free trial (no card required up front).
+          trial_period_days: TRIAL_PERIOD_DAYS,
           metadata: { type: addonKey, dealership_id: req.dealershipId },
         },
         success_url: `${FRONTEND_URL}/dashboard.html?${addonKey}_session={CHECKOUT_SESSION_ID}`,
@@ -454,7 +454,7 @@ export function registerRoutes(app) {
 
   // ── Bundled package subscription (Starter / Growth / Pro) ─────────────────
   // Currency follows the dealer's country (US → USD, else CAD); the client may
-  // override with { currency }. 30-day free trial, no card required up front.
+  // override with { currency }. Canonical free trial, no card required up front.
   async function createPackageCheckout(req, res) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const pkgKey = String(req.body?.package || '').toLowerCase()
@@ -476,7 +476,7 @@ export function registerRoutes(app) {
         line_items: [{ price: priceId, quantity: 1 }],
         mode: 'subscription',
         metadata: { type: 'package', package: pkgKey, currency, dealership_id: req.dealershipId },
-        subscription_data: { trial_period_days: 30, metadata: { type: 'package', package: pkgKey, dealership_id: req.dealershipId } },
+        subscription_data: { trial_period_days: TRIAL_PERIOD_DAYS, metadata: { type: 'package', package: pkgKey, dealership_id: req.dealershipId } },
         success_url: `${FRONTEND_URL}/dashboard.html?package_session={CHECKOUT_SESSION_ID}`,
         cancel_url: `${FRONTEND_URL}/dashboard.html`,
       }
@@ -490,8 +490,10 @@ export function registerRoutes(app) {
 
   // ── Plan subscription (the entitlement-engine flow) ──────────────────────────
   // Start Stripe Checkout for a catalog plan (fb_solo / fb_dealership / os_starter /
-  // os_growth / os_pro). Card required, 30-day trial. On completion the webhook resolves
-  // the price → plan and provisionPlan grants the bundle (Pro unlocks Facebook + AI).
+  // os_growth / os_pro). Card required, charged immediately: the canonical free trial
+  // (TRIAL_PERIOD_DAYS) is granted once at sign-up, so this post-trial payment path adds
+  // no second Stripe trial. On completion the webhook resolves the price → plan and
+  // provisionPlan grants the bundle (Pro unlocks Facebook + AI).
   // No requireMfa: this is part of onboarding, before a new owner has set up MFA.
   async function createPlanCheckout(req, res) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
@@ -505,13 +507,16 @@ export function registerRoutes(app) {
       const { data: dl } = await supabaseAdmin.from('dealerships').select('country').eq('id', req.dealershipId).maybeSingle()
       currency = String(dl?.country || '').toUpperCase() === 'US' ? 'USD' : 'CAD'
     }
-    const priceId = stripePriceForPlan(canonicalPlanId, currency, process.env)
+    // Exact per-currency resolution: never silently fall back to the other currency's
+    // price. A USD checkout without a configured USD price fails clearly here rather
+    // than charging the CAD amount (or an obsolete USD price) under a USD label.
+    const priceId = stripePriceForPlanExact(canonicalPlanId, currency, process.env)
     if (!priceId) return res.status(500).json({ error: `Price for ${plan.label} (${currency}) is not configured yet` })
 
     const existingCustomerId = req.profile.dealerships?.stripe_customer_id
     try {
-      // Charge immediately (no Stripe trial): the 39-day free trial is granted at sign-up
-      // with no card, so by the time someone reaches Checkout they're subscribing to pay.
+      // Charge immediately (no Stripe trial): the canonical free trial is granted at
+      // sign-up with no card, so by the time someone reaches Checkout they're paying.
       const successUrl = (canonicalPlanId === 'ai-chatbot')
         ? `${FRONTEND_URL}/dashboard.html?page=website&tab=setup&section=ai-chatbot&plan_session={CHECKOUT_SESSION_ID}`
         : (canonicalPlanId === 'marketsync-seo' || canonicalPlanId === 'marketsync_seo')
@@ -581,7 +586,10 @@ export function registerRoutes(app) {
         id, label: p.label, monthly: p.monthly, tier: p.tier,
         product_primary: p.product_primary, products: p.products, org_type: p.org_type,
         feature_count: p.features.length,
-        configured: !!(stripePriceForPlan(id, 'usd', process.env) || stripePriceForPlan(id, 'cad', process.env)),
+        configured: !!(stripePriceForPlanExact(id, 'usd', process.env) || stripePriceForPlanExact(id, 'cad', process.env)),
+        // Per-currency configuration so a missing USD (or CAD) price is visible to ops
+        // instead of being masked by the other currency.
+        pricing: planPricingStatus(id, process.env),
         // Grandfathered plans kept only so existing subscribers keep their exact
         // entitlements — never offered as a new purchase option. The frontend still
         // shows one if the account is currently on it (current includes its id).

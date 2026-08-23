@@ -8,7 +8,7 @@ import { audit, AuditAction } from '../audit.js'
 import { recordReferralSignup } from './affiliate.js'
 import { syncDealerRole } from '../authorization.js'
 import { ACCOUNT_TYPES, provisionPlan } from '../entitlements.js'
-import { getPlan } from '../plan-catalog.js'
+import { getPlan, TRIAL_PERIOD_DAYS, trialEndsAtISO } from '../plan-catalog.js'
 import { createMfaLoginChallenge, consumeMfaLoginChallenge, getMfaLoginChallenge } from '../mfa-login-challenges.js'
 import { ensureStaffMember } from './people-identity.js'
 import {
@@ -305,11 +305,11 @@ export function registerRoutes(app) {
       // via /auth/resend-verification. NOTE: this requires working email delivery in
       // production (Resend sending domain verified) — otherwise users cannot verify.
 
-      // 30-day free trial — NO credit card required at sign-up. The account gets full
-      // access to the chosen plan for the trial window; when it ends, the middleware
-      // billing gate returns 402 and the app shows the paywall popup to pick + pay.
-      const TRIAL_DAYS = 30
-      const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString()
+      // Canonical free trial (TRIAL_PERIOD_DAYS) — NO credit card required at sign-up.
+      // The account gets full access to the chosen plan for the trial window; when it
+      // ends, the middleware billing gate returns 402 and the app shows the paywall
+      // popup to pick + pay. Every plan and every signup path uses this one definition.
+      const trialEndsAt = trialEndsAtISO()
 
       // Newsletter consent (CASL/GDPR/CAN-SPAM): only record if explicitly opted in.
       // Stamp the timestamp + IP so we have audit trail of when consent was given.
@@ -442,7 +442,7 @@ export function registerRoutes(app) {
         // client signs in and goes straight to the dashboard; payment happens later via
         // the paywall popup when the trial ends.
         requires_checkout: false,
-        trial_days: TRIAL_DAYS,
+        trial_days: TRIAL_PERIOD_DAYS,
         plan: chosenPlan?.id || null,
         message: emailed
           ? 'Account created. Check your email and click the verification link to activate your account.'

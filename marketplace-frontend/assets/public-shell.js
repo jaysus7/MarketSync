@@ -26,6 +26,15 @@
 
   var CSS_HREF = '/assets/public-shell.css';
   var TRIAL = '/register.html';
+  // Primary entry (easiest start) and secondary enterprise CTA.
+  var DIGITAL_START = '/register.html?plan=marketsync-digital';
+  var DEMO = '/demo.html?plan=dealer-os-core';
+  // The three product pillars — the primary public architecture.
+  var PRODUCTS = [
+    { href: '/marketsync-digital.html', title: 'MarketSync Digital', desc: 'Grow — your connected digital department' },
+    { href: '/dealer-os.html', title: 'DealerOS', desc: 'Operate — the connected operating system' },
+    { href: '/intelligence.html', title: 'Intelligence by MarketSync', desc: 'Understand + act — operating intelligence' },
+  ];
 
   // ── Navigation model — Solutions ───────────────────────────────────────────
   // Grouped, and ordered, to match pricing.html's own flow: its "Three clear ways
@@ -34,10 +43,11 @@
   // group heading links to that exact section on the pricing page.
   var SOLUTIONS_GROUPS = [
     {
-      label: 'Platforms', href: '/pricing.html#platforms',
+      // The three pillars (MarketSync Digital, DealerOS, Intelligence) live in the
+      // primary Products menu; Solutions covers suites and individual tools.
+      label: 'Marketing Suites', href: '/pricing.html#suites',
       items: [
-        { href: '/marketing-suites.html', title: 'Connected Marketing Suites', desc: 'Sales, Service, Complete & MarketSync Digital' },
-        { href: '/dealer-os.html', title: 'DealerOS Operating System', desc: 'CRM, Sales, Inventory, Desking & Fixed Ops' },
+        { href: '/marketing-suites.html', title: 'Connected Marketing Suites', desc: 'Sales, Service & Complete marketing bundles' },
       ],
     },
     {
@@ -53,7 +63,7 @@
         { href: '/video-studio.html', title: 'Video Suite', desc: 'Walkarounds & social video' },
         { href: '/campaigns.html', title: 'Campaigns', desc: 'Email + SMS automations' },
         { href: '/dealer-website.html', title: 'Dealer Website', desc: 'Website, live inventory & SEO' },
-        { href: '/ai-chatbot.html', title: 'AI ChatBot', desc: 'Always-on lead capture' },
+        { href: '/ai-chatbot.html', title: 'AI Customer Agent', desc: 'Always-on lead capture' },
         { href: '/pricing.html#standalone', title: 'MarketSync SEO', desc: 'Automated SEO & rank tracking' },
       ],
     },
@@ -76,16 +86,17 @@
       ['Campaigns', '/campaigns.html'],
       ['Dealer Website', '/dealer-website.html'],
       ['MarketSync SEO', '/pricing.html#standalone'],
-      ['AI ChatBot', '/ai-chatbot.html'],
+      ['AI Customer Agent', '/ai-chatbot.html'],
     ]],
     ['Suites & OS', [
       ['Sales Suite', '/marketing-suites.html'],
       ['Service Suite', '/marketing-suites.html'],
       ['Complete Suite', '/marketing-suites.html'],
-      ['MarketSync Digital', '/marketing-suites.html'],
+      ['MarketSync Digital', '/marketsync-digital.html'],
       ['DealerOS Core', '/dealer-os.html'],
       ['DealerOS Pro', '/dealer-os.html'],
       ['DealerOS Complete', '/dealer-os.html'],
+      ['Intelligence by MarketSync', '/intelligence.html'],
     ]],
     ['Company & Trust', [
       ['How-to Guide', '/guide.html'],
@@ -143,10 +154,12 @@
     var solItems = SOLUTIONS_GROUPS.map(function (g) {
       return '<a href="' + g.href + '" class="ms-dd-group-label">' + esc(g.label) + '</a>' + g.items.map(solItemLink).join('');
     }).join('');
+    var prodItems = PRODUCTS.map(solItemLink).join('');
     var resItems = RESOURCES.map(function (r) {
       return '<a href="' + r.href + '" class="ms-dd-item' + act(r.href, 'ms-active') + '"><span class="ms-dd-t">' + esc(r.title) + '</span></a>';
     }).join('');
 
+    var mobProd = PRODUCTS.map(function (s) { return '<a href="' + s.href + '" class="ms-m-link' + act(s.href, 'ms-active') + '">' + esc(s.title) + '</a>'; }).join('');
     var mobSol = SOLUTIONS_GROUPS.map(function (g) {
       return '<a href="' + g.href + '" class="ms-m-label ms-m-label-link">' + esc(g.label) + '</a>' +
         g.items.map(function (s) { return '<a href="' + s.href + '" class="ms-m-link' + act(s.href, 'ms-active') + '">' + esc(s.title) + '</a>'; }).join('');
@@ -156,20 +169,26 @@
     return '' +
       '<a href="/" class="ms-logo" aria-label="MarketSync home"><img src="/Logo 2.0.png" alt="MarketSync DealerOS" class="ms-logo-light" style="height:44px; width:auto;"><img src="/Logo 2.1.png" alt="MarketSync DealerOS" class="ms-logo-dark" style="height:44px; width:auto;"></a>' +
       '<nav class="ms-nav-desktop" aria-label="Primary">' +
+        '<div class="ms-nav-item"><button class="ms-nav-btn" aria-haspopup="true">Products ' + CARET + '</button><div class="ms-dropdown">' + prodItems + '</div></div>' +
         '<div class="ms-nav-item"><button class="ms-nav-btn" aria-haspopup="true">Solutions ' + CARET + '</button><div class="ms-dropdown ms-dd-wide">' + solItems + '</div></div>' +
         '<a href="/pricing.html" class="ms-nav-link' + act('/pricing.html', 'ms-active') + '">Pricing</a>' +
+        '<a href="/compare.html" class="ms-nav-link' + act('/compare.html', 'ms-active') + '">Compare</a>' +
         '<div class="ms-nav-item"><button class="ms-nav-btn" aria-haspopup="true">Resources ' + CARET + '</button><div class="ms-dropdown">' + resItems + '</div></div>' +
       '</nav>' +
       '<div class="ms-nav-cta">' +
         '<a href="' + authHref + '" class="ms-link-quiet">' + esc(authLabel) + '</a>' +
-        '<a href="' + TRIAL + '" class="ms-btn ms-btn-primary">Start free trial</a>' +
+        '<a href="' + DEMO + '" class="ms-btn ms-btn-ghost">Book a demo</a>' +
+        '<a href="' + DIGITAL_START + '" class="ms-btn ms-btn-primary">Start with MarketSync Digital</a>' +
         '<button class="ms-burger" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>' +
       '</div>' +
       '<div class="ms-mobile" hidden>' +
         '<div class="ms-m-actions ms-m-actions-top"><a href="' + authHref + '" class="ms-btn ms-btn-ghost ms-btn-block">' + esc(authLabel) + '</a>' +
-        '<a href="' + TRIAL + '" class="ms-btn ms-btn-primary ms-btn-block">Start free trial</a></div>' +
+        '<a href="' + DIGITAL_START + '" class="ms-btn ms-btn-primary ms-btn-block">Start with MarketSync Digital</a>' +
+        '<a href="' + DEMO + '" class="ms-btn ms-btn-ghost ms-btn-block">Book a DealerOS demo</a></div>' +
+        '<div class="ms-m-label">Products</div>' + mobProd +
         '<div class="ms-m-label">Explore</div>' +
         '<a href="/pricing.html" class="ms-m-link' + act('/pricing.html', 'ms-active') + '">Pricing</a>' +
+        '<a href="/compare.html" class="ms-m-link' + act('/compare.html', 'ms-active') + '">Compare</a>' +
         '<div class="ms-m-label">Resources</div>' + mobRes +
         '<div class="ms-m-label">Solutions</div>' + mobSol +
       '</div>';
