@@ -271,11 +271,11 @@ const MARKETSYNC_PRICING = {
       priceFormatted: '$1,499',
       unit: '/month',
       badge: 'Connected Core',
-      desc: 'CRM, inventory, desking, appraisals, sales workflows, marketing, and reporting.',
+      desc: 'CRM, inventory, desking, appraisals, sales workflows, and reporting.',
       features: [
         'Connected CRM and lead management',
         'Inventory and desking',
-        'Sales Marketing Suite'
+        'Desking, appraisals and reporting'
       ],
       ctaText: 'Book Core Demo',
       ctaUrl: '/demo.html?plan=dealer-os-core'
@@ -287,11 +287,11 @@ const MARKETSYNC_PRICING = {
       priceFormatted: '$2,499',
       unit: '/month',
       badge: 'Expanded Departments',
-      desc: 'Adds service, parts, F&I, and MarketSync Digital to the connected operating platform.',
+      desc: 'Adds service, parts, and F&I to the connected operating platform.',
       features: [
         'Everything in DealerOS Core',
         'Service, Parts, and F&I',
-        'MarketSync Digital included'
+        'Deeper operational workflows and reporting'
       ],
       ctaText: 'Book Pro Demo',
       ctaUrl: '/demo.html?plan=dealer-os-pro',
@@ -304,9 +304,10 @@ const MARKETSYNC_PRICING = {
       priceFormatted: '$3,999',
       unit: '/month',
       badge: 'Enterprise OS',
-      desc: 'The complete multi-store operating system with accounting, automations, integrations, and intelligence.',
+      desc: 'The complete multi-store operating system with the full MarketSync Digital bundle, accounting, automations, integrations, and intelligence.',
       features: [
         'Everything in DealerOS Pro',
+        'The complete MarketSync Digital bundle, including MarketSync SEO',
         'MarketSync Identity Verify with 50 completed checks',
         'Accounting Ledger & General Ledger Sync',
         'Generous monthly AI usage included',
