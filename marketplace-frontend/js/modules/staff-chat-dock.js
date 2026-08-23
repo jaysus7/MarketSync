@@ -57,18 +57,29 @@
     return localStorage.getItem('token');
   }
 
+  function renderDirectoryError(msg) {
+    const dirList = document.getElementById('staff-chat-directory-list');
+    if (dirList) dirList.innerHTML = `<div class="text-center py-4 px-3 text-xs text-slate-400">${esc(msg)}</div>`;
+  }
+
   async function fetchMembers() {
     if (shouldHideStaffChat()) return;
     try {
       const res = await fetch(`${getApi()}/staff-chat/members`, {
         headers: { 'Authorization': `Bearer ${getToken()}` }
       });
-      if (!res.ok) return;
+      // Never leave the popover stuck on "Loading team…": surface a real state on failure.
+      if (!res.ok) {
+        renderDirectoryError(res.status === 403
+          ? 'Team Messaging is included with DealerOS.'
+          : 'Could not load your team right now.');
+        return;
+      }
       const data = await res.json();
       staffList = data.members || [];
       channels = data.channels || [];
       renderDirectory();
-    } catch {}
+    } catch { renderDirectoryError('Could not load your team right now.'); }
   }
 
   async function pollUnread() {

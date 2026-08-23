@@ -220,6 +220,11 @@ function fniContractsAndFunding(d) {
 ENGINES['fni-overview'] = {
   rootId: 'fni-overview-root', title: 'F&I', subtitle: 'Approvals, credit, products, contracts and delivery readiness',
   icon: 'shield', accent: 'indigo',
+  // Right-rail Reports, specific to F&I.
+  reports: [
+    { label: 'F&I performance', icon: 'chart', onclick: "openDeptReport('fni')" },
+    { label: 'E-signatures', icon: 'document', onclick: "openDeptReport('esign')" },
+  ],
   // Insights and Deals both folded into My Day/Pulse — one F&I header, not several.
   tabLabels: { overview: 'Pulse', settings: 'Settings' },
   get tabOrder() {

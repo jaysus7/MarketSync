@@ -77,8 +77,14 @@ test('Marketing Suite — Left Navigation & Workspace Context', async (t) => {
 });
 
 test('Marketing Suite — Horizontal Top Tabs & Clean Email & SMS Landing', async (t) => {
-  await t.test('suppresses horizontal top tab header for marketing suites', () => {
-    assert.match(mktWorkspaceJs, /hideTabBar:\s*true/, 'hideTabBar is true so top horizontal tab bar is deleted');
+  await t.test('suppresses the engine tab bar only for standalone marketing suites, not full DealerOS', () => {
+    // A conditional getter: hidden when a standalone marketing suite is active (the
+    // shared suite header owns navigation) but shown in full DealerOS, where there is
+    // no suite header and the engine tab bar is the only Marketing sub-navigation.
+    assert.match(mktWorkspaceJs, /get hideTabBar\(\)\s*\{[\s\S]*?getActiveMarketingSuite\(\)/,
+      'hideTabBar is a getter gated on getActiveMarketingSuite()');
+    assert.doesNotMatch(mktWorkspaceJs, /hideTabBar:\s*true/,
+      'must not unconditionally hide the engine tab bar — that hid Marketing tabs in DealerOS');
   });
 
   await t.test('removes Back to Marketing Pulse button from Email & SMS dashboard', () => {

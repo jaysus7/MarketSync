@@ -3293,15 +3293,7 @@
         <svg id="rr-chevron" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
       </button>
     </div>
-    <!-- Team Messages Trigger (Top of Right Rail) -->
-    <button type="button" data-report="messages" onclick="toggleTeamChatWidget()" title="Team Messages — direct chat with colleagues" class="group flex items-center justify-between gap-2.5 w-full text-left px-2.5 py-2 rounded-lg text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 font-bold transition mb-1 border border-sky-200 dark:border-sky-800/60">
-      <div class="flex items-center gap-2.5 min-w-0">
-        <svg class="w-5 h-5 flex-shrink-0 text-sky-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 0 1-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-        <span class="text-xs whitespace-nowrap">Messages</span>
-      </div>
-      <span id="rail-msg-badge" class="hidden bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full leading-none"></span>
-    </button>
-    <div class="h-px bg-slate-200 dark:bg-slate-800 mb-1"></div>
+    <!-- Team chat lives in the floating messages bubble, not the reports rail. -->
     <button type="button" data-report="lot" title="Lot Average Report — your whole lot vs the market" class="group flex items-center gap-2.5 w-full text-left px-2.5 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-violet-50 dark:hover:bg-violet-950/40 hover:text-violet-700 dark:hover:text-violet-300 transition">
       <svg class="w-5 h-5 flex-shrink-0 text-violet-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17V9m4 8V5m4 12v-4M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
       <span class="text-xs font-bold whitespace-nowrap">Lot Average</span>
@@ -3943,11 +3935,11 @@
   <script src="js/modules/dashboard-part7.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part8.js?v=20260818_videostaff_v2"></script>
   <script src="js/modules/dashboard-part9.js?v=20260817_designstudio_v1"></script>
-  <script src="js/modules/dashboard-part10.js?v=20260820_marketing_tabs_v1"></script>
+  <script src="js/modules/dashboard-part10.js?v=20260823_dept_reports_rail_v1"></script>
   <script src="js/modules/dashboard-part11.js?v=20260820_pulse_disclosures_v1"></script>
   <script src="js/modules/dashboard-part12.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part13.js?v=20260817_simple_departments"></script>
-  <script src="js/modules/dashboard-part14.js?v=20260818_videolb_v2"></script>
+  <script src="js/modules/dashboard-part14.js?v=20260823_dept_reports_v1"></script>
   <script src="js/modules/dashboard-part15.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part16.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part17.js?v=20260821_website_setup_v2"></script>
@@ -3961,16 +3953,16 @@
   <script src="js/modules/dashboard-part25.js?v=20260817_punchclock_v1"></script>
   <script src="js/modules/dashboard-part26.js?v=20260814_v12"></script>
   <!-- Sales workspace: registers ENGINES['sales']; must load after the parts. -->
-  <script src="js/modules/sales-workspace.js?v=20260818_v13"></script>
-  <script src="js/modules/inventory-workspace.js?v=20260814_v12"></script>
-  <script src="js/modules/fni-workspace.js?v=20260814_v12"></script>
+  <script src="js/modules/sales-workspace.js?v=20260823_dept_reports_v1"></script>
+  <script src="js/modules/inventory-workspace.js?v=20260823_dept_reports_v1"></script>
+  <script src="js/modules/fni-workspace.js?v=20260823_dept_reports_v1"></script>
   <!-- Vehicle Record: one unit, one surface. Loads after inventory-workspace.js,
        whose merchandising/acquisition definitions it renders. -->
   <script src="js/modules/vehicle-record.js?v=20260814_v12"></script>
   <script src="js/modules/receipt-engine.js?v=20260814_v12"></script>
   <script src="js/modules/video-studio.js?v=20260820_fast_library_v1"></script>
   <script src="js/modules/service-views.js?v=20260814_v12"></script>
-  <script src="js/modules/service-workspace.js?v=20260814_v12"></script>
+  <script src="js/modules/service-workspace.js?v=20260823_svc_tabs_reports_v1"></script>
   <script src="js/modules/parts-views.js?v=20260814_v12"></script>
   <script src="js/modules/parts-workspace.js?v=20260814_v12"></script>
   <script src="js/modules/accounting-views.js?v=20260817_simple_internal"></script>
@@ -3979,7 +3971,7 @@
   <script src="js/modules/studio/fabric-adapter.js?v=20260818_fontfamily_v1"></script>
   <script src="js/modules/studio/studio-scheduler.js?v=20260821_embedded_calendar_v1"></script>
   <script src="js/modules/studio/studio-shell.js?v=20260821_edit_scheduled_design_v1"></script>
-  <script src="js/modules/marketing-workspace.js?v=20260821_service_marketing_layout_v1"></script>
+  <script src="js/modules/marketing-workspace.js?v=20260823_mkt_tabs_reports_v1"></script>
   <script src="js/modules/academy-workspace.js?v=20260814_v12"></script>
   <script src="js/modules/launch-workspace.js?v=20260814_v12"></script>
   <script src="js/modules/people-views.js?v=20260814_v12"></script>
@@ -3991,7 +3983,7 @@
     };
   </script>
   <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async></script>
-  <script src="js/modules/staff-chat-dock.js?v=20260817_v2"></script>
+  <script src="js/modules/staff-chat-dock.js?v=20260823_dir_error_v1"></script>
   <script src="js/modules/demo-control-panel.js?v=20260821_campaign_email_v1"></script>
   <script src="table-sort.js?v=20260706a_noemoji"></script>
 </body>

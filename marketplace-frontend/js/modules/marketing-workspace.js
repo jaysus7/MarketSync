@@ -408,7 +408,19 @@ ENGINES['marketing-overview'] = {
   rootId: 'marketing-overview-root', title: 'Campaigns and Automations',
   subtitle: 'Automated lead response, service retention, reviews, and visual workflow journeys.',
   icon: 'megaphone', accent: 'indigo',
-  hideTabBar: true,
+  // Suppress the engine's OWN tab bar only for standalone marketing-suite products,
+  // where the shared suite header (renderDeptTabbar) owns navigation — showing both
+  // would double up the headers. In full DealerOS there is no suite header
+  // (getActiveMarketingSuite() is null, and renderDeptTabbar hides the dept-tabbar for
+  // engine pages), so the engine tab bar MUST render or Marketing has no sub-navigation
+  // headers at all and its other pages are unreachable.
+  get hideTabBar() {
+    return typeof getActiveMarketingSuite === 'function' && !!getActiveMarketingSuite();
+  },
+  // Right-rail Reports, specific to Marketing.
+  reports: [
+    { label: 'Marketing ROI', icon: 'chart', onclick: "openDeptReport('marketing')" },
+  ],
   tabLabels: { overview: 'Pulse', automations: 'Automations', campaigns: 'Campaigns', templates: 'Templates', audiences: 'Audiences', performance: 'Performance', studio: 'Design Studio', 'video-studio': 'Video Studio', chatbot: 'AI ChatBot', website: 'Website' },
   get tabOrder() {
     const access = (typeof window !== "undefined" && window.__access) ? window.__access : {};

@@ -217,11 +217,14 @@ test('refreshSetupIndicator unconditionally hides the Setup Wizard banner for ev
   assert.doesNotMatch(fn, /role/, 'must not branch on role — hidden unconditionally')
 })
 
-test('engineRail omits the Team Messages section for single-product workspaces, except Facebook Dealer', () => {
+test('engineRail shows a department Reports section on the right rail, not Team Messages (which lives in the floating bubble)', () => {
   const fn = part10.match(/function engineRail\(eng, d\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(fn, 'engineRail must exist')
-  assert.match(fn, /const singleProduct = typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace\(\)\s*\n\s*&& !\/\(\?:\^\|\\s\)facebook_dealer\(\?:\\s\|\$\)\/\.test\(document\.documentElement\.getAttribute\('data-product'\) \|\| ''\)/)
-  assert.match(fn, /const msg = singleProduct \? '' : sec\('Team Messages'/)
+  // Team chat moved to the floating messages bubble (staff-chat-dock); the rail
+  // now surfaces reports for the department you're in.
+  assert.doesNotMatch(fn, /sec\('Team Messages'/, 'Team Messages section must be gone from the rail')
+  assert.match(fn, /const reportItems = \(eng\.reports && eng\.reports\.length\)/)
+  assert.match(fn, /const msg = sec\('Reports', 'chart', reportsInner\)/)
 })
 
 test('Design Studio nav entries use a real icon key, not the non-existent "image" (which silently falls back to a plain dot)', () => {

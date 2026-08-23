@@ -103,6 +103,19 @@ function rptRange(v) { __rptRange = v; loadDeepReport(__rptTab); }
 window.reportsTab = reportsTab;
 window.rptRange = rptRange;
 
+// Open the Reports hub already focused on one department's report tab. The engine
+// rails link here so "Reports" on the right rail is specific to the department you're
+// in. switchPage('reports') runs loadReports() synchronously (the tabs DOM is built
+// before this returns), so reportsTab() can safely select the deep tab right after.
+function openDeptReport(key) {
+  switchPage('reports');
+  if (key && key !== 'overview' && typeof reportsTab === 'function'
+      && REPORT_DEFS.some(d => d.key === key)) {
+    reportsTab(key);
+  }
+}
+window.openDeptReport = openDeptReport;
+
 // One generic renderer for all deep reports: stat tiles from `summary`, a table
 // for every array field the endpoint returns. Keeps the 8 reports consistent.
 const RPT_MONEY_HINT = /(revenue|price|offer|commission|gross|amount|value)/i;
