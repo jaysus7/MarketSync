@@ -7,20 +7,43 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#6366F1">
-  <title>Compare MarketSync — Digital, DealerOS &amp; Intelligence vs the Category</title>
-  <meta name="description" content="How MarketSync compares across dealership software categories — operating systems, digital/website, AI, and inventory tools. MarketSync's difference: customer growth, dealership operations and embedded operational intelligence on one connected record.">
+  <title>Compare MarketSync Plans — Digital, Core, Pro &amp; Complete</title>
+  <meta name="description" content="Compare MarketSync plans side by side: MarketSync Digital ($1,199), DealerOS Core ($1,499), Pro ($2,499) and Complete ($3,999) — feature by feature. Plus how MarketSync compares across operating-system, digital, AI and inventory categories.">
   <meta name="robots" content="index, follow, max-image-preview:large">
   <link rel="canonical" href="https://marketsync.link/compare.html">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="MarketSync">
-  <meta property="og:title" content="Compare MarketSync across dealership software categories">
-  <meta property="og:description" content="A different architecture: Digital + dealership operations + embedded operational intelligence on one connected customer and vehicle record.">
+  <meta property="og:title" content="Compare MarketSync plans, side by side">
+  <meta property="og:description" content="MarketSync Digital vs DealerOS Core, Pro & Complete — feature by feature, with a full spec table.">
   <meta property="og:url" content="https://marketsync.link/compare.html">
   <meta property="og:image" content="https://marketsync.link/og/home.png">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">
   <link rel="stylesheet" href="/site-marketing.css">
+  <script src="/js/public-config.js" defer></script>
+  <style>
+    .cmp-wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+    .cmp-scroll { overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; border-radius: 18px; }
+    table.cmp { width: 100%; border-collapse: collapse; min-width: 760px; background: var(--card, #fff); }
+    @media (prefers-color-scheme: dark) { table.cmp { background: #0b1220; } }
+    .cmp th, .cmp td { padding: 14px 16px; text-align: center; border-bottom: 1px solid rgba(120,130,150,.16); vertical-align: middle; }
+    .cmp thead th { position: sticky; top: 0; background: var(--card, #fff); z-index: 2; }
+    @media (prefers-color-scheme: dark) { .cmp thead th { background: #0b1220; } }
+    .cmp th.feat, .cmp td.feat { text-align: left; font-weight: 600; color: var(--fg, #0f172a); white-space: nowrap; position: sticky; left: 0; background: var(--card, #fff); z-index: 1; }
+    @media (prefers-color-scheme: dark) { .cmp th.feat, .cmp td.feat { color: #e8edf6; background: #0b1220; } }
+    .cmp .plan-name { font-size: 17px; font-weight: 900; letter-spacing: -.02em; }
+    .cmp .plan-price { font-size: 22px; font-weight: 900; margin-top: 2px; }
+    .cmp .plan-unit { font-size: 11px; font-weight: 700; color: #64748b; display: block; }
+    .cmp .plan-cta { display: inline-block; margin-top: 10px; padding: 8px 14px; border-radius: 10px; font-size: 12px; font-weight: 800; text-decoration: none; }
+    .cmp .cta-p { background: #6366f1; color: #fff; }
+    .cmp .cta-g { background: rgba(99,102,241,.12); color: #6366f1; }
+    .cmp .grp td { text-align: left; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; color: #6366f1; background: rgba(99,102,241,.06); }
+    .cmp .yes { color: #10b981; font-weight: 900; font-size: 16px; }
+    .cmp .no  { color: #94a3b8; }
+    .cmp .featured-col { box-shadow: inset 0 0 0 2px rgba(99,102,241,.5); }
+    .cmp-tag { display:inline-block; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#6366f1; background:rgba(99,102,241,.12); padding:2px 8px; border-radius:999px; margin-bottom:4px; }
+  </style>
   <!-- Automatic OS dark/light before first paint (no flash) -->
   <script>(function(){try{if(window.matchMedia("(prefers-color-scheme: dark)").matches)document.documentElement.classList.add("dark");}catch(e){}})();</script>
 </head>
@@ -30,72 +53,113 @@
   <!-- HERO -->
   <section class="hero">
     <div class="wrap">
-      <div class="eyebrow ms-reveal">Compare</div>
-      <h1 class="h1 ms-reveal" data-ms-delay="60" style="margin-top:14px;">How MarketSync<br>compares.</h1>
-      <p class="lead ms-reveal" data-ms-delay="120">Most dealership tools do one job — an operating system, a website, an AI, an inventory tool. <b>MarketSync's difference is architecture:</b> customer growth (MarketSync Digital), dealership operations (DealerOS) and embedded operational intelligence (Intelligence by MarketSync) on one connected customer and vehicle record.</p>
-      <div class="cta-row ms-reveal" data-ms-delay="180">
-        <a href="/pricing.html" class="btn btn-p">See plans &amp; pricing</a>
-        <a href="/dealer-os.html" class="btn btn-g">Explore DealerOS</a>
-      </div>
+      <div class="eyebrow ms-reveal">Compare plans</div>
+      <h1 class="h1 ms-reveal" data-ms-delay="60" style="margin-top:14px;">Which MarketSync<br>is right for you?</h1>
+      <p class="lead ms-reveal" data-ms-delay="120">Start with <b>MarketSync Digital</b> to grow, run the store on <b>DealerOS</b>, or get everything with <b>DealerOS Complete</b>. Here's exactly what each one includes.</p>
     </div>
   </section>
 
-  <!-- CATEGORIES -->
-  <section class="band">
-    <div class="wrap">
-      <div class="center">
-        <div class="eyebrow ms-reveal">By category</div>
-        <h2 class="h2 ms-reveal" data-ms-delay="60" style="margin-top:10px;">Where MarketSync fits against the tools you know.</h2>
-        <p class="lead ms-reveal" data-ms-delay="120" style="margin-left:auto;margin-right:auto;">Each category below groups the tools dealers commonly compare. We describe the MarketSync approach and who each is best suited for — not unverifiable competitor pricing or feature claims.</p>
-      </div>
+  <!-- PLAN SPEC TABLE -->
+  <section style="padding:8px 0 40px;">
+    <div class="cmp-wrap">
+      <div class="cmp-scroll ms-reveal">
+        <table class="cmp">
+          <thead>
+            <tr>
+              <th class="feat" style="min-width:200px;"></th>
+              <th>
+                <span class="cmp-tag">Grow</span>
+                <div class="plan-name">MarketSync Digital</div>
+                <div class="plan-price" data-price-id="marketsync-digital">$1,199 <span class="plan-unit">/ mo CAD</span></div>
+                <a href="/register.html?plan=marketsync-digital" class="plan-cta cta-p">Start free</a>
+              </th>
+              <th>
+                <span class="cmp-tag">Operate</span>
+                <div class="plan-name">DealerOS Core</div>
+                <div class="plan-price" data-price-id="dealer-os-core">$1,499 <span class="plan-unit">/ mo CAD</span></div>
+                <a href="/demo.html?plan=dealer-os-core" class="plan-cta cta-g">Book demo</a>
+              </th>
+              <th class="featured-col">
+                <span class="cmp-tag">Most popular</span>
+                <div class="plan-name">DealerOS Pro</div>
+                <div class="plan-price" data-price-id="dealer-os-pro">$2,499 <span class="plan-unit">/ mo CAD</span></div>
+                <a href="/demo.html?plan=dealer-os-pro" class="plan-cta cta-p">Book demo</a>
+              </th>
+              <th>
+                <span class="cmp-tag">Everything</span>
+                <div class="plan-name">DealerOS Complete</div>
+                <div class="plan-price" data-price-id="dealer-os-complete">$3,999 <span class="plan-unit">/ mo CAD</span></div>
+                <a href="/demo.html?plan=dealer-os-complete" class="plan-cta cta-g">Book demo</a>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="grp"><td colspan="5">Overview</td></tr>
+            <tr><td class="feat">Best for</td><td>Marketing &amp; growth</td><td>Running the store</td><td>Store + Fixed Ops</td><td>The whole dealership</td></tr>
+            <tr><td class="feat">Free 30-day trial</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
 
-      <div style="margin-top:36px;" class="ms-reveal">
-        <div class="eyebrow" style="color:var(--ac);">Operating systems &amp; DMS</div>
-        <p style="color:#64748b;margin:4px 0 14px;">Compared with: Tekion, CDK, Reynolds &amp; Reynolds, PBS, Dealertrack, DealerCenter, Frazer.</p>
-        <div class="plans" style="text-align:left;">
-          <div class="plan"><div class="nm">The MarketSync approach</div><div style="font-size:14px;color:#64748b;">DealerOS runs CRM, inventory, sales, desking, F&amp;I, service, parts and accounting on one shared customer and vehicle record — and connects directly to marketing and intelligence.</div></div>
-          <div class="plan"><div class="nm">Different architecture</div><div style="font-size:14px;color:#64748b;">Rather than a DMS plus separate CRM, website and marketing vendors, the operating system, the digital front end and the intelligence layer share one database.</div></div>
-          <div class="plan"><div class="nm">Best suited for</div><div style="font-size:14px;color:#64748b;">Dealers who want operations, marketing and reporting to stop living in disconnected systems.</div></div>
-        </div>
-      </div>
+            <tr class="grp"><td colspan="5">MarketSync Digital — Grow</td></tr>
+            <tr><td class="feat">Dealer Website</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
+            <tr><td class="feat">MarketSync SEO</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
+            <tr><td class="feat">AI Customer Agent</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
+            <tr><td class="feat">Design Studio</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
+            <tr><td class="feat">Social Studio &amp; Scheduler</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
+            <tr><td class="feat">Facebook Marketplace</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
+            <tr><td class="feat">Video</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
+            <tr><td class="feat">Email, SMS &amp; Campaigns</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
 
-      <div style="margin-top:36px;" class="ms-reveal">
-        <div class="eyebrow" style="color:var(--ac);">Digital &amp; website</div>
-        <p style="color:#64748b;margin:4px 0 14px;">Compared with: Dealer.com, DealerOn, Dealer Inspire.</p>
-        <div class="plans" style="text-align:left;">
-          <div class="plan"><div class="nm">The MarketSync approach</div><div style="font-size:14px;color:#64748b;">MarketSync Digital is a connected digital department — website, SEO, AI Customer Agent, social, Facebook, video and campaigns sharing your inventory and customer data.</div></div>
-          <div class="plan"><div class="nm">Different architecture</div><div style="font-size:14px;color:#64748b;">The website and campaigns aren't a separate vendor silo; leads flow into the same record your operations use.</div></div>
-          <div class="plan"><div class="nm">Best suited for</div><div style="font-size:14px;color:#64748b;">Dealers who want a modern website and marketing that connect to the rest of the store.</div></div>
-        </div>
-      </div>
+            <tr class="grp"><td colspan="5">DealerOS — Operate</td></tr>
+            <tr><td class="feat">CRM &amp; customer record</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+            <tr><td class="feat">Inventory</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+            <tr><td class="feat">Desking &amp; appraisals</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+            <tr><td class="feat">Sales workflows &amp; reporting</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+            <tr><td class="feat">Service</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+            <tr><td class="feat">Parts</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+            <tr><td class="feat">F&amp;I</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+            <tr><td class="feat">Accounting</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
+            <tr><td class="feat">Automations</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
+            <tr><td class="feat">Integrations &amp; API</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
+            <tr><td class="feat">Multi-store &amp; group rollups</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
 
-      <div style="margin-top:36px;" class="ms-reveal">
-        <div class="eyebrow" style="color:var(--ac);">AI &amp; engagement</div>
-        <p style="color:#64748b;margin:4px 0 14px;">Compared with: Impel, Podium, Fullpath, DriveCentric.</p>
-        <div class="plans" style="text-align:left;">
-          <div class="plan"><div class="nm">The MarketSync approach</div><div style="font-size:14px;color:#64748b;">Two distinct products: the AI Customer Agent (external, customer-facing) and Intelligence by MarketSync (internal, management-facing) — both working on your live data.</div></div>
-          <div class="plan"><div class="nm">Different architecture</div><div style="font-size:14px;color:#64748b;">The AI isn't a bolt-on chat widget; it reads and acts on the same operating record, with actions executed only after approval.</div></div>
-          <div class="plan"><div class="nm">Best suited for</div><div style="font-size:14px;color:#64748b;">Dealers who want customer-facing AI and internal decision support grounded in their own data.</div></div>
-        </div>
-      </div>
+            <tr class="grp"><td colspan="5">Intelligence — Understand + Act</td></tr>
+            <tr><td class="feat">Intelligence by MarketSync</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
+            <tr><td class="feat">MarketSync Identity Verify</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
 
-      <div style="margin-top:36px;" class="ms-reveal">
-        <div class="eyebrow" style="color:var(--ac);">Inventory &amp; pricing</div>
-        <p style="color:#64748b;margin:4px 0 14px;">Compared with: vAuto and other inventory specialists.</p>
-        <div class="plans" style="text-align:left;">
-          <div class="plan"><div class="nm">The MarketSync approach</div><div style="font-size:14px;color:#64748b;">Price-to-market, turn rate, aging and market comparisons live inside DealerOS — the same numbers follow the car into merchandising, desking and reporting.</div></div>
-          <div class="plan"><div class="nm">Different architecture</div><div style="font-size:14px;color:#64748b;">Inventory intelligence isn't a standalone screen you export from; it's part of the operating record.</div></div>
-          <div class="plan"><div class="nm">Best suited for</div><div style="font-size:14px;color:#64748b;">Dealers who want pricing insight connected to how the car is actually sold.</div></div>
-        </div>
+            <tr class="grp"><td colspan="5">Get started</td></tr>
+            <tr>
+              <td class="feat">&nbsp;</td>
+              <td><a href="/register.html?plan=marketsync-digital" class="plan-cta cta-p">Start MarketSync Digital</a></td>
+              <td><a href="/demo.html?plan=dealer-os-core" class="plan-cta cta-g">Book Core demo</a></td>
+              <td><a href="/demo.html?plan=dealer-os-pro" class="plan-cta cta-p">Book Pro demo</a></td>
+              <td><a href="/demo.html?plan=dealer-os-complete" class="plan-cta cta-g">Book Complete demo</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="text-align:center;color:#64748b;font-size:13px;margin-top:14px;">DealerOS Complete includes the entire MarketSync Digital bundle. DealerOS Core and Pro are operational only — they do not include MarketSync Digital. <a href="/pricing.html" style="color:var(--ac);font-weight:700;text-decoration:none;">See full pricing →</a></p>
+    </div>
+  </section>
+
+  <!-- VS THE CATEGORY -->
+  <section class="band band-tint">
+    <div class="wrap center">
+      <div class="eyebrow ms-reveal">Vs. the category</div>
+      <h2 class="h2 ms-reveal" data-ms-delay="60" style="margin-top:10px;">A different architecture from single-purpose tools.</h2>
+      <p class="lead ms-reveal" data-ms-delay="120" style="margin-left:auto;margin-right:auto;">Most dealership tools do one job. MarketSync's difference is that customer growth, dealership operations and operational intelligence share one connected customer and vehicle record. We describe the MarketSync approach and who each is best suited for — not unverifiable competitor pricing or feature claims.</p>
+      <div class="plans" style="text-align:left;margin-top:28px;">
+        <div class="plan ms-reveal"><div class="nm">Operating systems &amp; DMS</div><div style="font-size:13px;color:#64748b;">Compared with Tekion, CDK, Reynolds &amp; Reynolds, PBS, Dealertrack, DealerCenter, Frazer. DealerOS runs the store on one shared record and connects to marketing and intelligence.</div></div>
+        <div class="plan ms-reveal" data-ms-delay="60"><div class="nm">Digital &amp; website</div><div style="font-size:13px;color:#64748b;">Compared with Dealer.com, DealerOn, Dealer Inspire. MarketSync Digital is a connected digital department, not a separate website vendor silo.</div></div>
+        <div class="plan ms-reveal" data-ms-delay="120"><div class="nm">AI &amp; engagement</div><div style="font-size:13px;color:#64748b;">Compared with Impel, Podium, Fullpath, DriveCentric. Two products: the AI Customer Agent (external) and Intelligence by MarketSync (internal), both on your live data.</div></div>
+        <div class="plan ms-reveal"><div class="nm">Inventory &amp; pricing</div><div style="font-size:13px;color:#64748b;">Compared with vAuto and inventory specialists. Price-to-market and aging live inside DealerOS and follow the car into desking and reporting.</div></div>
       </div>
     </div>
   </section>
 
   <!-- CTA -->
-  <section class="band band-tint">
+  <section class="band">
     <div class="wrap center">
-      <h2 class="h2 ms-reveal">See it on your own store.</h2>
-      <p class="lead ms-reveal" data-ms-delay="80">Start with MarketSync Digital, or book a DealerOS demo to see the connected model end to end.</p>
+      <h2 class="h2 ms-reveal">Still deciding?</h2>
+      <p class="lead ms-reveal" data-ms-delay="80">Start with MarketSync Digital today, or book a DealerOS demo to see the connected model end to end.</p>
       <div class="cta-row ms-reveal" data-ms-delay="120" style="justify-content:center;margin-top:22px;">
         <a href="/register.html?plan=marketsync-digital" class="btn btn-p">Start with MarketSync Digital</a>
         <a href="/demo.html?plan=dealer-os-core" class="btn btn-g">Book a DealerOS demo</a>
@@ -106,5 +170,19 @@
   <div id="ms-public-footer"></div>
   <script src="/assets/auth.js" defer></script>
   <script src="/assets/public-shell.js" defer></script>
+  <script>
+    // Prices from the canonical public config (public-config.js), never hardcoded as truth.
+    document.addEventListener('DOMContentLoaded', function () {
+      var cfg = window.MARKETSYNC_PRICING; if (!cfg) return;
+      var byId = {};
+      [].concat(cfg.standalone || [], cfg.suites || [], cfg.dealerOS || []).forEach(function (p) { byId[p.id] = p; });
+      document.querySelectorAll('.plan-price[data-price-id]').forEach(function (el) {
+        var p = byId[el.getAttribute('data-price-id')]; if (!p) return;
+        var unit = el.querySelector('.plan-unit');
+        el.textContent = (p.priceFormatted || ('$' + p.price)) + ' ';
+        if (unit) el.appendChild(unit);
+      });
+    });
+  </script>
 </body>
 </html>
