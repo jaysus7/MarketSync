@@ -18,9 +18,10 @@
 // profiles.drip_unsubscribed_at — CAN-SPAM / CASL friendly.
 
 import { createHash } from 'crypto'
+import { TRIAL_PERIOD_DAYS } from './plan-catalog.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
-const TRIAL_DAYS = 30   // keep in sync with trialEndsAt in auth.js registration
+const TRIAL_DAYS = TRIAL_PERIOD_DAYS   // canonical trial length (plan-catalog.js)
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Unsubscribe tokens

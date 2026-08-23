@@ -101,7 +101,7 @@ export function computeAccessContext(raw = {}) {
 
   // ── Layer 1: product access ──
   // A subscription grants access while active or trialing — but a TRIALING sub whose
-  // trial_ends_at has passed no longer counts (the 39-day free trial has lapsed; the app
+  // trial_ends_at has passed no longer counts (the free trial has lapsed; the app
   // shows the paywall). If cancel_at_period_end is set, access remains until current_period_end.
   const now = raw.now ? new Date(raw.now).getTime() : Date.now()
   const isItemLive = (item) => {
