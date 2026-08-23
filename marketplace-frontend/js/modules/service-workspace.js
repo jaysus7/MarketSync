@@ -233,8 +233,16 @@ window.svcCheckIn = svcCheckIn;
 // holding it means you may only touch lines assigned to you. window.canDo fails OPEN
 // when the access context is unavailable, which lands on the advisor surface — the
 // safe direction, since every action is re-checked server-side either way.
-const svcIsTechnician = () =>
-  typeof window.canDo === 'function' && !window.canDo('service.manage_workflow');
+// A technician gets the single "My Work" view. Management roles (the only roles that
+// can open the Service department from the sidebar — it is mgr-gated in the registry)
+// ALWAYS get the full desk tabs (Pulse / Appointments / Repair Orders / Settings), even
+// if they happen to lack the granular service.manage_workflow permission — otherwise the
+// department's other pages vanish behind a single tab.
+const svcIsTechnician = () => {
+  const role = String(profileContext?.role || '').toUpperCase();
+  if (['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(role)) return false;
+  return typeof window.canDo === 'function' && !window.canDo('service.manage_workflow');
+};
 
 // A job is mine if the line carries my id. Lines come back with the RO.
 function svcMyJobs(d) {
@@ -419,6 +427,11 @@ function svcUnavailableNote(d) {
 ENGINES['service-overview'] = {
   rootId: 'service-overview-root', title: 'Service', subtitle: 'One repair order — check in, estimate, authorize, repair, deliver',
   icon: 'wrench', accent: 'sky',
+  // Right-rail Reports, specific to Service.
+  reports: [
+    { label: 'Service performance', icon: 'chart', onclick: "openDeptReport('service')" },
+    { label: 'Appointments', icon: 'calendar', onclick: "openDeptReport('appointments')" },
+  ],
   get tabLabels() {
     return svcIsTechnician() ? { overview: 'Pulse' }
       : { overview: 'Pulse', appointments: 'Appointments', ros: 'Repair Orders', settings: 'Settings' };

@@ -294,6 +294,12 @@ window.salesTodayVideosCard = salesTodayVideosCard;
 ENGINES['sales'] = {
   rootId: 'sales-root', title: 'Sales', subtitle: 'Your customers, appointments and deals — what needs you first', hideHeader: true,
   icon: 'currency', accent: 'amber',
+  // Right-rail Reports, specific to Sales.
+  reports: [
+    { label: 'Sales performance', icon: 'chart', onclick: "openDeptReport('sales')" },
+    { label: 'Leads & sources', icon: 'users', onclick: "openDeptReport('leads')" },
+    { label: 'Rep scorecard', icon: 'chart', onclick: "openDeptReport('reps')" },
+  ],
   // Appraisals moved to Inventory > Acquire; desking is reached from the global header.
   // Sales composes operational work into the Work tab and leads with its Pulse/My Day.
   get tabOrder() { return ['overview', 'work', 'appraisals', 'equity', 'settings']; },

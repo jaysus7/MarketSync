@@ -1,5 +1,7 @@
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { hasProductAccessReq } from '../access.js'
+import { isDemoDealershipId } from './demo.js'
 
 // In-memory message fallback store for smooth operational performance
 const memoryStore = {
@@ -7,8 +9,20 @@ const memoryStore = {
   reactions: {}
 }
 
+// Team Messaging is a DealerOS / Facebook-dealer feature. Entitlement is checked
+// through the SAME source the rest of the app uses — the access context (which folds in
+// demo showcase entitlements) — not only a raw `subscriptions` row. The subscriptions
+// query stays as a fallback for when the access context can't be resolved. This is why
+// demo tenants (entitled via the demo overlay, with no subscription row) used to 403 and
+// leave the team-chat roster stuck on "Loading team…".
 async function requireTeamMessaging(req, res, next) {
   if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+  try {
+    if (await isDemoDealershipId(req.dealershipId)) return next()
+    for (const p of ['dealer_os', 'facebook', 'facebook_dealer']) {
+      if (await hasProductAccessReq(req, p)) return next()
+    }
+  } catch { /* fall through to the subscriptions fallback below */ }
   const { data: subData } = await supabaseAdmin
     .from('subscriptions')
     .select('product_id')

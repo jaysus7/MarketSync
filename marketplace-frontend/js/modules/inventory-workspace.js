@@ -264,6 +264,12 @@ async function invRenderWork(body, d) {
 ENGINES['inventory-overview'] = {
   rootId: 'inventory-overview-root', title: 'Inventory', subtitle: 'Acquire, merchandise, price and publish every unit in stock',
   icon: 'gem', accent: 'sky',
+  // Right-rail Reports, specific to Inventory (the Reports overview carries inventory
+  // mix & aging; appraisals covers acquisition).
+  reports: [
+    { label: 'Inventory mix & aging', icon: 'chart', onclick: "openDeptReport('overview')" },
+    { label: 'Appraisals', icon: 'car', onclick: "openDeptReport('appraisals')" },
+  ],
   // Appraisals moved to Sales (its one home — see sales-workspace.js's "Appraise
   // Trade" tab), Cleanup is now its own department (workspace-registry.js), and
   // Settings is a thin redirect to dealership configuration — reachable from the
