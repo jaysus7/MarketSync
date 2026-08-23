@@ -37,6 +37,7 @@
       label: 'Platforms', href: '/pricing.html#platforms',
       items: [
         { href: '/marketing-suites.html', title: 'Connected Marketing Suites', desc: 'Sales, Service, Complete & MarketSync Digital' },
+        { href: '/marketsync-digital.html', title: 'MarketSync Digital', desc: 'Your connected digital department' },
         { href: '/dealer-os.html', title: 'DealerOS Operating System', desc: 'CRM, Sales, Inventory, Desking & Fixed Ops' },
         { href: '/intelligence.html', title: 'Intelligence by MarketSync', desc: 'Operating intelligence — understand & act' },
       ],
@@ -83,7 +84,7 @@
       ['Sales Suite', '/marketing-suites.html'],
       ['Service Suite', '/marketing-suites.html'],
       ['Complete Suite', '/marketing-suites.html'],
-      ['MarketSync Digital', '/marketing-suites.html'],
+      ['MarketSync Digital', '/marketsync-digital.html'],
       ['DealerOS Core', '/dealer-os.html'],
       ['DealerOS Pro', '/dealer-os.html'],
       ['DealerOS Complete', '/dealer-os.html'],
