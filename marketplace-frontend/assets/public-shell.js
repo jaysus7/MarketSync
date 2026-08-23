@@ -38,6 +38,7 @@
       items: [
         { href: '/marketing-suites.html', title: 'Connected Marketing Suites', desc: 'Sales, Service, Complete & MarketSync Digital' },
         { href: '/dealer-os.html', title: 'DealerOS Operating System', desc: 'CRM, Sales, Inventory, Desking & Fixed Ops' },
+        { href: '/intelligence.html', title: 'Intelligence by MarketSync', desc: 'Operating intelligence — understand & act' },
       ],
     },
     {
@@ -86,6 +87,7 @@
       ['DealerOS Core', '/dealer-os.html'],
       ['DealerOS Pro', '/dealer-os.html'],
       ['DealerOS Complete', '/dealer-os.html'],
+      ['Intelligence by MarketSync', '/intelligence.html'],
     ]],
     ['Company & Trust', [
       ['How-to Guide', '/guide.html'],
