@@ -1205,21 +1205,26 @@ ENGINES['marketing-overview'] = {
       }
     },
 
-    // ── Email & SMS (Consolidated Communication Automation Engine) ───────────
+    // ── Email & SMS ──────────────────────────────────────────────────────────
+    // Automation Builder is a full standalone page with its own header —
+    // borrowing its page-content panel here (via engMountPage) used to stack three
+    // headers: this tab's own, Automation Builder's static one, and the Marketing
+    // engine's. Hand off to the real page instead, the same way the 'studio' tab
+    // above hands off to Design Studio's own full-screen workspace rather than
+    // embedding it.
     'email-sms'(body) {
+      setTimeout(() => { if (typeof switchPage === 'function') switchPage('email-sms'); }, 0);
       body.innerHTML = `
-        <div class="space-y-4">
-          <div class="pb-3 border-b border-slate-200 dark:border-slate-800">
-            <h3 class="text-sm font-black text-slate-900 dark:text-white">Email &amp; SMS Automation Engine</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Automated lead response, service retention, reviews, and visual workflow journeys.</p>
+        <div class="py-12 px-6 max-w-xl mx-auto text-center space-y-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs my-8">
+          <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
           </div>
-          <div id="mkt-email-sms-mount"></div>
+          <div>
+            <h3 class="text-base font-black text-slate-900 dark:text-white">Email, SMS &amp; Campaigns</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Opening the dedicated Automation Builder workspace&hellip;</p>
+          </div>
         </div>
       `;
-      const mount = document.getElementById('mkt-email-sms-mount');
-      if (mount) {
-        engMountPage(mount, 'automation-builder', () => loadAutoBuilderPage());
-      }
     },
 
     // Legacy aliases for backward-compatible deep links and redirects

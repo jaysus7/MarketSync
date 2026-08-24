@@ -1516,6 +1516,15 @@ function deptGo(page, invmode, tab) {
       engineTab('marketing-overview', tab);
     }
   }
+  // 'email-sms'/'email-marketing' are legacy page ids switchPage's remap block
+  // folds into automation-builder, defaulting the tab to 'overview' for deep links
+  // that carry no tab info of their own (notifications, old bookmarks). A live nav
+  // item like Email & SMS (tab: 'campaigns') does carry one — re-apply it after that
+  // remap runs so it isn't silently stomped back to the launchpad overview tab.
+  if (tab && (page === 'email-sms' || page === 'email-marketing')) {
+    __autoTab = tab;
+    if (typeof loadAutoBuilderPage === 'function') loadAutoBuilderPage();
+  }
 }
 window.deptGo = deptGo;
 
