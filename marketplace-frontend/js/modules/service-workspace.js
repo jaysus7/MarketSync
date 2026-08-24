@@ -580,6 +580,14 @@ ENGINES['service-overview'] = {
             icon: 'phone', label: c.customer || 'Customer', sub: c.title || 'Follow-up call', onclick: `svcOpenRecord('${c.repair_order_id}')`,
           })).join('') : ''), empty: callbacks == null ? 'Could not be loaded.' : 'Every closed RO has been called back.',
         }),
+        // Service must call no endpoint outside /service(-engine)/… (it is sold and must
+        // work standalone), so the leaderboard itself is NOT fetched here — this links to
+        // the platform's own Leaderboard page, pre-set to the Service department, which
+        // reads /gamification on its own.
+        pulseCard({
+          title: 'Service leaderboard', onclick: "window.__activeLbDept='service'; switchPage('leaderboard')",
+          inner: `<p class="text-[12px] text-slate-500 dark:text-slate-400 leading-snug">Repair orders closed, revenue and CSI, ranked by advisor and tech.</p>`,
+        }),
       ]);
 
       body.innerHTML = `

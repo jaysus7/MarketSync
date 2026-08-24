@@ -236,20 +236,21 @@ ENGINES['fni-overview'] = {
     // Deals are the landing payload. The delivery queue is fetched here too because
     // blockers are the department's headline attention item, but products and the
     // full delivery view stay lazy.
-    const [deals, del, products, lenders, funding] = await Promise.all([
+    const [deals, del, products, lenders, funding, gamification] = await Promise.all([
       apiGetJson('/fni/deals').catch(() => ({ deals: [] })),
       apiGetJson('/delivery/queue').catch(() => ({ deals: [] })),
       apiGetJson('/fni/products').catch(() => null),
       apiGetJson('/fni/lenders').catch(() => null),
       // Canonical funding state, so My Day reads the fact rather than inferring it.
       apiGetJson('/fni/funding').catch(() => null),
+      apiGetJson('/gamification').catch(() => null),
     ]);
     const queue = del.deals || del.queue || [];
     const d = { deals: deals.deals || deals.items || [], deliveryQueue: queue, blocked: queue.filter(x => x.blocker),
       // null means "could not read", which the Settings tab renders differently from "none".
       products: products ? (products.products || products.items || []) : null,
       lenders: lenders ? (lenders.lenders || lenders.items || []) : null,
-      funding: funding ? (funding.deals || []) : null };
+      funding: funding ? (funding.deals || []) : null, gamification };
     __fniWsData = d;
     return d;
   },
@@ -339,10 +340,7 @@ ENGINES['fni-overview'] = {
             return n ? pulseRow({ badge: n, label, onclick: "switchPage('fni')" }) : '';
           }).filter(Boolean).join('') || '', empty: 'No deals yet.',
         }),
-        pulseCard({
-          title: 'F&I performance', onclick: "openDeptReport('fni')",
-          inner: `<p class="text-[12px] text-slate-500 dark:text-slate-400 leading-snug">Approval rate, product penetration and profit per vehicle, by manager.</p>`,
-        }),
+        pulseLeaderboardCard(d.gamification, 'fni', { title: 'F&I leaderboard', metric: 'pvr_avg' }),
       ]);
 
       const proactiveAiPanel = `

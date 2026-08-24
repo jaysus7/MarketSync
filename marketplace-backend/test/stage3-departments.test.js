@@ -52,7 +52,9 @@ for (const [name, src, id] of DEPTS) {
   })
 
   test(`${name} adds no new endpoints`, () => {
-    const KNOWN = ['/inventory', '/recon', '/ai/appraisals', '/fni/deals', '/fni/products', '/delivery/queue', '/fni/funding', '/fni/lenders']
+    // /gamification is the same cross-department leaderboard endpoint the platform's own
+    // Performance/Leaderboard page already reads — F&I's Pulse leaderboard card reuses it.
+    const KNOWN = ['/inventory', '/recon', '/ai/appraisals', '/fni/deals', '/fni/products', '/delivery/queue', '/fni/funding', '/fni/lenders', '/gamification']
     for (const c of [...src.matchAll(/apiGetJson\('([^'?]+)/g)].map(m => m[1])) {
       assert.ok(KNOWN.includes(c), `${name} must not introduce a new endpoint: ${c}`)
     }

@@ -867,10 +867,28 @@ function pulseActionsRow(actions) {
       <div class="text-[12.5px] font-black text-slate-800 dark:text-slate-100">${esc(a.label)}</div>
     </button>`).join('')}</div>`;
 }
+// Leaderboard widget for a Pulse page — reads the SAME /gamification payload the
+// real Performance/Leaderboard page (switchPage('leaderboard')) already renders, so a
+// Pulse card never shows a number that isn't also standing behind that page today.
+// gam: the raw /gamification response (or null if it could not be loaded).
+function pulseLeaderboardCard(gam, deptKey, { title, metric, onclick } = {}) {
+  const dept = gam?.departments?.[deptKey];
+  const rows = (dept?.leaderboard || []).slice().sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99)).slice(0, 5);
+  return pulseCard({
+    title: title || (dept?.title ? `${dept.title} leaderboard` : 'Leaderboard'),
+    onclick: onclick || "switchPage('leaderboard')",
+    inner: rows.length ? rows.map(r => pulseLeaderRow({
+      rank: r.rank, name: r.full_name, sub: r.title || '',
+      value: metric ? (r.metrics?.[metric] ?? r.score ?? null) : (r.score ?? null),
+      onclick: onclick || "switchPage('leaderboard')",
+    })).join('') : '',
+    empty: gam === null ? 'Could not be loaded.' : 'No ranked activity yet.',
+  });
+}
 if (typeof window !== 'undefined') {
   window.pulseHeader = pulseHeader; window.pulseGrid = pulseGrid; window.pulseCard = pulseCard;
   window.pulseRow = pulseRow; window.pulseSearchCard = pulseSearchCard; window.pulseLeaderRow = pulseLeaderRow;
-  window.pulseActionsRow = pulseActionsRow;
+  window.pulseActionsRow = pulseActionsRow; window.pulseLeaderboardCard = pulseLeaderboardCard;
 }
 
 // ── Sections you scroll to, instead of a second row of tabs ──────────────────
