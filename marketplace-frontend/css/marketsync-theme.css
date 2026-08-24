@@ -2073,3 +2073,16 @@ html[data-ms-suite="digital"] .ms-digital-suite > div {
   border-color: rgba(190,205,230,.18) !important;
   box-shadow: 0 20px 50px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.08) !important;
 }
+
+/* Tab strips (engine tab bars, department/suite tab bars — every role="tablist" in
+   the dashboard) keep real horizontal scroll on a narrow viewport, but never show the
+   browser's own scrollbar chrome for it. A short row of tabs that already fits was
+   still getting a persistent scrollbar/arrow pair from some browsers' default
+   scrollbar rendering, reading as "there's more" when there isn't. */
+[role="tablist"] {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+[role="tablist"]::-webkit-scrollbar {
+  display: none;
+}

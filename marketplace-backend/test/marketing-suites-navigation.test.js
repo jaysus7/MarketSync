@@ -272,9 +272,9 @@ test('MarketSync Digital package exposes its complete Digital Presence area', (t
 
   const digitalConfig = sandbox.getMarketingSuiteConfig('digital');
   assert.deepEqual(Array.from(digitalConfig.areas.find(area => area.id === 'website').items, item => item.label), ['Setup', 'Builder', 'Website Settings']);
-  assert.deepEqual(Array.from(digitalConfig.areas.find(area => area.id === 'seo').items, item => item.label), ['Pulse', 'SEO Builder']);
+  assert.deepEqual(Array.from(digitalConfig.areas.find(area => area.id === 'seo').items, item => item.label), ['SEO Builder', 'Pulse']);
   assert.equal(digitalConfig.navItems.find(item => item.page === 'website').tab, 'setup');
-  assert.equal(digitalConfig.navItems.find(item => item.page === 'seo').tab, 'analytics');
+  assert.equal(digitalConfig.navItems.find(item => item.page === 'seo').tab, 'settings');
   assert.deepEqual(Array.from(digitalConfig.areas.find(area => area.id === 'ai').items, item => item.label), ['Pulse', 'Setup']);
 });
 

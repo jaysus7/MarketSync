@@ -22,7 +22,7 @@ function buildMarketingSuiteConfig(key) {
     const navItems = [
       suiteItem('marketing-overview', 'Pulse', 'chart', { tab: 'overview' }),
       suiteItem('website', 'Dealer Website', 'globe', { tab: 'setup' }),
-      suiteItem('seo', 'MarketSync SEO', 'chart', { tab: 'analytics' }),
+      suiteItem('seo', 'MarketSync SEO', 'chart', { tab: 'settings' }),
       suiteItem('ai-home', 'AI Customer Agent', 'sparkles', { tab: 'conversations' }),
       suiteItem('studio', 'Design Studio', 'camera', { studioLaunch: true }),
       suiteItem('social-scheduler', 'Social Studio & Scheduler', 'calendar'),
@@ -38,8 +38,8 @@ function buildMarketingSuiteConfig(key) {
         suiteItem('website-settings', 'Website Settings', 'shield'),
       ] },
       { id: 'seo', label: 'MarketSync SEO', icon: 'chart', items: [
-        suiteItem('seo', 'Pulse', 'chart', { tab: 'analytics' }),
         suiteItem('seo', 'SEO Builder', 'sparkles', { tab: 'settings' }),
+        suiteItem('seo', 'Pulse', 'chart', { tab: 'analytics' }),
       ] },
       { id: 'ai', label: 'AI Customer Agent', icon: 'sparkles', items: [
         suiteItem('ai-home', 'Pulse', 'sparkles', { tab: 'conversations' }),
@@ -201,8 +201,8 @@ function getMarketingSuiteConfig(suiteKey) {
     const ownsSeo = access.isPlatformStaff || (Array.isArray(access.products) && access.products.includes('marketsync_seo'));
     if (ownsSeo) {
       const seoArea = { id: 'seo', label: 'MarketSync SEO', icon: 'chart', items: [
-        suiteItem('seo', 'Pulse', 'chart', { tab: 'analytics' }),
         suiteItem('seo', 'SEO Builder', 'sparkles', { tab: 'settings' }),
+        suiteItem('seo', 'Pulse', 'chart', { tab: 'analytics' }),
       ] };
       const academyIdx = base.areas.findIndex(area => area.id === 'academy');
       const areas = [...base.areas];
