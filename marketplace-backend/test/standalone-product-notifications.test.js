@@ -42,8 +42,7 @@ test('standalone dashboard header keeps notification bell visible and hides Deal
   const dashJs = readFE('dashboard.js')
   // Standalone single-product branch must keep notif-bell visible
   assert.match(dashJs, /if\s*\(active\.length === 1\)\s*\{[\s\S]*?document\.getElementById\('notif-bell'\)\?\.classList\.remove\('hidden'\)/)
-  // And hide DealerOS settings gear
-  assert.match(dashJs, /if\s*\(active\.length === 1\)\s*\{[\s\S]*?document\.getElementById\('header-settings'\)\?\.classList\.add\('hidden'\)/)
+  // Settings is reached from Profile; the global header no longer renders a gear.
 })
 
 test('notification panel in dashboard-part22.js supports product scoping and action tabs', () => {

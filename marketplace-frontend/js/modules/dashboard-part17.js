@@ -274,10 +274,24 @@ async function openSiteManager() {
   __siteWidgets = Array.isArray(cfg.content?.widgets) ? cfg.content.widgets.slice() : [];
   renderSiteWidgets();
 }
-// Website → Settings tab (same form, inline instead of a modal).
+// Website → Settings is the detailed site-level form. Setup is the separate
+// configuration control centre; both shared-nav destinations stay distinct.
 function wsSettings() {
   if (!__siteCfg) return '<div class="mt-4 text-sm text-slate-400">Loading…</div>';
-  return wsSetup();
+  return `
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full space-y-6">
+      <div class="flex items-center justify-between flex-wrap gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
+        <div>
+          <h1 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Website Settings</h1>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Manage the public site address, business details, search appearance, chat, and embedded tools.</p>
+        </div>
+        <button type="button" onclick="saveSite(this)" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md cursor-pointer">Save Website Settings</button>
+      </div>
+      <div class="space-y-4">${siteSettingsFields(__siteCfg)}</div>
+      <div class="flex justify-end border-t border-slate-200 dark:border-slate-800 pt-5">
+        <button type="button" onclick="saveSite(this)" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm transition shadow-md cursor-pointer">Save Website Settings</button>
+      </div>
+    </div>`;
 }
 
 function isAiChatbotOwned() {
@@ -518,9 +532,13 @@ function wsSetup() {
         <!-- 11. AI ChatBot -->
         ${card('ai-chatbot', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/></svg>`,
           'AI ChatBot', '24/7 conversational sales assistant on your website qualifying shoppers and capturing leads.',
-          `<div class="flex justify-between"><span class="text-slate-500">Status:</span> <span class="font-bold ${isAiChatbotOwned() ? 'text-emerald-500' : 'text-amber-400'}">${isAiChatbotOwned() ? (c.sales_chat ? 'Active on Site' : 'Enabled') : 'Standalone Add-on'}</span></div>
+          `<div class="flex justify-between"><span class="text-slate-500">Status:</span> <span class="font-bold ${c.sales_chat ? 'text-emerald-500' : 'text-amber-400'}">${c.sales_chat ? 'Active on Site' : (isAiChatbotOwned() ? 'Available — turn on' : 'Standalone Add-on')}</span></div>
            <div class="flex justify-between"><span class="text-slate-500">Assistant:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${esc(c.chat_name || 'Ava (AI Assistant)')}</span></div>`,
-          isAiChatbotOwned() ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Active</span>` : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300">$599/mo</span>`
+          c.sales_chat
+            ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Active</span>`
+            : (isAiChatbotOwned()
+              ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-500">Available</span>`
+              : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300">$599/mo</span>`)
         )}
 
         <!-- 12. Publishing -->
@@ -566,7 +584,7 @@ function openSetupModal(secId) {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Dealership Display Name</label>
-            <input type="text" id="m-site-name" value="${esc(c.dealer_name || 'Premier Chevrolet')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white" />
+            <input type="text" id="m-site-name" value="${esc(c.dealer_name || '')}" placeholder="Dealership display name" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white" />
           </div>
           <div>
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Legal Entity / DBA</label>
@@ -1458,6 +1476,7 @@ async function saveSite(btn) {
     btn.disabled = false; btn.textContent = orig;
     const modal = btn.closest('.fixed');
     if (modal) { modal.remove(); openSiteManager(); }        // modal context: reopen fresh
+    else if (document.getElementById('website-settings-root')) { __siteCfg = null; loadWebsiteSettings(); }
     else if (typeof loadWebsitePage === 'function') { __wsTab = 'settings'; loadWebsitePage(); } // tab context: refresh in place
   } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message, 'error'); }
 }
@@ -1528,7 +1547,10 @@ async function loadWebsitePage() {
   else if (!['builder', 'blog', 'seo', 'setup', 'settings'].includes(__wsTab)) __wsTab = 'setup';
 
   if (targetSection) __wsSetupSection = targetSection;
-  if (__wsTab === 'builder') selectFirstEditableWsSection();
+  if (__wsTab === 'builder') {
+    ensureEditableWebsiteSections();
+    selectFirstEditableWsSection();
+  }
 
   if (planSession) {
     try {
@@ -1616,7 +1638,7 @@ function exitWebsiteWorkspace() {
 }
 window.exitWebsiteWorkspace = exitWebsiteWorkspace;
 
-// Website Settings — alias for wsSetup()
+// Standalone Website Settings destination used by the Digital workspace header.
 async function loadWebsiteSettings() {
   const root = document.getElementById('website-settings-root');
   if (!root) return;
@@ -1627,8 +1649,10 @@ async function loadWebsiteSettings() {
     try { __siteCfg = await apiGetJson('/dealership/site'); }
     catch (e) { root.innerHTML = `<div class="py-16 text-center text-sm text-slate-500">Couldn't load: ${esc(e.message)}</div>`; return; }
   }
-  __wsTab = 'setup';
-  root.innerHTML = wsSetup();
+  __wsTab = 'settings';
+  __siteWidgets = Array.isArray(__siteCfg.content?.widgets) ? __siteCfg.content.widgets.slice() : [];
+  root.innerHTML = wsSettings();
+  renderSiteWidgets();
 }
 
 function wsFlushTarget() {
@@ -2083,6 +2107,24 @@ function selectFirstEditableWsSection() {
   __wsSelectedSecIdx = (__siteSections || []).length ? 0 : null;
   __wsInspectorTab = 'content';
 }
+
+// The public website renders a polished fallback homepage when no sections have
+// yet been saved. Materialize its editable starter equivalent in the builder so
+// the visible canvas always has real section records behind it. This stays a
+// local draft until the dealer explicitly saves or publishes.
+function ensureEditableWebsiteSections() {
+  if ((__homeSections || []).length) return false;
+  const c = __siteCfg?.content || {};
+  __homeSections = templateHome({
+    name: c.name || c.dealer_name || (typeof ctxName === 'function' ? ctxName() : 'Our dealership'),
+    city: c.city || ''
+  });
+  __wsTarget = 'home';
+  __siteSections = __homeSections;
+  window.__wsHasUnsavedChanges = true;
+  return true;
+}
+window.ensureEditableWebsiteSections = ensureEditableWebsiteSections;
 
 function toggleWsLeftDock() {
   __wsLeftDockCollapsed = !__wsLeftDockCollapsed;
@@ -2606,6 +2648,8 @@ function renderElementorPalette() {
 }
 
 function renderLiveBuilder(body) {
+  ensureEditableWebsiteSections();
+  selectFirstEditableWsSection();
   wireLiveMessages();
   __livePreviewReady = false;
   const slug = __siteCfg?.site_slug;
@@ -2645,7 +2689,7 @@ function renderLiveBuilder(body) {
         <!-- Center Full-Screen Live Web Canvas -->
         <main class="w-full h-full flex items-center justify-center p-0 overflow-hidden relative z-0">
           <div id="ws-frame-wrapper" class="${__wsActiveDeviceView === 'mobile' ? 'w-[375px] h-[92%]' : (__wsActiveDeviceView === 'tablet' ? 'w-[768px] h-[92%]' : 'w-full h-full')} ${__wsActiveDeviceView === 'desktop' ? 'border-0' : 'rounded-3xl border-4 border-slate-500 dark:border-slate-700 shadow-2xl'} bg-white transition-all duration-300 overflow-hidden relative z-0">
-            <iframe id="ws-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1&builder_v=20260824_digital_restore_v1" onload="window.livePreviewLoaded && window.livePreviewLoaded()" class="w-full h-full border-0 pointer-events-auto" title="Live Website Canvas"></iframe>
+            <iframe id="ws-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1&builder_v=20260824_digital_ia_v3" onload="window.livePreviewLoaded && window.livePreviewLoaded()" class="w-full h-full border-0 pointer-events-auto" title="Live Website Canvas"></iframe>
           </div>
         </main>
 
@@ -2715,7 +2759,8 @@ function renderWsBody() {
 
   if (__wsTab === 'setup' || __wsTab === 'settings') {
     body.className = 'flex-1 min-h-0 overflow-y-auto w-full bg-slate-50 dark:bg-slate-950';
-    body.innerHTML = wsSetup();
+    body.innerHTML = __wsTab === 'settings' ? wsSettings() : wsSetup();
+    if (__wsTab === 'settings') renderSiteWidgets();
     return;
   }
   if (__wsTab === 'seo') {
@@ -4049,7 +4094,7 @@ async function ensureAutoCfg(rootId) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 let __seoSubTab = 'attention';
-let __seoMainTab = 'overview';
+let __seoMainTab = 'analytics';
 let __seoMode = 'easy';
 let __seoData = null;
 
@@ -4170,10 +4215,10 @@ async function loadDealerSeo() {
       top20Count: 0,
       leadsCount: 0,
       apptsCount: 0,
-      revenueAttributed: '$0',
+      revenueAttributed: null,
       referringDomains: 0,
       totalBacklinks: 0,
-      standardsVersion: 'Standards — 2026'
+      standardsVersion: null
     };
     __seoFullSettings = settingsRes?.settings || {};
     if (settingsRes?.settings?.mode && !localStorage.getItem('marketsync_seo_mode')) {
@@ -4186,7 +4231,7 @@ async function loadDealerSeo() {
 }
 
 function setSeoMainTab(tab) {
-  __seoMainTab = tab || 'overview';
+  __seoMainTab = tab || 'analytics';
   renderSeoWorkspace();
 }
 window.setSeoMainTab = setSeoMainTab;
@@ -4202,7 +4247,7 @@ function setSeoMode(mode) {
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem('marketsync_seo_mode', mode);
   }
-  __seoMainTab = 'overview';
+  __seoMainTab = __seoMainTab === 'settings' ? 'settings' : 'analytics';
   apiSendJson('/seo/settings', 'PUT', { mode }).catch(() => {});
   renderSeoWorkspace();
 }
@@ -4215,58 +4260,25 @@ function renderSeoWorkspace() {
   const d = __seoData;
   const isEasy = __seoMode !== 'advanced';
 
-  const navTab = (id, label) => `
-    <button onclick="setSeoMainTab('${id}')" data-seo-tab="${id}" class="px-3.5 py-2 text-xs font-black rounded-xl transition cursor-pointer ${__seoMainTab === id ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>
-  `;
-
   root.innerHTML = `
-    <!-- Top SEO Application Navigation Suite -->
+    <!-- Pulse is analytics-only. SEO Builder owns Basic and Advanced settings. -->
     <div class="flex items-center justify-between gap-4 bg-slate-900 border border-slate-800 rounded-3xl p-5 text-white flex-wrap shadow-xl">
       <div class="flex items-center gap-3.5">
         <div class="w-11 h-11 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 font-black text-lg">SEO</div>
         <div>
           <div class="flex items-center gap-3">
             <h2 class="text-lg font-black text-white">MarketSync SEO Suite</h2>
-            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">${esc(d.standardsVersion || 'Standards — 2026')}</span>
+            ${d.standardsVersion ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">${esc(d.standardsVersion)}</span>` : ''}
           </div>
           <p class="text-xs text-slate-400 mt-0.5">Full Dealership Search Engine &amp; AI Discovery Platform</p>
         </div>
       </div>
-      <div class="flex items-center gap-3">
+      ${__seoMainTab === 'settings' ? `<div class="flex items-center gap-3">
         <div class="inline-flex rounded-xl border border-slate-700 overflow-hidden text-xs font-bold shadow-xs">
-          <button onclick="setSeoMode('easy')" class="px-3 py-1.5 transition cursor-pointer ${isEasy ? 'bg-indigo-600 text-white font-black' : 'bg-slate-800 text-slate-300'}">Easy Mode</button>
-          <button onclick="setSeoMode('advanced')" class="px-3 py-1.5 transition cursor-pointer ${!isEasy ? 'bg-indigo-600 text-white font-black' : 'bg-slate-800 text-slate-300'}">Advanced Mode</button>
+          <button onclick="setSeoMode('easy')" class="px-3 py-1.5 transition cursor-pointer ${isEasy ? 'bg-indigo-600 text-white font-black' : 'bg-slate-800 text-slate-300'}">Basic</button>
+          <button onclick="setSeoMode('advanced')" class="px-3 py-1.5 transition cursor-pointer ${!isEasy ? 'bg-indigo-600 text-white font-black' : 'bg-slate-800 text-slate-300'}">Advanced</button>
         </div>
-      </div>
-    </div>
-
-    <!-- Primary Application Navigation Tabs -->
-    <div class="flex items-center gap-1.5 border-b border-slate-200 dark:border-slate-800 pb-3 flex-wrap">
-      ${isEasy ? `
-        ${navTab('overview', 'Command Center')}
-        ${navTab('content', 'Content')}
-        ${navTab('technical', 'Technical')}
-        ${navTab('redirects', 'Redirects & 404s')}
-        ${navTab('analytics', 'Search & Revenue')}
-        ${navTab('competitors', 'Competitors')}
-        ${navTab('autopilot', 'Auto-Pilot')}
-        ${navTab('settings', 'Settings')}
-        ${navTab('history', 'Change Log')}
-      ` : `
-        ${navTab('overview', 'Overview')}
-        ${navTab('keywords', 'Keywords')}
-        ${navTab('rankings', 'Rankings')}
-        ${navTab('competitors', 'Competitors')}
-        ${navTab('backlinks', 'Backlinks')}
-        ${navTab('content', 'Content')}
-        ${navTab('pages', 'Pages')}
-        ${navTab('local', 'Local')}
-        ${navTab('technical', 'Technical')}
-        ${navTab('audit', 'Audit')}
-        ${navTab('ai', 'AI Visibility')}
-        ${navTab('analytics', 'Analytics')}
-        ${navTab('settings', 'Settings')}
-      `}
+      </div>` : ''}
     </div>
 
     <!-- Main Workspace Body -->
@@ -4277,33 +4289,7 @@ function renderSeoWorkspace() {
 }
 
 function renderSeoMainBody() {
-  if (__seoMode === 'advanced') {
-    if (__seoMainTab === 'overview') return renderSeoAdvancedOverviewView();
-    if (__seoMainTab === 'keywords') return renderSeoKeywordsView();
-    if (__seoMainTab === 'rankings') return renderSeoRankingsView();
-    if (__seoMainTab === 'competitors') return renderSeoCompetitorsView();
-    if (__seoMainTab === 'backlinks') return renderSeoBacklinksView();
-    if (__seoMainTab === 'content') return renderSeoContentView();
-    if (__seoMainTab === 'pages') return renderSeoPagesView();
-    if (__seoMainTab === 'local') return renderSeoLocalView();
-    if (__seoMainTab === 'technical') return renderSeoTechnicalView();
-    if (__seoMainTab === 'audit') return renderSeoAuditView();
-    if (__seoMainTab === 'ai') return renderSeoAiView();
-    if (__seoMainTab === 'analytics') return renderSeoAnalyticsView();
-    if (__seoMainTab === 'settings' || __seoMainTab === 'titles') return renderSeoSettingsWorkspace();
-    return renderSeoAdvancedOverviewView();
-  } else {
-    if (__seoMainTab === 'overview') return renderSeoEasyOverviewView();
-    if (__seoMainTab === 'content') return renderSeoContentView();
-    if (__seoMainTab === 'technical' || __seoMainTab === 'sitemaps' || __seoMainTab === 'robots') return renderSeoTechnicalView();
-    if (__seoMainTab === 'redirects') return renderSeoRedirectsView();
-    if (__seoMainTab === 'analytics') return renderSeoAnalyticsView();
-    if (__seoMainTab === 'competitors') return renderSeoCompetitorsView();
-    if (__seoMainTab === 'autopilot') return renderSeoAutopilotView();
-    if (__seoMainTab === 'settings' || __seoMainTab === 'titles') return renderSeoSettingsWorkspace();
-    if (__seoMainTab === 'history') return renderSeoHistoryView();
-    return renderSeoEasyOverviewView();
-  }
+  return __seoMainTab === 'settings' ? renderSeoSettingsWorkspace() : renderSeoAnalyticsView();
 }
 
 function renderSeoOverviewView() {
@@ -4588,8 +4574,8 @@ function renderSeoSettingsWorkspace() {
     <div class="space-y-6">
       <div class="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h3 class="text-base font-black text-slate-900 dark:text-white">Rank-Math Dealership SEO Configuration</h3>
-          <p class="text-xs text-slate-500 dark:text-slate-400">Control site-wide meta defaults, URL canonicalization, titles, breadcrumbs, and tracking tags.</p>
+          <h3 class="text-base font-black text-slate-900 dark:text-white">SEO Builder — ${__seoMode === 'advanced' ? 'Advanced' : 'Basic'} Settings</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Configure real dealership metadata${__seoMode === 'advanced' ? ', canonical rules, and analytics integrations' : ' and page templates'}.</p>
         </div>
         <button onclick="saveSeoFormSettings(event)" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs rounded-xl transition shadow-md cursor-pointer">Save SEO Settings</button>
       </div>
@@ -4604,7 +4590,7 @@ function renderSeoSettingsWorkspace() {
           <div class="grid md:grid-cols-2 gap-4 text-xs">
             <div>
               <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Dealership SEO Name</label>
-              <input type="text" id="seo-site-name" value="${esc(s.site_name || 'Premier Chevrolet')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white" />
+              <input type="text" id="seo-site-name" value="${esc(s.site_name || '')}" placeholder="Dealership name" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white" />
             </div>
             <div>
               <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Title Separator</label>
@@ -4617,7 +4603,7 @@ function renderSeoSettingsWorkspace() {
             </div>
             <div>
               <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Canonical Domain</label>
-              <input type="text" id="seo-canonical-domain" value="${esc(s.canonical_domain || 'https://marketsync.link')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white" />
+              <input type="text" id="seo-canonical-domain" value="${esc(s.canonical_domain || '')}" placeholder="https://www.yourdealership.com" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white" />
             </div>
             <div>
               <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Trailing Slash Preference</label>
@@ -4638,24 +4624,24 @@ function renderSeoSettingsWorkspace() {
           <div class="space-y-4 text-xs">
             <div>
               <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Homepage Title Template</label>
-              <input type="text" id="seo-title-homepage" value="${esc(s.title_homepage || '%dealer% | New & Used Cars in %city%')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono" />
+              <input type="text" id="seo-title-homepage" value="${esc(s.title_homepage || '')}" placeholder="%dealer% | New &amp; Used Cars in %city%" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono" />
             </div>
             <div>
               <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Homepage Meta Description</label>
-              <textarea id="seo-desc-homepage" rows="2" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white">${esc(s.desc_homepage || 'Welcome to %dealer% in %city%. Browse top new and pre-owned inventory, get pre-approved financing, and schedule certified auto service.')}</textarea>
+              <textarea id="seo-desc-homepage" rows="2" placeholder="Describe the dealership and primary customer actions." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white">${esc(s.desc_homepage || '')}</textarea>
             </div>
             <div>
               <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Vehicle VDP Title Template</label>
-              <input type="text" id="seo-title-vdp" value="${esc(s.title_vdp || '%year% %make% %model% %trim% for Sale in %city% | %dealer%')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono" />
+              <input type="text" id="seo-title-vdp" value="${esc(s.title_vdp || '')}" placeholder="%year% %make% %model% for Sale in %city%" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono" />
             </div>
             <div>
               <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Vehicle VDP Meta Description</label>
-              <textarea id="seo-desc-vdp" rows="2" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white">${esc(s.desc_vdp || 'Buy this %year% %make% %model% %trim% at %dealer% in %city%. Stock #%stock%, competitive pricing, instant trade-in appraisal, and easy financing.')}</textarea>
+              <textarea id="seo-desc-vdp" rows="2" placeholder="Use vehicle tokens to create the VDP description." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white">${esc(s.desc_vdp || '')}</textarea>
             </div>
           </div>
         </div>
 
-        <!-- 3. Webmaster & Tracking IDs -->
+        ${__seoMode === 'advanced' ? `<!-- 3. Webmaster & Tracking IDs -->
         <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
           <h4 class="text-xs font-black uppercase tracking-wider text-indigo-500 flex items-center gap-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
@@ -4664,18 +4650,18 @@ function renderSeoSettingsWorkspace() {
           <div class="grid md:grid-cols-3 gap-4 text-xs">
             <div>
               <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Google Analytics 4 (GA4 ID)</label>
-              <input type="text" id="seo-ga4-id" value="${esc(s.ga4_measurement_id || 'G-MSDEMO2026')}" placeholder="G-XXXXXXXXXX" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono" />
+              <input type="text" id="seo-ga4-id" value="${esc(s.ga4_measurement_id || '')}" placeholder="G-XXXXXXXXXX" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono" />
             </div>
             <div>
               <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Meta Pixel ID</label>
-              <input type="text" id="seo-meta-pixel-id" value="${esc(s.meta_pixel_id || 'FB-9059414226')}" placeholder="1234567890" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono" />
+              <input type="text" id="seo-meta-pixel-id" value="${esc(s.meta_pixel_id || '')}" placeholder="1234567890" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono" />
             </div>
             <div>
               <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Google Tag Manager (GTM ID)</label>
-              <input type="text" id="seo-gtm-id" value="${esc(s.gtm_id || 'GTM-MSSYNC1')}" placeholder="GTM-XXXXXX" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono" />
+              <input type="text" id="seo-gtm-id" value="${esc(s.gtm_id || '')}" placeholder="GTM-XXXXXX" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono" />
             </div>
           </div>
-        </div>
+        </div>` : ''}
 
         <div class="flex justify-end">
           <button type="submit" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs rounded-xl transition shadow-md cursor-pointer">Save SEO Configuration</button>
@@ -4829,21 +4815,7 @@ function renderSeoTechnicalView() {
       <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
         <h4 class="text-xs font-black uppercase tracking-wider text-indigo-500">AutoDealer Schema.org JSON-LD Output</h4>
         <div class="p-4 rounded-xl bg-slate-950 text-slate-300 font-mono text-xs overflow-x-auto border border-slate-800">
-          <pre>{
-  "@context": "https://schema.org",
-  "@type": "AutoDealer",
-  "name": "Premier Chevrolet",
-  "address": {
-    "@type": "PostalAddress",
-    "streetAddress": "1426 Niagara Street",
-    "addressLocality": "Welland",
-    "addressRegion": "ON",
-    "postalCode": "L3B 6A3",
-    "addressCountry": "CA"
-  },
-  "telephone": "(905) 941-4226",
-  "url": "https://marketsync.link"
-}</pre>
+          <pre>Schema preview will appear after dealership details are connected.</pre>
         </div>
       </div>
     </div>
@@ -4931,6 +4903,12 @@ function renderSeoRedirectsView() {
 }
 
 function renderSeoAnalyticsView() {
+  const d = __seoData || {};
+  const shown = value => (value == null || value === '' || value === '--') ? '—' : esc(String(value));
+  const revenue = d.revenueAttributed == null || d.revenueAttributed === '' || d.revenueAttributed === '$0'
+    ? '—'
+    : esc(String(d.revenueAttributed));
+  const summary = d.executiveSummary || d.executive_summary || d.monthlySummary || d.monthly_summary || '';
   return `
     <div class="space-y-6">
       <div class="p-6 rounded-3xl bg-gradient-to-r from-indigo-950 via-slate-900 to-slate-950 border border-indigo-500/30 text-white space-y-4 shadow-xl">
@@ -4940,7 +4918,7 @@ function renderSeoAnalyticsView() {
             <p class="text-xs text-indigo-200">Connecting organic search visits directly to CRM leads, test drive appointments, and sold deals.</p>
           </div>
           <div class="text-right">
-            <div class="text-2xl font-black text-emerald-400">$148,200 CAD</div>
+            <div class="text-2xl font-black text-emerald-400">${revenue}</div>
             <div class="text-[10px] text-indigo-300 font-bold uppercase tracking-wider">Attributed Gross Revenue</div>
           </div>
         </div>
@@ -4948,33 +4926,32 @@ function renderSeoAnalyticsView() {
         <div class="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2 text-center text-xs">
           <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
             <div class="text-slate-400 text-[10px] font-bold">Organic Search Visits</div>
-            <div class="text-xl font-black text-white mt-1">1,482</div>
+            <div class="text-xl font-black text-white mt-1">${shown(d.searchTraffic ?? d.organicVisits ?? d.organic_visits)}</div>
           </div>
           <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
             <div class="text-slate-400 text-[10px] font-bold">VDPs Viewed</div>
-            <div class="text-xl font-black text-white mt-1">890</div>
+            <div class="text-xl font-black text-white mt-1">${shown(d.vdpViews ?? d.vdp_views)}</div>
           </div>
           <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
             <div class="text-slate-400 text-[10px] font-bold">CRM Leads</div>
-            <div class="text-xl font-black text-indigo-400 mt-1">42</div>
+            <div class="text-xl font-black text-indigo-400 mt-1">${shown(d.leadsCount ?? d.leads_count)}</div>
           </div>
           <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
             <div class="text-slate-400 text-[10px] font-bold">Appointments</div>
-            <div class="text-xl font-black text-indigo-400 mt-1">18</div>
+            <div class="text-xl font-black text-indigo-400 mt-1">${shown(d.apptsCount ?? d.appointments_count)}</div>
           </div>
           <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
             <div class="text-slate-400 text-[10px] font-bold">Sold Vehicles</div>
-            <div class="text-xl font-black text-emerald-400 mt-1">14</div>
+            <div class="text-xl font-black text-emerald-400 mt-1">${shown(d.soldCount ?? d.sold_count)}</div>
           </div>
         </div>
       </div>
 
-      <!-- Monthly AI Report Summary -->
       <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3 shadow-xs">
-        <h4 class="text-xs font-black uppercase tracking-wider text-indigo-500">Monthly AI Executive SEO Report — August 2026</h4>
-        <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-          Organic clicks increased 18% this month for Premier Chevrolet. Used truck pages drove most of the growth. MarketSync automatically corrected 13 broken redirects and refreshed 42 vehicle metadata records. The strongest next opportunity is financing-related content in your local area.
-        </p>
+        <h4 class="text-xs font-black uppercase tracking-wider text-indigo-500">Search Analytics</h4>
+        ${summary
+          ? `<p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">${esc(summary)}</p>`
+          : '<p class="text-xs text-slate-500 dark:text-slate-400">No measured SEO report is available yet. Connect analytics in SEO Builder → Advanced to populate this Pulse.</p>'}
       </div>
     </div>
   `;
@@ -5533,17 +5510,17 @@ async function saveSeoFormSettings(e) {
   if (e && e.preventDefault) e.preventDefault();
   const getVal = (id) => document.getElementById(id)?.value;
   const patch = {
-    site_name: getVal('seo-site-name') || 'Premier Chevrolet',
+    site_name: getVal('seo-site-name') || '',
     separator: getVal('seo-separator') || '|',
-    canonical_domain: getVal('seo-canonical-domain') || 'https://marketsync.link',
+    canonical_domain: getVal('seo-canonical-domain') || '',
     trailing_slash: getVal('seo-trailing-slash') || 'add_slash',
-    title_homepage: getVal('seo-title-homepage') || '%dealer% | New & Used Cars in %city%',
+    title_homepage: getVal('seo-title-homepage') || '',
     desc_homepage: getVal('seo-desc-homepage') || '',
-    title_vdp: getVal('seo-title-vdp') || '%year% %make% %model% %trim% for Sale in %city% | %dealer%',
+    title_vdp: getVal('seo-title-vdp') || '',
     desc_vdp: getVal('seo-desc-vdp') || '',
-    ga4_measurement_id: getVal('seo-ga4-id') || '',
-    meta_pixel_id: getVal('seo-meta-pixel-id') || '',
-    gtm_id: getVal('seo-gtm-id') || ''
+    ga4_measurement_id: getVal('seo-ga4-id') ?? __seoFullSettings?.ga4_measurement_id ?? '',
+    meta_pixel_id: getVal('seo-meta-pixel-id') ?? __seoFullSettings?.meta_pixel_id ?? '',
+    gtm_id: getVal('seo-gtm-id') ?? __seoFullSettings?.gtm_id ?? ''
   };
 
   try {

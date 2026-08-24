@@ -306,16 +306,16 @@ test('Management exposes one canonical four-tab command header', () => {
     'active Management output must use product icons, not emoji decoration')
 })
 
-test('the global header keeps approved sales and account controls without a hamburger or tour', () => {
+test('the global header keeps approved sales and account controls without a hamburger, tour, or settings gear', () => {
   assert.doesNotMatch(html, /id="shell-menu-btn"|id="shell-menu"/)
   assert.doesNotMatch(html, /src="tour\.js/)
-  for (const id of ['header-desk-btn', 'header-appraise-btn', 'header-profile-btn', 'header-settings', 'logout-btn']) {
+  for (const id of ['header-desk-btn', 'header-appraise-btn', 'header-profile-btn', 'logout-btn']) {
     assert.match(html, new RegExp(`id="${id}"`), `${id} must remain directly accessible on desktop`)
   }
   assert.match(html, /id="header-profile-btn"[\s\S]*class="inline-flex/,
     'profile must remain directly reachable in the phone header')
-  assert.match(html, /id="header-settings"[\s\S]*class="inline-flex/,
-    'settings must remain directly reachable in the phone header')
+  assert.doesNotMatch(html, /id="header-settings"/,
+    'the redundant settings gear must not render in the main header')
   assert.match(html, /id="logout-btn"[\s\S]*class="inline-flex/,
     'sign out must remain directly reachable in the phone header')
   assert.doesNotMatch(html, /@media \(max-width: 767px\)[\s\S]*#header-desk-btn/,

@@ -123,7 +123,7 @@ test('every single-product tier (not just Design Studio) gets the simplified hea
   assert.ok(fn, 'applyProductNav must exist')
   const block = fn.match(/if \(active\.length === 1\) \{[\s\S]*?\n {2}\}/)?.[0] || ''
   assert.ok(block, 'the single-product header-simplification block must exist, gated on active.length === 1 (not a specific product)')
-  for (const id of ['header-settings', 'header-social-icons']) {
+  for (const id of ['header-social-icons']) {
     assert.match(block, new RegExp(`document\\.getElementById\\('${id}'\\)\\?\\.classList\\.add\\('hidden'\\)`), `${id} must be hidden for single-product tiers`)
   }
   assert.match(block, /document\.getElementById\('notif-bell'\)\?\.classList\.remove\('hidden'\)/, 'notif-bell must remain visible for single-product tiers')

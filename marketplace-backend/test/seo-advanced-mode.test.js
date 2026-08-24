@@ -20,19 +20,16 @@ test('SEO Suite - Advanced Mode Dual Architecture & Component Completeness', asy
   await t.test('setSeoMode handles mode switching and local storage persistence', () => {
     assert.match(p17Content, /function setSeoMode\(mode\)/);
     assert.match(p17Content, /marketsync_seo_mode/);
-    assert.match(p17Content, /__seoMainTab = 'overview'/);
+    assert.match(p17Content, /__seoMainTab = __seoMainTab === 'settings' \? 'settings' : 'analytics'/);
   });
 
-  await t.test('renderSeoWorkspace renders Easy Mode and Advanced Mode tabs appropriately', () => {
+  await t.test('renderSeoWorkspace renders Basic and Advanced Builder settings without legacy SEO tabs', () => {
     assert.match(p17Content, /setSeoMode\('easy'\)/);
     assert.match(p17Content, /setSeoMode\('advanced'\)/);
-    assert.match(p17Content, /navTab\('keywords', 'Keywords'\)/);
-    assert.match(p17Content, /navTab\('rankings', 'Rankings'\)/);
-    assert.match(p17Content, /navTab\('backlinks', 'Backlinks'\)/);
-    assert.match(p17Content, /navTab\('pages', 'Pages'\)/);
-    assert.match(p17Content, /navTab\('local', 'Local'\)/);
-    assert.match(p17Content, /navTab\('audit', 'Audit'\)/);
-    assert.match(p17Content, /navTab\('ai', 'AI Visibility'\)/);
+    assert.match(p17Content, />Basic<\/button>/);
+    assert.match(p17Content, />Advanced<\/button>/);
+    assert.doesNotMatch(p17Content.slice(p17Content.indexOf('function renderSeoWorkspace()'), p17Content.indexOf('function renderSeoMainBody()')), /navTab\(/);
+    assert.doesNotMatch(p17Content, /G-MSDEMO2026|FB-9059414226|GTM-MSSYNC1|Premier Chevrolet/);
   });
 
   await t.test('All 13 Advanced SEO views and Easy Mode views are defined', () => {

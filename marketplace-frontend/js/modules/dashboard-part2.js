@@ -1400,15 +1400,15 @@ function renderDeptTabbar(pageId) {
     const cfg = getMarketingSuiteConfig(suite);
     const activeTab = pageId === 'marketing-overview'
       ? ((typeof ENGINE_STATE !== 'undefined' && ENGINE_STATE['marketing-overview']) || 'overview')
-      : pageId === 'website' ? (window.__wsTab || 'builder')
-      : pageId === 'seo' ? ((typeof __seoMainTab !== 'undefined' && __seoMainTab) || 'overview')
+      : pageId === 'website' ? (window.__wsTab || 'setup')
+      : pageId === 'seo' ? ((typeof __seoMainTab !== 'undefined' && __seoMainTab) || 'analytics')
       : pageId === 'automation-builder' ? (__autoTab || 'overview')
       : pageId === 'ai-home' ? (window.__aiHomeTab || 'conversations')
       : pageId === 'social-scheduler' ? (window.__socialTab || window.__studioSchedulerTab || 'overview')
       : null;
     const area = typeof marketingSuiteAreaForPage === 'function'
       ? marketingSuiteAreaForPage(cfg, pageId, activeTab) : null;
-    if (!area || area.id === 'pulse' || area.items.length <= 1) return hide();
+    if (!area || area.id === 'pulse' || area.items.length <= 1 || (pageId === 'website' && activeTab === 'builder')) return hide();
     const tabs = area.items.map(item => {
       const on = item.page === pageId && (!item.tab || item.tab === activeTab);
       const call = item.studioLaunch

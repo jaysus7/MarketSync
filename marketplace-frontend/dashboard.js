@@ -1444,7 +1444,7 @@ function restrictedNavPages() {
     'email-marketing': { page: 'automation-builder', tab: 'overview', label: 'Pulse', icon: 'megaphone' },
     'automation-builder': { page: 'automation-builder', tab: 'overview', label: 'Pulse', icon: 'bolt' },
     'video-studio': { page: 'video-studio', label: 'Video', icon: 'video' },
-    website: { page: 'website', tab: 'builder', label: 'Website', icon: 'globe' },
+    website: { page: 'website', tab: 'setup', label: 'Website', icon: 'globe' },
   };
 
   const mktSuite = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;

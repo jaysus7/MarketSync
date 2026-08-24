@@ -100,6 +100,7 @@ test('6. Website builder mode toggles .website-builder-mode without hiding stand
   assert.ok(dashboardPart17Code.includes('function exitWebsiteWorkspace()'), 'exitWebsiteWorkspace is defined');
   assert.ok(dashboardPart17Code.includes("classList.toggle('website-builder-mode', isBuilder)"), 'Toggles website-builder-mode on builder entry/exit');
   assert.ok(cssContent.includes('html.website-builder-mode'), 'CSS hides shell only in website-builder-mode');
+  assert.ok(cssContent.includes('.website-builder-mode body > header'), 'Full-page Builder hides the global dashboard header');
 });
 
 test('7. First-class Social Scheduler page with direct uploads and Design Studio handoff', () => {
