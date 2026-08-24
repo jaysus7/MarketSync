@@ -11,6 +11,7 @@ import { brandDealershipPhotos } from '../utils/photoOverlay.js'
 import { autoFetchOemStickers } from '../sync/oemStickers.js'
 import { audit } from '../audit.js'
 import { isSafeFeedProbeUrl } from '../feed-probe-policy.js'
+import { upsertDealerInventory } from '../sync/dealerInventory.js'
 
 export function registerRoutes(app) {
   app.post('/feeds/probe', requireAuth, async (req, res) => {
@@ -100,6 +101,7 @@ export function registerRoutes(app) {
         price: mapped.saleprice || mapped.price || 0,
         mileage: mapped.mileage || 0,
         condition: (mapped.demo === true || mapped.demo === 1 || /^demo/i.test(mapped.condition || '') || /^demo/i.test(mapped.sale_class || '')) ? 'Demo' : (mapped.condition || null),
+        stocknumber: mapped.stocknumber || null,
         exterior_color: mapped.exteriorcolor || null,
         interior_color: mapped.interiorcolor || null,
         transmission: mapped.transmission || null,
@@ -108,6 +110,8 @@ export function registerRoutes(app) {
         image_urls: Array.isArray(mapped.image_urls) ? mapped.image_urls : [],
         source_url: buildSourceUrl({ ...feed, platform, url_template: null, url_map: null }, mapped),
         status: isSold ? 'sold' : (isPending ? 'pending' : 'available'),
+        archived_at: null,
+        awaiting_possession: false,
         last_synced_at: new Date().toISOString(),
         // True lot/in-stock date if the captured payload carried one — same parser
         // the server sync uses, so Cloudflare/extension dealers age correctly too.
@@ -115,9 +119,7 @@ export function registerRoutes(app) {
         ...(hasFeedId ? { feed_id: feedId } : {})
       }
 
-      const { error } = await supabaseAdmin
-        .from('inventory')
-        .upsert(record, { onConflict: 'vin' })
+      const { error } = await upsertDealerInventory(supabaseAdmin, record)
       if (error) { skipped++; continue }
       upserted++
       capturedVins.add(effectiveVin)

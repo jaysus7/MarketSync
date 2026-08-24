@@ -14,6 +14,7 @@ import { getMarketData } from '../usage.js'
 import { marketcheckEnabled } from '../marketcheck.js'
 import { buildMarketCheckReport } from '../pricing/marketcheckReport.js'
 import { createNotification } from '../notifications.js'
+import { upsertDealerInventory } from './dealerInventory.js'
 
 // Non-destructive merge for the sitemap-lite (Cloudflare) path. Matches existing
 // inventory by VIN and ONLY fills gaps — photos when there are none, missing
@@ -662,6 +663,7 @@ async function _runInventorySyncInner(dealershipId) {
   source_url: sourceUrl,
   status: isSold ? 'sold' : (isPending ? 'pending' : 'available'),
   archived_at: null,   // present in the feed → not archived (un-archives a relisted unit)
+  awaiting_possession: false, // external site feed is current, dealer-owned on-lot inventory
   last_synced_at: new Date().toISOString(),
   // True lot/in-stock date when the feed provides one — aging uses COALESCE(lot_date,
   // created_at). Only set when present so we never overwrite a good value with null.
@@ -671,9 +673,7 @@ async function _runInventorySyncInner(dealershipId) {
   ...(hasFeedId ? { feed_id: feed.id } : {})
 }
 
-        const { error } = await supabaseAdmin
-          .from('inventory')
-          .upsert(record, { onConflict: 'vin' })
+        const { error } = await upsertDealerInventory(supabaseAdmin, record)
         if (error) {
           totalSkipped++
           skipReasons.upsert_error++

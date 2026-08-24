@@ -505,9 +505,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 // Cloudflare-blocked dealer feeds can't be synced server-side, so we re-capture them
 // from the user's own browser on a schedule — no clicks needed. A site is registered
 // automatically the first time it's captured (a manual pull), and only if the one-time
-// host-permission grant is in place. Runs shortly after Chrome starts (a "morning refresh")
-// and every 6 hours while Chrome stays open. Caveat: like all extensions, it only runs
-// while Chrome is running on that computer.
+// host-permission grant is in place. The scheduled pull runs nightly at 3:15 a.m.
+// local time; browser startup catches up if the computer was off. Caveat: like all
+// extensions, it can only pull while Chrome is running on that computer.
 const INV_CAPTURE_ALARM = 'invAutoCapture'
 const INV_CAPTURE_MAX_PER_RUN = 4            // cap concurrent dealer refreshes
 const INV_CAPTURE_STAGGER_MS = 90 * 1000     // 90s between sites — each capture is heavy
@@ -519,7 +519,14 @@ async function registerAutoCaptureSite(feedId, url) {
     // Only register sites we actually hold host permission for (needed to inject in the bg).
     if (!(await chrome.permissions.contains({ origins: [origin] }))) return
     const { autoCaptureSites = {} } = await chrome.storage.local.get(['autoCaptureSites'])
-    autoCaptureSites[feedId] = { feedId, url, registeredAt: Date.now() }
+    const previous = autoCaptureSites[feedId] || {}
+    autoCaptureSites[feedId] = {
+      ...previous,
+      feedId,
+      url,
+      registeredAt: previous.registeredAt || Date.now(),
+      lastCapturedAt: Date.now()
+    }
     await chrome.storage.local.set({ autoCaptureSites })
     console.log(`[MarketSync] Registered ${url} for nightly auto-capture (feed ${feedId})`)
   } catch {}
@@ -552,7 +559,7 @@ function openAndInjectCapture(url, feedId) {
   })
 }
 
-async function runInventoryAutoCapture() {
+async function runInventoryAutoCapture({ force = false } = {}) {
   const { token, autoCaptureSites = {} } = await chrome.storage.local.get(['token', 'autoCaptureSites'])
   if (!token) return
   const sites = Object.values(autoCaptureSites)
@@ -564,7 +571,14 @@ async function runInventoryAutoCapture() {
       if (await chrome.permissions.contains({ origins: [new URL(s.url).origin + '/*'] })) usable.push(s)
     } catch {}
   }
-  const batch = usable.slice(0, INV_CAPTURE_MAX_PER_RUN)
+  // Startup is a catch-up path, not a second full pull. The nightly alarm always
+  // refreshes; startup only refreshes feeds that missed the previous night.
+  const staleAfterMs = 20 * 60 * 60 * 1000
+  const due = (force
+    ? usable
+    : usable.filter(s => !s.lastCapturedAt || Date.now() - Number(s.lastCapturedAt) >= staleAfterMs))
+    .sort((a, b) => Number(a.lastCapturedAt || 0) - Number(b.lastCapturedAt || 0))
+  const batch = due.slice(0, INV_CAPTURE_MAX_PER_RUN)
   if (!batch.length) return
   console.log(`[MarketSync] Auto-capture: refreshing ${batch.length} dealer feed(s)`)
   batch.forEach((s, i) => setTimeout(() => openAndInjectCapture(s.url, s.feedId), i * INV_CAPTURE_STAGGER_MS))
@@ -572,10 +586,20 @@ async function runInventoryAutoCapture() {
 
 // Poll on install, on browser startup, and every 5 minutes.
 // Sold scan runs less often (4 hours) since it opens visible-ish background tabs.
+function nextNightlyInventoryCapture() {
+  const next = new Date()
+  next.setHours(3, 15, 0, 0)
+  if (next.getTime() <= Date.now()) next.setDate(next.getDate() + 1)
+  return next.getTime()
+}
+
 function armAlarms() {
   chrome.alarms.create(FB_SYNC_ALARM, { periodInMinutes: 5 })
   chrome.alarms.create(SOLD_SCAN_ALARM, { periodInMinutes: 240 })
-  chrome.alarms.create(INV_CAPTURE_ALARM, { periodInMinutes: 360 })  // every 6h while open
+  chrome.alarms.create(INV_CAPTURE_ALARM, {
+    when: nextNightlyInventoryCapture(),
+    periodInMinutes: 24 * 60
+  })
 }
 chrome.runtime.onInstalled.addListener(() => {
   armAlarms()
@@ -594,5 +618,5 @@ chrome.runtime.onStartup.addListener(() => {
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === FB_SYNC_ALARM) { pollFbSync(); pollFbAlerts() }
   if (alarm.name === SOLD_SCAN_ALARM) runSoldScan()
-  if (alarm.name === INV_CAPTURE_ALARM) runInventoryAutoCapture()
+  if (alarm.name === INV_CAPTURE_ALARM) runInventoryAutoCapture({ force: true })
 })
