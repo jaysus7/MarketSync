@@ -256,11 +256,11 @@ function pplRenderPerson() {
   const s = d.standing || {};
 
   const initials = (p.name || 'Emp').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-  const salesUnits = p.units_sold || d.performance?.units_sold || (p.department === 'Sales' ? 13 : p.department === 'Service' ? '48 ROs' : '120 Lines');
-  const grossProfit = p.gross_profit || d.performance?.gross_profit || '$42,850';
-  const csat = p.csat || d.performance?.csat || '4.8 / 5.0';
-  const leadRank = s.internal?.rank ? `#${s.internal.rank} ${p.department || 'Staff'}` : '#2 Sales Rep';
-  const autoPosterRank = s.autoposter?.rank ? `#${s.autoposter.rank} AutoPoster` : 'Top 3% AutoPoster';
+  const salesUnits = p.units_sold || d.performance?.units_sold || '—';
+  const grossProfit = p.gross_profit || d.performance?.gross_profit || '—';
+  const csat = p.csat || d.performance?.csat || '—';
+  const leadRank = s.internal?.rank ? `#${s.internal.rank} ${p.department || 'Staff'}` : '—';
+  const autoPosterRank = s.autoposter?.rank ? `#${s.autoposter.rank} AutoPoster` : '—';
 
   const nav = PPL_MODAL_TABS.map(([id, label]) => {
     const on = __pplTab === id;
@@ -433,12 +433,12 @@ function pplSummaryPanel(d) {
   const onboarding = lc.items == null ? null
     : { done: lc.items.filter(x => x.status === 'complete').length, total: lc.items.length };
 
-  const units = p.units_sold || d.performance?.units_sold || 13;
-  const gross = p.gross_profit || d.performance?.gross_profit || '$42,850';
-  const closeRate = p.close_rate || d.performance?.close_rate || '24.5%';
-  const pipeline = p.active_leads || d.performance?.active_leads || '28 active';
-  const csat = p.csat || d.performance?.csat || '4.8 / 5.0';
-  const responseSpeed = p.response_speed || d.performance?.response_speed || '1.4m (96% SLA)';
+  const units = p.units_sold || d.performance?.units_sold || '—';
+  const gross = p.gross_profit || d.performance?.gross_profit || '—';
+  const closeRate = p.close_rate || d.performance?.close_rate || '—';
+  const pipeline = p.active_leads || d.performance?.active_leads || '—';
+  const csat = p.csat || d.performance?.csat || '—';
+  const responseSpeed = p.response_speed || d.performance?.response_speed || '—';
 
   return `
     <!-- 1. Sales & Revenue Performance Card -->

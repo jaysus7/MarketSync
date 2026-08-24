@@ -1289,6 +1289,15 @@ export function registerServiceEngine(app) {
     if (!guard(req, res)) return
     res.json({ requests: await listPartRequests(req.dealershipId, { roId: req.query.ro_id || null, status: req.query.status || null }) })
   })
+  app.get('/service-engine/part-requests/:id', requireAuth, canRead, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data: pr } = await supabaseAdmin.from('part_requests').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!pr) return res.status(404).json({ error: 'not found' })
+    const part = pr.part_id ? await getPart(req.dealershipId, pr.part_id).catch(() => null) : null
+    let customer = null
+    if (pr.contact_id) { const c = await getContact(req.dealershipId, pr.contact_id).catch(() => null); customer = c ? { id: c.id, name: c.full_name, phone: c.phone || c.phone_mobile, email: c.email } : null }
+    res.json({ request: pr, part, customer })
+  })
   app.get('/service-engine/parts-availability', requireAuth, canRead, async (req, res) => {
     if (!guard(req, res)) return
     res.json({ parts: await partsAvailability(req.dealershipId, req.query.q || null) })
