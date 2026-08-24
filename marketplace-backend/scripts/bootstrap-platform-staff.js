@@ -1,10 +1,11 @@
 /**
  * Create the internal MarketSync workspace profiles after their Supabase Auth
- * accounts have been invited/created. This is intentionally limited to staging
- * and is idempotent: it never touches customer/dealer accounts.
+ * accounts have been invited/created. This is limited to an explicitly selected
+ * environment and is idempotent: it never touches customer/dealer accounts.
  *
  * Required environment variables:
- *   PLATFORM_BOOTSTRAP_ENV=staging
+ *   PLATFORM_BOOTSTRAP_ENV=staging|production
+ *   PLATFORM_BOOTSTRAP_CONFIRM_PRODUCTION=YES (required for production)
  *   SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
  *
  * Optional (the defaults are the initial MarketSync team accounts):
@@ -14,8 +15,11 @@
 import { supabaseAdmin } from '../shared.js'
 
 const environment = process.env.PLATFORM_BOOTSTRAP_ENV
-if (environment !== 'staging') {
-  throw new Error('Refusing to provision platform staff: set PLATFORM_BOOTSTRAP_ENV=staging explicitly.')
+if (!['staging', 'production'].includes(environment)) {
+  throw new Error('Refusing to provision platform staff: set PLATFORM_BOOTSTRAP_ENV=staging or production explicitly.')
+}
+if (environment === 'production' && process.env.PLATFORM_BOOTSTRAP_CONFIRM_PRODUCTION !== 'YES') {
+  throw new Error('Refusing production provisioning: set PLATFORM_BOOTSTRAP_CONFIRM_PRODUCTION=YES explicitly.')
 }
 
 const ownerEmail = (process.env.PLATFORM_OWNER_EMAIL || 'marketsynccanada@gmail.com').trim().toLowerCase()

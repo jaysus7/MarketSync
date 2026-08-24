@@ -15,6 +15,7 @@ import {
 } from './access-policy.js'
 import { isDemoDealershipId } from './routes/demo.js'
 import { getShowcaseOverlay } from './plan-catalog.js'
+import { SYSTEM_ROLES, hasSystemRole } from './authorization.js'
 
 export * from './access-policy.js'
 
@@ -220,8 +221,17 @@ export function requireAccess(opts = {}) {
 
 // Convenience wrappers that resolve the context first, so callers can `await hasFeatureReq(req, 'os.crm')`
 // without threading the context manually.
-export async function hasProductAccessReq(req, productId) { return hasProductAccess(await getCurrentAccessContext(req), productId) }
-export async function hasFeatureReq(req, featureId) { return hasFeature(await getCurrentAccessContext(req), featureId) }
+export async function hasProductAccessReq(req, productId) {
+  // The HQ Website editor is a MarketSync-owned surface. Keep this exception
+  // limited to that product; all other platform products still use catalog/RBAC
+  // resolution below.
+  if (productId === 'marketsync_website' && hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER, SYSTEM_ROLES.PLATFORM_ADMIN)) return true
+  return hasProductAccess(await getCurrentAccessContext(req), productId)
+}
+export async function hasFeatureReq(req, featureId) {
+  if (featureId.startsWith('website.') && hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER, SYSTEM_ROLES.PLATFORM_ADMIN)) return true
+  return hasFeature(await getCurrentAccessContext(req), featureId)
+}
 export async function canReq(req, permission) { return can(await getCurrentAccessContext(req), permission) }
 export async function getDataScopeReq(req, resource) { return getDataScope(await getCurrentAccessContext(req), resource) }
 export async function getDefaultRouteReq(req) { return getDefaultRoute(await getCurrentAccessContext(req)) }

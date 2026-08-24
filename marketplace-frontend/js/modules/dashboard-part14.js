@@ -809,6 +809,7 @@ async function loadMyListingsFiltered(status) {
   });
 
   const el = document.getElementById('rep-recent-list');
+  if (!el) return;
   el.innerHTML = '<div class="text-xs text-slate-500 italic">Loading...</div>';
   try {
     const res = await fetch(`${API}/listings?status=${status}`, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -820,17 +821,23 @@ async function loadMyListingsFiltered(status) {
   }
 }
 async function loadMyStats() {
+  // MarketSync HQ and other restricted workspaces do not render the dealership
+  // rep-stat panel. A platform-staff login can still pass through the generic
+  // dealership bootstrap, so treat the absent panel as an intentional no-op.
+  const recent = document.getElementById('rep-recent-list');
+  if (!recent) return;
   try {
     const res = await fetch(`${API}/me/stats`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (!res.ok) throw new Error('Failed to load stats');
     const data = await res.json();
-    document.getElementById('rep-stat-total').textContent = data.totals.total;
-    document.getElementById('rep-stat-active').textContent = data.totals.active;
-    document.getElementById('rep-stat-sold').textContent = data.totals.sold;
-    document.getElementById('rep-stat-deleted').textContent = data.totals.deleted;
+    const setStat = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+    setStat('rep-stat-total', data.totals.total);
+    setStat('rep-stat-active', data.totals.active);
+    setStat('rep-stat-sold', data.totals.sold);
+    setStat('rep-stat-deleted', data.totals.deleted);
     renderRecentListings('rep-recent-list', data.recent, { canEditUrl: true });
   } catch (e) {
-    document.getElementById('rep-recent-list').innerHTML = `<div class="text-xs text-red-400">${e.message}</div>`;
+    recent.innerHTML = `<div class="text-xs text-red-400">${e.message}</div>`;
   }
   loadMyCharts();
 }
