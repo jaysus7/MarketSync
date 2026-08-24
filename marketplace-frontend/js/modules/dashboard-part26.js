@@ -1742,59 +1742,50 @@ function renderPeopleSettings(body, employees) {
 function openAddEmployeeModal() {
   const modalHtml = `
     <div class="space-y-4">
-      <h3 class="text-base font-black text-slate-900 dark:text-white">＋ Onboard New Employee</h3>
+      <h3 class="text-base font-black text-slate-900 dark:text-white">＋ Invite New Employee</h3>
       <div class="grid grid-cols-2 gap-3 text-xs">
         <input type="text" id="new-emp-fname" placeholder="First Name" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
         <input type="text" id="new-emp-lname" placeholder="Last Name" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <input type="email" id="new-emp-email" placeholder="Work Email" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <input type="text" id="new-emp-role" placeholder="Role (e.g. Sales Rep)" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <input type="email" id="new-emp-email" placeholder="Work Email" class="col-span-2 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <select id="new-emp-role" class="col-span-2 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <option value="SALES_REP">Sales Rep</option>
+          <option value="MANAGER">Manager</option>
+          <option value="FNI">F&amp;I</option>
+          <option value="SERVICE">Service</option>
+          <option value="ACCOUNTING">Accounting</option>
+          <option value="CLEANUP">Cleanup</option>
+        </select>
       </div>
-      <button onclick="saveNewEmployee()" class="w-full py-2.5 bg-indigo-600 text-white font-black rounded-xl text-xs shadow-md">Save &amp; Auto-Provision Account</button>
+      <div id="new-emp-error" class="hidden text-xs font-bold text-rose-500"></div>
+      <button id="new-emp-submit" onclick="saveNewEmployee()" class="w-full py-2.5 bg-indigo-600 text-white font-black rounded-xl text-xs shadow-md disabled:opacity-60">Invite &amp; Provision Account</button>
     </div>
   `;
   automationModal(modalHtml, 'max-w-md');
 }
 window.openAddEmployeeModal = openAddEmployeeModal;
 
-function saveNewEmployee() {
-  const fname = document.getElementById('new-emp-fname')?.value || 'New';
-  const lname = document.getElementById('new-emp-lname')?.value || 'Employee';
-  const email = document.getElementById('new-emp-email')?.value || 'employee@dealership.com';
-  const role = document.getElementById('new-emp-role')?.value || 'Sales Representative';
+async function saveNewEmployee() {
+  const fname = document.getElementById('new-emp-fname')?.value.trim() || '';
+  const lname = document.getElementById('new-emp-lname')?.value.trim() || '';
+  const email = document.getElementById('new-emp-email')?.value.trim() || '';
+  const role = document.getElementById('new-emp-role')?.value || 'SALES_REP';
+  const errEl = document.getElementById('new-emp-error');
+  const submitBtn = document.getElementById('new-emp-submit');
+  const showError = (msg) => { if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); } };
 
-  const employees = getPeopleComplianceData();
-  const newEmp = {
-    id: `emp-${Date.now()}`,
-    first_name: fname,
-    last_name: lname,
-    email: email,
-    phone: '(555) 000-0000',
-    role: role,
-    department: 'Sales',
-    location: 'Main Rooftop',
-    manager: 'General Sales Mgr',
-    emp_type: 'Full-Time Permanent',
-    status: 'Active',
-    start_date: new Date().toISOString().split('T')[0],
-    licence_no: 'DL-NEW-ON',
-    licence_expiry: '2028-01-01',
-    licence_status: 'Valid',
-    abstract_date: new Date().toISOString().split('T')[0],
-    comp_plan: 'Standard Sales Tier',
-    compliance_docs: [{ name: 'Employment Agreement', signed: true, date: new Date().toISOString().split('T')[0] }],
-    training: [{ name: 'WHMIS 2015 Certification', completed: true, expiry: '2027-01-01' }],
-    assets: ['Showroom iPad'],
-    perf: { units_mtd: 0, gross_mtd: 0, active_leads: 0, comm_mtd: 0, rating: 'New Hire' },
-    emergency: { name: 'Contact', relation: 'Family', phone: '(555) 000-0000' }
-  };
+  const full_name = `${fname} ${lname}`.trim();
+  if (!full_name || !email) { showError('First name, last name, and email are required.'); return; }
 
-  employees.push(newEmp);
-  try { localStorage.setItem('ms_people_employees', JSON.stringify(employees)); } catch {}
-
-  closeAutomationModal();
-  toast(`Onboarded ${fname} ${lname}! Account provisioned &amp; policies sent.`);
-  renderPeopleCompliance();
-  if (typeof loadDealerManagementMatrix === 'function') loadDealerManagementMatrix();
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Inviting…'; }
+  try {
+    await apiSendJson('/admin/users/invite', 'POST', { email, full_name, role });
+    closeAutomationModal();
+    toast(`Invited ${full_name} — account provisioned.`);
+    if (typeof loadDealerManagementMatrix === 'function') loadDealerManagementMatrix();
+  } catch (e) {
+    showError(e.message || 'Could not invite this employee.');
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Invite & Provision Account'; }
+  }
 }
 window.saveNewEmployee = saveNewEmployee;
 
