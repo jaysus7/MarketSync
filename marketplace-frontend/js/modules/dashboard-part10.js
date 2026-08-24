@@ -771,6 +771,79 @@ function engCard(title, inner, extra) {
 }
 function engEmpty(msg) { return `<div class="text-sm font-bold text-slate-700 dark:text-slate-300 py-8 text-center">${esc(msg)}</div>`; }
 
+// ── Pulse widget grid — shared across every department's Pulse (overview) tab ─
+// The Pulse screen is a dense grid of small, always-open glance cards (per the
+// 08/23 department wireframes), not the stacked full-width accordions engCard/
+// engSection render for the deeper work tabs (Customers, Repair Orders, …) —
+// those stay exactly as they are. A Pulse card never invents a number: every
+// value here traces back to a field the engine's own fetch() already returns.
+function pulseHeader(title, sub) {
+  const today = new Date().toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: '2-digit' });
+  return `<div class="flex items-baseline justify-between gap-3 mb-1">
+    <h2 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">${esc(title)}</h2>
+    <span class="text-[12px] font-bold text-slate-400 tabular-nums shrink-0">${today}</span>
+  </div>${sub ? `<p class="text-[13px] text-slate-500 dark:text-slate-400 mb-4">${esc(sub)}</p>` : '<div class="mb-4"></div>'}`;
+}
+function pulseGrid(cardsHtml) {
+  return `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 items-start">${(cardsHtml || []).filter(Boolean).join('')}</div>`;
+}
+// span: 2 = sm:col-span-2 (wide); 'tall' = row-span-2 (the sketch's big list column)
+function pulseCard({ title, count, tone, onclick, inner, span, empty }) {
+  const spanCls = span === 2 ? 'sm:col-span-2' : span === 'tall' ? 'row-span-2' : '';
+  const Tag = onclick ? 'button' : 'div';
+  return `<${Tag} ${onclick ? `onclick="${onclick}"` : ''} class="text-left w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 flex flex-col gap-2 ${spanCls} ${onclick ? 'cursor-pointer hover:border-slate-300 dark:hover:border-slate-700 transition' : ''}">
+    <div class="flex items-center justify-between gap-2">
+      <span class="text-[11px] uppercase tracking-wider font-black text-slate-800 dark:text-slate-200">${esc(title)}</span>
+      ${count != null ? `<span class="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-black ${tone || 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">${esc(String(count))}</span>` : ''}
+    </div>
+    <div class="flex-1 min-h-0">${inner || (empty ? `<div class="text-[12px] text-slate-400 py-3 text-center">${esc(empty)}</div>` : '')}</div>
+  </${Tag}>`;
+}
+// A compact row inside a pulse card: circled badge + label(+sub) + trailing value.
+// done:true renders the label struck through, for a resolved/closed/removed item.
+function pulseRow({ badge, badgeTone, label, sub, value, valueTone, done, onclick }) {
+  const Tag = onclick ? 'button' : 'div';
+  return `<${Tag} ${onclick ? `onclick="${onclick}"` : ''} class="w-full text-left flex items-center gap-2.5 py-1.5 ${onclick ? 'hover:opacity-70 transition' : ''} ${done ? 'opacity-50' : ''}">
+    <span class="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${badgeTone || 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}">${esc(badge ?? '')}</span>
+    <span class="min-w-0 flex-1">
+      <span class="block text-[12.5px] font-bold text-slate-800 dark:text-slate-100 truncate ${done ? 'line-through' : ''}">${esc(label ?? '')}</span>
+      ${sub ? `<span class="block text-[11px] text-slate-400 truncate">${esc(sub)}</span>` : ''}
+    </span>
+    ${value != null ? `<span class="shrink-0 text-[12px] font-black tabular-nums ${valueTone || 'text-slate-700 dark:text-slate-200'}">${esc(String(value))}</span>` : ''}
+  </${Tag}>`;
+}
+// Search-box widget card — click-through to the department's real search/list page.
+function pulseSearchCard({ title, placeholder, onclick, count }) {
+  return pulseCard({ title, count, onclick, inner: `<div class="mt-1 flex items-center gap-2 px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-400 text-[12px] font-semibold">
+    <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd"/></svg>
+    ${esc(placeholder || 'Search')}</div>` });
+}
+// Ranked row for a leaderboard-style widget — initials avatar + name + one stat.
+function pulseLeaderRow({ rank, name, value, sub, valueTone, onclick }) {
+  const initials = (name || '?').trim().split(/\s+/).map(s => s[0]).slice(0, 2).join('').toUpperCase();
+  const Tag = onclick ? 'button' : 'div';
+  return `<${Tag} ${onclick ? `onclick="${onclick}"` : ''} class="w-full text-left flex items-center gap-2.5 py-1.5 ${onclick ? 'hover:opacity-70 transition' : ''}">
+    <span class="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">${rank != null ? esc(String(rank)) : esc(initials)}</span>
+    <span class="min-w-0 flex-1">
+      <span class="block text-[12.5px] font-bold text-slate-800 dark:text-slate-100 truncate">${esc(name || 'Unknown')}</span>
+      ${sub ? `<span class="block text-[11px] text-slate-400 truncate">${esc(sub)}</span>` : ''}
+    </span>
+    ${value != null ? `<span class="shrink-0 text-[12px] font-black tabular-nums ${valueTone || 'text-slate-700 dark:text-slate-200'}">${esc(String(value))}</span>` : ''}
+  </${Tag}>`;
+}
+// A row of big quick-action buttons across the top of a Pulse page (Check-in / Check-out …).
+function pulseActionsRow(actions) {
+  return `<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">${(actions || []).map(a => `
+    <button onclick="${a.onclick}" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-3 text-center hover:border-slate-300 dark:hover:border-slate-700 transition">
+      <div class="text-[12.5px] font-black text-slate-800 dark:text-slate-100">${esc(a.label)}</div>
+    </button>`).join('')}</div>`;
+}
+if (typeof window !== 'undefined') {
+  window.pulseHeader = pulseHeader; window.pulseGrid = pulseGrid; window.pulseCard = pulseCard;
+  window.pulseRow = pulseRow; window.pulseSearchCard = pulseSearchCard; window.pulseLeaderRow = pulseLeaderRow;
+  window.pulseActionsRow = pulseActionsRow;
+}
+
 // ── Sections you scroll to, instead of a second row of tabs ──────────────────
 // A workspace tab used to open onto ANOTHER tab bar (Inventory: My Day | Inventory |
 // Appraisals | Settings, and directly beneath it Vehicles | Acquisition | Cleanup |
