@@ -1493,7 +1493,14 @@ body.ms-app-booting > header { background:var(--ms-surface) !important; border-c
 }
 
 /* Final dashboard glass cascade. Keep this last so legacy Tailwind repaint
-   compatibility selectors cannot turn the authenticated shell opaque again. */
+   compatibility selectors cannot turn the authenticated shell opaque again.
+   Un-scoped from [data-page-content] so body-level overlays (modals, context
+   menus, and Design Studio's own full-screen chrome — all appended straight
+   to <body>, outside any [data-page-content] wrapper) get the same glass
+   treatment as everything rendered into a page — not just page content.
+   Design Studio's artboard/canvas surface is the one deliberate exception:
+   it has to render the actual design at true, unblurred color, so it's
+   excluded and stays solid. */
 body {
   background:
     radial-gradient(circle at 12% 8%, rgba(37,99,235,.14), transparent 32rem),
@@ -1509,8 +1516,8 @@ body > header,
 .ms-engine-header,
 .ms-glass,
 .ms-card,
-[data-page-content] .bg-white,
-[data-page-content] .dark\:bg-slate-900 {
+.bg-white:not(#studio-artboard-container),
+.dark\:bg-slate-900:not(#studio-artboard-container) {
   background: linear-gradient(135deg, rgba(255,255,255,.76), rgba(255,255,255,.58)) !important;
   border-color: rgba(255,255,255,.20) !important;
   box-shadow: 0 18px 50px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.11) !important;
@@ -1528,8 +1535,8 @@ body > header,
 .dark .ms-engine-header,
 .dark .ms-glass,
 .dark .ms-card,
-.dark [data-page-content] .bg-white,
-.dark [data-page-content] .dark\:bg-slate-900 {
+.dark .bg-white:not(#studio-artboard-container),
+.dark .dark\:bg-slate-900:not(#studio-artboard-container) {
   background: linear-gradient(135deg, rgba(30,41,72,.58), rgba(15,23,42,.40)) !important;
   border-color: rgba(148,163,184,.20) !important;
 }
@@ -1715,8 +1722,8 @@ body {
 .dark .ms-engine-header,
 .dark .ms-glass,
 .dark .ms-card,
-.dark [data-page-content] .bg-white,
-.dark [data-page-content] .dark\:bg-slate-900,
+.dark .bg-white:not(#studio-artboard-container),
+.dark .dark\:bg-slate-900:not(#studio-artboard-container),
 .dark .ms-pulse-board .bg-white,
 .dark .ms-pulse-board .dark\:bg-slate-900,
 .dark .ms-pulse-board details,
@@ -1922,7 +1929,7 @@ body {
   .ms-engine-header, .ms-glass, .ms-card, .ms-crm-glass, .ms-toast,
   [data-engine-rail] details, [data-engine-rail] details[open] > summary,
   body > header, #dept-sidebar, #nav-desktop, #nav-mobile, #report-rail,
-  [data-page-content] .bg-white, [data-page-content] .dark\:bg-slate-900 {
+  .bg-white:not(#studio-artboard-container), .dark\:bg-slate-900:not(#studio-artboard-container) {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     background: var(--ms-surface-solid) !important;
