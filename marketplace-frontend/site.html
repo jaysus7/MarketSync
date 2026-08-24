@@ -1374,6 +1374,16 @@
       const host=document.getElementById('view'); if(!host) return;
       const secs=previewSections();
       if(!secs.length) return;
+      if(host.getAttribute('data-ms-preview-delegated')!=='1'){
+        host.setAttribute('data-ms-preview-delegated','1');
+        host.addEventListener('click',(e)=>{
+          if(e.target.closest('.ms-secbar')) return;
+          const section=e.target.closest('[data-ms-preview-index]');
+          if(!section||!host.contains(section)) return;
+          e.preventDefault(); e.stopPropagation();
+          post({type:'ms-preview-click',index:Number(section.getAttribute('data-ms-preview-index'))});
+        },true);
+      }
       // Built-in/custom views prepend their editable sections to functional
       // content, so only bind the section count owned by the builder.
       [...host.children].slice(0,secs.length).forEach((child,i)=>{
@@ -1385,7 +1395,6 @@
         child.style.outlineOffset='-3px'; child.style.transition='outline-color .12s'; child.style.outline='3px solid transparent';
         child.addEventListener('mouseenter',()=>{ child.style.outlineColor='var(--brand,#6366f1)'; showBar(child,i); });
         child.addEventListener('mouseleave',()=>{ child.style.outlineColor='transparent'; hideBar(child); });
-        child.addEventListener('click',(e)=>{ if(e.target.closest('.ms-secbar')) return; e.preventDefault(); e.stopPropagation(); post({type:'ms-preview-click',index:i}); },true);
         child.addEventListener('dragstart',(e)=>{ __dragFrom=i; child.style.opacity='.5'; try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(i));}catch(_){} });
         child.addEventListener('dragend',()=>{ child.style.opacity=''; [...host.children].forEach(c=>c.style.borderTop=''); });
         child.addEventListener('dragover',(e)=>{ e.preventDefault(); child.style.borderTop='3px solid var(--brand,#6366f1)'; });

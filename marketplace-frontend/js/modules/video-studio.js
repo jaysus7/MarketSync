@@ -20,18 +20,7 @@ function escV(str) {
     .replace(/"/g, '&quot;');
 }
 
-window.__videoAnalyticsStore = window.__videoAnalyticsStore || {
-  'v_demo_101': {
-    id: 'v_demo_101',
-    opened_at: new Date(Date.now() - 3600000).toISOString(),
-    watch_time_seconds: 105,
-    total_duration_seconds: 130,
-    times_watched: 3,
-    completion_rate: 81,
-    rewatch_sections: ['Vehicle Price & Trade Quote'],
-    video_url: 'https://marketsync.dealership.com/video/v_demo_101'
-  }
-};
+window.__videoAnalyticsStore = window.__videoAnalyticsStore || {};
 
 window.__videoStudioState = {
   phase: 'setup',   // 'setup' -> 'camera' -> 'review', or 'sent-detail' for an already-sent video
@@ -95,8 +84,8 @@ const VIDEO_TEMPLATES = {
  * Open Customer Video Recording Studio Modal
  */
 async function openCustomerVideoStudio(contactId, options = {}) {
-  let contact = { id: contactId, full_name: 'Valued Customer', first_name: 'Customer', phone: '(555) 234-5678', email: 'customer@example.com', vehicle: '2024 Ford F-150 Lariat' };
-  if (contactId && contactId !== 'demo-customer') {
+  let contact = { id: contactId || '', full_name: '', first_name: '', phone: '', email: '', vehicle: '' };
+  if (contactId) {
     try {
       const res = await apiGetJson(`/crm/contacts/${contactId}`).catch(() => null);
       if (res?.contact) contact = res.contact;
@@ -163,10 +152,10 @@ window.vidDeptForRole = vidDeptForRole;
 // at all BEFORE the camera opens, exactly like choosing a mode on a phone's camera
 // app before the shutter is even live. Nothing here is re-decided mid-recording.
 function renderStudioSetupHtml(contact, options) {
-  const repName = profileContext?.name || window.__user?.name || 'Dave Miller';
-  const storeName = window.__dealerConfig?.store_name || profileContext?.dealership?.name || 'MarketSync Motors';
+  const repName = profileContext?.name || window.__user?.name || 'Your team';
+  const storeName = window.__dealerConfig?.store_name || profileContext?.dealership?.name || 'Your dealership';
   const custName = contact.first_name || contact.full_name || 'Customer';
-  const vehLabel = contact.vehicle_summary || contact.trade_vehicle || contact.vehicle || '2024 Ford F-150';
+  const vehLabel = contact.vehicle_summary || contact.trade_vehicle || contact.vehicle || 'the selected vehicle';
 
   const activeDept = vidDeptForRole(options.department || options.dept);
   const isSaas = activeDept === 'MarketSync';
@@ -237,10 +226,10 @@ function renderStudioSetupHtml(contact, options) {
 // AFTER recording stops (renderStudioReviewHtml), once there's actually something
 // to send.
 function renderStudioCameraHtml(contact, options) {
-  const repName = profileContext?.name || window.__user?.name || 'Dave Miller';
-  const storeName = window.__dealerConfig?.store_name || 'MarketSync Motors';
+  const repName = profileContext?.name || window.__user?.name || 'Your team';
+  const storeName = window.__dealerConfig?.store_name || 'Your dealership';
   const custName = contact.first_name || contact.full_name || 'Customer';
-  const vehLabel = contact.vehicle_summary || contact.trade_vehicle || contact.vehicle || '2024 Ford F-150';
+  const vehLabel = contact.vehicle_summary || contact.trade_vehicle || contact.vehicle || 'the selected vehicle';
 
   const activeDept = vidDeptForRole(options.department || options.dept);
   const isSaas = activeDept === 'MarketSync';
@@ -339,7 +328,7 @@ function renderStudioCameraHtml(contact, options) {
 // Recording stopped — this is where the send panel a phone camera app shows as
 // "review your shot" lives, not beside the live viewfinder the whole time.
 function renderStudioReviewHtml(contact, options) {
-  const repName = profileContext?.name || window.__user?.name || 'Dave Miller';
+  const repName = profileContext?.name || window.__user?.name || 'Your team';
   const activeDept = vidDeptForRole(options.department || options.dept);
   const isViewingSent = !!options.isViewingSent || !!options.sentVideo || !!options.videoId;
   const scriptText = window.__videoStudioState.scriptText || '';
@@ -410,11 +399,11 @@ function renderStudioReviewHtml(contact, options) {
             <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300">REAL-TIME</span>
           </div>
           <div id="vid-telemetry-container">
-            ${renderVideoTelemetryBadge(options.videoId || 'v_demo_101')}
+            ${options.videoId ? renderVideoTelemetryBadge(options.videoId) : '<div class="text-xs text-slate-400">Analytics will appear after this video is sent.</div>'}
           </div>
-          <button onclick="simCustomerWatchVideo('${options.videoId || 'v_demo_101'}', '${contact.id}')" class="w-full py-2 mt-1 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm flex items-center justify-center gap-1.5">
+          ${options.videoId ? `<button onclick="simCustomerWatchVideo('${options.videoId}', '${contact.id || ''}')" class="w-full py-2 mt-1 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm flex items-center justify-center gap-1.5">
             Play &amp; Watch Customer Video Link
-          </button>
+          </button>` : ''}
         </div>
         ` : ''}
       </div>
@@ -499,9 +488,9 @@ window.vidRetakeFromReview = vidRetakeFromReview;
 // video is always identifiable even outside the app. Kept small and translucent
 // on purpose: it should never compete with the actual walkaround for attention.
 function vidOverlayInfo() {
-  const repName = profileContext?.name || window.__user?.name || 'Dave Miller';
+  const repName = profileContext?.name || window.__user?.name || 'Your team';
   const phone = profileContext?.dealership?.phone || profileContext?.dealership?.phone_number || '';
-  const storeName = window.__dealerConfig?.store_name || profileContext?.dealership?.name || 'MarketSync Motors';
+  const storeName = window.__dealerConfig?.store_name || profileContext?.dealership?.name || 'Your dealership';
   const initials = storeName.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'MS';
   return { repName, phone, storeName, initials };
 }
@@ -833,10 +822,10 @@ function vidToggleTeleprompter() {
 
 function vidGenerateAiScript() {
   const contact = window.__videoStudioState.currentContact || {};
-  const repName = profileContext?.name || window.__user?.name || 'Dave Miller';
-  const storeName = window.__dealerConfig?.store_name || 'MarketSync Motors';
+  const repName = profileContext?.name || window.__user?.name || 'Your team';
+  const storeName = window.__dealerConfig?.store_name || 'Your dealership';
   const custName = contact.first_name || contact.full_name || 'Customer';
-  const vehLabel = contact.vehicle_summary || contact.trade_vehicle || contact.vehicle || '2024 Ford F-150';
+  const vehLabel = contact.vehicle_summary || contact.trade_vehicle || contact.vehicle || 'the selected vehicle';
 
   const aiScripts = [
     `Hi ${custName}! ${repName} here with ${storeName}. I wanted to send you a quick personalized walkaround video of the ${vehLabel}. We just completed our multi-point safety inspection and detail on this vehicle, and it looks immaculate! Click below to review your instant payment options or lock in your test drive today!`,
@@ -884,10 +873,10 @@ function vidSelectScript(key) {
   });
 
   const contact = window.__videoStudioState.currentContact || {};
-  const repName = profileContext?.name || window.__user?.name || 'Dave Miller';
-  const storeName = window.__dealerConfig?.store_name || 'MarketSync Motors';
+  const repName = profileContext?.name || window.__user?.name || 'Your team';
+  const storeName = window.__dealerConfig?.store_name || 'Your dealership';
   const custName = contact.first_name || contact.full_name || 'Customer';
-  const vehLabel = contact.vehicle_summary || contact.trade_vehicle || contact.vehicle || '2024 Ford F-150';
+  const vehLabel = contact.vehicle_summary || contact.trade_vehicle || contact.vehicle || 'the selected vehicle';
 
   const tmpl = VIDEO_TEMPLATES[key]?.text || '';
   const formatted = tmpl
@@ -974,13 +963,12 @@ function vidRecipientFields() {
 // email right here instead. If those fields still match whatever real CRM
 // contact this studio was opened for (untouched), that contact is reused rather
 // than creating a duplicate; if they were edited (or there was never a real
-// contact — 'demo-customer' is the studio's own placeholder id, not a CRM
-// record), an ad-hoc contact is created from what was typed. Memoized by the
+// contact), an ad-hoc contact is created from what was typed. Memoized by the
 // exact field values so clicking Copy Link then Send doesn't create two.
 async function vidEnsureContact() {
   const fields = vidRecipientFields();
   const contact = window.__videoStudioState.currentContact || {};
-  const isRealContact = !!contact.id && contact.id !== 'demo-customer';
+  const isRealContact = !!contact.id;
   const unchanged = isRealContact
     && fields.name === (contact.full_name || contact.first_name || '')
     && fields.phone === (contact.phone || '')
@@ -1161,14 +1149,14 @@ window.vidSendVideoTo = vidSendVideoTo;
  * Public Customer Video Player Viewport Modal & Real-Time Telemetry Tracking
  */
 async function openPublicVideoLink(videoId, contactId) {
-  let data = window.__videoAnalyticsStore[videoId] || {
+  let data = window.__videoAnalyticsStore[videoId] || __videoLibraryVideos.find(v => v.id === videoId || v.share_token === videoId) || {
     id: videoId,
     opened_at: new Date().toISOString(),
     watch_time_seconds: 0,
     total_duration_seconds: 120,
     times_watched: 0,
     completion_rate: 0,
-    video_url: `https://marketsync.dealership.com/video/${videoId}`
+    video_url: ''
   };
 
   // If no live signed playback URL, fetch one on demand
@@ -1196,8 +1184,8 @@ async function openPublicVideoLink(videoId, contactId) {
     document.body.appendChild(playerModal);
   }
 
-  const repName = data.sender || profileContext?.name || window.__user?.name || 'Dave Miller';
-  const storeName = window.__dealerConfig?.store_name || 'MarketSync Motors';
+  const repName = data.sender || profileContext?.name || window.__user?.name || 'Your team';
+  const storeName = window.__dealerConfig?.store_name || 'Your dealership';
   const custName = data.contact_name || window.__videoStudioState.currentContact?.first_name || 'Customer';
   const vipDiscount = data.vip_discount || '$500 VIP Voucher';
 
@@ -1378,7 +1366,7 @@ function changeVipDiscountAmount(videoId) {
 window.changeVipDiscountAmount = changeVipDiscountAmount;
 
 function openScheduleTestDriveModal(videoId, contactId) {
-  const repName = profileContext?.name || window.__user?.name || 'Dave Miller';
+  const repName = profileContext?.name || window.__user?.name || 'Your team';
   const modal = document.createElement('div');
   modal.className = 'fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md';
   modal.innerHTML = `
@@ -1676,7 +1664,7 @@ function renderVideoStudioWorkspace(videos, isSaas = false) {
         </div>
 
         <div class="flex items-center gap-2">
-          <button onclick="openCustomerVideoStudio('demo-customer', ${isSaas ? "{department:'MarketSync',scriptKey:'product_demo'}" : '{}'} )" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition flex items-center gap-2 shadow-sm cursor-pointer">
+          <button onclick="openCustomerVideoStudio('', ${isSaas ? "{department:'MarketSync',scriptKey:'product_demo'}" : '{}'} )" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition flex items-center gap-2 shadow-sm cursor-pointer">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
             Record Video
           </button>

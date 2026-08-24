@@ -233,6 +233,7 @@ test('Complete Marketing Suite navigation includes distinct Sales & Service sect
   assert.equal(pageLabels.includes('AI ChatBot'), false);
   assert.equal(pageLabels.includes('SEO'), false);
   assert.equal(pageLabels.includes('Accounting'), false);
+
 });
 
 test('MarketSync Digital package exposes its complete Digital Presence area', (t) => {
@@ -254,15 +255,23 @@ test('MarketSync Digital package exposes its complete Digital Presence area', (t
   const pages = sandbox.restrictedNavPages();
   const pageLabels = pages.map(p => p.label);
   
-  // Must include Digital items
-  assert.ok(pageLabels.includes('Pulse'));
-  assert.ok(pageLabels.includes('Website'));
-  assert.ok(pageLabels.includes('AI ChatBot'));
-  assert.ok(pageLabels.includes('Design Studio'));
-  assert.ok(pageLabels.includes('Video'));
-  assert.ok(pageLabels.includes('Performance'));
-  assert.ok(pageLabels.includes('SEO'));
+  assert.equal(pageLabels.join('|'), [
+    'Pulse',
+    'Dealer Website',
+    'MarketSync SEO',
+    'AI Customer Agent',
+    'Design Studio',
+    'Social Studio & Scheduler',
+    'Facebook Marketplace',
+    'Video',
+    'Email, SMS & Campaigns',
+  ].join('|'));
   assert.equal(pageLabels.includes('Accounting'), false);
+
+  const digitalConfig = sandbox.getMarketingSuiteConfig('digital');
+  assert.deepEqual(Array.from(digitalConfig.areas.find(area => area.id === 'website').items, item => item.label), ['Builder', 'Setup', 'Website Settings']);
+  assert.deepEqual(Array.from(digitalConfig.areas.find(area => area.id === 'seo').items, item => item.label), ['Pulse', 'SEO Builder', 'SEO Setup']);
+  assert.deepEqual(Array.from(digitalConfig.areas.find(area => area.id === 'ai').items, item => item.label), ['Pulse', 'Setup']);
 });
 
 test('MarketSync Digital navigation with SEO entitlement includes SEO', (t) => {
@@ -279,9 +288,25 @@ test('MarketSync Digital navigation with SEO entitlement includes SEO', (t) => {
   const pageLabels = pages.map(p => p.label);
   
   assert.ok(pageLabels.includes('Pulse'));
-  assert.ok(pageLabels.includes('Website'));
-  assert.ok(pageLabels.includes('AI ChatBot'));
-  assert.ok(pageLabels.includes('SEO'), 'SEO must be included when marketsync_seo product/feature is held');
+  assert.ok(pageLabels.includes('Dealer Website'));
+  assert.ok(pageLabels.includes('AI Customer Agent'));
+  assert.ok(pageLabels.includes('MarketSync SEO'), 'MarketSync SEO must use its product name');
+});
+
+test('MarketSync Digital is inferred from owned component products without an aggregate SKU', () => {
+  const sandbox = createFrontendSandbox({
+    productAttr: 'marketsync_website marketsync_seo ai_dealer design_studio marketsync_social facebook marketsync_video marketsync_email',
+    profileContext: { package_id: '', role: 'DEALER_ADMIN' },
+    __access: {
+      products: ['marketsync_website', 'marketsync_seo', 'ai_dealer', 'design_studio', 'marketsync_social', 'facebook', 'marketsync_video', 'marketsync_email'],
+      features: ['website.builder', 'seo.manage', 'ai.chatbot', 'social.scheduler', 'video.create', 'email.automations']
+    }
+  });
+
+  const ctx = sandbox.resolveWorkspaceContext();
+  assert.equal(ctx.type, 'marketing_suite');
+  assert.equal(ctx.suite, 'digital');
+  assert.equal(sandbox.restrictedNavPages().at(-1).label, 'Email, SMS & Campaigns');
 });
 
 test('Tracked migration 2026-08-20-marketing-suite-plan-entitlements.sql aligns plan_products and plan_features', (t) => {

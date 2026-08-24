@@ -18,6 +18,51 @@ const suiteItem = (page, label, icon, extra = {}) => ({ page, label, icon, ...ex
 
 function buildMarketingSuiteConfig(key) {
   const definition = MARKETING_SUITE_DEFINITIONS[key] || MARKETING_SUITE_DEFINITIONS.complete;
+  if (key === 'digital') {
+    const navItems = [
+      suiteItem('marketing-overview', 'Pulse', 'chart', { tab: 'overview' }),
+      suiteItem('website', 'Dealer Website', 'globe', { tab: 'builder' }),
+      suiteItem('seo', 'MarketSync SEO', 'chart', { tab: 'overview' }),
+      suiteItem('ai-home', 'AI Customer Agent', 'sparkles', { tab: 'conversations' }),
+      suiteItem('studio', 'Design Studio', 'camera', { studioLaunch: true }),
+      suiteItem('social-scheduler', 'Social Studio & Scheduler', 'calendar'),
+      suiteItem('inventory', 'Facebook Marketplace', 'megaphone', { invmode: 'facebook' }),
+      suiteItem('video-studio', 'Video', 'video'),
+      suiteItem('automation-builder', 'Email, SMS & Campaigns', 'chat', { tab: 'overview' }),
+    ];
+    const areas = [
+      { id: 'pulse', label: 'MarketSync Digital', icon: 'chart', items: [navItems[0]] },
+      { id: 'website', label: 'Website', icon: 'globe', items: [
+        suiteItem('website', 'Builder', 'globe', { tab: 'builder' }),
+        suiteItem('website', 'Setup', 'wrench', { tab: 'setup' }),
+        suiteItem('website-settings', 'Website Settings', 'shield'),
+      ] },
+      { id: 'seo', label: 'MarketSync SEO', icon: 'chart', items: [
+        suiteItem('seo', 'Pulse', 'chart', { tab: 'overview' }),
+        suiteItem('seo', 'SEO Builder', 'sparkles', { tab: 'content' }),
+        suiteItem('seo', 'SEO Setup', 'wrench', { tab: 'settings' }),
+      ] },
+      { id: 'ai', label: 'AI Customer Agent', icon: 'sparkles', items: [
+        suiteItem('ai-home', 'Pulse', 'sparkles', { tab: 'conversations' }),
+        suiteItem('ai-home', 'Setup', 'wrench', { tab: 'setup' }),
+      ] },
+      { id: 'design', label: 'Design Studio', icon: 'camera', items: [navItems[4]] },
+      { id: 'social', label: 'Social Studio & Scheduler', icon: 'calendar', items: [navItems[5]] },
+      { id: 'marketplace', label: 'Facebook Marketplace', icon: 'megaphone', items: [navItems[6]] },
+      { id: 'video', label: 'Video', icon: 'video', items: [navItems[7]] },
+      { id: 'campaigns', label: 'Email, SMS & Campaigns', icon: 'chat', items: [navItems[8]] },
+    ];
+    return {
+      id: key,
+      packageId: definition.packageId,
+      badge: definition.badge,
+      title: definition.badge,
+      areas,
+      navItems,
+      sections: [{ title: definition.badge.toUpperCase(), items: navItems }],
+      mobileQuickRow: navItems.slice(0, 4),
+    };
+  }
   const marketing = [];
   if (definition.marketingModes.includes('sales')) {
     marketing.push(suiteItem('marketing-overview', 'Sales Marketing', 'currency', { tab: 'sales_overview' }));
@@ -108,6 +153,24 @@ function getActiveMarketingSuite() {
     if (access.products.includes('complete_marketing_suite')) return 'complete';
     if (access.products.includes('service_marketing_suite')) return 'service';
     if (access.products.includes('sales_marketing_suite')) return 'sales';
+
+    // Some subscriptions provision MarketSync Digital as its component products
+    // instead of a duplicate aggregate SKU. Treat that owned bundle as the same
+    // suite so dealers receive the Digital shell, navigation, and headers.
+    const products = new Set(access.products.map(product => String(product).toLowerCase().replace(/-/g, '_')));
+    const hasAny = (...ids) => ids.some(id => products.has(id));
+    const isDealerOs = products.has('dealer_os');
+    const digitalGroups = [
+      ['marketsync_website', 'website'],
+      ['marketsync_seo', 'seo'],
+      ['ai_dealer', 'ai_chatbot'],
+      ['design_studio'],
+      ['marketsync_social', 'social', 'social_scheduler'],
+      ['facebook', 'facebook_dealer', 'facebook_solo'],
+      ['marketsync_video', 'video'],
+      ['marketsync_email', 'email_marketing', 'campaigns'],
+    ];
+    if (!isDealerOs && digitalGroups.filter(group => hasAny(...group)).length >= 4) return 'digital';
   }
   return null;
 }
@@ -462,7 +525,7 @@ ENGINES['marketing-overview'] = {
   })),
 
   fetch: async () => {
-    const [att, camps, accounts, posts, convos, roi, assets, inventory] = await Promise.all([
+    const [att, camps, accounts, posts, convos, roi, assets, inventory, automations] = await Promise.all([
       apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ source: 'my-day', label: 'My Day', reason: 'could not be loaded' }], not_covered: [] })),
       apiGetJson('/campaigns').catch(() => ({ campaigns: [] })),
       apiGetJson('/social/accounts').catch(() => ({ accounts: [] })),
@@ -471,6 +534,7 @@ ENGINES['marketing-overview'] = {
       apiGetJson('/marketing/roi').catch(() => null),
       apiGetJson('/marketing/assets').catch(() => ({ assets: [] })),
       apiGetJson('/inventory').catch(() => []),
+      apiGetJson('/automation/campaigns').catch(() => ({ campaigns: [] })),
     ]);
     return {
       needsAttention: att.needs_attention || [],
@@ -484,6 +548,7 @@ ENGINES['marketing-overview'] = {
       conversations: convos.conversations || [],
       assets: assets.assets || [],
       inventory: Array.isArray(inventory) ? inventory : [],
+      automations: automations.campaigns || automations.automations || [],
       roi,
     };
   },
@@ -742,8 +807,20 @@ ENGINES['marketing-overview'] = {
 
       // 3. MarketSync Digital Overview
       if (suite === 'digital') {
+        const metric = value => value == null ? '—' : Number(value).toLocaleString();
+        const conversations = Array.isArray(d.conversations) ? d.conversations : [];
+        const campaigns = Array.isArray(d.campaigns) ? d.campaigns : [];
+        const posts = Array.isArray(d.posts) ? d.posts : [];
+        const automations = Array.isArray(d.automations) ? d.automations : [];
+        const accounts = Array.isArray(d.accounts) ? d.accounts : [];
+        const messageCount = campaigns.reduce((sum, campaign) => {
+          const count = campaign.messages_sent ?? campaign.sent_count ?? campaign.delivered_count;
+          return sum + (Number.isFinite(Number(count)) ? Number(count) : 0);
+        }, 0);
+        const hasMessageCounts = campaigns.some(campaign => campaign.messages_sent != null || campaign.sent_count != null || campaign.delivered_count != null);
+        const bookedAppointments = conversations.filter(conversation => /booked|appointment|scheduled/i.test(String(conversation.status || conversation.outcome || conversation.intent || ''))).length;
         body.innerHTML = `
-          <div class="space-y-6">
+          <div class="ms-digital-suite space-y-6">
             ${caveat}
             <!-- Digital Command Center Header -->
             <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex items-center justify-between flex-wrap gap-4">
@@ -771,44 +848,44 @@ ENGINES['marketing-overview'] = {
             <!-- 8 Digital KPIs Strip -->
             <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
               <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
-                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Digital Hubs</div>
-                <div class="text-xl font-black text-violet-600 dark:text-violet-400 mt-1">4 Live</div>
-                <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">Web + Bot + Marketing</div>
+                <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Connected Channels</div>
+                <div class="text-xl font-black text-violet-600 dark:text-violet-400 mt-1">${metric(accounts.length)}</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Live account connections</div>
               </div>
               <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
                 <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Web Traffic</div>
-                <div class="text-xl font-black text-slate-900 dark:text-white mt-1">8,420</div>
-                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Monthly visits</div>
+                <div class="text-xl font-black text-slate-900 dark:text-white mt-1">—</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Connect analytics to report</div>
               </div>
               <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
                 <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">AI Bot Chats</div>
-                <div class="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1">342</div>
-                <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">&lt;2s response</div>
+                <div class="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1">${metric(conversations.length)}</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Loaded conversations</div>
               </div>
               <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
                 <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Online Leads</div>
-                <div class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">94</div>
-                <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">Web &amp; Bot capture</div>
+                <div class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">${metric(conversations.filter(c => c.contact_id || c.lead_id).length)}</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Identified contacts</div>
               </div>
               <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
                 <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Automations</div>
-                <div class="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1">63</div>
-                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Sales &amp; Service live</div>
+                <div class="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1">${metric(automations.length)}</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Configured workflows</div>
               </div>
               <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
                 <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Messages Sent</div>
-                <div class="text-xl font-black text-slate-900 dark:text-white mt-1">14,820</div>
-                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Last 30 days</div>
+                <div class="text-xl font-black text-slate-900 dark:text-white mt-1">${hasMessageCounts ? metric(messageCount) : '—'}</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Campaign delivery records</div>
               </div>
               <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
                 <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Social Posts</div>
-                <div class="text-xl font-black text-sky-600 dark:text-sky-400 mt-1">22</div>
+                <div class="text-xl font-black text-sky-600 dark:text-sky-400 mt-1">${metric(posts.length)}</div>
                 <div class="text-[10px] text-slate-400 font-bold mt-0.5">Published &amp; scheduled</div>
               </div>
               <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
                 <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Online Appts</div>
-                <div class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">38</div>
-                <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">Confirmed bookings</div>
+                <div class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">${metric(bookedAppointments)}</div>
+                <div class="text-[10px] text-slate-400 font-bold mt-0.5">Confirmed in conversations</div>
               </div>
             </div>
 
@@ -824,8 +901,8 @@ ENGINES['marketing-overview'] = {
                   <h3 class="text-lg font-black text-slate-900 dark:text-white mt-1">Dealership Website</h3>
                   <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">High-converting inventory showroom, finance lead capture, and instant service scheduling.</p>
                   <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 space-y-1.5">
-                    <div class="flex justify-between font-medium"><span>Monthly Inquiries:</span><span class="font-bold text-slate-900 dark:text-white">62 leads</span></div>
-                    <div class="flex justify-between font-medium"><span>Mobile Speed Index:</span><span class="font-bold text-emerald-600 dark:text-emerald-400">98 / 100</span></div>
+                    <div class="flex justify-between font-medium"><span>Identified Inquiries:</span><span class="font-bold text-slate-900 dark:text-white">${metric(conversations.filter(c => c.contact_id || c.lead_id).length)}</span></div>
+                    <div class="flex justify-between font-medium"><span>Web Analytics:</span><span class="font-bold text-slate-500">Not connected</span></div>
                   </div>
                 </div>
                 <button onclick="switchPage('website')" class="mt-5 w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold text-xs transition">Manage Website &rarr;</button>
@@ -841,8 +918,8 @@ ENGINES['marketing-overview'] = {
                   <h3 class="text-lg font-black text-slate-900 dark:text-white mt-1">AI ChatBot</h3>
                   <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Autonomous 24/7 inventory Q&amp;A, test drive bookings, service questions, and credit pre-qual intake.</p>
                   <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 space-y-1.5">
-                    <div class="flex justify-between font-medium"><span>Conversations Handled:</span><span class="font-bold text-slate-900 dark:text-white">342 chats</span></div>
-                    <div class="flex justify-between font-medium"><span>Lead Capture Rate:</span><span class="font-bold text-violet-600 dark:text-violet-400">27.4%</span></div>
+                    <div class="flex justify-between font-medium"><span>Conversations Loaded:</span><span class="font-bold text-slate-900 dark:text-white">${metric(conversations.length)}</span></div>
+                    <div class="flex justify-between font-medium"><span>Identified Contacts:</span><span class="font-bold text-violet-600 dark:text-violet-400">${metric(conversations.filter(c => c.contact_id || c.lead_id).length)}</span></div>
                   </div>
                 </div>
                 <button onclick="switchPage('ai-home')" class="mt-5 w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold text-xs transition">Open AI ChatBot &rarr;</button>

@@ -2031,3 +2031,25 @@ body > header {
 @media (max-width: 767px) {
   #dashboard-nav { overflow: visible !important; max-height: none !important; }
 }
+
+/* MarketSync Digital uses the same Liquid Glass material across every owned
+   product workspace. This is intentionally scoped to the active suite so forms,
+   editors, and DealerOS department pages retain their product-specific layout. */
+html[data-ms-suite="digital"] #dept-sidebar,
+html[data-ms-suite="digital"] #dept-tabbar,
+html[data-ms-suite="digital"] .page-content :is(.rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border),
+html[data-ms-suite="digital"] .ms-digital-suite > div {
+  background: linear-gradient(135deg, rgba(255,255,255,.68), rgba(255,255,255,.46)) !important;
+  border-color: rgba(255,255,255,.48) !important;
+  box-shadow: 0 18px 45px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.72) !important;
+  backdrop-filter: blur(20px) saturate(155%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(155%) !important;
+}
+.dark[data-ms-suite="digital"] #dept-sidebar,
+.dark[data-ms-suite="digital"] #dept-tabbar,
+.dark[data-ms-suite="digital"] .page-content :is(.rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border),
+.dark[data-ms-suite="digital"] .ms-digital-suite > div {
+  background: linear-gradient(145deg, rgba(28,41,68,.68), rgba(9,16,30,.48)) !important;
+  border-color: rgba(190,205,230,.18) !important;
+  box-shadow: 0 20px 50px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.08) !important;
+}

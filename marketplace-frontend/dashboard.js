@@ -856,8 +856,8 @@ const PRODUCT_PAGES = {
   service_marketing_suite: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'service-campaigns', 'service-automations', 'crm', 'marketing-analytics', 'email-sms', 'email-marketing', 'academy', 'profile'],
   'complete-marketing-suite': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'email-sms', 'email-marketing', 'leads', 'academy', 'profile'],
   complete_marketing_suite: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'email-sms', 'email-marketing', 'leads', 'academy', 'profile'],
-  'marketsync-digital': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'website', 'website-settings', 'blog', 'seo', 'ai-home', 'email-sms', 'email-marketing', 'leads', 'academy', 'profile'],
-  marketsync_digital: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'website', 'website-settings', 'blog', 'seo', 'ai-home', 'email-sms', 'email-marketing', 'leads', 'academy', 'profile'],
+  'marketsync-digital': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'inventory', 'website', 'website-settings', 'blog', 'seo', 'ai-home', 'email-sms', 'email-marketing', 'academy', 'profile'],
+  marketsync_digital: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'inventory', 'website', 'website-settings', 'blog', 'seo', 'ai-home', 'email-sms', 'email-marketing', 'academy', 'profile'],
   marketsync_identity: ['crm', 'command'],
   identity_verify: ['crm', 'command'],
   dealer_os: null,
@@ -1447,6 +1447,15 @@ function restrictedNavPages() {
     website: { page: 'website', tab: 'builder', label: 'Website', icon: 'globe' },
   };
 
+  const mktSuite = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;
+  if (mktSuite && typeof getMarketingSuiteConfig === 'function') {
+    const cfg = getMarketingSuiteConfig(mktSuite);
+    const sourceItems = Array.isArray(cfg?.navItems)
+      ? cfg.navItems
+      : (cfg?.sections || []).flatMap(section => section.items || []);
+    return sourceItems.map(item => ({ ...item }));
+  }
+
   // Sales reps do not receive the full DealerOS department registry. Their
   // operational surface is limited to the five product workspaces below;
   // Profile remains available from the header gear.
@@ -1458,36 +1467,6 @@ function restrictedNavPages() {
       { page: 'inventory', label: 'Inventory', icon: 'megaphone', invmode: 'facebook' },
       { page: 'leaderboard', label: 'Leaderboard', icon: 'trophy' },
     ];
-  }
-
-  const mktSuite = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;
-  if (mktSuite && typeof getMarketingSuiteConfig === 'function') {
-    const cfg = getMarketingSuiteConfig(mktSuite);
-    if (cfg && Array.isArray(cfg.sections)) {
-      const items = [];
-      const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
-      const hasSeo = access.isPlatformStaff || !!(
-        (access.products && (access.products.includes('marketsync_seo') || access.products.includes('seo')))
-        || (access.features && access.features.includes('seo.manage'))
-        || /(?:^|\s)(?:marketsync_seo|seo)(?:\s|$)/.test(document.documentElement.getAttribute('data-product') || '')
-      );
-
-      for (const section of cfg.sections) {
-        for (const it of section.items) {
-          if (it.requiresSeo && !hasSeo) continue;
-          items.push({
-            page: it.page,
-            tab: it.tab,
-            label: it.label,
-            icon: it.icon,
-            invmode: it.invmode,
-            studioLaunch: it.studioLaunch,
-            section: section.title
-          });
-        }
-      }
-      return items;
-    }
   }
 
   if (activeProducts.length === 1 && /facebook_dealer/.test(product)) {
