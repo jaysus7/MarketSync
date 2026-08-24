@@ -79,6 +79,12 @@ export function registerRoutes(app) {
         features: ctx.features,
         permissions: ctx.permissions,
         dataScope: ctx.dataScope,
+        // Which plan sold each product. Sales/Service/Complete Marketing Suite grant the
+        // EXACT SAME atomic product set (design_studio, facebook, marketsync_social,
+        // marketsync_email, marketsync_video) — products alone cannot tell them apart.
+        // This is the only reliable signal the frontend has for which suite shell/nav
+        // to render (marketing-workspace.js's getActiveMarketingSuite()).
+        planByProduct: ctx.planByProduct,
       }
     } catch { /* profile remains available; /access/context can still retry independently */ }
 

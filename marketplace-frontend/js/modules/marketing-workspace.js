@@ -138,6 +138,20 @@ function getActiveMarketingSuite() {
   if (activePackage.includes('complete-marketing-suite') || activePackage.includes('complete_marketing_suite') || activePackage === 'complete_marketing_suite' || activePackage === 'complete') return 'complete';
   if (activePackage.includes('marketsync-digital') || activePackage.includes('marketsync_digital') || activePackage === 'marketsync_digital' || activePackage === 'digital') return 'digital';
 
+  // The reliable signal for a REAL (non-demo) account: which plan actually sold each
+  // product (/auth/me's access.planByProduct). Sales, Service and Complete Marketing
+  // Suite grant the exact same atomic product set — design_studio, facebook,
+  // marketsync_social, marketsync_email, marketsync_video — so access.products alone
+  // can never tell them apart; only the plan id backing those products can.
+  const accessForPlan = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+  if (accessForPlan.planByProduct) {
+    const planIds = new Set(Object.values(accessForPlan.planByProduct).filter(Boolean));
+    if (planIds.has('marketsync-digital')) return 'digital';
+    if (planIds.has('complete-marketing-suite')) return 'complete';
+    if (planIds.has('service-marketing-suite')) return 'service';
+    if (planIds.has('sales-marketing-suite')) return 'sales';
+  }
+
   if (typeof document !== 'undefined') {
     const product = document.documentElement.getAttribute('data-product') || '';
     if (/(?:^|\s)sales[-_]marketing[-_]suite(?:\s|$)/.test(product)) return 'sales';

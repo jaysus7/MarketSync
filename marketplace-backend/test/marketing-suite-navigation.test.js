@@ -64,6 +64,39 @@ test('suite navigation reuses canonical routes and the shared accessible tabbar'
   assert.match(shellSource, /function renderMarketingSuiteNav/);
 });
 
+function detectSuite(access) {
+  const setup = workspaceSource.slice(0, workspaceSource.indexOf('let __socialView'));
+  const context = {
+    window: { __access: access },
+    document: { documentElement: { getAttribute: () => '' } },
+    profileContext: null,
+  };
+  vm.createContext(context);
+  vm.runInContext(setup, context);
+  return context.window.getActiveMarketingSuite();
+}
+
+// Sales, Service and Complete Marketing Suite grant the EXACT SAME atomic product set
+// (design_studio, facebook, marketsync_social, marketsync_email, marketsync_video) — see
+// plan-catalog.js. access.products alone can never distinguish which suite a real account
+// is on; only access.planByProduct (which plan actually sold each product — see
+// access-policy.js's computeAccessContext / routes/profile.js's /auth/me) can. This
+// fixture matches the REAL shape the backend sends (no package_id, no data-product/
+// data-package attribute — those are never populated for a real account), unlike the
+// synthetic fixtures elsewhere in this file that pre-date this fix.
+test('getActiveMarketingSuite tells Sales, Service, Complete and Digital apart using access.planByProduct', () => {
+  const sharedProducts = ['design_studio', 'facebook', 'marketsync_social', 'marketsync_email', 'marketsync_video'];
+  const planByProductFor = (planId) => Object.fromEntries(sharedProducts.map(p => [p, planId]));
+
+  assert.equal(detectSuite({ products: sharedProducts, planByProduct: planByProductFor('sales-marketing-suite') }), 'sales');
+  assert.equal(detectSuite({ products: sharedProducts, planByProduct: planByProductFor('service-marketing-suite') }), 'service');
+  assert.equal(detectSuite({ products: sharedProducts, planByProduct: planByProductFor('complete-marketing-suite') }), 'complete');
+  assert.equal(detectSuite({ products: sharedProducts, planByProduct: planByProductFor('marketsync-digital') }), 'digital');
+
+  // No planByProduct at all (e.g. a real DealerOS account) must not be misread as a suite.
+  assert.equal(detectSuite({ products: ['dealer_os'], planByProduct: { dealer_os: 'dealer-os-complete' } }), null);
+});
+
 test('MarketSync Digital canonical entitlement includes SEO while suite prices remain unchanged', () => {
   assert.ok(getPlan('marketsync-digital').products.includes('marketsync_seo'));
   assert.equal(getPlan('sales-marketing-suite').monthly, 399);
