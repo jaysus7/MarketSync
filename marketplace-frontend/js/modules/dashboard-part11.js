@@ -1980,7 +1980,7 @@ ENGINES['command'] = {
       const not_covered = (d.day.not_covered || []);
       const byDept = departments.length ? departments.map(dep => {
         const items = attention.filter(x => (x.department || x.source_label || 'Other') === dep);
-        return `<div class="mb-4">
+        return `<div class="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-white/55 dark:bg-slate-950/25">
           <div class="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">${esc(dep)} (${items.length})</div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-2">${items.map(x => cmdAttentionCard(x)).join('')}</div>
         </div>`;
@@ -2098,10 +2098,18 @@ ENGINES['command'] = {
         ${window.pulseMarketingDeptSection(d)}
         ${window.pulseHrDeptSection(d)}
 
-        <div class="mb-6">
-          <h3 class="text-sm font-black uppercase tracking-wider text-slate-500 mb-3">Needs Attention by Department</h3>
-          ${byDept}
-        </div>
+        <details class="mb-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white/55 dark:bg-slate-950/25 shadow-sm overflow-hidden">
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
+            <span>Needs Attention by Department</span>
+            <span class="flex items-center gap-2 text-[11px] font-bold normal-case tracking-normal text-slate-400">
+              ${attention.length ? `${attention.length} item${attention.length === 1 ? '' : 's'}` : 'All clear'}
+              <span aria-hidden="true" class="text-base leading-none">＋</span>
+            </span>
+          </summary>
+          <div class="border-t border-slate-200/80 dark:border-slate-800/80 p-3 sm:p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+            ${byDept}
+          </div>
+        </details>
         <div class="mb-6">
           ${ranToday}
         </div>
