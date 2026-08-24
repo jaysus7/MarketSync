@@ -91,6 +91,9 @@ test('Users & Access returns the canonical linked employee', () => {
   const route = strip(read('routes/profile.js'))
   const team = route.match(/app\.get\('\/dealership\/team'[\s\S]*?\n  \}\)/)?.[0] || ''
   assert.match(team, /from\('staff_members'\)/)
+  assert.match(team, /ensureStaffMember\(req\.dealershipId, m\.id/)
+  assert.match(team, /\['DEALER_ADMIN', 'OWNER'\]\.includes/)
+  assert.match(team, /status: 'active'/)
   assert.match(team, /linked_employee: employment/)
   assert.match(team, /account_status/)
 })

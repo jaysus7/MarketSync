@@ -28,6 +28,8 @@ function buildMarketingSuiteConfig(key) {
   marketing.push(
     suiteItem('marketing-overview', 'Campaigns', 'megaphone', { tab: 'campaigns' }),
     suiteItem('automation-builder', 'Automations', 'bolt', { tab: 'automations' }),
+    suiteItem('email-sms', 'Email & SMS', 'chat', { tab: 'campaigns' }),
+    suiteItem('email-marketing', 'Campaign Library', 'document'),
   );
 
   const areas = [
@@ -41,7 +43,9 @@ function buildMarketingSuiteConfig(key) {
   ];
   if (definition.digitalPresence) {
     areas.push({ id: 'digital-presence', label: 'Digital Presence', icon: 'globe', items: [
-      suiteItem('website', 'Website', 'globe'),
+      suiteItem('website', 'Website', 'globe', { tab: 'builder' }),
+      suiteItem('website', 'Setup', 'wrench', { tab: 'setup' }),
+      suiteItem('website-settings', 'Website Settings', 'shield'),
       suiteItem('ai-home', 'AI ChatBot', 'sparkles', { tab: 'conversations' }),
       suiteItem('seo', 'SEO', 'chart'),
     ] });

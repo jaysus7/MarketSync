@@ -235,7 +235,27 @@ export function registerRoutes(app) {
       const { count: loginsCount } = await supabaseAdmin
         .from('logins').select('id', { count: 'exact', head: true })
         .eq('user_id', m.id).gte('created_at', thirtyDaysAgo)
-      const employment = employmentByUser.get(m.id) || null
+      let employment = employmentByUser.get(m.id) || null
+
+      // Dealer admins are employees too. Older dealerships were created before the
+      // employment producer ran for the first login, so their own Staff row can be
+      // missing even though invited users are linked correctly. Backfill this
+      // idempotently while loading Users & Access; ensureStaffMember is protected by
+      // the dealership/user unique index and will also reuse an uninvited row by email.
+      if (!employment && ['DEALER_ADMIN', 'OWNER'].includes(String(m.role || '').toUpperCase())) {
+        const ensured = await ensureStaffMember(req.dealershipId, m.id, {
+          name: m.full_name || m.display_name,
+          email: authUser?.user?.email || null,
+          role: m.role,
+          createdBy: req.user.id,
+          status: 'active',
+        })
+        if (ensured.error) {
+          console.error('[profile] dealer admin employment backfill failed:', ensured.error)
+        } else {
+          employment = ensured.staff || null
+        }
+      }
       return {
         id: m.id,
         full_name: m.full_name,

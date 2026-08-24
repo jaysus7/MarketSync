@@ -1418,6 +1418,30 @@ function renderDeptTabbar(pageId) {
     bar.classList.remove('hidden');
     return;
   }
+  // Standalone products still use the shared top header. Previously these
+  // destinations were suppressed here, leaving Website and AI without their
+  // Builder/Setup or Pulse/Setup navigation.
+  const restricted = typeof restrictedNavPages === 'function' ? restrictedNavPages() : null;
+  const workspaceContext = typeof resolveWorkspaceContext === 'function' ? resolveWorkspaceContext() : null;
+  if (restricted && restricted.length > 1 && (__productAllowedPages || __fbOnly || __staffAllowedPages || workspaceContext?.type === 'website')) {
+    const activeTab = pageId === 'website' ? (window.__wsTab || 'setup')
+      : pageId === 'automation-builder' ? (__autoTab || 'overview')
+      : pageId === 'ai-home' ? (window.__aiHomeTab || 'conversations')
+      : pageId === 'social-scheduler' ? (window.__socialTab || window.__studioSchedulerTab || 'overview')
+      : null;
+    const tabs = restricted.map(item => {
+      const on = item.page === pageId && (!item.tab || item.tab === activeTab);
+      const call = item.studioLaunch
+        ? 'window.openMarketSyncStudio()'
+        : item.studioSchedulerLaunch
+          ? 'window.openStudioSchedulerWithEntitlementCheck()'
+          : `deptGo('${esc(item.page)}'${item.invmode ? `,'${esc(item.invmode)}'` : `,''`}${item.tab ? `,'${esc(item.tab)}'` : ''})`;
+      return `<button type="button" role="tab" aria-selected="${on}"${on ? ' aria-current="page"' : ''} onclick="${call}" class="px-3.5 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${on ? 'text-indigo-700 dark:text-indigo-300 border-current' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}">${esc(item.label)}</button>`;
+    }).join('');
+    bar.innerHTML = `<div role="tablist" aria-label="Workspace navigation" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto">${tabs}</div>`;
+    bar.classList.remove('hidden');
+    return;
+  }
   if (pageId === 'website' || (typeof resolveWorkspaceContext === 'function' && resolveWorkspaceContext() === 'website')) { __activeDept = null; return hide(); }
   if (__fbOnly) { __activeDept = null; return hide(); }   // stripped Facebook-only tier
   if (__productAllowedPages) { __activeDept = null; return hide(); }   // restricted product tiers use their flat nav, no dept tab-bar
@@ -1624,7 +1648,19 @@ function renderMarketingSuiteNav(suiteKey, host, navRoot) {
     <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">${esc(cfg.badge)}</div>
     <div class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">${esc(cfg.title || 'MarketSync')}</div>
   </div>`;
-  html += cfg.areas.map(area => `<button type="button" data-suite-area="${esc(area.id)}" onclick="suiteAreaOpen('${esc(area.id)}')" title="${esc(area.label)}" class="ms-suite-nav-item dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-[13px]"><span class="text-indigo-500 flex-shrink-0">${svgIcon(area.icon || 'dot', 'w-4 h-4')}</span><span class="truncate">${esc(area.label)}</span></button>`).join('');
+  // Keep area labels for hierarchy, but expose every actual destination. The
+  // previous area-only rail made the suite look like it was missing Builder,
+  // AI, Design Studio, Social Scheduler, Automations and campaigns.
+  html += cfg.areas.map(area => {
+    const heading = `<div class="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">${esc(area.label)}</div>`;
+    const items = (area.items || []).map(item => {
+      const call = item.studioLaunch
+        ? 'window.openMarketSyncStudio()'
+        : `deptGo('${esc(item.page)}'${item.invmode ? `,'${esc(item.invmode)}'` : `,''`}${item.tab ? `,'${esc(item.tab)}'` : ''})`;
+      return `<button type="button" data-page="${esc(item.page)}"${item.tab ? ` data-tab="${esc(item.tab)}"` : ''} title="${esc(item.label)}" onclick="${call}" class="ms-suite-nav-item dept-nav-item w-full flex items-center gap-2.5 px-3 py-1.5 rounded font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-[13px]"><span class="text-indigo-500 flex-shrink-0">${svgIcon(item.icon || area.icon || 'dot', 'w-4 h-4')}</span><span class="truncate">${esc(item.label)}</span></button>`;
+    }).join('');
+    return heading + items;
+  }).join('');
 
   host.innerHTML = html;
   navRoot.classList.add('dept-mode');
