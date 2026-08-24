@@ -10,8 +10,14 @@ test('DELETE /social/accounts/:id endpoint is registered in backend routes', () 
   assert.match(socialJs, /app\.delete\('\/social\/accounts\/:id'/)
 })
 
-test('studioSchedulerCompose routes directly into Design Studio workspace', () => {
-  assert.match(studioSchedulerJs, /switchPage\('marketing'\)/)
+// studioSchedulerCompose used to route through switchPage('marketing') — a page id
+// with no #social-scheduler-root container of its own — while leaving Design Studio's
+// full-screen modal mounted on top of it. It now closes Studio first and routes to the
+// standalone Social Scheduler page (data-page-content="social-scheduler" in
+// dashboard.html), where loadSocialSchedulerPage('create') actually mounts.
+test('studioSchedulerCompose closes Design Studio and routes to the standalone Social Scheduler page', () => {
+  assert.match(studioSchedulerJs, /switchPage\('social-scheduler'\)/)
+  assert.match(dashboardHtml, /data-page-content="social-scheduler"/)
 })
 
 test('Social Account Settings uses separate platform cards for Facebook, Instagram, LinkedIn, TikTok, YouTube', () => {

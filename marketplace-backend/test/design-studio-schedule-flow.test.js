@@ -13,10 +13,17 @@ describe('Design Studio Schedule Flow & Full Social Calendar Suite', () => {
   const schedulerCode = fs.readFileSync(schedulerPath, 'utf8');
   const shellCode = fs.readFileSync(shellPath, 'utf8');
 
-  it('ensures full-screen Design Studio workspace is active whenever Schedule is triggered', () => {
-    assert.ok(schedulerCode.includes('function ensureStudioWorkspaceActive()'), 'Defines ensureStudioWorkspaceActive');
-    assert.ok(schedulerCode.includes('await ensureStudioWorkspaceActive()'), 'openStudioScheduler awaits studio workspace activation');
-    assert.ok(schedulerCode.includes('window.openMarketSyncStudio'), 'Uses canonical openMarketSyncStudio to establish full-screen shell');
+  // Schedule used to force Design Studio's full-screen shell open and overlay the
+  // scheduler on top of it (ensureStudioWorkspaceActive/openStudioScheduler) — closing
+  // the scheduler left the user stranded back inside Studio instead of on a dashboard
+  // page. Schedule is now its own standalone destination: Studio's Schedule button and
+  // post-render handoff both close Studio first, then route via switchPage.
+  it('Schedule closes Design Studio and hands off to the standalone Social Scheduler page, never nesting inside Studio', () => {
+    assert.ok(!schedulerCode.includes('function ensureStudioWorkspaceActive'), 'No longer forces Studio open to show Schedule');
+    assert.ok(!schedulerCode.includes('function openStudioScheduler('), 'No longer overlays Schedule inside the Studio modal');
+    assert.ok(shellCode.includes("switchPage('social-scheduler')"), 'Schedule button routes to the standalone page via the real router');
+    assert.ok(schedulerCode.includes("switchPage('social-scheduler')"), 'Post-render handoff routes to the standalone page via the real router');
+    assert.match(shellCode, /closeMarketSyncStudio\(\);\s*\n\s*}\s*\n\s*if \(typeof switchPage === 'function'\) switchPage\('social-scheduler'\)/, 'Closes Studio before navigating to Schedule');
   });
 
   it('renders Month, Week, and List views for the social calendar', () => {
@@ -60,12 +67,16 @@ describe('Design Studio Schedule Flow & Full Social Calendar Suite', () => {
     assert.ok(schedulerCode.includes('Retry Now'), 'Provides retry button for failed posts');
   });
 
+  // The "Open Social Calendar in Design Studio" handoff button used to send the user
+  // from the standalone Scheduler's Accounts tab back into the nested-in-Studio
+  // overlay — exactly the pattern this suite now forbids. Account connection
+  // management is self-contained on this tab; there is nothing to hand off to.
   it('Settings social connections card keeps connection configuration separate from scheduling', () => {
     assert.ok(schedulerCode.includes('async function studioSocialConnectionsRender()'), 'Defines settings connection renderer');
-    assert.ok(schedulerCode.includes('Open Social Calendar in Design Studio'), 'Provides clear handoff button to Design Studio');
+    assert.ok(!schedulerCode.includes('Open Social Calendar in Design Studio'), 'No handoff back into a nested Studio overlay');
   });
 
-  it('Design Studio toolbar header includes Schedule button wired to openStudioScheduler', () => {
-    assert.ok(shellCode.includes('openStudioScheduler()'), 'Toolbar schedule button calls openStudioScheduler');
+  it('Design Studio toolbar header includes Schedule button wired to the entitlement-checked handoff', () => {
+    assert.ok(shellCode.includes('openStudioSchedulerWithEntitlementCheck()'), 'Toolbar schedule button calls openStudioSchedulerWithEntitlementCheck');
   });
 });

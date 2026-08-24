@@ -29,15 +29,15 @@ test('the studio scheduler never reuses ENGINE_DATA/mktReload/engineTab — thos
   assert.doesNotMatch(schedulerCode, /engineTab\('/)
 })
 
-test('openStudioScheduler loads accounts and posts directly from /social/*, independent of the Marketing engine fetch', () => {
-  assert.match(scheduler, /function openStudioScheduler/)
+test('the standalone scheduler loads accounts and posts directly from /social/*, independent of the Marketing engine fetch', () => {
+  assert.match(scheduler, /async function loadStudioSchedulerPosts/)
+  assert.match(scheduler, /apiGetJson\('\/social\/posts'\)/)
+  assert.match(scheduler, /apiGetJson\('\/social\/accounts'\)/)
   assert.match(scheduler, /apiGetJson\('\/social\/accounts', \{ retries: 0, timeoutMs: 8000 \}\)/)
   assert.match(scheduler, /renderAccounts\(Array\.isArray\(__studioSchedulerAccounts\)/,
     'Social Accounts must paint cached connection cards before its live request completes')
   assert.match(scheduler, /Live account status is temporarily unavailable/,
     'a failed refresh must leave useful controls visible with a retry action')
-  assert.match(scheduler, /apiGetJson\('\/social\/posts'\)/)
-  assert.match(scheduler, /window\.openStudioScheduler = openStudioScheduler/)
 })
 
 test('studioSchedulerSavePost posts to /social/posts and refreshes the local list, not the Marketing engine', () => {
@@ -106,9 +106,15 @@ test('the scheduler has a calendar view with clickable, editable posts, toggleab
   assert.match(editFn, /studioSchedulerCancelPost/, 'the edit popover must be able to cancel')
 })
 
-test('calendar stays inside Design Studio and linked posts reopen their editable canvas', () => {
-  assert.match(scheduler, /overlay\.className = 'absolute inset-0/)
-  assert.doesNotMatch(scheduler, /__currentPage === 'social-scheduler'/)
+// The calendar used to be an overlay stacked inside Design Studio's own modal
+// (z-[100000] on top of Studio's z-[99999]) — closing it only removed the overlay,
+// leaving the user stranded back in Studio instead of on a dashboard page. It is now
+// its own standalone destination (data-page-content="social-scheduler"); linked posts
+// still reopen their exact design in Studio's editable canvas, which is a distinct,
+// legitimate "go edit this graphic" flow, not the scheduler nesting inside Studio.
+test('the calendar is a standalone destination; linked posts still reopen their editable canvas in Design Studio', () => {
+  assert.doesNotMatch(scheduler, /overlay\.className = 'absolute inset-0/)
+  assert.match(dashboardHtml, /data-page-content="social-scheduler"/)
   const editFn = scheduler.match(/function studioSchedulerEditPost\(postId\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.match(editFn, /searchParams\.get\('studio_design'\)/)
   assert.match(editFn, /window\.openMarketSyncStudio\(designId\)/)
@@ -118,7 +124,10 @@ test('calendar stays inside Design Studio and linked posts reopen their editable
 test('a rendered design pre-attaches into the compose form instead of requiring the user to find it again', () => {
   const fn = scheduler.match(/async function studioSchedulerCompose\(preselectedAssetUrl\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(fn, 'studioSchedulerCompose must accept a preselected asset url')
-  assert.match(fn, /a\.public_url === preselectedAssetUrl \? 'checked' : ''/)
+  assert.match(fn, /studioSchedulerUseAsset\(preselectedAssetUrl\)/)
+  const useAssetFn = scheduler.match(/function studioSchedulerUseAsset\(url\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(useAssetFn, /__studioComposerMedia = \[\{ url, type: 'image' \}\]/,
+    'the preselected design must actually populate the composer media list')
 })
 
 test('a real "Connected social accounts" settings card exists, distinct from the demo-data mock panel', () => {

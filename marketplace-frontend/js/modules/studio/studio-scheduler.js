@@ -5,11 +5,11 @@
  * Complete social media scheduling, multi-platform publishing,
  * calendar management, content library, connected social accounts, approval
  * workflows, and analytics engine.
- * 
- * Works seamlessly as:
- * 1. Scheduler and calendar inside Design Studio
- * 2. Dedicated Social Scheduler tab in Marketing Suite / MarketSync Digital / DealerOS
- * 3. Schedule & Publish launcher inside Design Studio & Video Studio
+ *
+ * A standalone destination in its own right (data-page-content="social-scheduler"
+ * in dashboard.html), never a view nested inside Design Studio — Design Studio's
+ * own Schedule button and post-render handoff both close Studio first and route
+ * here via switchPage('social-scheduler').
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -103,117 +103,6 @@ const STUDIO_SOCIAL_PLATFORMS = {
     ]
   }
 };
-
-/**
- * Ensures the canonical full-screen Design Studio workspace is active before opening any Schedule UI
- */
-async function ensureStudioWorkspaceActive() {
-  const masterModal = document.getElementById('ms-studio-master-modal');
-  if (!masterModal || masterModal.classList.contains('hidden') || masterModal.style.display === 'none') {
-    if (typeof window.openMarketSyncStudio === 'function') {
-      await window.openMarketSyncStudio(null, { skipInitAdapter: true });
-    } else if (typeof switchPage === 'function') {
-      switchPage('marketing');
-    }
-  }
-}
-
-/**
- * Main Schedule entry point — opens as an overlay modal inside Design Studio or any host page
- */
-async function openStudioScheduler(options = {}) {
-  await ensureStudioWorkspaceActive();
-
-  document.getElementById('studio-scheduler-overlay')?.remove();
-  const studioModal = document.getElementById('ms-studio-master-modal') || document.body;
-
-  const overlay = document.createElement('div');
-  overlay.id = 'studio-scheduler-overlay';
-  overlay.className = 'absolute inset-0 z-[100000] bg-slate-950/80 backdrop-blur-md flex flex-col justify-center items-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-150';
-  overlay.innerHTML = `
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-6xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
-      <!-- Modal Top Header -->
-      <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-4 bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-2xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-bold">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5"/></svg>
-          </div>
-          <div>
-            <div class="flex items-center gap-2">
-              <h2 class="text-base font-black text-slate-900 dark:text-white">Social Scheduler &amp; Calendar</h2>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">Social Suite</span>
-            </div>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Schedule, automate, and publish finished creative across connected dealership social channels.</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-2">
-          <button onclick="studioSchedulerCompose(${options.assetUrl ? `'${esc(options.assetUrl)}'` : ''})" class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-            <span>+ Create Post</span>
-          </button>
-          <button onclick="closeStudioScheduler()" class="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer" title="Close">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- Controls Bar -->
-      <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-3 bg-white dark:bg-slate-900 shrink-0">
-        <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-          <button id="studio-sched-view-cal" onclick="studioSchedulerSetView('calendar')" class="text-xs font-bold px-3 py-1.5 rounded-lg transition ${__studioSchedulerView === 'calendar' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-300'}">Month</button>
-          <button id="studio-sched-view-week" onclick="studioSchedulerSetView('week')" class="text-xs font-bold px-3 py-1.5 rounded-lg transition ${__studioSchedulerView === 'week' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-300'}">Week</button>
-          <button id="studio-sched-view-list" onclick="studioSchedulerSetView('list')" class="text-xs font-bold px-3 py-1.5 rounded-lg transition ${__studioSchedulerView === 'list' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-300'}">List</button>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <button onclick="studioSchedulerMoveMonth(-1)" class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold transition">‹</button>
-          <button onclick="studioSchedulerToday()" class="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold transition">Today</button>
-          <button onclick="studioSchedulerMoveMonth(1)" class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold transition">›</button>
-          <span id="studio-sched-cal-title" class="text-sm font-black text-slate-900 dark:text-white px-2"></span>
-        </div>
-
-        <div class="flex items-center gap-2 flex-wrap text-xs">
-          <select id="studio-sched-filter-plat" onchange="studioSchedulerFilterPlat(this.value)" class="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-slate-700 dark:text-slate-200 font-bold">
-            <option value="all">All Channels</option>
-            <option value="facebook">Facebook</option>
-            <option value="instagram">Instagram</option>
-            <option value="linkedin">LinkedIn</option>
-            <option value="tiktok">TikTok</option>
-            <option value="youtube">YouTube</option>
-            <option value="x">X (Twitter)</option>
-          </select>
-          <select id="studio-sched-filter-stat" onchange="studioSchedulerFilterStat(this.value)" class="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-slate-700 dark:text-slate-200 font-bold">
-            <option value="all">All Statuses</option>
-            <option value="draft">Draft</option>
-            <option value="scheduled">Scheduled</option>
-            <option value="published">Published</option>
-            <option value="failed">Failed</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Main Schedule Content -->
-      <div id="studio-sched-body" class="p-5 flex-1 overflow-y-auto min-h-[360px] space-y-4">
-        <div class="text-sm text-slate-400 italic py-12 text-center">Loading scheduled posts…</div>
-      </div>
-    </div>
-  `;
-
-  studioModal.appendChild(overlay);
-  await loadStudioSchedulerPosts();
-  if (options.assetUrl) {
-    studioSchedulerCompose(options.assetUrl);
-  }
-}
-window.openStudioScheduler = openStudioScheduler;
-window.openSocialSchedule = openStudioScheduler;
-window.openScheduleModal = openStudioScheduler;
-window.openSocialScheduler = openStudioScheduler;
-
-function closeStudioScheduler() {
-  document.getElementById('studio-scheduler-overlay')?.remove();
-}
-window.closeStudioScheduler = closeStudioScheduler;
 
 function studioSchedulerMfaNotice() {
   return `<div class="text-[12px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">Multi-factor authentication is required to view or manage scheduled posts. Complete MFA in your profile settings.</div>`;
@@ -1511,7 +1400,6 @@ function studioSchedulerEditPost(postId) {
     try { designId = new URL(mediaUrl, window.location.origin).searchParams.get('studio_design') || ''; } catch {}
   }
   if (designId && typeof window.openMarketSyncStudio === 'function') {
-    closeStudioScheduler();
     window.openMarketSyncStudio(designId);
     return;
   }
@@ -1700,8 +1588,7 @@ async function studioSocialConnectionsRender() {
       }
     }).join('');
 
-    const studioHandoffBtn = `<div class="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end"><button type="button" onclick="openStudioScheduler()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition">Open Social Calendar in Design Studio</button></div>`;
-    list.innerHTML = `<div class="grid grid-cols-1 gap-3">${cardsHtml}</div>${studioHandoffBtn}`;
+    list.innerHTML = `<div class="grid grid-cols-1 gap-3">${cardsHtml}</div>`;
   };
 
   // Never hold this tab behind a cold backend. Show the connection choices from
@@ -1789,13 +1676,17 @@ async function studioSocialDisconnectAccount(accountId) {
 window.studioSocialDisconnectAccount = studioSocialDisconnectAccount;
 
 async function studioSchedulerCompose(preselectedAssetUrl) {
-  const options = arguments[1] || {};
+  // Schedule is its own destination, not a view nested inside Design Studio —
+  // close Studio (if it's the one open) and hand off to the real, standalone
+  // Social Scheduler page (data-page-content="social-scheduler").
+  if (document.getElementById('ms-studio-master-modal') && typeof closeMarketSyncStudio === 'function') {
+    closeMarketSyncStudio();
+  }
   if (typeof switchPage === 'function') {
-    switchPage('marketing');
+    switchPage('social-scheduler');
   }
   loadSocialSchedulerPage('create');
   if (preselectedAssetUrl) {
-    const isChecked = (a) => a.public_url === preselectedAssetUrl ? 'checked' : '';
     setTimeout(() => {
       studioSchedulerUseAsset(preselectedAssetUrl);
     }, 100);
