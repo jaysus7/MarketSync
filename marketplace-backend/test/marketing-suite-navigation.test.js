@@ -49,7 +49,7 @@ test('suite page headers expose canonical products without moving them into the 
     assert.deepEqual(labels(area(suite, 'content')), ['Design Studio', 'Social Scheduler', 'Video']);
     assert.equal(configs[suite].areas[0].items[0].label, 'Pulse');
   }
-  assert.deepEqual(labels(area('digital', 'website')), ['Builder', 'Setup', 'Website Settings']);
+  assert.deepEqual(labels(area('digital', 'website')), ['Setup', 'Builder', 'Website Settings']);
   assert.equal(JSON.stringify(configs).includes('AI Setup'), false);
 });
 
