@@ -1438,3 +1438,70 @@ body > header,
   background: linear-gradient(135deg, rgba(30,41,72,.70), rgba(15,23,42,.54)) !important;
   border-color: rgba(148,163,184,.20) !important;
 }
+
+/* Notebook Pulse composition shared by Executive, Sales, F&I, Service and Parts. */
+.ms-pulse-board {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: clamp(.85rem, 1.4vw, 1.25rem);
+  align-items: start;
+}
+
+.ms-pulse-board > * {
+  grid-column: 1 / -1;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+.ms-pulse-board > .grid { gap: clamp(.75rem, 1.1vw, 1rem) !important; }
+
+.ms-pulse-board .bg-white,
+.ms-pulse-board .dark\:bg-slate-900,
+.ms-pulse-board details,
+[data-engine-rail] details {
+  border-radius: var(--ms-radius-card) !important;
+  background: linear-gradient(145deg, rgba(255,255,255,.22), rgba(255,255,255,.07)) !important;
+  border-color: rgba(255,255,255,.19) !important;
+  box-shadow: 0 14px 38px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.10) !important;
+  backdrop-filter: blur(24px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(140%) !important;
+}
+
+.dark .ms-pulse-board .bg-white,
+.dark .ms-pulse-board .dark\:bg-slate-900,
+.dark .ms-pulse-board details,
+.dark [data-engine-rail] details {
+  background: linear-gradient(145deg, rgba(30,41,72,.66), rgba(15,23,42,.50)) !important;
+  border-color: rgba(148,163,184,.18) !important;
+}
+
+.ms-pulse-board h2,
+.ms-pulse-board h3,
+[data-engine-rail] summary {
+  letter-spacing: -.018em;
+  font-weight: 900 !important;
+}
+
+.ms-pulse-board > .grid:first-of-type > * {
+  min-height: 7.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.ms-pulse-board button,
+[data-engine-rail] button { border-radius: var(--ms-radius-control) !important; }
+
+@media (min-width: 1024px) {
+  .ms-pulse-board[data-pulse-kind="sales"] > .grid:last-child,
+  .ms-pulse-board[data-pulse-kind="service-overview"] > .grid:last-child,
+  .ms-pulse-board[data-pulse-kind="parts-overview"] > .grid:last-child {
+    gap: 1.25rem !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .ms-pulse-board { grid-template-columns: 1fr; gap: .8rem; }
+  .ms-pulse-board > * { grid-column: 1; }
+  .ms-pulse-board > .grid:first-of-type > * { min-height: 5.75rem; }
+}

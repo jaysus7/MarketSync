@@ -913,6 +913,11 @@ async function engineTab(engineId, tab, force) {
   });
   const body = document.querySelector(`[data-engine-body="${engineId}"]`);
   if (!body) return;
+  const pulseEngines = ['command', 'sales', 'fni-overview', 'service-overview', 'parts-overview'];
+  const isPulseLayout = pulseEngines.includes(engineId) && ['overview', 'pulse'].includes(tab);
+  body.classList.toggle('ms-pulse-board', isPulseLayout);
+  if (isPulseLayout) body.dataset.pulseKind = engineId;
+  else delete body.dataset.pulseKind;
   // A borrowed page panel may be sitting in here; hand it back before the wipe or
   // innerHTML deletes the real page out of the document.
   engRestoreMountedPages();

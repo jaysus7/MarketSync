@@ -218,7 +218,7 @@ function fniContractsAndFunding(d) {
 // page itself now render inside overview() directly — one F&I header, not two.
 
 ENGINES['fni-overview'] = {
-  rootId: 'fni-overview-root', title: 'F&I', subtitle: 'Approvals, credit, products, contracts and delivery readiness',
+  rootId: 'fni-overview-root', title: 'F&I Pulse', subtitle: 'Approvals, credit, products, contracts and delivery readiness',
   icon: 'shield', accent: 'indigo',
   // Right-rail Reports, specific to F&I.
   reports: [
