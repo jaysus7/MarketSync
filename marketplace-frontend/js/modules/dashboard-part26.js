@@ -1742,7 +1742,7 @@ function renderPeopleSettings(body, employees) {
 function openAddEmployeeModal() {
   const modalHtml = `
     <div class="ms-staff-editor space-y-5">
-      <div class="flex items-start justify-between gap-3"><div><h3 class="text-lg font-black text-slate-900 dark:text-white">Add a staff member</h3><p class="text-xs text-slate-500 mt-1">Create their account and connect it to this dealership.</p></div><button type="button" onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-700 dark:hover:text-white" aria-label="Close">✕</button></div>
+      <div class="flex items-start justify-between gap-3"><div><h3 class="text-lg font-black text-slate-900 dark:text-white">Add a staff member</h3><p class="text-xs text-slate-500 mt-1">Create their account and connect it to this dealership.</p></div><button type="button" onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-700 dark:hover:text-white" aria-label="Close"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button></div>
       <div class="ms-staff-grid grid grid-cols-2 gap-3 text-xs">
         <label class="font-bold text-slate-600 dark:text-slate-300">First name<input type="text" id="new-emp-fname" autocomplete="given-name" placeholder="First name" class="mt-1 w-full p-2.5 rounded-xl border border-slate-300 bg-white/80"></label>
         <label class="font-bold text-slate-600 dark:text-slate-300">Last name<input type="text" id="new-emp-lname" autocomplete="family-name" placeholder="Last name" class="mt-1 w-full p-2.5 rounded-xl border border-slate-300 bg-white/80"></label>
