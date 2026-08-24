@@ -24,9 +24,6 @@ function rctFmtMoney(v) {
  * Log receipt to CRM Customer Timeline
  */
 async function logReceiptToCustomerTimeline(contactId, receiptType, invoiceNo, amount, summaryText) {
-  if (!contactId && typeof profileContext !== 'undefined') {
-    contactId = 'demo-customer';
-  }
   const payload = {
     kind: 'receipt',
     subject: `Printed & Saved ${receiptType} Receipt ${invoiceNo} (${rctFmtMoney(amount)})`,
@@ -53,42 +50,66 @@ async function logReceiptToCustomerTimeline(contactId, receiptType, invoiceNo, a
  * Generate Printable & Saveable Service Work Order / Repair Order Receipt
  */
 async function printServiceReceipt(ro) {
+  let customer = null;
   if (typeof ro === 'string' || typeof ro === 'number') {
     const roId = ro;
-    try {
-      const res = await apiGetJson(`/service-engine/ros/${roId}`).catch(() => null);
-      ro = res?.ro || res || { id: roId, ro_number: `RO-${roId}`, customer_name: 'Customer', vehicle_summary: 'Vehicle' };
-    } catch {
-      ro = { id: roId, ro_number: `RO-${roId}`, customer_name: 'Customer', vehicle_summary: 'Vehicle' };
-    }
+    const res = await apiGetJson(`/service-engine/ros/${roId}`).catch(() => null);
+    ro = res?.ro || { id: roId, ro_number: `RO-${roId}`, lines: [] };
+    customer = res?.customer || null;
+  } else {
+    customer = ro.customer || null;
   }
 
-  const storeName = window.__dealerConfig?.store_name || 'MarketSync Motors & Service Center';
-  const storePhone = window.__dealerConfig?.phone || '(555) 019-2834';
-  const storeAddress = window.__dealerConfig?.address || '100 Dealership Way, Automotive City, ON';
-  const storeTaxId = window.__dealerConfig?.tax_id || 'GST/HST #849201938RT001';
+  const notOnFile = 'Not on file';
+  const numOrZero = (...vals) => { for (const v of vals) if (v != null && v !== '') return Number(v); return 0; };
+  const lines = Array.isArray(ro.lines) ? ro.lines : [];
 
-  const roNo = ro.ro_number || ro.ro_no || `RO-${ro.id || Math.floor(1000 + Math.random() * 9000)}`;
-  const custName = ro.customer_name || ro.name || 'Valued Customer';
-  const custPhone = ro.customer_phone || ro.phone || '(555) 234-5678';
-  const custEmail = ro.customer_email || ro.email || 'customer@example.com';
-  const contactId = ro.contact_id || ro.customer_id || '';
+  const storeName = window.__dealerConfig?.store_name || 'Your Dealership';
+  const storePhone = window.__dealerConfig?.phone || notOnFile;
+  const storeAddress = window.__dealerConfig?.address || notOnFile;
+  const storeTaxId = window.__dealerConfig?.tax_id || '';
 
-  const veh = ro.vehicle_summary || `${ro.year || '2022'} ${ro.make || 'Ford'} ${ro.model || 'F-150'}`;
-  const vin = ro.vin || '1FTFW1ED4MFC90421';
-  const mileageIn = ro.mileage_in ? `${Number(ro.mileage_in).toLocaleString()} mi` : (ro.odometer ? `${Number(ro.odometer).toLocaleString()} mi` : (ro.mileage || '42,150 mi'));
-  const fuelIn = ro.fuel_in || '3/4 Tank';
-  const advisor = ro.advisor_name || ro.advisor || 'Dave Miller';
-  const tech = ro.technician_name || ro.tech || 'Marcus Vance';
+  const roNo = ro.ro_number || ro.ro_no || `RO-${ro.id || ''}`;
+  const custName = customer?.name || ro.customer_name || ro.name || 'Customer';
+  const custPhone = customer?.phone || ro.customer_phone || ro.phone || notOnFile;
+  const custEmail = customer?.email || ro.customer_email || ro.email || notOnFile;
+  const contactId = customer?.id || ro.contact_id || ro.customer_id || '';
+
+  const veh = ro.vehicle_summary || ro.vehicle_desc || [ro.year, ro.make, ro.model].filter(Boolean).join(' ') || 'Vehicle';
+  const vin = ro.vin || notOnFile;
+  const mileageIn = ro.odometer != null ? `${Number(ro.odometer).toLocaleString()} mi` : (ro.mileage != null ? `${Number(ro.mileage).toLocaleString()} mi` : notOnFile);
+  const fuelIn = ro.fuel_in || notOnFile;
+  const advisor = ro.advisor_name || ro.advisor || notOnFile;
+  const tech = ro.technician_name || ro.tech || notOnFile;
+  const complaint = ro.complaint || null;
   const dateStr = new Date(ro.closed_at || ro.created_at || Date.now()).toLocaleDateString();
 
-  const laborTotal = Number(ro.labor_total || ro.labor || 245.00);
-  const partsTotal = Number(ro.parts_total || ro.parts || 185.50);
-  const shopSupplies = Number(ro.shop_supplies || 19.95);
-  const envFee = Number(ro.environmental_fee || 4.95);
-  const subtotal = laborTotal + partsTotal + shopSupplies + envFee;
-  const tax = Number(ro.tax || subtotal * 0.13);
-  const grandTotal = Number(ro.total || subtotal + tax);
+  const laborTotal = numOrZero(ro.labor_total);
+  const partsTotal = numOrZero(ro.parts_total);
+  const subletTotal = numOrZero(ro.sublet_total);
+  const feeTotal = numOrZero(ro.fee_total);
+  const discount = numOrZero(ro.discount);
+  const subtotal = laborTotal + partsTotal + subletTotal + feeTotal - discount;
+  const tax = ro.tax != null ? Number(ro.tax) : Math.round(subtotal * 0.13 * 100) / 100;
+  const grandTotal = ro.total != null ? Number(ro.total) : subtotal + tax;
+
+  const LINE_TYPE_LABEL = { labor: 'Labor', part: 'Parts', sublet: 'Sublet', fee: 'Fee' };
+  const lineRow = (l) => {
+    const label = LINE_TYPE_LABEL[l.line_type] || (l.line_type || 'Line');
+    const qtyCol = l.line_type === 'labor' && l.hours != null ? `${l.hours} hrs` : `${l.qty ?? 1}`;
+    const rateCol = l.line_type === 'labor' ? (l.rate != null ? rctFmtMoney(l.rate) : '—') : (l.unit_price != null ? rctFmtMoney(l.unit_price) : '—');
+    return `
+      <tr>
+        <td><div class="item-title">${escHtml(l.description || label)}</div></td>
+        <td>${escHtml(label)}</td>
+        <td style="text-align:right">${escHtml(qtyCol)}</td>
+        <td style="text-align:right">${rateCol}</td>
+        <td style="text-align:right; font-weight:800;">${rctFmtMoney(l.total)}</td>
+      </tr>`;
+  };
+  const itemsHtml = lines.length
+    ? lines.map(lineRow).join('')
+    : `<tr><td colspan="5" style="color:#94a3b8; font-style:italic; text-align:center; padding:16px 0;">No itemized lines on file for this repair order.</td></tr>`;
 
   const printWin = window.open('', '_blank', 'width=980,height=1100');
   if (!printWin) {
@@ -213,7 +234,7 @@ async function printServiceReceipt(ro) {
             <div class="invoice-tag">Official Service Invoice</div>
             <div class="invoice-no">${escHtml(roNo)}</div>
             <div class="invoice-date">Date: ${escHtml(dateStr)}</div>
-            <div class="status-pill">Paid in Full</div>
+            <div class="status-pill">${escHtml(ro.status === 'closed' ? 'Closed' : (ro.status || 'Status unknown'))}</div>
           </div>
         </div>
 
@@ -244,44 +265,7 @@ async function printServiceReceipt(ro) {
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>
-                <div class="item-title">Multi-Point Digital Vehicle Inspection &amp; Brake Service</div>
-                <div class="item-desc">Concern: Squeaking brake noise. Cause: Front pads worn. Correction: Replaced pads &amp; resurfaced rotors.</div>
-              </td>
-              <td>Labor</td>
-              <td style="text-align:right">1.8 hrs</td>
-              <td style="text-align:right">$135.00</td>
-              <td style="text-align:right; font-weight:800;">${rctFmtMoney(laborTotal)}</td>
-            </tr>
-            <tr>
-              <td>
-                <div class="item-title">Ceramic Front Brake Pad Set (OEM)</div>
-                <div class="item-desc">Part # BRK-9042-OEM · Bin A-12</div>
-              </td>
-              <td>Parts</td>
-              <td style="text-align:right">1 set</td>
-              <td style="text-align:right">$185.50</td>
-              <td style="text-align:right; font-weight:800;">${rctFmtMoney(partsTotal)}</td>
-            </tr>
-            <tr>
-              <td>
-                <div class="item-title">Shop Supplies &amp; Hazardous Disposal Charge</div>
-              </td>
-              <td>Fee</td>
-              <td style="text-align:right">1</td>
-              <td style="text-align:right">$19.95</td>
-              <td style="text-align:right; font-weight:800;">${rctFmtMoney(shopSupplies)}</td>
-            </tr>
-            <tr>
-              <td>
-                <div class="item-title">Environmental Recycling Fee</div>
-              </td>
-              <td>Fee</td>
-              <td style="text-align:right">1</td>
-              <td style="text-align:right">$4.95</td>
-              <td style="text-align:right; font-weight:800;">${rctFmtMoney(envFee)}</td>
-            </tr>
+            ${itemsHtml}
           </tbody>
         </table>
 
@@ -304,11 +288,16 @@ async function printServiceReceipt(ro) {
                 <td style="text-align:right; font-weight:700;">${rctFmtMoney(partsTotal)}</td>
               </tr>
               <tr class="total-row">
-                <td>Fees &amp; Supplies:</td>
-                <td style="text-align:right; font-weight:700;">${rctFmtMoney(shopSupplies + envFee)}</td>
+                <td>Sublet:</td>
+                <td style="text-align:right; font-weight:700;">${rctFmtMoney(subletTotal)}</td>
               </tr>
               <tr class="total-row">
-                <td>HST / Tax (13%):</td>
+                <td>Fees:</td>
+                <td style="text-align:right; font-weight:700;">${rctFmtMoney(feeTotal)}</td>
+              </tr>
+              ${discount ? `<tr class="total-row"><td>Discount:</td><td style="text-align:right; font-weight:700;">-${rctFmtMoney(discount)}</td></tr>` : ''}
+              <tr class="total-row">
+                <td>Tax:</td>
                 <td style="text-align:right; font-weight:700;">${rctFmtMoney(tax)}</td>
               </tr>
               <tr class="grand-total">
@@ -328,35 +317,48 @@ async function printServiceReceipt(ro) {
   printWin.document.close();
 
   // Log to Customer Timeline
-  await logReceiptToCustomerTimeline(contactId, 'Service Work Order', roNo, grandTotal, `${veh} - Brake Service & Inspection`);
+  await logReceiptToCustomerTimeline(contactId, 'Service Work Order', roNo, grandTotal, complaint ? `${veh} — ${complaint}` : veh);
 }
 
 /**
  * Generate Printable & Saveable Parts Order / Requisition Receipt
  */
 async function printPartsReceipt(order) {
+  let part = null, customer = null;
   if (typeof order === 'string' || typeof order === 'number') {
     const poId = order;
-    order = { id: poId, order_number: `PO-${poId}`, customer_name: 'Counter Customer' };
+    const res = await apiGetJson(`/service-engine/part-requests/${poId}`).catch(() => null);
+    order = res?.request || { id: poId };
+    part = res?.part || null;
+    customer = res?.customer || null;
+  } else {
+    part = order.part || null;
+    customer = order.customer || null;
   }
 
-  const storeName = window.__dealerConfig?.store_name || 'MarketSync Dealership Parts Department';
-  const storePhone = window.__dealerConfig?.phone || '(555) 019-2834';
-  const storeAddress = window.__dealerConfig?.address || '100 Dealership Way, Automotive City, ON';
-  const storeTaxId = window.__dealerConfig?.tax_id || 'GST/HST #849201938RT001';
+  const notOnFile = 'Not on file';
+  const numOrZero = (...vals) => { for (const v of vals) if (v != null && v !== '') return Number(v); return 0; };
 
-  const poNo = order.order_number || order.po_number || `PO-${order.id || Math.floor(1000 + Math.random() * 9000)}`;
-  const custName = order.customer_name || order.account_name || 'Counter Customer / Retail';
-  const custPhone = order.customer_phone || order.phone || '(555) 987-6543';
-  const contactId = order.contact_id || '';
-  const dateStr = new Date(order.created_at || Date.now()).toLocaleDateString();
+  const storeName = window.__dealerConfig?.store_name || 'Your Dealership';
+  const storePhone = window.__dealerConfig?.phone || notOnFile;
+  const storeAddress = window.__dealerConfig?.address || notOnFile;
+  const storeTaxId = window.__dealerConfig?.tax_id || '';
 
-  const partsSubtotal = Number(order.parts_subtotal || order.subtotal || 340.00);
-  const coreCharge = Number(order.core_charge || 45.00);
-  const shippingFee = Number(order.shipping_fee || 0.00);
-  const subtotal = partsSubtotal + coreCharge + shippingFee;
-  const tax = Number(order.tax || subtotal * 0.13);
-  const grandTotal = Number(order.total || subtotal + tax);
+  const poNo = order.order_number || order.po_number || `PO-${order.id || ''}`;
+  const custName = customer?.name || order.customer_name || order.account_name || 'Counter Customer / Retail';
+  const custPhone = customer?.phone || order.customer_phone || order.phone || notOnFile;
+  const contactId = customer?.id || order.contact_id || '';
+  const dateStr = new Date(order.requested_at || order.created_at || Date.now()).toLocaleDateString();
+
+  const partNumber = part?.part_number || order.part_number || 'Part';
+  const partDesc = part?.description || order.description || '';
+  const partBin = part?.bin || order.bin || notOnFile;
+  const qty = numOrZero(order.qty_issued, order.qty_requested, order.qty) || 1;
+  const unitPrice = numOrZero(part?.price, order.unit_price);
+  const partsSubtotal = qty * unitPrice;
+  const subtotal = partsSubtotal;
+  const tax = order.tax != null ? Number(order.tax) : Math.round(subtotal * 0.13 * 100) / 100;
+  const grandTotal = order.total != null ? Number(order.total) : subtotal + tax;
 
   const printWin = window.open('', '_blank', 'width=980,height=1100');
   if (!printWin) {
@@ -481,7 +483,7 @@ async function printPartsReceipt(order) {
             <div class="invoice-tag">Parts Counter Invoice</div>
             <div class="invoice-no">${escHtml(poNo)}</div>
             <div class="invoice-date">Date: ${escHtml(dateStr)}</div>
-            <div class="status-pill">Paid &amp; Handed Over</div>
+            <div class="status-pill">${escHtml(order.status ? order.status.replace(/_/g, ' ') : 'Status unknown')}</div>
           </div>
         </div>
 
@@ -490,13 +492,11 @@ async function printPartsReceipt(order) {
             <h4>Customer Account</h4>
             <p><strong>${escHtml(custName)}</strong></p>
             <p>Ph: ${escHtml(custPhone)}</p>
-            <p>Payment: Paid (Credit Card / Counter)</p>
           </div>
           <div class="info-card">
-            <h4>Counter &amp; Bin Order Details</h4>
-            <p>Counter Rep: Elena Rostova</p>
-            <p>Fulfillment: Picked &amp; Verified</p>
-            <p>Status: Complete / Handed to Customer</p>
+            <h4>Order Details</h4>
+            <p>Vendor: ${escHtml(order.vendor || notOnFile)}</p>
+            <p>Status: ${escHtml(order.status ? order.status.replace(/_/g, ' ') : notOnFile)}</p>
           </div>
         </div>
 
@@ -513,23 +513,13 @@ async function printPartsReceipt(order) {
           <tbody>
             <tr>
               <td>
-                <div class="item-title">Part # ALT-3920 — High Output Alternator Assembly</div>
-                <div class="item-desc">OEM Ford Remanufactured Alternator</div>
+                <div class="item-title">Part # ${escHtml(partNumber)}</div>
+                ${partDesc ? `<div class="item-desc">${escHtml(partDesc)}</div>` : ''}
               </td>
-              <td>BIN-B04</td>
-              <td style="text-align:right">1</td>
-              <td style="text-align:right">$340.00</td>
-              <td style="text-align:right; font-weight:800;">$340.00</td>
-            </tr>
-            <tr>
-              <td>
-                <div class="item-title">Refundable Core Deposit</div>
-                <div class="item-desc">Core return required within 30 days for full credit</div>
-              </td>
-              <td>CORE</td>
-              <td style="text-align:right">1</td>
-              <td style="text-align:right">$45.00</td>
-              <td style="text-align:right; font-weight:800;">$45.00</td>
+              <td>${escHtml(partBin)}</td>
+              <td style="text-align:right">${qty}</td>
+              <td style="text-align:right">${rctFmtMoney(unitPrice)}</td>
+              <td style="text-align:right; font-weight:800;">${rctFmtMoney(partsSubtotal)}</td>
             </tr>
           </tbody>
         </table>
@@ -540,7 +530,7 @@ async function printPartsReceipt(order) {
               <div class="signature-line"></div>
               <div class="signature-label">Customer Pickup Signature: X _______________________________________</div>
             </div>
-            <div class="legal-disclaimer">All electrical parts returns subject to inspection. Core deposit refundable upon return of undamaged core in original box.</div>
+            <div class="legal-disclaimer">All parts returns subject to inspection per dealership policy.</div>
           </div>
           <div class="totals-card">
             <table class="totals-table">
@@ -549,15 +539,7 @@ async function printPartsReceipt(order) {
                 <td style="text-align:right; font-weight:700;">${rctFmtMoney(partsSubtotal)}</td>
               </tr>
               <tr class="total-row">
-                <td>Core Deposit:</td>
-                <td style="text-align:right; font-weight:700;">${rctFmtMoney(coreCharge)}</td>
-              </tr>
-              <tr class="total-row">
-                <td>Shipping / Freight:</td>
-                <td style="text-align:right; font-weight:700;">${rctFmtMoney(shippingFee)}</td>
-              </tr>
-              <tr class="total-row">
-                <td>HST / Tax (13%):</td>
+                <td>Tax:</td>
                 <td style="text-align:right; font-weight:700;">${rctFmtMoney(tax)}</td>
               </tr>
               <tr class="grand-total">
@@ -577,7 +559,7 @@ async function printPartsReceipt(order) {
   printWin.document.close();
 
   // Log to Customer Timeline
-  await logReceiptToCustomerTimeline(contactId, 'Parts Order', poNo, grandTotal, `Alternator & Core Charge`);
+  await logReceiptToCustomerTimeline(contactId, 'Parts Order', poNo, grandTotal, partDesc ? `${partNumber} — ${partDesc}` : partNumber);
 }
 
 window.printServiceReceipt = printServiceReceipt;

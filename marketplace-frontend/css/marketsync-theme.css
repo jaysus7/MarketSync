@@ -1336,7 +1336,7 @@ body.website-workspace-mode {
    values), left as-is rather than risk trimming something still relied upon. */
 :root {
   --ms-bg: #f7f8fa;
-  --ms-surface: rgba(255, 255, 255, 0.72);
+  --ms-surface: rgba(255, 255, 255, 0.85);
   --ms-surface-solid: #ffffff;
   --ms-text: #17191f;
   --ms-text-muted: #687386;
@@ -1372,7 +1372,7 @@ body.ms-app-booting > header { background:var(--ms-surface) !important; border-c
 ────────────────────────────────────────────────────────────────────────── */
 :root {
   --ms-bg: #f7f8fa;
-  --ms-surface: rgba(255, 255, 255, 0.72);
+  --ms-surface: rgba(255, 255, 255, 0.85);
   --ms-surface-solid: #ffffff;
   --ms-text: #17191f;
   --ms-text-muted: #687386;
@@ -1481,11 +1481,11 @@ body > header,
 .ms-card,
 [data-page-content] .bg-white,
 [data-page-content] .dark\:bg-slate-900 {
-  background: linear-gradient(135deg, rgba(255,255,255,.20), rgba(255,255,255,.07)) !important;
+  background: linear-gradient(135deg, rgba(255,255,255,.92), rgba(255,255,255,.78)) !important;
   border-color: rgba(255,255,255,.20) !important;
   box-shadow: 0 18px 50px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.11) !important;
-  backdrop-filter: blur(28px) saturate(145%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(145%) !important;
+  backdrop-filter: blur(20px) saturate(145%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(145%) !important;
 }
 
 .dark body,
@@ -1525,11 +1525,11 @@ body > header,
 .ms-pulse-board details,
 [data-engine-rail] details {
   border-radius: var(--ms-radius-card) !important;
-  background: linear-gradient(145deg, rgba(255,255,255,.22), rgba(255,255,255,.07)) !important;
+  background: linear-gradient(145deg, rgba(255,255,255,.92), rgba(255,255,255,.78)) !important;
   border-color: rgba(255,255,255,.19) !important;
   box-shadow: 0 14px 38px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.10) !important;
-  backdrop-filter: blur(24px) saturate(140%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(140%) !important;
+  backdrop-filter: blur(18px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(140%) !important;
 }
 
 .dark .ms-pulse-board .bg-white,
@@ -1602,7 +1602,7 @@ body > header,
   padding: .45rem;
   border: 1px solid var(--ms-border);
   border-radius: 1.15rem;
-  background: rgba(255,255,255,.08);
+  background: rgba(255,255,255,.55);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
   backdrop-filter: blur(20px) saturate(140%);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
@@ -1654,7 +1654,7 @@ body > header,
 
 .dark {
   --ms-bg: #070b14;
-  --ms-surface: rgba(16, 25, 43, .52);
+  --ms-surface: rgba(16, 25, 43, .85);
   --ms-border: rgba(190, 205, 230, .16);
   --ms-shadow-glass: 0 28px 80px rgba(0, 0, 0, .34), inset 0 1px 0 rgba(255,255,255,.10);
 }
@@ -1688,11 +1688,11 @@ body {
 .dark .ms-pulse-board .dark\:bg-slate-900,
 .dark .ms-pulse-board details,
 .dark [data-engine-rail] details {
-  background: linear-gradient(145deg, rgba(24, 36, 60, .56), rgba(10, 17, 31, .40)) !important;
+  background: linear-gradient(145deg, rgba(24, 36, 60, .90), rgba(10, 17, 31, .78)) !important;
   border-color: rgba(190, 205, 230, .15) !important;
   box-shadow: var(--ms-shadow-glass) !important;
-  backdrop-filter: blur(32px) saturate(118%) !important;
-  -webkit-backdrop-filter: blur(32px) saturate(118%) !important;
+  backdrop-filter: blur(22px) saturate(118%) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(118%) !important;
 }
 
 .ms-engine-header,
@@ -1714,13 +1714,16 @@ body {
 
 .ms-engine-title { font-size: clamp(2.35rem, 3.6vw, 3.65rem) !important; }
 
-.ms-engine-tabs {
+.dark .ms-engine-tabs {
   border-radius: 1.45rem;
-  background: rgba(15,23,42,.34);
+  background: rgba(15,23,42,.68);
   border-color: rgba(190,205,230,.14);
 }
 
-.ms-engine-tab { border-radius: 1.05rem !important; color: #9aa9bf !important; }
+.ms-engine-tabs { border-radius: 1.45rem; }
+
+.ms-engine-tab { border-radius: 1.05rem !important; }
+.dark .ms-engine-tab { color: #9aa9bf !important; }
 
 .dark .ms-engine-tab[aria-selected="true"] {
   color: #f8fafc !important;
@@ -1754,27 +1757,27 @@ body {
   color: var(--ms-text);
   border: 1px solid rgba(23,25,31,.12);
   border-radius: 30px !important;
-  background: linear-gradient(145deg, rgba(255,255,255,.78), rgba(242,246,251,.60)) !important;
+  background: linear-gradient(145deg, rgba(255,255,255,.94), rgba(242,246,251,.82)) !important;
   box-shadow: 0 34px 110px rgba(15,23,42,.20), inset 0 1px 0 rgba(255,255,255,.74) !important;
-  backdrop-filter: blur(38px) saturate(118%) !important;
-  -webkit-backdrop-filter: blur(38px) saturate(118%) !important;
+  backdrop-filter: blur(24px) saturate(118%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(118%) !important;
 }
 
 .ms-crm-glass > .sticky {
-  background: linear-gradient(180deg, rgba(255,255,255,.76), rgba(255,255,255,.46)) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.80)) !important;
   border-color: rgba(23,25,31,.10) !important;
-  backdrop-filter: blur(30px) saturate(115%);
-  -webkit-backdrop-filter: blur(30px) saturate(115%);
+  backdrop-filter: blur(20px) saturate(115%);
+  -webkit-backdrop-filter: blur(20px) saturate(115%);
 }
 
 .dark .ms-crm-glass {
   border-color: rgba(190,205,230,.18);
-  background: linear-gradient(145deg, rgba(28,41,67,.72), rgba(9,16,30,.60)) !important;
+  background: linear-gradient(145deg, rgba(28,41,67,.90), rgba(9,16,30,.80)) !important;
   box-shadow: 0 34px 110px rgba(0,0,0,.52), inset 0 1px 0 rgba(255,255,255,.12) !important;
 }
 
 .dark .ms-crm-glass > .sticky {
-  background: linear-gradient(180deg, rgba(22,34,56,.76), rgba(22,34,56,.46)) !important;
+  background: linear-gradient(180deg, rgba(22,34,56,.92), rgba(22,34,56,.80)) !important;
   border-color: rgba(190,205,230,.12) !important;
 }
 
@@ -1785,7 +1788,7 @@ body {
 .ms-crm-glass .dark\:bg-slate-950 {
   border-radius: 17px !important;
   border-color: rgba(190,205,230,.14) !important;
-  background: rgba(3,9,20,.42) !important;
+  background: rgba(3,9,20,.78) !important;
 }
 
 .ms-crm-glass .rounded-lg,

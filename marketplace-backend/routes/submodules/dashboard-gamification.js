@@ -25,14 +25,33 @@ export function registerDashboardGamificationRoutes(app) {
     return { key, icon, label, description, value, unit, level, max_level: thresholds.length, thresholds, next, progress_pct: null }
   }
 
-  // Deterministic seed helper based on user ID and string key for realistic demo stats
-  const seedNum = (idStr, keyStr, minVal, maxVal) => {
-    let hash = 0
-    const str = `${idStr}_${keyStr}`
-    for (let i = 0; i < str.length; i++) hash = ((hash << 5) - hash) + str.charCodeAt(i)
-    const normalized = (Math.abs(hash) % 10000) / 10000
-    return Math.floor(minVal + normalized * (maxVal - minVal + 1))
+  // Products + their $ for a deal (mirrors routes/fni.js's dealProducts). fni_items
+  // is [{name, price}]; addons may carry priced F&I add-ons too. fni_products is a
+  // free-text fallback (name only, $0) used only when a deal has no structured items.
+  const num = (v) => {
+    if (typeof v === 'number') return isFinite(v) ? v : 0
+    const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, ''))
+    return isFinite(n) ? n : 0
   }
+  const dealProducts = (d) => {
+    const out = []
+    const scan = (arr) => {
+      for (const it of (Array.isArray(arr) ? arr : [])) {
+        if (it == null) continue
+        const name = String((typeof it === 'object' ? (it.name ?? it.label ?? it.product ?? it.type) : it) || '').trim()
+        if (!name) continue
+        const price = typeof it === 'object' ? num(it.price ?? it.amount ?? it.cost ?? it.total) : 0
+        out.push({ name, price })
+      }
+    }
+    scan(d.fni_items)
+    scan(d.addons)
+    if (!out.length && typeof d.fni_products === 'string' && d.fni_products.trim()) {
+      for (const nm of d.fni_products.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean)) out.push({ name: nm, price: 0 })
+    }
+    return out
+  }
+  const isUnit = (d) => d.deal_status === 'sold' || d.deal_status === 'delivered'
 
   app.get('/gamification', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ me: null, dealership: null, departments: {} })
@@ -45,20 +64,17 @@ export function registerDashboardGamificationRoutes(app) {
       // Fetch team members for the dealership
       const { data: members } = await supabaseAdmin
         .from('profiles').select('id, full_name, role, department').eq('dealership_id', req.dealershipId)
-      
+
+      // No team on record yet: show the caller alone rather than inventing teammates.
       const team = members && members.length ? members : [
         { id: req.user?.id || 'usr-1', full_name: req.user?.user_metadata?.full_name || 'Current User', role: 'SALES_REP', department: 'Sales' },
-        { id: 'usr-demo-1', full_name: 'Sarah Jenkins', role: 'SALES_REP', department: 'Sales' },
-        { id: 'usr-demo-2', full_name: 'Michael Vance', role: 'SERVICE_ADVISOR', department: 'Service' },
-        { id: 'usr-demo-3', full_name: 'David Miller', role: 'FNI_MANAGER', department: 'F&I' },
-        { id: 'usr-demo-4', full_name: 'Elena Rostova', role: 'TECHNICIAN', department: 'Service' },
       ]
 
       const memberIds = team.map(m => m.id)
       const nameOf = new Map(team.map(m => [m.id, m.full_name]))
 
-      // Fetch DB data for Facebook, Sales, Appraisals, Inventory, Sales Videos
-      const [{ data: listings }, { data: appraisals }, { count: availCount }, { data: videos }] = await Promise.all([
+      // Fetch DB data for Facebook, Sales, Appraisals, Inventory, Sales Videos, Service, F&I
+      const [{ data: listings }, { data: appraisals }, { count: availCount }, { data: videos }, { data: repairOrders }, { data: deals }] = await Promise.all([
         memberIds.length ? supabaseAdmin
           .from('listings')
           .select('posted_by, status, posted_at, inventory:inventory_id(created_at)')
@@ -72,6 +88,12 @@ export function registerDashboardGamificationRoutes(app) {
         supabaseAdmin
           .from('sales_videos').select('created_by, status, sent_at, first_played_at, watch_percent')
           .eq('dealership_id', req.dealershipId).is('deleted_at', null).limit(20000),
+        supabaseAdmin
+          .from('repair_orders').select('advisor_id, technician_id, status, total, opened_at, closed_at')
+          .eq('dealership_id', req.dealershipId).limit(20000),
+        supabaseAdmin
+          .from('deals').select('created_by, fni_manager_id, selling_price, cost, deal_status, sold_at, inventory_id, fni_items, addons, fni_products, inventory:inventory_id(created_at)')
+          .eq('dealership_id', req.dealershipId).limit(20000),
       ])
 
       const now = Date.now()
@@ -88,6 +110,9 @@ export function registerDashboardGamificationRoutes(app) {
           post_lags_ms: [], appraisals_total: 0,
           videos_sent_total: 0, videos_sent_30d: 0, videos_watched_total: 0,
           watch_pct_sum: 0, watch_pct_count: 0,
+          ro_closed: 0, service_rev: 0, service_turn_ms_sum: 0, service_turn_count: 0,
+          deal_gross: 0, deal_turn_days_sum: 0, deal_turn_days_count: 0, deal_day_counts: new Map(),
+          fni_deal_count: 0, fni_units: 0, fni_gross: 0, fni_products_count: 0, fni_deals_with_product: 0, fni_vsc_count: 0,
         }
       })
 
@@ -127,6 +152,56 @@ export function registerDashboardGamificationRoutes(app) {
         }
       }
 
+      // Repair orders: attribute a closed RO to whichever rep(s) are its advisor
+      // and/or technician. Only 'closed' ROs count toward revenue/turnaround —
+      // open work isn't a finished result yet.
+      for (const ro of (repairOrders || [])) {
+        if (ro.status !== 'closed') continue
+        const repIds = [...new Set([ro.advisor_id, ro.technician_id].filter(Boolean))]
+        for (const id of repIds) {
+          const s = rawStats[id]
+          if (!s) continue
+          s.ro_closed++
+          s.service_rev += num(ro.total)
+          if (ro.opened_at && ro.closed_at) {
+            const ms = new Date(ro.closed_at).getTime() - new Date(ro.opened_at).getTime()
+            if (ms >= 0) { s.service_turn_ms_sum += ms; s.service_turn_count++ }
+          }
+        }
+      }
+
+      // Deals: gross (selling_price - cost) and turn time attribute to the
+      // salesperson (created_by); F&I product mix attributes to the F&I manager
+      // on the deal (fni_manager_id — a profile id; the sibling `fni_manager`
+      // text field is a free-typed name and not reliable for attribution).
+      for (const d of (deals || [])) {
+        if (d.created_by && rawStats[d.created_by] && isUnit(d)) {
+          const s = rawStats[d.created_by]
+          s.deal_gross += num(d.selling_price) - num(d.cost)
+          const invCreated = d.inventory?.created_at
+          if (invCreated && d.sold_at) {
+            const days = (new Date(d.sold_at).getTime() - new Date(invCreated).getTime()) / 86400000
+            if (days >= 0 && days < 365) { s.deal_turn_days_sum += days; s.deal_turn_days_count++ }
+          }
+          if (d.sold_at) {
+            const day = new Date(d.sold_at).toISOString().slice(0, 10)
+            s.deal_day_counts.set(day, (s.deal_day_counts.get(day) || 0) + 1)
+          }
+        }
+        if (d.fni_manager_id && rawStats[d.fni_manager_id]) {
+          const s = rawStats[d.fni_manager_id]
+          const products = dealProducts(d)
+          s.fni_deal_count++
+          if (isUnit(d)) s.fni_units++
+          if (products.length) {
+            s.fni_deals_with_product++
+            s.fni_products_count += products.length
+            s.fni_gross += products.reduce((a, p) => a + p.price, 0)
+            if (products.some(p => /\b(vsc|service contract|extended warranty)\b/i.test(p.name))) s.fni_vsc_count++
+          }
+        }
+      }
+
       // Build 5 Departmental Data Sets
       // 1. Facebook AutoPoster
       // 2. Internal Sales
@@ -145,19 +220,20 @@ export function registerDashboardGamificationRoutes(app) {
       team.forEach(m => {
         const id = m.id
         const s = rawStats[id]
-        
+
         // --- 1. FACEBOOK AUTOPOSTER ---
-        const fb_posted = s.posted_total || seedNum(id, 'fb_post', 12, 140)
-        const fb_posted_30d = s.posted_30d || seedNum(id, 'fb_30d', 4, 38)
-        const fb_leads = seedNum(id, 'fb_lead', 15, 180)
-        const fb_resp_min = seedNum(id, 'fb_resp', 4, 28)
-        const fb_sold = s.sold_total || seedNum(id, 'fb_sold', 2, 22)
-        
+        // Lead volume and response time aren't tracked anywhere in this codebase
+        // yet (no inbound-lead table keyed to a Facebook post and a rep); report
+        // 0/not-available instead of inventing plausible numbers.
+        const fb_posted = s.posted_total
+        const fb_posted_30d = s.posted_30d
+        const fb_leads = 0
+        const fb_resp_min = null
+        const fb_sold = s.sold_total
+
         const fbBadges = [
           ascBadge('fb_first_post', '🚀', 'First Post', 'Post your first vehicle to Facebook Marketplace.', fb_posted, [1]),
           ascBadge('fb_post_master', '🔥', 'Social Dominator', 'Post 10, 50, or 200 vehicles to Facebook.', fb_posted, [10, 50, 200]),
-          ascBadge('fb_lead_magnet', '🧲', 'Lead Magnet', 'Generate 10, 50, or 150 Facebook inquiries.', fb_leads, [10, 50, 150]),
-          descBadge('fb_fast_responder', '⚡', 'Speed Responder', 'Average lead response speed under 30m / 15m / 5m.', fb_resp_min, [30, 15, 5], 'm'),
           ascBadge('fb_closer', '💰', 'Facebook Closer', 'Sell 3, 15, or 30 vehicles from Facebook.', fb_sold, [3, 15, 30]),
         ]
 
@@ -165,20 +241,21 @@ export function registerDashboardGamificationRoutes(app) {
           rep_id: id, full_name: m.full_name,
           title: fb_posted >= 100 ? 'Social Master' : fb_posted >= 25 ? 'Active Poster' : 'Rookie',
           metrics: { posted: fb_posted_30d, total_posted: fb_posted, leads: fb_leads, resp_time_min: fb_resp_min, sold: fb_sold },
-          score: (fb_posted * 100) + (fb_leads * 50) + (fb_sold * 500),
+          score: (fb_posted * 100) + (fb_sold * 500),
           badges: fbBadges,
         })
 
         // --- 2. INTERNAL SALES ---
-        const sales_count = s.sold_total || seedNum(id, 'sales_cnt', 6, 45)
-        const sales_30d = s.sold_30d || seedNum(id, 'sales_30d', 2, 14)
-        const appraisals = s.appraisals_total || seedNum(id, 'appraisals', 5, 60)
-        const gross_profit = seedNum(id, 'sales_gross', 12000, 110000)
-        const days_to_turn = seedNum(id, 'sales_turn', 8, 35)
+        const sales_count = s.sold_total
+        const sales_30d = s.sold_30d
+        const appraisals = s.appraisals_total
+        const gross_profit = Math.round(s.deal_gross)
+        const days_to_turn = s.deal_turn_days_count ? Math.round((s.deal_turn_days_sum / s.deal_turn_days_count) * 10) / 10 : null
+        const hat_trick_best = s.deal_day_counts.size ? Math.max(...s.deal_day_counts.values()) : 0
 
         const salesBadges = [
           ascBadge('sales_titan', '🏆', 'Sales Titan', 'Close 5, 25, or 50 vehicle deals.', sales_count, [5, 25, 50]),
-          ascBadge('hat_trick', '🎩', 'Hat Trick', 'Sell 3+ vehicles in a single day.', seedNum(id, 'hat', 0, 3), [1, 2, 3]),
+          ascBadge('hat_trick', '🎩', 'Hat Trick', 'Sell 3+ vehicles in a single day.', hat_trick_best, [1, 2, 3]),
           ascBadge('lot_scout', '🔍', 'Lot Scout', 'Complete 10, 50, or 100 trade appraisals.', appraisals, [10, 50, 100]),
           ascBadge('gross_king', '💵', 'Gross King', 'Generate $10k, $50k, or $150k total sales gross.', gross_profit, [10000, 50000, 150000], '$'),
           descBadge('speed_demon', '⚡', 'Rapid Turnaround', 'Average days to turn stock under 30d / 14d / 7d.', days_to_turn, [30, 14, 7], 'd'),
@@ -188,22 +265,23 @@ export function registerDashboardGamificationRoutes(app) {
           rep_id: id, full_name: m.full_name,
           title: sales_count >= 30 ? 'Legendary Closer' : sales_count >= 10 ? 'Top Producer' : 'Floor Rep',
           metrics: { sold_30d: sales_30d, total_sold: sales_count, appraisals, gross_profit, avg_turn_days: days_to_turn },
-          score: (sales_count * 500) + (appraisals * 50) + Math.floor(gross_profit / 100),
+          score: (sales_count * 500) + (appraisals * 50) + Math.floor(Math.max(0, gross_profit) / 100),
           badges: salesBadges,
         })
 
         // --- 3. SERVICE DEPARTMENT ---
-        const ro_closed = seedNum(id, 'ro_cnt', 15, 240)
-        const tech_eff_pct = seedNum(id, 'tech_eff', 85, 145)
-        const csi_score = seedNum(id, 'csi', 88, 100)
-        const service_rev = seedNum(id, 'srv_rev', 15000, 180000)
-        const avg_turn_hrs = seedNum(id, 'srv_turn', 2, 12)
+        // Billed efficiency and CSI need clocked-hours and survey data this
+        // codebase doesn't collect yet — reported as not-available rather than
+        // guessed at.
+        const ro_closed = s.ro_closed
+        const tech_eff_pct = null
+        const csi_score = null
+        const service_rev = Math.round(s.service_rev)
+        const avg_turn_hrs = s.service_turn_count ? Math.round((s.service_turn_ms_sum / s.service_turn_count / HR) * 10) / 10 : null
 
         const serviceBadges = [
           ascBadge('service_mvp', '🛠️', 'Service MVP', 'Close 20, 100, or 300 Repair Orders.', ro_closed, [20, 100, 300]),
-          ascBadge('wrench_king', '🔧', 'Wrench King', 'Achieve 100%, 125%, or 150%+ Billed Efficiency.', tech_eff_pct, [100, 125, 150], '%'),
           descBadge('bay_master', '⏱️', 'Rapid Bay Turn', 'Average RO turnaround time under 8h / 4h / 2h.', avg_turn_hrs, [8, 4, 2], 'h'),
-          ascBadge('csi_champion', '⭐', 'CSI Champion', 'Maintain 90%, 95%, or 99%+ Customer Satisfaction.', csi_score, [90, 95, 99], '%'),
           ascBadge('service_revenue', '💰', 'Service Producer', 'Generate $25k, $100k, or $250k service revenue.', service_rev, [25000, 100000, 250000], '$'),
         ]
 
@@ -211,23 +289,23 @@ export function registerDashboardGamificationRoutes(app) {
           rep_id: id, full_name: m.full_name,
           title: ro_closed >= 100 ? 'Master Tech & Advisor' : ro_closed >= 30 ? 'Service Pro' : 'Service Specialist',
           metrics: { ro_closed, tech_eff_pct, csi_score, service_rev, avg_turn_hrs },
-          score: (ro_closed * 200) + (csi_score * 50) + Math.floor(service_rev / 100),
+          score: (ro_closed * 200) + Math.floor(service_rev / 100),
           badges: serviceBadges,
         })
 
         // --- 4. F&I DEPARTMENT ---
-        const fni_deals = seedNum(id, 'fni_deals', 8, 85)
-        const pvr_avg = seedNum(id, 'pvr', 1200, 3800)
-        const vsc_pct = seedNum(id, 'vsc', 45, 92)
-        const products_sold = seedNum(id, 'fni_prod', 12, 160)
-        const fni_gross = seedNum(id, 'fni_gross', 15000, 280000)
+        const fni_deals = s.fni_deal_count
+        const pvr_avg = s.fni_units ? Math.round(s.fni_gross / s.fni_units) : 0
+        const vsc_pct = s.fni_deal_count ? Math.round((s.fni_vsc_count / s.fni_deal_count) * 100) : 0
+        const products_sold = s.fni_products_count
+        const fni_gross = Math.round(s.fni_gross)
 
         const fniBadges = [
           ascBadge('fni_mastermind', '💎', 'F&I Mastermind', 'Average PVR of $1,500, $2,500, or $3,500+.', pvr_avg, [1500, 2500, 3500], '$'),
-          ascBadge('warranty_wizard', '🛡️', 'Warranty Wizard', 'VSC warranty penetration rate 50%, 70%, or 85%.', vsc_pct, [50, 70, 85], '%'),
-          ascBadge('protection_pro', '📜', 'Protection Pro', 'Sell GAP & protection products on 10, 50, 150 deals.', products_sold, [10, 50, 150]),
+          ascBadge('warranty_wizard', '🛡️', 'Warranty Wizard', 'VSC/warranty product attach rate 50%, 70%, or 85%.', vsc_pct, [50, 70, 85], '%'),
+          ascBadge('protection_pro', '📜', 'Protection Pro', 'Sell F&I products on 10, 50, 150 deals.', products_sold, [10, 50, 150]),
           ascBadge('gross_titan', '💵', 'F&I Gross Titan', 'Generate $15k, $50k, or $150k total F&I gross.', fni_gross, [15000, 50000, 150000], '$'),
-          ascBadge('menu_master', '💯', '100% Menu Pro', 'Complete full menu presentation on 10, 50, 100 deals.', fni_deals, [10, 50, 100]),
+          ascBadge('menu_master', '💯', 'F&I Producer', 'Work 10, 50, or 100 F&I deals.', fni_deals, [10, 50, 100]),
         ]
 
         deptData.fni.reps.push({

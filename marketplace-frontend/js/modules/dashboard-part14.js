@@ -1235,8 +1235,9 @@ function badgeCard(b) {
   const tiers = ['', 'I', 'II', 'III', 'IV', 'V'];
   const earned = (b.level || 0) > 0;
   const roman = tiers[b.level] || (b.level ? String(b.level) : '');
-  const valLabel = b.unit === '%' ? `${b.value}%`
-    : b.unit === 'h' ? (b.value != null ? `${b.value}h` : '—')
+  const valLabel = b.value == null ? '—'
+    : b.unit === '%' ? `${b.value}%`
+    : b.unit === 'h' ? `${b.value}h`
     : `${b.value}${b.unit ? ' ' + b.unit : ''}`;
   // Progress line: cumulative badges show a bar to next; descending/maxed show a note.
   const next = b.next;
