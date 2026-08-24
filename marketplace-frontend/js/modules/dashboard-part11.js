@@ -1124,6 +1124,48 @@ function cmdUnavailableNote(sources) {
     <b>This view is incomplete.</b> ${missing.map(x => esc(x?.__unavailable || 'A source')).join(', ')} could not be loaded, so the numbers below are partial.</div>`;
 }
 
+const PULSE_GAMIFICATION_DEPTS = {
+  facebook: { label: 'Facebook Marketplace', color: 'text-blue-600 dark:text-blue-400', page: 'leaderboard' },
+  sales: { label: 'Internal Sales', color: 'text-amber-600 dark:text-amber-400', page: 'leaderboard' },
+  service: { label: 'Service', color: 'text-cyan-600 dark:text-cyan-400', page: 'leaderboard' },
+  fni: { label: 'F&I', color: 'text-emerald-600 dark:text-emerald-400', page: 'leaderboard' },
+  video: { label: 'Sales Video', color: 'text-indigo-600 dark:text-indigo-400', page: 'leaderboard' },
+};
+
+function pulseLeaderboardCard(gamification, deptKey) {
+  const config = PULSE_GAMIFICATION_DEPTS[deptKey];
+  const dept = gamification?.departments?.[deptKey];
+  if (!config) return '';
+  if (!dept) return `<div class="p-3.5 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
+    <div class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">${esc(config.label)} leaderboard</div>
+    <div class="text-xs font-semibold text-slate-400 dark:text-slate-500 mt-2">Leaderboard data is not available for this department yet.</div>
+  </div>`;
+
+  const rows = Array.isArray(dept.leaderboard) ? dept.leaderboard.slice(0, 3) : [];
+  const me = dept.me || rows[0];
+  const badges = me ? (dept.repBadges?.[me.rep_id]?.badges || me.badges || []) : [];
+  const visibleBadges = badges.filter(b => Number(b?.level || 0) > 0).slice(0, 4);
+  const ranking = rows.length ? rows.map(row => `<div class="flex items-center justify-between gap-3 py-1.5">
+    <div class="flex min-w-0 items-center gap-2"><span class="w-5 text-center text-[11px] font-black text-slate-400">${row.rank}</span><span class="truncate text-xs font-bold text-slate-800 dark:text-slate-200">${esc(row.full_name || 'Team member')}</span></div>
+    <span class="shrink-0 text-xs font-black ${config.color}">${Number(row.score || 0).toLocaleString()} pts</span>
+  </div>`).join('') : '<div class="text-xs font-semibold text-slate-400 dark:text-slate-500">No ranked activity yet.</div>';
+  const badgeMarkup = visibleBadges.length ? visibleBadges.map(b => `<span title="${esc(b.description || b.label || '')}" class="inline-flex items-center gap-1 rounded-full border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/70 px-2 py-1 text-[10px] font-black text-slate-700 dark:text-slate-200">${esc(b.icon || '★')} ${esc(b.label || 'Badge')}</span>`).join('') : '<span class="text-xs font-semibold text-slate-400 dark:text-slate-500">No badges earned yet.</span>';
+
+  return `<div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
+    <div class="flex items-center justify-between gap-2 mb-2"><div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">${esc(config.label)} leaderboard</div><button onclick="switchPage('${config.page}')" class="text-[11px] font-extrabold ${config.color} hover:underline">View →</button></div>
+    <div class="divide-y divide-slate-200/70 dark:divide-slate-800/70">${ranking}</div>
+    <div class="mt-3 pt-2 border-t border-slate-200/70 dark:border-slate-800/70"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">${esc(me ? `${me.full_name || 'My'} badges` : 'Department badges')}</div><div class="flex flex-wrap gap-1.5">${badgeMarkup}</div></div>
+  </div>`;
+}
+
+function pulsePerformancePanel(d, deptKeys) {
+  const cards = deptKeys.map(key => pulseLeaderboardCard(d?.gamification, key)).filter(Boolean).join('');
+  return `<div class="pulse-performance-panel rounded-xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-950/20 p-3.5 space-y-3">
+    <div class="flex items-center justify-between gap-2"><div class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Team leaderboard &amp; badges</div><span class="text-[10px] font-bold text-slate-400">Connected performance</span></div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">${cards || '<div class="text-xs font-semibold text-slate-400">No connected leaderboard configured.</div>'}</div>
+  </div>`;
+}
+
 // Executive Pulse predates the shared engCard/engSection primitives. Upgrade its
 // top-level panels in place so every department and command-centre section uses the
 // same native, keyboard-accessible disclosure behaviour without duplicating content.
@@ -1343,6 +1385,8 @@ window.pulseSalesDeptSection = function(d) {
           <button onclick="switchPage('leaderboard')" class="text-amber-700 dark:text-amber-400 font-extrabold hover:underline">View Standings →</button>
         </div>
       </div>
+
+      ${pulsePerformancePanel(d, ['sales', 'facebook'])}
     </div>
   `;
 };
@@ -1389,6 +1433,7 @@ window.pulseInventoryDeptSection = function(d) {
           </div>
         </div>
       </div>
+      ${pulsePerformancePanel(d, ['facebook'])}
     </div>
   `;
 };
@@ -1436,6 +1481,7 @@ window.pulseFniDeptSection = function(d) {
           </div>
         </div>
       </div>
+      ${pulsePerformancePanel(d, ['fni'])}
     </div>
   `;
 };
@@ -1510,6 +1556,7 @@ window.pulseServiceDeptSection = function(d) {
           </div>
         </div>
       </div>
+      ${pulsePerformancePanel(d, ['service'])}
     </div>
   `;
 };
@@ -1840,6 +1887,7 @@ window.pulseMarketingDeptSection = function(d) {
           </div>
         </div>
       </div>
+      ${pulsePerformancePanel(d, ['video'])}
     </div>
   `;
 };
@@ -1906,7 +1954,7 @@ ENGINES['command'] = {
     const acctReq = (url, label) => canAcct ? apiGetJson(url).catch(miss(label)) : Promise.resolve(miss(label)(new Error('Not entitled')));
     const serviceReq = (url, fallback) => canService ? apiGetJson(url).catch(() => fallback) : Promise.resolve(fallback);
 
-    const [cc, ev, day, identityReviews, pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy, contacts, tasks, appts, deliveries, reconVehicles, inventory, fniDeals, esignRequests, serviceRos, partsOrders, staff, marketingRoi, marketingPosts, marketingConversations, salesVideos] = await Promise.all([
+    const [cc, ev, day, identityReviews, pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy, contacts, tasks, appts, deliveries, reconVehicles, inventory, fniDeals, esignRequests, serviceRos, partsOrders, staff, marketingRoi, marketingPosts, marketingConversations, salesVideos, gamification] = await Promise.all([
       apiGetJson('/command-center').catch(() => ({ tiles: {}, exceptions: [], exception_count: 0 })),
       apiGetJson('/events?limit=40').catch(() => ({ events: [] })),
       apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ label: 'Pulse', reason: 'Could not be loaded' }], complete: false })),
@@ -1935,6 +1983,7 @@ ENGINES['command'] = {
       canMarketing ? apiGetJson('/social/posts').catch(() => ({ posts: [] })) : Promise.resolve({ posts: [] }),
       canMarketing ? apiGetJson('/ai/conversations').catch(() => ({ conversations: [] })) : Promise.resolve({ conversations: [] }),
       canMarketing ? apiGetJson('/sales-videos').catch(() => ({ videos: [] })) : Promise.resolve({ videos: [] }),
+      apiGetJson('/gamification').catch(() => null),
     ]);
     const badge = document.getElementById('command-badge');
     const attentionCount = (day.needs_attention || []).length;
@@ -1956,7 +2005,8 @@ ENGINES['command'] = {
       marketingRoi,
       marketingPosts: Array.isArray(marketingPosts?.posts) ? marketingPosts.posts : [],
       marketingConversations: Array.isArray(marketingConversations?.conversations) ? marketingConversations.conversations : [],
-      salesVideos: Array.isArray(salesVideos?.videos) ? salesVideos.videos : []
+      salesVideos: Array.isArray(salesVideos?.videos) ? salesVideos.videos : [],
+      gamification
     };
   },
   quickActions: [
