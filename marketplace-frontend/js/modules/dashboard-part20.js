@@ -252,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
 const UPGRADE_PLANS = {
   inv_intel: {
     eyebrow: 'Flagship add-on',
-    title: 'Inventory Intelligence',
+    title: 'Inventory Intelligence by MarketSync',
     tagline: 'Know exactly where every unit sits vs the live market — and value every trade.',
     price: '$299',
     cta: 'Start 30-Day Free Trial',

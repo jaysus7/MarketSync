@@ -360,7 +360,7 @@ ENGINES['inventory-overview'] = {
         'Units carrying no price, and units carrying too much time'));
 
       // One source of truth: mount the connected API-backed Intelligence page here.
-      body.insertAdjacentHTML('beforeend', engSection('Inventory Intelligence', '', 'Live lot health, turn rate, market position and actions from the connected intelligence engine'));
+      body.insertAdjacentHTML('beforeend', engSection('Intelligence by MarketSync', '', 'Inventory Intelligence · Live lot health, turn rate, market position and actions from the connected intelligence engine'));
       engMountPage(body, 'inv-intel', () => {
         document.querySelector('[data-page-content="inv-intel"]')?.classList.add('ms-inventory-intelligence');
         loadInvIntelPage();
