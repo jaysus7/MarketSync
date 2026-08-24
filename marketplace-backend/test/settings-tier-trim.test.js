@@ -217,14 +217,14 @@ test('refreshSetupIndicator unconditionally hides the Setup Wizard banner for ev
   assert.doesNotMatch(fn, /role/, 'must not branch on role — hidden unconditionally')
 })
 
-test('engineRail shows a department Reports section on the right rail, not Team Messages (which lives in the floating bubble)', () => {
+test('engineRail shows only Next Actions and Quick Actions — no Reports section, no Team Messages', () => {
   const fn = part10.match(/function engineRail\(eng, d\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(fn, 'engineRail must exist')
-  // Team chat moved to the floating messages bubble (staff-chat-dock); the rail
-  // now surfaces reports for the department you're in.
+  // Team chat lives in the floating messages bubble (staff-chat-dock); the
+  // Reports section was removed from the rail entirely across every department.
   assert.doesNotMatch(fn, /sec\('Team Messages'/, 'Team Messages section must be gone from the rail')
-  assert.match(fn, /const reportItems = \(eng\.reports && eng\.reports\.length\)/)
-  assert.match(fn, /const msg = sec\('Reports', 'chart', reportsInner\)/)
+  assert.doesNotMatch(fn, /sec\('Reports'/, 'Reports section must be gone from the rail')
+  assert.match(fn, /return sec\('Next Actions', 'check', naHtml\) \+ sec\('Quick Actions', 'bolt', qa\)/)
 })
 
 test('Design Studio nav entries use a real icon key, not the non-existent "image" (which silently falls back to a plain dot)', () => {

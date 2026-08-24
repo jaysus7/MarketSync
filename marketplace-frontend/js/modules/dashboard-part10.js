@@ -1070,16 +1070,9 @@ function engineRail(eng, d) {
       <span class="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">${svgIcon(icon, 'w-3.5 h-3.5')}${esc(title)}</span>
       <span aria-hidden="true" class="text-slate-400 transition-transform group-open:rotate-180">${svgIcon('chevronDown', 'w-3.5 h-3.5')}</span>
     </summary><div class="px-3.5 pb-3.5">${inner}</div></details>`;
-  // Reports for the department you're in. Team chat is NOT on the rail any more — it
-  // lives in the floating messages bubble (staff-chat-dock). An engine may declare its
-  // own `reports: [{label, icon, onclick}]`; otherwise the rail links to the reports page.
-  const reportItems = (eng.reports && eng.reports.length)
-    ? eng.reports
-    : [{ label: `${eng.title || 'Department'} reports`, icon: 'chart', onclick: "switchPage('reports')" }];
-  const reportsInner = reportItems.map(r =>
-    `<button onclick="${r.onclick || "switchPage('reports')"}" class="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">${svgIcon(r.icon || 'chart', 'w-3.5 h-3.5 ' + A.text)}${esc(r.label)}</button>`
-  ).join('');
-  const msg = sec('Reports', 'chart', reportsInner);
+  // The rail used to lead with a "Reports" section (and, before that, Team
+  // Messages) — both removed. Team chat lives in the floating messages bubble
+  // (staff-chat-dock); reports are reached from the Reports page directly.
   const na = (eng.nextActions ? eng.nextActions(d) : []) || [];
   const naHtml = na.length
     ? na.map(a => `<button onclick="${a.onclick || ''}" class="w-full text-left flex items-start gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition">
@@ -1089,7 +1082,7 @@ function engineRail(eng, d) {
   const qa = (eng.quickActions || []).map(q =>
     `<button onclick="${q.onclick}" class="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">${svgIcon(q.icon || 'bolt', 'w-3.5 h-3.5 ' + A.text)}${esc(q.label)}</button>`
   ).join('') || '<div class="text-xs text-slate-400">—</div>';
-  return msg + sec('Next Actions', 'check', naHtml) + sec('Quick Actions', 'bolt', qa);
+  return sec('Next Actions', 'check', naHtml) + sec('Quick Actions', 'bolt', qa);
 }
 
 // Build the engine shell frame into its root, then render the active tab.
