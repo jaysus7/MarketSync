@@ -1574,3 +1574,202 @@ body > header,
   .ms-engine-mark { width: 3.5rem !important; height: 3.5rem !important; border-radius: 1rem !important; }
   .ms-engine-tab { min-height: 2.65rem; padding: .6rem .8rem !important; }
 }
+
+/* Restrained Liquid Glass finish: one blue accent, neutral chrome, softer
+   depth, and larger continuous radii across every department workspace. */
+:root {
+  --ms-primary: #3b82f6;
+  --ms-primary-hover: #2563eb;
+  --ms-accent: #3b82f6;
+  --ms-radius-card: 28px;
+  --ms-radius-control: 15px;
+  --ms-glass-blur: 32px;
+  --ms-shadow-glass: 0 24px 70px rgba(15, 23, 42, .14), inset 0 1px 0 rgba(255,255,255,.34);
+}
+
+.dark {
+  --ms-bg: #070b14;
+  --ms-surface: rgba(16, 25, 43, .52);
+  --ms-border: rgba(190, 205, 230, .16);
+  --ms-shadow-glass: 0 28px 80px rgba(0, 0, 0, .34), inset 0 1px 0 rgba(255,255,255,.10);
+}
+
+body {
+  background:
+    radial-gradient(ellipse 54rem 38rem at 14% 4%, rgba(59,130,246,.15), transparent 62%),
+    radial-gradient(ellipse 48rem 34rem at 88% 24%, rgba(148,163,184,.16), transparent 68%),
+    linear-gradient(155deg, #f8fafc 0%, #eef3f9 55%, #f7f9fc 100%) !important;
+  background-attachment: fixed !important;
+}
+
+.dark body {
+  background:
+    radial-gradient(ellipse 54rem 38rem at 14% 4%, rgba(59,130,246,.22), transparent 62%),
+    radial-gradient(ellipse 48rem 34rem at 88% 24%, rgba(148,163,184,.12), transparent 68%),
+    linear-gradient(155deg, #101827 0%, #070b14 55%, #0b1220 100%) !important;
+  background-attachment: fixed !important;
+}
+
+.dark body > header,
+.dark #nav-desktop,
+.dark #nav-mobile,
+.dark #report-rail,
+.dark .ms-engine-header,
+.dark .ms-glass,
+.dark .ms-card,
+.dark [data-page-content] .bg-white,
+.dark [data-page-content] .dark\:bg-slate-900,
+.dark .ms-pulse-board .bg-white,
+.dark .ms-pulse-board .dark\:bg-slate-900,
+.dark .ms-pulse-board details,
+.dark [data-engine-rail] details {
+  background: linear-gradient(145deg, rgba(24, 36, 60, .56), rgba(10, 17, 31, .40)) !important;
+  border-color: rgba(190, 205, 230, .15) !important;
+  box-shadow: var(--ms-shadow-glass) !important;
+  backdrop-filter: blur(32px) saturate(118%) !important;
+  -webkit-backdrop-filter: blur(32px) saturate(118%) !important;
+}
+
+.ms-engine-header,
+.ms-card,
+.ms-glass,
+.ms-pulse-board .bg-white,
+.ms-pulse-board .dark\:bg-slate-900,
+.ms-pulse-board details,
+[data-engine-rail] details { border-radius: var(--ms-radius-card) !important; }
+
+.ms-engine-header { min-height: 8rem; }
+
+.ms-engine-mark {
+  color: #7db2ff !important;
+  background: linear-gradient(145deg, rgba(96,165,250,.18), rgba(255,255,255,.05)) !important;
+  border-color: rgba(125,178,255,.30) !important;
+  border-radius: 1.6rem !important;
+}
+
+.ms-engine-title { font-size: clamp(2.35rem, 3.6vw, 3.65rem) !important; }
+
+.ms-engine-tabs {
+  border-radius: 1.45rem;
+  background: rgba(15,23,42,.34);
+  border-color: rgba(190,205,230,.14);
+}
+
+.ms-engine-tab { border-radius: 1.05rem !important; color: #9aa9bf !important; }
+
+.dark .ms-engine-tab[aria-selected="true"] {
+  color: #f8fafc !important;
+  background: linear-gradient(145deg, rgba(59,130,246,.24), rgba(255,255,255,.07)) !important;
+  border-color: rgba(125,178,255,.30) !important;
+  box-shadow: 0 12px 30px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.14) !important;
+}
+
+/* Department navigation uses a single mature accent. Semantic status colors
+   remain available inside the actual data views. */
+#nav-desktop a svg,
+#nav-desktop button svg,
+#nav-mobile a svg,
+#nav-mobile button svg,
+[data-engine-rail] button svg { color: #8291a8 !important; }
+
+#nav-desktop [aria-current="page"] svg,
+#nav-desktop .active svg,
+#nav-mobile [aria-current="page"] svg,
+[data-engine-rail] button:hover svg { color: #6ea8ff !important; }
+
+/* CRM dialogs are appended directly to body, so they need their own glass
+   surface instead of relying on the page-content cascade. */
+.ms-modal-scrim {
+  background: rgba(2, 6, 16, .52) !important;
+  backdrop-filter: blur(10px) saturate(90%);
+  -webkit-backdrop-filter: blur(10px) saturate(90%);
+}
+
+.ms-crm-glass {
+  color: var(--ms-text);
+  border: 1px solid rgba(23,25,31,.12);
+  border-radius: 30px !important;
+  background: linear-gradient(145deg, rgba(255,255,255,.78), rgba(242,246,251,.60)) !important;
+  box-shadow: 0 34px 110px rgba(15,23,42,.20), inset 0 1px 0 rgba(255,255,255,.74) !important;
+  backdrop-filter: blur(38px) saturate(118%) !important;
+  -webkit-backdrop-filter: blur(38px) saturate(118%) !important;
+}
+
+.ms-crm-glass > .sticky {
+  background: linear-gradient(180deg, rgba(255,255,255,.76), rgba(255,255,255,.46)) !important;
+  border-color: rgba(23,25,31,.10) !important;
+  backdrop-filter: blur(30px) saturate(115%);
+  -webkit-backdrop-filter: blur(30px) saturate(115%);
+}
+
+.dark .ms-crm-glass {
+  border-color: rgba(190,205,230,.18);
+  background: linear-gradient(145deg, rgba(28,41,67,.72), rgba(9,16,30,.60)) !important;
+  box-shadow: 0 34px 110px rgba(0,0,0,.52), inset 0 1px 0 rgba(255,255,255,.12) !important;
+}
+
+.dark .ms-crm-glass > .sticky {
+  background: linear-gradient(180deg, rgba(22,34,56,.76), rgba(22,34,56,.46)) !important;
+  border-color: rgba(190,205,230,.12) !important;
+}
+
+.ms-crm-glass input,
+.ms-crm-glass select,
+.ms-crm-glass textarea,
+.ms-crm-glass .bg-slate-950,
+.ms-crm-glass .dark\:bg-slate-950 {
+  border-radius: 17px !important;
+  border-color: rgba(190,205,230,.14) !important;
+  background: rgba(3,9,20,.42) !important;
+}
+
+.ms-crm-glass .rounded-lg,
+.ms-crm-glass .rounded-xl,
+.ms-crm-glass .rounded-2xl { border-radius: 18px !important; }
+
+.ms-crm-actions { gap: .55rem !important; }
+
+.ms-crm-actions button {
+  min-height: 2.35rem;
+  padding: .55rem .8rem !important;
+  color: #d7e0ed !important;
+  background: rgba(148,163,184,.10) !important;
+  border: 1px solid rgba(190,205,230,.14) !important;
+  border-radius: 13px !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07) !important;
+}
+
+.ms-crm-actions button:hover {
+  color: #fff !important;
+  background: rgba(148,163,184,.17) !important;
+  border-color: rgba(190,205,230,.24) !important;
+}
+
+.ms-crm-actions .ms-action-primary {
+  color: #fff !important;
+  background: linear-gradient(145deg, #3b82f6, #2563eb) !important;
+  border-color: rgba(147,197,253,.46) !important;
+}
+
+/* Quiet glass notifications replace solid red/green utility blocks. */
+.ms-toast {
+  max-width: min(34rem, calc(100vw - 2rem));
+  border: 1px solid rgba(190,205,230,.20);
+  border-radius: 16px !important;
+  background: rgba(13,22,38,.82) !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,.40), inset 0 1px 0 rgba(255,255,255,.10) !important;
+  backdrop-filter: blur(26px) saturate(115%);
+  -webkit-backdrop-filter: blur(26px) saturate(115%);
+}
+
+.ms-toast-error { border-left: 3px solid #fb7185; }
+.ms-toast-success { border-left: 3px solid #34d399; }
+.ms-toast-info,
+.ms-toast-warning { border-left: 3px solid #60a5fa; }
+
+@media (max-width: 767px) {
+  .ms-engine-header { min-height: 6.75rem; border-radius: 23px !important; }
+  .ms-crm-glass { border-radius: 24px !important; }
+  .ms-crm-actions { flex-wrap: nowrap !important; overflow-x: auto; padding-bottom: .35rem; }
+  .ms-crm-actions button { flex: 0 0 auto; }
+}
