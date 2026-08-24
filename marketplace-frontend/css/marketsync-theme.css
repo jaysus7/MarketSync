@@ -1286,4 +1286,102 @@ body.website-workspace-mode {
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+   Liquid Glass workspace layer
+   Shared presentation for operational Pulse dashboards. These classes are
+   intentionally additive: existing engine markup, data loading, click
+   handlers, role gates, and API contracts remain unchanged.
+────────────────────────────────────────────────────────────────────────── */
+:root {
+  --ms-bg: #f7f8fa;
+  --ms-surface: rgba(255, 255, 255, 0.72);
+  --ms-surface-solid: #ffffff;
+  --ms-text: #17191f;
+  --ms-text-muted: #687386;
+  --ms-border: rgba(23, 25, 31, 0.12);
+  --ms-primary: #2563eb;
+  --ms-primary-hover: #1f4ed8;
+  --ms-accent: #7c3aed;
+  --ms-glass-blur: 24px;
+  --ms-radius-card: 20px;
+  --ms-radius-control: 12px;
+  --ms-shadow-glass: 0 16px 40px rgba(23, 25, 31, 0.08);
+}
+
+.dark {
+  --ms-bg: #0f1117;
+  --ms-surface: rgba(26, 29, 36, 0.76);
+  --ms-surface-solid: #1a1d24;
+  --ms-text: #f7f8fa;
+  --ms-text-muted: #a5acb8;
+  --ms-border: rgba(255, 255, 255, 0.12);
+  --ms-shadow-glass: 0 16px 40px rgba(0, 0, 0, 0.22);
+}
+
+.ms-glass {
+  background: var(--ms-surface);
+  border: 1px solid var(--ms-border);
+  backdrop-filter: blur(var(--ms-glass-blur));
+  -webkit-backdrop-filter: blur(var(--ms-glass-blur));
+  box-shadow: var(--ms-shadow-glass);
+  border-radius: var(--ms-radius-card);
+}
+
+.ms-card {
+  background: var(--ms-surface);
+  border: 1px solid var(--ms-border);
+  border-radius: var(--ms-radius-card);
+  box-shadow: var(--ms-shadow-glass);
+}
+
+.ms-button-primary {
+  background: var(--ms-primary);
+  color: #fff;
+  border-radius: var(--ms-radius-control);
+}
+
+.ms-button-primary:hover { background: var(--ms-primary-hover); }
+
+/* Pulse shells: preserve existing utility behavior while giving every
+   Service/Parts information surface one coherent visual treatment. */
+#service-overview-root > .engine-shell,
+#parts-overview-root > .engine-shell,
+#service-overview-root .pulse-panel,
+#parts-overview-root .pulse-panel {
+  background: var(--ms-surface) !important;
+  border-color: var(--ms-border) !important;
+  box-shadow: var(--ms-shadow-glass) !important;
+  backdrop-filter: blur(var(--ms-glass-blur));
+  -webkit-backdrop-filter: blur(var(--ms-glass-blur));
+}
+
+#service-overview-root > div > .bg-white,
+#parts-overview-root > div > .bg-white,
+#service-overview-root .bg-white,
+#parts-overview-root .bg-white {
+  background-color: var(--ms-surface) !important;
+  border-color: var(--ms-border) !important;
+}
+
+#service-overview-root .rounded-2xl,
+#parts-overview-root .rounded-2xl { border-radius: var(--ms-radius-card); }
+
+#service-overview-root button,
+#parts-overview-root button { border-radius: var(--ms-radius-control); }
+
+#service-overview-root input,
+#service-overview-root select,
+#service-overview-root textarea,
+#parts-overview-root input,
+#parts-overview-root select,
+#parts-overview-root textarea {
+  border-radius: var(--ms-radius-control);
+  border-color: var(--ms-border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ms-glass *,
+  #service-overview-root *,
+  #parts-overview-root * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
 
