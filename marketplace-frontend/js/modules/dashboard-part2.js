@@ -1265,7 +1265,15 @@ const PAGE_FEATURE = {
   // would stop a dealership configuring the product it just bought.
   config: 'os.settings',
 };
-const PAGE_PRODUCT = { leaderboard: 'facebook', 'social-scheduler': 'marketsync_social', studio: 'design_studio' };
+// 'website' is product-gated (not just feature-gated) to mirror the backend exactly:
+// GET/PUT /dealership/site is guarded server-side by requireProduct('marketsync_website')
+// (routes/site.js), so the nav must ask the same question. Checking only the
+// os.website/website.builder feature (as PAGE_ANY_FEATURE below still lists, for
+// accounts on the live /access path) left a gap where a feature-true/product-false
+// account would still see the tab and then get PRODUCT_ACCESS_REQUIRED — the exact
+// defect fixed for the Core/Pro cold-start fallback. Gating on the product here closes
+// that gap for every access path, current and future, not just the fallback.
+const PAGE_PRODUCT = { leaderboard: 'facebook', 'social-scheduler': 'marketsync_social', studio: 'design_studio', website: 'marketsync_website' };
 // Product bundles can expose a department without buying the similarly named
 // DealerOS engine. These alternatives keep standalone and Marketing/Digital nav
 // honest while still using the same server-authored feature list.
