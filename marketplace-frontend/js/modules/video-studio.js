@@ -1161,7 +1161,7 @@ window.vidSendVideoTo = vidSendVideoTo;
  * Public Customer Video Player Viewport Modal & Real-Time Telemetry Tracking
  */
 async function openPublicVideoLink(videoId, contactId) {
-  let data = window.__videoAnalyticsStore[videoId] || DEMO_SENT_VIDEOS.find(v => v.id === videoId || v.share_token === videoId) || {
+  let data = window.__videoAnalyticsStore[videoId] || {
     id: videoId,
     opened_at: new Date().toISOString(),
     watch_time_seconds: 0,
@@ -1586,70 +1586,7 @@ let __videoLibraryFilterStatus = 'all';
 let __videoLibraryFilterDept = 'all';
 let __videoLibrarySearch = '';
 
-const DEMO_SENT_VIDEOS = [
-  {
-    id: 'vid_101',
-    title: '2024 Ford F-150 Lariat Walkaround',
-    contact_name: 'Jason Massie',
-    contact_phone: '(555) 234-5678',
-    contact_id: 'c_101',
-    vehicle: '2024 Ford F-150 Lariat (VIN: 1FTFW1ED4P)',
-    sender: 'Dave Miller',
-    department: 'Sales',
-    channel: 'sms',
-    status: 'viewed',
-    duration_seconds: 135,
-    sent_at: new Date(Date.now() - 7200000).toISOString(),
-    first_opened_at: new Date(Date.now() - 5400000).toISOString(),
-    first_played_at: new Date(Date.now() - 5100000).toISOString(),
-    total_views: 3,
-    watch_percent: 88,
-    share_token: 'v_demo_101',
-    public_url: 'https://marketsync.dealership.com/v/v_demo_101',
-  },
-  {
-    id: 'vid_102',
-    title: 'Multi-Point Brake & Tire Inspection',
-    contact_name: 'Sarah Connor',
-    contact_phone: '(555) 876-5432',
-    contact_id: 'c_102',
-    vehicle: '2023 Toyota RAV4 XLE',
-    sender: 'Alex Vance',
-    department: 'Service',
-    channel: 'sms',
-    status: 'sent',
-    duration_seconds: 90,
-    sent_at: new Date(Date.now() - 14400000).toISOString(),
-    first_opened_at: null,
-    first_played_at: null,
-    total_views: 0,
-    watch_percent: 0,
-    share_token: 'v_demo_102',
-    public_url: 'https://marketsync.dealership.com/v/v_demo_102',
-  },
-  {
-    id: 'vid_103',
-    title: 'Trade Appraisal & Price Breakdown',
-    contact_name: 'Michael Scott',
-    contact_phone: '(555) 345-6789',
-    contact_id: 'c_103',
-    vehicle: '2022 Chevrolet Silverado 1500',
-    sender: 'Dave Miller',
-    department: 'Sales',
-    channel: 'email',
-    status: 'viewed',
-    duration_seconds: 160,
-    sent_at: new Date(Date.now() - 86400000).toISOString(),
-    first_opened_at: new Date(Date.now() - 82000000).toISOString(),
-    first_played_at: new Date(Date.now() - 81000000).toISOString(),
-    total_views: 5,
-    watch_percent: 96,
-    share_token: 'v_demo_103',
-    public_url: 'https://marketsync.dealership.com/v/v_demo_103',
-  }
-];
-
-let __videoLibraryVideos = DEMO_SENT_VIDEOS;
+let __videoLibraryVideos = [];
 let __videoLibraryFetchedAt = 0;
 let __videoLibraryRequest = null;
 
@@ -1683,7 +1620,7 @@ function refreshVideoLibrary() {
 
   __videoLibraryRequest = apiGetJson('/sales-videos')
     .then(res => {
-      if (Array.isArray(res?.videos) && res.videos.length > 0) {
+      if (Array.isArray(res?.videos)) {
         __videoLibraryVideos = normalizeVideoLibrary(res.videos);
       }
       __videoLibraryFetchedAt = Date.now();

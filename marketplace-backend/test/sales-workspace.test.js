@@ -70,7 +70,9 @@ test('canonical stage model is reused — no invented backend state', () => {
 test('no new endpoints — Sales only reads APIs that already exist', () => {
   // /gamification is the same cross-department leaderboard endpoint the platform's own
   // Performance/Leaderboard page already reads — Sales' Pulse leaderboard card reuses it.
-  const KNOWN = ['/crm/contacts', '/crm/tasks', '/appointments', '/crm/insights', '/delivery/queue', '/fni/deals', '/launch/dealership', '/gamification']
+  // /sales-videos is the same real sent-video feed Video Studio already reads — Sales'
+  // Pulse "Today's videos sent" card reuses it instead of a hardcoded demo list.
+  const KNOWN = ['/crm/contacts', '/crm/tasks', '/appointments', '/crm/insights', '/delivery/queue', '/fni/deals', '/launch/dealership', '/gamification', '/sales-videos']
   const calls = [...sales.matchAll(/apiGetJson\('([^'?]+)/g)].map(m => m[1])
   assert.ok(calls.length, 'Sales should read some data')
   for (const c of calls) {

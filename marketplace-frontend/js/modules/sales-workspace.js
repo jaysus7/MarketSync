@@ -250,8 +250,8 @@ async function salesSaveRouting(mode) {
 }
 window.salesSaveRouting = salesSaveRouting;
 
-function salesTodayVideosCard() {
-  const videos = (typeof DEMO_SENT_VIDEOS !== 'undefined') ? DEMO_SENT_VIDEOS : [];
+function salesTodayVideosCard(d) {
+  const videos = (d && d.videosToday) || [];
   const rows = videos.slice(0, 5).map(v => {
     const isPlayed = !!v.first_played_at;
     const badgeTone = isPlayed ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20';
@@ -312,7 +312,7 @@ ENGINES['sales'] = {
   ],
 
   fetch: async () => {
-    const [contacts, tasks, appts, deals, deliveries, insights, gamification] = await Promise.all([
+    const [contacts, tasks, appts, deals, deliveries, insights, gamification, videos] = await Promise.all([
       apiGetJson('/crm/contacts?limit=200').catch(() => ({ contacts: [] })),
       apiGetJson('/crm/tasks?scope=open').catch(() => ({ tasks: [] })),
       apiGetJson('/appointments').catch(() => ({ appointments: [] })),
@@ -320,6 +320,7 @@ ENGINES['sales'] = {
       apiGetJson('/delivery/queue').catch(() => null),
       apiGetJson('/crm/insights?range=30').catch(() => null),
       apiGetJson('/gamification').catch(() => null),
+      apiGetJson('/sales-videos').catch(() => ({ videos: [] })),
     ]);
     const d = {
       contacts: contacts.contacts || [],
@@ -333,6 +334,16 @@ ENGINES['sales'] = {
     d.tasksByContact = {}; d.apptByContact = {};
     for (const t of d.tasks) if (t.contact_id && !d.tasksByContact[t.contact_id]) d.tasksByContact[t.contact_id] = t;
     for (const a of d.appointments) if (a.contact_id && !d.apptByContact[a.contact_id]) d.apptByContact[a.contact_id] = a;
+
+    // Real sent videos only — never sent, or sent on an earlier day, are excluded
+    // from "today's videos" but nothing here is invented if the list is empty.
+    const contactById = {}; for (const c of d.contacts) contactById[c.id] = c;
+    const todayStr = new Date().toDateString();
+    d.videosSent = (videos.videos || [])
+      .filter(v => v.status !== 'draft' && v.status !== 'ready' && v.sent_at)
+      .map(v => ({ ...v, contact_name: contactById[v.contact_id]?.full_name || 'Customer', vehicle: v.title || 'Video' }));
+    d.videosToday = d.videosSent.filter(v => new Date(v.sent_at).toDateString() === todayStr);
+
     __salesData = d;
     return d;
   },
@@ -386,9 +397,9 @@ ENGINES['sales'] = {
           }).join(''), empty: d.deals == null ? 'No permission to view deals.' : 'No deals in progress.',
         }),
         pulseCard({
-          title: "Today's videos sent", count: (typeof DEMO_SENT_VIDEOS !== 'undefined' ? DEMO_SENT_VIDEOS : []).length,
+          title: "Today's videos sent", count: (d.videosToday || []).length,
           onclick: "switchPage('video-studio')",
-          inner: (typeof DEMO_SENT_VIDEOS !== 'undefined' ? DEMO_SENT_VIDEOS : []).slice(0, 5).map(v => pulseRow({
+          inner: (d.videosToday || []).slice(0, 5).map(v => pulseRow({
             icon: v.first_played_at ? 'play' : 'chat', badgeTone: v.first_played_at ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-300',
             label: v.contact_name, sub: v.vehicle, onclick: `openPublicVideoLink('${v.share_token}', '${v.contact_id}')`,
           })).join(''), empty: 'No customer videos sent today.',
@@ -453,7 +464,7 @@ ENGINES['sales'] = {
         ${salesPerformanceStrip(d)}
         ${salesDealsAndDeliveries(d)}
         <div class="mt-3">
-          ${salesTodayVideosCard()}
+          ${salesTodayVideosCard(d)}
         </div>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
           ${engCard("Today's appointments", todays.length ? todays.map(a => `
