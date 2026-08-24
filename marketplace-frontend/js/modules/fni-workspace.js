@@ -303,7 +303,7 @@ ENGINES['fni-overview'] = {
           title: 'Deliveries', count: (d.deliveryQueue || []).length,
           onclick: "switchPage('delivery')",
           inner: (d.deliveryQueue || []).length ? d.deliveryQueue.slice(0, 5).map(x => pulseRow({
-            badge: x.blocker ? '!' : '✓', badgeTone: x.blocker ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300' : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
+            badge: x.blocker ? '!' : undefined, icon: x.blocker ? undefined : 'check', badgeTone: x.blocker ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300' : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
             label: fniCustomer(x), sub: x.blocker || 'Ready', onclick: "switchPage('delivery')",
           })).join('') : '', empty: 'Nothing in the delivery queue.',
         }),
@@ -325,7 +325,7 @@ ENGINES['fni-overview'] = {
           title: 'F&I products', count: products.length,
           onclick: "engineTab('fni-overview','settings')",
           inner: products.length ? products.slice(0, 5).map(p => pulseRow({
-            badge: p.active === false ? '–' : '✓', badgeTone: p.active === false ? 'bg-slate-100 dark:bg-slate-800 text-slate-400' : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
+            badge: p.active === false ? '–' : undefined, icon: p.active === false ? undefined : 'check', badgeTone: p.active === false ? 'bg-slate-100 dark:bg-slate-800 text-slate-400' : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
             label: p.name || p.product_name || 'Product', sub: p.provider || '', done: p.active === false,
           })).join('') : '', empty: 'No F&I products set up yet.',
         }),

@@ -389,7 +389,7 @@ ENGINES['sales'] = {
           title: "Today's videos sent", count: (typeof DEMO_SENT_VIDEOS !== 'undefined' ? DEMO_SENT_VIDEOS : []).length,
           onclick: "switchPage('video-studio')",
           inner: (typeof DEMO_SENT_VIDEOS !== 'undefined' ? DEMO_SENT_VIDEOS : []).slice(0, 5).map(v => pulseRow({
-            badge: v.first_played_at ? '▶' : '✉', badgeTone: v.first_played_at ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-300',
+            icon: v.first_played_at ? 'play' : 'chat', badgeTone: v.first_played_at ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-300',
             label: v.contact_name, sub: v.vehicle, onclick: `openPublicVideoLink('${v.share_token}', '${v.contact_id}')`,
           })).join(''), empty: 'No customer videos sent today.',
         }),
