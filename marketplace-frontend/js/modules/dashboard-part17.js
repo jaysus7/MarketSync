@@ -1580,10 +1580,15 @@ function closeWebsiteBuilder() {
     el.removeAttribute('data-ws-theme');
   });
 
-  const sideNav = document.getElementById('sidebar-nav') || document.getElementById('dept-nav');
-  if (sideNav) sideNav.style.display = '';
-  const mainHeader = document.querySelector('header') || document.getElementById('main-header');
-  if (mainHeader) mainHeader.style.display = '';
+  // Clear any inline/CSS presentation state left by the full-screen builder.
+  // Rebuild the shared navigation afterward; otherwise a previous builder mount
+  // can leave the dashboard looking blank until a hard reload.
+  ['dashboard-nav', 'nav-desktop', 'dept-nav', 'nav-reports-m', 'nav-more', 'setup-status-banner', 'report-rail'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.style.display = ''; el.style.visibility = ''; }
+  });
+  const mainHeader = document.querySelector('body > header') || document.getElementById('main-header');
+  if (mainHeader) { mainHeader.style.display = ''; mainHeader.style.visibility = ''; }
   const chatDock = document.getElementById('staff-chat-dock-bar');
   if (chatDock) chatDock.style.display = '';
 
@@ -1593,6 +1598,10 @@ function closeWebsiteBuilder() {
   } else {
     renderWebsitePage();
   }
+  requestAnimationFrame(() => {
+    if (typeof renderDeptNav === 'function') renderDeptNav(profileContext?.role);
+    if (typeof renderDeptTabbar === 'function') renderDeptTabbar('website');
+  });
 }
 window.closeWebsiteBuilder = closeWebsiteBuilder;
 
@@ -1726,6 +1735,15 @@ window.setBuilderMode = setBuilderMode;
 // the section palette + reorderable list on the right. Edits post to the iframe via
 // postMessage and render instantly (never saved until "Save"). Clicking a section in
 let __livePreviewReady = false, __liveMsgWired = false, __livePushTimer = null;
+
+// The preview can finish loading before its postMessage-ready event reaches the
+// parent (especially after switching Builder tabs). The iframe onload hook is a
+// second, deterministic handshake so the canvas always receives the current data.
+function livePreviewLoaded() {
+  __livePreviewReady = true;
+  livePreviewPush();
+}
+window.livePreviewLoaded = livePreviewLoaded;
 
 function refreshWebsitePreview() {
   markWsUnsaved();
@@ -2627,7 +2645,7 @@ function renderLiveBuilder(body) {
         <!-- Center Full-Screen Live Web Canvas -->
         <main class="w-full h-full flex items-center justify-center p-0 overflow-hidden relative z-0">
           <div id="ws-frame-wrapper" class="${__wsActiveDeviceView === 'mobile' ? 'w-[375px] h-[92%]' : (__wsActiveDeviceView === 'tablet' ? 'w-[768px] h-[92%]' : 'w-full h-full')} ${__wsActiveDeviceView === 'desktop' ? 'border-0' : 'rounded-3xl border-4 border-slate-500 dark:border-slate-700 shadow-2xl'} bg-white transition-all duration-300 overflow-hidden relative z-0">
-            <iframe id="ws-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1" class="w-full h-full border-0 pointer-events-auto" title="Live Website Canvas"></iframe>
+            <iframe id="ws-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1" onload="window.livePreviewLoaded && window.livePreviewLoaded()" class="w-full h-full border-0 pointer-events-auto" title="Live Website Canvas"></iframe>
           </div>
         </main>
 
