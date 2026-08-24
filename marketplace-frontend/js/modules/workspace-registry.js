@@ -82,7 +82,6 @@ const MS_WORKSPACES = {
       // (Equity Mining) — `legacy: true` keeps it out of the tab-bar here; the one
       // single-header mount is that Sales tab.
       { page: 'equity', label: 'Equity Mining', legacy: true },
-      { page: 'inv-intel', label: 'Inventory Intelligence', mgr: true, legacy: true },
       { page: 'market', label: 'Market & Competitors', mgr: true, legacy: true },
     ],
   },

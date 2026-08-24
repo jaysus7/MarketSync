@@ -167,7 +167,7 @@ function renderVinPageResults({ decoded, recalls }) {
 
 // The VIN decoder is part of the Inventory Intelligence tier — send the user there.
 async function startVinStickerTrial() {
-  switchPage('inv-intel');
+  openInventoryIntelligence();
 }
 
 // Handle return from Stripe Checkout for VIN Sticker
@@ -232,7 +232,7 @@ async function startVinStickerTrial() {
     if (res.ok) {
       __invIntelActive = true;
       history.replaceState({}, '', window.location.pathname);
-      switchPage('inv-intel');
+      openInventoryIntelligence();
     }
   } catch {}
 })();
@@ -867,7 +867,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const now = new Date().toISOString();
       localStorage.setItem('weekly-report-last-sent', now);
       if (lastSentEl) lastSentEl.textContent = `Last sent: ${new Date(now).toLocaleDateString()}`;
-      showToast(`Report sent to ${data.recipient}`, 'success', 5000);
+      showToast(`Report sent to ${data.sent_to || data.recipient}`, 'success', 5000);
     } catch (e) { showToast(e.message, 'error'); }
     finally { btn.disabled = false; btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg> Send Report Now'; }
   });
@@ -1405,9 +1405,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const stockNum = v.stock || v.id?.slice(0, 8) || '—'
         const vehicleLine = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ')
 
-        const priceNote = v.price_vs_market_pct != null
-          ? (v.price_vs_market_pct >= -3 ? 'priced to market' : `${Math.abs(v.price_vs_market_pct)}% under market`)
-          : null;
+        const priceNote = v.price_vs_market_pct == null ? null
+          : Math.abs(v.price_vs_market_pct) <= 3 ? 'priced to market'
+          : v.price_vs_market_pct > 0 ? `${v.price_vs_market_pct}% above market`
+          : `${Math.abs(v.price_vs_market_pct)}% below market`;
         const mileNote = v.mileage != null
           ? Number(v.mileage).toLocaleString() + (v.mileage_ratio != null ? (v.mileage_ratio <= 1.0 ? ' · below avg' : v.mileage_ratio <= 1.25 ? ' · slightly high' : ' · high for age') : '')
           : null;
@@ -1420,7 +1421,7 @@ document.addEventListener('DOMContentLoaded', () => {
           { label: 'Price',       val: b.price,        max: 15, icon: 'currency', actual: priceActual },
           { label: 'Mileage',     val: b.mileage,      max: 10, icon: 'hashtag',  actual: mileActual },
           { label: 'Description', val: b.description,  max: 10, icon: 'document', actual: b.description >= 10 ? 'Written' : 'Short / missing' },
-          { label: 'VIN decode',  val: b.fields,       max: 10, icon: 'check',    actual: b.fields >= 10 ? 'Decoded' : 'Incomplete' },
+          { label: 'Core details', val: b.fields,      max: 10, icon: 'check',    actual: b.fields >= 10 ? 'Complete' : 'Incomplete' },
         ].filter(s => s.val != null)
 
         const breakdownId = `hbd-${idx}`

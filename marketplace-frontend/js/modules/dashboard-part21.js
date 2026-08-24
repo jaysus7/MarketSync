@@ -920,7 +920,7 @@ async function startInvIntelCheckout() {
 function setupInvIntelListeners() {
   document.getElementById('inv-intel-page-upgrade-btn')?.addEventListener('click', startInvIntelCheckout);
   document.getElementById('inv-intel-upgrade-btn')?.addEventListener('click', startInvIntelCheckout);
-  document.getElementById('inv-intel-goto-page-btn')?.addEventListener('click', () => switchPage('inv-intel'));
+  document.getElementById('inv-intel-goto-page-btn')?.addEventListener('click', () => openInventoryIntelligence());
 }
 
 // ── AI Vision ──────────────────────────────────────────────────────────────

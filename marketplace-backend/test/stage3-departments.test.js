@@ -303,10 +303,12 @@ test('Stage 3 leaves the departments’ navigation coherent', () => {
   const invBlock = block('inventory'), fniBlock = block('fni')
   assert.match(invBlock, /\{ page: 'inventory-overview', label: '(?:My Day|Pulse)' \}/, 'Inventory must lead with My Day or Pulse')
   assert.match(fniBlock, /\{ page: 'fni-overview', label: '(?:My Day|Pulse)' \}/, 'F&I must lead with My Day or Pulse')
-  // Existing pages stay reachable — Stage 3 deletes nothing.
-  for (const p of ['inventory', 'equity', 'inv-intel', 'market']) {
+  // Inventory Intelligence is mounted in Pulse; the other pages remain routes.
+  for (const p of ['inventory', 'equity', 'market']) {
     assert.ok(invBlock.includes(`page: '${p}'`), `Inventory page "${p}" must stay reachable`)
   }
+  assert.ok(!invBlock.includes("page: 'inv-intel'"), 'Inventory Intelligence must not remain as a duplicate route')
+  assert.match(inv, /engMountPage\(body, 'inv-intel'/, 'connected Intelligence must stay mounted inside Pulse')
   for (const p of ['fni', 'delivery']) {
     assert.ok(fniBlock.includes(`page: '${p}'`), `F&I page "${p}" must stay reachable`)
   }

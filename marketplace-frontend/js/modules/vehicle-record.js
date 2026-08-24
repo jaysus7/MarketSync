@@ -189,7 +189,7 @@ function vrRender(v, ctx) {
       vrFact('Cost', money(v.invoice_amount)),
       vrFact('Front gross', gross == null ? '—' : `<span class="${gross < 0 ? 'text-rose-500' : ''}">${money(gross)}</span>`),
     ]) + vrActions([
-      vrBtn('Pricing intelligence', `vehicleGo('inv-intel')`),
+      vrBtn('Pricing intelligence', `openInventoryIntelligence()`),
       vrBtn('Market data', `vehicleGo('market')`),
     ]));
 

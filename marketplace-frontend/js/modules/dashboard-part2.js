@@ -1783,6 +1783,11 @@ function highlightDeptNav(pageId) {
 function switchPage(pageId) {
   ensurePanelsInOriginalLocations();
 
+  if (pageId === 'inv-intel' && typeof window.openInventoryIntelligence === 'function') {
+    window.openInventoryIntelligence();
+    return;
+  }
+
   // The old global Insights page was an app-wide pseudo-Pulse. It is retired:
   // each workspace owns its own Pulse now. Preserve old bookmarks by resolving
   // them to the caller's current workspace rather than rendering legacy markup.

@@ -324,11 +324,11 @@ function wireReportRail() {
       // Lot Average Report opens as a modal — works from any page.
       if (typeof openLotReport === 'function') openLotReport();
     } else if (kind === 'scan') {
-      switchPage('inv-intel');
-      setTimeout(() => flash('inv-scan-controls'), 120);
+      openInventoryIntelligence('inv-scan-controls');
+      setTimeout(() => flash('inv-scan-controls'), 360);
     } else if (kind === 'snapshot') {
-      switchPage('inv-intel');
-      setTimeout(() => flash('msnap-run'), 120);
+      openInventoryIntelligence('msnap-run');
+      setTimeout(() => flash('msnap-run'), 360);
     } else if (kind === 'weekly') {
       switchPage('profile');
       setTimeout(() => flash('weekly-report-btn'), 120);

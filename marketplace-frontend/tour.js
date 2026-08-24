@@ -42,8 +42,8 @@
       body: `Install the <b>MarketSync</b> Chrome extension and sign in once. On Facebook, pick a car and click <b>Post</b> — it fills the whole Marketplace listing. Mark a car <b>Sold</b> and it clears the Facebook listing for you too.`
     },
     {
-      target: '#nav-inv-intel',
-      before: () => { openGroup('ii'); },
+      target: '[data-page="inventory-overview"]',
+      before: () => openInventoryIntelligence(),
       title: 'Inventory Intelligence — the price brain',
       body: `Know the live market price of every car. <b>Scan</b> your whole lot for mispriced units (red flags), see <b>hot/cold</b> tags and <b>days-to-sell</b>, decode any VIN, and pull factory window stickers &amp; Carfax. <span style="opacity:.8">(Paid add-on / free trial.)</span>`
     },
@@ -132,8 +132,8 @@
       { target: '#install-ext-btn', before: () => goPage('inventory'), title: '3. Market Execution (Right)', body: `Click <b>Post to Facebook</b> to push listings to Facebook Marketplace in seconds.` }
     ],
     'inv-intel': [
-      { target: '#nav-inv-intel', before: () => { openGroup('ii'); goPage('inv-intel'); }, title: '1. Intelligence Scan (Left)', body: `Scan your entire lot for mispriced units, market flags, and days-on-lot alerts.` },
-      { target: '[data-page-content="inv-intel"]', before: () => goPage('inv-intel'), title: '2. Market Pricing (Center)', body: `Analyze real-time regional vehicle price distribution and competitive positioning.` },
+      { target: '[data-page="inventory-overview"]', before: () => openInventoryIntelligence(), title: '1. Inventory Pulse', body: `Inventory Intelligence lives beside the lot actions it powers.` },
+      { target: '[data-engine-mount="inv-intel"]', before: () => openInventoryIntelligence(), title: '2. Connected Intelligence', body: `Scan the lot and review live pricing, turn rate, health scores, and vehicle actions.` },
       { target: '#nav-vin-sticker', before: () => goPage('vin-sticker'), title: '3. Assets & Stickers (Right)', body: `Generate factory VIN decodes, window stickers, and 2-page AI vehicle brochures.` }
     ],
     market: [

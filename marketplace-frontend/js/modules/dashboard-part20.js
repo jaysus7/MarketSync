@@ -126,8 +126,8 @@ async function loadLotOverview() {
     set('lot-ov-count', avail.length.toLocaleString());
     set('lot-ov-range', rangeTxt);
     set('lot-ov-avg', avgTxt);
-    const yr = new Date().getFullYear();
-    const isNew = v => String(v.condition || '').toLowerCase() === 'new' || Number(v.year) >= yr;
+    // Model year cannot determine condition: a current-year demo or trade is still used.
+    const isNew = v => String(v.condition || '').trim().toLowerCase() === 'new';
     const nu = avail.filter(isNew).length;
     set('lot-ov-split', `${nu} / ${avail.length - nu}`);
     // Compact copy inside the Competitor Monitoring card.

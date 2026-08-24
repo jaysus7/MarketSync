@@ -187,12 +187,13 @@ export function registerAiReportsCronRoutes(app) {
 
     const { data: dealer } = await supabaseAdmin
       .from('dealerships')
-      .select('ai_boost_active, ai_manager_email, name')
+      .select('ai_boost_active, inv_intel_active, ai_manager_email, name')
       .eq('id', req.dealershipId)
       .single()
 
     const isOwner = isPlatformOwner(req)
-    if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
+    if (!isOwner && !dealer?.ai_boost_active && !dealer?.inv_intel_active) return res.status(403).json({ error: 'Inventory Intelligence not active' })
+    if (!dealer?.ai_manager_email) return res.status(400).json({ error: 'Add an alert email in AI settings before sending a report' })
     if (!resend) return res.status(503).json({ error: 'Email not configured' })
 
     const d = await buildReportData(req.dealershipId)
