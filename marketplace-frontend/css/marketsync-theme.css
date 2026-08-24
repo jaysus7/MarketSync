@@ -213,6 +213,51 @@ html.dark, [data-theme="dark"] {
   }
 }
 
+/* Visible glass pass: translucent layers must read as glass against the
+   dashboard canvas instead of opaque navy cards. */
+body.ms-app-booting {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(37, 99, 235, .12), transparent 32rem),
+    radial-gradient(circle at 88% 18%, rgba(124, 58, 237, .10), transparent 30rem),
+    var(--ms-bg) !important;
+}
+
+body.ms-app-booting > header,
+#nav-desktop,
+#nav-mobile,
+#report-rail,
+.ms-engine-header,
+.ms-glass,
+.ms-card,
+#service-overview-root .bg-white,
+#parts-overview-root .bg-white {
+  background: linear-gradient(135deg, rgba(255,255,255,.18), rgba(255,255,255,.06)) !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  box-shadow: 0 18px 50px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.10) !important;
+  backdrop-filter: blur(28px) saturate(145%);
+  -webkit-backdrop-filter: blur(28px) saturate(145%);
+}
+
+.dark body.ms-app-booting,
+.dark body.ms-app-booting main {
+  background-color: #0b1020 !important;
+}
+
+.dark body.ms-app-booting > header,
+.dark #nav-desktop,
+.dark #nav-mobile,
+.dark #report-rail,
+.dark .ms-engine-header,
+.dark .ms-glass,
+.dark .ms-card,
+.dark #service-overview-root .bg-white,
+.dark #parts-overview-root .bg-white {
+  background: linear-gradient(135deg, rgba(30,41,72,.72), rgba(15,23,42,.58)) !important;
+  border-color: rgba(148,163,184,.20) !important;
+}
+
+.ms-engine-title { text-shadow: 0 2px 18px rgba(0,0,0,.24); }
+
 /* ==========================================================================
    3. BASE STYLES & RESET REINFORCEMENT
    ========================================================================== */
