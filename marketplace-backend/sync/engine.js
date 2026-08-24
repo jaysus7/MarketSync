@@ -643,6 +643,7 @@ async function _runInventorySyncInner(dealershipId) {
 
         const record = {
   dealership_id: dealershipId,
+  source: 'dealer_site_sync',
   vin: effectiveVin,
   year: parseInt(v.year),
   make: v.make,

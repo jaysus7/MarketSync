@@ -388,7 +388,9 @@ export function registerRoutes(app) {
     const header = rows[0].map(h => h.trim().toLowerCase())
     const idx = Object.fromEntries(CSV_COLS.map(c => [c, header.indexOf(c)]))
     if (idx.make < 0 || idx.model < 0) return res.status(400).json({ error: 'CSV needs at least "make" and "model" columns. Export a file first to see the format.' })
-    const { data: existing } = await req.supabase.from('inventory').select('id, vin, stocknumber').eq('dealership_id', req.dealershipId).is('archived_at', null)
+    // Include archived rows so a vehicle returning on a later old-site pull is
+    // restored into the same canonical record instead of creating a duplicate.
+    const { data: existing } = await req.supabase.from('inventory').select('id, vin, stocknumber, archived_at').eq('dealership_id', req.dealershipId)
     const byVin = {}, byStock = {}
     for (const e of (existing || [])) { if (e.vin) byVin[e.vin.toUpperCase()] = e.id; if (e.stocknumber) byStock[String(e.stocknumber).toLowerCase()] = e.id }
     let created = 0, updated = 0, skipped = 0; const errors = []
@@ -399,6 +401,7 @@ export function registerRoutes(app) {
       const vin = (get('vin').toUpperCase().slice(0, 17)) || null
       const mi = numOrNull(get('mileage'))
       const patch = {
+        source: 'dealer_import',
         make, model, vin, year: parseInt(get('year')) || null, trim: get('trim') || null,
         price: numOrNull(get('price')), mileage: mi != null ? Math.round(mi) : null,
         condition: get('condition') || 'used', stocknumber: get('stocknumber') || null,
@@ -406,11 +409,16 @@ export function registerRoutes(app) {
         transmission: get('transmission') || null, fuel_type: get('fuel_type') || null, drivetrain: get('drivetrain') || null,
         engine: get('engine') || null, body_style: get('body_style') || null, doors: numOrNull(get('doors')),
         status: get('status') || 'available', description: get('description') || null,
+        archived_at: null, last_synced_at: new Date().toISOString(),
       }
       const imgs = get('image_urls'); if (imgs) patch.image_urls = imgs.split('|').map(x => x.trim()).filter(Boolean)
       const matchId = (vin && byVin[vin]) || (patch.stocknumber && byStock[patch.stocknumber.toLowerCase()]) || null
       try {
-        if (matchId) { await req.supabase.from('inventory').update(patch).eq('id', matchId).eq('dealership_id', req.dealershipId); updated++ }
+        if (matchId) {
+          const { error: updateError } = await req.supabase.from('inventory').update(patch).eq('id', matchId).eq('dealership_id', req.dealershipId)
+          if (updateError) throw updateError
+          updated++
+        }
         else {
           const { data: ins } = await req.supabase.from('inventory').insert({ dealership_id: req.dealershipId, source: 'import', lot_date: new Date().toISOString(), image_urls: [], ...patch }).select('id').single()
           created++

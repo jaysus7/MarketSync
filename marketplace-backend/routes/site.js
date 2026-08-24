@@ -287,14 +287,30 @@ function siteContent(d) {
     chat_kb: b.site_chat_kb || null,
     chat_instructions: b.site_chat_instructions || null,
     chat_disclaimer: b.site_chat_disclaimer || null,
+    // `auto` keeps a new Digital site useful before the dealer connects their
+    // own lot: show Marketplace inventory first, then switch to the dealer's
+    // canonical inventory as soon as it exists.
+    inventory_source: ['auto', 'dealer', 'marketplace', 'merged'].includes(b.site_inventory_source)
+      ? b.site_inventory_source : 'auto',
   }
 }
 
 const SITE_COLS = 'id, name, branding, site_published, site_slug, custom_domain, city, province, postal_code, website_url, photo_background_url'
+export function selectSiteInventory(rows, mode = 'auto') {
+  const all = Array.isArray(rows) ? rows : []
+  const isMarketplace = v => ['marketplace', 'marketplace_feed'].includes(String(v.source || '').toLowerCase())
+  const marketplace = all.filter(isMarketplace)
+  const dealer = all.filter(v => !isMarketplace(v))
+  if (mode === 'marketplace') return marketplace
+  if (mode === 'dealer') return dealer
+  if (mode === 'merged') return all
+  return dealer.length ? dealer : marketplace
+}
+
 async function buildSiteResponse(d) {
   const [{ data: inv }, { data: team }, { data: interests }] = await Promise.all([
     supabaseAdmin.from('inventory')
-      .select('id, year, make, model, trim, price, mileage, condition, exterior_color, interior_color, drivetrain, fuel_type, transmission, engine, body_style, doors, stocknumber, vin, image_urls, description, carfax_url, window_sticker_url, window_sticker_oem_url, window_sticker_gen_url, brochure_url, brochure_oem_url, brochure_gen_url, recalls, vin_data, sales_pitch, specs_manual, status, created_at')
+      .select('id, year, make, model, trim, price, mileage, condition, exterior_color, interior_color, drivetrain, fuel_type, transmission, engine, body_style, doors, stocknumber, vin, image_urls, description, carfax_url, window_sticker_url, window_sticker_oem_url, window_sticker_gen_url, brochure_url, brochure_oem_url, brochure_gen_url, recalls, vin_data, sales_pitch, specs_manual, status, source, created_at')
       .eq('dealership_id', d.id).is('archived_at', null).neq('status', 'sold')
       .or('awaiting_possession.is.null,awaiting_possession.eq.false')   // hide acquired trades until possession (#16)
       .order('created_at', { ascending: false }).limit(600),
@@ -313,7 +329,9 @@ async function buildSiteResponse(d) {
     const cur = stageByVeh[c.interest_inventory_id]
     if (!cur || r > cur.r) stageByVeh[c.interest_inventory_id] = { s, r }
   }
-  const vehicles = (inv || [])
+  const inventoryMode = ['auto', 'dealer', 'marketplace', 'merged'].includes(d.branding?.site_inventory_source)
+    ? d.branding.site_inventory_source : 'auto'
+  const vehicles = selectSiteInventory(inv || [], inventoryMode)
     .map(v => ({ ...v, _market_status: marketStatus(v, stageByVeh[v.id]?.s) }))
     .filter(v => v._market_status !== 'delivered')
     .map(publicVehicle)
@@ -367,11 +385,12 @@ export function registerSite(app) {
 
     // Live inventory the concierge answers from (scoped to this dealer, on-lot only).
     const { data: inv } = await supabaseAdmin.from('inventory')
-      .select('year, make, model, trim, price, mileage, condition, exterior_color, drivetrain, fuel_type, body_style, stocknumber')
+      .select('year, make, model, trim, price, mileage, condition, exterior_color, drivetrain, fuel_type, body_style, stocknumber, source')
       .eq('dealership_id', d.id).is('archived_at', null).neq('status', 'sold')
       .or('awaiting_possession.is.null,awaiting_possession.eq.false')
       .order('price', { ascending: true }).limit(400)
-    const list = inv || []
+    const chatMode = ['auto', 'dealer', 'marketplace', 'merged'].includes(b.site_inventory_source) ? b.site_inventory_source : 'auto'
+    const list = selectSiteInventory(inv || [], chatMode)
     const money = n => n ? '$' + Number(n).toLocaleString('en-US') : 'call for price'
     const lines = list.slice(0, 60).map(v => `- ${[v.year, v.make, v.model, v.trim].filter(Boolean).join(' ')} · ${money(v.price)}${v.mileage ? ' · ' + Number(v.mileage).toLocaleString('en-US') + ' km/mi' : ''}${v.exterior_color ? ' · ' + v.exterior_color : ''}${v.condition ? ' · ' + v.condition : ''}${v.stocknumber ? ' · #' + v.stocknumber : ''}`).join('\n')
     const makeCounts = {}
@@ -591,11 +610,12 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
 
     // Merge site content into the shared branding jsonb (don't wipe sticker fields).
     const contentKeys = ['tagline', 'about', 'hours', 'phone', 'email', 'address', 'hero_url', 'primary_color', 'secondary_color', 'accent_color', 'facebook_url', 'instagram_url', 'typography', 'heading_font', 'body_font', 'hero_photos', 'seo_title', 'seo_description', 'seo_keywords', 'seo_image']
-    const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.theme !== undefined || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined || b.staff !== undefined || b.build_makes !== undefined || b.builtins !== undefined || b.menu_order !== undefined || b.sales_chat !== undefined || b.chat_name !== undefined || b.chat_kb !== undefined || b.chat_instructions !== undefined || b.chat_disclaimer !== undefined
+    const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.inventory_source !== undefined || b.theme !== undefined || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined || b.staff !== undefined || b.build_makes !== undefined || b.builtins !== undefined || b.menu_order !== undefined || b.sales_chat !== undefined || b.chat_name !== undefined || b.chat_kb !== undefined || b.chat_instructions !== undefined || b.chat_disclaimer !== undefined
     if (touchesContent) {
       const { data: cur } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
       const branding = { ...(cur?.branding || {}) }
       for (const k of contentKeys) if (b[k] !== undefined) branding[k] = b[k] === '' ? null : b[k]
+      if (b.inventory_source !== undefined) branding.site_inventory_source = ['auto', 'dealer', 'marketplace', 'merged'].includes(b.inventory_source) ? b.inventory_source : 'auto'
       if (b.sales_chat !== undefined) branding.site_sales_chat = !!b.sales_chat
       if (b.chat_name !== undefined) branding.site_chat_name = String(b.chat_name || '').slice(0, 60) || null
       if (b.chat_kb !== undefined) branding.site_chat_kb = String(b.chat_kb || '').slice(0, 12000) || null
