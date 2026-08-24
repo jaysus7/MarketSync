@@ -27,7 +27,7 @@ test('Video has a real nav icon — "video" was referenced but never defined in 
   const iconsBlock = dashboardJs.match(/const SVG_ICONS = \{[\s\S]*?\n\};/)?.[0] || ''
   assert.ok(iconsBlock, 'SVG_ICONS must exist')
   assert.match(iconsBlock, /\bvideo:\s*'/, 'SVG_ICONS must define a "video" glyph')
-  assert.match(dashboardJs, /'video-studio': \{ page: 'video-studio', label: 'Video', icon: 'video' \}/,
+  assert.match(dashboardJs, /'video-studio': \{ page: 'video-studio', label: 'Pulse', icon: 'video' \}/,
     'the single-product Video nav entry must still reference icon: "video"')
 })
 
