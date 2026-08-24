@@ -207,6 +207,15 @@ function setupMobileMoreMenu() {
       b.addEventListener('click', () => { close(); openPlanUpgradeModal(); });
       list.appendChild(b);
     };
+    // Sign out — the desktop header always has this reachable via #logout-btn;
+    // the mobile "more" sheet is the phone equivalent of that header, so it
+    // needs the same exit, not just a way further into the app.
+    const appendMobileSignOut = () => {
+      if (typeof window.msSignOut !== 'function') return;
+      const b = mk('<button type="button" class="w-full mt-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition"><svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M18 15l3-3m0 0l-3-3m3 3H9"/></svg><span>Sign out</span></button>');
+      b.addEventListener('click', () => { close(); window.msSignOut(); });
+      list.appendChild(b);
+    };
     const restricted = restrictedNavPages();
     if (restricted) {
       let currentSection = null;
@@ -233,6 +242,7 @@ function setupMobileMoreMenu() {
         list.appendChild(b);
       });
       appendMobileUpgrade();
+      appendMobileSignOut();
       menu.classList.remove('hidden');
       return;
     }
@@ -287,6 +297,7 @@ function setupMobileMoreMenu() {
         list.appendChild(b);
       });
       appendMobileUpgrade();
+      appendMobileSignOut();
       menu.classList.remove('hidden');
       return;
     }
@@ -317,6 +328,7 @@ function setupMobileMoreMenu() {
       });
     }
     appendMobileUpgrade();
+    appendMobileSignOut();
     menu.classList.remove('hidden');
   });
 

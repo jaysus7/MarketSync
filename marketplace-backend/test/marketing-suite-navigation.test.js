@@ -22,33 +22,40 @@ function suiteConfigs() {
 
 const labels = area => area.items.map(item => item.label);
 
-test('all marketing suites generate the same DealerOS-style major-area shell', () => {
+test('Sales, Service and Complete share the same DealerOS-style major-area shell', () => {
   const configs = suiteConfigs();
   const common = ['Pulse', 'Marketing', 'Content', 'Reports', 'Academy'];
   assert.deepEqual(configs.sales.areas.map(area => area.label), common);
   assert.deepEqual(configs.service.areas.map(area => area.label), common);
   assert.deepEqual(configs.complete.areas.map(area => area.label), common);
-  assert.deepEqual(configs.digital.areas.map(area => area.label), ['Pulse', 'Marketing', 'Content', 'Digital Presence', 'Reports', 'Academy']);
+});
+
+test('MarketSync Digital is a bespoke shell with one area per product, not the shared suite shell', () => {
+  const configs = suiteConfigs();
+  assert.deepEqual(configs.digital.areas.map(area => area.label), [
+    'MarketSync Digital', 'Website', 'MarketSync SEO', 'AI Customer Agent',
+    'Design Studio', 'Social Studio & Scheduler', 'Facebook Marketplace', 'Video', 'Email, SMS & Campaigns'
+  ]);
+  assert.equal(configs.digital.areas[0].items[0].label, 'Pulse');
 });
 
 test('suite page headers expose canonical products without moving them into the sidebar', () => {
   const configs = suiteConfigs();
   const area = (suite, id) => configs[suite].areas.find(candidate => candidate.id === id);
-  assert.deepEqual(labels(area('sales', 'marketing')), ['Sales Marketing', 'Campaigns', 'Automations']);
-  assert.deepEqual(labels(area('service', 'marketing')), ['Service Marketing', 'Campaigns', 'Automations']);
-  assert.deepEqual(labels(area('complete', 'marketing')), ['Sales Marketing', 'Service Marketing', 'Campaigns', 'Automations']);
-  assert.deepEqual(labels(area('digital', 'marketing')), ['Sales Marketing', 'Service Marketing', 'Campaigns', 'Automations']);
-  for (const suite of ['sales', 'service', 'complete', 'digital']) {
+  assert.deepEqual(labels(area('sales', 'marketing')), ['Sales Marketing', 'Campaigns', 'Automations', 'Email & SMS', 'Campaign Library']);
+  assert.deepEqual(labels(area('service', 'marketing')), ['Service Marketing', 'Campaigns', 'Automations', 'Email & SMS', 'Campaign Library']);
+  assert.deepEqual(labels(area('complete', 'marketing')), ['Sales Marketing', 'Service Marketing', 'Campaigns', 'Automations', 'Email & SMS', 'Campaign Library']);
+  for (const suite of ['sales', 'service', 'complete']) {
     assert.deepEqual(labels(area(suite, 'content')), ['Design Studio', 'Social Scheduler', 'Video']);
     assert.equal(configs[suite].areas[0].items[0].label, 'Pulse');
   }
-  assert.deepEqual(labels(area('digital', 'digital-presence')), ['Website', 'AI ChatBot', 'SEO']);
+  assert.deepEqual(labels(area('digital', 'website')), ['Setup', 'Builder', 'Website Settings']);
   assert.equal(JSON.stringify(configs).includes('AI Setup'), false);
 });
 
 test('suite navigation reuses canonical routes and the shared accessible tabbar', () => {
   const configs = suiteConfigs();
-  const content = configs.digital.areas.find(area => area.id === 'content').items;
+  const content = configs.sales.areas.find(area => area.id === 'content').items;
   assert.deepEqual(content.map(item => item.page), ['studio', 'social-scheduler', 'video-studio']);
   assert.match(shellSource, /role="tablist"/);
   assert.match(shellSource, /aria-selected=/);

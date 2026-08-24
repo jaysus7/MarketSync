@@ -107,7 +107,7 @@ test('it composes existing endpoints and introduces none', () => {
   // '/marketing/attention' became '/my-day' in 6.10 — the same composition, widened across
   // departments and gated per source.
   const KNOWN = ['/my-day', '/campaigns', '/social/accounts', '/social/posts',
-                 '/conversations', '/marketing/roi', '/marketing/assets', '/inventory']
+                 '/conversations', '/marketing/roi', '/marketing/assets', '/inventory', '/automation/campaigns']
   for (const c of [...ws.matchAll(/apiGetJson\('([^'?]+)/g)].map(m => m[1])) {
     assert.ok(KNOWN.includes(c), `unexpected read endpoint: ${c}`)
   }

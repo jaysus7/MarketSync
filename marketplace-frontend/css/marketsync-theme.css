@@ -1963,7 +1963,7 @@ body {
 #dept-sidebar {
   border: 1px solid rgba(255,255,255,.20);
   border-radius: var(--ms-radius-card);
-  padding: .85rem;
+  padding: .6rem;
 }
 .dark #dept-sidebar { border-color: rgba(190,205,230,.15); }
 
@@ -2028,22 +2028,24 @@ body > header {
   }
   #nav-desktop, #dept-nav { overflow: visible !important; }
 
-  /* Restricted product rails should read as a compact control strip, while
-     the content column keeps enough breathing room to avoid touching it. */
-  #dept-sidebar:has(.ms-product-nav-item),
-  #dept-sidebar:has(.ms-suite-nav-item) {
-    padding: .55rem !important;
-  }
-  #dept-sidebar:has(.ms-product-nav-item) .ms-product-nav-item,
-  #dept-sidebar:has(.ms-suite-nav-item) .ms-suite-nav-item {
-    padding-top: .45rem !important;
-    padding-bottom: .45rem !important;
-    line-height: 1.15 !important;
-  }
+  /* Restricted product rails keep a bit more breathing room from the
+     content column than the full department nav does. */
   main:has(#dept-sidebar .ms-product-nav-item),
   main:has(#dept-sidebar .ms-suite-nav-item) {
     column-gap: 1.5rem !important;
   }
+}
+
+/* Sidebar nav items on every dashboard — department list, marketing-suite
+   areas and single-product restricted rails alike — at every viewport
+   width. Tailwind's py-2 on .dept-nav-item (shared by .ms-product-nav-item
+   and .ms-suite-nav-item) reads as loose once the sidebar glass panel and
+   #dept-nav's own space-y are stacked on top of it; this is the actual
+   vertical rhythm control for "the nav." */
+#dept-nav .dept-nav-item {
+  padding-top: .35rem !important;
+  padding-bottom: .35rem !important;
+  line-height: 1.15 !important;
 }
 
 @media (max-width: 767px) {

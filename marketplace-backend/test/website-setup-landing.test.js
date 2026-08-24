@@ -67,6 +67,7 @@ describe('Website Product — Default Landing Setup & Contained Dashboard Archit
 
   it('provides key status indicators across domain, inventory, analytics, chat, and publishing', () => {
     assert.ok(part17Content.includes('SSL Active') || part17Content.includes('DNS Ready'), 'Domain status indicator');
+    assert.ok(part17Content.includes('Website Source:'), 'Inventory feed source status indicator');
     assert.ok(part17Content.includes('Automated'), 'Inventory feed automation status indicator');
     assert.ok(part17Content.includes('GA4:'), 'Analytics GA4 status');
     assert.ok(part17Content.includes('Meta Pixel:'), 'Analytics Meta Pixel status');
