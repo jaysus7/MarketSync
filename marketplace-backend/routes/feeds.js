@@ -91,6 +91,7 @@ export function registerRoutes(app) {
 
       const record = {
         dealership_id: req.dealershipId,
+        source: 'dealer_site_sync',
         vin: effectiveVin,
         year: parseInt(mapped.year) || null,
         make: mapped.make,

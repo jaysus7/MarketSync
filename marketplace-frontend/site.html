@@ -1343,7 +1343,12 @@
           try{ applyTypography(s); }catch(e){}
           try{ renderChrome(); }catch(e){}
           go(m.view||'home');
+          // Rendering the preview can finish one frame after go(). Retry the
+          // binding so a cached live builder never becomes visually editable
+          // but non-clickable.
           markPreviewSections();
+          requestAnimationFrame(markPreviewSections);
+          setTimeout(markPreviewSections,120);
         }catch(e){}
       });
       const notifyReady=()=>{ try{ parent.postMessage({type:'ms-preview-ready'},'*'); }catch(e){} };
@@ -1359,6 +1364,8 @@
       const secs=(DATA.site.sections||[]);
       if(VIEW!=='home'||!secs.length) return;
       [...host.children].forEach((child,i)=>{
+        if(child.getAttribute('data-ms-preview-bound')==='1') return;
+        child.setAttribute('data-ms-preview-bound','1');
         if(getComputedStyle(child).position==='static') child.style.position='relative';
         child.setAttribute('draggable','true');
         child.style.outlineOffset='-3px'; child.style.transition='outline-color .12s'; child.style.outline='3px solid transparent';

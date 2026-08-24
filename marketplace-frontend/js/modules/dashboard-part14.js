@@ -498,8 +498,11 @@ function openRepEdit(id) {
   const isAdmin = m.role === 'DEALER_ADMIN' || m.role === 'OWNER';
   const isManager = m.role === 'MANAGER';
   const viewerAdmin = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER';
-  const ic = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
-  const lbl = (t) => `<label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">${t}</label>`;
+  // Keep this light Liquid Glass editor consistent even when the dashboard has
+  // a global dark class. The old dark utility classes made the fields unreadable.
+  const ic = 'w-full bg-white/85 text-slate-900 placeholder-slate-400 border border-slate-300 rounded-xl px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500';
+  const lbl = (t) => `<label class="block text-[11px] font-semibold text-slate-600 mb-1">${t}</label>`;
+  const checkRow = 'flex items-center gap-2 text-sm text-slate-700 rounded-xl border border-slate-200 bg-white/70 px-3 py-2';
   const routingRow = (m.role === 'SALES_REP')
     ? `<div>${lbl('Sales lot (for auto-assigned leads)')}<select id="re-team" class="${ic}">${[['', '—'], ['new', 'New'], ['used', 'Used'], ['both', 'Both']].map(o => `<option value="${o[0]}" ${(m.sales_team || '') === o[0] ? 'selected' : ''}>${o[1] === '—' ? 'Not set' : o[1]}</option>`).join('')}</select></div>`
     : `<div>${lbl('Manager scope (lead notifications)')}<select id="re-mgr" class="${ic}">${[['', '—'], ['gm', 'General manager'], ['gsm', 'GSM'], ['new_mgr', 'New-car manager'], ['used_mgr', 'Used-car manager'], ['fni', 'F&I manager']].map(o => `<option value="${o[0]}" ${(m.mgr_role || '') === o[0] ? 'selected' : ''}>${o[1] === '—' ? 'Not set' : o[1]}</option>`).join('')}</select></div>`;
@@ -509,7 +512,7 @@ function openRepEdit(id) {
       <div id="re-avatar-wrap" class="w-16 h-16 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-lg font-black text-slate-500 shrink-0">${m.avatar_url ? `<img src="${esc(m.avatar_url)}" class="w-full h-full object-cover">` : esc((m.full_name || '?')[0] || '?')}</div>
       <div><input type="file" accept="image/*" id="re-photo-file" class="hidden" onchange="repEditUploadPhoto(this.files[0])"><button type="button" onclick="document.getElementById('re-photo-file').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 px-3 py-1.5 rounded-lg">Upload photo</button><p class="text-[11px] text-slate-400 mt-1">Shows on your website team page.</p></div>
     </div>
-    <div id="re-insights" class="grid grid-cols-3 gap-2 text-center bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5">
+    <div id="re-insights" class="grid grid-cols-3 gap-2 text-center bg-white/70 border border-slate-200 rounded-xl p-2.5">
       <div class="text-xs text-slate-400 italic col-span-3 py-1">Loading insights…</div>
     </div>
     <div class="grid grid-cols-2 gap-2">
@@ -520,12 +523,12 @@ function openRepEdit(id) {
     <div>${lbl('Registration / OMVIC # (prints on the bill of sale, beside their signature)')}<input id="re-reg" value="${esc(m.registration_id || '')}" placeholder="5642822" class="${ic}"></div>
     <div class="grid grid-cols-2 gap-2">
       ${routingRow}
-      ${m.role === 'SALES_REP' ? `<div>${lbl('Appraisals')}<label class="flex items-center gap-2 text-sm ${ic}"><input id="re-appr" type="checkbox" class="accent-indigo-600" ${m.can_see_all_appraisals ? 'checked' : ''}>Sees all appraisals</label></div>` : '<div></div>'}
+      ${m.role === 'SALES_REP' ? `<div>${lbl('Appraisals')}<label class="${checkRow}"><input id="re-appr" type="checkbox" class="accent-indigo-600" ${m.can_see_all_appraisals ? 'checked' : ''}>Sees all appraisals</label></div>` : '<div></div>'}
     </div>
-    <label class="flex items-center gap-2 text-sm"><input id="re-active" type="checkbox" class="accent-indigo-600" ${m.active !== false ? 'checked' : ''}>Active (uncheck to pause lead assignment &amp; rep sends)</label>
-    <div class="border-t border-slate-200 dark:border-slate-700 pt-3 flex flex-wrap items-center gap-2">
-      ${(!isSelf && !isAdmin && viewerAdmin) ? `<div class="flex items-center gap-1.5"><label class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Role</label><select id="re-role" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-2 py-2 rounded-lg">${[['SALES_REP', 'Sales rep'], ['MANAGER', 'Manager'], ['FNI', 'F&I'], ['SERVICE', 'Service'], ['ACCOUNTING', 'Accounting'], ['CLEANUP', 'Cleanup']].map(o => `<option value="${o[0]}" ${m.role === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select><button onclick="repEditRole('${m.id}', document.getElementById('re-role').value, this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg">Set</button></div>` : ''}
-      ${(!isSelf && viewerAdmin) ? `<button onclick="repEditPassword('${m.id}', this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg">Reset password</button>` : ''}
+    <label class="${checkRow}"><input id="re-active" type="checkbox" class="accent-indigo-600" ${m.active !== false ? 'checked' : ''}>Active (uncheck to pause lead assignment &amp; rep sends)</label>
+    <div class="border-t border-slate-200 pt-3 flex flex-wrap items-center gap-2">
+      ${(!isSelf && !isAdmin && viewerAdmin) ? `<div class="flex items-center gap-1.5"><label class="text-[11px] font-semibold text-slate-600">Role</label><select id="re-role" class="text-xs font-bold bg-white text-slate-900 border border-slate-300 px-3 py-2 rounded-xl shadow-sm">${[['SALES_REP', 'Sales rep'], ['MANAGER', 'Manager'], ['FNI', 'F&I'], ['SERVICE', 'Service'], ['ACCOUNTING', 'Accounting'], ['CLEANUP', 'Cleanup']].map(o => `<option value="${o[0]}" ${m.role === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select><button onclick="repEditRole('${m.id}', document.getElementById('re-role').value, this)" class="text-xs font-bold bg-white text-slate-700 border border-slate-300 px-3 py-2 rounded-xl shadow-sm">Set</button></div>` : ''}
+      ${(!isSelf && viewerAdmin) ? `<button onclick="repEditPassword('${m.id}', this)" class="text-xs font-bold bg-white text-slate-700 border border-slate-300 px-3 py-2 rounded-xl shadow-sm">Reset password</button>` : ''}
       ${(!isSelf && !isAdmin) ? `<button onclick="repEditRemove('${m.id}','${esc(m.full_name || 'this rep')}')" class="text-xs font-bold text-rose-600 hover:text-rose-500 px-2 py-2">Remove</button>` : ''}
       <div class="flex-1"></div>
       <button onclick="this.closest('.fixed').remove()" class="text-sm font-bold text-slate-500 px-4 py-2">Cancel</button>
@@ -553,9 +556,9 @@ async function loadRepEditInsights(repId) {
     const conv = posted > 0 ? Math.round((sold / posted) * 100) : 0;
     if (!document.getElementById('re-insights')) return;   // modal closed while loading
     host.innerHTML = `
-      <div><div class="text-lg font-black text-slate-900 dark:text-white">${posted}</div><div class="text-[10px] uppercase tracking-wider text-slate-400">Posts</div></div>
-      <div><div class="text-lg font-black text-slate-900 dark:text-white">${sold}</div><div class="text-[10px] uppercase tracking-wider text-slate-400">Sold</div></div>
-      <div><div class="text-lg font-black text-slate-900 dark:text-white">${conv}%</div><div class="text-[10px] uppercase tracking-wider text-slate-400">Conversion</div></div>
+      <div><div class="text-lg font-black text-slate-900">${posted}</div><div class="text-[10px] uppercase tracking-wider text-slate-500">Posts</div></div>
+      <div><div class="text-lg font-black text-slate-900">${sold}</div><div class="text-[10px] uppercase tracking-wider text-slate-500">Sold</div></div>
+      <div><div class="text-lg font-black text-slate-900">${conv}%</div><div class="text-[10px] uppercase tracking-wider text-slate-500">Conversion</div></div>
     `;
   } catch (e) {
     if (document.getElementById('re-insights')) host.innerHTML = `<div class="text-xs text-slate-400 italic col-span-3 py-1">Insights unavailable</div>`;

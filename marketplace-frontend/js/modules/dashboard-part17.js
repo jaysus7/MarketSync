@@ -485,8 +485,8 @@ function wsSetup() {
 
         <!-- 7. Inventory Feed -->
         ${card('inventory_feed', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.676A48.243 48.243 0 0012 7.5"/></svg>`,
-          'Inventory Feed', 'DMS live inventory feed, Build & Price franchise lineups, and pricing rules.',
-          `<div class="flex justify-between"><span class="text-slate-500">Live Inventory:</span> <span class="font-bold text-emerald-500">Active Sync</span></div>
+          'Inventory Feed', 'Choose whether the public Digital site uses Marketplace inventory, dealer inventory, or both while you migrate.',
+          `<div class="flex justify-between"><span class="text-slate-500">Website Source:</span> <span class="font-bold text-emerald-500 capitalize">${esc(c.inventory_source || 'auto')}</span></div>
            <div class="flex justify-between"><span class="text-slate-500">Franchise Makes:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${(c.build_makes || []).length || 'Auto-Detect'} Selected</span></div>`,
           `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Automated</span>`
         )}
@@ -692,11 +692,21 @@ function openSetupModal(secId) {
     `;
   } else if (secId === 'inventory_feed') {
     title = 'Inventory Feed & Makes';
-    desc = 'Select new vehicle franchise lineups displayed in Build & Price.';
+    desc = 'Choose the public inventory source while connecting the dealer\'s old site, then select new franchise lineups.';
     const set = new Set((c.build_makes || []).map(s => String(s).toLowerCase()));
     const makesList = ['Chevrolet', 'GMC', 'Buick', 'Cadillac', 'Ford', 'Lincoln', 'Toyota', 'Honda', 'Nissan', 'Hyundai', 'Kia', 'Mazda', 'Subaru', 'Volkswagen', 'Jeep', 'Ram', 'Dodge', 'Chrysler'];
     bodyHtml = `
-      <div class="space-y-3">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Public website inventory</label>
+          <select id="m-site-inventory-source" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">
+            <option value="auto" ${c.inventory_source === 'auto' || !c.inventory_source ? 'selected' : ''}>Automatic — Marketplace until dealer inventory is connected</option>
+            <option value="dealer" ${c.inventory_source === 'dealer' ? 'selected' : ''}>Dealer inventory only</option>
+            <option value="marketplace" ${c.inventory_source === 'marketplace' ? 'selected' : ''}>Marketplace inventory only</option>
+            <option value="merged" ${c.inventory_source === 'merged' ? 'selected' : ''}>Show both inventories</option>
+          </select>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Old-site sync imports into the canonical dealer inventory and updates the same vehicle records on every pull.</p>
+        </div>
         <p class="text-xs text-slate-500 dark:text-slate-400">Select the new vehicle makes you sell. Unchecked makes default to auto-detecting from your live inventory.</p>
         <div id="m-bm-wrap" class="grid grid-cols-2 sm:grid-cols-3 gap-2 py-2">
           ${makesList.map(b => `<label class="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer"><input type="checkbox" class="m-bm-check accent-indigo-600 w-4 h-4 rounded" value="${b}" ${set.has(b.toLowerCase()) ? 'checked' : ''}><span>${b}</span></label>`).join('')}
@@ -864,6 +874,7 @@ async function saveSetupSection(secId) {
   } else if (secId === 'inventory_feed') {
     const checks = document.querySelectorAll('.m-bm-check:checked');
     c.build_makes = Array.from(checks).map(cb => cb.value);
+    c.inventory_source = document.getElementById('m-site-inventory-source')?.value || 'auto';
   } else if (secId === 'routing') {
     c.email = document.getElementById('m-site-email')?.value || c.email;
     c.phone = document.getElementById('m-site-phone')?.value || c.phone;
@@ -888,7 +899,7 @@ async function saveSetupSection(secId) {
     await apiSendJson('/dealership/site', 'PUT', {
       site_slug: __siteCfg.site_slug,
       site_published: __siteCfg.site_published,
-      content: c
+      ...c
     });
     document.getElementById('setup-modal-container')?.remove();
     if (typeof showToast === 'function') showToast('Setup settings saved', 'success');
@@ -1430,6 +1441,7 @@ async function saveSite(btn) {
     address: val('site-address'), hours: val('site-hours'), primary_color: val('site-color'), hero_url: val('site-hero'),
     facebook_url: val('site-fb'), instagram_url: val('site-ig'),
     seo_title: val('seo-title'), seo_description: val('seo-desc'), seo_keywords: val('seo-keywords'), seo_image: val('seo-image'),
+    inventory_source: __siteCfg.content?.inventory_source || 'auto',
     head_html: document.getElementById('site-head')?.value || '',
     sales_chat: document.getElementById('site-sales-chat')?.checked || false,
     chat_name: document.getElementById('site-chat-name')?.value || '',
@@ -2615,7 +2627,7 @@ function renderLiveBuilder(body) {
         <!-- Center Full-Screen Live Web Canvas -->
         <main class="w-full h-full flex items-center justify-center p-0 overflow-hidden relative z-0">
           <div id="ws-frame-wrapper" class="${__wsActiveDeviceView === 'mobile' ? 'w-[375px] h-[92%]' : (__wsActiveDeviceView === 'tablet' ? 'w-[768px] h-[92%]' : 'w-full h-full')} ${__wsActiveDeviceView === 'desktop' ? 'border-0' : 'rounded-3xl border-4 border-slate-500 dark:border-slate-700 shadow-2xl'} bg-white transition-all duration-300 overflow-hidden relative z-0">
-            <iframe id="ws-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1" class="w-full h-full border-0" title="Live Website Canvas"></iframe>
+            <iframe id="ws-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1" class="w-full h-full border-0 pointer-events-auto" title="Live Website Canvas"></iframe>
           </div>
         </main>
 
