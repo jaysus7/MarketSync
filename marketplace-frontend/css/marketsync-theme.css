@@ -1794,3 +1794,41 @@ body {
   .ms-crm-actions { flex-wrap: nowrap !important; overflow-x: auto; padding-bottom: .35rem; }
   .ms-crm-actions button { flex: 0 0 auto; }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Reduced-transparency fallback. The Liquid Glass chrome stacks many
+   backdrop-filter blur layers; on iOS with Reduce Transparency enabled (or
+   under Safari's own compositing pressure), backdrop-filter can silently fail
+   and flatten to a near-opaque, washed-out surface instead of the intended
+   dark/saturated gradient — every glass panel loses contrast at once,
+   including cards whose own colors were never translucent. Drop the blur and
+   force a solid, high-contrast surface so nothing depends on the browser
+   actually compositing the effect.
+────────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-transparency: reduce) {
+  .ms-engine-header, .ms-glass, .ms-card, .ms-crm-glass, .ms-toast,
+  [data-engine-rail] details, [data-engine-rail] details[open] > summary,
+  body > header, #nav-desktop, #nav-mobile, #report-rail,
+  [data-page-content] .bg-white, [data-page-content] .dark\:bg-slate-900 {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: var(--ms-surface-solid) !important;
+  }
+  .dark .ms-engine-header, .dark .ms-glass, .dark .ms-card, .dark .ms-crm-glass, .dark .ms-toast,
+  .dark [data-engine-rail] details, .dark body > header, .dark #nav-desktop, .dark #nav-mobile, .dark #report-rail {
+    background: var(--ms-surface-solid) !important;
+  }
+}
+
+/* AI/executive highlight panels are DELIBERATELY dark regardless of site
+   theme (bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900,
+   text-white) — a fixed-contrast accent card, not a themed glass surface.
+   Give it its own stacking context and a solid gradient fallback so no
+   ancestor's backdrop-filter/opacity can ever wash it out, in light mode or
+   under a reduced-transparency fallback. Opt in with class="ms-ai-panel". */
+.ms-ai-panel {
+  isolation: isolate;
+  background: linear-gradient(to right, #0f172a, #1e1b4b, #0f172a) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}

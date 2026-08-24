@@ -1220,7 +1220,7 @@ function mktStudioView(d) {
   return `
     <div class="space-y-6">
       <!-- Studio Hero Header & Quick Create Bar -->
-      <div class="rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 text-white border border-indigo-900/50 shadow-xl">
+      <div class="rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 ms-ai-panel p-6 text-white border border-indigo-900/50 shadow-xl">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-bold uppercase tracking-wider mb-2">

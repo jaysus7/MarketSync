@@ -4477,7 +4477,7 @@ function renderSeoAdvancedOverviewView() {
       </div>
 
       <!-- Real-Time Automotive Inventory SEO Intelligence Engine -->
-      <div class="p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 text-white space-y-4 shadow-xl">
+      <div class="p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 ms-ai-panel border border-indigo-500/30 text-white space-y-4 shadow-xl">
         <div class="flex items-center justify-between flex-wrap gap-3">
           <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 font-black">
