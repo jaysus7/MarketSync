@@ -1443,8 +1443,8 @@ function restrictedNavPages() {
     // shared Automation Builder, so the product Pulse must target that page too.
     'email-marketing': { page: 'automation-builder', tab: 'overview', label: 'Pulse', icon: 'megaphone' },
     'automation-builder': { page: 'automation-builder', tab: 'overview', label: 'Pulse', icon: 'bolt' },
-    'video-studio': { page: 'video-studio', label: 'Pulse', icon: 'video' },
-    website: { page: 'website', tab: 'builder', label: 'Pulse', icon: 'globe' },
+    'video-studio': { page: 'video-studio', label: 'Video', icon: 'video' },
+    website: { page: 'website', tab: 'builder', label: 'Website', icon: 'globe' },
   };
 
   // Sales reps do not receive the full DealerOS department registry. Their
@@ -1540,7 +1540,7 @@ function restrictedNavPages() {
       // Blog and SEO open as normal in-dashboard pages (page content area + sidebar),
       // like the rest of MarketSync — not the full-screen workspace. Setup stays with
       // the Builder workspace (it configures that editor).
-      { page: 'website', tab: 'builder', label: 'Pulse', icon: 'globe' },
+      { page: 'website', tab: 'builder', label: 'Website', icon: 'globe' },
       { page: 'blog', label: 'Blog', icon: 'document' },
       { page: 'seo', label: 'SEO', icon: 'chart' },
       { page: 'website', tab: 'setup', label: 'Setup', icon: 'wrench' },

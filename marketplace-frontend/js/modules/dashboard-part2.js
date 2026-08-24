@@ -1615,7 +1615,7 @@ function renderMarketingSuiteNav(suiteKey, host, navRoot) {
 
   let html = `<div class="ms-suite-nav-header px-3 pt-2 pb-3 mb-2">
     <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">${esc(cfg.badge)}</div>
-    <div class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">MarketSync · Pulse first</div>
+    <div class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">${esc(cfg.title || 'MarketSync')}</div>
   </div>`;
   html += cfg.areas.map(area => `<button type="button" data-suite-area="${esc(area.id)}" onclick="suiteAreaOpen('${esc(area.id)}')" title="${esc(area.label)}" class="ms-suite-nav-item dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-[13px]"><span class="text-indigo-500 flex-shrink-0">${svgIcon(area.icon || 'dot', 'w-4 h-4')}</span><span class="truncate">${esc(area.label)}</span></button>`).join('');
 
@@ -1826,7 +1826,10 @@ function switchPage(pageId) {
     const identityOnly = typeof isIdentityVerifyWorkspace === 'function' && isIdentityVerifyWorkspace();
     if (!inMktSuite && !identityOnly) pageId = 'sales';
   }
-  if (pageId === 'inventory') pageId = 'inventory-overview';
+  // Facebook Poster is a mode of the Inventory surface. Keep that route intact
+  // after the legacy redirect pass so restricted Inventory links do not fall
+  // through to the settings/default landing page.
+  if (pageId === 'inventory' && __inventoryMode !== 'facebook') pageId = 'inventory-overview';
   if (pageId === 'fni') pageId = 'fni-overview';
   if (pageId === 'service' || pageId === 'service-ros' || pageId === 'service-appointments') pageId = 'service-overview';
   if (pageId === 'parts') pageId = 'parts-overview';
