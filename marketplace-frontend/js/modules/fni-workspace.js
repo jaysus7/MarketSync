@@ -236,20 +236,21 @@ ENGINES['fni-overview'] = {
     // Deals are the landing payload. The delivery queue is fetched here too because
     // blockers are the department's headline attention item, but products and the
     // full delivery view stay lazy.
-    const [deals, del, products, lenders, funding] = await Promise.all([
+    const [deals, del, products, lenders, funding, gamification] = await Promise.all([
       apiGetJson('/fni/deals').catch(() => ({ deals: [] })),
       apiGetJson('/delivery/queue').catch(() => ({ deals: [] })),
       apiGetJson('/fni/products').catch(() => null),
       apiGetJson('/fni/lenders').catch(() => null),
       // Canonical funding state, so My Day reads the fact rather than inferring it.
       apiGetJson('/fni/funding').catch(() => null),
+      apiGetJson('/gamification').catch(() => null),
     ]);
     const queue = del.deals || del.queue || [];
     const d = { deals: deals.deals || deals.items || [], deliveryQueue: queue, blocked: queue.filter(x => x.blocker),
       // null means "could not read", which the Settings tab renders differently from "none".
       products: products ? (products.products || products.items || []) : null,
       lenders: lenders ? (lenders.lenders || lenders.items || []) : null,
-      funding: funding ? (funding.deals || []) : null };
+      funding: funding ? (funding.deals || []) : null, gamification };
     __fniWsData = d;
     return d;
   },
@@ -302,7 +303,7 @@ ENGINES['fni-overview'] = {
           title: 'Deliveries', count: (d.deliveryQueue || []).length,
           onclick: "switchPage('delivery')",
           inner: (d.deliveryQueue || []).length ? d.deliveryQueue.slice(0, 5).map(x => pulseRow({
-            badge: x.blocker ? '!' : undefined, icon: x.blocker ? undefined : 'check', badgeTone: x.blocker ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300' : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
+            badge: x.blocker ? '!' : '✓', badgeTone: x.blocker ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300' : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
             label: fniCustomer(x), sub: x.blocker || 'Ready', onclick: "switchPage('delivery')",
           })).join('') : '', empty: 'Nothing in the delivery queue.',
         }),
@@ -324,7 +325,7 @@ ENGINES['fni-overview'] = {
           title: 'F&I products', count: products.length,
           onclick: "engineTab('fni-overview','settings')",
           inner: products.length ? products.slice(0, 5).map(p => pulseRow({
-            badge: p.active === false ? '–' : undefined, icon: p.active === false ? undefined : 'check', badgeTone: p.active === false ? 'bg-slate-100 dark:bg-slate-800 text-slate-400' : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
+            badge: p.active === false ? '–' : '✓', badgeTone: p.active === false ? 'bg-slate-100 dark:bg-slate-800 text-slate-400' : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
             label: p.name || p.product_name || 'Product', sub: p.provider || '', done: p.active === false,
           })).join('') : '', empty: 'No F&I products set up yet.',
         }),
@@ -339,10 +340,7 @@ ENGINES['fni-overview'] = {
             return n ? pulseRow({ badge: n, label, onclick: "switchPage('fni')" }) : '';
           }).filter(Boolean).join('') || '', empty: 'No deals yet.',
         }),
-        pulseCard({
-          title: 'F&I performance', onclick: "openDeptReport('fni')",
-          inner: `<p class="text-[12px] text-slate-500 dark:text-slate-400 leading-snug">Approval rate, product penetration and profit per vehicle, by manager.</p>`,
-        }),
+        pulseLeaderboardCard(d.gamification, 'fni', { title: 'F&I leaderboard', metric: 'pvr_avg' }),
       ]);
 
       const proactiveAiPanel = `

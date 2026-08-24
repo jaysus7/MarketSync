@@ -312,13 +312,14 @@ ENGINES['sales'] = {
   ],
 
   fetch: async () => {
-    const [contacts, tasks, appts, deals, deliveries, insights] = await Promise.all([
+    const [contacts, tasks, appts, deals, deliveries, insights, gamification] = await Promise.all([
       apiGetJson('/crm/contacts?limit=200').catch(() => ({ contacts: [] })),
       apiGetJson('/crm/tasks?scope=open').catch(() => ({ tasks: [] })),
       apiGetJson('/appointments').catch(() => ({ appointments: [] })),
       apiGetJson('/fni/deals').catch(() => null),
       apiGetJson('/delivery/queue').catch(() => null),
       apiGetJson('/crm/insights?range=30').catch(() => null),
+      apiGetJson('/gamification').catch(() => null),
     ]);
     const d = {
       contacts: contacts.contacts || [],
@@ -327,7 +328,7 @@ ENGINES['sales'] = {
       isManager: typeof appts.can_manage_all === 'boolean' ? appts.can_manage_all : undefined,
       deals: deals?.deals || null,
       deliveries: deliveries?.queue || deliveries?.deliveries || null,
-      insights,
+      insights, gamification,
     };
     d.tasksByContact = {}; d.apptByContact = {};
     for (const t of d.tasks) if (t.contact_id && !d.tasksByContact[t.contact_id]) d.tasksByContact[t.contact_id] = t;
@@ -388,7 +389,7 @@ ENGINES['sales'] = {
           title: "Today's videos sent", count: (typeof DEMO_SENT_VIDEOS !== 'undefined' ? DEMO_SENT_VIDEOS : []).length,
           onclick: "switchPage('video-studio')",
           inner: (typeof DEMO_SENT_VIDEOS !== 'undefined' ? DEMO_SENT_VIDEOS : []).slice(0, 5).map(v => pulseRow({
-            icon: v.first_played_at ? 'play' : 'chat', badgeTone: v.first_played_at ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-300',
+            badge: v.first_played_at ? '▶' : '✉', badgeTone: v.first_played_at ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-300',
             label: v.contact_name, sub: v.vehicle, onclick: `openPublicVideoLink('${v.share_token}', '${v.contact_id}')`,
           })).join(''), empty: 'No customer videos sent today.',
         }),
@@ -413,10 +414,8 @@ ENGINES['sales'] = {
             f.leads && f.sold != null ? pulseRow({ badge: Math.round((f.sold / f.leads) * 100) + '%', label: 'Close rate' }) : '',
           ].join('') : '', empty: 'Performance could not be loaded.',
         }),
-        pulseCard({
-          title: 'Facebook Marketplace / Sales Leaderboard', onclick: "openDeptReport('reps')",
-          inner: `<p class="text-[12px] text-slate-500 dark:text-slate-400 leading-snug">Rep scorecard — leads, sold units and Marketplace posting, ranked.</p>`,
-        }),
+        pulseLeaderboardCard(d.gamification, 'sales', { title: 'Sales leaderboard', metric: 'total_sold' }),
+        pulseLeaderboardCard(d.gamification, 'facebook', { title: 'Facebook Marketplace leaderboard' }),
       ]);
 
       const proactiveAiPanel = `

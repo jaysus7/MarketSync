@@ -695,7 +695,7 @@ ENGINES['parts-overview'] = {
           title: 'Reserved — ready to issue', count: reserved.length, tone: reserved.length ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300' : '',
           onclick: "engineTab('parts-overview','work')",
           inner: reserved.length ? reserved.slice(0, 5).map(q => pulseRow({
-            icon: 'check', badgeTone: 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
+            badge: '✓', badgeTone: 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
             label: d.partById?.[q.part_id]?.part_number || 'Part', sub: pwReqShort(q),
           })).join('') : '', empty: 'Nothing reserved right now.',
         }),
