@@ -14,16 +14,16 @@ const inventoryWs = read('../../marketplace-frontend/js/modules/inventory-worksp
 const staffChatDock = read('../../marketplace-frontend/js/modules/staff-chat-dock.js')
 const staffChatRoute = read('../routes/staff-chat.js')
 
-// ── The right rail carries department Reports, not Team Messages ──────────────
-test('engineRail renders a Reports section and no Team Messages section', () => {
+// ── The right rail carries Next Actions and Quick Actions only ────────────────
+test('engineRail renders Next Actions and Quick Actions, with no Reports or Team Messages section', () => {
   const fn = part10.match(/function engineRail\(eng, d\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(fn, 'engineRail must exist')
-  assert.match(fn, /const msg = sec\('Reports', 'chart', reportsInner\)/,
-    'the rail leads with a Reports section')
+  assert.match(fn, /return sec\('Next Actions', 'check', naHtml\) \+ sec\('Quick Actions', 'bolt', qa\)/,
+    'the rail is Next Actions + Quick Actions only')
+  assert.doesNotMatch(fn, /sec\('Reports'/,
+    'the floating Reports section was removed from every department dashboard')
   assert.doesNotMatch(fn, /sec\('Team Messages'/,
     'Team Messages no longer lives on the rail — it moved to the floating bubble')
-  // Falls back to a department-named link when the engine declares no reports.
-  assert.match(fn, /const reportItems = \(eng\.reports && eng\.reports\.length\)/)
 })
 
 test('the Reports rail is specific to the department you are in via openDeptReport deep links', () => {

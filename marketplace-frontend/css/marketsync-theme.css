@@ -1355,7 +1355,7 @@ body.website-workspace-mode {
 .ms-button-primary:hover { background:var(--ms-primary-hover); }
 body.ms-app-booting, body.ms-app-booting main { background:var(--ms-bg) !important; }
 body.ms-app-booting > header { background:var(--ms-surface) !important; border-color:var(--ms-border) !important; backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); box-shadow:0 8px 24px rgba(23,25,31,.06); }
-#nav-desktop, #nav-mobile, #report-rail { background:var(--ms-surface) !important; border-color:var(--ms-border) !important; }
+#dept-sidebar, #nav-desktop, #nav-mobile, #report-rail { background:var(--ms-surface) !important; border-color:var(--ms-border) !important; }
 .ms-engine-header { padding:clamp(1rem,2vw,1.5rem); border:1px solid var(--ms-border); border-radius:var(--ms-radius-card); background:var(--ms-surface); box-shadow:var(--ms-shadow-glass); backdrop-filter:blur(var(--ms-glass-blur)); -webkit-backdrop-filter:blur(var(--ms-glass-blur)); }
 .ms-engine-title { font-size:clamp(2rem,4vw,3.5rem) !important; line-height:.98 !important; letter-spacing:-.055em !important; font-weight:900 !important; font-family:Satoshi,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
 #service-overview-root .rounded-2xl, #parts-overview-root .rounded-2xl { border-radius:var(--ms-radius-card); }
@@ -1473,6 +1473,7 @@ body {
 }
 
 body > header,
+#dept-sidebar,
 #nav-desktop,
 #nav-mobile,
 #report-rail,
@@ -1676,6 +1677,7 @@ body {
 }
 
 .dark body > header,
+.dark #dept-sidebar,
 .dark #nav-desktop,
 .dark #nav-mobile,
 .dark #report-rail,
@@ -1855,14 +1857,14 @@ body {
 @media (prefers-reduced-transparency: reduce) {
   .ms-engine-header, .ms-glass, .ms-card, .ms-crm-glass, .ms-toast,
   [data-engine-rail] details, [data-engine-rail] details[open] > summary,
-  body > header, #nav-desktop, #nav-mobile, #report-rail,
+  body > header, #dept-sidebar, #nav-desktop, #nav-mobile, #report-rail,
   [data-page-content] .bg-white, [data-page-content] .dark\:bg-slate-900 {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     background: var(--ms-surface-solid) !important;
   }
   .dark .ms-engine-header, .dark .ms-glass, .dark .ms-card, .dark .ms-crm-glass, .dark .ms-toast,
-  .dark [data-engine-rail] details, .dark body > header, .dark #nav-desktop, .dark #nav-mobile, .dark #report-rail {
+  .dark [data-engine-rail] details, .dark body > header, .dark #dept-sidebar, .dark #nav-desktop, .dark #nav-mobile, .dark #report-rail {
     background: var(--ms-surface-solid) !important;
   }
 }
@@ -1879,3 +1881,32 @@ body {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
+
+/* Sidebar glass consolidation. #dept-sidebar (the actual 248px column that
+   holds the department nav) is the one glass surface for the whole sidebar;
+   #nav-desktop is nested inside it and, being smaller than the column on most
+   pages, was painting its own separate glass box (background/border/blur) a
+   few pixels short of the column edge — reading as a hard seam between "the
+   real sidebar" and "the content area" rather than one continuous panel. Kept
+   last in the cascade so it wins over every earlier #nav-desktop rule above. */
+#nav-desktop {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+#dept-sidebar {
+  border: 1px solid rgba(255,255,255,.20);
+  border-radius: var(--ms-radius-card);
+  padding: .85rem;
+}
+.dark #dept-sidebar { border-color: rgba(190,205,230,.15); }
+@media (max-width: 767px) { #dept-sidebar { border: none; border-radius: 0; padding: 0; background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; } }
+
+/* The header's own Tailwind border-b (border-slate-200/800) is a flat, fully
+   opaque hairline that reads as a hard line under the glass header no matter
+   how translucent the header's own background is — override its color the
+   same way the glass background above is overridden. */
+body > header { border-bottom-color: rgba(255,255,255,.20) !important; }
+.dark body > header { border-bottom-color: rgba(190,205,230,.15) !important; }
