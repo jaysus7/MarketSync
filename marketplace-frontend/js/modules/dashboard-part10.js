@@ -728,6 +728,13 @@ const ENGINE_TAB_LABEL = {
   money_in: 'Money In', money_out: 'Money Out', bank: 'Bank', close: 'Close', reports: 'Reports', budget: 'Budget',
   journal: 'Journal', payroll: 'Payroll', insights: 'Insights', automation: 'Automation', settings: 'Settings'
 };
+const ENGINE_TAB_ICON = {
+  overview: 'chart', pulse: 'chart', work: 'clipboard', customers: 'users', desk: 'currency',
+  appraisal: 'car', appraisals: 'car', equity: 'gem', appointments: 'calendar', ros: 'wrench',
+  requests: 'clipboard', money_in: 'currency', money_out: 'receipt', bank: 'currency',
+  close: 'check', reports: 'chart', budget: 'currency', journal: 'document', payroll: 'users',
+  insights: 'sparkles', automation: 'bolt', settings: 'wrench'
+};
 const ENGINE_ACCENTS = {
   violet: { text: 'text-violet-700 dark:text-violet-300', bg: 'bg-violet-100 dark:bg-violet-950/50', solid: 'bg-violet-600 hover:bg-violet-700' },
   indigo:  { text: 'text-indigo-600 dark:text-indigo-400',   bg: 'bg-indigo-50 dark:bg-indigo-950/40',   solid: 'bg-indigo-600 hover:bg-indigo-500' },
@@ -979,11 +986,11 @@ function renderEngine(engineId, force = false) {
   if (!order.includes(tab)) tab = order[0];          // stored tab may have been removed
   const A = ENGINE_ACCENTS[eng.accent] || ENGINE_ACCENTS.indigo;
   const tabBtn = (t) => `<button data-engine-tab="${t}" role="tab" onclick="engineTab('${engineId}','${t}')"
-    class="px-4 py-2.5 -mb-px border-b-2 text-xs font-bold whitespace-nowrap transition border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white ${A.text}">${esc((eng.tabLabels && eng.tabLabels[t]) || ENGINE_TAB_LABEL[t])}</button>`;
+    class="ms-engine-tab px-4 py-2.5 text-xs font-bold whitespace-nowrap transition border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white ${A.text}">${svgIcon(ENGINE_TAB_ICON[t] || 'dot', 'w-4 h-4')}<span>${esc((eng.tabLabels && eng.tabLabels[t]) || ENGINE_TAB_LABEL[t])}</span></button>`;
   root.innerHTML = (eng.hideHeader ? '' : `
     <div class="ms-engine-header flex items-start justify-between flex-wrap gap-3 mb-4">
       <div class="flex items-center gap-3">
-        <div class="w-11 h-11 rounded-xl ${A.bg} ${A.text} flex items-center justify-center flex-shrink-0 shadow-xs">${svgIcon(eng.icon || 'chart', 'w-5.5 h-5.5')}</div>
+        <div class="ms-engine-mark w-11 h-11 rounded-xl ${A.bg} ${A.text} flex items-center justify-center flex-shrink-0 shadow-xs">${svgIcon(eng.icon || 'chart', 'w-5.5 h-5.5')}</div>
         <div>
           <h1 class="ms-engine-title text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">${esc(eng.title)}</h1>
           <p class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mt-1">${esc(eng.subtitle || '')}</p>
@@ -991,7 +998,7 @@ function renderEngine(engineId, force = false) {
       </div>
       <button onclick="renderEngine('${engineId}', true)" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1.5 transition">${svgIcon('refresh', 'w-3.5 h-3.5')}Refresh</button>
     </div>`) + `
-    <div data-engine-tabbar="${engineId}" role="tablist" class="${(order.length <= 1 || eng.hideTabBar) ? 'hidden' : 'flex'} items-center gap-1 border-b border-slate-200 dark:border-slate-800 mb-4 overflow-x-auto">
+    <div data-engine-tabbar="${engineId}" role="tablist" class="ms-engine-tabs ${(order.length <= 1 || eng.hideTabBar) ? 'hidden' : 'flex'} items-center gap-2 mb-4 overflow-x-auto">
       ${order.map(tabBtn).join('')}
     </div>
     <div class="grid grid-cols-1 ${eng.hideRail ? '' : 'xl:grid-cols-[minmax(0,1fr)_300px]'} gap-5 items-start">

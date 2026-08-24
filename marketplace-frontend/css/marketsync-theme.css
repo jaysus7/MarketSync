@@ -1505,3 +1505,72 @@ body > header,
   .ms-pulse-board > * { grid-column: 1; }
   .ms-pulse-board > .grid:first-of-type > * { min-height: 5.75rem; }
 }
+
+/* Larger editorial headers and icon-led glass tabs. */
+.ms-engine-header {
+  padding: clamp(1.4rem, 2.8vw, 2.4rem) !important;
+  min-height: 8.75rem;
+  align-items: center !important;
+}
+
+.ms-engine-header > div:first-child { gap: clamp(1rem, 1.8vw, 1.5rem) !important; }
+
+.ms-engine-mark {
+  width: clamp(3.75rem, 6vw, 5rem) !important;
+  height: clamp(3.75rem, 6vw, 5rem) !important;
+  border-radius: 1.35rem !important;
+  border: 1px solid currentColor;
+  box-shadow: 0 14px 34px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.22) !important;
+}
+
+.ms-engine-mark svg { width: clamp(1.7rem, 3vw, 2.35rem) !important; height: clamp(1.7rem, 3vw, 2.35rem) !important; stroke-width: 2; }
+
+.ms-engine-title {
+  font-size: clamp(2.75rem, 5vw, 5rem) !important;
+  line-height: .92 !important;
+  letter-spacing: -.065em !important;
+}
+
+.ms-engine-title + p { font-size: clamp(.88rem, 1.2vw, 1.05rem) !important; margin-top: .65rem !important; }
+
+.ms-engine-tabs {
+  padding: .45rem;
+  border: 1px solid var(--ms-border);
+  border-radius: 1.15rem;
+  background: rgba(255,255,255,.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+}
+
+.ms-engine-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  min-height: 2.9rem;
+  padding: .7rem 1rem !important;
+  border: 1px solid transparent !important;
+  border-radius: .85rem !important;
+  font-size: .78rem !important;
+}
+
+.ms-engine-tab[aria-selected="true"] {
+  color: var(--ms-text) !important;
+  background: linear-gradient(135deg, rgba(255,255,255,.28), rgba(255,255,255,.10)) !important;
+  border-color: rgba(255,255,255,.24) !important;
+  box-shadow: 0 8px 22px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.18) !important;
+}
+
+.dark .ms-engine-tab[aria-selected="true"] {
+  color: #fff !important;
+  background: linear-gradient(135deg, rgba(59,130,246,.28), rgba(124,58,237,.16)) !important;
+  border-color: rgba(96,165,250,.35) !important;
+}
+
+@media (max-width: 767px) {
+  .ms-engine-header { min-height: 7rem; padding: 1.15rem !important; }
+  .ms-engine-title { font-size: clamp(2.35rem, 11vw, 3.2rem) !important; }
+  .ms-engine-mark { width: 3.5rem !important; height: 3.5rem !important; border-radius: 1rem !important; }
+  .ms-engine-tab { min-height: 2.65rem; padding: .6rem .8rem !important; }
+}
