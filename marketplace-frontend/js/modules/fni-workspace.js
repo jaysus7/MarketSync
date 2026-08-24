@@ -218,7 +218,7 @@ function fniContractsAndFunding(d) {
 // page itself now render inside overview() directly — one F&I header, not two.
 
 ENGINES['fni-overview'] = {
-  rootId: 'fni-overview-root', title: 'F&I', subtitle: 'Approvals, credit, products, contracts and delivery readiness',
+  rootId: 'fni-overview-root', title: 'F&I Department', subtitle: 'Approvals, credit, products, contracts and delivery readiness',
   icon: 'shield', accent: 'indigo',
   // Right-rail Reports, specific to F&I.
   reports: [
@@ -302,7 +302,7 @@ ENGINES['fni-overview'] = {
           title: 'Deliveries', count: (d.deliveryQueue || []).length,
           onclick: "switchPage('delivery')",
           inner: (d.deliveryQueue || []).length ? d.deliveryQueue.slice(0, 5).map(x => pulseRow({
-            badge: x.blocker ? '!' : '✓', badgeTone: x.blocker ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300' : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
+            badge: x.blocker ? '!' : undefined, icon: x.blocker ? undefined : 'check', badgeTone: x.blocker ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300' : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
             label: fniCustomer(x), sub: x.blocker || 'Ready', onclick: "switchPage('delivery')",
           })).join('') : '', empty: 'Nothing in the delivery queue.',
         }),
@@ -324,15 +324,13 @@ ENGINES['fni-overview'] = {
           title: 'F&I products', count: products.length,
           onclick: "engineTab('fni-overview','settings')",
           inner: products.length ? products.slice(0, 5).map(p => pulseRow({
-            badge: p.active === false ? '–' : '✓', badgeTone: p.active === false ? 'bg-slate-100 dark:bg-slate-800 text-slate-400' : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
+            badge: p.active === false ? '–' : undefined, icon: p.active === false ? undefined : 'check', badgeTone: p.active === false ? 'bg-slate-100 dark:bg-slate-800 text-slate-400' : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
             label: p.name || p.product_name || 'Product', sub: p.provider || '', done: p.active === false,
           })).join('') : '', empty: 'No F&I products set up yet.',
         }),
         pulseCard({
           title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', span: 'tall',
-          inner: att.length ? att.slice(0, 8).map((it, i) => pulseRow({
-            badge: i + 1, label: it.who, sub: it.why, onclick: it.action?.onclick || undefined,
-          })).join('') : '', empty: 'No deals need immediate attention.',
+          inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '', empty: 'No deals need immediate attention.',
         }),
         pulseCard({
           title: 'Deals by stage', count: deals.length,

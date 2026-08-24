@@ -292,7 +292,7 @@ window.salesTodayVideosCard = salesTodayVideosCard;
 
 // ── Engine registration ──────────────────────────────────────────────────────
 ENGINES['sales'] = {
-  rootId: 'sales-root', title: 'Sales', subtitle: 'Your customers, appointments and deals — what needs you first',
+  rootId: 'sales-root', title: 'Sales Department', subtitle: 'Your customers, appointments and deals — what needs you first',
   icon: 'currency', accent: 'amber',
   // Right-rail Reports, specific to Sales.
   reports: [
@@ -367,22 +367,28 @@ ENGINES['sales'] = {
       const grid = pulseGrid([
         pulseCard({
           title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', span: 'tall',
-          inner: att.length ? att.slice(0, 8).map((it, i) => pulseRow({
-            badge: i + 1, label: it.who, sub: it.why, onclick: it.action?.onclick || undefined,
-          })).join('') : '', empty: 'Nothing needs you right now.',
+          inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '', empty: 'Nothing needs you right now.',
         }),
         pulseCard({
           title: 'Deals in progress', count: d.deals == null ? '—' : d.deals.length,
           onclick: "engineTab('sales','desk')",
-          inner: d.deals == null ? '' : d.deals.slice(0, 5).map(x => pulseRow({
-            badge: '$', label: x.customer_name || x.contact_name || 'Deal', sub: [x.vehicle_label || x.vehicle, x.status].filter(Boolean).join(' · '), onclick: "switchPage('desk')",
-          })).join(''), empty: d.deals == null ? 'No permission to view deals.' : 'No deals in progress.',
+          inner: d.deals == null ? '' : d.deals.slice(0, 5).map(x => {
+            const customer = x.customer_name || x.contact_name;
+            const vehicle = x.vehicle_label || x.vehicle;
+            // A blank customer_name is common at desking time — lead with the vehicle
+            // instead of a bare "Deal" repeated on every row with nothing to tell them apart.
+            return pulseRow({
+              badge: '$', label: customer || vehicle || 'Deal',
+              sub: customer ? [vehicle, x.status].filter(Boolean).join(' · ') : x.status || '',
+              onclick: "switchPage('desk')",
+            });
+          }).join(''), empty: d.deals == null ? 'No permission to view deals.' : 'No deals in progress.',
         }),
         pulseCard({
           title: "Today's videos sent", count: (typeof DEMO_SENT_VIDEOS !== 'undefined' ? DEMO_SENT_VIDEOS : []).length,
           onclick: "switchPage('video-studio')",
           inner: (typeof DEMO_SENT_VIDEOS !== 'undefined' ? DEMO_SENT_VIDEOS : []).slice(0, 5).map(v => pulseRow({
-            badge: v.first_played_at ? '▶' : '✉', badgeTone: v.first_played_at ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-300',
+            icon: v.first_played_at ? 'play' : 'chat', badgeTone: v.first_played_at ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-300',
             label: v.contact_name, sub: v.vehicle, onclick: `openPublicVideoLink('${v.share_token}', '${v.contact_id}')`,
           })).join(''), empty: 'No customer videos sent today.',
         }),

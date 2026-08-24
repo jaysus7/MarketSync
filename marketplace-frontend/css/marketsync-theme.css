@@ -1286,7 +1286,10 @@ body.website-workspace-mode {
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
 }
 
-/* Shared Liquid Glass dashboard chrome and bold Apple-style workspace headers. */
+/* Shared Liquid Glass dashboard chrome and bold Apple-style workspace headers.
+   Re-declared (identically) in the "Liquid Glass workspace layer" block below —
+   that duplication predates this merge; harmless in CSS (last write wins, same
+   values), left as-is rather than risk trimming something still relied upon. */
 :root {
   --ms-bg: #f7f8fa;
   --ms-surface: rgba(255, 255, 255, 0.72);
@@ -1317,3 +1320,278 @@ body.ms-app-booting > header { background:var(--ms-surface) !important; border-c
 @media (max-width:767px) { .ms-engine-header { padding:1rem; } .ms-engine-title { font-size:2.25rem !important; } }
 @media (prefers-reduced-motion:reduce) { .ms-glass *, .ms-card *, #service-overview-root *, #parts-overview-root * { animation-duration:.01ms !important; transition-duration:.01ms !important; } }
 
+/* ──────────────────────────────────────────────────────────────────────────
+   Liquid Glass workspace layer
+   Shared presentation for operational Pulse dashboards. These classes are
+   intentionally additive: existing engine markup, data loading, click
+   handlers, role gates, and API contracts remain unchanged.
+────────────────────────────────────────────────────────────────────────── */
+:root {
+  --ms-bg: #f7f8fa;
+  --ms-surface: rgba(255, 255, 255, 0.72);
+  --ms-surface-solid: #ffffff;
+  --ms-text: #17191f;
+  --ms-text-muted: #687386;
+  --ms-border: rgba(23, 25, 31, 0.12);
+  --ms-primary: #2563eb;
+  --ms-primary-hover: #1f4ed8;
+  --ms-accent: #7c3aed;
+  --ms-glass-blur: 24px;
+  --ms-radius-card: 20px;
+  --ms-radius-control: 12px;
+  --ms-shadow-glass: 0 16px 40px rgba(23, 25, 31, 0.08);
+}
+
+.dark {
+  --ms-bg: #0f1117;
+  --ms-surface: rgba(26, 29, 36, 0.76);
+  --ms-surface-solid: #1a1d24;
+  --ms-text: #f7f8fa;
+  --ms-text-muted: #a5acb8;
+  --ms-border: rgba(255, 255, 255, 0.12);
+  --ms-shadow-glass: 0 16px 40px rgba(0, 0, 0, 0.22);
+}
+
+.ms-glass {
+  background: var(--ms-surface);
+  border: 1px solid var(--ms-border);
+  backdrop-filter: blur(var(--ms-glass-blur));
+  -webkit-backdrop-filter: blur(var(--ms-glass-blur));
+  box-shadow: var(--ms-shadow-glass);
+  border-radius: var(--ms-radius-card);
+}
+
+.ms-card {
+  background: var(--ms-surface);
+  border: 1px solid var(--ms-border);
+  border-radius: var(--ms-radius-card);
+  box-shadow: var(--ms-shadow-glass);
+}
+
+.ms-button-primary {
+  background: var(--ms-primary);
+  color: #fff;
+  border-radius: var(--ms-radius-control);
+}
+
+.ms-button-primary:hover { background: var(--ms-primary-hover); }
+
+/* Pulse shells: preserve existing utility behavior while giving every
+   Service/Parts information surface one coherent visual treatment. */
+#service-overview-root > .engine-shell,
+#parts-overview-root > .engine-shell,
+#service-overview-root .pulse-panel,
+#parts-overview-root .pulse-panel {
+  background: var(--ms-surface) !important;
+  border-color: var(--ms-border) !important;
+  box-shadow: var(--ms-shadow-glass) !important;
+  backdrop-filter: blur(var(--ms-glass-blur));
+  -webkit-backdrop-filter: blur(var(--ms-glass-blur));
+}
+
+#service-overview-root > div > .bg-white,
+#parts-overview-root > div > .bg-white,
+#service-overview-root .bg-white,
+#parts-overview-root .bg-white {
+  background-color: var(--ms-surface) !important;
+  border-color: var(--ms-border) !important;
+}
+
+#service-overview-root .rounded-2xl,
+#parts-overview-root .rounded-2xl { border-radius: var(--ms-radius-card); }
+
+#service-overview-root button,
+#parts-overview-root button { border-radius: var(--ms-radius-control); }
+
+#service-overview-root input,
+#service-overview-root select,
+#service-overview-root textarea,
+#parts-overview-root input,
+#parts-overview-root select,
+#parts-overview-root textarea {
+  border-radius: var(--ms-radius-control);
+  border-color: var(--ms-border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ms-glass *,
+  #service-overview-root *,
+  #parts-overview-root * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* Final dashboard glass cascade. Keep this last so legacy Tailwind repaint
+   compatibility selectors cannot turn the authenticated shell opaque again. */
+body {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(37,99,235,.14), transparent 32rem),
+    radial-gradient(circle at 88% 18%, rgba(124,58,237,.12), transparent 30rem),
+    var(--ms-bg) !important;
+}
+
+body > header,
+#nav-desktop,
+#nav-mobile,
+#report-rail,
+.ms-engine-header,
+.ms-glass,
+.ms-card,
+[data-page-content] .bg-white,
+[data-page-content] .dark\:bg-slate-900 {
+  background: linear-gradient(135deg, rgba(255,255,255,.20), rgba(255,255,255,.07)) !important;
+  border-color: rgba(255,255,255,.20) !important;
+  box-shadow: 0 18px 50px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.11) !important;
+  backdrop-filter: blur(28px) saturate(145%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(145%) !important;
+}
+
+.dark body,
+.dark body main { background-color:#0b1020 !important; }
+
+.dark body > header,
+.dark #nav-desktop,
+.dark #nav-mobile,
+.dark #report-rail,
+.dark .ms-engine-header,
+.dark .ms-glass,
+.dark .ms-card,
+.dark [data-page-content] .bg-white,
+.dark [data-page-content] .dark\:bg-slate-900 {
+  background: linear-gradient(135deg, rgba(30,41,72,.70), rgba(15,23,42,.54)) !important;
+  border-color: rgba(148,163,184,.20) !important;
+}
+
+/* Notebook Pulse composition shared by Executive, Sales, F&I, Service and Parts. */
+.ms-pulse-board {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: clamp(.85rem, 1.4vw, 1.25rem);
+  align-items: start;
+}
+
+.ms-pulse-board > * {
+  grid-column: 1 / -1;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+.ms-pulse-board > .grid { gap: clamp(.75rem, 1.1vw, 1rem) !important; }
+
+.ms-pulse-board .bg-white,
+.ms-pulse-board .dark\:bg-slate-900,
+.ms-pulse-board details,
+[data-engine-rail] details {
+  border-radius: var(--ms-radius-card) !important;
+  background: linear-gradient(145deg, rgba(255,255,255,.22), rgba(255,255,255,.07)) !important;
+  border-color: rgba(255,255,255,.19) !important;
+  box-shadow: 0 14px 38px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.10) !important;
+  backdrop-filter: blur(24px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(140%) !important;
+}
+
+.dark .ms-pulse-board .bg-white,
+.dark .ms-pulse-board .dark\:bg-slate-900,
+.dark .ms-pulse-board details,
+.dark [data-engine-rail] details {
+  background: linear-gradient(145deg, rgba(30,41,72,.66), rgba(15,23,42,.50)) !important;
+  border-color: rgba(148,163,184,.18) !important;
+}
+
+.ms-pulse-board h2,
+.ms-pulse-board h3,
+[data-engine-rail] summary {
+  letter-spacing: -.018em;
+  font-weight: 900 !important;
+}
+
+.ms-pulse-board > .grid:first-of-type > * {
+  min-height: 7.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.ms-pulse-board button,
+[data-engine-rail] button { border-radius: var(--ms-radius-control) !important; }
+
+@media (min-width: 1024px) {
+  .ms-pulse-board[data-pulse-kind="sales"] > .grid:last-child,
+  .ms-pulse-board[data-pulse-kind="service-overview"] > .grid:last-child,
+  .ms-pulse-board[data-pulse-kind="parts-overview"] > .grid:last-child {
+    gap: 1.25rem !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .ms-pulse-board { grid-template-columns: 1fr; gap: .8rem; }
+  .ms-pulse-board > * { grid-column: 1; }
+  .ms-pulse-board > .grid:first-of-type > * { min-height: 5.75rem; }
+}
+
+/* Larger editorial headers and icon-led glass tabs. */
+.ms-engine-header {
+  padding: clamp(1.4rem, 2.8vw, 2.4rem) !important;
+  min-height: 8.75rem;
+  align-items: center !important;
+}
+
+.ms-engine-header > div:first-child { gap: clamp(1rem, 1.8vw, 1.5rem) !important; }
+
+.ms-engine-mark {
+  width: clamp(3.75rem, 6vw, 5rem) !important;
+  height: clamp(3.75rem, 6vw, 5rem) !important;
+  border-radius: 1.35rem !important;
+  border: 1px solid currentColor;
+  box-shadow: 0 14px 34px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.22) !important;
+}
+
+.ms-engine-mark svg { width: clamp(1.7rem, 3vw, 2.35rem) !important; height: clamp(1.7rem, 3vw, 2.35rem) !important; stroke-width: 2; }
+
+.ms-engine-title {
+  font-size: clamp(2.5rem, 4vw, 4rem) !important;
+  line-height: .96 !important;
+  letter-spacing: -.052em !important;
+}
+
+.ms-engine-title + p { font-size: clamp(.88rem, 1.2vw, 1.05rem) !important; margin-top: .65rem !important; }
+
+.ms-engine-tabs {
+  padding: .45rem;
+  border: 1px solid var(--ms-border);
+  border-radius: 1.15rem;
+  background: rgba(255,255,255,.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+}
+
+.ms-engine-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  min-height: 2.9rem;
+  padding: .7rem 1rem !important;
+  border: 1px solid transparent !important;
+  border-radius: .85rem !important;
+  font-size: .78rem !important;
+}
+
+.ms-engine-tab[aria-selected="true"] {
+  color: var(--ms-text) !important;
+  background: linear-gradient(135deg, rgba(255,255,255,.28), rgba(255,255,255,.10)) !important;
+  border-color: rgba(255,255,255,.24) !important;
+  box-shadow: 0 8px 22px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.18) !important;
+}
+
+.dark .ms-engine-tab[aria-selected="true"] {
+  color: #fff !important;
+  background: linear-gradient(135deg, rgba(59,130,246,.28), rgba(124,58,237,.16)) !important;
+  border-color: rgba(96,165,250,.35) !important;
+}
+
+@media (max-width: 767px) {
+  .ms-engine-header { min-height: 7rem; padding: 1.15rem !important; }
+  .ms-engine-title { font-size: clamp(2.15rem, 9vw, 2.8rem) !important; }
+  .ms-engine-mark { width: 3.5rem !important; height: 3.5rem !important; border-radius: 1rem !important; }
+  .ms-engine-tab { min-height: 2.65rem; padding: .6rem .8rem !important; }
+}

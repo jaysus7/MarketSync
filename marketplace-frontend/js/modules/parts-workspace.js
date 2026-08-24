@@ -590,7 +590,7 @@ async function pwSaveSettings(){
 window.pwSaveSettings = pwSaveSettings;
 
 ENGINES['parts-overview'] = {
-  rootId: 'parts-overview-root', title: 'Parts', subtitle: 'Demand, availability, receiving and issue — one stock ledger',
+  rootId: 'parts-overview-root', title: 'Parts Department', subtitle: 'Demand, availability, receiving and issue — one stock ledger',
   icon: 'gem', accent: 'amber',
   tabLabels: { overview: 'Pulse', work: 'Inventory', settings: 'Settings' },
   get tabOrder() {
@@ -695,16 +695,14 @@ ENGINES['parts-overview'] = {
           title: 'Reserved — ready to issue', count: reserved.length, tone: reserved.length ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300' : '',
           onclick: "engineTab('parts-overview','work')",
           inner: reserved.length ? reserved.slice(0, 5).map(q => pulseRow({
-            badge: '✓', badgeTone: 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
+            icon: 'check', badgeTone: 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
             label: d.partById?.[q.part_id]?.part_number || 'Part', sub: pwReqShort(q),
           })).join('') : '', empty: 'Nothing reserved right now.',
         }),
         pulseSearchCard({ title: 'Inventory', placeholder: 'Search parts by number or description', count: parts.length, onclick: "engineTab('parts-overview','work')" }),
         pulseCard({
           title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', span: 'tall',
-          inner: att.length ? att.slice(0, 8).map((it, i) => pulseRow({
-            badge: i + 1, label: it.who, sub: it.why, onclick: it.action?.onclick || undefined,
-          })).join('') : '', empty: 'Nothing is waiting on Parts.',
+          inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '', empty: 'Nothing is waiting on Parts.',
         }),
         pulseCard({
           title: 'At or below reorder point', count: lowStockParts.length, tone: lowStockParts.length ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : '',

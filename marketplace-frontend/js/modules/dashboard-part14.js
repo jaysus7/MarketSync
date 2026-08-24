@@ -263,28 +263,29 @@ async function loadInsights() {
     // Range label & scope subtext
     syncRangeLabels(data.range_label);
     const scopePrefix = data.scope === 'dealership' ? 'team total' : 'your posts';
-    document.getElementById('metric-listings-scope').textContent = `${scopePrefix} · ${data.range_label || 'lifetime'}`;
+    const setMetric = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+    setMetric('metric-listings-scope', `${scopePrefix} · ${data.range_label || 'lifetime'}`);
 
     // Top row (existing four)
-    document.getElementById('metric-synced').textContent = data.inventory_available ?? data.inventory_synced;
-    document.getElementById('metric-synced-total').textContent = data.inventory_synced;
-    document.getElementById('metric-listings').textContent = data.listings_posted;
-    document.getElementById('metric-sold').textContent = data.sold_this_month;
-    document.getElementById('metric-active-days').textContent = `${data.active_days_this_week}/7`;
+    setMetric('metric-synced', data.inventory_available ?? data.inventory_synced);
+    setMetric('metric-synced-total', data.inventory_synced);
+    setMetric('metric-listings', data.listings_posted);
+    setMetric('metric-sold', data.sold_this_month);
+    setMetric('metric-active-days', `${data.active_days_this_week}/7`);
 
     // Second row (new metrics)
-    document.getElementById('metric-time-to-sell').textContent = data.avg_time_to_sell_days ?? '—';
-    document.getElementById('metric-posts-per-day').textContent = data.posts_per_day || '—';
-    document.getElementById('metric-sell-through').textContent = data.sell_through_rate || 0;
-    document.getElementById('metric-aged').textContent = data.inventory_aged_60d ?? 0;
+    setMetric('metric-time-to-sell', data.avg_time_to_sell_days ?? '—');
+    setMetric('metric-posts-per-day', data.posts_per_day || '—');
+    setMetric('metric-sell-through', data.sell_through_rate || 0);
+    setMetric('metric-aged', data.inventory_aged_60d ?? 0);
 
     // Admin-only: show admin vs reps breakdown under Listings Posted
     if (data.scope === 'dealership') {
       const bd = document.getElementById('metric-listings-breakdown');
       bd?.classList.remove('hidden');
       bd?.classList.add('grid');
-      document.getElementById('metric-listings-admin').textContent = data.listings_by_admin ?? 0;
-      document.getElementById('metric-listings-reps').textContent = data.listings_by_reps ?? 0;
+      setMetric('metric-listings-admin', data.listings_by_admin ?? 0);
+      setMetric('metric-listings-reps', data.listings_by_reps ?? 0);
     }
 
     // Hide the "Posts/Day" tile in Lifetime mode since the rate isn't meaningful there
@@ -809,6 +810,7 @@ async function loadMyListingsFiltered(status) {
   });
 
   const el = document.getElementById('rep-recent-list');
+  if (!el) return;
   el.innerHTML = '<div class="text-xs text-slate-500 italic">Loading...</div>';
   try {
     const res = await fetch(`${API}/listings?status=${status}`, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -820,17 +822,23 @@ async function loadMyListingsFiltered(status) {
   }
 }
 async function loadMyStats() {
+  // MarketSync HQ and other restricted workspaces do not render the dealership
+  // rep-stat panel. A platform-staff login can still pass through the generic
+  // dealership bootstrap, so treat the absent panel as an intentional no-op.
+  const recent = document.getElementById('rep-recent-list');
+  if (!recent) return;
   try {
     const res = await fetch(`${API}/me/stats`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (!res.ok) throw new Error('Failed to load stats');
     const data = await res.json();
-    document.getElementById('rep-stat-total').textContent = data.totals.total;
-    document.getElementById('rep-stat-active').textContent = data.totals.active;
-    document.getElementById('rep-stat-sold').textContent = data.totals.sold;
-    document.getElementById('rep-stat-deleted').textContent = data.totals.deleted;
+    const setStat = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+    setStat('rep-stat-total', data.totals.total);
+    setStat('rep-stat-active', data.totals.active);
+    setStat('rep-stat-sold', data.totals.sold);
+    setStat('rep-stat-deleted', data.totals.deleted);
     renderRecentListings('rep-recent-list', data.recent, { canEditUrl: true });
   } catch (e) {
-    document.getElementById('rep-recent-list').innerHTML = `<div class="text-xs text-red-400">${e.message}</div>`;
+    recent.innerHTML = `<div class="text-xs text-red-400">${e.message}</div>`;
   }
   loadMyCharts();
 }

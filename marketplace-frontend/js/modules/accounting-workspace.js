@@ -102,7 +102,7 @@ async function accPay(id) {
 window.accPay = accPay;
 
 ENGINES['accounting-overview'] = {
-  rootId: 'accounting-overview-root', title: 'Accounting',
+  rootId: 'accounting-overview-root', title: 'Accounting Department',
   subtitle: 'Financial control — what reached the books, what has not, and what is owed',
   icon: 'currency', accent: 'emerald',
   tabLabels: {

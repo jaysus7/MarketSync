@@ -728,6 +728,16 @@ const ENGINE_TAB_LABEL = {
   money_in: 'Money In', money_out: 'Money Out', bank: 'Bank', close: 'Close', reports: 'Reports', budget: 'Budget',
   journal: 'Journal', payroll: 'Payroll', insights: 'Insights', automation: 'Automation', settings: 'Settings'
 };
+const ENGINE_TAB_ICON = {
+  overview: 'chart', pulse: 'chart', work: 'clipboard', customers: 'users', desk: 'currency',
+  appraisal: 'car', appraisals: 'car', equity: 'gem', appointments: 'calendar', ros: 'wrench',
+  requests: 'clipboard', money_in: 'currency', money_out: 'receipt', bank: 'currency',
+  close: 'check', reports: 'chart', budget: 'currency', journal: 'document', payroll: 'users',
+  insights: 'sparkles', automation: 'bolt', automations: 'bolt', campaigns: 'megaphone',
+  templates: 'document', audiences: 'users', performance: 'chart', studio: 'sparkles',
+  'video-studio': 'video', chatbot: 'chat', website: 'globe', people: 'users', time: 'calendar',
+  hiring: 'users', compliance: 'shield', settings: 'wrench'
+};
 const ENGINE_ACCENTS = {
   violet: { text: 'text-violet-700 dark:text-violet-300', bg: 'bg-violet-100 dark:bg-violet-950/50', solid: 'bg-violet-600 hover:bg-violet-700' },
   indigo:  { text: 'text-indigo-600 dark:text-indigo-400',   bg: 'bg-indigo-50 dark:bg-indigo-950/40',   solid: 'bg-indigo-600 hover:bg-indigo-500' },
@@ -788,23 +798,42 @@ function pulseGrid(cardsHtml) {
   return `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 items-start">${(cardsHtml || []).filter(Boolean).join('')}</div>`;
 }
 // span: 2 = sm:col-span-2 (wide); 'tall' = row-span-2 (the sketch's big list column)
+//
+// The card body is ALWAYS a <div>, never a <button> — pulseRow/pulseLeaderRow render
+// AS buttons when they carry their own onclick, and a <button> can never legally
+// contain another <button>. A card that nested one (card-level onclick + clickable
+// rows inside it) silently broke: the browser's parser ejects the invalid nested
+// button out of its parent, so the row visibly detaches from its card and lands as a
+// stray sibling in the grid. The card's own click-through affordance lives on its
+// header only, which is its own sibling-level control — never an ancestor of the rows.
 function pulseCard({ title, count, tone, onclick, inner, span, empty }) {
   const spanCls = span === 2 ? 'sm:col-span-2' : span === 'tall' ? 'row-span-2' : '';
-  const Tag = onclick ? 'button' : 'div';
-  return `<${Tag} ${onclick ? `onclick="${onclick}"` : ''} class="text-left w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 flex flex-col gap-2 ${spanCls} ${onclick ? 'cursor-pointer hover:border-slate-300 dark:hover:border-slate-700 transition' : ''}">
-    <div class="flex items-center justify-between gap-2">
-      <span class="text-[11px] uppercase tracking-wider font-black text-slate-800 dark:text-slate-200">${esc(title)}</span>
-      ${count != null ? `<span class="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-black ${tone || 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">${esc(String(count))}</span>` : ''}
-    </div>
-    <div class="flex-1 min-h-0">${inner || (empty ? `<div class="text-[12px] text-slate-400 py-3 text-center">${esc(empty)}</div>` : '')}</div>
-  </${Tag}>`;
+  const countBadge = count != null ? `<span class="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-black ${tone || 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">${esc(String(count))}</span>` : '';
+  const header = onclick
+    ? `<button type="button" onclick="${onclick}" class="group/h w-full flex items-center justify-between gap-2 text-left -m-0.5 p-0.5">
+        <span class="text-[11px] uppercase tracking-wider font-black text-slate-800 dark:text-slate-200 group-hover/h:text-slate-950 dark:group-hover/h:text-white transition-colors">${esc(title)}</span>
+        <span class="flex items-center gap-1.5 shrink-0">${countBadge}<svg class="w-3 h-3 text-slate-300 dark:text-slate-600 transition-transform group-hover/h:translate-x-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 010-1.06L11.94 9 7.2 4.29a.75.75 0 111.06-1.06l5.25 5.25a.75.75 0 010 1.06L8.27 14.77a.75.75 0 01-1.06 0z" clip-rule="evenodd"/></svg></span>
+      </button>`
+    : `<div class="w-full flex items-center justify-between gap-2">
+        <span class="text-[11px] uppercase tracking-wider font-black text-slate-800 dark:text-slate-200">${esc(title)}</span>
+        ${countBadge}
+      </div>`;
+  return `<div class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 flex flex-col gap-2 ${spanCls} transition-shadow hover:shadow-[0_6px_20px_-8px_rgba(15,23,42,.18)] dark:hover:shadow-[0_6px_20px_-8px_rgba(0,0,0,.45)]">
+    ${header}
+    <div class="flex-1 min-h-0">${inner || (empty ? `<div class="text-[12px] text-slate-400 py-4 text-center">${esc(empty)}</div>` : '')}</div>
+  </div>`;
 }
 // A compact row inside a pulse card: circled badge + label(+sub) + trailing value.
 // done:true renders the label struck through, for a resolved/closed/removed item.
-function pulseRow({ badge, badgeTone, label, sub, value, valueTone, done, onclick }) {
+// icon (a name from SVG_ICONS, e.g. 'check'/'calendar'/'phone') takes precedence over
+// badge (short escaped text — a number, '$', '!') when both are given — never pass an
+// emoji glyph as badge; this codebase's icon system is the only approved decoration
+// (see test/no-emoji-ui.test.js).
+function pulseRow({ badge, icon, badgeTone, label, sub, value, valueTone, done, onclick }) {
   const Tag = onclick ? 'button' : 'div';
-  return `<${Tag} ${onclick ? `onclick="${onclick}"` : ''} class="w-full text-left flex items-center gap-2.5 py-1.5 ${onclick ? 'hover:opacity-70 transition' : ''} ${done ? 'opacity-50' : ''}">
-    <span class="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${badgeTone || 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}">${esc(badge ?? '')}</span>
+  const badgeInner = icon ? svgIcon(icon, 'w-3 h-3') : esc(badge ?? '');
+  return `<${Tag} ${onclick ? `onclick="${onclick}"` : ''} class="w-full text-left flex items-center gap-2.5 py-1.5 px-1.5 -mx-1.5 rounded-lg ${onclick ? 'hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors' : ''} ${done ? 'opacity-50' : ''}">
+    <span class="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${badgeTone || 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}">${badgeInner}</span>
     <span class="min-w-0 flex-1">
       <span class="block text-[12.5px] font-bold text-slate-800 dark:text-slate-100 truncate ${done ? 'line-through' : ''}">${esc(label ?? '')}</span>
       ${sub ? `<span class="block text-[11px] text-slate-400 truncate">${esc(sub)}</span>` : ''}
@@ -822,7 +851,7 @@ function pulseSearchCard({ title, placeholder, onclick, count }) {
 function pulseLeaderRow({ rank, name, value, sub, valueTone, onclick }) {
   const initials = (name || '?').trim().split(/\s+/).map(s => s[0]).slice(0, 2).join('').toUpperCase();
   const Tag = onclick ? 'button' : 'div';
-  return `<${Tag} ${onclick ? `onclick="${onclick}"` : ''} class="w-full text-left flex items-center gap-2.5 py-1.5 ${onclick ? 'hover:opacity-70 transition' : ''}">
+  return `<${Tag} ${onclick ? `onclick="${onclick}"` : ''} class="w-full text-left flex items-center gap-2.5 py-1.5 px-1.5 -mx-1.5 rounded-lg ${onclick ? 'hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors' : ''}">
     <span class="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">${rank != null ? esc(String(rank)) : esc(initials)}</span>
     <span class="min-w-0 flex-1">
       <span class="block text-[12.5px] font-bold text-slate-800 dark:text-slate-100 truncate">${esc(name || 'Unknown')}</span>
@@ -834,7 +863,7 @@ function pulseLeaderRow({ rank, name, value, sub, valueTone, onclick }) {
 // A row of big quick-action buttons across the top of a Pulse page (Check-in / Check-out …).
 function pulseActionsRow(actions) {
   return `<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">${(actions || []).map(a => `
-    <button onclick="${a.onclick}" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-3 text-center hover:border-slate-300 dark:hover:border-slate-700 transition">
+    <button onclick="${a.onclick}" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-3 text-center hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-[0_6px_20px_-8px_rgba(15,23,42,.18)] dark:hover:shadow-[0_6px_20px_-8px_rgba(0,0,0,.45)] transition">
       <div class="text-[12.5px] font-black text-slate-800 dark:text-slate-100">${esc(a.label)}</div>
     </button>`).join('')}</div>`;
 }
@@ -986,6 +1015,14 @@ async function engineTab(engineId, tab, force) {
   });
   const body = document.querySelector(`[data-engine-body="${engineId}"]`);
   if (!body) return;
+  const pulseEngines = [
+    'command', 'sales', 'inventory-overview', 'fni-overview', 'service-overview',
+    'parts-overview', 'accounting-overview', 'marketing-overview', 'people-overview'
+  ];
+  const isPulseLayout = pulseEngines.includes(engineId) && ['overview', 'pulse'].includes(tab);
+  body.classList.toggle('ms-pulse-board', isPulseLayout);
+  if (isPulseLayout) body.dataset.pulseKind = engineId;
+  else delete body.dataset.pulseKind;
   // A borrowed page panel may be sitting in here; hand it back before the wipe or
   // innerHTML deletes the real page out of the document.
   engRestoreMountedPages();
@@ -1047,11 +1084,11 @@ function renderEngine(engineId, force = false) {
   if (!order.includes(tab)) tab = order[0];          // stored tab may have been removed
   const A = ENGINE_ACCENTS[eng.accent] || ENGINE_ACCENTS.indigo;
   const tabBtn = (t) => `<button data-engine-tab="${t}" role="tab" onclick="engineTab('${engineId}','${t}')"
-    class="px-4 py-2.5 -mb-px border-b-2 text-xs font-bold whitespace-nowrap transition border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white ${A.text}">${esc((eng.tabLabels && eng.tabLabels[t]) || ENGINE_TAB_LABEL[t])}</button>`;
+    class="ms-engine-tab px-4 py-2.5 text-xs font-bold whitespace-nowrap transition border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white ${A.text}">${svgIcon(ENGINE_TAB_ICON[t] || 'dot', 'w-4 h-4')}<span>${esc((eng.tabLabels && eng.tabLabels[t]) || ENGINE_TAB_LABEL[t])}</span></button>`;
   root.innerHTML = (eng.hideHeader ? '' : `
     <div class="ms-engine-header flex items-start justify-between flex-wrap gap-3 mb-4">
       <div class="flex items-center gap-3">
-        <div class="w-11 h-11 rounded-xl ${A.bg} ${A.text} flex items-center justify-center flex-shrink-0 shadow-xs">${svgIcon(eng.icon || 'chart', 'w-5.5 h-5.5')}</div>
+        <div class="ms-engine-mark w-11 h-11 rounded-xl ${A.bg} ${A.text} flex items-center justify-center flex-shrink-0 shadow-xs">${svgIcon(eng.icon || 'chart', 'w-5.5 h-5.5')}</div>
         <div>
           <h1 class="ms-engine-title text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">${esc(eng.title)}</h1>
           <p class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mt-1">${esc(eng.subtitle || '')}</p>
@@ -1059,7 +1096,7 @@ function renderEngine(engineId, force = false) {
       </div>
       <button onclick="renderEngine('${engineId}', true)" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1.5 transition">${svgIcon('refresh', 'w-3.5 h-3.5')}Refresh</button>
     </div>`) + `
-    <div data-engine-tabbar="${engineId}" role="tablist" class="${(order.length <= 1 || eng.hideTabBar) ? 'hidden' : 'flex'} items-center gap-1 border-b border-slate-200 dark:border-slate-800 mb-4 overflow-x-auto">
+    <div data-engine-tabbar="${engineId}" role="tablist" class="ms-engine-tabs ${(order.length <= 1 || eng.hideTabBar) ? 'hidden' : 'flex'} items-center gap-2 mb-4 overflow-x-auto">
       ${order.map(tabBtn).join('')}
     </div>
     <div class="grid grid-cols-1 ${eng.hideRail ? '' : 'xl:grid-cols-[minmax(0,1fr)_300px]'} gap-5 items-start">

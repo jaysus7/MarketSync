@@ -425,7 +425,7 @@ function svcUnavailableNote(d) {
 }
 
 ENGINES['service-overview'] = {
-  rootId: 'service-overview-root', title: 'Service', subtitle: 'One repair order — check in, estimate, authorize, repair, deliver',
+  rootId: 'service-overview-root', title: 'Service Department', subtitle: 'One repair order — check in, estimate, authorize, repair, deliver',
   icon: 'wrench', accent: 'sky',
   // Right-rail Reports, specific to Service.
   reports: [
@@ -554,7 +554,7 @@ ENGINES['service-overview'] = {
           title: 'Closed ROs', count: d.closedRos == null ? '—' : d.closedRos.length,
           onclick: "engineTab('service-overview','ros')",
           inner: d.closedRos == null ? '' : (d.closedRos.length ? d.closedRos.slice(0, 5).map(r => pulseRow({
-            badge: '✓', badgeTone: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
+            icon: 'check', badgeTone: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
             label: svcCustomer(r), sub: svcStatusLabel(r.status), done: true,
           })).join('') : ''), empty: d.closedRos == null ? 'Could not be loaded.' : 'Nothing closed yet.',
         }),
@@ -564,22 +564,20 @@ ENGINES['service-overview'] = {
         }),
         pulseCard({
           title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', span: 'tall',
-          inner: att.length ? att.slice(0, 8).map((it, i) => pulseRow({
-            badge: i + 1, label: it.who, sub: it.why, onclick: it.action?.onclick || undefined,
-          })).join('') : '', empty: 'Nothing is blocking the shop.',
+          inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '', empty: 'Nothing is blocking the shop.',
         }),
         pulseCard({
           title: 'Booked today', count: todaysAppts.length,
           onclick: "engineTab('service-overview','appointments')",
           inner: todaysAppts.length ? todaysAppts.slice(0, 6).map(a => pulseRow({
-            badge: '📅', label: a.customer_name || 'Customer',
+            icon: 'calendar', label: a.customer_name || 'Customer',
             sub: a.when ? new Date(a.when).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '',
           })).join('') : '', empty: 'Nothing booked for today.',
         }),
         pulseCard({
           title: 'Customers to call back', count: callbacks == null ? '—' : callbacks.length, tone: callbacks && callbacks.length ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : '',
           inner: callbacks == null ? '' : (callbacks.length ? callbacks.slice(0, 6).map(c => pulseRow({
-            badge: '☎', label: c.customer || 'Customer', sub: c.title || 'Follow-up call', onclick: `svcOpenRecord('${c.repair_order_id}')`,
+            icon: 'phone', label: c.customer || 'Customer', sub: c.title || 'Follow-up call', onclick: `svcOpenRecord('${c.repair_order_id}')`,
           })).join('') : ''), empty: callbacks == null ? 'Could not be loaded.' : 'Every closed RO has been called back.',
         }),
       ]);
