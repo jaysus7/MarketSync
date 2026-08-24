@@ -1408,7 +1408,7 @@ function renderDeptTabbar(pageId) {
     const activeTab = pageId === 'marketing-overview'
       ? ((typeof ENGINE_STATE !== 'undefined' && ENGINE_STATE['marketing-overview']) || 'overview')
       : pageId === 'website' ? (window.__wsTab || 'setup')
-      : pageId === 'seo' ? ((typeof __seoMainTab !== 'undefined' && __seoMainTab) || 'analytics')
+      : pageId === 'seo' ? ((typeof __seoMainTab !== 'undefined' && __seoMainTab) || 'settings')
       : pageId === 'automation-builder' ? (__autoTab || 'overview')
       : pageId === 'ai-home' ? (window.__aiHomeTab || 'conversations')
       : pageId === 'social-scheduler' ? (window.__socialTab || window.__studioSchedulerTab || 'overview')

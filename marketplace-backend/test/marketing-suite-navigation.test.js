@@ -149,7 +149,7 @@ test('a suite dealer who separately owns MarketSync SEO gets it as its own area;
   const seoArea = withSeo.areas.find(area => area.id === 'seo');
   assert.ok(seoArea, 'Sales Marketing Suite + owned SEO must expose an SEO area');
   assert.equal(seoArea.label, 'MarketSync SEO');
-  assert.deepEqual(labels(seoArea), ['Pulse', 'SEO Builder']);
+  assert.deepEqual(labels(seoArea), ['SEO Builder', 'Pulse']);
   // Never combined with a "website" area — Sales/Service/Complete Marketing Suite sell
   // no website product, so there is nothing to combine it with in the first place.
   assert.ok(!withSeo.areas.some(area => area.id === 'website' || area.id === 'digital-presence'));
