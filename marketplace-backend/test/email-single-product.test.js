@@ -36,11 +36,11 @@ test('Email single product (marketsync_email) has correct canonical catalog and 
   assert.ok(access.features.includes('email.campaigns'), 'email.campaigns must be in entitled features')
 })
 
-test('Frontend dashboard limits standalone email navigation to Emails and Automations', () => {
+test('Frontend dashboard limits standalone email navigation to Pulse and Automations', () => {
   assert.match(dashboardJs, /marketsync_email:\s*\[\s*'email-marketing',\s*'automation-builder'\s*\]/)
-  assert.match(dashboardJs, /marketsync_email:\s*'email-marketing'/)
-  assert.match(dashboardJs, /page: 'email-marketing', label: 'Emails'/)
-  assert.match(dashboardJs, /page: 'automation-builder', tab: 'overview', label: 'Automations'/)
+  assert.match(dashboardJs, /marketsync_email:\s*'automation-builder'/)
+  assert.match(dashboardJs, /page: 'automation-builder', tab: 'overview', label: 'Pulse'/)
+  assert.match(dashboardJs, /page: 'automation-builder', tab: 'automations', label: 'Automations'/)
 })
 
 test('Campaigns demo maps to the email product rather than Social Scheduler', () => {
