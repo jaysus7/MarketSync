@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { computeAccessContext, hasProductAccess, hasFeature, can } from '../access-policy.js'
+import { expandPlanProductCoverage } from '../access.js'
 import { getPlan, productsForPlan } from '../plan-catalog.js'
 
 const FEATURES = [
@@ -70,6 +71,38 @@ test('Fix 10: MarketSync Digital includes Website product and enables website ma
 
   assert.ok(can(digitalOwnerCtx, 'site.manage'), 'Owner has site.manage permission')
   assert.ok(hasProductAccess(digitalOwnerCtx, 'marketsync_website'), 'Digital owner HAS website product access')
+})
+
+test('MarketSync Digital keeps Website access before product-coverage migration is installed', () => {
+  const legacySubscription = {
+    id: 'sub_digital',
+    product_id: 'marketsync_digital',
+    plan_id: 'marketsync-digital',
+    status: 'active',
+  }
+  const expandedCoverage = expandPlanProductCoverage([legacySubscription])
+  const digitalCtx = computeAccessContext({
+    userId: 'owner-legacy',
+    dealershipId: 'dealer-legacy',
+    roleIds: ['dealer_owner'],
+    rolePermissions: ROLE_PERMISSIONS,
+    productCoverage: expandedCoverage,
+    features: FEATURES,
+  })
+
+  assert.ok(hasProductAccess(digitalCtx, 'marketsync_website'))
+  assert.equal(expandedCoverage.find(row => row.product_id === 'marketsync_website')?.plan_id, 'marketsync-digital')
+})
+
+test('unknown legacy plans remain limited to their explicitly stored product', () => {
+  const expandedCoverage = expandPlanProductCoverage([{
+    id: 'sub_unknown',
+    product_id: 'marketsync_social',
+    plan_id: 'unknown-private-plan',
+    status: 'active',
+  }])
+
+  assert.deepEqual(expandedCoverage.map(row => row.product_id), ['marketsync_social'])
 })
 
 test('Fix 10: Standalone Dealer Website subscriber has Website product access', () => {

@@ -976,11 +976,11 @@ function renderEngine(engineId, force = false) {
   const tabBtn = (t) => `<button data-engine-tab="${t}" role="tab" onclick="engineTab('${engineId}','${t}')"
     class="px-4 py-2.5 -mb-px border-b-2 text-xs font-bold whitespace-nowrap transition border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white ${A.text}">${esc((eng.tabLabels && eng.tabLabels[t]) || ENGINE_TAB_LABEL[t])}</button>`;
   root.innerHTML = (eng.hideHeader ? '' : `
-    <div class="flex items-start justify-between flex-wrap gap-3 mb-4">
+    <div class="ms-engine-header flex items-start justify-between flex-wrap gap-3 mb-4">
       <div class="flex items-center gap-3">
         <div class="w-11 h-11 rounded-xl ${A.bg} ${A.text} flex items-center justify-center flex-shrink-0 shadow-xs">${svgIcon(eng.icon || 'chart', 'w-5.5 h-5.5')}</div>
         <div>
-          <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">${esc(eng.title)}</h1>
+          <h1 class="ms-engine-title text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">${esc(eng.title)}</h1>
           <p class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mt-1">${esc(eng.subtitle || '')}</p>
         </div>
       </div>
