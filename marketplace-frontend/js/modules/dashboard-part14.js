@@ -506,7 +506,7 @@ function openRepEdit(id) {
   const routingRow = (m.role === 'SALES_REP')
     ? `<div>${lbl('Sales lot (for auto-assigned leads)')}<select id="re-team" class="${ic}">${[['', '—'], ['new', 'New'], ['used', 'Used'], ['both', 'Both']].map(o => `<option value="${o[0]}" ${(m.sales_team || '') === o[0] ? 'selected' : ''}>${o[1] === '—' ? 'Not set' : o[1]}</option>`).join('')}</select></div>`
     : `<div>${lbl('Manager scope (lead notifications)')}<select id="re-mgr" class="${ic}">${[['', '—'], ['gm', 'General manager'], ['gsm', 'GSM'], ['new_mgr', 'New-car manager'], ['used_mgr', 'Used-car manager'], ['fni', 'F&I manager']].map(o => `<option value="${o[0]}" ${(m.mgr_role || '') === o[0] ? 'selected' : ''}>${o[1] === '—' ? 'Not set' : o[1]}</option>`).join('')}</select></div>`;
-  const ov = crmOverlay(`<div class="p-5 space-y-3">
+  const ov = crmOverlay(`<div class="ms-staff-editor space-y-4">
     <div class="flex items-center justify-between"><div class="text-lg font-black text-slate-900 dark:text-white">Edit ${esc(m.full_name || 'team member')}</div><button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="flex items-center gap-3">
       <div id="re-avatar-wrap" class="w-16 h-16 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-lg font-black text-slate-500 shrink-0">${m.avatar_url ? `<img src="${esc(m.avatar_url)}" class="w-full h-full object-cover">` : esc((m.full_name || '?')[0] || '?')}</div>
@@ -515,27 +515,43 @@ function openRepEdit(id) {
     <div id="re-insights" class="grid grid-cols-3 gap-2 text-center bg-white/70 border border-slate-200 rounded-xl p-2.5">
       <div class="text-xs text-slate-400 italic col-span-3 py-1">Loading insights…</div>
     </div>
-    <div class="grid grid-cols-2 gap-2">
+    <div class="ms-staff-grid grid grid-cols-2 gap-3">
       <div>${lbl('Full name')}<input id="re-name" value="${esc(m.full_name || '')}" class="${ic}"></div>
       <div>${lbl('Display name (public)')}<input id="re-display" value="${esc(m.display_name || '')}" placeholder="${esc(m.full_name || '')}" class="${ic}"></div>
     </div>
     <div>${lbl('Bio (public — appears on the website)')}<textarea id="re-bio" rows="3" class="${ic}" placeholder="A sentence or two about this team member.">${esc(m.bio || '')}</textarea></div>
     <div>${lbl('Registration / OMVIC # (prints on the bill of sale, beside their signature)')}<input id="re-reg" value="${esc(m.registration_id || '')}" placeholder="5642822" class="${ic}"></div>
-    <div class="grid grid-cols-2 gap-2">
+    <div class="ms-staff-grid grid grid-cols-2 gap-3">
       ${routingRow}
       ${m.role === 'SALES_REP' ? `<div>${lbl('Appraisals')}<label class="${checkRow}"><input id="re-appr" type="checkbox" class="accent-indigo-600" ${m.can_see_all_appraisals ? 'checked' : ''}>Sees all appraisals</label></div>` : '<div></div>'}
     </div>
     <label class="${checkRow}"><input id="re-active" type="checkbox" class="accent-indigo-600" ${m.active !== false ? 'checked' : ''}>Active (uncheck to pause lead assignment &amp; rep sends)</label>
-    <div class="border-t border-slate-200 pt-3 flex flex-wrap items-center gap-2">
+    <div class="ms-staff-actions border-t border-slate-200 pt-4 flex flex-wrap items-center gap-2">
       ${(!isSelf && !isAdmin && viewerAdmin) ? `<div class="flex items-center gap-1.5"><label class="text-[11px] font-semibold text-slate-600">Role</label><select id="re-role" class="text-xs font-bold bg-white text-slate-900 border border-slate-300 px-3 py-2 rounded-xl shadow-sm">${[['SALES_REP', 'Sales rep'], ['MANAGER', 'Manager'], ['FNI', 'F&I'], ['SERVICE', 'Service'], ['ACCOUNTING', 'Accounting'], ['CLEANUP', 'Cleanup']].map(o => `<option value="${o[0]}" ${m.role === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select><button onclick="repEditRole('${m.id}', document.getElementById('re-role').value, this)" class="text-xs font-bold bg-white text-slate-700 border border-slate-300 px-3 py-2 rounded-xl shadow-sm">Set</button></div>` : ''}
-      ${(!isSelf && viewerAdmin) ? `<button onclick="repEditPassword('${m.id}', this)" class="text-xs font-bold bg-white text-slate-700 border border-slate-300 px-3 py-2 rounded-xl shadow-sm">Reset password</button>` : ''}
+      ${(!isSelf && viewerAdmin) ? `<button type="button" onclick="repEditPassword('${m.id}')" class="inline-flex items-center justify-center text-xs font-bold bg-white/80 text-slate-700 border border-slate-300 px-3 py-2 rounded-xl shadow-sm hover:border-indigo-400 hover:text-indigo-700 transition">Set password</button>` : ''}
       ${(!isSelf && !isAdmin) ? `<button onclick="repEditRemove('${m.id}','${esc(m.full_name || 'this rep')}')" class="text-xs font-bold text-rose-600 hover:text-rose-500 px-2 py-2">Remove</button>` : ''}
       <div class="flex-1"></div>
       <button onclick="this.closest('.fixed').remove()" class="text-sm font-bold text-slate-500 px-4 py-2">Cancel</button>
       <button onclick="repEditSave('${m.id}', this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">Save</button>
     </div>
+    ${(!isSelf && viewerAdmin) ? `<section id="re-password-panel" class="hidden rounded-2xl border border-indigo-200/70 bg-indigo-50/65 p-4 space-y-3">
+      <div><h4 class="text-sm font-black text-slate-900">Set a new password</h4><p class="text-[11px] text-slate-500 mt-0.5">Choose the exact password this person should use. Minimum 8 characters.</p></div>
+      <div class="ms-staff-grid grid grid-cols-2 gap-3">
+        <div>${lbl('New password')}<div class="flex gap-2"><input id="re-password" type="password" autocomplete="new-password" class="${ic}" placeholder="Enter a password"><button type="button" onclick="repTogglePasswordVisibility()" class="shrink-0 px-3 rounded-xl border border-slate-300 bg-white/80 text-xs font-bold text-slate-600">Show</button></div></div>
+        <div>${lbl('Confirm password')}<input id="re-password-confirm" type="password" autocomplete="new-password" class="${ic}" placeholder="Enter it again"></div>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" onclick="repGeneratePassword()" class="px-3 py-2 rounded-xl border border-slate-300 bg-white/80 text-xs font-bold text-slate-700">Generate strong password</button>
+        <button type="button" onclick="repEditApplyPassword('${m.id}', this)" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black">Set new password</button>
+      </div>
+      <div id="re-password-result" class="hidden rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+        <div class="text-[11px] font-bold text-emerald-800 mb-1.5">Password updated — copy it before closing.</div>
+        <div class="flex gap-2"><input id="re-password-copy" readonly class="${ic} font-mono select-all"><button type="button" onclick="repCopyPassword()" class="shrink-0 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black">Copy</button></div>
+      </div>
+      <p id="re-password-error" class="hidden text-xs font-bold text-rose-600"></p>
+    </section>` : ''}
     <p id="re-msg" class="hidden text-xs"></p>
-  </div>`, 'max-w-lg');
+  </div>`, 'max-w-xl');
   if (ov && typeof loadRepEditInsights === 'function') loadRepEditInsights(m.id);
 }
 // Posts / leads / conversion for this rep, sourced from the same /gamification
@@ -590,14 +606,49 @@ async function repEditSave(id, btn) {
     btn.closest('.fixed').remove(); showToast('Saved', 'success'); loadDealerManagementMatrix();
   } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message, 'error'); }
 }
-async function repEditPassword(id, btn) {
-  if (!confirm('Reset this person\'s password to a new temporary one? They\'ll need to use it to sign in.')) return;
-  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Resetting…';
+function repEditPassword() {
+  const panel = document.getElementById('re-password-panel');
+  if (!panel) return;
+  panel.classList.toggle('hidden');
+  if (!panel.classList.contains('hidden')) document.getElementById('re-password')?.focus();
+}
+function repTogglePasswordVisibility() {
+  const fields = ['re-password', 're-password-confirm'].map(id => document.getElementById(id)).filter(Boolean);
+  const reveal = fields[0]?.type === 'password';
+  fields.forEach(field => { field.type = reveal ? 'text' : 'password'; });
+}
+function repGeneratePassword() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+  const bytes = new Uint32Array(18); crypto.getRandomValues(bytes);
+  const password = Array.from(bytes, value => chars[value % chars.length]).join('') + 'Aa9!';
+  const pass = document.getElementById('re-password');
+  const confirm = document.getElementById('re-password-confirm');
+  if (pass) pass.value = password;
+  if (confirm) confirm.value = password;
+}
+async function repCopyPassword() {
+  const input = document.getElementById('re-password-copy'); if (!input?.value) return;
+  try { await navigator.clipboard.writeText(input.value); }
+  catch { input.select(); document.execCommand('copy'); }
+  showToast('Password copied', 'success');
+}
+async function repEditApplyPassword(id, btn) {
+  const password = document.getElementById('re-password')?.value || '';
+  const confirmation = document.getElementById('re-password-confirm')?.value || '';
+  const error = document.getElementById('re-password-error');
+  const fail = message => { if (error) { error.textContent = message; error.classList.remove('hidden'); } };
+  if (password.length < 8) return fail('Password must be at least 8 characters.');
+  if (password !== confirmation) return fail('The passwords do not match.');
+  if (error) error.classList.add('hidden');
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Setting…';
   try {
-    const d = await apiSendJson(`/admin/users/${id}/password`, 'PUT', {});
-    const msg = document.getElementById('re-msg'); if (msg) { msg.textContent = `New temporary password: ${d.password} — copy it now and share it securely.`; msg.className = 'text-xs text-emerald-600 dark:text-emerald-400 select-all'; msg.classList.remove('hidden'); }
-    showToast('Password reset', 'success');
-  } catch (e) { showToast(e.message, 'error'); }
+    const d = await apiSendJson(`/admin/users/${id}/password`, 'PUT', { password });
+    const result = document.getElementById('re-password-result');
+    const copy = document.getElementById('re-password-copy');
+    if (copy) copy.value = d.password || password;
+    result?.classList.remove('hidden');
+    showToast('Password updated', 'success');
+  } catch (e) { fail(e.message || 'Could not update password.'); }
   finally { btn.disabled = false; btn.textContent = orig; }
 }
 async function repEditRole(id, to, btn) {
@@ -608,7 +659,7 @@ async function repEditRole(id, to, btn) {
 async function repEditRemove(id, name) {
   if (typeof removeRep === 'function') { document.querySelector('.fixed')?.remove(); removeRep(id, name); }
 }
-Object.assign(window, { openRepEdit, repEditUploadPhoto, repEditSave, repEditPassword, repEditRole, repEditRemove });
+Object.assign(window, { openRepEdit, repEditUploadPhoto, repEditSave, repEditPassword, repTogglePasswordVisibility, repGeneratePassword, repCopyPassword, repEditApplyPassword, repEditRole, repEditRemove });
 
 // Lead routing + notification config card (on the Sales Team page).
 async function loadLeadRoutingCard() {
