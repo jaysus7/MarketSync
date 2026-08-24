@@ -1124,6 +1124,48 @@ function cmdUnavailableNote(sources) {
     <b>This view is incomplete.</b> ${missing.map(x => esc(x?.__unavailable || 'A source')).join(', ')} could not be loaded, so the numbers below are partial.</div>`;
 }
 
+const PULSE_GAMIFICATION_DEPTS = {
+  facebook: { label: 'Facebook Marketplace', color: 'text-blue-600 dark:text-blue-400', page: 'leaderboard' },
+  sales: { label: 'Internal Sales', color: 'text-amber-600 dark:text-amber-400', page: 'leaderboard' },
+  service: { label: 'Service', color: 'text-cyan-600 dark:text-cyan-400', page: 'leaderboard' },
+  fni: { label: 'F&I', color: 'text-emerald-600 dark:text-emerald-400', page: 'leaderboard' },
+  video: { label: 'Sales Video', color: 'text-indigo-600 dark:text-indigo-400', page: 'leaderboard' },
+};
+
+function pulseLeaderboardCard(gamification, deptKey) {
+  const config = PULSE_GAMIFICATION_DEPTS[deptKey];
+  const dept = gamification?.departments?.[deptKey];
+  if (!config) return '';
+  if (!dept) return `<div class="p-3.5 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
+    <div class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">${esc(config.label)} leaderboard</div>
+    <div class="text-xs font-semibold text-slate-400 dark:text-slate-500 mt-2">Leaderboard data is not available for this department yet.</div>
+  </div>`;
+
+  const rows = Array.isArray(dept.leaderboard) ? dept.leaderboard.slice(0, 3) : [];
+  const me = dept.me || rows[0];
+  const badges = me ? (dept.repBadges?.[me.rep_id]?.badges || me.badges || []) : [];
+  const visibleBadges = badges.filter(b => Number(b?.level || 0) > 0).slice(0, 4);
+  const ranking = rows.length ? rows.map(row => `<div class="flex items-center justify-between gap-3 py-1.5">
+    <div class="flex min-w-0 items-center gap-2"><span class="w-5 text-center text-[11px] font-black text-slate-400">${row.rank}</span><span class="truncate text-xs font-bold text-slate-800 dark:text-slate-200">${esc(row.full_name || 'Team member')}</span></div>
+    <span class="shrink-0 text-xs font-black ${config.color}">${Number(row.score || 0).toLocaleString()} pts</span>
+  </div>`).join('') : '<div class="text-xs font-semibold text-slate-400 dark:text-slate-500">No ranked activity yet.</div>';
+  const badgeMarkup = visibleBadges.length ? visibleBadges.map(b => `<span title="${esc(b.description || b.label || '')}" class="inline-flex items-center gap-1 rounded-full border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/70 px-2 py-1 text-[10px] font-black text-slate-700 dark:text-slate-200">${esc(b.icon || '★')} ${esc(b.label || 'Badge')}</span>`).join('') : '<span class="text-xs font-semibold text-slate-400 dark:text-slate-500">No badges earned yet.</span>';
+
+  return `<div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
+    <div class="flex items-center justify-between gap-2 mb-2"><div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">${esc(config.label)} leaderboard</div><button onclick="switchPage('${config.page}')" class="text-[11px] font-extrabold ${config.color} hover:underline">View →</button></div>
+    <div class="divide-y divide-slate-200/70 dark:divide-slate-800/70">${ranking}</div>
+    <div class="mt-3 pt-2 border-t border-slate-200/70 dark:border-slate-800/70"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">${esc(me ? `${me.full_name || 'My'} badges` : 'Department badges')}</div><div class="flex flex-wrap gap-1.5">${badgeMarkup}</div></div>
+  </div>`;
+}
+
+function pulsePerformancePanel(d, deptKeys) {
+  const cards = deptKeys.map(key => pulseLeaderboardCard(d?.gamification, key)).filter(Boolean).join('');
+  return `<div class="pulse-performance-panel rounded-xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-950/20 p-3.5 space-y-3">
+    <div class="flex items-center justify-between gap-2"><div class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Team leaderboard &amp; badges</div><span class="text-[10px] font-bold text-slate-400">Connected performance</span></div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">${cards || '<div class="text-xs font-semibold text-slate-400">No connected leaderboard configured.</div>'}</div>
+  </div>`;
+}
+
 // Executive Pulse predates the shared engCard/engSection primitives. Upgrade its
 // top-level panels in place so every department and command-centre section uses the
 // same native, keyboard-accessible disclosure behaviour without duplicating content.
@@ -1178,7 +1220,7 @@ window.pulseSalesDeptSection = function(d) {
   `;
 
   return `
-    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+    <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-amber-500"></span>
@@ -1343,6 +1385,8 @@ window.pulseSalesDeptSection = function(d) {
           <button onclick="switchPage('leaderboard')" class="text-amber-700 dark:text-amber-400 font-extrabold hover:underline">View Standings →</button>
         </div>
       </div>
+
+      ${pulsePerformancePanel(d, ['sales', 'facebook'])}
     </div>
   `;
 };
@@ -1356,7 +1400,7 @@ window.pulseInventoryDeptSection = function(d) {
   const fastMovers = inv.filter(v => v.days_on_lot <= 15 && v.status === 'sold');
 
   return `
-    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+    <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-indigo-500"></span>
@@ -1389,6 +1433,7 @@ window.pulseInventoryDeptSection = function(d) {
           </div>
         </div>
       </div>
+      ${pulsePerformancePanel(d, ['facebook'])}
     </div>
   `;
 };
@@ -1400,7 +1445,7 @@ window.pulseFniDeptSection = function(d) {
   const esign = d.esignRequests || [];
 
   return `
-    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+    <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
@@ -1436,6 +1481,7 @@ window.pulseFniDeptSection = function(d) {
           </div>
         </div>
       </div>
+      ${pulsePerformancePanel(d, ['fni'])}
     </div>
   `;
 };
@@ -1443,7 +1489,7 @@ window.pulseFniDeptSection = function(d) {
 window.pulseCleanupDeptSection = function(d) {
   const cars = d.reconVehicles || [];
   return `
-    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-4 shadow-sm">
+    <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-4 shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-sky-500"></span>
@@ -1473,7 +1519,7 @@ window.pulseServiceDeptSection = function(d) {
   const svcApptMode = window.__pulseSvcApptCalendarMode ? 'calendar' : 'list';
 
   return `
-    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+    <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-cyan-500"></span>
@@ -1510,6 +1556,7 @@ window.pulseServiceDeptSection = function(d) {
           </div>
         </div>
       </div>
+      ${pulsePerformancePanel(d, ['service'])}
     </div>
   `;
 };
@@ -1517,7 +1564,7 @@ window.pulseServiceDeptSection = function(d) {
 window.pulsePartsDeptSection = function(d) {
   const parts = d.partsOrders || [];
   return `
-    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+    <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-orange-500"></span>
@@ -1538,7 +1585,7 @@ window.pulsePartsDeptSection = function(d) {
 
 window.pulseAccountingDeptSection = function(d) {
   return `
-    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+    <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-emerald-600"></span>
@@ -1566,6 +1613,44 @@ window.pulseAccountingDeptSection = function(d) {
 };
 
 window.pulseMarketingDeptSection = function(d) {
+  // Marketing Pulse must use dealership data or clearly say that a source is
+  // unavailable. Fabricated campaign, traffic, and engagement numbers must not
+  // render in the executive workspace.
+  const roi = d?.marketingRoi?.totals || {};
+  const campaigns = Array.isArray(d?.campaigns) ? d.campaigns : [];
+  const posts = Array.isArray(d?.marketingPosts) ? d.marketingPosts : [];
+  const conversations = Array.isArray(d?.marketingConversations) ? d.marketingConversations : [];
+  const videos = Array.isArray(d?.salesVideos) ? d.salesVideos : [];
+  const actualSpend = Number(roi.spend) > 0 ? Number(roi.spend) : null;
+  const actualGross = campaigns.reduce((sum, c) => {
+    const gross = Number(c.performance?.gross);
+    return c.gross_complete && Number.isFinite(gross) ? sum + gross : sum;
+  }, 0);
+  const campaignSpend = campaigns.reduce((sum, c) => sum + (Number(c.spend?.actual) || 0), 0);
+  const roas = campaignSpend > 0 && actualGross > 0 ? (actualGross / campaignSpend).toFixed(2) + 'x' : '—';
+  const scheduled = posts.filter(p => /scheduled|queued|pending/i.test(String(p.status || '')));
+  const sentVideos = videos.filter(v => v.sent_at || /sent|delivered/i.test(String(v.status || ''))).length;
+  const value = n => n == null ? '—' : Number(n).toLocaleString();
+  const campaignRows = campaigns.slice(0, 4).map(c => `<div class="flex items-center justify-between gap-3 py-2 border-t border-slate-200/70 dark:border-slate-800/70 text-xs"><span class="truncate font-semibold text-slate-700 dark:text-slate-200">${esc(c.name || 'Campaign')}</span><span class="shrink-0 text-slate-400">${c.spend?.actual ? cmdMoney(c.spend.actual) + ' spend' : 'No spend recorded'}</span></div>`).join('');
+  const postRows = scheduled.slice(0, 4).map(p => `<div class="flex items-center justify-between gap-3 py-2 border-t border-slate-200/70 dark:border-slate-800/70 text-xs"><span class="truncate font-semibold text-slate-700 dark:text-slate-200">${esc(p.title || p.body || 'Scheduled post')}</span><span class="shrink-0 text-slate-400">${esc(p.scheduled_for || p.status || 'Queued')}</span></div>`).join('');
+  return `<section class="pulse-dept-section mb-8 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 shadow-sm space-y-4">
+    <div class="flex items-center justify-between gap-3 border-b border-slate-200/80 dark:border-slate-800/80 pb-3">
+      <div><h2 class="text-lg font-black uppercase tracking-wider text-slate-900 dark:text-white">Marketing Department</h2><p class="text-xs text-slate-500 dark:text-slate-400">Connected marketing activity and recorded performance.</p></div>
+      <button onclick="engineTab('marketing-overview','overview')" class="shrink-0 text-xs font-black text-indigo-600 dark:text-indigo-400">Open workspace →</button>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      ${engKpi('Recorded spend', actualSpend == null ? '—' : cmdMoney(actualSpend), 'text-slate-900 dark:text-white')}
+      ${engKpi('Actual campaign ROAS', roas, roas === '—' ? 'text-slate-400' : 'text-emerald-600 dark:text-emerald-400')}
+      ${engKpi('AI conversations loaded', value(conversations.length), 'text-purple-600 dark:text-purple-400')}
+      ${engKpi('Videos sent', value(sentVideos), 'text-rose-600 dark:text-rose-400')}
+    </div>
+    <div class="text-[11px] text-slate-400">Website visitors, cross-channel impressions, and engagement are not shown until their analytics sources are connected.</div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+      <div class="rounded-xl border border-slate-200/80 dark:border-slate-800/80 p-3"><div class="font-black uppercase tracking-wider text-slate-500">Campaigns</div>${campaignRows || '<div class="py-3 text-slate-400">No campaigns recorded.</div>'}</div>
+      <div class="rounded-xl border border-slate-200/80 dark:border-slate-800/80 p-3"><div class="font-black uppercase tracking-wider text-slate-500">Scheduled social posts</div><div class="text-xl font-black text-sky-600 dark:text-sky-400 mt-1">${scheduled.length || '—'}</div>${postRows || '<div class="py-2 text-slate-400">No scheduled posts recorded.</div>'}</div>
+    </div>
+  </section>`;
+
   const postsViewMode = window.__pulsePostsCalendarMode ? 'calendar' : 'list';
   const scheduledPosts = [
     { title: '2024 Ford F-150 Lariat Special Offer', platform: 'Instagram & Facebook', time: 'Today @ 4:00 PM', status: 'Scheduled', badge: 'bg-purple-600' },
@@ -1802,6 +1887,7 @@ window.pulseMarketingDeptSection = function(d) {
           </div>
         </div>
       </div>
+      ${pulsePerformancePanel(d, ['video'])}
     </div>
   `;
 };
@@ -1811,7 +1897,7 @@ window.pulseHrDeptSection = function(d) {
   const depts = ['All', 'Sales', 'Service', 'Parts', 'F&I', 'Admin', 'Cleanup'];
 
   return `
-    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+    <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-teal-500"></span>
@@ -1863,11 +1949,12 @@ ENGINES['command'] = {
     const canService = prods.includes('dealer_os') || feats.includes('os.service');
     const canAutomation = prods.includes('dealer_os') || feats.includes('os.automations');
     const canIdentityReports = prods.includes('dealer_os') || feats.includes('identity.reports');
+    const canMarketing = prods.includes('dealer_os') || feats.includes('os.marketing');
 
     const acctReq = (url, label) => canAcct ? apiGetJson(url).catch(miss(label)) : Promise.resolve(miss(label)(new Error('Not entitled')));
     const serviceReq = (url, fallback) => canService ? apiGetJson(url).catch(() => fallback) : Promise.resolve(fallback);
 
-    const [cc, ev, day, identityReviews, pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy, contacts, tasks, appts, deliveries, reconVehicles, inventory, fniDeals, esignRequests, serviceRos, partsOrders, staff] = await Promise.all([
+    const [cc, ev, day, identityReviews, pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy, contacts, tasks, appts, deliveries, reconVehicles, inventory, fniDeals, esignRequests, serviceRos, partsOrders, staff, marketingRoi, marketingPosts, marketingConversations, salesVideos, gamification] = await Promise.all([
       apiGetJson('/command-center').catch(() => ({ tiles: {}, exceptions: [], exception_count: 0 })),
       apiGetJson('/events?limit=40').catch(() => ({ events: [] })),
       apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ label: 'Pulse', reason: 'Could not be loaded' }], complete: false })),
@@ -1892,6 +1979,11 @@ ENGINES['command'] = {
       serviceReq('/service-engine/ros', { ros: [] }),
       serviceReq('/service-engine/part-requests', { requests: [] }),
       (profileContext?.saas_role === 'owner' ? apiGetJson('/saas/employees') : Promise.resolve({ employees: [] })).catch(() => ({ employees: [] })),
+      canAcct ? apiGetJson('/marketing/roi').catch(() => null) : Promise.resolve(null),
+      canMarketing ? apiGetJson('/social/posts').catch(() => ({ posts: [] })) : Promise.resolve({ posts: [] }),
+      canMarketing ? apiGetJson('/ai/conversations').catch(() => ({ conversations: [] })) : Promise.resolve({ conversations: [] }),
+      canMarketing ? apiGetJson('/sales-videos').catch(() => ({ videos: [] })) : Promise.resolve({ videos: [] }),
+      apiGetJson('/gamification').catch(() => null),
     ]);
     const badge = document.getElementById('command-badge');
     const attentionCount = (day.needs_attention || []).length;
@@ -1909,7 +2001,12 @@ ENGINES['command'] = {
       esignRequests: Array.isArray(esignRequests?.requests) ? esignRequests.requests : (Array.isArray(esignRequests) ? esignRequests : []),
       serviceRos: Array.isArray(serviceRos?.ros) ? serviceRos.ros : (Array.isArray(serviceRos) ? serviceRos : []),
       partsOrders: Array.isArray(partsOrders?.orders) ? partsOrders.orders : (Array.isArray(partsOrders) ? partsOrders : []),
-      staff: Array.isArray(staff?.employees) ? staff.employees : (Array.isArray(staff) ? staff : [])
+      staff: Array.isArray(staff?.employees) ? staff.employees : (Array.isArray(staff) ? staff : []),
+      marketingRoi,
+      marketingPosts: Array.isArray(marketingPosts?.posts) ? marketingPosts.posts : [],
+      marketingConversations: Array.isArray(marketingConversations?.conversations) ? marketingConversations.conversations : [],
+      salesVideos: Array.isArray(salesVideos?.videos) ? salesVideos.videos : [],
+      gamification
     };
   },
   quickActions: [
@@ -1980,7 +2077,7 @@ ENGINES['command'] = {
       const not_covered = (d.day.not_covered || []);
       const byDept = departments.length ? departments.map(dep => {
         const items = attention.filter(x => (x.department || x.source_label || 'Other') === dep);
-        return `<div class="mb-4">
+        return `<div class="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-white/55 dark:bg-slate-950/25">
           <div class="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">${esc(dep)} (${items.length})</div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-2">${items.map(x => cmdAttentionCard(x)).join('')}</div>
         </div>`;
@@ -2084,7 +2181,6 @@ ENGINES['command'] = {
 
       body.innerHTML = `
         <div class="text-xl font-black text-slate-900 dark:text-white mb-1">${greet}</div>
-        <div class="text-xs font-semibold text-slate-500 mb-4">This main page is the pulse of the dealership.</div>
         ${incomplete}
         ${todayOpsHtml}
 
@@ -2098,10 +2194,18 @@ ENGINES['command'] = {
         ${window.pulseMarketingDeptSection(d)}
         ${window.pulseHrDeptSection(d)}
 
-        <div class="mb-6">
-          <h3 class="text-sm font-black uppercase tracking-wider text-slate-500 mb-3">Needs Attention by Department</h3>
-          ${byDept}
-        </div>
+        <details class="mb-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white/55 dark:bg-slate-950/25 shadow-sm overflow-hidden">
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
+            <span>Needs Attention by Department</span>
+            <span class="flex items-center gap-2 text-[11px] font-bold normal-case tracking-normal text-slate-400">
+              ${attention.length ? `${attention.length} item${attention.length === 1 ? '' : 's'}` : 'All clear'}
+              <span aria-hidden="true" class="text-base leading-none">＋</span>
+            </span>
+          </summary>
+          <div class="border-t border-slate-200/80 dark:border-slate-800/80 p-3 sm:p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+            ${byDept}
+          </div>
+        </details>
         <div class="mb-6">
           ${ranToday}
         </div>

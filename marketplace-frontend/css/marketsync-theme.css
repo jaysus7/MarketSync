@@ -183,6 +183,30 @@
   max-width: 100%;
 }
 
+/* Intelligence is a MarketSync product surface, not a separate violet brand. */
+.ms-inventory-intelligence .text-violet-500,
+.ms-inventory-intelligence .text-violet-600,
+.ms-inventory-intelligence .text-violet-700,
+.ms-inventory-intelligence .text-violet-800 {
+  color: var(--ms-blue-600) !important;
+}
+.dark .ms-inventory-intelligence .dark\:text-violet-200,
+.dark .ms-inventory-intelligence .dark\:text-violet-300,
+.dark .ms-inventory-intelligence .dark\:text-violet-400 {
+  color: var(--ms-blue-300) !important;
+}
+.ms-inventory-intelligence .bg-violet-600,
+.ms-inventory-intelligence .bg-violet-700 {
+  background-color: var(--ms-blue-600) !important;
+}
+.ms-inventory-intelligence .hover\:bg-violet-500:hover {
+  background-color: var(--ms-blue-500) !important;
+}
+.ms-inventory-intelligence .border-violet-200,
+.ms-inventory-intelligence .border-violet-300 {
+  border-color: rgba(37,99,235,.25) !important;
+}
+
 .ms-inventory-intelligence :is(.bg-white,.bg-slate-50,.bg-violet-50,.bg-red-50,.bg-emerald-50,.bg-amber-50) {
   border-color: rgba(15,23,42,.14) !important;
   border-radius: 24px !important;
@@ -1933,6 +1957,15 @@ body {
    same way the glass background above is overridden. */
 body > header { border-bottom-color: rgba(255,255,255,.20) !important; }
 .dark body > header { border-bottom-color: rgba(190,205,230,.15) !important; }
+
+/* Pulse department cards use status color sparingly; the lower page should read
+   as one calm operating surface rather than a row of competing accent panels. */
+#command-root .pulse-dept-section {
+  filter: saturate(.72);
+}
+#command-root .pulse-dept-section > div:first-child {
+  border-bottom-color: rgba(148,163,184,.22) !important;
+}
 
 /* Desktop dashboard scroll ownership: the page content and the sidebar each
    get one scroll region. The nested legacy nav must not paint a second glass

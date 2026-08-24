@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { hasPermission } from '../authorization.js'
+import { canonicalNotificationPage } from '../notifications.js'
 
 // Report / lot-health notification types are for management only
 const MANAGER_ONLY_TYPES = ['weekly_report', 'aging', 'price_drift', 'missing_info', 'report', 'reconciliation']
@@ -132,6 +133,7 @@ export function registerNotifications(app) {
       const isAction = String(n.type || '').includes('failed') || String(n.type || '').includes('sold') || String(n.type || '').includes('lead')
       return {
         ...n,
+        link_page: canonicalNotificationPage(n.link_page),
         product: prod,
         severity: String(n.type || '').includes('failed') ? 'critical' : isAction ? 'action_required' : 'info',
         needs_action: isAction && !n.read,
@@ -257,4 +259,3 @@ export function registerNotifications(app) {
     res.json({ ok: true })
   })
 }
-
