@@ -34,15 +34,15 @@ test('all marketing suites generate the same DealerOS-style major-area shell', (
 test('suite page headers expose canonical products without moving them into the sidebar', () => {
   const configs = suiteConfigs();
   const area = (suite, id) => configs[suite].areas.find(candidate => candidate.id === id);
-  assert.deepEqual(labels(area('sales', 'marketing')), ['Sales Marketing', 'Campaigns', 'Automations']);
-  assert.deepEqual(labels(area('service', 'marketing')), ['Service Marketing', 'Campaigns', 'Automations']);
-  assert.deepEqual(labels(area('complete', 'marketing')), ['Sales Marketing', 'Service Marketing', 'Campaigns', 'Automations']);
-  assert.deepEqual(labels(area('digital', 'marketing')), ['Sales Marketing', 'Service Marketing', 'Campaigns', 'Automations']);
+  assert.deepEqual(labels(area('sales', 'marketing')), ['Sales Marketing', 'Campaigns', 'Automations', 'Email & SMS', 'Campaign Library']);
+  assert.deepEqual(labels(area('service', 'marketing')), ['Service Marketing', 'Campaigns', 'Automations', 'Email & SMS', 'Campaign Library']);
+  assert.deepEqual(labels(area('complete', 'marketing')), ['Sales Marketing', 'Service Marketing', 'Campaigns', 'Automations', 'Email & SMS', 'Campaign Library']);
+  assert.deepEqual(labels(area('digital', 'marketing')), ['Sales Marketing', 'Service Marketing', 'Campaigns', 'Automations', 'Email & SMS', 'Campaign Library']);
   for (const suite of ['sales', 'service', 'complete', 'digital']) {
     assert.deepEqual(labels(area(suite, 'content')), ['Design Studio', 'Social Scheduler', 'Video']);
     assert.equal(configs[suite].areas[0].items[0].label, 'Pulse');
   }
-  assert.deepEqual(labels(area('digital', 'digital-presence')), ['Website', 'AI ChatBot', 'SEO']);
+  assert.deepEqual(labels(area('digital', 'digital-presence')), ['Website', 'Setup', 'Website Settings', 'AI ChatBot', 'SEO']);
   assert.equal(JSON.stringify(configs).includes('AI Setup'), false);
 });
 
