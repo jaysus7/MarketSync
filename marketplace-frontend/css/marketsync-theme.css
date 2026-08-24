@@ -1958,6 +1958,16 @@ body {
 body > header { border-bottom-color: rgba(255,255,255,.20) !important; }
 .dark body > header { border-bottom-color: rgba(190,205,230,.15) !important; }
 
+/* The top header, a bit more transparent than the cards/nav share by default. */
+body > header {
+  background: linear-gradient(135deg, rgba(255,255,255,.62), rgba(255,255,255,.46)) !important;
+  backdrop-filter: blur(20px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(150%) !important;
+}
+.dark body > header {
+  background: linear-gradient(135deg, rgba(24,36,60,.56), rgba(10,17,31,.40)) !important;
+}
+
 /* Pulse department cards use status color sparingly; the lower page should read
    as one calm operating surface rather than a row of competing accent panels. */
 #command-root .pulse-dept-section {
