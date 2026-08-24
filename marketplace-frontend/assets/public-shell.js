@@ -268,8 +268,9 @@
     host.innerHTML = html;
     return host;
   }
-  function wireMobileMenu(host) {
-    var burger = host.querySelector('.ms-burger'), mobile = host.querySelector('.ms-mobile');
+  function wireMobileMenu(host, mobile) {
+    var burger = host.querySelector('.ms-burger');
+    mobile = mobile || host.querySelector('.ms-mobile') || document.querySelector('.ms-mobile');
     if (!burger || !mobile) return;
     burger.addEventListener('click', function () {
       var open = burger.classList.toggle('ms-open'); mobile.hidden = !open;
@@ -288,7 +289,13 @@
     initTheme();
     var header = mountInto(['ms-public-header', 'ms-header'], '<div class="ms-hd-in">' + headerHTML() + '</div>', true, 'ms-hd');
     mountInto(['ms-public-footer', 'ms-footer'], footerHTML(), false, 'ms-ft');
-    wireMobileMenu(header);
+    // The header uses backdrop-filter, which makes it the containing block for any
+    // position:fixed descendant — that collapses the mobile sheet to the header's box
+    // and lets the page show through. Relocate the sheet to <body> so it is fixed to
+    // the viewport and fills the screen as intended.
+    var mobile = header.querySelector('.ms-mobile');
+    if (mobile) document.body.appendChild(mobile);
+    wireMobileMenu(header, mobile);
     var onScroll = function () { header.classList.toggle('ms-scrolled', window.scrollY > 8); };
     onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
     scanReveal();
