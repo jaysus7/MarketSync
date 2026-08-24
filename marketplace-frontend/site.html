@@ -1358,14 +1358,28 @@
     // hover toolbar (move/edit/delete) — all reported to the builder via postMessage.
     let __dragFrom=null;
     function post(m){ try{ parent.postMessage(m,'*'); }catch(e){} }
+    function previewSections(){
+      if(!DATA||!DATA.site) return [];
+      if(VIEW==='home') return Array.isArray(DATA.site.sections)?DATA.site.sections:[];
+      if(VIEW.startsWith('page:')){
+        const p=(DATA.site.pages||[]).find(x=>x.slug===VIEW.slice(5));
+        return Array.isArray(p?.sections)?p.sections:[];
+      }
+      const key=VIEW==='inquiry'?'contact':VIEW;
+      const b=(DATA.site.builtins||{})[key];
+      return Array.isArray(b?.sections)?b.sections:[];
+    }
     function markPreviewSections(){
       if(!PREVIEW) return;
       const host=document.getElementById('view'); if(!host) return;
-      const secs=(DATA.site.sections||[]);
-      if(VIEW!=='home'||!secs.length) return;
-      [...host.children].forEach((child,i)=>{
+      const secs=previewSections();
+      if(!secs.length) return;
+      // Built-in/custom views prepend their editable sections to functional
+      // content, so only bind the section count owned by the builder.
+      [...host.children].slice(0,secs.length).forEach((child,i)=>{
         if(child.getAttribute('data-ms-preview-bound')==='1') return;
         child.setAttribute('data-ms-preview-bound','1');
+        child.setAttribute('data-ms-preview-index',String(i));
         if(getComputedStyle(child).position==='static') child.style.position='relative';
         child.setAttribute('draggable','true');
         child.style.outlineOffset='-3px'; child.style.transition='outline-color .12s'; child.style.outline='3px solid transparent';
