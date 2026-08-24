@@ -2007,6 +2007,23 @@ body > header {
     max-height: calc(100vh - 3rem) !important;
   }
   #nav-desktop, #dept-nav { overflow: visible !important; }
+
+  /* Restricted product rails should read as a compact control strip, while
+     the content column keeps enough breathing room to avoid touching it. */
+  #dept-sidebar:has(.ms-product-nav-item),
+  #dept-sidebar:has(.ms-suite-nav-item) {
+    padding: .55rem !important;
+  }
+  #dept-sidebar:has(.ms-product-nav-item) .ms-product-nav-item,
+  #dept-sidebar:has(.ms-suite-nav-item) .ms-suite-nav-item {
+    padding-top: .45rem !important;
+    padding-bottom: .45rem !important;
+    line-height: 1.15 !important;
+  }
+  main:has(#dept-sidebar .ms-product-nav-item),
+  main:has(#dept-sidebar .ms-suite-nav-item) {
+    column-gap: 1.5rem !important;
+  }
 }
 
 @media (max-width: 767px) {
