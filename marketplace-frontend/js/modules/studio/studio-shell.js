@@ -1258,7 +1258,13 @@ function openStudioSchedulerWithEntitlementCheck() {
     showSocialSchedulerUpgradeModal();
     return;
   }
-  if (typeof openStudioScheduler === 'function') openStudioScheduler();
+  // Schedule is its own destination, not a view nested inside Design Studio —
+  // close Studio (if it's the one open) and hand off to the real, standalone,
+  // entitlement-gated Social Scheduler page.
+  if (document.getElementById('ms-studio-master-modal') && typeof closeMarketSyncStudio === 'function') {
+    closeMarketSyncStudio();
+  }
+  if (typeof switchPage === 'function') switchPage('social-scheduler');
 }
 window.openStudioSchedulerWithEntitlementCheck = openStudioSchedulerWithEntitlementCheck;
 
@@ -1280,14 +1286,13 @@ async function renderStudioDesignAndPublish() {
     });
 
     if (res?.asset?.public_url) {
-      // mktCompose() reads from/writes into ENGINE_DATA['marketing-overview'] and
-      // mounts at #marketing-overview-root — the full DealerOS Marketing engine
-      // page, which a Design-Studio-only account never renders (they land straight
-      // in this full-screen editor). Calling it used to close the Studio first,
-      // dropping the user onto whatever page sits behind it (Settings, for a
-      // single-product account) while mktCompose() itself silently failed to mount.
-      // studioSchedulerCompose() is the self-contained equivalent (studio-scheduler.js)
-      // — it overlays on top of the Studio instead of closing it.
+      // studioSchedulerCompose() closes Design Studio and hands off to the real,
+      // standalone, entitlement-gated Social Scheduler page
+      // (data-page-content="social-scheduler"), pre-selecting this rendered asset
+      // for the new post — mktCompose() below is only a fallback for the case
+      // where studio-scheduler.js somehow isn't loaded, since it mounts into the
+      // full DealerOS Marketing engine page that a Design-Studio-only account
+      // never renders.
       if (typeof window.studioSchedulerCompose === 'function') {
         const designId = window.__studioCurrentDesign?.id;
         let editableAssetUrl = res.asset.public_url;
