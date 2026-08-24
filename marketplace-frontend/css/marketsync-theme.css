@@ -172,6 +172,50 @@
   --department-accent-soft: rgba(37, 99, 235, 0.1);
 }
 
+/* Connected Inventory Intelligence lives inside Inventory Pulse. */
+[data-engine-mount="inv-intel"] .ms-inventory-intelligence > :first-child { display: none !important; }
+
+.ms-inventory-intelligence,
+.ms-inventory-intelligence #inv-intel-active-content,
+.ms-inventory-intelligence #inv-intel-content {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ms-inventory-intelligence :is(.bg-white,.bg-slate-50,.bg-violet-50,.bg-red-50,.bg-emerald-50,.bg-amber-50) {
+  border-color: rgba(15,23,42,.14) !important;
+  border-radius: 24px !important;
+  background: linear-gradient(145deg, rgba(255,255,255,.82), rgba(241,246,252,.62)) !important;
+  box-shadow: 0 18px 48px rgba(15,23,42,.09), inset 0 1px 0 rgba(255,255,255,.88) !important;
+  backdrop-filter: blur(28px) saturate(112%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(112%) !important;
+}
+
+.dark .ms-inventory-intelligence :is(.bg-white,.dark\:bg-slate-900,.dark\:bg-slate-950,.dark\:bg-slate-800\/60,.dark\:bg-violet-950\/30) {
+  border-color: rgba(190,205,230,.14) !important;
+  background: linear-gradient(145deg, rgba(27,39,63,.68), rgba(9,17,31,.56)) !important;
+  box-shadow: 0 20px 52px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.09) !important;
+}
+
+.ms-inventory-intelligence :is(.overflow-x-auto,[class*="overflow-x-"]) {
+  max-width: 100%;
+  border-radius: 20px;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 767px) {
+  [data-engine-mount="inv-intel"], .ms-inventory-intelligence,
+  .ms-inventory-intelligence > *, .ms-inventory-intelligence #inv-intel-active-content > * {
+    width: 100%; min-width: 0 !important; max-width: 100% !important;
+  }
+  .ms-inventory-intelligence .grid-cols-2,
+  .ms-inventory-intelligence .grid-cols-3,
+  .ms-inventory-intelligence .grid-cols-4 { grid-template-columns: minmax(0,1fr) !important; }
+  .ms-inventory-intelligence :is(table,.min-w-full) { width: max-content; min-width: 100%; }
+}
+
 /* ==========================================================================
    2. DARK THEME SEMANTIC OVERRIDES
    ========================================================================== */

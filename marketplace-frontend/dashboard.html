@@ -23,7 +23,7 @@
   <title>DealerOS by MarketSync · Dashboard</title>
   <link rel="preconnect" href="https://api.fontshare.com">
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260824_glass_v4">
+  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260824_inventory_accuracy_v1">
   <link rel="stylesheet" href="css/dashboard-nav.css">
   <link rel="stylesheet" href="css/dashboard-brand-repaint.css">
   <script>tailwind = { config: { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Satoshi', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'] } } } } }</script>
@@ -1287,7 +1287,6 @@
             </div>
             <div id="grp-ii" class="nav-group-body space-y-0.5 mt-0.5 hidden">
               <button type="button" data-page="inventory" data-invmode="manual" title="Inventory List" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Inventory List</button>
-              <button type="button" data-page="inv-intel" title="Inventory Intelligence" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Inventory Intelligence</button>
               <button type="button" data-page="market" title="Market &amp; Competitors" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Market &amp; Competitors</button>
             </div>
           </div>
@@ -2411,7 +2410,7 @@
         </div>
       </div>
 
-      <div data-page-content="inv-intel" class="page-content hidden space-y-6">
+      <div data-page-content="inv-intel" class="page-content hidden space-y-6 ms-inventory-intelligence">
 
         <!-- Header -->
         <div class="flex items-center justify-between gap-4 flex-wrap">
@@ -3933,9 +3932,9 @@
        cannot reuse an older bundle from its cache after a staging deployment. -->
   <!-- Workspace registry: SINGLE SOURCE OF TRUTH for sidebar, workspace tabs and
        mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
-  <script src="js/modules/workspace-registry.js?v=20260814_v12"></script>
+  <script src="js/modules/workspace-registry.js?v=20260824_inventory_accuracy_v1"></script>
   <script src="dashboard.js?v=20260824_glass_errors_email_nav_v1"></script>
-  <script src="js/modules/dashboard-part2.js?v=20260824_website_product_gate_v2"></script>
+  <script src="js/modules/dashboard-part2.js?v=20260824_inventory_accuracy_v1"></script>
   <script src="js/modules/dashboard-part3.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part4.js?v=20260824_glass_modal_v1"></script>
   <script src="js/modules/dashboard-part5.js?v=20260817_studiolaunch_v1"></script>
@@ -3943,7 +3942,7 @@
   <script src="js/modules/dashboard-part7.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part8.js?v=20260818_videostaff_v2"></script>
   <script src="js/modules/dashboard-part9.js?v=20260817_designstudio_v1"></script>
-  <script src="js/modules/dashboard-part10.js?v=20260824_pulse_leaderboards_v1"></script>
+  <script src="js/modules/dashboard-part10.js?v=20260824_inventory_accuracy_v1"></script>
   <script src="js/modules/dashboard-part11.js?v=20260820_pulse_disclosures_v1"></script>
   <script src="js/modules/dashboard-part12.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part13.js?v=20260817_simple_departments"></script>
@@ -3953,20 +3952,20 @@
   <script src="js/modules/dashboard-part17.js?v=20260821_website_setup_v2"></script>
   <script src="js/modules/dashboard-part18.js?v=20260820_sales_marketing_layout_v1"></script>
   <script src="js/modules/dashboard-part19.js?v=20260814_v12"></script>
-  <script src="js/modules/dashboard-part20.js?v=20260817_addons_v1"></script>
-  <script src="js/modules/dashboard-part21.js?v=20260814_v12"></script>
-  <script src="js/modules/dashboard-part22.js?v=20260814_v12"></script>
-  <script src="js/modules/dashboard-part23.js?v=20260819_website_nav_v1"></script>
+  <script src="js/modules/dashboard-part20.js?v=20260824_inventory_accuracy_v1"></script>
+  <script src="js/modules/dashboard-part21.js?v=20260824_inventory_accuracy_v1"></script>
+  <script src="js/modules/dashboard-part22.js?v=20260824_inventory_accuracy_v2"></script>
+  <script src="js/modules/dashboard-part23.js?v=20260824_inventory_accuracy_v1"></script>
   <script src="js/modules/dashboard-part24.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part25.js?v=20260817_punchclock_v1"></script>
   <script src="js/modules/dashboard-part26.js?v=20260814_v12"></script>
   <!-- Sales workspace: registers ENGINES['sales']; must load after the parts. -->
   <script src="js/modules/sales-workspace.js?v=20260824_pulse_leaderboards_v1"></script>
-  <script src="js/modules/inventory-workspace.js?v=20260824_department_header_v1"></script>
+  <script src="js/modules/inventory-workspace.js?v=20260824_inventory_accuracy_v1"></script>
   <script src="js/modules/fni-workspace.js?v=20260824_pulse_leaderboards_v1"></script>
   <!-- Vehicle Record: one unit, one surface. Loads after inventory-workspace.js,
        whose merchandising/acquisition definitions it renders. -->
-  <script src="js/modules/vehicle-record.js?v=20260814_v12"></script>
+  <script src="js/modules/vehicle-record.js?v=20260824_inventory_accuracy_v1"></script>
   <script src="js/modules/receipt-engine.js?v=20260814_v12"></script>
   <script src="js/modules/video-studio.js?v=20260820_fast_library_v1"></script>
   <script src="js/modules/service-views.js?v=20260814_v12"></script>

@@ -118,12 +118,12 @@ test('each MarketSync Internal page owns specific operational header tabs', () =
   assert.match(videoStudio, /if \(isSaas && String\(v\.department \|\| ''\)\.toLowerCase\(\) === 'service'\) return false/)
 })
 
-// Every page the PREVIOUS DEPARTMENTS registry could reach. Phase 1 is a
-// reorganization: none of these may become unreachable.
+// Inventory Intelligence is now mounted inside Inventory Pulse; stale deep
+// links redirect there rather than preserving a second navigation target.
 const PRE_PHASE1_PAGES = [
   'accounting', 'ai-home', 'api-keys', 'appointments', 'appraisal', 'automation-builder',
   'command', 'config', 'crm', 'delivery', 'email-marketing', 'equity', 'fni',
-  'inv-intel', 'inventory', 'leaderboard', 'leads', 'market', 'operations', 'people-compliance',
+  'inventory', 'leaderboard', 'leads', 'market', 'operations', 'people-compliance',
   'recon', 'reports', 'sales-team', 'service-appointments', 'service-parts', 'service-ros',
   'taskboard', 'tasks', 'website',
 ]
@@ -195,7 +195,7 @@ test('required UI moves landed in the right workspace', () => {
   assert.equal(at('appraisal'), 'sales', 'Appraisals → Sales')
   assert.equal(at('equity'), 'inventory', 'Equity Mining → Inventory > Acquire')
   assert.equal(at('recon'), 'cleanup', 'Recon → its own Cleanup department, not buried in Inventory')
-  assert.equal(at('inv-intel'), 'inventory', 'Inventory Intelligence stays visibly named inside Inventory')
+  assert.equal(at('inv-intel'), null, 'Inventory Intelligence must not remain as a duplicate workspace destination')
   assert.equal(at('delivery'), 'fni', 'Delivery → F&I')
   assert.equal(at('sales-team'), 'people', 'Employees → People')
   assert.equal(at('people-compliance'), 'people', 'Compliance → People')
@@ -203,7 +203,7 @@ test('required UI moves landed in the right workspace', () => {
   assert.equal(at('config'), 'settings', 'Configuration → Settings')
 })
 
-test('Inventory Intelligence remains visibly discoverable inside Inventory', () => {
+test('Inventory Intelligence has one connected home inside Inventory Pulse', () => {
   const inv = readFileSync(new URL('../../marketplace-frontend/js/modules/inventory-workspace.js', import.meta.url), 'utf8')
   // The sub-nav that used to list these is gone; discoverability now rests on the
   // Pricing and age section plus the two rail shortcuts. Both still have to be there —
@@ -213,10 +213,10 @@ test('Inventory Intelligence remains visibly discoverable inside Inventory', () 
   assert.match(inv, /label: 'Market & Competitors'.*engineTab\('inventory-overview','overview'\)/s)
   assert.match(inv, /engMountPage\(body, 'inv-intel'/)
   assert.match(inv, /engMountPage\(body, 'market'/)
+  assert.match(part2, /pageId === 'inv-intel'[\s\S]*?openInventoryIntelligence/)
   const reg = readFileSync(new URL('../../marketplace-frontend/js/modules/workspace-registry.js', import.meta.url), 'utf8')
-  for (const p of ['inv-intel', 'market']) {
-    assert.ok(reg.includes(`page: '${p}'`), `${p} must stay reachable from the registry`)
-  }
+  assert.ok(!reg.includes("page: 'inv-intel'"), 'the duplicate destination must be removed')
+  assert.ok(reg.includes("page: 'market'"), 'Market & Competitors must stay reachable')
 })
 
 test('one inventory pool — the manual and Facebook views are the same page', () => {
@@ -241,8 +241,7 @@ test('role gating is preserved on regrouped workspaces', () => {
   // Manager-only slices inside rep-visible workspaces keep their per-tab gate.
   const tab = (ws, page) => MS_WORKSPACES[ws].pages.find(p => p.page === page)
   assert.equal(tab('sales', 'leads').mgr, true, 'Pipeline stays manager-only')
-  assert.equal(tab('inventory', 'inv-intel').mgr, true, 'Inventory Intelligence stays manager-only')
-  assert.equal(tab('inventory', 'inv-intel').label, 'Inventory Intelligence')
+  assert.equal(tab('inventory', 'inv-intel'), undefined, 'Inventory Intelligence must not have a duplicate tab')
   assert.equal(tab('inventory', 'market').label, 'Market & Competitors')
   assert.equal(tab('fni', 'delivery').mgr, true, 'Delivery stays manager-only')
 })

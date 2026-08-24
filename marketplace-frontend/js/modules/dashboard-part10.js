@@ -1125,6 +1125,24 @@ function renderEngine(engineId, force = false) {
 }
 window.renderEngine = renderEngine;
 
+function openInventoryIntelligence(focusId) {
+  if (typeof switchPage === 'function') switchPage('inventory-overview');
+  let tries = 0;
+  const open = () => {
+    if (ENGINES['inventory-overview']) {
+      engineTab('inventory-overview', 'overview');
+      setTimeout(() => {
+        const target = focusId ? document.getElementById(focusId) : document.querySelector('[data-engine-mount="inv-intel"]');
+        target?.scrollIntoView({ behavior: 'smooth', block: focusId ? 'center' : 'start' });
+      }, 220);
+      return;
+    }
+    if (++tries < 30) setTimeout(open, 100);
+  };
+  open();
+}
+window.openInventoryIntelligence = openInventoryIntelligence;
+
 // Product monthly prices (client mirror of the server PRODUCT_MRR) for MRR mix.
 const ENGINE_PRODUCT_MRR = { facebook_solo: 79, facebook_dealer: 499, ai_chatbot: 499, dealer_os: 499 };
 const ENGINE_PRODUCT_LABEL = { facebook_solo: 'Facebook Solo', facebook_dealer: 'Facebook Dealer', ai_chatbot: 'AI Chatbot', dealer_os: 'DealerOS' };

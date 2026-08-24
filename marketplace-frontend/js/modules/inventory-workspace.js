@@ -69,7 +69,7 @@ function invNextAction(v, d) {
   if (!Number(v.price)) return { label: 'Set price', reason: 'No price set', tone: 'rose', onclick: `vehicleOpen('${v.id}')` };
   if (invMerchGaps(v).length) return { label: 'Merchandise', reason: invMerchGaps(v)[0].gap, tone: 'amber', onclick: `vehicleOpen('${v.id}')` };
   const age = invDays(v.created_at);
-  if (age != null && age >= INV_AGED_DAYS) return { label: 'Review pricing', reason: `Aged ${age} days`, tone: 'amber', onclick: `switchPage('inv-intel')` };
+  if (age != null && age >= INV_AGED_DAYS) return { label: 'Review pricing', reason: `Aged ${age} days`, tone: 'amber', onclick: `openInventoryIntelligence()` };
   return { label: 'Open Vehicle', reason: 'Frontline ready', tone: 'slate', onclick: `vehicleOpen('${v.id}')` };
 }
 
@@ -359,45 +359,15 @@ ENGINES['inventory-overview'] = {
         + engCard(`Aged ${INV_AGED_DAYS}+ days (${aged.length})`, aged.slice(0, 15).map(v => invRow(v, d)).join('') || engEmpty('Nothing aged.'), noPrice.length ? 'mt-3' : ''),
         'Units carrying no price, and units carrying too much time'));
 
-      // Insights and Inventory Intelligence live here now: aging, how units were acquired and
-      // the frontline picture belong in the day, not behind a tab somebody has to remember.
-      const strip = document.createElement('div');
-      strip.className = 'mt-4';
-      ENGINES['inventory-overview'].tabs.__insightsStrip(strip, d);
-      body.appendChild(strip);
-      body.insertAdjacentHTML('beforeend', engSection('Inventory Intelligence', '', 'Pricing, aging and market comparison use the same canonical inventory shown above'));
-      engMountPage(body, 'inv-intel', () => loadInvIntelPage());
+      // One source of truth: mount the connected API-backed Intelligence page here.
+      body.insertAdjacentHTML('beforeend', engSection('Inventory Intelligence', '', 'Live lot health, turn rate, market position and actions from the connected intelligence engine'));
+      engMountPage(body, 'inv-intel', () => {
+        document.querySelector('[data-page-content="inv-intel"]')?.classList.add('ms-inventory-intelligence');
+        loadInvIntelPage();
+      });
       engMountPage(body, 'market', () => loadMarketPage());
     },
     work: invRenderWork,
-
-    // Appraisals live in Inventory > Acquire (trade appraisal feeds acquisition).
-    // The old Insights tab, now rendered INSIDE My Day. See overview().
-    __insightsStrip(body, d) {
-      const veh = d.vehicles || [];
-      const held = veh.filter(v => !v.awaiting_possession);
-      const bucket = (lo, hi) => veh.filter(v => { const a = invDays(v.created_at); return a != null && a >= lo && (hi == null || a < hi); }).length;
-      const rows = [['0–30 days', bucket(0, 30)], ['30–60 days', bucket(30, 60)], ['60–90 days', bucket(60, 90)], ['90+ days', bucket(90, null)]];
-      const mx = Math.max(1, ...rows.map(r => r[1]));
-      body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          ${engKpi('In stock', veh.length)}
-          ${engKpi('Frontline ready', held.filter(v => !invMerchGaps(v).length).length)}
-          ${engKpi('With photos', veh.filter(invHasPhotos).length)}
-          ${engKpi('Aged 60+ days', veh.filter(v => { const a = invDays(v.created_at); return a != null && a >= INV_AGED_DAYS; }).length)}
-        </div>
-        ${engCard('Inventory age', rows.map(([l, n]) => `<div class="flex items-center gap-2 text-sm py-0.5">
-          <div class="w-24 shrink-0 text-slate-600 dark:text-slate-300">${esc(l)}</div>
-          <div class="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden"><div class="h-full bg-sky-500 rounded-full" style="width:${Math.round((n / mx) * 100)}%"></div></div>
-          <div class="w-8 text-right font-bold tabular-nums">${n}</div></div>`).join(''))}
-        ${engCard('How units were acquired', (() => {
-          const src = ['trade', 'purchased', 'feed'].map(k => [INV_ACQ_LABEL[k], veh.filter(v => invAcqChannel(v) === k).length]).filter(r => r[1] > 0);
-          const total = src.reduce((a, r) => a + r[1], 0) || 1;
-          const CLS = { 'Customer trade': 'bg-indigo-500', 'Purchased': 'bg-sky-500', 'Feed / sync': 'bg-slate-400' };
-          return src.length ? engBar(src.map(([l, n]) => ({ pct: Math.round((n / total) * 100), cls: CLS[l], label: `${l} (${n})` }))) : engEmpty('No vehicles in stock.');
-        })(), 'mt-3')}`;
-    },
-
   },
 };
 

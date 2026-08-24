@@ -686,7 +686,7 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
 
     const { data: dealer } = await supabaseAdmin
       .from('dealerships')
-      .select('inv_intel_active, stocking_recs, stocking_recs_at')
+      .select('inv_intel_active, stocking_recs, stocking_recs_at, country')
       .eq('id', req.dealershipId)
       .single()
 
@@ -701,20 +701,18 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
       return res.json({ recommendations: dealer.stocking_recs, generated_at: dealer.stocking_recs_at, cached: true })
     }
 
-    // A unit's last_synced_at is the last time it appeared in the feed — i.e. roughly
-    // when it sold and dropped off. Feeds refresh in bursts, so a strict 30-day window
-    // often catches nothing; look back 90 days so there's real sell-through signal.
+    // Use the explicit lifecycle timestamp first. last_synced_at is only a legacy
+    // fallback: active feed refreshes are not evidence that a vehicle sold.
     const soldSince = new Date(Date.now() - 90 * 86400000).toISOString()
 
     const [{ data: sold }, { data: current }, { data: competitors }] = await Promise.all([
       supabaseAdmin
         .from('inventory')
-        .select('make, model, year')
+        .select('make, model, year, sold_at, state_changed_at, archived_at, last_synced_at')
         .eq('dealership_id', req.dealershipId)
         .in('status', ['sold', 'archived'])
-        .gte('last_synced_at', soldSince)
-        .order('last_synced_at', { ascending: false })
-        .limit(200),
+        .or(`sold_at.gte.${soldSince},state_changed_at.gte.${soldSince},archived_at.gte.${soldSince},last_synced_at.gte.${soldSince}`)
+        .limit(1000),
       supabaseAdmin
         .from('inventory')
         .select('id, make, model, year, price, status, stocknumber')
@@ -730,6 +728,8 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
     // Tally sell-through by make/model
     const sellMap = {}
     for (const v of sold || []) {
+      const soldAt = v.sold_at || v.state_changed_at || v.archived_at || v.last_synced_at
+      if (!soldAt || new Date(soldAt).getTime() < new Date(soldSince).getTime()) continue
       const k = `${v.make}|${v.model}`
       sellMap[k] = (sellMap[k] || { make: v.make, model: v.model, sold: 0 })
       sellMap[k].sold++
@@ -776,45 +776,25 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
         })
         if (out.length >= 5) return out
       }
-      // 2) Top up from current stock composition (core models that fit this lot).
-      const byCount = Object.entries(stockMap).sort((a, b) => b[1].count - a[1].count)
-      for (const [k, d] of byCount) {
-        if (seen.has(k)) continue
-        seen.add(k)
-        const [make, model] = k.split('|')
-        out.push({
-          make, model, year_range: 'recent',
-          reason: `A core model on your lot (${d.count} in stock). Keep it stocked — it's a consistent fit for your buyers.`,
-          priority: 'low',
-          existing_units: d.units.map(u => ({ id: u.id, stocknumber: u.stocknumber }))
-        })
-        if (out.length >= 5) return out
-      }
-      // 3) Generic starter set (brand-new lot with no data yet).
-      const starters = [
-        { make: 'Chevrolet', model: 'Silverado 1500', reason: 'Full-size pickups are the highest-demand segment in Ontario — a reliable, fast-turning acquisition.' },
-        { make: 'GMC', model: 'Sierra 1500', reason: 'Strong truck demand and healthy margins; pairs well with Silverado stock.' },
-        { make: 'Chevrolet', model: 'Equinox', reason: 'Compact SUVs are the volume segment for Canadian families — quick turn, broad appeal.' },
-        { make: 'GMC', model: 'Terrain', reason: 'Popular compact SUV with steady used demand across Ontario.' },
-        { make: 'Chevrolet', model: 'Trax', reason: 'Affordable entry SUV — strong for first-time and budget buyers.' }
-      ]
-      for (const s of starters) {
-        if (out.length >= 5) break
-        out.push({ ...s, year_range: 'recent', priority: 'medium', existing_units: [] })
-      }
+      // With no dealership history, there is no defensible acquisition target.
+      // Return an honest empty state instead of inventing region/brand demand.
       return out.slice(0, 5)
     }
 
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
     let recommendations = []
     try {
       if (!process.env.ANTHROPIC_API_KEY || !(await aiAllowed(req.dealershipId, isOwner))) throw new Error('ai_unavailable')
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+      const isUS = ['US', 'USA', 'UNITED STATES'].includes(String(dealer?.country || '').trim().toUpperCase())
+      const marketInstruction = isUS
+        ? 'Use United States market conditions and do not reference Canadian incentives.'
+        : 'Use Canadian market conditions and do not reference United States programs.'
       const message = await anthropic.messages.create({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 1200,
         messages: [{
           role: 'user',
-          content: `You are an automotive inventory strategist for a Canadian GM dealership in Ontario, Canada. Based on this dealership's recent sell-through data, current stock, and nearby competitor lots, recommend 5 specific vehicle acquisitions. Factor in Canadian market conditions (fuel prices, weather, rural vs urban mix), Ontario buyer preferences, seasonal demand, Canadian government incentives (iZEV program, Ontario rebates) — do NOT reference US programs. Also consider what competitors are stocking heavily (avoid oversupplied models) and where gaps exist.
+          content: `You are an automotive inventory strategist. Based on this dealership's recent sell-through data, current stock, and nearby competitor lots, recommend up to 5 specific vehicle acquisitions. ${marketInstruction} Only recommend make/model segments present in Recent sell-through; never invent demand unsupported by this dealership's history.
 
 Recent sell-through:
 ${sell_through.map(s => `- ${s.make} ${s.model}: ${s.sold} sold`).join('\n') || 'No sold data available yet'}
@@ -834,6 +814,13 @@ Return ONLY valid JSON array (no markdown):
     } catch {
       recommendations = []
     }
+
+    // Model output is advisory text, never the source of the recommendation.
+    // Keep only segments supported by this dealership's measured sell-through.
+    const supported = new Set(sell_through.map(s => `${String(s.make).toLowerCase()}|${String(s.model).toLowerCase()}`))
+    recommendations = Array.isArray(recommendations)
+      ? recommendations.filter(r => supported.has(`${String(r?.make || '').toLowerCase()}|${String(r?.model || '').toLowerCase()}`))
+      : []
 
     // Guarantee a populated list — fall back to the deterministic set when the AI
     // returned nothing usable.
@@ -861,4 +848,3 @@ Return ONLY valid JSON array (no markdown):
   // Inventory Intelligence routes extracted to routes/submodules/ai-inventory-intel.js
   // AI Vision & Competitor Monitoring routes extracted to routes/submodules/ai-competitor-vision.js
 }
-
