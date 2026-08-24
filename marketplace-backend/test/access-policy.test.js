@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   computeAccessContext, hasProductAccess, hasFeature, can,
   getDataScope, getDefaultRoute, getVisibleNavigation, PRODUCT_ROUTES,
@@ -54,6 +55,28 @@ test('the real Pro bundle resolves every DealerOS, Facebook, and AI feature', ()
   assert.deepEqual(new Set(ctx.products), new Set(['dealer_os', 'facebook', 'ai_dealer', 'marketsync_video', 'marketsync_website', 'marketsync_social', 'marketsync_email']))
   for (const featureId of PLAN_CATALOG.os_pro.features) {
     assert.ok(hasFeature(ctx, featureId), `Pro access context missing ${featureId}`)
+  }
+})
+
+// Sales, Service and Complete Marketing Suite all grant the identical atomic product
+// set (design_studio, facebook, marketsync_social, marketsync_email, marketsync_video —
+// see plan-catalog.js), so ctx.products alone can never tell them apart. ctx.planByProduct
+// (which plan actually sold each product) is the only reliable signal, and it must be
+// forwarded to the frontend by routes/profile.js's /auth/me and routes/access-context.js —
+// marketing-workspace.js's getActiveMarketingSuite() depends on it.
+test('planByProduct records which plan sold each product, distinguishing identical-product marketing suites', () => {
+  for (const planId of ['sales-marketing-suite', 'service-marketing-suite', 'complete-marketing-suite']) {
+    const subscriptions = PLAN_CATALOG[planId].products.map(product_id => ({
+      product_id, plan_id: planId, status: 'active',
+    }))
+    const ctx = computeAccessContext({
+      userId: 'suite-owner', dealershipId: 'suite-dealer', roleIds: ['dealer_owner'],
+      subscriptions, features: [], planFeatures: [],
+    })
+    for (const productId of PLAN_CATALOG[planId].products) {
+      assert.equal(ctx.planByProduct[productId], planId,
+        `planByProduct must record ${planId} sold ${productId}`)
+    }
   }
 })
 
@@ -335,4 +358,16 @@ test('cancel_at_period_end preserves access until period end', () => {
     }],
   })
   assert.ok(!hasProductAccess(pastPeriod, 'marketsync_website'), 'access revoked after current_period_end')
+})
+
+// Regression guard: /auth/me and /access/context must keep forwarding planByProduct to
+// the browser. Dropping it silently reintroduces the exact bug this file's
+// "planByProduct records which plan sold each product" test exists to prevent —
+// marketing-workspace.js's getActiveMarketingSuite() has nothing else that reliably
+// distinguishes Sales/Service/Complete Marketing Suite subscribers.
+test('the /auth/me and /access/context routes forward planByProduct to the browser', () => {
+  const authMeSource = readFileSync(new URL('../routes/profile.js', import.meta.url), 'utf8')
+  const accessContextSource = readFileSync(new URL('../routes/access-context.js', import.meta.url), 'utf8')
+  assert.match(authMeSource, /planByProduct:\s*ctx\.planByProduct/, '/auth/me must forward ctx.planByProduct')
+  assert.match(accessContextSource, /planByProduct:\s*ctx\.planByProduct/, '/access/context must forward ctx.planByProduct')
 })

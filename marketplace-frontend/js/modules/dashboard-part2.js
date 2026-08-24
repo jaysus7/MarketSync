@@ -1398,6 +1398,13 @@ function renderDeptTabbar(pageId) {
   const suite = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;
   if (suite && typeof getMarketingSuiteConfig === 'function') {
     const cfg = getMarketingSuiteConfig(suite);
+    // Sales/Service/Complete Marketing Suite's sidebar (renderMarketingSuiteNav) already
+    // lists every area's items flat — this header+tab-strip would just repeat it above
+    // the page content ("headers that are also on the main nav"). Only MarketSync
+    // Digital's sidebar is condensed to one item per product (cfg.navItems is set for
+    // it, not for the other three), where this tab strip is the only way to reach an
+    // area's sub-destinations (e.g. Website's Setup/Builder/Settings).
+    if (!cfg.navItems) return hide();
     const activeTab = pageId === 'marketing-overview'
       ? ((typeof ENGINE_STATE !== 'undefined' && ENGINE_STATE['marketing-overview']) || 'overview')
       : pageId === 'website' ? (window.__wsTab || 'setup')

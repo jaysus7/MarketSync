@@ -23,6 +23,10 @@ export function registerAccessContext(app) {
         features: ctx.features,
         permissions: ctx.permissions,
         dataScope: ctx.dataScope,
+        // Which plan sold each product — see routes/profile.js's /auth/me for why this
+        // is required (Sales/Service/Complete Marketing Suite are indistinguishable by
+        // products alone).
+        planByProduct: ctx.planByProduct,
         defaultRoute: getDefaultRoute(ctx),
         navigation: getVisibleNavigation(ctx, catalog || []),
       })
