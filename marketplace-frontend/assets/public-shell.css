@@ -259,7 +259,7 @@ transition:.25s;
 .ms-burger.ms-open span:nth-child(3){transform:translateY(-7px) rotate(-45deg);
 }
 .ms-mobile{position:fixed;
-top:56px;
+top:68px;
 left:0;
 right:0;
 bottom:0;
@@ -299,6 +299,13 @@ gap:10px;
 .ms-m-actions-top{margin:0 0 16px;
 grid-template-columns:1fr 1fr;
 }
+/* Below the desktop-nav breakpoint the burger owns navigation and the mobile
+   sheet carries every CTA (Log in / Start / Book a demo). Hide the header's own
+   CTA buttons here so they neither duplicate the sheet's actions nor overlap the
+   open panel — only the logo and burger remain in the bar. */
+@media (max-width:899.98px){.ms-nav-cta>.ms-btn{display:none;
+}
+}
 @media (max-width:420px){.ms-hd-in{padding:0 16px;
 gap:10px;
 }
@@ -308,8 +315,6 @@ flex-basis:166px;
 .ms-logo img{width:194px!important;
 left:-14px;
 top:-50px;
-}
-.ms-nav-cta>.ms-btn-primary{display:none;
 }
 .ms-m-actions-top{grid-template-columns:1fr;
 }

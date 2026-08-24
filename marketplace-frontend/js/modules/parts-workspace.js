@@ -633,11 +633,13 @@ ENGINES['parts-overview'] = {
     overview(body, d) {
       const att = pwAttention(d || {});
       const reqs = d.requests || [];
-      const items = d.inventory || d.parts || [];
-      const short = reqs.filter(q => q.status === 'backordered').length;
-      const toIssue = reqs.filter(q => q.status === 'reserved').length;
+      const parts = d.parts || [];
+      const items = d.inventory || parts;
+      const backordered = reqs.filter(q => q.status === 'backordered');
+      const requested = reqs.filter(q => q.status === 'requested');
+      const reserved = reqs.filter(q => q.status === 'reserved');
       const low = items.filter(i => pwStatus(i) === 'low').length;
-      const unitsOnHand = (d.parts || []).reduce((s, p) => s + Number(p.qty_on_hand || 0), 0);
+      const unitsOnHand = parts.reduce((s, p) => s + Number(p.qty_on_hand || 0), 0);
 
       const triageBar = typeof pwRenderTriageBar === 'function' ? pwRenderTriageBar(d) : '';
       const proactiveAiPanel = typeof pwRenderProactiveAiPanel === 'function' ? pwRenderProactiveAiPanel(d) : '';
@@ -668,8 +670,63 @@ ENGINES['parts-overview'] = {
         return rows.length ? engCard(`${PW_DEPT_LABEL[dept] || dept} (${rows.length})`, rows.map(q => pwRequestRow(q, d)).join('')) : '';
       }).join('') || engCard('', engEmpty('Nothing requested outside Service.'));
 
+      // ── Pulse grid — the at-a-glance widget wall ────────────────────────────
+      const lowStockParts = parts.filter(p => Number(p.reorder_point) > 0 && Number(p.qty_available ?? p.qty_on_hand ?? 0) <= Number(p.reorder_point))
+        .sort((a, b) => Number(a.qty_available ?? 0) - Number(b.qty_available ?? 0));
+      const highestValueParts = [...parts].sort((a, b) =>
+        (Number(b.qty_on_hand || 0) * Number(b.cost || 0)) - (Number(a.qty_on_hand || 0) * Number(a.cost || 0))).slice(0, 6);
+      const pulse = pulseGrid([
+        pulseCard({
+          title: 'Backordered — shop waiting', count: backordered.length, tone: backordered.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
+          onclick: "engineTab('parts-overview','work')",
+          inner: backordered.length ? backordered.slice(0, 5).map(q => pulseRow({
+            badge: '!', badgeTone: 'bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300',
+            label: d.partById?.[q.part_id]?.part_number || 'Part', sub: pwReqShort(q),
+          })).join('') : '', empty: 'Nothing on backorder.',
+        }),
+        pulseCard({
+          title: 'New requests to order', count: requested.length,
+          onclick: "engineTab('parts-overview','work')",
+          inner: requested.length ? requested.slice(0, 5).map(q => pulseRow({
+            badge: '#', label: d.partById?.[q.part_id]?.part_number || 'Part', sub: pwReqShort(q),
+          })).join('') : '', empty: 'No new requests.',
+        }),
+        pulseCard({
+          title: 'Reserved — ready to issue', count: reserved.length, tone: reserved.length ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300' : '',
+          onclick: "engineTab('parts-overview','work')",
+          inner: reserved.length ? reserved.slice(0, 5).map(q => pulseRow({
+            icon: 'check', badgeTone: 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
+            label: d.partById?.[q.part_id]?.part_number || 'Part', sub: pwReqShort(q),
+          })).join('') : '', empty: 'Nothing reserved right now.',
+        }),
+        pulseSearchCard({ title: 'Inventory', placeholder: 'Search parts by number or description', count: parts.length, onclick: "engineTab('parts-overview','work')" }),
+        pulseCard({
+          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', span: 'tall',
+          inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '', empty: 'Nothing is waiting on Parts.',
+        }),
+        pulseCard({
+          title: 'At or below reorder point', count: lowStockParts.length, tone: lowStockParts.length ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : '',
+          inner: lowStockParts.length ? lowStockParts.slice(0, 6).map(p => pulseRow({
+            badge: '↓', badgeTone: 'bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-300',
+            label: pwPartLabel(p), done: Number(p.qty_available ?? 0) === 0,
+            value: `${p.qty_available ?? 0}/${p.reorder_point}`, onclick: `pwReceive('${p.id}')`,
+          })).join('') : '', empty: 'Nothing needs reordering.',
+        }),
+        pulseCard({
+          title: 'Highest value in stock', count: highestValueParts.length,
+          onclick: "engineTab('parts-overview','work')",
+          inner: highestValueParts.length ? highestValueParts.map(p => pulseRow({
+            badge: '$', label: pwPartLabel(p), sub: `${p.qty_on_hand || 0} on hand`,
+            value: '$' + Math.round(Number(p.qty_on_hand || 0) * Number(p.cost || 0)).toLocaleString(),
+          })).join('') : '', empty: 'No parts on file yet.',
+        }),
+      ]);
+
       body.innerHTML = `
-        ${triageBar}
+        ${pulseHeader('Parts Pulse', 'Demand, availability, receiving and issue — one stock ledger')}
+        ${pulse}
+
+        <div class="mt-5">${triageBar}</div>
         ${proactiveAiPanel}
         ${valuationStrip}
 
@@ -678,22 +735,16 @@ ENGINES['parts-overview'] = {
             ${engKpi('Units in stock', unitsOnHand)}
             ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}
             ${engKpi('Open requests', reqs.filter(q => PW_ACTIONABLE.includes(q.status)).length)}
-            ${engKpi('Shop waiting', short, short ? 'text-rose-600 dark:text-rose-400' : '')}
+            ${engKpi('Shop waiting', backordered.length, backordered.length ? 'text-rose-600 dark:text-rose-400' : '')}
             ${engKpi('Low stock', low, low ? 'text-amber-600 dark:text-amber-400' : '')}
           </div>
-          ${engCard('Needs attention & RO Blockers', att.length ? att.map(salesAttentionRow).join('') : engEmpty('Nothing is waiting on Parts.'))}
         </div>
 
         ${poSection}
 
         ${engSection('By state', byStatus, 'What Parts has to do next, in the order it has to do it')}
         ${engSection('Waiting repair orders', roSection, 'The same records, grouped by the job that is held up')}
-        ${engSection('Everyone else', otherSection, 'Sales, counter customers and internal jobs')}
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
-          ${engCard(`Ready to issue (${toIssue})`, toIssue ? reqs.filter(q => q.status === 'reserved').slice(0, 6).map(q => pwRequestRow(q, d)).join('') : engEmpty('Nothing reserved and waiting.'))}
-          ${engCard(`Short / Backordered (${short})`, short ? reqs.filter(q => q.status === 'backordered').slice(0, 6).map(q => pwRequestRow(q, d)).join('') : engEmpty('Nothing on backorder.'))}
-        </div>`;
+        ${engSection('Everyone else', otherSection, 'Sales, counter customers and internal jobs')}`;
 
       // Insights belong in the day, not behind a tab somebody has to remember.
       const strip = document.createElement('div');

@@ -14,7 +14,7 @@ import {
   getDataScope, getDefaultRoute, getVisibleNavigation,
 } from './access-policy.js'
 import { isDemoDealershipId } from './routes/demo.js'
-import { getShowcaseOverlay } from './plan-catalog.js'
+import { getShowcaseOverlay, productsForPlan } from './plan-catalog.js'
 import { SYSTEM_ROLES, hasSystemRole } from './authorization.js'
 
 export * from './access-policy.js'
@@ -25,6 +25,22 @@ let _catalog = null
 let _catalogAt = 0
 const CATALOG_TTL_MS = 5 * 60 * 1000
 export function bustCatalogCache() { _catalog = null; _catalogAt = 0 }
+
+// Compatibility path for staging databases that have not received the
+// subscription_product_coverage migration yet. A bundled subscription stores one
+// primary product in subscriptions.product_id, while its plan is the canonical
+// source for every included product. Expand that live subscription through the
+// catalog so route authorization agrees with package navigation. Unknown/legacy
+// plans stay scoped to their explicitly stored product and never gain access.
+export function expandPlanProductCoverage(subscriptions = []) {
+  return subscriptions.flatMap(subscription => {
+    const bundledProducts = productsForPlan(subscription?.plan_id)
+    const products = bundledProducts.length > 0
+      ? bundledProducts
+      : [subscription?.product_id].filter(Boolean)
+    return products.map(productId => ({ ...subscription, product_id: productId }))
+  })
+}
 
 async function loadCatalog() {
   if (_catalog && Date.now() - _catalogAt < CATALOG_TTL_MS) return _catalog
@@ -100,6 +116,9 @@ export async function getCurrentAccessContext(req) {
     }
     roleRows = roleRes.data || []
     subscriptions = subRes.data || []
+    if (productCoverage.length === 0 && subscriptions.length > 0) {
+      productCoverage = expandPlanProductCoverage(subscriptions)
+    }
     memberships = (memRes.data || []).map(m => m.product_id)
     overrides = ovrRes.data || []
   }

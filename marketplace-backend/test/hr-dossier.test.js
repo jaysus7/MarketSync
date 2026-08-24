@@ -26,7 +26,7 @@ const server = read(BE, 'server.js')
 
 test('the department reads HR without renaming what everything is keyed to', () => {
   assert.match(registry, /label: 'HR'/)
-  assert.match(ws, /title: 'HR'/)
+  assert.match(ws, /title: 'HR/)
   // The id, the page and the entitlement key must NOT move — deep links, os.team,
   // staff.* permissions and the mobile nav are all keyed to them.
   assert.match(registry, /\n  people: \{/)

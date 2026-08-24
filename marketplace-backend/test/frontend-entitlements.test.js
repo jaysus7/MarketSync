@@ -7,13 +7,13 @@ import { frontendDashboardSource } from './helpers/split-source.js'
 // dashboard.js was split into js/modules/dashboard-part*.js — read the whole unit.
 const readDashboard = async () => frontendDashboardSource()
 
-test('dashboard Pro fallback mirrors the complete canonical Pro catalogue', async () => {
+test('dashboard Pro fallback mirrors the current DealerOS Pro catalogue', async () => {
   const source = await readDashboard()
   const block = source.match(/const DEALER_OS_PLAN_FEATURES = \{[\s\S]*?\n\};/)?.[0] || ''
   const pro = block.match(/pro:\s*new Set\(\[([\s\S]*?)\]\)/)?.[1] || ''
 
   assert.ok(pro, 'could not locate the dashboard Pro fallback')
-  for (const featureId of PLAN_CATALOG.os_pro.features) {
+  for (const featureId of PLAN_CATALOG['dealer-os-pro'].features) {
     assert.match(pro, new RegExp(`['\"]${featureId.replaceAll('.', '\\.') }['\"]`),
       `dashboard Pro fallback missing ${featureId}`)
   }

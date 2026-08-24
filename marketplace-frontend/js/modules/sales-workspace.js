@@ -359,6 +359,66 @@ ENGINES['sales'] = {
       const overdue = (d.tasks || []).filter(t => t.due_at && new Date(t.due_at) < now);
       const newLeads = (d.contacts || []).filter(c => c.status === 'uncontacted');
 
+      const f = (d.insights && d.insights.funnel) || {};
+      const taskByType = { lead_followup: 0, delivery_followup: 0, appointment: 0, other: 0 };
+      for (const t of d.tasks || []) taskByType[['lead_followup', 'delivery_followup', 'appointment'].includes(t.type) ? t.type : 'other']++;
+
+      // ── Pulse grid — the at-a-glance widget wall ────────────────────────────
+      const grid = pulseGrid([
+        pulseCard({
+          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', span: 'tall',
+          inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '', empty: 'Nothing needs you right now.',
+        }),
+        pulseCard({
+          title: 'Deals in progress', count: d.deals == null ? '—' : d.deals.length,
+          onclick: "engineTab('sales','desk')",
+          inner: d.deals == null ? '' : d.deals.slice(0, 5).map(x => {
+            const customer = x.customer_name || x.contact_name;
+            const vehicle = x.vehicle_label || x.vehicle;
+            // A blank customer_name is common at desking time — lead with the vehicle
+            // instead of a bare "Deal" repeated on every row with nothing to tell them apart.
+            return pulseRow({
+              badge: '$', label: customer || vehicle || 'Deal',
+              sub: customer ? [vehicle, x.status].filter(Boolean).join(' · ') : x.status || '',
+              onclick: "switchPage('desk')",
+            });
+          }).join(''), empty: d.deals == null ? 'No permission to view deals.' : 'No deals in progress.',
+        }),
+        pulseCard({
+          title: "Today's videos sent", count: (typeof DEMO_SENT_VIDEOS !== 'undefined' ? DEMO_SENT_VIDEOS : []).length,
+          onclick: "switchPage('video-studio')",
+          inner: (typeof DEMO_SENT_VIDEOS !== 'undefined' ? DEMO_SENT_VIDEOS : []).slice(0, 5).map(v => pulseRow({
+            icon: v.first_played_at ? 'play' : 'chat', badgeTone: v.first_played_at ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-300',
+            label: v.contact_name, sub: v.vehicle, onclick: `openPublicVideoLink('${v.share_token}', '${v.contact_id}')`,
+          })).join(''), empty: 'No customer videos sent today.',
+        }),
+        pulseSearchCard({ title: 'Inventory', placeholder: 'Search inventory by year, make or model', onclick: "switchPage('inventory-overview')" }),
+        pulseCard({
+          title: 'Follow-up tasks', count: (d.tasks || []).length,
+          onclick: "engineTab('sales','work')",
+          inner: [
+            pulseRow({ badge: taskByType.lead_followup, label: 'New leads' }),
+            pulseRow({ badge: taskByType.appointment, label: 'Appointments' }),
+            pulseRow({ badge: taskByType.delivery_followup, label: 'Delivery follow-ups' }),
+            pulseRow({ badge: taskByType.other, label: 'Other follow-ups' }),
+          ].join(''),
+        }),
+        pulseCard({
+          title: 'Sales stats — last 30 days', tone: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
+          onclick: "openDeptReport('sales')",
+          inner: d.insights ? [
+            pulseRow({ badge: f.leads ?? '—', label: 'Leads' }),
+            pulseRow({ badge: f.appointments ?? '—', label: 'Appointments' }),
+            pulseRow({ badge: f.sold ?? '—', label: 'Sold', valueTone: 'text-emerald-600 dark:text-emerald-400' }),
+            f.leads && f.sold != null ? pulseRow({ badge: Math.round((f.sold / f.leads) * 100) + '%', label: 'Close rate' }) : '',
+          ].join('') : '', empty: 'Performance could not be loaded.',
+        }),
+        pulseCard({
+          title: 'Facebook Marketplace / Sales Leaderboard', onclick: "openDeptReport('reps')",
+          inner: `<p class="text-[12px] text-slate-500 dark:text-slate-400 leading-snug">Rep scorecard — leads, sold units and Marketplace posting, ranked.</p>`,
+        }),
+      ]);
+
       const proactiveAiPanel = `
         <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg border border-slate-800">
           <div class="flex items-center justify-between mb-2">
@@ -381,14 +441,16 @@ ENGINES['sales'] = {
       `;
 
       body.innerHTML = `
-        ${proactiveAiPanel}
+        ${pulseHeader('Sales Pulse', 'Your customers, appointments and deals — what needs you first')}
+        ${grid}
+
+        <div class="mt-5">${proactiveAiPanel}</div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '', "engineTab('sales', 'work')")}
           ${engKpi('New leads', newLeads.length, newLeads.length ? 'text-amber-600 dark:text-amber-400' : '', "salesWorkView('opportunities')")}
           ${engKpi("Today's appointments", todays.length, '', "engineTab('sales', 'appointments')")}
           ${engKpi('Overdue tasks', overdue.length, overdue.length ? 'text-rose-600 dark:text-rose-400' : '', "engineTab('sales', 'work')")}
         </div>
-        ${engCard('Needs attention', att.length ? att.map(salesAttentionRow).join('') : engEmpty('Nothing needs you right now.'))}
         ${salesPerformanceStrip(d)}
         ${salesDealsAndDeliveries(d)}
         <div class="mt-3">

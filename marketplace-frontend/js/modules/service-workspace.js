@@ -523,34 +523,84 @@ ENGINES['service-overview'] = {
       const waiting = ros.filter(r => r.status === 'estimate_sent').length;
       const blocked = new Set((d.partRequests || []).filter(q => ['requested', 'backordered'].includes(q.status)).map(q => q.ro_id)).size;
       const ready = ros.filter(r => r.status === 'ready').length;
+      const inspection = ros.filter(r => r.status === 'inspection').length;
+      const onFloor = ros.filter(r => ['in_progress', 'quality_check'].includes(r.status));
       const today = new Date().toDateString();
       const todaysAppts = (d.appointments || []).filter(a =>
         a.when && new Date(a.when).toDateString() === today && !['no_show', 'canceled'].includes(a.status));
       // Customers owed a call back after a closed RO — the day's work, not a report.
       const callbacks = d.followUps == null ? null : (d.followUps || []).filter(c => !c.done);
-      body.innerHTML = `
-        ${svcUnavailableNote(d)}
-        ${typeof window.svcRenderTriageBar === 'function' ? window.svcRenderTriageBar(d) : ''}
-        ${typeof window.svcRenderProactiveAiPanel === 'function' ? window.svcRenderProactiveAiPanel(d) : ''}
 
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}
-          ${engKpi('Open ROs', ros.length)}
-          ${engKpi('Awaiting approval', waiting, waiting ? 'text-amber-600 dark:text-amber-400' : '')}
-          ${engKpi('Waiting for parts', blocked, blocked ? 'text-orange-600 dark:text-orange-400' : '')}
+      // ── Pulse grid — the at-a-glance widget wall ────────────────────────────
+      const grid = pulseGrid([
+        pulseCard({
+          title: "What's waiting", count: waiting + inspection, tone: (waiting + inspection) ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : '',
+          onclick: "engineTab('service-overview','ros')",
+          inner: [
+            pulseRow({ badge: waiting, label: 'Awaiting customer approval', onclick: "engineTab('service-overview','ros')" }),
+            pulseRow({ badge: inspection, label: 'Waiting inspection', onclick: "engineTab('service-overview','ros')" }),
+            pulseRow({ badge: blocked, label: 'Blocked on parts', valueTone: blocked ? 'text-orange-600 dark:text-orange-400' : undefined, onclick: "switchPage('parts-overview')" }),
+          ].join(''),
+        }),
+        pulseCard({
+          title: 'Live ROs', count: ros.length,
+          onclick: "engineTab('service-overview','ros')",
+          inner: ros.length ? ros.slice(0, 5).map(r => pulseRow({
+            badge: '●', badgeTone: 'bg-sky-100 dark:bg-sky-950/50 text-sky-600 dark:text-sky-300',
+            label: svcCustomer(r), sub: svcStatusLabel(r.status), onclick: `svcOpenRecord('${r.id}')`,
+          })).join('') : '', empty: 'No open repair orders.',
+        }),
+        pulseCard({
+          title: 'Closed ROs', count: d.closedRos == null ? '—' : d.closedRos.length,
+          onclick: "engineTab('service-overview','ros')",
+          inner: d.closedRos == null ? '' : (d.closedRos.length ? d.closedRos.slice(0, 5).map(r => pulseRow({
+            icon: 'check', badgeTone: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
+            label: svcCustomer(r), sub: svcStatusLabel(r.status), done: true,
+          })).join('') : ''), empty: d.closedRos == null ? 'Could not be loaded.' : 'Nothing closed yet.',
+        }),
+        pulseCard({
+          title: 'Video Walkaround', onclick: "switchPage('video-studio')",
+          inner: `<p class="text-[12px] text-slate-500 dark:text-slate-400 leading-snug">Record a walkaround on any repair order to show the customer what was found.</p>`,
+        }),
+        pulseCard({
+          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', span: 'tall',
+          inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '', empty: 'Nothing is blocking the shop.',
+        }),
+        pulseCard({
+          title: 'Booked today', count: todaysAppts.length,
+          onclick: "engineTab('service-overview','appointments')",
+          inner: todaysAppts.length ? todaysAppts.slice(0, 6).map(a => pulseRow({
+            icon: 'calendar', label: a.customer_name || 'Customer',
+            sub: a.when ? new Date(a.when).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '',
+          })).join('') : '', empty: 'Nothing booked for today.',
+        }),
+        pulseCard({
+          title: 'Customers to call back', count: callbacks == null ? '—' : callbacks.length, tone: callbacks && callbacks.length ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : '',
+          inner: callbacks == null ? '' : (callbacks.length ? callbacks.slice(0, 6).map(c => pulseRow({
+            icon: 'phone', label: c.customer || 'Customer', sub: c.title || 'Follow-up call', onclick: `svcOpenRecord('${c.repair_order_id}')`,
+          })).join('') : ''), empty: callbacks == null ? 'Could not be loaded.' : 'Every closed RO has been called back.',
+        }),
+      ]);
+
+      body.innerHTML = `
+        ${pulseHeader('Service Pulse', 'One repair order — check in, estimate, authorize, repair, deliver')}
+        ${pulseActionsRow([
+          { label: 'Check in', onclick: "engineTab('service-overview','appointments')" },
+          { label: 'Check out', onclick: "engineTab('service-overview','ros')" },
+          { label: 'Video Walkaround', onclick: "switchPage('video-studio')" },
+          { label: 'Repair Orders', onclick: "engineTab('service-overview','ros')" },
+        ])}
+        ${grid}
+
+        <div class="mt-5">
+          ${svcUnavailableNote(d)}
+          ${typeof window.svcRenderTriageBar === 'function' ? window.svcRenderTriageBar(d) : ''}
+          ${typeof window.svcRenderProactiveAiPanel === 'function' ? window.svcRenderProactiveAiPanel(d) : ''}
         </div>
-        ${engCard('Needs attention', att.length ? att.map(salesAttentionRow).join('') : engEmpty('Nothing is blocking the shop.'))}
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
-          ${engCard(`Booked today (${todaysAppts.length})`, todaysAppts.length ? todaysAppts.slice(0, 8).map(svcApptRow).join('') : engEmpty('Nothing booked for today.'))}
-          ${engCard(
-            callbacks == null ? 'Customers to call back' : `Customers to call back (${callbacks.length})`,
-            callbacks == null
-              ? engEmpty('The follow-up call list could not be loaded.')
-              : (callbacks.length ? callbacks.slice(0, 8).map(svcCallbackRow).join('') : engEmpty('Every closed repair order has been called back.')))}
-        </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
           ${engCard(`Ready for the customer (${ready})`, ready ? ros.filter(r => r.status === 'ready').slice(0, 6).map(r => svcRoRow(r, d)).join('') : engEmpty('Nothing waiting for collection.'))}
-          ${engCard('On the floor', ros.filter(r => ['in_progress', 'quality_check'].includes(r.status)).slice(0, 6).map(r => svcRoRow(r, d)).join('') || engEmpty('Nothing in progress.'))}
+          ${engCard('On the floor', onFloor.length ? onFloor.slice(0, 6).map(r => svcRoRow(r, d)).join('') : engEmpty('Nothing in progress.'))}
         </div>
         ${typeof window.svcRenderPerformanceLayer === 'function' ? window.svcRenderPerformanceLayer(d) : ''}
         ${svcInsightsStrip(d)}`;
