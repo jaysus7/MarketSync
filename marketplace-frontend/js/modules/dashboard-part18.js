@@ -763,15 +763,11 @@ function renderAutoMetricsStrip() {
   const container = document.getElementById('auto-builder-metrics');
   if (!container) return;
 
-  // Compute active automations across all categories
-  let totalActive = 0;
-  let totalCount = 0;
-  Object.values(ALL_AUTOMATIONS_CATALOG).forEach(list => {
-    list.forEach(item => {
-      totalCount++;
-      if (item.is_active !== false) totalActive++;
-    });
-  });
+  // Only report workflows returned for this dealership. The template catalogue
+  // is a library, not live operational data, and must never inflate Pulse KPIs.
+  const configured = Array.isArray(__autoCfg?.campaigns) ? __autoCfg.campaigns : [];
+  const totalCount = configured.length;
+  const totalActive = configured.filter(item => item.is_active !== false).length;
 
   container.innerHTML = `
     <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
@@ -782,38 +778,38 @@ function renderAutoMetricsStrip() {
       </div>
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
         <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Messages Sent</div>
-        <div class="text-xl font-black text-slate-900 dark:text-white mt-1">14,820</div>
-        <div class="text-[10px] text-slate-400 font-bold mt-0.5">Last 30 days</div>
+        <div class="text-xl font-black text-slate-900 dark:text-white mt-1">—</div>
+        <div class="text-[10px] text-slate-400 font-bold mt-0.5">No delivery aggregate available</div>
       </div>
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
         <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Email Delivery</div>
-        <div class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">99.4%</div>
-        <div class="text-[10px] text-slate-400 font-bold mt-0.5">SPF / DKIM verified</div>
+        <div class="text-xl font-black text-slate-900 dark:text-white mt-1">—</div>
+        <div class="text-[10px] text-slate-400 font-bold mt-0.5">No delivery aggregate available</div>
       </div>
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
         <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">SMS Delivery</div>
-        <div class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">99.8%</div>
-        <div class="text-[10px] text-slate-400 font-bold mt-0.5">10DLC registered</div>
+        <div class="text-xl font-black text-slate-900 dark:text-white mt-1">—</div>
+        <div class="text-[10px] text-slate-400 font-bold mt-0.5">No delivery aggregate available</div>
       </div>
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
         <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Reply Rate</div>
-        <div class="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1">18.2%</div>
-        <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">+4.1% vs baseline</div>
+        <div class="text-xl font-black text-slate-900 dark:text-white mt-1">—</div>
+        <div class="text-[10px] text-slate-400 font-bold mt-0.5">No response aggregate available</div>
       </div>
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
         <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Re-engaged</div>
-        <div class="text-xl font-black text-sky-600 dark:text-sky-400 mt-1">42 Leads</div>
-        <div class="text-[10px] text-slate-400 font-bold mt-0.5">Saved from lost</div>
+        <div class="text-xl font-black text-slate-900 dark:text-white mt-1">—</div>
+        <div class="text-[10px] text-slate-400 font-bold mt-0.5">No attribution aggregate available</div>
       </div>
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
         <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Appts Booked</div>
-        <div class="text-xl font-black text-violet-600 dark:text-violet-400 mt-1">28 Appts</div>
-        <div class="text-[10px] text-slate-400 font-bold mt-0.5">Showroom &amp; Service</div>
+        <div class="text-xl font-black text-slate-900 dark:text-white mt-1">—</div>
+        <div class="text-[10px] text-slate-400 font-bold mt-0.5">No booking aggregate available</div>
       </div>
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
         <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Attributed Rev</div>
-        <div class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">$148.2k</div>
-        <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">14 closed deals</div>
+        <div class="text-xl font-black text-slate-900 dark:text-white mt-1">—</div>
+        <div class="text-[10px] text-slate-400 font-bold mt-0.5">No revenue aggregate available</div>
       </div>
     </div>
   `;
@@ -828,6 +824,11 @@ async function loadAutoBuilderPage() {
   const tabsEl = document.getElementById('auto-builder-tabs');
   if (!tabsEl) return;
 
+  if (!(await ensureAutoCfg('auto-leads-root'))) {
+    const metrics = document.getElementById('auto-builder-metrics');
+    if (metrics) metrics.innerHTML = '';
+    return;
+  }
   renderAutoMetricsStrip();
 
   const tabBtn = (id, label, iconSvg) => `

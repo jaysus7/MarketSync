@@ -1400,6 +1400,8 @@ function renderDeptTabbar(pageId) {
     const cfg = getMarketingSuiteConfig(suite);
     const activeTab = pageId === 'marketing-overview'
       ? ((typeof ENGINE_STATE !== 'undefined' && ENGINE_STATE['marketing-overview']) || 'overview')
+      : pageId === 'website' ? (window.__wsTab || 'builder')
+      : pageId === 'seo' ? ((typeof __seoMainTab !== 'undefined' && __seoMainTab) || 'overview')
       : pageId === 'automation-builder' ? (__autoTab || 'overview')
       : pageId === 'ai-home' ? (window.__aiHomeTab || 'conversations')
       : pageId === 'social-scheduler' ? (window.__socialTab || window.__studioSchedulerTab || 'overview')
@@ -1494,6 +1496,9 @@ function deptGo(page, invmode, tab) {
   if (page === 'social-scheduler' && tab) {
     window.__socialTab = tab;
     if (typeof loadSocialSchedulerPage === 'function') loadSocialSchedulerPage(tab);
+  }
+  if (page === 'seo' && tab) {
+    if (typeof setSeoMainTab === 'function') setSeoMainTab(tab);
   }
   if (page === 'marketing-overview' && tab) {
     if (typeof ENGINE_STATE !== 'undefined') ENGINE_STATE['marketing-overview'] = tab;
@@ -1643,6 +1648,7 @@ function renderMarketingSuiteNav(suiteKey, host, navRoot) {
   if (!cfg || !Array.isArray(cfg.areas)) return;
 
   __deptRegistry = null;
+  document.documentElement.setAttribute('data-ms-suite', suiteKey);
 
   let html = `<div class="ms-suite-nav-header px-3 pt-2 pb-3 mb-2">
     <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">${esc(cfg.badge)}</div>
@@ -1651,7 +1657,14 @@ function renderMarketingSuiteNav(suiteKey, host, navRoot) {
   // Keep area labels for hierarchy, but expose every actual destination. The
   // previous area-only rail made the suite look like it was missing Builder,
   // AI, Design Studio, Social Scheduler, Automations and campaigns.
-  html += cfg.areas.map(area => {
+  if (Array.isArray(cfg.navItems)) {
+    html += cfg.navItems.map(item => {
+      const call = item.studioLaunch
+        ? 'window.openMarketSyncStudio()'
+        : `deptGo('${esc(item.page)}'${item.invmode ? `,'${esc(item.invmode)}'` : `,''`}${item.tab ? `,'${esc(item.tab)}'` : ''})`;
+      return `<button type="button" data-page="${esc(item.page)}"${item.tab ? ` data-tab="${esc(item.tab)}"` : ''} title="${esc(item.label)}" onclick="${call}" class="ms-suite-nav-item dept-nav-item w-full flex items-center gap-2.5 px-3 py-1.5 rounded font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-[13px]"><span class="text-indigo-500 flex-shrink-0">${svgIcon(item.icon || 'dot', 'w-4 h-4')}</span><span class="truncate">${esc(item.label)}</span></button>`;
+    }).join('');
+  } else html += cfg.areas.map(area => {
     const heading = `<div class="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">${esc(area.label)}</div>`;
     const items = (area.items || []).map(item => {
       const call = item.studioLaunch
@@ -1702,6 +1715,7 @@ function renderDeptNav(role) {
     renderMarketingSuiteNav(ctx.suite, host, navRoot);
     return;
   }
+  document.documentElement.removeAttribute('data-ms-suite');
 
   const registry = marketsyncOwnerMode() ? SAAS_DEPARTMENTS : (deptNavEligible(role) ? DEPARTMENTS : null);
   if (!registry) {
