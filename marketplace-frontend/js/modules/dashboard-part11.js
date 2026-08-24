@@ -1159,17 +1159,23 @@ function enableExecutivePulseDisclosures(body) {
   });
 }
 window.pulseSalesDeptSection = function(d) {
-  const contacts = d.contacts || d.day?.opportunities || [];
+  const contacts = Array.isArray(d.contacts) ? d.contacts : (Array.isArray(d.day?.opportunities) ? d.day.opportunities : []);
   const leadsWaiting = contacts.filter(c => c.status === 'uncontacted' || c.status === 'new' || !c.status);
   const eLeads = contacts.filter(c => /elead|website|online|form/i.test(`${c.source || ''} ${c.lead_type || ''}`));
-  const tasks = d.tasks || [];
-  const appts = d.appointments || [];
-  const deliveries = d.deliveries || [];
-  const recon = d.reconVehicles || [];
+  const tasks = Array.isArray(d.tasks) ? d.tasks : (Array.isArray(d.tasks?.tasks) ? d.tasks.tasks : []);
+  const appts = Array.isArray(d.appointments) ? d.appointments : (Array.isArray(d.appointments?.appointments) ? d.appointments.appointments : []);
+  const deliveries = Array.isArray(d.deliveries) ? d.deliveries : (Array.isArray(d.deliveries?.queue) ? d.deliveries.queue : (Array.isArray(d.deliveries?.deliveries) ? d.deliveries.deliveries : []));
+  const recon = Array.isArray(d.reconVehicles) ? d.reconVehicles : (Array.isArray(d.reconVehicles?.vehicles) ? d.reconVehicles.vehicles : (Array.isArray(d.reconVehicles?.recon) ? d.reconVehicles.recon : []));
   const myId = typeof profileContext !== 'undefined' ? profileContext?.id : '';
   const isMgr = typeof profileContext !== 'undefined' ? ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role) : true;
   const hotEquity = contacts.filter(c => (c.equity_status === 'hot' || c.has_equity || c.equity_amount > 0) && (isMgr || c.assigned_rep === myId || c.rep_id === myId));
   const apptViewMode = window.__pulseApptCalendarMode ? 'calendar' : 'list';
+
+  const emptyCompact = (msg) => `
+    <div class="py-3.5 px-3 text-center text-xs font-semibold text-slate-400 dark:text-slate-500 bg-slate-50/60 dark:bg-slate-800/20 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+      ${esc(msg)}
+    </div>
+  `;
 
   return `
     <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
@@ -1181,115 +1187,160 @@ window.pulseSalesDeptSection = function(d) {
         <button onclick="switchPage('sales')" class="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline">Open Sales Workspace →</button>
       </div>
 
-      <div>
-        <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2 flex items-center justify-between">
-          <span>Leads Waiting & New Opportunities (${leadsWaiting.length})</span>
-          <span class="text-[11px] text-slate-400">Uncontacted Inquiries</span>
-        </div>
-        ${leadsWaiting.length ? `<div class="divide-y divide-slate-100 dark:divide-slate-800">${leadsWaiting.slice(0, 5).map(c => `
-          <div class="flex items-center justify-between py-2">
-            <div>
-              <div class="font-bold text-sm text-slate-900 dark:text-white">${esc(c.full_name || c.name || 'Unassigned Lead')}</div>
-              <div class="text-xs text-slate-400">${esc(c.source || 'Direct')} · ${esc(c.phone || c.email || '')}</div>
-            </div>
-            <button onclick="${c.id ? `openCrmContact('${c.id}')` : `switchPage('sales')`}" class="px-2.5 py-1 rounded text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">Open</button>
-          </div>`).join('')}</div>` : engEmpty('No uncontacted leads waiting.')}
+      <!-- Top KPI Header Strip -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        ${engKpi('Leads Waiting', leadsWaiting.length, leadsWaiting.length ? 'text-amber-600 dark:text-amber-400' : '')}
+        ${engKpi('Website E-Leads', eLeads.length, eLeads.length ? 'text-blue-600 dark:text-blue-400' : '')}
+        ${engKpi('Follow-up Tasks', tasks.length, tasks.length ? 'text-rose-600 dark:text-rose-400' : '')}
+        ${engKpi('Appointments', appts.length, appts.length ? 'text-emerald-600 dark:text-emerald-400' : '')}
       </div>
 
-      <div>
-        <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">Website E-Leads (${eLeads.length})</div>
-        ${eLeads.length ? `<div class="space-y-2">${eLeads.slice(0, 4).map(c => `
-          <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex items-center justify-between">
-            <div class="min-w-0">
-              <div class="font-bold text-xs text-slate-900 dark:text-white truncate">${esc(c.full_name || c.email || 'Website Contact')}</div>
-              <div class="text-[11px] text-slate-700 dark:text-slate-300 font-semibold">Submitted via Website Form</div>
-            </div>
-            <button onclick="${c.id ? `openCrmContact('${c.id}')` : `switchPage('sales')`}" class="px-2.5 py-1 rounded text-[11px] font-extrabold bg-amber-600 hover:bg-amber-700 text-white shadow-xs">Reply</button>
-          </div>`).join('')}</div>` : engEmpty('All website e-leads responded to.')}
-      </div>
-
+      <!-- Primary Operational Grid -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div>
-          <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">Follow-up Tasks (${tasks.length})</div>
-          ${tasks.length ? `<div class="space-y-2">${tasks.slice(0, 4).map(t => `
-            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-              <div>
-                <div class="font-bold text-xs text-slate-900 dark:text-white">${esc(t.title || 'Follow up with customer')}</div>
-                <div class="text-[11px] text-slate-700 dark:text-slate-300 font-semibold">Due: ${t.due_at ? new Date(t.due_at).toLocaleDateString() : 'Today'}</div>
-              </div>
-              <button onclick="switchPage('sales')" class="px-2.5 py-1 text-[11px] font-extrabold text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-800">View</button>
-            </div>`).join('')}</div>` : engEmpty('No pending follow-ups.')}
+        <!-- Card 1: Leads Waiting & Immediate Inquiries -->
+        <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 flex flex-col justify-between">
+          <div>
+            <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-3 flex items-center justify-between">
+              <span class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full ${leadsWaiting.length ? 'bg-amber-500 animate-pulse' : 'bg-slate-300 dark:bg-slate-700'}"></span>
+                Leads Waiting & New Opportunities (${leadsWaiting.length})
+              </span>
+              <span class="text-[11px] font-bold text-slate-400">Uncontacted</span>
+            </div>
+            ${leadsWaiting.length ? `<div class="space-y-2 divide-y divide-slate-100 dark:divide-slate-800/60">${leadsWaiting.slice(0, 5).map(c => `
+              <div class="flex items-center justify-between pt-2 first:pt-0">
+                <div class="min-w-0 pr-2">
+                  <div class="font-bold text-xs text-slate-900 dark:text-white truncate">${esc(c.full_name || c.name || 'Unassigned Lead')}</div>
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">${esc(c.source || 'Direct')} · ${esc(c.phone || c.email || 'No contact info')}</div>
+                </div>
+                <button onclick="${c.id ? `openCrmContact('${c.id}')` : `switchPage('sales')`}" class="px-2.5 py-1 rounded text-[11px] font-extrabold bg-amber-500 hover:bg-amber-600 text-white shadow-xs">Open</button>
+              </div>`).join('')}</div>` : emptyCompact('No uncontacted leads waiting.')}
+          </div>
         </div>
 
-        <div>
-          <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2 flex items-center justify-between">
+        <!-- Card 2: Website E-Leads -->
+        <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 flex flex-col justify-between">
+          <div>
+            <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-3 flex items-center justify-between">
+              <span class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full ${eLeads.length ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-700'}"></span>
+                Website E-Leads (${eLeads.length})
+              </span>
+              <span class="text-[11px] font-bold text-slate-400">Digital Inquiries</span>
+            </div>
+            ${eLeads.length ? `<div class="space-y-2">${eLeads.slice(0, 4).map(c => `
+              <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between shadow-xs">
+                <div class="min-w-0 pr-2">
+                  <div class="font-bold text-xs text-slate-900 dark:text-white truncate">${esc(c.full_name || c.email || 'Website Contact')}</div>
+                  <div class="text-[11px] text-blue-600 dark:text-blue-400 font-bold">Submitted via Website Form</div>
+                </div>
+                <button onclick="${c.id ? `openCrmContact('${c.id}')` : `switchPage('sales')`}" class="px-2.5 py-1 rounded text-[11px] font-extrabold bg-blue-600 hover:bg-blue-700 text-white shadow-xs">Reply</button>
+              </div>`).join('')}</div>` : emptyCompact('All website e-leads responded to.')}
+          </div>
+        </div>
+      </div>
+
+      <!-- Secondary Operational Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Card 3: Follow-Up Tasks -->
+        <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20">
+          <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-3 flex items-center justify-between">
+            <span>Follow-up Tasks (${tasks.length})</span>
+            <button onclick="switchPage('sales')" class="text-[11px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-bold">Manage Tasks →</button>
+          </div>
+          ${tasks.length ? `<div class="space-y-2">${tasks.slice(0, 4).map(t => `
+            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between shadow-xs">
+              <div class="min-w-0 pr-2">
+                <div class="font-bold text-xs text-slate-900 dark:text-white truncate">${esc(t.title || 'Follow up with customer')}</div>
+                <div class="text-[11px] text-slate-500 font-semibold">Due: ${t.due_at ? new Date(t.due_at).toLocaleDateString() : 'Today'}</div>
+              </div>
+              <button onclick="switchPage('sales')" class="px-2.5 py-1 text-[11px] font-extrabold text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-800 hover:bg-slate-100">View</button>
+            </div>`).join('')}</div>` : emptyCompact('No pending follow-up tasks.')}
+        </div>
+
+        <!-- Card 4: Appointments & Test Drives -->
+        <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20">
+          <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-3 flex items-center justify-between">
             <span>Appointments (${appts.length})</span>
             <button onclick="window.__pulseApptCalendarMode = !window.__pulseApptCalendarMode; renderEngine('command');" class="text-[11px] text-amber-700 dark:text-amber-400 font-extrabold hover:underline">Toggle ${apptViewMode === 'list' ? 'Calendar View' : 'List View'}</button>
           </div>
           ${apptViewMode === 'calendar' ? `
-            <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl text-center border border-slate-200 dark:border-slate-800">
+            <div class="p-3 bg-white dark:bg-slate-900 rounded-xl text-center border border-slate-200 dark:border-slate-800 shadow-xs">
               <div class="text-xs font-extrabold text-slate-900 dark:text-white mb-2">Appointments Calendar</div>
               <div class="grid grid-cols-7 gap-1 text-[10px] font-black text-slate-700 dark:text-slate-300 mb-1"><div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div></div>
-              <div class="grid grid-cols-7 gap-1 text-xs font-bold text-slate-800 dark:text-slate-200">${Array.from({length: 14}, (_, i) => `<div class="p-1 rounded ${i % 3 === 0 ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 font-black' : 'bg-white dark:bg-slate-900'}">${i + 1}</div>`).join('')}</div>
+              <div class="grid grid-cols-7 gap-1 text-xs font-bold text-slate-800 dark:text-slate-200">${Array.from({length: 14}, (_, i) => `<div class="p-1 rounded ${i % 3 === 0 ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 font-black' : 'bg-slate-50 dark:bg-slate-800'}">${i + 1}</div>`).join('')}</div>
             </div>` : (appts.length ? `<div class="space-y-2">${appts.slice(0, 4).map(a => `
-            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-              <div>
-                <div class="font-bold text-xs text-slate-900 dark:text-white">${esc(a.customer_name || 'Appointment')}</div>
-                <div class="text-[11px] text-slate-700 dark:text-slate-300 font-semibold">${a.appointment_at ? new Date(a.appointment_at).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'Scheduled'}</div>
+            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between shadow-xs">
+              <div class="min-w-0 pr-2">
+                <div class="font-bold text-xs text-slate-900 dark:text-white truncate">${esc(a.customer_name || 'Appointment')}</div>
+                <div class="text-[11px] text-slate-500 font-semibold">${a.appointment_at ? new Date(a.appointment_at).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'Scheduled'}</div>
               </div>
               <span class="px-2 py-0.5 text-[10px] font-extrabold rounded bg-emerald-100 text-emerald-900 dark:bg-emerald-900/50 dark:text-emerald-200">Booked</span>
-            </div>`).join('')}</div>` : engEmpty('No upcoming appointments.'))}
+            </div>`).join('')}</div>` : emptyCompact('No upcoming appointments.'))}
         </div>
       </div>
 
+      <!-- Tertiary Operational Grid: Deliveries & Cleanup + Equity Mining -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div>
-          <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">Deliveries Today (${deliveries.length})</div>
+        <!-- Card 5: Deliveries & Cleanup Staging -->
+        <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Deliveries Today (${deliveries.length})</div>
+            <button onclick="switchPage('delivery')" class="text-[11px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-bold">Delivery Queue →</button>
+          </div>
           ${deliveries.length ? `<div class="space-y-2">${deliveries.slice(0, 3).map(d => `
-            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-              <div class="font-bold text-xs text-slate-900 dark:text-white">${esc(d.customer_name || d.vehicle || 'Vehicle Delivery')}</div>
-              <button onclick="switchPage('delivery')" class="px-2.5 py-1 text-[11px] font-extrabold bg-slate-100 dark:bg-slate-800 rounded text-slate-800 dark:text-slate-200">Open</button>
-            </div>`).join('')}</div>` : engEmpty('No deliveries scheduled today.')}
+            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between shadow-xs">
+              <div class="font-bold text-xs text-slate-900 dark:text-white truncate">${esc(d.customer_name || d.vehicle || 'Vehicle Delivery')}</div>
+              <button onclick="switchPage('delivery')" class="px-2.5 py-1 text-[11px] font-extrabold bg-slate-100 dark:bg-slate-800 rounded text-slate-800 dark:text-slate-200 hover:bg-slate-200">Open</button>
+            </div>`).join('')}</div>` : emptyCompact('No deliveries scheduled today.')}
+
+          <div class="pt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between">
+            <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Vehicles in Cleanup (${recon.length})</div>
+            <button onclick="switchPage('recon')" class="text-[11px] text-sky-600 dark:text-sky-400 font-bold hover:underline">Recon Queue →</button>
+          </div>
+          ${recon.length ? `<div class="space-y-2">${recon.slice(0, 2).map(r => `
+            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between shadow-xs">
+              <div class="font-bold text-xs text-slate-900 dark:text-white truncate">${esc(r.stock_num || r.vin || 'Vehicle')} · ${esc(r.stage || 'In Recon')}</div>
+              <button onclick="switchPage('recon')" class="px-2.5 py-1 text-[11px] font-extrabold bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 rounded">Cleanup</button>
+            </div>`).join('')}</div>` : emptyCompact('No vehicles currently in cleanup.')}
         </div>
 
-        <div>
-          <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">Vehicles in Cleanup (${recon.length})</div>
-          ${recon.length ? `<div class="space-y-2">${recon.slice(0, 3).map(r => `
-            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-              <div class="font-bold text-xs text-slate-900 dark:text-white">${esc(r.stock_num || r.vin || 'Vehicle')} · ${esc(r.stage || 'In Recon')}</div>
-              <button onclick="switchPage('recon')" class="px-2.5 py-1 text-[11px] font-extrabold bg-slate-100 dark:bg-slate-800 rounded text-slate-800 dark:text-slate-200">Cleanup</button>
-            </div>`).join('')}</div>` : engEmpty('No vehicles currently in cleanup.')}
-        </div>
-      </div>
-
-      <div>
-        <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2 flex items-center justify-between">
-          <span>Equity Mining — HOT Customers (${hotEquity.length})</span>
-          <span class="text-[11px] text-amber-700 dark:text-amber-400 font-extrabold">${isMgr ? 'Manager Access (All Deals)' : 'My Assigned Customers'}</span>
-        </div>
-        ${hotEquity.length ? `<div class="grid grid-cols-1 md:grid-cols-2 gap-2">${hotEquity.slice(0, 4).map(e => `
-          <div class="p-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 flex items-center justify-between">
-            <div>
-              <div class="font-bold text-xs text-slate-900 dark:text-white">${esc(e.full_name || e.name || 'Customer')}</div>
-              <div class="text-[11px] text-amber-800 dark:text-amber-300 font-bold">High Equity Position · Ready to Trade</div>
+        <!-- Card 6: Equity Mining — HOT Opportunities -->
+        <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 flex flex-col justify-between">
+          <div>
+            <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-3 flex items-center justify-between">
+              <span class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full ${hotEquity.length ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-700'}"></span>
+                Equity Mining — HOT Customers (${hotEquity.length})
+              </span>
+              <span class="text-[11px] text-amber-700 dark:text-amber-400 font-extrabold">${isMgr ? 'Manager Access' : 'My Assigned'}</span>
             </div>
-            <button onclick="switchPage('sales')" class="px-2.5 py-1 text-xs font-bold bg-amber-600 text-white rounded">Contact</button>
-          </div>`).join('')}</div>` : engEmpty('No HOT equity mining opportunities.')}
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2 border-t border-slate-200 dark:border-slate-800">
-        <div>
-          <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">Sales Financial Insights</div>
-          <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2 border border-slate-200 dark:border-slate-800">
-            <div class="flex justify-between text-xs font-bold"><span>Pipeline Open Revenue</span><span class="text-emerald-700 dark:text-emerald-400">$${(d.pipeline?.deals || []).length * 4200 || '84,000'}</span></div>
-            <div class="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden"><div class="bg-amber-500 h-2" style="width:65%"></div></div>
+            ${hotEquity.length ? `<div class="space-y-2">${hotEquity.slice(0, 4).map(e => `
+              <div class="p-2.5 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/60 dark:bg-amber-950/30 flex items-center justify-between shadow-xs">
+                <div class="min-w-0 pr-2">
+                  <div class="font-bold text-xs text-slate-900 dark:text-white truncate">${esc(e.full_name || e.name || 'Customer')}</div>
+                  <div class="text-[11px] text-amber-800 dark:text-amber-300 font-bold">High Equity Position · Ready to Trade</div>
+                </div>
+                <button onclick="switchPage('sales')" class="px-2.5 py-1 text-[11px] font-extrabold bg-amber-600 hover:bg-amber-700 text-white rounded shadow-xs">Contact</button>
+              </div>`).join('')}</div>` : emptyCompact('No HOT equity mining opportunities.')}
           </div>
         </div>
-        <div>
-          <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">Leaderboards</div>
-          <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl flex justify-between text-xs font-bold border border-slate-200 dark:border-slate-800">
-            <span class="text-slate-800 dark:text-slate-200">FB Marketplace Leaderboard</span><button onclick="switchPage('leaderboard')" class="text-amber-700 dark:text-amber-400 font-extrabold hover:underline">View Standings →</button>
+      </div>
+
+      <!-- Bottom Financial Insights & Leaderboard -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2 border-t border-slate-200 dark:border-slate-800">
+        <div class="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2 border border-slate-200 dark:border-slate-800">
+          <div class="flex justify-between text-xs font-bold">
+            <span class="text-slate-800 dark:text-slate-200">Pipeline Open Revenue</span>
+            <span class="text-emerald-700 dark:text-emerald-400 font-black">$${(d.pipeline?.deals || []).length * 4200 || '84,000'}</span>
           </div>
+          <div class="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+            <div class="bg-amber-500 h-2" style="width:65%"></div>
+          </div>
+        </div>
+        <div class="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl flex items-center justify-between text-xs font-bold border border-slate-200 dark:border-slate-800">
+          <span class="text-slate-800 dark:text-slate-200">FB Marketplace Leaderboard</span>
+          <button onclick="switchPage('leaderboard')" class="text-amber-700 dark:text-amber-400 font-extrabold hover:underline">View Standings →</button>
         </div>
       </div>
     </div>
@@ -1843,12 +1894,21 @@ ENGINES['command'] = {
     const badge = document.getElementById('command-badge');
     const attentionCount = (day.needs_attention || []).length;
     if (badge) { if (attentionCount) { badge.textContent = attentionCount; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
-    return { cc, events: ev.events || [], day, identityReviews: identityReviews.reviews || [],
+    return {
+      cc, events: ev.events || [], day, identityReviews: identityReviews.reviews || [],
       pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy,
-      contacts: contacts.contacts || [], tasks: tasks.tasks || [], appointments: appts.appointments || [],
-      deliveries: deliveries?.queue || deliveries?.deliveries || [], reconVehicles: reconVehicles?.vehicles || reconVehicles || [],
-      inventory: inventory?.vehicles || inventory || [], fniDeals: fniDeals?.deals || fniDeals || [], esignRequests: esignRequests.requests || [],
-      serviceRos: serviceRos.ros || serviceRos || [], partsOrders: partsOrders.orders || partsOrders || [], staff: staff.employees || staff || [] };
+      contacts: Array.isArray(contacts?.contacts) ? contacts.contacts : (Array.isArray(contacts) ? contacts : []),
+      tasks: Array.isArray(tasks?.tasks) ? tasks.tasks : (Array.isArray(tasks) ? tasks : []),
+      appointments: Array.isArray(appts?.appointments) ? appts.appointments : (Array.isArray(appts) ? appts : []),
+      deliveries: Array.isArray(deliveries?.queue) ? deliveries.queue : (Array.isArray(deliveries?.deliveries) ? deliveries.deliveries : (Array.isArray(deliveries) ? deliveries : [])),
+      reconVehicles: Array.isArray(reconVehicles?.vehicles) ? reconVehicles.vehicles : (Array.isArray(reconVehicles?.recon) ? reconVehicles.recon : (Array.isArray(reconVehicles) ? reconVehicles : [])),
+      inventory: Array.isArray(inventory?.vehicles) ? inventory.vehicles : (Array.isArray(inventory?.inventory) ? inventory.inventory : (Array.isArray(inventory) ? inventory : [])),
+      fniDeals: Array.isArray(fniDeals?.deals) ? fniDeals.deals : (Array.isArray(fniDeals) ? fniDeals : []),
+      esignRequests: Array.isArray(esignRequests?.requests) ? esignRequests.requests : (Array.isArray(esignRequests) ? esignRequests : []),
+      serviceRos: Array.isArray(serviceRos?.ros) ? serviceRos.ros : (Array.isArray(serviceRos) ? serviceRos : []),
+      partsOrders: Array.isArray(partsOrders?.orders) ? partsOrders.orders : (Array.isArray(partsOrders) ? partsOrders : []),
+      staff: Array.isArray(staff?.employees) ? staff.employees : (Array.isArray(staff) ? staff : [])
+    };
   },
   quickActions: [
     { label: 'Academy (282 Courses)', icon: 'sparkles', onclick: "openMarketSyncAcademy('all')" },
