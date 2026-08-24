@@ -1741,45 +1741,67 @@ function renderPeopleSettings(body, employees) {
 
 function openAddEmployeeModal() {
   const modalHtml = `
-    <div class="space-y-4">
-      <h3 class="text-base font-black text-slate-900 dark:text-white">＋ Invite New Employee</h3>
-      <div class="grid grid-cols-2 gap-3 text-xs">
-        <input type="text" id="new-emp-fname" placeholder="First Name" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <input type="text" id="new-emp-lname" placeholder="Last Name" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <input type="email" id="new-emp-email" placeholder="Work Email" class="col-span-2 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <select id="new-emp-role" class="col-span-2 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+    <div class="ms-staff-editor space-y-5">
+      <div class="flex items-start justify-between gap-3"><div><h3 class="text-lg font-black text-slate-900 dark:text-white">Add a staff member</h3><p class="text-xs text-slate-500 mt-1">Create their account and connect it to this dealership.</p></div><button type="button" onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-700 dark:hover:text-white" aria-label="Close">✕</button></div>
+      <div class="ms-staff-grid grid grid-cols-2 gap-3 text-xs">
+        <label class="font-bold text-slate-600 dark:text-slate-300">First name<input type="text" id="new-emp-fname" autocomplete="given-name" placeholder="First name" class="mt-1 w-full p-2.5 rounded-xl border border-slate-300 bg-white/80"></label>
+        <label class="font-bold text-slate-600 dark:text-slate-300">Last name<input type="text" id="new-emp-lname" autocomplete="family-name" placeholder="Last name" class="mt-1 w-full p-2.5 rounded-xl border border-slate-300 bg-white/80"></label>
+        <label class="col-span-2 font-bold text-slate-600 dark:text-slate-300">Work email<input type="email" id="new-emp-email" autocomplete="email" placeholder="name@dealership.com" class="mt-1 w-full p-2.5 rounded-xl border border-slate-300 bg-white/80"></label>
+        <label class="col-span-2 font-bold text-slate-600 dark:text-slate-300">Role<select id="new-emp-role" class="mt-1 w-full p-2.5 rounded-xl border border-slate-300 bg-white/80">
           <option value="SALES_REP">Sales Rep</option>
           <option value="MANAGER">Manager</option>
           <option value="FNI">F&amp;I</option>
           <option value="SERVICE">Service</option>
           <option value="ACCOUNTING">Accounting</option>
           <option value="CLEANUP">Cleanup</option>
-        </select>
+        </select></label>
+        <div class="col-span-2 rounded-2xl border border-indigo-200/70 bg-indigo-50/60 p-3 space-y-2">
+          <div><div class="font-bold text-slate-700">Initial password <span class="font-normal text-slate-400">(optional)</span></div><p class="text-[11px] text-slate-500 mt-0.5">Leave blank to email the employee a secure password-setup link.</p></div>
+          <div class="flex gap-2"><input type="text" id="new-emp-password" autocomplete="new-password" placeholder="Choose an initial password" class="min-w-0 flex-1 p-2.5 rounded-xl border border-slate-300 bg-white/80 font-mono"><button type="button" onclick="generateNewEmployeePassword()" class="shrink-0 px-3 rounded-xl border border-slate-300 bg-white/80 text-xs font-bold text-slate-700">Generate</button><button type="button" onclick="copyNewEmployeePassword()" class="shrink-0 px-3 rounded-xl bg-indigo-600 text-white text-xs font-black">Copy</button></div>
+        </div>
       </div>
       <div id="new-emp-error" class="hidden text-xs font-bold text-rose-500"></div>
-      <button id="new-emp-submit" onclick="saveNewEmployee()" class="w-full py-2.5 bg-indigo-600 text-white font-black rounded-xl text-xs shadow-md disabled:opacity-60">Invite &amp; Provision Account</button>
+      <div class="flex justify-end gap-2"><button type="button" onclick="this.closest('.fixed').remove()" class="px-4 py-2.5 text-sm font-bold text-slate-500">Cancel</button><button id="new-emp-submit" onclick="saveNewEmployee()" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl text-sm shadow-md disabled:opacity-60">Add staff member</button></div>
     </div>
   `;
-  automationModal(modalHtml, 'max-w-md');
+  const modal = crmOverlay(modalHtml, 'max-w-xl');
+  if (modal) modal.id = 'add-employee-modal';
 }
 window.openAddEmployeeModal = openAddEmployeeModal;
+
+function generateNewEmployeePassword() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+  const bytes = new Uint32Array(18); crypto.getRandomValues(bytes);
+  const input = document.getElementById('new-emp-password');
+  if (input) input.value = Array.from(bytes, value => chars[value % chars.length]).join('') + 'Aa9!';
+}
+async function copyNewEmployeePassword() {
+  const input = document.getElementById('new-emp-password');
+  if (!input?.value) return showToast('Enter or generate a password first', 'info');
+  try { await navigator.clipboard.writeText(input.value); }
+  catch { input.select(); document.execCommand('copy'); }
+  showToast('Password copied', 'success');
+}
+Object.assign(window, { generateNewEmployeePassword, copyNewEmployeePassword });
 
 async function saveNewEmployee() {
   const fname = document.getElementById('new-emp-fname')?.value.trim() || '';
   const lname = document.getElementById('new-emp-lname')?.value.trim() || '';
   const email = document.getElementById('new-emp-email')?.value.trim() || '';
   const role = document.getElementById('new-emp-role')?.value || 'SALES_REP';
+  const password = document.getElementById('new-emp-password')?.value || '';
   const errEl = document.getElementById('new-emp-error');
   const submitBtn = document.getElementById('new-emp-submit');
   const showError = (msg) => { if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); } };
 
   const full_name = `${fname} ${lname}`.trim();
   if (!full_name || !email) { showError('First name, last name, and email are required.'); return; }
+  if (password && password.length < 8) { showError('The initial password must be at least 8 characters.'); return; }
 
   if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Inviting…'; }
   try {
-    await apiSendJson('/admin/users/invite', 'POST', { email, full_name, role });
-    closeAutomationModal();
+    await apiSendJson('/admin/users/invite', 'POST', { email, full_name, role, ...(password ? { password } : {}) });
+    document.getElementById('add-employee-modal')?.remove();
     toast(`Invited ${full_name} — account provisioned.`);
     if (typeof loadDealerManagementMatrix === 'function') loadDealerManagementMatrix();
   } catch (e) {

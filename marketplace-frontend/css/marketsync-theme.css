@@ -1833,8 +1833,33 @@ body {
 .ms-crm-glass .bg-slate-950,
 .ms-crm-glass .dark\:bg-slate-950 {
   border-radius: 17px !important;
-  border-color: rgba(190,205,230,.14) !important;
-  background: rgba(3,9,20,.78) !important;
+  border-color: rgba(100,116,139,.24) !important;
+  background: rgba(255,255,255,.78) !important;
+  color: #0f172a !important;
+  caret-color: #4f46e5 !important;
+}
+
+.dark .ms-crm-glass input,
+.dark .ms-crm-glass select,
+.dark .ms-crm-glass textarea,
+.dark .ms-crm-glass .bg-slate-950,
+.dark .ms-crm-glass .dark\:bg-slate-950 {
+  border-color: rgba(190,205,230,.18) !important;
+  background: rgba(3,9,20,.72) !important;
+  color: #f8fafc !important;
+  caret-color: #818cf8 !important;
+}
+
+.ms-crm-glass input::placeholder,
+.ms-crm-glass textarea::placeholder { color: #94a3b8 !important; opacity: 1; }
+
+.ms-staff-editor { padding: 1.25rem; }
+.ms-staff-editor .ms-staff-actions { align-items: center; }
+@media (max-width: 639px) {
+  .ms-staff-editor { padding: 1rem; }
+  .ms-staff-editor .ms-staff-grid { grid-template-columns: minmax(0,1fr) !important; }
+  .ms-staff-editor .ms-staff-actions > * { width: 100%; justify-content: center; }
+  .ms-staff-editor .ms-staff-actions .flex-1 { display: none; }
 }
 
 .ms-crm-glass .rounded-lg,
