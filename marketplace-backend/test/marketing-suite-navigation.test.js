@@ -24,7 +24,7 @@ const labels = area => area.items.map(item => item.label);
 
 test('Sales, Service and Complete share the same DealerOS-style major-area shell', () => {
   const configs = suiteConfigs();
-  const common = ['Pulse', 'Marketing', 'Content', 'Reports', 'Academy'];
+  const common = ['Pulse', 'Marketing', 'Content', 'Academy'];
   assert.deepEqual(configs.sales.areas.map(area => area.label), common);
   assert.deepEqual(configs.service.areas.map(area => area.label), common);
   assert.deepEqual(configs.complete.areas.map(area => area.label), common);
@@ -62,6 +62,21 @@ test('suite navigation reuses canonical routes and the shared accessible tabbar'
   assert.match(shellSource, /overflow-x-auto/);
   assert.match(shellSource, /function suiteAreaOpen/);
   assert.match(shellSource, /function renderMarketingSuiteNav/);
+});
+
+// Sales/Service/Complete Marketing Suite's sidebar (renderMarketingSuiteNav) already
+// lists every area's items flat, so the per-page area header + tab strip
+// (renderDeptTabbar) would just repeat it above the page content — a real "headers
+// that are also on the main nav" duplicate. Only MarketSync Digital's sidebar is
+// condensed to one item per product (cfg.navItems), where that tab strip is the only
+// way to reach an area's sub-destinations (e.g. Website's Setup/Builder/Settings).
+test('the suite tab strip only renders for Digital, whose sidebar cannot show sub-destinations on its own', () => {
+  const tabbarBody = shellSource.slice(
+    shellSource.indexOf('function renderDeptTabbar'),
+    shellSource.indexOf('function suiteAreaOpen')
+  );
+  assert.match(tabbarBody, /if \(!cfg\.navItems\) return hide\(\);/,
+    'Sales/Service/Complete (no cfg.navItems) must hide the redundant tab strip');
 });
 
 function detectSuite(access) {
@@ -110,4 +125,35 @@ test('DealerOS workspace registry remains the reference architecture', () => {
     assert.match(registrySource, new RegExp(`label: '${label}'`));
   }
   assert.doesNotMatch(registrySource, /Digital Presence/);
+});
+
+function suiteConfigWithAccess(suiteKey, access) {
+  const setup = workspaceSource.slice(0, workspaceSource.indexOf('let __socialView'));
+  const context = {
+    window: { __access: access },
+    document: { documentElement: { getAttribute: () => '' } },
+    profileContext: null,
+  };
+  vm.createContext(context);
+  vm.runInContext(setup, context);
+  // JSON round-trip: node:assert/strict's deepEqual treats a vm-realm Array as a
+  // different constructor than this realm's Array even with identical structure.
+  return JSON.parse(JSON.stringify(context.window.getMarketingSuiteConfig(suiteKey)));
+}
+
+// MarketSync SEO (marketsync-seo / marketsync_seo) is independently purchasable on top
+// of Sales/Service/Complete Marketing Suite even though it isn't bundled in — these
+// suites have no website concept at all, so it must never be folded into anything else.
+test('a suite dealer who separately owns MarketSync SEO gets it as its own area; one who does not, does not', () => {
+  const withSeo = suiteConfigWithAccess('sales', { products: ['design_studio', 'marketsync_seo'] });
+  const seoArea = withSeo.areas.find(area => area.id === 'seo');
+  assert.ok(seoArea, 'Sales Marketing Suite + owned SEO must expose an SEO area');
+  assert.equal(seoArea.label, 'MarketSync SEO');
+  assert.deepEqual(labels(seoArea), ['Pulse', 'SEO Builder']);
+  // Never combined with a "website" area — Sales/Service/Complete Marketing Suite sell
+  // no website product, so there is nothing to combine it with in the first place.
+  assert.ok(!withSeo.areas.some(area => area.id === 'website' || area.id === 'digital-presence'));
+
+  const withoutSeo = suiteConfigWithAccess('service', { products: ['design_studio'] });
+  assert.ok(!withoutSeo.areas.some(area => area.id === 'seo'), 'no SEO area without the entitlement');
 });

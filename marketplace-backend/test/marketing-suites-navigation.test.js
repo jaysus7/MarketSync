@@ -145,7 +145,9 @@ test('Sales Marketing Suite navigation and workspace isolation', (t) => {
   assert.ok(pageLabels.includes('Design Studio'));
   assert.ok(pageLabels.includes('Social Scheduler'));
   assert.ok(pageLabels.includes('Video'));
-  assert.ok(pageLabels.includes('Performance'));
+  // Performance was a dead-end destination (pointed at a fabricated demo table) — every
+  // suite's performance metrics live on Pulse instead, not a separate nav entry.
+  assert.equal(pageLabels.includes('Performance'), false);
 
   const pulse = pages.find(p => p.label === 'Pulse');
   assert.deepEqual({ page: pulse.page, tab: pulse.tab }, { page: 'marketing-overview', tab: 'overview' });
@@ -190,7 +192,7 @@ test('Service Marketing Suite navigation and workspace isolation', (t) => {
   assert.ok(pageLabels.includes('Design Studio'));
   assert.ok(pageLabels.includes('Social Scheduler'));
   assert.ok(pageLabels.includes('Video'));
-  assert.ok(pageLabels.includes('Performance'));
+  assert.equal(pageLabels.includes('Performance'), false);
 
   // Must NOT include Sales-specific or Digital/DealerOS items
   assert.equal(pageLabels.includes('Sales Marketing'), false);

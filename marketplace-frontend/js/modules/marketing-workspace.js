@@ -85,17 +85,16 @@ function buildMarketingSuiteConfig(key) {
       suiteItem('video-studio', 'Video', 'video'),
     ] },
   ];
-  if (definition.digitalPresence) {
-    areas.push({ id: 'digital-presence', label: 'Digital Presence', icon: 'globe', items: [
-      suiteItem('website', 'Website', 'globe', { tab: 'setup' }),
-      suiteItem('website', 'Setup', 'wrench', { tab: 'setup' }),
-      suiteItem('website-settings', 'Website Settings', 'shield'),
-      suiteItem('ai-home', 'AI ChatBot', 'sparkles', { tab: 'conversations' }),
-      suiteItem('seo', 'SEO', 'chart'),
-    ] });
-  }
+  // definition.digitalPresence is only ever true for 'digital', which takes the early
+  // return above and never reaches here — Sales/Service/Complete Marketing Suite don't
+  // sell Website or the bundled Digital Presence area at all. A conditional MarketSync
+  // SEO area (for dealers who independently add that product) is injected live by
+  // getMarketingSuiteConfig() below — this function runs once at script load, before
+  // window.__access exists, so it cannot itself see a per-dealer entitlement.
+  //
+  // No separate "Reports" / "Performance" destination — see Pulse (marketing-overview,
+  // tab: overview), which is where every suite's performance metrics live.
   areas.push(
-    { id: 'reports', label: 'Reports', icon: 'chart', items: [suiteItem('automation-builder', 'Performance', 'chart', { tab: 'performance' })] },
     { id: 'academy', label: 'Academy', icon: 'sparkles', items: [suiteItem('academy', 'Academy', 'sparkles')] },
   );
 
@@ -190,7 +189,28 @@ function getActiveMarketingSuite() {
 
 function getMarketingSuiteConfig(suiteKey) {
   const key = suiteKey || getActiveMarketingSuite() || 'complete';
-  return MARKETING_SUITE_CONFIG[key] || MARKETING_SUITE_CONFIG.complete;
+  const base = MARKETING_SUITE_CONFIG[key] || MARKETING_SUITE_CONFIG.complete;
+  // MarketSync SEO is independently purchasable on top of Sales/Service/Complete
+  // Marketing Suite (see plan-catalog.js) even though it isn't bundled in — these
+  // suites carry no website concept at all, so when it's owned it gets its own area,
+  // never combined with anything else. Checked live (this accessor is called fresh on
+  // every nav render), unlike MARKETING_SUITE_CONFIG which is built once at load,
+  // before window.__access exists. 'digital' already has its own SEO area baked in.
+  if (key !== 'digital' && !base.areas.some(area => area.id === 'seo')) {
+    const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+    const ownsSeo = access.isPlatformStaff || (Array.isArray(access.products) && access.products.includes('marketsync_seo'));
+    if (ownsSeo) {
+      const seoArea = { id: 'seo', label: 'MarketSync SEO', icon: 'chart', items: [
+        suiteItem('seo', 'Pulse', 'chart', { tab: 'analytics' }),
+        suiteItem('seo', 'SEO Builder', 'sparkles', { tab: 'settings' }),
+      ] };
+      const academyIdx = base.areas.findIndex(area => area.id === 'academy');
+      const areas = [...base.areas];
+      areas.splice(academyIdx === -1 ? areas.length : academyIdx, 0, seoArea);
+      return { ...base, areas, sections: areas.map(area => ({ title: area.label.toUpperCase(), items: area.items })) };
+    }
+  }
+  return base;
 }
 
 if (typeof window !== 'undefined') {
