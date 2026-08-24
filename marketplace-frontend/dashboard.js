@@ -867,13 +867,13 @@ const PRODUCT_HOME = {
   facebook_dealer: 'leaderboard',
   video: 'video-studio',
   marketsync_video: 'video-studio',
-  campaigns: 'email-marketing',
+  campaigns: 'automation-builder',
   social: 'social-scheduler',
   marketsync_social: 'social-scheduler',
   'social-scheduler': 'social-scheduler',
   social_scheduler: 'social-scheduler',
-  email_marketing: 'email-marketing',
-  marketsync_email: 'email-marketing',
+  email_marketing: 'automation-builder',
+  marketsync_email: 'automation-builder',
   ai_chatbot: 'ai-home',
   website: 'website',
   marketsync_website: 'website',
@@ -1433,13 +1433,15 @@ function restrictedNavPages() {
   const canManageTeam = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'DEALER_GROUP'].includes(profileContext?.role);
   const INV = (label) => ({ page: 'inventory', label, icon: 'megaphone', invmode: 'facebook' });
   const LEADER = { page: 'leaderboard', label: 'Leaderboard', icon: 'trophy' };
-  const AI = { page: 'ai-home', label: 'AI Chatbot', icon: 'sparkles' };
+  const AI = { page: 'ai-home', tab: 'conversations', label: 'Pulse', icon: 'sparkles' };
   const META = {
-    'marketing-overview': { page: 'automation-builder', tab: 'overview', label: 'Overview', icon: 'chart' },
-    'email-marketing': { page: 'automation-builder', tab: 'overview', label: 'Overview', icon: 'chart' },
-    'automation-builder': { page: 'automation-builder', tab: 'overview', label: 'Overview', icon: 'chart' },
-    'video-studio': { page: 'video-studio', label: 'Video', icon: 'video' },
-    website: { page: 'website', label: 'Website', icon: 'globe' },
+    'marketing-overview': { page: 'marketing-overview', tab: 'overview', label: 'Pulse', icon: 'chart' },
+    // email-marketing is a legacy alias; switchPage canonicalizes it to the
+    // shared Automation Builder, so the product Pulse must target that page too.
+    'email-marketing': { page: 'automation-builder', tab: 'overview', label: 'Pulse', icon: 'megaphone' },
+    'automation-builder': { page: 'automation-builder', tab: 'overview', label: 'Pulse', icon: 'bolt' },
+    'video-studio': { page: 'video-studio', label: 'Pulse', icon: 'video' },
+    website: { page: 'website', tab: 'builder', label: 'Pulse', icon: 'globe' },
   };
 
   const mktSuite = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;
@@ -1477,7 +1479,7 @@ function restrictedNavPages() {
   }
   if (activeProducts.length === 1 && /ai_chatbot/.test(product)) {
     return [
-      { page: 'ai-home', tab: 'conversations', label: 'AI ChatBot', icon: 'sparkles' },
+      { page: 'ai-home', tab: 'conversations', label: 'Pulse', icon: 'sparkles' },
       { page: 'ai-home', tab: 'setup', label: 'Setup', icon: 'wrench' }
     ];
   }
@@ -1494,7 +1496,7 @@ function restrictedNavPages() {
   }
   if (activeProducts.length === 1 && /(marketsync_social|social[-_]scheduler)/.test(product)) {
     return [
-      { page: 'social-scheduler', tab: 'overview', label: 'Overview', icon: 'chart' },
+      { page: 'social-scheduler', tab: 'overview', label: 'Pulse', icon: 'chart' },
       { page: 'social-scheduler', tab: 'calendar', label: 'Calendar', icon: 'calendar' },
       { page: 'social-scheduler', tab: 'create', label: 'Create Post', icon: 'sparkles' },
       { page: 'social-scheduler', tab: 'scheduled', label: 'Scheduled', icon: 'clock' },
@@ -1508,8 +1510,8 @@ function restrictedNavPages() {
   }
   if (activeProducts.length === 1 && /(marketsync_email|email_marketing|campaigns[-_]email[-_]sms|marketing[-_]overview|marketing|campaigns|automations)/.test(product)) {
     return [
-      { page: 'email-marketing', label: 'Emails', icon: 'megaphone' },
-      { page: 'automation-builder', tab: 'overview', label: 'Automations', icon: 'bolt' },
+      { page: 'automation-builder', tab: 'overview', label: 'Pulse', icon: 'megaphone' },
+      { page: 'automation-builder', tab: 'automations', label: 'Automations', icon: 'bolt' },
     ];
   }
 
@@ -1522,7 +1524,7 @@ function restrictedNavPages() {
       // Blog and SEO open as normal in-dashboard pages (page content area + sidebar),
       // like the rest of MarketSync — not the full-screen workspace. Setup stays with
       // the Builder workspace (it configures that editor).
-      { page: 'website', tab: 'builder', label: 'Builder', icon: 'globe' },
+      { page: 'website', tab: 'builder', label: 'Pulse', icon: 'globe' },
       { page: 'blog', label: 'Blog', icon: 'document' },
       { page: 'seo', label: 'SEO', icon: 'chart' },
       { page: 'website', tab: 'setup', label: 'Setup', icon: 'wrench' },

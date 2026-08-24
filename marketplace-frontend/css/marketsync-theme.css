@@ -1380,6 +1380,12 @@ body.website-workspace-mode {
 body.ms-app-booting, body.ms-app-booting main { background:var(--ms-bg) !important; }
 body.ms-app-booting > header { background:var(--ms-surface) !important; border-color:var(--ms-border) !important; backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); box-shadow:0 8px 24px rgba(23,25,31,.06); }
 #dept-sidebar, #nav-desktop, #nav-mobile, #report-rail { background:var(--ms-surface) !important; border-color:var(--ms-border) !important; }
+.ms-suite-nav-header,
+.ms-product-nav-item,
+.ms-suite-nav-item { border-color:var(--ms-border); }
+.ms-suite-nav-header { background:linear-gradient(135deg, rgba(255,255,255,.34), rgba(255,255,255,.12)); border:1px solid var(--ms-border); border-radius:var(--ms-radius-control); box-shadow:inset 0 1px 0 rgba(255,255,255,.28); }
+.ms-suite-nav-item:hover,
+.ms-product-nav-item:hover { background:rgba(255,255,255,.24) !important; }
 .ms-engine-header { padding:clamp(1rem,2vw,1.5rem); border:1px solid var(--ms-border); border-radius:var(--ms-radius-card); background:var(--ms-surface); box-shadow:var(--ms-shadow-glass); backdrop-filter:blur(var(--ms-glass-blur)); -webkit-backdrop-filter:blur(var(--ms-glass-blur)); }
 .ms-engine-title { font-size:clamp(2rem,4vw,3.5rem) !important; line-height:.98 !important; letter-spacing:-.055em !important; font-weight:900 !important; font-family:Satoshi,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
 #service-overview-root .rounded-2xl, #parts-overview-root .rounded-2xl { border-radius:var(--ms-radius-card); }

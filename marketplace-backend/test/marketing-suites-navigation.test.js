@@ -145,7 +145,12 @@ test('Sales Marketing Suite navigation and workspace isolation', (t) => {
   assert.ok(pageLabels.includes('Design Studio'));
   assert.ok(pageLabels.includes('Social Scheduler'));
   assert.ok(pageLabels.includes('Video'));
-  assert.ok(pageLabels.includes('Overview'));
+  assert.ok(pageLabels.includes('Performance'));
+
+  const pulse = pages.find(p => p.label === 'Pulse');
+  assert.deepEqual({ page: pulse.page, tab: pulse.tab }, { page: 'marketing-overview', tab: 'overview' });
+  const automations = pages.find(p => p.label === 'Automations');
+  assert.deepEqual({ page: automations.page, tab: automations.tab }, { page: 'automation-builder', tab: 'automations' });
 
   // Must NOT include Service-specific or Digital/DealerOS items
   assert.equal(pageLabels.includes('Service Marketing'), false);
@@ -185,7 +190,7 @@ test('Service Marketing Suite navigation and workspace isolation', (t) => {
   assert.ok(pageLabels.includes('Design Studio'));
   assert.ok(pageLabels.includes('Social Scheduler'));
   assert.ok(pageLabels.includes('Video'));
-  assert.ok(pageLabels.includes('Overview'));
+  assert.ok(pageLabels.includes('Performance'));
 
   // Must NOT include Sales-specific or Digital/DealerOS items
   assert.equal(pageLabels.includes('Sales Marketing'), false);
@@ -255,7 +260,7 @@ test('MarketSync Digital package exposes its complete Digital Presence area', (t
   assert.ok(pageLabels.includes('AI ChatBot'));
   assert.ok(pageLabels.includes('Design Studio'));
   assert.ok(pageLabels.includes('Video'));
-  assert.ok(pageLabels.includes('Overview'));
+  assert.ok(pageLabels.includes('Performance'));
   assert.ok(pageLabels.includes('SEO'));
   assert.equal(pageLabels.includes('Accounting'), false);
 });

@@ -1613,11 +1613,11 @@ function renderMarketingSuiteNav(suiteKey, host, navRoot) {
 
   __deptRegistry = null;
 
-  let html = `<div class="px-3 pt-1 pb-2 mb-1 border-b border-slate-200/80 dark:border-slate-800">
+  let html = `<div class="ms-suite-nav-header px-3 pt-2 pb-3 mb-2">
     <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">${esc(cfg.badge)}</div>
-    <div class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">MarketSync</div>
+    <div class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">MarketSync · Pulse first</div>
   </div>`;
-  html += cfg.areas.map(area => `<button type="button" data-suite-area="${esc(area.id)}" onclick="suiteAreaOpen('${esc(area.id)}')" title="${esc(area.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-[13px]"><span class="text-indigo-500 flex-shrink-0">${svgIcon(area.icon || 'dot', 'w-4 h-4')}</span><span class="truncate">${esc(area.label)}</span></button>`).join('');
+  html += cfg.areas.map(area => `<button type="button" data-suite-area="${esc(area.id)}" onclick="suiteAreaOpen('${esc(area.id)}')" title="${esc(area.label)}" class="ms-suite-nav-item dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-[13px]"><span class="text-indigo-500 flex-shrink-0">${svgIcon(area.icon || 'dot', 'w-4 h-4')}</span><span class="truncate">${esc(area.label)}</span></button>`).join('');
 
   host.innerHTML = html;
   navRoot.classList.add('dept-mode');
@@ -1681,7 +1681,7 @@ function renderDeptNav(role) {
           : p.studioLaunch
           ? 'window.openMarketSyncStudio()'
           : `deptGo('${esc(p.page)}'${p.tab ? `,'${esc(p.invmode || '')}','${esc(p.tab)}'` : (p.invmode ? `,'${esc(p.invmode)}'` : '')})`;
-        return `<button type="button" data-page="${esc(p.page)}"${p.tab ? ` data-tab="${esc(p.tab)}"` : ''} onclick="${call}" title="${esc(p.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-indigo-500 flex-shrink-0">${svgIcon(p.icon || 'dot', 'w-4 h-4')}</span><span>${esc(p.label)}</span></button>`;
+        return `<button type="button" data-page="${esc(p.page)}"${p.tab ? ` data-tab="${esc(p.tab)}"` : ''} onclick="${call}" title="${esc(p.label)}" class="ms-product-nav-item dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-indigo-500 flex-shrink-0">${svgIcon(p.icon || 'dot', 'w-4 h-4')}</span><span>${esc(p.label)}</span></button>`;
       }).join('');
       navRoot.classList.add('dept-mode');
       __deptNavBuilt = true;
@@ -1751,7 +1751,10 @@ function highlightDeptNav(pageId) {
     const activeTab = pageId === 'marketing-overview'
       ? ((typeof ENGINE_STATE !== 'undefined' && ENGINE_STATE['marketing-overview']) || 'overview')
       : pageId === 'automation-builder' ? (__autoTab || 'overview')
-      : pageId === 'ai-home' ? (window.__aiHomeTab || 'conversations') : null;
+      : pageId === 'ai-home' ? (window.__aiHomeTab || 'conversations')
+      : pageId === 'website' ? (window.__wsTab || 'setup')
+      : pageId === 'social-scheduler' ? (window.__socialTab || window.__studioSchedulerTab || 'overview')
+      : null;
     const activeArea = cfg && typeof marketingSuiteAreaForPage === 'function'
       ? marketingSuiteAreaForPage(cfg, pageId, activeTab)?.id : null;
     document.querySelectorAll('#dept-nav .dept-nav-item, #mobile-quickrow-dyn .nav-item').forEach(b => {

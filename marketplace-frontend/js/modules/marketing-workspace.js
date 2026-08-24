@@ -27,7 +27,7 @@ function buildMarketingSuiteConfig(key) {
   }
   marketing.push(
     suiteItem('marketing-overview', 'Campaigns', 'megaphone', { tab: 'campaigns' }),
-    suiteItem('automation-builder', 'Automations', 'bolt', { tab: 'overview' }),
+    suiteItem('automation-builder', 'Automations', 'bolt', { tab: 'automations' }),
   );
 
   const areas = [
@@ -47,7 +47,7 @@ function buildMarketingSuiteConfig(key) {
     ] });
   }
   areas.push(
-    { id: 'reports', label: 'Reports', icon: 'chart', items: [suiteItem('automation-builder', 'Overview', 'chart', { tab: 'performance' })] },
+    { id: 'reports', label: 'Reports', icon: 'chart', items: [suiteItem('automation-builder', 'Performance', 'chart', { tab: 'performance' })] },
     { id: 'academy', label: 'Academy', icon: 'sparkles', items: [suiteItem('academy', 'Academy', 'sparkles')] },
   );
 
@@ -59,7 +59,10 @@ function buildMarketingSuiteConfig(key) {
     areas,
     // Compatibility for older consumers while all navigation renders from areas.
     sections: areas.map(area => ({ title: area.label.toUpperCase(), items: area.items })),
-    mobileQuickRow: areas.slice(0, 3).map(area => ({ ...area.items[0], label: area.label })),
+    // Mobile area buttons must use the same practical landing as the desktop
+    // area button. Content intentionally lands in Social Scheduler, while the
+    // full area still keeps Design Studio available as its first sub-item.
+    mobileQuickRow: areas.slice(0, 3).map(area => ({ ...(area.items.find(item => item.page === area.defaultPage) || area.items[0]), label: area.label })),
   };
 }
 
