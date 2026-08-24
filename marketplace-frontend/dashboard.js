@@ -165,6 +165,16 @@ function actHeaders() {
   return {};
 }
 const __apiInflight = new Map();
+function apiErrorMessage(data, status) {
+  const code = typeof data === 'string' ? data : data?.error;
+  const messages = {
+    PRODUCT_ACCESS_REQUIRED: 'This action is not included in your current MarketSync products.',
+    SUBSCRIPTION_REQUIRED: 'An active MarketSync subscription is required for this action.',
+    TRIAL_EXPIRED: 'Your MarketSync trial has ended. Choose a plan to continue.',
+    FORBIDDEN: 'You do not have permission to perform this action.',
+  };
+  return messages[code] || code || `HTTP ${status}`;
+}
 async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}) {
   if (__apiInflight.has(path)) return __apiInflight.get(path);
   const reqPromise = (async () => {
@@ -289,9 +299,9 @@ async function apiSendFormData(path, method = 'POST', formData, { timeoutMs = 12
 })();
 
 function showToast(message, type = 'info', duration = 4000) {
+  message = apiErrorMessage(message, '');
   const el = document.createElement('div');
-  const colors = { success: 'bg-emerald-600', error: 'bg-red-600', info: 'bg-indigo-600' };
-  el.className = `fixed bottom-6 left-1/2 -translate-x-1/2 z-[99999] px-5 py-3 rounded-xl text-white text-sm font-semibold shadow-xl transition-opacity ${colors[type] || colors.info}`;
+  el.className = `ms-toast ms-toast-${type} fixed bottom-6 left-1/2 -translate-x-1/2 z-[99999] px-5 py-3 text-white text-sm font-semibold transition-opacity`;
   el.textContent = message;
   document.body.appendChild(el);
   setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 400); }, duration);
