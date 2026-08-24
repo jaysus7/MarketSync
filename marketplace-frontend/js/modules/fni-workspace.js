@@ -344,7 +344,7 @@ ENGINES['fni-overview'] = {
       ]);
 
       const proactiveAiPanel = `
-        <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg border border-slate-800">
+        <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 ms-ai-panel text-white shadow-lg border border-slate-800">
           <div class="flex items-center justify-between mb-2">
             <div class="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-sky-400">
               <span>Proactive F&amp;I Manager AI Assistant</span>

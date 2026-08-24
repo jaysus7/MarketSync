@@ -1897,7 +1897,7 @@ function commLoadAIImporter() {
 
   body.innerHTML = `
     <div class="space-y-6">
-      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 p-6 rounded-3xl shadow-xl text-white relative overflow-hidden">
+      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 ms-ai-panel border border-indigo-500/30 p-6 rounded-3xl shadow-xl text-white relative overflow-hidden">
         <div class="absolute -right-10 -bottom-10 w-60 h-60 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none"></div>
         <div class="flex flex-wrap items-center justify-between gap-4 relative z-10">
           <div class="flex items-center gap-4">

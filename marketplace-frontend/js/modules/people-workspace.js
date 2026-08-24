@@ -119,7 +119,7 @@ ENGINES['people-overview'] = {
       const unlinked = team.filter(p => p.has_employment === false).length;
 
       const proactiveAiPanel = `
-        <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg border border-slate-800">
+        <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 ms-ai-panel text-white shadow-lg border border-slate-800">
           <div class="flex items-center justify-between mb-2">
             <div class="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-sky-400">
               <span>Proactive HR &amp; People Operations AI Assistant</span>
@@ -269,7 +269,7 @@ function pplRenderPerson() {
 
   panel.innerHTML = `
     <!-- Header Hero Profile Card -->
-    <div class="p-6 pb-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-t-2xl border-b border-slate-800">
+    <div class="p-6 pb-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 ms-ai-panel text-white rounded-t-2xl border-b border-slate-800">
       <div class="flex items-start justify-between gap-4">
         <div class="flex items-center gap-4 min-w-0">
           <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg ring-2 ring-white/20 shrink-0">

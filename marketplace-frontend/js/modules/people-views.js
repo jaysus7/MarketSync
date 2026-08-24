@@ -120,7 +120,7 @@ function pplRenderTimeWorkspace(d) {
   const team = d.team || [];
   return `
     <div class="space-y-6">
-      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-5 border border-slate-800 shadow-md">
+      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 ms-ai-panel text-white rounded-2xl p-5 border border-slate-800 shadow-md">
         <div class="flex items-center justify-between flex-wrap gap-3">
           <div>
             <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 uppercase tracking-wider">Time &amp; Attendance Hub</span>
@@ -217,7 +217,7 @@ function pplRenderTimeWorkspace(d) {
 function pplRenderHiringWorkspace(d) {
   return `
     <div class="space-y-6">
-      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-5 border border-slate-800 shadow-md">
+      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 ms-ai-panel text-white rounded-2xl p-5 border border-slate-800 shadow-md">
         <div class="flex items-center justify-between flex-wrap gap-3">
           <div>
             <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-500/30 text-purple-200 border border-purple-400/30 uppercase tracking-wider">Hiring &amp; Lifecycle Engine</span>
@@ -332,7 +332,7 @@ function pplRenderComplianceWorkspace(d) {
   const c = d.compliance || {};
   return `
     <div class="space-y-6">
-      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-5 border border-slate-800 shadow-md">
+      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 ms-ai-panel text-white rounded-2xl p-5 border border-slate-800 shadow-md">
         <div class="flex items-center justify-between flex-wrap gap-3">
           <div>
             <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 uppercase tracking-wider">Compliance &amp; Policy Vault</span>
