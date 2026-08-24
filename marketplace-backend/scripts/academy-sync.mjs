@@ -17,6 +17,7 @@
  */
 import { supabaseAdmin } from '../shared.js'
 import { COURSES, CERTIFICATIONS, COURSE_KEYS, ROLE_CURRICULUM } from '../academy-curriculum.js'
+import { LESSONS, LESSON_COURSE_KEYS, LESSON_COUNT } from '../academy-lessons.js'
 
 const DRY = process.argv.includes('--dry-run')
 const url = process.env.SUPABASE_URL || ''
@@ -40,8 +41,20 @@ for (const [role, depts] of Object.entries(ROLE_CURRICULUM)) {
   const missing = depts.filter(d => !courseDepartments.has(d))
   if (missing.length) fail(`role ${role} maps to department(s) with no courses: ${missing.join(', ')}`)
 }
+// ── A course with no lessons is a course nobody can take ────────────────────
+// Somebody can be REQUIRED to complete it and blocked from a certification until they
+// do, with nothing to open. That is the defect this whole slice exists to end, so the
+// sync refuses rather than publishing it.
+const withoutLessons = COURSES.map(c => c.course_key).filter(k => !LESSON_COURSE_KEYS.has(k))
+if (withoutLessons.length) fail(`course(s) have no lessons and cannot be completed: ${withoutLessons.join(', ')}`)
+const orphanLessons = [...LESSON_COURSE_KEYS].filter(k => !COURSE_KEYS.has(k))
+if (orphanLessons.length) fail(`lessons written for course(s) that do not exist: ${orphanLessons.join(', ')}`)
+// Reading is not doing. Every course has to end somewhere the learner uses the product.
+for (const [key, lessons] of Object.entries(LESSONS)) {
+  if (!lessons.some(x => x.kind === 'checkpoint')) fail(`${key} has no checkpoint — a course of pure reading certifies nobody`)
+}
 
-console.log(`\nAcademy sync${DRY ? ' (dry run)' : ''} · ${COURSES.length} courses · ${CERTIFICATIONS.length} certifications\n`)
+console.log(`\nAcademy sync${DRY ? ' (dry run)' : ''} · ${COURSES.length} courses · ${LESSON_COUNT} lessons · ${CERTIFICATIONS.length} certifications\n`)
 
 // ── Courses ─────────────────────────────────────────────────────────────────
 // `role_keys` stays empty for a department course: `courseAppliesTo` already includes it via the
@@ -93,6 +106,49 @@ if (retired.length) {
   }
 }
 
+// ── Lessons ─────────────────────────────────────────────────────────────────
+// Keyed on (dealership_id, course_id, lesson_key), so re-running edits the global rows
+// rather than growing a second copy of the curriculum.
+const { data: allCourses } = await supabaseAdmin.from('staff_training_courses')
+  .select('id, course_key').is('dealership_id', null)
+const courseIdByKey = new Map((allCourses || []).map(c => [c.course_key, c.id]))
+
+const lessonRows = []
+for (const [courseKey, lessons] of Object.entries(LESSONS)) {
+  const courseId = courseIdByKey.get(courseKey)
+  // In a dry run the courses may not exist yet; that is not a failure of the lessons.
+  if (!courseId) { if (!DRY) fail(`no global course row for ${courseKey} — cannot attach its lessons`); continue }
+  lessons.forEach((x, i) => lessonRows.push({
+    dealership_id: null, course_id: courseId, lesson_key: x.lesson_key,
+    sort: (i + 1) * 10, title: x.title, summary: x.summary, body: x.body,
+    kind: x.kind, estimated_minutes: x.estimated_minutes, active: true,
+    updated_at: new Date().toISOString(),
+  }))
+}
+
+if (!DRY && lessonRows.length) {
+  const { error } = await supabaseAdmin.from('staff_training_lessons')
+    .upsert(lessonRows, { onConflict: 'dealership_id,course_id,lesson_key' })
+  if (error) fail(`lessons: ${error.message}`)
+}
+console.log(`  lessons: ${lessonRows.length} across ${Object.keys(LESSONS).length} courses`)
+
+// A lesson dropped from the curriculum is deactivated rather than deleted — progress
+// rows point at it, and destroying somebody's completion history to tidy content is not
+// a trade this system makes.
+if (!DRY) {
+  const keep = new Set(lessonRows.map(r => `${r.course_id}::${r.lesson_key}`))
+  const { data: existingLessons } = await supabaseAdmin.from('staff_training_lessons')
+    .select('id, course_id, lesson_key').is('dealership_id', null).eq('active', true)
+  const stale = (existingLessons || []).filter(x => !keep.has(`${x.course_id}::${x.lesson_key}`))
+  if (stale.length) {
+    console.log(`  retiring ${stale.length} lesson(s) no longer in the curriculum`)
+    const { error } = await supabaseAdmin.from('staff_training_lessons')
+      .update({ active: false }).in('id', stale.map(x => x.id))
+    if (error) fail(`retire lessons: ${error.message}`)
+  }
+}
+
 // ── Certifications and their requirements ───────────────────────────────────
 for (const cert of CERTIFICATIONS) {
   const row = {
@@ -137,8 +193,12 @@ if (!DRY) {
   const { count: reqCount } = await supabaseAdmin.from('academy_certification_requirements')
     .select('id', { count: 'exact', head: true })
 
-  console.log(`\n  in database: ${courseCount} active global courses, ${certCount} certifications, ${reqCount} requirements`)
+  const { count: lessonCount } = await supabaseAdmin.from('staff_training_lessons')
+    .select('id', { count: 'exact', head: true }).is('dealership_id', null).eq('active', true)
+
+  console.log(`\n  in database: ${courseCount} active global courses, ${lessonCount} lessons, ${certCount} certifications, ${reqCount} requirements`)
   if (courseCount < COURSES.length) fail(`expected at least ${COURSES.length} global courses, found ${courseCount}`)
+  if (lessonCount < LESSON_COUNT) fail(`expected at least ${LESSON_COUNT} lessons, found ${lessonCount}`)
   if (certCount < CERTIFICATIONS.length) fail(`expected at least ${CERTIFICATIONS.length} certifications, found ${certCount}`)
 }
 

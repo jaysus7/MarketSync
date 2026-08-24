@@ -1773,6 +1773,13 @@ function highlightDeptNav(pageId) {
 }
 
 function switchPage(pageId) {
+  // ── Academy is its own site ────────────────────────────────────────────────
+  // Learning is a different mode from working, so it is a separate document
+  // (/academy.html) rather than a page inside the dashboard shell. Catching it here
+  // means EVERY entry point goes there — the nav, My Day's outstanding-course list, the
+  // setup hub's training requirement — instead of each having to remember.
+  if (pageId === 'academy') { location.href = '/academy.html'; return; }
+
   ensurePanelsInOriginalLocations();
 
   // The old global Insights page was an app-wide pseudo-Pulse. It is retired:

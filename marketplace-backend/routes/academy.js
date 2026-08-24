@@ -24,6 +24,10 @@ import { randomToken, rateLimit } from '../security.js'
 import { ROLE_CURRICULUM, CERTIFICATIONS } from '../academy-curriculum.js'
 
 // Global catalog rows carry `dealership_id = null`; a dealership may add its own on top.
+// The department order the course site navigates by. Same list the curriculum uses, so
+// a department cannot appear in one and not the other.
+const ACADEMY_DEPARTMENTS = ['Sales', 'Inventory', 'F&I', 'Service', 'Parts', 'Accounting', 'Marketing', 'Management']
+
 const COURSE_COLUMNS = 'id, dealership_id, course_key, version_number, title, description, category, department, level, role_keys, estimated_minutes, sort, active'
 
 const catalogFilter = (q, dealershipId) =>
@@ -410,6 +414,217 @@ export function registerAcademy(app) {
         after_state: { staff_id: staffId, key: req.params.key, credential_id: r.credential.credential_id, renewed: r.renewed },
       })
       res.json(r)
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  // ══ The course site ═══════════════════════════════════════════════════════
+  // The Academy is its own place (academy.html), so it needs two reads: the whole
+  // catalogue organised the way somebody browses it, and one course with its lessons.
+
+  /**
+   * The catalogue: every course this person may take, grouped by department and level,
+   * each carrying THEIR progress. One read, because the course site is a browse
+   * experience and eight round-trips to draw a grid is not one.
+   *
+   * Gating is real: `courseAppliesTo` decides what belongs to this person's curriculum,
+   * and `mine` marks it. Nothing is hidden — seeing that Service has its own track is
+   * useful even to a salesperson — but what is THEIRS is distinguished from what exists.
+   */
+  app.get('/academy/catalog', requireAuth, canViewSelf, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    try {
+      const { data: staff } = await supabaseAdmin.from('staff_members')
+        .select('id, department').eq('dealership_id', req.dealershipId).eq('user_id', req.user.id).maybeSingle()
+      const role = req.profile?.role || null
+      const curricula = curriculaFor({ role, department: staff?.department })
+
+      const { data: courses, error } = await catalogFilter(
+        supabaseAdmin.from('staff_training_courses').select(COURSE_COLUMNS), req.dealershipId,
+      ).order('sort')
+      if (error) return res.status(500).json({ error: error.message })
+
+      const ids = (courses || []).map(c => c.id)
+      // Lesson counts per course, so a card can say "4 lessons" without a second call.
+      const { data: lessons } = ids.length
+        ? await supabaseAdmin.from('staff_training_lessons')
+            .select('course_id, estimated_minutes').in('course_id', ids).eq('active', true)
+        : { data: [] }
+      const lessonStats = {}
+      for (const x of lessons || []) {
+        const st = lessonStats[x.course_id] || { count: 0, minutes: 0 }
+        st.count++; st.minutes += Number(x.estimated_minutes) || 0
+        lessonStats[x.course_id] = st
+      }
+
+      // This person's own assignments and lesson progress.
+      let assignmentByCourse = {}, doneByCourse = {}
+      if (staff) {
+        const [{ data: assignments }, { data: progress }] = await Promise.all([
+          supabaseAdmin.from('staff_training_assignments')
+            .select('id, course_id, status, due_at, completed_at, progress_percent')
+            .eq('dealership_id', req.dealershipId).eq('staff_member_id', staff.id),
+          supabaseAdmin.from('staff_training_lesson_progress')
+            .select('course_id, lesson_id')
+            .eq('dealership_id', req.dealershipId).eq('staff_member_id', staff.id),
+        ])
+        assignmentByCourse = Object.fromEntries((assignments || []).map(a => [a.course_id, a]))
+        for (const p of progress || []) doneByCourse[p.course_id] = (doneByCourse[p.course_id] || 0) + 1
+      }
+
+      const out = (courses || []).map(c => {
+        const stats = lessonStats[c.id] || { count: 0, minutes: 0 }
+        const a = assignmentByCourse[c.id] || null
+        const done = doneByCourse[c.id] || 0
+        return {
+          ...c,
+          lesson_count: stats.count,
+          // The course's own estimate is a planning figure; the sum of its lessons is
+          // what it will actually take. Prefer the real one when there is one.
+          minutes: stats.minutes || c.estimated_minutes || 0,
+          mine: courseAppliesTo(c, { role, curricula }),
+          assigned: !!a,
+          due_at: a?.due_at || null,
+          completed_at: a?.completed_at || null,
+          lessons_done: done,
+          // Derived from lessons actually completed, never from a stored percentage that
+          // could disagree with them.
+          percent: stats.count ? Math.round((Math.min(done, stats.count) / stats.count) * 100) : 0,
+          // A course with no lessons cannot be taken, and the site says so rather than
+          // opening an empty page.
+          takeable: stats.count > 0,
+        }
+      })
+
+      res.json({
+        courses: out,
+        curricula,
+        department: staff?.department || null,
+        has_employment_record: !!staff,
+        // Departments in a fixed order so the site's navigation is stable.
+        departments: ACADEMY_DEPARTMENTS,
+        levels: ['required', 'foundation', 'advanced', 'reference'],
+      })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  /**
+   * One course, with its lessons IN ORDER and which of them this person has finished.
+   */
+  app.get('/academy/courses/:key', requireAuth, canViewSelf, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    try {
+      const { data: course } = await catalogFilter(
+        supabaseAdmin.from('staff_training_courses').select(COURSE_COLUMNS), req.dealershipId,
+      ).eq('course_key', String(req.params.key)).limit(1).maybeSingle()
+      if (!course) return res.status(404).json({ error: 'No course with that key.' })
+
+      const { data: lessons, error: lErr } = await supabaseAdmin.from('staff_training_lessons')
+        .select('id, lesson_key, sort, title, summary, body, kind, estimated_minutes')
+        .eq('course_id', course.id).eq('active', true).order('sort')
+      if (lErr) return res.status(500).json({ error: lErr.message })
+
+      const { data: staff } = await supabaseAdmin.from('staff_members')
+        .select('id').eq('dealership_id', req.dealershipId).eq('user_id', req.user.id).maybeSingle()
+
+      let doneIds = new Set(), assignment = null
+      if (staff) {
+        const [{ data: progress }, { data: a }] = await Promise.all([
+          supabaseAdmin.from('staff_training_lesson_progress')
+            .select('lesson_id').eq('staff_member_id', staff.id).eq('course_id', course.id),
+          supabaseAdmin.from('staff_training_assignments')
+            .select('id, status, due_at, completed_at, progress_percent')
+            .eq('dealership_id', req.dealershipId).eq('staff_member_id', staff.id)
+            .eq('course_id', course.id).maybeSingle(),
+        ])
+        doneIds = new Set((progress || []).map(p => p.lesson_id))
+        assignment = a || null
+      }
+
+      const rows = (lessons || []).map(x => ({ ...x, completed: doneIds.has(x.id) }))
+      res.json({
+        course,
+        lessons: rows,
+        assignment,
+        has_employment_record: !!staff,
+        completed_count: rows.filter(x => x.completed).length,
+        // The first lesson they have not finished — what "Continue" should open.
+        next_lesson_id: rows.find(x => !x.completed)?.id || null,
+      })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  /**
+   * Finish a lesson.
+   *
+   * Recording completion is idempotent, and it ROLLS UP: the assignment's percentage is
+   * recomputed from lessons actually finished, and the assignment is marked complete only
+   * when every lesson is. Before this, `/hr/training/complete` let somebody declare a
+   * course finished in one call with nothing read — a certification gated on that means
+   * nothing at all.
+   */
+  app.post('/academy/lessons/:id/complete', requireAuth, canViewSelf, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    try {
+      const { data: staff } = await supabaseAdmin.from('staff_members')
+        .select('id').eq('dealership_id', req.dealershipId).eq('user_id', req.user.id).maybeSingle()
+      if (!staff) {
+        return res.status(409).json({
+          error: 'No employment record is linked to your account yet, so your progress cannot be recorded.',
+          hint: 'Somebody with staff.manage has to create one. You can still read the course.',
+        })
+      }
+
+      const { data: lesson } = await supabaseAdmin.from('staff_training_lessons')
+        .select('id, course_id, dealership_id').eq('id', req.params.id).maybeSingle()
+      if (!lesson) return res.status(404).json({ error: 'No lesson with that id.' })
+      // A dealership's own lesson belongs to that dealership; a global one is everybody's.
+      if (lesson.dealership_id && lesson.dealership_id !== req.dealershipId) {
+        return res.status(404).json({ error: 'No lesson with that id.' })
+      }
+
+      const { error: insErr } = await supabaseAdmin.from('staff_training_lesson_progress')
+        .upsert({
+          dealership_id: req.dealershipId, staff_member_id: staff.id,
+          lesson_id: lesson.id, course_id: lesson.course_id,
+        }, { onConflict: 'staff_member_id,lesson_id', ignoreDuplicates: true })
+      if (insErr) return res.status(500).json({ error: insErr.message })
+
+      // Recount from the records rather than incrementing something.
+      const [{ data: allLessons }, { data: doneRows }] = await Promise.all([
+        supabaseAdmin.from('staff_training_lessons')
+          .select('id').eq('course_id', lesson.course_id).eq('active', true),
+        supabaseAdmin.from('staff_training_lesson_progress')
+          .select('lesson_id').eq('staff_member_id', staff.id).eq('course_id', lesson.course_id),
+      ])
+      const total = (allLessons || []).length
+      const doneSet = new Set((doneRows || []).map(r => r.lesson_id))
+      const done = (allLessons || []).filter(x => doneSet.has(x.id)).length
+      const percent = total ? Math.round((done / total) * 100) : 0
+      const finished = total > 0 && done >= total
+
+      // Roll up onto the assignment if this course was assigned to them. A course taken
+      // voluntarily has no assignment, and that is fine — the lesson progress is still real.
+      let assignment = null
+      const { data: existing } = await supabaseAdmin.from('staff_training_assignments')
+        .select('id, status, completed_at').eq('dealership_id', req.dealershipId)
+        .eq('staff_member_id', staff.id).eq('course_id', lesson.course_id).maybeSingle()
+      if (existing) {
+        const patch = { progress_percent: percent, updated_at: new Date().toISOString() }
+        if (finished) {
+          patch.status = 'completed'
+          patch.completed_at = existing.completed_at || new Date().toISOString()
+        } else if (existing.status !== 'in_progress') {
+          patch.status = 'in_progress'
+        }
+        const { data: updated, error: upErr } = await supabaseAdmin.from('staff_training_assignments')
+          .update(patch).eq('id', existing.id).select('id, status, progress_percent, completed_at').maybeSingle()
+        // The lesson IS recorded either way; a failed roll-up is reported, not hidden.
+        if (upErr) return res.json({ ok: true, done, total, percent, course_completed: finished,
+          assignment: null, warning: `Your progress was saved but the assignment could not be updated: ${upErr.message}` })
+        assignment = updated
+      }
+
+      res.json({ ok: true, done, total, percent, course_completed: finished, assignment })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
