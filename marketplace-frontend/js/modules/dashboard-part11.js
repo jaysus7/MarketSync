@@ -1178,7 +1178,7 @@ window.pulseSalesDeptSection = function(d) {
   `;
 
   return `
-    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+    <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-amber-500"></span>
@@ -1356,7 +1356,7 @@ window.pulseInventoryDeptSection = function(d) {
   const fastMovers = inv.filter(v => v.days_on_lot <= 15 && v.status === 'sold');
 
   return `
-    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+    <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-indigo-500"></span>
@@ -1400,7 +1400,7 @@ window.pulseFniDeptSection = function(d) {
   const esign = d.esignRequests || [];
 
   return `
-    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+    <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
@@ -1443,7 +1443,7 @@ window.pulseFniDeptSection = function(d) {
 window.pulseCleanupDeptSection = function(d) {
   const cars = d.reconVehicles || [];
   return `
-    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-4 shadow-sm">
+    <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-4 shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-sky-500"></span>
@@ -1473,7 +1473,7 @@ window.pulseServiceDeptSection = function(d) {
   const svcApptMode = window.__pulseSvcApptCalendarMode ? 'calendar' : 'list';
 
   return `
-    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+    <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-cyan-500"></span>
@@ -1517,7 +1517,7 @@ window.pulseServiceDeptSection = function(d) {
 window.pulsePartsDeptSection = function(d) {
   const parts = d.partsOrders || [];
   return `
-    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+    <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-orange-500"></span>
@@ -1538,7 +1538,7 @@ window.pulsePartsDeptSection = function(d) {
 
 window.pulseAccountingDeptSection = function(d) {
   return `
-    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+    <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-emerald-600"></span>
@@ -1849,7 +1849,7 @@ window.pulseHrDeptSection = function(d) {
   const depts = ['All', 'Sales', 'Service', 'Parts', 'F&I', 'Admin', 'Cleanup'];
 
   return `
-    <div class="mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
+    <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-teal-500"></span>

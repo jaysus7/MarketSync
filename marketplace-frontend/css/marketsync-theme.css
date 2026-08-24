@@ -1919,6 +1919,15 @@ body {
 body > header { border-bottom-color: rgba(255,255,255,.20) !important; }
 .dark body > header { border-bottom-color: rgba(190,205,230,.15) !important; }
 
+/* Pulse department cards use status color sparingly; the lower page should read
+   as one calm operating surface rather than a row of competing accent panels. */
+#command-root .pulse-dept-section {
+  filter: saturate(.72);
+}
+#command-root .pulse-dept-section > div:first-child {
+  border-bottom-color: rgba(148,163,184,.22) !important;
+}
+
 /* Desktop dashboard scroll ownership: the page content and the sidebar each
    get one scroll region. The nested legacy nav must not paint a second glass
    panel or become a third scroll container. */
