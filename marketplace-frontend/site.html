@@ -610,6 +610,7 @@
     // ── Section-based page builder (public render) ─────────────────────────────
     function renderSections(el, secs){
       el.innerHTML = secs.map(sectionHtml).join('');
+      if(typeof PREVIEW!=='undefined'&&PREVIEW) requestAnimationFrame(markPreviewSections);
     }
     function ctaTarget(t,link){ if(t==='link'&&link) return `onclick="window.open('${esc(link)}','_blank')"`; const v={trade:'trade',finance:'finance',contact:'inquiry',inquiry:'inquiry',inventory:'inventory',build:'build',team:'team'}[t]||'inquiry'; return `onclick="go('${v}')"`; }
     function setBody(b){ invReset(); if(b) INV.facets.body=new Set([b]); go('inventory'); }
@@ -1374,16 +1375,7 @@
       const host=document.getElementById('view'); if(!host) return;
       const secs=previewSections();
       if(!secs.length) return;
-      if(host.getAttribute('data-ms-preview-delegated')!=='1'){
-        host.setAttribute('data-ms-preview-delegated','1');
-        host.addEventListener('click',(e)=>{
-          if(e.target.closest('.ms-secbar')) return;
-          const section=e.target.closest('[data-ms-preview-index]');
-          if(!section||!host.contains(section)) return;
-          e.preventDefault(); e.stopPropagation();
-          post({type:'ms-preview-click',index:Number(section.getAttribute('data-ms-preview-index'))});
-        },true);
-      }
+      wirePreviewSelection();
       // Built-in/custom views prepend their editable sections to functional
       // content, so only bind the section count owned by the builder.
       [...host.children].slice(0,secs.length).forEach((child,i)=>{
@@ -1401,6 +1393,31 @@
         child.addEventListener('dragleave',()=>{ child.style.borderTop=''; });
         child.addEventListener('drop',(e)=>{ e.preventDefault(); child.style.borderTop=''; if(__dragFrom!=null&&__dragFrom!==i) post({type:'ms-preview-reorder',from:__dragFrom,to:i}); __dragFrom=null; });
       });
+    }
+    let __previewSelectionWired=false;
+    function wirePreviewSelection(){
+      if(!PREVIEW||__previewSelectionWired) return;
+      __previewSelectionWired=true;
+      // Wire once on document rather than on #view. renderChrome/go can replace
+      // the view while the builder stays open, which used to discard the click
+      // listener and leave the inspector stuck on "Select Element".
+      document.addEventListener('click',(e)=>{
+        if(e.target.closest('.ms-secbar')) return;
+        const host=document.getElementById('view'); if(!host) return;
+        let section=e.target.closest('[data-ms-preview-index]');
+        if(!section||!host.contains(section)){
+          // Fallback for a newly rendered frame before marker binding completes.
+          section=e.target;
+          while(section&&section.parentElement!==host) section=section.parentElement;
+        }
+        if(!section||section.parentElement!==host) return;
+        const marker=section.getAttribute('data-ms-preview-index');
+        const marked=marker===null?NaN:Number(marker);
+        const index=Number.isInteger(marked)?marked:[...host.children].indexOf(section);
+        if(index<0||index>=previewSections().length) return;
+        e.preventDefault(); e.stopPropagation();
+        post({type:'ms-preview-click',index});
+      },true);
     }
     function showBar(child,i){
       if(child.querySelector('.ms-secbar')) return;

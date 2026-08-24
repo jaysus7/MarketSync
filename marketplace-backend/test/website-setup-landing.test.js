@@ -14,11 +14,11 @@ describe('Website Product — Default Landing Setup & Contained Dashboard Archit
   const part17Content = fs.readFileSync(part17Path, 'utf8');
   const part2Content = fs.readFileSync(part2Path, 'utf8');
 
-  it('defaults the website landing route to Setup instead of Builder in loadWebsitePage', () => {
+  it('supports explicit Website destinations and falls back to Setup for unknown state', () => {
     assert.ok(part17Content.includes("if (targetTab === 'builder') __wsTab = 'builder';"), 'Supports explicit targetTab=builder');
     assert.ok(part17Content.includes("else if (targetTab === 'blog') __wsTab = 'blog';"), 'Supports explicit targetTab=blog');
     assert.ok(part17Content.includes("else if (targetTab === 'seo') __wsTab = 'seo';"), 'Supports explicit targetTab=seo');
-    assert.ok(part17Content.includes("else if (!['builder', 'blog', 'seo', 'setup', 'settings'].includes(__wsTab)) __wsTab = 'setup';"), 'Defaults to setup when tab is not specified and no valid tab is already selected');
+    assert.ok(part17Content.includes("else if (!['builder', 'blog', 'seo', 'setup', 'settings'].includes(__wsTab)) __wsTab = 'setup';"), 'Unknown website state defaults to Setup without erasing shared-nav destinations');
   });
 
   it('does not render the redundant Builder, Blog, SEO, and Setup tab strip inside wsSetup', () => {
@@ -27,6 +27,20 @@ describe('Website Product — Default Landing Setup & Contained Dashboard Archit
     assert.ok(!setupSource.includes("onclick=\"wsTab('builder')\""), 'Builder tab is not duplicated in Setup');
     assert.ok(!setupSource.includes("onclick=\"wsTab('blog')\""), 'Blog tab is not duplicated in Setup');
     assert.ok(!setupSource.includes("onclick=\"wsTab('seo')\""), 'SEO tab is not duplicated in Setup');
+  });
+
+  it('keeps Website Setup and Website Settings as distinct destinations', () => {
+    const settingsSource = part17Content.slice(part17Content.indexOf('function wsSettings()'), part17Content.indexOf('function isAiChatbotOwned'));
+    const loaderSource = part17Content.slice(part17Content.indexOf('async function loadWebsiteSettings()'), part17Content.indexOf('function wsFlushTarget'));
+    assert.ok(settingsSource.includes('siteSettingsFields(__siteCfg)'), 'Settings renders the detailed settings form');
+    assert.ok(!settingsSource.includes('return wsSetup()'), 'Settings does not alias Setup');
+    assert.ok(loaderSource.includes("__wsTab = 'settings';"), 'Settings loader preserves the settings destination');
+  });
+
+  it('materializes editable starter sections before opening an empty live builder', () => {
+    assert.ok(part17Content.includes('function ensureEditableWebsiteSections()'), 'Editable starter initializer exists');
+    assert.ok(part17Content.includes('__homeSections = templateHome({'), 'Empty fallback becomes real editable sections');
+    assert.ok(part17Content.includes('ensureEditableWebsiteSections();\n  selectFirstEditableWsSection();\n  wireLiveMessages();'), 'Live builder initializes sections before wiring the canvas');
   });
 
   it('surfaces all 13 core configuration cards in wsSetup', () => {
@@ -54,6 +68,7 @@ describe('Website Product — Default Landing Setup & Contained Dashboard Archit
   it('provides key status indicators across domain, inventory, analytics, chat, and publishing', () => {
     assert.ok(part17Content.includes('SSL Active') || part17Content.includes('DNS Ready'), 'Domain status indicator');
     assert.ok(part17Content.includes('Website Source:'), 'Inventory feed source status indicator');
+    assert.ok(part17Content.includes('Automated'), 'Inventory feed automation status indicator');
     assert.ok(part17Content.includes('GA4:'), 'Analytics GA4 status');
     assert.ok(part17Content.includes('Meta Pixel:'), 'Analytics Meta Pixel status');
     assert.ok(part17Content.includes('isAiChatbotOwned()'), 'AI Chatbot status logic');

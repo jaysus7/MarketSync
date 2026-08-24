@@ -243,7 +243,7 @@ test('Public generated endpoints /robots.txt, /sitemap.xml, /llms.txt', async ()
   }
 })
 
-test('SEO Frontend Suite: setSeoMainTab and all SEO tabs are defined and exposed on window', async () => {
+test('SEO Frontend Suite: Pulse analytics and Builder settings are defined and exposed', async () => {
   const fs = await import('node:fs')
   const path = await import('node:path')
   const part17Path = path.resolve(process.cwd(), '../marketplace-frontend/js/modules/dashboard-part17.js')
@@ -258,31 +258,25 @@ test('SEO Frontend Suite: setSeoMainTab and all SEO tabs are defined and exposed
   const mainTabMatches = code.match(/let\s+__seoMainTab/g) || []
   assert.equal(mainTabMatches.length, 1, 'let __seoMainTab must only be declared once in top-level state')
 
-  // 3. All required tabs are registered in navigation and handled in renderSeoMainBody
-  const requiredTabs = ['overview', 'settings', 'content', 'technical', 'redirects', 'analytics', 'competitors']
+  // 3. Digital SEO intentionally exposes only analytics Pulse and Builder settings.
+  const requiredTabs = ['settings', 'analytics']
   for (const tab of requiredTabs) {
     assert.ok(
       code.includes(`navTab('${tab}'`) ||
       code.includes(`setSeoMainTab('${tab}')`) ||
-      code.includes(`__seoMainTab === '${tab}'`),
+      code.includes(`__seoMainTab === '${tab}'`) ||
+      code.includes(`let __seoMainTab = '${tab}'`) ||
+      code.includes(`tab || '${tab}'`),
       `Tab "${tab}" must be wired in SEO workspace`
     )
   }
 
-  // 4. View functions for all main tabs exist
+  // 4. Live route view functions exist.
   const expectedViews = [
-    'renderSeoOverviewView',
     'renderSeoSettingsWorkspace',
-    'renderSeoContentView',
-    'renderSeoTechnicalView',
-    'renderSeoRedirectsView',
-    'renderSeoAnalyticsView',
-    'renderSeoCompetitorsView',
-    'renderSeoAutopilotView',
-    'renderSeoHistoryView'
+    'renderSeoAnalyticsView'
   ]
   for (const fn of expectedViews) {
     assert.ok(code.includes(`function ${fn}`), `View function ${fn} must be defined in dashboard-part17.js`)
   }
 })
-

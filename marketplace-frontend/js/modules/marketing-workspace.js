@@ -21,8 +21,8 @@ function buildMarketingSuiteConfig(key) {
   if (key === 'digital') {
     const navItems = [
       suiteItem('marketing-overview', 'Pulse', 'chart', { tab: 'overview' }),
-      suiteItem('website', 'Dealer Website', 'globe', { tab: 'builder' }),
-      suiteItem('seo', 'MarketSync SEO', 'chart', { tab: 'overview' }),
+      suiteItem('website', 'Dealer Website', 'globe', { tab: 'setup' }),
+      suiteItem('seo', 'MarketSync SEO', 'chart', { tab: 'analytics' }),
       suiteItem('ai-home', 'AI Customer Agent', 'sparkles', { tab: 'conversations' }),
       suiteItem('studio', 'Design Studio', 'camera', { studioLaunch: true }),
       suiteItem('social-scheduler', 'Social Studio & Scheduler', 'calendar'),
@@ -33,14 +33,13 @@ function buildMarketingSuiteConfig(key) {
     const areas = [
       { id: 'pulse', label: 'MarketSync Digital', icon: 'chart', items: [navItems[0]] },
       { id: 'website', label: 'Website', icon: 'globe', items: [
-        suiteItem('website', 'Builder', 'globe', { tab: 'builder' }),
         suiteItem('website', 'Setup', 'wrench', { tab: 'setup' }),
+        suiteItem('website', 'Builder', 'globe', { tab: 'builder' }),
         suiteItem('website-settings', 'Website Settings', 'shield'),
       ] },
       { id: 'seo', label: 'MarketSync SEO', icon: 'chart', items: [
-        suiteItem('seo', 'Pulse', 'chart', { tab: 'overview' }),
-        suiteItem('seo', 'SEO Builder', 'sparkles', { tab: 'content' }),
-        suiteItem('seo', 'SEO Setup', 'wrench', { tab: 'settings' }),
+        suiteItem('seo', 'Pulse', 'chart', { tab: 'analytics' }),
+        suiteItem('seo', 'SEO Builder', 'sparkles', { tab: 'settings' }),
       ] },
       { id: 'ai', label: 'AI Customer Agent', icon: 'sparkles', items: [
         suiteItem('ai-home', 'Pulse', 'sparkles', { tab: 'conversations' }),
@@ -88,7 +87,7 @@ function buildMarketingSuiteConfig(key) {
   ];
   if (definition.digitalPresence) {
     areas.push({ id: 'digital-presence', label: 'Digital Presence', icon: 'globe', items: [
-      suiteItem('website', 'Website', 'globe', { tab: 'builder' }),
+      suiteItem('website', 'Website', 'globe', { tab: 'setup' }),
       suiteItem('website', 'Setup', 'wrench', { tab: 'setup' }),
       suiteItem('website-settings', 'Website Settings', 'shield'),
       suiteItem('ai-home', 'AI ChatBot', 'sparkles', { tab: 'conversations' }),
@@ -822,14 +821,14 @@ ENGINES['marketing-overview'] = {
         body.innerHTML = `
           <div class="ms-digital-suite space-y-6">
             ${caveat}
-            <!-- Digital Command Center Header -->
+            <!-- Digital Analytics Header -->
             <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex items-center justify-between flex-wrap gap-4">
               <div>
                 <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-50 dark:bg-violet-950/50 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/60">${esc(cfg.badge)}</span>
                 <h2 class="text-xl font-black text-slate-900 dark:text-white mt-1.5">${esc(cfg.title)}</h2>
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">${esc(cfg.subtitle)}</p>
               </div>
-              <div class="flex items-center gap-2 flex-wrap">
+              <div class="hidden" aria-hidden="true">
                 <button onclick="switchPage('website')" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs border border-slate-700 shadow-xs transition flex items-center gap-1.5 cursor-pointer">
                   <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"/></svg>
                   <span>Website Studio</span>
@@ -890,7 +889,7 @@ ENGINES['marketing-overview'] = {
             </div>
 
             <!-- Digital Ecosystem Cards Grid -->
-            <div class="grid lg:grid-cols-3 gap-5">
+            <div class="hidden" aria-hidden="true">
               <!-- Card 1: Dealer Website -->
               <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
                 <div>
@@ -952,11 +951,9 @@ ENGINES['marketing-overview'] = {
             </div>
 
             <!-- Marketing & Content Hub Section -->
-            <div id="mkt-overview-automations-mount"></div>
+            <div id="mkt-overview-automations-mount" class="hidden" aria-hidden="true"></div>
           </div>
         `;
-        const mount = document.getElementById('mkt-overview-automations-mount');
-        if (mount && typeof renderAutoOverviewTab === 'function') renderAutoOverviewTab(mount);
         return;
       }
 
