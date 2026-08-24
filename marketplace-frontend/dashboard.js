@@ -848,16 +848,16 @@ const PRODUCT_PAGES = {
   email_marketing: ['email-marketing', 'automation-builder'],
   marketsync_email: ['email-marketing', 'automation-builder'],
   ai_chatbot: ['ai-home'],
-  website: ['website', 'blog', 'seo'],
-  marketsync_website: ['website', 'blog', 'seo'],
+  website: ['website', 'website-settings', 'blog', 'seo'],
+  marketsync_website: ['website', 'website-settings', 'blog', 'seo'],
   'sales-marketing-suite': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'sales-automations', 'leads', 'marketing-analytics', 'email-sms', 'email-marketing', 'academy', 'profile'],
   sales_marketing_suite: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'sales-automations', 'leads', 'marketing-analytics', 'email-sms', 'email-marketing', 'academy', 'profile'],
   'service-marketing-suite': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'service-campaigns', 'service-automations', 'crm', 'marketing-analytics', 'email-sms', 'email-marketing', 'academy', 'profile'],
   service_marketing_suite: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'service-campaigns', 'service-automations', 'crm', 'marketing-analytics', 'email-sms', 'email-marketing', 'academy', 'profile'],
   'complete-marketing-suite': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'email-sms', 'email-marketing', 'leads', 'academy', 'profile'],
   complete_marketing_suite: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'email-sms', 'email-marketing', 'leads', 'academy', 'profile'],
-  'marketsync-digital': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'website', 'blog', 'seo', 'ai-home', 'email-sms', 'email-marketing', 'leads', 'academy', 'profile'],
-  marketsync_digital: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'website', 'blog', 'seo', 'ai-home', 'email-sms', 'email-marketing', 'leads', 'academy', 'profile'],
+  'marketsync-digital': ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'website', 'website-settings', 'blog', 'seo', 'ai-home', 'email-sms', 'email-marketing', 'leads', 'academy', 'profile'],
+  marketsync_digital: ['marketing-overview', 'automation-builder', 'video-studio', 'studio', 'social-scheduler', 'sales-campaigns', 'service-campaigns', 'sales-automations', 'service-automations', 'crm', 'marketing-analytics', 'website', 'website-settings', 'blog', 'seo', 'ai-home', 'email-sms', 'email-marketing', 'leads', 'academy', 'profile'],
   marketsync_identity: ['crm', 'command'],
   identity_verify: ['crm', 'command'],
   dealer_os: null,
@@ -1454,7 +1454,7 @@ function restrictedNavPages() {
     return [
       { page: 'command', label: 'Pulse', icon: 'chart' },
       { page: 'video-studio', label: 'Video', icon: 'video' },
-      { page: 'website', tab: 'builder', label: 'Website', icon: 'globe' },
+      { page: 'website', tab: 'builder', label: 'Builder', icon: 'globe' },
       { page: 'inventory', label: 'Inventory', icon: 'megaphone', invmode: 'facebook' },
       { page: 'leaderboard', label: 'Leaderboard', icon: 'trophy' },
     ];
@@ -1544,6 +1544,7 @@ function restrictedNavPages() {
       { page: 'blog', label: 'Blog', icon: 'document' },
       { page: 'seo', label: 'SEO', icon: 'chart' },
       { page: 'website', tab: 'setup', label: 'Setup', icon: 'wrench' },
+      { page: 'website-settings', label: 'Website Settings', icon: 'shield' },
     ];
     const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
     const hasAi = !!(window.__aiBoostActive || (window.__siteCfg && window.__siteCfg.ai_boost_active)
