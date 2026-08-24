@@ -1780,8 +1780,24 @@ function highlightDeptNav(pageId) {
   });
 }
 
+const MS_LEGACY_PAGE_REDIRECTS = Object.freeze({
+  'ai-boost': 'inventory-overview', 'ai-insights': 'command', insights: 'command',
+  inventory: 'inventory-overview', fni: 'fni-overview', service: 'service-overview',
+  'service-ros': 'service-overview', 'service-appointments': 'service-overview',
+  parts: 'parts-overview', accounting: 'accounting-overview', marketing: 'marketing-overview',
+  people: 'people-overview', hr: 'people-overview', crm: 'sales', leads: 'sales',
+  appointments: 'sales', appraisal: 'inventory-overview', reports: 'command',
+  operations: 'command', taskboard: 'command', settings: 'profile',
+});
+function canonicalDashboardPage(pageId) {
+  const key = String(pageId || '').trim();
+  return MS_LEGACY_PAGE_REDIRECTS[key] || key;
+}
+window.canonicalDashboardPage = canonicalDashboardPage;
+
 function switchPage(pageId) {
   ensurePanelsInOriginalLocations();
+  pageId = canonicalDashboardPage(pageId);
 
   if (pageId === 'inv-intel' && typeof window.openInventoryIntelligence === 'function') {
     window.openInventoryIntelligence();

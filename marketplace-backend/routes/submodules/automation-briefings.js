@@ -130,7 +130,7 @@ export async function runMorningDigest() {
     for (const m of managers) {
       await createNotification({
         dealershipId: dl.id, type: 'daily_digest', targetUserId: m.id,
-        title: 'Your morning briefing', body: dg.headline, linkPage: 'ai-insights',
+        title: 'Your morning briefing', body: dg.headline, linkPage: 'command',
       })
       pushed++
     }
@@ -255,7 +255,7 @@ export async function runWeeklyBriefing(force = false) {
     let wk
     try { wk = await buildWeeklyBriefing(dl.id, s.weekly_focus) } catch { skipped++; continue }
     for (const m of managers) {
-      await createNotification({ dealershipId: dl.id, type: 'weekly_briefing', targetUserId: m.id, title: 'Your weekly briefing', body: wk.headline, linkPage: 'ai-insights' })
+      await createNotification({ dealershipId: dl.id, type: 'weekly_briefing', targetUserId: m.id, title: 'Your weekly briefing', body: wk.headline, linkPage: 'command' })
       pushed++
     }
     if (s.weekly_email) {

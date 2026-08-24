@@ -1217,9 +1217,11 @@ document.addEventListener('DOMContentLoaded', () => {
       window.open(url, '_blank', 'noopener')
       return
     }
-    if (page) {
+    const canonicalPage = typeof window.canonicalDashboardPage === 'function'
+      ? window.canonicalDashboardPage(page) : page
+    if (canonicalPage) {
       closePanel()
-      if (typeof switchPage === 'function') switchPage(page)
+      if (typeof switchPage === 'function') switchPage(canonicalPage)
       if (filter && document.getElementById('catalog-search')) {
         document.getElementById('catalog-search').value = filter
         if (typeof renderCatalog === 'function') renderCatalog()

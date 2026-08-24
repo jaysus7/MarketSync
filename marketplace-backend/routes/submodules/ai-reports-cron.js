@@ -371,7 +371,7 @@ export function registerAiReportsCronRoutes(app) {
       type: 'weekly_report',
       title: 'Weekly Lot Health Report Sent',
       body: `Your weekly lot health report has been sent to ${dealer.ai_manager_email}`,
-      linkPage: 'ai-boost',
+      linkPage: 'inventory-overview',
     }).catch(() => {})
 
     res.json({ ok: true, sent_to: dealer.ai_manager_email })
@@ -761,7 +761,7 @@ export function registerAiReportsCronRoutes(app) {
           type: 'weekly_report',
           title: 'Weekly Lot Health Report Sent',
           body: `Your weekly lot health report has been sent to ${dealer.ai_manager_email}`,
-          linkPage: 'ai-boost',
+          linkPage: 'inventory-overview',
         }).catch(() => {})
 
         const notifRows = []
@@ -803,7 +803,7 @@ export function registerAiReportsCronRoutes(app) {
           type: 'weekly_report',
           title: 'Weekly lot health report sent',
           body: `${d.totalUnits} units · ${d.withPhotos} with photos · ${d.newArrivalsThisWeek} new arrivals this week.`,
-          link_page: 'ai-boost',
+          link_page: 'inventory-overview',
           link_filter: null,
           read: false,
         })
