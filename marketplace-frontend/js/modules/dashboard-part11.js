@@ -1586,7 +1586,7 @@ window.pulseMarketingDeptSection = function(d) {
   const value = n => n == null ? '—' : Number(n).toLocaleString();
   const campaignRows = campaigns.slice(0, 4).map(c => `<div class="flex items-center justify-between gap-3 py-2 border-t border-slate-200/70 dark:border-slate-800/70 text-xs"><span class="truncate font-semibold text-slate-700 dark:text-slate-200">${esc(c.name || 'Campaign')}</span><span class="shrink-0 text-slate-400">${c.spend?.actual ? cmdMoney(c.spend.actual) + ' spend' : 'No spend recorded'}</span></div>`).join('');
   const postRows = scheduled.slice(0, 4).map(p => `<div class="flex items-center justify-between gap-3 py-2 border-t border-slate-200/70 dark:border-slate-800/70 text-xs"><span class="truncate font-semibold text-slate-700 dark:text-slate-200">${esc(p.title || p.body || 'Scheduled post')}</span><span class="shrink-0 text-slate-400">${esc(p.scheduled_for || p.status || 'Queued')}</span></div>`).join('');
-  return `<section class="mb-8 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 shadow-sm space-y-4">
+  return `<section class="pulse-dept-section mb-8 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 shadow-sm space-y-4">
     <div class="flex items-center justify-between gap-3 border-b border-slate-200/80 dark:border-slate-800/80 pb-3">
       <div><h2 class="text-lg font-black uppercase tracking-wider text-slate-900 dark:text-white">Marketing Department</h2><p class="text-xs text-slate-500 dark:text-slate-400">Connected marketing activity and recorded performance.</p></div>
       <button onclick="engineTab('marketing-overview','overview')" class="shrink-0 text-xs font-black text-indigo-600 dark:text-indigo-400">Open workspace →</button>
@@ -2131,7 +2131,6 @@ ENGINES['command'] = {
 
       body.innerHTML = `
         <div class="text-xl font-black text-slate-900 dark:text-white mb-1">${greet}</div>
-        <div class="text-xs font-semibold text-slate-500 mb-4">This main page is the pulse of the dealership.</div>
         ${incomplete}
         ${todayOpsHtml}
 
