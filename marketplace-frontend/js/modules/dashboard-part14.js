@@ -263,28 +263,29 @@ async function loadInsights() {
     // Range label & scope subtext
     syncRangeLabels(data.range_label);
     const scopePrefix = data.scope === 'dealership' ? 'team total' : 'your posts';
-    document.getElementById('metric-listings-scope').textContent = `${scopePrefix} · ${data.range_label || 'lifetime'}`;
+    const setMetric = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+    setMetric('metric-listings-scope', `${scopePrefix} · ${data.range_label || 'lifetime'}`);
 
     // Top row (existing four)
-    document.getElementById('metric-synced').textContent = data.inventory_available ?? data.inventory_synced;
-    document.getElementById('metric-synced-total').textContent = data.inventory_synced;
-    document.getElementById('metric-listings').textContent = data.listings_posted;
-    document.getElementById('metric-sold').textContent = data.sold_this_month;
-    document.getElementById('metric-active-days').textContent = `${data.active_days_this_week}/7`;
+    setMetric('metric-synced', data.inventory_available ?? data.inventory_synced);
+    setMetric('metric-synced-total', data.inventory_synced);
+    setMetric('metric-listings', data.listings_posted);
+    setMetric('metric-sold', data.sold_this_month);
+    setMetric('metric-active-days', `${data.active_days_this_week}/7`);
 
     // Second row (new metrics)
-    document.getElementById('metric-time-to-sell').textContent = data.avg_time_to_sell_days ?? '—';
-    document.getElementById('metric-posts-per-day').textContent = data.posts_per_day || '—';
-    document.getElementById('metric-sell-through').textContent = data.sell_through_rate || 0;
-    document.getElementById('metric-aged').textContent = data.inventory_aged_60d ?? 0;
+    setMetric('metric-time-to-sell', data.avg_time_to_sell_days ?? '—');
+    setMetric('metric-posts-per-day', data.posts_per_day || '—');
+    setMetric('metric-sell-through', data.sell_through_rate || 0);
+    setMetric('metric-aged', data.inventory_aged_60d ?? 0);
 
     // Admin-only: show admin vs reps breakdown under Listings Posted
     if (data.scope === 'dealership') {
       const bd = document.getElementById('metric-listings-breakdown');
       bd?.classList.remove('hidden');
       bd?.classList.add('grid');
-      document.getElementById('metric-listings-admin').textContent = data.listings_by_admin ?? 0;
-      document.getElementById('metric-listings-reps').textContent = data.listings_by_reps ?? 0;
+      setMetric('metric-listings-admin', data.listings_by_admin ?? 0);
+      setMetric('metric-listings-reps', data.listings_by_reps ?? 0);
     }
 
     // Hide the "Posts/Day" tile in Lifetime mode since the rate isn't meaningful there
