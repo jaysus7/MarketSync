@@ -22,6 +22,13 @@ if (typeof window.openAiDock !== 'function') window.openAiDock = function() { co
 if (typeof window.closeAiDock !== 'function') window.closeAiDock = function() { const p = document.getElementById('ai-dock-panel'); if (p) p.classList.add('hidden'); };
 if (typeof window.toggleAiDock !== 'function') window.toggleAiDock = function() { const p = document.getElementById('ai-dock-panel'); if (p) p.classList.toggle('hidden'); };
 if (typeof window.openTeamChatWidget !== 'function') window.openTeamChatWidget = function() { const p = document.getElementById('team-chat-dock-panel'); if (p) p.classList.remove('hidden'); };
+// Early Sales loader stub: the real sales-workspace.js registers the same
+// function later in the script chain. This prevents a stale/cached shell from
+// throwing before that late module arrives.
+if (typeof window.loadSalesWorkspace !== 'function') window.loadSalesWorkspace = function() {
+  if (typeof renderEngine === 'function' && typeof ENGINES !== 'undefined' && ENGINES.sales) renderEngine('sales');
+  else if (typeof showToast === 'function') showToast('Sales workspace is still loading — refresh once and try again.', 'warning');
+};
 if (typeof window.toggleTeamChatWidget !== 'function') window.toggleTeamChatWidget = function() { const p = document.getElementById('team-chat-dock-panel'); if (p) p.classList.toggle('hidden'); };
 
 function isDemoAccount() {

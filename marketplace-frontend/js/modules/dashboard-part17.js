@@ -1510,7 +1510,10 @@ async function loadWebsitePage() {
   if (targetTab === 'builder') __wsTab = 'builder';
   else if (targetTab === 'blog') __wsTab = 'blog';
   else if (targetTab === 'seo') __wsTab = 'seo';
-  else __wsTab = 'setup';
+  // Preserve an explicit in-app tab selected by the shared nav. Previously a
+  // Website → Builder click set __wsTab to builder, then this loader immediately
+  // reset it to setup, which made the link appear to open Settings.
+  else if (!['builder', 'blog', 'seo', 'setup', 'settings'].includes(__wsTab)) __wsTab = 'setup';
 
   if (targetSection) __wsSetupSection = targetSection;
   if (__wsTab === 'builder') selectFirstEditableWsSection();
