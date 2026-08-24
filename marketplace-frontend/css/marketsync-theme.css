@@ -1624,14 +1624,14 @@ body > header,
 }
 
 .ms-engine-tab[aria-selected="true"] {
-  color: var(--ms-text) !important;
+  color: #4f46e5 !important;
   background: linear-gradient(135deg, rgba(255,255,255,.28), rgba(255,255,255,.10)) !important;
   border-color: rgba(255,255,255,.24) !important;
   box-shadow: 0 8px 22px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.18) !important;
 }
 
 .dark .ms-engine-tab[aria-selected="true"] {
-  color: #fff !important;
+  color: #a5b4fc !important;
   background: linear-gradient(135deg, rgba(59,130,246,.28), rgba(124,58,237,.16)) !important;
   border-color: rgba(96,165,250,.35) !important;
 }
@@ -1733,10 +1733,12 @@ body {
 .ms-engine-tabs { border-radius: 1.45rem; }
 
 .ms-engine-tab { border-radius: 1.05rem !important; }
-.dark .ms-engine-tab { color: #9aa9bf !important; }
+.dark .ms-engine-tab { color: #f1f5f9 !important; }
+.ms-engine-tab:hover { color: #4f46e5 !important; }
+.dark .ms-engine-tab:hover { color: #a5b4fc !important; }
 
 .dark .ms-engine-tab[aria-selected="true"] {
-  color: #f8fafc !important;
+  color: #a5b4fc !important;
   background: linear-gradient(145deg, rgba(59,130,246,.24), rgba(255,255,255,.07)) !important;
   border-color: rgba(125,178,255,.30) !important;
   box-shadow: 0 12px 30px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.14) !important;
@@ -1910,6 +1912,19 @@ body {
   padding: .85rem;
 }
 .dark #dept-sidebar { border-color: rgba(190,205,230,.15); }
+
+/* The nav is chrome, not content — unlike cards, it can read as glass without
+   hurting legibility (icons + short labels stay readable over blur+saturate).
+   Kept more transparent than cards/header on purpose, so page content is
+   faintly visible scrolling behind it, but not so transparent it washes out. */
+#dept-sidebar {
+  background: linear-gradient(135deg, rgba(255,255,255,.60), rgba(255,255,255,.42)) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+}
+.dark #dept-sidebar {
+  background: linear-gradient(145deg, rgba(24,36,60,.60), rgba(10,17,31,.42)) !important;
+}
 @media (max-width: 767px) { #dept-sidebar { border: none; border-radius: 0; padding: 0; background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; } }
 
 /* The header's own Tailwind border-b (border-slate-200/800) is a flat, fully
@@ -1926,7 +1941,6 @@ body > header { border-bottom-color: rgba(255,255,255,.20) !important; }
   html:has(body.ms-app-booting), body.ms-app-booting { overflow: hidden !important; }
   #dept-sidebar {
     overflow: visible !important;
-    background: var(--ms-surface) !important;
   }
   #dashboard-nav {
     background: transparent !important;

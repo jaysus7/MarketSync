@@ -1880,7 +1880,7 @@ ENGINES['command'] = {
       acctReq('/accounting/close-checklist', 'Close'),
       apiGetJson('/campaigns').catch(miss('Campaigns')),
       canAutomation ? apiGetJson('/automation/queue').catch(miss('Automation')) : Promise.resolve(miss('Automation')(new Error('Not entitled'))),
-      Promise.resolve(null),
+      apiGetJson('/academy/my-path').catch(() => null),
       apiGetJson('/crm/contacts?limit=200').catch(() => ({ contacts: [] })),
       apiGetJson('/crm/tasks?scope=open').catch(() => ({ tasks: [] })),
       apiGetJson('/appointments').catch(() => ({ appointments: [] })),

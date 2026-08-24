@@ -795,7 +795,11 @@ function pulseHeader(title, sub) {
   </div>${sub ? `<p class="text-[13px] text-slate-500 dark:text-slate-400 mb-4">${esc(sub)}</p>` : '<div class="mb-4"></div>'}`;
 }
 function pulseGrid(cardsHtml) {
-  return `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 items-start">${(cardsHtml || []).filter(Boolean).join('')}</div>`;
+  // grid-flow-dense: a row-span-2 card (span:'tall') leaves a pocket next to it at
+  // some column counts; without dense packing CSS Grid's sparse algorithm never
+  // backfills that pocket, so later cards land past it instead — the classic
+  // "random gaps" pattern, worst right around 3-column widths (tablets/Chromebooks).
+  return `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 items-start grid-flow-dense">${(cardsHtml || []).filter(Boolean).join('')}</div>`;
 }
 // span: 2 = sm:col-span-2 (wide); 'tall' = row-span-2 (the sketch's big list column)
 //
@@ -1095,7 +1099,7 @@ function renderEngine(engineId, force = false) {
   if (!order.includes(tab)) tab = order[0];          // stored tab may have been removed
   const A = ENGINE_ACCENTS[eng.accent] || ENGINE_ACCENTS.indigo;
   const tabBtn = (t) => `<button data-engine-tab="${t}" role="tab" onclick="engineTab('${engineId}','${t}')"
-    class="ms-engine-tab px-4 py-2.5 text-xs font-bold whitespace-nowrap transition border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white ${A.text}">${svgIcon(ENGINE_TAB_ICON[t] || 'dot', 'w-4 h-4')}<span>${esc((eng.tabLabels && eng.tabLabels[t]) || ENGINE_TAB_LABEL[t])}</span></button>`;
+    class="ms-engine-tab px-4 py-2.5 text-xs font-bold whitespace-nowrap transition border-transparent text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400">${svgIcon(ENGINE_TAB_ICON[t] || 'dot', 'w-4 h-4')}<span>${esc((eng.tabLabels && eng.tabLabels[t]) || ENGINE_TAB_LABEL[t])}</span></button>`;
   root.innerHTML = (eng.hideHeader ? '' : `
     <div class="ms-engine-header flex items-start justify-between flex-wrap gap-3 mb-4">
       <div class="flex items-center gap-3">
