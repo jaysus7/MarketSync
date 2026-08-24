@@ -366,16 +366,14 @@ test('mobile navigation is role-aware and derives from the registry', () => {
   const { MS_ROLE_MOBILE_NAV, MS_WORKSPACES, msMobileNavForRole, msAllWorkspacePages } = loadRegistry()
   const known = new Set(msAllWorkspacePages(MS_WORKSPACES))
   for (const [role, pages] of Object.entries(MS_ROLE_MOBILE_NAV)) {
-    assert.ok(pages.length <= 4, `${role} mobile row must fit 4 destinations + More`)
+    assert.ok(pages.length <= (role === 'SALES_REP' ? 5 : 4), `${role} mobile row must fit its restricted destinations`)
     for (const p of pages) {
       assert.ok(known.has(p), `${role} mobile nav references "${p}", which is not in the registry`)
     }
   }
-  // The documented role examples from the project instructions. Phase 2 made the
-  // Sales workspace ("sales" — Today) the rep's landing destination instead of the
-  // `insights` analytics page: a salesperson should open actionable work, not a
-  // dashboard. Leads is manager-gated, so it is not on a rep's bar.
-  assert.deepEqual(msMobileNavForRole('SALES_REP'), ['sales', 'crm', 'appointments', 'tasks'])
+  // Sales reps are intentionally restricted to the five product workspaces.
+  // Profile remains available from the header gear.
+  assert.deepEqual(msMobileNavForRole('SALES_REP'), ['command', 'video-studio', 'website', 'inventory', 'leaderboard'])
   assert.deepEqual(msMobileNavForRole('SERVICE'), ['service-ros', 'service-appointments', 'crm', 'tasks'])
   for (const role of ['MANAGER', 'OWNER', 'DEALER_ADMIN']) {
     assert.ok(!msMobileNavForRole(role).includes('tasks'), `${role} Executive My Day must not duplicate Tasks in mobile nav`)

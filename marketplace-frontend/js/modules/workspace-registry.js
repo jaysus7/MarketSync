@@ -215,7 +215,7 @@ const MS_SYSTEM_NAV = [
 // uses, then "More". Pages still pass every gate before rendering; an entry the
 // user cannot reach is dropped rather than shown dead.
 const MS_ROLE_MOBILE_NAV = {
-  SALES_REP:    ['sales', 'crm', 'appointments', 'tasks'],
+  SALES_REP:    ['command', 'video-studio', 'website', 'inventory', 'leaderboard'],
   FNI:          ['fni-overview', 'crm', 'appointments', 'tasks'],
   SERVICE:      ['service-ros', 'service-appointments', 'crm', 'tasks'],
   CLEANUP:      ['recon', 'taskboard'],

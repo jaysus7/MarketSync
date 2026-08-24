@@ -1794,6 +1794,9 @@ const MS_LEGACY_PAGE_REDIRECTS = Object.freeze({
 });
 function canonicalDashboardPage(pageId) {
   const key = String(pageId || '').trim();
+  // Facebook Poster is a mode of the legacy Inventory surface. Preserve that
+  // mode instead of rewriting the link to the general Inventory Pulse engine.
+  if (key === 'inventory' && typeof __inventoryMode !== 'undefined' && __inventoryMode === 'facebook') return key;
   return MS_LEGACY_PAGE_REDIRECTS[key] || key;
 }
 window.canonicalDashboardPage = canonicalDashboardPage;

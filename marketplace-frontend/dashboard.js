@@ -513,6 +513,7 @@ const MS_ALLOWED_PAGES = new Set(['command', 'saas-command', 'saas-customers', '
 // these roles in particular — F&I credit compliance, service authorization — so a specialized
 // role that cannot reach its own required courses is the worst version of this gate.
 const STAFF_ROLE_NAV = {
+  SALES_REP: { groups: [], pages: ['command', 'video-studio', 'website', 'inventory', 'leaderboard', 'profile'], home: 'command' },
   FNI: { groups: ['crm', 'sales', 'acquisition'], pages: ['insights', 'crm', 'tasks', 'appointments', 'leads', 'appraisal', 'fni', 'recon', 'desk', 'taskboard', 'profile', 'academy'], home: 'crm' },
   SERVICE: { groups: ['crm', 'service', 'acquisition'], pages: ['crm', 'tasks', 'appointments', 'service-appointments', 'equity', 'service-settings', 'taskboard', 'profile', 'academy'], home: 'service-appointments' },
   ACCOUNTING: { groups: ['crm', 'accounting'], pages: ['crm', 'tasks', 'appointments', 'acct-insights', 'acct-reconciliation', 'acct-bank', 'commissions', 'acct-expenses', 'acct-budget', 'acct-tax', 'acct-reports', 'acct-settings', 'taskboard', 'profile', 'academy'], home: 'acct-insights' },
@@ -535,6 +536,7 @@ function applyStaffRoleNav(role) {
   const allowPages = new Set(cfg.pages);
   __staffAllowedPages = allowPages;
   __staffHome = cfg.home;
+  if (role === 'SALES_REP') __inventoryMode = 'facebook';
   document.documentElement.setAttribute('data-staff-role', role.toLowerCase());
   // Show only the allowed nav groups (this un-hides Service/Accounting, which are
   // data-admin-nav and were hidden for this non-admin role a moment ago).
@@ -1355,8 +1357,9 @@ function applyMobileQuickRow() {
       pages = cfg.mobileQuickRow;
       showMoreBtn = true;
     }
-  } else if (__fbOnly || __productAllowedPages) {
-    // Restricted tiers (Facebook / product): that tier's exact page set.
+  } else if (__fbOnly || __productAllowedPages || __staffAllowedPages) {
+    // Restricted tiers (Facebook / product / specialized staff): that tier's
+    // exact page set. Sales reps intentionally get only the five product workspaces.
     const restricted = (restrictedNavPages() || []).filter(p => p.page !== 'profile');
     pages = restricted.slice(0, 4);
     showMoreBtn = restricted.length > pages.length;
@@ -1443,6 +1446,19 @@ function restrictedNavPages() {
     'video-studio': { page: 'video-studio', label: 'Pulse', icon: 'video' },
     website: { page: 'website', tab: 'builder', label: 'Pulse', icon: 'globe' },
   };
+
+  // Sales reps do not receive the full DealerOS department registry. Their
+  // operational surface is limited to the five product workspaces below;
+  // Profile remains available from the header gear.
+  if (__staffAllowedPages && profileContext?.role === 'SALES_REP') {
+    return [
+      { page: 'command', label: 'Pulse', icon: 'chart' },
+      { page: 'video-studio', label: 'Video', icon: 'video' },
+      { page: 'website', tab: 'builder', label: 'Website', icon: 'globe' },
+      { page: 'inventory', label: 'Inventory', icon: 'megaphone', invmode: 'facebook' },
+      { page: 'leaderboard', label: 'Leaderboard', icon: 'trophy' },
+    ];
+  }
 
   const mktSuite = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;
   if (mktSuite && typeof getMarketingSuiteConfig === 'function') {
