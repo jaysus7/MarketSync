@@ -57,6 +57,14 @@
     return localStorage.getItem('token');
   }
 
+  function disableWhenUnavailable(res) {
+    if (res.status !== 403 && res.status !== 404) return false;
+    disabled = true;
+    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+    document.getElementById('staff-chat-dock-bar')?.classList.add('hidden');
+    return true;
+  }
+
   function renderDirectoryError(msg) {
     const dirList = document.getElementById('staff-chat-directory-list');
     if (dirList) dirList.innerHTML = `<div class="text-center py-4 px-3 text-xs text-slate-400">${esc(msg)}</div>`;
@@ -70,6 +78,7 @@
       });
       // Never leave the popover stuck on "Loading team…": surface a real state on failure.
       if (!res.ok) {
+        if (disableWhenUnavailable(res)) return;
         renderDirectoryError(res.status === 403
           ? 'Team Messaging is included with DealerOS.'
           : 'Could not load your team right now.');
@@ -88,7 +97,7 @@
       const res = await fetch(`${getApi()}/staff-chat/unread`, {
         headers: { 'Authorization': `Bearer ${getToken()}` }
       });
-      if (!res.ok) return;
+      if (!res.ok) { disableWhenUnavailable(res); return; }
       const data = await res.json();
       if (data.count > 0) {
         updateGlobalBadge(data.count);

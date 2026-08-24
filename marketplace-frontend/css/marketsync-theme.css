@@ -1918,3 +1918,30 @@ body {
    same way the glass background above is overridden. */
 body > header { border-bottom-color: rgba(255,255,255,.20) !important; }
 .dark body > header { border-bottom-color: rgba(190,205,230,.15) !important; }
+
+/* Desktop dashboard scroll ownership: the page content and the sidebar each
+   get one scroll region. The nested legacy nav must not paint a second glass
+   panel or become a third scroll container. */
+@media (min-width: 768px) {
+  html:has(body.ms-app-booting), body.ms-app-booting { overflow: hidden !important; }
+  #dept-sidebar {
+    overflow: visible !important;
+    background: var(--ms-surface) !important;
+  }
+  #dashboard-nav {
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    max-height: calc(100vh - 3rem) !important;
+  }
+  #nav-desktop, #dept-nav { overflow: visible !important; }
+}
+
+@media (max-width: 767px) {
+  #dashboard-nav { overflow: visible !important; max-height: none !important; }
+}

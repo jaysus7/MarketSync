@@ -1861,6 +1861,8 @@ ENGINES['command'] = {
 
     const canAcct = prods.includes('dealer_os') || feats.includes('os.accounting');
     const canService = prods.includes('dealer_os') || feats.includes('os.service');
+    const canAutomation = prods.includes('dealer_os') || feats.includes('os.automations');
+    const canIdentityReports = prods.includes('dealer_os') || feats.includes('identity.reports');
 
     const acctReq = (url, label) => canAcct ? apiGetJson(url).catch(miss(label)) : Promise.resolve(miss(label)(new Error('Not entitled')));
     const serviceReq = (url, fallback) => canService ? apiGetJson(url).catch(() => fallback) : Promise.resolve(fallback);
@@ -1869,7 +1871,7 @@ ENGINES['command'] = {
       apiGetJson('/command-center').catch(() => ({ tiles: {}, exceptions: [], exception_count: 0 })),
       apiGetJson('/events?limit=40').catch(() => ({ events: [] })),
       apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ label: 'Pulse', reason: 'Could not be loaded' }], complete: false })),
-      apiGetJson('/identity/reviews').catch(() => ({ reviews: [] })),
+      canIdentityReports ? apiGetJson('/identity/reviews').catch(() => ({ reviews: [] })) : Promise.resolve({ reviews: [] }),
       apiGetJson('/pipeline').catch(miss('Sales pipeline')),
       acctReq('/accounting/summary', 'Accounting summary'),
       acctReq('/accounting/receivables', 'Receivables'),
@@ -1877,8 +1879,8 @@ ENGINES['command'] = {
       acctReq('/accounting/contracts-in-transit', 'Contracts in transit'),
       acctReq('/accounting/close-checklist', 'Close'),
       apiGetJson('/campaigns').catch(miss('Campaigns')),
-      apiGetJson('/automation/queue').catch(miss('Automation')),
-      apiGetJson('/academy/my-path').catch(() => null),
+      canAutomation ? apiGetJson('/automation/queue').catch(miss('Automation')) : Promise.resolve(miss('Automation')(new Error('Not entitled'))),
+      Promise.resolve(null),
       apiGetJson('/crm/contacts?limit=200').catch(() => ({ contacts: [] })),
       apiGetJson('/crm/tasks?scope=open').catch(() => ({ tasks: [] })),
       apiGetJson('/appointments').catch(() => ({ appointments: [] })),

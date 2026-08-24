@@ -162,6 +162,10 @@
   }
 
   async function boot() {
+    // Avoid a guaranteed forbidden request for ordinary customer sessions. The
+    // server remains the authority for demo access when entitlement context is
+    // not available yet.
+    if (window.__access && typeof window.isDemoAccount === 'function' && !window.isDemoAccount()) return;
     try {
       const res = await apiCall('/demo/control');
       if (!res.ok) return; // not the demo account — render nothing
