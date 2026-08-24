@@ -425,7 +425,7 @@ function svcUnavailableNote(d) {
 }
 
 ENGINES['service-overview'] = {
-  rootId: 'service-overview-root', title: 'Service Pulse', subtitle: 'One repair order — check in, estimate, authorize, repair, deliver',
+  rootId: 'service-overview-root', title: 'Service Department', subtitle: 'One repair order — check in, estimate, authorize, repair, deliver',
   icon: 'wrench', accent: 'sky',
   // Right-rail Reports, specific to Service.
   reports: [

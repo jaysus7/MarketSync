@@ -590,7 +590,7 @@ async function pwSaveSettings(){
 window.pwSaveSettings = pwSaveSettings;
 
 ENGINES['parts-overview'] = {
-  rootId: 'parts-overview-root', title: 'Parts Pulse', subtitle: 'Demand, availability, receiving and issue — one stock ledger',
+  rootId: 'parts-overview-root', title: 'Parts Department', subtitle: 'Demand, availability, receiving and issue — one stock ledger',
   icon: 'gem', accent: 'amber',
   tabLabels: { overview: 'Pulse', work: 'Inventory', settings: 'Settings' },
   get tabOrder() {

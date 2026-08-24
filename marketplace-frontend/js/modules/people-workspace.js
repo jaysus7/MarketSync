@@ -60,7 +60,7 @@ function pplPersonRow(p) {
 }
 
 ENGINES['people-overview'] = {
-  rootId: 'people-overview-root', title: 'HR',
+  rootId: 'people-overview-root', title: 'HR Department',
   subtitle: 'Who works here, what they owe, and full employee lifecycle management',
   icon: 'user', accent: 'emerald',
   tabLabels: {

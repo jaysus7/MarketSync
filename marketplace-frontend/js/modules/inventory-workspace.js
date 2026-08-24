@@ -262,7 +262,7 @@ async function invRenderWork(body, d) {
 }
 
 ENGINES['inventory-overview'] = {
-  rootId: 'inventory-overview-root', title: 'Inventory', subtitle: 'Acquire, merchandise, price and publish every unit in stock',
+  rootId: 'inventory-overview-root', title: 'Inventory Department', subtitle: 'Acquire, merchandise, price and publish every unit in stock',
   icon: 'gem', accent: 'sky',
   // Right-rail Reports, specific to Inventory (the Reports overview carries inventory
   // mix & aging; appraisals covers acquisition).

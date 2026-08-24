@@ -405,7 +405,7 @@ async function mktTakeover(conversationId) {
 window.mktTakeover = mktTakeover;
 
 ENGINES['marketing-overview'] = {
-  rootId: 'marketing-overview-root', title: 'Campaigns and Automations',
+  rootId: 'marketing-overview-root', title: 'Marketing Department',
   subtitle: 'Automated lead response, service retention, reviews, and visual workflow journeys.',
   icon: 'megaphone', accent: 'indigo',
   // Suppress the engine's OWN tab bar only for standalone marketing-suite products,

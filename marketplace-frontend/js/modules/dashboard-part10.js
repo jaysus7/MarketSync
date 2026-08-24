@@ -733,7 +733,10 @@ const ENGINE_TAB_ICON = {
   appraisal: 'car', appraisals: 'car', equity: 'gem', appointments: 'calendar', ros: 'wrench',
   requests: 'clipboard', money_in: 'currency', money_out: 'receipt', bank: 'currency',
   close: 'check', reports: 'chart', budget: 'currency', journal: 'document', payroll: 'users',
-  insights: 'sparkles', automation: 'bolt', settings: 'wrench'
+  insights: 'sparkles', automation: 'bolt', automations: 'bolt', campaigns: 'megaphone',
+  templates: 'document', audiences: 'users', performance: 'chart', studio: 'sparkles',
+  'video-studio': 'video', chatbot: 'chat', website: 'globe', people: 'users', time: 'calendar',
+  hiring: 'users', compliance: 'shield', settings: 'wrench'
 };
 const ENGINE_ACCENTS = {
   violet: { text: 'text-violet-700 dark:text-violet-300', bg: 'bg-violet-100 dark:bg-violet-950/50', solid: 'bg-violet-600 hover:bg-violet-700' },
@@ -920,7 +923,10 @@ async function engineTab(engineId, tab, force) {
   });
   const body = document.querySelector(`[data-engine-body="${engineId}"]`);
   if (!body) return;
-  const pulseEngines = ['command', 'sales', 'fni-overview', 'service-overview', 'parts-overview'];
+  const pulseEngines = [
+    'command', 'sales', 'inventory-overview', 'fni-overview', 'service-overview',
+    'parts-overview', 'accounting-overview', 'marketing-overview', 'people-overview'
+  ];
   const isPulseLayout = pulseEngines.includes(engineId) && ['overview', 'pulse'].includes(tab);
   body.classList.toggle('ms-pulse-board', isPulseLayout);
   if (isPulseLayout) body.dataset.pulseKind = engineId;
