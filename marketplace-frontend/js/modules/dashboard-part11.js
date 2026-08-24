@@ -1566,6 +1566,44 @@ window.pulseAccountingDeptSection = function(d) {
 };
 
 window.pulseMarketingDeptSection = function(d) {
+  // Marketing Pulse must use dealership data or clearly say that a source is
+  // unavailable. Fabricated campaign, traffic, and engagement numbers must not
+  // render in the executive workspace.
+  const roi = d?.marketingRoi?.totals || {};
+  const campaigns = Array.isArray(d?.campaigns) ? d.campaigns : [];
+  const posts = Array.isArray(d?.marketingPosts) ? d.marketingPosts : [];
+  const conversations = Array.isArray(d?.marketingConversations) ? d.marketingConversations : [];
+  const videos = Array.isArray(d?.salesVideos) ? d.salesVideos : [];
+  const actualSpend = Number(roi.spend) > 0 ? Number(roi.spend) : null;
+  const actualGross = campaigns.reduce((sum, c) => {
+    const gross = Number(c.performance?.gross);
+    return c.gross_complete && Number.isFinite(gross) ? sum + gross : sum;
+  }, 0);
+  const campaignSpend = campaigns.reduce((sum, c) => sum + (Number(c.spend?.actual) || 0), 0);
+  const roas = campaignSpend > 0 && actualGross > 0 ? (actualGross / campaignSpend).toFixed(2) + 'x' : '—';
+  const scheduled = posts.filter(p => /scheduled|queued|pending/i.test(String(p.status || '')));
+  const sentVideos = videos.filter(v => v.sent_at || /sent|delivered/i.test(String(v.status || ''))).length;
+  const value = n => n == null ? '—' : Number(n).toLocaleString();
+  const campaignRows = campaigns.slice(0, 4).map(c => `<div class="flex items-center justify-between gap-3 py-2 border-t border-slate-200/70 dark:border-slate-800/70 text-xs"><span class="truncate font-semibold text-slate-700 dark:text-slate-200">${esc(c.name || 'Campaign')}</span><span class="shrink-0 text-slate-400">${c.spend?.actual ? cmdMoney(c.spend.actual) + ' spend' : 'No spend recorded'}</span></div>`).join('');
+  const postRows = scheduled.slice(0, 4).map(p => `<div class="flex items-center justify-between gap-3 py-2 border-t border-slate-200/70 dark:border-slate-800/70 text-xs"><span class="truncate font-semibold text-slate-700 dark:text-slate-200">${esc(p.title || p.body || 'Scheduled post')}</span><span class="shrink-0 text-slate-400">${esc(p.scheduled_for || p.status || 'Queued')}</span></div>`).join('');
+  return `<section class="mb-8 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 shadow-sm space-y-4">
+    <div class="flex items-center justify-between gap-3 border-b border-slate-200/80 dark:border-slate-800/80 pb-3">
+      <div><h2 class="text-lg font-black uppercase tracking-wider text-slate-900 dark:text-white">Marketing Department</h2><p class="text-xs text-slate-500 dark:text-slate-400">Connected marketing activity and recorded performance.</p></div>
+      <button onclick="engineTab('marketing-overview','overview')" class="shrink-0 text-xs font-black text-indigo-600 dark:text-indigo-400">Open workspace →</button>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      ${engKpi('Recorded spend', actualSpend == null ? '—' : cmdMoney(actualSpend), 'text-slate-900 dark:text-white')}
+      ${engKpi('Actual campaign ROAS', roas, roas === '—' ? 'text-slate-400' : 'text-emerald-600 dark:text-emerald-400')}
+      ${engKpi('AI conversations loaded', value(conversations.length), 'text-purple-600 dark:text-purple-400')}
+      ${engKpi('Videos sent', value(sentVideos), 'text-rose-600 dark:text-rose-400')}
+    </div>
+    <div class="text-[11px] text-slate-400">Website visitors, cross-channel impressions, and engagement are not shown until their analytics sources are connected.</div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+      <div class="rounded-xl border border-slate-200/80 dark:border-slate-800/80 p-3"><div class="font-black uppercase tracking-wider text-slate-500">Campaigns</div>${campaignRows || '<div class="py-3 text-slate-400">No campaigns recorded.</div>'}</div>
+      <div class="rounded-xl border border-slate-200/80 dark:border-slate-800/80 p-3"><div class="font-black uppercase tracking-wider text-slate-500">Scheduled social posts</div><div class="text-xl font-black text-sky-600 dark:text-sky-400 mt-1">${scheduled.length || '—'}</div>${postRows || '<div class="py-2 text-slate-400">No scheduled posts recorded.</div>'}</div>
+    </div>
+  </section>`;
+
   const postsViewMode = window.__pulsePostsCalendarMode ? 'calendar' : 'list';
   const scheduledPosts = [
     { title: '2024 Ford F-150 Lariat Special Offer', platform: 'Instagram & Facebook', time: 'Today @ 4:00 PM', status: 'Scheduled', badge: 'bg-purple-600' },
@@ -1863,11 +1901,12 @@ ENGINES['command'] = {
     const canService = prods.includes('dealer_os') || feats.includes('os.service');
     const canAutomation = prods.includes('dealer_os') || feats.includes('os.automations');
     const canIdentityReports = prods.includes('dealer_os') || feats.includes('identity.reports');
+    const canMarketing = prods.includes('dealer_os') || feats.includes('os.marketing');
 
     const acctReq = (url, label) => canAcct ? apiGetJson(url).catch(miss(label)) : Promise.resolve(miss(label)(new Error('Not entitled')));
     const serviceReq = (url, fallback) => canService ? apiGetJson(url).catch(() => fallback) : Promise.resolve(fallback);
 
-    const [cc, ev, day, identityReviews, pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy, contacts, tasks, appts, deliveries, reconVehicles, inventory, fniDeals, esignRequests, serviceRos, partsOrders, staff] = await Promise.all([
+    const [cc, ev, day, identityReviews, pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy, contacts, tasks, appts, deliveries, reconVehicles, inventory, fniDeals, esignRequests, serviceRos, partsOrders, staff, marketingRoi, marketingPosts, marketingConversations, salesVideos] = await Promise.all([
       apiGetJson('/command-center').catch(() => ({ tiles: {}, exceptions: [], exception_count: 0 })),
       apiGetJson('/events?limit=40').catch(() => ({ events: [] })),
       apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ label: 'Pulse', reason: 'Could not be loaded' }], complete: false })),
@@ -1892,6 +1931,10 @@ ENGINES['command'] = {
       serviceReq('/service-engine/ros', { ros: [] }),
       serviceReq('/service-engine/part-requests', { requests: [] }),
       (profileContext?.saas_role === 'owner' ? apiGetJson('/saas/employees') : Promise.resolve({ employees: [] })).catch(() => ({ employees: [] })),
+      canAcct ? apiGetJson('/marketing/roi').catch(() => null) : Promise.resolve(null),
+      canMarketing ? apiGetJson('/social/posts').catch(() => ({ posts: [] })) : Promise.resolve({ posts: [] }),
+      canMarketing ? apiGetJson('/ai/conversations').catch(() => ({ conversations: [] })) : Promise.resolve({ conversations: [] }),
+      canMarketing ? apiGetJson('/sales-videos').catch(() => ({ videos: [] })) : Promise.resolve({ videos: [] }),
     ]);
     const badge = document.getElementById('command-badge');
     const attentionCount = (day.needs_attention || []).length;
@@ -1909,7 +1952,11 @@ ENGINES['command'] = {
       esignRequests: Array.isArray(esignRequests?.requests) ? esignRequests.requests : (Array.isArray(esignRequests) ? esignRequests : []),
       serviceRos: Array.isArray(serviceRos?.ros) ? serviceRos.ros : (Array.isArray(serviceRos) ? serviceRos : []),
       partsOrders: Array.isArray(partsOrders?.orders) ? partsOrders.orders : (Array.isArray(partsOrders) ? partsOrders : []),
-      staff: Array.isArray(staff?.employees) ? staff.employees : (Array.isArray(staff) ? staff : [])
+      staff: Array.isArray(staff?.employees) ? staff.employees : (Array.isArray(staff) ? staff : []),
+      marketingRoi,
+      marketingPosts: Array.isArray(marketingPosts?.posts) ? marketingPosts.posts : [],
+      marketingConversations: Array.isArray(marketingConversations?.conversations) ? marketingConversations.conversations : [],
+      salesVideos: Array.isArray(salesVideos?.videos) ? salesVideos.videos : []
     };
   },
   quickActions: [
