@@ -91,3 +91,28 @@ test('every public register CTA points at a real plan id', () => {
   }
   assert.ok(seen.size > 0, 'expected to find at least one register CTA to validate')
 })
+
+// ── Frontend nav fallback must mirror the server entitlements ────────────────
+// dashboard-part2.js carries a cold-start fallback (DEALER_OS_PLAN_FEATURES /
+// dealerPlanFallback) OR'd with the live /access context to decide which tabs show.
+// When that fallback grants a Digital work area (e.g. the Website builder) to a plan
+// that lacks the backing product, the tab renders but the API answers 403
+// PRODUCT_ACCESS_REQUIRED — the "Website page → access denied" defect. Core & Pro are
+// operational-only, so their fallback must never advertise Digital website features.
+test('Core/Pro nav fallback does not advertise the Website builder (no PRODUCT_ACCESS_REQUIRED tab)', () => {
+  const src = read('js/modules/dashboard-part2.js')
+  const grab = key => {
+    const m = src.match(new RegExp(key + ":\\s*new Set\\(\\[([^\\]]*)\\]"))
+    assert.ok(m, `DEALER_OS_PLAN_FEATURES.${key} not found`)
+    return m[1]
+  }
+  for (const key of ['core', 'pro', 'dealeros_pro']) {
+    const body = grab(key)
+    for (const leak of ['website.builder', 'os.website', 'os.marketing', 'seo.overview', 'social.scheduler', 'video.library', 'design.canvas']) {
+      assert.ok(!body.includes(leak), `${key} nav fallback must not grant Digital feature "${leak}"`)
+    }
+  }
+  // Only Complete bundles the Digital products in the product fallback.
+  assert.match(src, /const digital = plan === 'dealeros_complete'/, 'dealerPlanFallback must grant Digital products to Complete only')
+  assert.doesNotMatch(src, /const digital = \['pro'/, 'stale Pro/Digital product fallback must be gone')
+})

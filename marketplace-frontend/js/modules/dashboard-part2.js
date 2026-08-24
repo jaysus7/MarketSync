@@ -1285,27 +1285,40 @@ const PAGE_ANY_FEATURE = {
 // The dealership record also carries its server-authored package name. This fallback
 // keeps the DealerOS menu stable during an access-context retry/cold start; it only
 // affects navigation presentation — API permissions remain enforced on the server.
+// Mirror plan-catalog.js EXACTLY. Core & Pro are operational DealerOS ONLY — they do
+// NOT include any MarketSync Digital product (Website, Social, Email, Video, SEO, AI
+// Dealer, Design Studio, Facebook). Advertising a Digital work area here shows a tab
+// the server then refuses with PRODUCT_ACCESS_REQUIRED (the "Website page → access
+// denied" defect). Digital is sold as marketsync-digital and bundled only into
+// Complete. This map is a cold-start fallback OR'd with the authoritative /access
+// context, so keeping it conservative can only hide a tab that would 403 anyway — it
+// can never cause a false denial.
 const DEALER_OS_PLAN_FEATURES = {
   starter: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.team', 'os.settings']),
-  growth: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.team', 'os.settings', 'os.sales', 'os.accounting', 'os.marketing', 'os.website', 'os.automations', 'os.integrations']),
-  pro: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.sales', 'os.accounting', 'os.service', 'os.marketing', 'os.website', 'os.reports', 'os.automations', 'os.email_marketing', 'os.integrations', 'os.team', 'os.settings', 'fb.inventory', 'fb.leaderboard', 'fb.sales_reps', 'ai.overview', 'ai.conversations', 'ai.agents', 'ai.knowledge', 'ai.settings', 'video.library', 'video.record', 'video.templates', 'video.settings', 'social.scheduler', 'social.accounts', 'social.calendar', 'social.studio', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations', 'website.builder', 'website.pages', 'website.domains', 'website.settings']),
-  core: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.settings', 'fb.inventory', 'fb.leaderboard', 'fb.sales_reps', 'design.canvas', 'social.scheduler', 'social.accounts', 'social.calendar', 'social.studio', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations', 'video.library', 'video.record', 'video.templates', 'video.settings']),
-  dealeros_pro: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.settings', 'os.sales', 'os.service', 'fb.inventory', 'fb.leaderboard', 'fb.sales_reps', 'design.canvas', 'social.scheduler', 'social.accounts', 'social.calendar', 'social.studio', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations', 'video.library', 'video.record', 'video.templates', 'video.settings', 'website.builder', 'website.pages', 'website.domains', 'website.settings', 'ai.overview', 'ai.conversations', 'ai.agents', 'ai.knowledge', 'ai.settings', 'seo.overview', 'seo.audit', 'seo.autofix', 'seo.content', 'seo.competitors', 'seo.local', 'seo.inventory', 'seo.ai_search', 'seo.reports', 'seo.settings']),
-  dealeros_complete: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.settings', 'os.sales', 'os.service', 'os.team', 'os.accounting', 'os.marketing', 'os.website', 'os.automations', 'os.email_marketing', 'os.integrations', 'fb.inventory', 'fb.leaderboard', 'fb.sales_reps', 'design.canvas', 'social.scheduler', 'social.accounts', 'social.calendar', 'social.studio', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations', 'video.library', 'video.record', 'video.templates', 'video.settings', 'website.builder', 'website.pages', 'website.domains', 'website.settings', 'ai.overview', 'ai.conversations', 'ai.agents', 'ai.knowledge', 'ai.settings']),
+  growth: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.team', 'os.settings', 'os.sales', 'os.accounting', 'os.automations', 'os.integrations']),
+  // core === CURRENT_CORE_OS
+  core: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.settings']),
+  // pro / dealeros_pro === CURRENT_PRO_OS (Core + Sales + Service); no Digital.
+  pro: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.settings', 'os.sales', 'os.service']),
+  dealeros_pro: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.settings', 'os.sales', 'os.service']),
+  // dealeros_complete === CURRENT_COMPLETE_OS + the entire MarketSync Digital bundle.
+  dealeros_complete: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.settings', 'os.sales', 'os.service', 'os.team', 'os.accounting', 'os.marketing', 'os.website', 'os.automations', 'os.email_marketing', 'os.integrations', 'fb.inventory', 'fb.leaderboard', 'fb.sales_reps', 'design.canvas', 'social.scheduler', 'social.accounts', 'social.calendar', 'social.studio', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations', 'video.library', 'video.record', 'video.templates', 'video.settings', 'website.builder', 'website.pages', 'website.domains', 'website.settings', 'ai.overview', 'ai.conversations', 'ai.agents', 'ai.knowledge', 'ai.settings', 'seo.overview', 'seo.audit', 'seo.autofix', 'seo.content', 'seo.competitors', 'seo.local', 'seo.inventory', 'seo.ai_search', 'seo.reports', 'seo.settings']),
 };
 function dealerPlanFallback() {
   const plan = String(profileContext?.plan || profileContext?.dealership?.plan || '').toLowerCase();
   const features = DEALER_OS_PLAN_FEATURES[plan];
   if (!features) return { features: null, products: null };
-  const digital = ['pro', 'dealeros_pro', 'dealeros_complete'].includes(plan);
-  const core = plan === 'core';
+  // ONLY Complete bundles the MarketSync Digital products. Core & Pro are operational
+  // DealerOS (dealer_os) only — matching plan-catalog.js — so they must not advertise
+  // Digital products the server will refuse (PRODUCT_ACCESS_REQUIRED). marketsync-digital
+  // (standalone Digital) isn't a DealerOS plan key here; it relies on the live /access
+  // context for its product list.
+  const digital = plan === 'dealeros_complete';
   return {
     features,
     products: digital
-      ? new Set(['dealer_os', 'facebook', 'ai_dealer', 'design_studio', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website', 'marketsync_seo'])
-      : core
-        ? new Set(['dealer_os', 'facebook', 'design_studio', 'marketsync_social', 'marketsync_email', 'marketsync_video'])
-        : new Set(['dealer_os']),
+      ? new Set(['dealer_os', 'facebook', 'ai_dealer', 'design_studio', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website', 'marketsync_seo', 'marketsync_identity'])
+      : new Set(['dealer_os']),
   };
 }
 // Dealer-controlled switches are a second visibility layer after the paid plan.
