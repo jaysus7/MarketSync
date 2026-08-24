@@ -1481,7 +1481,7 @@ body > header,
 .ms-card,
 [data-page-content] .bg-white,
 [data-page-content] .dark\:bg-slate-900 {
-  background: linear-gradient(135deg, rgba(255,255,255,.92), rgba(255,255,255,.78)) !important;
+  background: linear-gradient(135deg, rgba(255,255,255,.76), rgba(255,255,255,.58)) !important;
   border-color: rgba(255,255,255,.20) !important;
   box-shadow: 0 18px 50px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.11) !important;
   backdrop-filter: blur(20px) saturate(145%) !important;
@@ -1500,7 +1500,7 @@ body > header,
 .dark .ms-card,
 .dark [data-page-content] .bg-white,
 .dark [data-page-content] .dark\:bg-slate-900 {
-  background: linear-gradient(135deg, rgba(30,41,72,.70), rgba(15,23,42,.54)) !important;
+  background: linear-gradient(135deg, rgba(30,41,72,.58), rgba(15,23,42,.40)) !important;
   border-color: rgba(148,163,184,.20) !important;
 }
 
@@ -1525,7 +1525,7 @@ body > header,
 .ms-pulse-board details,
 [data-engine-rail] details {
   border-radius: var(--ms-radius-card) !important;
-  background: linear-gradient(145deg, rgba(255,255,255,.92), rgba(255,255,255,.78)) !important;
+  background: linear-gradient(145deg, rgba(255,255,255,.76), rgba(255,255,255,.58)) !important;
   border-color: rgba(255,255,255,.19) !important;
   box-shadow: 0 14px 38px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.10) !important;
   backdrop-filter: blur(18px) saturate(140%) !important;
@@ -1536,7 +1536,7 @@ body > header,
 .dark .ms-pulse-board .dark\:bg-slate-900,
 .dark .ms-pulse-board details,
 .dark [data-engine-rail] details {
-  background: linear-gradient(145deg, rgba(30,41,72,.66), rgba(15,23,42,.50)) !important;
+  background: linear-gradient(145deg, rgba(30,41,72,.56), rgba(15,23,42,.38)) !important;
   border-color: rgba(148,163,184,.18) !important;
 }
 
@@ -1548,10 +1548,12 @@ body > header,
 }
 
 .ms-pulse-board > .grid:first-of-type > * {
-  min-height: 7.25rem;
+  /* Let content determine card height. A fixed minimum made empty states
+     look like oversized blank tiles and pushed lower dashboard rows down. */
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .ms-pulse-board button,
@@ -1688,11 +1690,11 @@ body {
 .dark .ms-pulse-board .dark\:bg-slate-900,
 .dark .ms-pulse-board details,
 .dark [data-engine-rail] details {
-  background: linear-gradient(145deg, rgba(24, 36, 60, .90), rgba(10, 17, 31, .78)) !important;
+  background: linear-gradient(145deg, rgba(24, 36, 60, .68), rgba(10, 17, 31, .50)) !important;
   border-color: rgba(190, 205, 230, .15) !important;
   box-shadow: var(--ms-shadow-glass) !important;
-  backdrop-filter: blur(22px) saturate(118%) !important;
-  -webkit-backdrop-filter: blur(22px) saturate(118%) !important;
+  backdrop-filter: blur(24px) saturate(128%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(128%) !important;
 }
 
 .ms-engine-header,
@@ -1702,6 +1704,12 @@ body {
 .ms-pulse-board .dark\:bg-slate-900,
 .ms-pulse-board details,
 [data-engine-rail] details { border-radius: var(--ms-radius-card) !important; }
+
+/* Keep empty Pulse cards compact instead of stretching them into blank tiles. */
+.ms-pulse-board .text-center.text-slate-400 {
+  padding-top: .8rem !important;
+  padding-bottom: .8rem !important;
+}
 
 .ms-engine-header { min-height: 8rem; }
 

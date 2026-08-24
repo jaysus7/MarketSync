@@ -795,7 +795,7 @@ function pulseHeader(title, sub) {
   </div>${sub ? `<p class="text-[13px] text-slate-500 dark:text-slate-400 mb-4">${esc(sub)}</p>` : '<div class="mb-4"></div>'}`;
 }
 function pulseGrid(cardsHtml) {
-  return `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 items-start">${(cardsHtml || []).filter(Boolean).join('')}</div>`;
+  return `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 items-start">${(cardsHtml || []).filter(Boolean).join('')}</div>`;
 }
 // span: 2 = sm:col-span-2 (wide); 'tall' = row-span-2 (the sketch's big list column)
 //
