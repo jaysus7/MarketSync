@@ -1286,6 +1286,19 @@ body.website-workspace-mode {
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
 }
 
+/* Shared Liquid Glass dashboard chrome and bold Apple-style workspace headers. */
+:root { --ms-bg:#f7f8fa; --ms-surface:rgba(255,255,255,.72); --ms-surface-solid:#fff; --ms-text:#17191f; --ms-text-muted:#687386; --ms-border:rgba(23,25,31,.12); --ms-primary:#2563eb; --ms-primary-hover:#1f4ed8; --ms-accent:#7c3aed; --ms-glass-blur:24px; --ms-radius-card:20px; --ms-radius-control:12px; --ms-shadow-glass:0 16px 40px rgba(23,25,31,.08); }
+.dark { --ms-bg:#0f1117; --ms-surface:rgba(26,29,36,.76); --ms-surface-solid:#1a1d24; --ms-text:#f7f8fa; --ms-text-muted:#a5acb8; --ms-border:rgba(255,255,255,.12); --ms-shadow-glass:0 16px 40px rgba(0,0,0,.22); }
+.ms-engine-header { padding:clamp(1rem,2vw,1.5rem); border:1px solid var(--ms-border); border-radius:var(--ms-radius-card); background:var(--ms-surface); box-shadow:var(--ms-shadow-glass); backdrop-filter:blur(var(--ms-glass-blur)); -webkit-backdrop-filter:blur(var(--ms-glass-blur)); }
+.ms-engine-title { font-size:clamp(2rem,4vw,3.5rem) !important; line-height:.98 !important; letter-spacing:-.055em !important; font-weight:900 !important; font-family:Satoshi,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+body.ms-app-booting, body.ms-app-booting main { background:var(--ms-bg) !important; }
+body.ms-app-booting > header { background:var(--ms-surface) !important; border-color:var(--ms-border) !important; backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); box-shadow:0 8px 24px rgba(23,25,31,.06); }
+#nav-desktop, #nav-mobile, #report-rail { background:var(--ms-surface) !important; border-color:var(--ms-border) !important; }
+#service-overview-root .rounded-2xl, #parts-overview-root .rounded-2xl { border-radius:var(--ms-radius-card); }
+#service-overview-root .bg-white, #parts-overview-root .bg-white { background:var(--ms-surface) !important; border-color:var(--ms-border) !important; }
+@media (max-width:767px) { .ms-engine-header { padding:1rem; } .ms-engine-title { font-size:2.25rem !important; } }
+@media (prefers-reduced-motion:reduce) { .ms-engine-header *, #service-overview-root *, #parts-overview-root * { animation-duration:.01ms !important; transition-duration:.01ms !important; } }
+
 /* ──────────────────────────────────────────────────────────────────────────
    Liquid Glass workspace layer
    Shared presentation for operational Pulse dashboards. These classes are
@@ -1384,4 +1397,3 @@ body.website-workspace-mode {
   #service-overview-root *,
   #parts-overview-root * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
-

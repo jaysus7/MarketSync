@@ -292,7 +292,7 @@ window.salesTodayVideosCard = salesTodayVideosCard;
 
 // ── Engine registration ──────────────────────────────────────────────────────
 ENGINES['sales'] = {
-  rootId: 'sales-root', title: 'Sales', subtitle: 'Your customers, appointments and deals — what needs you first', hideHeader: true,
+  rootId: 'sales-root', title: 'Sales', subtitle: 'Your customers, appointments and deals — what needs you first',
   icon: 'currency', accent: 'amber',
   // Right-rail Reports, specific to Sales.
   reports: [
