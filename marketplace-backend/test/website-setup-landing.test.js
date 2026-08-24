@@ -18,7 +18,7 @@ describe('Website Product — Default Landing Setup & Contained Dashboard Archit
     assert.ok(part17Content.includes("if (targetTab === 'builder') __wsTab = 'builder';"), 'Supports explicit targetTab=builder');
     assert.ok(part17Content.includes("else if (targetTab === 'blog') __wsTab = 'blog';"), 'Supports explicit targetTab=blog');
     assert.ok(part17Content.includes("else if (targetTab === 'seo') __wsTab = 'seo';"), 'Supports explicit targetTab=seo');
-    assert.ok(part17Content.includes("else __wsTab = 'setup';"), 'Defaults to setup when tab is not specified');
+    assert.ok(part17Content.includes("else if (!['builder', 'blog', 'seo', 'setup', 'settings'].includes(__wsTab)) __wsTab = 'setup';"), 'Defaults to setup when tab is not specified and no valid tab is already selected');
   });
 
   it('does not render the redundant Builder, Blog, SEO, and Setup tab strip inside wsSetup', () => {
@@ -53,7 +53,7 @@ describe('Website Product — Default Landing Setup & Contained Dashboard Archit
 
   it('provides key status indicators across domain, inventory, analytics, chat, and publishing', () => {
     assert.ok(part17Content.includes('SSL Active') || part17Content.includes('DNS Ready'), 'Domain status indicator');
-    assert.ok(part17Content.includes('Active Sync'), 'Inventory feed sync status indicator');
+    assert.ok(part17Content.includes('Website Source:'), 'Inventory feed source status indicator');
     assert.ok(part17Content.includes('GA4:'), 'Analytics GA4 status');
     assert.ok(part17Content.includes('Meta Pixel:'), 'Analytics Meta Pixel status');
     assert.ok(part17Content.includes('isAiChatbotOwned()'), 'AI Chatbot status logic');
