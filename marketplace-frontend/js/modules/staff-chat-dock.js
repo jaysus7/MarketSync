@@ -20,17 +20,22 @@
     // applyProductNav sets this once the canonical DealerOS entitlement resolves.
     // It must win over a stale disabled state from an earlier provisional pass.
     if (window.__teamChatAllowed === true) return false;
+    if (window.__teamChatAllowed === false) return true;
+    // Resolve the canonical access context before consulting provisional workspace
+    // classification. DealerOS can be the account's only product and is still the
+    // full dealership operating system with Team Chat.
+    const accessProducts = window.__access?.products;
+    if (Array.isArray(accessProducts) && accessProducts.length) {
+      const hasDealerOs = accessProducts.includes('dealer_os');
+      const hasFbDealer = accessProducts.includes('facebook_dealer') || accessProducts.includes('facebook');
+      if (hasDealerOs || hasFbDealer) return false;
+      return true;
+    }
     if (disabled) return true;
     if (typeof window.isSingleProductWorkspace === 'function' && window.isSingleProductWorkspace()) {
       const products = (document.documentElement.getAttribute('data-product') || '').trim();
       const list = products ? products.split(/\s+/) : [];
-      if (!list.includes('facebook_dealer')) return true;
-    }
-    const accessProducts = window.__access?.products;
-    if (Array.isArray(accessProducts)) {
-      const hasDealerOs = accessProducts.includes('dealer_os');
-      const hasFbDealer = accessProducts.includes('facebook_dealer') || accessProducts.includes('facebook');
-      if (!hasDealerOs && !hasFbDealer) return true;
+      if (!list.includes('facebook_dealer') && !list.includes('dealer_os')) return true;
     }
     const products = (document.documentElement.getAttribute('data-product') || '').trim();
     if (!products) return false;

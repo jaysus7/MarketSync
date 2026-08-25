@@ -30,6 +30,10 @@ test('the staff-chat dock refuses to run on independent programs and can be torn
   assert.ok(guard, 'shouldHideStaffChat must exist')
   assert.match(guard, /getAttribute\('data-product'\)/)
   assert.match(guard, /list\.length === 1 && !\['facebook_dealer', 'dealer_os'\]\.includes\(list\[0\]\)/)
+  assert.ok(guard.indexOf('const accessProducts') < guard.indexOf('window.isSingleProductWorkspace'),
+    'canonical DealerOS access must be checked before provisional workspace classification')
+  assert.match(guard, /if \(hasDealerOs \|\| hasFbDealer\) return false;/,
+    'DealerOS and dealership Facebook access must explicitly keep Team Chat visible')
 
   // Every entry point is guarded so nothing shows, polls, or pops.
   assert.match(staffChat, /function initLauncherUI\(\) \{\s*\n\s*if \(shouldHideStaffChat\(\)\) return;/)
