@@ -2620,6 +2620,16 @@ async function aiBuildPageLayoutFromPrompt() {
 }
 window.aiBuildPageLayoutFromPrompt = aiBuildPageLayoutFromPrompt;
 
+// The inspector body re-renders in place after an edit made from inside it — a
+// photo pick, say — so the field shows the value that was just chosen. The outer
+// shell (#ws-inspector-panel) stays put; only its content is rebuilt, which is
+// the same split setWsInspectorTab uses.
+function refreshWsRightInspector() {
+  const panel = document.getElementById('ws-inspector-content');
+  if (panel) panel.innerHTML = renderWsRightInspectorContent();
+}
+window.refreshWsRightInspector = refreshWsRightInspector;
+
 function renderWsRightInspectorHtml() {
   const sec = __siteSections[__wsSelectedSecIdx];
   const meta = sec ? (SEC_META[sec.type] || { label: sec.type }) : null;
@@ -2673,7 +2683,7 @@ function renderWsRightInspectorContent() {
           <div class="flex gap-1.5 items-center">
             ${c.logo_url ? `<img src="${esc(c.logo_url)}" class="w-9 h-7 object-contain rounded border border-slate-700 bg-white/10" />` : ''}
             <input type="text" value="${esc(c.logo_url || '')}" oninput="setSiteGlobal('logo_url', this.value)" class="w-full liquid-glass-input px-3 py-2 text-slate-950 dark:text-white font-semibold flex-1" placeholder="https://..." />
-            <button type="button" onclick="openWsPhotoPicker(url => { setSiteGlobal('logo_url', url); renderWsRightInspector(); })" class="liquid-glass-btn px-2.5 py-2 text-[11px] font-bold">Browse</button>
+            <button type="button" onclick="openWsPhotoPicker(url => { setSiteGlobal('logo_url', url); refreshWsRightInspector(); })" class="liquid-glass-btn px-2.5 py-2 text-[11px] font-bold">Browse</button>
           </div>
         </div>
         <div class="space-y-1.5">

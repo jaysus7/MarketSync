@@ -1169,6 +1169,106 @@ function duplicateAutoWorkflow(key) {
   loadAutoBuilderPage();
 }
 
+// Find a workflow anywhere in the catalog — the catalog is grouped by category,
+// and every quick action here addresses a workflow by key alone.
+function findAutoWorkflow(key) {
+  let found = null;
+  Object.values(ALL_AUTOMATIONS_CATALOG).forEach(list => {
+    const item = list.find(x => x.key === key);
+    if (item) found = item;
+  });
+  return found;
+}
+window.findAutoWorkflow = findAutoWorkflow;
+
+// Pause / activate a workflow from the card toggle. The catalog is the in-memory
+// source of truth for this page (same as Quick Edit), so flip it and re-render
+// so the status dot and the toggle agree.
+function toggleWorkflowActive(key, active) {
+  const found = findAutoWorkflow(key);
+  if (!found) return;
+  found.is_active = active !== false;
+  showToast(found.is_active ? `Activated "${found.name}"` : `Paused "${found.name}"`, found.is_active ? 'success' : 'info');
+  renderAutoAutomationsTab(document.getElementById('auto-leads-root'));
+}
+window.toggleWorkflowActive = toggleWorkflowActive;
+
+// AI Rewrite proposes new copy — it never silently overwrites what the dealer
+// wrote. The rewrite is shown side by side and only applied on an explicit
+// Apply, at which point it lands in the same places Quick Edit writes to.
+let __autoRewriteDraft = null;
+
+async function quickAiRewriteWorkflow(key) {
+  const found = findAutoWorkflow(key);
+  if (!found) return;
+  const current = (found.message_body_template || '').trim();
+  if (!current) { showToast('This workflow has no message to rewrite yet', 'info'); return; }
+
+  showToast('Rewriting with AI…', 'info');
+  const channel = found.channel === 'sms' ? 'a text message' : found.channel === 'email' ? 'an email' : 'a customer follow-up message';
+  const prompt = `Rewrite ${channel} a car dealership sends automatically. Keep every {{merge_variable}} exactly as written, keep it the same length or shorter, and keep the same intent. Original: ${current}`;
+
+  let rewritten = '';
+  try {
+    // Shares the dealership's AI copy budget with Design Studio — same kind of
+    // ask (short marketing copy from a prompt), so it reuses that endpoint
+    // rather than opening a second one.
+    const res = await apiSendJson('/ai/studio-copy', 'POST', { prompt });
+    rewritten = (res?.copy || '').trim();
+  } catch (e) {
+    showToast(e.message || 'AI rewrite is unavailable right now', 'error');
+    return;
+  }
+  if (!rewritten) { showToast('AI returned nothing to apply', 'error'); return; }
+
+  __autoRewriteDraft = { key, text: rewritten };
+  crmOverlay(`
+    <div class="p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div>
+          <span class="text-[10px] font-mono font-black uppercase text-violet-600 dark:text-violet-400">AI Rewrite</span>
+          <h3 class="text-base font-black text-slate-900 dark:text-white mt-0.5">${esc(found.name)}</h3>
+        </div>
+        <button type="button" onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600">&times;</button>
+      </div>
+      <div class="grid gap-3 md:grid-cols-2 text-xs">
+        <div>
+          <div class="font-bold text-slate-500 uppercase tracking-wider text-[10px] mb-1">Current</div>
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 font-mono whitespace-pre-wrap text-slate-600 dark:text-slate-300">${esc(current)}</div>
+        </div>
+        <div>
+          <div class="font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wider text-[10px] mb-1">Proposed</div>
+          <div class="p-3 rounded-xl bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-900 font-mono whitespace-pre-wrap text-slate-900 dark:text-white">${esc(rewritten)}</div>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+        <button type="button" onclick="this.closest('.fixed').remove()" class="px-4 py-2 text-xs font-bold text-slate-500">Keep current</button>
+        <button type="button" onclick="applyAiRewriteWorkflow(this)" class="px-5 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black text-xs">Apply rewrite</button>
+      </div>
+    </div>
+  `, 'max-w-3xl');
+}
+window.quickAiRewriteWorkflow = quickAiRewriteWorkflow;
+
+function applyAiRewriteWorkflow(btn) {
+  const draft = __autoRewriteDraft;
+  __autoRewriteDraft = null;
+  btn?.closest('.fixed')?.remove();
+  if (!draft) return;
+  const found = findAutoWorkflow(draft.key);
+  if (!found) return;
+  found.message_body_template = draft.text;
+  // Keep the visual graph in step, exactly as Quick Edit does.
+  if (found.graph?.nodes?.length) {
+    found.graph.nodes.forEach(n => {
+      if (n.type === 'action_send_sms' || n.type === 'action_send_email') n.config.message_template = draft.text;
+    });
+  }
+  showToast(`Rewrote "${found.name}"`, 'success');
+  renderAutoAutomationsTab(document.getElementById('auto-leads-root'));
+}
+window.applyAiRewriteWorkflow = applyAiRewriteWorkflow;
+
 // ── Render Overview Tab ───────────────────────────────────────────────────────
 function renderAutoOverviewTab(container) {
   container.innerHTML = `
@@ -3071,6 +3171,87 @@ function insertVbMergeVar(varName) {
   updateVbNodeConfig(__vb.selectedNodeId, 'message_template', el.value);
   el.focus();
 }
+
+// Sample record used for a node dry run. Nothing here reaches a real customer —
+// the point is to show the dealer exactly what the merge variables resolve to
+// before the workflow ever runs against a live lead.
+const VB_TEST_SAMPLE = {
+  'customer.first_name': 'Jordan', 'customer.last_name': 'Reyes', 'customer.phone': '(555) 014-2298',
+  'vehicle.year': '2024', 'vehicle.make': 'Chevrolet', 'vehicle.model': 'Silverado 1500 RST', 'vehicle.stock': 'T24098',
+  'rep.first_name': 'Sam', 'rep.phone': '(555) 014-7781',
+  'dealership.name': 'Metro Auto Group', 'dealership.phone': '(555) 014-0100', 'dealership.website': 'metroautogroup.com',
+  'appointment.date': 'Thursday, Sept 4', 'appointment.time': '10:30 AM',
+};
+
+// Resolve {{merge.vars}} against the sample record. An unknown variable is left
+// visible as [unresolved: name] rather than blanked out, because a silently
+// empty variable is exactly the bug this dry run exists to catch.
+function vbResolveSample(template) {
+  return String(template || '').replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g,
+    (_m, name) => (Object.prototype.hasOwnProperty.call(VB_TEST_SAMPLE, name) ? VB_TEST_SAMPLE[name] : `[unresolved: ${name}]`));
+}
+
+// Same three-way sender reading the workflow card uses, so the dry run and the
+// card never describe the same node differently.
+function vbSenderLabel(sender) {
+  if (sender === 'house') return 'Dealership';
+  if (sender === 'dynamic') return 'Smart Switch';
+  return 'Assigned rep';
+}
+
+// Plain-language summary of what one node would do, per node type.
+function vbNodeDryRun(node) {
+  const cfg = node.config || {};
+  if (node.type === 'action_send_sms' || node.type === 'action_send_ai_sms' || node.type === 'action_send_sms_template') {
+    return { kind: 'Text message', body: vbResolveSample(cfg.message_template), meta: `From: ${vbSenderLabel(cfg.sender_identity)}` };
+  }
+  if (node.type === 'action_send_email' || node.type === 'action_send_ai_email' || node.type === 'action_send_email_template') {
+    return { kind: 'Email', subject: vbResolveSample(cfg.subject_template), body: vbResolveSample(cfg.message_template), meta: `From: ${vbSenderLabel(cfg.sender_identity)}` };
+  }
+  if (node.type === 'logic_wait') {
+    return { kind: 'Wait', body: `Hold for ${cfg.delay_value || 90} ${cfg.delay_unit || 'minutes'}, then continue.` };
+  }
+  if (node.type === 'logic_stop') {
+    return { kind: 'Stop', body: `End the workflow here — ${cfg.reason || 'Goal achieved'}.` };
+  }
+  if (node.category === 'trigger') {
+    return { kind: 'Trigger', body: `The workflow starts when: ${node.label}. Nothing is sent by this node.` };
+  }
+  return { kind: node.label || 'Step', body: cfg.message_template ? vbResolveSample(cfg.message_template) : 'This step has no message to preview — it changes records rather than contacting anyone.' };
+}
+
+// "Test Node" in the inspector: a dry run of the selected node only. It never
+// dispatches — use Test Send on the workflow card to put a real message on a
+// real phone or inbox.
+function testVbSingleNode(nodeId) {
+  const node = __vb.nodes.find(n => n.id === nodeId);
+  if (!node) { showToast('Select a node first', 'info'); return; }
+  const run = vbNodeDryRun(node);
+  const unresolved = [run.subject, run.body].filter(Boolean).join(' ').includes('[unresolved:');
+  crmOverlay(`
+    <div class="p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div>
+          <span class="text-[10px] font-mono font-black uppercase text-indigo-600 dark:text-indigo-400">Node Dry Run &middot; ${esc(run.kind)}</span>
+          <h3 class="text-base font-black text-slate-900 dark:text-white mt-0.5">${esc(node.label)}</h3>
+        </div>
+        <button type="button" onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600">&times;</button>
+      </div>
+      <p class="text-xs text-slate-500 dark:text-slate-400">Merge variables resolved against a sample customer. Nothing is sent.</p>
+      ${run.subject ? `<div class="text-xs"><span class="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Subject</span><div class="mt-1 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white font-bold">${esc(run.subject)}</div></div>` : ''}
+      <div class="text-xs">
+        <span class="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Result</span>
+        <div class="mt-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 font-mono whitespace-pre-wrap text-slate-900 dark:text-white">${esc(run.body)}</div>
+      </div>
+      ${run.meta ? `<div class="text-[11px] text-slate-500">${esc(run.meta)}</div>` : ''}
+      ${unresolved ? '<div class="text-[11px] font-bold text-amber-600 dark:text-amber-400">One or more merge variables did not resolve — fix them before this goes live.</div>' : ''}
+      <div class="flex items-center justify-end pt-3 border-t border-slate-200 dark:border-slate-800">
+        <button type="button" onclick="this.closest('.fixed').remove()" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs">Close</button>
+      </div>
+    </div>
+  `, 'max-w-lg');
+}
+window.testVbSingleNode = testVbSingleNode;
 
 // ── Node & Edge Operations (Add, Clone, Delete, Connect) ──────────────────────
 function addNodeFromPalette(type) {

@@ -1183,6 +1183,27 @@ function toggleStudioGuides() {
   if (button) button.textContent = guides.classList.contains('hidden') ? 'Guides off' : 'Guides on';
 }
 
+// Renaming a design that already exists persists straight away, so the title in
+// the header and the title in My Designs never disagree. A design that has not
+// been saved yet has nothing to rename — the name it carries is picked up by the
+// next save, which is where it becomes real.
+async function saveStudioDesignName(name) {
+  const clean = String(name || '').trim() || 'Untitled Design';
+  const input = document.getElementById('studio-design-name');
+  if (input && input.value !== clean) input.value = clean;
+  const design = window.__studioCurrentDesign;
+  if (!design?.id) return;
+  if (design.name === clean) return;
+  try {
+    await apiSendJson(`/marketing/studio/designs/${design.id}`, 'PUT', { name: clean });
+    design.name = clean;
+    if (typeof showToast === 'function') showToast('Design renamed', 'success');
+  } catch (e) {
+    if (typeof showToast === 'function') showToast('Rename failed: ' + e.message, 'error');
+  }
+}
+window.saveStudioDesignName = saveStudioDesignName;
+
 async function saveStudioDesign() {
   if (!window.__studioAdapter) return;
   const scene = window.__studioAdapter.exportScene();
