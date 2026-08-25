@@ -2368,6 +2368,18 @@ function cmdField(obj, ...keys) {
   return '';
 }
 
+// A count should land you on the RECORD, not on the department page with the work
+// of re-finding it. opsOpenEntity() already opens any entity by type and id — it
+// reads /timeline/:type/:id, the workflow instances and the tasks — so a
+// record-level link needs no new endpoint, only the id the record already
+// carries. The page fallback is used ONLY when there is no id to open, so a link
+// never promises a record it cannot show.
+function cmdRecordOpen(entityType, id, page) {
+  return id
+    ? `opsOpenEntity('${entityType}', decodeURIComponent('${encodeURIComponent(id)}'))`
+    : `switchPage('${page}')`;
+}
+
 function cmdRecordRows(items, map) {
   return items.map(map).filter(r => r && (r.title || r.meta));
 }
@@ -2409,7 +2421,7 @@ function cmdPulseRecords(d) {
       rows: cmdRecordRows(deals.filter(openLater), x => ({
         title: cmdField(x, 'customer_name', 'buyer_name', 'customer', 'name') || `Deal ${cmdField(x, 'id', 'deal_number')}`,
         meta: [cmdField(x, 'vehicle', 'vehicle_name', 'unit'), cmdField(x, 'stage', 'status')].filter(Boolean).join(' · '),
-        action: 'Open deal', open: `switchPage('sales')`,
+        action: 'Open deal', open: cmdRecordOpen('deal', cmdField(x, 'id', 'deal_id'), 'sales'),
       })),
     },
     deliveries: {
@@ -2417,7 +2429,10 @@ function cmdPulseRecords(d) {
       rows: cmdRecordRows(deliveries, x => ({
         title: cmdField(x, 'customer_name', 'customer', 'buyer_name') || cmdField(x, 'vehicle') || 'Delivery',
         meta: [cmdField(x, 'vehicle', 'vehicle_name'), cmdField(x, 'stock_num', 'stock_number')].filter(Boolean).join(' · '),
-        action: 'Open delivery', open: `switchPage('delivery')`,
+        action: 'Open delivery',
+        open: cmdField(x, 'deal_id')
+          ? cmdRecordOpen('deal', cmdField(x, 'deal_id'), 'delivery')
+          : cmdRecordOpen('vehicle', cmdField(x, 'vehicle_id', 'inventory_id'), 'delivery'),
       })),
     },
     recon: {
@@ -2427,7 +2442,7 @@ function cmdPulseRecords(d) {
           || `Unit ${cmdField(x, 'id')}`,
         meta: [cmdField(x, 'stage', 'status'), cmdField(x, 'days_in_recon') && `${cmdField(x, 'days_in_recon')} days in recon`]
           .filter(Boolean).join(' · '),
-        action: 'Open unit', open: `switchPage('recon')`,
+        action: 'Open unit', open: cmdRecordOpen('vehicle', cmdField(x, 'vehicle_id', 'inventory_id', 'id'), 'recon'),
       })),
     },
     service: {
@@ -2437,7 +2452,7 @@ function cmdPulseRecords(d) {
                 cmdField(x, 'customer_name', 'customer')].filter(Boolean).join(' · ')
           || `Repair order ${cmdField(x, 'id')}`,
         meta: [cmdField(x, 'vehicle', 'vehicle_name'), cmdField(x, 'status')].filter(Boolean).join(' · '),
-        action: 'Open RO', open: `switchPage('service-overview')`,
+        action: 'Open RO', open: cmdRecordOpen('ro', cmdField(x, 'id', 'ro_id'), 'service-overview'),
       })),
     },
   };

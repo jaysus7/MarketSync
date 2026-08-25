@@ -11,13 +11,23 @@ async function opsOpenEntity(type, id, label) {
   if (!type || !id) return;
   const overlay = crmOverlay(`<div class="p-5"><div class="text-sm text-slate-400 py-16 text-center">Loading…</div></div>`, 'max-w-2xl');
   const panel = overlay.firstElementChild;   // the white card; swap its content when data arrives
-  const taskParam = type === 'deal' ? 'deal_id' : type === 'vehicle' ? 'inventory_id' : 'contact_id';
+  // Tasks are keyed by a per-type foreign key. `contact_id` used to be the fallback
+  // for EVERY other type, so opening a repair order asked for tasks whose
+  // contact_id was the RO's id — a query that can only ever return nothing, and
+  // that reads as "no open tasks" rather than "not looked up". Timeline and
+  // workflow are genuinely generic; tasks are not, so an unmapped type skips the
+  // task lookup and says so instead of quietly answering the wrong question.
+  const TASK_PARAM = { deal: 'deal_id', vehicle: 'inventory_id', contact: 'contact_id' };
+  const taskParam = TASK_PARAM[type] || null;
   let timeline = [], instances = [], tasks = [];
+  const tasksLookedUp = Boolean(taskParam);
   try {
     const [tl, wf, tk] = await Promise.all([
       apiGetJson(`/timeline/${type}/${id}`).catch(() => ({ timeline: [] })),
       apiGetJson(`/workflow/instances/${type}/${id}`).catch(() => ({ instances: [] })),
-      apiGetJson(`/dealer-tasks?${taskParam}=${encodeURIComponent(id)}`).catch(() => ({ tasks: [] })),
+      taskParam
+        ? apiGetJson(`/dealer-tasks?${taskParam}=${encodeURIComponent(id)}`).catch(() => ({ tasks: [] }))
+        : Promise.resolve({ tasks: [] }),
     ]);
     timeline = tl.timeline || []; instances = wf.instances || []; tasks = tk.tasks || [];
   } catch {}
@@ -55,7 +65,9 @@ async function opsOpenEntity(type, id, label) {
   const relatedHtml = `<div class="flex flex-wrap gap-1.5 text-[11px]">
     ${running.map(i => `<span class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center gap-1">${svgIcon('bolt','w-3 h-3')}Workflow running</span>`).join('')}
     ${blocked.length ? `<span class="px-2 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300">${blocked.length} blocked</span>` : ''}
-    <span class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${openTasks.length} open task${openTasks.length === 1 ? '' : 's'}</span>
+    ${tasksLookedUp
+      ? `<span class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${openTasks.length} open task${openTasks.length === 1 ? '' : 's'}</span>`
+      : `<span class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500">Tasks not tracked for this record type</span>`}
     <span class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${timeline.length} event${timeline.length === 1 ? '' : 's'}</span>
   </div>`;
 

@@ -157,3 +157,81 @@ test('a tile with records expands in place instead of navigating away', () => {
 test('a quiet tile does not advertise records it has none of', () => {
   assert.match(ds, /\[data-emphasis="quiet"\] \.ms-kpi__hint \{ display: none; \}/)
 })
+
+// ── Links land on the record, not the department page ────────────────────────
+// A count that drops you on a whole page makes you re-find the thing you clicked.
+// opsOpenEntity() opens any entity by type and id off /timeline/:type/:id, so
+// this needs no new endpoint — only the id the record already carries.
+
+const WITH_IDS = {
+  fniDeals: [{ id: 'deal-77', customer_name: 'M. Torres', vehicle: '2021 F-150', stage: 'funding' },
+             { customer_name: 'No Id Deal', vehicle: '2018 Civic', stage: 'working' }],
+  deliveries: { queue: [{ deal_id: 'deal-88', customer_name: 'D. Kim' },
+                        { vehicle_id: 'veh-12', customer_name: 'A. Singh' },
+                        { customer_name: 'No Id Delivery' }] },
+  reconVehicles: { vehicles: [{ id: 'veh-55', stock_num: 'B2210', stage: 'Wash' }] },
+  serviceRos: { ros: [{ id: 'ro-31', ro_number: '1042', customer_name: 'M. Torres', status: 'open' }] },
+}
+
+test('a record with an id opens that record, by its own entity type', () => {
+  const { cmdPulseRecords } = loadHelpers()
+  const g = cmdPulseRecords(WITH_IDS)
+  const open = (k, i) => g[k].rows[i].open
+  assert.match(open('deals', 0), /opsOpenEntity\('deal', /, 'a deal opens as a deal')
+  assert.match(open('deliveries', 0), /opsOpenEntity\('deal', /,
+    'a delivery is a deal reaching the customer — prefer its deal id')
+  assert.match(open('deliveries', 1), /opsOpenEntity\('vehicle', /,
+    'with no deal id, a delivery still opens its unit')
+  assert.match(open('recon', 0), /opsOpenEntity\('vehicle', /, 'a recon unit is inventory')
+  assert.match(open('service', 0), /opsOpenEntity\('ro', /, 'a repair order opens as a repair order')
+})
+
+test('the page fallback is used only when there is genuinely no id to open', () => {
+  const { cmdPulseRecords } = loadHelpers()
+  const g = cmdPulseRecords(WITH_IDS)
+  const noId = g.deals.rows.find(r => /No Id Deal/.test(r.title))
+  assert.match(noId.open, /switchPage\('sales'\)/,
+    'with no id, fall back to the page rather than promising a record that cannot be shown')
+  const rows = Object.values(g).flatMap(x => x.rows)
+  const fallbacks = rows.filter(r => /switchPage/.test(r.open))
+  assert.equal(fallbacks.length, 2, `only the two id-less records may fall back, got ${fallbacks.length}`)
+})
+
+test('record ids are encoded into the handler, not interpolated raw', () => {
+  const { cmdPulseRecords } = loadHelpers()
+  const g = cmdPulseRecords({ reconVehicles: { vehicles: [{ id: "a'b/c", stock_num: 'X' }] } })
+  const open = g.recon.rows[0].open
+  assert.doesNotMatch(open, /a'b\/c/, "a raw id would break out of the handler's quoting")
+  assert.match(open, /decodeURIComponent\(/, 'the id must be encoded and decoded at call time')
+})
+
+test('opsOpenEntity is reachable from an inline handler', () => {
+  const part12 = readFileSync(path.join(FRONTEND, 'js', 'modules', 'dashboard-part12.js'), 'utf8')
+  assert.match(part12, /Object\.assign\(window, \{[^}]*opsOpenEntity/,
+    'the record links are inline onclick handlers, so the opener must be on window')
+})
+
+// Timeline and workflow are generic across entity types; tasks are not. The old
+// code fell back to contact_id for every unmapped type, so opening a repair order
+// asked for tasks whose contact_id was the RO's id — a query that can only return
+// nothing, displayed as "0 open tasks". Wrong is worse than absent here.
+test('an unmapped entity type skips the task lookup instead of asking wrongly', () => {
+  const part12 = readFileSync(path.join(FRONTEND, 'js', 'modules', 'dashboard-part12.js'), 'utf8')
+  const fn = part12.slice(part12.indexOf('async function opsOpenEntity('),
+                          part12.indexOf('const relatedHtml'))
+  assert.match(fn, /TASK_PARAM = \{[^}]*deal: 'deal_id'[^}]*vehicle: 'inventory_id'[^}]*contact: 'contact_id'/,
+    'the task key must be an explicit per-type map')
+  // Pin the fallback itself, not one spelling of it: the first version of this
+  // check looked for `: 'contact_id';` and so missed `|| 'contact_id';` when the
+  // regression was reintroduced. An unmapped type must resolve to null.
+  assert.match(fn, /TASK_PARAM\[type\] \|\| null/,
+    'an unmapped type must get no task key at all, not a borrowed one')
+  const fallback = fn.match(/const taskParam = [^;]+;/)
+  assert.ok(fallback, 'taskParam must be assigned once, explicitly')
+  assert.doesNotMatch(fallback[0], /contact_id/,
+    'contact_id must not be the catch-all fallback for every other type')
+  assert.match(fn, /taskParam\s*\n?\s*\? apiGetJson/,
+    'the task request must be conditional on there being a real key')
+  assert.match(part12, /Tasks not tracked for this record type/,
+    'a type whose tasks were never looked up must say so, not show a confident zero')
+})
