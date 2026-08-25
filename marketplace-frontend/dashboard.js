@@ -1302,7 +1302,8 @@ function applyProductNav(products) {
   // strip all go), and Open Setup never appears (that wizathese top headers go to the left nav for this dashrd walks through
   // DealerOS departments this account doesn't have). "Design Studio" style single-
   // page tiers get an even flatter sidebar — see restrictedNavPages().
-  if (active.length === 1) {
+  const isIndependentSingleProduct = active.length === 1 && active[0] !== 'dealer_os';
+  if (isIndependentSingleProduct) {
     document.getElementById('header-settings')?.classList.add('hidden');
     document.getElementById('notif-bell')?.classList.remove('hidden');
     document.getElementById('header-social-icons')?.classList.add('hidden');
@@ -1319,6 +1320,11 @@ function applyProductNav(products) {
       document.getElementById('staff-chat-dock-bar')?.classList.add('hidden');
       if (typeof window.disableStaffChatDock === 'function') window.disableStaffChatDock();
     }
+  } else if (active.includes('dealer_os')) {
+    // DealerOS is the full dealership operating system even when it is the only
+    // product on the subscription. Keep its full header and internal Team Chat.
+    document.getElementById('header-social-icons')?.classList.remove('hidden');
+    if (typeof window.enableStaffChatDock === 'function') window.enableStaffChatDock();
   }
   // Design Studio standalone: launch straight into the editor, not the Settings page
   // it lands on underneath (that page exists only so closing the editor has somewhere

@@ -1508,7 +1508,6 @@ body {
     var(--ms-bg) !important;
 }
 
-body > header,
 #dept-sidebar,
 #nav-desktop,
 #nav-mobile,
@@ -1527,7 +1526,6 @@ body > header,
 .dark body,
 .dark body main { background-color:#0b1020 !important; }
 
-.dark body > header,
 .dark #nav-desktop,
 .dark #nav-mobile,
 .dark #report-rail,
@@ -1796,7 +1794,6 @@ body {
   background-attachment: fixed !important;
 }
 
-.dark body > header,
 .dark #dept-sidebar,
 .dark #nav-desktop,
 .dark #nav-mobile,
@@ -2083,8 +2080,8 @@ body {
    glass cascade gives surfaces a deep card shadow; on a full-width header that
    becomes a hard horizontal band. A border creates the same seam, so the shell
    header deliberately uses neither. */
-body > header,
-.dark body > header {
+html body > header,
+html.dark body > header {
   border-bottom: 0 !important;
   box-shadow: none !important;
 }
@@ -2143,6 +2140,33 @@ body > header {
   main:has(#dept-sidebar .ms-product-nav-item),
   main:has(#dept-sidebar .ms-suite-nav-item) {
     column-gap: 1.5rem !important;
+  }
+}
+
+/* The authenticated desktop shell has three distinct navigation zones: the
+   fixed top header, a compact department rail, and each engine's right
+   operations rail. Explicit semantic columns avoid purge-sensitive arbitrary
+   Tailwind utilities and keep the left rail from stretching over the canvas. */
+@media (min-width: 1024px) {
+  .ms-dashboard-shell {
+    display: grid !important;
+    grid-template-columns: 190px minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    align-items: start;
+    column-gap: 1.25rem !important;
+  }
+  #dept-sidebar {
+    display: flex !important;
+    align-self: start !important;
+    width: 190px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: calc(100vh - 136px) !important;
+    overflow: visible !important;
+  }
+  #dashboard-nav {
+    width: 100% !important;
+    height: auto !important;
   }
 }
 

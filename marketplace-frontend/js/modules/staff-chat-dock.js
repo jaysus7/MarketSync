@@ -32,7 +32,7 @@
     const products = (document.documentElement.getAttribute('data-product') || '').trim();
     if (!products) return false;
     const list = products.split(/\s+/);
-    return list.length === 1 && list[0] !== 'facebook_dealer';
+    return list.length === 1 && !['facebook_dealer', 'dealer_os'].includes(list[0]);
   }
 
   // Called by applyProductNav once the tier is known (covers the case where this dock
@@ -41,6 +41,20 @@
     disabled = true;
     if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
     document.getElementById('staff-chat-dock-bar')?.classList.add('hidden');
+  };
+
+  function startStaffChatDock() {
+    if (shouldHideStaffChat()) return;
+    initLauncherUI();
+    fetchMembers();
+    pollUnread();
+    if (!pollInterval) pollInterval = setInterval(pollUnread, 5000);
+  }
+
+  window.enableStaffChatDock = function () {
+    disabled = false;
+    document.getElementById('staff-chat-dock-bar')?.classList.remove('hidden');
+    startStaffChatDock();
   };
 
   const EMOJI_LIST = ['\u{1F44D}', '\u{2764}', '\u{1F525}', '\u{1F602}', '\u{1F44F}', '\u{1F680}', '\u{1F389}', '\u{1F697}', '\u{1F4AF}', '\u{1F64F}', '\u{2705}', '\u{1F440}', '\u{2B50}', '\u{1F4A1}', '\u{1F4AA}', '\u{1F91D}', '\u{26A1}', '\u{1F3AF}'];
@@ -466,11 +480,7 @@
 
   // Start cycles on DOM ready
   document.addEventListener('DOMContentLoaded', () => {
-    if (shouldHideStaffChat()) return; // independent program — no team chat at all
-    initLauncherUI();
-    fetchMembers();
-    pollUnread();
-    pollInterval = setInterval(pollUnread, 5000);
+    startStaffChatDock();
   });
 
   // Global click to close emoji pickers

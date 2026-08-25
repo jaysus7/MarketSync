@@ -12,6 +12,7 @@ const salesWs = read('../../marketplace-frontend/js/modules/sales-workspace.js')
 const fniWs = read('../../marketplace-frontend/js/modules/fni-workspace.js')
 const inventoryWs = read('../../marketplace-frontend/js/modules/inventory-workspace.js')
 const staffChatDock = read('../../marketplace-frontend/js/modules/staff-chat-dock.js')
+const part23 = read('../../marketplace-frontend/js/modules/dashboard-part23.js')
 const staffChatRoute = read('../routes/staff-chat.js')
 
 // ── The right rail carries department reports and operational actions ────────
@@ -96,4 +97,10 @@ test('the staff-chat bubble surfaces an error instead of stalling on "Loading te
     'a directory error renderer exists')
   assert.match(staffChatDock, /staff-chat-directory-list/,
     'it targets the directory list container')
+})
+
+test('the assistant is always named Intelligence', () => {
+  const fn = part23.match(/function applyAssistantName\([^)]*\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /__aiAssistantName = 'Intelligence'/)
+  assert.doesNotMatch(fn, /name \|\||name\.trim/)
 })
