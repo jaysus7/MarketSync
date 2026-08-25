@@ -497,7 +497,7 @@ let profileContext = null;
 // html[data-dash-mode] attribute). Persisted per-browser.
 let __dashMode = localStorage.getItem('ms_dash_mode') === 'marketsync' ? 'marketsync' : 'demo';
 // The pages that remain in MarketSync mode (everything else is vehicle-only).
-const MS_ALLOWED_PAGES = new Set(['command', 'saas-command', 'saas-customers', 'saas-followups', 'saas-funnel', 'saas-automation', 'saas-employees', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin', 'owner-users']);
+const MS_ALLOWED_PAGES = new Set(['saas-command', 'saas-customers', 'saas-followups', 'saas-funnel', 'saas-automation', 'saas-email-marketing', 'saas-employees', 'saas-accounting', 'saas-studio', 'saas-website', 'profile', 'owner-users']);
 
 // ── Specialized dealership sub-roles ─────────────────────────────────────────
 // Beyond DEALER_ADMIN / OWNER / MANAGER / SALES_REP, a store can give a login one
@@ -1426,6 +1426,20 @@ window.applyMobileQuickRow = applyMobileQuickRow;
 // The page list for a restricted tier's mobile "more" sheet (with labels/icons), or
 // null for the full-OS experience (which uses the department / legacy renderers).
 function restrictedNavPages() {
+  // MarketSync Internal is a server-resolved workspace, not a dealer role or
+  // product bundle. Resolve it before dealer-role/product navigation so a
+  // platform owner can never inherit a dealership Pulse from stale entitlements.
+  if (profileContext?.workspace === 'saas_admin' || profileContext?.is_marketsync === true) {
+    return [
+      { page: 'saas-command', label: 'Pulse', icon: 'chart' },
+      { page: 'saas-customers', label: 'Accounts', icon: 'building' },
+      { page: 'saas-funnel', label: 'Leads', icon: 'funnel' },
+      { page: 'saas-followups', label: 'Work', icon: 'check' },
+      { page: 'saas-employees', label: 'People', icon: 'users' },
+      { page: 'saas-automation', label: 'Communications', icon: 'chat' },
+      { page: 'saas-accounting', label: 'Money', icon: 'dollar' },
+    ];
+  }
   // Exact per-product / per-role nav (Settings lives on the header gear, never here):
   //   Facebook Solo ................. Inventory, Leaderboard
   //   Facebook Dealer — Rep ......... My Inventory, Leaderboard
@@ -1666,7 +1680,7 @@ async function marketsyncCleanup(btn) {
 window.marketsyncCleanup = marketsyncCleanup;
 // Reveal the switch + apply the saved mode once we know this is the MarketSync owner.
 function initDashModeForOwner() {
-  const isOwner = profileContext?.is_marketsync === true || ['JMS Automotive', 'MarketSync'].includes(profileContext?.dealership?.name);
+  const isOwner = profileContext?.workspace === 'saas_admin' || profileContext?.is_marketsync === true;
   // is_marketsync reflects the LOGGED-IN USER's own system role (a real platform
   // owner/admin), not which dealership context is currently being viewed — a platform
   // staffer previewing the dedicated demo dealership through the switcher still holds
@@ -1687,6 +1701,7 @@ function initDashModeForOwner() {
   document.getElementById('nav-saas-funnel')?.classList.remove('hidden');    // Checkout funnel / abandoned carts
   document.getElementById('nav-saas-automation')?.classList.remove('hidden');// Automation & email (editable drips)
   document.getElementById('nav-saas-employees')?.classList.remove('hidden'); // Employees + permissions
+  document.getElementById('nav-saas-accounting')?.classList.remove('hidden'); // Money
   // The demo dealership workspace has been retired — the owner runs the MarketSync
   // SaaS business only, so force the SaaS back office and land on the HQ.
   __dashMode = 'marketsync';
