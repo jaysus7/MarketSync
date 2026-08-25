@@ -301,7 +301,7 @@ const CSP_DIRECTIVES = [
   "default-src 'self'",
   // Scripts: own origin + CDN, GA, Stripe, Calendly, CookieYes, Google Translate.
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' " +
-    "https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net " +
+    "https://cdnjs.cloudflare.com https://cdn.jsdelivr.net " +
     "https://www.googletagmanager.com https://www.google-analytics.com " +
     "https://js.stripe.com https://assets.calendly.com https://cdn-cookieyes.com " +
     "https://translate.google.com https://translate.googleapis.com",

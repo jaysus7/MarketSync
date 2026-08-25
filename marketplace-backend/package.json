@@ -20,6 +20,9 @@
     "check:exports": "node scripts/check-exports.js",
     "check:routes": "node scripts/check-route-registration.js",
     "check:frontend": "node scripts/check-frontend-syntax.js && node --check ../marketplace-frontend/dashboard.js",
+    "build:css": "npm run build:css:class && npm run build:css:media",
+    "build:css:class": "cd ../marketplace-frontend && ../marketplace-backend/node_modules/.bin/tailwindcss -c tailwind.config.class.js -i css/tailwind-input.css -o css/tailwind-built.css --minify",
+    "build:css:media": "cd ../marketplace-frontend && ../marketplace-backend/node_modules/.bin/tailwindcss -c tailwind.config.media.js -i css/tailwind-input.css -o css/tailwind-built-media.css --minify",
     "check:startup": "SUPABASE_URL=${SUPABASE_URL:-https://dummy.supabase.co} SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-dummy-anon} SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-dummy-role} VALIDATE_STARTUP=true RUN_WORKERS=false node server.js",
     "validate:imports": "node scripts/validate-imports.js",
     "seed:jms": "node scripts/seed-jms.js",
@@ -49,7 +52,8 @@
     "ws": "^8.20.1"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1"
+    "@playwright/test": "^1.62.1",
+    "tailwindcss": "^3.4.19"
   },
   "overrides": {
     "@puppeteer/browsers": "3.2.0"
