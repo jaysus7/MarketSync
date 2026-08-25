@@ -347,21 +347,17 @@ test('every Pulse uses one padded, overflow-safe visual board', () => {
     'Service appointment counts must come from the service appointment source')
 })
 
-test('the desktop dashboard shell keeps compact navigation and header breathing room', () => {
-  assert.match(html, /md:grid-cols-\[200px_minmax\(0,1fr\)\]/,
-    'the department rail must not consume the former 248px column')
+test('the desktop dashboard shell removes the department rail and keeps header breathing room', () => {
+  assert.doesNotMatch(html, /md:grid-cols-\[(?:200|248)px_minmax\(0,1fr\)\]/,
+    'desktop content must not reserve a left department column')
   assert.match(html, /md:pt-\[116px\]/,
     'desktop content must keep a deliberate gap below the fixed header')
-  assert.match(html, /id="dept-sidebar"[^>]*md:h-auto[^>]*md:self-start/,
-    'the sidebar glass must wrap its navigation instead of filling the viewport')
-  assert.match(themeCss, /#dept-sidebar\s*\{[\s\S]*?background:\s*transparent\s*!important/,
-    'the sidebar column must not paint a full-height surface edge')
-  assert.match(themeCss, /#dashboard-nav\s*\{[\s\S]*?border-radius:\s*22px\s*!important/,
-    'the compact navigation itself must own the rounded glass surface')
-  assert.match(themeCss, /#dept-sidebar\s*\{[\s\S]*?height:\s*auto\s*!important/,
-    'the left navigation wrapper must fit its menu instead of filling the screen')
-  assert.match(html, /id="report-rail"[\s\S]*?data-report="all"/,
-    'manager report shortcuts must remain available on the right edge')
+  assert.match(html, /id="dept-sidebar"[^>]*md:hidden/,
+    'the department navigation must be absent on desktop')
+  assert.match(themeCss, /#dept-sidebar\s*\{[\s\S]*?display:\s*none\s*!important/,
+    'desktop CSS must enforce removal of the department rail')
+  assert.match(part10, /sec\('Reports', 'chart', reportsHtml\)/,
+    'the proper engine rail must restore department reports on the right')
   assert.match(part11, /class="ms-daily-greeting"/,
     'management Pulse must render its greeting on a system-aware surface')
   assert.match(part11, /dailyMotivations[\s\S]*?Date\.UTC/,

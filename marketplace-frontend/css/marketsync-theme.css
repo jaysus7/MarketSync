@@ -1661,22 +1661,11 @@ body > header,
 .ms-pulse-board button,
 [data-engine-rail] button { border-radius: var(--ms-radius-control) !important; }
 
-/* A Pulse page is a wall of glance widgets, so it wants the whole content column.
-   renderEngine()'s shell hands every engine a fixed 300px right rail, which left the
-   board at ~74% of the width the engine header above it spans and a column of dead
-   space beside every department section. On Pulse tabs the rail stops being a column
-   and becomes a full-width action strip directly under the header, so the board runs
-   edge to edge. Toggled from engineTab() alongside .ms-pulse-board. */
-.ms-pulse-wide { grid-template-columns: minmax(0, 1fr) !important; }
-
-.ms-pulse-wide > [data-engine-rail] {
-  order: -1;
-  position: static !important;
-  top: auto !important;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
-  gap: .75rem;
-  align-items: start;
+/* Pulse keeps the engine's native two-column shell at desktop widths: a wide
+   operating canvas plus the compact Reports / Next Actions / Quick Actions rail. */
+[data-engine-body] + [data-engine-rail] {
+  align-self: start;
+  min-width: 0;
 }
 
 @media (min-width: 1024px) {
@@ -2112,11 +2101,7 @@ body > header {
 @media (min-width: 768px) {
   html:has(body.ms-app-booting), body.ms-app-booting { overflow: hidden !important; }
   #dept-sidebar {
-    align-self: start !important;
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: calc(100vh - 136px) !important;
-    overflow: visible !important;
+    display: none !important;
   }
   #dashboard-nav {
     width: 100% !important;
@@ -2321,6 +2306,7 @@ html.dark[data-dash-mode="marketsync"] .page-content .ms-ai-panel {
 /* Fixed manager report rail. Its collapsed state stays icon-only; expanding it
    reveals labels without replacing the workspace or stealing page width. */
 #report-rail {
+  display: none !important;
   width: 3.5rem;
   max-height: calc(100vh - 9rem);
   padding: .5rem;

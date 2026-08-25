@@ -23,7 +23,7 @@
   <title>DealerOS by MarketSync · Dashboard</title>
   <link rel="preconnect" href="https://api.fontshare.com">
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260825_pulse_shell_v2">
+  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260825_right_ops_rail_v3">
   <link rel="stylesheet" href="css/dashboard-nav.css">
   <link rel="stylesheet" href="css/dashboard-brand-repaint.css">
   <link rel="stylesheet" href="css/tailwind-built.css?v=20260825_header_spacing_v1">
@@ -462,9 +462,9 @@
     </aside>
   </div>
 
-  <main class="flex-1 w-full px-3 pb-3 pt-[112px] sm:px-4 sm:pb-4 sm:pt-[116px] md:pt-[116px] lg:px-5 lg:pb-5 flex flex-col md:grid md:grid-cols-[200px_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] gap-3 md:gap-5 min-h-0 overflow-hidden">
+  <main class="flex-1 w-full px-3 pb-3 pt-[112px] sm:px-4 sm:pb-4 sm:pt-[116px] md:pt-[116px] lg:px-5 lg:pb-5 flex flex-col gap-3 md:gap-5 min-h-0 overflow-hidden">
 
-    <section id="dept-sidebar" class="flex flex-col shrink-0 md:col-span-1 md:h-auto md:max-h-[calc(100vh-136px)] md:self-start md:overflow-y-auto">
+    <section id="dept-sidebar" class="flex flex-col shrink-0 md:hidden">
 
       <div id="profile-card" class="hidden">
         <div class="mb-4 hidden">
@@ -3284,7 +3284,7 @@
   </main>
 
   <!-- ── Manager report shortcuts — fixed to the right edge and collapsible. ── -->
-  <aside id="report-rail" aria-label="Report shortcuts" class="hidden fixed right-0 top-1/2 -translate-y-1/2 z-30 flex-col">
+  <aside id="report-rail" aria-label="Legacy report shortcuts" aria-hidden="true" class="hidden fixed right-0 top-1/2 -translate-y-1/2 z-30 flex-col">
     <div class="ms-report-rail__head">
       <span class="rr-head-label">Reports</span>
       <button type="button" onclick="toggleReportRail()" aria-label="Expand or minimize report shortcuts" aria-controls="report-rail">
@@ -3885,7 +3885,7 @@
   <script src="js/modules/dashboard-part7.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part8.js?v=20260818_videostaff_v2"></script>
   <script src="js/modules/dashboard-part9.js?v=20260825_settings_masonry_v1"></script>
-  <script src="js/modules/dashboard-part10.js?v=20260825_pulse_fullwidth_v1"></script>
+  <script src="js/modules/dashboard-part10.js?v=20260825_right_ops_rail_v3"></script>
   <script src="js/modules/dashboard-part11.js?v=20260825_daily_focus_v2"></script>
   <script src="js/modules/dashboard-part12.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part13.js?v=20260824_ai_panel_contrast_v1"></script>
