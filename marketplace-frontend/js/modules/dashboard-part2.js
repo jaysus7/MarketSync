@@ -1427,12 +1427,14 @@ function renderDeptTabbar(pageId) {
     bar.classList.remove('hidden');
     return;
   }
-  // Standalone products still use the shared top header. Previously these
-  // destinations were suppressed here, leaving Website and AI without their
-  // Builder/Setup or Pulse/Setup navigation.
+  // Standalone products still use the shared top header — but only as a fallback.
+  // Previously these destinations were suppressed here, leaving Website and AI
+  // without their Builder/Setup or Pulse/Setup navigation. Now that renderDeptNav's
+  // restricted branch renders those same destinations into the sidebar itself
+  // (__deptNavBuilt), repeating them up here too is a duplicate nav, not a fallback.
   const restricted = typeof restrictedNavPages === 'function' ? restrictedNavPages() : null;
   const workspaceContext = typeof resolveWorkspaceContext === 'function' ? resolveWorkspaceContext() : null;
-  if (restricted && restricted.length > 1 && (__productAllowedPages || __fbOnly || __staffAllowedPages || workspaceContext?.type === 'website')) {
+  if (!__deptNavBuilt && restricted && restricted.length > 1 && (__productAllowedPages || __fbOnly || __staffAllowedPages || workspaceContext?.type === 'website')) {
     const activeTab = pageId === 'website' ? (window.__wsTab || 'setup')
       : pageId === 'automation-builder' ? (__autoTab || 'overview')
       : pageId === 'ai-home' ? (window.__aiHomeTab || 'conversations')

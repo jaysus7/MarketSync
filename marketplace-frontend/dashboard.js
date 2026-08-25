@@ -1667,6 +1667,16 @@ window.marketsyncCleanup = marketsyncCleanup;
 // Reveal the switch + apply the saved mode once we know this is the MarketSync owner.
 function initDashModeForOwner() {
   const isOwner = profileContext?.is_marketsync === true || ['JMS Automotive', 'MarketSync'].includes(profileContext?.dealership?.name);
+  // is_marketsync reflects the LOGGED-IN USER's own system role (a real platform
+  // owner/admin), not which dealership context is currently being viewed — a platform
+  // staffer previewing the dedicated demo dealership through the switcher still holds
+  // that role. Without this check they'd be yanked out of the demo they're trying to
+  // preview and dropped into MarketSync's own real internal Pulse (live customer names,
+  // revenue, trial pipeline) instead. isDemo is the server-authoritative signal for
+  // "the dealership I'm currently viewing", from the same access context /demo/control
+  // itself is gated on — so this is a hard rule, not a heuristic: never let owner mode
+  // override what the demo dealership is showing.
+  if (window.__access?.isDemo) return;
   if (!isOwner) return;
   document.documentElement.setAttribute('data-dash-owner', '1');
   // Reveal the owner-only platform console (all accounts + billing/engine controls).
