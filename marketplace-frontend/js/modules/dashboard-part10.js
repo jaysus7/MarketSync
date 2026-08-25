@@ -761,9 +761,29 @@ if (typeof window !== 'undefined') {
 // warning amber too, which is worse: it colours an unknown as if it were a
 // finding. A value carries a tone only when it has a magnitude to carry it. Same
 // rule as the Pulse tile row: emphasis follows the data.
+// Reads the text OUTSIDE any markup, so a tag's own attributes cannot be mistaken
+// for the value: class="text-3xl" contains a 3, and a naive digit test on the raw
+// string would call an empty KPI non-empty because of its own styling.
+//
+// This is deliberately a scan rather than `replace(/<[^>]*>/g, '')`. That regex is
+// incomplete — "<scr<script>ipt>" survives it — which CodeQL flagged, and it is
+// also simply wrong for this job because it cannot handle nesting. The result is
+// only ever tested for a digit and is never written back to the DOM, so this is a
+// parser for a numeric test, not a sanitizer; nothing here should be reused as one.
+function engKpiText(val) {
+  const s = String(val ?? '');
+  let out = '';
+  let depth = 0;
+  for (const ch of s) {
+    if (ch === '<') { depth++; continue; }
+    if (ch === '>') { if (depth > 0) depth--; continue; }
+    if (depth === 0) out += ch;
+  }
+  return out;
+}
+
 function engKpiIsQuiet(val) {
-  const text = String(val ?? '').replace(/<[^>]*>/g, '');
-  return !/[1-9]/.test(text);
+  return !/[1-9]/.test(engKpiText(val));
 }
 
 function engKpi(label, val, tone, onclick) {

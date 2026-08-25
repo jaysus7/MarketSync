@@ -70,9 +70,14 @@ test('the AI panel header wraps and its badge stays on one line', () => {
 // unknown as though it were a finding.
 test('a KPI only wears its alert colour when the number has a magnitude', () => {
   assert.match(part10, /function engKpiIsQuiet\(val\)/, 'the quiet test must exist')
-  const fn = part10.slice(part10.indexOf('function engKpiIsQuiet'), part10.indexOf('function engKpi(label'))
-  assert.match(fn, /replace\(\/<\[\^>\]\*>\/g, ''\)/, 'a value may contain markup; strip it before testing')
+  const fn = part10.slice(part10.indexOf('function engKpiText'), part10.indexOf('function engKpi(label'))
   assert.match(fn, /!\/\[1-9\]\/\.test/, 'a value with no non-zero digit carries no magnitude')
+  // The tag stripping must NOT be `replace(/<[^>]*>/g, '')`: that is incomplete
+  // ("<scr<script>ipt>" survives it), CodeQL flags it, and it cannot handle
+  // nesting — which is the actual requirement here, since a tag's own attributes
+  // must not be read as the value.
+  assert.doesNotMatch(fn, /replace\(\/<\[\^>\]\*>\/g/,
+    'an incomplete tag-stripping regex must not come back')
 
   const body = part10.slice(part10.indexOf('function engKpi(label'), part10.indexOf('function engKpi(label') + 700)
   assert.match(body, /const quiet = engKpiIsQuiet\(val\)/)
@@ -82,12 +87,18 @@ test('a KPI only wears its alert colour when the number has a magnitude', () => 
 
 test('the quiet test treats an unknown the same as a zero', () => {
   // Re-implemented from the source so the rule itself is asserted, not just its shape.
-  const fn = part10.slice(part10.indexOf('function engKpiIsQuiet'), part10.indexOf('function engKpi(label'))
-  const isQuiet = new Function('val', fn.slice(fn.indexOf('{') + 1, fn.lastIndexOf('}')))
-  for (const v of ['$0', '$0.00', '0', '—', '<b>$0</b>', '', null]) {
-    assert.equal(isQuiet(v), true, `${JSON.stringify(v)} has no magnitude and must be quiet`)
+  // Execute the real implementation rather than describing it.
+  const src = part10.slice(part10.indexOf('function engKpiText'), part10.indexOf('function engKpi(label'))
+  const isQuiet = new Function(`${src}; return engKpiIsQuiet(val)`).bind(null)
+  const call = (v) => new Function('val', `${src}; return engKpiIsQuiet(val)`)(v)
+  void isQuiet
+  for (const v of ['$0', '$0.00', '0', '—', '<b>$0</b>', '',
+                   '<span class="text-3xl">$0</span>',   // the tag's own 3 must not count
+                   '<scr<script>ipt>$0',                  // survives the naive regex, not this
+                   null]) {
+    assert.equal(call(v), true, `${JSON.stringify(v)} has no magnitude and must be quiet`)
   }
   for (const v of ['$12,400', '3', '0.5%', '-$1,200']) {
-    assert.equal(isQuiet(v), false, `${JSON.stringify(v)} has a magnitude and must keep its tone`)
+    assert.equal(call(v), false, `${JSON.stringify(v)} has a magnitude and must keep its tone`)
   }
 })
