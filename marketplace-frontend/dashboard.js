@@ -1680,7 +1680,7 @@ async function marketsyncCleanup(btn) {
 window.marketsyncCleanup = marketsyncCleanup;
 // Reveal the switch + apply the saved mode once we know this is the MarketSync owner.
 function initDashModeForOwner() {
-  const isOwner = profileContext?.workspace === 'saas_admin' || profileContext?.is_marketsync === true || ['JMS Automotive', 'MarketSync'].includes(profileContext?.dealership?.name);
+  const isOwner = profileContext?.workspace === 'saas_admin' || profileContext?.is_marketsync === true;
   // is_marketsync reflects the LOGGED-IN USER's own system role (a real platform
   // owner/admin), not which dealership context is currently being viewed — a platform
   // staffer previewing the dedicated demo dealership through the switcher still holds
