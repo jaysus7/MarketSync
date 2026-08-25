@@ -675,6 +675,13 @@ ENGINES['parts-overview'] = {
         .sort((a, b) => Number(a.qty_available ?? 0) - Number(b.qty_available ?? 0));
       const highestValueParts = [...parts].sort((a, b) =>
         (Number(b.qty_on_hand || 0) * Number(b.cost || 0)) - (Number(a.qty_on_hand || 0) * Number(a.cost || 0))).slice(0, 6);
+      const stockValue = parts.reduce((sum, p) => sum + (Number(p.qty_on_hand || 0) * Number(p.cost || 0)), 0);
+      const reservedUnits = parts.reduce((sum, p) => sum + Number(p.qty_reserved || 0), 0);
+      const fillableRequests = reqs.filter(q => ['reserved', 'issued', 'fulfilled'].includes(q.status)).length;
+      const fillRate = reqs.length ? Math.round((fillableRequests / reqs.length) * 100) : null;
+      const blockedRoIds = [...new Set(reqs.filter(q => q.ro_id && ['requested', 'backordered'].includes(q.status)).map(q => q.ro_id))];
+      const otherRequests = reqs.filter(q => (q.requested_for || 'service') !== 'service');
+      const completedMovement = reqs.filter(q => ['issued', 'fulfilled'].includes(q.status));
       const pulse = pulseGrid([
         pulseCard({
           title: 'Backordered — shop waiting', count: backordered.length, tone: backordered.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
@@ -720,7 +727,52 @@ ENGINES['parts-overview'] = {
             value: '$' + Math.round(Number(p.qty_on_hand || 0) * Number(p.cost || 0)).toLocaleString(),
           })).join('') : '', empty: 'No parts on file yet.',
         }),
+        pulseCard({
+          title: 'Stock health', count: unitsOnHand,
+          onclick: "engineTab('parts-overview','work')",
+          inner: [
+            pulseRow({ badge: parts.length, label: 'Parts on file' }),
+            pulseRow({ badge: '$', label: 'On-hand stock value', value: '$' + Math.round(stockValue).toLocaleString() }),
+            pulseRow({ badge: fillRate == null ? '—' : fillRate + '%', label: 'Request fill rate' }),
+            pulseRow({ badge: reservedUnits, label: 'Reserved units' }),
+          ].join(''),
+        }),
+        pulseCard({
+          title: 'Waiting repair orders', count: blockedRoIds.length,
+          tone: blockedRoIds.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
+          onclick: "engineTab('parts-overview','work')",
+          inner: blockedRoIds.length ? blockedRoIds.slice(0, 6).map(roId => {
+            const rows = reqs.filter(q => q.ro_id === roId);
+            const backorderCount = rows.filter(q => q.status === 'backordered').length;
+            return pulseRow({
+              badge: rows.length, label: `Repair order ${String(roId).slice(0, 8)}`,
+              sub: backorderCount ? `${backorderCount} backordered` : 'Parts requested', onclick: "engineTab('parts-overview','work')",
+            });
+          }).join('') : '', empty: 'No repair order is waiting on parts.',
+        }),
+        pulseCard({
+          title: 'Other department demand', count: otherRequests.length,
+          onclick: "engineTab('parts-overview','work')",
+          inner: otherRequests.length ? otherRequests.slice(0, 6).map(q => pulseRow({
+            badge: '#', label: d.partById?.[q.part_id]?.part_number || 'Part',
+            sub: `${PW_DEPT_LABEL[q.requested_for] || q.requested_for || 'Other'} · ${pwReqShort(q)}`, onclick: "engineTab('parts-overview','work')",
+          })).join('') : '', empty: 'No demand outside Service.',
+        }),
+        pulseCard({
+          title: 'Issued and fulfilled', count: completedMovement.length,
+          onclick: "engineTab('parts-overview','work')",
+          inner: completedMovement.length ? completedMovement.slice(0, 6).map(q => pulseRow({
+            icon: 'check', label: d.partById?.[q.part_id]?.part_number || 'Part', sub: pwReqShort(q), done: q.status === 'fulfilled',
+          })).join('') : '', empty: 'No completed parts movement yet.',
+        }),
       ]);
+
+      // Keep the stock ledger Pulse singular. Receiving, issuing, requests and
+      // inventory records stay in their dedicated work tab.
+      body.innerHTML = `
+        ${pulseHeader('Parts Pulse', 'Demand, availability, receiving and issue — one stock ledger')}
+        ${pulse}`;
+      return;
 
       body.innerHTML = `
         ${pulseHeader('Parts Pulse', 'Demand, availability, receiving and issue — one stock ledger')}

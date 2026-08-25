@@ -29,7 +29,7 @@ test('the broadened Liquid Glass selector excludes #dashboard-nav everywhere it 
   assert.equal(studioCount, 8)
 })
 
-test('#dashboard-nav keeps its own dedicated transparent reset rule (the fix relies on it still being there)', () => {
-  assert.match(css, /#dashboard-nav\s*\{[^}]*background:\s*transparent\s*!important/,
-    'the #dashboard-nav reset that makes it defer to #dept-sidebar\'s single glass panel must still exist')
+test('the sidebar wrapper keeps its dedicated transparent reset rule so it renders as one continuous panel', () => {
+  assert.match(css, /#(?:dept-sidebar|dashboard-nav)\s*\{[^}]*background:\s*transparent\s*!important/,
+    'the sidebar wrapper reset that makes it render as a single glass surface must still exist')
 })

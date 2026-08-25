@@ -641,14 +641,25 @@ window.aiSetReplyAs = aiSetReplyAs;
 async function aiOpenConversation(id) {
   const overlay = crmOverlay(`<div class="p-5"><div class="text-sm text-slate-400 py-16 text-center">Loading…</div></div>`, 'max-w-2xl');
   const panel = overlay.firstElementChild;
-  let convo = null, messages = [], memory = [];
-  try { const d = await apiGetJson(`/ai/conversations/${id}`); convo = d.conversation; messages = d.messages || []; memory = d.memory || []; } catch { if (panel) panel.innerHTML = '<div class="p-6 text-rose-500 text-sm">Could not load.</div>'; return; }
+  let convo = null, messages = [], memory = [], qualification = null, scoreDetails = null, leadBrief = null;
+  try {
+    const d = await apiGetJson(`/ai/conversations/${id}`);
+    convo = d.conversation;
+    messages = d.messages || [];
+    memory = d.memory || [];
+    qualification = d.qualification || null;
+    scoreDetails = d.score_details || null;
+    leadBrief = d.lead_brief || null;
+  } catch {
+    if (panel) panel.innerHTML = '<div class="p-6 text-rose-500 text-sm">Could not load.</div>';
+    return;
+  }
   if (!panel || !overlay.isConnected) return;
   
   // Persona name for the assistant (cached).
   if (window.__aiAssistantName === undefined) { try { const pr = await apiGetJson('/ai/personality'); window.__aiAssistantName = pr.personality?.name || ''; } catch { window.__aiAssistantName = ''; } }
   convo.assistant_name = window.__aiAssistantName || 'Avery (AI)';
-  __aiConvo = { id, convo, messages, memory };
+  __aiConvo = { id, convo, messages, memory, qualification, scoreDetails, leadBrief };
 
   // Calculate live presence status
   const lastMsgTime = convo.last_message_at ? new Date(convo.last_message_at).getTime() : 0;
@@ -672,7 +683,7 @@ async function aiOpenConversation(id) {
 
   const bubbles = messages.map(m => {
     const isUser = m.role === 'user';
-    const isHuman = !isUser && m.sender_type === 'human';   // a rep's reply, not the AI
+    const isHuman = !isUser && m.sender_type === 'human';
     const channelTag = m.channel === 'sms' ? 'SMS' : m.channel === 'email' ? 'Email' : 'Website Chat';
     const label = isUser ? 'Customer' : (isHuman ? 'You' : (convo.assistant_name || 'AI'));
     const tone = isUser ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
@@ -691,13 +702,66 @@ async function aiOpenConversation(id) {
     `;
   }).join('');
 
-  const memHtml = memory.length ? `<div class="flex flex-wrap gap-1.5 mb-3">${memory.map(m => `<span class="text-[11px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${esc(m.memory_type)}: ${esc(m.value)}</span>`).join('')}</div>` : '';
-  const score = convo.lead_score || 0;
-  const factors = aiScoreFactors(messages, !!convo.contact_id, memory);
-  const factorRows = factors.map(f => `<div class="flex items-center justify-between text-[12px] py-0.5">
-    <span class="flex items-center gap-1.5 ${f.on ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 line-through'}">${f.on ? svgIcon('dot', 'w-3 h-3 text-emerald-500') : ''}${esc(f.label)}</span>
-    <span class="font-bold ${f.on ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-slate-600'}">+${f.pts}</span></div>`).join('');
+  const score = convo.lead_score || (scoreDetails?.score || 0);
+  const scoreCat = scoreDetails?.category || (score >= 75 ? 'HOT' : score >= 45 ? 'WARM' : 'NURTURE');
+  const reasonsList = scoreDetails?.reasons || [];
   const handoff = convo.status === 'handoff';
+
+  // Lead brief section HTML
+  const vehicleName = leadBrief?.interest?.vehicle_title || qualification?.vehicle_interest || 'Vehicle not specified';
+  const timeframe = leadBrief?.purchase?.timeframe || qualification?.purchase_timeframe || 'Not specified';
+  const budget = leadBrief?.purchase?.budget_or_payment || qualification?.comfortable_payment_range || qualification?.budget_range || 'Flexible';
+  const trade = leadBrief?.trade?.vehicle || 'None / Undecided';
+  const mainObj = leadBrief?.objections?.primary || qualification?.main_objection || null;
+  const nextAction = leadBrief?.next_best_action?.suggested_action || 'Follow up with shopper';
+  const openingLine = leadBrief?.next_best_action?.suggested_opening_line || '';
+
+  const briefCard = `
+    <div class="p-3.5 rounded-2xl border border-sky-500/20 bg-sky-500/5 dark:bg-sky-950/20 space-y-2.5">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${scoreCat === 'HOT' ? 'bg-rose-500 text-white' : scoreCat === 'WARM' ? 'bg-amber-500 text-white' : 'bg-slate-500 text-white'}">${scoreCat} LEAD</span>
+          <span class="text-xs font-bold text-slate-800 dark:text-slate-200">AI Qualification Brief</span>
+        </div>
+        <span class="text-[11px] font-bold text-sky-600 dark:text-sky-400">Score ${score}/100</span>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+        <div class="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+          <div class="text-[10px] font-bold uppercase text-slate-400">Target Vehicle</div>
+          <div class="font-bold text-slate-800 dark:text-slate-200 truncate" title="${esc(vehicleName)}">${esc(vehicleName)}</div>
+        </div>
+        <div class="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+          <div class="text-[10px] font-bold uppercase text-slate-400">Timeframe</div>
+          <div class="font-bold text-slate-800 dark:text-slate-200 capitalize truncate">${esc(timeframe)}</div>
+        </div>
+        <div class="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+          <div class="text-[10px] font-bold uppercase text-slate-400">Budget / Pmt</div>
+          <div class="font-bold text-slate-800 dark:text-slate-200 truncate">${esc(budget)}</div>
+        </div>
+        <div class="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+          <div class="text-[10px] font-bold uppercase text-slate-400">Trade-in</div>
+          <div class="font-bold text-slate-800 dark:text-slate-200 truncate" title="${esc(trade)}">${esc(trade)}</div>
+        </div>
+      </div>
+
+      ${mainObj && mainObj !== 'None identified' ? `
+        <div class="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-xl">
+          <span class="font-bold">Objection Note:</span>
+          <span>${esc(mainObj)}</span>
+        </div>
+      ` : ''}
+
+      <div class="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400">Recommended Next Step</span>
+          ${openingLine ? `<button type="button" onclick="aiUseOpeningLine()" class="text-[11px] font-bold text-indigo-600 hover:underline">Use Suggested Opening</button>` : ''}
+        </div>
+        <div class="text-xs font-bold text-slate-800 dark:text-slate-200">${esc(nextAction)}</div>
+        ${openingLine ? `<div id="ai-opening-script" class="text-[11px] text-slate-500 dark:text-slate-400 italic">“${esc(openingLine)}”</div>` : ''}
+      </div>
+    </div>
+  `;
 
   panel.innerHTML = `<div class="p-5 space-y-4">
     <div class="flex items-start justify-between gap-3">
@@ -712,16 +776,14 @@ async function aiOpenConversation(id) {
       <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
 
-    <div id="ai-score-explain" class="hidden bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg p-3">
-      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1.5">Lead score — how it's calculated (0–100)</div>
-      ${factorRows}
-      <div class="text-[11px] text-slate-400 mt-2">Higher = hotter. 80+ triggers a hot-lead alert to the team.</div>
+    <div id="ai-score-explain" class="hidden bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-3 space-y-1.5">
+      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Lead Score Signals (${scoreCat} · ${score}/100)</div>
+      ${reasonsList.length ? reasonsList.map(r => `<div class="text-xs text-slate-700 dark:text-slate-300 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>${esc(r)}</div>`).join('') : '<div class="text-xs text-slate-400">Early inquiry / browsing</div>'}
     </div>
 
-    ${convo.summary ? `<div class="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-3"><div class="text-[10px] uppercase tracking-wide text-slate-400 font-bold mb-1">AI summary</div><div class="text-[12px] text-slate-600 dark:text-slate-300 whitespace-pre-wrap">${esc(convo.summary)}</div></div>` : ''}
-    ${memHtml}
+    ${briefCard}
 
-    <div id="ai-convo-log" class="space-y-2 max-h-72 overflow-y-auto p-1 border-t border-b border-slate-100 dark:border-slate-800 py-3">${bubbles || '<div class="text-sm text-slate-400 text-center py-6">No messages.</div>'}</div>
+    <div id="ai-convo-log" class="space-y-2 max-h-64 overflow-y-auto p-1 border-t border-b border-slate-100 dark:border-slate-800 py-3">${bubbles || '<div class="text-sm text-slate-400 text-center py-6">No messages.</div>'}</div>
 
     <!-- Offline Visitor Fallback Alert -->
     ${!isOnline ? `
@@ -763,9 +825,18 @@ async function aiOpenConversation(id) {
 
       <textarea id="ai-reply-box" rows="3" placeholder="Type your message to the customer..." class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"></textarea>
 
-      <div class="flex items-center gap-2 flex-wrap">
+      <div class="flex items-center gap-1.5 flex-wrap py-1">
+        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Co-Pilot:</span>
+        <button onclick="aiDraftReply('${id}',this,'draft')" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-2.5 py-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition" title="Draft full reply with AI">Draft</button>
+        <button onclick="aiDraftReply('${id}',this,'shorter')" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-2.5 py-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition" title="Make reply shorter and punchy">Shorter</button>
+        <button onclick="aiDraftReply('${id}',this,'warmer')" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-2.5 py-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition" title="Make reply warm and welcoming">Warmer</button>
+        <button onclick="aiDraftReply('${id}',this,'direct')" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-2.5 py-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition" title="Direct test drive ask">Direct</button>
+        <button onclick="aiDraftReply('${id}',this,'explain_objection')" class="text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50 px-2.5 py-1.5 rounded-lg hover:bg-amber-100 transition" title="Analyze customer objection">Explain</button>
+        <button onclick="aiDraftReply('${id}',this,'suggest_alternative')" class="text-xs font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/50 px-2.5 py-1.5 rounded-lg hover:bg-indigo-100 transition" title="Suggest inventory alternatives">Alternative</button>
+      </div>
+
+      <div class="flex items-center gap-2 flex-wrap pt-1">
         <button onclick="aiSendReply('${id}',this)" class="text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl shadow-md transition">Send Message</button>
-        <button onclick="aiDraftReply('${id}',this)" class="text-xs font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-xl hover:bg-slate-300 transition" title="Draft a reply with AI into the box — edit it, then Send">Draft with AI</button>
         ${handoff ? `<button onclick="aiSetConvStatus('${id}','active',this)" class="text-xs font-bold text-slate-400 hover:text-slate-200 px-2 py-2">Hand back to AI</button>` : ''}
         <div class="flex-1"></div>
         <button onclick="aiRefreshConvo('${id}')" class="text-xs font-bold text-slate-400 hover:text-slate-200 px-2 py-2" title="Refresh">↻ Refresh</button>
@@ -790,6 +861,18 @@ async function aiOpenConversation(id) {
   aiSetReplyChannel(__aiReplyChannel);
 }
 
+function aiUseOpeningLine() {
+  if (!__aiConvo?.leadBrief?.next_best_action?.suggested_opening_line) return;
+  const line = __aiConvo.leadBrief.next_best_action.suggested_opening_line;
+  const box = document.getElementById('ai-reply-box');
+  if (box) {
+    box.value = line;
+    box.focus();
+    showToast('Suggested opening line inserted', 'info');
+  }
+}
+window.aiUseOpeningLine = aiUseOpeningLine;
+
 async function aiSendReply(id, btn) {
   const box = document.getElementById('ai-reply-box');
   const message = (box?.value || '').trim();
@@ -804,18 +887,27 @@ async function aiSendReply(id, btn) {
     aiOpenConversation(id);   // refresh transcript
   } catch (e) { showToast(e.message || 'Failed', 'error'); if (btn) btn.disabled = false; }
 }
-//  AI draft — generate a suggested reply and drop it in the box for the rep to
-// edit and send (it does NOT send on its own).
-async function aiDraftReply(id, btn) {
-  if (btn) { btn.disabled = true; btn.textContent = ' Drafting…'; }
+
+// AI Co-Pilot draft — generates suggested reply with chosen style/intent into the box
+async function aiDraftReply(id, btn, style = 'draft') {
+  const origText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
   try {
-    const d = await apiSendJson(`/ai/conversations/${id}/reply`, 'POST', { mode: 'draft' });
+    const d = await apiSendJson(`/ai/conversations/${id}/reply`, 'POST', { mode: 'draft', style });
     const box = document.getElementById('ai-reply-box');
-    if (box) { box.value = d.draft || ''; box.focus(); }
-    showToast('Draft ready — edit, then Send', 'success');
+    if (box) {
+      if (style === 'explain_objection') {
+        showToast(d.draft || 'Analysis ready', 'info');
+      } else {
+        box.value = d.draft || '';
+        box.focus();
+        showToast('Draft ready — edit, then Send', 'success');
+      }
+    }
   } catch (e) { showToast(e.message || 'Failed', 'error'); }
-  if (btn) { btn.disabled = false; btn.textContent = ' AI draft'; }
+  if (btn) { btn.disabled = false; btn.textContent = origText; }
 }
+window.aiDraftReply = aiDraftReply;
 async function aiRefreshConvo(id) { aiOpenConversation(id); }
 async function aiSetConvStatus(id, status, btn) {
   if (btn) btn.disabled = true;

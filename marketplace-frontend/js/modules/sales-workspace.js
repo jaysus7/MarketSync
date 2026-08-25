@@ -365,8 +365,12 @@ ENGINES['sales'] = {
   tabs: {
     overview(body, d) {
       const att = salesAttention(d);
-      const now = Date.now(), day = 864e5;
-      const todays = (d.appointments || []).filter(a => { const t = new Date(a.appointment_at) - now; return t > -day / 2 && t < day / 2; });
+      const now = Date.now();
+      const today = new Date().toDateString();
+      const todays = (d.appointments || []).filter(a => {
+        const when = a.appointment_at || a.when || a.scheduled_at;
+        return when && new Date(when).toDateString() === today && !['canceled', 'cancelled', 'no_show'].includes(String(a.status || '').toLowerCase());
+      });
       const open = (d.contacts || []).filter(c => SALES_OPEN_STAGES.includes(c.status));
       const overdue = (d.tasks || []).filter(t => t.due_at && new Date(t.due_at) < now);
       const newLeads = (d.contacts || []).filter(c => c.status === 'uncontacted');
@@ -425,9 +429,45 @@ ENGINES['sales'] = {
             f.leads && f.sold != null ? pulseRow({ badge: Math.round((f.sold / f.leads) * 100) + '%', label: 'Close rate' }) : '',
           ].join('') : '', empty: 'Performance could not be loaded.',
         }),
+        pulseCard({
+          title: "Today's appointments", count: todays.length,
+          onclick: "switchPage('appointments')",
+          inner: todays.length ? todays.slice(0, 6).map(a => pulseRow({
+            icon: 'calendar', label: a.customer_name || 'Customer',
+            sub: [a.appointment_at ? new Date(a.appointment_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '', a.vehicle_label || a.vehicle, a.rep_name].filter(Boolean).join(' · '),
+            onclick: a.contact_id ? `openCrmContact('${a.contact_id}')` : "switchPage('appointments')",
+          })).join('') : '', empty: 'No appointments today.',
+        }),
+        pulseCard({
+          title: 'Deliveries', count: d.deliveries == null ? '—' : d.deliveries.length,
+          onclick: "switchPage('delivery')",
+          inner: d.deliveries == null ? '' : d.deliveries.slice(0, 6).map(x => pulseRow({
+            icon: 'check', label: x.customer_name || x.contact_name || 'Delivery',
+            sub: [x.vehicle_label || x.vehicle, x.scheduled_for || x.status].filter(Boolean).join(' · '),
+            onclick: "switchPage('delivery')",
+          })).join(''), empty: d.deliveries == null ? 'Could not be loaded.' : 'Nothing is waiting to be delivered.',
+        }),
+        pulseCard({
+          title: 'Active opportunities', count: open.length,
+          onclick: "engineTab('sales','work')",
+          inner: open.length ? open.slice(0, 7).map(c => pulseRow({
+            badge: c.status === 'uncontacted' ? '!' : '#',
+            badgeTone: c.status === 'uncontacted' ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : undefined,
+            label: c.full_name || c.name || 'Customer',
+            sub: [c.status, c.vehicle_interest || c.vehicle, c.source].filter(Boolean).join(' · '),
+            onclick: c.id ? `openCrmContact('${c.id}')` : "engineTab('sales','work')",
+          })).join('') : '', empty: 'No open opportunities.',
+        }),
         pulseLeaderboardCard(d.gamification, 'sales', { title: 'Sales leaderboard', metric: 'total_sold' }),
         pulseLeaderboardCard(d.gamification, 'facebook', { title: 'Facebook Marketplace leaderboard' }),
       ]);
+
+      // Pulse is the canonical at-a-glance view. The former dashboard repeated the
+      // same leads, appointments, deals, videos and leaderboards below this grid.
+      body.innerHTML = `
+        ${pulseHeader('Sales Pulse', 'Your customers, appointments and deals — what needs you first')}
+        ${grid}`;
+      return;
 
       const proactiveAiPanel = `
         <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 ms-ai-panel text-white shadow-lg border border-slate-800">

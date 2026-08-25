@@ -1545,17 +1545,77 @@ body > header,
 .ms-pulse-board {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: clamp(.85rem, 1.4vw, 1.25rem);
+  column-gap: clamp(.85rem, 1.4vw, 1.25rem);
+  row-gap: clamp(1.35rem, 2.2vw, 2rem);
   align-items: start;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: clip;
+  padding: clamp(.875rem, 1.35vw, 1.25rem);
+  /* The board is layout, not a card. Painting a second full-height glass
+     surface here created the vertical seam visible between Pulse sections. */
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
+
+.page-content.hidden.ms-pulse-board { display: none; }
 
 .ms-pulse-board > * {
   grid-column: 1 / -1;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   margin-top: 0 !important;
   margin-bottom: 0 !important;
 }
 
-.ms-pulse-board > .grid { gap: clamp(.75rem, 1.1vw, 1rem) !important; }
+.ms-pulse-board > .grid {
+  min-width: 0;
+  gap: clamp(.75rem, 1.1vw, 1rem) !important;
+}
+
+.ms-pulse-board .grid > * { min-width: 0; }
+
+.pulse-summary-panel {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: clamp(.875rem, 1.35vw, 1.25rem);
+  border: 1px solid var(--ms-border);
+  border-radius: var(--ms-radius-card);
+  background: color-mix(in srgb, var(--ms-surface-solid) 92%, transparent);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, .08), inset 0 1px 0 rgba(255, 255, 255, .78);
+  -webkit-backdrop-filter: blur(var(--ms-glass-blur));
+  backdrop-filter: blur(var(--ms-glass-blur));
+}
+
+.pulse-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(10.5rem, 100%), 1fr));
+  gap: clamp(.75rem, 1.1vw, 1rem);
+  width: 100%;
+  min-width: 0;
+}
+
+.pulse-summary-grid > * { min-width: 0; }
+
+@media (max-width: 639px) {
+  .ms-pulse-board,
+  .pulse-summary-panel {
+    padding: .75rem;
+    border-radius: 18px;
+  }
+
+  .ms-pulse-board {
+    row-gap: 1.125rem;
+  }
+}
 
 /* Glass belongs to things that are already CARDS. A blanket `details` selector also
    caught the bare, padding-less wrappers the Pulse composes with — engSection()'s
@@ -1963,26 +2023,48 @@ body {
   }
 }
 
-/* AI/executive highlight panels are DELIBERATELY dark regardless of site
-   theme (bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900,
-   text-white) — a fixed-contrast accent card, not a themed glass surface.
-   Give it its own stacking context and a solid gradient fallback so no
-   ancestor's backdrop-filter/opacity can ever wash it out, in light mode or
-   under a reduced-transparency fallback. Opt in with class="ms-ai-panel". */
+/* Assistant summaries use the same system surface as the rest of Pulse.
+   Their old forced navy gradient split the light dashboard into a dark band. */
 .ms-ai-panel {
   isolation: isolate;
-  background: linear-gradient(to right, #0f172a, #1e1b4b, #0f172a) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+  color: var(--ms-text) !important;
+  background: rgba(255, 255, 255, .88) !important;
+  border-color: rgba(15, 23, 42, .10) !important;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, .08), inset 0 1px 0 rgba(255, 255, 255, .88) !important;
+  backdrop-filter: blur(24px) saturate(135%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(135%) !important;
 }
 
-/* Sidebar glass consolidation. #dept-sidebar (the actual 248px column that
-   holds the department nav) is the one glass surface for the whole sidebar;
-   #nav-desktop is nested inside it and, being smaller than the column on most
-   pages, was painting its own separate glass box (background/border/blur) a
-   few pixels short of the column edge — reading as a hard seam between "the
-   real sidebar" and "the content area" rather than one continuous panel. Kept
-   last in the cascade so it wins over every earlier #nav-desktop rule above. */
+.ms-ai-panel :is(.text-white, .text-slate-950, .text-slate-300) { color: var(--ms-text) !important; }
+.ms-ai-panel :is(.text-sky-300, .text-sky-400) { color: #2563eb !important; }
+.ms-ai-panel .text-amber-300 { color: #a16207 !important; }
+.ms-ai-panel .text-rose-400 { color: #be123c !important; }
+.ms-ai-panel .text-emerald-400 { color: #047857 !important; }
+.ms-ai-panel .text-indigo-300 { color: #4338ca !important; }
+.ms-ai-panel [class*="border-slate-800"] { border-color: var(--ms-border) !important; }
+.ms-ai-panel button {
+  color: var(--ms-text) !important;
+  background: rgba(255, 255, 255, .72) !important;
+  border: 1px solid var(--ms-border) !important;
+  box-shadow: none !important;
+}
+.ms-ai-panel button.bg-sky-500 {
+  color: #1d4ed8 !important;
+  background: rgba(37, 99, 235, .10) !important;
+  border-color: rgba(37, 99, 235, .22) !important;
+}
+
+.dark .ms-ai-panel {
+  color: var(--ms-text) !important;
+  background: rgba(26, 29, 36, .84) !important;
+  border-color: var(--ms-border) !important;
+  box-shadow: var(--ms-shadow-glass) !important;
+}
+.dark .ms-ai-panel :is(.text-white, .text-slate-950, .text-slate-300) { color: var(--ms-text) !important; }
+.dark .ms-ai-panel button { background: rgba(255, 255, 255, .08) !important; }
+
+/* The department column is layout only. Painting this full-height wrapper as
+   glass creates a long vertical edge that reads like a broken canvas seam. */
 #nav-desktop {
   background: transparent !important;
   border: none !important;
@@ -1991,25 +2073,14 @@ body {
   -webkit-backdrop-filter: none !important;
 }
 #dept-sidebar {
-  border: 1px solid rgba(255,255,255,.20);
-  border-radius: var(--ms-radius-card);
-  padding: .6rem;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
-.dark #dept-sidebar { border-color: rgba(190,205,230,.15); }
-
-/* The nav is chrome, not content — unlike cards, it can read as glass without
-   hurting legibility (icons + short labels stay readable over blur+saturate).
-   Kept more transparent than cards/header on purpose, so page content is
-   faintly visible scrolling behind it, but not so transparent it washes out. */
-#dept-sidebar {
-  background: linear-gradient(135deg, rgba(255,255,255,.60), rgba(255,255,255,.42)) !important;
-  backdrop-filter: blur(20px) saturate(160%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
-}
-.dark #dept-sidebar {
-  background: linear-gradient(145deg, rgba(24,36,60,.60), rgba(10,17,31,.42)) !important;
-}
-@media (max-width: 767px) { #dept-sidebar { border: none; border-radius: 0; padding: 0; background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; } }
 
 /* The header's own Tailwind border-b (border-slate-200/800) is a flat, fully
    opaque hairline that reads as a hard line under the glass header no matter
@@ -2046,15 +2117,20 @@ body > header {
     overflow: visible !important;
   }
   #dashboard-nav {
-    background: transparent !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
+    background: linear-gradient(145deg, rgba(255,255,255,.72), rgba(255,255,255,.50)) !important;
+    border: 1px solid rgba(255,255,255,.50) !important;
+    border-radius: 22px !important;
+    box-shadow: 0 14px 34px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.76) !important;
+    backdrop-filter: blur(20px) saturate(150%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(150%) !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
-    max-height: calc(100vh - 3rem) !important;
+    max-height: calc(100vh - 136px) !important;
+  }
+  .dark #dashboard-nav {
+    background: linear-gradient(145deg, rgba(24,36,60,.68), rgba(10,17,31,.50)) !important;
+    border-color: rgba(190,205,230,.16) !important;
+    box-shadow: 0 16px 38px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.08) !important;
   }
   #nav-desktop, #dept-nav { overflow: visible !important; }
 
@@ -2163,4 +2239,30 @@ html[data-dash-mode="marketsync"] #automation-modal > div:last-child {
 .dark[data-dash-mode="marketsync"] #automation-modal > div:last-child {
   background: rgba(15,23,42,.86) !important;
   border-color: rgba(255,255,255,.12);
+}
+
+/* Dashboard canvas: one continuous system background. The shell, scroll
+   column and unpainted Pulse board must never form separate vertical bands. */
+html:not(.dark) body:has(#dept-sidebar) {
+  background: var(--ms-bg) !important;
+  background-image: none !important;
+}
+
+html:not(.dark) body:has(#dept-sidebar) > main,
+html:not(.dark) body:has(#dept-sidebar) > main > section {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+/* The MarketSync-internal cascade above targets every rounded content block.
+   Keep the assistant's semantic system surface authoritative there too. */
+html[data-dash-mode="marketsync"] .page-content .ms-ai-panel {
+  color: var(--ms-text) !important;
+  background: rgba(255, 255, 255, .88) !important;
+  border-color: rgba(15, 23, 42, .10) !important;
+}
+
+html.dark[data-dash-mode="marketsync"] .page-content .ms-ai-panel {
+  background: rgba(26, 29, 36, .84) !important;
+  border-color: var(--ms-border) !important;
 }

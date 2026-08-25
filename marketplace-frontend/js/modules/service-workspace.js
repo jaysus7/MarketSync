@@ -525,6 +525,9 @@ ENGINES['service-overview'] = {
       const ready = ros.filter(r => r.status === 'ready').length;
       const inspection = ros.filter(r => r.status === 'inspection').length;
       const onFloor = ros.filter(r => ['in_progress', 'quality_check'].includes(r.status));
+      const overduePromise = ros.filter(r => r.promise_time && new Date(r.promise_time) < new Date() && !['ready', 'delivered', 'closed'].includes(r.status));
+      const declined = ros.filter(r => r.status === 'customer_declined');
+      const authorized = ros.filter(r => ['customer_approved', 'parts_ordered', 'in_progress', 'quality_check', 'ready', 'delivered'].includes(r.status));
       const today = new Date().toDateString();
       const todaysAppts = (d.appointments || []).filter(a =>
         a.when && new Date(a.when).toDateString() === today && !['no_show', 'canceled'].includes(a.status));
@@ -580,6 +583,40 @@ ENGINES['service-overview'] = {
             icon: 'phone', label: c.customer || 'Customer', sub: c.title || 'Follow-up call', onclick: `svcOpenRecord('${c.repair_order_id}')`,
           })).join('') : ''), empty: callbacks == null ? 'Could not be loaded.' : 'Every closed RO has been called back.',
         }),
+        pulseCard({
+          title: 'Ready for the customer', count: ready,
+          tone: ready ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300' : '',
+          onclick: "engineTab('service-overview','ros')",
+          inner: ready ? ros.filter(r => r.status === 'ready').slice(0, 6).map(r => pulseRow({
+            icon: 'check', badgeTone: 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
+            label: svcCustomer(r), sub: svcStatusLabel(r.status), onclick: `svcOpenRecord('${r.id}')`,
+          })).join('') : '', empty: 'Nothing is waiting for collection.',
+        }),
+        pulseCard({
+          title: 'On the floor', count: onFloor.length,
+          onclick: "engineTab('service-overview','ros')",
+          inner: onFloor.length ? onFloor.slice(0, 6).map(r => pulseRow({
+            badge: '#', label: svcCustomer(r), sub: svcStatusLabel(r.status), onclick: `svcOpenRecord('${r.id}')`,
+          })).join('') : '', empty: 'Nothing is in progress.',
+        }),
+        pulseCard({
+          title: 'Authorization and SLA', count: overduePromise.length,
+          tone: overduePromise.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
+          onclick: "engineTab('service-overview','ros')",
+          inner: [
+            pulseRow({ badge: authorized.length, label: 'Authorized work' }),
+            pulseRow({ badge: declined.length, label: 'Declined work', valueTone: declined.length ? 'text-amber-600 dark:text-amber-400' : undefined }),
+            pulseRow({ badge: overduePromise.length, label: 'Past promise time', valueTone: overduePromise.length ? 'text-rose-600 dark:text-rose-400' : undefined }),
+          ].join(''),
+        }),
+        pulseCard({
+          title: 'Repair orders by stage', count: ros.length,
+          onclick: "engineTab('service-overview','ros')",
+          inner: Object.keys(SVC_STATUS_LABEL).map(status => {
+            const count = ros.filter(r => r.status === status).length;
+            return count ? pulseRow({ badge: count, label: svcStatusLabel(status), onclick: "engineTab('service-overview','ros')" }) : '';
+          }).filter(Boolean).join(''), empty: 'No open repair orders.',
+        }),
         // Service must call no endpoint outside /service(-engine)/… (it is sold and must
         // work standalone), so the leaderboard itself is NOT fetched here — this links to
         // the platform's own Leaderboard page, pre-set to the Service department, which
@@ -589,6 +626,20 @@ ENGINES['service-overview'] = {
           inner: `<p class="text-[12px] text-slate-500 dark:text-slate-400 leading-snug">Repair orders closed, revenue and CSI, ranked by advisor and tech.</p>`,
         }),
       ]);
+
+      // The widget grid is the Service Pulse. Detailed repair-order work remains
+      // available in the dedicated tabs instead of being repeated below it.
+      body.innerHTML = `
+        ${pulseHeader('Service Pulse', 'One repair order — check in, estimate, authorize, repair, deliver')}
+        ${pulseActionsRow([
+          { label: 'Check in', onclick: "engineTab('service-overview','appointments')" },
+          { label: 'Check out', onclick: "engineTab('service-overview','ros')" },
+          { label: 'Video Walkaround', onclick: "switchPage('video-studio')" },
+          { label: 'Repair Orders', onclick: "engineTab('service-overview','ros')" },
+        ])}
+        ${svcUnavailableNote(d)}
+        ${grid}`;
+      return;
 
       body.innerHTML = `
         ${pulseHeader('Service Pulse', 'One repair order — check in, estimate, authorize, repair, deliver')}

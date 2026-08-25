@@ -25,6 +25,11 @@ import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { emitEvent } from './events.js'
 import { mayContact } from './consent.js'
+import {
+  extractQualificationState,
+  calculateExplainableLeadScore,
+  generateAiLeadBrief,
+} from '../services/chatbot-qualification-engine.js'
 
 export const CONVERSATION_CHANNELS = ['web', 'sms', 'email', 'phone']
 
@@ -227,18 +232,32 @@ export async function handoffBrief(dealershipId, conversationId) {
   }
 
   const channelsUsed = [...new Set((messages || []).map(m => m.channel))]
+  const qualification = extractQualificationState(messages || [], [], {}, contact || null)
+  const scoreDetails = calculateExplainableLeadScore(messages || [], [], qualification)
+  const leadBrief = generateAiLeadBrief({
+    conversation: convo,
+    contact: contact || null,
+    qualificationState: qualification,
+    messages: messages || [],
+  })
+
   return {
     conversation: convo, contact: contact || null,
-    summary: convo.summary || null, sentiment: convo.sentiment || null,
-    lead_score: convo.lead_score ?? null, lead_type: convo.lead_type || null,
+    summary: convo.summary || leadBrief.conversation.summary, sentiment: convo.sentiment || null,
+    lead_score: convo.lead_score ?? scoreDetails.score,
+    lead_score_category: scoreDetails.category,
+    lead_score_reasons: scoreDetails.reasons,
+    qualification,
+    ai_lead_brief: leadBrief,
     channels_used: channelsUsed,
     transcript: messages || [],
     reachable,
     // The action a person should take, rather than a wall of context and no direction.
-    next_action: convo.status === 'waiting_dealer' ? 'Reply to the customer'
+    next_action: leadBrief.next_best_action.suggested_action || (convo.status === 'waiting_dealer' ? 'Reply to the customer'
                : convo.booked ? 'Confirm the appointment'
                : convo.lead_type === 'trade' ? 'Review Trade Lead'
-               : 'Review the conversation',
+               : 'Review the conversation'),
+    suggested_opening_line: leadBrief.next_best_action.suggested_opening_line,
   }
 }
 
