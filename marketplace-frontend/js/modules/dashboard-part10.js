@@ -1654,10 +1654,10 @@ function renderAutomation() {
     <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">${svgIcon('bolt', 'w-5 h-5')}</div>
-        <div><h1 class="text-xl font-black text-slate-900 dark:text-white leading-tight">Automations</h1>
-          <p class="text-[13px] text-slate-500 dark:text-slate-400">Build and edit customer workflows step by step.</p></div>
+        <div><h1 class="text-xl font-black text-slate-900 dark:text-white leading-tight">Email, SMS &amp; Automations</h1>
+          <p class="text-[13px] text-slate-500 dark:text-slate-400">One connected workspace for templates, campaigns, consent-aware messaging, and executable workflows.</p></div>
       </div>
-      <div class="flex items-center gap-2"><button onclick="automationNewSeq()" class="px-3.5 py-2 rounded-xl bg-blue-600 text-white text-xs font-black">+ New automation</button><button onclick="automationView('campaigns')" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">Email campaigns</button></div>
+      <div class="flex items-center gap-2"><button onclick="automationNewSeq()" class="px-3.5 py-2 rounded-xl bg-blue-600 text-white text-xs font-black">+ New automation</button><button onclick="automationView('campaigns')" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">Campaigns</button><button onclick="automationView('templates')" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">Templates</button></div>
     </div>
     <div id="automation-body"></div>`;
   (v === 'campaigns' ? renderAutoCampaigns : v === 'templates' ? renderAutoTemplates : v === 'sequences' ? renderAutoSequences : renderAutoOperations)(v);
@@ -1699,7 +1699,7 @@ function renderAutoSequences() {
           <span class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold">Edit visually</span>
         </div>
       </div>
-      <div class="flex items-center gap-2 mt-4 overflow-x-auto"><span class="shrink-0 px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 text-xs font-black">${trigger}</span><span class="text-blue-400 font-black">→</span>${steps.map(st => `<span class="shrink-0 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">Day ${st.day_offset} · ${st.type === 'task' ? esc(st.title || 'Task') : esc(st.subject || 'Email')}</span><span class="text-blue-400 font-black">→</span>`).join('')}<span class="shrink-0 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 text-xs font-black">Complete</span></div>
+      <div class="flex items-center gap-2 mt-4 overflow-x-auto"><span class="shrink-0 px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 text-xs font-black">${trigger}</span><span class="text-blue-400 font-black">→</span>${steps.map(st => `<span class="shrink-0 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">Day ${st.day_offset} · ${st.type === 'task' ? esc(st.title || 'Task') : st.type === 'sms' ? `SMS · ${esc((st.body || '').slice(0, 36))}` : esc(st.subject || 'Email')}</span><span class="text-blue-400 font-black">→</span>`).join('')}<span class="shrink-0 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 text-xs font-black">Complete</span></div>
     </div>`;
   }).join('');
   body.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">${engCard('Customer growth','<p class="text-xs text-slate-500">Trial onboarding, activation, renewal and win-back.</p>')}${engCard('Marketing','<p class="text-xs text-slate-500">Lead nurture, campaigns, product education and social follow-up.</p>')}${engCard('Operations','<p class="text-xs text-slate-500">Payments, alerts, internal tasks and integration failures.</p>')}</div><div class="space-y-3">${cards || '<div class="text-sm text-slate-400 italic py-6 text-center">No automations yet. Create your first visual flow.</div>'}</div>`;
@@ -1707,12 +1707,12 @@ function renderAutoSequences() {
 function renderAutoTemplates() {
   const body = document.getElementById('automation-body'); if (!body) return;
   const rows = (__automation.templates || []).map(t => `<div class="flex items-center gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-      <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(t.name)}</div><div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(t.subject)}</div></div>
+      <div class="min-w-0 flex-1"><div class="flex items-center gap-2"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(t.name)}</div><span class="rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${t.channel === 'sms' ? 'bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300' : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300'}">${esc(t.channel || 'email')}</span></div><div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(t.channel === 'sms' ? t.body : t.subject)}</div></div>
       <button onclick="automationEditTmpl('${t.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700">Edit</button>
       <button onclick="automationDeleteTmpl('${t.id}')" class="text-[12px] font-bold text-rose-500">Delete</button>
     </div>`).join('');
   body.innerHTML = `<div class="flex items-center justify-between mb-3">
-      <p class="text-[12px] text-slate-500 dark:text-slate-400">Reusable email bodies. Use <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{first_name}}</code> and <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{account}}</code> merge fields.</p>
+      <p class="text-[12px] text-slate-500 dark:text-slate-400">Reusable email and SMS templates. Use <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{first_name}}</code> and <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{account}}</code> merge fields.</p>
       <button onclick="automationNewTmpl()" class="px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">＋ New template</button></div>
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1">${rows || '<div class="text-sm text-slate-400 italic py-6 text-center">No templates yet.</div>'}</div>`;
 }
@@ -1722,56 +1722,70 @@ function renderAutoCampaigns() {
   const body = document.getElementById('automation-body'); if (!body) return;
   const rows = (__automation.campaigns || []).map(c => `<div class="flex items-center gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
       <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(c.name)}</div>
-        <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(c.subject)}</div>
-        <div class="text-[11px] text-slate-400 mt-0.5">${esc(SAAS_SEG_LABEL[c.segment] || c.segment)} · ${c.status === 'sent' ? `sent to ${c.sent_count}${c.fail_count ? ` · ${c.fail_count} failed` : ''}` : 'draft'}</div></div>
+        <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(c.channel === 'sms' ? c.body : c.subject)}</div>
+        <div class="text-[11px] text-slate-400 mt-0.5">${esc((c.channel || 'email').toUpperCase())} · ${esc(SAAS_SEG_LABEL[c.segment] || c.segment)} · ${c.status === 'sent' ? `accepted ${c.sent_count || 0}${c.fail_count ? ` · ${c.fail_count} failed` : ''}${c.last_error ? ` · ${esc(c.last_error)}` : ''}` : 'draft'}</div></div>
       ${c.status === 'sent' ? '<span class="text-[12px] font-bold text-emerald-600 dark:text-emerald-400 flex-shrink-0">Sent</span>' : `<button onclick="automationSendCampaign('${c.id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex-shrink-0">Send</button>`}
     </div>`).join('');
   body.innerHTML = `<div class="flex items-center justify-between mb-3">
-      <p class="text-[12px] text-slate-500 dark:text-slate-400">One-off email to a customer segment. Uses <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{first_name}}</code>/<code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{account}}</code>.</p>
+      <p class="text-[12px] text-slate-500 dark:text-slate-400">One-off email or consent-aware SMS to an account segment. Delivery results are recorded; skipped recipients are never reported as sent.</p>
       <button onclick="automationNewCampaign()" class="px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">＋ New campaign</button></div>
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1">${rows || '<div class="text-sm text-slate-400 italic py-6 text-center">No campaigns yet.</div>'}</div>`;
 }
 window.automationNewCampaign = () => {
-  const tmplOpts = ['<option value="">— Custom (write below) —</option>'].concat((__automation.templates || []).map(t => `<option value="${t.id}">${esc(t.name)}</option>`)).join('');
+  const tmplOpts = ['<option value="">— Custom (write below) —</option>'].concat((__automation.templates || []).map(t => `<option value="${t.id}">${esc((t.channel || 'email').toUpperCase())} · ${esc(t.name)}</option>`)).join('');
   const segOpts = Object.entries(SAAS_SEG_LABEL).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
   automationModal(`<div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">New campaign</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
     <div class="space-y-3">
       <label class="block text-xs font-bold text-slate-500">Name<input id="cp-name" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" placeholder="e.g. October product update"></label>
+      <label class="block text-xs font-bold text-slate-500">Channel<select id="cp-channel" onchange="automationCampaignChannelToggle()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"><option value="email">Email</option><option value="sms">SMS</option></select></label>
       <label class="block text-xs font-bold text-slate-500">Segment<select id="cp-segment" onchange="automationCampSegCount()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${segOpts}</select></label>
-      <div class="text-[12px] text-slate-500 dark:text-slate-400" id="cp-count">Recipients: …</div>
+      <div class="text-[12px] text-slate-500 dark:text-slate-400" id="cp-count">Accounts in segment: …</div>
       <label class="block text-xs font-bold text-slate-500">Template<select id="cp-template" onchange="automationCampTmplPick()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${tmplOpts}</select></label>
-      <label class="block text-xs font-bold text-slate-500">Subject<input id="cp-subject" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
+      <label id="cp-subject-wrap" class="block text-xs font-bold text-slate-500">Subject<input id="cp-subject" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
       <label class="block text-xs font-bold text-slate-500">Body<textarea id="cp-body" rows="7" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></textarea></label>
     </div>
     <div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
       <button onclick="automationSaveCampaign(false)" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold">Save draft</button>
       <button onclick="automationSaveCampaign(true)" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">Create &amp; send</button></div>`, 'max-w-lg');
-  automationCampSegCount();
+  automationCampSegCount(); automationCampaignChannelToggle();
+};
+window.automationCampaignChannelToggle = () => {
+  const channel = document.getElementById('cp-channel')?.value || 'email';
+  document.getElementById('cp-subject-wrap')?.classList.toggle('hidden', channel === 'sms');
+  const select = document.getElementById('cp-template');
+  if (select) {
+    [...select.options].forEach(option => {
+      const template = (__automation.templates || []).find(t => t.id === option.value);
+      option.hidden = !!template && (template.channel || 'email') !== channel;
+    });
+    const selected = (__automation.templates || []).find(t => t.id === select.value);
+    if (selected && (selected.channel || 'email') !== channel) select.value = '';
+  }
 };
 window.automationCampSegCount = async () => {
   const seg = document.getElementById('cp-segment')?.value || 'all'; const el = document.getElementById('cp-count'); if (!el) return;
-  el.textContent = 'Recipients: …';
-  try { const r = await apiGetJson('/saas/automation/segment-count?segment=' + encodeURIComponent(seg)); el.textContent = `Recipients: ${r.count}`; }
-  catch { el.textContent = 'Recipients: —'; }
+  el.textContent = 'Accounts in segment: …';
+  try { const r = await apiGetJson('/saas/automation/segment-count?segment=' + encodeURIComponent(seg)); el.textContent = `Accounts in segment: ${r.count} · final accepted/skipped totals are recorded at send time`; }
+  catch { el.textContent = 'Accounts in segment: —'; }
 };
 window.automationCampTmplPick = () => {
   const t = (__automation.templates || []).find(x => x.id === document.getElementById('cp-template').value);
-  if (t) { document.getElementById('cp-subject').value = t.subject; document.getElementById('cp-body').value = t.body; }
+  if (t) { document.getElementById('cp-channel').value = t.channel || 'email'; document.getElementById('cp-subject').value = t.subject; document.getElementById('cp-body').value = t.body; automationCampaignChannelToggle(); }
 };
 window.automationSaveCampaign = async (sendNow) => {
-  const payload = { name: document.getElementById('cp-name').value.trim(), segment: document.getElementById('cp-segment').value, subject: document.getElementById('cp-subject').value.trim(), body: document.getElementById('cp-body').value.trim(), template_id: document.getElementById('cp-template').value || null };
-  if (!payload.name || !payload.subject || !payload.body) return showToast('Name, subject and body are required', 'error');
+  const payload = { name: document.getElementById('cp-name').value.trim(), channel: document.getElementById('cp-channel').value, segment: document.getElementById('cp-segment').value, subject: document.getElementById('cp-subject').value.trim(), body: document.getElementById('cp-body').value.trim(), template_id: document.getElementById('cp-template').value || null };
+  if (!payload.name || !payload.body || (payload.channel === 'email' && !payload.subject)) return showToast('Name, body, and an email subject are required', 'error');
   if (sendNow && !confirm('Send this campaign now to the selected segment?')) return;
   try {
     const c = await apiSendJson('/saas/automation/campaigns', 'POST', payload);
-    if (sendNow) { const sent = await apiSendJson('/saas/automation/campaigns/' + c.id + '/send', 'POST', {}); showToast(`Sent to ${sent.sent_count || 0}${sent.fail_count ? ` · ${sent.fail_count} failed` : ''}`, 'success'); }
+    if (sendNow) { const sent = await apiSendJson('/saas/automation/campaigns/' + c.id + '/send', 'POST', {}); showToast(`Accepted ${sent.sent_count || 0}${sent.skipped_count ? ` · ${sent.skipped_count} skipped` : ''}${sent.fail_count ? ` · ${sent.fail_count} failed` : ''}`, sent.fail_count ? 'warning' : 'success'); }
     else showToast('Draft saved', 'success');
     closeAutomationModal(); await loadSaasAutomation();
   } catch (e) { showToast(e.message || 'Could not save campaign', 'error'); }
 };
 window.automationSendCampaign = async (id) => {
   if (!confirm('Send this campaign now?')) return;
-  try { const sent = await apiSendJson('/saas/automation/campaigns/' + id + '/send', 'POST', {}); showToast(`Sent to ${sent.sent_count || 0}${sent.fail_count ? ` · ${sent.fail_count} failed` : ''}`, 'success'); await loadSaasAutomation(); }
+  try { const sent = await apiSendJson('/saas/automation/campaigns/' + id + '/send', 'POST', {}); showToast(`Accepted ${sent.sent_count || 0}${sent.skipped_count ? ` · ${sent.skipped_count} skipped` : ''}${sent.fail_count ? ` · ${sent.fail_count} failed` : ''}`, sent.fail_count ? 'warning' : 'success'); await loadSaasAutomation(); }
   catch (e) { showToast(e.message || 'Could not send', 'error'); }
 };
 // ── modal helper ──
@@ -1813,7 +1827,7 @@ window.automationEditSeq = (id) => {
   const steps = (s.steps || []).slice().sort((a, b) => a.step_order - b.step_order);
   const stepRow = (st, i) => `<div class="flex items-center gap-2 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
       <span class="text-[11px] font-bold text-slate-400 w-12">Day ${st.day_offset}</span>
-      <div class="min-w-0 flex-1"><div class="text-[13px] font-semibold text-slate-800 dark:text-slate-100">${st.type === 'task' ? 'Task' : 'Email'}: ${esc(st.type === 'task' ? (st.title || '—') : (st.subject || '(from template)'))}</div></div>
+      <div class="min-w-0 flex-1"><div class="text-[13px] font-semibold text-slate-800 dark:text-slate-100">${st.type === 'task' ? 'Task' : st.type === 'sms' ? 'SMS' : 'Email'}: ${esc(st.type === 'task' ? (st.title || '—') : st.type === 'sms' ? ((st.body || '').slice(0, 80) || '(from template)') : (st.subject || '(from template)'))}</div></div>
       <button onclick="automationMoveStep('${s.id}','${st.id}',-1)" ${i === 0 ? 'disabled' : ''} class="text-slate-400 disabled:opacity-30 text-xs">▲</button>
       <button onclick="automationMoveStep('${s.id}','${st.id}',1)" ${i === steps.length - 1 ? 'disabled' : ''} class="text-slate-400 disabled:opacity-30 text-xs">▼</button>
       <button onclick="automationEditStep('${s.id}','${st.id}')" class="text-[12px] font-bold text-indigo-600 dark:text-indigo-400">Edit</button>
@@ -1864,15 +1878,15 @@ window.automationEditStep = (seqId, stepId) => {
   const s = __automation.sequences.find(x => x.id === seqId); if (!s) return;
   const st = stepId ? (s.steps || []).find(x => x.id === stepId) : {};
   const type = st.type || 'email';
-  const tmplOpts = ['<option value="">— Custom (write below) —</option>'].concat((__automation.templates || []).map(t => `<option value="${t.id}" ${st.template_id === t.id ? 'selected' : ''}>${esc(t.name)}</option>`)).join('');
+  const tmplOpts = ['<option value="">— Custom (write below) —</option>'].concat((__automation.templates || []).map(t => `<option value="${t.id}" ${st.template_id === t.id ? 'selected' : ''}>${esc((t.channel || 'email').toUpperCase())} · ${esc(t.name)}</option>`)).join('');
   automationModal(`<div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">${stepId ? 'Edit step' : 'Add step'}</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
     <div class="grid grid-cols-2 gap-3">
       <label class="block text-xs font-bold text-slate-500">Day offset<input id="st-day" type="number" min="0" value="${st.day_offset || 0}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-      <label class="block text-xs font-bold text-slate-500">Type<select id="st-type" onchange="automationStepTypeToggle()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"><option value="email" ${type === 'email' ? 'selected' : ''}>Email</option><option value="task" ${type === 'task' ? 'selected' : ''}>Task</option></select></label>
+      <label class="block text-xs font-bold text-slate-500">Type<select id="st-type" onchange="automationStepTypeToggle()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"><option value="email" ${type === 'email' ? 'selected' : ''}>Email</option><option value="sms" ${type === 'sms' ? 'selected' : ''}>SMS</option><option value="task" ${type === 'task' ? 'selected' : ''}>Task</option></select></label>
     </div>
     <div id="st-email" class="${type === 'task' ? 'hidden' : ''} mt-3 space-y-3">
       <label class="block text-xs font-bold text-slate-500">Template<select id="st-template" onchange="automationTmplPick()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${tmplOpts}</select></label>
-      <label class="block text-xs font-bold text-slate-500">Subject<input id="st-subject" value="${esc(st.subject || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
+      <label id="st-subject-wrap" class="block text-xs font-bold text-slate-500 ${type === 'sms' ? 'hidden' : ''}">Subject<input id="st-subject" value="${esc(st.subject || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
       <label class="block text-xs font-bold text-slate-500">Body<textarea id="st-body" rows="6" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${esc(st.body || '')}</textarea></label>
     </div>
     <div id="st-task" class="${type === 'task' ? '' : 'hidden'} mt-3 space-y-3">
@@ -1887,20 +1901,27 @@ window.automationStepTypeToggle = () => {
   const t = document.getElementById('st-type').value;
   document.getElementById('st-email').classList.toggle('hidden', t === 'task');
   document.getElementById('st-task').classList.toggle('hidden', t !== 'task');
+  document.getElementById('st-subject-wrap')?.classList.toggle('hidden', t === 'sms');
+  const select = document.getElementById('st-template');
+  if (select) [...select.options].forEach(option => {
+    const template = (__automation.templates || []).find(candidate => candidate.id === option.value);
+    option.hidden = !!template && (template.channel || 'email') !== t && t !== 'task';
+  });
 };
 window.automationTmplPick = () => {
   const id = document.getElementById('st-template').value;
   const t = (__automation.templates || []).find(x => x.id === id);
-  if (t) { document.getElementById('st-subject').value = t.subject; document.getElementById('st-body').value = t.body; }
+  if (t) { document.getElementById('st-type').value = t.channel || 'email'; document.getElementById('st-subject').value = t.subject; document.getElementById('st-body').value = t.body; automationStepTypeToggle(); }
 };
 window.automationSaveStep = async (seqId, stepId) => {
   const type = document.getElementById('st-type').value;
   const payload = { day_offset: parseInt(document.getElementById('st-day').value, 10) || 0, type };
-  if (type === 'email') {
+  if (type === 'email' || type === 'sms') {
     payload.template_id = document.getElementById('st-template').value || null;
     payload.subject = document.getElementById('st-subject').value.trim();
     payload.body = document.getElementById('st-body').value.trim();
-    if (!payload.subject) return showToast('Email subject is required', 'error');
+    if (!payload.body) return showToast('Message body is required', 'error');
+    if (type === 'email' && !payload.subject) return showToast('Email subject is required', 'error');
   } else {
     payload.title = document.getElementById('st-title').value.trim();
     payload.note = document.getElementById('st-note').value.trim();
@@ -1921,15 +1942,22 @@ function automationTmplModal(t) {
   automationModal(`<div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">${t.id ? 'Edit template' : 'New template'}</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
     <div class="space-y-3">
       <label class="block text-xs font-bold text-slate-500">Name<input id="tm-name" value="${esc(t.name || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-      <label class="block text-xs font-bold text-slate-500">Subject<input id="tm-subject" value="${esc(t.subject || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
+      <label class="block text-xs font-bold text-slate-500">Channel<select id="tm-channel" onchange="automationTemplateChannelToggle()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"><option value="email" ${(t.channel || 'email') === 'email' ? 'selected' : ''}>Email</option><option value="sms" ${t.channel === 'sms' ? 'selected' : ''}>SMS</option></select></label>
+      <label id="tm-subject-wrap" class="block text-xs font-bold text-slate-500 ${t.channel === 'sms' ? 'hidden' : ''}">Subject<input id="tm-subject" value="${esc(t.subject || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
       <label class="block text-xs font-bold text-slate-500">Body <span class="text-slate-400 font-normal">— {{first_name}}, {{account}}</span><textarea id="tm-body" rows="8" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${esc(t.body || '')}</textarea></label>
+      <div id="tm-sms-count" class="${t.channel === 'sms' ? '' : 'hidden'} text-[11px] text-slate-400">SMS messages require an opted-in phone number. Long copy may be split into multiple segments.</div>
     </div>
     <div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
       <button onclick="automationSaveTmpl(${t.id ? `'${t.id}'` : 'null'})" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">Save</button></div>`);
 }
+window.automationTemplateChannelToggle = () => {
+  const sms = document.getElementById('tm-channel')?.value === 'sms';
+  document.getElementById('tm-subject-wrap')?.classList.toggle('hidden', sms);
+  document.getElementById('tm-sms-count')?.classList.toggle('hidden', !sms);
+};
 window.automationSaveTmpl = async (id) => {
-  const payload = { name: document.getElementById('tm-name').value.trim(), subject: document.getElementById('tm-subject').value.trim(), body: document.getElementById('tm-body').value.trim() };
-  if (!payload.name || !payload.subject || !payload.body) return showToast('Name, subject and body are required', 'error');
+  const payload = { name: document.getElementById('tm-name').value.trim(), channel: document.getElementById('tm-channel').value, subject: document.getElementById('tm-subject').value.trim(), body: document.getElementById('tm-body').value.trim() };
+  if (!payload.name || !payload.body || (payload.channel === 'email' && !payload.subject)) return showToast('Name, body, and an email subject are required', 'error');
   try {
     if (id) await apiSendJson('/saas/automation/templates/' + id, 'PATCH', payload);
     else await apiSendJson('/saas/automation/templates', 'POST', payload);

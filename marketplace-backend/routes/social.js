@@ -103,8 +103,8 @@ export async function canActOnAccount(req, accountId, action = 'publish') {
     .select('can_publish, can_schedule, can_approve')
     .eq('social_account_id', acct.id).eq('user_id', userId).maybeSingle()
   const granted = action === 'schedule' ? grant?.can_schedule
-                : action === 'approve' ? grant?.can_approve
-                : grant?.can_publish
+    : action === 'approve' ? grant?.can_approve
+      : grant?.can_publish
 
   if (acct.ownership === 'user') {
     // Your own account is yours. Anyone else needs to have been given it explicitly —
@@ -159,32 +159,42 @@ export async function socialAttention(dealershipId) {
   ])
   const items = []
   for (const a of accounts || []) {
-    items.push({ kind: 'social_account_disconnected', severity: 3, subject: a.display_name,
-      reason: a.last_error || `Account is ${a.status}`, owner: 'Marketing', action: 'Reconnect Account', ref: a.id })
+    items.push({
+      kind: 'social_account_disconnected', severity: 3, subject: a.display_name,
+      reason: a.last_error || `Account is ${a.status}`, owner: 'Marketing', action: 'Reconnect Account', ref: a.id
+    })
   }
   for (const p of posts || []) {
-    items.push({ kind: 'social_post_needs_approval', severity: 2, subject: (p.body || 'Post').slice(0, 60),
-      reason: 'Scheduled content is waiting for approval', owner: 'Marketing', action: 'Review Post', ref: p.id })
+    items.push({
+      kind: 'social_post_needs_approval', severity: 2, subject: (p.body || 'Post').slice(0, 60),
+      reason: 'Scheduled content is waiting for approval', owner: 'Marketing', action: 'Review Post', ref: p.id
+    })
   }
   for (const f of failed || []) {
-    items.push({ kind: 'social_publish_failed', severity: 3, subject: 'Publication failed',
-      reason: f.error || 'The provider refused the post', owner: 'Marketing', action: 'Review Post', ref: f.post_id })
+    items.push({
+      kind: 'social_publish_failed', severity: 3, subject: 'Publication failed',
+      reason: f.error || 'The provider refused the post', owner: 'Marketing', action: 'Review Post', ref: f.post_id
+    })
   }
   // A post whose time came and went without publishing. Until PR 6.6 this was the silent
   // failure the whole department could not see: 'scheduled' forever, nobody told, and the
   // vehicle it was advertising still sitting on the lot.
   for (const s of stuck || []) {
-    items.push({ kind: 'social_post_stuck', severity: 3, subject: (s.body || 'Post').slice(0, 60),
+    items.push({
+      kind: 'social_post_stuck', severity: 3, subject: (s.body || 'Post').slice(0, 60),
       reason: `Scheduled for ${String(s.scheduled_for).slice(0, 16).replace('T', ' ')} and still not published`,
-      owner: 'Marketing', action: 'Publish or Cancel', ref: s.id })
+      owner: 'Marketing', action: 'Publish or Cancel', ref: s.id
+    })
   }
   const vehicleIds = [...new Set((vehiclePosts || []).map(p => p.inventory_id).filter(Boolean))]
   const { data: availableVehicles } = vehicleIds.length ? await supabaseAdmin.from('inventory').select('id')
     .eq('dealership_id', dealershipId).in('id', vehicleIds).eq('status', 'available') : { data: [] }
   const availableIds = new Set((availableVehicles || []).map(v => v.id))
   for (const p of vehiclePosts || []) if (!availableIds.has(p.inventory_id)) {
-    items.push({ kind: 'social_scheduled_vehicle_unavailable', severity: 3, subject: (p.body || 'Vehicle post').slice(0, 60),
-      reason: 'The linked vehicle is sold or unavailable; publishing will be stopped', owner: 'Marketing', action: 'Review Scheduled Post', ref: p.id })
+    items.push({
+      kind: 'social_scheduled_vehicle_unavailable', severity: 3, subject: (p.body || 'Vehicle post').slice(0, 60),
+      reason: 'The linked vehicle is sold or unavailable; publishing will be stopped', owner: 'Marketing', action: 'Review Scheduled Post', ref: p.id
+    })
   }
   return items.sort((a, b) => b.severity - a.severity)
 }
