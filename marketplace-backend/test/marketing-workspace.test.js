@@ -103,6 +103,34 @@ test('the workspace computes no attention of its own', () => {
   assert.match(ws, /d\.opportunities/)
 })
 
+test('Marketing Pulse renders connected sources and never demo KPIs', () => {
+  const view = ws.match(/function mktPulseOverview\([^)]*\)[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(view, 'the connected-data Marketing Pulse renderer must exist')
+  for (const source of ['needsAttention', 'opportunities', 'campaigns', 'automations', 'accounts', 'posts', 'conversations']) {
+    assert.ok(view.includes(`d.${source}`), `Marketing Pulse must read ${source} from its fetched data`)
+  }
+  assert.match(view, /sourceStatus/)
+  assert.match(view, /No value is being estimated/)
+  for (const fake of ['9,480', '19.4%', '14,820', '99.4%', '99.8%', '18.2%', '$148.2k', '$94.5k']) {
+    assert.ok(!view.includes(fake), `Marketing Pulse must not render hard-coded demo metric ${fake}`)
+  }
+  const overviewStart = ws.indexOf('overview(body, d)')
+  const pulseCall = ws.indexOf('mktPulseOverview(body, d, suite, cfg, caveat)', overviewStart)
+  const legacySalesBranch = ws.indexOf("if (suite === 'sales')", overviewStart)
+  assert.ok(pulseCall > overviewStart && pulseCall < legacySalesBranch, 'connected Pulse must render before legacy suite markup')
+  assert.match(ws.slice(pulseCall, legacySalesBranch), /return;/, 'legacy demo markup must be unreachable')
+})
+
+test('Marketing Pulse preserves API failure separately from a real zero', () => {
+  const fetcher = ws.match(/fetch: async \(\) => \{[\s\S]*?\n  \},\n\n  tabs:/)?.[0] || ''
+  assert.ok(fetcher, 'Marketing fetcher must exist')
+  assert.match(fetcher, /sourceStatus:/)
+  assert.match(fetcher, /sourceErrors:/)
+  for (const source of ['myDay', 'campaigns', 'accounts', 'posts', 'conversations', 'roi', 'automations']) {
+    assert.ok(fetcher.includes(`safe('${source}'`), `${source} must report availability`)
+  }
+})
+
 test('it composes existing endpoints and introduces none', () => {
   // '/marketing/attention' became '/my-day' in 6.10 — the same composition, widened across
   // departments and gated per source.
