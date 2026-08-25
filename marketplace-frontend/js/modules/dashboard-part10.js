@@ -1043,6 +1043,10 @@ async function engineTab(engineId, tab, force) {
   ];
   const isPulseLayout = pulseEngines.includes(engineId) && ['overview', 'pulse'].includes(tab);
   body.classList.toggle('ms-pulse-board', isPulseLayout);
+  // The shell's rail column is built once per engine by renderEngine(), but only the
+  // Pulse tab wants the full content width — so the collapse is a class on the shell's
+  // grid wrapper, toggled per tab rather than baked into the shell.
+  body.parentElement?.classList.toggle('ms-pulse-wide', isPulseLayout);
   if (isPulseLayout) body.dataset.pulseKind = engineId;
   else delete body.dataset.pulseKind;
   // A borrowed page panel may be sitting in here; hand it back before the wipe or
