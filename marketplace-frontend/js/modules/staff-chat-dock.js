@@ -86,7 +86,12 @@
   }
 
   function getApi() {
-    return window.API || '/api';
+    // dashboard.js declares API with top-level `const`, which is shared with later
+    // classic scripts but intentionally is not a window property. Falling back to
+    // `/api` here targets the static frontend origin and returns 404, causing the
+    // dock to disable itself. Prefer the canonical dashboard backend identifier.
+    if (typeof API !== 'undefined' && API) return API;
+    return window.MS_API_BASE_URL || window.API || '/api';
   }
   function getToken() {
     return localStorage.getItem('token');

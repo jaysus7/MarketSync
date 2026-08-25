@@ -57,6 +57,8 @@ test('the staff-chat dock refuses to run on independent programs and can be torn
     'Team Chat must reconcile when asynchronous department navigation finishes')
   assert.match(staffChat, /document\.readyState === 'loading'[\s\S]*?bootStaffChatDock\(\)/,
     'the late-loaded module must boot whether it arrives before or after DOM ready')
+  assert.match(staffChat, /if \(typeof API !== 'undefined' && API\) return API;/,
+    'Team Chat must use the canonical dashboard backend instead of the static frontend origin')
 })
 
 test('the single-product settings block also tears down the staff-chat dock (belt-and-suspenders with applyProductNav)', () => {
