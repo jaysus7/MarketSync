@@ -1557,9 +1557,17 @@ body > header,
 
 .ms-pulse-board > .grid { gap: clamp(.75rem, 1.1vw, 1rem) !important; }
 
+/* Glass belongs to things that are already CARDS. A blanket `details` selector also
+   caught the bare, padding-less wrappers the Pulse composes with — engSection()'s
+   `<details class="group mt-7">` (a heading + content, no chrome of its own) and the
+   layout wrappers enableExecutivePulseDisclosures() promotes — so each one grew a
+   glass panel with zero padding: the section title sat flush in the box's top-left
+   corner and its content bled to the edges ("the titles are not inside nicely"). It
+   also painted over the dark AI panel's own gradient. Real cards (engCard, the rail,
+   the department sections) all carry bg-white/dark:bg-slate-900 and are matched by
+   the selectors above them, so they keep the glass. */
 .ms-pulse-board .bg-white,
 .ms-pulse-board .dark\:bg-slate-900,
-.ms-pulse-board details,
 [data-engine-rail] details {
   border-radius: var(--ms-radius-card) !important;
   background: linear-gradient(145deg, rgba(255,255,255,.76), rgba(255,255,255,.58)) !important;
@@ -1571,7 +1579,6 @@ body > header,
 
 .dark .ms-pulse-board .bg-white,
 .dark .ms-pulse-board .dark\:bg-slate-900,
-.dark .ms-pulse-board details,
 .dark [data-engine-rail] details {
   background: linear-gradient(145deg, rgba(30,41,72,.56), rgba(15,23,42,.38)) !important;
   border-color: rgba(148,163,184,.18) !important;
@@ -1595,6 +1602,24 @@ body > header,
 
 .ms-pulse-board button,
 [data-engine-rail] button { border-radius: var(--ms-radius-control) !important; }
+
+/* A Pulse page is a wall of glance widgets, so it wants the whole content column.
+   renderEngine()'s shell hands every engine a fixed 300px right rail, which left the
+   board at ~74% of the width the engine header above it spans and a column of dead
+   space beside every department section. On Pulse tabs the rail stops being a column
+   and becomes a full-width action strip directly under the header, so the board runs
+   edge to edge. Toggled from engineTab() alongside .ms-pulse-board. */
+.ms-pulse-wide { grid-template-columns: minmax(0, 1fr) !important; }
+
+.ms-pulse-wide > [data-engine-rail] {
+  order: -1;
+  position: static !important;
+  top: auto !important;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: .75rem;
+  align-items: start;
+}
 
 @media (min-width: 1024px) {
   .ms-pulse-board[data-pulse-kind="sales"] > .grid:last-child,
@@ -1726,7 +1751,6 @@ body {
 .dark .dark\:bg-slate-900:not(#studio-artboard-container):not(#dashboard-nav),
 .dark .ms-pulse-board .bg-white,
 .dark .ms-pulse-board .dark\:bg-slate-900,
-.dark .ms-pulse-board details,
 .dark [data-engine-rail] details {
   background: linear-gradient(145deg, rgba(24, 36, 60, .68), rgba(10, 17, 31, .50)) !important;
   border-color: rgba(190, 205, 230, .15) !important;
@@ -1740,7 +1764,6 @@ body {
 .ms-glass,
 .ms-pulse-board .bg-white,
 .ms-pulse-board .dark\:bg-slate-900,
-.ms-pulse-board details,
 [data-engine-rail] details { border-radius: var(--ms-radius-card) !important; }
 
 /* Keep empty Pulse cards compact instead of stretching them into blank tiles. */
