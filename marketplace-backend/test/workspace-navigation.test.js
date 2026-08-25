@@ -360,7 +360,7 @@ test('the desktop dashboard shell keeps top, department, and operations navigati
     'the proper engine rail must restore department reports on the right')
   assert.doesNotMatch(html, /<header class="[^"]*\bborder-b\b/,
     'the fixed header must not carry a Tailwind border that draws a hard canvas line')
-  assert.match(themeCss, /body > header,\s*\n\.dark body > header\s*\{[\s\S]*?border-bottom:\s*0\s*!important;[\s\S]*?box-shadow:\s*none\s*!important/,
+  assert.match(themeCss, /html body > header,\s*\nhtml\.dark body > header\s*\{[\s\S]*?border-bottom:\s*0\s*!important;[\s\S]*?box-shadow:\s*none\s*!important/,
     'the final glass cascade must remove the inherited full-width header shadow and border')
   assert.match(part11, /class="ms-daily-greeting"/,
     'management Pulse must render its greeting on a system-aware surface')
