@@ -112,6 +112,24 @@ function publicRep(p) {
 
 const slugify = (s) => String(s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
 
+// Derive a unique site_slug from the dealership name (de-duplicated with a numeric
+// suffix). Safe to call for a still-unpublished site: every public-facing route also
+// requires site_published, so an auto-assigned slug on its own exposes nothing.
+async function autoAssignSlug(dealershipId, name) {
+  let base = slugify(name || '') || 'dealer'
+  if (base.length < 3) base = ('dealer-' + base).replace(/-$/, '').slice(0, 40)
+  let slug = base, n = 1
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { data: taken } = await supabaseAdmin.from('dealerships')
+      .select('id').ilike('site_slug', slug).neq('id', dealershipId).maybeSingle()
+    if (!taken) break
+    slug = (base.slice(0, 36) + '-' + (++n)).slice(0, 40)
+  }
+  await supabaseAdmin.from('dealerships').update({ site_slug: slug }).eq('id', dealershipId)
+  return slug
+}
+
 // Custom pages the dealer adds (About, Financing info, etc.) — title + HTML body.
 function cleanPages(arr) {
   if (!Array.isArray(arr)) return []
@@ -537,6 +555,12 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { data: d } = await supabaseAdmin.from('dealerships')
       .select('name, branding, site_slug, site_published, custom_domain, custom_domain_verified, city, province, postal_code, website_url').eq('id', req.dealershipId).single()
+    // The visual Live Builder requires a slug before it can render at all (it needs a
+    // real site address to preview/link against). Rather than leaving every dealership
+    // that hasn't published yet stuck behind a dead-end "set your address first" screen,
+    // assign one automatically here — draft/unpublished, so nothing becomes publicly
+    // reachable until the dealer explicitly publishes.
+    if (!d.site_slug) d.site_slug = await autoAssignSlug(req.dealershipId, d.name)
     res.json({
       site_slug: d.site_slug || null,
       site_published: !!d.site_published,
