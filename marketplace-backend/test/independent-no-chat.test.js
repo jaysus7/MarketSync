@@ -49,6 +49,12 @@ test('the staff-chat dock refuses to run on independent programs and can be torn
     'full DealerOS must be able to restore Team Chat after entitlement resolution')
   assert.match(staffChat, /if \(window\.__teamChatAllowed === true\) return false;/,
     'resolved DealerOS access must override any stale provisional disabled state')
+  assert.match(staffChat, /hasFullDealerShell[\s\S]*?#dept-nav \[data-dept="sales"\][\s\S]*?#dept-nav \[data-dept="inventory"\][\s\S]*?#dept-nav \[data-dept="service"\]/,
+    'the canonical full department shell must retain Team Chat for legacy access payloads')
+  assert.match(staffChat, /ensureDockContainer\(\)\.classList\.remove\('hidden'\)/,
+    'an entitled startup must clear stale hidden state')
+  assert.match(staffChat, /setTimeout\(startStaffChatDock, 1200\)[\s\S]*?setTimeout\(startStaffChatDock, 3500\)/,
+    'Team Chat must reconcile after asynchronous access and navigation initialization')
 })
 
 test('the single-product settings block also tears down the staff-chat dock (belt-and-suspenders with applyProductNav)', () => {

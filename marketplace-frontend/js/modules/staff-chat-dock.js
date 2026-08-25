@@ -21,6 +21,15 @@
     // It must win over a stale disabled state from an earlier provisional pass.
     if (window.__teamChatAllowed === true) return false;
     if (window.__teamChatAllowed === false) return true;
+    // The rendered full department navigation is the final shell-level signal
+    // when older access payloads do not expose dealer_os in their product array.
+    // Standalone tools replace this list and set data-product instead.
+    const dataProduct = (document.documentElement.getAttribute('data-product') || '').trim();
+    const hasFullDealerShell = !dataProduct
+      && !!document.querySelector('#dept-nav [data-dept="sales"]')
+      && !!document.querySelector('#dept-nav [data-dept="inventory"]')
+      && !!document.querySelector('#dept-nav [data-dept="service"]');
+    if (hasFullDealerShell) return false;
     // Resolve the canonical access context before consulting provisional workspace
     // classification. DealerOS can be the account's only product and is still the
     // full dealership operating system with Team Chat.
@@ -53,6 +62,9 @@
 
   function startStaffChatDock() {
     if (shouldHideStaffChat()) return;
+    // A provisional product pass can add `hidden` before canonical access settles.
+    // Starting an entitled dock must always clear that stale presentation state.
+    ensureDockContainer().classList.remove('hidden');
     initLauncherUI();
     fetchMembers();
     pollUnread();
@@ -490,6 +502,10 @@
   // Start cycles on DOM ready
   document.addEventListener('DOMContentLoaded', () => {
     startStaffChatDock();
+    // Access context and role-aware department navigation resolve asynchronously.
+    // Reconcile after each settles; the starter is idempotent and owns one poller.
+    setTimeout(startStaffChatDock, 1200);
+    setTimeout(startStaffChatDock, 3500);
   });
 
   // Global click to close emoji pickers
