@@ -3303,9 +3303,6 @@ window.openTemplatePicker = openTemplatePicker;
 window.applyCompleteTemplate = applyCompleteTemplate;
 window.applyTemplate = applyCompleteTemplate;
 
-window.openTemplatePicker = openTemplatePicker;
-window.applyCompleteTemplate = applyCompleteTemplate;
-
 function wsFontOpts(sel) { return `<option value="">— Use preset —</option>` + WS_FONTS.map(f => `<option value="${f}" ${sel === f ? 'selected' : ''}>${f}</option>`).join(''); }
 function wsDesign() {
   const c = __siteCfg.content || {};
@@ -3321,6 +3318,18 @@ function wsDesign() {
   ];
   const curTheme = c.theme || 'classic';
   return `<div class="mt-4 max-w-lg space-y-5">
+    <div class="p-4 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-sky-500/10 border border-indigo-500/20 flex items-center justify-between gap-3">
+      <div>
+        <div class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>
+          Starter Dealership Templates
+        </div>
+        <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Explore 5 full working layouts with Pexels photos &amp; pre-filled copy.</div>
+      </div>
+      <button type="button" onclick="openTemplatePicker()" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition shrink-0 cursor-pointer">
+        Browse Templates →
+      </button>
+    </div>
     <div>
       <div class="text-sm font-black text-slate-900 dark:text-white mb-2">Design theme <span class="font-normal text-slate-400 text-[11px]">— one click restyles the whole site</span></div>
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">${themes.map(([id, nm, desc]) => `<button type="button" onclick="wsSetTheme('${id}')" class="text-left rounded-xl border-2 p-3 transition ${curTheme === id ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40' : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300'}">
@@ -3592,123 +3601,20 @@ async function dealerCtxAsync() {
   return { name: c.name || 'our dealership', city: c.city || '', makes, primaryMake: makes[0] || '', makeList: makes.slice(0, 3).join(', ') };
 }
 const SITE_TEMPLATES = [
-  { id: 'generic', name: 'Generic', primary: '#1e3a8a', secondary: '#0f172a', accent: '#2563eb', typography: 'modern', build: (x) => [
-    __mk('hero', { headline: `Welcome to ${x.name}`, subheadline: `Quality new and used vehicles${x.city ? ' in ' + x.city : ''}. Shop, build and finance — all in one place.`, button_label: 'Browse inventory', button_target: 'inquiry', overlay: 45, height: 'md' }),
-    __mk('featured_inventory', { title: 'Featured vehicles', condition: 'all', count: 6 }),
-    __mk('trade_cta', { title: 'Value your trade', subtitle: 'Get a real number in minutes.', button_label: 'Value my trade' }),
-    __mk('finance_cta', { title: 'Get pre-approved', subtitle: 'Fast and secure — no impact to your credit score.', button_label: 'Get pre-approved' }),
-    __mk('staff', { title: 'Meet our team' }),
-    __mk('faq', { title: 'Frequently asked questions', items: [{ q: 'Do you offer financing?', a: 'Yes — apply online in minutes and our team finds you a competitive rate.' }, { q: 'Can I value my trade online?', a: `Absolutely. Use our trade tool and we'll get you a real offer.` }] }),
-    __mk('contact', { title: 'Get in touch' }),
-  ] },
-  { id: 'manufacturer', name: 'Manufacturer', primary: '#0b2a5b', secondary: '#0a1a33', accent: '#d4af37', typography: 'bold', build: (x) => {
-    const mk = x.primaryMake || 'your favourite brands';
-    return [
-      __mk('hero', { headline: `Your ${mk} destination${x.city ? ' in ' + x.city : ''}`, subheadline: `Explore the full ${mk} lineup, build yours, and drive home with confidence.`, button_label: `Shop ${mk}`, button_target: 'inquiry', overlay: 40, height: 'lg' }),
-      __mk('inventory_grid', { title: `${mk} inventory` }),
-      __mk('finance_cta', { title: `${mk} finance offers`, subtitle: 'Competitive rates and factory programs.', button_label: 'Get pre-approved' }),
-      __mk('service_cta', { title: 'Factory-trained service', subtitle: 'Keep your vehicle running like new.', button_label: 'Book service', button_target: 'inquiry' }),
-      __mk('featured_inventory', { title: 'New arrivals', condition: 'new', count: 6 }),
-      __mk('contact', { title: 'Talk to a product specialist' }),
-    ];
-  } },
-  { id: 'modern', name: 'Modern', primary: '#4f46e5', secondary: '#0b1020', accent: '#22d3ee', typography: 'modern', build: (x) => [
-    __mk('hero', { headline: `Find your next vehicle, faster`, subheadline: `${x.name} makes it simple — search, build and finance online${x.city ? ' in ' + x.city : ''}.`, button_label: 'Start shopping', button_target: 'inquiry', overlay: 35, height: 'lg' }),
-    __mk('featured_inventory', { title: 'Trending now', condition: 'all', count: 6 }),
-    __mk('cta_banner', { title: 'Build your dream vehicle online', button_label: 'Build & price', button_target: 'inquiry' }),
-    __mk('gallery', { title: 'Inside our store', images: [] }),
-    __mk('trade_cta', { title: 'Trade up today', subtitle: 'Instant estimate, real offer.', button_label: 'Value my trade' }),
-    __mk('finance_cta', { title: 'Financing that fits', subtitle: 'Pre-approval in minutes.', button_label: 'Get pre-approved' }),
-    __mk('contact', { title: 'Let\'s talk' }),
-  ] },
-  { id: 'clean', name: 'Clean', primary: '#0f766e', secondary: '#111827', accent: '#14b8a6', typography: 'minimal', build: (x) => [
-    __mk('hero', { headline: x.name, subheadline: `A simpler way to buy your next vehicle${x.city ? ' in ' + x.city : ''}.`, button_label: 'View inventory', button_target: 'inquiry', overlay: 30, height: 'sm' }),
-    __mk('featured_inventory', { title: 'Available now', condition: 'all', count: 6 }),
-    __mk('finance_cta', { title: 'Get pre-approved', subtitle: 'Quick, secure, no obligation.', button_label: 'Apply now' }),
-    __mk('contact', { title: 'Contact us' }),
-  ] },
-  { id: 'luxury', name: 'Luxury', primary: '#151515', secondary: '#000000', accent: '#b08d57', typography: 'luxury', build: (x) => [
-    __mk('hero', { headline: `An elevated ownership experience`, subheadline: `${x.name} — curated vehicles and concierge service${x.city ? ' in ' + x.city : ''}.`, button_label: 'View the collection', button_target: 'inquiry', overlay: 55, height: 'lg' }),
-    __mk('featured_inventory', { title: 'The collection', condition: 'all', count: 6 }),
-    __mk('html', { html: `<div class="max-w-3xl"><h2 class="text-2xl font-black mb-2">Effortless from first look to delivery</h2><p class="text-slate-600">Private appointments, home delivery and a dedicated advisor for every client.</p></div>` }),
-    __mk('staff', { title: 'Your advisors' }),
-    __mk('contact', { title: 'Request a private appointment' }),
-  ] },
-  { id: 'usedlot', name: 'Used car lot', primary: '#b45309', secondary: '#1c1917', accent: '#f59e0b', typography: 'bold', build: (x) => [
-    __mk('hero', { headline: `Quality pre-owned, priced to move`, subheadline: `${x.name} — every vehicle inspected and ready to go${x.city ? ' in ' + x.city : ''}.`, button_label: 'Browse used inventory', button_target: 'inquiry', overlay: 45, height: 'md' }),
-    __mk('inventory_grid', { title: 'Our pre-owned inventory' }),
-    __mk('trade_cta', { title: 'We buy cars', subtitle: 'Get top dollar for your trade — even if you don\'t buy from us.', button_label: 'Get my offer' }),
-    __mk('finance_cta', { title: 'Everyone drives', subtitle: 'Good credit, bad credit, no credit — we can help.', button_label: 'Get approved' }),
-    __mk('faq', { title: 'Buying with confidence', items: [{ q: 'Are your vehicles inspected?', a: 'Yes — every vehicle goes through a full mechanical and safety inspection.' }, { q: 'Do you help with financing?', a: 'We work with multiple lenders to get you approved, whatever your credit.' }] }),
-    __mk('contact', { title: 'Come see us' }),
-  ] },
-  { id: 'corporate', name: 'Corporate', primary: '#1e40af', secondary: '#0b1220', accent: '#64748b', typography: 'corporate', build: (x) => [
-    __mk('hero', { headline: `${x.name}`, subheadline: `Trusted vehicle sales, financing and service${x.city ? ' in ' + x.city : ''}${x.makeList ? ' — ' + x.makeList + ' and more' : ''}.`, button_label: 'Explore inventory', button_target: 'inquiry', overlay: 40, height: 'md' }),
-    __mk('featured_inventory', { title: 'Featured inventory', condition: 'all', count: 6 }),
-    __mk('finance_cta', { title: 'Financing & leasing', subtitle: 'Flexible terms for every budget.', button_label: 'Get pre-approved' }),
-    __mk('service_cta', { title: 'Service & maintenance', subtitle: 'Certified technicians and genuine parts.', button_label: 'Book service', button_target: 'inquiry' }),
-    __mk('reviews', { title: 'What our customers say' }),
-    __mk('faq', { title: 'Questions, answered', items: [{ q: 'What are your hours?', a: 'See our hours in the footer — or contact us anytime online.' }, { q: 'Do you offer delivery?', a: 'Yes, we offer vehicle delivery in the surrounding area.' }] }),
-    __mk('map', { title: 'Find us', address: '' }),
-    __mk('contact', { title: 'Get in touch' }),
-  ] },
+  { id: 'classic', name: 'Classic Dealership', primary: '#1e3a8a', secondary: '#0f172a', accent: '#3b82f6', typography: 'classic', preset: 'classic', desc: 'Balanced, familiar dealer look with upfront transparency' },
+  { id: 'prestige', name: 'Prestige Luxury & Executive', primary: '#0f172a', secondary: '#1e293b', accent: '#d97706', typography: 'prestige', preset: 'prestige', desc: 'Refined, spacious, serif headings and gold accents' },
+  { id: 'modern', name: 'Modern Digital Showroom', primary: '#4f46e5', secondary: '#0b1020', accent: '#06b6d4', typography: 'modern', preset: 'modern', desc: 'Crisp, soft depth, rounded cards and fast retailing' },
+  { id: 'bold', name: 'Bold High-Impact & Performance', primary: '#dc2626', secondary: '#09090b', accent: '#f59e0b', typography: 'bold', preset: 'bold', desc: 'High-contrast, punchy headlines and sales urgency' },
+  { id: 'minimal', name: 'Minimal Studio & Precision', primary: '#18181b', secondary: '#27272a', accent: '#2563eb', typography: 'minimal', preset: 'minimal', desc: 'Flat, airy, bordered, distraction-free vehicle shopping' },
+  { id: 'performance', name: 'Motorsport & High Velocity', primary: '#0284c7', secondary: '#020617', accent: '#06b6d4', typography: 'performance', preset: 'performance', desc: 'Carbon styling and dynamic horsepower specs' },
+  { id: 'truck', name: 'Truck & Commercial HQ', primary: '#1c1917', secondary: '#292524', accent: '#d97706', typography: 'bold', preset: 'truck', desc: 'Heavy-duty towing capacity and commercial power' },
+  { id: 'family', name: 'Family & Crossover Hub', primary: '#1e293b', secondary: '#0f172a', accent: '#0d9488', typography: 'modern', preset: 'family', desc: 'Safety-first 5-star ratings and family versatility' },
+  { id: 'used', name: 'Certified Pre-Owned Depot', primary: '#1e3a8a', secondary: '#0f172a', accent: '#f59e0b', typography: 'classic', preset: 'used', desc: '100% inspection guarantee and credit approval' },
+  { id: 'ev', name: 'Electric Vehicle Hub', primary: '#030712', secondary: '#0b1329', accent: '#22d3ee', typography: 'modern', preset: 'ev', desc: 'Zero emissions and EV charging range calculator' }
 ];
-function openTemplatePicker() {
-  const cards = SITE_TEMPLATES.map(t => `<button onclick="applyTemplate('${t.id}')" class="text-left border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden hover:border-indigo-400 transition">
-    <div class="h-16 flex" style="background:${t.primary}"><div class="w-1/4" style="background:${t.secondary}"></div><div class="w-1/4 self-end m-2 h-4 rounded" style="background:${t.accent}"></div></div>
-    <div class="px-3 py-2"><div class="text-sm font-bold text-slate-800 dark:text-slate-100">${esc(t.name)}</div><div class="text-[10px] text-slate-400">${esc(TEMPLATE_BLURB[t.id] || '')}</div></div>
-  </button>`).join('');
-  crmOverlay(`<div class="p-5">
-    <div class="flex items-center justify-between mb-1"><div class="text-lg font-black text-slate-900 dark:text-white">Start from a template</div><button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-    <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Each template applies its own layout, colours, fonts and starter copy — already filled in with your dealership's name, city and brands. Edit everything after.</p>
-    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">${cards}</div>
-  </div>`, 'max-w-2xl');
-}
-const TEMPLATE_BLURB = { generic: 'Balanced, all-purpose', manufacturer: 'Auto-branded to your make', modern: 'Bold & contemporary', clean: 'Minimal & fast', luxury: 'Dark, premium feel', usedlot: 'High-volume pre-owned', corporate: 'Professional & complete' };
+
 async function applyTemplate(id) {
-  const t = SITE_TEMPLATES.find(x => x.id === id); if (!t) return;
-  if ((__sitePages || []).length || (__homeSections || []).length) {
-    if (!confirm('Apply this template? It lays out your whole site — home, standard pages, the menu (with submenus) and the design — pre-filled with editable starter content and SEO copy. This replaces your current pages, menu and design. Your inventory, team and settings are untouched.')) return;
-  }
-  const ctx = await dealerCtxAsync();
-  let colors = { primary: t.primary, secondary: t.secondary, accent: t.accent, typography: t.typography };
-  if (id === 'manufacturer') { const th = MAKE_THEME[(ctx.primaryMake || '').toLowerCase()]; if (th) colors = { primary: th.p, secondary: th.s, accent: th.a, typography: th.t }; }
-
-  // Home — a complete, polished layout (hero, feature cards, inventory, split, body styles, reviews, map, contact).
-  __homeSections = templateHome(ctx);
-  __wsTarget = 'home'; __siteSections = __homeSections;
-
-  // A complete, editable page set — rich content + SEO already written.
-  const P = PAGE_PRESETS();
-  const mk = (preset) => ({ id: 'pg' + Math.random().toString(36).slice(2, 9), ...JSON.parse(JSON.stringify(preset.page)) });
-  __sitePages = [mk(P.about), mk(P.specials), mk(P.service), mk(P.book_service), mk(P.parts), mk(P.accessories), mk(P.careers)];
-  // Submenu structure: Service is the parent of Book Service / Parts / Accessories; Careers sits under About Us.
-  for (const p of __sitePages) {
-    const tt = (p.title || '').toLowerCase();
-    if (tt === 'service') p.menu = '';
-    else if (tt === 'book service' || tt === 'parts' || tt === 'accessories') p.menu = 'Service';
-    else if (tt === 'careers') p.menu = 'About Us';
-    else p.menu = '';
-  }
-  // Built-ins on, every one pre-filled with a hero/intro so nothing is empty.
-  __siteBuiltins = defaultBuiltins();
-  const bsecs = templateBuiltinSections();
-  for (const k of Object.keys(bsecs)) if (__siteBuiltins[k]) __siteBuiltins[k].sections = bsecs[k];
-
-  // Nav order with the submenus laid out (parent immediately before its children).
-  const pageTok = (title) => { const p = __sitePages.find(x => (x.title || '').toLowerCase() === title.toLowerCase()); return p ? ('p:' + p.id) : null; };
-  __menuOrder = ['b:inventory', 'b:build', 'b:trade', 'b:finance', pageTok('Specials'), pageTok('About Us'), pageTok('Careers'), pageTok('Service'), pageTok('Book Service'), pageTok('Parts'), pageTok('Accessories'), 'b:team', 'b:contact'].filter(Boolean);
-
-  // Design — colours + fonts.
-  const c = __siteCfg.content || (__siteCfg.content = {});
-  c.primary_color = colors.primary; c.secondary_color = colors.secondary; c.accent_color = colors.accent; c.typography = colors.typography;
-
-  document.querySelector('.fixed')?.remove();
-  __wsTab = 'pages';   // show the freshly laid-out menu + pages
-  renderWebsitePage();
-  // Auto-publish: assign a web address (server-side) + push the whole site live so it
-  // shows immediately — no separate Save/Publish step, no slug to hand-pick.
-  await publishSiteNow('Template applied — your site is live. Edit anything and Save to update.');
+  return applyCompleteTemplate(id);
 }
 // Save the full in-memory site and publish it, letting the server auto-assign a slug
 // (domain) on first publish. Used by the template flow so a site is live in one click.
