@@ -51,7 +51,7 @@ Modes: default DealerOS, `data-dash-mode="marketsync"` (internal),
 **Every one of these renders in light and dark.** A phase is not done until it
 has been checked in both.
 
-## Page-coverage audit (measured 2026-08-25, at 3b1d215)
+## Page-coverage audit (re-measured 2026-08-25, at 4f5bc25)
 
 Counted from source. These numbers are the reason the phase order below is what
 it is — they are not decoration, and two of them change the plan.
@@ -99,20 +99,52 @@ finding them once is much cheaper than finding them eight times.
 
 ### Legacy weight still to unwind
 
+Counted as **occurrences** (`grep -o '!important' css/*.css | wc -l`), not lines
+containing one — an earlier pass counted lines and under-reported by ~40.
+
 | Fact | Count |
 |---|---|
-| `!important` across `css/` | 696 |
-| — of which `marketsync-theme.css` | 489 |
+| `!important` across `css/` | 740 |
+| — of which `marketsync-theme.css` | 511 |
 | — of which `dashboard-brand-repaint.css` | 156 |
-| — of which `dashboard-nav.css` | 47 |
+| — of which `dashboard-nav.css` | 49 |
+| — of which `tailwind-built*.css` (generated) | 22 |
 | — of which `ms-design-system.css` | **2** |
 | Hardcoded hex colours in JS renderers | 718 |
 | `class="…"` attributes in JS renderers | 13,762 |
+
+Net movement since 3b1d215: **732 → 740, all eight in `marketsync-theme.css`**,
+from the modal-contrast and mobile-Pulse fixes. Both had to land in the legacy
+override layer because the surfaces they fix have not been migrated yet — which
+is the phase 16 argument in miniature: the count comes down after the surfaces
+move, not before.
 
 The design system holds its own line (2 `!important` in ~600 lines) because it
 wins by cascade order. The 694 elsewhere are the real backlog, and phase 16 is
 where they come out — not before, because each removal needs the surface that
 depends on it to have been migrated first.
+
+## Work since phase 3 (not phase work)
+
+Between phase 3 and now the effort went to *"every page functional and ready to
+use"* rather than to the numbered phases. Recorded here so the phase table below
+is not read as the whole picture:
+
+| Commit | What |
+|---|---|
+| `457beb4` | page-coverage audit (the numbers above) |
+| `7a197bd`, `f81efae` | two genuine CodeQL high-severity fixes |
+| `ed3c278` | record-level deep links from Pulse counts |
+| `715ace3` | all three dashboard modes / eight roles |
+| `e4ab1fd`, `f81efae`, `4f5bc25` | SEO nav gate, entitlement migrations, Pro revoke |
+| `6c271d9` | mobile Pulse: logo crop, wrapping headers, quiet zeros |
+| `bcb7d7b` | modals: opaque card, readable action buttons |
+| `fda1b26` | ten dead inline handlers made to work + a permanent guard |
+
+None of this advanced phases 4-16. **Phase 4 is still the next phase**, and the
+measured warning above still stands: the phase 1 primitives have zero uses in
+markup, so adopt them on one department Pulse and measure before rolling to
+seven more.
 
 ## Pulse coverage
 
