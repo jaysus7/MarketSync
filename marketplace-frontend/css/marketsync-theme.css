@@ -2112,9 +2112,17 @@ body > header {
 @media (min-width: 768px) {
   html:has(body.ms-app-booting), body.ms-app-booting { overflow: hidden !important; }
   #dept-sidebar {
+    align-self: start !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: calc(100vh - 136px) !important;
     overflow: visible !important;
   }
   #dashboard-nav {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: .65rem !important;
     background: linear-gradient(145deg, rgba(255,255,255,.72), rgba(255,255,255,.50)) !important;
     border: 1px solid rgba(255,255,255,.50) !important;
     border-radius: 22px !important;
@@ -2262,4 +2270,146 @@ html[data-dash-mode="marketsync"] .page-content .ms-ai-panel {
 html.dark[data-dash-mode="marketsync"] .page-content .ms-ai-panel {
   background: rgba(26, 29, 36, .84) !important;
   border-color: var(--ms-border) !important;
+}
+
+/* Management greeting: one calm, system-aware surface with a deterministic
+   daily focus line. It follows the OS theme instead of forcing a dark band. */
+.ms-daily-greeting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin: 0 0 1.5rem;
+  padding: 1.15rem 1.35rem;
+  color: var(--ms-text);
+  background: rgba(255, 255, 255, .78);
+  border: 1px solid rgba(255, 255, 255, .72);
+  border-radius: 1.5rem;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, .07), inset 0 1px 0 rgba(255, 255, 255, .78);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+}
+.ms-daily-greeting__eyebrow {
+  margin-bottom: .2rem;
+  color: #2563eb;
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.ms-daily-greeting h2 {
+  color: inherit;
+  font-size: clamp(1.25rem, 2vw, 1.65rem);
+  font-weight: 900;
+  letter-spacing: -.035em;
+}
+.ms-daily-greeting blockquote {
+  max-width: 42rem;
+  margin: 0;
+  color: var(--ms-text-muted);
+  font-size: .95rem;
+  font-weight: 650;
+  line-height: 1.5;
+  text-align: right;
+}
+.dark .ms-daily-greeting {
+  background: rgba(26, 29, 36, .78);
+  border-color: rgba(255, 255, 255, .12);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, .22), inset 0 1px 0 rgba(255, 255, 255, .08);
+}
+
+/* Fixed manager report rail. Its collapsed state stays icon-only; expanding it
+   reveals labels without replacing the workspace or stealing page width. */
+#report-rail {
+  width: 3.5rem;
+  max-height: calc(100vh - 9rem);
+  padding: .5rem;
+  overflow: hidden;
+  color: var(--ms-text-muted);
+  background: rgba(255, 255, 255, .76) !important;
+  border: 1px solid rgba(255, 255, 255, .68) !important;
+  border-right: 0 !important;
+  border-radius: 1.35rem 0 0 1.35rem;
+  box-shadow: -10px 18px 36px rgba(15, 23, 42, .10), inset 0 1px 0 rgba(255, 255, 255, .78);
+  backdrop-filter: blur(24px) saturate(155%);
+  -webkit-backdrop-filter: blur(24px) saturate(155%);
+  transition: width .2s ease;
+}
+#report-rail.rr-open { width: 12.5rem; }
+.ms-report-rail__head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .5rem;
+  min-height: 2.3rem;
+  padding-bottom: .35rem;
+  border-bottom: 1px solid var(--ms-border);
+}
+.ms-report-rail__head .rr-head-label {
+  margin-right: auto;
+  padding-left: .45rem;
+  color: var(--ms-text);
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.ms-report-rail__head button,
+#report-rail button[data-report] {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  width: 100%;
+  min-height: 2.35rem;
+  padding: .48rem .58rem;
+  color: inherit;
+  background: transparent !important;
+  border: 0;
+  border-radius: .8rem;
+  font-size: .76rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.ms-report-rail__head button { width: 2.35rem; justify-content: center; padding: .45rem; }
+.ms-report-rail__head button:hover,
+#report-rail button[data-report]:hover {
+  color: #1d4ed8;
+  background: rgba(37, 99, 235, .10) !important;
+}
+#report-rail svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+  stroke-width: 1.8;
+  transition: transform .2s ease;
+}
+.ms-report-rail__items {
+  display: flex;
+  flex-direction: column;
+  gap: .08rem;
+  max-height: calc(100vh - 12.25rem);
+  padding-top: .35rem;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.ms-report-rail__items::-webkit-scrollbar { display: none; }
+.dark #report-rail {
+  color: var(--ms-text-muted);
+  background: rgba(22, 25, 32, .78) !important;
+  border-color: rgba(255, 255, 255, .12) !important;
+  box-shadow: -12px 18px 38px rgba(0, 0, 0, .24), inset 0 1px 0 rgba(255, 255, 255, .08);
+}
+
+@media (max-width: 767px) {
+  .ms-daily-greeting {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: .55rem;
+    padding: 1rem 1.1rem;
+  }
+  .ms-daily-greeting blockquote { text-align: left; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #report-rail, #report-rail svg { transition: none; }
 }

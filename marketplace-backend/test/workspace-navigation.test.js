@@ -358,6 +358,16 @@ test('the desktop dashboard shell keeps compact navigation and header breathing 
     'the sidebar column must not paint a full-height surface edge')
   assert.match(themeCss, /#dashboard-nav\s*\{[\s\S]*?border-radius:\s*22px\s*!important/,
     'the compact navigation itself must own the rounded glass surface')
+  assert.match(themeCss, /#dept-sidebar\s*\{[\s\S]*?height:\s*auto\s*!important/,
+    'the left navigation wrapper must fit its menu instead of filling the screen')
+  assert.match(html, /id="report-rail"[\s\S]*?data-report="all"/,
+    'manager report shortcuts must remain available on the right edge')
+  assert.match(part11, /class="ms-daily-greeting"/,
+    'management Pulse must render its greeting on a system-aware surface')
+  assert.match(part11, /dailyMotivations[\s\S]*?Date\.UTC/,
+    'management Pulse must choose a stable new motivational focus by local date')
+  assert.match(themeCss, /\.dark \.ms-daily-greeting\s*\{[\s\S]*?background:/,
+    'the daily greeting must follow system dark mode')
 })
 
 test('the canonical Pulse grids retain the useful legacy operational information', () => {

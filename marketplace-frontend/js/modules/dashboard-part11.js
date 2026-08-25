@@ -2058,8 +2058,27 @@ ENGINES['command'] = {
           <div class="text-3xl font-black ${hot ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-100'}">${val}</div>
           <div class="text-[12px] font-bold text-slate-500 dark:text-slate-400 mt-1">${esc(label)}</div></button>`;
       };
-      const hour = new Date().getHours();
+      const now = new Date();
+      const hour = now.getHours();
       const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+      const dailyMotivations = [
+        'Make the next decision clear, useful, and easy to act on.',
+        'Small improvements, repeated consistently, create remarkable results.',
+        'Focus the team on what moves the customer forward today.',
+        'Clarity creates momentum. Choose the priority and begin.',
+        'The standard you reinforce today becomes the culture tomorrow.',
+        'Great service is built one thoughtful handoff at a time.',
+        'Progress becomes visible when attention is placed on the right work.',
+        'Lead with calm, follow through with purpose, and let results compound.',
+        'Every solved bottleneck gives the whole dealership room to move.',
+        'Make today easier for the customer and stronger for the team.',
+        'The best operating rhythm is simple: notice, decide, follow through.',
+        'Consistent care turns ordinary moments into lasting customer trust.',
+        'A focused team can turn a busy day into a meaningful one.',
+        'Build momentum with one completed promise at a time.',
+      ];
+      const localDayNumber = Math.floor(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000);
+      const dailyMotivation = dailyMotivations[localDayNumber % dailyMotivations.length];
       const attention = d.day.needs_attention || [];
       const incomplete = d.day.complete === false
         ? `<div class="rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-4 py-3 text-[13px] text-amber-800 dark:text-amber-200 mb-4"><b>This day is incomplete.</b> ${(d.day.failed || []).map(x => esc(x.label)).join(', ') || 'One or more sources'} could not be loaded.</div>` : '';
@@ -2222,7 +2241,13 @@ ENGINES['command'] = {
         : '';
 
       body.innerHTML = `
-        <div class="text-xl font-black text-slate-900 dark:text-white mb-1">${greet}</div>
+        <section class="ms-daily-greeting" aria-label="Daily motivation">
+          <div>
+            <div class="ms-daily-greeting__eyebrow">Daily focus</div>
+            <h2>${greet}</h2>
+          </div>
+          <blockquote>“${esc(dailyMotivation)}”</blockquote>
+        </section>
         ${incomplete}
         ${todayOpsHtml}
 

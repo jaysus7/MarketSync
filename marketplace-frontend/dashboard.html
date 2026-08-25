@@ -23,7 +23,7 @@
   <title>DealerOS by MarketSync · Dashboard</title>
   <link rel="preconnect" href="https://api.fontshare.com">
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260825_pulse_fullwidth_v1">
+  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260825_pulse_shell_v2">
   <link rel="stylesheet" href="css/dashboard-nav.css">
   <link rel="stylesheet" href="css/dashboard-brand-repaint.css">
   <link rel="stylesheet" href="css/tailwind-built.css?v=20260825_header_spacing_v1">
@@ -3283,6 +3283,36 @@
     </section>
   </main>
 
+  <!-- ── Manager report shortcuts — fixed to the right edge and collapsible. ── -->
+  <aside id="report-rail" aria-label="Report shortcuts" class="hidden fixed right-0 top-1/2 -translate-y-1/2 z-30 flex-col">
+    <div class="ms-report-rail__head">
+      <span class="rr-head-label">Reports</span>
+      <button type="button" onclick="toggleReportRail()" aria-label="Expand or minimize report shortcuts" aria-controls="report-rail">
+        <svg id="rr-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6"/></svg>
+      </button>
+    </div>
+    <div class="ms-report-rail__items">
+      <button type="button" data-report="lot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19V9m5 10V5m5 14v-7m5 7V3"/></svg><span>Lot average</span></button>
+      <button type="button" data-report="scan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M8 12h8"/></svg><span>Inventory scan</span></button>
+      <button type="button" data-report="snapshot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m8 14 2-2 3 3 3-4 2 3"/></svg><span>Market snapshot</span></button>
+      <button type="button" data-report="weekly"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4m8-4v4M3 10h18"/></svg><span>Weekly report</span></button>
+      <button type="button" data-report="speed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Speed to lead</span></button>
+      <button type="button" data-report="equity"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 17 9 12l3 3 7-8M15 7h4v4"/></svg><span>Equity</span></button>
+      <button type="button" data-report="sales"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span>Sales</span></button>
+      <button type="button" data-report="fni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg><span>F&amp;I</span></button>
+      <button type="button" data-report="leads"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-4 2-7 6-7s6 3 6 7M16 8h5m-2.5-2.5v5"/></svg><span>Leads</span></button>
+      <button type="button" data-report="reps"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-4 2-7 6-7s6 3 6 7m1-6c3 0 5 2 5 6"/></svg><span>Rep scorecard</span></button>
+      <button type="button" data-report="appraisals"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m3 12 9-9 9 9-9 9-9-9Z"/><path d="M8 12h8m-4-4v8"/></svg><span>Appraisals</span></button>
+      <button type="button" data-report="appointments"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4m8-4v4M8 14l2 2 5-5"/></svg><span>Appointments</span></button>
+      <button type="button" data-report="service"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m14 7 3-3 3 3-3 3M4 20l8-8M7 4l3 3-3 3-3-3 3-3Z"/></svg><span>Service</span></button>
+      <button type="button" data-report="esign"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 20h16M6 16l8-8 3 3-8 8H6v-3Z"/></svg><span>eSign</span></button>
+      <button type="button" data-report="marketing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m3 11 14-6v14L3 13v-2Z"/><path d="M7 14v5h4v-3"/></svg><span>Marketing</span></button>
+      <button type="button" data-report="activity"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg><span>Activity</span></button>
+      <button type="button" data-report="customers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-5 3-8 8-8s8 3 8 8"/></svg><span>Customers</span></button>
+      <button type="button" data-report="all"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 5h14M5 12h14M5 19h14"/></svg><span>All reports</span></button>
+    </div>
+  </aside>
+
   <!-- ── Setup status banner — foot of the shell, below all page content. Routes to the
        canonical Launch Hub and removes itself the moment the dealership is fully configured.
        Populated + toggled by refreshSetupIndicator() in dashboard-part2.js. ── -->
@@ -3856,7 +3886,7 @@
   <script src="js/modules/dashboard-part8.js?v=20260818_videostaff_v2"></script>
   <script src="js/modules/dashboard-part9.js?v=20260825_settings_masonry_v1"></script>
   <script src="js/modules/dashboard-part10.js?v=20260825_pulse_fullwidth_v1"></script>
-  <script src="js/modules/dashboard-part11.js?v=20260825_internal_ops_v1"></script>
+  <script src="js/modules/dashboard-part11.js?v=20260825_daily_focus_v2"></script>
   <script src="js/modules/dashboard-part12.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part13.js?v=20260824_ai_panel_contrast_v1"></script>
   <script src="js/modules/dashboard-part14.js?v=20260824_staff_password_css_v1"></script>
