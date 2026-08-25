@@ -2343,7 +2343,14 @@ body > header {
    Applies glassmorphism, satin specular borders, and blur depth to settings cards,
    roster tables, and digital suite cards alike. */
 html[data-ms-suite="digital"] #dept-tabbar,
-html[data-ms-suite="digital"] .page-content :is(.rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border),
+/* Brand modes restyle every rounded, bordered card inside .page-content. A Pulse
+   KPI tile is exactly that shape, so both modes re-glassed it and repainted its
+   border — which erased the amber that marks an urgent count. Measured: in
+   `marketsync` and `digital` the lead tile and a normal tile ended up with the
+   SAME border colour, so urgency was invisible in two of the four dashboard
+   modes while looking perfectly fine in the other two. .ms-kpi is a content
+   surface and owns its own edge. */
+html[data-ms-suite="digital"] .page-content :is(.rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border):not(.ms-kpi),
 html[data-ms-suite="digital"] .ms-digital-suite > div,
 [data-page-content="settings"] :is(.rounded-lg, .rounded-xl, .rounded-2xl):is(.bg-white, .dark\:bg-slate-900),
 #lead-routing-card > div,
@@ -2362,7 +2369,7 @@ html[data-ms-suite="digital"] .ms-digital-suite > div,
 }
 
 .dark[data-ms-suite="digital"] #dept-tabbar,
-.dark[data-ms-suite="digital"] .page-content :is(.rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border),
+.dark[data-ms-suite="digital"] .page-content :is(.rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border):not(.ms-kpi),
 .dark[data-ms-suite="digital"] .ms-digital-suite > div,
 .dark [data-page-content="settings"] :is(.rounded-lg, .rounded-xl, .rounded-2xl):is(.bg-white, .dark\:bg-slate-900),
 .dark #lead-routing-card > div,
@@ -2438,7 +2445,7 @@ html[data-dash-mode="marketsync"] body {
     radial-gradient(54rem 34rem at 100% 0%, rgba(124,58,237,.10), transparent 66%),
     var(--ms-bg) !important;
 }
-html[data-dash-mode="marketsync"] :is(#dept-tabbar, .page-content .eng-shell-header, .page-content .rounded-xl.border, .page-content .rounded-2xl.border) {
+html[data-dash-mode="marketsync"] :is(#dept-tabbar, .page-content .eng-shell-header, .page-content .rounded-xl.border:not(.ms-kpi), .page-content .rounded-2xl.border:not(.ms-kpi)) {
   background: linear-gradient(145deg, rgba(255,255,255,.72), rgba(245,248,255,.52)) !important;
   border-color: rgba(255,255,255,.62) !important;
   border-radius: 1.4rem !important;
@@ -2446,7 +2453,7 @@ html[data-dash-mode="marketsync"] :is(#dept-tabbar, .page-content .eng-shell-hea
   backdrop-filter: blur(24px) saturate(150%) !important;
   -webkit-backdrop-filter: blur(24px) saturate(150%) !important;
 }
-.dark[data-dash-mode="marketsync"] :is(#dept-tabbar, .page-content .eng-shell-header, .page-content .rounded-xl.border, .page-content .rounded-2xl.border) {
+.dark[data-dash-mode="marketsync"] :is(#dept-tabbar, .page-content .eng-shell-header, .page-content .rounded-xl.border:not(.ms-kpi), .page-content .rounded-2xl.border:not(.ms-kpi)) {
   background: linear-gradient(145deg, rgba(25,36,60,.72), rgba(8,15,29,.56)) !important;
   border-color: rgba(203,213,225,.16) !important;
   box-shadow: 0 22px 56px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.08) !important;

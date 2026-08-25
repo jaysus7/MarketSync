@@ -235,3 +235,48 @@ test('an unmapped entity type skips the task lookup instead of asking wrongly', 
   assert.match(part12, /Tasks not tracked for this record type/,
     'a type whose tasks were never looked up must say so, not show a confident zero')
 })
+
+// ── Every role, every dashboard mode ─────────────────────────────────────────
+// The command engine's fetch() hands back a different SHAPE per role: real
+// arrays for what you are entitled to, miss() objects ({__unavailable, __reason})
+// for what you are not, and null for endpoints that failed. A builder that
+// assumes an array renders a broken Pulse for whoever lacks that entitlement —
+// and it would look fine to whoever built it, because they tested as an owner.
+const miss = (label) => ({ __unavailable: label, __reason: 'Not entitled' })
+const ROLE_SHAPES = {
+  'OWNER, everything': { day: { needs_attention: [{ title: 'x', reason: 'y' }] },
+    fniDeals: [{ id: 'd1', customer_name: 'A' }], deliveries: { queue: [{ deal_id: 'd2', customer_name: 'B' }] },
+    reconVehicles: { vehicles: [{ id: 'v1', stock_num: 'S' }] }, serviceRos: { ros: [{ id: 'r1', ro_number: '9' }] } },
+  'SALES_REP, no accounting or service': { day: { needs_attention: [] },
+    fniDeals: [{ id: 'd1', customer_name: 'A' }], deliveries: { queue: [] },
+    reconVehicles: null, serviceRos: { ros: [] } },
+  'SERVICE, no sales or accounting': { day: { needs_attention: [] },
+    fniDeals: null, deliveries: null, reconVehicles: { vehicles: [] }, serviceRos: { ros: [{ id: 'r1' }] } },
+  'ACCOUNTING, unentitled endpoints return miss objects': { day: { needs_attention: [] },
+    fniDeals: miss('Deals'), deliveries: miss('Delivery'), reconVehicles: miss('Recon'), serviceRos: miss('Service') },
+  'CLEANUP, recon only': { day: { needs_attention: [] }, reconVehicles: { vehicles: [{ id: 'v9', stock_num: 'Z' }] } },
+  'restricted tier, nothing at all': {},
+  'my-day itself failed': { day: null },
+}
+
+test('the record builders survive every role and entitlement shape', () => {
+  const { cmdPulseRecords, cmdPulseTilePanel } = loadHelpers()
+  for (const [role, d] of Object.entries(ROLE_SHAPES)) {
+    const groups = cmdPulseRecords(d)
+    for (const [key, group] of Object.entries(groups)) {
+      assert.ok(Array.isArray(group.rows),
+        `${role}: ${key}.rows must be an array — a miss() object or null must degrade to empty, not crash`)
+      // Rendering must not throw either: a non-entitled role still sees the tile.
+      const panel = cmdPulseTilePanel(key, group, 3)
+      assert.match(panel, /ms-kpi-panel/, `${role}: ${key} must still render a panel`)
+    }
+  }
+})
+
+test('a role that cannot read a source is told, not shown a confident empty list', () => {
+  const { cmdPulseRecords, cmdPulseTilePanel } = loadHelpers()
+  const g = cmdPulseRecords(ROLE_SHAPES['ACCOUNTING, unentitled endpoints return miss objects'])
+  const panel = cmdPulseTilePanel('deals', g.deals, 4)
+  assert.match(panel, /No individual records are readable/,
+    'an unentitled source must say the records are not readable here, not imply there are none')
+})

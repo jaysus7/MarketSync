@@ -136,3 +136,25 @@ test('tile size comes from the design system, not a hard-coded utility', () => {
   assert.doesNotMatch(tileFn, /ms-kpi__value[^"]*text-3xl/,
     'a fixed text-3xl on the value defeats the whole hierarchy')
 })
+
+// ── The hierarchy must survive every dashboard mode ──────────────────────────
+// Brand modes restyle every rounded, bordered card inside .page-content — and a
+// KPI tile is exactly that shape. Measured before the fix: in `marketsync` and
+// `digital` the tiles were re-glassed and the lead tile's amber border was
+// repainted to the SAME colour as a normal tile, so urgency was invisible in two
+// of the four dashboard modes while looking correct in the other two. Size
+// survived (the design system wins on cascade order); colour did not.
+test('brand modes do not repaint the KPI tile that marks an urgent count', () => {
+  const brandRules = [...theme.matchAll(/[^{}]*(?:data-dash-mode="marketsync"|data-ms-suite="digital")[^{}]*\{/g)]
+    .map(m => m[0])
+    .filter(r => /\.page-content/.test(r) && /\.rounded-(?:xl|2xl)\.border/.test(r))
+  assert.ok(brandRules.length >= 4,
+    `expected the brand-mode card rules to still exist, found ${brandRules.length}`)
+  // The exemption is applied to the whole :is(...) group, so the individual
+  // .rounded-xl.border inside it correctly carries no :not() of its own. Check
+  // the RULE excludes KPI tiles, not each item within the group.
+  for (const rule of brandRules) {
+    assert.match(rule, /:not\([^)]*\.ms-kpi[^)]*\)/,
+      `a brand-mode rule still claims KPI tiles and will erase the urgency border:\n  ${rule.trim().slice(-160)}`)
+  }
+})
