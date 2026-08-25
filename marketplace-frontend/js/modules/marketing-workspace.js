@@ -675,7 +675,12 @@ ENGINES['marketing-overview'] = {
       catch (error) { return { source, ok: false, value: fallback, error: error?.message || `${source} unavailable` }; }
     };
     const results = await Promise.all([
-      safe('myDay', apiGetJson('/my-day'), { needs_attention: [], opportunities: [], failed: [], not_covered: [] }),
+      safe('myDay', apiGetJson('/my-day'), {
+        needs_attention: [],
+        opportunities: [],
+        failed: [{ source: 'my-day', label: 'My Day', reason: 'could not be loaded' }],
+        not_covered: [],
+      }),
       safe('campaigns', apiGetJson('/campaigns'), { campaigns: [] }),
       safe('accounts', apiGetJson('/social/accounts'), { accounts: [] }),
       safe('posts', apiGetJson('/social/posts'), { posts: [], timezone: 'UTC' }),
