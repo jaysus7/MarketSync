@@ -715,11 +715,11 @@ window.dealerEmailDeleteTmpl = async (id) => {
   catch (e) { showToast(e.message || 'Could not delete', 'error'); }
 };
 
-// ══ Employees + permissions — MarketSync staff (owner-only) ═══════════════════
+// ══ People directory + permissions — MarketSync staff (owner-only) ═══════════
 const empRoleOpts = (roles, sel) => (roles || []).map(r => `<option value="${r}" ${r === sel ? 'selected' : ''}>${esc(r)}</option>`).join('');
 ENGINES['saas-employees'] = {
-  rootId: 'saas-employees-root', title: 'Employees', subtitle: 'MarketSync staff and what each role can do',
-  icon: 'user', accent: 'indigo', hideRail: true, hideTabBar: true, tabOrder: ['work'],
+  rootId: 'saas-employees-root', title: 'People', subtitle: 'Internal directory, contact details, access, role and employment status',
+  icon: 'users', accent: 'indigo', hideRail: true, hideTabBar: true, tabOrder: ['work'],
   tabLabels: { overview: 'Team Directory', work: 'Role Permissions', insights: 'Sales Assignments', automation: 'Activity Audit', settings: 'Invitations' },
   fetch: () => apiGetJson('/saas/employees'),
   quickActions: [
@@ -743,15 +743,16 @@ ENGINES['saas-employees'] = {
       const roles = d.roles || [];
       const staff = (d.staff || []).map(s => `
         <tr class="border-t border-slate-100 dark:border-slate-800">
-          <td class="px-3 py-2 font-semibold text-slate-700 dark:text-slate-200">${esc(s.name)}</td>
+          <td class="px-3 py-3"><div class="font-semibold text-slate-700 dark:text-slate-200">${esc(s.name)}</div><div class="text-[11px] text-slate-400">${esc(s.email || 'No login email')}</div></td>
+          <td class="px-3 py-3"><div class="text-[12px] font-semibold text-slate-600 dark:text-slate-300">${esc(s.department || 'Unassigned')}</div><div class="text-[11px] text-slate-400">${esc(s.phone || 'No phone')}</div></td>
           <td class="px-3 py-2"><select onchange="saasSetRole('${s.id}', this.value)" class="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px]">${empRoleOpts(roles, s.saas_role)}</select></td>
-          <td class="px-3 py-2 text-[11px] text-slate-400">${(s.permissions || []).map(p => esc(p)).join(', ')}</td>
-          <td class="px-3 py-2 text-right"><button onclick="saasSetRole('${s.id}','')" class="text-[11px] font-bold text-rose-500 hover:text-rose-600">Remove</button></td>
-        </tr>`).join('') || `<tr><td colspan="4" class="px-3 py-8 text-center text-slate-400 text-sm">No staff yet — add one by email below.</td></tr>`;
+          <td class="px-3 py-3"><span class="inline-flex rounded-full px-2 py-1 text-[11px] font-black ${s.active ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : 'bg-slate-200 text-slate-500 dark:bg-slate-800'}">${s.active ? 'Active' : 'Inactive'}</span></td>
+          <td class="px-3 py-3 text-right whitespace-nowrap"><button onclick="saasEditPerson('${s.id}')" class="text-[11px] font-bold text-blue-600 dark:text-blue-400 mr-3">Edit</button><button onclick="saasSetRole('${s.id}','')" class="text-[11px] font-bold text-rose-500 hover:text-rose-600">Remove access</button></td>
+        </tr>`).join('') || `<tr><td colspan="5" class="px-3 py-8 text-center text-slate-400 text-sm">No staff yet — add one by email below.</td></tr>`;
       body.innerHTML = `
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto">
-          <table class="w-full text-sm min-w-[560px]">
-            <thead><tr class="text-left text-[11px] uppercase tracking-wide text-slate-400"><th class="px-3 py-2">Name</th><th class="px-3 py-2">Role</th><th class="px-3 py-2">Permissions</th><th class="px-3 py-2"></th></tr></thead>
+          <table class="w-full text-sm min-w-[760px]">
+            <thead><tr class="text-left text-[11px] uppercase tracking-wide text-slate-400"><th class="px-3 py-2">Person</th><th class="px-3 py-2">Department &amp; phone</th><th class="px-3 py-2">Access role</th><th class="px-3 py-2">Status</th><th class="px-3 py-2"></th></tr></thead>
             <tbody>${staff}</tbody>
           </table>
         </div>
@@ -966,7 +967,33 @@ async function saasAddEmployee() {
   try { await apiSendJson('/saas/employees/role', 'POST', { email, saas_role: role }); showToast('Staff added ', 'success'); refreshSaasRoles(); }
   catch (e) { showToast(e.message, 'error'); }
 }
-Object.assign(window, { loadSaasEmployees, saasSetRole, saasAddEmployee });
+function saasEditPerson(userId) {
+  const person = (ENGINE_DATA['saas-employees']?.staff || []).find(p => p.id === userId);
+  if (!person || typeof automationModal !== 'function') return;
+  automationModal(`<div class="flex items-center justify-between mb-4"><div><div class="text-lg font-black text-slate-900 dark:text-white">Edit person</div><div class="text-xs text-slate-400">${esc(person.email || '')}</div></div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <label class="block text-xs font-bold text-slate-500 sm:col-span-2">Full name<input id="sp-name" value="${esc(person.name || '')}" class="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-800/70 px-3 py-2.5 text-sm"></label>
+      <label class="block text-xs font-bold text-slate-500">Department<input id="sp-dept" value="${esc(person.department || '')}" class="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-800/70 px-3 py-2.5 text-sm"></label>
+      <label class="block text-xs font-bold text-slate-500">Phone<input id="sp-phone" value="${esc(person.phone || '')}" class="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-800/70 px-3 py-2.5 text-sm"></label>
+      <label class="block text-xs font-bold text-slate-500 sm:col-span-2">Business email<input id="sp-business-email" type="email" value="${esc(person.business_email || person.email || '')}" class="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-800/70 px-3 py-2.5 text-sm"></label>
+      <label class="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200 sm:col-span-2"><input id="sp-active" type="checkbox" ${person.active ? 'checked' : ''}> Active internal user</label>
+    </div>
+    <div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button><button onclick="saasSavePerson('${userId}')" class="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-black">Save person</button></div>`);
+}
+async function saasSavePerson(userId) {
+  try {
+    await apiSendJson(`/saas/employees/${userId}`, 'PATCH', {
+      full_name: document.getElementById('sp-name').value.trim(),
+      department: document.getElementById('sp-dept').value.trim(),
+      phone: document.getElementById('sp-phone').value.trim(),
+      business_email: document.getElementById('sp-business-email').value.trim(),
+      active: document.getElementById('sp-active').checked,
+    });
+    document.getElementById('automation-modal')?.remove();
+    ENGINE_DATA['saas-employees'] = undefined; await renderEngine('saas-employees', true); showToast('Person updated', 'success');
+  } catch (e) { showToast(e.message || 'Could not update person', 'error'); }
+}
+Object.assign(window, { loadSaasEmployees, saasSetRole, saasAddEmployee, saasEditPerson, saasSavePerson });
 
 // ══ Command Center — DealerOS home: today's operations + live exceptions ══════
 // Exception card (shared by Executive Work tab + Operations).

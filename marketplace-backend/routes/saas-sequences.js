@@ -18,6 +18,7 @@ import { rateLimit } from '../security.js'
 import { requireAuth } from '../middleware.js'
 import { requestHasCronSecret } from '../cron-auth.js'
 import { saasCan } from './profile.js'
+import { sendDealerSms } from './automation.js'
 
 const DAY_MS = 86400000
 
@@ -33,10 +34,33 @@ function mergeFields(str, ctx) {
   return String(str || '').replace(/\{\{\s*(first_name|account)\s*\}\}/g, (_, k) => (ctx[k] != null ? String(ctx[k]) : ''))
 }
 
+function maskRecipient(value, channel) {
+  const s = String(value || '')
+  if (channel === 'email') {
+    const [name, domain] = s.split('@')
+    return domain ? `${(name || '').slice(0, 2)}***@${domain}` : '***'
+  }
+  const digits = s.replace(/\D/g, '')
+  return digits ? `***${digits.slice(-4)}` : '***'
+}
+
+async function recordDelivery({ campaignId = null, enrollmentId = null, recipient, channel, result, createdBy = null } = {}) {
+  try {
+    await supabaseAdmin.from('saas_message_deliveries').insert({
+      campaign_id: campaignId, enrollment_id: enrollmentId,
+      dealership_id: recipient?.dealershipId || null, profile_id: recipient?.profileId || null,
+      channel, recipient_masked: maskRecipient(channel === 'sms' ? recipient?.phone : recipient?.email, channel),
+      provider_message_id: result?.id || result?.sid || null,
+      status: result?.ok ? 'accepted' : result?.simulated ? 'simulated' : result?.skipped ? 'skipped' : 'failed',
+      error: result?.error || result?.reason || null, created_by: createdBy,
+    })
+  } catch (error) { console.warn('[saas-comms] delivery evidence unavailable:', error.message) }
+}
+
 // Recipient (account admin email + name) and the account/dealership name.
 async function accountRecipient(dealershipId) {
   const [{ data: profs }, { data: dealer }] = await Promise.all([
-    supabaseAdmin.from('profiles').select('id, role').eq('dealership_id', dealershipId),
+    supabaseAdmin.from('profiles').select('id, role, full_name, phone, sms_number, sms_consent_at, drip_unsubscribed_at').eq('dealership_id', dealershipId),
     supabaseAdmin.from('dealerships').select('name').eq('id', dealershipId).maybeSingle(),
   ])
   if (!profs?.length) return null
@@ -45,7 +69,12 @@ async function accountRecipient(dealershipId) {
     const { data } = await supabaseAdmin.auth.admin.getUserById(admin.id)
     const u = data?.user
     if (!u?.email || !u?.email_confirmed_at) return null
-    return { email: u.email, name: u.user_metadata?.full_name || null, account: dealer?.name || null }
+    return {
+      profileId: admin.id, dealershipId, email: u.email,
+      phone: admin.sms_number || admin.phone || u.phone || null,
+      smsConsentAt: admin.sms_consent_at || null, emailUnsubscribedAt: admin.drip_unsubscribed_at || null,
+      name: admin.full_name || u.user_metadata?.full_name || null, account: dealer?.name || null,
+    }
   } catch { return null }
 }
 
@@ -63,7 +92,22 @@ async function executeStep(e, seq, s, stepIndex, summary) {
       const ctx = { first_name: (rcpt.name || '').split(' ')[0] || 'there', account: rcpt.account || 'your dealership' }
       const subject = mergeFields(s.subject, ctx)
       const r = await sendEmail({ to: rcpt.email, subject, html: seqHtml(subject, mergeFields(s.body, ctx)) })
+      await recordDelivery({ enrollmentId: e.id, recipient: rcpt, channel: 'email', result: r })
       if (r.ok) { summary.emails++; await logStep(e, stepIndex, 'email', subject) }
+    }
+  } else if (s.type === 'sms') {
+    const rcpt = await accountRecipient(e.dealership_id)
+    if (!rcpt?.phone || !rcpt.smsConsentAt) {
+      summary.skipped++
+      const result = { skipped: true, reason: !rcpt?.phone ? 'missing_phone' : 'sms_consent_required' }
+      await recordDelivery({ enrollmentId: e.id, recipient: rcpt, channel: 'sms', result })
+      await logStep(e, stepIndex, 'sms_skipped', result.reason)
+    } else {
+      const ctx = { first_name: (rcpt.name || '').split(' ')[0] || 'there', account: rcpt.account || 'your dealership' }
+      const body = mergeFields(s.body, ctx)
+      const result = await sendDealerSms(null, rcpt.phone, body)
+      await recordDelivery({ enrollmentId: e.id, recipient: rcpt, channel: 'sms', result })
+      if (result.ok) { summary.sms++; await logStep(e, stepIndex, 'sms', body.slice(0, 160)) }
     }
   } else if (s.type === 'task') {
     await supabaseAdmin.from('saas_account_followups').insert({
@@ -112,7 +156,7 @@ async function enroll(dealershipId, sequenceKey, createdBy) {
 
 // ── The engine ────────────────────────────────────────────────────────────────
 export async function runSaasSequences({ trigger = 'manual' } = {}) {
-  const summary = { trigger, enrolled: 0, stopped: 0, steps: 0, emails: 0, tasks: 0, completed: 0 }
+  const summary = { trigger, enrolled: 0, stopped: 0, steps: 0, emails: 0, sms: 0, tasks: 0, skipped: 0, completed: 0 }
   const defs = await loadSequenceDefs()
 
   // 1) Auto-enroll / auto-stop by billing status (only for enabled sequences).
@@ -158,7 +202,7 @@ export async function runSaasSequences({ trigger = 'manual' } = {}) {
       if (done) summary.completed++
     }
   }
-  console.log(`[saas-seq:${trigger}] enrolled ${summary.enrolled}, steps ${summary.steps} (${summary.emails} email / ${summary.tasks} task), completed ${summary.completed}, stopped ${summary.stopped}`)
+  console.log(`[saas-seq:${trigger}] enrolled ${summary.enrolled}, steps ${summary.steps} (${summary.emails} email / ${summary.sms} sms / ${summary.tasks} task / ${summary.skipped} skipped), completed ${summary.completed}, stopped ${summary.stopped}`)
   return summary
 }
 
@@ -293,7 +337,7 @@ export function registerSaasSequences(app) {
     const nextOrder = (existing || []).reduce((m, r) => Math.max(m, r.step_order + 1), 0)
     const { data, error } = await supabaseAdmin.from('saas_sequence_steps').insert({
       sequence_id: req.params.id, step_order: nextOrder,
-      day_offset: b.day_offset || 0, type: b.type === 'task' ? 'task' : 'email',
+      day_offset: b.day_offset || 0, type: ['email', 'sms', 'task'].includes(b.type) ? b.type : 'email',
       template_id: b.template_id || null, subject: b.subject || null, body: b.body || null,
       title: b.title || null, note: b.note || null, priority: b.priority || null,
     }).select().single()
@@ -305,6 +349,7 @@ export function registerSaasSequences(app) {
     if (!can('manage_followups')(req, res)) return
     const patch = touch()
     for (const k of ['day_offset', 'type', 'template_id', 'subject', 'body', 'title', 'note', 'priority', 'step_order']) if (k in (req.body || {})) patch[k] = req.body[k]
+    if (patch.type && !['email', 'sms', 'task'].includes(patch.type)) return res.status(400).json({ error: 'invalid step type' })
     const { data, error } = await supabaseAdmin.from('saas_sequence_steps').update(patch).eq('id', req.params.id).select().single()
     if (error) return res.status(500).json({ error: error.message })
     res.json(data)
@@ -334,16 +379,18 @@ export function registerSaasSequences(app) {
   })
   app.post('/saas/automation/templates', requireAuth, async (req, res) => {
     if (!can('manage_followups')(req, res)) return
-    const { name, subject, body } = req.body || {}
-    if (!name || !subject || !body) return res.status(400).json({ error: 'name, subject and body required' })
-    const { data, error } = await supabaseAdmin.from('saas_email_templates').insert({ name, subject, body, created_by: req.user.id }).select().single()
+    const { name, subject, body, channel = 'email', category = 'general' } = req.body || {}
+    if (!['email', 'sms'].includes(channel)) return res.status(400).json({ error: 'invalid channel' })
+    if (!name || !body || (channel === 'email' && !subject)) return res.status(400).json({ error: 'name, body, and an email subject are required' })
+    const { data, error } = await supabaseAdmin.from('saas_email_templates').insert({ name, subject: subject || '', body, channel, category, created_by: req.user.id }).select().single()
     if (error) return res.status(500).json({ error: error.message })
     res.json(data)
   })
   app.patch('/saas/automation/templates/:id', requireAuth, async (req, res) => {
     if (!can('manage_followups')(req, res)) return
     const patch = touch()
-    for (const k of ['name', 'subject', 'body']) if (k in (req.body || {})) patch[k] = req.body[k]
+    for (const k of ['name', 'subject', 'body', 'channel', 'category', 'active']) if (k in (req.body || {})) patch[k] = req.body[k]
+    if (patch.channel && !['email', 'sms'].includes(patch.channel)) return res.status(400).json({ error: 'invalid channel' })
     const { data, error } = await supabaseAdmin.from('saas_email_templates').update(patch).eq('id', req.params.id).select().single()
     if (error) return res.status(500).json({ error: error.message })
     res.json(data)
@@ -382,10 +429,11 @@ export function registerSaasSequences(app) {
 
   app.post('/saas/automation/campaigns', requireAuth, async (req, res) => {
     if (!can('marketing')(req, res)) return
-    const { name, segment, subject, body, template_id } = req.body || {}
-    if (!name || !subject || !body) return res.status(400).json({ error: 'name, subject and body required' })
+    const { name, segment, subject, body, template_id, channel = 'email' } = req.body || {}
+    if (!['email', 'sms'].includes(channel)) return res.status(400).json({ error: 'invalid channel' })
+    if (!name || !body || (channel === 'email' && !subject)) return res.status(400).json({ error: 'name, body, and an email subject are required' })
     const { data, error } = await supabaseAdmin.from('saas_campaigns').insert({
-      name, segment: segment || 'all', subject, body, template_id: template_id || null, created_by: req.user.id,
+      name, segment: segment || 'all', subject: subject || '', body, channel, template_id: template_id || null, created_by: req.user.id,
     }).select().single()
     if (error) return res.status(500).json({ error: error.message })
     res.json(data)
@@ -399,20 +447,27 @@ export function registerSaasSequences(app) {
     if (!c) return res.status(404).json({ error: 'Campaign not found' })
     if (c.status === 'sent') return res.status(409).json({ error: 'Campaign already sent' })
     const dealers = (await segmentDealers(c.segment)).slice(0, 500)
-    let sent = 0, fail = 0
+    let sent = 0, fail = 0, skipped = 0
     for (const d of dealers) {
       try {
         const rcpt = await accountRecipient(d.id)
-        if (!rcpt?.email) { fail++; continue }
-        const ctx = { first_name: (rcpt.name || '').split(' ')[0] || 'there', account: rcpt.account || 'your dealership' }
-        const r = await sendEmail({ to: rcpt.email, subject: mergeFields(c.subject, ctx), html: seqHtml(mergeFields(c.subject, ctx), mergeFields(c.body, ctx)) })
-        if (r.ok) sent++; else fail++
+        const ctx = { first_name: (rcpt?.name || '').split(' ')[0] || 'there', account: rcpt?.account || 'your dealership' }
+        let result
+        if (c.channel === 'sms') {
+          if (!rcpt?.phone || !rcpt.smsConsentAt) result = { skipped: true, reason: !rcpt?.phone ? 'missing_phone' : 'sms_consent_required' }
+          else result = await sendDealerSms(null, rcpt.phone, mergeFields(c.body, ctx))
+        } else {
+          if (!rcpt?.email || rcpt.emailUnsubscribedAt) result = { skipped: true, reason: !rcpt?.email ? 'missing_email' : 'email_unsubscribed' }
+          else result = await sendEmail({ to: rcpt.email, subject: mergeFields(c.subject, ctx), html: seqHtml(mergeFields(c.subject, ctx), mergeFields(c.body, ctx)) })
+        }
+        await recordDelivery({ campaignId: c.id, recipient: rcpt, channel: c.channel || 'email', result, createdBy: req.user.id })
+        if (result.ok) sent++; else if (result.skipped || result.simulated) skipped++; else fail++
       } catch { fail++ }
     }
     const { data: updated } = await supabaseAdmin.from('saas_campaigns')
-      .update({ status: 'sent', sent_count: sent, fail_count: fail, sent_at: new Date().toISOString() })
+      .update({ status: 'sent', recipient_count: dealers.length, sent_count: sent, fail_count: fail, last_error: fail ? `${fail} provider failure(s); ${skipped} skipped` : (skipped ? `${skipped} skipped by contactability rules` : null), sent_at: new Date().toISOString() })
       .eq('id', c.id).select().single()
-    res.json(updated || { ok: true, sent, fail })
+    res.json({ ...(updated || {}), ok: true, sent_count: sent, fail_count: fail, skipped_count: skipped })
   })
 
   // Cron: auto-enroll + advance sequences, then run the exception scan.

@@ -1,5 +1,5 @@
 /**
- * Seed the internal MarketSync workspace — "JMS Automotive" (sales@marketsync.link).
+ * Provision the canonical MarketSync Internal owner (sales@marketsync.link).
  *
  * This is a normal dealer account that MarketSync's own team uses to track dealer
  * leads — it piggybacks on the existing app (same tables/UI) and has NO connection
@@ -12,12 +12,12 @@
  *
  * Run from marketplace-backend/ with the service-role env loaded:
  *     node scripts/seed-jms.js
- * Optional: SEED_JMS_PASSWORD=... to set the login password (default below).
+ * New users require SEED_JMS_PASSWORD. Existing users keep their password.
  */
 import { supabaseAdmin } from '../shared.js'
 
 const EMAIL = 'sales@marketsync.link'
-const PASSWORD = process.env.SEED_JMS_PASSWORD || 'MarketSync!Demo2026'
+const PASSWORD = process.env.SEED_JMS_PASSWORD || null
 const DEALER_NAME = 'JMS Automotive'
 const OWNER_NAME = 'JMS Automotive — Sales'
 
@@ -32,6 +32,7 @@ async function ensureUser() {
     if (hit) { log('user exists:', hit.id); return hit.id }
     if (!data || (data.users || []).length < 1000) break
   }
+  if (!PASSWORD) throw new Error('SEED_JMS_PASSWORD is required when creating sales@marketsync.link')
   const { data, error } = await supabaseAdmin.auth.admin.createUser({
     email: EMAIL, password: PASSWORD, email_confirm: true,
     user_metadata: { full_name: OWNER_NAME },
@@ -64,17 +65,26 @@ async function ensureDealership() {
 async function ensureProfile(userId, dealershipId) {
   const { data: found } = await supabaseAdmin.from('profiles').select('id').eq('id', userId).maybeSingle()
   if (found) {
-    await supabaseAdmin.from('profiles').update({ dealership_id: dealershipId }).eq('id', userId)
-    log('profile exists (linked to dealership)')
-    return
+    const { error } = await supabaseAdmin.from('profiles').update({
+      dealership_id: dealershipId,
+      full_name: OWNER_NAME,
+      system_role: 'platform_owner',
+      saas_role: 'owner',
+    }).eq('id', userId)
+    if (error) throw error
+  } else {
+    const { error } = await supabaseAdmin.from('profiles').insert({
+      id: userId, dealership_id: dealershipId, full_name: OWNER_NAME,
+      role: 'DEALER_ADMIN', account_role: 'dealer_admin', price_tier: 'DEALER',
+      registration_id: 'MS-001', system_role: 'platform_owner', saas_role: 'owner',
+    })
+    if (error) throw error
   }
-  const { error } = await supabaseAdmin.from('profiles').insert({
-    id: userId, dealership_id: dealershipId, full_name: OWNER_NAME,
-    role: 'DEALER_ADMIN', account_role: 'dealer_admin', price_tier: 'DEALER',
-    registration_id: 'MS-001',
-  })
-  if (error) throw error
-  log('created owner profile')
+  const { error: roleError } = await supabaseAdmin.from('user_roles').upsert({
+    user_id: userId, dealership_id: dealershipId, role_id: 'platform_owner', assigned_by: userId,
+  }, { onConflict: 'user_id,role_id,dealership_id' })
+  if (roleError) throw roleError
+  log('internal platform owner profile is ready')
 }
 
 // ── 4. Customers (dealership prospects) + 5. Deals (MarketSync packages) ──────
