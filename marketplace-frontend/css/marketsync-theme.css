@@ -1515,7 +1515,6 @@ body > header,
 #report-rail,
 .ms-engine-header,
 .ms-glass,
-.ms-card,
 .bg-white:not(#studio-artboard-container):not(#dashboard-nav),
 .dark\:bg-slate-900:not(#studio-artboard-container):not(#dashboard-nav) {
   background: linear-gradient(135deg, rgba(255,255,255,.76), rgba(255,255,255,.58)) !important;
