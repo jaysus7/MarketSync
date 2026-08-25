@@ -399,7 +399,7 @@ function wsSetup() {
   const isDomainVerified = !!__siteCfg?.custom_domain_verified;
 
   const card = (id, iconSvg, title, desc, metaRows, badgeHtml, btnText = 'Configure') => `
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition flex flex-col justify-between space-y-4">
+    <div class="break-inside-avoid mb-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition flex flex-col justify-between space-y-4">
       <div class="space-y-3">
         <div class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-2.5">
@@ -447,7 +447,7 @@ function wsSetup() {
       </div>
 
       <!-- 3-Column Masonry Grid on Desktop, 2-Col Tablet, 1-Col Mobile -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 items-start">
+      <div class="columns-1 md:columns-2 lg:columns-3 gap-5">
         <!-- 1. Dealership Information -->
         ${card('info', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009 9c.63 0 1.213-.19 1.7-.514m-5.45 0A2.996 2.996 0 016 7.5c0-.63.19-1.213.514-1.7m5.45 0A2.996 2.996 0 0012 4.5c.63 0 1.213.19 1.7.514M18 9.35a3.001 3.001 0 003.75-.615A2.993 2.993 0 0021 7.5a2.996 2.996 0 00-.514-1.7"/></svg>`,
           'Dealership Information', 'Legal business name, tagline, description, operating hours, and business license.',

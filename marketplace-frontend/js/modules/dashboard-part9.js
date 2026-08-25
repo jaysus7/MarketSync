@@ -838,7 +838,7 @@ window.settingsGo = settingsGo
 function loadConfigHub() {
   const root = document.getElementById('config-root')
   if (!root) return
-  const section = (title, description, actions) => `<div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+  const section = (title, description, actions) => `<div class="break-inside-avoid mb-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
     <h2 class="text-[15px] font-black text-slate-900 dark:text-white">${esc(title)}</h2>
     <p class="text-[12px] text-slate-500 dark:text-slate-400 mt-1 mb-3">${esc(description)}</p>
     <div class="flex flex-wrap gap-2">${actions.map(a => `<button onclick="${a.go}" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-[12px] font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800">${esc(a.label)}</button>`).join('')}</div>
@@ -848,7 +848,7 @@ function loadConfigHub() {
       <h1 class="text-xl font-black text-slate-900 dark:text-white">Settings</h1>
       <p class="text-[13px] text-slate-500 dark:text-slate-400">Configure each operating domain where its canonical rules and records live.</p>
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <div class="columns-1 md:columns-2 gap-3">
       ${section('General', 'Dealership identity, locations, branding and timezone.', [
         { label: 'Dealership & locations', go: "settingsGo('launch','launch','work')" },
         { label: 'Setup status', go: "settingsGo('launch','launch','overview')" },
