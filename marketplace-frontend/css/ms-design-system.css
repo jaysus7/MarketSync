@@ -526,6 +526,16 @@ p.ms-text-caption,
 }
 [data-emphasis="lead"] .ms-kpi__label { font-size: .8125rem; }
 
+/* The records behind a count. A tile answers "how many"; this answers "which
+   ones", in place, so nobody has to leave the page and re-find them. */
+.ms-kpi-panel {
+  border-top: 1px solid var(--ms-border, rgba(15, 23, 42, .10));
+  padding-top: var(--ms-sp-3, .75rem);
+}
+.ms-kpi__hint { letter-spacing: .01em; }
+/* The hint is an affordance, not data: it must not compete with the number. */
+[data-emphasis="quiet"] .ms-kpi__hint { display: none; }
+
 /* The lead tile is the one thing on the page asking for a decision, so it gets
    a real edge rather than a slightly darker border. */
 .pulse-summary-grid > [data-emphasis="lead"] {
