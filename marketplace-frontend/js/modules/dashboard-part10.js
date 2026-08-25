@@ -1043,9 +1043,14 @@ async function engineTab(engineId, tab, force) {
   ];
   const isPulseLayout = pulseEngines.includes(engineId) && ['overview', 'pulse'].includes(tab);
   body.classList.toggle('ms-pulse-board', isPulseLayout);
-  // Keep the native right operations rail on Pulse. Reports, Next Actions and
-  // Quick Actions belong beside the dashboard rather than in a full-width strip.
-  body.parentElement?.classList.remove('ms-pulse-wide');
+  // A Pulse page is a wall of glance widgets and wants the whole content column;
+  // the shell's fixed 300px rail left the board at ~74% of the width the engine
+  // header above it spans, with dead space beside every department section. On
+  // Pulse tabs only, the rail stops being a column and becomes a full-width strip
+  // under the header — Reports, Next Actions and Quick Actions all stay, they just
+  // sit across the top instead of down the side. Every other tab keeps the native
+  // two-column shell, so .ms-engine-layout--rail is untouched there.
+  body.parentElement?.classList.toggle('ms-pulse-wide', isPulseLayout);
   if (isPulseLayout) body.dataset.pulseKind = engineId;
   else delete body.dataset.pulseKind;
   // A borrowed page panel may be sitting in here; hand it back before the wipe or
