@@ -2155,15 +2155,15 @@ body > header {
 @media (min-width: 1024px) {
   .ms-dashboard-shell {
     display: grid !important;
-    grid-template-columns: 190px minmax(0, 1fr) !important;
+    grid-template-columns: 240px minmax(0, 1fr) !important;
     grid-template-rows: minmax(0, 1fr) !important;
     align-items: start;
-    column-gap: 1.25rem !important;
+    column-gap: 1.5rem !important;
   }
   #dept-sidebar {
     display: flex !important;
     align-self: start !important;
-    width: 190px !important;
+    width: 240px !important;
     height: auto !important;
     min-height: 0 !important;
     max-height: calc(100vh - 136px) !important;
@@ -2177,41 +2177,110 @@ body > header {
 
 /* Sidebar nav items on every dashboard — department list, marketing-suite
    areas and single-product restricted rails alike — at every viewport
-   width. Tailwind's py-2 on .dept-nav-item (shared by .ms-product-nav-item
-   and .ms-suite-nav-item) reads as loose once the sidebar glass panel and
-   #dept-nav's own space-y are stacked on top of it; this is the actual
-   vertical rhythm control for "the nav." */
-#dept-nav .dept-nav-item {
-  padding-top: .35rem !important;
-  padding-bottom: .35rem !important;
-  font-size: 1rem !important;
-  line-height: 1.15 !important;
+   width. Provides generous breathing room so multi-word product titles fit. */
+#dept-nav .dept-nav-item,
+.ms-product-nav-item,
+.ms-suite-nav-item {
+  padding: .5rem .75rem !important;
+  font-size: .875rem !important;
+  line-height: 1.25 !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  text-align: left !important;
+  border-radius: .85rem !important;
+}
+
+.ms-suite-nav-item span,
+.dept-nav-item span {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
 }
 
 @media (max-width: 767px) {
   #dashboard-nav { overflow: visible !important; max-height: none !important; }
 }
 
-/* MarketSync Digital uses the same Liquid Glass material across every owned
-   product workspace. This is intentionally scoped to the active suite so forms,
-   editors, and DealerOS department pages retain their product-specific layout. */
+/* MarketSync Digital & Settings — Liquid Glass material across workspaces.
+   Applies glassmorphism, satin specular borders, and blur depth to settings cards,
+   roster tables, and digital suite cards alike. */
 html[data-ms-suite="digital"] #dept-sidebar,
 html[data-ms-suite="digital"] #dept-tabbar,
 html[data-ms-suite="digital"] .page-content :is(.rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border),
-html[data-ms-suite="digital"] .ms-digital-suite > div {
-  background: linear-gradient(135deg, rgba(255,255,255,.68), rgba(255,255,255,.46)) !important;
-  border-color: rgba(255,255,255,.48) !important;
-  box-shadow: 0 18px 45px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.72) !important;
-  backdrop-filter: blur(20px) saturate(155%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(155%) !important;
+html[data-ms-suite="digital"] .ms-digital-suite > div,
+[data-page-content="settings"] :is(.rounded-lg, .rounded-xl, .rounded-2xl):is(.bg-white, .dark\:bg-slate-900),
+#lead-routing-card > div,
+#settings-team,
+#crm-dms-card,
+#settings-texting-card,
+#settings-lang-card,
+#prof-branding-section,
+#settings-my-record > div {
+  background: linear-gradient(135deg, rgba(255,255,255,.75), rgba(255,255,255,.52)) !important;
+  border: 1px solid rgba(255,255,255,.60) !important;
+  border-radius: 22px !important;
+  box-shadow: 0 16px 40px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.82) !important;
+  backdrop-filter: blur(24px) saturate(155%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(155%) !important;
 }
+
 .dark[data-ms-suite="digital"] #dept-sidebar,
 .dark[data-ms-suite="digital"] #dept-tabbar,
 .dark[data-ms-suite="digital"] .page-content :is(.rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border),
-.dark[data-ms-suite="digital"] .ms-digital-suite > div {
-  background: linear-gradient(145deg, rgba(28,41,68,.68), rgba(9,16,30,.48)) !important;
-  border-color: rgba(190,205,230,.18) !important;
-  box-shadow: 0 20px 50px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.08) !important;
+.dark[data-ms-suite="digital"] .ms-digital-suite > div,
+.dark [data-page-content="settings"] :is(.rounded-lg, .rounded-xl, .rounded-2xl):is(.bg-white, .dark\:bg-slate-900),
+.dark #lead-routing-card > div,
+.dark #settings-team,
+.dark #crm-dms-card,
+.dark #settings-texting-card,
+.dark #settings-lang-card,
+.dark #prof-branding-section,
+.dark #settings-my-record > div {
+  background: linear-gradient(145deg, rgba(26,38,64,.72), rgba(9,16,30,.52)) !important;
+  border: 1px solid rgba(190,205,230,.18) !important;
+  box-shadow: 0 20px 50px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.08) !important;
+}
+
+/* Settings Staff & Data Tables — Liquid Glass Table Elevation */
+[data-page-content="settings"] table,
+#settings-team table {
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+
+[data-page-content="settings"] table th,
+#settings-team table th {
+  padding: .75rem 1rem !important;
+  font-size: .6875rem !important;
+  font-weight: 850 !important;
+  letter-spacing: .08em !important;
+  text-transform: uppercase !important;
+  color: var(--ms-text-muted) !important;
+  border-bottom: 1px solid rgba(0,0,0,.06) !important;
+}
+
+.dark [data-page-content="settings"] table th,
+.dark #settings-team table th {
+  border-bottom-color: rgba(255,255,255,.08) !important;
+}
+
+[data-page-content="settings"] table td,
+#settings-team table td {
+  padding: .85rem 1rem !important;
+  font-size: .8125rem !important;
+  border-bottom: 1px solid rgba(0,0,0,.04) !important;
+  vertical-align: middle !important;
+}
+
+.dark [data-page-content="settings"] table td,
+.dark #settings-team table td {
+  border-bottom-color: rgba(255,255,255,.05) !important;
+}
+
+[data-page-content="settings"] table tr:last-child td,
+#settings-team table tr:last-child td {
+  border-bottom: 0 !important;
 }
 
 /* Tab strips (engine tab bars, department/suite tab bars — every role="tablist" in

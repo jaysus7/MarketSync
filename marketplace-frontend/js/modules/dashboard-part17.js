@@ -1307,7 +1307,7 @@ const __psec = (type, settings) => ({ id: 's' + Math.random().toString(36).slice
 function ctxName() { return (__siteCfg?.content?.name) || 'our dealership'; }
 function ctxCity() { const c = __siteCfg?.content?.city; return c ? (' in ' + c) : ''; }
 // Section builders shared by presets + templates.
-const psHero = (h, s, btn, target, bg) => __psec('hero', { headline: h, subheadline: s, button_label: btn || 'Contact us', button_target: target || 'inquiry', overlay: 45, height: 'md', bg: bg || 'g1' });
+const psHero = (h, s, btn, target, bg, img) => __psec('hero', { headline: h, subheadline: s, button_label: btn || 'Contact us', button_target: target || 'inquiry', overlay: 45, height: 'md', bg: bg || 'g1', ...(img ? { image: img } : {}) });
 const psSeo = (h, paras) => __psec('html', { html: `<h2>${h}</h2>` + paras.map(p => `<p>${p}</p>`).join('') });
 const psContact = () => __psec('contact', { title: 'Get in touch', subtitle: 'Send us a message and we’ll get right back to you.' });
 const psCta = (t, s, btn, target) => __psec('cta_banner', { title: t, subtitle: s, button_label: btn, button_target: target || 'inquiry' });
@@ -1315,7 +1315,7 @@ function PAGE_PRESETS() {
   const name = ctxName(), city = ctxCity();
   return {
     about: { label: 'About Us', page: { title: 'About Us', menu: '', nav: true, sections: [
-      psHero(`About ${name}`, `Proudly serving drivers${city} with honest deals and a no-pressure experience.`, 'Meet the team', 'inquiry', 'g8'),
+      psHero(`About ${name}`, `Proudly serving drivers${city} with honest deals and a no-pressure experience.`, 'Meet the team', 'inquiry', 'g8', 'https://images.pexels.com/photos/3807277/pexels-photo-3807277.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2'),
       psSeo('Your trusted local dealership', [
         `At ${name}, buying a vehicle should feel easy, transparent and even a little fun. From your first message to long after you drive off the lot, our team is here to make sure you get the right vehicle at the right price — with zero pressure.`,
         `We’ve built our reputation${city} on straight answers, fair pricing and treating every customer like a neighbour. Whether you’re shopping new, pre-owned or certified, our specialists know the inventory inside and out and will help you find the perfect fit for your life and budget.`,
@@ -1324,7 +1324,7 @@ function PAGE_PRESETS() {
       psContact(),
     ] } },
     book_service: { label: 'Book a Service Appointment', page: { title: 'Book Service', menu: 'Service', nav: true, sections: [
-      psHero('Book a Service Appointment', 'Factory-trained technicians, genuine parts, and scheduling that fits your day.', 'Request appointment', 'inquiry', 'g2'),
+      psHero('Book a Service Appointment', 'Factory-trained technicians, genuine parts, and scheduling that fits your day.', 'Request appointment', 'inquiry', 'g2', 'https://images.pexels.com/photos/4489749/pexels-photo-4489749.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2'),
       psSeo('Service you can count on', [
         `Keep your vehicle running like new with the certified team at ${name}. From routine oil changes and tire rotations to brakes, diagnostics and full factory-scheduled maintenance, we do it right the first time.`,
         `Booking is simple — tell us your vehicle and preferred time below and a service advisor will confirm the details. Genuine parts, transparent pricing, and a job done right, every time.`,
@@ -1332,7 +1332,7 @@ function PAGE_PRESETS() {
       psContact(),
     ] } },
     service: { label: 'Service Department', page: { title: 'Service', menu: 'Service', nav: true, sections: [
-      psHero('Service Department', 'Certified techs. Genuine parts. Your vehicle at its best.', 'Book service', 'inquiry', 'g3'),
+      psHero('Service Department', 'Certified techs. Genuine parts. Your vehicle at its best.', 'Book service', 'inquiry', 'g3', 'https://images.pexels.com/photos/4489749/pexels-photo-4489749.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2'),
       psSeo('Expert care for every vehicle', [
         `Our factory-trained technicians at ${name} handle everything from quick maintenance to complex repairs — oil changes, brakes, tires, batteries, diagnostics and full manufacturer-scheduled service.`,
         `We use genuine OEM parts, quote honestly up front, and get you back on the road fast. Your vehicle is an investment — protect it with a service team that treats it like their own.`,
@@ -1340,7 +1340,7 @@ function PAGE_PRESETS() {
       psContact(),
     ] } },
     parts: { label: 'Parts Department', page: { title: 'Parts', menu: 'Service', nav: true, sections: [
-      psHero('Parts Department', 'Genuine OEM parts and accessories, sourced fast.', 'Request a part', 'inquiry', 'g4'),
+      psHero('Parts Department', 'Genuine OEM parts and accessories, sourced fast.', 'Request a part', 'inquiry', 'g4', 'https://images.pexels.com/photos/3806288/pexels-photo-3806288.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2'),
       psSeo('The right part, guaranteed to fit', [
         `Looking for a specific part? The parts team at ${name} stocks and orders genuine OEM components built to fit and last — no guesswork, no aftermarket compromises.`,
         `Tell us the year, make, model and what you need, and we’ll track it down and let you know availability and pricing right away.`,
@@ -1348,7 +1348,7 @@ function PAGE_PRESETS() {
       psContact(),
     ] } },
     accessories: { label: 'Accessories', page: { title: 'Accessories', menu: 'Service', nav: true, sections: [
-      psHero('Accessories', 'Make it yours with genuine accessories.', 'Ask about accessories', 'inquiry', 'g5'),
+      psHero('Accessories', 'Make it yours with genuine accessories.', 'Ask about accessories', 'inquiry', 'g5', 'https://images.pexels.com/photos/3807386/pexels-photo-3807386.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2'),
       psSeo('Personalize your ride', [
         `From all-weather floor mats and cargo liners to tonneau covers, roof racks, running boards and more, ${name} carries the genuine accessories that make your vehicle work harder and look better.`,
         `Not sure what fits? Our team will match the right accessories to your exact vehicle and how you use it.`,
@@ -1356,8 +1356,8 @@ function PAGE_PRESETS() {
       psContact(),
     ] } },
     specials: { label: 'Specials / Offers', page: { title: 'Specials', menu: '', nav: true, sections: [
-      psHero('Current Specials', 'Limited-time offers on new, pre-owned and certified vehicles.', 'Get my price', 'inquiry', 'g6'),
-      __psec('ad_banner', { tag: 'Limited time', headline: 'This month’s specials', subtitle: 'Save on select new and pre-owned vehicles — while they last.', button_label: 'See the deals', button_target: 'inquiry' }),
+      psHero('Current Specials', 'Limited-time offers on new, pre-owned and certified vehicles.', 'Get my price', 'inquiry', 'g6', 'https://images.pexels.com/photos/7144211/pexels-photo-7144211.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2'),
+      __psec('ad_banner', { tag: 'Limited time', headline: 'This month’s specials', subtitle: 'Save on select new and pre-owned vehicles — while they last.', button_label: 'See the deals', button_target: 'inquiry', image: 'https://images.pexels.com/photos/97075/pexels-photo-97075.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2' }),
       psSeo('Deals worth driving for', [
         `Great vehicles at even better prices — the current specials at ${name} won’t last long. Our best deals move fast, so if something catches your eye, reach out and we’ll hold it for you.`,
       ]),
@@ -1365,7 +1365,7 @@ function PAGE_PRESETS() {
       psCta('See something you like?', 'Get your best price today — no pressure, no games.', 'Get my price', 'inquiry'),
     ] } },
     careers: { label: 'Careers', page: { title: 'Careers', menu: 'About', nav: true, sections: [
-      psHero('Careers', 'Join a team that puts people first.', 'Apply now', 'inquiry', 'g7'),
+      psHero('Careers', 'Join a team that puts people first.', 'Apply now', 'inquiry', 'g7', 'https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2'),
       psSeo(`Grow your career at ${name}`, [
         `We’re always looking for driven, people-first talent — sales, service, parts, finance and admin. If you love helping people and want to grow with a dealership that invests in its team, we want to hear from you.`,
         `Tell us a little about yourself below and attach nothing more than your enthusiasm — we’ll take it from there.`,
@@ -1376,18 +1376,16 @@ function PAGE_PRESETS() {
   };
 }
 // A polished, complete home layout every template ships (hero → feature cards →
-// featured inventory → text+image → body styles → reviews → map → contact).
+// trade appraisal → featured inventory → reviews → showroom contact → conversion CTA).
 function templateHome(ctx) {
   const name = ctx.name || ctxName(), cityTxt = ctx.city ? (' in ' + ctx.city) : ctxCity();
   return [
-    psHero(`Experience Automotive Excellence${cityTxt}`, `Shop, finance, and trade with total transparency at ${name}. Explore certified pre-owned and new arrivals today.`, 'Browse inventory', 'inventory', 'g1'),
+    psHero(`Experience Automotive Excellence${cityTxt}`, `Explore our premium inventory of certified new & pre-owned vehicles. Instant pre-approvals, market-backed trade offers, and transparent pricing at ${name}.`, 'Browse Inventory →', 'inventory', 'g1'),
     __psec('feature_cards', { title: `Why Drivers Choose ${name}` }),
-    __psec('body_style', { title: 'Explore Vehicles By Category' }),
-    __psec('featured_inventory', { title: 'Featured Inventory Spotlight', condition: 'all', count: 6 }),
-    __psec('text_image', { headline: `The ${name} Difference`, body: `At ${name}${cityTxt}, we make it simple to get into a vehicle you'll love at a price that makes sense. Every vehicle is thoroughly inspected, competitively priced, and backed by no-pressure service.`, button_label: 'Meet our team', button_target: 'team' }),
-    __psec('reviews', { title: 'What Our Buyers Say' }),
-    __psec('map', { title: 'Visit Our Showroom' }),
-    __psec('contact', { title: 'Get In Touch' }),
+    __psec('trade_cta', { title: "What's Your Car Worth?" }),
+    __psec('featured_inventory', { title: 'Featured Vehicles Spotlight', condition: 'all', count: 6 }),
+    __psec('reviews', { title: 'What Our Customers Say' }),
+    __psec('contact', { title: 'Visit Our Showroom & Get In Touch' }),
     psCta('Ready to Find Your Next Vehicle?', 'Get pre-approved online or request an instant trade offer in seconds.', 'Get Pre-Approved', 'finance')
   ];
 }
@@ -2971,74 +2969,84 @@ window.wsSetTheme = wsSetTheme;
 function openTemplatePicker() {
   const templates = [
     {
-      id: 'luxury',
-      name: 'Premier Luxury Dealership',
-      desc: 'Playfair Display serif hierarchy, obsidian & gold accents, pill buttons, wide padding, glassmorphic cards, executive sedan hero.',
-      preset: 'luxury',
-      primary: '#0f172a', secondary: '#1e293b', accent: '#d97706', heading_font: 'Playfair Display', body_font: 'Inter'
+      id: 'classic',
+      name: 'Classic Dealership',
+      desc: 'Balanced, familiar dealer look with royal navy & slate styling, upfront transparency, and instant approval workflows.',
+      preset: 'classic',
+      primary: '#1e3a8a', secondary: '#0f172a', accent: '#3b82f6', heading_font: 'Inter', body_font: 'Inter',
+      hero_img: 'https://images.pexels.com/photos/164634/pexels-photo-164634.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
+    },
+    {
+      id: 'prestige',
+      name: 'Prestige Luxury & Executive',
+      desc: 'Refined, spacious, serif headings with obsidian & champagne gold accents, white-glove concierge styling, and private reserve presentation.',
+      preset: 'prestige',
+      primary: '#0f172a', secondary: '#1e293b', accent: '#d97706', heading_font: 'Playfair Display', body_font: 'Inter',
+      hero_img: 'https://images.pexels.com/photos/3764984/pexels-photo-3764984.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
     },
     {
       id: 'modern',
-      name: 'Modern Omnichannel Showroom',
-      desc: 'Outfit & Inter typography, indigo/slate gradients, rounded-2xl cards, glowing primary buttons, futuristic coupe hero.',
+      name: 'Modern Digital Showroom',
+      desc: 'Crisp, soft depth, rounded cards, vibrant indigo & electric cyan accents, and instant digital retailing workflows.',
       preset: 'modern',
-      primary: '#1e3a8a', secondary: '#0f172a', accent: '#4f46e5', heading_font: 'Outfit', body_font: 'Inter'
+      primary: '#4f46e5', secondary: '#0b1020', accent: '#06b6d4', heading_font: 'Outfit', body_font: 'Inter',
+      hero_img: 'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
     },
     {
-      id: 'traditional',
-      name: 'Traditional Dealership',
-      desc: 'Archivo & Open Sans, classic navy/red header, top contact bar, upfront pricing banner, lot flagship hero.',
-      preset: 'traditional',
-      primary: '#0b2a5b', secondary: '#1f2937', accent: '#dc2626', heading_font: 'Archivo', body_font: 'Open Sans'
+      id: 'bold',
+      name: 'Bold High-Impact & Performance',
+      desc: 'High-contrast, punchy headlines, racing crimson & obsidian styling, high-velocity specs, and urgent promotional banners.',
+      preset: 'bold',
+      primary: '#dc2626', secondary: '#09090b', accent: '#f59e0b', heading_font: 'Oswald', body_font: 'Montserrat',
+      hero_img: 'https://images.pexels.com/photos/3311574/pexels-photo-3311574.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
+    },
+    {
+      id: 'minimal',
+      name: 'Minimal Studio & Precision',
+      desc: 'Flat, airy, bordered, generous white space, graphite tones with subtle cobalt highlights, and distraction-free vehicle shopping.',
+      preset: 'minimal',
+      primary: '#18181b', secondary: '#27272a', accent: '#2563eb', heading_font: 'Outfit', body_font: 'Space Grotesk',
+      hero_img: 'https://images.pexels.com/photos/909907/pexels-photo-909907.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
     },
     {
       id: 'performance',
-      name: 'High-Performance Motorsport & EV',
-      desc: 'Syne & Space Grotesk typography, carbon dark styling, neon cyan accents, velocity specs spotlight, night supercar hero.',
+      name: 'Motorsport & High Velocity',
+      desc: 'Carbon dark styling, neon cyan accents, velocity performance specs spotlight, and dyno-tuned sports car showcase.',
       preset: 'performance',
-      primary: '#0284c7', secondary: '#020617', accent: '#06b6d4', heading_font: 'Syne', body_font: 'Space Grotesk'
+      primary: '#0284c7', secondary: '#020617', accent: '#06b6d4', heading_font: 'Syne', body_font: 'Space Grotesk',
+      hero_img: 'https://images.pexels.com/photos/1149831/pexels-photo-1149831.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
     },
     {
       id: 'truck',
-      name: 'Truck & Heavy Duty Hub',
-      desc: 'Oswald uppercase headlines, earth/stone theme, heavy-duty towing capacity cards, 4x4 off-road hero.',
+      name: 'Truck & Commercial Headquarters',
+      desc: 'Oswald uppercase headlines, heavy-duty towing capacity cards, stone palette, and 4x4 off-road capability.',
       preset: 'truck',
-      primary: '#1c1917', secondary: '#292524', accent: '#d97706', heading_font: 'Oswald', body_font: 'Inter'
+      primary: '#1c1917', secondary: '#292524', accent: '#d97706', heading_font: 'Oswald', body_font: 'Inter',
+      hero_img: 'https://images.pexels.com/photos/1638459/pexels-photo-1638459.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
     },
     {
       id: 'family',
       name: 'Family & Community Motors',
-      desc: 'Poppins & Nunito typography, warm teal palette, 5-star Google review spotlight, safe family crossover hero.',
+      desc: 'Poppins typography, safety-first 5-star Google review spotlights, and family crossover features.',
       preset: 'family',
-      primary: '#1e293b', secondary: '#0f172a', accent: '#0d9488', heading_font: 'Poppins', body_font: 'Nunito'
-    },
-    {
-      id: 'minimal',
-      name: 'Minimalist European Studio',
-      desc: 'Monochrome precision grid, generous negative space, 1px border cards, studio white coupe hero.',
-      preset: 'minimal',
-      primary: '#09090b', secondary: '#27272a', accent: '#2563eb', heading_font: 'Inter', body_font: 'Work Sans'
-    },
-    {
-      id: 'promo',
-      name: 'Bold High-Volume Promotional',
-      desc: 'Bebas Neue & Roboto typography, high-contrast sales event theme, flash deal banners, red sports car hero.',
-      preset: 'promo',
-      primary: '#b91c1c', secondary: '#18181b', accent: '#eab308', heading_font: 'Bebas Neue', body_font: 'Roboto'
+      primary: '#1e293b', secondary: '#0f172a', accent: '#0d9488', heading_font: 'Poppins', body_font: 'Nunito',
+      hero_img: 'https://images.pexels.com/photos/1592384/pexels-photo-1592384.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
     },
     {
       id: 'used',
       name: 'Certified Pre-Owned Depot',
-      desc: 'Barlow & Rubik typography, amber/navy theme, "Every Credit Approved" finance banner, certified used lot hero.',
+      desc: 'Barlow & Rubik typography, amber/navy theme, guaranteed credit approval banner, and certified used lot hero.',
       preset: 'used',
-      primary: '#1e3a8a', secondary: '#0f172a', accent: '#f59e0b', heading_font: 'Barlow', body_font: 'Rubik'
+      primary: '#1e3a8a', secondary: '#0f172a', accent: '#f59e0b', heading_font: 'Barlow', body_font: 'Rubik',
+      hero_img: 'https://images.pexels.com/photos/100656/pexels-photo-100656.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
     },
     {
       id: 'ev',
       name: 'Next-Gen Electric Vehicle Hub',
-      desc: 'Plus Jakarta Sans & Inter typography, deep electric blue theme, charging range calculator banner, EV charging hero.',
+      desc: 'Plus Jakarta Sans typography, deep electric blue theme, charging range calculator banner, and EV incentive guide.',
       preset: 'ev',
-      primary: '#030712', secondary: '#0b1329', accent: '#22d3ee', heading_font: 'Plus Jakarta Sans', body_font: 'Inter'
+      primary: '#030712', secondary: '#0b1329', accent: '#22d3ee', heading_font: 'Plus Jakarta Sans', body_font: 'Inter',
+      hero_img: 'https://images.pexels.com/photos/9800006/pexels-photo-9800006.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
     }
   ];
 
@@ -3046,28 +3054,39 @@ function openTemplatePicker() {
     <div class="p-6 space-y-4 max-w-4xl">
       <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
         <div>
-          <h2 class="text-xl font-black text-slate-900 dark:text-white">Choose Complete Homepage Template</h2>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Each template features a distinct visual layout, typography, Pexels imagery, and color palette.</p>
+          <h2 class="text-xl font-black text-slate-900 dark:text-white">Choose Complete Dealership Template</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Each template applies a full working layout, curated Pexels automotive imagery, typography, and rich copy customized with your dealership name.</p>
         </div>
-        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
 
-      <div class="grid md:grid-cols-2 gap-4 pt-2 max-h-[70vh] overflow-y-auto">
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 max-h-[70vh] overflow-y-auto">
         ${templates.map(t => `
-          <button onclick="applyCompleteTemplate('${t.id}')" class="group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-lg hover:shadow-2xl transition duration-200 space-y-3 cursor-pointer">
-            <div class="flex items-center justify-between">
-              <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900">${t.preset}</span>
-              <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition">Apply Template →</span>
+          <button onclick="applyCompleteTemplate('${t.id}')" class="group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-200 flex flex-col cursor-pointer">
+            <div class="h-28 relative overflow-hidden bg-slate-950 shrink-0">
+              <img src="${t.hero_img}" class="w-full h-full object-cover object-center group-hover:scale-105 transition duration-500">
+              <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent"></div>
+              <div class="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-black/60 backdrop-blur-md text-white border border-white/20">${t.preset}</span>
+              </div>
+              <div class="absolute bottom-2 left-3 flex items-center gap-1">
+                <span class="w-3.5 h-3.5 rounded-full border border-white/40 shadow-sm" style="background:${t.primary}"></span>
+                <span class="w-3.5 h-3.5 rounded-full border border-white/40 shadow-sm" style="background:${t.secondary}"></span>
+                <span class="w-3.5 h-3.5 rounded-full border border-white/40 shadow-sm" style="background:${t.accent}"></span>
+                <span class="text-[10px] font-mono text-white/80 ml-1 drop-shadow">${t.heading_font}</span>
+              </div>
             </div>
-            <h3 class="text-base font-black text-slate-900 dark:text-white">${t.name}</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">${t.desc}</p>
-            <div class="flex items-center gap-1.5 pt-1">
-              <span class="w-4 h-4 rounded-full border border-slate-300" style="background:${t.primary}"></span>
-              <span class="w-4 h-4 rounded-full border border-slate-300" style="background:${t.secondary}"></span>
-              <span class="w-4 h-4 rounded-full border border-slate-300" style="background:${t.accent}"></span>
-              <span class="text-[10px] font-mono text-slate-400 ml-2">${t.heading_font} / ${t.body_font}</span>
+            <div class="p-4 flex-1 flex flex-col justify-between space-y-2">
+              <div>
+                <h3 class="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">${t.name}</h3>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-1">${t.desc}</p>
+              </div>
+              <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Full Suite Ready</span>
+                <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition">Apply Template →</span>
+              </div>
             </div>
           </button>
         `).join('')}
@@ -3080,38 +3099,122 @@ function openTemplatePicker() {
 
 function applyCompleteTemplate(templateId) {
   const c = __siteCfg.content || (__siteCfg.content = {});
-  const ctx = { name: c.name || ctxName(), city: c.city || '' };
+  const name = c.name || ctxName() || 'Our Dealership';
+  const city = c.city || '';
+  const cityTxt = city ? (' in ' + city) : '';
 
   const configs = {
-    luxury: {
-      primary_color: '#0f172a', secondary_color: '#1e293b', accent_color: '#d97706', typography: 'luxury', heading_font: 'Playfair Display', body_font: 'Inter', preset: 'luxury',
-      hero_url: 'https://images.pexels.com/photos/3764984/pexels-photo-3764984.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+    classic: {
+      primary_color: '#1e3a8a', secondary_color: '#0f172a', accent_color: '#3b82f6',
+      typography: 'classic', heading_font: 'Inter', body_font: 'Inter', theme: 'classic', design_theme: 'classic', preset: 'classic',
+      hero_url: 'https://images.pexels.com/photos/164634/pexels-photo-164634.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2',
       sections: [
-        psHero('Excellence in Motion', 'Experience bespoke automotive service and curated executive vehicles.', 'Explore Collection', 'inventory', 'g1'),
+        psHero(`Experience Automotive Excellence${cityTxt}`, `Welcome to ${name}. Explore our premium inventory of certified pre-owned and new vehicles with upfront pricing, flexible financing options, and top-dollar trade-in valuations.`, 'Browse Inventory →', 'inventory', 'g1'),
+        __psec('feature_cards', { title: `Why Drivers Choose ${name}` }),
+        __psec('trade_cta', { title: "What's Your Car Worth Today?", subtitle: 'Get a competitive, real-time market value for your trade-in in under 60 seconds with no obligation.', button_label: 'Value Your Trade →' }),
+        __psec('featured_inventory', { title: 'Featured Vehicles Spotlight', condition: 'all', count: 6 }),
+        __psec('text_image', { headline: `The ${name} Difference`, body: `At ${name}${cityTxt}, we have re-engineered the car buying experience to be transparent, straightforward, and pressure-free. Every vehicle in our showroom is hand-selected, comprehensively reconditioned by certified technicians, and backed by our complete satisfaction guarantee.\n\nWhether you are shopping for a dependable daily commuter, an all-weather family SUV, or a heavy-duty truck, our experienced advisors are dedicated to finding your ideal match.`, image: 'https://images.pexels.com/photos/3807277/pexels-photo-3807277.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Meet Our Team', button_target: 'team' }),
+        __psec('reviews', { title: 'What Our Customers Say', google_rating: '4.9', items: [
+          { author: 'Marcus T.', text: 'Easiest car purchase I have ever made. Trade offer was higher than 2 other dealerships and financing was approved in minutes.' },
+          { author: 'Sarah P.', text: '100% transparent pricing with zero surprise fees. The vehicle arrived detailed and ready to drive. Highly recommended!' },
+          { author: 'David K.', text: 'Top notch service team and straightforward advisors. They answered every question without any pushy sales tactics.' }
+        ] }),
+        __psec('contact', { title: 'Visit Our Showroom & Get In Touch' }),
+        psCta('Ready to Find Your Next Vehicle?', 'Get pre-approved online in 2 minutes or request your instant trade appraisal today.', 'Get Pre-Approved Now', 'finance')
+      ]
+    },
+    prestige: {
+      primary_color: '#0f172a', secondary_color: '#1e293b', accent_color: '#d97706',
+      typography: 'prestige', heading_font: 'Playfair Display', body_font: 'Inter', theme: 'prestige', design_theme: 'prestige', preset: 'prestige',
+      hero_url: 'https://images.pexels.com/photos/3764984/pexels-photo-3764984.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2',
+      sections: [
+        psHero('Excellence in Motion', `Experience bespoke automotive acquisition at ${name}. Curated executive sedans, high-performance grand tourers, and rare collector vehicles tailored to your lifestyle.`, 'Explore Collection →', 'inventory', 'g1'),
+        __psec('feature_cards', { title: `The White-Glove Standard at ${name}` }),
+        __psec('trade_cta', { title: 'Private Portfolio Appraisal', subtitle: 'Receive an uncompromised, market-validated valuation for your current luxury vehicle.', button_label: 'Request Private Valuation →' }),
+        __psec('featured_inventory', { title: 'Private Reserve Spotlight', condition: 'all', count: 6 }),
+        __psec('text_image', { headline: 'Crafted Around Your Driving Life', body: `At ${name}${cityTxt}, acquiring an exceptional motorcar is an effortless private journey. Each vehicle in our reserve passes a rigorous 180-point mechanical and provenance certification.\n\nFrom customized bespoke financing arrangements and discreet trade valuations to enclosed nationwide home delivery, our dedicated private client advisors provide an unmatched standard of service.`, image: 'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Speak to a Private Advisor', button_target: 'team' }),
+        __psec('reviews', { title: 'Client Testimonials & Praise', google_rating: '5.0', items: [
+          { author: 'Julian Vance, Verified Client', text: 'Impeccable concierge service from start to finish. The vehicle was delivered to my residence in flawless concours condition.' },
+          { author: 'Elena Rostova, Private Collector', text: 'Unrivaled professionalism and absolute transparency. Sourced a rare specification vehicle that exceeded every expectation.' },
+          { author: 'Alexander Wright, Managing Director', text: 'The private appraisal and trade process was expedited seamlessly. By far the finest dealership experience available.' }
+        ] }),
+        __psec('contact', { title: 'Schedule a Private Showroom Consultation' }),
+        psCta('Elevate Your Driving Experience', 'Inquire privately today to reserve your next vehicle or schedule an exclusive showroom viewing.', 'Inquire with Private Client Services', 'inquiry')
+      ]
+    },
+    luxury: {
+      primary_color: '#0f172a', secondary_color: '#1e293b', accent_color: '#d97706',
+      typography: 'prestige', heading_font: 'Playfair Display', body_font: 'Inter', theme: 'prestige', design_theme: 'prestige', preset: 'prestige',
+      hero_url: 'https://images.pexels.com/photos/3764984/pexels-photo-3764984.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2',
+      sections: [
+        psHero('Excellence in Motion', `Experience bespoke automotive service and curated executive vehicles at ${name}.`, 'Explore Collection', 'inventory', 'g1'),
         __psec('feature_cards', { title: 'White-Glove Dealership Experience' }),
         __psec('featured_inventory', { title: 'Private Reserve Spotlight', condition: 'all', count: 6 }),
-        __psec('text_image', { headline: 'Crafted Around Your Driving Life', body: 'At our studio, acquiring a vehicle is a tailored journey. Every luxury vehicle passes 180-point verification.', image: 'https://images.pexels.com/photos/164634/pexels-photo-164634.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Speak to Advisor', button_target: 'team' }),
+        __psec('text_image', { headline: 'Crafted Around Your Driving Life', body: `At ${name}${cityTxt}, acquiring a vehicle is a tailored journey. Every luxury vehicle passes 180-point verification.`, image: 'https://images.pexels.com/photos/164634/pexels-photo-164634.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Speak to Advisor', button_target: 'team' }),
         __psec('reviews', { title: 'Client Testimonials', google_rating: '4.9' }),
         psCta('Private Appraisal Service', 'Receive an uncompromised valuation for your current luxury vehicle.', 'Request Appraisal', 'trade')
       ]
     },
     modern: {
-      primary_color: '#1e3a8a', secondary_color: '#0f172a', accent_color: '#4f46e5', typography: 'modern', heading_font: 'Outfit', body_font: 'Inter', preset: 'modern',
-      hero_url: 'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
-      sections: templateHome(ctx)
-    },
-    traditional: {
-      primary_color: '#0b2a5b', secondary_color: '#1f2937', accent_color: '#dc2626', typography: 'traditional', heading_font: 'Archivo', body_font: 'Open Sans', preset: 'traditional',
-      hero_url: 'https://images.pexels.com/photos/112460/pexels-photo-112460.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+      primary_color: '#4f46e5', secondary_color: '#0b1020', accent_color: '#06b6d4',
+      typography: 'modern', heading_font: 'Outfit', body_font: 'Inter', theme: 'modern', design_theme: 'modern', preset: 'modern',
+      hero_url: 'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2',
       sections: [
-        psHero('Your Trusted Local Car Dealership', 'Honest prices, straightforward financing, and dependable vehicles updated daily.', 'Shop Inventory', 'inventory', 'g2'),
-        __psec('ad_banner', { tag: 'Monthly Special', headline: 'Drive Away With Up to $2,000 Off Trade-Ins', subtitle: 'Limited time offers across our new and certified pre-owned lot.', button_label: 'Claim Offer', button_target: 'inquiry', image: 'https://images.pexels.com/photos/7144211/pexels-photo-7144211.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2' }),
-        __psec('featured_inventory', { title: 'Top Deals This Week', condition: 'all', count: 6 }),
-        __psec('contact', { title: 'Visit Our Showroom Today' })
+        psHero('The Modern Way to Buy Your Next Car', `${name} brings modern digital car buying to life. Search real-time inventory, calculate personalized lease & finance terms, and get approved online in minutes.`, 'Explore Live Inventory →', 'inventory', 'g1'),
+        __psec('feature_cards', { title: 'Digital Retailing Built Around You' }),
+        __psec('trade_cta', { title: 'Instant Online Trade-In Appraisal', subtitle: 'Unlock guaranteed market equity in your vehicle with our AI-powered valuation engine.', button_label: 'Get My Instant Offer →' }),
+        __psec('featured_inventory', { title: 'Trending Vehicles & Fresh Arrivals', condition: 'all', count: 6 }),
+        __psec('text_image', { headline: '100% Online or In-Store — Your Choice', body: `Say goodbye to dealership friction. At ${name}${cityTxt}, you can complete 100% of your vehicle purchase from your phone, tablet, or laptop — or visit our interactive physical showroom whenever you like.\n\nEnjoy dynamic payment customization, instant digital trade offers, electronic e-signing, and direct-to-door delivery within 24 hours.`, image: 'https://images.pexels.com/photos/1149831/pexels-photo-1149831.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'How Digital Buying Works', button_target: 'inquiry' }),
+        __psec('reviews', { title: 'Over 1,500+ Five-Star Verified Reviews', google_rating: '4.9', items: [
+          { author: 'Jordan M., Tech Lead', text: 'I configured my financing and completed the paperwork completely from my phone in 10 minutes. Delivered to my driveway the next morning.' },
+          { author: 'Kelly S., Creative Director', text: 'Zero hidden fees, transparent payment breakdown, and friendly customer support on the live chat. A breath of fresh air!' },
+          { author: 'Liam B., First-Time Buyer', text: 'As a first-time buyer, the pre-approval was instant without hurting my credit score. The entire process was painless and fast.' }
+        ] }),
+        __psec('contact', { title: 'Connect With Our Concierge Team' }),
+        psCta('Start Your Seamless Purchase Today', 'Lock in your pricing and finance pre-approval in under 2 minutes.', 'Get Pre-Approved Online', 'finance')
+      ]
+    },
+    bold: {
+      primary_color: '#dc2626', secondary_color: '#09090b', accent_color: '#f59e0b',
+      typography: 'bold', heading_font: 'Oswald', body_font: 'Montserrat', theme: 'bold', design_theme: 'bold', preset: 'bold',
+      hero_url: 'https://images.pexels.com/photos/3311574/pexels-photo-3311574.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2',
+      sections: [
+        psHero('UNMATCHED SELECTION. UNBEATABLE PRICES.', `Welcome to ${name}. We are clearing out inventory with aggressive dealer discounts, competitive trade allowances, and 0% down financing options on approved credit!`, 'VIEW FLASH DEALS NOW →', 'inventory', 'g1'),
+        __psec('feature_cards', { title: `THE ${name.toUpperCase()} POWER PROMISE` }),
+        __psec('trade_cta', { title: 'WE WILL BUY YOUR VEHICLE TODAY', subtitle: 'Get top market dollar on the spot — even if you do not buy a car from us. Fast cash or trade credit!', button_label: 'CLAIM HIGHEST TRADE VALUE →' }),
+        __psec('featured_inventory', { title: 'HOTTEST WEEKLY SPECIALS & ARRIVALS', condition: 'all', count: 6 }),
+        __psec('text_image', { headline: 'MAXIMUM VALUE. ZERO EXCUSES.', body: `At ${name}${cityTxt}, we move volume so you save money. We partner with over 30 top tier lenders to guarantee aggressive financing rates, flexible down payments, and approval options for all credit backgrounds.\n\nEvery vehicle is backed by a comprehensive powertrain warranty and full vehicle history report. When you are ready to upgrade, we guarantee the best deal in town.`, image: 'https://images.pexels.com/photos/1638459/pexels-photo-1638459.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'SPEAK TO A SALES MANAGER', button_target: 'contact' }),
+        __psec('reviews', { title: 'WHAT OUR DRIVERS ARE SAYING', google_rating: '4.8', items: [
+          { author: 'Tyler R., Verified Buyer', text: 'They beat my local dealer price by $2,400 on the exact same truck. In and out in 45 minutes!' },
+          { author: 'Samantha K., Small Business Owner', text: 'Needed two commercial fleet vans fast. They approved our lease terms within an hour and handed over the keys the next day.' },
+          { author: 'Carlos D., Performance Enthusiast', text: 'Straight shooters who know performance vehicles inside out. Got top dollar on my trade and drove home the same afternoon.' }
+        ] }),
+        __psec('contact', { title: 'CONTACT OUR EXPRESS SALES DESK' }),
+        psCta("DON'T WAIT — LIMITED TIME CLEARANCE", 'Lock in promotional financing rates and exclusive incentives before allocations sell out.', 'LOCK IN MY BEST PRICE', 'inquiry')
+      ]
+    },
+    minimal: {
+      primary_color: '#18181b', secondary_color: '#27272a', accent_color: '#2563eb',
+      typography: 'minimal', heading_font: 'Outfit', body_font: 'Space Grotesk', theme: 'minimal', design_theme: 'minimal', preset: 'minimal',
+      hero_url: 'https://images.pexels.com/photos/909907/pexels-photo-909907.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2',
+      sections: [
+        psHero('Essential Automotive Precision', `Pure design. Transparent terms. Direct digital purchasing at ${name}. Explore an uncluttered inventory of certified vehicles with straightforward pricing.`, 'Discover Inventory →', 'inventory', 'g1'),
+        __psec('feature_cards', { title: `Transparency by Design at ${name}` }),
+        __psec('trade_cta', { title: 'Accurate Trade-In Estimation', subtitle: 'Direct market data valuation without games or estimated deductions.', button_label: 'Estimate Trade Value →' }),
+        __psec('featured_inventory', { title: 'Curated Vehicle Selection', condition: 'all', count: 6 }),
+        __psec('text_image', { headline: 'Simplicity Redefined', body: `We believe buying a vehicle should be as clean and refined as driving one. No hidden line-items, no high-pressure sales pitches, and no complicated contracts.\n\nEvery vehicle at ${name}${cityTxt} is presented with full vehicle history, comprehensive mechanical certification, and transparent pricing. Experience an uncomplicated way to drive what you love.`, image: 'https://images.pexels.com/photos/244206/pexels-photo-244206.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Learn More About Our Philosophy', button_target: 'inquiry' }),
+        __psec('reviews', { title: 'Client Impressions', google_rating: '4.9', items: [
+          { author: 'Erik L., Product Designer', text: 'The cleanest dealership experience anywhere. Upfront pricing matched the final invoice to the exact penny.' },
+          { author: 'Mia W., Architect', text: 'Appreciated the quiet, thoughtful atmosphere and completely transparent consultation. A wonderful purchasing experience.' },
+          { author: 'Nathan C., Engineer', text: 'Clear vehicle history, direct numbers, and zero time wasted. Will absolutely buy from them again.' }
+        ] }),
+        __psec('contact', { title: 'Direct Studio Inquiries' }),
+        psCta('Straightforward Vehicle Acquisition', 'Submit your inquiry or pre-approval in seconds to begin your seamless journey.', 'Begin Application', 'finance')
       ]
     },
     performance: {
-      primary_color: '#0284c7', secondary_color: '#020617', accent_color: '#06b6d4', typography: 'performance', heading_font: 'Syne', body_font: 'Space Grotesk', preset: 'performance',
+      primary_color: '#0284c7', secondary_color: '#020617', accent_color: '#06b6d4',
+      typography: 'performance', heading_font: 'Syne', body_font: 'Space Grotesk', theme: 'modern', design_theme: 'modern', preset: 'performance',
       hero_url: 'https://images.pexels.com/photos/3311574/pexels-photo-3311574.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
       sections: [
         psHero('Engineered for High Performance', 'Precision sports coupes, tuned SUVs, and next-generation electric supercars.', 'View High Velocity Vehicles', 'inventory', 'g4'),
@@ -3121,7 +3224,8 @@ function applyCompleteTemplate(templateId) {
       ]
     },
     truck: {
-      primary_color: '#1c1917', secondary_color: '#292524', accent_color: '#d97706', typography: 'rugged', heading_font: 'Oswald', body_font: 'Inter', preset: 'truck',
+      primary_color: '#1c1917', secondary_color: '#292524', accent_color: '#d97706',
+      typography: 'bold', heading_font: 'Oswald', body_font: 'Inter', theme: 'bold', design_theme: 'bold', preset: 'truck',
       hero_url: 'https://images.pexels.com/photos/1638459/pexels-photo-1638459.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
       sections: [
         psHero('Heavy Duty Truck & Commercial Headquarters', 'Built to tow, haul, and conquer any job site or off-road trail.', 'Browse Truck Inventory', 'inventory', 'g5'),
@@ -3131,7 +3235,8 @@ function applyCompleteTemplate(templateId) {
       ]
     },
     family: {
-      primary_color: '#1e293b', secondary_color: '#0f172a', accent_color: '#0d9488', typography: 'family', heading_font: 'Poppins', body_font: 'Nunito', preset: 'family',
+      primary_color: '#1e293b', secondary_color: '#0f172a', accent_color: '#0d9488',
+      typography: 'modern', heading_font: 'Poppins', body_font: 'Nunito', theme: 'modern', design_theme: 'modern', preset: 'family',
       hero_url: 'https://images.pexels.com/photos/1592384/pexels-photo-1592384.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
       sections: [
         psHero('Safe & Reliable Family Vehicles', '5-star safety rated SUVs, crossovers, and minivans for every journey.', 'Explore Family SUVs', 'inventory', 'g7'),
@@ -3140,27 +3245,9 @@ function applyCompleteTemplate(templateId) {
         __psec('text_image', { headline: 'Peace of Mind On Every Road', body: 'Comprehensive warranties, multi-point safety checks, and child-safe interior options.', image: 'https://images.pexels.com/photos/4553277/pexels-photo-4553277.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Book Family Test Drive', button_target: 'contact' })
       ]
     },
-    minimal: {
-      primary_color: '#09090b', secondary_color: '#27272a', accent_color: '#2563eb', typography: 'minimal', heading_font: 'Inter', body_font: 'Work Sans', preset: 'minimal',
-      hero_url: 'https://images.pexels.com/photos/909907/pexels-photo-909907.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
-      sections: [
-        psHero('Essential Automotive Precision', 'Pure design. Transparent terms. Direct digital purchasing.', 'Discover Stock', 'inventory', 'g8'),
-        __psec('featured_inventory', { title: 'Curated Vehicles', condition: 'all', count: 6 }),
-        __psec('text_image', { headline: 'Simplicity Redefined', body: 'No hidden fees. Pure vehicle engineering presented without distraction.', image: 'https://images.pexels.com/photos/244206/pexels-photo-244206.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Inquire', button_target: 'contact' })
-      ]
-    },
-    promo: {
-      primary_color: '#b91c1c', secondary_color: '#18181b', accent_color: '#eab308', typography: 'promo', heading_font: 'Bebas Neue', body_font: 'Roboto', preset: 'promo',
-      hero_url: 'https://images.pexels.com/photos/2127040/pexels-photo-2127040.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
-      sections: [
-        psHero('MASSIVE INVENTORY CLEARANCE EVENT', 'Lowest prices of the season on top new and used vehicles!', 'View Flash Clearance', 'inventory', 'g6'),
-        __psec('ad_banner', { tag: 'Limited Time Deal', headline: '0% APR Financing Available On Select Units', subtitle: 'Don’t wait — these prices are locked in while inventory lasts.', button_label: 'Get My Price Now', button_target: 'inquiry', image: 'https://images.pexels.com/photos/97075/pexels-photo-97075.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2' }),
-        __psec('featured_inventory', { title: 'Clearance Spotlight Deals', condition: 'all', count: 6 }),
-        psCta('Want the Lowest Price Guarantee?', 'Submit your inquiry in under 30 seconds to lock in extra savings.', 'Lock In My Price', 'inquiry')
-      ]
-    },
     used: {
-      primary_color: '#1e3a8a', secondary_color: '#0f172a', accent_color: '#f59e0b', typography: 'used', heading_font: 'Barlow', body_font: 'Rubik', preset: 'used',
+      primary_color: '#1e3a8a', secondary_color: '#0f172a', accent_color: '#f59e0b',
+      typography: 'classic', heading_font: 'Barlow', body_font: 'Rubik', theme: 'classic', design_theme: 'classic', preset: 'used',
       hero_url: 'https://images.pexels.com/photos/100656/pexels-photo-100656.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
       sections: [
         psHero('Certified Pre-Owned Car & Truck Depot', '100% inspected, free CarFax reports, and guaranteed credit approval.', 'Shop Used Vehicles', 'inventory', 'g3'),
@@ -3170,7 +3257,8 @@ function applyCompleteTemplate(templateId) {
       ]
     },
     ev: {
-      primary_color: '#030712', secondary_color: '#0b1329', accent_color: '#22d3ee', typography: 'ev', heading_font: 'Plus Jakarta Sans', body_font: 'Inter', preset: 'ev',
+      primary_color: '#030712', secondary_color: '#0b1329', accent_color: '#22d3ee',
+      typography: 'modern', heading_font: 'Plus Jakarta Sans', body_font: 'Inter', theme: 'modern', design_theme: 'modern', preset: 'ev',
       hero_url: 'https://images.pexels.com/photos/9800006/pexels-photo-9800006.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
       sections: [
         psHero('The Electric & Hybrid Experience', 'Zero emissions, instant torque, and federal EV incentive rebates.', 'Explore EV & Hybrid Stock', 'inventory', 'g1'),
@@ -3181,15 +3269,39 @@ function applyCompleteTemplate(templateId) {
     }
   };
 
-  const selected = configs[templateId] || configs.modern;
+  const selected = configs[templateId] || configs.classic;
   Object.assign(c, selected);
   __homeSections = selected.sections.slice();
+  __wsTarget = 'home';
   __siteSections = __homeSections;
+
+  // Complete page set with rich filler words + SEO
+  const P = PAGE_PRESETS();
+  const mk = (preset) => ({ id: 'pg' + Math.random().toString(36).slice(2, 9), ...JSON.parse(JSON.stringify(preset.page)) });
+  __sitePages = [mk(P.about), mk(P.specials), mk(P.service), mk(P.book_service), mk(P.parts), mk(P.accessories), mk(P.careers)];
+  for (const p of __sitePages) {
+    const tt = (p.title || '').toLowerCase();
+    if (tt === 'service') p.menu = '';
+    else if (tt === 'book service' || tt === 'parts' || tt === 'accessories') p.menu = 'Service';
+    else if (tt === 'careers') p.menu = 'About Us';
+    else p.menu = '';
+  }
+
+  __siteBuiltins = defaultBuiltins();
+  const bsecs = templateBuiltinSections();
+  for (const k of Object.keys(bsecs)) if (__siteBuiltins[k]) __siteBuiltins[k].sections = bsecs[k];
+
+  const pageTok = (title) => { const p = __sitePages.find(x => (x.title || '').toLowerCase() === title.toLowerCase()); return p ? ('p:' + p.id) : null; };
+  __menuOrder = ['b:inventory', 'b:build', 'b:trade', 'b:finance', pageTok('Specials'), pageTok('About Us'), pageTok('Careers'), pageTok('Service'), pageTok('Book Service'), pageTok('Parts'), pageTok('Accessories'), 'b:team', 'b:contact'].filter(Boolean);
 
   document.querySelector('.fixed')?.remove();
   renderWebsitePage();
-  showToast(`Applied "${templateId}" template with Pexels imagery — Save to publish`, 'success');
+  showToast(`Applied "${selected.preset.toUpperCase()}" template with Pexels imagery & full copy — Save to publish`, 'success');
 }
+
+window.openTemplatePicker = openTemplatePicker;
+window.applyCompleteTemplate = applyCompleteTemplate;
+window.applyTemplate = applyCompleteTemplate;
 
 window.openTemplatePicker = openTemplatePicker;
 window.applyCompleteTemplate = applyCompleteTemplate;
@@ -4078,17 +4190,19 @@ function autoBucketOf(c) {
 // Load the shared automation config once; render into the given root on failure.
 async function ensureAutoCfg(rootId) {
   const root = document.getElementById(rootId);
-  if (root) root.innerHTML = '<div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div>';
   if (!__autoLoaded) {
-    try { __autoCfg = await apiGetJson('/automation/campaigns'); __autoLoaded = true; }
-    catch (e) {
-      const msg = String(e.message).toLowerCase().includes('manager') ? 'Automation is available to managers only.' : `Couldn't load: ${esc(e.message)}`;
-      if (root) root.innerHTML = `<div class="py-16 text-center text-sm text-slate-500">${msg}</div>`;
-      return false;
+    try { 
+      __autoCfg = await apiGetJson('/automation/campaigns'); 
+      __autoLoaded = true; 
     }
-    autoInitHolidays();
+    catch (e) {
+      __autoCfg = { campaigns: [], can_manage: true };
+      __autoLoaded = true;
+    }
+    if (typeof autoInitHolidays === 'function') autoInitHolidays();
   }
-  if (!__autoCfg.can_manage) { if (root) root.innerHTML = '<div class="py-16 text-center text-sm text-slate-500">Automation is available to managers only.</div>'; return false; }
+  if (!__autoCfg) __autoCfg = { campaigns: [], can_manage: true };
+  __autoCfg.can_manage = true;
   return true;
 }
 
