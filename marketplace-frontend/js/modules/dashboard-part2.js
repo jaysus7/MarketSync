@@ -1294,7 +1294,14 @@ const PAGE_ANY_FEATURE = {
   'automation-builder': ['os.automations', 'os.marketing', 'os.email_marketing', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations'],
   'video-studio': ['os.marketing', 'video.library'],
   website: ['os.website', 'website.builder'],
-  seo: ['os.marketing', 'seo.intelligence', 'seo.standalone'],
+  // `seo.intelligence` and `seo.standalone` never existed in the catalog, so this
+  // gate only ever really asked `os.marketing`. That is the wrong question: it is
+  // the DealerOS marketing engine, which a customer who bought SEO on its own does
+  // not have. Measured against the catalog, MarketSync SEO and MarketSync Digital
+  // both grant all ten seo.* features and both FAILED this gate — they owned the
+  // product and could not see the tab. DealerOS Complete passed only incidentally,
+  // via os.marketing, rather than because it owns SEO.
+  seo: ['seo.overview', 'seo.audit', 'seo.settings', 'os.marketing'],
   'ai-home': ['os.marketing', 'ai.overview'],
 };
 // The dealership record also carries its server-authored package name. This fallback

@@ -4406,10 +4406,23 @@ let __seoMainTab = 'settings';
 let __seoMode = 'easy';
 let __seoData = null;
 
+// Ownership is a question for the entitlement engine, and its answer comes in two
+// forms: products and features. Checking only `products` asks half the question.
+// With a healthy access context every SEO-granting plan does list marketsync_seo,
+// so this is not the bug that hid the tab — that was the nav gate (see
+// PAGE_ANY_FEATURE.seo in dashboard-part2.js). This is the same question asked
+// completely, so any path that resolves features without repopulating the product
+// list cannot show a paying customer a paywall for what they already own.
+// Note it still fails closed when there is no access context at all: not knowing
+// is not the same as owning.
 function isSeoOwned() {
   if (__siteCfg && (__siteCfg.seo_active || __siteCfg.seo_paid)) return true;
-  if (window.__access && Array.isArray(window.__access.products)) {
-    if (window.__access.products.includes('marketsync_seo') || window.__access.products.includes('seo')) return true;
+  const access = window.__access;
+  if (access && Array.isArray(access.products)) {
+    if (access.products.includes('marketsync_seo') || access.products.includes('seo')) return true;
+  }
+  if (access && Array.isArray(access.features)) {
+    if (access.features.some(f => typeof f === 'string' && f.startsWith('seo.'))) return true;
   }
   return false;
 }
