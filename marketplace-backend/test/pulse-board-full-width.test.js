@@ -20,6 +20,10 @@ test('Pulse CSS does not flatten the right rail into a top strip', () => {
   assert.doesNotMatch(css, /\.ms-pulse-wide\s*\{[^}]*grid-template-columns:/,
     'the operations rail must remain in the engine shell second column')
   assert.match(css, /\[data-engine-body\] \+ \[data-engine-rail\]\s*\{[^}]*align-self:\s*start/)
+  assert.match(part10, /ms-engine-layout--rail/,
+    'the engine shell must use a semantic class rather than a purge-sensitive Tailwind arbitrary grid utility')
+  assert.match(css, /@media \(min-width: 1024px\)[\s\S]*?\.ms-engine-layout--rail\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 300px\s*!important/,
+    'the right operations rail must remain beside Pulse at normal desktop widths and browser zoom levels')
 })
 
 // Every real card on a Pulse page carries bg-white/dark:bg-slate-900 and is glassed by

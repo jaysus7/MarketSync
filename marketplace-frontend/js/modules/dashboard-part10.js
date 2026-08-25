@@ -1122,7 +1122,7 @@ function renderEngine(engineId, force = false) {
     <div data-engine-tabbar="${engineId}" role="tablist" class="ms-engine-tabs ${(order.length <= 1 || eng.hideTabBar) ? 'hidden' : 'flex'} items-center gap-2 mb-4 overflow-x-auto">
       ${order.map(tabBtn).join('')}
     </div>
-    <div class="grid grid-cols-1 ${eng.hideRail ? '' : 'xl:grid-cols-[minmax(0,1fr)_300px]'} gap-5 items-start">
+    <div class="ms-engine-layout ${eng.hideRail ? 'ms-engine-layout--single' : 'ms-engine-layout--rail'} grid grid-cols-1 gap-5 items-start">
       <div data-engine-body="${engineId}" class="min-w-0 space-y-5"></div>
       ${eng.hideRail ? '' : `<aside data-engine-rail="${engineId}" class="space-y-3 xl:sticky xl:top-4"></aside>`}
     </div>`;

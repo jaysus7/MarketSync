@@ -1668,6 +1668,16 @@ body > header,
   min-width: 0;
 }
 
+.ms-engine-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1024px) {
+  .ms-engine-layout--rail {
+    grid-template-columns: minmax(0, 1fr) 300px !important;
+  }
+}
+
 @media (min-width: 1024px) {
   .ms-pulse-board[data-pulse-kind="sales"] > .grid:last-child,
   .ms-pulse-board[data-pulse-kind="service-overview"] > .grid:last-child,
