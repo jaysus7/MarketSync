@@ -1723,15 +1723,10 @@ body {
   backdrop-filter: blur(var(--ms-glass-blur));
 }
 
-.pulse-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(10.5rem, 100%), 1fr));
-  gap: clamp(.75rem, 1.1vw, 1rem);
-  width: 100%;
-  min-width: 0;
-}
-
-.pulse-summary-grid > * { min-width: 0; }
+/* The Pulse tile row is laid out by the design system, which sizes each tile
+   from its own data (see "PULSE KPI HIERARCHY" in ms-design-system.css). The
+   equal-width auto-fit grid that used to live here is what made five tiles of
+   wildly different urgency read as five of the same thing. */
 
 @media (max-width: 639px) {
   .ms-pulse-board,
@@ -1753,8 +1748,8 @@ body {
    also painted over the dark AI panel's own gradient. Real cards (engCard, the rail,
    the department sections) all carry bg-white/dark:bg-slate-900 and are matched by
    the selectors above them, so they keep the glass. */
-.ms-pulse-board .bg-white,
-.ms-pulse-board .dark\:bg-slate-900,
+.ms-pulse-board .bg-white:not(.ms-kpi),
+.ms-pulse-board .dark\:bg-slate-900:not(.ms-kpi),
 [data-engine-rail] details {
   border-radius: var(--ms-radius-card) !important;
   background: linear-gradient(145deg, rgba(255,255,255,.76), rgba(255,255,255,.58)) !important;
@@ -1764,8 +1759,8 @@ body {
   -webkit-backdrop-filter: blur(18px) saturate(140%) !important;
 }
 
-.dark .ms-pulse-board .bg-white,
-.dark .ms-pulse-board .dark\:bg-slate-900,
+.dark .ms-pulse-board .bg-white:not(.ms-kpi),
+.dark .ms-pulse-board .dark\:bg-slate-900:not(.ms-kpi),
 .dark [data-engine-rail] details {
   background: linear-gradient(145deg, rgba(30,41,72,.56), rgba(15,23,42,.38)) !important;
   border-color: rgba(148,163,184,.18) !important;
@@ -1938,8 +1933,8 @@ body {
 .dark .ms-engine-header,
 .dark .ms-glass,
 .dark .ms-card,
-.dark .ms-pulse-board .bg-white,
-.dark .ms-pulse-board .dark\:bg-slate-900,
+.dark .ms-pulse-board .bg-white:not(.ms-kpi),
+.dark .ms-pulse-board .dark\:bg-slate-900:not(.ms-kpi),
 .dark [data-engine-rail] details {
   background: linear-gradient(145deg, rgba(24, 36, 60, .68), rgba(10, 17, 31, .50)) !important;
   border-color: rgba(190, 205, 230, .15) !important;
@@ -1951,9 +1946,16 @@ body {
 .ms-engine-header,
 .ms-card,
 .ms-glass,
-.ms-pulse-board .bg-white,
-.ms-pulse-board .dark\:bg-slate-900,
+.ms-pulse-board .bg-white:not(.ms-kpi),
+.ms-pulse-board .dark\:bg-slate-900:not(.ms-kpi),
 [data-engine-rail] details { border-radius: var(--ms-radius-card) !important; }
+
+/* .ms-kpi is exempt from the board glass above. Those rules set border-color and
+   box-shadow with !important, which silently killed the amber border the tile
+   renderer has always put on an urgent count — the "hot" state was dead inside
+   the board long before the KPI hierarchy needed an accent of its own. KPI tiles
+   are content surfaces: solid background, their own border, and the lead tile's
+   accent edge from ms-design-system.css. */
 
 /* Keep empty Pulse cards compact instead of stretching them into blank tiles. */
 .ms-pulse-board .text-center.text-slate-400 {

@@ -42,7 +42,10 @@ test('phase 1 restyles no legacy utility selector', () => {
 // really happened: mobile hero padding/radius lost to the .ms-c--hero block
 // below it, so hero cards kept 24px padding and a 26px radius on a 390px phone.
 test('every width breakpoint lives in the one responsive section at the end', () => {
-  const marker = ds.indexOf('8. RESPONSIVE')
+  // Matched by name, not by number: sections get inserted ahead of it (the Pulse
+  // KPI hierarchy did exactly that), and a test that pins the numbering fails on
+  // a rename rather than on the invariant it is meant to protect.
+  const marker = ds.indexOf('RESPONSIVE')
   assert.ok(marker > 0, 'the consolidated responsive section must exist')
   const breakpoints = [...ds.matchAll(/@media \(max-width/g)].map(m => m.index)
   assert.ok(breakpoints.length > 0, 'there must be width breakpoints to check')

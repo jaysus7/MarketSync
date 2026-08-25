@@ -2052,11 +2052,22 @@ ENGINES['command'] = {
     pulse(body, d) { this.overview(body, d); },
     overview(body, d) {
       const t = d.cc.tiles || {};
-      const tile = (label, val, page, attention) => {
-        const hot = attention && val > 0;
-        return `<button onclick="switchPage('${page}')" class="text-left bg-white dark:bg-slate-900 border rounded-xl px-4 py-4 transition hover:shadow-md ${hot ? 'border-amber-300 dark:border-amber-800' : 'border-slate-200 dark:border-slate-800'}">
-          <div class="text-3xl font-black ${hot ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-100'}">${val}</div>
-          <div class="text-[12px] font-bold text-slate-500 dark:text-slate-400 mt-1">${esc(label)}</div></button>`;
+      // A tile's prominence comes from its own number, not from its position in
+      // the row. `lead` marks the one metric that is a reason to open this page
+      // at all; it only actually leads while it is non-zero. On a calm morning
+      // every tile is quiet and the row reads as five equals — which is the
+      // honest picture of a calm store. Sizing lives in ms-design-system.css
+      // under "PULSE KPI HIERARCHY"; this only decides which bucket applies.
+      const tile = (label, val, page, attention, lead) => {
+        const n = Number(val) || 0;
+        const emphasis = n === 0 ? 'quiet'
+          : (lead && attention) ? 'lead'
+          : attention ? 'alert'
+          : 'normal';
+        const hot = attention && n > 0;
+        return `<button onclick="switchPage('${page}')" data-emphasis="${emphasis}" class="ms-kpi text-left bg-white dark:bg-slate-900 border rounded-xl px-4 py-4 transition hover:shadow-md ${hot ? 'border-amber-300 dark:border-amber-800' : 'border-slate-200 dark:border-slate-800'}">
+          <div class="ms-kpi__value ${hot ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-100'}">${val}</div>
+          <div class="ms-kpi__label text-slate-500 dark:text-slate-400">${esc(label)}</div></button>`;
       };
       const now = new Date();
       const hour = now.getHours();
@@ -2125,7 +2136,7 @@ ENGINES['command'] = {
             <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Updated from connected workflows</div>
           </div>
           <div class="pulse-summary-grid">
-            ${tile('Items needing attention', attention.length, 'command', true)}
+            ${tile('Items needing attention', attention.length, 'command', true, true)}
             ${tile('Deals in progress', t.deals_in_progress ?? 0, 'sales', false)}
             ${tile('Deliveries today', t.deliveries_today ?? 0, 'delivery', false)}
             ${tile('Recon delays', t.recon_delays ?? 0, 'recon', true)}

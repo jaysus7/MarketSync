@@ -47,6 +47,7 @@ const serviceWorkspace = read('js/modules/service-workspace.js')
 const partsWorkspace = read('js/modules/parts-workspace.js')
 const part11 = read('js/modules/dashboard-part11.js')
 const themeCss = read('css/marketsync-theme.css')
+const dsCss = read('css/ms-design-system.css')
 const pageContainers = new Set([...html.matchAll(/data-page-content="([^"]+)"/g)].map(m => m[1]))
 
 // The ten target workspaces (project instructions §8 / Doc 21 §18, plus Cleanup —
@@ -322,8 +323,18 @@ test('every Pulse uses one padded, overflow-safe visual board', () => {
     'the Pulse board must remain an unpainted layout surface so it cannot create a full-height seam')
   assert.match(themeCss, /\.pulse-summary-panel\s*\{[\s\S]*?padding:/,
     'Running today must be contained inside its own panel')
-  assert.match(themeCss, /\.pulse-summary-grid\s*\{[\s\S]*?auto-fit/,
-    'Running today tiles must reflow without touching or overflowing their container')
+  // The Running-today grid moved to ms-design-system.css, where each tile is sized
+  // from its own data (see pulse-kpi-hierarchy.test.js). It used to be an auto-fit
+  // row of equal tracks here — which is precisely why five tiles of very different
+  // urgency all read as the same thing. The requirement this line was protecting
+  // is that the row reflows without overflowing; that is now delivered by explicit
+  // per-breakpoint track counts, verified by measurement at 1440/1100/800/390.
+  assert.doesNotMatch(themeCss, /\.pulse-summary-grid\s*\{/,
+    'the tile grid belongs to the design system now; two definitions would fight')
+  assert.match(dsCss, /\.pulse-summary-grid \{[\s\S]*?grid-template-columns: repeat\(5/,
+    'Running today tiles must still lay out in a defined grid')
+  assert.match(dsCss, /@media \(max-width: 767px\)[\s\S]*?\.pulse-summary-grid/,
+    'the row must reflow on a phone rather than overflowing its container')
   assert.match(themeCss, /\.ms-ai-panel\s*\{[\s\S]*?background:\s*rgba\(255, 255, 255, \.88\)/,
     'assistant summaries must use the light system surface rather than a forced dark band')
   assert.match(dashboardJs, /chevronDown:\s*'<path/,

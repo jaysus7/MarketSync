@@ -19,9 +19,14 @@ const css = raw.replace(/\/\*[\s\S]*?\*\//g, '')
 // the single line behind milky light mode, cards that all read as equally
 // important, and nine compositing layers on a page that needs three.
 test('no rule decides glass from a colour utility class', () => {
-  assert.doesNotMatch(css, /\.bg-white:not\(/,
-    'a blanket .bg-white glass selector force-glasses every card in the product')
-  assert.doesNotMatch(css, /\.dark\\:bg-slate-900:not\(/,
+  // "Blanket" means UNSCOPED: the colour class is the first compound, so the rule
+  // reaches every bg-white in the product. A colour class that sits under a named
+  // ancestor is a different thing — `.ms-pulse-board .bg-white:not(.ms-kpi)` is the
+  // deliberate Pulse exception, and it can only ever reach cards inside that board.
+  // liquid-glass-body-modals.test.js pins the full set of scoped survivors.
+  assert.doesNotMatch(css, /(^|,)\s*\.bg-white:not\(/m,
+    'an unscoped .bg-white glass selector force-glasses every card in the product')
+  assert.doesNotMatch(css, /(^|,)\s*\.dark\\:bg-slate-900:not\(/m,
     'the dark-mode twin has the same effect and must not come back either')
 })
 

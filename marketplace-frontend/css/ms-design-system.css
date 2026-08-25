@@ -66,6 +66,9 @@
   --ms-accent-brand:  var(--ms-blue-500, #2563EB);
   --ms-accent-hover:  var(--ms-blue-600, #1F4ED8);
   --ms-accent-quiet:  var(--ms-blue-50,  #eff6ff);
+  /* Aliases the existing warning primitive so there is still one definition
+     of the amber this product uses to mean "a person needs to look at this". */
+  --ms-accent-warn:   var(--ms-warning-600, #D97706);
   --ms-st-success:    #059669;
   --ms-st-warning:    #D97706;
   --ms-st-danger:     #DC2626;
@@ -167,6 +170,8 @@
   --ms-divider:       rgba(255, 255, 255, 0.06);
 
   --ms-accent-quiet:  rgba(37, 99, 235, 0.14);
+  /* The 600 is tuned for white; on a dark panel the 500 carries the edge. */
+  --ms-accent-warn:   var(--ms-warning-500, #F59E0B);
   --ms-st-success:    #34D399;
   --ms-st-warning:    #FBBF24;
   --ms-st-danger:     #F87171;
@@ -451,8 +456,85 @@ p.ms-text-caption,
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   8. PULSE KPI HIERARCHY
+   ═══════════════════════════════════════════════════════════════════════════
+   The Pulse tile row is where "everything looks equally important" does the
+   most damage. Five identical tiles meant the one item needing a human today
+   read exactly like a count of deliveries that needs nobody.
+
+   Emphasis here is DATA-DRIVEN, not decorative. The renderer stamps
+   data-emphasis on each tile from that tile's own value:
+
+     lead   — actionable and non-zero: the reason to open this page at all
+     alert  — a watch metric that is currently non-zero
+     normal — an informational count
+     quiet  — a zero: true, worth showing, worth nobody's attention
+
+   A tile is only large while its number earns it. When the store is calm the
+   row flattens back to equals — which is the honest picture of a calm store,
+   not a layout that shouts at an empty queue. This is the masonry principle
+   applied literally: size communicates importance, and importance comes from
+   the data.
+
+   The column counts assume the five-tile Running-today row; a sixth tile
+   simply wraps and stays aligned. pulse-kpi-hierarchy.test.js pins the count
+   so the assumption cannot drift silently.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.pulse-summary-grid {
+  display: grid;
+  /* No lead tile means nothing is wrong: five equal tiles, one clean row. */
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--ms-sp-3, .75rem);
+  width: 100%;
+  min-width: 0;
+  align-items: stretch;
+}
+
+/* A lead tile takes two tracks, so the row needs a sixth to stay flush. */
+.pulse-summary-grid:has([data-emphasis="lead"]) {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.pulse-summary-grid > * { min-width: 0; grid-column: span 1; }
+.pulse-summary-grid > [data-emphasis="lead"] { grid-column: span 2; }
+
+/* Size is the primary signal; weight and colour reinforce it rather than
+   replace it, so the hierarchy still reads in forced-colors mode. */
+.ms-kpi__value {
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+/* A fixed 48 / 36 / 30 / 24 scale rather than vw clamps. Clamps looked right at
+   1440 but bottomed out below it — alert and normal both landed on 30px, so the
+   middle tier silently stopped existing at exactly the widths where the board is
+   tightest and the distinction matters most. */
+[data-emphasis="lead"]   .ms-kpi__value { font-size: 3rem; }
+[data-emphasis="alert"]  .ms-kpi__value { font-size: 2.25rem; }
+[data-emphasis="normal"] .ms-kpi__value { font-size: 1.875rem; }
+/* A zero is still a fact, so it keeps full contrast — it just stops competing
+   for the eye. Dimming it to grey would make "nothing wrong" read as "no data". */
+[data-emphasis="quiet"]  .ms-kpi__value { font-size: 1.5rem; font-weight: 800; }
+
+.ms-kpi__label {
+  font-size: .75rem;
+  font-weight: 700;
+  margin-top: .35rem;
+}
+[data-emphasis="lead"] .ms-kpi__label { font-size: .8125rem; }
+
+/* The lead tile is the one thing on the page asking for a decision, so it gets
+   a real edge rather than a slightly darker border. */
+.pulse-summary-grid > [data-emphasis="lead"] {
+  box-shadow: inset 0 0 0 1px var(--ms-accent-warn, #D97706),
+              0 6px 20px rgba(217, 119, 6, .12);
+}
+
 /* ───────────────────────────────────────────────────────────────────────────
-   8. RESPONSIVE
+   9. RESPONSIVE
    Every breakpoint override lives HERE, at the end of the file, deliberately.
    Media queries do not add specificity — they only win by source order — so
    overrides written next to their component get silently beaten by any later
@@ -475,6 +557,28 @@ p.ms-text-caption,
      breaks the whole board's alignment. */
   .ms-c--hero[data-empty="true"],
   .ms-c--feature[data-empty="true"] { grid-column: span 3; }
+
+  /* Below 1280 the board column is roughly 700px once the 240px department rail
+     and the 300px operations rail are taken out, so six tracks would be ~117px —
+     narrower than the labels. Four tracks, and the attention tile takes the full
+     width whatever its emphasis.
+
+     That last part is deliberate: five tiles do not divide by four, so letting
+     emphasis decide the span here produced a half-empty second row with two dead
+     tracks — the same phantom-column failure the board grid already learned once.
+     Giving the first tile the whole row makes both cases tile exactly: 1 + 4.
+
+     The cost, stated plainly: a calm store gets a full-width tile reading "0
+     items needing attention". Area stops tracking importance at this width
+     because five tiles will not divide four ways any other way that tiles
+     evenly. Emphasis is still carried here by type size (24px quiet against
+     36px lead) and by the amber edge, which only a real lead tile gets. */
+  .pulse-summary-grid,
+  .pulse-summary-grid:has([data-emphasis="lead"]) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .pulse-summary-grid > :first-child { grid-column: 1 / -1; }
+  [data-emphasis="lead"] .ms-kpi__value { font-size: 2.25rem; }
 }
 
 /* — Phone: 6 → 2 columns — */
@@ -506,4 +610,14 @@ p.ms-text-caption,
      to composite it — applies to BOTH spellings of a glass surface. */
   .ms-surface--glass,
   .ms-c--glass { --ms-g-blur: 14px; }
+
+  /* Two tracks. The lead takes the full width — a phone has no room to make a
+     tile "twice as important" and still fit its number. */
+  .pulse-summary-grid,
+  .pulse-summary-grid:has([data-emphasis="lead"]) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* 1 + 2 + 2: three full rows, no dead tracks. */
+  .pulse-summary-grid > :first-child { grid-column: 1 / -1; }
+  [data-emphasis="lead"] .ms-kpi__value { font-size: 2.25rem; }
 }
