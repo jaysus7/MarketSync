@@ -312,6 +312,11 @@ body {
 .ms-meta { font-size: var(--text-xs); font-weight: 500; color: var(--color-text-muted); }
 .ms-sub { font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary); line-height: 1.4; }
 
+/* Shared reading size. Paragraph copy starts at a true 16px across the public
+   site and DealerOS; explicitly-sized display copy, captions and metadata keep
+   their component scale. */
+p { font-size: 1rem; line-height: 1.55; }
+
 /* Systematic Contrast & Heading Overrides */
 html:not(.dark) h1, html:not(.dark) h2, html:not(.dark) h3, html:not(.dark) h4 {
   color: #0F172A;
@@ -2179,6 +2184,7 @@ body > header {
 #dept-nav .dept-nav-item {
   padding-top: .35rem !important;
   padding-bottom: .35rem !important;
+  font-size: 1rem !important;
   line-height: 1.15 !important;
 }
 

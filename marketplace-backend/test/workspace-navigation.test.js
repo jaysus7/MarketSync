@@ -356,6 +356,10 @@ test('the desktop dashboard shell keeps top, department, and operations navigati
     'desktop must reserve one compact, explicit department column')
   assert.match(themeCss, /#dept-sidebar\s*\{[\s\S]*?display:\s*flex\s*!important;[\s\S]*?width:\s*190px\s*!important;[\s\S]*?height:\s*auto\s*!important;/,
     'the department rail must return and wrap its menu instead of filling the screen')
+  assert.match(themeCss, /p\s*\{\s*font-size:\s*1rem;\s*line-height:\s*1\.55;/,
+    'shared paragraph copy must start at an accessible 16px reading size')
+  assert.match(themeCss, /#dept-nav \.dept-nav-item\s*\{[\s\S]*?font-size:\s*1rem\s*!important;/,
+    'department navigation labels must remain 16px across workspaces')
   assert.match(part10, /sec\('Reports', 'chart', reportsHtml\)/,
     'the proper engine rail must restore department reports on the right')
   assert.doesNotMatch(html, /<header class="[^"]*\bborder-b\b/,
