@@ -35,14 +35,25 @@ insert into public.features (id, product_id, name, feature_group, sort_order) va
   ('seo.settings', 'marketsync_seo', 'Settings', 'seo', 10)
 on conflict (id) do nothing;
 
--- 2. Grant the product to the plans that sell it and were missing it.
+-- 2. The standalone marketsync-seo plan row itself was never created. The
+--    2026-08-17 seed listed 15 SKUs and this was not one of them, and no later
+--    migration adds it. plan_products.plan_id and plan_features.plan_id are both
+--    foreign keys to plans(id), so granting anything to marketsync-seo before the
+--    plan exists aborts the whole file -- taking the dealer-os-complete grant
+--    below down with it. Values come from PLAN_CATALOG['marketsync-seo']
+--    ($149/mo = 14900 cents, tier 0, dealership).
+insert into public.plans (id, product_id, name, tier, monthly_price_cents, org_type, is_public, is_trial_default)
+values ('marketsync-seo', 'marketsync_seo', 'MarketSync SEO', 0, 14900, 'dealership', true, false)
+on conflict (id) do nothing;
+
+-- 3. Grant the product to the plans that sell it and were missing it.
 insert into public.plan_products (plan_id, product_id)
 values
   ('dealer-os-complete', 'marketsync_seo'),
   ('marketsync-seo', 'marketsync_seo')
 on conflict (plan_id, product_id) do nothing;
 
--- 3. Grant the features alongside the product. Without these the page resolves as
+-- 4. Grant the features alongside the product. Without these the page resolves as
 --    unentitled even though the product row is present.
 insert into public.plan_features (plan_id, feature_id)
 select entitled_plan.plan_id, entitled.feature_id
@@ -55,23 +66,11 @@ cross join (values
 on conflict (plan_id, feature_id) do nothing;
 
 -- ---------------------------------------------------------------------------
--- NOT APPLIED -- this one is a commercial decision, not an engineering one.
+-- The same 2026-08-20 migration also granted marketsync_seo to dealer-os-pro,
+-- which plan-catalog.js says Pro does not include. That was flagged here as a
+-- commercial decision rather than an engineering one; the owner has since
+-- decided to revoke it.
 --
--- The same 2026-08-20 migration also granted marketsync_seo to dealer-os-pro.
--- plan-catalog.js is explicit that it should not: "Digital is sold separately
--- (marketsync-digital) and bundled only into Complete", and Pro sells neither the
--- product nor any seo.* feature. So the database currently gives SEO away on a
--- tier that does not pay for it.
---
--- Revoking is two statements, but it takes a working feature away from any live
--- Pro dealership already using it. That is the owner's call, so it is written out
--- here rather than executed. Uncomment to apply.
---
--- delete from public.plan_features
---  where plan_id = 'dealer-os-pro'
---    and feature_id in ('seo.overview','seo.audit','seo.autofix','seo.content',
---                       'seo.competitors','seo.local','seo.inventory',
---                       'seo.ai_search','seo.reports','seo.settings');
--- delete from public.plan_products
---  where plan_id = 'dealer-os-pro' and product_id = 'marketsync_seo';
+-- The revoke lives in its own migration so this one stays purely additive:
+--   2026-08-25-revoke-dealer-os-pro-seo.sql
 -- ---------------------------------------------------------------------------
