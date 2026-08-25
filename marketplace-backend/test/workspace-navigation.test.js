@@ -358,6 +358,10 @@ test('the desktop dashboard shell removes the department rail and keeps header b
     'desktop CSS must enforce removal of the department rail')
   assert.match(part10, /sec\('Reports', 'chart', reportsHtml\)/,
     'the proper engine rail must restore department reports on the right')
+  assert.doesNotMatch(html, /<header class="[^"]*\bborder-b\b/,
+    'the fixed header must not carry a Tailwind border that draws a hard canvas line')
+  assert.match(themeCss, /body > header,\s*\n\.dark body > header\s*\{[\s\S]*?border-bottom:\s*0\s*!important;[\s\S]*?box-shadow:\s*none\s*!important/,
+    'the final glass cascade must remove the inherited full-width header shadow and border')
   assert.match(part11, /class="ms-daily-greeting"/,
     'management Pulse must render its greeting on a system-aware surface')
   assert.match(part11, /dailyMotivations[\s\S]*?Date\.UTC/,

@@ -2069,12 +2069,15 @@ body {
   -webkit-backdrop-filter: none !important;
 }
 
-/* The header's own Tailwind border-b (border-slate-200/800) is a flat, fully
-   opaque hairline that reads as a hard line under the glass header no matter
-   how translucent the header's own background is — override its color the
-   same way the glass background above is overridden. */
-body > header { border-bottom-color: rgba(255,255,255,.20) !important; }
-.dark body > header { border-bottom-color: rgba(190,205,230,.15) !important; }
+/* Keep the fixed glass header visually continuous with the canvas. The broad
+   glass cascade gives surfaces a deep card shadow; on a full-width header that
+   becomes a hard horizontal band. A border creates the same seam, so the shell
+   header deliberately uses neither. */
+body > header,
+.dark body > header {
+  border-bottom: 0 !important;
+  box-shadow: none !important;
+}
 
 /* The top header, a bit more transparent than the cards/nav share by default. */
 body > header {

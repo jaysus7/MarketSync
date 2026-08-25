@@ -1,6 +1,6 @@
 /**
  * MarketSync Dealership Intelligence & Decision Support Suite
- * Sections 448–603
+ * Sections 448–905
  */
 
 // 1. Dealership State Model & Digital Twin (§449, §450, §451)
@@ -29,3 +29,24 @@ export * from './dealership-control-tower.js'
 
 // 9. Multi-Store Transfers, Role Security, Privacy Boundaries & Audit Readiness (§551–556, §577–580, §589–600)
 export * from './dealership-governance-security.js'
+
+// 10. Causal Operating Model, Driver Trees & Counterfactual Simulation (§604–608, §650–657)
+export * from './causal-operating-model.js'
+
+// 11. Theory of Constraints, Multi-Objective Decision Matrix & Flow Efficiency (§609–620, §795–798, §821–832)
+export * from './theory-of-constraints-optimizer.js'
+
+// 12. Experimentation Engine, Decision Memory & Follow-Up Loop (§621–625, §732–739, §787)
+export * from './dealership-experiment-learning.js'
+
+// 13. Strategic Priority Alignment, Operating Rhythms & Playbooks (§626–649, §816–820)
+export * from './strategic-rhythms-playbooks.js'
+
+// 14. Operational Risk Register, Control Effectiveness & Incident Impact (§658–670, §833–846)
+export * from './risk-control-resilience.js'
+
+// 15. Semantic Layer, Query Planner, Multi-Agent Governance & Collision Preventer (§671–689, §751–756, §768–776, §809–815, §856–866)
+export * from './semantic-governance-query.js'
+
+// 16. Section 900 Ultimate North Star Closed-Loop Operating Engine (§900–905)
+export * from './dealership-north-star-engine.js'

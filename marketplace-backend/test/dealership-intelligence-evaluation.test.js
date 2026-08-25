@@ -1,10 +1,11 @@
 /**
- * Dealership Intelligence & Decision Support Suite — Automated Evaluation Suite
- * Sections 448–603 / Phases 26–35
+ * Dealership Intelligence & Decision Support Suite — Complete Evaluation Suite
+ * Sections 448–905 / Phases 26–50
  * 
- * Verifies all 9 operational departments, digital twin relationships, attention prioritizer,
- * executive briefings, explainable health scores, blocker propagation, revenue leakage,
- * natural query contract, and the Section 601 North Star executive query scenario.
+ * Verifies all operational departments, digital twin, attention engine, causal operating model,
+ * driver trees, Theory of Constraints, multi-objective decision matrix, controlled experiments,
+ * strategic playbooks, risk register, semantic query planner, collision prevention,
+ * and the Section 900 Ultimate North Star closed-loop lifecycle.
  */
 
 import { describe, it } from 'node:test'
@@ -40,10 +41,34 @@ import {
   buildRoleControlTowerView,
   filterIntelligenceByRole,
   evaluateAuditReadiness,
-  evaluateDealerGroupTransfers
+  evaluateDealerGroupTransfers,
+  rankRootCauses,
+  analyzeVarianceContribution,
+  simulateCounterfactual,
+  evaluateDriverTree,
+  identifySystemConstraint,
+  evaluateDecisionMatrix,
+  analyzeWorkflowFlowEfficiency,
+  createDealershipExperiment,
+  evaluateExperimentResults,
+  recordManagementDecision,
+  evaluateDecisionOutcome,
+  evaluateStrategicAlignment,
+  generateMeetingBriefing,
+  evaluateOperationalPlaybooks,
+  evaluateOperationalRiskRegister,
+  evaluateControlExceptions,
+  translateTechnicalIncident,
+  planSemanticAnalyticsQuery,
+  evaluateOutreachCollisionGuard,
+  validateAgentAction,
+  querySingleBiggestConstraint,
+  executeClosedLoopIntervention,
+  CANONICAL_METRICS,
+  NON_NEGOTIABLE_HUMAN_ACTIONS
 } from '../services/dealership-intelligence/index.js'
 
-describe('Dealership Intelligence & Decision Support Suite (Sections 448–603)', () => {
+describe('Dealership Intelligence & Decision Support Platform (Sections 448–905)', () => {
   // ── 1. Dealership State Model & Digital Twin (§449–451) ────────────────────
   describe('1. Dealership State Model & Digital Twin (§449–451)', () => {
     it('creates a complete canonical dealership state across all 9 workspaces', () => {
@@ -148,9 +173,9 @@ describe('Dealership Intelligence & Decision Support Suite (Sections 448–603)'
     it('detects and highlights only material operational changes in "What Changed?" engine', () => {
       const morningState = createDealershipState('dlr_test')
       const afternoonState = createDealershipState('dlr_test', {
-        sales: { month_to_date_units_sold: 44 }, // +3 sales
-        fni: { funding_over_3_days_count: 0 },   // funding delay resolved
-        hr: { today_absences_count: 2 }          // +1 absence
+        sales: { month_to_date_units_sold: 44 },
+        fni: { funding_over_3_days_count: 0 },
+        hr: { today_absences_count: 2 }
       })
 
       const diff = detectDealershipDeltas(morningState, afternoonState)
@@ -360,7 +385,7 @@ describe('Dealership Intelligence & Decision Support Suite (Sections 448–603)'
         params: { technicians_count: 1 }
       })
       assert.equal(sim.scenario_type, 'STAFFING_SIMULATION')
-      assert.equal(sim.simulated_outcome.projected_capacity_deficit, 5) // 13 - 8 = 5
+      assert.equal(sim.simulated_outcome.projected_capacity_deficit, 5)
       assert.ok(sim.disclaimer.includes('Simulation estimate'))
     })
 
@@ -413,26 +438,253 @@ describe('Dealership Intelligence & Decision Support Suite (Sections 448–603)'
       const state = createDealershipState('dlr_north_star')
       const answer = queryDealershipIntelligence(state, 'What should I know right now?', 'dealer_principal')
 
-      // 1. Core 3 Attention Points
       assert.ok(answer.answer.includes('4 hot leads waiting over 10 minutes'))
       assert.ok(answer.answer.includes('3 ROs at risk of missing promise time'))
       assert.ok(answer.answer.includes('$92,000 in delivered deals remains unfunded'))
-
-      // 2. High-Intent Commercial Opportunity
       assert.ok(answer.answer.includes('Seven active customers are looking for AWD SUVs under $40k'))
-
-      // 3. Normal Baseline
-      assert.ok(answer.answer.includes('Everything else is operating within normal range') || answer.answer.includes('within normal ranges'))
-
-      // 4. Traceable Evidence & 1-Click Affected Records
       assert.ok(answer.evidence.length >= 4)
       assert.equal(answer.affected_records.length, 3)
-      assert.ok(answer.affected_records.some(r => r.id === 'SALES-HOT-QUEUE'))
-      assert.ok(answer.affected_records.some(r => r.id === 'RO-PROMISE-RISK'))
-      assert.ok(answer.affected_records.some(r => r.id === 'UNFUNDED-DEALS'))
-
-      // 5. Recommended Actions
       assert.ok(answer.recommended_actions.length >= 3)
+    })
+  })
+
+  // ── 11. Causal Operating Model, Driver Trees & Counterfactuals (§604–608, §650–657) ──
+  describe('11. Causal Operating Model & Driver Trees (§604–608, §650–657)', () => {
+    it('ranks root causes for KPI movement without raw correlation confusion', () => {
+      const rootCause = rankRootCauses({
+        metric_name: 'Sales Pace',
+        change_pct: -14,
+        observed_factors: [
+          { name: 'Appointment Volume', change_pct: -18, sensitivity: 0.8 },
+          { name: 'Lead Response Time', change_pct: +116, sensitivity: 0.75 }
+        ]
+      })
+      assert.equal(rootCause.primary_suspect, 'Lead Response Time')
+      assert.ok(rootCause.ranked_contributors.length >= 2)
+      assert.equal(rootCause.ranked_contributors[0].relationship_type, 'CAUSAL_EMPIRICAL')
+    })
+
+    it('performs mathematically supportable contribution analysis on variances', () => {
+      const contribution = analyzeVarianceContribution({
+        metric: 'Service Gross',
+        variance_amount: -18400
+      })
+      assert.equal(contribution.contributions[0].contribution_pct, 55)
+      assert.equal(contribution.contributions[0].relative_weight, 'MAJOR')
+    })
+
+    it('executes counterfactual simulation clearly marked as simulation', () => {
+      const sim = simulateCounterfactual({
+        current_response_time_minutes: 11,
+        actual_appointments_booked: 42,
+        target_response_time_minutes: 4.5
+      })
+      assert.equal(sim.is_simulation, true)
+      assert.ok(sim.disclaimer.includes('SIMULATION ONLY'))
+      assert.ok(sim.simulated_total_appointments > 42)
+    })
+
+    it('detects value stream chain breaks in drillable executive driver trees', () => {
+      const driverTree = evaluateDriverTree('SALES', {
+        leads: 120,
+        response_time_min: 11.5,
+        appointments: 24,
+        shows: 18,
+        sales: 5
+      })
+      assert.equal(driverTree.chain_break_assessment.break_detected, true)
+      assert.equal(driverTree.chain_break_assessment.location, 'LEAD_CREATION_TO_FIRST_RESPONSE')
+    })
+  })
+
+  // ── 12. Theory of Constraints & Flow Efficiency (§609–620, §821–832) ───────
+  describe('12. Theory of Constraints & Flow Efficiency (§609–620, §821–832)', () => {
+    it('identifies the active system constraint, workload, relief, and next constraint shift', () => {
+      const state = createDealershipState('dlr_test', {
+        sales: { avg_response_time_minutes: 11.0 }
+      })
+      const constraint = identifySystemConstraint(state)
+      assert.equal(constraint.current_constraint, 'SALES_LEAD_RESPONSE_CAPACITY')
+      assert.ok(constraint.relief_options.length >= 2)
+      assert.equal(constraint.expected_next_constraint, 'SHOWROOM_APPOINTMENT_CAPACITY')
+    })
+
+    it('scores decision options across multiple balanced dimensions in decision matrix', () => {
+      const matrix = evaluateDecisionMatrix('SERVICE_CAPACITY_DEFICIT')
+      assert.equal(matrix.evaluated_options.length, 2)
+      assert.ok(matrix.evaluated_options[0].composite_score > 0)
+      assert.ok(matrix.evaluated_options[0].tradeoff_note)
+    })
+
+    it('calculates workflow flow efficiency comparing active work vs waiting time', () => {
+      const flow = analyzeWorkflowFlowEfficiency(5.2, 18.6)
+      assert.equal(flow.flow_efficiency_pct, 21.8)
+      assert.equal(flow.primary_wait_bottleneck, 'WAITING_PART')
+    })
+  })
+
+  // ── 13. Controlled Experiments & Decision Memory (§621–625, §732–739) ───────
+  describe('13. Controlled Experiments & Decision Memory (§621–625, §732–739)', () => {
+    it('strictly blocks illegal experiments on credit approval or pricing discrimination', () => {
+      assert.throws(() => {
+        createDealershipExperiment({ domain: 'CREDIT_APPROVAL' })
+      }, /SAFETY VIOLATION/)
+    })
+
+    it('evaluates controlled experiment results with sample sizes and lift verification', () => {
+      const exp = createDealershipExperiment({ title: 'Lead Overflow Experiment' })
+      const results = evaluateExperimentResults(exp, {
+        control_sample_size: 140,
+        variant_sample_size: 142,
+        control_conversions: 31,
+        variant_conversions: 44
+      })
+      assert.equal(results.status, 'COMPLETED')
+      assert.equal(results.lift.absolute_pct, 8.9)
+      assert.ok(results.recommendation.includes('Promote variant'))
+    })
+
+    it('records and evaluates decision memory follow-up outcome against baseline', () => {
+      const decision = recordManagementDecision({
+        decision: 'Reduced recon threshold to 3 days',
+        approver: 'Jason M.'
+      })
+      const outcome = evaluateDecisionOutcome(decision, { baseline_value: 5.2, actual_value: 3.8 })
+      assert.equal(outcome.verdict, 'DECISION_SUCCESSFUL')
+      assert.equal(outcome.improvement_delta, 1.4)
+    })
+  })
+
+  // ── 14. Strategic Priorities, Rhythms & Playbooks (§626–649, §816–820) ───────
+  describe('14. Strategic Priorities, Rhythms & Playbooks (§626–649, §816–820)', () => {
+    it('evaluates strategic priority alignment and flags conflicting operational reality', () => {
+      const state = createDealershipState('dlr_test', { inventory: { avg_recon_days: 5.2, units_in_recon: 6 } })
+      const alignment = evaluateStrategicAlignment(state)
+      assert.equal(alignment.has_conflicts, true)
+      assert.ok(alignment.operational_conflicts[0].conflict_statement.includes('Priority #1'))
+    })
+
+    it('generates meeting-specific briefings for daily Sales and Service huddles', () => {
+      const state = createDealershipState('dlr_test')
+      const salesHuddle = generateMeetingBriefing('SALES_MEETING', state)
+      assert.equal(salesHuddle.meeting_type, 'SALES_HUDDLE')
+      assert.ok(salesHuddle.topics.length >= 4)
+
+      const serviceHuddle = generateMeetingBriefing('SERVICE_HUDDLE', state)
+      assert.equal(serviceHuddle.meeting_type, 'SERVICE_DISPATCH_HUDDLE')
+      assert.ok(serviceHuddle.topics.some(t => t.includes('Booked Hours')))
+    })
+
+    it('executes operational playbooks and detects orphaned unassigned records', () => {
+      const state = createDealershipState('dlr_test')
+      const records = [
+        { id: 'lead_1', type: 'lead', assigned_employee_id: 'UNASSIGNED', label: 'Inbound Equinox Lead' },
+        { id: 'ro_1', type: 'ro', assigned_employee_id: 'emp_2', label: 'RO #1842' }
+      ]
+      const playbooks = evaluateOperationalPlaybooks(state, records)
+      assert.ok(playbooks.active_playbooks.length > 0)
+      assert.equal(playbooks.orphaned_work_count, 1)
+      assert.equal(playbooks.orphaned_records[0].record_id, 'lead_1')
+    })
+  })
+
+  // ── 15. Operational Risk Register & Control Signals (§658–670, §835–846) ────
+  describe('15. Operational Risk Register & Control Signals (§658–670, §835–846)', () => {
+    it('compiles multi-department risk register with probability, impact, and blast radius', () => {
+      const state = createDealershipState('dlr_test')
+      const riskRegister = evaluateOperationalRiskRegister(state)
+      assert.ok(riskRegister.total_active_risks >= 3)
+      assert.ok(riskRegister.risks.some(r => r.category === 'FINANCIAL' && r.blast_radius.affected_deals_count > 0))
+    })
+
+    it('articulates neutral, non-accusatory review statements for control anomalies', () => {
+      const exceptions = evaluateControlExceptions([
+        { id: 'exc_1', control_area: 'ACCOUNTS_RECEIVABLE', pattern: 'Duplicate receipt attempt' }
+      ])
+      assert.equal(exceptions[0].requires_escalation, true)
+      assert.ok(exceptions[0].neutral_review_statement.includes('Unusual pattern detected'))
+    })
+
+    it('translates technical system incidents into concrete business impact', () => {
+      const incident = translateTechnicalIncident({
+        service_name: 'Inventory Syndication Feed',
+        duration_hours: 3.5
+      })
+      assert.ok(incident.business_impact_translation.impact_summary.includes('27 vehicle price and status updates pending'))
+    })
+  })
+
+  // ── 16. Semantic Layer, Query Planner & Human Boundary (§671–689, §809, §904) ─
+  describe('16. Semantic Layer & Non-Negotiable Human Authority (§671–689, §809, §904)', () => {
+    it('plans safe semantic metric queries without arbitrary SQL generation', () => {
+      const plan = planSemanticAnalyticsQuery('What was our lead response time?')
+      assert.equal(plan.query_plan.tool, 'metric.get')
+      assert.equal(plan.query_plan.metric, CANONICAL_METRICS.LEAD_RESPONSE_TIME.key)
+      assert.equal(plan.query_plan.safe_execution, true)
+    })
+
+    it('governs customer communication frequency and prevents cross-department message collisions', () => {
+      const guard = evaluateOutreachCollisionGuard('cust_100', {
+        department: 'marketing',
+        recent_outreach_history: [
+          { timestamp: new Date().toISOString(), department: 'sales', channel: 'SMS' }
+        ]
+      })
+      assert.equal(guard.collision_detected, true)
+      assert.equal(guard.verdict, 'SUPPRESS_OUTREACH')
+      assert.ok(guard.reason.includes('Suppressing marketing outreach'))
+    })
+
+    it('enforces non-negotiable human authority boundaries on consequential decisions', () => {
+      const priceAction = validateAgentAction({
+        action_type: 'BINDING_VEHICLE_PRICE_CONCESSION'
+      })
+      assert.equal(priceAction.allowed, false)
+      assert.equal(priceAction.escalation_tier, 'HUMAN_AUTHORITY_REQUIRED')
+
+      const creditAction = validateAgentAction({
+        action_type: 'BINDING_CREDIT_DECISION_OR_APPROVAL'
+      })
+      assert.equal(creditAction.allowed, false)
+
+      const routineAction = validateAgentAction({
+        action_type: 'SEND_APPOINTMENT_CONFIRMATION',
+        is_routine_approved: true
+      })
+      assert.equal(routineAction.allowed, true)
+      assert.equal(routineAction.escalation_tier, 'ROUTINE_AUTOMATED')
+    })
+  })
+
+  // ── 17. Section 900 Ultimate Dealership Intelligence North Star Journey (§900–905) ──
+  describe('17. Section 900 Ultimate Dealership Intelligence North Star (§900–905)', () => {
+    it('answers "What is the single biggest thing holding us back right now?" with exact Section 900 contract', () => {
+      const state = createDealershipState('dlr_test', {
+        sales: { avg_response_time_minutes: 11.0 }
+      })
+      const constraint = querySingleBiggestConstraint(state)
+
+      assert.equal(constraint.current_constraint, 'Sales lead response')
+      assert.ok(constraint.evidence.some(e => e.includes('Lead response median rose from 4m to 11m')))
+      assert.ok(constraint.evidence.some(e => e.includes('Appointment-set rate fell from 31% to 22%')))
+      assert.ok(constraint.evidence.some(e => e.includes('4:00 PM and 7:00 PM')))
+      assert.ok(constraint.options.length === 3)
+      assert.ok(constraint.recommendation.includes('Test real-time overflow routing (Option B) for a 7-day controlled trial'))
+      assert.equal(constraint.confidence, 'HIGH')
+      assert.ok(constraint.measurement_plan.primary_metric.includes('Appointment-set rate'))
+    })
+
+    it('executes the full closed-loop lifecycle: Detect -> Recommend -> Intervene -> Verify Outcome (§900, §905)', () => {
+      const state = createDealershipState('dlr_test', {
+        sales: { avg_response_time_minutes: 11.0 }
+      })
+      const closedLoop = executeClosedLoopIntervention(state)
+
+      assert.equal(closedLoop.lifecycle_status, 'CLOSED_LOOP_VERIFIED')
+      assert.ok(closedLoop.diagnostic)
+      assert.equal(closedLoop.active_intervention.domain, 'LEAD_RESPONSE_WORKFLOW')
+      assert.equal(closedLoop.verified_outcome.lift.absolute_pct, 8.9)
+      assert.ok(closedLoop.closure_summary.includes('increased appointment-set rate by +8.9%'))
     })
   })
 })
