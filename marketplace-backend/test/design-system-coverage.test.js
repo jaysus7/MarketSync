@@ -17,6 +17,21 @@ const dashboard = readFileSync(path.join(FRONTEND, 'dashboard.html'), 'utf8')
 // honest: a surface cannot be added to the product without appearing in the doc,
 // so "not done yet" stays visible instead of becoming "forgotten".
 
+// Neither of the checks below needs a regex built out of data — and building one
+// is exactly what CodeQL flagged here (an escape list that covered `-` and `*`
+// but not backslash). Counting a literal substring and finding a table row are
+// both plain string work, so the escaping problem is removed rather than patched.
+const countOccurrences = (haystack, needle) => haystack.split(needle).length - 1
+const tableRow = (text, label) =>
+  text.split('\n').find(line => line.startsWith(`| ${label} |`))
+// Read the VALUE cell, not the first digit on the line — a label that ever
+// contains a digit would otherwise silently return the label's number.
+const statedNumber = (line) => {
+  const cells = line.split('|').map(c => c.replace(/\*/g, '').trim()).filter(Boolean)
+  const value = cells[cells.length - 1]
+  return /^\d+$/.test(value) ? Number(value) : null
+}
+
 const pulseEngines = (() => {
   const block = part10.slice(part10.indexOf('const pulseEngines = ['))
   return [...block.slice(0, block.indexOf(']')).matchAll(/'([\w-]+)'/g)].map(m => m[1])
@@ -43,9 +58,11 @@ test('the coverage table lists no Pulse that does not exist', () => {
 // surface area that no longer exists.
 test('the surface inventory matches what is actually in the repo', () => {
   const stated = (label) => {
-    const row = doc.match(new RegExp(`\\| ${label} \\| (\\d+) \\|`))
+    const row = tableRow(doc, label)
     assert.ok(row, `the inventory must state "${label}"`)
-    return Number(row[1])
+    const n = statedNumber(row)
+    assert.ok(n !== null, `the inventory row for "${label}" must state a number`)
+    return n
   }
   const actual = {
     'Pulse engines': pulseEngines.length,
@@ -135,11 +152,13 @@ test('the unused-primitive finding is re-measured, not remembered', () => {
   for (const [name, token] of [['`.ms-board`', 'ms-board'], ['`.ms-c--*` (card variants)', 'ms-c--'],
                                ['`.ms-span-*`', 'ms-span-'], ['`.ms-surface--*`', 'ms-surface--'],
                                ['`.ms-touch`', 'ms-touch']]) {
-    const row = table.match(new RegExp(`\\| ${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\| \\*\\*(\\d+)\\*\\*`))
+    const row = tableRow(table, name)
     assert.ok(row, `the primitive table must state a count for ${name}`)
-    const actual = (all.match(new RegExp(token.replace(/[-*]/g, '\\$&'), 'g')) || []).length
-    assert.equal(Number(row[1]), actual,
-      `${name}: doc says ${row[1]} uses, markup has ${actual}. If a primitive is now in use, ` +
+    const stated = statedNumber(row)
+    assert.ok(stated !== null, `the row for ${name} must state a count`)
+    const actual = countOccurrences(all, token)
+    assert.equal(stated, actual,
+      `${name}: doc says ${stated} uses, markup has ${actual}. If a primitive is now in use, ` +
       `update the finding — the "adopt on one Pulse first" caution depends on it.`)
   }
 })
