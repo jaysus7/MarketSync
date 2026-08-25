@@ -111,6 +111,8 @@ test('Marketing Pulse renders connected sources and never demo KPIs', () => {
   }
   assert.match(view, /sourceStatus/)
   assert.match(view, /No value is being estimated/)
+  assert.match(view, /belongsToMarketing/, 'dealership-wide My Day data must be scoped to Marketing ownership')
+  assert.match(view, /\^\(campaign\|social\|conversation\|reputation\)_/)
   for (const fake of ['9,480', '19.4%', '14,820', '99.4%', '99.8%', '18.2%', '$148.2k', '$94.5k']) {
     assert.ok(!view.includes(fake), `Marketing Pulse must not render hard-coded demo metric ${fake}`)
   }

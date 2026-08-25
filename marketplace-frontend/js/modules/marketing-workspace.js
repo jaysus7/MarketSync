@@ -517,9 +517,14 @@ function mktPulseOverview(body, d, suite, cfg, dayCaveat = '') {
   const metric = (source, value, format = (x) => x) => isAvailable(source) ? format(value) : '—';
   const activeStatuses = new Set(['active', 'live', 'running']);
   const isActive = (item) => activeStatuses.has(String(item?.status || '').toLowerCase());
+  const belongsToMarketing = (item) => {
+    const owner = String(item?.owner || item?.department || '').toLowerCase();
+    const kind = String(item?.kind || '').toLowerCase();
+    return owner === 'marketing' || /^(campaign|social|conversation|reputation)_/.test(kind);
+  };
 
-  const attention = rows('myDay', d.needsAttention);
-  const opportunities = rows('myDay', d.opportunities);
+  const attention = rows('myDay', d.needsAttention).filter(belongsToMarketing);
+  const opportunities = rows('myDay', d.opportunities).filter(belongsToMarketing);
   const campaigns = rows('campaigns', d.campaigns);
   const automations = rows('automations', d.automations);
   const accounts = rows('accounts', d.accounts);
