@@ -1516,8 +1516,8 @@ body > header,
 .ms-engine-header,
 .ms-glass,
 .ms-card,
-.bg-white:not(#studio-artboard-container),
-.dark\:bg-slate-900:not(#studio-artboard-container) {
+.bg-white:not(#studio-artboard-container):not(#dashboard-nav),
+.dark\:bg-slate-900:not(#studio-artboard-container):not(#dashboard-nav) {
   background: linear-gradient(135deg, rgba(255,255,255,.76), rgba(255,255,255,.58)) !important;
   border-color: rgba(255,255,255,.20) !important;
   box-shadow: 0 18px 50px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.11) !important;
@@ -1535,8 +1535,8 @@ body > header,
 .dark .ms-engine-header,
 .dark .ms-glass,
 .dark .ms-card,
-.dark .bg-white:not(#studio-artboard-container),
-.dark .dark\:bg-slate-900:not(#studio-artboard-container) {
+.dark .bg-white:not(#studio-artboard-container):not(#dashboard-nav),
+.dark .dark\:bg-slate-900:not(#studio-artboard-container):not(#dashboard-nav) {
   background: linear-gradient(135deg, rgba(30,41,72,.58), rgba(15,23,42,.40)) !important;
   border-color: rgba(148,163,184,.20) !important;
 }
@@ -1722,8 +1722,8 @@ body {
 .dark .ms-engine-header,
 .dark .ms-glass,
 .dark .ms-card,
-.dark .bg-white:not(#studio-artboard-container),
-.dark .dark\:bg-slate-900:not(#studio-artboard-container),
+.dark .bg-white:not(#studio-artboard-container):not(#dashboard-nav),
+.dark .dark\:bg-slate-900:not(#studio-artboard-container):not(#dashboard-nav),
 .dark .ms-pulse-board .bg-white,
 .dark .ms-pulse-board .dark\:bg-slate-900,
 .dark .ms-pulse-board details,
@@ -1929,7 +1929,7 @@ body {
   .ms-engine-header, .ms-glass, .ms-card, .ms-crm-glass, .ms-toast,
   [data-engine-rail] details, [data-engine-rail] details[open] > summary,
   body > header, #dept-sidebar, #nav-desktop, #nav-mobile, #report-rail,
-  .bg-white:not(#studio-artboard-container), .dark\:bg-slate-900:not(#studio-artboard-container) {
+  .bg-white:not(#studio-artboard-container):not(#dashboard-nav), .dark\:bg-slate-900:not(#studio-artboard-container):not(#dashboard-nav) {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     background: var(--ms-surface-solid) !important;
