@@ -1095,11 +1095,9 @@ html.dark td {
 }
 
 html.website-builder-mode,
-body.website-builder-mode,
-html.website-workspace-mode,
-body.website-workspace-mode {
-  background-color: var(--ws-bg) !important;
-  color: var(--ws-text) !important;
+body.website-builder-mode {
+  background-color: var(--ws-bg, #0b0f19) !important;
+  color: var(--ws-text, #f8fafc) !important;
   overflow: hidden !important;
   height: 100vh !important;
   width: 100vw !important;
@@ -1107,7 +1105,7 @@ body.website-workspace-mode {
   padding: 0 !important;
 }
 
-/* The live builder owns the entire viewport, like Design Studio. */
+/* Full-page Builder hides the global dashboard header */
 .website-builder-mode body > header,
 .website-builder-mode #dept-tabbar,
 .website-builder-mode #dashboard-nav,
@@ -1120,58 +1118,173 @@ body.website-workspace-mode {
 .website-builder-mode #report-rail,
 .website-builder-mode #ai-dock-btn,
 .website-builder-mode #ai-dock-panel,
-.website-builder-mode #team-chat-dock-panel,
-.website-builder-mode main > section:first-child,
-.website-workspace-mode #dashboard-nav,
-.website-workspace-mode #nav-reports-m,
-.website-workspace-mode #nav-more,
-.website-workspace-mode #staff-chat-dock-bar,
-.website-workspace-mode #setup-status-banner,
-.website-workspace-mode #report-rail,
-.website-workspace-mode #ai-dock-btn,
-.website-workspace-mode #ai-dock-panel,
-.website-workspace-mode #team-chat-dock-panel,
-.website-workspace-mode main > section:first-child {
+.website-builder-mode #team-chat-dock-panel {
   display: none !important;
 }
 
-/* Expand main container to full viewport */
-.website-builder-mode main,
-.website-workspace-mode main {
+.website-builder-mode main {
   display: block !important;
   padding: 0 !important;
-  padding-top: 0 !important;
   margin: 0 !important;
-  gap: 0 !important;
   width: 100vw !important;
   height: 100vh !important;
   max-width: 100vw !important;
   max-height: 100vh !important;
   overflow: hidden !important;
-  grid-template-columns: 1fr !important;
 }
 
-.website-builder-mode div[data-page-content="website"],
-.website-workspace-mode div[data-page-content="website"] {
+.website-builder-mode div[data-page-content="website"] {
   display: flex !important;
   flex-direction: column !important;
   width: 100vw !important;
   height: 100vh !important;
-  max-width: 100vw !important;
-  max-height: 100vh !important;
   padding: 0 !important;
   margin: 0 !important;
   overflow: hidden !important;
 }
 
+/* Website Builder & Workspace Root Styling */
 .website-builder-mode #website-root,
 .website-workspace-mode #website-root {
   display: flex !important;
   flex-direction: column !important;
   height: 100% !important;
   width: 100% !important;
-  background-color: var(--ws-bg) !important;
-  color: var(--ws-text) !important;
+  background-color: var(--ws-bg, transparent) !important;
+  color: var(--ws-text, inherit) !important;
+}
+
+/* ==========================================================================
+   LIQUID GLASS DESIGN SYSTEM (Vibrant Glassmorphism, Specular Borders & Depth)
+   ========================================================================== */
+
+.liquid-glass-card,
+.liquid-glass-panel {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(248, 250, 252, 0.7) 100%) !important;
+  backdrop-filter: blur(24px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(226, 232, 240, 0.8), inset 0 1px 0 0 rgba(255, 255, 255, 0.9) !important;
+  border-radius: 20px !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.dark .liquid-glass-card,
+.dark .liquid-glass-panel {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 30, 0.75) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 12px 36px -5px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05), inset 0 1px 0 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Liquid Glass Buttons */
+.liquid-glass-btn,
+.btn-liquid-glass,
+.liquid-glass-btn-primary {
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.92) 0%, rgba(99, 102, 241, 0.8) 100%) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  box-shadow: 0 8px 24px 0 rgba(79, 70, 229, 0.35), inset 0 1px 0 0 rgba(255, 255, 255, 0.45) !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.01em !important;
+  border-radius: 12px !important;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.liquid-glass-btn:hover,
+.btn-liquid-glass:hover,
+.liquid-glass-btn-primary:hover {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.98) 0%, rgba(129, 140, 248, 0.9) 100%) !important;
+  box-shadow: 0 12px 32px 0 rgba(79, 70, 229, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.65) !important;
+  transform: translateY(-1px) scale(1.01) !important;
+}
+
+.liquid-glass-btn:active,
+.btn-liquid-glass:active,
+.liquid-glass-btn-primary:active {
+  transform: translateY(0) scale(0.99) !important;
+  box-shadow: 0 4px 12px 0 rgba(79, 70, 229, 0.3), inset 0 1px 0 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+.liquid-glass-btn-secondary,
+.btn-liquid-glass-secondary {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(241, 245, 249, 0.6) 100%) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.05), inset 0 1px 0 0 rgba(255, 255, 255, 0.9) !important;
+  color: #0f172a !important;
+  font-weight: 800 !important;
+  border-radius: 12px !important;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.dark .liquid-glass-btn-secondary,
+.dark .btn-liquid-glass-secondary {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.75) 0%, rgba(15, 23, 42, 0.6) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.3), inset 0 1px 0 0 rgba(255, 255, 255, 0.15) !important;
+  color: #f8fafc !important;
+}
+
+.liquid-glass-btn-secondary:hover,
+.btn-liquid-glass-secondary:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(241, 245, 249, 0.8) 100%) !important;
+  box-shadow: 0 8px 24px 0 rgba(0, 0, 0, 0.08), inset 0 1px 0 0 rgba(255, 255, 255, 1) !important;
+  transform: translateY(-1px) !important;
+}
+
+.dark .liquid-glass-btn-secondary:hover,
+.dark .btn-liquid-glass-secondary:hover {
+  background: linear-gradient(135deg, rgba(51, 65, 85, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+}
+
+/* Glass input fields with high contrast */
+.liquid-glass-input {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border: 1px solid rgba(203, 213, 225, 0.9) !important;
+  color: #0f172a !important;
+  font-weight: 600 !important;
+  border-radius: 12px !important;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  transition: all 0.2s ease !important;
+}
+
+.dark .liquid-glass-input {
+  background: rgba(10, 15, 28, 0.85) !important;
+  border: 1px solid rgba(51, 65, 85, 0.9) !important;
+  color: #f8fafc !important;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+
+.liquid-glass-input:focus {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2), inset 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+  outline: none !important;
+}
+
+/* Header & Tabbar Seamless Flow (Removes Hard Horizontal Lines) */
+#dept-tabbar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.8) 100%) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.7) !important;
+}
+
+.dark #dept-tabbar {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(10, 15, 30, 0.8) 100%) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
 /* Website Property Inspector & Builder Chrome styling */
@@ -2155,15 +2268,15 @@ body > header {
 @media (min-width: 1024px) {
   .ms-dashboard-shell {
     display: grid !important;
-    grid-template-columns: 190px minmax(0, 1fr) !important;
+    grid-template-columns: 240px minmax(0, 1fr) !important;
     grid-template-rows: minmax(0, 1fr) !important;
     align-items: start;
-    column-gap: 1.25rem !important;
+    column-gap: 1.5rem !important;
   }
   #dept-sidebar {
     display: flex !important;
     align-self: start !important;
-    width: 190px !important;
+    width: 240px !important;
     height: auto !important;
     min-height: 0 !important;
     max-height: calc(100vh - 136px) !important;
@@ -2177,41 +2290,110 @@ body > header {
 
 /* Sidebar nav items on every dashboard — department list, marketing-suite
    areas and single-product restricted rails alike — at every viewport
-   width. Tailwind's py-2 on .dept-nav-item (shared by .ms-product-nav-item
-   and .ms-suite-nav-item) reads as loose once the sidebar glass panel and
-   #dept-nav's own space-y are stacked on top of it; this is the actual
-   vertical rhythm control for "the nav." */
-#dept-nav .dept-nav-item {
-  padding-top: .35rem !important;
-  padding-bottom: .35rem !important;
-  font-size: 1rem !important;
-  line-height: 1.15 !important;
+   width. Provides generous breathing room so multi-word product titles fit. */
+#dept-nav .dept-nav-item,
+.ms-product-nav-item,
+.ms-suite-nav-item {
+  padding: .5rem .75rem !important;
+  font-size: .875rem !important;
+  line-height: 1.25 !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  text-align: left !important;
+  border-radius: .85rem !important;
+}
+
+.ms-suite-nav-item span,
+.dept-nav-item span {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
 }
 
 @media (max-width: 767px) {
   #dashboard-nav { overflow: visible !important; max-height: none !important; }
 }
 
-/* MarketSync Digital uses the same Liquid Glass material across every owned
-   product workspace. This is intentionally scoped to the active suite so forms,
-   editors, and DealerOS department pages retain their product-specific layout. */
+/* MarketSync Digital & Settings — Liquid Glass material across workspaces.
+   Applies glassmorphism, satin specular borders, and blur depth to settings cards,
+   roster tables, and digital suite cards alike. */
 html[data-ms-suite="digital"] #dept-sidebar,
 html[data-ms-suite="digital"] #dept-tabbar,
 html[data-ms-suite="digital"] .page-content :is(.rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border),
-html[data-ms-suite="digital"] .ms-digital-suite > div {
-  background: linear-gradient(135deg, rgba(255,255,255,.68), rgba(255,255,255,.46)) !important;
-  border-color: rgba(255,255,255,.48) !important;
-  box-shadow: 0 18px 45px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.72) !important;
-  backdrop-filter: blur(20px) saturate(155%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(155%) !important;
+html[data-ms-suite="digital"] .ms-digital-suite > div,
+[data-page-content="settings"] :is(.rounded-lg, .rounded-xl, .rounded-2xl):is(.bg-white, .dark\:bg-slate-900),
+#lead-routing-card > div,
+#settings-team,
+#crm-dms-card,
+#settings-texting-card,
+#settings-lang-card,
+#prof-branding-section,
+#settings-my-record > div {
+  background: linear-gradient(135deg, rgba(255,255,255,.75), rgba(255,255,255,.52)) !important;
+  border: 1px solid rgba(255,255,255,.60) !important;
+  border-radius: 22px !important;
+  box-shadow: 0 16px 40px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.82) !important;
+  backdrop-filter: blur(24px) saturate(155%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(155%) !important;
 }
+
 .dark[data-ms-suite="digital"] #dept-sidebar,
 .dark[data-ms-suite="digital"] #dept-tabbar,
 .dark[data-ms-suite="digital"] .page-content :is(.rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border),
-.dark[data-ms-suite="digital"] .ms-digital-suite > div {
-  background: linear-gradient(145deg, rgba(28,41,68,.68), rgba(9,16,30,.48)) !important;
-  border-color: rgba(190,205,230,.18) !important;
-  box-shadow: 0 20px 50px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.08) !important;
+.dark[data-ms-suite="digital"] .ms-digital-suite > div,
+.dark [data-page-content="settings"] :is(.rounded-lg, .rounded-xl, .rounded-2xl):is(.bg-white, .dark\:bg-slate-900),
+.dark #lead-routing-card > div,
+.dark #settings-team,
+.dark #crm-dms-card,
+.dark #settings-texting-card,
+.dark #settings-lang-card,
+.dark #prof-branding-section,
+.dark #settings-my-record > div {
+  background: linear-gradient(145deg, rgba(26,38,64,.72), rgba(9,16,30,.52)) !important;
+  border: 1px solid rgba(190,205,230,.18) !important;
+  box-shadow: 0 20px 50px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.08) !important;
+}
+
+/* Settings Staff & Data Tables — Liquid Glass Table Elevation */
+[data-page-content="settings"] table,
+#settings-team table {
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+
+[data-page-content="settings"] table th,
+#settings-team table th {
+  padding: .75rem 1rem !important;
+  font-size: .6875rem !important;
+  font-weight: 850 !important;
+  letter-spacing: .08em !important;
+  text-transform: uppercase !important;
+  color: var(--ms-text-muted) !important;
+  border-bottom: 1px solid rgba(0,0,0,.06) !important;
+}
+
+.dark [data-page-content="settings"] table th,
+.dark #settings-team table th {
+  border-bottom-color: rgba(255,255,255,.08) !important;
+}
+
+[data-page-content="settings"] table td,
+#settings-team table td {
+  padding: .85rem 1rem !important;
+  font-size: .8125rem !important;
+  border-bottom: 1px solid rgba(0,0,0,.04) !important;
+  vertical-align: middle !important;
+}
+
+.dark [data-page-content="settings"] table td,
+.dark #settings-team table td {
+  border-bottom-color: rgba(255,255,255,.05) !important;
+}
+
+[data-page-content="settings"] table tr:last-child td,
+#settings-team table tr:last-child td {
+  border-bottom: 0 !important;
 }
 
 /* Tab strips (engine tab bars, department/suite tab bars — every role="tablist" in

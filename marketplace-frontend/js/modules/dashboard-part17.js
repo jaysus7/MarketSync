@@ -1175,7 +1175,16 @@ function collectSitePages() { collectMenu(); }
 function collectBuiltins() { collectMenu(); }
 function renderSitePages() { renderMenuList(); }
 function renderBuiltinPages() { renderMenuList(); }
-function ensurePageIds() { (__sitePages || []).forEach(p => { if (!p.id) p.id = 'pg' + Math.random().toString(36).slice(2, 9); }); }
+function slugifyTitle(str) {
+  return String(str || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || ('page-' + Math.random().toString(36).slice(2, 7));
+}
+function ensurePageIds() {
+  (__sitePages || []).forEach((p, idx) => {
+    if (!p.id) p.id = 'pg' + Math.random().toString(36).slice(2, 9);
+    if (!p.slug) p.slug = slugifyTitle(p.title || p.id || ('page-' + idx));
+    if (!Array.isArray(p.sections)) p.sections = [];
+  });
+}
 function menuDescriptors() {
   ensurePageIds();
   const items = [];
@@ -1302,7 +1311,12 @@ async function autoBuildPages(btn) {
 window.autoBuildPages = autoBuildPages;
 // Same rule as the Blank preset: a page added from the Pages list starts with a hero
 // (photo included) rather than an empty canvas, so every page on the site has one.
-function addSitePage() { collectMenu(); __sitePages.push({ id: 'pg' + Math.random().toString(36).slice(2, 9), title: '', nav: true, body_html: '', sections: [psHero('New page', '', 'Contact us', 'inquiry', 'g1')] }); renderMenuList(); }
+function addSitePage() {
+  collectMenu();
+  const id = 'pg' + Math.random().toString(36).slice(2, 9);
+  __sitePages.push({ id, slug: 'page-' + id.slice(2), title: '', nav: true, body_html: '', sections: [psHero('New page', '', 'Contact us', 'inquiry', 'g1')] });
+  renderMenuList();
+}
 function removeSitePage(i) { collectMenu(); __sitePages.splice(i, 1); renderMenuList(); }
 // Starter pages the dealer can drop in with one click, pre-filled + grouped in the nav.
 const __psec = (type, settings) => ({ id: 's' + Math.random().toString(36).slice(2, 9), type, settings: settings || {} });
@@ -1323,15 +1337,39 @@ function wsHeroPhoto(seed) {
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
   return STUDIO_FREE_PHOTOS[h % STUDIO_FREE_PHOTOS.length].url.replace('w=900', 'w=1600');
 }
-const psHero = (h, s, btn, target, bg) => __psec('hero', { headline: h, subheadline: s, button_label: btn || 'Contact us', button_target: target || 'inquiry', overlay: 45, height: 'md', bg: bg || 'g1', image: wsHeroPhoto(h) });
+const psHero = (h, s, btn, target, bg, img) => __psec('hero', {
+  badge_text: '• OFFICIAL DEALERSHIP SHOWROOM',
+  headline: h || 'Experience Automotive Excellence',
+  subheadline: s || 'Explore our certified inventory and get pre-approved in minutes.',
+  button_label: btn || 'Browse Inventory →',
+  button_target: target || 'inventory',
+  button_link: '',
+  button2_label: target === 'inventory' ? 'Get Pre-Approved Fast' : 'Value Your Trade',
+  button2_target: target === 'inventory' ? 'finance' : 'trade',
+  button2_link: '',
+  // An explicit photo wins; otherwise seed one so no page opens on a bare wash.
+  image: img || wsHeroPhoto(h || 'Experience Automotive Excellence'),
+  bg: bg || 'g1',
+  overlay: 45,
+  height: 'md',
+  show_trust_strip: true,
+  trust_1_title: '4.9 Star Rating',
+  trust_1_sub: '1,200+ Verified Reviews',
+  trust_2_title: '2-Min Pre-Approval',
+  trust_2_sub: 'No Credit Impact',
+  trust_3_title: 'Top Trade Value',
+  trust_3_sub: 'Instant Online Quotes',
+  trust_4_title: '100% Guarantee',
+  trust_4_sub: 'No Hidden Fees'
+});
 const psSeo = (h, paras) => __psec('html', { html: `<h2>${h}</h2>` + paras.map(p => `<p>${p}</p>`).join('') });
 const psContact = () => __psec('contact', { title: 'Get in touch', subtitle: 'Send us a message and we’ll get right back to you.' });
 const psCta = (t, s, btn, target) => __psec('cta_banner', { title: t, subtitle: s, button_label: btn, button_target: target || 'inquiry' });
 function PAGE_PRESETS() {
   const name = ctxName(), city = ctxCity();
   return {
-    about: { label: 'About Us', page: { title: 'About Us', menu: '', nav: true, sections: [
-      psHero(`About ${name}`, `Proudly serving drivers${city} with honest deals and a no-pressure experience.`, 'Meet the team', 'inquiry', 'g8'),
+    about: { label: 'About Us', page: { title: 'About Us', slug: 'about-us', menu: '', nav: true, sections: [
+      psHero(`About ${name}`, `Proudly serving drivers${city} with honest deals and a no-pressure experience.`, 'Meet the team', 'inquiry', 'g8', 'https://images.pexels.com/photos/3807277/pexels-photo-3807277.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2'),
       psSeo('Your trusted local dealership', [
         `At ${name}, buying a vehicle should feel easy, transparent and even a little fun. From your first message to long after you drive off the lot, our team is here to make sure you get the right vehicle at the right price — with zero pressure.`,
         `We’ve built our reputation${city} on straight answers, fair pricing and treating every customer like a neighbour. Whether you’re shopping new, pre-owned or certified, our specialists know the inventory inside and out and will help you find the perfect fit for your life and budget.`,
@@ -1339,49 +1377,49 @@ function PAGE_PRESETS() {
       __psec('staff', { title: 'Meet our team' }),
       psContact(),
     ] } },
-    book_service: { label: 'Book a Service Appointment', page: { title: 'Book Service', menu: 'Service', nav: true, sections: [
-      psHero('Book a Service Appointment', 'Factory-trained technicians, genuine parts, and scheduling that fits your day.', 'Request appointment', 'inquiry', 'g2'),
+    book_service: { label: 'Book a Service Appointment', page: { title: 'Book Service', slug: 'book-service', menu: 'Service', nav: true, sections: [
+      psHero('Book a Service Appointment', 'Factory-trained technicians, genuine parts, and scheduling that fits your day.', 'Request appointment', 'inquiry', 'g2', 'https://images.pexels.com/photos/4489749/pexels-photo-4489749.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2'),
       psSeo('Service you can count on', [
         `Keep your vehicle running like new with the certified team at ${name}. From routine oil changes and tire rotations to brakes, diagnostics and full factory-scheduled maintenance, we do it right the first time.`,
         `Booking is simple — tell us your vehicle and preferred time below and a service advisor will confirm the details. Genuine parts, transparent pricing, and a job done right, every time.`,
       ]),
       psContact(),
     ] } },
-    service: { label: 'Service Department', page: { title: 'Service', menu: 'Service', nav: true, sections: [
-      psHero('Service Department', 'Certified techs. Genuine parts. Your vehicle at its best.', 'Book service', 'inquiry', 'g3'),
+    service: { label: 'Service Department', page: { title: 'Service', slug: 'service', menu: 'Service', nav: true, sections: [
+      psHero('Service Department', 'Certified techs. Genuine parts. Your vehicle at its best.', 'Book service', 'inquiry', 'g3', 'https://images.pexels.com/photos/4489749/pexels-photo-4489749.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2'),
       psSeo('Expert care for every vehicle', [
         `Our factory-trained technicians at ${name} handle everything from quick maintenance to complex repairs — oil changes, brakes, tires, batteries, diagnostics and full manufacturer-scheduled service.`,
         `We use genuine OEM parts, quote honestly up front, and get you back on the road fast. Your vehicle is an investment — protect it with a service team that treats it like their own.`,
       ]),
       psContact(),
     ] } },
-    parts: { label: 'Parts Department', page: { title: 'Parts', menu: 'Service', nav: true, sections: [
-      psHero('Parts Department', 'Genuine OEM parts and accessories, sourced fast.', 'Request a part', 'inquiry', 'g4'),
+    parts: { label: 'Parts Department', page: { title: 'Parts', slug: 'parts', menu: 'Service', nav: true, sections: [
+      psHero('Parts Department', 'Genuine OEM parts and accessories, sourced fast.', 'Request a part', 'inquiry', 'g4', 'https://images.pexels.com/photos/3806288/pexels-photo-3806288.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2'),
       psSeo('The right part, guaranteed to fit', [
         `Looking for a specific part? The parts team at ${name} stocks and orders genuine OEM components built to fit and last — no guesswork, no aftermarket compromises.`,
         `Tell us the year, make, model and what you need, and we’ll track it down and let you know availability and pricing right away.`,
       ]),
       psContact(),
     ] } },
-    accessories: { label: 'Accessories', page: { title: 'Accessories', menu: 'Service', nav: true, sections: [
-      psHero('Accessories', 'Make it yours with genuine accessories.', 'Ask about accessories', 'inquiry', 'g5'),
+    accessories: { label: 'Accessories', page: { title: 'Accessories', slug: 'accessories', menu: 'Service', nav: true, sections: [
+      psHero('Accessories', 'Make it yours with genuine accessories.', 'Ask about accessories', 'inquiry', 'g5', 'https://images.pexels.com/photos/3807386/pexels-photo-3807386.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2'),
       psSeo('Personalize your ride', [
         `From all-weather floor mats and cargo liners to tonneau covers, roof racks, running boards and more, ${name} carries the genuine accessories that make your vehicle work harder and look better.`,
         `Not sure what fits? Our team will match the right accessories to your exact vehicle and how you use it.`,
       ]),
       psContact(),
     ] } },
-    specials: { label: 'Specials / Offers', page: { title: 'Specials', menu: '', nav: true, sections: [
-      psHero('Current Specials', 'Limited-time offers on new, pre-owned and certified vehicles.', 'Get my price', 'inquiry', 'g6'),
-      __psec('ad_banner', { tag: 'Limited time', headline: 'This month’s specials', subtitle: 'Save on select new and pre-owned vehicles — while they last.', button_label: 'See the deals', button_target: 'inquiry' }),
+    specials: { label: 'Specials / Offers', page: { title: 'Specials', slug: 'specials', menu: '', nav: true, sections: [
+      psHero('Current Specials', 'Limited-time offers on new, pre-owned and certified vehicles.', 'Get my price', 'inquiry', 'g6', 'https://images.pexels.com/photos/7144211/pexels-photo-7144211.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2'),
+      __psec('ad_banner', { tag: 'Limited time', headline: 'This month’s specials', subtitle: 'Save on select new and pre-owned vehicles — while they last.', button_label: 'See the deals', button_target: 'inquiry', image: 'https://images.pexels.com/photos/97075/pexels-photo-97075.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2' }),
       psSeo('Deals worth driving for', [
         `Great vehicles at even better prices — the current specials at ${name} won’t last long. Our best deals move fast, so if something catches your eye, reach out and we’ll hold it for you.`,
       ]),
       __psec('featured_inventory', { title: 'Featured deals', condition: 'all', count: 6 }),
       psCta('See something you like?', 'Get your best price today — no pressure, no games.', 'Get my price', 'inquiry'),
     ] } },
-    careers: { label: 'Careers', page: { title: 'Careers', menu: 'About', nav: true, sections: [
-      psHero('Careers', 'Join a team that puts people first.', 'Apply now', 'inquiry', 'g7'),
+    careers: { label: 'Careers', page: { title: 'Careers', slug: 'careers', menu: 'About', nav: true, sections: [
+      psHero('Careers', 'Join a team that puts people first.', 'Apply now', 'inquiry', 'g7', 'https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2'),
       psSeo(`Grow your career at ${name}`, [
         `We’re always looking for driven, people-first talent — sales, service, parts, finance and admin. If you love helping people and want to grow with a dealership that invests in its team, we want to hear from you.`,
         `Tell us a little about yourself below and attach nothing more than your enthusiasm — we’ll take it from there.`,
@@ -1391,22 +1429,20 @@ function PAGE_PRESETS() {
     // "Blank" means no marketing copy written for you — not a bare white page. Every
     // page on the site opens with a hero, so a new one starts with the same shell
     // (photo included) and the dealer just retitles it.
-    blank: { label: 'Blank page', page: { title: '', menu: '', nav: true, sections: [psHero('New page', '', 'Contact us', 'inquiry', 'g1')] } },
+    blank: { label: 'Blank page', page: { title: '', slug: 'custom-page', menu: '', nav: true, sections: [psHero('New page', '', 'Contact us', 'inquiry', 'g1')] } },
   };
 }
 // A polished, complete home layout every template ships (hero → feature cards →
-// featured inventory → text+image → body styles → reviews → map → contact).
+// trade appraisal → featured inventory → reviews → showroom contact → conversion CTA).
 function templateHome(ctx) {
   const name = ctx.name || ctxName(), cityTxt = ctx.city ? (' in ' + ctx.city) : ctxCity();
   return [
-    psHero(`Experience Automotive Excellence${cityTxt}`, `Shop, finance, and trade with total transparency at ${name}. Explore certified pre-owned and new arrivals today.`, 'Browse inventory', 'inventory', 'g1'),
+    psHero(`Experience Automotive Excellence${cityTxt}`, `Explore our premium inventory of certified new & pre-owned vehicles. Instant pre-approvals, market-backed trade offers, and transparent pricing at ${name}.`, 'Browse Inventory →', 'inventory', 'g1'),
     __psec('feature_cards', { title: `Why Drivers Choose ${name}` }),
-    __psec('body_style', { title: 'Explore Vehicles By Category' }),
-    __psec('featured_inventory', { title: 'Featured Inventory Spotlight', condition: 'all', count: 6 }),
-    __psec('text_image', { headline: `The ${name} Difference`, body: `At ${name}${cityTxt}, we make it simple to get into a vehicle you'll love at a price that makes sense. Every vehicle is thoroughly inspected, competitively priced, and backed by no-pressure service.`, button_label: 'Meet our team', button_target: 'team' }),
-    __psec('reviews', { title: 'What Our Buyers Say' }),
-    __psec('map', { title: 'Visit Our Showroom' }),
-    __psec('contact', { title: 'Get In Touch' }),
+    __psec('trade_cta', { title: "What's Your Car Worth?" }),
+    __psec('featured_inventory', { title: 'Featured Vehicles Spotlight', condition: 'all', count: 6 }),
+    __psec('reviews', { title: 'What Our Customers Say' }),
+    __psec('contact', { title: 'Visit Our Showroom & Get In Touch' }),
     psCta('Ready to Find Your Next Vehicle?', 'Get pre-approved online or request an instant trade offer in seconds.', 'Get Pre-Approved', 'finance')
   ];
 }
@@ -1437,7 +1473,10 @@ function addSitePagePreset(key) {
   if (!key) return;
   collectSitePages();
   const preset = PAGE_PRESETS()[key]; if (!preset) return;
-  __sitePages.push({ id: 'pg' + Math.random().toString(36).slice(2, 9), ...JSON.parse(JSON.stringify(preset.page)) });
+  const pdata = JSON.parse(JSON.stringify(preset.page));
+  const id = 'pg' + Math.random().toString(36).slice(2, 9);
+  const slug = pdata.slug || slugifyTitle(pdata.title || id);
+  __sitePages.push({ id, slug, ...pdata });
   renderWsBody();   // rebuild the whole Pages tab so the add dropdown drops the used preset
   showToast(`Added “${preset.label}” — customize & Save`, 'success');
 }
@@ -1513,7 +1552,7 @@ window.uploadSiteImage = uploadSiteImage;
 // The home layout lives in __homeSections; each page's layout in __sitePages[i].sections.
 let __siteCfg = null, __siteSections = [], __homeSections = [], __wsTarget = 'home', __wsTab = 'builder';
 const SEC_META = {
-  hero:               { label: 'Hero', fields: [['bg','Background style','herobg'],['image','Or upload a photo','image'],['headline','Headline','text'],['subheadline','Subheadline','text'],['button_label','Button label','text'],['button_target','Button goes to','target'],['button_link','Custom link','text'],['overlay','Image darkness','range'],['height','Height','height']] },
+  hero:               { label: 'Hero', fields: [['bg','Background style','herobg'],['image','Or upload a photo','image'],['headline','Headline','text'],['subheadline','Subheadline','text'],['badge_text','Top Badge Pill','text'],['button_label','Primary Button Label','text'],['button_target','Primary Button Target','target'],['button_link','Primary Button Custom Link','text'],['button2_label','Secondary Button Label','text'],['button2_target','Secondary Button Target','target'],['button2_link','Secondary Button Custom Link','text'],['overlay','Image Darkness (%)','range'],['height','Section Height','height'],['show_trust_strip','Display Trust Badges','bool'],['trust_1_title','Trust Badge 1 Title','text'],['trust_1_sub','Trust Badge 1 Subtitle','text'],['trust_2_title','Trust Badge 2 Title','text'],['trust_2_sub','Trust Badge 2 Subtitle','text'],['trust_3_title','Trust Badge 3 Title','text'],['trust_3_sub','Trust Badge 3 Subtitle','text'],['trust_4_title','Trust Badge 4 Title','text'],['trust_4_sub','Trust Badge 4 Subtitle','text']] },
   feature_cards:      { label: 'Feature cards (Inventory / Finance / Contact)', fields: [['title','Heading (optional)','text']] },
   featured_inventory: { label: 'Featured inventory', fields: [['title','Title','text'],['condition','Show','cond'],['count','How many','number']] },
   inventory_grid:     { label: 'Inventory grid', fields: [['title','Title','text']] },
@@ -1678,11 +1717,41 @@ function wsFlushTarget() {
 }
 function wsSetTarget(v) {
   wsFlushTarget();
-  if (v === 'home') { __wsTarget = 'home'; __siteSections = __homeSections || []; }
-  else if (typeof v === 'string' && v.startsWith('b:')) { __wsTarget = v; const k = v.slice(2); const b = (__siteBuiltins[k] = __siteBuiltins[k] || { enabled: true, label: k, menu: '' }); b.sections = Array.isArray(b.sections) ? b.sections : []; __siteSections = b.sections; }
-  else { __wsTarget = parseInt(v); __siteSections = Array.isArray(__sitePages[__wsTarget]?.sections) ? __sitePages[__wsTarget].sections : []; }
+  if (v === 'home') {
+    __wsTarget = 'home';
+    __siteSections = __homeSections || [];
+  } else if (typeof v === 'string' && v.startsWith('b:')) {
+    __wsTarget = v;
+    const k = v.slice(2);
+    const b = (__siteBuiltins[k] = __siteBuiltins[k] || { enabled: true, label: k, menu: '' });
+    b.sections = Array.isArray(b.sections) ? b.sections : [];
+    __siteSections = b.sections;
+  } else {
+    __wsTarget = parseInt(v);
+    const targetPage = __sitePages[__wsTarget];
+    if (targetPage) {
+      if (!targetPage.slug) targetPage.slug = slugifyTitle(targetPage.title || targetPage.id || ('page-' + __wsTarget));
+      if (!Array.isArray(targetPage.sections)) targetPage.sections = [];
+      __siteSections = targetPage.sections;
+    } else {
+      __siteSections = [];
+    }
+  }
   selectFirstEditableWsSection();
-  __wsTab = 'builder'; renderWebsitePage();
+  __wsTab = 'builder';
+  const ifr = document.getElementById('ws-preview-frame');
+  if (ifr && __livePreviewReady) {
+    renderWsLayersTree();
+    const insp = document.getElementById('ws-inspector-panel');
+    if (insp) insp.innerHTML = renderWsRightInspectorHtml();
+    const ldr = document.getElementById('ws-left-drawer-content');
+    if (ldr && __wsActiveLeftNav === 'pages') ldr.innerHTML = renderWsLeftDrawerHtml();
+    const topSel = document.querySelector('.ws-top-action-bar select');
+    if (topSel) topSel.value = String(__wsTarget);
+    livePreviewPush();
+  } else {
+    renderWebsitePage();
+  }
 }
 
 function renderWebsitePage() {
@@ -1840,9 +1909,13 @@ function livePreviewPush() {
         body_font: c.body_font || 'Inter',
         tagline: c.tagline, about: c.about, hero_url: c.hero_url, logo_url: c.logo_url,
       };
-      let view = 'home';
       if (typeof __wsTarget === 'string' && __wsTarget.startsWith('b:')) { const k = __wsTarget.slice(2); view = k === 'contact' ? 'inquiry' : k; }
-      else if (typeof __wsTarget === 'number' && __sitePages[__wsTarget]) view = 'page:' + (__sitePages[__wsTarget].slug || '');
+      else if (typeof __wsTarget === 'number' && __sitePages[__wsTarget]) {
+        const p = __sitePages[__wsTarget];
+        const pslug = p.slug || slugifyTitle(p.title || p.id || ('page-' + __wsTarget));
+        p.slug = pslug;
+        view = 'page:' + pslug;
+      }
       ifr.contentWindow.postMessage({ type: 'ms-preview-apply', site, view }, '*');
     } catch {}
   }, 40);
@@ -2382,32 +2455,32 @@ function renderWsLayersTreeHtml() {
           <span>Hierarchical Layers Tree</span>
           <span class="text-slate-600 dark:text-slate-400 font-bold text-[9px]">(Drag Header To Move)</span>
         </div>
-        <div onclick="selectWsSection(-1)" class="p-2.5 rounded-xl border ${__wsSelectedSecIdx === -1 ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400'} cursor-pointer flex items-center justify-between transition">
-          <span class="font-extrabold text-slate-900 dark:text-slate-100">Header &amp; Navigation Bar</span>
-          <span class="text-[10px] font-mono text-slate-500 font-bold">Global</span>
+        <div onclick="selectWsSection(-1)" style="${__wsSelectedSecIdx === -1 ? 'background-color:#4f46e5 !important;color:#ffffff !important;border-color:#4338ca !important;font-weight:800 !important;box-shadow:0 4px 6px -1px rgba(79,70,229,0.25);' : 'color:var(--ws-text,#0f172a) !important;font-weight:700 !important;'}" class="p-2.5 rounded-xl border ${__wsSelectedSecIdx === -1 ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400'} cursor-pointer flex items-center justify-between transition">
+          <span class="font-extrabold ${__wsSelectedSecIdx === -1 ? 'text-white' : 'text-slate-900 dark:text-slate-100'}">Header &amp; Navigation Bar</span>
+          <span class="text-[10px] font-mono ${__wsSelectedSecIdx === -1 ? 'text-indigo-200' : 'text-slate-500'} font-bold">Global</span>
         </div>
         <div class="pl-2 space-y-1 border-l-2 border-slate-300 dark:border-slate-800 ml-2 my-1">
           ${(__siteSections || []).map((sec, idx) => {
             const isSel = __wsSelectedSecIdx === idx;
             const meta = SEC_META[sec.type] || {};
             return `
-              <div data-layer-idx="${idx}" onclick="selectWsSection(${idx})" class="p-2.5 rounded-xl border ${isSel ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400'} cursor-pointer flex items-center justify-between transition group shadow-xs">
+              <div data-layer-idx="${idx}" onclick="selectWsSection(${idx})" style="${isSel ? 'background-color:#4f46e5 !important;color:#ffffff !important;border-color:#4338ca !important;font-weight:800 !important;box-shadow:0 4px 6px -1px rgba(79,70,229,0.25);' : 'color:var(--ws-text,#0f172a) !important;font-weight:700 !important;'}" class="p-2.5 rounded-xl border ${isSel ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400'} cursor-pointer flex items-center justify-between transition group shadow-xs">
                 <div class="flex items-center gap-2 min-w-0">
-                  <span class="w-4 text-[10px] font-mono text-slate-700 dark:text-slate-400 font-bold">${idx + 1}</span>
-                  <span class="truncate font-extrabold text-slate-900 dark:text-slate-100">${esc(meta.label || sec.type)}</span>
+                  <span class="w-4 text-[10px] font-mono ${isSel ? 'text-indigo-200' : 'text-slate-700 dark:text-slate-400'} font-bold">${idx + 1}</span>
+                  <span class="truncate font-extrabold ${isSel ? 'text-white' : 'text-slate-900 dark:text-slate-100'}">${esc(meta.label || sec.type)}</span>
                 </div>
                 <div class="flex items-center gap-1 opacity-90 group-hover:opacity-100">
-                  <button type="button" onclick="event.stopPropagation(); moveSection(${idx},-1)" ${idx === 0 ? 'disabled' : ''} class="p-1 text-slate-700 dark:text-slate-300 hover:text-black dark:hover:text-white disabled:opacity-20 font-bold" title="Move Up">↑</button>
-                  <button type="button" onclick="event.stopPropagation(); moveSection(${idx},1)" ${idx === __siteSections.length - 1 ? 'disabled' : ''} class="p-1 text-slate-700 dark:text-slate-300 hover:text-black dark:hover:text-white disabled:opacity-20 font-bold" title="Move Down">↓</button>
-                  <button type="button" onclick="event.stopPropagation(); delSection(${idx})" class="p-1 text-rose-600 hover:text-rose-700 font-black" title="Delete">×</button>
+                  <button type="button" onclick="event.stopPropagation(); moveSection(${idx},-1)" ${idx === 0 ? 'disabled' : ''} class="p-1 ${isSel ? 'text-white' : 'text-slate-700 dark:text-slate-300'} hover:text-black dark:hover:text-white disabled:opacity-20 font-bold" title="Move Up">↑</button>
+                  <button type="button" onclick="event.stopPropagation(); moveSection(${idx},1)" ${idx === __siteSections.length - 1 ? 'disabled' : ''} class="p-1 ${isSel ? 'text-white' : 'text-slate-700 dark:text-slate-300'} hover:text-black dark:hover:text-white disabled:opacity-20 font-bold" title="Move Down">↓</button>
+                  <button type="button" onclick="event.stopPropagation(); delSection(${idx})" class="p-1 text-rose-500 hover:text-rose-700 font-black" title="Delete">×</button>
                 </div>
               </div>
             `;
           }).join('')}
         </div>
-        <div onclick="selectWsSection(-2)" class="p-2.5 rounded-xl border ${__wsSelectedSecIdx === -2 ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400'} cursor-pointer flex items-center justify-between transition">
-          <span class="font-extrabold text-slate-900 dark:text-slate-100">Footer &amp; Copyright</span>
-          <span class="text-[10px] font-mono text-slate-500 font-bold">Global</span>
+        <div onclick="selectWsSection(-2)" style="${__wsSelectedSecIdx === -2 ? 'background-color:#4f46e5 !important;color:#ffffff !important;border-color:#4338ca !important;font-weight:800 !important;box-shadow:0 4px 6px -1px rgba(79,70,229,0.25);' : 'color:var(--ws-text,#0f172a) !important;font-weight:700 !important;'}" class="p-2.5 rounded-xl border ${__wsSelectedSecIdx === -2 ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400'} cursor-pointer flex items-center justify-between transition">
+          <span class="font-extrabold ${__wsSelectedSecIdx === -2 ? 'text-white' : 'text-slate-900 dark:text-slate-100'}">Footer &amp; Copyright</span>
+          <span class="text-[10px] font-mono ${__wsSelectedSecIdx === -2 ? 'text-indigo-200' : 'text-slate-500'} font-bold">Global</span>
         </div>
       </div>
     </div>
@@ -2445,9 +2518,9 @@ function renderWsLeftDrawerHtml() {
           <button type="button" onclick="wsTab('pages')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">+ Add Page</button>
         </div>
         <div class="space-y-1.5">
-          <button onclick="wsSetTarget('home')" class="w-full text-left p-2.5 rounded-xl border transition ${__wsTarget === 'home' ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400 font-extrabold'}">Home Page</button>
+          <button onclick="wsSetTarget('home')" style="${__wsTarget === 'home' ? 'background-color:#4f46e5 !important;color:#ffffff !important;border-color:#4338ca !important;font-weight:800 !important;box-shadow:0 4px 6px -1px rgba(79,70,229,0.25);' : 'color:var(--ws-text,#0f172a) !important;font-weight:700 !important;'}" class="w-full text-left p-2.5 rounded-xl border transition ${__wsTarget === 'home' ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400 font-extrabold'}">Home Page</button>
           ${(__sitePages || []).map((p, i) => `
-            <button onclick="wsSetTarget(${i})" class="w-full text-left p-2.5 rounded-xl border transition ${__wsTarget === i ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400 font-extrabold'}">${esc(p.title || 'Untitled Page')}</button>
+            <button onclick="wsSetTarget(${i})" style="${__wsTarget === i ? 'background-color:#4f46e5 !important;color:#ffffff !important;border-color:#4338ca !important;font-weight:800 !important;box-shadow:0 4px 6px -1px rgba(79,70,229,0.25);' : 'color:var(--ws-text,#0f172a) !important;font-weight:700 !important;'}" class="w-full text-left p-2.5 rounded-xl border transition ${__wsTarget === i ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400 font-extrabold'}">${esc(p.title || 'Untitled Page')}</button>
           `).join('')}
         </div>
       </div>
@@ -2574,10 +2647,81 @@ function renderWsRightInspectorHtml() {
   `;
 }
 
+function setSiteGlobal(key, val) {
+  if (!__siteCfg) return;
+  __siteCfg.content = __siteCfg.content || {};
+  __siteCfg.content[key] = val;
+  refreshWebsitePreview();
+}
+window.setSiteGlobal = setSiteGlobal;
+
 function renderWsRightInspectorContent() {
+  const c = __siteCfg?.content || {};
+  if (__wsSelectedSecIdx === -1) {
+    return `
+      <div class="space-y-4 text-xs">
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1">Dealership Name</label>
+          <input type="text" value="${esc(c.name || c.dealer_name || '')}" oninput="setSiteGlobal('name', this.value)" class="w-full liquid-glass-input px-3 py-2 text-slate-950 dark:text-white font-semibold" placeholder="Dealership name" />
+        </div>
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1">Dealership Tagline</label>
+          <input type="text" value="${esc(c.tagline || '')}" oninput="setSiteGlobal('tagline', this.value)" class="w-full liquid-glass-input px-3 py-2 text-slate-950 dark:text-white font-semibold" placeholder="e.g. Niagara's Premier Truck Destination" />
+        </div>
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1">Header Logo URL</label>
+          <div class="flex gap-1.5 items-center">
+            ${c.logo_url ? `<img src="${esc(c.logo_url)}" class="w-9 h-7 object-contain rounded border border-slate-700 bg-white/10" />` : ''}
+            <input type="text" value="${esc(c.logo_url || '')}" oninput="setSiteGlobal('logo_url', this.value)" class="w-full liquid-glass-input px-3 py-2 text-slate-950 dark:text-white font-semibold flex-1" placeholder="https://..." />
+            <button type="button" onclick="openWsPhotoPicker(url => { setSiteGlobal('logo_url', url); renderWsRightInspector(); })" class="liquid-glass-btn px-2.5 py-2 text-[11px] font-bold">Browse</button>
+          </div>
+        </div>
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1">Phone Number (Direct Click-to-Call)</label>
+          <input type="text" value="${esc(c.phone || '')}" oninput="setSiteGlobal('phone', this.value)" class="w-full liquid-glass-input px-3 py-2 text-slate-950 dark:text-white font-semibold" placeholder="(905) 555-0199" />
+        </div>
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1">Showroom Address</label>
+          <input type="text" value="${esc(c.address || '')}" oninput="setSiteGlobal('address', this.value)" class="w-full liquid-glass-input px-3 py-2 text-slate-950 dark:text-white font-semibold" placeholder="123 Main St, Welland, ON" />
+        </div>
+        <div class="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-2">
+          <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+            <input type="checkbox" ${c.transparent_header ? 'checked' : ''} onchange="setSiteGlobal('transparent_header', this.checked)" class="accent-indigo-600 w-4 h-4 rounded">
+            <span>Transparent Header over Hero</span>
+          </label>
+        </div>
+      </div>
+    `;
+  }
+  if (__wsSelectedSecIdx === -2) {
+    return `
+      <div class="space-y-4 text-xs">
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1">Copyright Notice</label>
+          <input type="text" value="${esc(c.copyright || `© ${new Date().getFullYear()} ${c.name || 'All rights reserved'}`)}" oninput="setSiteGlobal('copyright', this.value)" class="w-full liquid-glass-input px-3 py-2 text-slate-950 dark:text-white font-semibold" />
+        </div>
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1">About Summary Blurb</label>
+          <textarea rows="3" oninput="setSiteGlobal('about', this.value)" class="w-full liquid-glass-input px-3 py-2 text-slate-950 dark:text-white font-semibold">${esc(c.about || '')}</textarea>
+        </div>
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1">Store Hours</label>
+          <input type="text" value="${esc(c.hours || 'Mon-Fri: 9am-8pm, Sat: 9am-6pm')}" oninput="setSiteGlobal('hours', this.value)" class="w-full liquid-glass-input px-3 py-2 text-slate-950 dark:text-white font-semibold" />
+        </div>
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1">Facebook URL</label>
+          <input type="text" value="${esc(c.facebook_url || '')}" oninput="setSiteGlobal('facebook_url', this.value)" class="w-full liquid-glass-input px-3 py-2 text-slate-950 dark:text-white font-semibold" placeholder="https://facebook.com/..." />
+        </div>
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1">Instagram URL</label>
+          <input type="text" value="${esc(c.instagram_url || '')}" oninput="setSiteGlobal('instagram_url', this.value)" class="w-full liquid-glass-input px-3 py-2 text-slate-950 dark:text-white font-semibold" placeholder="https://instagram.com/..." />
+        </div>
+      </div>
+    `;
+  }
   const sec = __siteSections[__wsSelectedSecIdx];
   if (!sec) {
-    return `<div class="text-xs text-slate-400 italic py-8 text-center">Click any section or element on the canvas to inspect &amp; edit its properties.</div>`;
+    return `<div class="text-xs text-slate-500 dark:text-slate-400 italic py-8 text-center font-medium">Click any section or element on the canvas to inspect &amp; edit its properties.</div>`;
   }
   const i = __wsSelectedSecIdx;
   const meta = SEC_META[sec.type] || {};
@@ -2586,55 +2730,66 @@ function renderWsRightInspectorContent() {
     return (meta.fields || []).map(f => wsField(i, sec, f)).join('');
   } else if (__wsInspectorTab === 'style') {
     return `
-      <div class="space-y-3 text-xs">
-        <div class="space-y-1">
-          <label class="font-bold text-slate-300">Background Color / Overlay</label>
-          <input type="color" value="${sec.settings?.bg_color || '#0F172A'}" oninput="setSec(${i},'bg_color',this.value)" class="w-full h-8 rounded border border-slate-700 bg-transparent cursor-pointer">
+      <div class="space-y-4 text-xs">
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1">Background Color / Overlay</label>
+          <div class="flex items-center gap-2">
+            <input type="color" value="${sec.settings?.bg_color || '#0F172A'}" oninput="setSec(${i},'bg_color',this.value)" class="w-10 h-8 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent cursor-pointer">
+            <input type="text" value="${sec.settings?.bg_color || '#0F172A'}" oninput="setSec(${i},'bg_color',this.value)" class="flex-1 liquid-glass-input px-3 py-1.5 font-mono text-xs text-slate-950 dark:text-white">
+          </div>
         </div>
-        <div class="space-y-1">
-          <label class="font-bold text-slate-300">Text Color Accent</label>
-          <input type="color" value="${sec.settings?.text_color || '#FFFFFF'}" oninput="setSec(${i},'text_color',this.value)" class="w-full h-8 rounded border border-slate-700 bg-transparent cursor-pointer">
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1">Text Color Accent</label>
+          <div class="flex items-center gap-2">
+            <input type="color" value="${sec.settings?.text_color || '#FFFFFF'}" oninput="setSec(${i},'text_color',this.value)" class="w-10 h-8 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent cursor-pointer">
+            <input type="text" value="${sec.settings?.text_color || '#FFFFFF'}" oninput="setSec(${i},'text_color',this.value)" class="flex-1 liquid-glass-input px-3 py-1.5 font-mono text-xs text-slate-950 dark:text-white">
+          </div>
         </div>
-        <div class="space-y-1">
-          <label class="font-bold text-slate-300">Border Radius</label>
-          <select onchange="setSec(${i},'border_radius',this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white">
-            <option value="none">Square (0px)</option>
-            <option value="md" selected>Curved (12px)</option>
-            <option value="full">Pill (999px)</option>
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1">Border Radius</label>
+          <select onchange="setSec(${i},'border_radius',this.value)" class="w-full liquid-glass-input px-3 py-2 text-xs text-slate-950 dark:text-white font-semibold">
+            <option value="none" ${sec.settings?.border_radius === 'none' ? 'selected' : ''}>Square (0px)</option>
+            <option value="md" ${!sec.settings?.border_radius || sec.settings?.border_radius === 'md' ? 'selected' : ''}>Curved (12px)</option>
+            <option value="lg" ${sec.settings?.border_radius === 'lg' ? 'selected' : ''}>Large Rounded (24px)</option>
+            <option value="full" ${sec.settings?.border_radius === 'full' ? 'selected' : ''}>Pill (999px)</option>
           </select>
         </div>
       </div>
     `;
   } else if (__wsInspectorTab === 'layout') {
     return `
-      <div class="space-y-3 text-xs">
-        <div class="space-y-1">
-          <label class="font-bold text-slate-300">Section Height</label>
-          <select onchange="setSec(${i},'height',this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white">
-            <option value="sm">Short</option>
-            <option value="md" selected>Medium</option>
-            <option value="lg">Tall</option>
-            <option value="screen">Full Screen</option>
+      <div class="space-y-4 text-xs">
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1">Section Height</label>
+          <select onchange="setSec(${i},'height',this.value)" class="w-full liquid-glass-input px-3 py-2 text-xs text-slate-950 dark:text-white font-semibold">
+            <option value="sm" ${sec.settings?.height === 'sm' ? 'selected' : ''}>Short</option>
+            <option value="md" ${!sec.settings?.height || sec.settings?.height === 'md' ? 'selected' : ''}>Medium</option>
+            <option value="lg" ${sec.settings?.height === 'lg' ? 'selected' : ''}>Tall</option>
+            <option value="screen" ${sec.settings?.height === 'screen' ? 'selected' : ''}>Full Screen</option>
           </select>
         </div>
-        <div class="space-y-1">
-          <label class="font-bold text-slate-300">Container Alignment</label>
-          <select onchange="setSec(${i},'align',this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white">
-            <option value="left">Left Aligned</option>
-            <option value="center" selected>Center Aligned</option>
-            <option value="right">Right Aligned</option>
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1">Content Alignment</label>
+          <select onchange="setSec(${i},'align',this.value)" class="w-full liquid-glass-input px-3 py-2 text-xs text-slate-950 dark:text-white font-semibold">
+            <option value="left" ${sec.settings?.align === 'left' ? 'selected' : ''}>Left Aligned</option>
+            <option value="center" ${!sec.settings?.align || sec.settings?.align === 'center' ? 'selected' : ''}>Center Aligned</option>
+            <option value="right" ${sec.settings?.align === 'right' ? 'selected' : ''}>Right Aligned</option>
           </select>
         </div>
       </div>
     `;
   } else if (__wsInspectorTab === 'advanced') {
     return `
-      <div class="space-y-3 text-xs">
-        <div class="space-y-2 p-3 rounded-xl bg-slate-900 border border-slate-700">
-          <div class="font-bold text-white">Device Visibility</div>
-          <label class="flex items-center gap-2 cursor-pointer text-slate-300"><input type="checkbox" checked class="accent-indigo-600"> Show on Desktop</label>
-          <label class="flex items-center gap-2 cursor-pointer text-slate-300"><input type="checkbox" checked class="accent-indigo-600"> Show on Tablet</label>
-          <label class="flex items-center gap-2 cursor-pointer text-slate-300"><input type="checkbox" checked class="accent-indigo-600"> Show on Mobile</label>
+      <div class="space-y-4 text-xs">
+        <div class="p-3 rounded-xl liquid-glass-card space-y-2">
+          <div class="font-black text-slate-950 dark:text-white">Device Visibility</div>
+          <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-800 dark:text-slate-200"><input type="checkbox" ${sec.settings?.hide_desktop ? '' : 'checked'} onchange="setSec(${i},'hide_desktop',!this.checked)" class="accent-indigo-600"> Show on Desktop</label>
+          <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-800 dark:text-slate-200"><input type="checkbox" ${sec.settings?.hide_tablet ? '' : 'checked'} onchange="setSec(${i},'hide_tablet',!this.checked)" class="accent-indigo-600"> Show on Tablet</label>
+          <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-800 dark:text-slate-200"><input type="checkbox" ${sec.settings?.hide_mobile ? '' : 'checked'} onchange="setSec(${i},'hide_mobile',!this.checked)" class="accent-indigo-600"> Show on Mobile</label>
+        </div>
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1">Custom Section CSS ID</label>
+          <input type="text" value="${esc(sec.id || '')}" oninput="setSec(${i},'custom_id',this.value)" class="w-full liquid-glass-input px-3 py-2 font-mono text-xs text-slate-950 dark:text-white font-semibold" placeholder="e.g. seasonal-specials" />
         </div>
       </div>
     `;
@@ -2956,27 +3111,57 @@ const WS_AI_KIND = {
   left_body: 'body', right_body: 'body', tag: 'cta',
 };
 function wsField(i, sec, [key, label, type]) {
-  const v = sec.settings?.[key];
+  let v = sec.settings?.[key];
+  if (v == null || v === '') {
+    if (sec.type === 'hero') {
+      const c = __siteCfg?.content || {};
+      const d = {
+        badge_text: '• OFFICIAL DEALERSHIP SHOWROOM',
+        headline: c.name ? `Welcome to ${c.name}` : 'Experience Automotive Excellence',
+        subheadline: 'Explore our certified inventory and get pre-approved in minutes.',
+        button_label: 'Browse Inventory →',
+        button_target: 'inventory',
+        button_link: '',
+        button2_label: 'Get Pre-Approved Fast',
+        button2_target: 'finance',
+        button2_link: '',
+        image: c.hero_url || '',
+        bg: 'g1',
+        overlay: 45,
+        height: 'md',
+        show_trust_strip: true,
+        trust_1_title: '4.9 Star Rating',
+        trust_1_sub: '1,200+ Verified Reviews',
+        trust_2_title: '2-Min Pre-Approval',
+        trust_2_sub: 'No Credit Impact',
+        trust_3_title: 'Top Trade Value',
+        trust_3_sub: 'Instant Online Quotes',
+        trust_4_title: '100% Guarantee',
+        trust_4_sub: 'No Hidden Fees'
+      };
+      if (d[key] !== undefined) v = d[key];
+    }
+  }
   const aiKind = WS_AI_KIND[key];
-  const lbl = `<div class="flex items-center justify-between mb-1"><label class="block text-[11px] font-bold text-slate-300">${label}</label>${aiKind ? `<button type="button" onclick="aiMenu(event,${i},'${key}','${aiKind}')" class="text-[11px] font-bold text-violet-400 hover:text-violet-300"> AI</button>` : ''}</div>`;
-  const cls = 'w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500';
+  const lbl = `<div class="flex items-center justify-between mb-1.5"><label class="block text-xs font-bold text-slate-900 dark:text-slate-100">${label}</label>${aiKind ? `<button type="button" onclick="aiMenu(event,${i},'${key}','${aiKind}')" class="text-[11px] font-black text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"> AI Rewrite</button>` : ''}</div>`;
+  const cls = 'w-full liquid-glass-input px-3 py-2 text-slate-950 dark:text-white font-semibold text-xs';
   const wide = ['textarea', 'faq', 'reviews', 'images', 'image', 'html'].includes(type) ? 'sm:col-span-2' : '';
   let input;
-  if (type === 'textarea' || type === 'html') input = `<textarea rows="3" oninput="setSec(${i},'${key}',this.value)" class="${cls} font-mono text-xs">${esc(v || '')}</textarea>`;
-  else if (type === 'range') input = `<input type="range" min="0" max="90" value="${v == null ? 45 : v}" oninput="setSec(${i},'${key}',+this.value)" class="w-full">`;
+  if (type === 'textarea' || type === 'html') input = `<textarea rows="3" oninput="setSec(${i},'${key}',this.value)" class="${cls} font-medium text-xs">${esc(v || '')}</textarea>`;
+  else if (type === 'range') input = `<div class="flex items-center gap-2"><input type="range" min="0" max="95" value="${v == null ? 75 : v}" oninput="setSec(${i},'${key}',+this.value); document.getElementById('rng-val-${i}-${key}').innerText = this.value + '%';" class="w-full accent-indigo-600 cursor-pointer"><span id="rng-val-${i}-${key}" class="text-xs font-mono font-bold text-slate-700 dark:text-slate-300 w-10 text-right">${v == null ? 75 : v}%</span></div>`;
   else if (type === 'number') input = `<input type="number" value="${esc(v == null ? 6 : v)}" oninput="setSec(${i},'${key}',+this.value)" class="${cls}">`;
   else if (type === 'target') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['inquiry','Contact form'],['inventory','Inventory'],['build','Build & Price'],['trade','Trade-in'],['finance','Financing'],['team','Team'],['link','Custom link']].map(o => `<option value="${o[0]}" ${v === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
   else if (type === 'herobg') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['','None (solid brand)'],['g1','Indigo glow'],['g2','Sky wave'],['g3','Teal depth'],['g4','Violet dusk'],['g5','Amber warmth'],['g6','Rose accent'],['g7','Emerald'],['g8','Cyan drift']].map(o => `<option value="${o[0]}" ${(v||'')===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select>`;
   else if (type === 'cond') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['all','All'],['new','New'],['used','Used']].map(o => `<option value="${o[0]}" ${v === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
   else if (type === 'height') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['sm','Short'],['md','Medium'],['lg','Tall'],['screen','Full screen']].map(o => `<option value="${o[0]}" ${(v || 'md') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
-  else if (type === 'image') input = `<div class="flex gap-1 items-center">${v ? `<img src="${esc(v)}" class="w-12 h-9 object-cover rounded">` : ''}<input value="${esc(v || '')}" placeholder="URL or upload" oninput="setSec(${i},'${key}',this.value)" class="${cls} flex-1"><input type="file" accept="image/*" class="hidden" id="secimg-${i}-${key}" onchange="uploadToSec(${i},'${key}',this.files[0])"><button type="button" onclick="document.getElementById('secimg-${i}-${key}').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 px-2 rounded">Upload</button><button type="button" onclick="openWsPhotoPicker(url => { setSec(${i},'${key}',url); renderWsSections(); })" class="text-xs font-bold bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600/20 px-2 rounded">Browse</button></div>`;
-  else if (type === 'images') { const arr = Array.isArray(v) ? v : []; input = `<div><div class="flex flex-wrap gap-1 mb-1">${arr.map((u, k) => `<div class="relative"><img src="${esc(u)}" class="w-12 h-9 object-cover rounded"><button onclick="delSecImg(${i},'${key}',${k})" class="absolute -top-1 -right-1 bg-black/60 text-white rounded-full w-4 h-4 text-[10px]">×</button></div>`).join('')}</div><input type="file" accept="image/*" multiple class="hidden" id="secimgs-${i}-${key}" onchange="uploadToSecMulti(${i},'${key}',this.files)"><button type="button" onclick="document.getElementById('secimgs-${i}-${key}').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded">+ Add images</button> <button type="button" onclick="openWsPhotoPicker(url => { const arr = (__siteSections[${i}].settings?.['${key}'] || []).slice(); arr.push(url); setSec(${i},'${key}',arr); renderWsSections(); })" class="text-xs font-bold bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600/20 px-2 py-1 rounded">Browse Photos</button></div>`; }
+  else if (type === 'image') input = `<div class="flex gap-1.5 items-center">${v ? `<img src="${esc(v)}" class="w-12 h-9 object-cover rounded-lg border border-slate-300 dark:border-slate-700">` : ''}<input value="${esc(v || '')}" placeholder="https://... or upload" oninput="setSec(${i},'${key}',this.value)" class="${cls} flex-1"><input type="file" accept="image/*" class="hidden" id="secimg-${i}-${key}" onchange="uploadToSec(${i},'${key}',this.files[0])"><button type="button" onclick="document.getElementById('secimg-${i}-${key}').click()" class="liquid-glass-btn-secondary px-2.5 py-1.5 text-[11px] font-bold">Upload</button><button type="button" onclick="openWsPhotoPicker(url => { setSec(${i},'${key}',url); renderWsSections(); })" class="liquid-glass-btn px-2.5 py-1.5 text-[11px] font-black">Browse</button></div>`;
+  else if (type === 'images') { const arr = Array.isArray(v) ? v : []; input = `<div><div class="flex flex-wrap gap-1.5 mb-2">${arr.map((u, k) => `<div class="relative"><img src="${esc(u)}" class="w-14 h-10 object-cover rounded-lg border border-slate-300 dark:border-slate-700"><button onclick="delSecImg(${i},'${key}',${k})" class="absolute -top-1.5 -right-1.5 bg-red-600 hover:bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center font-bold shadow-md cursor-pointer">×</button></div>`).join('')}</div><div class="flex gap-2"><input type="file" accept="image/*" multiple class="hidden" id="secimgs-${i}-${key}" onchange="uploadToSecMulti(${i},'${key}',this.files)"><button type="button" onclick="document.getElementById('secimgs-${i}-${key}').click()" class="liquid-glass-btn-secondary px-3 py-1.5 text-xs font-bold">+ Add images</button> <button type="button" onclick="openWsPhotoPicker(url => { const arr = (__siteSections[${i}].settings?.['${key}'] || []).slice(); arr.push(url); setSec(${i},'${key}',arr); renderWsSections(); })" class="liquid-glass-btn px-3 py-1.5 text-xs font-black">Browse Photos</button></div></div>`; }
   else if (type === 'faq') { const lines = (Array.isArray(v) ? v : []).map(it => `${it.q || ''} :: ${it.a || ''}`).join('\n'); input = `<textarea rows="4" oninput="setSecFaq(${i},'${key}',this.value)" placeholder="Question :: Answer" class="${cls} text-xs">${esc(lines)}</textarea>`; }
   else if (type === 'reviews') { const lines = (Array.isArray(v) ? v : []).map(it => `${it.author || ''} :: ${it.rating || 5} :: ${it.text || ''}`).join('\n'); input = `<textarea rows="4" oninput="setSecReviews(${i},'${key}',this.value)" placeholder="Jane D. :: 5 :: Best dealership experience I've had." class="${cls} text-xs">${esc(lines)}</textarea>`; }
   else if (type === 'cards') { const lines = (Array.isArray(v) ? v : []).map(it => `${it.title || ''} :: ${it.text || ''}`).join('\n'); input = `<textarea rows="4" oninput="setSecCards(${i},'${key}',this.value)" placeholder="Free delivery :: We bring the car to your door." class="${cls} text-xs">${esc(lines)}</textarea>`; }
   else if (type === 'cardcols') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['2','2 across'],['3','3 across'],['4','4 across']].map(o => `<option value="${o[0]}" ${String(v || '3') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
   else if (type === 'adtpl') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['classic','Classic — text left, image right'],['imgleft','Image left, text right'],['overlay','Full-bleed image with overlay'],['spotlight','Spotlight card — image on top']].map(o => `<option value="${o[0]}" ${(v || 'classic') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
-  else if (type === 'bool') input = `<label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" ${v ? 'checked' : ''} onchange="setSec(${i},'${key}',this.checked)" class="rounded"> Yes</label>`;
+  else if (type === 'bool') input = `<label class="inline-flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-slate-100 cursor-pointer"><input type="checkbox" ${v !== false ? 'checked' : ''} onchange="setSec(${i},'${key}',this.checked)" class="accent-indigo-600 w-4 h-4 rounded"> <span>Enable</span></label>`;
   else input = `<input value="${esc(v || '')}" oninput="setSec(${i},'${key}',this.value)" class="${cls}">`;
   // data-ws-field is the anchor focusWsField() jumps to when a dealer clicks that
   // element on the canvas — keep it on the wrapper so the label highlights too.
@@ -3006,9 +3191,37 @@ let __pendingInsertAt = null;   // live builder: insert the next-added section a
 // Photos" picker use, so a new site never starts with empty photo holes.
 const WS_DEFAULT_IMAGE_TYPES = { hero: 'image', text_image: 'image', ad_banner: 'image' };
 function addSection(type) {
-  const sec = { id: 's' + Date.now().toString(36), type, settings: {} };
+  let settings = {};
+  if (type === 'hero') {
+    const c = __siteCfg?.content || {};
+    settings = {
+      badge_text: '• OFFICIAL DEALERSHIP SHOWROOM',
+      headline: c.name ? `Welcome to ${c.name}` : 'Experience Automotive Excellence',
+      subheadline: 'Explore our certified inventory and get pre-approved in minutes.',
+      button_label: 'Browse Inventory →',
+      button_target: 'inventory',
+      button_link: '',
+      button2_label: 'Get Pre-Approved Fast',
+      button2_target: 'finance',
+      button2_link: '',
+      image: c.hero_url || 'https://images.pexels.com/photos/3807277/pexels-photo-3807277.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2',
+      bg: 'g1',
+      overlay: 45,
+      height: 'md',
+      show_trust_strip: true,
+      trust_1_title: '4.9 Star Rating',
+      trust_1_sub: '1,200+ Verified Reviews',
+      trust_2_title: '2-Min Pre-Approval',
+      trust_2_sub: 'No Credit Impact',
+      trust_3_title: 'Top Trade Value',
+      trust_3_sub: 'Instant Online Quotes',
+      trust_4_title: '100% Guarantee',
+      trust_4_sub: 'No Hidden Fees'
+    };
+  }
+  const sec = { id: 's' + Date.now().toString(36), type, settings };
   const imageKey = WS_DEFAULT_IMAGE_TYPES[type];
-  if (imageKey && typeof STUDIO_FREE_PHOTOS !== 'undefined' && STUDIO_FREE_PHOTOS.length) {
+  if (imageKey && !sec.settings[imageKey] && typeof STUDIO_FREE_PHOTOS !== 'undefined' && STUDIO_FREE_PHOTOS.length) {
     sec.settings[imageKey] = STUDIO_FREE_PHOTOS[Math.floor(Math.random() * STUDIO_FREE_PHOTOS.length)].url;
   }
   if (__pendingInsertAt != null && __pendingInsertAt >= 0 && __pendingInsertAt <= __siteSections.length) {
@@ -3041,74 +3254,84 @@ window.wsSetTheme = wsSetTheme;
 function openTemplatePicker() {
   const templates = [
     {
-      id: 'luxury',
-      name: 'Premier Luxury Dealership',
-      desc: 'Playfair Display serif hierarchy, obsidian & gold accents, pill buttons, wide padding, glassmorphic cards, executive sedan hero.',
-      preset: 'luxury',
-      primary: '#0f172a', secondary: '#1e293b', accent: '#d97706', heading_font: 'Playfair Display', body_font: 'Inter'
+      id: 'classic',
+      name: 'Classic Dealership',
+      desc: 'Balanced, familiar dealer look with royal navy & slate styling, upfront transparency, and instant approval workflows.',
+      preset: 'classic',
+      primary: '#1e3a8a', secondary: '#0f172a', accent: '#3b82f6', heading_font: 'Inter', body_font: 'Inter',
+      hero_img: 'https://images.pexels.com/photos/164634/pexels-photo-164634.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
+    },
+    {
+      id: 'prestige',
+      name: 'Prestige Luxury & Executive',
+      desc: 'Refined, spacious, serif headings with obsidian & champagne gold accents, white-glove concierge styling, and private reserve presentation.',
+      preset: 'prestige',
+      primary: '#0f172a', secondary: '#1e293b', accent: '#d97706', heading_font: 'Playfair Display', body_font: 'Inter',
+      hero_img: 'https://images.pexels.com/photos/3764984/pexels-photo-3764984.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
     },
     {
       id: 'modern',
-      name: 'Modern Omnichannel Showroom',
-      desc: 'Outfit & Inter typography, indigo/slate gradients, rounded-2xl cards, glowing primary buttons, futuristic coupe hero.',
+      name: 'Modern Digital Showroom',
+      desc: 'Crisp, soft depth, rounded cards, vibrant indigo & electric cyan accents, and instant digital retailing workflows.',
       preset: 'modern',
-      primary: '#1e3a8a', secondary: '#0f172a', accent: '#4f46e5', heading_font: 'Outfit', body_font: 'Inter'
+      primary: '#4f46e5', secondary: '#0b1020', accent: '#06b6d4', heading_font: 'Outfit', body_font: 'Inter',
+      hero_img: 'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
     },
     {
-      id: 'traditional',
-      name: 'Traditional Dealership',
-      desc: 'Archivo & Open Sans, classic navy/red header, top contact bar, upfront pricing banner, lot flagship hero.',
-      preset: 'traditional',
-      primary: '#0b2a5b', secondary: '#1f2937', accent: '#dc2626', heading_font: 'Archivo', body_font: 'Open Sans'
+      id: 'bold',
+      name: 'Bold High-Impact & Performance',
+      desc: 'High-contrast, punchy headlines, racing crimson & obsidian styling, high-velocity specs, and urgent promotional banners.',
+      preset: 'bold',
+      primary: '#dc2626', secondary: '#09090b', accent: '#f59e0b', heading_font: 'Oswald', body_font: 'Montserrat',
+      hero_img: 'https://images.pexels.com/photos/3311574/pexels-photo-3311574.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
+    },
+    {
+      id: 'minimal',
+      name: 'Minimal Studio & Precision',
+      desc: 'Flat, airy, bordered, generous white space, graphite tones with subtle cobalt highlights, and distraction-free vehicle shopping.',
+      preset: 'minimal',
+      primary: '#18181b', secondary: '#27272a', accent: '#2563eb', heading_font: 'Outfit', body_font: 'Space Grotesk',
+      hero_img: 'https://images.pexels.com/photos/909907/pexels-photo-909907.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
     },
     {
       id: 'performance',
-      name: 'High-Performance Motorsport & EV',
-      desc: 'Syne & Space Grotesk typography, carbon dark styling, neon cyan accents, velocity specs spotlight, night supercar hero.',
+      name: 'Motorsport & High Velocity',
+      desc: 'Carbon dark styling, neon cyan accents, velocity performance specs spotlight, and dyno-tuned sports car showcase.',
       preset: 'performance',
-      primary: '#0284c7', secondary: '#020617', accent: '#06b6d4', heading_font: 'Syne', body_font: 'Space Grotesk'
+      primary: '#0284c7', secondary: '#020617', accent: '#06b6d4', heading_font: 'Syne', body_font: 'Space Grotesk',
+      hero_img: 'https://images.pexels.com/photos/1149831/pexels-photo-1149831.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
     },
     {
       id: 'truck',
-      name: 'Truck & Heavy Duty Hub',
-      desc: 'Oswald uppercase headlines, earth/stone theme, heavy-duty towing capacity cards, 4x4 off-road hero.',
+      name: 'Truck & Commercial Headquarters',
+      desc: 'Oswald uppercase headlines, heavy-duty towing capacity cards, stone palette, and 4x4 off-road capability.',
       preset: 'truck',
-      primary: '#1c1917', secondary: '#292524', accent: '#d97706', heading_font: 'Oswald', body_font: 'Inter'
+      primary: '#1c1917', secondary: '#292524', accent: '#d97706', heading_font: 'Oswald', body_font: 'Inter',
+      hero_img: 'https://images.pexels.com/photos/1638459/pexels-photo-1638459.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
     },
     {
       id: 'family',
       name: 'Family & Community Motors',
-      desc: 'Poppins & Nunito typography, warm teal palette, 5-star Google review spotlight, safe family crossover hero.',
+      desc: 'Poppins typography, safety-first 5-star Google review spotlights, and family crossover features.',
       preset: 'family',
-      primary: '#1e293b', secondary: '#0f172a', accent: '#0d9488', heading_font: 'Poppins', body_font: 'Nunito'
-    },
-    {
-      id: 'minimal',
-      name: 'Minimalist European Studio',
-      desc: 'Monochrome precision grid, generous negative space, 1px border cards, studio white coupe hero.',
-      preset: 'minimal',
-      primary: '#09090b', secondary: '#27272a', accent: '#2563eb', heading_font: 'Inter', body_font: 'Work Sans'
-    },
-    {
-      id: 'promo',
-      name: 'Bold High-Volume Promotional',
-      desc: 'Bebas Neue & Roboto typography, high-contrast sales event theme, flash deal banners, red sports car hero.',
-      preset: 'promo',
-      primary: '#b91c1c', secondary: '#18181b', accent: '#eab308', heading_font: 'Bebas Neue', body_font: 'Roboto'
+      primary: '#1e293b', secondary: '#0f172a', accent: '#0d9488', heading_font: 'Poppins', body_font: 'Nunito',
+      hero_img: 'https://images.pexels.com/photos/1592384/pexels-photo-1592384.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
     },
     {
       id: 'used',
       name: 'Certified Pre-Owned Depot',
-      desc: 'Barlow & Rubik typography, amber/navy theme, "Every Credit Approved" finance banner, certified used lot hero.',
+      desc: 'Barlow & Rubik typography, amber/navy theme, guaranteed credit approval banner, and certified used lot hero.',
       preset: 'used',
-      primary: '#1e3a8a', secondary: '#0f172a', accent: '#f59e0b', heading_font: 'Barlow', body_font: 'Rubik'
+      primary: '#1e3a8a', secondary: '#0f172a', accent: '#f59e0b', heading_font: 'Barlow', body_font: 'Rubik',
+      hero_img: 'https://images.pexels.com/photos/100656/pexels-photo-100656.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
     },
     {
       id: 'ev',
       name: 'Next-Gen Electric Vehicle Hub',
-      desc: 'Plus Jakarta Sans & Inter typography, deep electric blue theme, charging range calculator banner, EV charging hero.',
+      desc: 'Plus Jakarta Sans typography, deep electric blue theme, charging range calculator banner, and EV incentive guide.',
       preset: 'ev',
-      primary: '#030712', secondary: '#0b1329', accent: '#22d3ee', heading_font: 'Plus Jakarta Sans', body_font: 'Inter'
+      primary: '#030712', secondary: '#0b1329', accent: '#22d3ee', heading_font: 'Plus Jakarta Sans', body_font: 'Inter',
+      hero_img: 'https://images.pexels.com/photos/9800006/pexels-photo-9800006.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
     }
   ];
 
@@ -3116,28 +3339,39 @@ function openTemplatePicker() {
     <div class="p-6 space-y-4 max-w-4xl">
       <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
         <div>
-          <h2 class="text-xl font-black text-slate-900 dark:text-white">Choose Complete Homepage Template</h2>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Each template features a distinct visual layout, typography, Pexels imagery, and color palette.</p>
+          <h2 class="text-xl font-black text-slate-900 dark:text-white">Choose Complete Dealership Template</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Each template applies a full working layout, curated Pexels automotive imagery, typography, and rich copy customized with your dealership name.</p>
         </div>
-        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
 
-      <div class="grid md:grid-cols-2 gap-4 pt-2 max-h-[70vh] overflow-y-auto">
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 max-h-[70vh] overflow-y-auto">
         ${templates.map(t => `
-          <button onclick="applyCompleteTemplate('${t.id}')" class="group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-lg hover:shadow-2xl transition duration-200 space-y-3 cursor-pointer">
-            <div class="flex items-center justify-between">
-              <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900">${t.preset}</span>
-              <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition">Apply Template →</span>
+          <button onclick="applyCompleteTemplate('${t.id}')" class="group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-200 flex flex-col cursor-pointer">
+            <div class="h-28 relative overflow-hidden bg-slate-950 shrink-0">
+              <img src="${t.hero_img}" class="w-full h-full object-cover object-center group-hover:scale-105 transition duration-500">
+              <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent"></div>
+              <div class="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-black/60 backdrop-blur-md text-white border border-white/20">${t.preset}</span>
+              </div>
+              <div class="absolute bottom-2 left-3 flex items-center gap-1">
+                <span class="w-3.5 h-3.5 rounded-full border border-white/40 shadow-sm" style="background:${t.primary}"></span>
+                <span class="w-3.5 h-3.5 rounded-full border border-white/40 shadow-sm" style="background:${t.secondary}"></span>
+                <span class="w-3.5 h-3.5 rounded-full border border-white/40 shadow-sm" style="background:${t.accent}"></span>
+                <span class="text-[10px] font-mono text-white/80 ml-1 drop-shadow">${t.heading_font}</span>
+              </div>
             </div>
-            <h3 class="text-base font-black text-slate-900 dark:text-white">${t.name}</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">${t.desc}</p>
-            <div class="flex items-center gap-1.5 pt-1">
-              <span class="w-4 h-4 rounded-full border border-slate-300" style="background:${t.primary}"></span>
-              <span class="w-4 h-4 rounded-full border border-slate-300" style="background:${t.secondary}"></span>
-              <span class="w-4 h-4 rounded-full border border-slate-300" style="background:${t.accent}"></span>
-              <span class="text-[10px] font-mono text-slate-400 ml-2">${t.heading_font} / ${t.body_font}</span>
+            <div class="p-4 flex-1 flex flex-col justify-between space-y-2">
+              <div>
+                <h3 class="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">${t.name}</h3>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-1">${t.desc}</p>
+              </div>
+              <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Full Suite Ready</span>
+                <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition">Apply Template →</span>
+              </div>
             </div>
           </button>
         `).join('')}
@@ -3150,38 +3384,122 @@ function openTemplatePicker() {
 
 function applyCompleteTemplate(templateId) {
   const c = __siteCfg.content || (__siteCfg.content = {});
-  const ctx = { name: c.name || ctxName(), city: c.city || '' };
+  const name = c.name || ctxName() || 'Our Dealership';
+  const city = c.city || '';
+  const cityTxt = city ? (' in ' + city) : '';
 
   const configs = {
-    luxury: {
-      primary_color: '#0f172a', secondary_color: '#1e293b', accent_color: '#d97706', typography: 'luxury', heading_font: 'Playfair Display', body_font: 'Inter', preset: 'luxury',
-      hero_url: 'https://images.pexels.com/photos/3764984/pexels-photo-3764984.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+    classic: {
+      primary_color: '#1e3a8a', secondary_color: '#0f172a', accent_color: '#3b82f6',
+      typography: 'classic', heading_font: 'Inter', body_font: 'Inter', theme: 'classic', design_theme: 'classic', preset: 'classic',
+      hero_url: 'https://images.pexels.com/photos/164634/pexels-photo-164634.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2',
       sections: [
-        psHero('Excellence in Motion', 'Experience bespoke automotive service and curated executive vehicles.', 'Explore Collection', 'inventory', 'g1'),
+        psHero(`Experience Automotive Excellence${cityTxt}`, `Welcome to ${name}. Explore our premium inventory of certified pre-owned and new vehicles with upfront pricing, flexible financing options, and top-dollar trade-in valuations.`, 'Browse Inventory →', 'inventory', 'g1'),
+        __psec('feature_cards', { title: `Why Drivers Choose ${name}` }),
+        __psec('trade_cta', { title: "What's Your Car Worth Today?", subtitle: 'Get a competitive, real-time market value for your trade-in in under 60 seconds with no obligation.', button_label: 'Value Your Trade →' }),
+        __psec('featured_inventory', { title: 'Featured Vehicles Spotlight', condition: 'all', count: 6 }),
+        __psec('text_image', { headline: `The ${name} Difference`, body: `At ${name}${cityTxt}, we have re-engineered the car buying experience to be transparent, straightforward, and pressure-free. Every vehicle in our showroom is hand-selected, comprehensively reconditioned by certified technicians, and backed by our complete satisfaction guarantee.\n\nWhether you are shopping for a dependable daily commuter, an all-weather family SUV, or a heavy-duty truck, our experienced advisors are dedicated to finding your ideal match.`, image: 'https://images.pexels.com/photos/3807277/pexels-photo-3807277.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Meet Our Team', button_target: 'team' }),
+        __psec('reviews', { title: 'What Our Customers Say', google_rating: '4.9', items: [
+          { author: 'Marcus T.', text: 'Easiest car purchase I have ever made. Trade offer was higher than 2 other dealerships and financing was approved in minutes.' },
+          { author: 'Sarah P.', text: '100% transparent pricing with zero surprise fees. The vehicle arrived detailed and ready to drive. Highly recommended!' },
+          { author: 'David K.', text: 'Top notch service team and straightforward advisors. They answered every question without any pushy sales tactics.' }
+        ] }),
+        __psec('contact', { title: 'Visit Our Showroom & Get In Touch' }),
+        psCta('Ready to Find Your Next Vehicle?', 'Get pre-approved online in 2 minutes or request your instant trade appraisal today.', 'Get Pre-Approved Now', 'finance')
+      ]
+    },
+    prestige: {
+      primary_color: '#0f172a', secondary_color: '#1e293b', accent_color: '#d97706',
+      typography: 'prestige', heading_font: 'Playfair Display', body_font: 'Inter', theme: 'prestige', design_theme: 'prestige', preset: 'prestige',
+      hero_url: 'https://images.pexels.com/photos/3764984/pexels-photo-3764984.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2',
+      sections: [
+        psHero('Excellence in Motion', `Experience bespoke automotive acquisition at ${name}. Curated executive sedans, high-performance grand tourers, and rare collector vehicles tailored to your lifestyle.`, 'Explore Collection →', 'inventory', 'g1'),
+        __psec('feature_cards', { title: `The White-Glove Standard at ${name}` }),
+        __psec('trade_cta', { title: 'Private Portfolio Appraisal', subtitle: 'Receive an uncompromised, market-validated valuation for your current luxury vehicle.', button_label: 'Request Private Valuation →' }),
+        __psec('featured_inventory', { title: 'Private Reserve Spotlight', condition: 'all', count: 6 }),
+        __psec('text_image', { headline: 'Crafted Around Your Driving Life', body: `At ${name}${cityTxt}, acquiring an exceptional motorcar is an effortless private journey. Each vehicle in our reserve passes a rigorous 180-point mechanical and provenance certification.\n\nFrom customized bespoke financing arrangements and discreet trade valuations to enclosed nationwide home delivery, our dedicated private client advisors provide an unmatched standard of service.`, image: 'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Speak to a Private Advisor', button_target: 'team' }),
+        __psec('reviews', { title: 'Client Testimonials & Praise', google_rating: '5.0', items: [
+          { author: 'Julian Vance, Verified Client', text: 'Impeccable concierge service from start to finish. The vehicle was delivered to my residence in flawless concours condition.' },
+          { author: 'Elena Rostova, Private Collector', text: 'Unrivaled professionalism and absolute transparency. Sourced a rare specification vehicle that exceeded every expectation.' },
+          { author: 'Alexander Wright, Managing Director', text: 'The private appraisal and trade process was expedited seamlessly. By far the finest dealership experience available.' }
+        ] }),
+        __psec('contact', { title: 'Schedule a Private Showroom Consultation' }),
+        psCta('Elevate Your Driving Experience', 'Inquire privately today to reserve your next vehicle or schedule an exclusive showroom viewing.', 'Inquire with Private Client Services', 'inquiry')
+      ]
+    },
+    luxury: {
+      primary_color: '#0f172a', secondary_color: '#1e293b', accent_color: '#d97706',
+      typography: 'prestige', heading_font: 'Playfair Display', body_font: 'Inter', theme: 'prestige', design_theme: 'prestige', preset: 'prestige',
+      hero_url: 'https://images.pexels.com/photos/3764984/pexels-photo-3764984.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2',
+      sections: [
+        psHero('Excellence in Motion', `Experience bespoke automotive service and curated executive vehicles at ${name}.`, 'Explore Collection', 'inventory', 'g1'),
         __psec('feature_cards', { title: 'White-Glove Dealership Experience' }),
         __psec('featured_inventory', { title: 'Private Reserve Spotlight', condition: 'all', count: 6 }),
-        __psec('text_image', { headline: 'Crafted Around Your Driving Life', body: 'At our studio, acquiring a vehicle is a tailored journey. Every luxury vehicle passes 180-point verification.', image: 'https://images.pexels.com/photos/164634/pexels-photo-164634.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Speak to Advisor', button_target: 'team' }),
+        __psec('text_image', { headline: 'Crafted Around Your Driving Life', body: `At ${name}${cityTxt}, acquiring a vehicle is a tailored journey. Every luxury vehicle passes 180-point verification.`, image: 'https://images.pexels.com/photos/164634/pexels-photo-164634.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Speak to Advisor', button_target: 'team' }),
         __psec('reviews', { title: 'Client Testimonials', google_rating: '4.9' }),
         psCta('Private Appraisal Service', 'Receive an uncompromised valuation for your current luxury vehicle.', 'Request Appraisal', 'trade')
       ]
     },
     modern: {
-      primary_color: '#1e3a8a', secondary_color: '#0f172a', accent_color: '#4f46e5', typography: 'modern', heading_font: 'Outfit', body_font: 'Inter', preset: 'modern',
-      hero_url: 'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
-      sections: templateHome(ctx)
-    },
-    traditional: {
-      primary_color: '#0b2a5b', secondary_color: '#1f2937', accent_color: '#dc2626', typography: 'traditional', heading_font: 'Archivo', body_font: 'Open Sans', preset: 'traditional',
-      hero_url: 'https://images.pexels.com/photos/112460/pexels-photo-112460.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+      primary_color: '#4f46e5', secondary_color: '#0b1020', accent_color: '#06b6d4',
+      typography: 'modern', heading_font: 'Outfit', body_font: 'Inter', theme: 'modern', design_theme: 'modern', preset: 'modern',
+      hero_url: 'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2',
       sections: [
-        psHero('Your Trusted Local Car Dealership', 'Honest prices, straightforward financing, and dependable vehicles updated daily.', 'Shop Inventory', 'inventory', 'g2'),
-        __psec('ad_banner', { tag: 'Monthly Special', headline: 'Drive Away With Up to $2,000 Off Trade-Ins', subtitle: 'Limited time offers across our new and certified pre-owned lot.', button_label: 'Claim Offer', button_target: 'inquiry', image: 'https://images.pexels.com/photos/7144211/pexels-photo-7144211.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2' }),
-        __psec('featured_inventory', { title: 'Top Deals This Week', condition: 'all', count: 6 }),
-        __psec('contact', { title: 'Visit Our Showroom Today' })
+        psHero('The Modern Way to Buy Your Next Car', `${name} brings modern digital car buying to life. Search real-time inventory, calculate personalized lease & finance terms, and get approved online in minutes.`, 'Explore Live Inventory →', 'inventory', 'g1'),
+        __psec('feature_cards', { title: 'Digital Retailing Built Around You' }),
+        __psec('trade_cta', { title: 'Instant Online Trade-In Appraisal', subtitle: 'Unlock guaranteed market equity in your vehicle with our AI-powered valuation engine.', button_label: 'Get My Instant Offer →' }),
+        __psec('featured_inventory', { title: 'Trending Vehicles & Fresh Arrivals', condition: 'all', count: 6 }),
+        __psec('text_image', { headline: '100% Online or In-Store — Your Choice', body: `Say goodbye to dealership friction. At ${name}${cityTxt}, you can complete 100% of your vehicle purchase from your phone, tablet, or laptop — or visit our interactive physical showroom whenever you like.\n\nEnjoy dynamic payment customization, instant digital trade offers, electronic e-signing, and direct-to-door delivery within 24 hours.`, image: 'https://images.pexels.com/photos/1149831/pexels-photo-1149831.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'How Digital Buying Works', button_target: 'inquiry' }),
+        __psec('reviews', { title: 'Over 1,500+ Five-Star Verified Reviews', google_rating: '4.9', items: [
+          { author: 'Jordan M., Tech Lead', text: 'I configured my financing and completed the paperwork completely from my phone in 10 minutes. Delivered to my driveway the next morning.' },
+          { author: 'Kelly S., Creative Director', text: 'Zero hidden fees, transparent payment breakdown, and friendly customer support on the live chat. A breath of fresh air!' },
+          { author: 'Liam B., First-Time Buyer', text: 'As a first-time buyer, the pre-approval was instant without hurting my credit score. The entire process was painless and fast.' }
+        ] }),
+        __psec('contact', { title: 'Connect With Our Concierge Team' }),
+        psCta('Start Your Seamless Purchase Today', 'Lock in your pricing and finance pre-approval in under 2 minutes.', 'Get Pre-Approved Online', 'finance')
+      ]
+    },
+    bold: {
+      primary_color: '#dc2626', secondary_color: '#09090b', accent_color: '#f59e0b',
+      typography: 'bold', heading_font: 'Oswald', body_font: 'Montserrat', theme: 'bold', design_theme: 'bold', preset: 'bold',
+      hero_url: 'https://images.pexels.com/photos/3311574/pexels-photo-3311574.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2',
+      sections: [
+        psHero('UNMATCHED SELECTION. UNBEATABLE PRICES.', `Welcome to ${name}. We are clearing out inventory with aggressive dealer discounts, competitive trade allowances, and 0% down financing options on approved credit!`, 'VIEW FLASH DEALS NOW →', 'inventory', 'g1'),
+        __psec('feature_cards', { title: `THE ${name.toUpperCase()} POWER PROMISE` }),
+        __psec('trade_cta', { title: 'WE WILL BUY YOUR VEHICLE TODAY', subtitle: 'Get top market dollar on the spot — even if you do not buy a car from us. Fast cash or trade credit!', button_label: 'CLAIM HIGHEST TRADE VALUE →' }),
+        __psec('featured_inventory', { title: 'HOTTEST WEEKLY SPECIALS & ARRIVALS', condition: 'all', count: 6 }),
+        __psec('text_image', { headline: 'MAXIMUM VALUE. ZERO EXCUSES.', body: `At ${name}${cityTxt}, we move volume so you save money. We partner with over 30 top tier lenders to guarantee aggressive financing rates, flexible down payments, and approval options for all credit backgrounds.\n\nEvery vehicle is backed by a comprehensive powertrain warranty and full vehicle history report. When you are ready to upgrade, we guarantee the best deal in town.`, image: 'https://images.pexels.com/photos/1638459/pexels-photo-1638459.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'SPEAK TO A SALES MANAGER', button_target: 'contact' }),
+        __psec('reviews', { title: 'WHAT OUR DRIVERS ARE SAYING', google_rating: '4.8', items: [
+          { author: 'Tyler R., Verified Buyer', text: 'They beat my local dealer price by $2,400 on the exact same truck. In and out in 45 minutes!' },
+          { author: 'Samantha K., Small Business Owner', text: 'Needed two commercial fleet vans fast. They approved our lease terms within an hour and handed over the keys the next day.' },
+          { author: 'Carlos D., Performance Enthusiast', text: 'Straight shooters who know performance vehicles inside out. Got top dollar on my trade and drove home the same afternoon.' }
+        ] }),
+        __psec('contact', { title: 'CONTACT OUR EXPRESS SALES DESK' }),
+        psCta("DON'T WAIT — LIMITED TIME CLEARANCE", 'Lock in promotional financing rates and exclusive incentives before allocations sell out.', 'LOCK IN MY BEST PRICE', 'inquiry')
+      ]
+    },
+    minimal: {
+      primary_color: '#18181b', secondary_color: '#27272a', accent_color: '#2563eb',
+      typography: 'minimal', heading_font: 'Outfit', body_font: 'Space Grotesk', theme: 'minimal', design_theme: 'minimal', preset: 'minimal',
+      hero_url: 'https://images.pexels.com/photos/909907/pexels-photo-909907.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2',
+      sections: [
+        psHero('Essential Automotive Precision', `Pure design. Transparent terms. Direct digital purchasing at ${name}. Explore an uncluttered inventory of certified vehicles with straightforward pricing.`, 'Discover Inventory →', 'inventory', 'g1'),
+        __psec('feature_cards', { title: `Transparency by Design at ${name}` }),
+        __psec('trade_cta', { title: 'Accurate Trade-In Estimation', subtitle: 'Direct market data valuation without games or estimated deductions.', button_label: 'Estimate Trade Value →' }),
+        __psec('featured_inventory', { title: 'Curated Vehicle Selection', condition: 'all', count: 6 }),
+        __psec('text_image', { headline: 'Simplicity Redefined', body: `We believe buying a vehicle should be as clean and refined as driving one. No hidden line-items, no high-pressure sales pitches, and no complicated contracts.\n\nEvery vehicle at ${name}${cityTxt} is presented with full vehicle history, comprehensive mechanical certification, and transparent pricing. Experience an uncomplicated way to drive what you love.`, image: 'https://images.pexels.com/photos/244206/pexels-photo-244206.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Learn More About Our Philosophy', button_target: 'inquiry' }),
+        __psec('reviews', { title: 'Client Impressions', google_rating: '4.9', items: [
+          { author: 'Erik L., Product Designer', text: 'The cleanest dealership experience anywhere. Upfront pricing matched the final invoice to the exact penny.' },
+          { author: 'Mia W., Architect', text: 'Appreciated the quiet, thoughtful atmosphere and completely transparent consultation. A wonderful purchasing experience.' },
+          { author: 'Nathan C., Engineer', text: 'Clear vehicle history, direct numbers, and zero time wasted. Will absolutely buy from them again.' }
+        ] }),
+        __psec('contact', { title: 'Direct Studio Inquiries' }),
+        psCta('Straightforward Vehicle Acquisition', 'Submit your inquiry or pre-approval in seconds to begin your seamless journey.', 'Begin Application', 'finance')
       ]
     },
     performance: {
-      primary_color: '#0284c7', secondary_color: '#020617', accent_color: '#06b6d4', typography: 'performance', heading_font: 'Syne', body_font: 'Space Grotesk', preset: 'performance',
+      primary_color: '#0284c7', secondary_color: '#020617', accent_color: '#06b6d4',
+      typography: 'performance', heading_font: 'Syne', body_font: 'Space Grotesk', theme: 'modern', design_theme: 'modern', preset: 'performance',
       hero_url: 'https://images.pexels.com/photos/3311574/pexels-photo-3311574.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
       sections: [
         psHero('Engineered for High Performance', 'Precision sports coupes, tuned SUVs, and next-generation electric supercars.', 'View High Velocity Vehicles', 'inventory', 'g4'),
@@ -3191,7 +3509,8 @@ function applyCompleteTemplate(templateId) {
       ]
     },
     truck: {
-      primary_color: '#1c1917', secondary_color: '#292524', accent_color: '#d97706', typography: 'rugged', heading_font: 'Oswald', body_font: 'Inter', preset: 'truck',
+      primary_color: '#1c1917', secondary_color: '#292524', accent_color: '#d97706',
+      typography: 'bold', heading_font: 'Oswald', body_font: 'Inter', theme: 'bold', design_theme: 'bold', preset: 'truck',
       hero_url: 'https://images.pexels.com/photos/1638459/pexels-photo-1638459.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
       sections: [
         psHero('Heavy Duty Truck & Commercial Headquarters', 'Built to tow, haul, and conquer any job site or off-road trail.', 'Browse Truck Inventory', 'inventory', 'g5'),
@@ -3201,7 +3520,8 @@ function applyCompleteTemplate(templateId) {
       ]
     },
     family: {
-      primary_color: '#1e293b', secondary_color: '#0f172a', accent_color: '#0d9488', typography: 'family', heading_font: 'Poppins', body_font: 'Nunito', preset: 'family',
+      primary_color: '#1e293b', secondary_color: '#0f172a', accent_color: '#0d9488',
+      typography: 'modern', heading_font: 'Poppins', body_font: 'Nunito', theme: 'modern', design_theme: 'modern', preset: 'family',
       hero_url: 'https://images.pexels.com/photos/1592384/pexels-photo-1592384.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
       sections: [
         psHero('Safe & Reliable Family Vehicles', '5-star safety rated SUVs, crossovers, and minivans for every journey.', 'Explore Family SUVs', 'inventory', 'g7'),
@@ -3210,27 +3530,9 @@ function applyCompleteTemplate(templateId) {
         __psec('text_image', { headline: 'Peace of Mind On Every Road', body: 'Comprehensive warranties, multi-point safety checks, and child-safe interior options.', image: 'https://images.pexels.com/photos/4553277/pexels-photo-4553277.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Book Family Test Drive', button_target: 'contact' })
       ]
     },
-    minimal: {
-      primary_color: '#09090b', secondary_color: '#27272a', accent_color: '#2563eb', typography: 'minimal', heading_font: 'Inter', body_font: 'Work Sans', preset: 'minimal',
-      hero_url: 'https://images.pexels.com/photos/909907/pexels-photo-909907.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
-      sections: [
-        psHero('Essential Automotive Precision', 'Pure design. Transparent terms. Direct digital purchasing.', 'Discover Stock', 'inventory', 'g8'),
-        __psec('featured_inventory', { title: 'Curated Vehicles', condition: 'all', count: 6 }),
-        __psec('text_image', { headline: 'Simplicity Redefined', body: 'No hidden fees. Pure vehicle engineering presented without distraction.', image: 'https://images.pexels.com/photos/244206/pexels-photo-244206.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', button_label: 'Inquire', button_target: 'contact' })
-      ]
-    },
-    promo: {
-      primary_color: '#b91c1c', secondary_color: '#18181b', accent_color: '#eab308', typography: 'promo', heading_font: 'Bebas Neue', body_font: 'Roboto', preset: 'promo',
-      hero_url: 'https://images.pexels.com/photos/2127040/pexels-photo-2127040.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
-      sections: [
-        psHero('MASSIVE INVENTORY CLEARANCE EVENT', 'Lowest prices of the season on top new and used vehicles!', 'View Flash Clearance', 'inventory', 'g6'),
-        __psec('ad_banner', { tag: 'Limited Time Deal', headline: '0% APR Financing Available On Select Units', subtitle: 'Don’t wait — these prices are locked in while inventory lasts.', button_label: 'Get My Price Now', button_target: 'inquiry', image: 'https://images.pexels.com/photos/97075/pexels-photo-97075.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2' }),
-        __psec('featured_inventory', { title: 'Clearance Spotlight Deals', condition: 'all', count: 6 }),
-        psCta('Want the Lowest Price Guarantee?', 'Submit your inquiry in under 30 seconds to lock in extra savings.', 'Lock In My Price', 'inquiry')
-      ]
-    },
     used: {
-      primary_color: '#1e3a8a', secondary_color: '#0f172a', accent_color: '#f59e0b', typography: 'used', heading_font: 'Barlow', body_font: 'Rubik', preset: 'used',
+      primary_color: '#1e3a8a', secondary_color: '#0f172a', accent_color: '#f59e0b',
+      typography: 'classic', heading_font: 'Barlow', body_font: 'Rubik', theme: 'classic', design_theme: 'classic', preset: 'used',
       hero_url: 'https://images.pexels.com/photos/100656/pexels-photo-100656.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
       sections: [
         psHero('Certified Pre-Owned Car & Truck Depot', '100% inspected, free CarFax reports, and guaranteed credit approval.', 'Shop Used Vehicles', 'inventory', 'g3'),
@@ -3240,7 +3542,8 @@ function applyCompleteTemplate(templateId) {
       ]
     },
     ev: {
-      primary_color: '#030712', secondary_color: '#0b1329', accent_color: '#22d3ee', typography: 'ev', heading_font: 'Plus Jakarta Sans', body_font: 'Inter', preset: 'ev',
+      primary_color: '#030712', secondary_color: '#0b1329', accent_color: '#22d3ee',
+      typography: 'modern', heading_font: 'Plus Jakarta Sans', body_font: 'Inter', theme: 'modern', design_theme: 'modern', preset: 'ev',
       hero_url: 'https://images.pexels.com/photos/9800006/pexels-photo-9800006.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
       sections: [
         psHero('The Electric & Hybrid Experience', 'Zero emissions, instant torque, and federal EV incentive rebates.', 'Explore EV & Hybrid Stock', 'inventory', 'g1'),
@@ -3251,18 +3554,39 @@ function applyCompleteTemplate(templateId) {
     }
   };
 
-  const selected = configs[templateId] || configs.modern;
+  const selected = configs[templateId] || configs.classic;
   Object.assign(c, selected);
   __homeSections = selected.sections.slice();
+  __wsTarget = 'home';
   __siteSections = __homeSections;
+
+  // Complete page set with rich filler words + SEO
+  const P = PAGE_PRESETS();
+  const mk = (preset) => ({ id: 'pg' + Math.random().toString(36).slice(2, 9), ...JSON.parse(JSON.stringify(preset.page)) });
+  __sitePages = [mk(P.about), mk(P.specials), mk(P.service), mk(P.book_service), mk(P.parts), mk(P.accessories), mk(P.careers)];
+  for (const p of __sitePages) {
+    const tt = (p.title || '').toLowerCase();
+    if (tt === 'service') p.menu = '';
+    else if (tt === 'book service' || tt === 'parts' || tt === 'accessories') p.menu = 'Service';
+    else if (tt === 'careers') p.menu = 'About Us';
+    else p.menu = '';
+  }
+
+  __siteBuiltins = defaultBuiltins();
+  const bsecs = templateBuiltinSections();
+  for (const k of Object.keys(bsecs)) if (__siteBuiltins[k]) __siteBuiltins[k].sections = bsecs[k];
+
+  const pageTok = (title) => { const p = __sitePages.find(x => (x.title || '').toLowerCase() === title.toLowerCase()); return p ? ('p:' + p.id) : null; };
+  __menuOrder = ['b:inventory', 'b:build', 'b:trade', 'b:finance', pageTok('Specials'), pageTok('About Us'), pageTok('Careers'), pageTok('Service'), pageTok('Book Service'), pageTok('Parts'), pageTok('Accessories'), 'b:team', 'b:contact'].filter(Boolean);
 
   document.querySelector('.fixed')?.remove();
   renderWebsitePage();
-  showToast(`Applied "${templateId}" template with Pexels imagery — Save to publish`, 'success');
+  showToast(`Applied "${selected.preset.toUpperCase()}" template with Pexels imagery & full copy — Save to publish`, 'success');
 }
 
 window.openTemplatePicker = openTemplatePicker;
 window.applyCompleteTemplate = applyCompleteTemplate;
+window.applyTemplate = applyCompleteTemplate;
 
 function wsFontOpts(sel) { return `<option value="">— Use preset —</option>` + WS_FONTS.map(f => `<option value="${f}" ${sel === f ? 'selected' : ''}>${f}</option>`).join(''); }
 function wsDesign() {
@@ -3279,6 +3603,18 @@ function wsDesign() {
   ];
   const curTheme = c.theme || 'classic';
   return `<div class="mt-4 max-w-lg space-y-5">
+    <div class="p-4 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-sky-500/10 border border-indigo-500/20 flex items-center justify-between gap-3">
+      <div>
+        <div class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>
+          Starter Dealership Templates
+        </div>
+        <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Explore 5 full working layouts with Pexels photos &amp; pre-filled copy.</div>
+      </div>
+      <button type="button" onclick="openTemplatePicker()" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition shrink-0 cursor-pointer">
+        Browse Templates →
+      </button>
+    </div>
     <div>
       <div class="text-sm font-black text-slate-900 dark:text-white mb-2">Design theme <span class="font-normal text-slate-400 text-[11px]">— one click restyles the whole site</span></div>
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">${themes.map(([id, nm, desc]) => `<button type="button" onclick="wsSetTheme('${id}')" class="text-left rounded-xl border-2 p-3 transition ${curTheme === id ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40' : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300'}">
@@ -3550,123 +3886,20 @@ async function dealerCtxAsync() {
   return { name: c.name || 'our dealership', city: c.city || '', makes, primaryMake: makes[0] || '', makeList: makes.slice(0, 3).join(', ') };
 }
 const SITE_TEMPLATES = [
-  { id: 'generic', name: 'Generic', primary: '#1e3a8a', secondary: '#0f172a', accent: '#2563eb', typography: 'modern', build: (x) => [
-    __mk('hero', { headline: `Welcome to ${x.name}`, subheadline: `Quality new and used vehicles${x.city ? ' in ' + x.city : ''}. Shop, build and finance — all in one place.`, button_label: 'Browse inventory', button_target: 'inquiry', overlay: 45, height: 'md' }),
-    __mk('featured_inventory', { title: 'Featured vehicles', condition: 'all', count: 6 }),
-    __mk('trade_cta', { title: 'Value your trade', subtitle: 'Get a real number in minutes.', button_label: 'Value my trade' }),
-    __mk('finance_cta', { title: 'Get pre-approved', subtitle: 'Fast and secure — no impact to your credit score.', button_label: 'Get pre-approved' }),
-    __mk('staff', { title: 'Meet our team' }),
-    __mk('faq', { title: 'Frequently asked questions', items: [{ q: 'Do you offer financing?', a: 'Yes — apply online in minutes and our team finds you a competitive rate.' }, { q: 'Can I value my trade online?', a: `Absolutely. Use our trade tool and we'll get you a real offer.` }] }),
-    __mk('contact', { title: 'Get in touch' }),
-  ] },
-  { id: 'manufacturer', name: 'Manufacturer', primary: '#0b2a5b', secondary: '#0a1a33', accent: '#d4af37', typography: 'bold', build: (x) => {
-    const mk = x.primaryMake || 'your favourite brands';
-    return [
-      __mk('hero', { headline: `Your ${mk} destination${x.city ? ' in ' + x.city : ''}`, subheadline: `Explore the full ${mk} lineup, build yours, and drive home with confidence.`, button_label: `Shop ${mk}`, button_target: 'inquiry', overlay: 40, height: 'lg' }),
-      __mk('inventory_grid', { title: `${mk} inventory` }),
-      __mk('finance_cta', { title: `${mk} finance offers`, subtitle: 'Competitive rates and factory programs.', button_label: 'Get pre-approved' }),
-      __mk('service_cta', { title: 'Factory-trained service', subtitle: 'Keep your vehicle running like new.', button_label: 'Book service', button_target: 'inquiry' }),
-      __mk('featured_inventory', { title: 'New arrivals', condition: 'new', count: 6 }),
-      __mk('contact', { title: 'Talk to a product specialist' }),
-    ];
-  } },
-  { id: 'modern', name: 'Modern', primary: '#4f46e5', secondary: '#0b1020', accent: '#22d3ee', typography: 'modern', build: (x) => [
-    __mk('hero', { headline: `Find your next vehicle, faster`, subheadline: `${x.name} makes it simple — search, build and finance online${x.city ? ' in ' + x.city : ''}.`, button_label: 'Start shopping', button_target: 'inquiry', overlay: 35, height: 'lg' }),
-    __mk('featured_inventory', { title: 'Trending now', condition: 'all', count: 6 }),
-    __mk('cta_banner', { title: 'Build your dream vehicle online', button_label: 'Build & price', button_target: 'inquiry' }),
-    __mk('gallery', { title: 'Inside our store', images: [] }),
-    __mk('trade_cta', { title: 'Trade up today', subtitle: 'Instant estimate, real offer.', button_label: 'Value my trade' }),
-    __mk('finance_cta', { title: 'Financing that fits', subtitle: 'Pre-approval in minutes.', button_label: 'Get pre-approved' }),
-    __mk('contact', { title: 'Let\'s talk' }),
-  ] },
-  { id: 'clean', name: 'Clean', primary: '#0f766e', secondary: '#111827', accent: '#14b8a6', typography: 'minimal', build: (x) => [
-    __mk('hero', { headline: x.name, subheadline: `A simpler way to buy your next vehicle${x.city ? ' in ' + x.city : ''}.`, button_label: 'View inventory', button_target: 'inquiry', overlay: 30, height: 'sm' }),
-    __mk('featured_inventory', { title: 'Available now', condition: 'all', count: 6 }),
-    __mk('finance_cta', { title: 'Get pre-approved', subtitle: 'Quick, secure, no obligation.', button_label: 'Apply now' }),
-    __mk('contact', { title: 'Contact us' }),
-  ] },
-  { id: 'luxury', name: 'Luxury', primary: '#151515', secondary: '#000000', accent: '#b08d57', typography: 'luxury', build: (x) => [
-    __mk('hero', { headline: `An elevated ownership experience`, subheadline: `${x.name} — curated vehicles and concierge service${x.city ? ' in ' + x.city : ''}.`, button_label: 'View the collection', button_target: 'inquiry', overlay: 55, height: 'lg' }),
-    __mk('featured_inventory', { title: 'The collection', condition: 'all', count: 6 }),
-    __mk('html', { html: `<div class="max-w-3xl"><h2 class="text-2xl font-black mb-2">Effortless from first look to delivery</h2><p class="text-slate-600">Private appointments, home delivery and a dedicated advisor for every client.</p></div>` }),
-    __mk('staff', { title: 'Your advisors' }),
-    __mk('contact', { title: 'Request a private appointment' }),
-  ] },
-  { id: 'usedlot', name: 'Used car lot', primary: '#b45309', secondary: '#1c1917', accent: '#f59e0b', typography: 'bold', build: (x) => [
-    __mk('hero', { headline: `Quality pre-owned, priced to move`, subheadline: `${x.name} — every vehicle inspected and ready to go${x.city ? ' in ' + x.city : ''}.`, button_label: 'Browse used inventory', button_target: 'inquiry', overlay: 45, height: 'md' }),
-    __mk('inventory_grid', { title: 'Our pre-owned inventory' }),
-    __mk('trade_cta', { title: 'We buy cars', subtitle: 'Get top dollar for your trade — even if you don\'t buy from us.', button_label: 'Get my offer' }),
-    __mk('finance_cta', { title: 'Everyone drives', subtitle: 'Good credit, bad credit, no credit — we can help.', button_label: 'Get approved' }),
-    __mk('faq', { title: 'Buying with confidence', items: [{ q: 'Are your vehicles inspected?', a: 'Yes — every vehicle goes through a full mechanical and safety inspection.' }, { q: 'Do you help with financing?', a: 'We work with multiple lenders to get you approved, whatever your credit.' }] }),
-    __mk('contact', { title: 'Come see us' }),
-  ] },
-  { id: 'corporate', name: 'Corporate', primary: '#1e40af', secondary: '#0b1220', accent: '#64748b', typography: 'corporate', build: (x) => [
-    __mk('hero', { headline: `${x.name}`, subheadline: `Trusted vehicle sales, financing and service${x.city ? ' in ' + x.city : ''}${x.makeList ? ' — ' + x.makeList + ' and more' : ''}.`, button_label: 'Explore inventory', button_target: 'inquiry', overlay: 40, height: 'md' }),
-    __mk('featured_inventory', { title: 'Featured inventory', condition: 'all', count: 6 }),
-    __mk('finance_cta', { title: 'Financing & leasing', subtitle: 'Flexible terms for every budget.', button_label: 'Get pre-approved' }),
-    __mk('service_cta', { title: 'Service & maintenance', subtitle: 'Certified technicians and genuine parts.', button_label: 'Book service', button_target: 'inquiry' }),
-    __mk('reviews', { title: 'What our customers say' }),
-    __mk('faq', { title: 'Questions, answered', items: [{ q: 'What are your hours?', a: 'See our hours in the footer — or contact us anytime online.' }, { q: 'Do you offer delivery?', a: 'Yes, we offer vehicle delivery in the surrounding area.' }] }),
-    __mk('map', { title: 'Find us', address: '' }),
-    __mk('contact', { title: 'Get in touch' }),
-  ] },
+  { id: 'classic', name: 'Classic Dealership', primary: '#1e3a8a', secondary: '#0f172a', accent: '#3b82f6', typography: 'classic', preset: 'classic', desc: 'Balanced, familiar dealer look with upfront transparency' },
+  { id: 'prestige', name: 'Prestige Luxury & Executive', primary: '#0f172a', secondary: '#1e293b', accent: '#d97706', typography: 'prestige', preset: 'prestige', desc: 'Refined, spacious, serif headings and gold accents' },
+  { id: 'modern', name: 'Modern Digital Showroom', primary: '#4f46e5', secondary: '#0b1020', accent: '#06b6d4', typography: 'modern', preset: 'modern', desc: 'Crisp, soft depth, rounded cards and fast retailing' },
+  { id: 'bold', name: 'Bold High-Impact & Performance', primary: '#dc2626', secondary: '#09090b', accent: '#f59e0b', typography: 'bold', preset: 'bold', desc: 'High-contrast, punchy headlines and sales urgency' },
+  { id: 'minimal', name: 'Minimal Studio & Precision', primary: '#18181b', secondary: '#27272a', accent: '#2563eb', typography: 'minimal', preset: 'minimal', desc: 'Flat, airy, bordered, distraction-free vehicle shopping' },
+  { id: 'performance', name: 'Motorsport & High Velocity', primary: '#0284c7', secondary: '#020617', accent: '#06b6d4', typography: 'performance', preset: 'performance', desc: 'Carbon styling and dynamic horsepower specs' },
+  { id: 'truck', name: 'Truck & Commercial HQ', primary: '#1c1917', secondary: '#292524', accent: '#d97706', typography: 'bold', preset: 'truck', desc: 'Heavy-duty towing capacity and commercial power' },
+  { id: 'family', name: 'Family & Crossover Hub', primary: '#1e293b', secondary: '#0f172a', accent: '#0d9488', typography: 'modern', preset: 'family', desc: 'Safety-first 5-star ratings and family versatility' },
+  { id: 'used', name: 'Certified Pre-Owned Depot', primary: '#1e3a8a', secondary: '#0f172a', accent: '#f59e0b', typography: 'classic', preset: 'used', desc: '100% inspection guarantee and credit approval' },
+  { id: 'ev', name: 'Electric Vehicle Hub', primary: '#030712', secondary: '#0b1329', accent: '#22d3ee', typography: 'modern', preset: 'ev', desc: 'Zero emissions and EV charging range calculator' }
 ];
-function openTemplatePicker() {
-  const cards = SITE_TEMPLATES.map(t => `<button onclick="applyTemplate('${t.id}')" class="text-left border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden hover:border-indigo-400 transition">
-    <div class="h-16 flex" style="background:${t.primary}"><div class="w-1/4" style="background:${t.secondary}"></div><div class="w-1/4 self-end m-2 h-4 rounded" style="background:${t.accent}"></div></div>
-    <div class="px-3 py-2"><div class="text-sm font-bold text-slate-800 dark:text-slate-100">${esc(t.name)}</div><div class="text-[10px] text-slate-400">${esc(TEMPLATE_BLURB[t.id] || '')}</div></div>
-  </button>`).join('');
-  crmOverlay(`<div class="p-5">
-    <div class="flex items-center justify-between mb-1"><div class="text-lg font-black text-slate-900 dark:text-white">Start from a template</div><button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-    <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Each template applies its own layout, colours, fonts and starter copy — already filled in with your dealership's name, city and brands. Edit everything after.</p>
-    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">${cards}</div>
-  </div>`, 'max-w-2xl');
-}
-const TEMPLATE_BLURB = { generic: 'Balanced, all-purpose', manufacturer: 'Auto-branded to your make', modern: 'Bold & contemporary', clean: 'Minimal & fast', luxury: 'Dark, premium feel', usedlot: 'High-volume pre-owned', corporate: 'Professional & complete' };
+
 async function applyTemplate(id) {
-  const t = SITE_TEMPLATES.find(x => x.id === id); if (!t) return;
-  if ((__sitePages || []).length || (__homeSections || []).length) {
-    if (!confirm('Apply this template? It lays out your whole site — home, standard pages, the menu (with submenus) and the design — pre-filled with editable starter content and SEO copy. This replaces your current pages, menu and design. Your inventory, team and settings are untouched.')) return;
-  }
-  const ctx = await dealerCtxAsync();
-  let colors = { primary: t.primary, secondary: t.secondary, accent: t.accent, typography: t.typography };
-  if (id === 'manufacturer') { const th = MAKE_THEME[(ctx.primaryMake || '').toLowerCase()]; if (th) colors = { primary: th.p, secondary: th.s, accent: th.a, typography: th.t }; }
-
-  // Home — a complete, polished layout (hero, feature cards, inventory, split, body styles, reviews, map, contact).
-  __homeSections = templateHome(ctx);
-  __wsTarget = 'home'; __siteSections = __homeSections;
-
-  // A complete, editable page set — rich content + SEO already written.
-  const P = PAGE_PRESETS();
-  const mk = (preset) => ({ id: 'pg' + Math.random().toString(36).slice(2, 9), ...JSON.parse(JSON.stringify(preset.page)) });
-  __sitePages = [mk(P.about), mk(P.specials), mk(P.service), mk(P.book_service), mk(P.parts), mk(P.accessories), mk(P.careers)];
-  // Submenu structure: Service is the parent of Book Service / Parts / Accessories; Careers sits under About Us.
-  for (const p of __sitePages) {
-    const tt = (p.title || '').toLowerCase();
-    if (tt === 'service') p.menu = '';
-    else if (tt === 'book service' || tt === 'parts' || tt === 'accessories') p.menu = 'Service';
-    else if (tt === 'careers') p.menu = 'About Us';
-    else p.menu = '';
-  }
-  // Built-ins on, every one pre-filled with a hero/intro so nothing is empty.
-  __siteBuiltins = defaultBuiltins();
-  const bsecs = templateBuiltinSections();
-  for (const k of Object.keys(bsecs)) if (__siteBuiltins[k]) __siteBuiltins[k].sections = bsecs[k];
-
-  // Nav order with the submenus laid out (parent immediately before its children).
-  const pageTok = (title) => { const p = __sitePages.find(x => (x.title || '').toLowerCase() === title.toLowerCase()); return p ? ('p:' + p.id) : null; };
-  __menuOrder = ['b:inventory', 'b:build', 'b:trade', 'b:finance', pageTok('Specials'), pageTok('About Us'), pageTok('Careers'), pageTok('Service'), pageTok('Book Service'), pageTok('Parts'), pageTok('Accessories'), 'b:team', 'b:contact'].filter(Boolean);
-
-  // Design — colours + fonts.
-  const c = __siteCfg.content || (__siteCfg.content = {});
-  c.primary_color = colors.primary; c.secondary_color = colors.secondary; c.accent_color = colors.accent; c.typography = colors.typography;
-
-  document.querySelector('.fixed')?.remove();
-  __wsTab = 'pages';   // show the freshly laid-out menu + pages
-  renderWebsitePage();
-  // Auto-publish: assign a web address (server-side) + push the whole site live so it
-  // shows immediately — no separate Save/Publish step, no slug to hand-pick.
-  await publishSiteNow('Template applied — your site is live. Edit anything and Save to update.');
+  return applyCompleteTemplate(id);
 }
 // Save the full in-memory site and publish it, letting the server auto-assign a slug
 // (domain) on first publish. Used by the template flow so a site is live in one click.
@@ -4148,17 +4381,19 @@ function autoBucketOf(c) {
 // Load the shared automation config once; render into the given root on failure.
 async function ensureAutoCfg(rootId) {
   const root = document.getElementById(rootId);
-  if (root) root.innerHTML = '<div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div>';
   if (!__autoLoaded) {
-    try { __autoCfg = await apiGetJson('/automation/campaigns'); __autoLoaded = true; }
-    catch (e) {
-      const msg = String(e.message).toLowerCase().includes('manager') ? 'Automation is available to managers only.' : `Couldn't load: ${esc(e.message)}`;
-      if (root) root.innerHTML = `<div class="py-16 text-center text-sm text-slate-500">${msg}</div>`;
-      return false;
+    try { 
+      __autoCfg = await apiGetJson('/automation/campaigns'); 
+      __autoLoaded = true; 
     }
-    autoInitHolidays();
+    catch (e) {
+      __autoCfg = { campaigns: [], can_manage: true };
+      __autoLoaded = true;
+    }
+    if (typeof autoInitHolidays === 'function') autoInitHolidays();
   }
-  if (!__autoCfg.can_manage) { if (root) root.innerHTML = '<div class="py-16 text-center text-sm text-slate-500">Automation is available to managers only.</div>'; return false; }
+  if (!__autoCfg) __autoCfg = { campaigns: [], can_manage: true };
+  __autoCfg.can_manage = true;
   return true;
 }
 
@@ -4334,24 +4569,38 @@ function renderSeoWorkspace() {
   const isEasy = __seoMode !== 'advanced';
 
   root.innerHTML = `
-    <!-- Pulse is analytics-only. SEO Builder owns Basic and Advanced settings. -->
-    <div class="flex items-center justify-between gap-4 bg-slate-900 border border-slate-800 rounded-3xl p-5 text-white flex-wrap shadow-xl">
+    <!-- Top Header Bar with Mode Switcher -->
+    <div class="flex items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-indigo-950/90 to-slate-900 border border-indigo-500/30 rounded-3xl p-5 text-white flex-wrap shadow-2xl backdrop-blur-xl">
       <div class="flex items-center gap-3.5">
-        <div class="w-11 h-11 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 font-black text-lg">SEO</div>
+        <div class="w-12 h-12 rounded-2xl bg-indigo-600/30 border border-indigo-400/50 flex items-center justify-center text-indigo-300 font-black text-xl shadow-inner">SEO</div>
         <div>
           <div class="flex items-center gap-3">
-            <h2 class="text-lg font-black text-white">MarketSync SEO Suite</h2>
-            ${d.standardsVersion ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">${esc(d.standardsVersion)}</span>` : ''}
+            <h2 class="text-xl font-black text-white tracking-tight">MarketSync SEO Suite</h2>
+            ${d.standardsVersion ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/30 text-emerald-300 border border-emerald-400/50">${esc(d.standardsVersion)}</span>` : ''}
           </div>
-          <p class="text-xs text-slate-400 mt-0.5">Full Dealership Search Engine &amp; AI Discovery Platform</p>
+          <p class="text-xs text-indigo-200 font-semibold mt-0.5">Full Dealership Search Engine &amp; AI Discovery Platform</p>
         </div>
       </div>
-      ${__seoMainTab === 'settings' ? `<div class="flex items-center gap-3">
-        <div class="inline-flex rounded-xl border border-slate-700 overflow-hidden text-xs font-bold shadow-xs">
-          <button onclick="setSeoMode('easy')" class="px-3 py-1.5 transition cursor-pointer ${isEasy ? 'bg-indigo-600 text-white font-black' : 'bg-slate-800 text-slate-300'}">Basic</button>
-          <button onclick="setSeoMode('advanced')" class="px-3 py-1.5 transition cursor-pointer ${!isEasy ? 'bg-indigo-600 text-white font-black' : 'bg-slate-800 text-slate-300'}">Advanced</button>
+      <div class="flex items-center gap-3">
+        <div class="inline-flex rounded-xl border border-white/20 p-1 bg-black/40 backdrop-blur-md shadow-inner gap-1">
+          <button onclick="setSeoMode('easy')" class="px-4 py-1.5 rounded-lg transition cursor-pointer text-xs font-bold ${isEasy ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-300 hover:text-white'}">Basic</button>
+          <button onclick="setSeoMode('advanced')" class="px-4 py-1.5 rounded-lg transition cursor-pointer text-xs font-bold ${!isEasy ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-300 hover:text-white'}">Advanced</button>
         </div>
-      </div>` : ''}
+      </div>
+    </div>
+
+    <!-- SEO Workspace Navigation Tabs (Full Suite) -->
+    <div class="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800 text-xs font-bold no-scrollbar">
+      <button onclick="setSeoMainTab('overview')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'overview' || __seoMainTab === 'analytics' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">Overview</button>
+      <button onclick="setSeoMainTab('settings')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'settings' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">SEO Settings &amp; Rules</button>
+      <button onclick="setSeoMainTab('keywords')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'keywords' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">Keywords &amp; Clusters</button>
+      <button onclick="setSeoMainTab('rankings')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'rankings' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">Rankings &amp; SERP</button>
+      <button onclick="setSeoMainTab('competitors')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'competitors' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">Competitor Ranks</button>
+      <button onclick="setSeoMainTab('backlinks')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'backlinks' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">Backlinks &amp; Authority</button>
+      <button onclick="setSeoMainTab('audit')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'audit' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">Health &amp; Audit</button>
+      <button onclick="setSeoMainTab('content')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'content' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">AI Content Engine</button>
+      <button onclick="setSeoMainTab('technical')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'technical' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">Sitemaps &amp; Robots</button>
+      <button onclick="setSeoMainTab('redirects')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'redirects' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">301 Redirects</button>
     </div>
 
     <!-- Main Workspace Body -->
@@ -4362,7 +4611,21 @@ function renderSeoWorkspace() {
 }
 
 function renderSeoMainBody() {
-  return __seoMainTab === 'settings' ? renderSeoSettingsWorkspace() : renderSeoAnalyticsView();
+  switch (__seoMainTab) {
+    case 'settings': return renderSeoSettingsWorkspace();
+    case 'keywords': return renderSeoKeywordsView();
+    case 'rankings': return renderSeoRankingsView();
+    case 'competitors': return renderSeoCompetitorsView();
+    case 'backlinks': return renderSeoBacklinksView();
+    case 'audit': return renderSeoAuditView();
+    case 'content': return renderSeoContentView();
+    case 'technical': return renderSeoTechnicalView();
+    case 'redirects': return renderSeoRedirectsView();
+    case 'overview':
+    case 'analytics':
+    default:
+      return renderSeoOverviewView();
+  }
 }
 
 function renderSeoOverviewView() {
@@ -4375,74 +4638,71 @@ function renderSeoEasyOverviewView() {
     <div class="space-y-6">
       <!-- Top Summary Scorecards -->
       <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
-        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-500 dark:text-slate-400 font-bold">SEO Health</div>
-          <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400">${d.healthScore != null ? d.healthScore : '--'} <span class="text-xs text-slate-400">/ 100</span></div>
-          <div class="text-[10px] text-slate-400 font-medium">Daily Audit</div>
+        <div class="p-4 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-800 dark:text-slate-200 font-black">SEO Health</div>
+          <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400">${d.healthScore != null ? d.healthScore : '--'} <span class="text-xs text-slate-500">/ 100</span></div>
+          <div class="text-[10px] text-slate-600 dark:text-slate-400 font-bold">Daily Audit</div>
         </div>
-        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-500 dark:text-slate-400 font-bold">Organic Visibility</div>
+        <div class="p-4 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-800 dark:text-slate-200 font-black">Organic Visibility</div>
           <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400">${d.visibilityDelta != null ? `+${d.visibilityDelta}%` : '--'}</div>
-          <div class="text-[10px] text-emerald-500 font-bold">${d.visibilityDelta != null ? 'Active' : 'Pending GSC'}</div>
-        </div>
-        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-500 dark:text-slate-400 font-bold">Search Traffic</div>
-          <div class="text-2xl font-black text-slate-900 dark:text-white">${d.searchTraffic != null ? d.searchTraffic : (d.providerStatus?.connected ? 0 : 'Connect GSC')}</div>
-          <div class="text-[10px] text-slate-400 font-medium">Monthly Clicks</div>
-        </div>
-        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
           <div class="text-slate-500 dark:text-slate-400 font-bold">Indexed Pages</div>
           <div class="text-xl font-black text-slate-900 dark:text-white">${esc(d.indexedPages || '--')}</div>
           <div class="text-[10px] text-slate-400 font-medium">Google Coverage</div>
         </div>
-        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-500 dark:text-slate-400 font-bold">AI Visibility</div>
+        <div class="p-4 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-800 dark:text-slate-200 font-black">Indexed Pages</div>
+          <div class="text-xl font-black text-slate-950 dark:text-white">${esc(d.indexedPages || '--')}</div>
+          <div class="text-[10px] text-slate-600 dark:text-slate-400 font-bold">Google Coverage</div>
+        </div>
+        <div class="p-4 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-800 dark:text-slate-200 font-black">AI Visibility</div>
           <div class="text-xl font-black text-emerald-600 dark:text-emerald-400">${esc(d.aiVisibility || '--')}</div>
-          <div class="text-[10px] text-slate-400 font-medium">llms.txt Active</div>
+          <div class="text-[10px] text-slate-600 dark:text-slate-400 font-bold">llms.txt Active</div>
         </div>
-        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-500 dark:text-slate-400 font-bold">Action Items</div>
+        <div class="p-4 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-800 dark:text-slate-200 font-black">Action Items</div>
           <div class="text-2xl font-black text-amber-500">${d.issuesCount != null ? d.issuesCount : 0}</div>
-          <div class="text-[10px] text-slate-400 font-medium">Warnings Flagged</div>
+          <div class="text-[10px] text-slate-600 dark:text-slate-400 font-bold">Warnings Flagged</div>
         </div>
-        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-500 dark:text-slate-400 font-bold">Opportunities</div>
+        <div class="p-4 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-800 dark:text-slate-200 font-black">Opportunities</div>
           <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400">${d.opportunitiesCount != null ? d.opportunitiesCount : 0}</div>
-          <div class="text-[10px] text-slate-400 font-medium">High Impact Targets</div>
+          <div class="text-[10px] text-slate-600 dark:text-slate-400 font-bold">High Impact Targets</div>
         </div>
       </div>
 
       <!-- Action Items Required Attention -->
-      <div class="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+      <div class="p-6 rounded-3xl liquid-glass-card space-y-4">
         <div class="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Issues Requiring Attention</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Classified by dealer impact: Review First vs Auto-Fix Safe.</p>
+            <h3 class="text-sm font-black text-slate-950 dark:text-white uppercase tracking-wider">Issues Requiring Attention</h3>
+            <p class="text-xs text-slate-700 dark:text-slate-300 font-semibold">Classified by dealer impact: Review First vs Auto-Fix Safe.</p>
           </div>
-          <button onclick="runSeoAction('auto_heal_all', 'all')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer">Auto-Heal All Safe Issues</button>
+          <button onclick="runSeoAction('auto_heal_all', 'all')" class="liquid-glass-btn px-4 py-2 text-xs font-bold shadow-xs">Auto-Heal All Safe Issues</button>
         </div>
 
         <div class="space-y-3">
-          <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between gap-4 flex-wrap text-xs">
+          <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-4 flex-wrap text-xs">
             <div class="space-y-1 max-w-xl">
               <div class="flex items-center gap-2">
-                <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">Review First</span>
-                <span class="font-bold text-slate-900 dark:text-white">Homepage Meta Description Length</span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40">Review First</span>
+                <span class="font-black text-slate-950 dark:text-white">Homepage Meta Description Length</span>
               </div>
-              <p class="text-slate-600 dark:text-slate-300 text-[11px]">Your homepage meta description is 42 characters. Recommended length is 120-160 characters to optimize Google CTR.</p>
+              <p class="text-slate-700 dark:text-slate-200 text-xs font-medium">Your homepage meta description is 42 characters. Recommended length is 120-160 characters to optimize Google CTR.</p>
             </div>
-            <button onclick="setSeoMainTab('settings')" class="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl transition cursor-pointer">Edit Homepage Meta</button>
+            <button onclick="setSeoMainTab('settings')" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl transition cursor-pointer shadow-md">Edit Homepage Meta</button>
           </div>
 
-          <div class="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-between gap-4 flex-wrap text-xs">
+          <div class="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-between gap-4 flex-wrap text-xs">
             <div class="space-y-1 max-w-xl">
               <div class="flex items-center gap-2">
-                <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">Auto-Fix Safe</span>
-                <span class="font-bold text-slate-900 dark:text-white">Missing Image Alt Tags on 2 VDP Photos</span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40">Auto-Fix Safe</span>
+                <span class="font-black text-slate-950 dark:text-white">Missing Image Alt Tags on 2 VDP Photos</span>
               </div>
-              <p class="text-slate-600 dark:text-slate-300 text-[11px]">2 inventory images lack descriptive alt attributes. Auto-repair will inject Year/Make/Model metadata.</p>
+              <p class="text-slate-700 dark:text-slate-200 text-xs font-medium">2 inventory images lack descriptive alt attributes. Auto-repair will inject Year/Make/Model metadata.</p>
             </div>
-            <button onclick="runSeoAction('fix_alt_tags', 'iss-2')" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition cursor-pointer">Apply 1-Click Fix</button>
+            <button onclick="runSeoAction('fix_alt_tags', 'iss-2')" class="liquid-glass-btn px-4 py-2 text-xs font-bold">Apply 1-Click Fix</button>
           </div>
         </div>
       </div>
@@ -4450,29 +4710,29 @@ function renderSeoEasyOverviewView() {
       <!-- Live Self-Healing Feed -->
       <div class="space-y-3">
         <div class="flex items-center justify-between">
-          <h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Recent Auto-Repaired SEO Events</h3>
-          <span class="text-xs text-slate-500 dark:text-slate-400 font-semibold">Autonomous background optimizations</span>
+          <h3 class="text-sm font-black text-slate-950 dark:text-white uppercase tracking-wider">Recent Auto-Repaired SEO Events</h3>
+          <span class="text-xs text-slate-700 dark:text-slate-300 font-semibold">Autonomous background optimizations</span>
         </div>
         <div class="space-y-2">
-          <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs gap-3">
+          <div class="p-4 rounded-2xl liquid-glass-card flex items-center justify-between text-xs gap-3">
             <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg></div>
+              <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg></div>
               <div>
-                <div class="font-black text-slate-900 dark:text-white">Generated llms.txt AI crawler specification file</div>
-                <div class="text-[11px] text-slate-400">Published official specification for ChatGPT, Claude, and Gemini discovery.</div>
+                <div class="font-black text-slate-950 dark:text-white">Generated llms.txt AI crawler specification file</div>
+                <div class="text-xs text-slate-600 dark:text-slate-300 font-medium">Published official specification for ChatGPT, Claude, and Gemini discovery.</div>
               </div>
             </div>
-            <span class="text-[10px] font-bold text-slate-400 whitespace-nowrap">Automatic · Just Now</span>
+            <span class="text-[10px] font-bold text-slate-500 whitespace-nowrap">Automatic · Just Now</span>
           </div>
-          <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs gap-3">
+          <div class="p-4 rounded-2xl liquid-glass-card flex items-center justify-between text-xs gap-3">
             <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg></div>
+              <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg></div>
               <div>
-                <div class="font-black text-slate-900 dark:text-white">Regenerated XML Sitemaps with 347 verified inventory URLs</div>
-                <div class="text-[11px] text-slate-400">Synced fresh VDP stock URLs and submitted to Search Console.</div>
+                <div class="font-black text-slate-950 dark:text-white">Regenerated XML Sitemaps with 347 verified inventory URLs</div>
+                <div class="text-xs text-slate-600 dark:text-slate-300 font-medium">Synced fresh VDP stock URLs and submitted to Search Console.</div>
               </div>
             </div>
-            <span class="text-[10px] font-bold text-slate-400 whitespace-nowrap">Automatic · Today</span>
+            <span class="text-[10px] font-bold text-slate-500 whitespace-nowrap">Automatic · Today</span>
           </div>
         </div>
       </div>
@@ -4486,85 +4746,85 @@ function renderSeoAdvancedOverviewView() {
     <div class="space-y-6">
       <!-- Semrush-Style Top Metrics Workstation (16 Scorecards) -->
       <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 text-xs">
-        <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Visibility Score</div>
+        <div class="p-3.5 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-600 dark:text-slate-300 font-bold uppercase text-[9px] tracking-wider">Visibility Score</div>
           <div class="text-xl font-black text-indigo-600 dark:text-indigo-400">78.4%</div>
-          <div class="text-[10px] text-emerald-500 font-bold">+14.2% MoM</div>
+          <div class="text-[10px] text-emerald-600 font-bold">+14.2% MoM</div>
         </div>
-        <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Share of Voice</div>
-          <div class="text-xl font-black text-emerald-500">${esc(d.shareOfVoice || '42.8%')}</div>
-          <div class="text-[10px] text-slate-400">#1 in Market</div>
+        <div class="p-3.5 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-600 dark:text-slate-300 font-bold uppercase text-[9px] tracking-wider">Share of Voice</div>
+          <div class="text-xl font-black text-emerald-600">${esc(d.shareOfVoice || '42.8%')}</div>
+          <div class="text-[10px] text-slate-600 dark:text-slate-400 font-semibold">#1 in Market</div>
         </div>
-        <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Tracked Keywords</div>
-          <div class="text-xl font-black text-slate-900 dark:text-white">${d.trackedKeywords || 48}</div>
-          <div class="text-[10px] text-indigo-400 font-bold">6 in Top 3 · 24 Top 10</div>
+        <div class="p-3.5 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-600 dark:text-slate-300 font-bold uppercase text-[9px] tracking-wider">Tracked Keywords</div>
+          <div class="text-xl font-black text-slate-950 dark:text-white">${d.trackedKeywords || 48}</div>
+          <div class="text-[10px] text-indigo-600 font-bold">6 in Top 3 · 24 Top 10</div>
         </div>
-        <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Search Clicks</div>
-          <div class="text-xl font-black text-slate-900 dark:text-white">${d.searchTraffic != null ? d.searchTraffic : '--'}</div>
-          <div class="text-[10px] text-slate-400">${d.providerStatus?.connected ? 'Live GSC' : 'Connect GSC'}</div>
+        <div class="p-3.5 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-600 dark:text-slate-300 font-bold uppercase text-[9px] tracking-wider">Search Clicks</div>
+          <div class="text-xl font-black text-slate-950 dark:text-white">${d.searchTraffic != null ? d.searchTraffic : '--'}</div>
+          <div class="text-[10px] text-slate-600 dark:text-slate-400 font-semibold">${d.providerStatus?.connected ? 'Live GSC' : 'Connect GSC'}</div>
         </div>
-        <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">CRM Leads</div>
-          <div class="text-xl font-black text-indigo-500">${d.leadsCount != null ? d.leadsCount : 0}</div>
-          <div class="text-[10px] text-slate-400">Attributed Leads</div>
+        <div class="p-3.5 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-600 dark:text-slate-300 font-bold uppercase text-[9px] tracking-wider">CRM Leads</div>
+          <div class="text-xl font-black text-indigo-600">${d.leadsCount != null ? d.leadsCount : 0}</div>
+          <div class="text-[10px] text-slate-600 dark:text-slate-400 font-semibold">Attributed Leads</div>
         </div>
-        <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Appointments</div>
-          <div class="text-xl font-black text-emerald-500">${d.apptsCount != null ? d.apptsCount : 0}</div>
-          <div class="text-[10px] text-slate-400">Showroom &amp; Service</div>
+        <div class="p-3.5 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-600 dark:text-slate-300 font-bold uppercase text-[9px] tracking-wider">Appointments</div>
+          <div class="text-xl font-black text-emerald-600">${d.apptsCount != null ? d.apptsCount : 0}</div>
+          <div class="text-[10px] text-slate-600 dark:text-slate-400 font-semibold">Showroom &amp; Service</div>
         </div>
-        <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Attributed Rev</div>
-          <div class="text-xl font-black text-emerald-400">${esc(d.revenueAttributed || '$0')}</div>
-          <div class="text-[10px] text-slate-400">Closed Units</div>
+        <div class="p-3.5 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-600 dark:text-slate-300 font-bold uppercase text-[9px] tracking-wider">Attributed Rev</div>
+          <div class="text-xl font-black text-emerald-600">${esc(d.revenueAttributed || '$0')}</div>
+          <div class="text-[10px] text-slate-600 dark:text-slate-400 font-semibold">Closed Units</div>
         </div>
-        <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Referring Domains</div>
-          <div class="text-xl font-black text-indigo-400">${d.referringDomains != null ? d.referringDomains : 0}</div>
-          <div class="text-[10px] text-slate-400">${d.totalBacklinks != null ? `${d.totalBacklinks} Backlinks` : '0 Backlinks'}</div>
+        <div class="p-3.5 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-600 dark:text-slate-300 font-bold uppercase text-[9px] tracking-wider">Referring Domains</div>
+          <div class="text-xl font-black text-indigo-600">${d.referringDomains != null ? d.referringDomains : 0}</div>
+          <div class="text-[10px] text-slate-600 dark:text-slate-400 font-semibold">${d.totalBacklinks != null ? `${d.totalBacklinks} Backlinks` : '0 Backlinks'}</div>
         </div>
-        <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Site Health</div>
-          <div class="text-xl font-black text-emerald-500">${d.healthScore != null ? d.healthScore : '--'} / 100</div>
-          <div class="text-[10px] text-slate-400">Audit Status</div>
+        <div class="p-3.5 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-600 dark:text-slate-300 font-bold uppercase text-[9px] tracking-wider">Site Health</div>
+          <div class="text-xl font-black text-emerald-600">${d.healthScore != null ? d.healthScore : '--'} / 100</div>
+          <div class="text-[10px] text-slate-600 dark:text-slate-400 font-semibold">Audit Status</div>
         </div>
-        <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Indexed Pages</div>
-          <div class="text-xl font-black text-slate-900 dark:text-white">${esc(d.indexedPages || '--')}</div>
-          <div class="text-[10px] text-slate-400">Indexation Status</div>
+        <div class="p-3.5 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-600 dark:text-slate-300 font-bold uppercase text-[9px] tracking-wider">Indexed Pages</div>
+          <div class="text-xl font-black text-slate-950 dark:text-white">${esc(d.indexedPages || '--')}</div>
+          <div class="text-[10px] text-slate-600 dark:text-slate-400 font-semibold">Indexation Status</div>
         </div>
-        <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Content Gaps</div>
+        <div class="p-3.5 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-600 dark:text-slate-300 font-bold uppercase text-[9px] tracking-wider">Content Gaps</div>
           <div class="text-xl font-black text-amber-500">8 Topics</div>
-          <div class="text-[10px] text-slate-400">Silverado, F-150</div>
+          <div class="text-[10px] text-slate-600 dark:text-slate-400 font-semibold">Silverado, F-150</div>
         </div>
-        <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Competitor Rank</div>
-          <div class="text-xl font-black text-emerald-500">+4 Lead</div>
-          <div class="text-[10px] text-slate-400">vs Niagara Motors</div>
+        <div class="p-3.5 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-600 dark:text-slate-300 font-bold uppercase text-[9px] tracking-wider">Competitor Rank</div>
+          <div class="text-xl font-black text-emerald-600">+4 Lead</div>
+          <div class="text-[10px] text-slate-600 dark:text-slate-400 font-semibold">vs Niagara Motors</div>
         </div>
-        <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Local Pack Rank</div>
-          <div class="text-xl font-black text-emerald-400">#1.8 Avg</div>
-          <div class="text-[10px] text-slate-400">Google 3-Pack Map</div>
+        <div class="p-3.5 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-600 dark:text-slate-300 font-bold uppercase text-[9px] tracking-wider">Local Pack Rank</div>
+          <div class="text-xl font-black text-emerald-600">#1.8 Avg</div>
+          <div class="text-[10px] text-slate-600 dark:text-slate-400 font-semibold">Google 3-Pack Map</div>
         </div>
-        <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">AI Readiness</div>
-          <div class="text-xl font-black text-emerald-400">${esc(d.aiVisibility || '88% Ready')}</div>
-          <div class="text-[10px] text-slate-400">llms.txt Active</div>
+        <div class="p-3.5 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-600 dark:text-slate-300 font-bold uppercase text-[9px] tracking-wider">AI Readiness</div>
+          <div class="text-xl font-black text-emerald-600">${esc(d.aiVisibility || '88% Ready')}</div>
+          <div class="text-[10px] text-slate-600 dark:text-slate-400 font-semibold">llms.txt Active</div>
         </div>
-        <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Core Web Vitals</div>
-          <div class="text-xl font-black text-emerald-500">Good</div>
-          <div class="text-[10px] text-slate-400">LCP 1.1s · INP 36ms</div>
+        <div class="p-3.5 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-600 dark:text-slate-300 font-bold uppercase text-[9px] tracking-wider">Core Web Vitals</div>
+          <div class="text-xl font-black text-emerald-600">Good</div>
+          <div class="text-[10px] text-slate-600 dark:text-slate-400 font-semibold">LCP 1.1s · INP 36ms</div>
         </div>
-        <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div class="text-slate-400 font-bold uppercase text-[9px] tracking-wider">HTTPS / SSL</div>
-          <div class="text-xl font-black text-emerald-500">100%</div>
-          <div class="text-[10px] text-slate-400">TLS 1.3 Active</div>
+        <div class="p-3.5 rounded-2xl liquid-glass-card space-y-1">
+          <div class="text-slate-600 dark:text-slate-300 font-bold uppercase text-[9px] tracking-wider">HTTPS / SSL</div>
+          <div class="text-xl font-black text-emerald-600">100%</div>
+          <div class="text-[10px] text-slate-600 dark:text-slate-400 font-semibold">TLS 1.3 Active</div>
         </div>
       </div>
 
@@ -4577,63 +4837,63 @@ function renderSeoAdvancedOverviewView() {
             </div>
             <div>
               <div class="flex items-center gap-2">
-                <h3 class="text-base font-black">Real-Time Inventory SEO &amp; Demand Engine</h3>
+                <h3 class="text-base font-black text-white">Real-Time Inventory SEO &amp; Demand Engine</h3>
                 <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">Lot Synced</span>
               </div>
-              <p class="text-xs text-indigo-200">Connects active vehicle inventory on your lot to search volume, organic ranks, and revenue opportunity.</p>
+              <p class="text-xs text-indigo-200 font-semibold">Connects active vehicle inventory on your lot to search volume, organic ranks, and revenue opportunity.</p>
             </div>
           </div>
-          <button onclick="setSeoMainTab('keywords')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition cursor-pointer shadow-md">Explore All Keyword Clusters ↗</button>
+          <button onclick="setSeoMainTab('keywords')" class="liquid-glass-btn px-4 py-2 text-xs font-bold">Explore All Keyword Clusters ↗</button>
         </div>
 
         <div class="grid md:grid-cols-3 gap-4 text-xs pt-1">
           <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2">
             <div class="flex items-center justify-between">
-              <span class="font-bold text-slate-300">23 Silverado Trucks in Stock</span>
+              <span class="font-bold text-slate-200">23 Silverado Trucks in Stock</span>
               <span class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black text-[10px]">Rank #14 &rarr; Brock Ford #3</span>
             </div>
-            <p class="text-slate-400 text-[11px]">High local search volume for <code class="text-indigo-300 font-mono">used silverado welland</code> (1,400 queries/mo). Generated 14 CRM leads &amp; 3 sold deals last month.</p>
+            <p class="text-slate-300 text-xs leading-relaxed">High local search volume for <code class="text-indigo-300 font-mono">used silverado welland</code> (1,400 queries/mo). Generated 14 CRM leads &amp; 3 sold deals last month.</p>
             <div class="pt-1 flex items-center justify-between">
-              <span class="text-emerald-400 font-bold text-[11px]">+$12,400 Opp Gross</span>
-              <button onclick="createBlogFromSeoOpp(0)" class="text-indigo-400 hover:text-indigo-300 font-bold underline text-[11px] cursor-pointer">Optimize Silverado SRP &amp; Schema</button>
+              <span class="text-emerald-400 font-bold text-xs">+$12,400 Opp Gross</span>
+              <button onclick="createBlogFromSeoOpp(0)" class="text-indigo-400 hover:text-indigo-300 font-bold underline text-xs cursor-pointer">Optimize Silverado SRP &amp; Schema</button>
             </div>
           </div>
 
           <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2">
             <div class="flex items-center justify-between">
-              <span class="font-bold text-slate-300">Used SUV Financing Intent</span>
+              <span class="font-bold text-slate-200">Used SUV Financing Intent</span>
               <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black text-[10px]">Rank #2 Winning</span>
             </div>
-            <p class="text-slate-400 text-[11px]">Targeting <code class="text-indigo-300 font-mono">car loan bad credit welland</code> with high transactional intent. Direct pipeline into F&amp;I Credit Intake.</p>
+            <p class="text-slate-300 text-xs leading-relaxed">Targeting <code class="text-indigo-300 font-mono">car loan bad credit welland</code> with high transactional intent. Direct pipeline into F&amp;I Credit Intake.</p>
             <div class="pt-1 flex items-center justify-between">
-              <span class="text-emerald-400 font-bold text-[11px]">28 Leads Generated</span>
-              <button onclick="createBlogFromSeoOpp(1)" class="text-indigo-400 hover:text-indigo-300 font-bold underline text-[11px] cursor-pointer">Expand Finance Landing Page</button>
+              <span class="text-emerald-400 font-bold text-xs">28 Leads Generated</span>
+              <button onclick="createBlogFromSeoOpp(1)" class="text-indigo-400 hover:text-indigo-300 font-bold underline text-xs cursor-pointer">Expand Finance Landing Page</button>
             </div>
           </div>
 
           <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2">
             <div class="flex items-center justify-between">
-              <span class="font-bold text-slate-300">Certified Service &amp; Brakes</span>
+              <span class="font-bold text-slate-200">Certified Service &amp; Brakes</span>
               <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black text-[10px]">Rank #7 Opportunity</span>
             </div>
-            <p class="text-slate-400 text-[11px]">Queries for <code class="text-indigo-300 font-mono">brake repair near me</code> are rising 24%. Opportunity to drive fixed-ops repair orders.</p>
+            <p class="text-slate-300 text-xs leading-relaxed">Queries for <code class="text-indigo-300 font-mono">brake repair near me</code> are rising 24%. Opportunity to drive fixed-ops repair orders.</p>
             <div class="pt-1 flex items-center justify-between">
-              <span class="text-emerald-400 font-bold text-[11px]">+$8,600 Service ROs</span>
-              <button onclick="setSeoMainTab('content')" class="text-indigo-400 hover:text-indigo-300 font-bold underline text-[11px] cursor-pointer">Draft Service SEO Guide</button>
+              <span class="text-emerald-400 font-bold text-xs">+$8,600 Service ROs</span>
+              <button onclick="setSeoMainTab('content')" class="text-indigo-400 hover:text-indigo-300 font-bold underline text-xs cursor-pointer">Draft Service SEO Guide</button>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Data Provider Telemetry Status Bar -->
-      <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 flex-wrap text-xs">
+      <div class="p-4 rounded-2xl liquid-glass-card flex items-center justify-between gap-4 flex-wrap text-xs">
         <div class="flex items-center gap-4 flex-wrap text-[11px]">
-          <span class="font-black uppercase tracking-wider text-slate-400">Data Providers:</span>
-          <span class="flex items-center gap-1.5 font-bold text-emerald-500"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Google Search Console (Live)</span>
-          <span class="flex items-center gap-1.5 font-bold text-emerald-500"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> GA4 Analytics (Active)</span>
-          <span class="flex items-center gap-1.5 font-bold text-emerald-500"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Google Business Profile (Synced)</span>
-          <span class="flex items-center gap-1.5 font-bold text-emerald-500"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Semrush / SERP Index (Connected)</span>
-          <span class="flex items-center gap-1.5 font-bold text-emerald-500"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> llms.txt AI Crawler (Verified)</span>
+          <span class="font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Data Providers:</span>
+          <span class="flex items-center gap-1.5 font-bold text-emerald-600"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Google Search Console (Live)</span>
+          <span class="flex items-center gap-1.5 font-bold text-emerald-600"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> GA4 Analytics (Active)</span>
+          <span class="flex items-center gap-1.5 font-bold text-emerald-600"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Google Business Profile (Synced)</span>
+          <span class="flex items-center gap-1.5 font-bold text-emerald-600"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Semrush / SERP Index (Connected)</span>
+          <span class="flex items-center gap-1.5 font-bold text-emerald-600"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> llms.txt AI Crawler (Verified)</span>
         </div>
         <button onclick="setSeoMainTab('settings')" class="text-indigo-600 dark:text-indigo-400 font-bold underline cursor-pointer">Manage API Integrations &rarr;</button>
       </div>
@@ -4643,31 +4903,32 @@ function renderSeoAdvancedOverviewView() {
 
 function renderSeoSettingsWorkspace() {
   const s = __seoFullSettings || {};
+  const isAdv = __seoMode === 'advanced';
   return `
     <div class="space-y-6">
       <div class="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h3 class="text-base font-black text-slate-900 dark:text-white">SEO Builder — ${__seoMode === 'advanced' ? 'Advanced' : 'Basic'} Settings</h3>
-          <p class="text-xs text-slate-500 dark:text-slate-400">Configure real dealership metadata${__seoMode === 'advanced' ? ', canonical rules, and analytics integrations' : ' and page templates'}.</p>
+          <h3 class="text-lg font-black text-slate-950 dark:text-white">SEO Builder — ${isAdv ? 'Advanced' : 'Basic'} Settings</h3>
+          <p class="text-xs text-slate-700 dark:text-slate-300 font-semibold">Configure real dealership metadata, canonical rules, automated schema, AI crawlers, and analytics integrations.</p>
         </div>
-        <button onclick="saveSeoFormSettings(event)" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs rounded-xl transition shadow-md cursor-pointer">Save SEO Settings</button>
+        <button onclick="saveSeoFormSettings(event)" class="liquid-glass-btn px-6 py-2.5 text-xs font-black">Save SEO Settings</button>
       </div>
 
       <form id="seo-settings-form" onsubmit="saveSeoFormSettings(event)" class="space-y-6">
         <!-- 1. General & Canonical Settings -->
-        <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
-          <h4 class="text-xs font-black uppercase tracking-wider text-indigo-500 flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+        <div class="p-6 rounded-2xl liquid-glass-card space-y-4">
+          <h4 class="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
             General &amp; Canonical Indexing
           </h4>
           <div class="grid md:grid-cols-2 gap-4 text-xs">
             <div>
-              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Dealership SEO Name</label>
-              <input type="text" id="seo-site-name" value="${esc(s.site_name || '')}" placeholder="Dealership name" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white" />
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Dealership SEO Name</label>
+              <input type="text" id="seo-site-name" value="${esc(s.site_name || '')}" placeholder="Dealership name" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold" />
             </div>
             <div>
-              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Title Separator</label>
-              <select id="seo-separator" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white">
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Title Separator</label>
+              <select id="seo-separator" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold">
                 <option value="|" ${s.separator === '|' ? 'selected' : ''}>| (Pipe)</option>
                 <option value="-" ${s.separator === '-' ? 'selected' : ''}>- (Hyphen)</option>
                 <option value="•" ${s.separator === '•' ? 'selected' : ''}>• (Bullet)</option>
@@ -4675,69 +4936,360 @@ function renderSeoSettingsWorkspace() {
               </select>
             </div>
             <div>
-              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Canonical Domain</label>
-              <input type="text" id="seo-canonical-domain" value="${esc(s.canonical_domain || '')}" placeholder="https://www.yourdealership.com" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white" />
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Canonical Domain</label>
+              <input type="text" id="seo-canonical-domain" value="${esc(s.canonical_domain || '')}" placeholder="https://www.yourdealership.com" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold" />
             </div>
             <div>
-              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Trailing Slash Preference</label>
-              <select id="seo-trailing-slash" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white">
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Trailing Slash Preference</label>
+              <select id="seo-trailing-slash" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold">
                 <option value="add_slash" ${s.trailing_slash !== 'remove_slash' ? 'selected' : ''}>Enforce trailing slash (/inventory/)</option>
                 <option value="remove_slash" ${s.trailing_slash === 'remove_slash' ? 'selected' : ''}>Strip trailing slash (/inventory)</option>
               </select>
             </div>
+            <div>
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Search Engine Visibility</label>
+              <select id="seo-search-visibility" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold">
+                <option value="index_all" ${s.search_visibility !== 'noindex_all' ? 'selected' : ''}>Allow Search Engines to Index Site (index, follow)</option>
+                <option value="noindex_all" ${s.search_visibility === 'noindex_all' ? 'selected' : ''}>Discourage Indexing (noindex, nofollow)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Default Robots Meta</label>
+              <select id="seo-default-robots" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold">
+                <option value="index, follow" ${s.default_robots !== 'noindex, nofollow' ? 'selected' : ''}>index, follow (Standard)</option>
+                <option value="noindex, follow" ${s.default_robots === 'noindex, follow' ? 'selected' : ''}>noindex, follow</option>
+                <option value="noindex, nofollow" ${s.default_robots === 'noindex, nofollow' ? 'selected' : ''}>noindex, nofollow</option>
+              </select>
+            </div>
+          </div>
+          <div class="pt-2 border-t border-slate-200 dark:border-slate-800">
+            <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-900 dark:text-slate-100 text-xs">
+              <input type="checkbox" id="seo-maintenance-protection" ${s.maintenance_protection ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Enable Maintenance Mode 503 Header Protection (Prevents Search Engine De-indexing during updates)</span>
+            </label>
           </div>
         </div>
 
         <!-- 2. Titles & Meta Defaults -->
-        <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
-          <h4 class="text-xs font-black uppercase tracking-wider text-indigo-500 flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>
+        <div class="p-6 rounded-2xl liquid-glass-card space-y-4">
+          <h4 class="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>
             Automated Title &amp; Description Templates
           </h4>
           <div class="space-y-4 text-xs">
-            <div>
-              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Homepage Title Template</label>
-              <input type="text" id="seo-title-homepage" value="${esc(s.title_homepage || '')}" placeholder="%dealer% | New &amp; Used Cars in %city%" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono" />
+            <div class="grid md:grid-cols-2 gap-4">
+              <div>
+                <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Homepage Title Template</label>
+                <input type="text" id="seo-title-homepage" value="${esc(s.title_homepage || '')}" placeholder="%dealer% | New &amp; Used Cars in %city%" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-mono font-semibold" />
+              </div>
+              <div>
+                <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Homepage Meta Description</label>
+                <textarea id="seo-desc-homepage" rows="2" placeholder="Welcome to %dealer% in %city%..." class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold">${esc(s.desc_homepage || '')}</textarea>
+              </div>
             </div>
-            <div>
-              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Homepage Meta Description</label>
-              <textarea id="seo-desc-homepage" rows="2" placeholder="Describe the dealership and primary customer actions." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white">${esc(s.desc_homepage || '')}</textarea>
+            <div class="grid md:grid-cols-2 gap-4">
+              <div>
+                <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Vehicle VDP Title Template</label>
+                <input type="text" id="seo-title-vdp" value="${esc(s.title_vdp || '')}" placeholder="%year% %make% %model% %trim% for Sale in %city% | %dealer%" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-mono font-semibold" />
+              </div>
+              <div>
+                <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Vehicle VDP Meta Description</label>
+                <textarea id="seo-desc-vdp" rows="2" placeholder="Buy this %year% %make% %model% at %dealer% in %city%..." class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold">${esc(s.desc_vdp || '')}</textarea>
+              </div>
             </div>
-            <div>
-              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Vehicle VDP Title Template</label>
-              <input type="text" id="seo-title-vdp" value="${esc(s.title_vdp || '')}" placeholder="%year% %make% %model% for Sale in %city%" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono" />
-            </div>
-            <div>
-              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Vehicle VDP Meta Description</label>
-              <textarea id="seo-desc-vdp" rows="2" placeholder="Use vehicle tokens to create the VDP description." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white">${esc(s.desc_vdp || '')}</textarea>
+            <div class="grid md:grid-cols-2 gap-4">
+              <div>
+                <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Inventory SRP Title Template</label>
+                <input type="text" id="seo-title-srp" value="${esc(s.title_srp || '')}" placeholder="Used Cars &amp; Trucks for Sale in %city% | %dealer%" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-mono font-semibold" />
+              </div>
+              <div>
+                <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Inventory SRP Meta Description</label>
+                <textarea id="seo-desc-srp" rows="2" placeholder="Browse verified new and pre-owned inventory at %dealer% in %city%..." class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold">${esc(s.desc_srp || '')}</textarea>
+              </div>
             </div>
           </div>
         </div>
 
-        ${__seoMode === 'advanced' ? `<!-- 3. Webmaster & Tracking IDs -->
-        <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
-          <h4 class="text-xs font-black uppercase tracking-wider text-indigo-500 flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-            Webmaster &amp; Analytics Tracking
+        <!-- 3. Social Media & OpenGraph (Rich Sharing Cards) -->
+        <div class="p-6 rounded-2xl liquid-glass-card space-y-4">
+          <h4 class="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"/></svg>
+            Social Media &amp; OpenGraph Sharing Cards
           </h4>
-          <div class="grid md:grid-cols-3 gap-4 text-xs">
+          <div class="grid md:grid-cols-2 gap-4 text-xs">
             <div>
-              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Google Analytics 4 (GA4 ID)</label>
-              <input type="text" id="seo-ga4-id" value="${esc(s.ga4_measurement_id || '')}" placeholder="G-XXXXXXXXXX" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono" />
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Default Social Share Image (OG Image)</label>
+              <div class="flex gap-1.5 items-center">
+                ${s.default_social_image ? `<img src="${esc(s.default_social_image)}" class="w-12 h-9 object-cover rounded-lg border border-slate-300 dark:border-slate-700 bg-white/10" />` : ''}
+                <input type="text" id="seo-default-social-image" value="${esc(s.default_social_image || '')}" placeholder="https://..." class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold flex-1" />
+                <button type="button" onclick="openWsPhotoPicker(url => { const el = document.getElementById('seo-default-social-image'); if(el) el.value = url; })" class="liquid-glass-btn px-3 py-2 text-xs font-black">Browse</button>
+              </div>
             </div>
             <div>
-              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Meta Pixel ID</label>
-              <input type="text" id="seo-meta-pixel-id" value="${esc(s.meta_pixel_id || '')}" placeholder="1234567890" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono" />
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Twitter / X Card Style</label>
+              <select id="seo-twitter-card" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold">
+                <option value="summary_large_image" ${s.twitter_card !== 'summary' ? 'selected' : ''}>summary_large_image (Large Hero Card)</option>
+                <option value="summary" ${s.twitter_card === 'summary' ? 'selected' : ''}>summary (Compact Thumbnail)</option>
+              </select>
             </div>
-            <div>
-              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Google Tag Manager (GTM ID)</label>
-              <input type="text" id="seo-gtm-id" value="${esc(s.gtm_id || '')}" placeholder="GTM-XXXXXX" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono" />
+            <div class="md:col-span-2">
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Default Social Share Description</label>
+              <textarea id="seo-default-description" rows="2" placeholder="Fallback description shown when sharing dealership links on Facebook, iMessage, and X..." class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold">${esc(s.default_description || '')}</textarea>
             </div>
           </div>
-        </div>` : ''}
+        </div>
+
+        <!-- 4. XML Sitemaps Architecture & Feeds -->
+        <div class="p-6 rounded-2xl liquid-glass-card space-y-4">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <h4 class="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>
+              XML Sitemaps Architecture &amp; Auto-Pings
+            </h4>
+            <button type="button" onclick="regenerateSitemapAction(this)" class="liquid-glass-btn px-4 py-1.5 text-xs font-bold">Regenerate Sitemap Feed</button>
+          </div>
+          <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+              <input type="checkbox" id="seo-sitemap-enabled" ${s.sitemap_enabled !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Auto-Generate XML Sitemap Feed</span>
+            </label>
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+              <input type="checkbox" id="seo-sitemap-inventory" ${s.sitemap_inventory !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Include Live Vehicle VDPs</span>
+            </label>
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+              <input type="checkbox" id="seo-sitemap-blog" ${s.sitemap_blog !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Include Published Blog Articles</span>
+            </label>
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+              <input type="checkbox" id="seo-sitemap-images" ${s.sitemap_images !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Include Vehicle Photos &amp; Galleries</span>
+            </label>
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+              <input type="checkbox" id="seo-sitemap-service" ${s.sitemap_service !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Include Service &amp; Parts Pages</span>
+            </label>
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+              <input type="checkbox" id="seo-sitemap-lastmod" ${s.sitemap_lastmod !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Output Last-Modified HTTP Headers</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 5. AI Search Engines & Crawler Directives (llms.txt) -->
+        <div class="p-6 rounded-2xl liquid-glass-card space-y-4">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <h4 class="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/></svg>
+              AI Search Engines &amp; Crawler Directives (llms.txt)
+            </h4>
+            <button type="button" onclick="generateLlmsTxtAction(this)" class="liquid-glass-btn px-4 py-1.5 text-xs font-bold">Publish llms.txt</button>
+          </div>
+          <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+              <input type="checkbox" id="seo-llms-txt-enabled" ${s.llms_txt_enabled !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Enable /llms.txt Protocol</span>
+            </label>
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+              <input type="checkbox" id="seo-ai-gptbot" ${s.ai_gptbot !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Allow ChatGPT (GPTBot)</span>
+            </label>
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+              <input type="checkbox" id="seo-ai-claudebot" ${s.ai_claudebot !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Allow Claude (ClaudeBot)</span>
+            </label>
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+              <input type="checkbox" id="seo-ai-perplexitybot" ${s.ai_perplexitybot !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Allow Perplexity AI</span>
+            </label>
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+              <input type="checkbox" id="seo-ai-google-extended" ${s.ai_google_extended !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Allow Google Gemini AI</span>
+            </label>
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+              <input type="checkbox" id="seo-ai-include-inventory" ${s.ai_include_inventory !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Feed Live Inventory to AI Search</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 6. Structured Data & Schema.org (Google Rich Snippets) -->
+        <div class="p-6 rounded-2xl liquid-glass-card space-y-4">
+          <h4 class="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.25 9.75L16.5 12l-2.25 2.25m-4.5 0L7.5 12l2.25-2.25M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z"/></svg>
+            Structured Data &amp; Schema.org (Google Rich Snippets)
+          </h4>
+          <div class="grid md:grid-cols-2 gap-4 text-xs">
+            <div>
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Primary Schema Profile</label>
+              <select id="seo-schema-profile" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold">
+                <option value="AutomotiveBusiness" ${s.default_schema_profile !== 'AutoDealer' ? 'selected' : ''}>AutomotiveBusiness (Recommended)</option>
+                <option value="AutoDealer" ${s.default_schema_profile === 'AutoDealer' ? 'selected' : ''}>AutoDealer (Franchise &amp; Independent)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Breadcrumb Separator Symbol</label>
+              <input type="text" id="seo-breadcrumb-separator" value="${esc(s.breadcrumb_separator || '→')}" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold font-mono" />
+            </div>
+            <div class="md:col-span-2">
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Vehicle Photo Alt Text Template</label>
+              <input type="text" id="seo-alt-template" value="${esc(s.alt_template || '%year% %make% %model% %trim% %stock% - %dealer% %city%')}" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold font-mono" />
+            </div>
+          </div>
+          <div class="grid md:grid-cols-2 gap-3 pt-2 text-xs">
+            <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+              <input type="checkbox" id="seo-breadcrumbs-enabled" ${s.breadcrumbs_enabled !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Enable BreadcrumbList Schema on all pages</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+              <input type="checkbox" id="seo-auto-alt-missing" ${s.auto_alt_missing !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Auto-generate missing vehicle photo Alt tags</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 7. Local Dealership Profile & Google Map Sync -->
+        <div class="p-6 rounded-2xl liquid-glass-card space-y-4">
+          <h4 class="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
+            Local Dealership Profile &amp; Google Map Alignment
+          </h4>
+          <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+            <div class="lg:col-span-2">
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Business Name</label>
+              <input type="text" id="seo-local-business-name" value="${esc(s.local_business_name || '')}" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold" />
+            </div>
+            <div class="lg:col-span-2">
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Legal Corporate Name</label>
+              <input type="text" id="seo-local-legal-name" value="${esc(s.local_legal_name || '')}" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold" />
+            </div>
+            <div class="lg:col-span-2">
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Showroom Street Address</label>
+              <input type="text" id="seo-local-address" value="${esc(s.local_address || '')}" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">City</label>
+              <input type="text" id="seo-local-city" value="${esc(s.local_city || '')}" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Province / State</label>
+              <input type="text" id="seo-local-province" value="${esc(s.local_province || '')}" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Postal / ZIP</label>
+              <input type="text" id="seo-local-postal" value="${esc(s.local_postal || '')}" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Country</label>
+              <input type="text" id="seo-local-country" value="${esc(s.local_country || 'CA')}" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Sales Phone</label>
+              <input type="text" id="seo-local-sales-phone" value="${esc(s.local_sales_phone || s.local_phone || '')}" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Service Phone</label>
+              <input type="text" id="seo-local-service-phone" value="${esc(s.local_service_phone || '')}" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Latitude</label>
+              <input type="text" id="seo-local-lat" value="${esc(s.local_lat || '')}" placeholder="43.0112" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold font-mono" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Longitude</label>
+              <input type="text" id="seo-local-lng" value="${esc(s.local_lng || '')}" placeholder="-79.2456" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold font-mono" />
+            </div>
+            <div class="lg:col-span-2">
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Operating Hours</label>
+              <input type="text" id="seo-local-hours" value="${esc(s.local_hours || '')}" placeholder="Mon-Fri: 9am-8pm, Sat: 9am-6pm" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 8. Inventory Lifecycle & Sold Vehicle Handling -->
+        <div class="p-6 rounded-2xl liquid-glass-card space-y-4">
+          <h4 class="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.676A48.243 48.243 0 0012 7.5"/></svg>
+            Sold Vehicle &amp; Inventory URL Rules
+          </h4>
+          <div class="grid md:grid-cols-2 gap-4 text-xs">
+            <div>
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Sold Vehicle Lifecycle Action</label>
+              <select id="seo-sold-vehicle-rule" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold">
+                <option value="SOLD_BADGE_PRESERVE" ${s.sold_vehicle_rule === 'SOLD_BADGE_PRESERVE' || !s.sold_vehicle_rule ? 'selected' : ''}>Preserve VDP with Sold Badge (Retains Google Rank &amp; Recommends Similar)</option>
+                <option value="REDIRECT_301_SRP" ${s.sold_vehicle_rule === 'REDIRECT_301_SRP' ? 'selected' : ''}>Immediate 301 Redirect to Inventory SRP</option>
+                <option value="GONE_410" ${s.sold_vehicle_rule === 'GONE_410' ? 'selected' : ''}>Serve 410 Gone after 30 days</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Sold Redirect Target Destination</label>
+              <input type="text" id="seo-sold-vehicle-redirect-target" value="${esc(s.sold_vehicle_redirect_target || '/inventory')}" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-semibold font-mono" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 9. Auto-Pilot Self-Healing Automation Suite -->
+        <div class="p-6 rounded-2xl liquid-glass-card space-y-4">
+          <h4 class="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
+            Auto-Pilot Self-Healing Automation Suite
+          </h4>
+          <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+              <input type="checkbox" id="seo-autopilot-master" ${s.autopilot_master !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Master Auto-Pilot Automation</span>
+            </label>
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+              <input type="checkbox" id="seo-autopilot-monitor-404" ${s.autopilot_monitor_404 !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Auto-Heal 404 URL Errors</span>
+            </label>
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+              <input type="checkbox" id="seo-autopilot-broken-links" ${s.autopilot_broken_links !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Auto-Repair Broken Internal Links</span>
+            </label>
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+              <input type="checkbox" id="seo-autopilot-schema" ${s.autopilot_schema !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Auto-Inject Schema.org JSON-LD</span>
+            </label>
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+              <input type="checkbox" id="seo-autopilot-alt-text" ${s.autopilot_alt_text !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Auto-Repair Missing Alt Text</span>
+            </label>
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 cursor-pointer font-bold text-slate-900 dark:text-slate-100">
+              <input type="checkbox" id="seo-autopilot-indexing" ${s.autopilot_indexing !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
+              <span>Auto-Ping Search Engines</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 10. Webmaster & Analytics Tracking -->
+        <div class="p-6 rounded-2xl liquid-glass-card space-y-4">
+          <h4 class="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            Webmaster &amp; Analytics Tracking
+          </h4>
+          <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+            <div>
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Google Analytics 4 (GA4 ID)</label>
+              <input type="text" id="seo-ga4-id" value="${esc(s.ga4_measurement_id || '')}" placeholder="G-XXXXXXXXXX" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-mono font-semibold" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Meta Pixel ID</label>
+              <input type="text" id="seo-meta-pixel-id" value="${esc(s.meta_pixel_id || '')}" placeholder="1234567890" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-mono font-semibold" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Google Tag Manager (GTM ID)</label>
+              <input type="text" id="seo-gtm-id" value="${esc(s.gtm_id || '')}" placeholder="GTM-XXXXXX" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-mono font-semibold" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1.5">Google Ads ID</label>
+              <input type="text" id="seo-google-ads-id" value="${esc(s.google_ads_id || '')}" placeholder="AW-XXXXXXXXX" class="w-full liquid-glass-input px-3.5 py-2.5 text-slate-950 dark:text-white font-mono font-semibold" />
+            </div>
+          </div>
+        </div>
 
         <div class="flex justify-end">
-          <button type="submit" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs rounded-xl transition shadow-md cursor-pointer">Save SEO Configuration</button>
+          <button type="submit" class="liquid-glass-btn px-8 py-3 text-sm font-black shadow-xl">Save SEO Configuration</button>
         </div>
       </form>
     </div>
@@ -5581,19 +6133,92 @@ function renderSeoRobotsView() {
 
 async function saveSeoFormSettings(e) {
   if (e && e.preventDefault) e.preventDefault();
-  const getVal = (id) => document.getElementById(id)?.value;
+  const getVal = (id) => {
+    const el = document.getElementById(id);
+    return el ? el.value : undefined;
+  };
+  const getChk = (id) => {
+    const el = document.getElementById(id);
+    return el ? Boolean(el.checked) : undefined;
+  };
+
   const patch = {
-    site_name: getVal('seo-site-name') || '',
-    separator: getVal('seo-separator') || '|',
-    canonical_domain: getVal('seo-canonical-domain') || '',
-    trailing_slash: getVal('seo-trailing-slash') || 'add_slash',
-    title_homepage: getVal('seo-title-homepage') || '',
-    desc_homepage: getVal('seo-desc-homepage') || '',
-    title_vdp: getVal('seo-title-vdp') || '',
-    desc_vdp: getVal('seo-desc-vdp') || '',
+    // 1. General & Canonical Indexing
+    site_name: getVal('seo-site-name') ?? '',
+    separator: getVal('seo-separator') ?? '|',
+    canonical_domain: getVal('seo-canonical-domain') ?? '',
+    trailing_slash: getVal('seo-trailing-slash') ?? 'add_slash',
+    search_visibility: getVal('seo-search-visibility') ?? 'index_all',
+    default_robots: getVal('seo-default-robots') ?? 'index, follow',
+    maintenance_protection: getChk('seo-maintenance-protection') ?? false,
+
+    // 2. Titles & Meta Defaults
+    title_homepage: getVal('seo-title-homepage') ?? '',
+    desc_homepage: getVal('seo-desc-homepage') ?? '',
+    title_vdp: getVal('seo-title-vdp') ?? '',
+    desc_vdp: getVal('seo-desc-vdp') ?? '',
+    title_srp: getVal('seo-title-srp') ?? '',
+    desc_srp: getVal('seo-desc-srp') ?? '',
+
+    // 3. Social Media & OpenGraph
+    default_social_image: getVal('seo-default-social-image') ?? '',
+    default_description: getVal('seo-default-description') ?? '',
+    twitter_card: getVal('seo-twitter-card') ?? 'summary_large_image',
+
+    // 4. XML Sitemaps
+    sitemap_enabled: getChk('seo-sitemap-enabled') ?? true,
+    sitemap_inventory: getChk('seo-sitemap-inventory') ?? true,
+    sitemap_blog: getChk('seo-sitemap-blog') ?? true,
+    sitemap_images: getChk('seo-sitemap-images') ?? true,
+    sitemap_service: getChk('seo-sitemap-service') ?? true,
+    sitemap_lastmod: getChk('seo-sitemap-lastmod') ?? true,
+
+    // 5. AI Search & llms.txt
+    llms_txt_enabled: getChk('seo-llms-txt-enabled') ?? true,
+    ai_gptbot: getChk('seo-ai-gptbot') ?? true,
+    ai_claudebot: getChk('seo-ai-claudebot') ?? true,
+    ai_perplexitybot: getChk('seo-ai-perplexitybot') ?? true,
+    ai_google_extended: getChk('seo-ai-google-extended') ?? true,
+    ai_include_inventory: getChk('seo-ai-include-inventory') ?? true,
+
+    // 6. Structured Data & Schema.org
+    default_schema_profile: getVal('seo-schema-profile') ?? 'AutomotiveBusiness',
+    breadcrumbs_enabled: getChk('seo-breadcrumbs-enabled') ?? true,
+    breadcrumb_separator: getVal('seo-breadcrumb-separator') ?? '→',
+    auto_alt_missing: getChk('seo-auto-alt-missing') ?? true,
+    alt_template: getVal('seo-alt-template') ?? '%year% %make% %model% %trim% %stock% - %dealer% %city%',
+
+    // 7. Local Dealership Profile
+    local_business_name: getVal('seo-local-business-name') ?? '',
+    local_legal_name: getVal('seo-local-legal-name') ?? '',
+    local_address: getVal('seo-local-address') ?? '',
+    local_city: getVal('seo-local-city') ?? '',
+    local_province: getVal('seo-local-province') ?? '',
+    local_postal: getVal('seo-local-postal') ?? '',
+    local_country: getVal('seo-local-country') ?? 'CA',
+    local_sales_phone: getVal('seo-local-sales-phone') ?? '',
+    local_service_phone: getVal('seo-local-service-phone') ?? '',
+    local_lat: getVal('seo-local-lat') ?? '',
+    local_lng: getVal('seo-local-lng') ?? '',
+    local_hours: getVal('seo-local-hours') ?? '',
+
+    // 8. Sold Vehicle Rules
+    sold_vehicle_rule: getVal('seo-sold-vehicle-rule') ?? 'SOLD_BADGE_PRESERVE',
+    sold_vehicle_redirect_target: getVal('seo-sold-vehicle-redirect-target') ?? '/inventory',
+
+    // 9. Auto-Pilot Suite
+    autopilot_master: getChk('seo-autopilot-master') ?? true,
+    autopilot_monitor_404: getChk('seo-autopilot-monitor-404') ?? true,
+    autopilot_broken_links: getChk('seo-autopilot-broken-links') ?? true,
+    autopilot_schema: getChk('seo-autopilot-schema') ?? true,
+    autopilot_alt_text: getChk('seo-autopilot-alt-text') ?? true,
+    autopilot_indexing: getChk('seo-autopilot-indexing') ?? true,
+
+    // 10. Webmaster & Analytics Tracking
     ga4_measurement_id: getVal('seo-ga4-id') ?? __seoFullSettings?.ga4_measurement_id ?? '',
     meta_pixel_id: getVal('seo-meta-pixel-id') ?? __seoFullSettings?.meta_pixel_id ?? '',
-    gtm_id: getVal('seo-gtm-id') ?? __seoFullSettings?.gtm_id ?? ''
+    gtm_id: getVal('seo-gtm-id') ?? __seoFullSettings?.gtm_id ?? '',
+    google_ads_id: getVal('seo-google-ads-id') ?? __seoFullSettings?.google_ads_id ?? ''
   };
 
   try {

@@ -147,6 +147,20 @@
       if(desc){ metaTag('meta[name="description"]',['name','description'],desc); metaTag('meta[property="og:description"]',['property','og:description'],desc); }
     }
     function stripText(html,max){ const d=document.createElement('div'); d.innerHTML=html||''; let t=(d.textContent||'').replace(/\s+/g,' ').trim(); if(max&&t.length>max) t=t.slice(0,max-1).replace(/\s+\S*$/,'').trim()+'…'; return t; }
+    function findSitePage(query){
+      if(!query || !DATA || !DATA.site) return null;
+      const pages = Array.isArray(DATA.site.pages) ? DATA.site.pages : [];
+      const q = String(query).trim().toLowerCase();
+      return pages.find(p => {
+        if(!p) return false;
+        if(p.slug && String(p.slug).toLowerCase() === q) return true;
+        if(p.id && String(p.id).toLowerCase() === q) return true;
+        const slugTitle = (p.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        if(slugTitle && slugTitle === q) return true;
+        if((p.title || '').trim().toLowerCase() === q) return true;
+        return false;
+      }) || null;
+    }
     function pageDerivedDesc(p,name,loc){
       const parts=[p.body_html||'',...((p.sections||[]).map(sec=>Object.values(sec.settings||{}).filter(v=>typeof v==='string').join(' ')))];
       const body=stripText(parts.join(' '),155);
@@ -157,7 +171,7 @@
       const s=DATA.site, name=s.name||'Our dealership', loc=s.city?` in ${s.city}`:'';
       let title, desc;
       if(VIEW.startsWith('page:')){
-        const p=(s.pages||[]).find(x=>x.slug===VIEW.slice(5));
+        const p=findSitePage(VIEW.slice(5));
         if(p){ title=p.seo_title||`${p.title} | ${name}`; desc=p.seo_description||pageDerivedDesc(p,name,loc); }
       }
       if(!title){
@@ -301,7 +315,10 @@
       const entries=[];
       if(biOn('inventory')) entries.push({token:'b:inventory',label:biLabel('inventory','Inventory'),onclick:"go('inventory')",menu:biMenu('inventory')});
       if(biOn('build')) entries.push({token:'b:build',label:biLabel('build','Build & Price'),onclick:"go('build')",menu:biMenu('build')});
-      for(const p of navPages) entries.push({token:'p:'+(p.id||p.slug),label:(p.icon?p.icon+' ':'')+p.title,onclick:`go('page:${p.slug}')`,menu:p.menu||null});
+      for(const p of navPages) {
+        const pslug = p.slug || p.id || (p.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        entries.push({token:'p:'+(p.id||pslug),label:(p.icon?p.icon+' ':'')+p.title,onclick:`go('page:${pslug}')`,menu:p.menu||null});
+      }
       if(biOn('trade')) entries.push({token:'b:trade',label:biLabel('trade','Value Trade'),onclick:"go('trade')",menu:biMenu('trade')});
       if(biOn('finance')) entries.push({token:'b:finance',label:biLabel('finance','Financing'),onclick:"go('finance')",menu:biMenu('finance')});
       if(hasTeam&&biOn('team')) entries.push({token:'b:team',label:biLabel('team','Team'),onclick:"go('team')",menu:biMenu('team')});
@@ -405,7 +422,7 @@
       else if(VIEW==='trade') el.innerHTML=viewTrade();
       else if(VIEW==='finance') el.innerHTML=viewFinance();
       else if(VIEW==='inquiry') el.innerHTML=viewInquiry();
-      else if(VIEW.startsWith('page:')){ const p=(DATA.site.pages||[]).find(x=>x.slug===VIEW.slice(5)); el.innerHTML=viewPage(p); return; }
+      else if(VIEW.startsWith('page:')){ const p=findSitePage(VIEW.slice(5)); el.innerHTML=viewPage(p); if(typeof PREVIEW!=='undefined'&&PREVIEW) requestAnimationFrame(markPreviewSections); return; }
       else { renderHome(el); return; }
       // Prepend dealer-defined intro sections (hero/SEO) above a built-in view's functional content.
       const bkey=VIEW_BUILTIN[VIEW]; const bsecs=bkey&&((DATA.site.builtins||{})[bkey]||{}).sections;
@@ -413,198 +430,24 @@
     }
 
     // ── HOME ───────────────────────────────────────────────────────────────────
-    function renderHome(el){ const secs=DATA.site.sections||[]; if(secs.length) return renderSections(el,secs); renderDefaultHome(el); }
-    function renderDefaultHome(el){
-      const s=DATA.site; applyFilters();
-      const defaultHeroImg = s.hero_url || 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=2000&q=85';
-
-      el.innerHTML=`
-        <!-- Full-Bleed 750px Art-Directed Hero -->
-        <section id="top" class="relative min-h-[680px] lg:min-h-[760px] flex items-center bg-slate-950 text-white overflow-hidden">
-          <img src="${esc(defaultHeroImg)}" class="absolute inset-0 w-full h-full object-cover object-center transform scale-105 transition duration-1000">
-          <div class="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/80 to-slate-950/40"></div>
-          
-          <div class="relative max-w-7xl mx-auto px-6 lg:px-12 py-20 lg:py-28 w-full">
-            <div class="max-w-2xl space-y-6">
-              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold tracking-wider uppercase text-emerald-400">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                Official Dealership Showroom
-              </div>
-              <h1 class="text-4xl sm:text-6xl font-black tracking-tight leading-[1.1] text-white">
-                ${esc(s.tagline || 'Experience Automotive Excellence')}
-              </h1>
-              <div class="text-lg sm:text-xl text-slate-300 font-medium leading-relaxed max-w-xl prose-links">
-                ${s.about ? richText(s.about) : `Explore our premium inventory of ${DATA.count || 'certified'} new &amp; pre-owned vehicles. Instant pre-approvals, market-backed trade offers, and transparent pricing.`}
-              </div>
-              
-              <div class="pt-2 flex flex-wrap items-center gap-4">
-                <a href="#" onclick="go('inventory');return false" class="px-8 py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-base font-black rounded-xl shadow-xl shadow-indigo-600/30 transition transform hover:scale-[1.02] cursor-pointer">
-                  Browse Inventory (${DATA.count || 0}) →
-                </a>
-                <button onclick="go('finance')" class="px-7 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/30 text-white text-base font-bold rounded-xl transition cursor-pointer">
-                  Get Pre-Approved Fast
-                </button>
-              </div>
-
-              <!-- Trust Strip / Social Proof Indicators -->
-              <div class="pt-8 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-semibold text-slate-300">
-                <div class="flex items-center gap-2">
-                  <span class="text-amber-400 text-base">★</span>
-                  <span><strong>4.9 Star Rating</strong><br><span class="text-[10px] text-slate-400">1,200+ Verified Reviews</span></span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="text-emerald-400 text-base">⚡</span>
-                  <span><strong>2-Min Pre-Approval</strong><br><span class="text-[10px] text-slate-400">No Credit Impact</span></span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="text-sky-400 text-base">💰</span>
-                  <span><strong>Top Trade Value</strong><br><span class="text-[10px] text-slate-400">Instant Online Quote</span></span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="text-indigo-400 text-base">🛡️</span>
-                  <span><strong>100% Guarantee</strong><br><span class="text-[10px] text-slate-400">No Hidden Fees</span></span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Quick Inventory Category Filter Bar -->
-        <section class="max-w-7xl mx-auto px-6 lg:px-12 -mt-10 relative z-20">
-          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <button onclick="setCond('new')" class="group p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-600 hover:text-white transition text-left cursor-pointer">
-              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-indigo-200">New Inventory</div>
-              <div class="text-base font-black text-slate-900 dark:text-white group-hover:text-white mt-1 flex items-center justify-between">
-                <span>New Vehicles</span><span class="group-hover:translate-x-1 transition">→</span>
-              </div>
-            </button>
-            <button onclick="setCond('used')" class="group p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-600 hover:text-white transition text-left cursor-pointer">
-              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-indigo-200">Pre-Owned</div>
-              <div class="text-base font-black text-slate-900 dark:text-white group-hover:text-white mt-1 flex items-center justify-between">
-                <span>Certified Used</span><span class="group-hover:translate-x-1 transition">→</span>
-              </div>
-            </button>
-            <button onclick="go('trade')" class="group p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-600 hover:text-white transition text-left cursor-pointer">
-              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-indigo-200">Instant Appraisal</div>
-              <div class="text-base font-black text-slate-900 dark:text-white group-hover:text-white mt-1 flex items-center justify-between">
-                <span>Value Your Trade</span><span class="group-hover:translate-x-1 transition">→</span>
-              </div>
-            </button>
-            <button onclick="go('finance')" class="group p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-600 hover:text-white transition text-left cursor-pointer">
-              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-indigo-200">Auto Loans</div>
-              <div class="text-base font-black text-slate-900 dark:text-white group-hover:text-white mt-1 flex items-center justify-between">
-                <span>Apply For Financing</span><span class="group-hover:translate-x-1 transition">→</span>
-              </div>
-            </button>
-          </div>
-        </section>
-
-        <!-- Why Buy From Us (Editorial Proof Points) -->
-        <section class="py-20 lg:py-28 bg-slate-50 dark:bg-slate-950">
-          <div class="max-w-7xl mx-auto px-6 lg:px-12">
-            <div class="text-center max-w-2xl mx-auto mb-16">
-              <h2 class="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white">Why Drivers Choose ${esc(s.name)}</h2>
-              <p class="text-slate-500 dark:text-slate-400 mt-3 text-base">We have redesigned car buying to put clarity, speed, and peace of mind first.</p>
-            </div>
-            <div class="grid md:grid-cols-4 gap-6">
-              <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-3">
-                <div class="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xl">1</div>
-                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Transparent Pricing</h3>
-                <p class="text-sm text-slate-500 dark:text-slate-400">Clear upfront pricing with no hidden dealer add-ons or unexpected fees.</p>
-              </div>
-              <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-3">
-                <div class="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xl">2</div>
-                <h3 class="text-lg font-bold text-slate-900 dark:text-white">150+ Point Inspection</h3>
-                <p class="text-sm text-slate-500 dark:text-slate-400">Every pre-owned unit undergoes a rigorous mechanical &amp; safety inspection.</p>
-              </div>
-              <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-3">
-                <div class="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xl">3</div>
-                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Instant Trade Offer</h3>
-                <p class="text-sm text-slate-500 dark:text-slate-400">Get an algorithm-backed trade-in quote in under 60 seconds online.</p>
-              </div>
-              <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-3">
-                <div class="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xl">4</div>
-                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Seamless Home Delivery</h3>
-                <p class="text-sm text-slate-500 dark:text-slate-400">Complete your paperwork online and have your vehicle delivered directly.</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Financing + Trade Side-by-Side Editorial Cards -->
-        <section class="py-20 lg:py-28 bg-white dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800">
-          <div class="max-w-7xl mx-auto px-6 lg:px-12 grid md:grid-cols-2 gap-8">
-            <div class="relative overflow-hidden rounded-3xl bg-slate-950 text-white p-8 lg:p-12 min-h-[380px] flex flex-col justify-end group shadow-2xl">
-              <img src="https://images.unsplash.com/photo-1563720223185-11003d516935?auto=format&fit=crop&w=1200&q=80" class="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition duration-700">
-              <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent"></div>
-              <div class="relative z-10 space-y-3">
-                <span class="text-xs font-black uppercase tracking-wider text-indigo-400">Fast Auto Loans</span>
-                <h3 class="text-2xl lg:text-3xl font-black">Pre-Approval in 2 Minutes</h3>
-                <p class="text-slate-300 text-sm max-w-md">Custom financing options for all credit situations. Get approved online with no impact to your credit score.</p>
-                <div class="pt-2"><button onclick="go('finance')" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm rounded-xl transition cursor-pointer">Apply For Financing →</button></div>
-              </div>
-            </div>
-
-            <div class="relative overflow-hidden rounded-3xl bg-slate-950 text-white p-8 lg:p-12 min-h-[380px] flex flex-col justify-end group shadow-2xl">
-              <img src="https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=1200&q=80" class="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition duration-700">
-              <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent"></div>
-              <div class="relative z-10 space-y-3">
-                <span class="text-xs font-black uppercase tracking-wider text-emerald-400">Trade-In Appraisal</span>
-                <h3 class="text-2xl lg:text-3xl font-black">What's Your Car Worth?</h3>
-                <p class="text-slate-300 text-sm max-w-md">We pay top dollar for trades. Get an instant, market-validated appraisal and trade up today.</p>
-                <div class="pt-2"><button onclick="go('trade')" class="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm rounded-xl transition cursor-pointer">Value Your Trade →</button></div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Inventory Spotlight -->
-        <section class="py-20 lg:py-28 bg-slate-50 dark:bg-slate-950">
-          <div class="max-w-7xl mx-auto px-6 lg:px-12">
-            ${homeSearchBlock('Featured Vehicles')}
-          </div>
-        </section>
-
-        <!-- Reviews / Social Proof -->
-        <section class="py-20 lg:py-28 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
-          <div class="max-w-7xl mx-auto px-6 lg:px-12">
-            <div class="text-center max-w-2xl mx-auto mb-16">
-              <h2 class="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white">What Our Customers Say</h2>
-              <p class="text-slate-500 dark:text-slate-400 mt-3 text-base">Real experiences from local drivers who bought with ${esc(s.name)}.</p>
-            </div>
-            <div class="grid md:grid-cols-3 gap-6">
-              <div class="bg-slate-50 dark:bg-slate-800/60 p-6 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
-                <div class="text-amber-400 text-sm">★★★★★</div>
-                <p class="text-slate-700 dark:text-slate-200 text-sm italic">“Easiest car purchase I have ever made. Trade offer was higher than 2 other dealerships and financing was approved in minutes.”</p>
-                <div class="text-xs font-bold text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-700">— Marcus T. <span class="text-emerald-500 font-normal">· Verified Buyer</span></div>
-              </div>
-              <div class="bg-slate-50 dark:bg-slate-800/60 p-6 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
-                <div class="text-amber-400 text-sm">★★★★★</div>
-                <p class="text-slate-700 dark:text-slate-200 text-sm italic">“100% transparent pricing with zero surprise fees. The vehicle arrived detailed and ready to drive. Highly recommended!”</p>
-                <div class="text-xs font-bold text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-700">— Sarah P. <span class="text-emerald-500 font-normal">· Verified Buyer</span></div>
-              </div>
-              <div class="bg-slate-50 dark:bg-slate-800/60 p-6 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
-                <div class="text-amber-400 text-sm">★★★★★</div>
-                <p class="text-slate-700 dark:text-slate-200 text-sm italic">“Top notch service team and straightforward advisors. They answered every question without any pushy sales tactics.”</p>
-                <div class="text-xs font-bold text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-700">— David K. <span class="text-emerald-500 font-normal">· Verified Buyer</span></div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Final Conversion Banner -->
-        <section class="py-16 bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-white">
-          <div class="max-w-7xl mx-auto px-6 lg:px-12 text-center space-y-6">
-            <h2 class="text-3xl lg:text-4xl font-black">Ready to Find Your Next Vehicle?</h2>
-            <p class="text-slate-300 max-w-xl mx-auto text-base">Get pre-approved online or request a instant trade offer in seconds.</p>
-            <div class="flex flex-wrap justify-center gap-4 pt-2">
-              <button onclick="go('finance')" class="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl transition cursor-pointer">Get Pre-Approved</button>
-              <button onclick="go('trade')" class="px-8 py-3.5 bg-white/10 hover:bg-white/20 border border-white/30 text-white font-bold rounded-xl transition cursor-pointer">Value Your Trade</button>
-              <button onclick="go('inquiry')" class="px-8 py-3.5 bg-white text-slate-950 hover:bg-slate-100 font-black rounded-xl transition cursor-pointer">Contact Dealership</button>
-            </div>
-          </div>
-        </section>
-      `;
+    function defaultHomeSections() {
+      const s = DATA?.site || {};
+      const count = DATA?.count || 0;
+      return [
+        { id: 's_hero', type: 'hero', settings: { headline: s.tagline || 'Experience Automotive Excellence', subheadline: s.about || '', button_label: `Browse Inventory (${count}) →`, button_target: 'inventory' } },
+        { id: 's_features', type: 'feature_cards', settings: { title: `Why Drivers Choose ${s.name || 'Our Dealership'}` } },
+        { id: 's_trade', type: 'trade_cta', settings: { title: "What's Your Car Worth?" } },
+        { id: 's_inventory', type: 'featured_inventory', settings: { title: 'Featured Vehicles Spotlight', count: 6 } },
+        { id: 's_reviews', type: 'reviews', settings: { title: 'What Our Customers Say' } },
+        { id: 's_contact', type: 'contact', settings: { title: 'Visit Our Showroom & Get In Touch' } },
+        { id: 's_cta', type: 'cta_banner', settings: { title: 'Ready to Find Your Next Vehicle?' } }
+      ];
+    }
+    function renderHome(el){
+      if(!DATA.site.sections || !DATA.site.sections.length){
+        DATA.site.sections = defaultHomeSections();
+      }
+      renderSections(el, DATA.site.sections);
     }
 
     // ── Section-based page builder (public render) ─────────────────────────────
@@ -630,8 +473,6 @@
     const HERO_SEED={g1:0,g2:1,g3:2,g4:3,g5:4,g6:5,g7:6,g8:7};
     function heroPhotoList(){ if(window.__hp) return window.__hp; window.__hp=(DATA.vehicles||[]).map(v=>Array.isArray(v.image_urls)&&v.image_urls[0]).filter(Boolean); return window.__hp; }
     function heroArt(bg){
-      // When the dealer opts in, put a real inventory photo behind the hero (a
-      // different vehicle per hero). Falls back to the generated gradient art.
       if(DATA.site.hero_photos){ const list=heroPhotoList(); if(list.length){ const src=list[(HERO_SEED[bg]||0)%list.length]; return `<img src="${esc(src)}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-slate-900/45"></div>`; } }
       const p=HERO_BGS[bg]||HERO_BGS.g1; return `<div class="absolute inset-0" style="background:${p[1]}"></div><div class="absolute inset-0" style="opacity:.06;background-image:radial-gradient(circle at 1px 1px,#fff 1px,transparent 0);background-size:22px 22px"></div>`;
     }
@@ -643,19 +484,266 @@
       const s=DATA.site, g=sec.settings||{};
       switch(sec.type){
         case 'hero': {
-          const h={sm:'py-12',md:'py-20',lg:'py-32',screen:'min-h-[88vh] flex flex-col justify-center py-20'}[g.height||'md'];
-          const ov=Math.max(0,Math.min(90,g.overlay==null?45:g.overlay))/100;
-          const bgLayer = g.image ? `<img src="${esc(g.image)}" class="w-full h-full object-cover">` : heroArt(g.bg);
-          return `<section class="relative brand2-bg text-white"${fx('image')}><div class="absolute inset-0">${bgLayer}<div class="absolute inset-0" style="background:rgba(15,23,42,${g.image?ov:Math.min(ov,0.35)})"></div></div>
-            <div class="relative max-w-6xl mx-auto px-4 ${h}"><h1${fx('headline')} class="text-3xl sm:text-5xl font-black max-w-2xl">${esc(g.headline||s.tagline||'Find your next vehicle')}</h1>${g.subheadline?`<p${fx('subheadline')} class="mt-3 text-white/80 max-w-xl">${esc(g.subheadline)}</p>`:''}
-            <div class="mt-6 flex flex-wrap gap-3">${g.button_label?`<button ${ctaTarget(g.button_target,g.button_link)}${fx('button_label')} class="bg-white text-slate-900 font-bold px-5 py-2.5 rounded-lg hover:bg-slate-100">${esc(g.button_label)}</button>`:''}<a href="#" onclick="setCond('');return false" class="border border-white/40 font-bold px-5 py-2.5 rounded-lg hover:bg-white/10">Browse inventory</a></div></div></section>`;
+          const defaultHeroImg = g.image || s.hero_url || 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=2000&q=85';
+          const btnLabel = g.button_label || `Browse Inventory (${DATA?.count || 0}) →`;
+          const btn2Label = g.button2_label || 'Get Pre-Approved Fast';
+          const badgeText = g.badge_text || 'Official Dealership Showroom';
+          const overlayVal = g.overlay != null ? Math.max(0, Math.min(95, Number(g.overlay))) : 75;
+          const bgStyle = g.bg ? (HERO_BGS[g.bg] || HERO_BGS.g1) : null;
+          const showTrust = g.show_trust_strip !== false;
+
+          const t1_icon = g.trust_1_icon || '★';
+          const t1_title = g.trust_1_title || '4.9 Star Rating';
+          const t1_sub = g.trust_1_sub || '1,200+ Verified Reviews';
+
+          const t2_icon = g.trust_2_icon || '⚡';
+          const t2_title = g.trust_2_title || '2-Min Pre-Approval';
+          const t2_sub = g.trust_2_sub || 'No Credit Impact';
+
+          const t3_icon = g.trust_3_icon || '💰';
+          const t3_title = g.trust_3_title || 'Top Trade Value';
+          const t3_sub = g.trust_3_sub || 'Instant Online Quote';
+
+          const t4_icon = g.trust_4_icon || '🛡️';
+          const t4_title = g.trust_4_title || '100% Guarantee';
+          const t4_sub = g.trust_4_sub || 'No Hidden Fees';
+
+          return `
+            <section id="top"${fx('image')} class="relative min-h-[680px] lg:min-h-[760px] flex items-center bg-slate-950 text-white overflow-hidden">
+              ${bgStyle ? `<div class="absolute inset-0" style="background:${bgStyle[1]}"></div>` : ''}
+              <img src="${esc(defaultHeroImg)}" class="absolute inset-0 w-full h-full object-cover object-center transform scale-105 transition duration-1000">
+              <div class="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/80 to-slate-950/40" style="opacity: ${overlayVal / 100}"></div>
+              
+              <div class="relative max-w-7xl mx-auto px-6 lg:px-12 py-20 lg:py-28 w-full">
+                <div class="max-w-2xl space-y-6">
+                  <div${fx('badge_text')} class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold tracking-wider uppercase text-emerald-400">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    ${esc(badgeText)}
+                  </div>
+                  <h1${fx('headline')} class="text-4xl sm:text-6xl font-black tracking-tight leading-[1.1] text-white">
+                    ${esc(g.headline || s.tagline || 'Experience Automotive Excellence')}
+                  </h1>
+                  <div${fx('subheadline')} class="text-lg sm:text-xl text-slate-300 font-medium leading-relaxed max-w-xl prose-links">
+                    ${g.subheadline ? richText(g.subheadline) : (s.about ? richText(s.about) : `Explore our premium inventory of certified new &amp; pre-owned vehicles. Instant pre-approvals, market-backed trade offers, and transparent pricing.`)}
+                  </div>
+                  
+                  <div class="pt-2 flex flex-wrap items-center gap-4">
+                    <button ${ctaTarget(g.button_target || 'inventory', g.button_link)}${fx('button_label')} class="px-8 py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-base font-black rounded-xl shadow-xl shadow-indigo-600/30 transition transform hover:scale-[1.02] cursor-pointer">
+                      ${esc(btnLabel)}
+                    </button>
+                    <button ${ctaTarget(g.button2_target || 'finance', g.button2_link)}${fx('button2_label')} class="px-7 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/30 text-white text-base font-bold rounded-xl transition cursor-pointer">
+                      ${esc(btn2Label)}
+                    </button>
+                  </div>
+
+                  ${showTrust ? `<!-- Trust Strip / Social Proof Indicators -->
+                  <div class="pt-8 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-semibold text-slate-300">
+                    <div${fx('trust_1_title')} class="flex items-center gap-2">
+                      <span class="text-amber-400 text-base">${esc(t1_icon)}</span>
+                      <span><strong>${esc(t1_title)}</strong><br><span class="text-[10px] text-slate-400">${esc(t1_sub)}</span></span>
+                    </div>
+                    <div${fx('trust_2_title')} class="flex items-center gap-2">
+                      <span class="text-emerald-400 text-base">${esc(t2_icon)}</span>
+                      <span><strong>${esc(t2_title)}</strong><br><span class="text-[10px] text-slate-400">${esc(t2_sub)}</span></span>
+                    </div>
+                    <div${fx('trust_3_title')} class="flex items-center gap-2">
+                      <span class="text-sky-400 text-base">${esc(t3_icon)}</span>
+                      <span><strong>${esc(t3_title)}</strong><br><span class="text-[10px] text-slate-400">${esc(t3_sub)}</span></span>
+                    </div>
+                    <div${fx('trust_4_title')} class="flex items-center gap-2">
+                      <span class="text-indigo-400 text-base">${esc(t4_icon)}</span>
+                      <span><strong>${esc(t4_title)}</strong><br><span class="text-[10px] text-slate-400">${esc(t4_sub)}</span></span>
+                    </div>
+                  </div>` : ''}
+                </div>
+              </div>
+            </section>
+          `;
         }
         case 'feature_cards': {
-          const iInv='<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13l2-5a2 2 0 012-1h10a2 2 0 012 1l2 5M5 13h14v5H5zM7 18v2M17 18v2"/></svg>';
-          const iFin='<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18v10H3zM3 11h18"/></svg>';
-          const iCon='<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l9 6 9-6M4 6h16v12H4z"/></svg>';
-          const card=(target,icon,title,sub)=>`<button ${ctaTarget(target)} class="text-left bg-white rounded-2xl cshadow p-5 hover:shadow-lg transition flex flex-col gap-2"><div class="w-11 h-11 rounded-full brand-bg text-white flex items-center justify-center">${icon}</div><div class="font-black text-lg text-slate-900">${title}</div><div class="text-sm text-slate-500">${sub}</div></button>`;
-          return `<section class="max-w-6xl mx-auto px-4 -mt-10 relative z-10">${g.title?`<h2 class="text-white/0"></h2>`:''}<div class="grid sm:grid-cols-3 gap-4">${card('inventory',iInv,'View Inventory','Browse our selection of quality vehicles')}${card('finance',iFin,'Vehicle Financing','Fast, hassle-free approvals')}${card('inquiry',iCon,'Contact Us','Call or email our team anytime')}</div></section>`;
+          return `
+            <!-- Quick Inventory Category Filter Bar -->
+            <section class="max-w-7xl mx-auto px-6 lg:px-12 -mt-10 relative z-20">
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <button onclick="setCond('new')" class="group p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-600 hover:text-white transition text-left cursor-pointer">
+                  <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-indigo-200">New Inventory</div>
+                  <div class="text-base font-black text-slate-900 dark:text-white group-hover:text-white mt-1 flex items-center justify-between">
+                    <span>New Vehicles</span><span class="group-hover:translate-x-1 transition">→</span>
+                  </div>
+                </button>
+                <button onclick="setCond('used')" class="group p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-600 hover:text-white transition text-left cursor-pointer">
+                  <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-indigo-200">Pre-Owned</div>
+                  <div class="text-base font-black text-slate-900 dark:text-white group-hover:text-white mt-1 flex items-center justify-between">
+                    <span>Certified Used</span><span class="group-hover:translate-x-1 transition">→</span>
+                  </div>
+                </button>
+                <button onclick="go('trade')" class="group p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-600 hover:text-white transition text-left cursor-pointer">
+                  <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-indigo-200">Instant Appraisal</div>
+                  <div class="text-base font-black text-slate-900 dark:text-white group-hover:text-white mt-1 flex items-center justify-between">
+                    <span>Value Your Trade</span><span class="group-hover:translate-x-1 transition">→</span>
+                  </div>
+                </button>
+                <button onclick="go('finance')" class="group p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-600 hover:text-white transition text-left cursor-pointer">
+                  <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-indigo-200">Auto Loans</div>
+                  <div class="text-base font-black text-slate-900 dark:text-white group-hover:text-white mt-1 flex items-center justify-between">
+                    <span>Apply For Financing</span><span class="group-hover:translate-x-1 transition">→</span>
+                  </div>
+                </button>
+              </div>
+            </section>
+
+            <!-- Why Buy From Us (Editorial Proof Points) -->
+            <section class="py-20 lg:py-28 bg-slate-50 dark:bg-slate-950">
+              <div class="max-w-7xl mx-auto px-6 lg:px-12">
+                <div class="text-center max-w-2xl mx-auto mb-16">
+                  <h2 class="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white">${esc(g.title || `Why Drivers Choose ${s.name || 'Our Dealership'}`)}</h2>
+                  <p class="text-slate-500 dark:text-slate-400 mt-3 text-base">We have redesigned car buying to put clarity, speed, and peace of mind first.</p>
+                </div>
+                <div class="grid md:grid-cols-4 gap-6">
+                  <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-3">
+                    <div class="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xl">1</div>
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white">Transparent Pricing</h3>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Clear upfront pricing with no hidden dealer add-ons or unexpected fees.</p>
+                  </div>
+                  <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-3">
+                    <div class="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xl">2</div>
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white">150+ Point Inspection</h3>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Every pre-owned unit undergoes a rigorous mechanical &amp; safety inspection.</p>
+                  </div>
+                  <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-3">
+                    <div class="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xl">3</div>
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white">Instant Trade Offer</h3>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Get an algorithm-backed trade-in quote in under 60 seconds online.</p>
+                  </div>
+                  <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-3">
+                    <div class="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xl">4</div>
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white">Seamless Home Delivery</h3>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Complete your paperwork online and have your vehicle delivered directly.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          `;
+        }
+        case 'trade_cta':
+        case 'finance_cta': {
+          return `
+            <!-- Financing + Trade Side-by-Side Editorial Cards -->
+            <section class="py-20 lg:py-28 bg-white dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800">
+              <div class="max-w-7xl mx-auto px-6 lg:px-12 grid md:grid-cols-2 gap-8">
+                <div class="relative overflow-hidden rounded-3xl bg-slate-950 text-white p-8 lg:p-12 min-h-[380px] flex flex-col justify-end group shadow-2xl">
+                  <img src="https://images.unsplash.com/photo-1563720223185-11003d516935?auto=format&fit=crop&w=1200&q=80" class="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition duration-700">
+                  <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent"></div>
+                  <div class="relative z-10 space-y-3">
+                    <span class="text-xs font-black uppercase tracking-wider text-indigo-400">Fast Auto Loans</span>
+                    <h3 class="text-2xl lg:text-3xl font-black">Pre-Approval in 2 Minutes</h3>
+                    <p class="text-slate-300 text-sm max-w-md">Custom financing options for all credit situations. Get approved online with no impact to your credit score.</p>
+                    <div class="pt-2"><button onclick="go('finance')" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm rounded-xl transition cursor-pointer">Apply For Financing →</button></div>
+                  </div>
+                </div>
+
+                <div class="relative overflow-hidden rounded-3xl bg-slate-950 text-white p-8 lg:p-12 min-h-[380px] flex flex-col justify-end group shadow-2xl">
+                  <img src="https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=1200&q=80" class="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition duration-700">
+                  <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent"></div>
+                  <div class="relative z-10 space-y-3">
+                    <span class="text-xs font-black uppercase tracking-wider text-emerald-400">Trade-In Appraisal</span>
+                    <h3 class="text-2xl lg:text-3xl font-black">${esc(g.title || "What's Your Car Worth?")}</h3>
+                    <p class="text-slate-300 text-sm max-w-md">We pay top dollar for trades. Get an instant, market-validated appraisal and trade up today.</p>
+                    <div class="pt-2"><button onclick="go('trade')" class="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm rounded-xl transition cursor-pointer">Value Your Trade →</button></div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          `;
+        }
+        case 'featured_inventory':
+        case 'inventory_grid': {
+          return `
+            <section class="py-20 lg:py-28 bg-slate-50 dark:bg-slate-950">
+              <div class="max-w-7xl mx-auto px-6 lg:px-12">
+                ${homeSearchBlock(g.title || 'Featured Vehicles Spotlight')}
+              </div>
+            </section>
+          `;
+        }
+        case 'reviews': {
+          const rv = Array.isArray(g.items) && g.items.length ? g.items : [
+            { author: 'Marcus T.', text: 'Easiest car purchase I have ever made. Trade offer was higher than 2 other dealerships and financing was approved in minutes.' },
+            { author: 'Sarah P.', text: '100% transparent pricing with zero surprise fees. The vehicle arrived detailed and ready to drive. Highly recommended!' },
+            { author: 'David K.', text: 'Top notch service team and straightforward advisors. They answered every question without any pushy sales tactics.' }
+          ];
+          return `
+            <section class="py-20 lg:py-28 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+              <div class="max-w-7xl mx-auto px-6 lg:px-12">
+                <div class="text-center max-w-2xl mx-auto mb-16">
+                  <h2 class="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white">${esc(g.title || 'What Our Customers Say')}</h2>
+                  <p class="text-slate-500 dark:text-slate-400 mt-3 text-base">Real experiences from local drivers who bought with ${esc(s.name || 'Our Dealership')}.</p>
+                </div>
+                <div class="grid md:grid-cols-3 gap-6">
+                  ${rv.slice(0, 3).map(r => `
+                    <div class="bg-slate-50 dark:bg-slate-800/60 p-6 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+                      <div class="text-amber-400 text-sm">★★★★★</div>
+                      <p class="text-slate-700 dark:text-slate-200 text-sm italic">“${esc(r.text)}”</p>
+                      <div class="text-xs font-bold text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-700">— ${esc(r.author || 'Verified Customer')} <span class="text-emerald-500 font-normal">· Verified Buyer</span></div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            </section>
+          `;
+        }
+        case 'contact': {
+          return `
+            <section id="contact" class="py-20 lg:py-28 bg-slate-950 text-white relative overflow-hidden">
+              <div class="max-w-7xl mx-auto px-6 lg:px-12 grid lg:grid-cols-2 gap-12 items-center">
+                <div class="space-y-6">
+                  <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold tracking-wider uppercase text-indigo-400">
+                    Showroom &amp; Inquiries
+                  </div>
+                  <h2 class="text-3xl lg:text-5xl font-black text-white leading-tight">${esc(g.title || 'Visit Our Showroom &amp; Get In Touch')}</h2>
+                  <p class="text-slate-400 text-base max-w-lg">Have questions about our inventory, financing terms, or trade-in appraisals? Our team is ready to help.</p>
+                  
+                  <div class="space-y-4 pt-4 text-sm text-slate-300">
+                    ${s.phone ? `<div class="flex items-center gap-3"><span class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-indigo-400 font-bold">📞</span><span><strong class="text-white block text-xs uppercase tracking-wider text-slate-400">Call Us</strong><a href="tel:${esc(s.phone)}" class="text-white font-bold hover:underline">${esc(s.phone)}</a></span></div>` : ''}
+                    ${s.email ? `<div class="flex items-center gap-3"><span class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-indigo-400 font-bold">✉️</span><span><strong class="text-white block text-xs uppercase tracking-wider text-slate-400">Email Us</strong><a href="mailto:${esc(s.email)}" class="text-white font-bold hover:underline">${esc(s.email)}</a></span></div>` : ''}
+                    ${s.address ? `<div class="flex items-center gap-3"><span class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-indigo-400 font-bold">📍</span><span><strong class="text-white block text-xs uppercase tracking-wider text-slate-400">Location</strong><span class="text-white font-bold">${esc(s.address)}${s.city ? ', ' + esc(s.city) : ''}</span></span></div>` : ''}
+                  </div>
+                </div>
+
+                <div class="bg-white/5 backdrop-blur-xl border border-white/10 p-8 lg:p-10 rounded-3xl shadow-2xl space-y-4">
+                  <h3 class="text-xl font-bold text-white">Send Us a Message</h3>
+                  <p class="text-xs text-slate-400">We typically reply within 15 minutes during showroom hours.</p>
+                  <form onsubmit="submitInquiry(event)" class="space-y-3 pt-2">
+                    <div><input id="i-name" placeholder="Your Full Name" class="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-indigo-400"></div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <input id="i-phone" placeholder="Phone Number" class="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-indigo-400">
+                      <input id="i-email" placeholder="Email Address" class="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-indigo-400">
+                    </div>
+                    <div><textarea id="i-msg" rows="3" placeholder="How can we help? (e.g. Schedule test drive, financing inquiry)" class="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-indigo-400"></textarea></div>
+                    <input type="hidden" id="i-vehicle">
+                    <button class="w-full py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-black text-base rounded-xl shadow-lg shadow-indigo-600/30 transition transform hover:scale-[1.01] cursor-pointer">
+                      Send Message →
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </section>
+          `;
+        }
+        case 'cta_banner': {
+          return `
+            <section class="py-16 bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-white">
+              <div class="max-w-7xl mx-auto px-6 lg:px-12 text-center space-y-6">
+                <h2${fx('title')} class="text-3xl lg:text-4xl font-black">${esc(g.title || 'Ready to Find Your Next Vehicle?')}</h2>
+                <p${fx('subtitle')} class="text-slate-300 max-w-xl mx-auto text-base">${esc(g.subtitle || 'Get pre-approved online or request an instant trade offer in seconds.')}</p>
+                <div class="flex flex-wrap justify-center gap-4 pt-2">
+                  <button onclick="go('finance')" class="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl transition cursor-pointer">Get Pre-Approved</button>
+                  <button onclick="go('trade')" class="px-8 py-3.5 bg-white/10 hover:bg-white/20 border border-white/30 text-white font-bold rounded-xl transition cursor-pointer">Value Your Trade</button>
+                  <button onclick="go('inquiry')" class="px-8 py-3.5 bg-white text-slate-950 hover:bg-slate-100 font-black rounded-xl transition cursor-pointer">Contact Dealership</button>
+                </div>
+              </div>
+            </section>
+          `;
         }
         case 'text_image': {
           const img=g.image;
@@ -684,36 +772,11 @@
           if(!items.length) return '';
           return `<section class="bg-slate-900 text-white"><div class="max-w-6xl mx-auto px-4 py-14"><h2${fx('title')} class="text-2xl font-black mb-5">${esc(g.title||'Browse by body style')}</h2><div class="grid grid-cols-2 sm:grid-cols-4 gap-4">${items.map(([b,d])=>`<div class="bg-white text-slate-900 rounded-2xl p-4 flex flex-col"><div class="font-black">${esc(b)}</div>${d.min<Infinity?`<div class="text-xs text-slate-500 mt-0.5 mb-3">Starting at ${money(d.min)}</div>`:'<div class="mb-3"></div>'}<button onclick="setBody('${esc(b)}')" class="mt-auto w-full brand-bg text-white text-sm font-bold py-2 rounded-lg hover:opacity-90">See (${d.n}) in stock</button></div>`).join('')}</div></div></section>`;
         }
-        case 'featured_inventory': {
-          const cond=(g.condition||'all');
-          let vs=(DATA.vehicles||[]).filter(v=>Array.isArray(v.image_urls)&&v.image_urls[0]);   // only feature cars that have a photo
-          if(cond!=='all') vs=vs.filter(v=>(v.condition||'').toLowerCase()===cond);
-          // Rotate the featured set every week (deterministic by ISO week number).
-          const wk=Math.floor(Date.now()/(7*864e5));
-          if(vs.length>1){ const off=((wk%vs.length)+vs.length)%vs.length; vs=vs.slice(off).concat(vs.slice(0,off)); }
-          vs=vs.slice(0,Math.min(12,Math.max(3,parseInt(g.count)||6)));
-          return `<section class="max-w-6xl mx-auto px-4 py-10"><div class="flex items-center justify-between mb-4"><h2${fx('title')} class="text-2xl font-black">${esc(g.title||'Featured vehicles')}</h2><a href="#" onclick="setCond('');return false" class="text-sm font-bold brand-text">View all →</a></div><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">${vs.map(vehicleCard).join('')||'<div class="text-sm text-slate-400">No vehicles yet.</div>'}</div></section>`;
-        }
-        case 'inventory_grid': return homeSearchBlock(g.title||'Our inventory');
-        case 'finance_cta': return ctaBand(g.title||'Get pre-approved today',g.subtitle||'Fast, secure, no impact to your credit score.',g.button_label||'Get pre-approved','finance');
-        case 'trade_cta': return ctaBand(g.title||'Value your trade',g.subtitle||'Get a real offer in minutes.',g.button_label||'Value my trade','trade');
         case 'service_cta': return ctaBand(g.title||'Book your service',g.subtitle||'Factory-trained technicians.',g.button_label||'Book service',g.button_target||'inquiry',g.button_link);
-        case 'cta_banner': return ctaBand(g.title||'Ready to get started?','',g.button_label||'Contact us',g.button_target||'inquiry',g.button_link);
         case 'staff': return ((DATA.site.staff||[]).length||(DATA.team||[]).length)?`<section class="bg-white border-t border-slate-200"><div class="max-w-6xl mx-auto px-4 py-10 text-center"><h2${fx('title')} class="text-2xl font-black mb-2">${esc(g.title||'Meet our team')}</h2><p class="text-slate-500 mb-4">Sales, service and management — here to help.</p><button onclick="go('team')" class="brand-bg text-white font-bold px-5 py-2.5 rounded-lg">See our team →</button></div></section>`:'';
-        case 'reviews': {
-          const rv=Array.isArray(g.items)?g.items:[];
-          const stars=(n)=>{const r=Math.max(0,Math.min(5,Math.round(Number(n)||0)));return `<span style="color:#f59e0b;letter-spacing:2px">${'★'.repeat(r)}${'☆'.repeat(5-r)}</span>`;};
-          const head=`<div class="text-center mb-8"><h2${fx('title')} class="text-2xl sm:text-3xl font-black">${esc(g.title||'What our customers say')}</h2>${g.google_rating?`<div class="mt-2 flex items-center justify-center gap-2 text-sm">${stars(g.google_rating)}<span class="font-bold">${esc(g.google_rating)}</span><span class="text-slate-500">on Google</span></div>`:''}</div>`;
-          const cards=rv.length?`<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">${rv.slice(0,12).map(x=>`<div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"><div class="mb-2">${stars(x.rating)}</div><p class="text-slate-700 text-sm leading-relaxed">${esc(x.text||'')}</p><div class="mt-3 text-sm font-bold text-slate-900">${esc(x.author||'')}</div></div>`).join('')}</div>`:'';
-          const embed=g.embed_html?`<div class="mt-6">${g.embed_html}</div>`:'';
-          const cta=g.reviews_url?`<div class="text-center mt-8"><a href="${esc(g.reviews_url)}" target="_blank" rel="noopener" class="inline-flex items-center gap-2 brand-bg text-white font-bold px-5 py-2.5 rounded-lg">Read our Google reviews →</a></div>`:'';
-          const empty=(!rv.length&&!g.embed_html)?'<div class="text-center text-sm text-slate-400">Add reviews in the section settings, or paste a Google Reviews widget embed.</div>':'';
-          return `<section class="bg-slate-100"><div class="max-w-6xl mx-auto px-4 py-14">${head}${cards}${embed}${empty}${cta}</div></section>`;
-        }
         case 'faq': { const items=Array.isArray(g.items)?g.items:[]; return `<section class="max-w-3xl mx-auto px-4 py-12"><h2${fx('title')} class="text-2xl font-black mb-6">${esc(g.title||'Frequently asked questions')}</h2><div class="space-y-3"${fx('items')}>${items.map(it=>`<details class="bg-white rounded-lg cshadow p-4"><summary class="font-bold cursor-pointer">${esc(it.q||'')}</summary><p class="text-sm text-slate-600 mt-2 whitespace-pre-line">${esc(it.a||'')}</p></details>`).join('')||'<div class="text-sm text-slate-400">Add FAQ items in the section settings.</div>'}</div></section>`; }
         case 'gallery': { const imgs=Array.isArray(g.images)?g.images:[]; return imgs.length?`<section class="max-w-6xl mx-auto px-4 py-10">${g.title?`<h2${fx('title')} class="text-2xl font-black mb-4">${esc(g.title)}</h2>`:''}<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2"${fx('images')}>${imgs.map(u=>`<img src="${esc(u)}" class="w-full h-40 object-cover rounded-lg">`).join('')}</div></section>`:''; }
         case 'map': { const addr=g.address||[s.address,s.city,s.province].filter(Boolean).join(', '); return addr?`<section class="max-w-6xl mx-auto px-4 py-10">${g.title?`<h2${fx('title')} class="text-2xl font-black mb-4">${esc(g.title)}</h2>`:''}<iframe class="w-full h-72 rounded-lg border-0" loading="lazy" src="https://www.google.com/maps?q=${encodeURIComponent(addr)}&output=embed"></iframe></section>`:''; }
-        case 'contact': return `<section id="contact" class="brand-bg text-white"><div class="max-w-6xl mx-auto px-4 py-12 grid md:grid-cols-2 gap-8"><div><h2${fx('title')} class="text-2xl font-black mb-3">${esc(g.title||'Get in touch')}</h2>${s.phone?`<div class="text-white/80 text-sm mb-1">📞 <a href="tel:${esc(s.phone)}" class="underline">${esc(s.phone)}</a></div>`:''}${s.email?`<div class="text-white/80 text-sm mb-1">✉️ <a href="mailto:${esc(s.email)}" class="underline">${esc(s.email)}</a></div>`:''}${s.hours?`<div class="text-white/80 text-sm mt-3 whitespace-pre-line">${esc(s.hours)}</div>`:''}</div><form onsubmit="submitInquiry(event)" class="bg-white text-slate-900 rounded-xl p-5 space-y-2"><div class="font-bold">Send us a message</div><input id="i-name" placeholder="Your name" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"><div class="flex gap-2"><input id="i-phone" placeholder="Phone" class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm"><input id="i-email" placeholder="Email" class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm"></div><textarea id="i-msg" rows="3" placeholder="How can we help?" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"></textarea><input type="hidden" id="i-vehicle"><button class="w-full brand-bg text-white font-bold py-2.5 rounded-lg">Send</button></form></div></section>`;
         case 'payment_calc': {
           const rate=g.rate!=null?g.rate:7.99, term=g.term||72, tax=taxRate();
           const termOpts=[24,36,48,60,72,84,96].map(t=>`<option value="${t}" ${t===term?'selected':''}>${t}</option>`).join('');
@@ -1372,9 +1435,14 @@
     function post(m){ try{ parent.postMessage(m,'*'); }catch(e){} }
     function previewSections(){
       if(!DATA||!DATA.site) return [];
-      if(VIEW==='home') return Array.isArray(DATA.site.sections)?DATA.site.sections:[];
+      if(VIEW==='home'){
+        if(!Array.isArray(DATA.site.sections) || !DATA.site.sections.length){
+          DATA.site.sections = defaultHomeSections();
+        }
+        return DATA.site.sections;
+      }
       if(VIEW.startsWith('page:')){
-        const p=(DATA.site.pages||[]).find(x=>x.slug===VIEW.slice(5));
+        const p = findSitePage(VIEW.slice(5));
         return Array.isArray(p?.sections)?p.sections:[];
       }
       const key=VIEW==='inquiry'?'contact':VIEW;

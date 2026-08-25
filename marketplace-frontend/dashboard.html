@@ -1461,13 +1461,37 @@
              has a home without nesting a card inside a card. -->
         <div id="settings-team" data-stab-panel="team" data-full-width="true" class="break-inside-avoid mb-5"></div>
 
-        <!-- CRM / DMS connection (ADF lead delivery) — moved here from the CRM Leads tab -->
-        <div id="crm-dms-card" data-admin-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
-          <h2 class="text-lg font-bold text-slate-900 dark:text-white">CRM / DMS connection</h2>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Your CRM/DMS lead-intake address (VinSolutions, DealerSocket, Elead, PBS, etc.). Leads captured in MarketSync are emailed here as ADF XML and auto-imported. Not sure? Ask your CRM admin for your "ADF" or "email lead" address.</p>
-          <div class="flex gap-2">
-            <input id="crm-adf-email" type="email" placeholder="leads@yourcrm-intake.com" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
-            <button id="crm-adf-save" onclick="saveCrmAdfEmail(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Save</button>
+        <!-- CRM / DMS connection (ADF lead delivery & DMS Sync) -->
+        <div id="crm-dms-card" data-admin-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 break-inside-avoid mb-5 shadow-xs">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white">DMS &amp; CRM Connection</h2>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">Bi-Directional</span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Sync inventory and repair orders from your DMS (PBS, CDK, Reynolds, DealerTrack) and deliver captured leads into your CRM (VinSolutions, DealerSocket, Elead, PBS) as ADF/XML.</p>
+          <div class="grid sm:grid-cols-2 gap-3 mb-3">
+            <div>
+              <label class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">DMS Platform</label>
+              <select id="settings-dms-provider" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs">
+                <option value="pbs">PBS Systems</option>
+                <option value="cdk">CDK Global</option>
+                <option value="reynolds">Reynolds &amp; Reynolds</option>
+                <option value="dealertrack">DealerTrack</option>
+                <option value="vauto">vAuto / HomeNet</option>
+                <option value="automanager">AutoManager</option>
+                <option value="custom_ftp">Custom FTP / CSV</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">DMS Store / Account ID</label>
+              <input id="settings-dms-id" type="text" value="DLR-88210" placeholder="e.g. DLR-88210" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs">
+            </div>
+          </div>
+          <div>
+            <label class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">CRM Lead-Intake Email (ADF XML)</label>
+            <div class="flex gap-2">
+              <input id="crm-adf-email" type="email" placeholder="leads@yourcrm-intake.com" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs">
+              <button id="crm-adf-save" onclick="saveCrmAdfEmail(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition cursor-pointer">Save Connection</button>
+            </div>
           </div>
           <p id="crm-adf-msg" class="hidden text-xs mt-2"></p>
         </div>

@@ -77,10 +77,16 @@ test('the hero photo is clickable even though the headline block sits on top of 
   // in the hero hits the content wrapper. Tagging the section itself makes the
   // fallback "change this photo"; closest() still resolves headline/subheadline/
   // button first when one of those is actually hit.
-  assert.match(site, /<section class="relative brand2-bg text-white"\$\{fx\('image'\)\}>/,
+  assert.match(site, /<section id="top"\$\{fx\('image'\)\}/,
     'the hero section itself must carry the image field as the fall-through target')
   assert.match(site, /<h1\$\{fx\('headline'\)\}/)
-  assert.match(site, /<p\$\{fx\('subheadline'\)\}/)
+  assert.match(site, /<div\$\{fx\('subheadline'\)\}/)
+  // The hero grew a badge, a second CTA and a trust strip; each is clickable too,
+  // and each has a matching inspector control so focusWsField has somewhere to land.
+  for (const f of ['badge_text', 'button2_label', 'trust_1_title']) {
+    assert.match(site, new RegExp(`fx\\('${f}'\\)`), `hero ${f} must be clickable on the canvas`)
+    assert.match(builder, new RegExp(`\\['${f}',`), `hero ${f} must have an inspector control`)
+  }
 })
 
 test('clicking an element jumps to that control, and an image opens the picker', () => {
@@ -97,8 +103,8 @@ test('clicking an element jumps to that control, and an image opens the picker',
 // psHero only ever set a gradient `bg`, so a site had at most one real photograph
 // (Home) and every other page opened on a bare colour wash.
 test('psHero ships a real photograph, deterministically', () => {
-  assert.match(builder, /const psHero = \([^)]*\) => __psec\('hero', \{[^}]*image: wsHeroPhoto\(h\)/,
-    'every hero preset must carry an image')
+  assert.match(builder, /image: img \|\| wsHeroPhoto\(/,
+    'an explicit photo wins, but a preset with none must still seed one')
   const fn = builder.slice(builder.indexOf('function wsHeroPhoto('), builder.indexOf('function wsHeroPhoto(') + 600)
   assert.doesNotMatch(fn, /Math\.random/,
     're-rendering the same preset must not reshuffle the imagery under the dealer')
