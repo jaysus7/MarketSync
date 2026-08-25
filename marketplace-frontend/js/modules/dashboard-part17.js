@@ -1300,14 +1300,30 @@ async function autoBuildPages(btn) {
   finally { btn.disabled = false; btn.textContent = orig; }
 }
 window.autoBuildPages = autoBuildPages;
-function addSitePage() { collectMenu(); __sitePages.push({ id: 'pg' + Math.random().toString(36).slice(2, 9), title: '', nav: true, body_html: '' }); renderMenuList(); }
+// Same rule as the Blank preset: a page added from the Pages list starts with a hero
+// (photo included) rather than an empty canvas, so every page on the site has one.
+function addSitePage() { collectMenu(); __sitePages.push({ id: 'pg' + Math.random().toString(36).slice(2, 9), title: '', nav: true, body_html: '', sections: [psHero('New page', '', 'Contact us', 'inquiry', 'g1')] }); renderMenuList(); }
 function removeSitePage(i) { collectMenu(); __sitePages.splice(i, 1); renderMenuList(); }
 // Starter pages the dealer can drop in with one click, pre-filled + grouped in the nav.
 const __psec = (type, settings) => ({ id: 's' + Math.random().toString(36).slice(2, 9), type, settings: settings || {} });
 function ctxName() { return (__siteCfg?.content?.name) || 'our dealership'; }
 function ctxCity() { const c = __siteCfg?.content?.city; return c ? (' in ' + c) : ''; }
 // Section builders shared by presets + templates.
-const psHero = (h, s, btn, target, bg) => __psec('hero', { headline: h, subheadline: s, button_label: btn || 'Contact us', button_target: target || 'inquiry', overlay: 45, height: 'md', bg: bg || 'g1' });
+// Every hero ships with a real photograph, not just generated gradient art. A page
+// whose hero is a bare colour wash reads as unfinished, and in practice dealers rarely
+// go back and add one — so the starting point has to already look like a finished site.
+// Deterministic from the headline rather than random: re-rendering the same preset must
+// not reshuffle the imagery underneath the dealer, while two different pages still get
+// different photos. Widened to 1600px because a hero is full-bleed and the library's
+// 900px default visibly softens across a desktop hero.
+function wsHeroPhoto(seed) {
+  if (typeof STUDIO_FREE_PHOTOS === 'undefined' || !STUDIO_FREE_PHOTOS.length) return '';
+  const s = String(seed || 'hero');
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return STUDIO_FREE_PHOTOS[h % STUDIO_FREE_PHOTOS.length].url.replace('w=900', 'w=1600');
+}
+const psHero = (h, s, btn, target, bg) => __psec('hero', { headline: h, subheadline: s, button_label: btn || 'Contact us', button_target: target || 'inquiry', overlay: 45, height: 'md', bg: bg || 'g1', image: wsHeroPhoto(h) });
 const psSeo = (h, paras) => __psec('html', { html: `<h2>${h}</h2>` + paras.map(p => `<p>${p}</p>`).join('') });
 const psContact = () => __psec('contact', { title: 'Get in touch', subtitle: 'Send us a message and we’ll get right back to you.' });
 const psCta = (t, s, btn, target) => __psec('cta_banner', { title: t, subtitle: s, button_label: btn, button_target: target || 'inquiry' });
@@ -1372,7 +1388,10 @@ function PAGE_PRESETS() {
       ]),
       psContact(),
     ] } },
-    blank: { label: 'Blank page', page: { title: '', menu: '', nav: true, sections: [] } },
+    // "Blank" means no marketing copy written for you — not a bare white page. Every
+    // page on the site opens with a hero, so a new one starts with the same shell
+    // (photo included) and the dealer just retitles it.
+    blank: { label: 'Blank page', page: { title: '', menu: '', nav: true, sections: [psHero('New page', '', 'Contact us', 'inquiry', 'g1')] } },
   };
 }
 // A polished, complete home layout every template ships (hero → feature cards →
@@ -1567,9 +1586,6 @@ async function loadWebsitePage() {
     } catch (e) {}
   }
 
-  // Ensure default mode is Live Builder
-  if (!localStorage.getItem('ms_builder_mode')) __builderMode = 'live';
-
   renderWebsitePage();
 }
 
@@ -1747,10 +1763,17 @@ function wsTab(t) {
   document.body.classList.toggle('website-workspace-mode', isBuilder);
   renderWebsitePage();
 }
-let __builderMode = (() => { try { return localStorage.getItem('ms_builder_mode') || 'live'; } catch { return 'live'; } })();
-function setBuilderMode(m) {
-  __builderMode = (m === 'live') ? 'live' : 'classic';
-  try { localStorage.setItem('ms_builder_mode', __builderMode); } catch {}
+// There is exactly ONE website builder: the live visual canvas. A second "classic"
+// form-stack editor used to sit behind a localStorage flag (ms_builder_mode), which
+// meant two dealers on the same account could be looking at completely different
+// editors depending on what their browser had cached — and only the live canvas shows
+// the real published site while you edit it. Classic is gone; the flag is cleared on
+// load so nobody stays pinned to an editor that no longer exists.
+try { localStorage.removeItem('ms_builder_mode'); } catch {}
+// Kept as a no-op shim: older cached dashboard bundles and any stale onclick markup
+// still call setBuilderMode('classic'), and an undefined function there would throw
+// and leave the builder half-rendered. Always re-render the one builder instead.
+function setBuilderMode() {
   __livePreviewReady = false;
   if (document.getElementById('website-root')) { __wsTab = 'builder'; renderWebsitePage(); }
   else renderWsBody();
@@ -1799,7 +1822,6 @@ function markWsSaved() {
 window.markWsSaved = markWsSaved;
 
 function livePreviewPush() {
-  if (__builderMode !== 'live') return;
   const ifr = document.getElementById('ws-preview-frame');
   if (!ifr || !ifr.contentWindow || !__livePreviewReady) return;
   clearTimeout(__livePushTimer);
@@ -2053,18 +2075,22 @@ function cancelInsert() { __pendingInsertAt = null; const h = document.getElemen
 window.cancelInsert = cancelInsert;
 function wireLiveMessages() {
   if (__liveMsgWired) return; __liveMsgWired = true;
+  // Confirm the canvas click in the Layers tree, so it is obvious WHICH section the
+  // inspector is now editing. (This used to flash a card in the classic editor's
+  // #ws-sections list, which no longer exists.)
   const flashCard = (i) => {
-    const box = document.getElementById('ws-sections'); if (!box) return;
-    const card = box.children[i]; if (!card) return;
-    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    card.classList.add('ring-2', 'ring-indigo-500', 'ring-offset-2', 'dark:ring-offset-slate-900', 'rounded-xl');
-    setTimeout(() => card.classList.remove('ring-2', 'ring-indigo-500', 'ring-offset-2', 'dark:ring-offset-slate-900', 'rounded-xl'), 1800);
+    const row = document.querySelector(`#ws-layers-tree [data-layer-idx="${i}"]`); if (!row) return;
+    row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    row.classList.add('ring-2', 'ring-indigo-500', 'rounded-lg');
+    setTimeout(() => row.classList.remove('ring-2', 'ring-indigo-500', 'rounded-lg'), 1400);
   };
   window.addEventListener('message', (ev) => {
     const m = ev.data || {};
     if (m.type === 'ms-preview-ready') { __livePreviewReady = true; livePreviewPush(); }
     else if (m.type === 'ms-preview-click' && typeof m.index === 'number') {
-      selectWsSection(m.index);
+      // m.field is set when the click landed on a specific editable element
+      // (hero photo, headline, button label…) rather than section whitespace.
+      selectWsSection(m.index, typeof m.field === 'string' ? m.field : null);
       flashCard(m.index);
     }
     else if (m.type === 'ms-preview-reorder') {
@@ -2083,12 +2109,14 @@ function wireLiveMessages() {
         flashCard(m.index);
       }
       else if (m.action === 'add-below') {
+        // The canvas "＋" arms an insertion point. Open the block library for them —
+        // it lives in the left dock, which may be on another tab or collapsed, so
+        // nothing visibly happened when this only toggled a classic-editor hint.
         __pendingInsertAt = m.index + 1;
-        const hint = document.getElementById('ws-insert-hint');
-        if (hint) hint.classList.remove('hidden');
+        setWsLeftNav('blocks');
         const pal = document.getElementById('ws-palette');
-        if (pal) { pal.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); pal.classList.add('ring-2', 'ring-indigo-400', 'rounded-lg'); setTimeout(() => pal.classList.remove('ring-2', 'ring-indigo-400', 'rounded-lg'), 2000); }
-        if (typeof showToast === 'function') showToast('Pick a section to insert here →', 'info');
+        if (pal) { pal.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); pal.classList.add('ring-2', 'ring-indigo-400'); setTimeout(() => pal.classList.remove('ring-2', 'ring-indigo-400'), 2000); }
+        if (typeof showToast === 'function') showToast('Pick a block to insert here', 'info');
       }
     }
   });
@@ -2116,16 +2144,43 @@ function selectFirstEditableWsSection() {
 // the visible canvas always has real section records behind it. This stays a
 // local draft until the dealer explicitly saves or publishes.
 function ensureEditableWebsiteSections() {
-  if ((__homeSections || []).length) return false;
   const c = __siteCfg?.content || {};
-  __homeSections = templateHome({
-    name: c.name || c.dealer_name || (typeof ctxName === 'function' ? ctxName() : 'Our dealership'),
-    city: c.city || ''
-  });
-  __wsTarget = 'home';
-  __siteSections = __homeSections;
-  window.__wsHasUnsavedChanges = true;
-  return true;
+  let seeded = false;
+
+  if (!(__homeSections || []).length) {
+    __homeSections = templateHome({
+      name: c.name || c.dealer_name || (typeof ctxName === 'function' ? ctxName() : 'Our dealership'),
+      city: c.city || ''
+    });
+    __wsTarget = 'home';
+    __siteSections = __homeSections;
+    seeded = true;
+  }
+
+  // Every page on the site opens with a hero, not just Home. The built-in pages
+  // (Inventory, Build & Price, Trade, Financing, Team, Contact) shipped with
+  // `sections: []` and only got a hero if the dealer happened to apply a full
+  // template — so in practice most sites had one hero image and five bare pages.
+  // Seed each empty one from the same starter layouts the templates use.
+  const builtinSeeds = templateBuiltinSections();
+  for (const [k] of BUILTIN_META) {
+    const b = __siteBuiltins?.[k];
+    if (!b || (Array.isArray(b.sections) && b.sections.length)) continue;
+    const seed = builtinSeeds[k];
+    if (!seed || !seed.length) continue;
+    b.sections = JSON.parse(JSON.stringify(seed));
+    seeded = true;
+  }
+
+  // Dealer-authored pages created before pages carried a hero of their own.
+  for (const p of (__sitePages || [])) {
+    if (Array.isArray(p.sections) && p.sections.length) continue;
+    p.sections = [psHero(p.title || 'New page', '', 'Contact us', 'inquiry', 'g1')];
+    seeded = true;
+  }
+
+  if (seeded) window.__wsHasUnsavedChanges = true;
+  return seeded;
 }
 window.ensureEditableWebsiteSections = ensureEditableWebsiteSections;
 
@@ -2281,7 +2336,7 @@ function setWsInspectorTab(tab) {
 }
 window.setWsInspectorTab = setWsInspectorTab;
 
-function selectWsSection(idx) {
+function selectWsSection(idx, field) {
   const nextIdx = Number(idx);
   if (!Number.isInteger(nextIdx)) return;
   if (nextIdx >= 0 && !__siteSections[nextIdx]) return;
@@ -2292,8 +2347,32 @@ function selectWsSection(idx) {
   if (panel) panel.innerHTML = renderWsRightInspectorHtml();
   renderWsLayersTree();
   if (__wsRightDockCollapsed) toggleWsRightDock();
+  if (field) focusWsField(nextIdx, field);
 }
 window.selectWsSection = selectWsSection;
+
+// A click on the canvas lands on a specific ELEMENT — the hero photo, the headline,
+// the button — not just somewhere inside a section. Selecting the section and leaving
+// the dealer at the top of a long inspector to hunt for the matching control is the
+// difference between "the builder works" and "the builder is fiddly", so jump straight
+// to that control. An image field skips the text box entirely and opens the photo
+// picker, because "click the hero image" can only reasonably mean "change this photo".
+function focusWsField(i, field) {
+  const sec = __siteSections[i]; if (!sec) return;
+  const type = (SEC_META[sec.type]?.fields || []).find(f => f[0] === field)?.[2];
+  if (type === 'image') {
+    openWsPhotoPicker(url => { setSec(i, field, url); renderWsSections(); });
+    return;
+  }
+  const panel = document.getElementById('ws-inspector-panel'); if (!panel) return;
+  const wrap = panel.querySelector(`[data-ws-field="${CSS.escape(field)}"]`); if (!wrap) return;
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  wrap.classList.add('ring-2', 'ring-indigo-400', 'rounded-lg');
+  setTimeout(() => wrap.classList.remove('ring-2', 'ring-indigo-400', 'rounded-lg'), 1600);
+  const control = wrap.querySelector('input:not([type=file]):not([type=range]), textarea, select');
+  if (control) { try { control.focus({ preventScroll: true }); } catch { control.focus(); } }
+}
+window.focusWsField = focusWsField;
 
 function renderWsLayersTreeHtml() {
   return `
@@ -2312,7 +2391,7 @@ function renderWsLayersTreeHtml() {
             const isSel = __wsSelectedSecIdx === idx;
             const meta = SEC_META[sec.type] || {};
             return `
-              <div onclick="selectWsSection(${idx})" class="p-2.5 rounded-xl border ${isSel ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400'} cursor-pointer flex items-center justify-between transition group shadow-xs">
+              <div data-layer-idx="${idx}" onclick="selectWsSection(${idx})" class="p-2.5 rounded-xl border ${isSel ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400'} cursor-pointer flex items-center justify-between transition group shadow-xs">
                 <div class="flex items-center gap-2 min-w-0">
                   <span class="w-4 text-[10px] font-mono text-slate-700 dark:text-slate-400 font-bold">${idx + 1}</span>
                   <span class="truncate font-extrabold text-slate-900 dark:text-slate-100">${esc(meta.label || sec.type)}</span>
@@ -2563,17 +2642,26 @@ function renderWsRightInspectorContent() {
   return '';
 }
 
+// Repaint the block library wherever it currently lives. It used to be re-rendered
+// into #ws-palette-container, which only ever existed in the removed classic editor —
+// so in the live builder the category pills and the search box did nothing at all.
+function repaintWsPalette() {
+  const drawer = document.getElementById('ws-left-drawer-content');
+  if (drawer && __wsActiveLeftNav === 'blocks') { drawer.innerHTML = renderWsLeftDrawerHtml(); return; }
+  const pal = document.getElementById('ws-palette');
+  if (pal) pal.outerHTML = renderElementorPalette();
+}
 function setWsPaletteCat(cat) {
   __wsPaletteCat = cat;
-  const p = document.getElementById('ws-palette-container');
-  if (p) p.innerHTML = renderElementorPalette();
+  repaintWsPalette();
 }
 window.setWsPaletteCat = setWsPaletteCat;
 
 function setWsPaletteSearch(val) {
   __wsPaletteSearch = val;
-  const p = document.getElementById('ws-palette-container');
-  if (p) p.innerHTML = renderElementorPalette();
+  const grid = document.getElementById('ws-palette-grid');
+  if (grid) grid.innerHTML = renderWsPaletteCards();
+  else repaintWsPalette();
 }
 window.setWsPaletteSearch = setWsPaletteSearch;
 
@@ -2600,6 +2688,35 @@ function renderElementorPalette() {
     <button onclick="setWsPaletteCat('${id}')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition ${__wsPaletteCat === id ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'}">${label}</button>
   `).join('');
 
+  return `
+    <div id="ws-palette" class="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-3">
+      <div id="ws-insert-hint" class="${__pendingInsertAt == null ? 'hidden' : ''} flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-indigo-600/20 border border-indigo-500/50 text-[11px] font-bold text-indigo-300">
+        <span>Pick a block to insert it here</span>
+        <button onclick="cancelInsert()" class="text-indigo-300 hover:text-white font-black">Cancel</button>
+      </div>
+      <div class="flex items-center justify-between">
+        <div class="text-xs font-black uppercase tracking-wider text-slate-400">MarketSync Block Library</div>
+        <button onclick="aiBuildPageLayout()" class="text-[11px] font-extrabold text-violet-400 hover:text-violet-300 flex items-center gap-1">AI Build</button>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="relative">
+        <input type="text" value="${esc(__wsPaletteSearch)}" oninput="setWsPaletteSearch(this.value)" placeholder="Search blocks (e.g. hero, inventory, reviews)..." class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+      </div>
+
+      <!-- Category Filter Pills -->
+      <div class="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">${catNav}</div>
+
+      <!-- Widget Grid -->
+      <div id="ws-palette-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[360px] overflow-y-auto pr-1 scrollbar-thin">
+        ${renderWsPaletteCards()}
+      </div>
+    </div>
+  `;
+}
+// The card grid alone — a search keystroke repaints only this, so the search input
+// keeps focus and the caret instead of being torn out from under the dealer.
+function renderWsPaletteCards() {
   const searchQ = (__wsPaletteSearch || '').toLowerCase().trim();
 
   const filteredSecs = SEC_ORDER.filter(t => {
@@ -2626,28 +2743,7 @@ function renderElementorPalette() {
       </button>
     `;
   }).join('');
-
-  return `
-    <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-3">
-      <div class="flex items-center justify-between">
-        <div class="text-xs font-black uppercase tracking-wider text-slate-400">MarketSync Block Library</div>
-        <button onclick="aiBuildPageLayout()" class="text-[11px] font-extrabold text-violet-400 hover:text-violet-300 flex items-center gap-1">AI Build</button>
-      </div>
-
-      <!-- Search Bar -->
-      <div class="relative">
-        <input type="text" value="${esc(__wsPaletteSearch)}" oninput="setWsPaletteSearch(this.value)" placeholder="Search blocks (e.g. hero, inventory, reviews)..." class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
-      </div>
-
-      <!-- Category Filter Pills -->
-      <div class="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">${catNav}</div>
-
-      <!-- Widget Grid -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[360px] overflow-y-auto pr-1 scrollbar-thin">
-        ${cardsHtml || '<div class="col-span-2 text-center text-xs text-slate-400 italic py-4">No blocks match your search.</div>'}
-      </div>
-    </div>
-  `;
+  return cardsHtml || '<div class="col-span-2 text-center text-xs text-slate-400 italic py-4">No blocks match your search.</div>';
 }
 
 function renderLiveBuilder(body) {
@@ -2657,7 +2753,7 @@ function renderLiveBuilder(body) {
   __livePreviewReady = false;
   const slug = __siteCfg?.site_slug;
   if (!slug) {
-    body.innerHTML = `<div class="mt-6 text-sm text-slate-500 dark:text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-8 text-center">Name your site address first (Settings → site address) to use the visual builder.<br>You can keep building now in <button onclick="setBuilderMode('classic')" class="text-indigo-600 font-bold">Classic mode ↩</button>.</div>`;
+    body.innerHTML = `<div class="mt-6 text-sm text-slate-500 dark:text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-8 text-center">Name your site address first in <button onclick="wsTab('settings')" class="text-indigo-600 font-bold">Settings → site address</button> to start building.</div>`;
     return;
   }
 
@@ -2692,7 +2788,7 @@ function renderLiveBuilder(body) {
         <!-- Center Full-Screen Live Web Canvas -->
         <main class="w-full h-full flex items-center justify-center p-0 overflow-hidden relative z-0">
           <div id="ws-frame-wrapper" class="${__wsActiveDeviceView === 'mobile' ? 'w-[375px] h-[92%]' : (__wsActiveDeviceView === 'tablet' ? 'w-[768px] h-[92%]' : 'w-full h-full')} ${__wsActiveDeviceView === 'desktop' ? 'border-0' : 'rounded-3xl border-4 border-slate-500 dark:border-slate-700 shadow-2xl'} bg-white transition-all duration-300 overflow-hidden relative z-0">
-            <iframe id="ws-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1&builder_v=20260824_digital_ia_v3" onload="window.livePreviewLoaded && window.livePreviewLoaded()" class="w-full h-full border-0 pointer-events-auto" title="Live Website Canvas"></iframe>
+            <iframe id="ws-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1&builder_v=20260825_builder_click_edit_v1" onload="window.livePreviewLoaded && window.livePreviewLoaded()" class="w-full h-full border-0 pointer-events-auto" title="Live Website Canvas"></iframe>
           </div>
         </main>
 
@@ -2795,54 +2891,26 @@ function renderWsBody() {
     renderSiteStaff();
     return;
   }
-  if (__wsTab === 'builder' && __builderMode === 'live') {
+  if (__wsTab === 'builder') {
     body.className = 'flex-1 min-h-0 overflow-hidden flex flex-col w-full h-full';
     renderLiveBuilder(body);
     return;
   }
-  // Builder Classic
-  body.className = 'flex-1 min-h-0 overflow-y-auto w-full p-4';
-  const pageOpts = (__sitePages || []).map((p, i) => `<option value="${i}" ${__wsTarget === i ? 'selected' : ''}> ${esc(p.title || 'Untitled page')}</option>`).join('');
-  const builtinOpts = BUILTIN_META.filter(([k]) => (__siteBuiltins[k]?.enabled !== false)).map(([k, label]) => `<option value="b:${k}" ${__wsTarget === 'b:' + k ? 'selected' : ''}> ${esc((__siteBuiltins[k] && __siteBuiltins[k].label) || label)} — top section</option>`).join('');
-  body.innerHTML = `
-    <div class="flex items-center gap-2 mt-4 mb-2 flex-wrap">
-      <span class="text-xs font-bold text-slate-500 dark:text-slate-400">Editing:</span>
-      <select onchange="wsSetTarget(this.value)" class="text-sm font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5">
-        <option value="home" ${__wsTarget === 'home' ? 'selected' : ''}>Home page</option>${pageOpts}${builtinOpts ? `<optgroup label="Built-in pages — add a hero/intro on top">${builtinOpts}</optgroup>` : ''}
-      </select>
-      <button onclick="wsTab('pages')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add / manage pages</button>
-      <span class="text-[11px] text-slate-400 flex-1">${(__sitePages || []).length ? 'Pick a page to build it — its own hero, CTAs and sections, just like home.' : 'Only Home so far. Add pages in the Pages tab, then pick them here to customize.'}</span>
-      <button onclick="openTemplatePicker()" class="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded-lg">Template</button>
-    </div>
-    ${(typeof __wsTarget === 'number' && __sitePages[__wsTarget]) ? (() => { const cp = __sitePages[__wsTarget]; return `
-    <div class="flex items-center gap-3 mb-3 flex-wrap text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2">
-      <span class="font-bold text-slate-500 dark:text-slate-400">This page's brand:</span>
-      <label class="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">Accent
-        <input type="color" value="${cp.accent || '#4f46e5'}" oninput="setPageStyle('accent',this.value)" class="w-8 h-7 rounded border border-slate-200 dark:border-slate-700 bg-transparent cursor-pointer"></label>
-      ${cp.accent ? `<button onclick="setPageStyle('accent','',true)" class="text-slate-400 hover:text-rose-500 font-bold" title="Use site default">reset</button>` : '<span class="text-slate-400">(site default)</span>'}
-      <label class="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 ml-2">Nav icon
-        <input value="${esc(cp.icon || '')}" maxlength="4" placeholder="" oninput="setPageStyle('icon',this.value)" class="w-16 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1 py-1"></label>
-      <span class="text-slate-400 flex-1">Shows in the site nav and tints this page's buttons/links.</span>
-    </div>
-    <div class="mb-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 space-y-1.5">
-      <div class="flex items-center justify-between gap-2">
-        <span class="text-xs font-bold text-slate-500 dark:text-slate-400">This page's SEO <span class="font-normal text-slate-400">— a unique title & meta for Google (blank auto-fills from this page)</span></span>
-        <button type="button" onclick="aiPageMeta(this)" class="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500 whitespace-nowrap"> AI write meta</button>
-      </div>
-      <input id="pg-seo-title" value="${esc(cp.seo_title || '')}" oninput="setPageStyle('seo_title',this.value)" placeholder="SEO title (~60 chars, click-worthy hook)" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1.5">
-      <textarea id="pg-seo-desc" rows="2" oninput="setPageStyle('seo_description',this.value)" placeholder="Meta description (~155 chars, include your focus keyword)" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1.5">${esc(cp.seo_description || '')}</textarea>
-      <input id="pg-seo-kw" value="${esc(cp.seo_keyword || '')}" oninput="setPageStyle('seo_keyword',this.value)" placeholder="Focus keyword (e.g. used trucks in ${esc((__siteCfg?.content?.city) || 'your city')})" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1.5">
-    </div>`; })() : ''}
-    <div class="grid lg:grid-cols-[minmax(0,1fr)_380px] gap-4">
-      <div id="ws-sections" class="space-y-2"></div>
-      <div class="lg:sticky lg:top-4 self-start">
-        <div id="ws-palette-container">${renderElementorPalette()}</div>
-      </div>
-    </div>`;
-  renderWsSections();
+  // Only the live visual builder remains; every other tab returned above.
 }
+// Structural change to the current page (add / move / duplicate / delete a section,
+// or swap a section image). Repaint the three surfaces that show that structure: the
+// canvas, the Layers tree and the Inspector. Deliberately NOT called while typing —
+// setSec() pushes to the canvas only, so re-rendering never steals focus mid-word.
 function renderWsSections() {
-  if (__builderMode === 'live') livePreviewPush();   // keep the live preview in sync on any structural change
+  livePreviewPush();
+  if (__wsSelectedSecIdx != null && __wsSelectedSecIdx >= 0 && !__siteSections[__wsSelectedSecIdx]) {
+    // The selected section was just deleted — fall back to the one that took its place.
+    __wsSelectedSecIdx = __siteSections.length ? Math.min(__wsSelectedSecIdx, __siteSections.length - 1) : null;
+  }
+  const panel = document.getElementById('ws-inspector-panel');
+  if (panel) panel.innerHTML = renderWsRightInspectorHtml();
+  renderWsLayersTree();
   const box = document.getElementById('ws-sections'); if (!box) return;
   if (!__siteSections.length) { box.innerHTML = '<div class="text-sm text-slate-400 italic border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-8 text-center">No sections yet. Add one from the right →<br><span class="text-xs">(If you leave this empty, your site uses the default layout.)</span></div>'; return; }
   box.innerHTML = __siteSections.map((sec, i) => `
@@ -2910,7 +2978,9 @@ function wsField(i, sec, [key, label, type]) {
   else if (type === 'adtpl') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['classic','Classic — text left, image right'],['imgleft','Image left, text right'],['overlay','Full-bleed image with overlay'],['spotlight','Spotlight card — image on top']].map(o => `<option value="${o[0]}" ${(v || 'classic') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
   else if (type === 'bool') input = `<label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" ${v ? 'checked' : ''} onchange="setSec(${i},'${key}',this.checked)" class="rounded"> Yes</label>`;
   else input = `<input value="${esc(v || '')}" oninput="setSec(${i},'${key}',this.value)" class="${cls}">`;
-  return `<div class="${wide}">${lbl}${input}</div>`;
+  // data-ws-field is the anchor focusWsField() jumps to when a dealer clicks that
+  // element on the canvas — keep it on the wrapper so the label highlights too.
+  return `<div class="${wide}" data-ws-field="${key}">${lbl}${input}</div>`;
 }
 function setSec(i, key, val) { if (__siteSections[i]) { __siteSections[i].settings = __siteSections[i].settings || {}; __siteSections[i].settings[key] = val; refreshWebsitePreview(); } }
 function setSecFaq(i, key, text) { const items = text.split('\n').map(l => { const [q, ...a] = l.split('::'); return { q: (q || '').trim(), a: a.join('::').trim() }; }).filter(x => x.q); setSec(i, key, items); }
@@ -2945,7 +3015,7 @@ function addSection(type) {
     __siteSections.splice(__pendingInsertAt, 0, sec);
     __pendingInsertAt = null;
     const hint = document.getElementById('ws-insert-hint'); if (hint) hint.classList.add('hidden');
-    if (__builderMode === 'live' && typeof showToast === 'function') showToast('Section inserted', 'success');
+    if (typeof showToast === 'function') showToast('Section inserted', 'success');
   } else {
     __siteSections.push(sec);
   }
