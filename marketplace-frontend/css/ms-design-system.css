@@ -262,13 +262,27 @@
 /* Semantic spans — declared ONCE. Card variants below reuse these selectors
    rather than redeclaring grid-column, so every responsive override is written
    in exactly one place. (Duplicating spans onto .ms-c--* is precisely how hero
-   and feature cards end up keeping desktop spans on a 390px phone.) */
-.ms-span-hero,     .ms-c--hero     { grid-column: span 6;  grid-row: span 3; }
-.ms-span-feature,  .ms-c--feature  { grid-column: span 4;  grid-row: span 2; }
-.ms-span-wide,     .ms-c--wide     { grid-column: span 8;  grid-row: span 1; }
-.ms-span-tall,     .ms-c--tall     { grid-column: span 3;  grid-row: span 3; }
-.ms-span-standard, .ms-c--standard { grid-column: span 3;  grid-row: span 1; }
-.ms-span-compact,  .ms-c--compact  { grid-column: span 2;  grid-row: span 1; }
+   and feature cards end up keeping desktop spans on a 390px phone.)
+
+   COLUMNS ONLY — deliberately. These spans used to reserve rows too (hero
+   span 3, feature span 2, tall span 3). Measured against the first real content
+   ever put through this grid (the Service Pulse, phase 4), that reservation
+   stranded a block of dead space roughly 230px tall under the hero: the card
+   claimed three rows, its six record rows filled about one and a half, and
+   nothing could backfill the rest because the rows were already claimed. Dense
+   packing cannot rescue space that is spoken for.
+
+   Height already communicates itself — a card holding more rows is taller,
+   because grid-auto-rows is minmax(row, auto). Importance is carried by COLUMN
+   span, padding, radius and elevation, none of which strand anything. Removing
+   the row reservations cut the board from 936px to 856px on a 1440 viewport
+   with no loss of hierarchy. */
+.ms-span-hero,     .ms-c--hero     { grid-column: span 6; }
+.ms-span-feature,  .ms-c--feature  { grid-column: span 4; }
+.ms-span-wide,     .ms-c--wide     { grid-column: span 8; }
+.ms-span-tall,     .ms-c--tall     { grid-column: span 3; }
+.ms-span-standard, .ms-c--standard { grid-column: span 3; }
+.ms-span-compact,  .ms-c--compact  { grid-column: span 2; }
 .ms-span-full,     .ms-c--full     { grid-column: 1 / -1; }
 
 /* ───────────────────────────────────────────────────────────────────────────
@@ -329,7 +343,10 @@
    not a cosmetic one: a large card reading "0" claims importance it lacks
    and pushes real signal below the fold. */
 .ms-c[data-empty="true"] {
-  grid-row: span 1 !important;
+  /* This used to force grid-row: span 1 !important, purely to claw back the rows
+     a hero or feature reserved. Nothing reserves rows any more (see §3), so an
+     empty card is already one row tall and the override is dead weight — and the
+     design system does not keep !important it has stopped needing. */
   min-height: 0;
 }
 .ms-c--hero[data-empty="true"],
@@ -564,10 +581,10 @@ p.ms-text-caption,
 /* — Tablet / small desktop: 12 → 6 columns — */
 @media (max-width: 1279px) {
   .ms-board { --ms-grid-cols: 6; }
-  .ms-span-hero,     .ms-c--hero     { grid-column: span 6; grid-row: span 2; }
-  .ms-span-feature,  .ms-c--feature  { grid-column: span 3; grid-row: span 2; }
+  .ms-span-hero,     .ms-c--hero     { grid-column: span 6; }
+  .ms-span-feature,  .ms-c--feature  { grid-column: span 3; }
   .ms-span-wide,     .ms-c--wide     { grid-column: span 6; }
-  .ms-span-tall,     .ms-c--tall     { grid-column: span 3; grid-row: span 2; }
+  .ms-span-tall,     .ms-c--tall     { grid-column: span 3; }
   .ms-span-standard, .ms-c--standard { grid-column: span 3; }
   .ms-span-compact,  .ms-c--compact  { grid-column: span 2; }
   /* A collapsed empty card may never be wider than the grid it sits in — a

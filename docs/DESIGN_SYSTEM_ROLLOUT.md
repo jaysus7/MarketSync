@@ -51,7 +51,7 @@ Modes: default DealerOS, `data-dash-mode="marketsync"` (internal),
 **Every one of these renders in light and dark.** A phase is not done until it
 has been checked in both.
 
-## Page-coverage audit (re-measured 2026-08-25, at 4f5bc25)
+## Page-coverage audit (re-measured 2026-08-25, at phase 4)
 
 Counted from source. These numbers are the reason the phase order below is what
 it is — they are not decoration, and two of them change the plan.
@@ -77,50 +77,54 @@ pages can regress them all at once.
 The CDN stylesheet on 24 pages is also inconsistent with the completed migration
 away from the Tailwind Play CDN, and is worth folding into the same phase.
 
-### The phase 1 primitives are not in use anywhere
+### The phase 1 primitives, now proven on one Pulse
 
 | Primitive | Uses in markup |
 |---|---|
-| `.ms-board` | **0** |
-| `.ms-c--*` (card variants) | **0** |
-| `.ms-span-*` | **0** |
-| `.ms-surface--*` | **0** |
-| `.ms-touch` | **0** |
+| `.ms-board` | 3 |
+| `.ms-c--*` (card variants) | 1 |
+| `.ms-span-*` | 0 |
+| `.ms-surface--*` | 0 |
+| `.ms-touch` | 0 |
 | `.pulse-summary-grid`, `.ms-kpi*` (phase 3) | in use |
 
-Stated plainly: the masonry and card system built in phase 1 has never laid out
-a real card. It is internally consistent and tested, but **unproven against real
-content**. Only the phase 3 Pulse components are actually rendering.
+Phase 4 adopted `.ms-board` and `.ms-c--*` on the Service Pulse — the first real
+content ever put through the masonry grid. **It found a defect immediately**,
+which is the entire argument for adopting on one Pulse before eight.
 
-The consequence for phase 4: adopt the primitives on **one** department Pulse
-first and measure it, before rolling the same treatment across the other seven.
-Defects in an unused foundation surface the moment it meets real data, and
-finding them once is much cheaper than finding them eight times.
+The semantic spans reserved rows as well as columns (`hero` span 3, `feature`
+span 2, `tall` span 3). A hero holding six record rows fills about one and a half
+of those, and the remaining two rows cannot be backfilled by anything because the
+hero has already claimed them — dense packing cannot rescue space that is spoken
+for. Measured at 1440px: a dead band roughly 230px tall directly under the lead
+card, with cards sitting beside it at a y-offset no reader would associate with
+it.
+
+The fix is in `§3`: **semantic spans carry columns only.** Height already
+communicates itself, because `grid-auto-rows` is `minmax(row, auto)` and a card
+holding more rows is simply taller. Importance is carried by column span,
+padding, radius and elevation, none of which strand anything. Board height at
+1440px went 936px → 842px with no loss of hierarchy, and no overflow at 1440 /
+1280 / 1024 / 768 / 390.
+
+That removal also retired the one real `!important` in the design system: the
+`[data-empty="true"]` rule existed only to claw back the rows a hero reserved.
 
 ### Legacy weight still to unwind
 
-Counted as **occurrences** (`grep -o '!important' css/*.css | wc -l`), not lines
-containing one — an earlier pass counted lines and under-reported by ~40.
+Counted as **declarations** (`grep -o '!important;'`). An earlier pass counted
+bare `!important` occurrences, which also matches the word inside comments and
+over-reported by roughly 200 — the corrected figures are below.
 
-| Fact | Count |
+| Fact | Declarations |
 |---|---|
-| `!important` across `css/` | 740 |
-| — of which `marketsync-theme.css` | 511 |
-| — of which `dashboard-brand-repaint.css` | 156 |
-| — of which `dashboard-nav.css` | 49 |
-| — of which `tailwind-built*.css` (generated) | 22 |
-| — of which `ms-design-system.css` | **2** |
+| `!important` across `css/` | 528 |
+| — of which `ms-design-system.css` | **0** |
 | Hardcoded hex colours in JS renderers | 718 |
 | `class="…"` attributes in JS renderers | 13,762 |
 
-Net movement since 3b1d215: **732 → 740, all eight in `marketsync-theme.css`**,
-from the modal-contrast and mobile-Pulse fixes. Both had to land in the legacy
-override layer because the surfaces they fix have not been migrated yet — which
-is the phase 16 argument in miniature: the count comes down after the surfaces
-move, not before.
-
-The design system holds its own line (2 `!important` in ~600 lines) because it
-wins by cascade order. The 694 elsewhere are the real backlog, and phase 16 is
+The design system now carries **no** `!important` at all: it wins by cascade
+order, being loaded last. The 528 elsewhere are the real backlog, and phase 16 is
 where they come out — not before, because each removal needs the surface that
 depends on it to have been migrated first.
 
@@ -154,7 +158,7 @@ seven more.
 | `sales` | ✅ | ⬜ | ⬜ |
 | `inventory-overview` | ✅ | ⬜ | ⬜ |
 | `fni-overview` | ✅ | ⬜ | ⬜ |
-| `service-overview` | ✅ | ⬜ | ⬜ |
+| `service-overview` | ✅ | ✅ phase 4 | ✅ |
 | `parts-overview` | ✅ | ⬜ | ⬜ |
 | `accounting-overview` | ✅ | ⬜ | ⬜ |
 | `marketing-overview` | ✅ | ⬜ | ⬜ |
@@ -167,7 +171,7 @@ seven more.
 | 1 | Foundation: tokens, material, card + grid primitives | ✅ merged (#194) |
 | 2 | Liquid Glass becomes opt-in; light/dark shell | ✅ in #196 |
 | 3 | Dealership Pulse: importance-driven KPI row + records behind counts | ✅ in #196 |
-| 4 | The eight department Pulses — each audited on its own terms | ⬜ next |
+| 4 | The eight department Pulses — each audited on its own terms | 🔵 Service done; 7 to go |
 | 5 | Sales | ⬜ |
 | 6 | Inventory | ⬜ |
 | 7 | Service | ⬜ |
@@ -201,7 +205,12 @@ Each of these was found by measurement and cost real time. They are settled.
 7. **The design system wins by cascade order, not `!important`.**
    `ms-design-system.css` loads last. If a rule there needs `!important`, the real
    problem is a legacy rule that should be scoped instead.
-8. **Never invent an identity.** A record that cannot be named shows its id. A
+8. **Semantic spans carry columns, never rows.** A fixed `grid-row` span
+   reserves space the card may not fill, and nothing can backfill a claimed row.
+   Height comes from content; importance comes from column span, padding, radius
+   and elevation. Found by putting the Service Pulse through the grid — 230px of
+   dead band under the lead card.
+9. **Never invent an identity.** A record that cannot be named shows its id. A
    count and its record list come from different endpoints, so a short list says
    "Showing 2 of 5", never implies it is all of them.
 

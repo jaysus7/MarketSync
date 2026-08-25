@@ -834,6 +834,22 @@ function pulseGrid(cardsHtml) {
   // "random gaps" pattern, worst right around 3-column widths (tablets/Chromebooks).
   return `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 items-start grid-flow-dense">${(cardsHtml || []).filter(Boolean).join('')}</div>`;
 }
+// The design system's semantic masonry board (.ms-board), as an opt-in
+// alternative to pulseGrid's fixed Tailwind column counts.
+//
+// Phase 4 adopts this on ONE department Pulse (Service) before the other seven,
+// because until now the phase 1 card and grid primitives had zero uses in real
+// markup — they were internally consistent and completely unproven against real
+// content. Defects in an unused foundation surface the moment they meet data,
+// and finding them once is cheaper than finding them eight times.
+//
+// The difference that matters: pulseGrid gives every card the same track, so
+// size cannot say anything. .ms-board assigns span from OPERATIONAL TIER, which
+// is what lets a broken promise occupy six columns while a promo card takes two.
+function pulseBoard(cardsHtml) {
+  return `<div class="ms-board">${(cardsHtml || []).filter(Boolean).join('')}</div>`;
+}
+
 // span: 2 = sm:col-span-2 (wide); 'tall' = row-span-2 (the sketch's big list column)
 //
 // The card body is ALWAYS a <div>, never a <button> — pulseRow/pulseLeaderRow render
@@ -843,7 +859,7 @@ function pulseGrid(cardsHtml) {
 // button out of its parent, so the row visibly detaches from its card and lands as a
 // stray sibling in the grid. The card's own click-through affordance lives on its
 // header only, which is its own sibling-level control — never an ancestor of the rows.
-function pulseCard({ title, count, tone, onclick, inner, span, empty }) {
+function pulseCard({ title, count, tone, onclick, inner, span, empty, tier }) {
   const spanCls = span === 2 ? 'sm:col-span-2' : span === 'tall' ? 'row-span-2' : '';
   const countBadge = count != null ? `<span class="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-black ${tone || 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">${esc(String(count))}</span>` : '';
   const header = onclick
@@ -855,9 +871,18 @@ function pulseCard({ title, count, tone, onclick, inner, span, empty }) {
         <span class="text-[11px] uppercase tracking-wider font-black text-slate-800 dark:text-slate-200">${esc(title)}</span>
         ${countBadge}
       </div>`;
+  const body = `${header}
+    <div class="flex-1 min-h-0">${inner || (empty ? `<div class="text-[12px] text-slate-400 py-4 text-center">${esc(empty)}</div>` : '')}</div>`;
+  // A tiered card takes its material, radius, padding and span from the design
+  // system, so it must NOT also carry the Tailwind card utilities — those are the
+  // same properties, and two sources for one decision is how a card ends up with
+  // desktop padding on a phone. data-empty lets the board collapse a hero that
+  // has nothing in it rather than reserving three rows for an empty box.
+  if (tier) {
+    return `<div class="ms-c ms-c--${esc(tier)}" data-tier="${esc(tier)}"${inner ? '' : ' data-empty="true"'}>${body}</div>`;
+  }
   return `<div class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 flex flex-col gap-2 ${spanCls} transition-shadow hover:shadow-[0_6px_20px_-8px_rgba(15,23,42,.18)] dark:hover:shadow-[0_6px_20px_-8px_rgba(0,0,0,.45)]">
-    ${header}
-    <div class="flex-1 min-h-0">${inner || (empty ? `<div class="text-[12px] text-slate-400 py-4 text-center">${esc(empty)}</div>` : '')}</div>
+    ${body}
   </div>`;
 }
 // A compact row inside a pulse card: circled badge + label(+sub) + trailing value.

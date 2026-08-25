@@ -390,7 +390,10 @@ test('the canonical Pulse grids retain the useful legacy operational information
   const expectations = [
     ['Sales', activeBefore(salesWorkspace, '// Pulse is the canonical'), ["Today's appointments", 'Deliveries', 'Active opportunities']],
     ['F&I', activeBefore(fniWorkspace, '// Keep one operational Pulse'), ['Incoming desked deals', 'Delivery blockers', 'Contracts outstanding']],
-    ['Service', activeBefore(serviceWorkspace, '// The widget grid is the Service Pulse'), ['Ready for the customer', 'On the floor', 'Authorization and SLA', 'Repair orders by stage']],
+    // Phase 4 promoted the SLA half of "Authorization and SLA" into its own lead
+    // card, because promised-time risk is the first thing a Service advisor needs.
+    // The information is not lost, it is more prominent — so require both halves.
+    ['Service', activeBefore(serviceWorkspace, '// The widget grid is the Service Pulse'), ['Ready for the customer', 'On the floor', 'Authorization', 'Past promise time', 'Blocked on parts', 'Repair orders by stage']],
     ['Parts', activeBefore(partsWorkspace, '// Keep the stock ledger Pulse singular'), ['Stock health', 'Waiting repair orders', 'Other department demand', 'Issued and fulfilled']],
   ]
   for (const [department, activePulse, labels] of expectations) {
