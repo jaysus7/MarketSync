@@ -2,34 +2,48 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const css = readFileSync(new URL('../../marketplace-frontend/css/marketsync-theme.css', import.meta.url), 'utf8')
+const raw = readFileSync(new URL('../../marketplace-frontend/css/marketsync-theme.css', import.meta.url), 'utf8')
+const css = raw.replace(/\/\*[\s\S]*?\*\//g, '')
 
-// #dashboard-nav (the 248px sidebar's actual nav element — it carries the literal
-// bg-white/dark:bg-slate-900 Tailwind classes) has its own dedicated reset rule
-// later in the cascade (background/border/shadow/backdrop-filter all cleared),
-// specifically so the ONE glass surface for the whole sidebar column is
-// #dept-sidebar and #dashboard-nav renders transparent inside it — see the
-// "Sidebar glass consolidation" comment already in this file, written to fix this
-// exact class of bug for the legacy #nav-desktop element.
+// The sidebar column is two nested elements: #dept-sidebar (the column) and
+// #dashboard-nav (the nav inside it, which carries the literal bg-white /
+// dark:bg-slate-900 Tailwind classes). Exactly ONE of them may be a glass panel.
+// When both were, they painted two boxes a few pixels apart with a hard seam
+// between them — a visible double-nav.
 //
-// But `.bg-white:not(#studio-artboard-container)` (a class + a :not() whose
-// argument is an ID) carries higher CSS specificity than a bare `#dashboard-nav`
-// rule, so it kept winning regardless of source order — #dashboard-nav re-painted
-// its own competing glass panel (background/blur/shadow) a few pixels inside
-// #dept-sidebar's, reading as two stacked nav boxes with a hard seam between them.
-// Confirmed visually: a static repro against the real built CSS showed a sharp
-// inner white box nested inside the sidebar's own panel; excluding #dashboard-nav
-// from the broadened selector (the same pattern already used for the Studio
-// artboard) collapses it back to one continuous panel.
-test('the broadened Liquid Glass selector excludes #dashboard-nav everywhere it excludes the Studio artboard', () => {
-  const studioCount = (css.match(/(?:\.bg-white|\.dark\\:bg-slate-900):not\(#studio-artboard-container\)/g) || []).length
-  const dashboardNavCount = (css.match(/(?:\.bg-white|\.dark\\:bg-slate-900):not\(#studio-artboard-container\):not\(#dashboard-nav\)/g) || []).length
-  assert.equal(dashboardNavCount, studioCount,
-    'every broadened glass selector that excludes the Studio artboard must also exclude #dashboard-nav')
-  assert.equal(studioCount, 8)
+// This has now been the same bug twice, from two different causes:
+//   1. `.bg-white:not(#studio-artboard-container)` — a class plus a :not() whose
+//      argument is an ID — out-specified a bare #dashboard-nav reset, so the nav
+//      re-painted its own panel. Fixed then by growing the exemption list.
+//   2. `.dark #dept-sidebar` (class + id) out-specified the bare `#dept-sidebar`
+//      transparent reset that comes LATER in the file, so dark mode kept glass on
+//      the wrapper while #dashboard-nav painted its own inside it. Source order
+//      never got a say; specificity decided.
+//
+// Both causes are specificity accidents, which is why this is stated as an
+// outcome: whoever owns the glass, the other one must be transparent.
+// Verified by measurement against the real built CSS at 1440px and 600px, in
+// both themes: exactly one glass panel on desktop, none on mobile.
+test('the sidebar column and its nav are never both glass', () => {
+  const glassSelectors = new Set()
+  for (const m of css.matchAll(/([^{}]+)\{[^{}]*backdrop-filter:\s*blur\([^{}]*\}/g)) {
+    for (const sel of m[1].split(',')) glassSelectors.add(sel.trim())
+  }
+  const claims = id => [...glassSelectors].filter(s => s.includes(id))
+  assert.deepEqual(claims('#dept-sidebar'), [],
+    'the column is layout, not a panel — the one glass surface in it is #dashboard-nav')
+  assert.ok(claims('#dashboard-nav').length > 0,
+    'the sidebar column still needs exactly one glass panel, and #dashboard-nav is it')
 })
 
-test('the sidebar wrapper keeps its dedicated transparent reset rule so it renders as one continuous panel', () => {
+// The reset is what makes the wrapper transparent. It is a bare-id rule, so it
+// only works while nothing more specific claims the wrapper — the test above is
+// what keeps that true.
+test('the sidebar wrapper keeps its dedicated transparent reset', () => {
   assert.match(css, /#(?:dept-sidebar|dashboard-nav)\s*\{[^}]*background:\s*transparent\s*!important/,
-    'the sidebar wrapper reset that makes it render as a single glass surface must still exist')
+    'the wrapper reset that makes the column render as a single surface must still exist')
+  const reset = css.match(/#dept-sidebar \{[^}]*\}/)
+  assert.ok(reset, '#dept-sidebar must still have its reset rule')
+  assert.match(reset[0], /backdrop-filter:\s*none\s*!important/,
+    'the reset must clear backdrop-filter, not only the background')
 })

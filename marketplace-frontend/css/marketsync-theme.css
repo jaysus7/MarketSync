@@ -1626,14 +1626,11 @@ body {
     var(--ms-bg) !important;
 }
 
-#dept-sidebar,
 #nav-desktop,
 #nav-mobile,
 #report-rail,
 .ms-engine-header,
-.ms-glass,
-.bg-white:not(#studio-artboard-container):not(#dashboard-nav),
-.dark\:bg-slate-900:not(#studio-artboard-container):not(#dashboard-nav) {
+.ms-glass {
   background: linear-gradient(135deg, rgba(255,255,255,.76), rgba(255,255,255,.58)) !important;
   border-color: rgba(255,255,255,.20) !important;
   box-shadow: 0 18px 50px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.11) !important;
@@ -1649,12 +1646,28 @@ body {
 .dark #report-rail,
 .dark .ms-engine-header,
 .dark .ms-glass,
-.dark .ms-card,
-.dark .bg-white:not(#studio-artboard-container):not(#dashboard-nav),
-.dark .dark\:bg-slate-900:not(#studio-artboard-container):not(#dashboard-nav) {
+.dark .ms-card {
   background: linear-gradient(135deg, rgba(30,41,72,.58), rgba(15,23,42,.40)) !important;
   border-color: rgba(148,163,184,.20) !important;
 }
+
+/* ── Liquid Glass is OPT-IN ──────────────────────────────────────────────────
+   Glass used to be applied by `.bg-white:not(#studio-artboard-container)`, a
+   blanket selector that caught all 1,297 bg-white call sites: every KPI tile,
+   every record card, every dense table, on every page. That is why light mode
+   read as milky, why cards looked equally important regardless of what they
+   held, and why a repair-order table sat behind blur(20px).
+
+   Glass now belongs only to surfaces that genuinely FLOAT above content — the
+   header, the sidebar, nav, the report rail, .ms-engine-header and anything
+   explicitly marked .ms-glass / .ms-c--glass. Cards keep their own solid
+   Tailwind background, which is what a content surface should be. Depth comes
+   from the tinted page background behind them, not from blurring the page
+   through them.
+
+   If a card needs to read as elevated, give it .ms-c--elevated. Do not bring
+   back a selector that decides material by colour class.
+   ─────────────────────────────────────────────────────────────────────────── */
 
 /* Notebook Pulse composition shared by Executive, Sales, F&I, Service and Parts. */
 .ms-pulse-board {
@@ -1935,15 +1948,12 @@ body {
   background-attachment: fixed !important;
 }
 
-.dark #dept-sidebar,
 .dark #nav-desktop,
 .dark #nav-mobile,
 .dark #report-rail,
 .dark .ms-engine-header,
 .dark .ms-glass,
 .dark .ms-card,
-.dark .bg-white:not(#studio-artboard-container):not(#dashboard-nav),
-.dark .dark\:bg-slate-900:not(#studio-artboard-container):not(#dashboard-nav),
 .dark .ms-pulse-board .bg-white,
 .dark .ms-pulse-board .dark\:bg-slate-900,
 .dark [data-engine-rail] details {
@@ -2146,8 +2156,7 @@ body {
 @media (prefers-reduced-transparency: reduce) {
   .ms-engine-header, .ms-glass, .ms-card, .ms-crm-glass, .ms-toast,
   [data-engine-rail] details, [data-engine-rail] details[open] > summary,
-  body > header, #dept-sidebar, #nav-desktop, #nav-mobile, #report-rail,
-  .bg-white:not(#studio-artboard-container):not(#dashboard-nav), .dark\:bg-slate-900:not(#studio-artboard-container):not(#dashboard-nav) {
+  body > header, #dept-sidebar, #nav-desktop, #nav-mobile, #report-rail {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     background: var(--ms-surface-solid) !important;
@@ -2207,6 +2216,13 @@ body {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
+/* #dept-sidebar is the sidebar COLUMN, not a panel. The one glass surface in
+   that column is #dashboard-nav, which paints itself at >=768px. While the
+   wrapper was also in the glass lists above, `.dark #dept-sidebar` (a class
+   plus an id) out-specified this bare-id reset, so dark mode painted a second
+   panel a few pixels outside the nav's — two stacked boxes with a hard seam.
+   Specificity, not source order, decided it; the fix is to not claim the
+   wrapper is glass in the first place. */
 #dept-sidebar {
   border: 0 !important;
   border-radius: 0 !important;
@@ -2340,7 +2356,6 @@ body > header {
 /* MarketSync Digital & Settings — Liquid Glass material across workspaces.
    Applies glassmorphism, satin specular borders, and blur depth to settings cards,
    roster tables, and digital suite cards alike. */
-html[data-ms-suite="digital"] #dept-sidebar,
 html[data-ms-suite="digital"] #dept-tabbar,
 html[data-ms-suite="digital"] .page-content :is(.rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border),
 html[data-ms-suite="digital"] .ms-digital-suite > div,
@@ -2360,7 +2375,6 @@ html[data-ms-suite="digital"] .ms-digital-suite > div,
   -webkit-backdrop-filter: blur(24px) saturate(155%) !important;
 }
 
-.dark[data-ms-suite="digital"] #dept-sidebar,
 .dark[data-ms-suite="digital"] #dept-tabbar,
 .dark[data-ms-suite="digital"] .page-content :is(.rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border),
 .dark[data-ms-suite="digital"] .ms-digital-suite > div,
@@ -2438,7 +2452,7 @@ html[data-dash-mode="marketsync"] body {
     radial-gradient(54rem 34rem at 100% 0%, rgba(124,58,237,.10), transparent 66%),
     var(--ms-bg) !important;
 }
-html[data-dash-mode="marketsync"] :is(#dept-sidebar, #dept-tabbar, .page-content .eng-shell-header, .page-content .rounded-xl.border, .page-content .rounded-2xl.border) {
+html[data-dash-mode="marketsync"] :is(#dept-tabbar, .page-content .eng-shell-header, .page-content .rounded-xl.border, .page-content .rounded-2xl.border) {
   background: linear-gradient(145deg, rgba(255,255,255,.72), rgba(245,248,255,.52)) !important;
   border-color: rgba(255,255,255,.62) !important;
   border-radius: 1.4rem !important;
@@ -2446,7 +2460,7 @@ html[data-dash-mode="marketsync"] :is(#dept-sidebar, #dept-tabbar, .page-content
   backdrop-filter: blur(24px) saturate(150%) !important;
   -webkit-backdrop-filter: blur(24px) saturate(150%) !important;
 }
-.dark[data-dash-mode="marketsync"] :is(#dept-sidebar, #dept-tabbar, .page-content .eng-shell-header, .page-content .rounded-xl.border, .page-content .rounded-2xl.border) {
+.dark[data-dash-mode="marketsync"] :is(#dept-tabbar, .page-content .eng-shell-header, .page-content .rounded-xl.border, .page-content .rounded-2xl.border) {
   background: linear-gradient(145deg, rgba(25,36,60,.72), rgba(8,15,29,.56)) !important;
   border-color: rgba(203,213,225,.16) !important;
   box-shadow: 0 22px 56px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.08) !important;
