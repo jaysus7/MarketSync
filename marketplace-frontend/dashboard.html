@@ -23,7 +23,7 @@
   <title>DealerOS by MarketSync · Dashboard</title>
   <link rel="preconnect" href="https://api.fontshare.com">
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260825_all_modes_v1">
+  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260825_mobile_polish_v1">
   <link rel="stylesheet" href="css/dashboard-nav.css">
   <link rel="stylesheet" href="css/dashboard-brand-repaint.css">
   <link rel="stylesheet" href="css/tailwind-built.css?v=20260825_header_spacing_v1">
@@ -189,9 +189,16 @@
        dashboard mode so the visible MarketSync mark—not its empty image box—is large. */
     #dashboard-brand{width:15rem;height:4rem;overflow:hidden;position:relative}
     #dashboard-brand img[alt="MarketSync DealerOS"]{position:absolute;width:17rem!important;height:auto!important;max-width:none;left:-1.45rem;top:-4.35rem}
+    /* Phone crop. These numbers are derived from the logos' measured ink box, not
+       tuned by eye: both PNGs are 1536x1024 with visible ink spanning x 8.7%..91.3%
+       (Logo 2.0) / 7.2%..89.7% (Logo 2.1) and y 38.7%..61.2%. The previous crop
+       used a 13rem image in a 10.5rem box, which needs 10.77rem of width for the
+       ink — so the last ~4px of "MarketSync" was cut off mid-letter, and the Demo
+       pill sitting immediately after read as if it were overlapping the logo.
+       12.2rem keeps BOTH logos' ink inside the box with ~0.2rem to spare. */
     @media (max-width:639px){
       #dashboard-brand{width:10.5rem;height:3.25rem}
-      #dashboard-brand img[alt="MarketSync DealerOS"]{width:13rem!important;left:-1.1rem;top:-3.33rem}
+      #dashboard-brand img[alt="MarketSync DealerOS"]{width:12.2rem!important;left:-0.85rem;top:-2.44rem}
     }
     html[data-dash-mode="marketsync"] #ui-role-pill{font-size:0;background:#0b2a50!important;border-color:#2563eb!important;color:#bfdbfe!important;padding:.4rem .65rem}
     html[data-dash-mode="marketsync"] #ui-role-pill::after{content:"MARKETSYNC INTERNAL";font-size:.75rem;font-weight:800;letter-spacing:.08em}
@@ -3910,8 +3917,8 @@
   <script src="js/modules/dashboard-part7.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part8.js?v=20260818_videostaff_v2"></script>
   <script src="js/modules/dashboard-part9.js?v=20260825_settings_masonry_v1"></script>
-  <script src="js/modules/dashboard-part10.js?v=20260825_pulse_rail_column_v1"></script>
-  <script src="js/modules/dashboard-part11.js?v=20260825_deep_links_v1"></script>
+  <script src="js/modules/dashboard-part10.js?v=20260825_mobile_polish_v1"></script>
+  <script src="js/modules/dashboard-part11.js?v=20260825_mobile_polish_v1"></script>
   <script src="js/modules/dashboard-part12.js?v=20260825_deep_links_v1"></script>
   <script src="js/modules/dashboard-part13.js?v=20260824_ai_panel_contrast_v1"></script>
   <script src="js/modules/dashboard-part14.js?v=20260824_staff_password_css_v1"></script>

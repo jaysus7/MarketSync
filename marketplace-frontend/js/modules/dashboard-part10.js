@@ -755,10 +755,23 @@ if (typeof window !== 'undefined') {
 }
 
 // Shared building blocks so every engine's tabs look identical.
+// A tone is an alert, and an alert about nothing is noise. Callers pass a fixed
+// tone per metric — Expenses MTD is always amber — so a store with no expenses
+// showed "$0" in warning amber, and a figure that could not be READ showed "—" in
+// warning amber too, which is worse: it colours an unknown as if it were a
+// finding. A value carries a tone only when it has a magnitude to carry it. Same
+// rule as the Pulse tile row: emphasis follows the data.
+function engKpiIsQuiet(val) {
+  const text = String(val ?? '').replace(/<[^>]*>/g, '');
+  return !/[1-9]/.test(text);
+}
+
 function engKpi(label, val, tone, onclick) {
+  const quiet = engKpiIsQuiet(val);
+  const shown = quiet ? 'text-slate-900 dark:text-white' : (tone || 'text-slate-900 dark:text-white');
   const inner = `
     <div class="text-[11px] uppercase tracking-wider text-slate-800 dark:text-slate-200 font-black">${esc(label)}</div>
-    <div class="text-2xl sm:text-3xl font-black mt-1 ${tone || 'text-slate-900 dark:text-white'}">${val}</div>
+    <div class="text-2xl sm:text-3xl font-black mt-1 ${shown}" data-emphasis="${quiet ? 'quiet' : 'normal'}">${val}</div>
   `;
   if (onclick) {
     return `<button onclick="${onclick}" class="w-full text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3.5 hover:border-slate-300 dark:hover:border-slate-700 transition cursor-pointer">

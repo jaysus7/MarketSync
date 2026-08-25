@@ -1957,6 +1957,16 @@ body {
    are content surfaces: solid background, their own border, and the lead tile's
    accent edge from ms-design-system.css. */
 
+/* A department header is a title plus an action group. On a phone the group is two
+   or three buttons that cannot fit beside the title, and the row did not wrap — so
+   "Open Accounting Workspace" ran off the right edge of the card. The header itself
+   now wraps (markup), and the action group wraps within it. Scoped to the Pulse
+   department sections: this is their layout, not a global flex override. */
+.pulse-dept-section > .flex.justify-between > .flex {
+  flex-wrap: wrap;
+  row-gap: .5rem;
+}
+
 /* Keep empty Pulse cards compact instead of stretching them into blank tiles. */
 .ms-pulse-board .text-center.text-slate-400 {
   padding-top: .8rem !important;

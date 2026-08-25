@@ -367,7 +367,7 @@ function openMailchimpEmailBuilder(targetItem = 'inventory', isTemplate = false)
 
           <!-- Active Block Inspector -->
           <div class="p-4 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-xl space-y-3 flex-1">
-            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+            <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 dark:border-slate-800 pb-2">
               <div class="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Block Settings</div>
               <div id="inspector-block-tag" class="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600">Header</div>
             </div>
@@ -1248,7 +1248,7 @@ window.pulseSalesDeptSection = function(d) {
 
   return `
     <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+      <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-amber-500"></span>
           <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Sales Department</h2>
@@ -1420,7 +1420,7 @@ window.pulseInventoryDeptSection = function(d) {
 
   return `
     <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+      <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-indigo-500"></span>
           <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Inventory Department</h2>
@@ -1466,7 +1466,7 @@ window.pulseFniDeptSection = function(d) {
 
   return `
     <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+      <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
           <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">F&I Department</h2>
@@ -1510,7 +1510,7 @@ window.pulseCleanupDeptSection = function(d) {
   const cars = d.reconVehicles || [];
   return `
     <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-4 shadow-sm">
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+      <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-sky-500"></span>
           <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Clean Up Department</h2>
@@ -1541,7 +1541,7 @@ window.pulseServiceDeptSection = function(d) {
 
   return `
     <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+      <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-cyan-500"></span>
           <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Service Department</h2>
@@ -1590,7 +1590,7 @@ window.pulsePartsDeptSection = function(d) {
   const reserved = parts.filter(part => String(part.status || '').toLowerCase() === 'reserved').length;
   return `
     <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+      <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-orange-500"></span>
           <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Parts Department</h2>
@@ -1613,7 +1613,7 @@ window.pulseAccountingDeptSection = function(d) {
   const actualMoney = value => value != null && Number.isFinite(Number(value)) ? cmdMoney(Number(value)) : '—';
   return `
     <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+      <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-emerald-600"></span>
           <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Accounting Department</h2>
@@ -1697,7 +1697,7 @@ window.pulseMarketingDeptSection = function(d) {
   return `
     <div class="mb-8 p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-6 shadow-sm">
       <!-- Section Header (No redundant workspace link) -->
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+      <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 dark:border-slate-800 pb-4">
         <div class="flex items-center gap-3">
           <span class="w-3.5 h-3.5 rounded-full bg-purple-500 animate-pulse"></span>
           <div>
@@ -1726,7 +1726,7 @@ window.pulseMarketingDeptSection = function(d) {
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <!-- 1. Ad Spend & Paid Campaign Performance -->
         <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
-          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
+          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-200 dark:border-slate-700/60 pb-2">
             <h3 class="text-xs font-black uppercase text-slate-900 dark:text-white tracking-wider flex items-center gap-1.5">
               <span> Paid Ad Campaigns &amp; Spend ROI</span>
             </h3>
@@ -1768,7 +1768,7 @@ window.pulseMarketingDeptSection = function(d) {
 
         <!-- 2. Website Analytics & Live Traffic -->
         <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
-          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
+          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-200 dark:border-slate-700/60 pb-2">
             <h3 class="text-xs font-black uppercase text-slate-900 dark:text-white tracking-wider flex items-center gap-1.5">
               <span> Website Analytics &amp; Live Traffic</span>
             </h3>
@@ -1799,7 +1799,7 @@ window.pulseMarketingDeptSection = function(d) {
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <!-- 3. AI ChatBot Convos & Lead Capture -->
         <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
-          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
+          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-200 dark:border-slate-700/60 pb-2">
             <h3 class="text-xs font-black uppercase text-purple-600 dark:text-purple-400 tracking-wider flex items-center gap-1.5">
               <span> AI ChatBot &amp; Lead Conversion</span>
             </h3>
@@ -1823,7 +1823,7 @@ window.pulseMarketingDeptSection = function(d) {
 
         <!-- 4. Customer Videos Sent & Engagement -->
         <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
-          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
+          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-200 dark:border-slate-700/60 pb-2">
             <h3 class="text-xs font-black uppercase text-rose-600 dark:text-rose-400 tracking-wider flex items-center gap-1.5">
               <span> Customer Videos Sent Analytics</span>
             </h3>
@@ -1850,7 +1850,7 @@ window.pulseMarketingDeptSection = function(d) {
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <!-- 5. Scheduled Social Media Posts -->
         <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
-          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
+          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-200 dark:border-slate-700/60 pb-2">
             <h3 class="text-xs font-black uppercase text-sky-600 dark:text-sky-400 tracking-wider flex items-center gap-1.5">
               <span> Scheduled Social Posts (${scheduledPosts.length})</span>
             </h3>
@@ -1891,7 +1891,7 @@ window.pulseMarketingDeptSection = function(d) {
 
         <!-- 6. Published Social Posts & Engagement Feed -->
         <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
-          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
+          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-200 dark:border-slate-700/60 pb-2">
             <h3 class="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider flex items-center gap-1.5">
               <span> Recently Published Posts &amp; Reach</span>
             </h3>
@@ -1925,7 +1925,7 @@ window.pulseHrDeptSection = function(d) {
 
   return `
     <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+      <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-teal-500"></span>
           <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">HR & Staff Department</h2>
@@ -2120,11 +2120,14 @@ ENGINES['command'] = {
 
       const proactiveAiExecutivePanel = `
         <div class="mb-6 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 ms-ai-panel text-white shadow-lg border border-slate-800">
-          <div class="flex items-center justify-between mb-2">
+          <!-- Wraps: the title and the telemetry badge cannot share one line on a
+               phone. Without a wrap the badge was squeezed against the title and
+               broken across three lines, reading as a collision rather than a label. -->
+          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 mb-2">
             <div class="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-sky-400">
               <span>Proactive General Manager AI Executive Assistant</span>
             </div>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">STORE-WIDE EXECUTIVE TELEMETRY</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold whitespace-nowrap bg-sky-500/20 text-sky-300 border border-sky-500/30">STORE-WIDE EXECUTIVE TELEMETRY</span>
           </div>
           <div class="text-xs text-slate-300 space-y-1.5 mb-3">
             <p>• <strong>Net operating income:</strong> ${Number.isFinite(netIncome) ? `<strong>${cmdMoney(netIncome)}</strong> recorded this month.` : 'Accounting has not supplied this figure.'}</p>
