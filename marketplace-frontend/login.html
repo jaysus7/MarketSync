@@ -103,7 +103,15 @@
   </div>
 
   <script>
-    const API = 'https://vehicle-marketplace-s0e4.onrender.com';
+    // Authentication must use the backend for the site that issued the page.
+    // Raw file:// previews have a `null` browser origin and are intentionally
+    // rejected by the API CORS policy, so send them to the secure production app.
+    if (location.protocol === 'file:') {
+      window.location.replace('https://marketsync.link/login.html');
+    }
+    const API = location.hostname.includes('staging')
+      ? 'https://marketsync-staging-backend.onrender.com'
+      : 'https://vehicle-marketplace-s0e4.onrender.com';
     let mfaState = null;  // { factor_id, partial_token } when MFA challenge is pending
 
     // Auto-bypass login and passkey prompt for 30 days on trusted computers
