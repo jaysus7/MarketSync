@@ -2456,11 +2456,11 @@ function cmdPulseTilePanel(key, group, count) {
     : '';
   const body = rows.length
     ? `<div class="grid grid-cols-1 md:grid-cols-2 gap-2">${rows.map(r => `
-        <${r.open ? 'button' : 'div'} ${r.open ? `onclick="${r.open}"` : ''} class="ms-kpi-record w-full text-left rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2.5 ${r.open ? 'hover:border-indigo-300 dark:hover:border-indigo-700 transition' : ''}">
+        <${r.open ? 'button' : 'div'} ${r.open ? `onclick="${r.open}"` : ''} class="ms-kpi-record w-full text-left rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 ${r.open ? 'hover:border-indigo-300 dark:hover:border-indigo-700 transition' : ''}">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <div class="text-[13px] font-bold text-slate-900 dark:text-white truncate">${esc(r.title)}</div>
-              ${r.meta ? `<div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">${esc(r.meta)}</div>` : ''}
+              ${r.meta ? `<div class="ms-kpi-record__meta text-[11px] text-slate-500 dark:text-slate-400 truncate">${esc(r.meta)}</div>` : ''}
             </div>
             ${r.open ? `<span class="text-[11px] font-black text-indigo-600 dark:text-indigo-400 whitespace-nowrap">${esc(r.action)}</span>` : ''}
           </div>

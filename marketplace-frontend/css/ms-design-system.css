@@ -532,6 +532,14 @@ p.ms-text-caption,
   border-top: 1px solid var(--ms-border, rgba(15, 23, 42, .10));
   padding-top: var(--ms-sp-3, .75rem);
 }
+/* A record row carries a person's name and their vehicle. Cramped against the
+   border it reads as a dense list to skim past; these are the individual
+   customers and units someone is about to act on, so they get room to breathe. */
+.ms-kpi-record {
+  padding: var(--ms-sp-4, 1rem) calc(var(--ms-sp-4, 1rem) + 2px);
+}
+.ms-kpi-record .ms-kpi-record__meta { margin-top: .25rem; }
+
 .ms-kpi__hint { letter-spacing: .01em; }
 /* The hint is an affordance, not data: it must not compete with the number. */
 [data-emphasis="quiet"] .ms-kpi__hint { display: none; }
