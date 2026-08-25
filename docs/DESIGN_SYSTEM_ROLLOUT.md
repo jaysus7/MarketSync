@@ -51,6 +51,69 @@ Modes: default DealerOS, `data-dash-mode="marketsync"` (internal),
 **Every one of these renders in light and dark.** A phase is not done until it
 has been checked in both.
 
+## Page-coverage audit (measured 2026-08-25, at 3b1d215)
+
+Counted from source. These numbers are the reason the phase order below is what
+it is — they are not decoration, and two of them change the plan.
+
+### The design system reaches 1 page in 59
+
+| Fact | Count |
+|---|---|
+| HTML pages loading `ms-design-system.css` | **1** (`dashboard.html`) |
+| HTML pages not loading it | **58** |
+| Public pages loading `marketsync-theme.css` | 3 |
+| Public pages on `/site-marketing.css` | 19 |
+| Public pages pulling a stylesheet from a third-party CDN | 24 |
+| Pages carrying inline `<style>` blocks | 45 pages, 95 blocks |
+
+Phase 14 ("public site") cannot be a restyle. The public site is a **separate
+styling world** — its own marketing stylesheet, a CDN dependency, and 95 inline
+style blocks — and none of the token, material or card work applies to it until
+the design system is actually loaded there. That is a prerequisite step, not a
+polish pass, and it needs care: dropping a stylesheet onto 58 live marketing
+pages can regress them all at once.
+
+The CDN stylesheet on 24 pages is also inconsistent with the completed migration
+away from the Tailwind Play CDN, and is worth folding into the same phase.
+
+### The phase 1 primitives are not in use anywhere
+
+| Primitive | Uses in markup |
+|---|---|
+| `.ms-board` | **0** |
+| `.ms-c--*` (card variants) | **0** |
+| `.ms-span-*` | **0** |
+| `.ms-surface--*` | **0** |
+| `.ms-touch` | **0** |
+| `.pulse-summary-grid`, `.ms-kpi*` (phase 3) | in use |
+
+Stated plainly: the masonry and card system built in phase 1 has never laid out
+a real card. It is internally consistent and tested, but **unproven against real
+content**. Only the phase 3 Pulse components are actually rendering.
+
+The consequence for phase 4: adopt the primitives on **one** department Pulse
+first and measure it, before rolling the same treatment across the other seven.
+Defects in an unused foundation surface the moment it meets real data, and
+finding them once is much cheaper than finding them eight times.
+
+### Legacy weight still to unwind
+
+| Fact | Count |
+|---|---|
+| `!important` across `css/` | 696 |
+| — of which `marketsync-theme.css` | 489 |
+| — of which `dashboard-brand-repaint.css` | 156 |
+| — of which `dashboard-nav.css` | 47 |
+| — of which `ms-design-system.css` | **2** |
+| Hardcoded hex colours in JS renderers | 718 |
+| `class="…"` attributes in JS renderers | 13,762 |
+
+The design system holds its own line (2 `!important` in ~600 lines) because it
+wins by cascade order. The 694 elsewhere are the real backlog, and phase 16 is
+where they come out — not before, because each removal needs the surface that
+depends on it to have been migrated first.
+
 ## Pulse coverage
 
 | Engine | Pulse | Hierarchy | Records behind counts |

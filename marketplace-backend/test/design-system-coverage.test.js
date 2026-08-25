@@ -99,3 +99,47 @@ test('the doc states that each department Pulse has its own priorities', () => {
     'the Dealership Pulse is not a template for the other eight')
   assert.match(doc, /own audit/, 'each Pulse needs its own audit of what comes first')
 })
+
+// ── The audit numbers must stay true ─────────────────────────────────────────
+// A measured figure that has silently drifted is worse than none: it invites
+// planning against a surface area that no longer exists. These re-measure the
+// two findings that actually change the phase order.
+
+test('the audit still reflects how many pages load the design system', () => {
+  const pages = readdirSync(FRONTEND).filter(f => f.endsWith('.html'))
+  const loading = pages.filter(f =>
+    readFileSync(path.join(FRONTEND, f), 'utf8').includes('ms-design-system.css'))
+  const stated = doc.match(/HTML pages loading `ms-design-system\.css` \| \*\*(\d+)\*\*/)
+  assert.ok(stated, 'the audit must state how many pages load the design system')
+  assert.equal(Number(stated[1]), loading.length,
+    `the audit says ${stated[1]} page(s) load the design system, actually ${loading.length} — re-measure`)
+  const statedMissing = doc.match(/HTML pages not loading it \| \*\*(\d+)\*\*/)
+  assert.equal(Number(statedMissing[1]), pages.length - loading.length,
+    'the "not loading" figure must agree with the page count')
+})
+
+// The claim "the phase 1 primitives are unproven" is the reason phase 4 adopts
+// them on one Pulse first. The day that stops being true, the doc must say so —
+// and the day one silently gains a use, the caution is stale.
+test('the unused-primitive finding is re-measured, not remembered', () => {
+  const markup = []
+  for (const f of readdirSync(FRONTEND).filter(f => f.endsWith('.html'))) {
+    markup.push(readFileSync(path.join(FRONTEND, f), 'utf8'))
+  }
+  const modules = path.join(FRONTEND, 'js', 'modules')
+  for (const f of readdirSync(modules).filter(f => f.endsWith('.js'))) {
+    markup.push(readFileSync(path.join(modules, f), 'utf8'))
+  }
+  const all = markup.join('\n')
+  const table = doc.slice(doc.indexOf('### The phase 1 primitives'), doc.indexOf('### Legacy weight'))
+  for (const [name, token] of [['`.ms-board`', 'ms-board'], ['`.ms-c--*` (card variants)', 'ms-c--'],
+                               ['`.ms-span-*`', 'ms-span-'], ['`.ms-surface--*`', 'ms-surface--'],
+                               ['`.ms-touch`', 'ms-touch']]) {
+    const row = table.match(new RegExp(`\\| ${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\| \\*\\*(\\d+)\\*\\*`))
+    assert.ok(row, `the primitive table must state a count for ${name}`)
+    const actual = (all.match(new RegExp(token.replace(/[-*]/g, '\\$&'), 'g')) || []).length
+    assert.equal(Number(row[1]), actual,
+      `${name}: doc says ${row[1]} uses, markup has ${actual}. If a primitive is now in use, ` +
+      `update the finding — the "adopt on one Pulse first" caution depends on it.`)
+  }
+})
