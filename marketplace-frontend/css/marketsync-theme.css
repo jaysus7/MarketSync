@@ -1792,6 +1792,29 @@ body {
   .ms-engine-layout--rail {
     grid-template-columns: minmax(0, 1fr) 300px !important;
   }
+
+  /* …except on a Pulse tab, where the board takes the whole column. Compound
+     selector so it outranks the rule above without a second !important war;
+     engineTab() adds .ms-pulse-wide only while a Pulse/overview tab is active,
+     so every other tab in the same engine keeps the two-column shell. */
+  .ms-engine-layout--rail.ms-pulse-wide {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+/* The rail becomes a horizontal strip above the board rather than disappearing:
+   Reports, Next Actions and Quick Actions are still one click away, they just run
+   across the top. `position: static` undoes the xl:sticky the shell puts on the
+   aside — sticky is meaningful for a tall side column, but a strip that follows
+   you down the page is just in the way. */
+.ms-pulse-wide > [data-engine-rail] {
+  order: -1;
+  position: static !important;
+  top: auto !important;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: .75rem;
+  align-items: start;
 }
 
 @media (min-width: 1024px) {

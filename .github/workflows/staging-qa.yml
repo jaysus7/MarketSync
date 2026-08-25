@@ -31,8 +31,11 @@ jobs:
       run:
         working-directory: marketplace-backend
     env:
-      # No silent localhost fallback: real staging QA must run against the deployed site.
-      # The "Verify staging configuration" step below fails loudly if these are unset.
+      # No silent localhost fallback: real staging QA must run against the deployed
+      # site. If NONE of these are set the suite skips (see "Detect staging QA
+      # configuration"); if some are set but not all, or the target is localhost,
+      # "Verify staging configuration" still fails loudly — a half-configured
+      # environment is a mistake, not an opt-out.
       STAGING_URL: ${{ secrets.STAGING_URL }}
       STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
       STAGING_TEST_OWNER_USER: ${{ secrets.STAGING_TEST_OWNER_USER }}
@@ -50,7 +53,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Not configured and misconfigured are different failures and deserve
+      # different outcomes. A fork or a repo whose staging environment was never
+      # provisioned has nothing to test against — reporting that as a red check on
+      # every single pull request trains people to ignore the one signal that is
+      # supposed to mean "something you changed is broken". Absent secrets skip;
+      # anything else still runs, and the verify step below still fails loudly.
+      - name: Detect staging QA configuration
+        id: cfg
+        run: |
+          if [ -z "$STAGING_URL" ] \
+             && [ -z "$STAGING_TEST_OWNER_USER" ] && [ -z "$STAGING_TEST_OWNER_PASS" ] \
+             && [ -z "$STAGING_TEST_RESTRICTED_USER" ] && [ -z "$STAGING_TEST_RESTRICTED_PASS" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Staging QA skipped::No staging QA secrets are configured for this repository, so there is no deployed staging target to test. Set STAGING_URL and the STAGING_TEST_* credentials as repository secrets to enable this suite."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup Node.js 22
+        if: steps.cfg.outputs.configured == 'true'
         uses: actions/setup-node@v4
         with:
           # Node 22+: @supabase/supabase-js builds a Realtime client that needs a
@@ -61,14 +83,17 @@ jobs:
           cache-dependency-path: marketplace-backend/package-lock.json
 
       - name: Install dependencies
+        if: steps.cfg.outputs.configured == 'true'
         run: npm ci
 
       - name: Install Playwright Chromium Browser
+        if: steps.cfg.outputs.configured == 'true'
         run: npx playwright install --with-deps chromium
 
       # Fail clearly when the deployed-staging target or QA credentials are missing,
       # instead of silently passing against a dead localhost.
       - name: Verify staging configuration
+        if: steps.cfg.outputs.configured == 'true'
         run: |
           missing=""
           case "$STAGING_URL" in
@@ -88,15 +113,15 @@ jobs:
           echo "Staging QA target: $STAGING_URL"
 
       - name: Run Staging Fast Smoke Tests (Push Event)
-        if: github.event_name == 'push'
+        if: steps.cfg.outputs.configured == 'true' && github.event_name == 'push'
         run: npm run test:smoke
 
       - name: Run Full Staging QA Suite (Schedule Event)
-        if: github.event_name == 'schedule'
+        if: steps.cfg.outputs.configured == 'true' && github.event_name == 'schedule'
         run: npm run test:e2e
 
       - name: Run Selected Test Suite (Manual Workflow Dispatch)
-        if: github.event_name == 'workflow_dispatch'
+        if: steps.cfg.outputs.configured == 'true' && github.event_name == 'workflow_dispatch'
         run: |
           if [ "${{ inputs.test_suite }}" = "smoke" ]; then
             npm run test:smoke
@@ -109,7 +134,7 @@ jobs:
           fi
 
       - name: Upload Playwright HTML & Artifact Reports
-        if: always()
+        if: always() && steps.cfg.outputs.configured == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: staging-qa-report
