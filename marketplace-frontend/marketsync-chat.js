@@ -21,7 +21,9 @@
 
   var frame = document.createElement('iframe');
   frame.title = 'Chat with us';
-  frame.src = base + '/chat-widget.html?dealer=' + encodeURIComponent(dealer);
+  var pageUrl = encodeURIComponent(window.location.href || '');
+  var pageTitle = encodeURIComponent(document.title || '');
+  frame.src = base + '/chat-widget.html?dealer=' + encodeURIComponent(dealer) + '&url=' + pageUrl + '&title=' + pageTitle;
   frame.style.cssText = 'display:none;width:380px;max-width:calc(100vw - 40px);height:560px;max-height:calc(100vh - 120px);border:0;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.28);background:#fff;margin-bottom:12px;';
   frame.setAttribute('allow', 'clipboard-write');
 

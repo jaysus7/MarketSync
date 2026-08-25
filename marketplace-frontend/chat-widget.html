@@ -64,8 +64,10 @@
       var text = inp.value.trim(); if(!text) return;
       inp.value=''; sendBtn.disabled=true; bubble(text,'user'); typing(true);
       try{
+        var hostUrl = params.get('url') || document.referrer || null;
+        var hostTitle = params.get('title') || null;
         var r = await fetch(API+'/ai/widget/chat', { method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ dealer: dealer, message: text, conversation_id: convId, visitor_token: visTok, website: document.referrer || null }) });
+          body: JSON.stringify({ dealer: dealer, message: text, conversation_id: convId, visitor_token: visTok, website: hostUrl, page_title: hostTitle }) });
         var d = await r.json(); typing(false);
         if(d.conversation_id){ convId=d.conversation_id; localStorage.setItem(LS_CONV,convId); }
         if(d.visitor_token){ visTok=d.visitor_token; localStorage.setItem(LS_VIS,visTok); }

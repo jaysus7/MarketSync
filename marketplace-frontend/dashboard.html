@@ -464,7 +464,7 @@
 
   <main class="flex-1 w-full px-3 pb-3 pt-[112px] sm:px-4 sm:pb-4 sm:pt-[116px] lg:px-4 lg:pb-4 flex flex-col md:grid md:grid-cols-[248px_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] gap-3 md:gap-4 min-h-0 overflow-hidden">
 
-    <section id="dept-sidebar" class="flex flex-col shrink-0 md:col-span-1 md:h-full md:min-h-0 md:overflow-y-auto">
+    <section id="dept-sidebar" class="flex flex-col shrink-0 md:col-span-1 md:h-auto md:max-h-[calc(100vh-136px)] md:self-start md:overflow-y-auto">
 
       <div id="profile-card" class="hidden">
         <div class="mb-4 hidden">
@@ -2058,7 +2058,7 @@
 
       </div>
       <!-- ───────── RECONDITIONING PAGE ───────── -->
-      <div data-page-content="recon" class="page-content hidden space-y-5">
+      <div data-page-content="recon" data-pulse-kind="cleanup" class="page-content hidden space-y-5 ms-pulse-board">
         <div class="ms-engine-header flex items-center justify-between gap-4 flex-wrap">
           <div class="flex items-center gap-4">
             <div class="ms-engine-mark w-11 h-11 rounded-xl bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center flex-shrink-0 shadow-xs">
@@ -3846,7 +3846,7 @@
   <!-- Workspace registry: SINGLE SOURCE OF TRUTH for sidebar, workspace tabs and
        mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
   <script src="js/modules/workspace-registry.js?v=20260824_inventory_accuracy_v1"></script>
-  <script src="dashboard.js?v=20260825_internal_ops_v1"></script>
+  <script src="dashboard.js?v=20260825_pulse_canvas_v2"></script>
   <script src="js/modules/dashboard-part2.js?v=20260825_internal_ops_v1"></script>
   <script src="js/modules/dashboard-part3.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part4.js?v=20260824_glass_modal_v1"></script>
@@ -3873,18 +3873,18 @@
   <script src="js/modules/dashboard-part25.js?v=20260817_punchclock_v1"></script>
   <script src="js/modules/dashboard-part26.js?v=20260824_staff_password_css_v1"></script>
   <!-- Sales workspace: registers ENGINES['sales']; must load after the parts. -->
-  <script src="js/modules/sales-workspace.js?v=20260824_real_videos_boot_v3"></script>
+  <script src="js/modules/sales-workspace.js?v=20260824_pulse_cleanup_v2"></script>
   <script src="js/modules/inventory-workspace.js?v=20260824_ai_panel_contrast_inventory_v2"></script>
-  <script src="js/modules/fni-workspace.js?v=20260824_ai_panel_contrast_v1"></script>
+  <script src="js/modules/fni-workspace.js?v=20260824_pulse_cleanup_v2"></script>
   <!-- Vehicle Record: one unit, one surface. Loads after inventory-workspace.js,
        whose merchandising/acquisition definitions it renders. -->
   <script src="js/modules/vehicle-record.js?v=20260824_inventory_accuracy_v1"></script>
   <script src="js/modules/receipt-engine.js?v=20260824_real_receipt_data_v1"></script>
   <script src="js/modules/video-studio.js?v=20260824_no_hardcoded_videos_digital_restore_v1"></script>
   <script src="js/modules/service-views.js?v=20260824_ai_panel_contrast_v1"></script>
-  <script src="js/modules/service-workspace.js?v=20260824_pulse_leaderboards_v1"></script>
+  <script src="js/modules/service-workspace.js?v=20260824_pulse_cleanup_v2"></script>
   <script src="js/modules/parts-views.js?v=20260824_ai_panel_contrast_v1"></script>
-  <script src="js/modules/parts-workspace.js?v=20260824_pulse_leaderboards_v1"></script>
+  <script src="js/modules/parts-workspace.js?v=20260824_pulse_cleanup_v2"></script>
   <script src="js/modules/accounting-views.js?v=20260817_simple_internal"></script>
   <script src="js/modules/accounting-workspace.js?v=20260824_department_header_v1"></script>
   <script src="js/modules/studio/scene-model.js?v=20260814_v12"></script>
