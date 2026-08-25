@@ -42,7 +42,7 @@ test('the staff-chat dock refuses to run on independent programs and can be torn
   // Boot runs through the shared guarded starter so DealerOS can restore the dock
   // after entitlements resolve without mounting it for independent products.
   assert.match(staffChat, /function startStaffChatDock\(\) \{\s*\n\s*if \(shouldHideStaffChat\(\)\) return;/)
-  assert.match(staffChat, /DOMContentLoaded', \(\) => \{\s*\n\s*startStaffChatDock\(\);/)
+  assert.match(staffChat, /addEventListener\('DOMContentLoaded', bootStaffChatDock, \{ once: true \}\)/)
   // A public teardown applyProductNav can call once the tier is known.
   assert.match(staffChat, /window\.disableStaffChatDock = function \(\) \{[\s\S]*?clearInterval\(pollInterval\)[\s\S]*?staff-chat-dock-bar'\)\?\.classList\.add\('hidden'\)/)
   assert.match(staffChat, /window\.enableStaffChatDock = function \(\) \{[\s\S]*?startStaffChatDock\(\)/,
@@ -53,8 +53,10 @@ test('the staff-chat dock refuses to run on independent programs and can be torn
     'the canonical full department shell must retain Team Chat for legacy access payloads')
   assert.match(staffChat, /ensureDockContainer\(\)\.classList\.remove\('hidden'\)/,
     'an entitled startup must clear stale hidden state')
-  assert.match(staffChat, /setTimeout\(startStaffChatDock, 1200\)[\s\S]*?setTimeout\(startStaffChatDock, 3500\)/,
-    'Team Chat must reconcile after asynchronous access and navigation initialization')
+  assert.match(staffChat, /new MutationObserver\(\(\) => startStaffChatDock\(\)\)[\s\S]*?observer\.observe\(nav, \{ childList: true, subtree: true \}\)/,
+    'Team Chat must reconcile when asynchronous department navigation finishes')
+  assert.match(staffChat, /document\.readyState === 'loading'[\s\S]*?bootStaffChatDock\(\)/,
+    'the late-loaded module must boot whether it arrives before or after DOM ready')
 })
 
 test('the single-product settings block also tears down the staff-chat dock (belt-and-suspenders with applyProductNav)', () => {

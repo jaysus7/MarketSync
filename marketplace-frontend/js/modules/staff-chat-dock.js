@@ -499,14 +499,26 @@
     }
   };
 
-  // Start cycles on DOM ready
-  document.addEventListener('DOMContentLoaded', () => {
+  function bootStaffChatDock() {
     startStaffChatDock();
-    // Access context and role-aware department navigation resolve asynchronously.
-    // Reconcile after each settles; the starter is idempotent and owns one poller.
+    // Role-aware department navigation resolves asynchronously and can finish
+    // after fixed boot delays. Reconcile on the actual nav mutation so the full
+    // DealerOS shell—not timing—decides whether Team Chat is visible.
+    const nav = document.getElementById('dept-nav');
+    if (nav && typeof MutationObserver === 'function') {
+      const observer = new MutationObserver(() => startStaffChatDock());
+      observer.observe(nav, { childList: true, subtree: true });
+      setTimeout(() => observer.disconnect(), 15000);
+    }
     setTimeout(startStaffChatDock, 1200);
-    setTimeout(startStaffChatDock, 3500);
-  });
+  }
+
+  // Start immediately when this late dashboard module arrives after DOM ready.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootStaffChatDock, { once: true });
+  } else {
+    bootStaffChatDock();
+  }
 
   // Global click to close emoji pickers
   document.addEventListener('click', (e) => {
