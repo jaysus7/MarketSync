@@ -1689,21 +1689,24 @@ function renderWebsitePage() {
 
   root.innerHTML = `
     <div class="flex flex-col ${isBuilder ? 'h-full' : 'min-h-0'} w-full bg-[var(--ws-bg)] text-[var(--ws-text)]">
-      <!-- TOP APPLICATION HEADER (Dedicated Website Workspace Header) -->
-      <div class="ws-builder-header flex items-center justify-between px-4 py-2.5 bg-slate-900 border-b border-slate-800 flex-shrink-0 flex-wrap gap-2 text-white z-20">
+      <!-- TOP APPLICATION HEADER (Dedicated Website Workspace Header). Uses the
+           same --ws-* variables the rest of the builder chrome follows (set by
+           applyBuilderTheme()/[data-ws-theme]) rather than hardcoded dark-only
+           colors, so it never goes half-dark against a light body or vice versa. -->
+      <div class="ws-builder-header flex items-center justify-between px-4 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex-shrink-0 flex-wrap gap-2 text-slate-900 dark:text-white z-20">
         <div class="flex items-center gap-3">
-          <button onclick="closeWebsiteBuilder()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 text-xs font-black transition cursor-pointer shadow-xs" title="Exit Website Builder & Return to Website Workspace">
-            <svg class="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
+          <button onclick="closeWebsiteBuilder()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[var(--ws-panel-raised)] hover:bg-[var(--ws-hover-bg)] text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-black transition cursor-pointer shadow-xs" title="Exit Website Builder & Return to Website Workspace">
+            <svg class="w-3.5 h-3.5 text-[var(--ws-text-muted)]" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
             <span>Exit Builder</span>
           </button>
-          <div class="h-5 w-px bg-slate-800"></div>
+          <div class="h-5 w-px bg-[var(--ws-border)]"></div>
           <div class="w-7 h-7 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-black border border-indigo-500/40">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18zM2.25 12h19.5M12 2.25a15.3 15.3 0 014.5 9.75 15.3 15.3 0 01-4.5 9.75 15.3 15.3 0 01-4.5-9.75A15.3 15.3 0 0112 2.25z"/></svg>
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <span class="text-sm font-black tracking-tight text-white">MarketSync Website Builder</span>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${__siteCfg.site_published ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'}">
+              <span class="text-sm font-black tracking-tight text-[var(--ws-text)]">MarketSync Website Builder</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${__siteCfg.site_published ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40'}">
                 ${__siteCfg.site_published ? 'Live' : 'Draft'}
               </span>
             </div>
@@ -1712,8 +1715,8 @@ function renderWebsitePage() {
 
         <!-- TOP RIGHT ACTION CONTROLS -->
         <div class="flex items-center gap-2">
-          ${url ? `<a href="${url}" target="_blank" class="text-xs font-black bg-slate-800 text-slate-300 hover:text-white border border-slate-700 px-3 py-1.5 rounded-xl transition">View Site ↗</a>` : ''}
-          <label class="flex items-center gap-1.5 text-xs font-bold text-slate-300 cursor-pointer bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-xl"><input id="ws-pub" type="checkbox" ${__siteCfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-3.5 h-3.5 rounded">Published</label>
+          ${url ? `<a href="${url}" target="_blank" class="text-xs font-black bg-[var(--ws-panel-raised)] text-[var(--ws-text-muted)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl transition">View Site ↗</a>` : ''}
+          <label class="flex items-center gap-1.5 text-xs font-bold text-[var(--ws-text-muted)] cursor-pointer bg-[var(--ws-panel-raised)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl"><input id="ws-pub" type="checkbox" ${__siteCfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-3.5 h-3.5 rounded">Published</label>
           <button onclick="saveWebsite(this)" class="text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-xl transition shadow-md cursor-pointer">Save Changes</button>
         </div>
       </div>
@@ -2678,7 +2681,7 @@ function renderLiveBuilder(body) {
         </div>
 
         <div class="flex items-center gap-2">
-          <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40">SAVED</span>
+          <span class="ws-saved-badge px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40">SAVED</span>
           <a href="${SITE_BASE}?d=${encodeURIComponent(slug)}" target="_blank" class="px-3 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-bold transition">Preview ↗</a>
           <button onclick="saveWebsite(this)" class="px-4 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md transition cursor-pointer">Publish Site</button>
         </div>

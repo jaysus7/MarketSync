@@ -1491,7 +1491,10 @@ function deptGo(page, invmode, tab) {
       return;
     }
   }
-  if (tab && page === 'website') __wsTab = tab;
+  // A plain "Website" nav click (no explicit tab) must always land on Setup —
+  // otherwise a stale __wsTab left over from a previous openWebsiteBuilder() call
+  // silently reopens the Builder instead.
+  if (page === 'website') __wsTab = tab || 'setup';
   if (tab && page === 'automation-builder') {
     __autoTab = tab;
     if (typeof loadAutoBuilderPage === 'function') loadAutoBuilderPage();
