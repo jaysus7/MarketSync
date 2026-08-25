@@ -1256,14 +1256,6 @@ window.pulseSalesDeptSection = function(d) {
         <button onclick="switchPage('sales')" class="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline">Open Sales Workspace →</button>
       </div>
 
-      <!-- Top KPI Header Strip -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        ${engKpi('Leads Waiting', leadsWaiting.length, leadsWaiting.length ? 'text-amber-600 dark:text-amber-400' : '')}
-        ${engKpi('Website E-Leads', eLeads.length, eLeads.length ? 'text-blue-600 dark:text-blue-400' : '')}
-        ${engKpi('Follow-up Tasks', tasks.length, tasks.length ? 'text-rose-600 dark:text-rose-400' : '')}
-        ${engKpi('Appointments', appts.length, appts.length ? 'text-emerald-600 dark:text-emerald-400' : '')}
-      </div>
-
       <!-- Primary Operational Grid -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <!-- Card 1: Leads Waiting & Immediate Inquiries -->
@@ -1437,39 +1429,40 @@ window.pulseInventoryDeptSection = function(d) {
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        ${engKpi('Incoming Units', incoming.length || 4)}
-        ${engKpi('Low Inventory', lowInv.length || 2, lowInv.length ? 'text-amber-600 dark:text-amber-400' : '')}
-        ${engKpi('Slow Movers', slowMovers.length || 3, slowMovers.length ? 'text-rose-600 dark:text-rose-400' : '')}
-        ${engKpi('Fast Movers', fastMovers.length || 8, 'text-emerald-600 dark:text-emerald-400')}
+        ${engKpi('Incoming Units', incoming.length)}
+        ${engKpi('Low Inventory', lowInv.length, lowInv.length ? 'text-amber-600 dark:text-amber-400' : '')}
+        ${engKpi('Slow Movers', slowMovers.length, slowMovers.length ? 'text-rose-600 dark:text-rose-400' : '')}
+        ${engKpi('Fast Movers', fastMovers.length, 'text-emerald-600 dark:text-emerald-400')}
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div>
           <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">Lot at a Glance & Analysis</div>
           <div class="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2 border border-slate-200 dark:border-slate-800">
-            <div class="flex justify-between text-xs font-bold"><span class="text-slate-800 dark:text-slate-200">Total Units in Stock</span><span class="text-slate-900 dark:text-white font-black">${inv.length || 42} units</span></div>
-            <div class="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300"><span>Average Days on Lot</span><span class="font-bold text-slate-900 dark:text-white">38 days</span></div>
-            <div class="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300"><span>Stock Recommendation</span><span class="text-indigo-700 dark:text-indigo-400 font-extrabold">Acquire Mid-size SUVs</span></div>
+            <div class="flex justify-between text-xs font-bold"><span class="text-slate-800 dark:text-slate-200">Total Units in Stock</span><span class="text-slate-900 dark:text-white font-black">${inv.length} units</span></div>
+            <div class="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300"><span>Average Days on Lot</span><span class="font-bold text-slate-900 dark:text-white">${inv.length ? `${Math.round(inv.reduce((sum, vehicle) => sum + (Number(vehicle.days_on_lot) || 0), 0) / inv.length)} days` : '—'}</span></div>
+            <div class="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300"><span>Stock requiring review</span><span class="text-indigo-700 dark:text-indigo-400 font-extrabold">${overstock.length}</span></div>
           </div>
         </div>
         <div>
           <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">Financial Insight Graphs</div>
           <div class="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2 border border-slate-200 dark:border-slate-800">
-            <div class="flex justify-between text-xs font-bold"><span class="text-slate-800 dark:text-slate-200">Total Lot Valuation</span><span class="text-emerald-700 dark:text-emerald-400 font-black">$1,420,000</span></div>
-            <div class="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden"><div class="bg-indigo-500 h-2" style="width:78%"></div></div>
+            <div class="flex justify-between text-xs font-bold"><span class="text-slate-800 dark:text-slate-200">Total Lot Valuation</span><span class="text-emerald-700 dark:text-emerald-400 font-black">${inv.length ? cmdMoney(inv.reduce((sum, vehicle) => sum + (Number(vehicle.price || vehicle.list_price || vehicle.cost) || 0), 0)) : '—'}</span></div>
           </div>
         </div>
       </div>
-      ${pulsePerformancePanel(d, ['facebook'])}
     </div>
   `;
 };
 
 window.pulseFniDeptSection = function(d) {
   const deals = d.fniDeals || d.pipeline?.deals || [];
-  const todayDeals = deals.filter(x => x.created_at ? new Date(x.created_at).toDateString() === new Date().toDateString() : true);
+  const todayDeals = deals.filter(x => x.created_at && new Date(x.created_at).toDateString() === new Date().toDateString());
   const fundingPending = deals.filter(x => String(x.status || '').includes('funding') || x.funding_status === 'pending');
   const esign = d.esignRequests || [];
+  const grossValues = deals.map(x => Number(x.back_gross ?? x.fni_gross ?? x.gross_profit)).filter(Number.isFinite);
+  const monthBackGross = grossValues.length ? grossValues.reduce((sum, value) => sum + value, 0) : null;
+  const averagePvr = grossValues.length ? grossValues.reduce((sum, value) => sum + value, 0) / grossValues.length : null;
 
   return `
     <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
@@ -1482,10 +1475,10 @@ window.pulseFniDeptSection = function(d) {
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        ${engKpi('Month Back Gross', '$48,500', 'text-emerald-600 dark:text-emerald-400')}
-        ${engKpi("Today's Deals", todayDeals.length || 3)}
-        ${engKpi('Waiting for Funding', fundingPending.length || 2, fundingPending.length ? 'text-amber-600 dark:text-amber-400' : '')}
-        ${engKpi('E-Sigs Pending', esign.filter(x => x.status !== 'completed').length || 1)}
+        ${engKpi('Recorded Back Gross', monthBackGross == null ? '—' : cmdMoney(monthBackGross), 'text-emerald-600 dark:text-emerald-400')}
+        ${engKpi("Today's Deals", todayDeals.length)}
+        ${engKpi('Waiting for Funding', fundingPending.length, fundingPending.length ? 'text-amber-600 dark:text-amber-400' : '')}
+        ${engKpi('E-Sigs Pending', esign.filter(x => x.status !== 'completed').length)}
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1503,8 +1496,8 @@ window.pulseFniDeptSection = function(d) {
         <div>
           <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">F&I Financial Insights & Leaderboard</div>
           <div class="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2 border border-slate-200 dark:border-slate-800">
-            <div class="flex justify-between text-xs font-bold"><span class="text-slate-800 dark:text-slate-200">Average PVR</span><span class="text-emerald-700 dark:text-emerald-400 font-black">$1,850 / deal</span></div>
-            <div class="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300"><span>Internal F&I Leader</span><span class="font-bold text-slate-900 dark:text-white">Sarah Jenkins (14 deals)</span></div>
+            <div class="flex justify-between text-xs font-bold"><span class="text-slate-800 dark:text-slate-200">Average recorded PVR</span><span class="text-emerald-700 dark:text-emerald-400 font-black">${averagePvr == null ? '—' : `${cmdMoney(averagePvr)} / deal`}</span></div>
+            <div class="text-[11px] text-slate-400">Only completed deal records with gross data are included.</div>
           </div>
         </div>
       </div>
@@ -1543,6 +1536,7 @@ window.pulseServiceDeptSection = function(d) {
   const openRos = ros.filter(r => r.status !== 'closed' && r.status !== 'completed');
   const closedRos = ros.filter(r => r.status === 'closed' || r.status === 'completed');
   const appts = d.serviceAppts || [];
+  const partsBlocked = (d.partsOrders || []).filter(request => ['requested', 'backordered'].includes(String(request.status || '').toLowerCase())).length;
   const svcApptMode = window.__pulseSvcApptCalendarMode ? 'calendar' : 'list';
 
   return `
@@ -1556,10 +1550,10 @@ window.pulseServiceDeptSection = function(d) {
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        ${engKpi('Service Appts', appts.length || 5)}
-        ${engKpi('Open ROs', openRos.length || 7, openRos.length ? 'text-cyan-600 dark:text-cyan-400' : '')}
-        ${engKpi('Closed ROs', closedRos.length || 12)}
-        ${engKpi('Effective Labor Rate', '$145/hr')}
+        ${engKpi('Service Appts', appts.length)}
+        ${engKpi('Open ROs', openRos.length, openRos.length ? 'text-cyan-600 dark:text-cyan-400' : '')}
+        ${engKpi('Closed ROs', closedRos.length)}
+        ${engKpi('Parts blockers', partsBlocked, partsBlocked ? 'text-amber-600 dark:text-amber-400' : '')}
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1577,9 +1571,10 @@ window.pulseServiceDeptSection = function(d) {
 
         <div>
           <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Customer Work Progress Tracker</div>
-          <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2">
-            <div class="flex justify-between text-xs font-bold"><span>Active Customer Progress</span><span class="text-cyan-600">Inspection & Diagnostics</span></div>
-            <div class="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden"><div class="bg-cyan-500 h-2" style="width:50%"></div></div>
+          <div class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-2 text-xs">
+            <div class="flex justify-between font-bold"><span>Open repair orders</span><span class="text-cyan-600">${openRos.length}</span></div>
+            <div class="flex justify-between font-bold"><span>Ready or completed</span><span>${closedRos.length}</span></div>
+            <div class="flex justify-between font-bold"><span>Waiting on parts</span><span class="${partsBlocked ? 'text-amber-600' : ''}">${partsBlocked}</span></div>
           </div>
         </div>
       </div>
@@ -1590,6 +1585,9 @@ window.pulseServiceDeptSection = function(d) {
 
 window.pulsePartsDeptSection = function(d) {
   const parts = d.partsOrders || [];
+  const requested = parts.filter(part => String(part.status || '').toLowerCase() === 'requested').length;
+  const backordered = parts.filter(part => String(part.status || '').toLowerCase() === 'backordered').length;
+  const reserved = parts.filter(part => String(part.status || '').toLowerCase() === 'reserved').length;
   return `
     <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
@@ -1601,16 +1599,18 @@ window.pulsePartsDeptSection = function(d) {
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        ${engKpi('Ordered Parts', parts.length || 8)}
-        ${engKpi('Returns Pending', 2, 'text-amber-600 dark:text-amber-400')}
-        ${engKpi('Damaged Items', 0)}
-        ${engKpi('Low Inventory', 5, 'text-rose-600 dark:text-rose-400')}
+        ${engKpi('Open requests', parts.length)}
+        ${engKpi('Needs ordering', requested, requested ? 'text-amber-600 dark:text-amber-400' : '')}
+        ${engKpi('Backordered', backordered, backordered ? 'text-rose-600 dark:text-rose-400' : '')}
+        ${engKpi('Reserved', reserved, reserved ? 'text-emerald-600 dark:text-emerald-400' : '')}
       </div>
     </div>
   `;
 };
 
 window.pulseAccountingDeptSection = function(d) {
+  const summary = d.acct && !d.acct.__unavailable ? d.acct : null;
+  const actualMoney = value => value != null && Number.isFinite(Number(value)) ? cmdMoney(Number(value)) : '—';
   return `
     <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
@@ -1630,10 +1630,10 @@ window.pulseAccountingDeptSection = function(d) {
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        ${engKpi("Today's Expenses", '$3,420', 'text-amber-600 dark:text-amber-400')}
-        ${engKpi("Today's Receivables", '$14,800', 'text-emerald-600 dark:text-emerald-400')}
-        ${engKpi("Today's Budget Status", 'On Track', 'text-emerald-600 dark:text-emerald-400')}
-        ${engKpi('Upcoming Payroll', '15th of Month')}
+        ${engKpi('Expenses MTD', summary ? actualMoney(summary.expenses_mtd) : '—', 'text-amber-600 dark:text-amber-400')}
+        ${engKpi('Accounts Receivable', summary ? actualMoney(summary.accounts_receivable) : '—', 'text-emerald-600 dark:text-emerald-400')}
+        ${engKpi('Net Income MTD', summary ? actualMoney(summary.net_income_mtd) : '—', summary && summary.net_income_mtd != null && Number(summary.net_income_mtd) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')}
+        ${engKpi('Cash', summary ? actualMoney(summary.cash) : '—')}
       </div>
     </div>
   `;
@@ -1981,7 +1981,7 @@ ENGINES['command'] = {
     const acctReq = (url, label) => canAcct ? apiGetJson(url).catch(miss(label)) : Promise.resolve(miss(label)(new Error('Not entitled')));
     const serviceReq = (url, fallback) => canService ? apiGetJson(url).catch(() => fallback) : Promise.resolve(fallback);
 
-    const [cc, ev, day, identityReviews, pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy, contacts, tasks, appts, deliveries, reconVehicles, inventory, fniDeals, esignRequests, serviceRos, partsOrders, staff, marketingRoi, marketingPosts, marketingConversations, salesVideos, gamification] = await Promise.all([
+    const [cc, ev, day, identityReviews, pipeline, acct, ar, ap, cit, close, campaigns, autoQueue, academy, contacts, tasks, appts, deliveries, reconVehicles, inventory, fniDeals, esignRequests, serviceRos, serviceAppts, partsOrders, staff, marketingRoi, marketingPosts, marketingConversations, salesVideos, gamification] = await Promise.all([
       apiGetJson('/command-center').catch(() => ({ tiles: {}, exceptions: [], exception_count: 0 })),
       apiGetJson('/events?limit=40').catch(() => ({ events: [] })),
       apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ label: 'Pulse', reason: 'Could not be loaded' }], complete: false })),
@@ -2004,6 +2004,7 @@ ENGINES['command'] = {
       apiGetJson('/fni/deals').catch(() => null),
       apiGetJson('/esign').catch(() => ({ requests: [] })),
       serviceReq('/service-engine/ros', { ros: [] }),
+      serviceReq('/service/appointments', { appointments: [] }),
       serviceReq('/service-engine/part-requests', { requests: [] }),
       (profileContext?.saas_role === 'owner' ? apiGetJson('/saas/employees') : Promise.resolve({ employees: [] })).catch(() => ({ employees: [] })),
       canAcct ? apiGetJson('/marketing/roi').catch(() => null) : Promise.resolve(null),
@@ -2027,7 +2028,8 @@ ENGINES['command'] = {
       fniDeals: Array.isArray(fniDeals?.deals) ? fniDeals.deals : (Array.isArray(fniDeals) ? fniDeals : []),
       esignRequests: Array.isArray(esignRequests?.requests) ? esignRequests.requests : (Array.isArray(esignRequests) ? esignRequests : []),
       serviceRos: Array.isArray(serviceRos?.ros) ? serviceRos.ros : (Array.isArray(serviceRos) ? serviceRos : []),
-      partsOrders: Array.isArray(partsOrders?.orders) ? partsOrders.orders : (Array.isArray(partsOrders) ? partsOrders : []),
+      serviceAppts: Array.isArray(serviceAppts?.appointments) ? serviceAppts.appointments : (Array.isArray(serviceAppts) ? serviceAppts : []),
+      partsOrders: Array.isArray(partsOrders?.orders) ? partsOrders.orders : (Array.isArray(partsOrders?.requests) ? partsOrders.requests : (Array.isArray(partsOrders) ? partsOrders : [])),
       staff: Array.isArray(staff?.employees) ? staff.employees : (Array.isArray(staff) ? staff : []),
       marketingRoi,
       marketingPosts: Array.isArray(marketingPosts?.posts) ? marketingPosts.posts : [],
@@ -2056,14 +2058,40 @@ ENGINES['command'] = {
           <div class="text-3xl font-black ${hot ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-100'}">${val}</div>
           <div class="text-[12px] font-bold text-slate-500 dark:text-slate-400 mt-1">${esc(label)}</div></button>`;
       };
-      const hour = new Date().getHours();
+      const now = new Date();
+      const hour = now.getHours();
       const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+      const dailyMotivations = [
+        'Make the next decision clear, useful, and easy to act on.',
+        'Small improvements, repeated consistently, create remarkable results.',
+        'Focus the team on what moves the customer forward today.',
+        'Clarity creates momentum. Choose the priority and begin.',
+        'The standard you reinforce today becomes the culture tomorrow.',
+        'Great service is built one thoughtful handoff at a time.',
+        'Progress becomes visible when attention is placed on the right work.',
+        'Lead with calm, follow through with purpose, and let results compound.',
+        'Every solved bottleneck gives the whole dealership room to move.',
+        'Make today easier for the customer and stronger for the team.',
+        'The best operating rhythm is simple: notice, decide, follow through.',
+        'Consistent care turns ordinary moments into lasting customer trust.',
+        'A focused team can turn a busy day into a meaningful one.',
+        'Build momentum with one completed promise at a time.',
+      ];
+      const localDayNumber = Math.floor(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000);
+      const dailyMotivation = dailyMotivations[localDayNumber % dailyMotivations.length];
       const attention = d.day.needs_attention || [];
       const incomplete = d.day.complete === false
         ? `<div class="rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-4 py-3 text-[13px] text-amber-800 dark:text-amber-200 mb-4"><b>This day is incomplete.</b> ${(d.day.failed || []).map(x => esc(x.label)).join(', ') || 'One or more sources'} could not be loaded.</div>` : '';
 
       const campaigns = Array.isArray(d.campaigns?.rows) ? d.campaigns.rows : (Array.isArray(d.campaigns) ? d.campaigns : []);
       const liveCampaigns = campaigns.filter(c => c.status === 'active' || c.status === 'live' || c.status === 'running');
+      const netIncome = d.acct?.net_income_mtd != null ? Number(d.acct.net_income_mtd) : NaN;
+      const marketingRoas = Number(d.marketingRoi?.totals?.roas);
+      const openServiceRos = (d.serviceRos || []).filter(ro => !['closed', 'completed', 'delivered'].includes(String(ro.status || '').toLowerCase())).length;
+      const serviceAppointmentsToday = (d.serviceAppts || []).filter(a => {
+        const when = a.when || a.appointment_at || a.scheduled_at;
+        return when && new Date(when).toDateString() === new Date().toDateString();
+      }).length;
 
       const proactiveAiExecutivePanel = `
         <div class="mb-6 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 ms-ai-panel text-white shadow-lg border border-slate-800">
@@ -2074,10 +2102,10 @@ ENGINES['command'] = {
             <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">STORE-WIDE EXECUTIVE TELEMETRY</span>
           </div>
           <div class="text-xs text-slate-300 space-y-1.5 mb-3">
-            <p>• <strong>Dealership Gross Profit &amp; Pacing:</strong> Total net operating income is <strong>+$77,750.00</strong> this month across all departments.</p>
+            <p>• <strong>Net operating income:</strong> ${Number.isFinite(netIncome) ? `<strong>${cmdMoney(netIncome)}</strong> recorded this month.` : 'Accounting has not supplied this figure.'}</p>
             <p>• <strong>Cross-Departmental Bottlenecks:</strong> ${attention.length ? `<span class="text-amber-300 font-bold">${attention.length} cross-departmental operational item(s) requiring executive oversight.</span>` : 'No operational bottlenecks flagged across departments.'}</p>
-            <p>• <strong>Service &amp; Shop Efficiency:</strong> Effective Labour Rate (ELR) is $145.00/hr with 88% technician productivity.</p>
-            <p>• <strong>Active Campaign ROI:</strong> ${liveCampaigns.length} marketing campaign(s) generating leads at 4.2x ROAS.</p>
+            <p>• <strong>Service activity:</strong> ${openServiceRos} open repair order(s) and ${serviceAppointmentsToday} appointment(s) scheduled today.</p>
+            <p>• <strong>Active campaigns:</strong> ${liveCampaigns.length} live campaign(s)${Number.isFinite(marketingRoas) ? ` with ${marketingRoas.toFixed(2)}x recorded ROAS` : '; ROAS is unavailable until attributable revenue is recorded'}.</p>
           </div>
           <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
             <button onclick="document.getElementById('cmd-forecast-section')?.scrollIntoView({ behavior: 'smooth' })" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">View Store Sales Forecast</button>
@@ -2088,16 +2116,22 @@ ENGINES['command'] = {
 
       const todayOpsHtml = `
         ${proactiveAiExecutivePanel}
-        <div class="mb-6">
-          <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Running today</div>
-          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            ${tile('Leads waiting', t.leads_waiting ?? 0, 'sales', true)}
+        <section class="pulse-summary-panel mb-6" aria-labelledby="running-today-title">
+          <div class="mb-4 flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <div class="text-[11px] font-black uppercase tracking-[0.14em] text-blue-600 dark:text-blue-300">Live store activity</div>
+              <h2 id="running-today-title" class="mt-1 text-lg font-black tracking-tight text-slate-900 dark:text-white">Running today</h2>
+            </div>
+            <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Updated from connected workflows</div>
+          </div>
+          <div class="pulse-summary-grid">
+            ${tile('Items needing attention', attention.length, 'command', true)}
             ${tile('Deals in progress', t.deals_in_progress ?? 0, 'sales', false)}
             ${tile('Deliveries today', t.deliveries_today ?? 0, 'delivery', false)}
             ${tile('Recon delays', t.recon_delays ?? 0, 'recon', true)}
             ${tile('Service bottlenecks', t.service_bottlenecks ?? 0, 'service-overview', true)}
           </div>
-        </div>
+        </section>
       `;
 
       const departments = [...new Set(attention.map(x => x.department || x.source_label || 'Other'))];
@@ -2207,7 +2241,13 @@ ENGINES['command'] = {
         : '';
 
       body.innerHTML = `
-        <div class="text-xl font-black text-slate-900 dark:text-white mb-1">${greet}</div>
+        <section class="ms-daily-greeting" aria-label="Daily motivation">
+          <div>
+            <div class="ms-daily-greeting__eyebrow">Daily focus</div>
+            <h2>${greet}</h2>
+          </div>
+          <blockquote>“${esc(dailyMotivation)}”</blockquote>
+        </section>
         ${incomplete}
         ${todayOpsHtml}
 

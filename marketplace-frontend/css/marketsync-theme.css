@@ -312,6 +312,11 @@ body {
 .ms-meta { font-size: var(--text-xs); font-weight: 500; color: var(--color-text-muted); }
 .ms-sub { font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary); line-height: 1.4; }
 
+/* Shared reading size. Paragraph copy starts at a true 16px across the public
+   site and DealerOS; explicitly-sized display copy, captions and metadata keep
+   their component scale. */
+p { font-size: 1rem; line-height: 1.55; }
+
 /* Systematic Contrast & Heading Overrides */
 html:not(.dark) h1, html:not(.dark) h2, html:not(.dark) h3, html:not(.dark) h4 {
   color: #0F172A;
@@ -1508,14 +1513,12 @@ body {
     var(--ms-bg) !important;
 }
 
-body > header,
 #dept-sidebar,
 #nav-desktop,
 #nav-mobile,
 #report-rail,
 .ms-engine-header,
 .ms-glass,
-.ms-card,
 .bg-white:not(#studio-artboard-container):not(#dashboard-nav),
 .dark\:bg-slate-900:not(#studio-artboard-container):not(#dashboard-nav) {
   background: linear-gradient(135deg, rgba(255,255,255,.76), rgba(255,255,255,.58)) !important;
@@ -1528,7 +1531,6 @@ body > header,
 .dark body,
 .dark body main { background-color:#0b1020 !important; }
 
-.dark body > header,
 .dark #nav-desktop,
 .dark #nav-mobile,
 .dark #report-rail,
@@ -1545,18 +1547,77 @@ body > header,
 .ms-pulse-board {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: clamp(.85rem, 1.4vw, 1.25rem);
+  column-gap: clamp(.85rem, 1.4vw, 1.25rem);
+  row-gap: clamp(1.35rem, 2.2vw, 2rem);
   align-items: start;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: clip;
+  padding: clamp(.875rem, 1.35vw, 1.25rem);
+  /* The board is layout, not a card. Painting a second full-height glass
+     surface here created the vertical seam visible between Pulse sections. */
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
+
+.page-content.hidden.ms-pulse-board { display: none; }
 
 .ms-pulse-board > * {
   grid-column: 1 / -1;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   margin-top: 0 !important;
   margin-bottom: 0 !important;
 }
 
-.ms-pulse-board > .grid { gap: clamp(.75rem, 1.1vw, 1rem) !important; }
+.ms-pulse-board > .grid {
+  min-width: 0;
+  gap: clamp(.75rem, 1.1vw, 1rem) !important;
+}
 
+.ms-pulse-board .grid > * { min-width: 0; }
+
+.pulse-summary-panel {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: clamp(.875rem, 1.35vw, 1.25rem);
+  border: 1px solid var(--ms-border);
+  border-radius: var(--ms-radius-card);
+  background: color-mix(in srgb, var(--ms-surface-solid) 92%, transparent);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, .08), inset 0 1px 0 rgba(255, 255, 255, .78);
+  -webkit-backdrop-filter: blur(var(--ms-glass-blur));
+  backdrop-filter: blur(var(--ms-glass-blur));
+}
+
+.pulse-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(10.5rem, 100%), 1fr));
+  gap: clamp(.75rem, 1.1vw, 1rem);
+  width: 100%;
+  min-width: 0;
+}
+
+.pulse-summary-grid > * { min-width: 0; }
+
+@media (max-width: 639px) {
+  .ms-pulse-board,
+  .pulse-summary-panel {
+    padding: .75rem;
+    border-radius: 18px;
+  }
+
+  .ms-pulse-board {
+    row-gap: 1.125rem;
+  }
+}
 /* Glass belongs to things that are already CARDS. A blanket `details` selector also
    caught the bare, padding-less wrappers the Pulse composes with — engSection()'s
    `<details class="group mt-7">` (a heading + content, no chrome of its own) and the
@@ -1603,22 +1664,21 @@ body > header,
 .ms-pulse-board button,
 [data-engine-rail] button { border-radius: var(--ms-radius-control) !important; }
 
-/* A Pulse page is a wall of glance widgets, so it wants the whole content column.
-   renderEngine()'s shell hands every engine a fixed 300px right rail, which left the
-   board at ~74% of the width the engine header above it spans and a column of dead
-   space beside every department section. On Pulse tabs the rail stops being a column
-   and becomes a full-width action strip directly under the header, so the board runs
-   edge to edge. Toggled from engineTab() alongside .ms-pulse-board. */
-.ms-pulse-wide { grid-template-columns: minmax(0, 1fr) !important; }
+/* Pulse keeps the engine's native two-column shell at desktop widths: a wide
+   operating canvas plus the compact Reports / Next Actions / Quick Actions rail. */
+[data-engine-body] + [data-engine-rail] {
+  align-self: start;
+  min-width: 0;
+}
 
-.ms-pulse-wide > [data-engine-rail] {
-  order: -1;
-  position: static !important;
-  top: auto !important;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
-  gap: .75rem;
-  align-items: start;
+.ms-engine-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1024px) {
+  .ms-engine-layout--rail {
+    grid-template-columns: minmax(0, 1fr) 300px !important;
+  }
 }
 
 @media (min-width: 1024px) {
@@ -1739,7 +1799,6 @@ body {
   background-attachment: fixed !important;
 }
 
-.dark body > header,
 .dark #dept-sidebar,
 .dark #nav-desktop,
 .dark #nav-mobile,
@@ -1963,26 +2022,48 @@ body {
   }
 }
 
-/* AI/executive highlight panels are DELIBERATELY dark regardless of site
-   theme (bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900,
-   text-white) — a fixed-contrast accent card, not a themed glass surface.
-   Give it its own stacking context and a solid gradient fallback so no
-   ancestor's backdrop-filter/opacity can ever wash it out, in light mode or
-   under a reduced-transparency fallback. Opt in with class="ms-ai-panel". */
+/* Assistant summaries use the same system surface as the rest of Pulse.
+   Their old forced navy gradient split the light dashboard into a dark band. */
 .ms-ai-panel {
   isolation: isolate;
-  background: linear-gradient(to right, #0f172a, #1e1b4b, #0f172a) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+  color: var(--ms-text) !important;
+  background: rgba(255, 255, 255, .88) !important;
+  border-color: rgba(15, 23, 42, .10) !important;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, .08), inset 0 1px 0 rgba(255, 255, 255, .88) !important;
+  backdrop-filter: blur(24px) saturate(135%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(135%) !important;
 }
 
-/* Sidebar glass consolidation. #dept-sidebar (the actual 248px column that
-   holds the department nav) is the one glass surface for the whole sidebar;
-   #nav-desktop is nested inside it and, being smaller than the column on most
-   pages, was painting its own separate glass box (background/border/blur) a
-   few pixels short of the column edge — reading as a hard seam between "the
-   real sidebar" and "the content area" rather than one continuous panel. Kept
-   last in the cascade so it wins over every earlier #nav-desktop rule above. */
+.ms-ai-panel :is(.text-white, .text-slate-950, .text-slate-300) { color: var(--ms-text) !important; }
+.ms-ai-panel :is(.text-sky-300, .text-sky-400) { color: #2563eb !important; }
+.ms-ai-panel .text-amber-300 { color: #a16207 !important; }
+.ms-ai-panel .text-rose-400 { color: #be123c !important; }
+.ms-ai-panel .text-emerald-400 { color: #047857 !important; }
+.ms-ai-panel .text-indigo-300 { color: #4338ca !important; }
+.ms-ai-panel [class*="border-slate-800"] { border-color: var(--ms-border) !important; }
+.ms-ai-panel button {
+  color: var(--ms-text) !important;
+  background: rgba(255, 255, 255, .72) !important;
+  border: 1px solid var(--ms-border) !important;
+  box-shadow: none !important;
+}
+.ms-ai-panel button.bg-sky-500 {
+  color: #1d4ed8 !important;
+  background: rgba(37, 99, 235, .10) !important;
+  border-color: rgba(37, 99, 235, .22) !important;
+}
+
+.dark .ms-ai-panel {
+  color: var(--ms-text) !important;
+  background: rgba(26, 29, 36, .84) !important;
+  border-color: var(--ms-border) !important;
+  box-shadow: var(--ms-shadow-glass) !important;
+}
+.dark .ms-ai-panel :is(.text-white, .text-slate-950, .text-slate-300) { color: var(--ms-text) !important; }
+.dark .ms-ai-panel button { background: rgba(255, 255, 255, .08) !important; }
+
+/* The department column is layout only. Painting this full-height wrapper as
+   glass creates a long vertical edge that reads like a broken canvas seam. */
 #nav-desktop {
   background: transparent !important;
   border: none !important;
@@ -1991,32 +2072,24 @@ body {
   -webkit-backdrop-filter: none !important;
 }
 #dept-sidebar {
-  border: 1px solid rgba(255,255,255,.20);
-  border-radius: var(--ms-radius-card);
-  padding: .6rem;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
-.dark #dept-sidebar { border-color: rgba(190,205,230,.15); }
 
-/* The nav is chrome, not content — unlike cards, it can read as glass without
-   hurting legibility (icons + short labels stay readable over blur+saturate).
-   Kept more transparent than cards/header on purpose, so page content is
-   faintly visible scrolling behind it, but not so transparent it washes out. */
-#dept-sidebar {
-  background: linear-gradient(135deg, rgba(255,255,255,.60), rgba(255,255,255,.42)) !important;
-  backdrop-filter: blur(20px) saturate(160%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+/* Keep the fixed glass header visually continuous with the canvas. The broad
+   glass cascade gives surfaces a deep card shadow; on a full-width header that
+   becomes a hard horizontal band. A border creates the same seam, so the shell
+   header deliberately uses neither. */
+html body > header,
+html.dark body > header {
+  border-bottom: 0 !important;
+  box-shadow: none !important;
 }
-.dark #dept-sidebar {
-  background: linear-gradient(145deg, rgba(24,36,60,.60), rgba(10,17,31,.42)) !important;
-}
-@media (max-width: 767px) { #dept-sidebar { border: none; border-radius: 0; padding: 0; background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; } }
-
-/* The header's own Tailwind border-b (border-slate-200/800) is a flat, fully
-   opaque hairline that reads as a hard line under the glass header no matter
-   how translucent the header's own background is — override its color the
-   same way the glass background above is overridden. */
-body > header { border-bottom-color: rgba(255,255,255,.20) !important; }
-.dark body > header { border-bottom-color: rgba(190,205,230,.15) !important; }
 
 /* The top header, a bit more transparent than the cards/nav share by default. */
 body > header {
@@ -2043,18 +2116,27 @@ body > header {
 @media (min-width: 768px) {
   html:has(body.ms-app-booting), body.ms-app-booting { overflow: hidden !important; }
   #dept-sidebar {
-    overflow: visible !important;
+    display: none !important;
   }
   #dashboard-nav {
-    background: transparent !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: .65rem !important;
+    background: linear-gradient(145deg, rgba(255,255,255,.72), rgba(255,255,255,.50)) !important;
+    border: 1px solid rgba(255,255,255,.50) !important;
+    border-radius: 22px !important;
+    box-shadow: 0 14px 34px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.76) !important;
+    backdrop-filter: blur(20px) saturate(150%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(150%) !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
-    max-height: calc(100vh - 3rem) !important;
+    max-height: calc(100vh - 136px) !important;
+  }
+  .dark #dashboard-nav {
+    background: linear-gradient(145deg, rgba(24,36,60,.68), rgba(10,17,31,.50)) !important;
+    border-color: rgba(190,205,230,.16) !important;
+    box-shadow: 0 16px 38px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.08) !important;
   }
   #nav-desktop, #dept-nav { overflow: visible !important; }
 
@@ -2063,6 +2145,33 @@ body > header {
   main:has(#dept-sidebar .ms-product-nav-item),
   main:has(#dept-sidebar .ms-suite-nav-item) {
     column-gap: 1.5rem !important;
+  }
+}
+
+/* The authenticated desktop shell has three distinct navigation zones: the
+   fixed top header, a compact department rail, and each engine's right
+   operations rail. Explicit semantic columns avoid purge-sensitive arbitrary
+   Tailwind utilities and keep the left rail from stretching over the canvas. */
+@media (min-width: 1024px) {
+  .ms-dashboard-shell {
+    display: grid !important;
+    grid-template-columns: 190px minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    align-items: start;
+    column-gap: 1.25rem !important;
+  }
+  #dept-sidebar {
+    display: flex !important;
+    align-self: start !important;
+    width: 190px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: calc(100vh - 136px) !important;
+    overflow: visible !important;
+  }
+  #dashboard-nav {
+    width: 100% !important;
+    height: auto !important;
   }
 }
 
@@ -2075,6 +2184,7 @@ body > header {
 #dept-nav .dept-nav-item {
   padding-top: .35rem !important;
   padding-bottom: .35rem !important;
+  font-size: 1rem !important;
   line-height: 1.15 !important;
 }
 
@@ -2116,7 +2226,6 @@ html[data-ms-suite="digital"] .ms-digital-suite > div {
 [role="tablist"]::-webkit-scrollbar {
   display: none;
 }
-
 /* MarketSync Internal — one restrained liquid-glass company operating system. */
 html[data-dash-mode="marketsync"] body {
   background:
@@ -2163,4 +2272,173 @@ html[data-dash-mode="marketsync"] #automation-modal > div:last-child {
 .dark[data-dash-mode="marketsync"] #automation-modal > div:last-child {
   background: rgba(15,23,42,.86) !important;
   border-color: rgba(255,255,255,.12);
+}
+
+/* Dashboard canvas: one continuous system background. The shell, scroll
+   column and unpainted Pulse board must never form separate vertical bands. */
+html:not(.dark) body:has(#dept-sidebar) {
+  background: var(--ms-bg) !important;
+  background-image: none !important;
+}
+
+html:not(.dark) body:has(#dept-sidebar) > main,
+html:not(.dark) body:has(#dept-sidebar) > main > section {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+/* The MarketSync-internal cascade above targets every rounded content block.
+   Keep the assistant's semantic system surface authoritative there too. */
+html[data-dash-mode="marketsync"] .page-content .ms-ai-panel {
+  color: var(--ms-text) !important;
+  background: rgba(255, 255, 255, .88) !important;
+  border-color: rgba(15, 23, 42, .10) !important;
+}
+
+html.dark[data-dash-mode="marketsync"] .page-content .ms-ai-panel {
+  background: rgba(26, 29, 36, .84) !important;
+  border-color: var(--ms-border) !important;
+}
+
+/* Management greeting: one calm, system-aware surface with a deterministic
+   daily focus line. It follows the OS theme instead of forcing a dark band. */
+.ms-daily-greeting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin: 0 0 1.5rem;
+  padding: 1.15rem 1.35rem;
+  color: var(--ms-text);
+  background: rgba(255, 255, 255, .78);
+  border: 1px solid rgba(255, 255, 255, .72);
+  border-radius: 1.5rem;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, .07), inset 0 1px 0 rgba(255, 255, 255, .78);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+}
+.ms-daily-greeting__eyebrow {
+  margin-bottom: .2rem;
+  color: #2563eb;
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.ms-daily-greeting h2 {
+  color: inherit;
+  font-size: clamp(1.25rem, 2vw, 1.65rem);
+  font-weight: 900;
+  letter-spacing: -.035em;
+}
+.ms-daily-greeting blockquote {
+  max-width: 42rem;
+  margin: 0;
+  color: var(--ms-text-muted);
+  font-size: .95rem;
+  font-weight: 650;
+  line-height: 1.5;
+  text-align: right;
+}
+.dark .ms-daily-greeting {
+  background: rgba(26, 29, 36, .78);
+  border-color: rgba(255, 255, 255, .12);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, .22), inset 0 1px 0 rgba(255, 255, 255, .08);
+}
+
+/* Fixed manager report rail. Its collapsed state stays icon-only; expanding it
+   reveals labels without replacing the workspace or stealing page width. */
+#report-rail {
+  display: none !important;
+  width: 3.5rem;
+  max-height: calc(100vh - 9rem);
+  padding: .5rem;
+  overflow: hidden;
+  color: var(--ms-text-muted);
+  background: rgba(255, 255, 255, .76) !important;
+  border: 1px solid rgba(255, 255, 255, .68) !important;
+  border-right: 0 !important;
+  border-radius: 1.35rem 0 0 1.35rem;
+  box-shadow: -10px 18px 36px rgba(15, 23, 42, .10), inset 0 1px 0 rgba(255, 255, 255, .78);
+  backdrop-filter: blur(24px) saturate(155%);
+  -webkit-backdrop-filter: blur(24px) saturate(155%);
+  transition: width .2s ease;
+}
+#report-rail.rr-open { width: 12.5rem; }
+.ms-report-rail__head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .5rem;
+  min-height: 2.3rem;
+  padding-bottom: .35rem;
+  border-bottom: 1px solid var(--ms-border);
+}
+.ms-report-rail__head .rr-head-label {
+  margin-right: auto;
+  padding-left: .45rem;
+  color: var(--ms-text);
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.ms-report-rail__head button,
+#report-rail button[data-report] {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  width: 100%;
+  min-height: 2.35rem;
+  padding: .48rem .58rem;
+  color: inherit;
+  background: transparent !important;
+  border: 0;
+  border-radius: .8rem;
+  font-size: .76rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.ms-report-rail__head button { width: 2.35rem; justify-content: center; padding: .45rem; }
+.ms-report-rail__head button:hover,
+#report-rail button[data-report]:hover {
+  color: #1d4ed8;
+  background: rgba(37, 99, 235, .10) !important;
+}
+#report-rail svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+  stroke-width: 1.8;
+  transition: transform .2s ease;
+}
+.ms-report-rail__items {
+  display: flex;
+  flex-direction: column;
+  gap: .08rem;
+  max-height: calc(100vh - 12.25rem);
+  padding-top: .35rem;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.ms-report-rail__items::-webkit-scrollbar { display: none; }
+.dark #report-rail {
+  color: var(--ms-text-muted);
+  background: rgba(22, 25, 32, .78) !important;
+  border-color: rgba(255, 255, 255, .12) !important;
+  box-shadow: -12px 18px 38px rgba(0, 0, 0, .24), inset 0 1px 0 rgba(255, 255, 255, .08);
+}
+
+@media (max-width: 767px) {
+  .ms-daily-greeting {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: .55rem;
+    padding: 1rem 1.1rem;
+  }
+  .ms-daily-greeting blockquote { text-align: left; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #report-rail, #report-rail svg { transition: none; }
 }

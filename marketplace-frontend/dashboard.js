@@ -68,6 +68,7 @@ const SVG_ICONS = {
   receipt: '<path d="M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h4.5M3.75 21V4.5A1.5 1.5 0 015.25 3h13.5a1.5 1.5 0 011.5 1.5V21l-2.25-1.5L15.75 21l-2.25-1.5L11.25 21 9 19.5 6.75 21 4.5 19.5 3.75 21z"/>',
   plus: '<path d="M12 4.5v15m7.5-7.5h-15"/>',
   close: '<path d="M6 18L18 6M6 6l12 12"/>',
+  chevronDown: '<path d="m4.5 8.25 7.5 7.5 7.5-7.5"/>',
   chevronRight: '<path d="m8.25 4.5 7.5 7.5-7.5 7.5"/>',
   chat: '<path d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/>',
   globe: '<path d="M12 21a9 9 0 100-18 9 9 0 000 18zM3.6 9h16.8M3.6 15h16.8M11.5 3a15.3 15.3 0 000 18M12.5 3a15.3 15.3 0 010 18"/>',
@@ -1259,8 +1260,21 @@ function applyProductNav(products) {
     || !!(access && (access.isPlatformStaff || (access.products || []).includes('facebook')))
     || !!planFallback?.products?.has('facebook');
   document.getElementById('fb-post-btn')?.classList.toggle('hidden', !showFbPost);
-  // DealerOS (or nothing set) → the full department sidebar; clear any restriction.
-  if (products.dealer_os) { __productAllowedPages = null; __productHome = null; document.documentElement.removeAttribute('data-product'); applyMobileQuickRow(); return; }
+  // DealerOS → the complete dealership shell. This branch returns before the
+  // independent-product logic below, so restore Team Chat here rather than in an
+  // unreachable later condition. The explicit flag also covers script timing when
+  // the chat dock initializes after entitlement resolution.
+  if (products.dealer_os) {
+    __productAllowedPages = null;
+    __productHome = null;
+    window.__teamChatAllowed = true;
+    document.documentElement.removeAttribute('data-product');
+    document.getElementById('header-social-icons')?.classList.remove('hidden');
+    document.getElementById('staff-chat-dock-bar')?.classList.remove('hidden');
+    if (typeof window.enableStaffChatDock === 'function') window.enableStaffChatDock();
+    applyMobileQuickRow();
+    return;
+  }
   const active = Object.keys(PRODUCT_PAGES).filter(k => products[k] && PRODUCT_PAGES[k]);
   if (!active.length) { __productAllowedPages = null; __productHome = null; applyMobileQuickRow(); return; }
   const allow = new Set(['profile']);
@@ -1301,7 +1315,9 @@ function applyProductNav(products) {
   // strip all go), and Open Setup never appears (that wizathese top headers go to the left nav for this dashrd walks through
   // DealerOS departments this account doesn't have). "Design Studio" style single-
   // page tiers get an even flatter sidebar — see restrictedNavPages().
-  if (active.length === 1) {
+  const isIndependentSingleProduct = active.length === 1 && active[0] !== 'dealer_os';
+  if (isIndependentSingleProduct) {
+    window.__teamChatAllowed = active[0] === 'facebook_dealer';
     document.getElementById('header-settings')?.classList.add('hidden');
     document.getElementById('notif-bell')?.classList.remove('hidden');
     document.getElementById('header-social-icons')?.classList.add('hidden');

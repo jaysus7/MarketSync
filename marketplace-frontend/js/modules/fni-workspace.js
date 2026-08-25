@@ -296,6 +296,7 @@ ENGINES['fni-overview'] = {
 
       const funding = d.funding || deals.filter(x => x.deal_status === 'fni');
       const products = d.products || [];
+      const awaitingContracts = deals.filter(x => /sold|delivered/i.test(x.deal_status || '') && !x.contract_signed_at);
 
       // ── Pulse grid — the at-a-glance widget wall ────────────────────────────
       const grid = pulseGrid([
@@ -340,8 +341,40 @@ ENGINES['fni-overview'] = {
             return n ? pulseRow({ badge: n, label, onclick: "switchPage('fni')" }) : '';
           }).filter(Boolean).join('') || '', empty: 'No deals yet.',
         }),
+        pulseCard({
+          title: 'Incoming desked deals', count: incomingDeals.length,
+          onclick: "switchPage('fni')",
+          inner: deskedToShow.length ? deskedToShow.slice(0, 6).map(x => pulseRow({
+            badge: '$', label: fniCustomer(x),
+            sub: [fniStage(x), fniVehicle(x), formatTimeAgo(x.desked_at || x.created_at || x.updated_at)].filter(Boolean).join(' · '),
+            onclick: "switchPage('fni')",
+          })).join('') : '', empty: 'No deals have been desked yet.',
+        }),
+        pulseCard({
+          title: 'Delivery blockers', count: blocked,
+          tone: blocked ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
+          onclick: "switchPage('delivery')",
+          inner: blocked ? (d.blocked || []).slice(0, 6).map(x => pulseRow({
+            badge: '!', badgeTone: 'bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300',
+            label: fniCustomer(x), sub: x.blocker || 'Delivery requirement outstanding', onclick: "switchPage('delivery')",
+          })).join('') : '', empty: 'No delivery blockers.',
+        }),
+        pulseCard({
+          title: 'Contracts outstanding', count: awaitingContracts.length,
+          onclick: "switchPage('fni')",
+          inner: awaitingContracts.length ? awaitingContracts.slice(0, 6).map(x => pulseRow({
+            icon: 'document', label: fniCustomer(x), sub: [fniVehicle(x), 'Contract not signed'].filter(Boolean).join(' · '), onclick: "switchPage('fni')",
+          })).join('') : '', empty: 'Every sold deal has a signed contract.',
+        }),
         pulseLeaderboardCard(d.gamification, 'fni', { title: 'F&I leaderboard', metric: 'pvr_avg' }),
       ]);
+
+      // Keep one operational Pulse. The retired view below mirrors these same
+      // deal, funding, approval and delivery signals.
+      body.innerHTML = `
+        ${pulseHeader('F&I Pulse', 'Approvals, credit, products, contracts and delivery readiness')}
+        ${grid}`;
+      return;
 
       const proactiveAiPanel = `
         <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 ms-ai-panel text-white shadow-lg border border-slate-800">

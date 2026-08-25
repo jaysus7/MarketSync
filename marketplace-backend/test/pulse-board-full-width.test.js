@@ -8,27 +8,22 @@ const FRONTEND = fileURLToPath(new URL('../../marketplace-frontend', import.meta
 const css = readFileSync(path.join(FRONTEND, 'css', 'marketsync-theme.css'), 'utf8')
 const part10 = readFileSync(path.join(FRONTEND, 'js', 'modules', 'dashboard-part10.js'), 'utf8')
 
-// renderEngine() gives every engine the same shell: a two-column grid whose second
-// column is a fixed 300px rail. On a Pulse tab that left the widget board at ~74% of
-// the width the engine header directly above it spans (896px of 1216px at a 1512px
-// viewport, measured against the real built CSS), with a tall dead column beside every
-// department section — "the container being boxed and not full width". The shell is
-// built once per engine but the collapse is per tab, so it rides on a class toggled
-// from engineTab() next to .ms-pulse-board rather than being baked into the shell.
-test('engineTab toggles the full-width class on the engine shell grid alongside ms-pulse-board', () => {
+// Pulse retains the native engine rail: it is the one compact place for reports,
+// next actions, and quick actions on every department dashboard.
+test('engineTab keeps the right operations rail beside every Pulse board', () => {
   assert.match(part10, /body\.classList\.toggle\('ms-pulse-board', isPulseLayout\)/)
-  assert.match(part10, /body\.parentElement\?\.classList\.toggle\('ms-pulse-wide', isPulseLayout\)/,
-    'the pulse board and the full-width shell must be toggled from the same place, on the same condition')
+  assert.match(part10, /body\.parentElement\?\.classList\.remove\('ms-pulse-wide'\)/,
+    'legacy full-width strip state must be removed so the rail remains a right column')
 })
 
-test('.ms-pulse-wide collapses the shell to one column and lays the rail out as a strip', () => {
-  assert.match(css, /\.ms-pulse-wide\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*!important/,
-    'the 300px rail column must be gone so the board spans the full content width')
-  const railRule = css.match(/\.ms-pulse-wide > \[data-engine-rail\]\s*\{[^}]*\}/)
-  assert.ok(railRule, '.ms-pulse-wide > [data-engine-rail] must restyle the rail for the single-column shell')
-  // xl:sticky/xl:top-4 keep the rail pinned as a column; left on, it would float the
-  // strip over the board once the grid is one column.
-  assert.match(railRule[0], /position:\s*static\s*!important/)
+test('Pulse CSS does not flatten the right rail into a top strip', () => {
+  assert.doesNotMatch(css, /\.ms-pulse-wide\s*\{[^}]*grid-template-columns:/,
+    'the operations rail must remain in the engine shell second column')
+  assert.match(css, /\[data-engine-body\] \+ \[data-engine-rail\]\s*\{[^}]*align-self:\s*start/)
+  assert.match(part10, /ms-engine-layout--rail/,
+    'the engine shell must use a semantic class rather than a purge-sensitive Tailwind arbitrary grid utility')
+  assert.match(css, /@media \(min-width: 1024px\)[\s\S]*?\.ms-engine-layout--rail\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 300px\s*!important/,
+    'the right operations rail must remain beside Pulse at normal desktop widths and browser zoom levels')
 })
 
 // Every real card on a Pulse page carries bg-white/dark:bg-slate-900 and is glassed by

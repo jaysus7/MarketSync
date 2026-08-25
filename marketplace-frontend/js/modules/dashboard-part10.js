@@ -1043,10 +1043,9 @@ async function engineTab(engineId, tab, force) {
   ];
   const isPulseLayout = pulseEngines.includes(engineId) && ['overview', 'pulse'].includes(tab);
   body.classList.toggle('ms-pulse-board', isPulseLayout);
-  // The shell's rail column is built once per engine by renderEngine(), but only the
-  // Pulse tab wants the full content width — so the collapse is a class on the shell's
-  // grid wrapper, toggled per tab rather than baked into the shell.
-  body.parentElement?.classList.toggle('ms-pulse-wide', isPulseLayout);
+  // Keep the native right operations rail on Pulse. Reports, Next Actions and
+  // Quick Actions belong beside the dashboard rather than in a full-width strip.
+  body.parentElement?.classList.remove('ms-pulse-wide');
   if (isPulseLayout) body.dataset.pulseKind = engineId;
   else delete body.dataset.pulseKind;
   // A borrowed page panel may be sitting in here; hand it back before the wipe or
@@ -1078,9 +1077,14 @@ function engineRail(eng, d) {
       <span class="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">${svgIcon(icon, 'w-3.5 h-3.5')}${esc(title)}</span>
       <span aria-hidden="true" class="text-slate-400 transition-transform group-open:rotate-180">${svgIcon('chevronDown', 'w-3.5 h-3.5')}</span>
     </summary><div class="px-3.5 pb-3.5">${inner}</div></details>`;
-  // The rail used to lead with a "Reports" section (and, before that, Team
-  // Messages) — both removed. Team chat lives in the floating messages bubble
-  // (staff-chat-dock); reports are reached from the Reports page directly.
+  // Department-aware reports live here with the operational actions. Team chat
+  // remains in its dedicated floating messages bubble.
+  const reportItems = (eng.reports && eng.reports.length)
+    ? eng.reports
+    : [{ label: `${eng.title || 'Department'} reports`, icon: 'chart', onclick: "switchPage('reports')" }];
+  const reportsHtml = reportItems.map(r =>
+    `<button onclick="${r.onclick || "switchPage('reports')"}" class="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">${svgIcon(r.icon || 'chart', 'w-3.5 h-3.5 ' + A.text)}${esc(r.label)}</button>`
+  ).join('');
   const na = (eng.nextActions ? eng.nextActions(d) : []) || [];
   const naHtml = na.length
     ? na.map(a => `<button onclick="${a.onclick || ''}" class="w-full text-left flex items-start gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition">
@@ -1090,7 +1094,7 @@ function engineRail(eng, d) {
   const qa = (eng.quickActions || []).map(q =>
     `<button onclick="${q.onclick}" class="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">${svgIcon(q.icon || 'bolt', 'w-3.5 h-3.5 ' + A.text)}${esc(q.label)}</button>`
   ).join('') || '<div class="text-xs text-slate-400">—</div>';
-  return sec('Next Actions', 'check', naHtml) + sec('Quick Actions', 'bolt', qa);
+  return sec('Reports', 'chart', reportsHtml) + sec('Next Actions', 'check', naHtml) + sec('Quick Actions', 'bolt', qa);
 }
 
 // Build the engine shell frame into its root, then render the active tab.
@@ -1118,7 +1122,7 @@ function renderEngine(engineId, force = false) {
     <div data-engine-tabbar="${engineId}" role="tablist" class="ms-engine-tabs ${(order.length <= 1 || eng.hideTabBar) ? 'hidden' : 'flex'} items-center gap-2 mb-4 overflow-x-auto">
       ${order.map(tabBtn).join('')}
     </div>
-    <div class="grid grid-cols-1 ${eng.hideRail ? '' : 'xl:grid-cols-[minmax(0,1fr)_300px]'} gap-5 items-start">
+    <div class="ms-engine-layout ${eng.hideRail ? 'ms-engine-layout--single' : 'ms-engine-layout--rail'} grid grid-cols-1 gap-5 items-start">
       <div data-engine-body="${engineId}" class="min-w-0 space-y-5"></div>
       ${eng.hideRail ? '' : `<aside data-engine-rail="${engineId}" class="space-y-3 xl:sticky xl:top-4"></aside>`}
     </div>`;

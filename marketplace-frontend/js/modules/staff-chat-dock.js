@@ -17,22 +17,39 @@
   // team, so it keeps it. This is evaluated defensively at every entry point because
   // this dock boots on DOMContentLoaded, which can fire before data-product is set.
   function shouldHideStaffChat() {
+    // applyProductNav sets this once the canonical DealerOS entitlement resolves.
+    // It must win over a stale disabled state from an earlier provisional pass.
+    if (window.__teamChatAllowed === true) return false;
+    if (window.__teamChatAllowed === false) return true;
+    // The rendered full department navigation is the final shell-level signal
+    // when older access payloads do not expose dealer_os in their product array.
+    // Standalone tools replace this list and set data-product instead.
+    const dataProduct = (document.documentElement.getAttribute('data-product') || '').trim();
+    const hasFullDealerShell = !dataProduct
+      && !!document.querySelector('#dept-nav [data-dept="sales"]')
+      && !!document.querySelector('#dept-nav [data-dept="inventory"]')
+      && !!document.querySelector('#dept-nav [data-dept="service"]');
+    if (hasFullDealerShell) return false;
+    // Resolve the canonical access context before consulting provisional workspace
+    // classification. DealerOS can be the account's only product and is still the
+    // full dealership operating system with Team Chat.
+    const accessProducts = window.__access?.products;
+    if (Array.isArray(accessProducts) && accessProducts.length) {
+      const hasDealerOs = accessProducts.includes('dealer_os');
+      const hasFbDealer = accessProducts.includes('facebook_dealer') || accessProducts.includes('facebook');
+      if (hasDealerOs || hasFbDealer) return false;
+      return true;
+    }
     if (disabled) return true;
     if (typeof window.isSingleProductWorkspace === 'function' && window.isSingleProductWorkspace()) {
       const products = (document.documentElement.getAttribute('data-product') || '').trim();
       const list = products ? products.split(/\s+/) : [];
-      if (!list.includes('facebook_dealer')) return true;
-    }
-    const accessProducts = window.__access?.products;
-    if (Array.isArray(accessProducts)) {
-      const hasDealerOs = accessProducts.includes('dealer_os');
-      const hasFbDealer = accessProducts.includes('facebook_dealer') || accessProducts.includes('facebook');
-      if (!hasDealerOs && !hasFbDealer) return true;
+      if (!list.includes('facebook_dealer') && !list.includes('dealer_os')) return true;
     }
     const products = (document.documentElement.getAttribute('data-product') || '').trim();
     if (!products) return false;
     const list = products.split(/\s+/);
-    return list.length === 1 && list[0] !== 'facebook_dealer';
+    return list.length === 1 && !['facebook_dealer', 'dealer_os'].includes(list[0]);
   }
 
   // Called by applyProductNav once the tier is known (covers the case where this dock
@@ -43,6 +60,24 @@
     document.getElementById('staff-chat-dock-bar')?.classList.add('hidden');
   };
 
+  function startStaffChatDock() {
+    if (shouldHideStaffChat()) return;
+    // A provisional product pass can add `hidden` before canonical access settles.
+    // Starting an entitled dock must always clear that stale presentation state.
+    ensureDockContainer().classList.remove('hidden');
+    initLauncherUI();
+    fetchMembers();
+    pollUnread();
+    if (!pollInterval) pollInterval = setInterval(pollUnread, 5000);
+  }
+
+  window.enableStaffChatDock = function () {
+    window.__teamChatAllowed = true;
+    disabled = false;
+    document.getElementById('staff-chat-dock-bar')?.classList.remove('hidden');
+    startStaffChatDock();
+  };
+
   const EMOJI_LIST = ['\u{1F44D}', '\u{2764}', '\u{1F525}', '\u{1F602}', '\u{1F44F}', '\u{1F680}', '\u{1F389}', '\u{1F697}', '\u{1F4AF}', '\u{1F64F}', '\u{2705}', '\u{1F440}', '\u{2B50}', '\u{1F4A1}', '\u{1F4AA}', '\u{1F91D}', '\u{26A1}', '\u{1F3AF}'];
 
   // Initialize Desktop/Browser Notification permissions
@@ -51,7 +86,12 @@
   }
 
   function getApi() {
-    return window.API || '/api';
+    // dashboard.js declares API with top-level `const`, which is shared with later
+    // classic scripts but intentionally is not a window property. Falling back to
+    // `/api` here targets the static frontend origin and returns 404, causing the
+    // dock to disable itself. Prefer the canonical dashboard backend identifier.
+    if (typeof API !== 'undefined' && API) return API;
+    return window.MS_API_BASE_URL || window.API || '/api';
   }
   function getToken() {
     return localStorage.getItem('token');
@@ -464,14 +504,26 @@
     }
   };
 
-  // Start cycles on DOM ready
-  document.addEventListener('DOMContentLoaded', () => {
-    if (shouldHideStaffChat()) return; // independent program — no team chat at all
-    initLauncherUI();
-    fetchMembers();
-    pollUnread();
-    pollInterval = setInterval(pollUnread, 5000);
-  });
+  function bootStaffChatDock() {
+    startStaffChatDock();
+    // Role-aware department navigation resolves asynchronously and can finish
+    // after fixed boot delays. Reconcile on the actual nav mutation so the full
+    // DealerOS shell—not timing—decides whether Team Chat is visible.
+    const nav = document.getElementById('dept-nav');
+    if (nav && typeof MutationObserver === 'function') {
+      const observer = new MutationObserver(() => startStaffChatDock());
+      observer.observe(nav, { childList: true, subtree: true });
+      setTimeout(() => observer.disconnect(), 15000);
+    }
+    setTimeout(startStaffChatDock, 1200);
+  }
+
+  // Start immediately when this late dashboard module arrives after DOM ready.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootStaffChatDock, { once: true });
+  } else {
+    bootStaffChatDock();
+  }
 
   // Global click to close emoji pickers
   document.addEventListener('click', (e) => {

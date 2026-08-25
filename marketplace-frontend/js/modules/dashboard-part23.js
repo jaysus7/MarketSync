@@ -251,10 +251,10 @@ async function pollWidgetChat() {
 // Auto-check unread badges on load
 setTimeout(() => refreshWidgetRoster(), 1200);
 
-// Rename the "Intelligence" dock (launcher, header, greeting) to the dealer's
-// chosen assistant name. Falls back to "Intelligence" when blank.
-function applyAssistantName(name) {
-  __aiAssistantName = (name || '').trim() || 'Intelligence';
+// The product assistant has one canonical customer-facing name. Dealership
+// configuration must never replace it with a person-like name.
+function applyAssistantName() {
+  __aiAssistantName = 'Intelligence';
   const label = document.getElementById('ai-dock-btn-label'); if (label) label.textContent = __aiAssistantName;
   const title = document.getElementById('ai-dock-title'); if (title) title.textContent = __aiAssistantName;
   const btn = document.getElementById('ai-dock-btn'); if (btn) btn.setAttribute('aria-label', __aiAssistantName);

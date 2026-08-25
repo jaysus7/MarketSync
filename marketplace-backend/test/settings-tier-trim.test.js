@@ -118,11 +118,12 @@ test('renderSetupBar retires the Open Setup wizard button for every account, not
   assert.match(fn, /if \(host\) host\.innerHTML = ''/, 'the host must always be cleared')
 })
 
-test('every single-product tier (not just Design Studio) gets the simplified header: Notifications + Profile + Sign out (DealerOS settings hidden)', () => {
+test('every independent single-product tier gets the simplified header, while DealerOS keeps its full shell', () => {
   const fn = dashboard.match(/function applyProductNav\(products\) \{[\s\S]*?\nwindow\.applyProductNav = applyProductNav;/)?.[0] || ''
   assert.ok(fn, 'applyProductNav must exist')
-  const block = fn.match(/if \(active\.length === 1\) \{[\s\S]*?\n {2}\}/)?.[0] || ''
-  assert.ok(block, 'the single-product header-simplification block must exist, gated on active.length === 1 (not a specific product)')
+  assert.match(fn, /const isIndependentSingleProduct = active\.length === 1 && active\[0\] !== 'dealer_os'/)
+  const block = fn.match(/if \(isIndependentSingleProduct\) \{[\s\S]*?\n {2}\}/)?.[0] || ''
+  assert.ok(block, 'the independent single-product header-simplification block must exist')
   for (const id of ['header-social-icons']) {
     assert.match(block, new RegExp(`document\\.getElementById\\('${id}'\\)\\?\\.classList\\.add\\('hidden'\\)`), `${id} must be hidden for single-product tiers`)
   }
@@ -131,7 +132,9 @@ test('every single-product tier (not just Design Studio) gets the simplified hea
   // Must come before the design_studio-specific block, and not be scoped to it —
   // this has to apply to every single-product tier (Facebook, AI ChatBot, Video,
   // Website, ...), not just Design Studio.
-  assert.ok(fn.indexOf("active.length === 1) {") < fn.indexOf("active[0] === 'design_studio'"), 'the general single-product block must not be nested inside the design_studio-specific one')
+  assert.ok(fn.indexOf('if (isIndependentSingleProduct) {') < fn.indexOf("active[0] === 'design_studio'"), 'the general independent-product block must not be nested inside the design_studio-specific one')
+  assert.match(fn, /if \(products\.dealer_os\) \{[\s\S]*?header-social-icons'\)\?\.classList\.remove\('hidden'\)/,
+    'the reachable DealerOS branch must retain the full header shell')
 })
 
 test('Design Studio sidebar exposes Studio and its merged Scheduler, but not a second Settings row', () => {
@@ -217,14 +220,13 @@ test('refreshSetupIndicator unconditionally hides the Setup Wizard banner for ev
   assert.doesNotMatch(fn, /role/, 'must not branch on role — hidden unconditionally')
 })
 
-test('engineRail shows only Next Actions and Quick Actions — no Reports section, no Team Messages', () => {
+test('engineRail shows Reports, Next Actions and Quick Actions — no Team Messages', () => {
   const fn = part10.match(/function engineRail\(eng, d\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(fn, 'engineRail must exist')
-  // Team chat lives in the floating messages bubble (staff-chat-dock); the
-  // Reports section was removed from the rail entirely across every department.
+  // Team chat lives in the floating messages bubble (staff-chat-dock).
   assert.doesNotMatch(fn, /sec\('Team Messages'/, 'Team Messages section must be gone from the rail')
-  assert.doesNotMatch(fn, /sec\('Reports'/, 'Reports section must be gone from the rail')
-  assert.match(fn, /return sec\('Next Actions', 'check', naHtml\) \+ sec\('Quick Actions', 'bolt', qa\)/)
+  assert.match(fn, /sec\('Reports', 'chart', reportsHtml\)/, 'Reports must lead the right operations rail')
+  assert.match(fn, /return sec\('Reports', 'chart', reportsHtml\) \+ sec\('Next Actions', 'check', naHtml\) \+ sec\('Quick Actions', 'bolt', qa\)/)
 })
 
 test('Design Studio nav entries use a real icon key, not the non-existent "image" (which silently falls back to a plain dot)', () => {

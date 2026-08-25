@@ -16,6 +16,11 @@ import { requireAuth } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { emitEvent } from './events.js'
 import { getContact } from './crm.js'
+import {
+  extractQualificationState,
+  calculateExplainableLeadScore,
+  generateAiLeadBrief,
+} from '../services/chatbot-qualification-engine.js'
 
 const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'].includes(req.profile?.role)
 
@@ -168,7 +173,7 @@ export function registerAiEngine(app) {
     res.json({ conversations: rows })
   })
 
-  // One conversation + its full message history + (if captured) the customer memory.
+  // One conversation + its full message history + (if captured) the customer memory + qualification brief.
   app.get('/ai/conversations/:id', requireAuth, canView, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const { data: convo } = await supabaseAdmin.from('ai_conversations').select(SAFE_CONVO_COLUMNS)
@@ -176,11 +181,25 @@ export function registerAiEngine(app) {
     if (!convo) return res.status(404).json({ error: 'not found' })
     const messages = await getHistory(convo.id, 500)
     const memory = convo.contact_id ? await getMemory(req.dealershipId, convo.contact_id) : []
+    let contactObj = null
     if (convo.contact_id) {
-      const { data: c } = await supabaseAdmin.from('contacts').select('full_name, phone, email').eq('id', convo.contact_id).maybeSingle()
-      if (c) { convo.contact_name = c.full_name || null; convo.contact_phone = c.phone || null; convo.contact_email = c.email || null }
+      const { data: c } = await supabaseAdmin.from('contacts').select('id, full_name, first_name, last_name, phone, phone_mobile, email, status, assigned_rep').eq('id', convo.contact_id).maybeSingle()
+      if (c) {
+        contactObj = c
+        convo.contact_name = c.full_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || null
+        convo.contact_phone = c.phone_mobile || c.phone || null
+        convo.contact_email = c.email || null
+      }
     }
-    res.json({ conversation: convo, messages, memory })
+    const qualification = extractQualificationState(messages, memory, {}, contactObj || { full_name: convo.contact_name, phone: convo.contact_phone, email: convo.contact_email })
+    const scoreDetails = calculateExplainableLeadScore(messages, memory, qualification)
+    const leadBrief = generateAiLeadBrief({
+      conversation: convo,
+      contact: contactObj || { full_name: convo.contact_name, phone: convo.contact_phone, email: convo.contact_email },
+      qualificationState: qualification,
+      messages,
+    })
+    res.json({ conversation: convo, messages, memory, qualification, score_details: scoreDetails, lead_brief: leadBrief })
   })
 
   // Customer memory (for the CRM contact card).

@@ -12,16 +12,15 @@ const salesWs = read('../../marketplace-frontend/js/modules/sales-workspace.js')
 const fniWs = read('../../marketplace-frontend/js/modules/fni-workspace.js')
 const inventoryWs = read('../../marketplace-frontend/js/modules/inventory-workspace.js')
 const staffChatDock = read('../../marketplace-frontend/js/modules/staff-chat-dock.js')
+const part23 = read('../../marketplace-frontend/js/modules/dashboard-part23.js')
 const staffChatRoute = read('../routes/staff-chat.js')
 
-// ── The right rail carries Next Actions and Quick Actions only ────────────────
-test('engineRail renders Next Actions and Quick Actions, with no Reports or Team Messages section', () => {
+// ── The right rail carries department reports and operational actions ────────
+test('engineRail renders Reports, Next Actions and Quick Actions, with no Team Messages section', () => {
   const fn = part10.match(/function engineRail\(eng, d\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(fn, 'engineRail must exist')
-  assert.match(fn, /return sec\('Next Actions', 'check', naHtml\) \+ sec\('Quick Actions', 'bolt', qa\)/,
-    'the rail is Next Actions + Quick Actions only')
-  assert.doesNotMatch(fn, /sec\('Reports'/,
-    'the floating Reports section was removed from every department dashboard')
+  assert.match(fn, /return sec\('Reports', 'chart', reportsHtml\) \+ sec\('Next Actions', 'check', naHtml\) \+ sec\('Quick Actions', 'bolt', qa\)/,
+    'the rail must keep Reports, Next Actions and Quick Actions together')
   assert.doesNotMatch(fn, /sec\('Team Messages'/,
     'Team Messages no longer lives on the rail — it moved to the floating bubble')
 })
@@ -44,6 +43,10 @@ test('the Reports rail is specific to the department you are in via openDeptRepo
 test('the report-rail Team Messages trigger button is gone from dashboard.html', () => {
   assert.doesNotMatch(dashboardHtml, /data-report="messages"/,
     'the reports rail must not carry a Team Messages trigger any more')
+})
+
+test('the obsolete floating icon report rail is permanently hidden', () => {
+  assert.match(dashboardHtml, /id="report-rail"[^>]*aria-hidden="true"/)
 })
 
 // ── Service keeps its tab headers for management roles ────────────────────────
@@ -94,4 +97,10 @@ test('the staff-chat bubble surfaces an error instead of stalling on "Loading te
     'a directory error renderer exists')
   assert.match(staffChatDock, /staff-chat-directory-list/,
     'it targets the directory list container')
+})
+
+test('the assistant is always named Intelligence', () => {
+  const fn = part23.match(/function applyAssistantName\([^)]*\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /__aiAssistantName = 'Intelligence'/)
+  assert.doesNotMatch(fn, /name \|\||name\.trim/)
 })

@@ -507,6 +507,123 @@ async function mktTakeover(conversationId) {
 }
 window.mktTakeover = mktTakeover;
 
+// Marketing Pulse is a readout of connected dealership sources, not a demo dashboard.
+// A source that failed to load is shown as unavailable; an empty source is shown as zero.
+// Keeping those states separate prevents an API failure from looking like business activity.
+function mktPulseOverview(body, d, suite, cfg, dayCaveat = '') {
+  const sourceStatus = d.sourceStatus || {};
+  const isAvailable = (source) => sourceStatus[source] !== false;
+  const rows = (source, value) => isAvailable(source) && Array.isArray(value) ? value : [];
+  const metric = (source, value, format = (x) => x) => isAvailable(source) ? format(value) : '—';
+  const activeStatuses = new Set(['active', 'live', 'running']);
+  const isActive = (item) => activeStatuses.has(String(item?.status || '').toLowerCase());
+  const belongsToMarketing = (item) => {
+    const owner = String(item?.owner || item?.department || '').toLowerCase();
+    const kind = String(item?.kind || '').toLowerCase();
+    return owner === 'marketing' || /^(campaign|social|conversation|reputation)_/.test(kind);
+  };
+
+  const attention = rows('myDay', d.needsAttention).filter(belongsToMarketing);
+  const opportunities = rows('myDay', d.opportunities).filter(belongsToMarketing);
+  const campaigns = rows('campaigns', d.campaigns);
+  const automations = rows('automations', d.automations);
+  const accounts = rows('accounts', d.accounts);
+  const posts = rows('posts', d.posts);
+  const conversations = rows('conversations', d.conversations);
+  const connectedAccounts = accounts.filter(a => ['active', 'connected'].includes(String(a.status || '').toLowerCase()));
+  const scheduledPosts = posts.filter(p => ['scheduled', 'queued', 'pending'].includes(String(p.status || '').toLowerCase()));
+  const openConversations = conversations.filter(c => String(c.status || '').toLowerCase() !== 'closed');
+  const campaignsWithSpend = campaigns.filter(c => c?.spend?.actual != null);
+  const actualSpend = campaignsWithSpend.reduce((sum, c) => sum + (Number(c.spend.actual) || 0), 0);
+  const spendValue = !isAvailable('campaigns') || !campaignsWithSpend.length ? '—' : mktMoney(actualSpend);
+  const unavailable = Object.entries(sourceStatus).filter(([, ok]) => ok === false).map(([source]) => source);
+
+  const kpi = (label, value, note) => `<div class="ms-card rounded-[var(--ms-radius-card,20px)] p-4 min-w-0">
+    <div class="text-[11px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">${esc(label)}</div>
+    <div class="mt-1 text-2xl font-black tracking-tight text-slate-950 dark:text-white">${esc(String(value))}</div>
+    <div class="mt-1 text-sm text-slate-500 dark:text-slate-400">${esc(note)}</div>
+  </div>`;
+
+  const sourceEmpty = (source, emptyText) => isAvailable(source)
+    ? engEmpty(emptyText)
+    : engEmpty(`${mktLabel(source)} could not be loaded. No value is being estimated.`);
+
+  const campaignRows = campaigns.length ? campaigns.slice(0, 8).map(c => {
+    const performance = c.performance || {};
+    const details = [];
+    if (Array.isArray(c.channels) && c.channels.length) details.push(c.channels.join(', '));
+    if (c.status) details.push(mktLabel(c.status));
+    if (performance.leads != null) details.push(`${performance.leads} lead${Number(performance.leads) === 1 ? '' : 's'}`);
+    if (performance.delivered != null) details.push(`${performance.delivered} delivered`);
+    const actual = c?.spend?.actual;
+    return mktRow({
+      title: c.name || 'Campaign',
+      sub: details.join(' · ') || 'No campaign activity recorded yet',
+      note: c.gross_complete === false ? 'Attributed gross is incomplete and is not estimated.' : null,
+      right: actual == null ? 'Spend —' : `${mktMoney(actual)} spent`,
+      tone: c.gross_complete === false ? 'text-amber-600 dark:text-amber-400' : (MKT_STATUS_TONE[c.status] || ''),
+      onclick: c.status === 'needs_approval' ? `mktCampaignStatus('${c.id}','approved')` : null,
+    });
+  }).join('') : sourceEmpty('campaigns', 'No campaigns have been created yet.');
+
+  const automationRows = automations.length ? automations.slice(0, 8).map(a => mktRow({
+    title: a.name || a.title || 'Automation',
+    sub: [a.department, a.category, a.channel].filter(Boolean).map(mktLabel).join(' · ') || 'Marketing workflow',
+    right: a.status ? mktLabel(a.status) : 'Status unavailable',
+    tone: MKT_STATUS_TONE[String(a.status || '').toLowerCase()] || '',
+    onclick: "engineTab('marketing-overview','automations')",
+  })).join('') : sourceEmpty('automations', 'No automation workflows have been configured yet.');
+
+  const attentionRows = attention.length ? attention.slice(0, 8).map(mktAttentionRow).join('') : sourceEmpty('myDay', 'Nothing needs Marketing attention right now.');
+  const opportunityRows = opportunities.length ? opportunities.slice(0, 8).map(mktAttentionRow).join('') : sourceEmpty('myDay', 'No Marketing opportunities are waiting right now.');
+  const title = cfg?.title || `${mktLabel(suite)} Marketing`;
+  const subtitle = cfg?.subtitle || 'Connected campaign, automation, social, conversation, and attribution activity.';
+  const badge = cfg?.badge || 'Marketing';
+
+  body.innerHTML = `<div class="space-y-7">
+    ${dayCaveat}
+    ${unavailable.length ? `<div class="rounded-2xl border border-amber-200/80 bg-amber-50/80 p-4 text-sm text-amber-900 backdrop-blur-xl dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
+      Some Marketing sources are unavailable: ${esc(unavailable.map(mktLabel).join(', '))}. Their values are shown as — and are not estimated.
+    </div>` : ''}
+    <section class="ms-glass rounded-[var(--ms-radius-card,20px)] p-5 md:p-6 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+      <div class="min-w-0">
+        <span class="inline-flex rounded-full border border-[var(--ms-border)] bg-white/45 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[var(--ms-text-muted)] dark:bg-white/5">${esc(badge)}</span>
+        <h2 class="mt-2 text-2xl md:text-3xl font-black tracking-tight text-[var(--ms-text)]">${esc(title)}</h2>
+        <p class="mt-2 max-w-3xl text-base leading-6 text-[var(--ms-text-muted)]">${esc(subtitle)}</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button onclick="openVisualWorkflowBuilder()" class="ms-button-primary px-4 py-2.5 text-sm font-black">Build Automation</button>
+        <button onclick="openEmailSmsBuilder({ mode: 'email' })" class="rounded-[var(--ms-radius-control,12px)] border border-[var(--ms-border)] bg-white/55 px-4 py-2.5 text-sm font-black text-[var(--ms-text)] backdrop-blur-xl hover:bg-white/75 dark:bg-white/10 dark:hover:bg-white/15">New Campaign</button>
+      </div>
+    </section>
+
+    <section aria-label="Connected marketing metrics" class="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
+      ${kpi('Needs attention', metric('myDay', attention.length), 'Connected My Day items')}
+      ${kpi('Opportunities', metric('myDay', opportunities.length), 'Connected My Day items')}
+      ${kpi('Active campaigns', metric('campaigns', campaigns.filter(isActive).length), `${metric('campaigns', campaigns.length)} loaded`)}
+      ${kpi('Active automations', metric('automations', automations.filter(isActive).length), `${metric('automations', automations.length)} configured`)}
+      ${kpi('Connected channels', metric('accounts', connectedAccounts.length), 'Connected social accounts')}
+      ${kpi('Scheduled posts', metric('posts', scheduledPosts.length), 'Queued from Social')}
+      ${kpi('Open conversations', metric('conversations', openConversations.length), `${metric('conversations', conversations.length)} loaded`)}
+      ${kpi('Actual spend', spendValue, campaignsWithSpend.length ? 'Reported by campaigns' : 'No actual spend reported')}
+    </section>
+
+    <section class="grid gap-5 xl:grid-cols-2">
+      ${engCard('Needs attention', attentionRows)}
+      ${engCard('Opportunities', opportunityRows)}
+    </section>
+    <section class="grid gap-5 xl:grid-cols-2">
+      ${engCard('Campaigns from connected data', campaignRows)}
+      ${engCard('Automation workflows from connected data', automationRows)}
+    </section>
+    <section>
+      ${isAvailable('roi') && d.roi != null
+        ? mktAdRoi(d)
+        : engCard('Ad channels', sourceEmpty('roi', 'No connected ad-channel performance is available yet.'))}
+    </section>
+  </div>`;
+}
+
 ENGINES['marketing-overview'] = {
   rootId: 'marketing-overview-root', title: 'Marketing Department',
   subtitle: 'Automated lead response, service retention, reviews, and visual workflow journeys.',
@@ -558,17 +675,36 @@ ENGINES['marketing-overview'] = {
   })),
 
   fetch: async () => {
-    const [att, camps, accounts, posts, convos, roi, assets, inventory, automations] = await Promise.all([
-      apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ source: 'my-day', label: 'My Day', reason: 'could not be loaded' }], not_covered: [] })),
-      apiGetJson('/campaigns').catch(() => ({ campaigns: [] })),
-      apiGetJson('/social/accounts').catch(() => ({ accounts: [] })),
-      apiGetJson('/social/posts').catch(() => ({ posts: [], timezone: 'UTC' })),
-      apiGetJson('/conversations').catch(() => ({ conversations: [] })),
-      apiGetJson('/marketing/roi').catch(() => null),
-      apiGetJson('/marketing/assets').catch(() => ({ assets: [] })),
-      apiGetJson('/inventory').catch(() => []),
-      apiGetJson('/automation/campaigns').catch(() => ({ campaigns: [] })),
+    const safe = async (source, request, fallback) => {
+      try { return { source, ok: true, value: await request }; }
+      catch (error) { return { source, ok: false, value: fallback, error: error?.message || `${source} unavailable` }; }
+    };
+    const results = await Promise.all([
+      safe('myDay', apiGetJson('/my-day'), {
+        needs_attention: [],
+        opportunities: [],
+        failed: [{ source: 'my-day', label: 'My Day', reason: 'could not be loaded' }],
+        not_covered: [],
+      }),
+      safe('campaigns', apiGetJson('/campaigns'), { campaigns: [] }),
+      safe('accounts', apiGetJson('/social/accounts'), { accounts: [] }),
+      safe('posts', apiGetJson('/social/posts'), { posts: [], timezone: 'UTC' }),
+      safe('conversations', apiGetJson('/conversations'), { conversations: [] }),
+      safe('roi', apiGetJson('/marketing/roi'), null),
+      safe('assets', apiGetJson('/marketing/assets'), { assets: [] }),
+      safe('inventory', apiGetJson('/inventory'), []),
+      safe('automations', apiGetJson('/automation/campaigns'), { campaigns: [] }),
     ]);
+    const bySource = Object.fromEntries(results.map(result => [result.source, result]));
+    const att = bySource.myDay.value;
+    const camps = bySource.campaigns.value;
+    const accounts = bySource.accounts.value;
+    const posts = bySource.posts.value;
+    const convos = bySource.conversations.value;
+    const roi = bySource.roi.value;
+    const assets = bySource.assets.value;
+    const inventory = bySource.inventory.value;
+    const automations = bySource.automations.value;
     return {
       needsAttention: att.needs_attention || [],
       opportunities: att.opportunities || [],
@@ -583,12 +719,14 @@ ENGINES['marketing-overview'] = {
       inventory: Array.isArray(inventory) ? inventory : [],
       automations: automations.campaigns || automations.automations || [],
       roi,
+      sourceStatus: Object.fromEntries(results.map(result => [result.source, result.ok])),
+      sourceErrors: Object.fromEntries(results.filter(result => !result.ok).map(result => [result.source, result.error])),
     };
   },
 
   tabs: {
     overview(body, d) {
-      const suite = getActiveMarketingSuite() || 'complete';
+      const suite = d?._suiteOverride || getActiveMarketingSuite() || 'complete';
       const cfg = getMarketingSuiteConfig(suite);
       const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
       const hasSeo = access.isPlatformStaff || !!(
@@ -607,6 +745,9 @@ ENGINES['marketing-overview'] = {
             <div class="text-[12px] text-amber-700 dark:text-amber-400">${failed.map(f => `${esc(f.label || f.source)} could not be loaded (${esc(f.reason || 'unknown')})`).join(' · ')}</div>` : ''}
           ${notCovered.length ? `<div class="text-[12px] text-amber-700 dark:text-amber-400 ${failed.length ? 'mt-1' : ''}">Not covered here yet: ${esc(notCovered.join(', '))}.</div>` : ''}
         </div>` : '';
+
+      mktPulseOverview(body, d, suite, cfg, caveat);
+      return;
 
       // 1. Sales Marketing Suite Overview
       if (suite === 'sales') {

@@ -38,10 +38,15 @@ function loadRegistry() {
 }
 
 const html = read('dashboard.html')
+const dashboardJs = read('dashboard.js')
 const part2 = read('js/modules/dashboard-part2.js')
 const part10 = read('js/modules/dashboard-part10.js')
 const salesWorkspace = read('js/modules/sales-workspace.js')
+const fniWorkspace = read('js/modules/fni-workspace.js')
+const serviceWorkspace = read('js/modules/service-workspace.js')
+const partsWorkspace = read('js/modules/parts-workspace.js')
 const part11 = read('js/modules/dashboard-part11.js')
+const themeCss = read('css/marketsync-theme.css')
 const pageContainers = new Set([...html.matchAll(/data-page-content="([^"]+)"/g)].map(m => m[1]))
 
 // The ten target workspaces (project instructions §8 / Doc 21 §18, plus Cleanup —
@@ -306,6 +311,82 @@ test('Management exposes one canonical four-tab command header', () => {
     'a failed attention source must stay visible instead of looking like a quiet day')
   assert.doesNotMatch(part11.match(/ENGINES\['command'\][\s\S]*?function loadCommandCenter/)?.[0] || '', /☀️|🎓/,
     'active Management output must use product icons, not emoji decoration')
+})
+
+test('every Pulse uses one padded, overflow-safe visual board', () => {
+  assert.match(themeCss, /\.ms-pulse-board\s*\{[\s\S]*?padding:/,
+    'the shared Pulse board must own its internal gutter')
+  assert.match(themeCss, /\.ms-pulse-board\s*\{[\s\S]*?overflow:\s*clip/,
+    'Pulse widgets must not bleed into the right rail')
+  assert.match(themeCss, /\.ms-pulse-board\s*\{[\s\S]*?background:\s*transparent/,
+    'the Pulse board must remain an unpainted layout surface so it cannot create a full-height seam')
+  assert.match(themeCss, /\.pulse-summary-panel\s*\{[\s\S]*?padding:/,
+    'Running today must be contained inside its own panel')
+  assert.match(themeCss, /\.pulse-summary-grid\s*\{[\s\S]*?auto-fit/,
+    'Running today tiles must reflow without touching or overflowing their container')
+  assert.match(themeCss, /\.ms-ai-panel\s*\{[\s\S]*?background:\s*rgba\(255, 255, 255, \.88\)/,
+    'assistant summaries must use the light system surface rather than a forced dark band')
+  assert.match(dashboardJs, /chevronDown:\s*'<path/,
+    'disclosure controls must render a chevron rather than falling back to the dot icon')
+
+  for (const [name, source] of [
+    ['Sales', salesWorkspace],
+    ['F&I', fniWorkspace],
+    ['Service', serviceWorkspace],
+    ['Parts', partsWorkspace],
+  ]) {
+    assert.match(source, /Pulse is the canonical|Keep one operational Pulse|widget grid is the Service Pulse|stock ledger Pulse singular/,
+      `${name} must stop after its canonical Pulse grid rather than rendering a second dashboard`)
+  }
+
+  assert.match(part11, /class="pulse-summary-panel mb-6"/)
+  assert.match(part11, /class="pulse-summary-grid"/)
+  assert.doesNotMatch(part11, /tile\('Leads waiting'/,
+    'the executive summary must not repeat the Sales leads queue')
+  assert.match(part11, /serviceReq\('\/service\/appointments'/,
+    'Service appointment counts must come from the service appointment source')
+})
+
+test('the desktop dashboard shell keeps top, department, and operations navigation without overlap', () => {
+  assert.match(html, /<main class="ms-dashboard-shell/,
+    'the dashboard must use a semantic shell class rather than a purge-sensitive grid utility')
+  assert.match(html, /md:pt-\[116px\]/,
+    'desktop content must keep a deliberate gap below the fixed header')
+  assert.match(themeCss, /@media \(min-width: 1024px\)[\s\S]*?\.ms-dashboard-shell\s*\{[\s\S]*?grid-template-columns:\s*190px minmax\(0, 1fr\)\s*!important/,
+    'desktop must reserve one compact, explicit department column')
+  assert.match(themeCss, /#dept-sidebar\s*\{[\s\S]*?display:\s*flex\s*!important;[\s\S]*?width:\s*190px\s*!important;[\s\S]*?height:\s*auto\s*!important;/,
+    'the department rail must return and wrap its menu instead of filling the screen')
+  assert.match(themeCss, /p\s*\{\s*font-size:\s*1rem;\s*line-height:\s*1\.55;/,
+    'shared paragraph copy must start at an accessible 16px reading size')
+  assert.match(themeCss, /#dept-nav \.dept-nav-item\s*\{[\s\S]*?font-size:\s*1rem\s*!important;/,
+    'department navigation labels must remain 16px across workspaces')
+  assert.match(part10, /sec\('Reports', 'chart', reportsHtml\)/,
+    'the proper engine rail must restore department reports on the right')
+  assert.doesNotMatch(html, /<header class="[^"]*\bborder-b\b/,
+    'the fixed header must not carry a Tailwind border that draws a hard canvas line')
+  assert.match(themeCss, /html body > header,\s*\nhtml\.dark body > header\s*\{[\s\S]*?border-bottom:\s*0\s*!important;[\s\S]*?box-shadow:\s*none\s*!important/,
+    'the final glass cascade must remove the inherited full-width header shadow and border')
+  assert.match(part11, /class="ms-daily-greeting"/,
+    'management Pulse must render its greeting on a system-aware surface')
+  assert.match(part11, /dailyMotivations[\s\S]*?Date\.UTC/,
+    'management Pulse must choose a stable new motivational focus by local date')
+  assert.match(themeCss, /\.dark \.ms-daily-greeting\s*\{[\s\S]*?background:/,
+    'the daily greeting must follow system dark mode')
+})
+
+test('the canonical Pulse grids retain the useful legacy operational information', () => {
+  const activeBefore = (source, marker) => source.slice(0, source.indexOf(marker))
+  const expectations = [
+    ['Sales', activeBefore(salesWorkspace, '// Pulse is the canonical'), ["Today's appointments", 'Deliveries', 'Active opportunities']],
+    ['F&I', activeBefore(fniWorkspace, '// Keep one operational Pulse'), ['Incoming desked deals', 'Delivery blockers', 'Contracts outstanding']],
+    ['Service', activeBefore(serviceWorkspace, '// The widget grid is the Service Pulse'), ['Ready for the customer', 'On the floor', 'Authorization and SLA', 'Repair orders by stage']],
+    ['Parts', activeBefore(partsWorkspace, '// Keep the stock ledger Pulse singular'), ['Stock health', 'Waiting repair orders', 'Other department demand', 'Issued and fulfilled']],
+  ]
+  for (const [department, activePulse, labels] of expectations) {
+    for (const label of labels) {
+      assert.ok(activePulse.includes(label), `${department} must retain ${label} inside its canonical Pulse grid`)
+    }
+  }
 })
 
 test('the global header keeps approved sales and account controls without a hamburger, tour, or settings gear', () => {

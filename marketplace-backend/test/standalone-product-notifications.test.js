@@ -40,8 +40,10 @@ test('classifyNotificationProduct correctly classifies product-specific alerts',
 
 test('standalone dashboard header keeps notification bell visible and hides DealerOS settings gear', () => {
   const dashJs = readFE('dashboard.js')
-  // Standalone single-product branch must keep notif-bell visible
-  assert.match(dashJs, /if\s*\(active\.length === 1\)\s*\{[\s\S]*?document\.getElementById\('notif-bell'\)\?\.classList\.remove\('hidden'\)/)
+  // Independent single-product branches keep notif-bell visible; DealerOS is
+  // deliberately excluded because it owns the complete three-rail shell.
+  assert.match(dashJs, /const isIndependentSingleProduct = active\.length === 1 && active\[0\] !== 'dealer_os'/)
+  assert.match(dashJs, /if\s*\(isIndependentSingleProduct\)\s*\{[\s\S]*?document\.getElementById\('notif-bell'\)\?\.classList\.remove\('hidden'\)/)
   // Settings is reached from Profile; the global header no longer renders a gear.
 })
 
