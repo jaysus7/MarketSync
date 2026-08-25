@@ -17,6 +17,9 @@
   // team, so it keeps it. This is evaluated defensively at every entry point because
   // this dock boots on DOMContentLoaded, which can fire before data-product is set.
   function shouldHideStaffChat() {
+    // applyProductNav sets this once the canonical DealerOS entitlement resolves.
+    // It must win over a stale disabled state from an earlier provisional pass.
+    if (window.__teamChatAllowed === true) return false;
     if (disabled) return true;
     if (typeof window.isSingleProductWorkspace === 'function' && window.isSingleProductWorkspace()) {
       const products = (document.documentElement.getAttribute('data-product') || '').trim();
@@ -52,6 +55,7 @@
   }
 
   window.enableStaffChatDock = function () {
+    window.__teamChatAllowed = true;
     disabled = false;
     document.getElementById('staff-chat-dock-bar')?.classList.remove('hidden');
     startStaffChatDock();

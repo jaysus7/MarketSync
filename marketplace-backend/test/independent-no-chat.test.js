@@ -19,8 +19,8 @@ test('independent programs hide chat, while Facebook Dealer and full DealerOS ke
   }
   // The staff-chat dock mounts itself + polls, so it must be told to tear down.
   assert.match(block, /window\.disableStaffChatDock === 'function'\) window\.disableStaffChatDock\(\)/)
-  assert.match(fn, /active\.includes\('dealer_os'\)[\s\S]*?window\.enableStaffChatDock/,
-    'DealerOS must restore Team Chat and the full header after products resolve')
+  assert.match(fn, /if \(products\.dealer_os\) \{[\s\S]*?window\.__teamChatAllowed = true;[\s\S]*?window\.enableStaffChatDock/,
+    'the reachable DealerOS branch must restore Team Chat before returning')
 })
 
 test('the staff-chat dock refuses to run on independent programs and can be torn down', () => {
@@ -43,6 +43,8 @@ test('the staff-chat dock refuses to run on independent programs and can be torn
   assert.match(staffChat, /window\.disableStaffChatDock = function \(\) \{[\s\S]*?clearInterval\(pollInterval\)[\s\S]*?staff-chat-dock-bar'\)\?\.classList\.add\('hidden'\)/)
   assert.match(staffChat, /window\.enableStaffChatDock = function \(\) \{[\s\S]*?startStaffChatDock\(\)/,
     'full DealerOS must be able to restore Team Chat after entitlement resolution')
+  assert.match(staffChat, /if \(window\.__teamChatAllowed === true\) return false;/,
+    'resolved DealerOS access must override any stale provisional disabled state')
 })
 
 test('the single-product settings block also tears down the staff-chat dock (belt-and-suspenders with applyProductNav)', () => {

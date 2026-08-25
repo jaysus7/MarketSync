@@ -133,8 +133,8 @@ test('every independent single-product tier gets the simplified header, while De
   // this has to apply to every single-product tier (Facebook, AI ChatBot, Video,
   // Website, ...), not just Design Studio.
   assert.ok(fn.indexOf('if (isIndependentSingleProduct) {') < fn.indexOf("active[0] === 'design_studio'"), 'the general independent-product block must not be nested inside the design_studio-specific one')
-  assert.match(fn, /active\.includes\('dealer_os'\)[\s\S]*?header-social-icons'\)\?\.classList\.remove\('hidden'\)/,
-    'DealerOS must retain the full header shell')
+  assert.match(fn, /if \(products\.dealer_os\) \{[\s\S]*?header-social-icons'\)\?\.classList\.remove\('hidden'\)/,
+    'the reachable DealerOS branch must retain the full header shell')
 })
 
 test('Design Studio sidebar exposes Studio and its merged Scheduler, but not a second Settings row', () => {

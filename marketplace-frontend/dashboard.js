@@ -1260,8 +1260,21 @@ function applyProductNav(products) {
     || !!(access && (access.isPlatformStaff || (access.products || []).includes('facebook')))
     || !!planFallback?.products?.has('facebook');
   document.getElementById('fb-post-btn')?.classList.toggle('hidden', !showFbPost);
-  // DealerOS (or nothing set) → the full department sidebar; clear any restriction.
-  if (products.dealer_os) { __productAllowedPages = null; __productHome = null; document.documentElement.removeAttribute('data-product'); applyMobileQuickRow(); return; }
+  // DealerOS → the complete dealership shell. This branch returns before the
+  // independent-product logic below, so restore Team Chat here rather than in an
+  // unreachable later condition. The explicit flag also covers script timing when
+  // the chat dock initializes after entitlement resolution.
+  if (products.dealer_os) {
+    __productAllowedPages = null;
+    __productHome = null;
+    window.__teamChatAllowed = true;
+    document.documentElement.removeAttribute('data-product');
+    document.getElementById('header-social-icons')?.classList.remove('hidden');
+    document.getElementById('staff-chat-dock-bar')?.classList.remove('hidden');
+    if (typeof window.enableStaffChatDock === 'function') window.enableStaffChatDock();
+    applyMobileQuickRow();
+    return;
+  }
   const active = Object.keys(PRODUCT_PAGES).filter(k => products[k] && PRODUCT_PAGES[k]);
   if (!active.length) { __productAllowedPages = null; __productHome = null; applyMobileQuickRow(); return; }
   const allow = new Set(['profile']);
@@ -1304,6 +1317,7 @@ function applyProductNav(products) {
   // page tiers get an even flatter sidebar — see restrictedNavPages().
   const isIndependentSingleProduct = active.length === 1 && active[0] !== 'dealer_os';
   if (isIndependentSingleProduct) {
+    window.__teamChatAllowed = active[0] === 'facebook_dealer';
     document.getElementById('header-settings')?.classList.add('hidden');
     document.getElementById('notif-bell')?.classList.remove('hidden');
     document.getElementById('header-social-icons')?.classList.add('hidden');
@@ -1320,11 +1334,6 @@ function applyProductNav(products) {
       document.getElementById('staff-chat-dock-bar')?.classList.add('hidden');
       if (typeof window.disableStaffChatDock === 'function') window.disableStaffChatDock();
     }
-  } else if (active.includes('dealer_os')) {
-    // DealerOS is the full dealership operating system even when it is the only
-    // product on the subscription. Keep its full header and internal Team Chat.
-    document.getElementById('header-social-icons')?.classList.remove('hidden');
-    if (typeof window.enableStaffChatDock === 'function') window.enableStaffChatDock();
   }
   // Design Studio standalone: launch straight into the editor, not the Settings page
   // it lands on underneath (that page exists only so closing the editor has somewhere
