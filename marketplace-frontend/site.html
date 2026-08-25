@@ -476,6 +476,10 @@
       if(DATA.site.hero_photos){ const list=heroPhotoList(); if(list.length){ const src=list[(HERO_SEED[bg]||0)%list.length]; return `<img src="${esc(src)}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-slate-900/45"></div>`; } }
       const p=HERO_BGS[bg]||HERO_BGS.g1; return `<div class="absolute inset-0" style="background:${p[1]}"></div><div class="absolute inset-0" style="opacity:.06;background-image:radial-gradient(circle at 1px 1px,#fff 1px,transparent 0);background-size:22px 22px"></div>`;
     }
+    // Builder preview only: tag an element with the section setting it renders, so a
+    // click selects THAT control in the inspector instead of just the whole section.
+    // Emits nothing on the published site, so the public markup is unchanged.
+    function fx(k){ return PREVIEW?` data-ms-field="${k}"`:''; }
     function sectionHtml(sec){
       const s=DATA.site, g=sec.settings||{};
       switch(sec.type){
@@ -505,48 +509,48 @@
           const t4_sub = g.trust_4_sub || 'No Hidden Fees';
 
           return `
-            <section id="top" class="relative min-h-[680px] lg:min-h-[760px] flex items-center bg-slate-950 text-white overflow-hidden">
+            <section id="top"${fx('image')} class="relative min-h-[680px] lg:min-h-[760px] flex items-center bg-slate-950 text-white overflow-hidden">
               ${bgStyle ? `<div class="absolute inset-0" style="background:${bgStyle[1]}"></div>` : ''}
               <img src="${esc(defaultHeroImg)}" class="absolute inset-0 w-full h-full object-cover object-center transform scale-105 transition duration-1000">
               <div class="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/80 to-slate-950/40" style="opacity: ${overlayVal / 100}"></div>
               
               <div class="relative max-w-7xl mx-auto px-6 lg:px-12 py-20 lg:py-28 w-full">
                 <div class="max-w-2xl space-y-6">
-                  <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold tracking-wider uppercase text-emerald-400">
+                  <div${fx('badge_text')} class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold tracking-wider uppercase text-emerald-400">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                     ${esc(badgeText)}
                   </div>
-                  <h1 class="text-4xl sm:text-6xl font-black tracking-tight leading-[1.1] text-white">
+                  <h1${fx('headline')} class="text-4xl sm:text-6xl font-black tracking-tight leading-[1.1] text-white">
                     ${esc(g.headline || s.tagline || 'Experience Automotive Excellence')}
                   </h1>
-                  <div class="text-lg sm:text-xl text-slate-300 font-medium leading-relaxed max-w-xl prose-links">
+                  <div${fx('subheadline')} class="text-lg sm:text-xl text-slate-300 font-medium leading-relaxed max-w-xl prose-links">
                     ${g.subheadline ? richText(g.subheadline) : (s.about ? richText(s.about) : `Explore our premium inventory of certified new &amp; pre-owned vehicles. Instant pre-approvals, market-backed trade offers, and transparent pricing.`)}
                   </div>
                   
                   <div class="pt-2 flex flex-wrap items-center gap-4">
-                    <button ${ctaTarget(g.button_target || 'inventory', g.button_link)} class="px-8 py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-base font-black rounded-xl shadow-xl shadow-indigo-600/30 transition transform hover:scale-[1.02] cursor-pointer">
+                    <button ${ctaTarget(g.button_target || 'inventory', g.button_link)}${fx('button_label')} class="px-8 py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-base font-black rounded-xl shadow-xl shadow-indigo-600/30 transition transform hover:scale-[1.02] cursor-pointer">
                       ${esc(btnLabel)}
                     </button>
-                    <button ${ctaTarget(g.button2_target || 'finance', g.button2_link)} class="px-7 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/30 text-white text-base font-bold rounded-xl transition cursor-pointer">
+                    <button ${ctaTarget(g.button2_target || 'finance', g.button2_link)}${fx('button2_label')} class="px-7 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/30 text-white text-base font-bold rounded-xl transition cursor-pointer">
                       ${esc(btn2Label)}
                     </button>
                   </div>
 
                   ${showTrust ? `<!-- Trust Strip / Social Proof Indicators -->
                   <div class="pt-8 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-semibold text-slate-300">
-                    <div class="flex items-center gap-2">
+                    <div${fx('trust_1_title')} class="flex items-center gap-2">
                       <span class="text-amber-400 text-base">${esc(t1_icon)}</span>
                       <span><strong>${esc(t1_title)}</strong><br><span class="text-[10px] text-slate-400">${esc(t1_sub)}</span></span>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div${fx('trust_2_title')} class="flex items-center gap-2">
                       <span class="text-emerald-400 text-base">${esc(t2_icon)}</span>
                       <span><strong>${esc(t2_title)}</strong><br><span class="text-[10px] text-slate-400">${esc(t2_sub)}</span></span>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div${fx('trust_3_title')} class="flex items-center gap-2">
                       <span class="text-sky-400 text-base">${esc(t3_icon)}</span>
                       <span><strong>${esc(t3_title)}</strong><br><span class="text-[10px] text-slate-400">${esc(t3_sub)}</span></span>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div${fx('trust_4_title')} class="flex items-center gap-2">
                       <span class="text-indigo-400 text-base">${esc(t4_icon)}</span>
                       <span><strong>${esc(t4_title)}</strong><br><span class="text-[10px] text-slate-400">${esc(t4_sub)}</span></span>
                     </div>
@@ -730,8 +734,8 @@
           return `
             <section class="py-16 bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-white">
               <div class="max-w-7xl mx-auto px-6 lg:px-12 text-center space-y-6">
-                <h2 class="text-3xl lg:text-4xl font-black">${esc(g.title || 'Ready to Find Your Next Vehicle?')}</h2>
-                <p class="text-slate-300 max-w-xl mx-auto text-base">${esc(g.subtitle || 'Get pre-approved online or request an instant trade offer in seconds.')}</p>
+                <h2${fx('title')} class="text-3xl lg:text-4xl font-black">${esc(g.title || 'Ready to Find Your Next Vehicle?')}</h2>
+                <p${fx('subtitle')} class="text-slate-300 max-w-xl mx-auto text-base">${esc(g.subtitle || 'Get pre-approved online or request an instant trade offer in seconds.')}</p>
                 <div class="flex flex-wrap justify-center gap-4 pt-2">
                   <button onclick="go('finance')" class="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl transition cursor-pointer">Get Pre-Approved</button>
                   <button onclick="go('trade')" class="px-8 py-3.5 bg-white/10 hover:bg-white/20 border border-white/30 text-white font-bold rounded-xl transition cursor-pointer">Value Your Trade</button>
@@ -744,15 +748,15 @@
         case 'text_image': {
           const img=g.image;
           return `<section class="max-w-6xl mx-auto px-4 py-14"><div class="grid md:grid-cols-2 gap-8 items-center">
-            <div class="order-2 md:order-1">${img?`<img src="${esc(img)}" class="w-full rounded-2xl cshadow object-cover">`:`<div class="w-full aspect-[4/3] rounded-2xl brand2-bg flex items-center justify-center text-white/40">${s.logo_url?`<img src="${esc(s.logo_url)}" class="max-h-16 opacity-80">`:'<span class="text-sm">Add an image in the section settings</span>'}</div>`}</div>
-            <div class="order-1 md:order-2"><h2 class="text-3xl font-black mb-3 text-slate-900">${esc(g.headline||'Drive more, spend less')}</h2><div class="text-slate-600 leading-relaxed prose-links">${richText(g.body||'')}</div>${g.button_label?`<button ${ctaTarget(g.button_target)} class="mt-5 brand-bg text-white font-bold px-5 py-2.5 rounded-lg">${esc(g.button_label)}</button>`:''}</div>
+            <div class="order-2 md:order-1"${fx('image')}>${img?`<img src="${esc(img)}" class="w-full rounded-2xl cshadow object-cover">`:`<div class="w-full aspect-[4/3] rounded-2xl brand2-bg flex items-center justify-center text-white/40">${s.logo_url?`<img src="${esc(s.logo_url)}" class="max-h-16 opacity-80">`:'<span class="text-sm">Add an image in the section settings</span>'}</div>`}</div>
+            <div class="order-1 md:order-2"><h2${fx('headline')} class="text-3xl font-black mb-3 text-slate-900">${esc(g.headline||'Drive more, spend less')}</h2><div${fx('body')} class="text-slate-600 leading-relaxed prose-links">${richText(g.body||'')}</div>${g.button_label?`<button ${ctaTarget(g.button_target)}${fx('button_label')} class="mt-5 brand-bg text-white font-bold px-5 py-2.5 rounded-lg">${esc(g.button_label)}</button>`:''}</div>
           </div></section>`;
         }
         case 'two_col': {
           const wrap=g.full?'w-full px-4 sm:px-8':'max-w-6xl mx-auto px-4';
-          const col=(t,b,img)=>`<div>${img?`<img src="${esc(img)}" class="w-full rounded-2xl cshadow object-cover mb-4">`:''}${t?`<h3 class="text-2xl font-black mb-2 text-slate-900">${esc(t)}</h3>`:''}${b?`<div class="text-slate-600 leading-relaxed prose-links" style="white-space:pre-line">${richText(b)}</div>`:''}</div>`;
+          const col=(side,t,b,img)=>`<div>${img?`<img src="${esc(img)}"${fx(side+'_image')} class="w-full rounded-2xl cshadow object-cover mb-4">`:''}${t?`<h3${fx(side+'_title')} class="text-2xl font-black mb-2 text-slate-900">${esc(t)}</h3>`:''}${b?`<div${fx(side+'_body')} class="text-slate-600 leading-relaxed prose-links" style="white-space:pre-line">${richText(b)}</div>`:''}</div>`;
           if(!g.left_title&&!g.left_body&&!g.right_title&&!g.right_body&&!g.left_image&&!g.right_image) return '';
-          return `<section class="${wrap} py-14"><div class="grid md:grid-cols-2 gap-8 items-start">${col(g.left_title,g.left_body,g.left_image)}${col(g.right_title,g.right_body,g.right_image)}</div></section>`;
+          return `<section class="${wrap} py-14"><div class="grid md:grid-cols-2 gap-8 items-start">${col('left',g.left_title,g.left_body,g.left_image)}${col('right',g.right_title,g.right_body,g.right_image)}</div></section>`;
         }
         case 'cards': {
           const items=Array.isArray(g.items)?g.items:[];
@@ -760,26 +764,26 @@
           const cols={'2':'sm:grid-cols-2','3':'sm:grid-cols-2 lg:grid-cols-3','4':'sm:grid-cols-2 lg:grid-cols-4'}[String(g.columns||'3')]||'sm:grid-cols-2 lg:grid-cols-3';
           const wrap=g.full?'w-full px-4 sm:px-8':'max-w-6xl mx-auto px-4';
           const card=(c)=>`<div class="bg-white rounded-2xl cshadow p-5 border border-slate-100"><div class="font-black text-lg text-slate-900 mb-1">${esc(c.title||'')}</div><div class="text-sm text-slate-600 leading-relaxed" style="white-space:pre-line">${esc(c.text||'')}</div></div>`;
-          return `<section class="${wrap} py-14">${g.title?`<h2 class="text-2xl font-black mb-6 text-slate-900">${esc(g.title)}</h2>`:''}<div class="grid grid-cols-1 ${cols} gap-4">${items.map(card).join('')||'<div class="text-sm text-slate-400">Add cards in the section settings.</div>'}</div></section>`;
+          return `<section class="${wrap} py-14">${g.title?`<h2${fx('title')} class="text-2xl font-black mb-6 text-slate-900">${esc(g.title)}</h2>`:''}<div class="grid grid-cols-1 ${cols} gap-4"${fx('items')}>${items.map(card).join('')||'<div class="text-sm text-slate-400">Add cards in the section settings.</div>'}</div></section>`;
         }
         case 'body_style': {
           const map={}; for(const v of (DATA.vehicles||[])){ const b=(v.body_style||'').trim(); if(!b) continue; (map[b]=map[b]||{n:0,min:Infinity}); map[b].n++; if(v.price) map[b].min=Math.min(map[b].min,Number(v.price)); }
           const items=Object.entries(map).sort((a,b)=>b[1].n-a[1].n).slice(0,8);
           if(!items.length) return '';
-          return `<section class="bg-slate-900 text-white"><div class="max-w-6xl mx-auto px-4 py-14"><h2 class="text-2xl font-black mb-5">${esc(g.title||'Browse by body style')}</h2><div class="grid grid-cols-2 sm:grid-cols-4 gap-4">${items.map(([b,d])=>`<div class="bg-white text-slate-900 rounded-2xl p-4 flex flex-col"><div class="font-black">${esc(b)}</div>${d.min<Infinity?`<div class="text-xs text-slate-500 mt-0.5 mb-3">Starting at ${money(d.min)}</div>`:'<div class="mb-3"></div>'}<button onclick="setBody('${esc(b)}')" class="mt-auto w-full brand-bg text-white text-sm font-bold py-2 rounded-lg hover:opacity-90">See (${d.n}) in stock</button></div>`).join('')}</div></div></section>`;
+          return `<section class="bg-slate-900 text-white"><div class="max-w-6xl mx-auto px-4 py-14"><h2${fx('title')} class="text-2xl font-black mb-5">${esc(g.title||'Browse by body style')}</h2><div class="grid grid-cols-2 sm:grid-cols-4 gap-4">${items.map(([b,d])=>`<div class="bg-white text-slate-900 rounded-2xl p-4 flex flex-col"><div class="font-black">${esc(b)}</div>${d.min<Infinity?`<div class="text-xs text-slate-500 mt-0.5 mb-3">Starting at ${money(d.min)}</div>`:'<div class="mb-3"></div>'}<button onclick="setBody('${esc(b)}')" class="mt-auto w-full brand-bg text-white text-sm font-bold py-2 rounded-lg hover:opacity-90">See (${d.n}) in stock</button></div>`).join('')}</div></div></section>`;
         }
         case 'service_cta': return ctaBand(g.title||'Book your service',g.subtitle||'Factory-trained technicians.',g.button_label||'Book service',g.button_target||'inquiry',g.button_link);
-        case 'staff': return ((DATA.site.staff||[]).length||(DATA.team||[]).length)?`<section class="bg-white border-t border-slate-200"><div class="max-w-6xl mx-auto px-4 py-10 text-center"><h2 class="text-2xl font-black mb-2">${esc(g.title||'Meet our team')}</h2><p class="text-slate-500 mb-4">Sales, service and management — here to help.</p><button onclick="go('team')" class="brand-bg text-white font-bold px-5 py-2.5 rounded-lg">See our team →</button></div></section>`:'';
-        case 'faq': { const items=Array.isArray(g.items)?g.items:[]; return `<section class="max-w-3xl mx-auto px-4 py-12"><h2 class="text-2xl font-black mb-6">${esc(g.title||'Frequently asked questions')}</h2><div class="space-y-3">${items.map(it=>`<details class="bg-white rounded-lg cshadow p-4"><summary class="font-bold cursor-pointer">${esc(it.q||'')}</summary><p class="text-sm text-slate-600 mt-2 whitespace-pre-line">${esc(it.a||'')}</p></details>`).join('')||'<div class="text-sm text-slate-400">Add FAQ items in the section settings.</div>'}</div></section>`; }
-        case 'gallery': { const imgs=Array.isArray(g.images)?g.images:[]; return imgs.length?`<section class="max-w-6xl mx-auto px-4 py-10">${g.title?`<h2 class="text-2xl font-black mb-4">${esc(g.title)}</h2>`:''}<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">${imgs.map(u=>`<img src="${esc(u)}" class="w-full h-40 object-cover rounded-lg">`).join('')}</div></section>`:''; }
-        case 'map': { const addr=g.address||[s.address,s.city,s.province].filter(Boolean).join(', '); return addr?`<section class="max-w-6xl mx-auto px-4 py-10">${g.title?`<h2 class="text-2xl font-black mb-4">${esc(g.title)}</h2>`:''}<iframe class="w-full h-72 rounded-lg border-0" loading="lazy" src="https://www.google.com/maps?q=${encodeURIComponent(addr)}&output=embed"></iframe></section>`:''; }
+        case 'staff': return ((DATA.site.staff||[]).length||(DATA.team||[]).length)?`<section class="bg-white border-t border-slate-200"><div class="max-w-6xl mx-auto px-4 py-10 text-center"><h2${fx('title')} class="text-2xl font-black mb-2">${esc(g.title||'Meet our team')}</h2><p class="text-slate-500 mb-4">Sales, service and management — here to help.</p><button onclick="go('team')" class="brand-bg text-white font-bold px-5 py-2.5 rounded-lg">See our team →</button></div></section>`:'';
+        case 'faq': { const items=Array.isArray(g.items)?g.items:[]; return `<section class="max-w-3xl mx-auto px-4 py-12"><h2${fx('title')} class="text-2xl font-black mb-6">${esc(g.title||'Frequently asked questions')}</h2><div class="space-y-3"${fx('items')}>${items.map(it=>`<details class="bg-white rounded-lg cshadow p-4"><summary class="font-bold cursor-pointer">${esc(it.q||'')}</summary><p class="text-sm text-slate-600 mt-2 whitespace-pre-line">${esc(it.a||'')}</p></details>`).join('')||'<div class="text-sm text-slate-400">Add FAQ items in the section settings.</div>'}</div></section>`; }
+        case 'gallery': { const imgs=Array.isArray(g.images)?g.images:[]; return imgs.length?`<section class="max-w-6xl mx-auto px-4 py-10">${g.title?`<h2${fx('title')} class="text-2xl font-black mb-4">${esc(g.title)}</h2>`:''}<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2"${fx('images')}>${imgs.map(u=>`<img src="${esc(u)}" class="w-full h-40 object-cover rounded-lg">`).join('')}</div></section>`:''; }
+        case 'map': { const addr=g.address||[s.address,s.city,s.province].filter(Boolean).join(', '); return addr?`<section class="max-w-6xl mx-auto px-4 py-10">${g.title?`<h2${fx('title')} class="text-2xl font-black mb-4">${esc(g.title)}</h2>`:''}<iframe class="w-full h-72 rounded-lg border-0" loading="lazy" src="https://www.google.com/maps?q=${encodeURIComponent(addr)}&output=embed"></iframe></section>`:''; }
         case 'payment_calc': {
           const rate=g.rate!=null?g.rate:7.99, term=g.term||72, tax=taxRate();
           const termOpts=[24,36,48,60,72,84,96].map(t=>`<option value="${t}" ${t===term?'selected':''}>${t}</option>`).join('');
           const sel='w-full border border-slate-300 rounded-lg px-2 py-2 text-sm';
           setTimeout(calcPayment,0);
           return `<section class="max-w-3xl mx-auto px-4 py-12"><div class="bg-white rounded-2xl cshadow border border-slate-200 p-6">
-            <h2 class="text-2xl font-black">${esc(g.title||'Payment calculator')}</h2>
+            <h2${fx('title')} class="text-2xl font-black">${esc(g.title||'Payment calculator')}</h2>
             <p class="text-sm text-slate-500 mb-5">Estimate your payment in seconds. Final terms are confirmed by our finance team.</p>
             <div class="grid grid-cols-2 gap-3">
               ${pcField('pc-price','Vehicle price','$','')}
@@ -801,27 +805,27 @@
         case 'ad_banner': {
           const tpl=g.template||'classic';
           const head=esc(g.headline||'This month’s special');
-          const tag=g.tag?`<span class="self-start text-[11px] font-black uppercase tracking-widest bg-white/20 px-2.5 py-1 rounded-full mb-2">${esc(g.tag)}</span>`:'';
-          const tagDark=g.tag?`<span class="self-start text-[11px] font-black uppercase tracking-widest brand-bg text-white px-2.5 py-1 rounded-full mb-2">${esc(g.tag)}</span>`:'';
-          const sub=g.subtitle?`<p class="mt-2 text-white/85 max-w-lg">${esc(g.subtitle)}</p>`:'';
-          const subDark=g.subtitle?`<p class="mt-2 text-slate-600 max-w-lg">${esc(g.subtitle)}</p>`:'';
-          const btnW=g.button_label?`<button ${ctaTarget(g.button_target,g.button_link)} class="mt-4 bg-white text-slate-900 font-black px-6 py-3 rounded-lg hover:bg-slate-100 self-start">${esc(g.button_label)}</button>`:'';
-          const btnB=g.button_label?`<button ${ctaTarget(g.button_target,g.button_link)} class="mt-4 brand-bg text-white font-black px-6 py-3 rounded-lg hover:opacity-90 self-start">${esc(g.button_label)}</button>`:'';
-          const imgTag=g.image?`<img src="${esc(g.image)}" class="w-full h-full object-cover">`:`<div class="w-full h-full brand2-bg flex items-center justify-center text-white/40 text-sm">Add an image</div>`;
+          const tag=g.tag?`<span${fx('tag')} class="self-start text-[11px] font-black uppercase tracking-widest bg-white/20 px-2.5 py-1 rounded-full mb-2">${esc(g.tag)}</span>`:'';
+          const tagDark=g.tag?`<span${fx('tag')} class="self-start text-[11px] font-black uppercase tracking-widest brand-bg text-white px-2.5 py-1 rounded-full mb-2">${esc(g.tag)}</span>`:'';
+          const sub=g.subtitle?`<p${fx('subtitle')} class="mt-2 text-white/85 max-w-lg">${esc(g.subtitle)}</p>`:'';
+          const subDark=g.subtitle?`<p${fx('subtitle')} class="mt-2 text-slate-600 max-w-lg">${esc(g.subtitle)}</p>`:'';
+          const btnW=g.button_label?`<button ${ctaTarget(g.button_target,g.button_link)}${fx('button_label')} class="mt-4 bg-white text-slate-900 font-black px-6 py-3 rounded-lg hover:bg-slate-100 self-start">${esc(g.button_label)}</button>`:'';
+          const btnB=g.button_label?`<button ${ctaTarget(g.button_target,g.button_link)}${fx('button_label')} class="mt-4 brand-bg text-white font-black px-6 py-3 rounded-lg hover:opacity-90 self-start">${esc(g.button_label)}</button>`:'';
+          const imgTag=g.image?`<img src="${esc(g.image)}"${fx('image')} class="w-full h-full object-cover">`:`<div${fx('image')} class="w-full h-full brand2-bg flex items-center justify-center text-white/40 text-sm">Add an image</div>`;
           const wrap=(inner)=>`<section class="max-w-6xl mx-auto px-4 py-6">${inner}</section>`;
           if(tpl==='overlay'){
             return wrap(`<div class="relative rounded-2xl overflow-hidden cshadow min-h-[280px] flex items-center">
               <div class="absolute inset-0">${imgTag}<div class="absolute inset-0" style="background:rgba(15,23,42,.55)"></div></div>
-              <div class="relative text-white p-8 sm:p-12 flex flex-col max-w-2xl">${tag}<h2 class="text-3xl sm:text-4xl font-black">${head}</h2>${sub}${btnW}</div>
+              <div class="relative text-white p-8 sm:p-12 flex flex-col max-w-2xl">${tag}<h2${fx('headline')} class="text-3xl sm:text-4xl font-black">${head}</h2>${sub}${btnW}</div>
             </div>`);
           }
           if(tpl==='spotlight'){
             return wrap(`<div class="bg-white rounded-2xl overflow-hidden cshadow border border-slate-100">
               <div class="h-48 sm:h-64">${imgTag}</div>
-              <div class="p-6 sm:p-8 flex flex-col">${tagDark}<h2 class="text-2xl sm:text-3xl font-black text-slate-900">${head}</h2>${subDark}${btnB}</div>
+              <div class="p-6 sm:p-8 flex flex-col">${tagDark}<h2${fx('headline')} class="text-2xl sm:text-3xl font-black text-slate-900">${head}</h2>${subDark}${btnB}</div>
             </div>`);
           }
-          const content=`<div class="flex-1 p-6 sm:p-8 flex flex-col justify-center">${tag}<h2 class="text-2xl sm:text-3xl font-black">${head}</h2>${sub}${btnW}</div>`;
+          const content=`<div class="flex-1 p-6 sm:p-8 flex flex-col justify-center">${tag}<h2${fx('headline')} class="text-2xl sm:text-3xl font-black">${head}</h2>${sub}${btnW}</div>`;
           const imgSide=`<div class="sm:w-2/5 shrink-0 min-h-[160px]">${imgTag}</div>`;
           return wrap(`<div class="brand-bg text-white rounded-2xl overflow-hidden cshadow flex flex-col ${tpl==='imgleft'?'sm:flex-row-reverse':'sm:flex-row'}">${content}${imgSide}</div>`);
         }
@@ -829,8 +833,7 @@
         default: return '';
       }
     }
-    function ctaBand(title,sub,label,target,link){ return `<section class="brand-bg text-white"><div class="max-w-6xl mx-auto px-4 py-10 text-center"><h2 class="text-2xl font-black">${esc(title)}</h2>${sub?`<p class="mt-1 text-white/80">${esc(sub)}</p>`:''}<div class="mt-4"><button ${ctaTarget(target,link)} class="bg-white text-slate-900 font-bold px-6 py-2.5 rounded-lg">${esc(label)}</button></div></div></section>`; }
-    // Default combined sales-tax rate by province/state (approximate; user can edit). class="max-w-6xl mx-auto px-4 py-10 text-center"><h2 class="text-2xl font-black">${esc(title)}</h2>${sub?`<p class="mt-1 text-white/80">${esc(sub)}</p>`:''}<div class="mt-4"><button ${ctaTarget(target,link)} class="bg-white text-slate-900 font-bold px-6 py-2.5 rounded-lg">${esc(label)}</button></div></div></section>`; }
+    function ctaBand(title,sub,label,target,link){ return `<section class="brand-bg text-white"><div class="max-w-6xl mx-auto px-4 py-10 text-center"><h2${fx('title')} class="text-2xl font-black">${esc(title)}</h2>${sub?`<p${fx('subtitle')} class="mt-1 text-white/80">${esc(sub)}</p>`:''}<div class="mt-4"><button ${ctaTarget(target,link)}${fx('button_label')} class="bg-white text-slate-900 font-bold px-6 py-2.5 rounded-lg">${esc(label)}</button></div></div></section>`; }
     // Default combined sales-tax rate by province/state (approximate; user can edit).
     function taxRate(){ const p=(DATA&&DATA.site&&DATA.site.province||'').trim().toLowerCase();
       const m={on:13,ontario:13,nb:15,'new brunswick':15,nl:15,ns:15,'nova scotia':15,pe:15,pei:15,bc:12,'british columbia':12,mb:12,manitoba:12,sk:11,saskatchewan:11,qc:14.975,quebec:14.975,'québec':14.975,ab:5,alberta:5,nt:5,nu:5,yt:5};
@@ -1395,6 +1398,13 @@
     const PREVIEW = new URLSearchParams(location.search).get('preview')==='1';
     if(PREVIEW){
       document.documentElement.setAttribute('data-preview','1');
+      // Every element that maps to a setting outlines on hover, so it is visible
+      // which parts of the page are editable before you click. Preview-only.
+      const pvStyle=document.createElement('style');
+      pvStyle.textContent='[data-preview="1"] [data-ms-field]{outline:2px dashed transparent;outline-offset:2px;transition:outline-color .12s;cursor:pointer}'
+        +'[data-preview="1"] [data-ms-field]:hover{outline-color:var(--brand,#6366f1)}'
+        +'[data-preview="1"] [data-ms-field]:has([data-ms-field]:hover){outline-color:transparent}';
+      document.head.appendChild(pvStyle);
       window.addEventListener('message',(ev)=>{
         const m=ev.data||{}; if(m.type!=='ms-preview-apply') return;
         try{
@@ -1484,8 +1494,14 @@
         const marked=marker===null?NaN:Number(marker);
         const index=Number.isInteger(marked)?marked:[...host.children].indexOf(section);
         if(index<0||index>=previewSections().length) return;
+        // Which element inside the section was clicked (hero photo, headline,
+        // button label…). The builder uses this to jump straight to that control
+        // instead of dropping the dealer at the top of the inspector. Null when the
+        // click landed on section whitespace — then it is just a section selection.
+        const fieldEl=e.target.closest('[data-ms-field]');
+        const field=(fieldEl&&section.contains(fieldEl))?fieldEl.getAttribute('data-ms-field'):null;
         e.preventDefault(); e.stopPropagation();
-        post({type:'ms-preview-click',index});
+        post({type:'ms-preview-click',index,field});
       },true);
     }
     function showBar(child,i){

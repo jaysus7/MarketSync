@@ -22,5 +22,12 @@ test('Hero has canonical editable fields and the dashboard loads the fixed build
   assert.match(builder, /\['headline','Headline','text'\]/)
   assert.match(builder, /\['subheadline','Subheadline','text'\]/)
   assert.match(builder, /\['image','Or upload a photo','image'\]/)
-  assert.match(dashboard, /dashboard-part17\.js\?v=20260825_settings_masonry_v1/)
+  // This used to pin one exact version literal, which meant every legitimate builder
+  // change broke this test and the "fix" was to paste in the new string — a check
+  // that only ever passes because you updated it is not a check. What actually
+  // matters is that the asset is cache-busted at all (a dated version), so a browser
+  // holding a stale dashboard-part17.js picks the new one up.
+  const v = dashboard.match(/dashboard-part17\.js\?v=([\w]+)/)
+  assert.ok(v, 'dashboard.html must load dashboard-part17.js with a ?v= cache-bust')
+  assert.match(v[1], /^\d{8}_\w+$/, `builder cache-bust should be a dated version, got "${v[1]}"`)
 })
