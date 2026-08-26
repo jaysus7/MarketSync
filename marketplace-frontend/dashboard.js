@@ -1380,7 +1380,7 @@ function applyProductNav(products) {
   const isIndependentSingleProduct = active.length === 1 && active[0] !== 'dealer_os';
   if (isIndependentSingleProduct) {
     window.__teamChatAllowed = active[0] === 'facebook_dealer';
-    document.getElementById('header-settings')?.classList.add('hidden');
+    document.getElementById('header-settings')?.classList.remove('hidden');
     document.getElementById('notif-bell')?.classList.remove('hidden');
     document.getElementById('header-social-icons')?.classList.add('hidden');
     document.getElementById('setup-bar-host')?.replaceChildren();
