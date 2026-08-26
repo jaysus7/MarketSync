@@ -2704,3 +2704,24 @@ html.dark[data-dash-mode="marketsync"] .page-content .ms-ai-panel {
 @media (prefers-reduced-motion: reduce) {
   #report-rail, #report-rail svg { transition: none; }
 }
+
+
+/* Team Messages panel sits to the RIGHT of the left-dock bubble so the
+   launcher never disappears under the conversation. */
+.team-chat-dock-panel {
+  position: fixed;
+  z-index: 10000;
+  left: 76px;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  width: min(380px, calc(100vw - 92px));
+  max-height: min(560px, calc(100dvh - 96px));
+  height: min(560px, calc(100dvh - 96px));
+}
+@media (max-width: 640px) {
+  .team-chat-dock-panel {
+    left: 72px;
+    right: 12px;
+    width: auto;
+    height: min(520px, calc(100dvh - 88px));
+  }
+}
