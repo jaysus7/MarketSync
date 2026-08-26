@@ -141,15 +141,22 @@ ENGINES['people-overview'] = {
       `;
 
       body.innerHTML = `
+        ${pulseHeader('People Pulse', 'Roster, time, compliance and who needs you first')}
         ${typeof pplRenderMyDayHeader === 'function' ? pplRenderMyDayHeader(d) : ''}
-        ${proactiveAiPanel}
+        ${pulseBoard([
+          pulseCard({ title: 'Needs attention', count: items.length, tier: items.length ? 'hero' : 'feature',
+            inner: items.length ? items.slice(0, 10).map(pplAttentionRow).join('') : '',
+            empty: 'Nothing in People needs you right now.' }),
+          pulseCard({ title: 'Staff roster', count: team.length, tier: 'standard',
+            onclick: "engineTab('people-overview','people')" }),
+          pulseCard({ title: 'Unlinked logins', count: unlinked, tier: unlinked ? 'standard' : 'compact',
+            onclick: "engineTab('people-overview','people')" }),
+          pulseCard({ title: 'People operations', tier: 'feature', inner: proactiveAiPanel }),
+          ((d.dayFailed || []).length ? pulseCard({ title: 'Could not be loaded', tier: 'standard',
+            inner: (d.dayFailed).map(f => `<div class="py-1.5 text-[13px] text-rose-600 dark:text-rose-400">${esc(f.label)} — ${esc(f.reason)}</div>`).join('') }) : ''),
+        ].filter(Boolean))}
         ${typeof pplRenderTriageBar === 'function' ? pplRenderTriageBar(d) : ''}
         ${typeof pplRenderScheduleRiskStrip === 'function' ? pplRenderScheduleRiskStrip(d) : ''}
-        ${(d.dayFailed || []).length ? engCard('Could not be loaded', (d.dayFailed).map(f =>
-          `<div class="py-1.5 text-[13px] text-rose-600 dark:text-rose-400">${esc(f.label)} — ${esc(f.reason)}</div>`).join('')) : ''}
-        ${engCard('Needs attention operating list', items.length
-          ? items.map(pplAttentionRow).join('')
-          : engEmpty('Nothing in People needs you right now.'))}
       `;
     },
 
