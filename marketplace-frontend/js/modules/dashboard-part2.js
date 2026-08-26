@@ -1663,6 +1663,14 @@ function deptHasRealPage(dept) {
 function deptVisible(dept) {
   if (!deptRoleOk(dept)) return false;   // role gate first (managers-only departments)
   if (dept.always) return true;
+  // Plan-tier gate: Core / Pro must not show Marketing, HR/Team, or other paid
+  // workspaces that only Complete (or an add-on) includes. A department is visible
+  // only when at least one of its non-legacy pages is entitled for this account.
+  const entitledPages = (dept.pages || []).filter(p => p && !p.legacy);
+  if (entitledPages.length && typeof pageFeatureOk === 'function'
+      && !entitledPages.some(p => pageFeatureOk(p.page, p.invmode || null))) {
+    return false;
+  }
   if (deptHasRealPage(dept)) return true;
   if (dept.probe) { const el = document.querySelector(dept.probe); if (el && !el.classList.contains('hidden')) return true; }
   return false;
