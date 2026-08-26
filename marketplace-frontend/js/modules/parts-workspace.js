@@ -771,7 +771,8 @@ ENGINES['parts-overview'] = {
       // inventory records stay in their dedicated work tab.
       body.innerHTML = `
         ${pulseHeader('Parts Pulse', 'Demand, availability, receiving and issue — one stock ledger')}
-        ${pulse}`;
+        ${pulse}
+        ${typeof pulseDeptLeaderboard === 'function' ? pulseDeptLeaderboard(d.gamification, 'parts', { title: 'Parts leaderboard' }) : ''}`;
       return;
 
       body.innerHTML = `
