@@ -337,6 +337,14 @@ ENGINES['inventory-overview'] = {
       body.innerHTML = `
         ${pulseHeader('Inventory Pulse', 'Lot health, merchandising gaps, acquisition and aged units')}
         ${pulseBoard([
+          pulseCard({ title: 'Inventory Intelligence', tier: 'hero',
+            onclick: "typeof openInventoryIntelligence==='function'&&openInventoryIntelligence()",
+            inner: `<div class="text-[13px] text-slate-600 dark:text-slate-300 leading-relaxed">Turn rate, lot health, aged units, market position, and scan actions — live from Inventory Intelligence.</div>
+              <div class="mt-3 flex flex-wrap gap-2">
+                <button type="button" onclick="event.stopPropagation();typeof openInventoryIntelligence==='function'&&openInventoryIntelligence()" class="px-3 py-1.5 rounded-full bg-indigo-600 text-white text-xs font-black">Open Intelligence</button>
+                <button type="button" onclick="event.stopPropagation();switchPage('market')" class="px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 text-xs font-bold">Market &amp; Competitors</button>
+              </div>` }),
+
           pulseCard({ title: 'Needs attention', count: att.length, tier: att.length ? 'hero' : 'feature',
             tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
             inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '',
