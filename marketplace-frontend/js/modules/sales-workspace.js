@@ -380,13 +380,14 @@ ENGINES['sales'] = {
       for (const t of d.tasks || []) taskByType[['lead_followup', 'delivery_followup', 'appointment'].includes(t.type) ? t.type : 'other']++;
 
       // ── Pulse grid — the at-a-glance widget wall ────────────────────────────
-      const grid = pulseGrid([
+      const grid = pulseBoard([
         pulseCard({
-          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', span: 'tall',
+          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', tier: att.length ? 'tall' : 'standard',
           inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '', empty: 'Nothing needs you right now.',
         }),
         pulseCard({
           title: 'Deals in progress', count: d.deals == null ? '—' : d.deals.length,
+          tier: (d.deals && d.deals.length) ? 'feature' : 'standard',
           onclick: "engineTab('sales','desk')",
           inner: d.deals == null ? '' : d.deals.slice(0, 5).map(x => {
             const customer = x.customer_name || x.contact_name;
@@ -401,16 +402,17 @@ ENGINES['sales'] = {
           }).join(''), empty: d.deals == null ? 'No permission to view deals.' : 'No deals in progress.',
         }),
         pulseCard({
-          title: "Today's videos sent", count: (d.videosToday || []).length,
+          title: "Today's videos sent", count: (d.videosToday || []).length, tier: 'compact',
           onclick: "switchPage('video-studio')",
           inner: (d.videosToday || []).slice(0, 5).map(v => pulseRow({
             icon: v.first_played_at ? 'play' : 'chat', badgeTone: v.first_played_at ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-300',
             label: v.contact_name, sub: v.vehicle, onclick: `openPublicVideoLink('${v.share_token}', '${v.contact_id}')`,
           })).join(''), empty: 'No customer videos sent today.',
         }),
-        pulseSearchCard({ title: 'Inventory', placeholder: 'Search inventory by year, make or model', onclick: "switchPage('inventory-overview')" }),
+        pulseSearchCard({ title: 'Inventory', placeholder: 'Search inventory by year, make or model', tier: 'compact', onclick: "switchPage('inventory-overview')" }),
         pulseCard({
           title: 'Follow-up tasks', count: (d.tasks || []).length,
+          tier: overdue.length ? 'feature' : 'standard',
           onclick: "engineTab('sales','work')",
           inner: [
             pulseRow({ badge: taskByType.lead_followup, label: 'New leads' }),
@@ -420,7 +422,7 @@ ENGINES['sales'] = {
           ].join(''),
         }),
         pulseCard({
-          title: 'Sales stats — last 30 days', tone: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
+          title: 'Sales stats — last 30 days', tier: 'standard', tone: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
           onclick: "openDeptReport('sales')",
           inner: d.insights ? [
             pulseRow({ badge: f.leads ?? '—', label: 'Leads' }),
@@ -430,7 +432,7 @@ ENGINES['sales'] = {
           ].join('') : '', empty: 'Performance could not be loaded.',
         }),
         pulseCard({
-          title: "Today's appointments", count: todays.length,
+          title: "Today's appointments", count: todays.length, tier: 'standard',
           onclick: "switchPage('appointments')",
           inner: todays.length ? todays.slice(0, 6).map(a => pulseRow({
             icon: 'calendar', label: a.customer_name || 'Customer',
@@ -440,6 +442,7 @@ ENGINES['sales'] = {
         }),
         pulseCard({
           title: 'Deliveries', count: d.deliveries == null ? '—' : d.deliveries.length,
+          tier: 'standard',
           onclick: "switchPage('delivery')",
           inner: d.deliveries == null ? '' : d.deliveries.slice(0, 6).map(x => pulseRow({
             icon: 'check', label: x.customer_name || x.contact_name || 'Delivery',
@@ -449,6 +452,7 @@ ENGINES['sales'] = {
         }),
         pulseCard({
           title: 'Active opportunities', count: open.length,
+          tier: newLeads.length ? 'feature' : 'standard',
           onclick: "engineTab('sales','work')",
           inner: open.length ? open.slice(0, 7).map(c => pulseRow({
             badge: c.status === 'uncontacted' ? '!' : '#',
