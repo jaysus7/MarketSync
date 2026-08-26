@@ -21,12 +21,12 @@ function buildMarketingSuiteConfig(key) {
   if (key === 'digital') {
     const navItems = [
       suiteItem('marketing-overview', 'Pulse', 'chart', { tab: 'overview' }),
+      suiteItem('inventory', 'Facebook Auto Poster', 'megaphone', { invmode: 'facebook' }),
       suiteItem('website', 'Dealer Website', 'globe', { tab: 'setup' }),
       suiteItem('seo', 'MarketSync SEO', 'chart', { tab: 'overview' }),
       suiteItem('ai-home', 'AI Customer Agent', 'sparkles', { tab: 'conversations' }),
       suiteItem('studio', 'Design Studio', 'camera', { studioLaunch: true }),
       suiteItem('social-scheduler', 'Social Studio & Scheduler', 'calendar'),
-      suiteItem('inventory', 'Facebook Marketplace', 'megaphone', { invmode: 'facebook' }),
       suiteItem('video-studio', 'Video', 'video'),
       suiteItem('automation-builder', 'Email, SMS & Campaigns', 'chat', { tab: 'overview' }),
     ];
@@ -61,8 +61,8 @@ function buildMarketingSuiteConfig(key) {
       sections: [{ title: definition.badge.toUpperCase(), items: navItems }],
       mobileQuickRow: [
         suiteItem('marketing-overview', 'Pulse', 'chart', { tab: 'overview' }),
+        suiteItem('inventory', 'Auto Poster', 'megaphone', { invmode: 'facebook' }),
         suiteItem('website', 'Website', 'globe', { tab: 'setup' }),
-        suiteItem('video-studio', 'Video', 'video'),
       ],
     };
   }
@@ -83,6 +83,7 @@ function buildMarketingSuiteConfig(key) {
     navItems.push(suiteItem('marketing-overview', 'Service Marketing', 'wrench', { tab: 'service_overview' }));
   }
   navItems.push(
+    suiteItem('inventory', 'Facebook Auto Poster', 'megaphone', { invmode: 'facebook' }),
     suiteItem('automation-builder', 'Email, SMS & Campaigns', 'chat', { tab: 'overview' }),
     suiteItem('studio', 'Design Studio', 'camera', { studioLaunch: true }),
     suiteItem('social-scheduler', 'Social Studio & Scheduler', 'calendar'),
@@ -593,6 +594,25 @@ function mktDigitalPulseOverview(body, d, cfg, dayCaveat = '') {
     <div class="space-y-10 md:space-y-12 ms-digital-suite">
       ${dayCaveat}
 
+      <section class="ms-c ms-c--glass ms-c--hero p-5">
+        <div class="flex items-start gap-3">
+          <div class="w-12 h-12 rounded-2xl bg-[#1877F2]/10 text-[#1877F2] border border-[#1877F2]/25 flex items-center justify-center flex-shrink-0">
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M22 12.07C22 6.48 17.52 2 11.93 2S2 6.48 2 12.07c0 5.02 3.66 9.18 8.44 9.93v-7.02H7.9v-2.91h2.54V9.84c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.87h2.78l-.44 2.91h-2.34V22c4.78-.75 8.44-4.91 8.44-9.93z"/></svg>
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <h2 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">Facebook Auto Poster</h2>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#1877F2]/10 text-[#1877F2] border border-[#1877F2]/25">${invCount} units</span>
+            </div>
+            <p class="text-sm text-slate-600 dark:text-slate-300 mt-1">Sync inventory and post to Marketplace in one click. This is the lead feature on Digital.</p>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button type="button" onclick="deptGo('inventory','facebook')" class="px-4 py-2 rounded-xl bg-[#1877F2] hover:bg-[#166fe0] text-white text-xs font-black">Open Auto Poster</button>
+              <button type="button" onclick="deptGo('inventory','facebook')" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold">Sync inventory</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- 8 Live Connected Metric Tiles -->
       <section aria-label="Digital operational metrics" class="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-4 md:gap-5">
         <div class="ms-glass rounded-2xl p-4 min-w-0">
@@ -969,10 +989,10 @@ ENGINES['marketing-overview'] = {
   get subtitle() {
     try {
       const key = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;
-      if (key === 'digital') return 'Website, SEO, AI agent, design, social, marketplace, video, and campaigns in one digital suite.';
-      if (key === 'sales') return 'Sales campaigns, automations, social, video, and lead-response journeys.';
-      if (key === 'service') return 'Service retention, reviews, reminders, and service marketing workflows.';
-      if (key === 'complete') return 'Sales and service marketing — campaigns, automations, social, video, and journeys.';
+      if (key === 'digital') return 'Facebook Auto Poster first — then website, SEO, AI, design, social, video, and campaigns.';
+      if (key === 'sales') return 'Facebook Auto Poster, sales campaigns, automations, social, and video.';
+      if (key === 'service') return 'Facebook Auto Poster, service retention, reviews, and service marketing.';
+      if (key === 'complete') return 'Facebook Auto Poster first — then sales and service campaigns, social, and video.';
     } catch {}
     return 'Campaigns, automations, and marketing workflows.';
   },
@@ -1011,6 +1031,7 @@ ENGINES['marketing-overview'] = {
   },
 
   quickActions: [
+    { label: 'Facebook Auto Poster', icon: 'megaphone', onclick: "deptGo('inventory','facebook')" },
     { label: 'New Automation Workflow', icon: 'bolt', onclick: "openAutoCreateModal()" },
     { label: 'New Campaign', icon: 'megaphone', onclick: "openEmailSmsBuilder()" },
     { label: 'Browse Template Library', icon: 'document', onclick: "autoTab('templates')" },
