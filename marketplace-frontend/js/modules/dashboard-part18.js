@@ -2666,28 +2666,28 @@ function renderVisualBuilderModal() {
 
   const modal = document.createElement('div');
   modal.id = 'visual-workflow-builder-modal';
-  modal.className = 'fixed inset-0 z-50 bg-slate-950/95 flex flex-col text-slate-100 select-none overflow-hidden';
+  modal.className = 'fixed inset-0 z-50 bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col select-none overflow-hidden';
 
   modal.innerHTML = `
     <!-- Top Toolbar Header -->
-    <header class="h-14 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between flex-shrink-0 z-20">
+    <header class="h-14 ms-glass bg-white/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between flex-shrink-0 z-20 backdrop-blur-md">
       <!-- Left: Back & Workflow Title -->
       <div class="flex items-center gap-3">
-        <button onclick="closeVisualBuilder()" title="Back to Automations" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition">
+        <button onclick="closeVisualBuilder()" title="Back to Automations" class="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
         </button>
         <div>
           <div class="flex items-center gap-2">
-            <input id="vb-title-input" value="${esc(__vb.wfName)}" onchange="__vb.wfName = this.value; saveVbHistory();" class="bg-transparent hover:bg-slate-800/60 focus:bg-slate-800 px-2 py-0.5 rounded-lg text-sm font-black text-white border border-transparent focus:border-slate-700 outline-none w-64 md:w-80 truncate">
+            <input id="vb-title-input" value="${esc(__vb.wfName)}" onchange="__vb.wfName = this.value; saveVbHistory();" class="bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800/60 focus:bg-slate-50 dark:focus:bg-slate-800 px-2 py-0.5 rounded-lg text-sm font-black text-slate-900 dark:text-white border border-transparent focus:border-slate-300 dark:focus:border-slate-700 outline-none w-64 md:w-80 truncate">
             <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 font-mono">${esc(__vb.category)}</span>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">v2.1</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">v2.1</span>
           </div>
         </div>
       </div>
 
       <!-- Center: Canvas Controls & Tools -->
-      <div class="hidden md:flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
-        <button onclick="toggleVbMode()" id="vb-mode-toggle" class="px-2.5 py-1 rounded-lg font-bold transition ${__vb.mode === 'simple' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}">Simple Mode</button>
+      <div class="hidden md:flex items-center gap-1 bg-slate-50 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
+        <button onclick="toggleVbMode()" id="vb-mode-toggle" class="px-2.5 py-1 rounded-lg font-bold transition ${__vb.mode === 'simple' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}">Simple Mode</button>
         <div class="w-px h-4 bg-slate-800 mx-1"></div>
         <button onclick="vbUndo()" title="Undo (Ctrl+Z)" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/></svg>
@@ -2711,10 +2711,10 @@ function renderVisualBuilderModal() {
         <button onclick="openVbAiModal()" class="px-3 py-1.5 rounded-xl bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/40 text-xs font-bold flex items-center gap-1.5 transition">
           ${vbSvg('sparkles', 'w-3.5 h-3.5')} Build with AI
         </button>
-        <button onclick="openVbTemplatesModal()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition">
+        <button onclick="openVbTemplatesModal()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-700 text-xs font-bold transition">
           Templates
         </button>
-        <button onclick="openVbTestModal()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition">
+        <button onclick="openVbTestModal()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-700 text-xs font-bold transition">
           Test Run
         </button>
         <button onclick="openVbHistoryModal()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 text-xs transition" title="Version History & Runs">
@@ -2729,8 +2729,8 @@ function renderVisualBuilderModal() {
     <!-- Canvas Main Workspace -->
     <div class="flex-1 flex overflow-hidden relative">
       <!-- Left Drawer: Node Library Palette -->
-      <aside id="vb-palette" class="w-72 bg-slate-900/90 backdrop-blur-md border-r border-slate-800 flex flex-col flex-shrink-0 z-10">
-        <div class="p-3 border-b border-slate-800">
+      <aside id="vb-palette" class="w-72 ms-glass bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-r border-slate-200 dark:border-slate-800 flex flex-col flex-shrink-0 z-10">
+        <div class="p-3 border-b border-slate-200 dark:border-slate-800">
           <input id="vb-palette-search" placeholder="Search triggers, actions, logic..." oninput="filterVbPalette(this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:border-indigo-500 outline-none">
           <div class="flex gap-1 mt-2 text-[10px] font-bold">
             <button onclick="filterVbPaletteCat('all')" class="px-2 py-0.5 rounded-md bg-slate-800 text-white">All</button>
@@ -2746,7 +2746,13 @@ function renderVisualBuilderModal() {
       </aside>
 
       <!-- Center Interactive Canvas -->
-      <div id="vb-canvas-viewport" class="flex-1 h-full overflow-hidden relative bg-slate-950 cursor-grab active:cursor-grabbing">
+      <div id="vb-canvas-viewport" class="flex-1 h-full overflow-hidden relative bg-slate-100 dark:bg-slate-950 cursor-grab active:cursor-grabbing">
+         <style>
+           #vb-canvas-viewport { background-image: radial-gradient(circle, rgba(148,163,184,0.35) 1px, transparent 1px); background-size: 20px 20px; }
+           .dark #vb-canvas-viewport, html.dark #vb-canvas-viewport { background-image: radial-gradient(circle, rgba(51,65,85,0.55) 1px, transparent 1px); }
+           #visual-workflow-builder-modal .vb-node-card { background: rgba(255,255,255,0.92); }
+           .dark #visual-workflow-builder-modal .vb-node-card, html.dark #visual-workflow-builder-modal .vb-node-card { background: rgba(15,23,42,0.92); }
+         </style>
         <!-- Background Grid Pattern -->
         <svg class="absolute inset-0 w-full h-full pointer-events-none opacity-20">
           <defs>
@@ -2814,12 +2820,12 @@ function renderPaletteCategories(filterText = '', filterCat = 'all') {
         <div class="text-[10px] font-black uppercase tracking-wider ${g.color} mb-2">${esc(g.name)}</div>
         <div class="space-y-1.5">
           ${matched.map(item => `
-            <div onclick="addNodeFromPalette('${item.type}')" draggable="true" class="p-2.5 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800/80 hover:border-slate-700 transition cursor-pointer flex items-start gap-2.5 group">
-              <div class="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center text-slate-300 group-hover:text-white flex-shrink-0">
+            <div onclick="addNodeFromPalette('${item.type}')" draggable="true" class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/80 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700 transition cursor-pointer flex items-start gap-2.5 group">
+              <div class="w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white flex-shrink-0">
                 ${vbSvg(item.icon, 'w-3.5 h-3.5')}
               </div>
               <div class="min-w-0 flex-1">
-                <div class="text-xs font-bold text-slate-200 group-hover:text-white truncate">${esc(item.label)}</div>
+                <div class="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white truncate">${esc(item.label)}</div>
                 <div class="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1">${esc(item.desc)}</div>
               </div>
             </div>
@@ -2910,14 +2916,14 @@ function renderVbNodes() {
       : cat === 'ai' ? 'bg-violet-500/20 text-violet-400 border-violet-500/30'
       : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
 
-    const cardBorder = isSelected ? 'border-indigo-500 ring-2 ring-indigo-500/40 shadow-xl' : 'border-slate-800 hover:border-slate-700';
+    const cardBorder = isSelected ? 'border-indigo-500 ring-2 ring-indigo-500/40 shadow-xl' : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600';
 
     const isIfElse = n.type === 'logic_if_else';
     const isStop = n.type === 'logic_stop';
     const isTrigger = cat === 'trigger';
 
     return `
-      <div id="vb-node-${n.id}" onmousedown="onVbNodeMouseDown(event, '${n.id}')" onclick="selectVbNode('${n.id}')" class="absolute w-64 bg-slate-900/95 backdrop-blur-md border ${cardBorder} rounded-2xl p-3.5 shadow-lg cursor-move transition-all select-none space-y-2" style="left: ${n.x}px; top: ${n.y}px;">
+      <div id="vb-node-${n.id}" onmousedown="onVbNodeMouseDown(event, '${n.id}')" onclick="selectVbNode('${n.id}')" class="vb-node-card absolute w-64 ms-c--glass backdrop-blur-md border ${cardBorder} rounded-2xl p-3.5 shadow-lg cursor-move transition-all select-none space-y-2 text-slate-900 dark:text-slate-100" style="left: ${n.x}px; top: ${n.y}px;">
         <!-- In Port (Top Handle) -->
         ${!isTrigger ? `
           <div title="Input Port" class="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-slate-800 border-2 border-indigo-500 shadow-xs flex items-center justify-center cursor-crosshair">
@@ -2928,7 +2934,7 @@ function renderVbNodes() {
         <!-- Header -->
         <div class="flex items-start justify-between gap-2">
           <div class="flex items-center gap-2 min-w-0">
-            <div class="w-6 h-6 rounded-lg bg-slate-800 flex items-center justify-center text-slate-300 flex-shrink-0">
+            <div class="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-300 flex-shrink-0">
               ${vbSvg(n.icon || 'mail', 'w-3.5 h-3.5')}
             </div>
             <div class="min-w-0">
@@ -3021,7 +3027,7 @@ function renderNodeInspectorContent(node, container) {
 
   container.innerHTML = `
     <div class="space-y-4">
-      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
         <div>
           <div class="text-[10px] font-mono font-black uppercase text-indigo-400 tracking-wider">Node Inspector</div>
           <h3 class="text-sm font-black text-white mt-0.5">${esc(node.label)}</h3>
@@ -3032,7 +3038,7 @@ function renderNodeInspectorContent(node, container) {
       <!-- Node Label -->
       <div>
         <label class="block text-[11px] font-bold text-slate-400 mb-1">Step Label</label>
-        <input value="${esc(node.label)}" onchange="updateVbNodeConfig('${node.id}', 'label', this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
+        <input value="${esc(node.label)}" onchange="updateVbNodeConfig('${node.id}', 'label', this.value)" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
       </div>
 
       <!-- Logic Wait Config -->
@@ -3040,11 +3046,11 @@ function renderNodeInspectorContent(node, container) {
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="block text-[11px] font-bold text-slate-400 mb-1">Duration</label>
-            <input type="number" min="1" value="${node.config.delay_value || 90}" onchange="updateVbNodeConfig('${node.id}', 'delay_value', parseInt(this.value))" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-white">
+            <input type="number" min="1" value="${node.config.delay_value || 90}" onchange="updateVbNodeConfig('${node.id}', 'delay_value', parseInt(this.value))" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white">
           </div>
           <div>
             <label class="block text-[11px] font-bold text-slate-400 mb-1">Unit</label>
-            <select onchange="updateVbNodeConfig('${node.id}', 'delay_unit', this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-white">
+            <select onchange="updateVbNodeConfig('${node.id}', 'delay_unit', this.value)" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white">
               <option value="seconds" ${node.config.delay_unit === 'seconds' ? 'selected' : ''}>Seconds</option>
               <option value="minutes" ${node.config.delay_unit === 'minutes' ? 'selected' : ''}>Minutes</option>
               <option value="hours" ${node.config.delay_unit === 'hours' ? 'selected' : ''}>Hours</option>
@@ -3063,7 +3069,7 @@ function renderNodeInspectorContent(node, container) {
         <div class="space-y-2">
           <div>
             <label class="block text-[11px] font-bold text-slate-400 mb-1">Condition Rule</label>
-            <select onchange="updateVbNodeConfig('${node.id}', 'condition_field', this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
+            <select onchange="updateVbNodeConfig('${node.id}', 'condition_field', this.value)" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
               <option value="human_replied" ${node.config.condition_field === 'human_replied' ? 'selected' : ''}>Customer or Rep Replied</option>
               <option value="appointment_exists" ${node.config.condition_field === 'appointment_exists' ? 'selected' : ''}>Appointment Exists on File</option>
               <option value="lead_stage" ${node.config.condition_field === 'lead_stage' ? 'selected' : ''}>Lead Stage Equals</option>
@@ -3096,7 +3102,7 @@ function renderNodeInspectorContent(node, container) {
 
         <div>
           <label class="block text-[11px] font-bold text-slate-400 mb-1">Sender Persona</label>
-          <select onchange="updateVbNodeConfig('${node.id}', 'sender_identity', this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-white">
+          <select onchange="updateVbNodeConfig('${node.id}', 'sender_identity', this.value)" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white">
             <option value="rep" ${node.config.sender_identity === 'rep' ? 'selected' : ''}>Assigned Sales Rep</option>
             <option value="house" ${node.config.sender_identity === 'house' ? 'selected' : ''}>Dealership Store General</option>
             <option value="dynamic" ${node.config.sender_identity === 'dynamic' ? 'selected' : ''}>Dynamic Smart Switch</option>
@@ -3106,7 +3112,7 @@ function renderNodeInspectorContent(node, container) {
         ${(node.type === 'action_send_email' || node.type === 'action_send_ai_email') ? `
           <div>
             <label class="block text-[11px] font-bold text-slate-400 mb-1">Email Subject</label>
-            <input value="${esc(node.config.subject_template || '')}" placeholder="e.g. Thanks for visiting {{dealership.name}}" onchange="updateVbNodeConfig('${node.id}', 'subject_template', this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
+            <input value="${esc(node.config.subject_template || '')}" placeholder="e.g. Thanks for visiting {{dealership.name}}" onchange="updateVbNodeConfig('${node.id}', 'subject_template', this.value)" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
           </div>
         ` : ''}
 
@@ -3133,7 +3139,7 @@ function renderNodeInspectorContent(node, container) {
       ${node.type === 'logic_stop' ? `
         <div>
           <label class="block text-[11px] font-bold text-slate-400 mb-1">Stop Reason / Goal</label>
-          <input value="${esc(node.config.reason || 'Goal achieved')}" onchange="updateVbNodeConfig('${node.id}', 'reason', this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
+          <input value="${esc(node.config.reason || 'Goal achieved')}" onchange="updateVbNodeConfig('${node.id}', 'reason', this.value)" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
         </div>
       ` : ''}
 
@@ -4170,7 +4176,7 @@ function renderEsbEmailStudio() {
                     ${b.icon}
                   </div>
                   <div class="min-w-0 flex-1">
-                    <div class="text-xs font-bold text-slate-200 group-hover:text-white truncate">${esc(b.name)}</div>
+                    <div class="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white truncate">${esc(b.name)}</div>
                     <div class="text-[10px] text-slate-500 line-clamp-1">${esc(b.desc)}</div>
                   </div>
                 </div>
@@ -4191,7 +4197,7 @@ function renderEsbEmailStudio() {
                     ${b.icon}
                   </div>
                   <div class="min-w-0 flex-1">
-                    <div class="text-xs font-bold text-slate-200 group-hover:text-white truncate">${esc(b.name)}</div>
+                    <div class="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white truncate">${esc(b.name)}</div>
                     <div class="text-[10px] text-slate-500 line-clamp-1">${esc(b.desc)}</div>
                   </div>
                 </div>
@@ -4629,7 +4635,7 @@ function renderEsbSmsStudio() {
         <!-- Sender Persona Selector -->
         <div>
           <label class="block text-[11px] font-bold text-slate-400 mb-1">Sender Persona</label>
-          <select onchange="__esb.sms.sender = this.value; renderEsbSmsPreviewBubble();" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-white">
+          <select onchange="__esb.sms.sender = this.value; renderEsbSmsPreviewBubble();" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white">
             <option value="rep" ${__esb.sms.sender === 'rep' ? 'selected' : ''}>Assigned Sales Specialist (Direct 1-to-1)</option>
             <option value="store" ${__esb.sms.sender === 'store' ? 'selected' : ''}>Dealership Main Channel (Store Brand)</option>
             <option value="service" ${__esb.sms.sender === 'service' ? 'selected' : ''}>Service Advisor Hotline</option>
