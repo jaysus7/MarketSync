@@ -708,7 +708,7 @@ ENGINES['parts-overview'] = {
         }),
         pulseSearchCard({ title: 'Inventory', placeholder: 'Search parts by number or description', count: parts.length, tier: 'compact', onclick: "engineTab('parts-overview','work')" }),
         pulseCard({
-          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', tier: att.length ? 'tall' : 'standard',
+          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', tier: att.length ? 'hero' : 'standard',
           inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '', empty: 'Nothing is waiting on Parts.',
         }),
         pulseCard({
