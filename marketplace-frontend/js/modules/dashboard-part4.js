@@ -295,12 +295,15 @@ window.crmQuickStatus = crmQuickStatus;
 
 // ── Contact detail modal ─────────────────────────────────────────────────────
 function crmOverlay(inner, maxW = 'max-w-2xl') {
-  const el = document.createElement('div');
-  el.className = 'ms-modal-scrim fixed inset-0 z-[9998] flex items-start md:items-center justify-center p-3 overflow-y-auto';
+  let el = document.querySelector('.ms-modal-scrim');
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'ms-modal-scrim fixed inset-0 z-[9998] flex items-start md:items-center justify-center p-3 overflow-y-auto';
+    el.addEventListener('click', (ev) => { if (ev.target === el) el.remove(); });
+    document.addEventListener('keydown', function esc2(ev) { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', esc2); } });
+    document.body.appendChild(el);
+  }
   el.innerHTML = `<div class="ms-crm-glass w-full ${maxW} my-4 max-h-[92vh] overflow-y-auto" onclick="event.stopPropagation()">${inner}</div>`;
-  el.addEventListener('click', () => el.remove());
-  document.addEventListener('keydown', function esc2(ev) { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', esc2); } });
-  document.body.appendChild(el);
   return el;
 }
 // Can the current user make changes to this contact? Managers/admins always can;
@@ -1153,8 +1156,11 @@ function crmInsertCallTemplate(text) {
   }
 }
 
+let __crmEndingCall = false;
 async function crmEndInAppCall(contactId, name, phone) {
-  if (__crmActiveCallTimer) clearInterval(__crmActiveCallTimer);
+  if (__crmEndingCall) return;
+  __crmEndingCall = true;
+  if (__crmActiveCallTimer) { clearInterval(__crmActiveCallTimer); __crmActiveCallTimer = null; }
 
   const elapsedSec = Math.max(1, Math.floor((Date.now() - __crmCallStartTime) / 1000));
   const m = Math.floor(elapsedSec / 60);
@@ -1175,9 +1181,12 @@ async function crmEndInAppCall(contactId, name, phone) {
     if (typeof showToast === 'function') {
       showToast(`Call ended! Recorded length (${durationText}) in customer timeline.`, 'success');
     }
-    openCrmContact(contactId);
+    if (typeof crmDetailFormSlot === 'function') crmDetailFormSlot('');
+    await openCrmContact(contactId);
   } catch (err) {
     if (typeof showToast === 'function') showToast(err.message || 'Error saving call log', 'error');
+  } finally {
+    __crmEndingCall = false;
   }
 }
 
