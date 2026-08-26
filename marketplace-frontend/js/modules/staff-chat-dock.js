@@ -517,6 +517,11 @@
     startStaffChatDock();
     // Role-aware department navigation resolves asynchronously and can finish
     // after fixed boot delays. Reconcile on the actual nav mutation so the full
+    try {
+      const raw = localStorage.getItem('ms_team_chat_settings');
+      if (raw) window.__teamChatSettings = { ...(window.__teamChatSettings || {}), ...JSON.parse(raw) };
+      if (typeof applyTeamChatSettings === 'function') applyTeamChatSettings(window.__teamChatSettings);
+    } catch {}
     // DealerOS shell—not timing—decides whether Team Chat is visible.
     const nav = document.getElementById('dept-nav');
     if (nav && typeof MutationObserver === 'function') {
