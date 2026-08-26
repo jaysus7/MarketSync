@@ -152,7 +152,10 @@ function vidDeptForRole(explicitDept) {
   const role = window.profileContext?.role || window.__user?.role;
   if (role === 'SERVICE') return 'Service';
   if (role === 'SALES_REP') return 'Sales';
-  return explicitDept === 'Service' ? 'Service' : 'Sales';
+  const raw = String(explicitDept || '').toLowerCase();
+  if (raw === 'service') return 'Service';
+  if (raw === 'marketing' || raw === 'marketsync') return 'Marketing';
+  return 'Sales';
 }
 window.vidDeptForRole = vidDeptForRole;
 
@@ -1579,6 +1582,7 @@ window.closePublicVideoPlayer = closePublicVideoPlayer;
 let __videoLibraryTab = 'videos';
 let __videoLibraryFilterStatus = 'all';
 let __videoLibraryFilterDept = 'all';
+let __videoStudioLane = localStorage.getItem('ms_video_lane') || 'sales';
 let __videoLibrarySearch = '';
 
 let __videoLibraryVideos = [];
@@ -1641,7 +1645,13 @@ function renderVideoStudioWorkspace(videos, isSaas = false) {
   const filtered = videos.filter(v => {
     if (isSaas && String(v.department || '').toLowerCase() === 'service') return false;
     if (__videoLibraryFilterStatus !== 'all' && v.status !== __videoLibraryFilterStatus) return false;
-    if (__videoLibraryFilterDept !== 'all' && v.department.toLowerCase() !== __videoLibraryFilterDept.toLowerCase()) return false;
+    const lane = (typeof __videoStudioLane !== 'undefined' && __videoStudioLane) || 'sales';
+    if (!isSaas && lane !== 'all') {
+      const dept = String(v.department || '').toLowerCase();
+      if (lane === 'sales' && !dept.includes('sale')) return false;
+      if (lane === 'service' && !dept.includes('service')) return false;
+      if (lane === 'marketing' && !(dept.includes('market') || dept.includes('social') || dept === 'all')) return false;
+    } else if (__videoLibraryFilterDept !== 'all' && String(v.department || '').toLowerCase() !== __videoLibraryFilterDept.toLowerCase()) return false;
     if (__videoLibrarySearch) {
       const q = __videoLibrarySearch.toLowerCase();
       const match = (v.title || '').toLowerCase().includes(q) ||
@@ -1667,10 +1677,10 @@ function renderVideoStudioWorkspace(videos, isSaas = false) {
                 <h1 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-none">${isSaas ? 'Product Video Studio' : 'MarketSync Video'}</h1>
                 <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/10 text-violet-800 dark:text-violet-300 border border-violet-500/25">${isSaas ? 'Product' : 'Feature'}</span>
               </div>
-              <p class="text-sm text-slate-600 dark:text-slate-300 mt-1 max-w-2xl leading-relaxed">${isSaas ? 'Customer demos, onboarding, product updates, and watch-time evidence.' : 'Record, send, and library customer videos for sales and service — one studio.'}</p>
+              <p class="text-sm text-slate-600 dark:text-slate-300 mt-1 max-w-2xl leading-relaxed">${isSaas ? 'Customer demos, onboarding, product updates, and watch-time evidence.' : (__videoStudioLane === 'marketing' ? 'Record inventory and offer videos, save them to the marketing library, and post.' : __videoStudioLane === 'service' ? 'Record a video for a service customer and send it with the RO.' : 'Record a video for a sales customer and send it with the deal.')}</p>
             </div>
           </div>
-          <button onclick="openCustomerVideoStudio('', ${isSaas ? "{department:'MarketSync',scriptKey:'product_demo'}" : '{}'} )" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer flex-shrink-0">
+          <button onclick="msRecordForLane()" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer flex-shrink-0">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
             Record Video
           </button>
@@ -1687,10 +1697,9 @@ function renderVideoStudioWorkspace(videos, isSaas = false) {
             `).join('')}
           </div>
 
-          <div class="${isSaas ? 'hidden' : 'flex'} items-center gap-2">
-            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400">Dept</span>
-            ${(isSaas ? ['all'] : ['all', 'sales', 'service']).map(dp => `
-              <button onclick="msFilterVideoDept('${dp}')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition capitalize ${__videoLibraryFilterDept === dp ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'}">${dp}</button>
+          <div class="${isSaas ? 'hidden' : 'flex'} items-center gap-2 flex-wrap">
+            ${['sales','service','marketing'].map(dp => `
+              <button type="button" onclick="msSetVideoLane('${dp}')" class="px-3.5 py-1.5 rounded-full text-xs font-black transition capitalize ${__videoStudioLane === dp ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200'}">${dp === 'sales' ? 'Sales' : dp === 'service' ? 'Service' : 'Marketing'}</button>
             `).join('')}
           </div>
         </div>
@@ -1754,7 +1763,7 @@ function renderVideoCardHtml(v, isSaas = false) {
 
       <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
         <button onclick="openPublicVideoLink('${v.share_token}')" class="flex-1 py-1.5 px-3 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 transition text-center">Preview</button>
-        <button onclick="simCustomerWatchVideo('${v.share_token}', '${v.contact_id}')" class="py-1.5 px-3 rounded-lg bg-violet-600 hover:bg-violet-700 text-xs font-bold text-white transition">Simulate View</button>
+        ${(__videoStudioLane === 'marketing' || String(v.department||'').toLowerCase().includes('market')) ? `<button onclick="msPostMarketingVideo('${v.id || v.share_token}')" class="py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white">Post</button>` : `<button onclick="simCustomerWatchVideo('${v.share_token}', '${v.contact_id}')" class="py-1.5 px-3 rounded-lg bg-violet-600 hover:bg-violet-700 text-xs font-bold text-white transition">Send / View</button>`}
       </div>
     </div>
   `;
@@ -1762,11 +1771,13 @@ function renderVideoCardHtml(v, isSaas = false) {
 
 function msFilterVideoStatus(status) {
   __videoLibraryFilterStatus = status;
-  document.getElementById('saas-video-studio-host') ? loadSaasVideoStudio() : loadVideoStudioPage();
+  const host = document.getElementById('mkt-video-studio-mount') || document.getElementById('saas-video-studio-host') || document.getElementById('video-studio-root');
+  document.getElementById('saas-video-studio-host') ? loadSaasVideoStudio() : loadVideoStudioPage(host);
 }
 function msFilterVideoDept(dept) {
   __videoLibraryFilterDept = dept;
-  loadVideoStudioPage();
+  const host = document.getElementById('mkt-video-studio-mount') || document.getElementById('video-studio-root');
+  loadVideoStudioPage(host);
 }
 function msSearchVideos(val) {
   __videoLibrarySearch = val;
@@ -1820,4 +1831,32 @@ window.openStudioTeleprompterRecorder = function openStudioTeleprompterRecorder(
     department: 'Sales',
     initialScript: text || undefined,
   });
+};
+
+
+window.msSetVideoLane = function (lane) {
+  window.__videoStudioLane = __videoStudioLane = lane;
+  try { localStorage.setItem('ms_video_lane', lane); } catch {}
+  const host = document.getElementById('mkt-video-studio-mount') || document.getElementById('video-studio-root');
+  if (typeof loadVideoStudioPage === 'function') loadVideoStudioPage(host);
+};
+
+window.msRecordForLane = function () {
+  const lane = window.__videoStudioLane || 'sales';
+  if (lane === 'marketing') {
+    return openCustomerVideoStudio('', { department: 'Marketing', studioMode: true, scriptKey: 'lot_update' });
+  }
+  if (lane === 'service') {
+    return openCustomerVideoStudio('', { department: 'Service' });
+  }
+  return openCustomerVideoStudio('', { department: 'Sales' });
+};
+
+window.msPostMarketingVideo = function (id) {
+  if (typeof switchPage === 'function') {
+    try { sessionStorage.setItem('ms_video_post_id', id || ''); } catch {}
+    if (typeof engineTab === 'function') engineTab('marketing-overview', 'campaigns');
+    else switchPage('facebook-poster');
+  }
+  if (typeof showToast === 'function') showToast('Video saved to the marketing library. Open Social / Campaigns to post it.', 'success');
 };
