@@ -82,6 +82,7 @@ let __settingsTab = 'account';
 const SETTINGS_TAB_SECTIONS = {
   account: ['profile-form', 'security-section', 'settings-my-record', 'settings-language-card'],
   admin: ['settings-team', 'billing-section', 'integrations-section', 'settings-texting-card', 'groups-settings-section', 'dealer-features-card', 'email-sending-card'],
+  team_chat: ['settings-team-chat-card'],
   hr: ['settings-hr-card'],
   sales: ['crm-dms-card', 'desk-fees-card', 'dealer-docs-card', 'guardrail-settings-section'],
   marketing: ['prof-branding-section', 'ai-boost-section'],
@@ -178,6 +179,7 @@ function settingsTab(tab) {
     }
   }
   if (tab === 'sales') { if (typeof loadDeskFeeSettings === 'function') loadDeskFeeSettings(); if (typeof loadDealerDocs === 'function') loadDealerDocs(); }
+  if (tab === 'team_chat' && typeof loadTeamChatSettings === 'function') loadTeamChatSettings();
 }
 window.settingsTab = settingsTab;
 
@@ -1414,6 +1416,115 @@ async function toggleDealerFeature(key, on) {
   }
 }
 window.loadDealerFeatures = loadDealerFeatures;
+
+const TEAM_CHAT_DEFAULTS = {
+  enabled: true,
+  staffAccess: 'all', // all | managers
+  sound: true,
+  desktopNotify: true,
+  channels: { general: true, sales: true, service: true, parts: true, recon: true },
+};
+function teamChatSettings() {
+  return { ...TEAM_CHAT_DEFAULTS, ...(window.__teamChatSettings || {}) };
+}
+async function loadTeamChatSettings() {
+  const root = document.getElementById('team-chat-settings-root');
+  if (!root) return;
+  let cfg = { ...TEAM_CHAT_DEFAULTS };
+  try {
+    const d = await apiGetJson('/config/team_chat');
+    if (d && d.value && typeof d.value === 'object') cfg = { ...cfg, ...d.value };
+  } catch (e) {
+    try {
+      const raw = localStorage.getItem('ms_team_chat_settings');
+      if (raw) cfg = { ...cfg, ...JSON.parse(raw) };
+    } catch {}
+  }
+  window.__teamChatSettings = cfg;
+  renderTeamChatSettings(root, cfg);
+  applyTeamChatSettings(cfg);
+}
+function renderTeamChatSettings(root, cfg) {
+  const ch = cfg.channels || TEAM_CHAT_DEFAULTS.channels;
+  const toggle = (key, on) => `<button type="button" onclick="toggleTeamChatSetting('${key}', ${!on})" class="shrink-0 w-9 h-5 rounded-full transition ${on ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'} relative"><span class="absolute top-0.5 w-4 h-4 bg-white rounded-full transition" style="left:${on ? '18px' : '2px'}"></span></button>`;
+  root.innerHTML = `
+    <label class="flex items-center justify-between gap-3 py-2 border-b border-slate-100 dark:border-slate-800">
+      <span><div class="text-sm font-bold text-slate-800 dark:text-slate-100">Enable Team Chat</div><div class="text-[12px] text-slate-500">Shows the chat bubble for people who are allowed to use it.</div></span>
+      ${toggle('enabled', cfg.enabled !== false)}
+    </label>
+    <div class="py-2 border-b border-slate-100 dark:border-slate-800">
+      <div class="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">Who can use Team Chat</div>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" onclick="setTeamChatAccess('all')" class="px-3 py-1.5 rounded-full text-xs font-bold border ${cfg.staffAccess !== 'managers' ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}">All staff</button>
+        <button type="button" onclick="setTeamChatAccess('managers')" class="px-3 py-1.5 rounded-full text-xs font-bold border ${cfg.staffAccess === 'managers' ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}">Managers &amp; admins only</button>
+      </div>
+    </div>
+    <label class="flex items-center justify-between gap-3 py-2 border-b border-slate-100 dark:border-slate-800">
+      <span><div class="text-sm font-bold text-slate-800 dark:text-slate-100">Message sound</div><div class="text-[12px] text-slate-500">Play a sound when a new internal message arrives.</div></span>
+      ${toggle('sound', cfg.sound !== false)}
+    </label>
+    <label class="flex items-center justify-between gap-3 py-2 border-b border-slate-100 dark:border-slate-800">
+      <span><div class="text-sm font-bold text-slate-800 dark:text-slate-100">Desktop notifications</div><div class="text-[12px] text-slate-500">Ask the browser to notify when Team Chat is in the background.</div></span>
+      ${toggle('desktopNotify', cfg.desktopNotify !== false)}
+    </label>
+    <div class="py-2">
+      <div class="text-sm font-bold text-slate-800 dark:text-slate-100 mb-2">Channels</div>
+      <div class="grid sm:grid-cols-2 gap-2">
+        ${[['general','General Chat'],['sales','Sales Floor'],['service','Service Bay'],['parts','Parts Desk'],['recon','Recon & Detail']].map(([k,l]) => `
+          <label class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800">
+            <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">${l}</span>
+            <button type="button" onclick="toggleTeamChatChannel('${k}')" class="shrink-0 w-9 h-5 rounded-full transition ${ch[k] !== false ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'} relative"><span class="absolute top-0.5 w-4 h-4 bg-white rounded-full transition" style="left:${ch[k] !== false ? '18px' : '2px'}"></span></button>
+          </label>`).join('')}
+      </div>
+    </div>
+    <p class="text-[12px] text-slate-400">Retention is 90 days. Channel membership still follows each person’s department.</p>
+  `;
+}
+async function persistTeamChatSettings() {
+  const cfg = teamChatSettings();
+  try { localStorage.setItem('ms_team_chat_settings', JSON.stringify(cfg)); } catch {}
+  try { await apiSendJson('/config/team_chat', 'PUT', { value: cfg }); }
+  catch (e) { /* local persist is enough if MFA/config is locked */ }
+  applyTeamChatSettings(cfg);
+}
+function toggleTeamChatSetting(key, on) {
+  window.__teamChatSettings = { ...teamChatSettings(), [key]: on };
+  persistTeamChatSettings();
+  const root = document.getElementById('team-chat-settings-root');
+  if (root) renderTeamChatSettings(root, window.__teamChatSettings);
+}
+function setTeamChatAccess(mode) {
+  window.__teamChatSettings = { ...teamChatSettings(), staffAccess: mode };
+  persistTeamChatSettings();
+  const root = document.getElementById('team-chat-settings-root');
+  if (root) renderTeamChatSettings(root, window.__teamChatSettings);
+}
+function toggleTeamChatChannel(key) {
+  const cfg = teamChatSettings();
+  const channels = { ...(cfg.channels || {}), [key]: cfg.channels?.[key] === false };
+  window.__teamChatSettings = { ...cfg, channels };
+  persistTeamChatSettings();
+  const root = document.getElementById('team-chat-settings-root');
+  if (root) renderTeamChatSettings(root, window.__teamChatSettings);
+}
+function applyTeamChatSettings(cfg) {
+  cfg = cfg || teamChatSettings();
+  window.__teamChatSettings = cfg;
+  const role = (typeof profileContext !== 'undefined' && profileContext?.role) || '';
+  const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'DEALER_GROUP'].includes(String(role));
+  const allowed = cfg.enabled !== false && (cfg.staffAccess !== 'managers' || isMgr);
+  document.getElementById('staff-chat-dock-bar')?.classList.toggle('hidden', !allowed);
+  document.getElementById('team-chat-dock-panel')?.classList.toggle('hidden', !allowed);
+  if (!allowed && typeof window.disableStaffChatDock === 'function') {
+    try { window.disableStaffChatDock(); } catch {}
+  }
+}
+window.loadTeamChatSettings = loadTeamChatSettings;
+window.toggleTeamChatSetting = toggleTeamChatSetting;
+window.setTeamChatAccess = setTeamChatAccess;
+window.toggleTeamChatChannel = toggleTeamChatChannel;
+window.applyTeamChatSettings = applyTeamChatSettings;
+
 window.toggleDealerFeature = toggleDealerFeature;
 
 // ── Team roster (Settings › Team) ────────────────────────────────────────────
