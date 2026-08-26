@@ -1784,7 +1784,7 @@ function renderWebsitePage() {
   const url = __siteCfg?.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(__siteCfg.site_slug)}` : null;
 
   root.innerHTML = `
-    <div class="flex flex-col ${isBuilder ? 'h-full' : 'min-h-0'} w-full bg-[var(--ws-bg)] text-[var(--ws-text)]">
+    <div class="flex flex-col ${isBuilder ? 'h-full' : 'min-h-0'} w-full ${isBuilder ? 'bg-[var(--ws-bg)] text-[var(--ws-text)]' : 'bg-transparent'}">
       <!-- TOP APPLICATION HEADER (Dedicated Website Workspace Header). Uses the
            same --ws-* variables the rest of the builder chrome follows (set by
            applyBuilderTheme()/[data-ws-theme]) rather than hardcoded dark-only
