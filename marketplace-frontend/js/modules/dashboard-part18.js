@@ -992,23 +992,6 @@ function renderAutoWorkflowCard(wf) {
         </div>
       </div>
 
-      <!-- Step Map & Conditions -->
-      ${wf.steps && wf.steps.length ? `
-        <div class="p-3.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 text-xs font-mono space-y-1 text-slate-600 dark:text-slate-300">
-          ${wf.steps.map((st, i) => `
-            <div class="${i === 0 ? 'text-indigo-600 dark:text-indigo-400 font-bold' : i === wf.steps.length - 1 ? 'text-emerald-600 dark:text-emerald-400 font-bold' : ''}">
-              ${i === 0 ? ' ' : '└─ '}${esc(st)}
-            </div>
-          `).join('')}
-        </div>
-      ` : ''}
-
-      <!-- Message Template Preview -->
-      <div class="p-3 bg-slate-50/50 dark:bg-slate-950/50 rounded-xl border border-slate-100 dark:border-slate-800/60 text-xs text-slate-700 dark:text-slate-300">
-        ${wf.subject_template ? `<div class="font-bold text-slate-900 dark:text-white mb-1">Subject: ${esc(wf.subject_template)}</div>` : ''}
-        <div class="italic line-clamp-2">"${esc(wf.message_body_template)}"</div>
-      </div>
-
       <!-- Action Buttons -->
       <div class="pt-3 border-t border-slate-100 dark:border-slate-800/80 space-y-2">
         <div class="grid grid-cols-2 gap-2">
@@ -1020,9 +1003,6 @@ function renderAutoWorkflowCard(wf) {
           <button onclick="duplicateAutoWorkflow('${wf.key}')" class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition cursor-pointer">Duplicate</button>
           <button onclick="quickAiRewriteWorkflow('${wf.key}')" class="px-3 py-2 rounded-xl bg-violet-600/10 hover:bg-violet-600/20 text-violet-600 dark:text-violet-400 font-bold text-xs transition cursor-pointer">AI Rewrite</button>
           <button onclick="testSendWorkflowModal('${wf.key}')" class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition cursor-pointer">Test Send</button>
-        </div>
-        <div class="text-[10px] text-slate-400 text-center uppercase tracking-wider">
-          Canonical Graph Synchronized
         </div>
       </div>
     </div>
