@@ -1678,14 +1678,17 @@ function closeWebsiteBuilder() {
   if (chatDock) chatDock.style.display = '';
 
   __wsTab = 'setup';
-  if (typeof switchPage === 'function' && typeof __currentPage !== 'undefined' && __currentPage !== 'website') {
-    switchPage('website');
+  const back = window.websiteWorkspacePreviousRoute || { dept: 'marketing', page: 'marketing-overview', tab: 'website' };
+  if (typeof engineTab === 'function') {
+    engineTab(back.page || 'marketing-overview', back.tab || 'website');
+  } else if (typeof switchPage === 'function') {
+    switchPage(back.page || 'marketing-overview');
   } else {
     renderWebsitePage();
   }
   requestAnimationFrame(() => {
     if (typeof renderDeptNav === 'function') renderDeptNav(profileContext?.role);
-    if (typeof renderDeptTabbar === 'function') renderDeptTabbar('website');
+    if (typeof renderDeptTabbar === 'function') renderDeptTabbar(back.page || 'marketing-overview');
   });
 }
 window.closeWebsiteBuilder = closeWebsiteBuilder;
