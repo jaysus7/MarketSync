@@ -16,10 +16,13 @@ import { createHash } from 'node:crypto'
 import { ensureStaffMember } from './people-identity.js'
 
 const DEMO_EMPLOYEES = [
-  { name: 'Marcus Vance', email: 'marcus.vance@dealership.example', department: 'Sales', team: 'Sales', job_title: 'General Sales Manager', location_name: 'Main Showroom', start_date: '2021-03-15' },
-  { name: 'Sarah Jenkins', email: 'sarah.jenkins@dealership.example', department: 'Sales', team: 'Sales', job_title: 'Senior Sales Representative', location_name: 'Main Showroom', start_date: '2022-06-01' },
-  { name: 'David Miller', email: 'david.miller@dealership.example', department: 'F&I', team: 'F&I', job_title: 'Finance Manager', location_name: 'Finance Office', start_date: '2020-01-10' },
-  { name: 'Elena Rostova', email: 'elena.rostova@dealership.example', department: 'Service', team: 'Service', job_title: 'Service Manager', location_name: 'Service Bay', start_date: '2019-08-20' },
+  { name: 'Marcus Vance', email: 'marcus.vance@dealership.example', phone: '(416) 555-3101', department: 'Sales', team: 'Sales', job_title: 'General Sales Manager', location_name: 'Main Showroom', start_date: '2021-03-15', employee_number: 'EMP-1001', notes: 'Birthday: 1986-04-12\nLicence: S1234-56789\nAddress: 10 King St W, Toronto, ON\nEmergency: Priya Vance (416) 555-3199\nBenefits: Gold family plan\nDemo: 2025 Sierra Denali' },
+  { name: 'Sarah Jenkins', email: 'sarah.jenkins@dealership.example', phone: '(416) 555-3102', department: 'Sales', team: 'Sales', job_title: 'Senior Sales Representative', location_name: 'Main Showroom', start_date: '2022-06-01', employee_number: 'EMP-1002', notes: 'Birthday: 1994-09-03\nLicence: S2234-11111\nAddress: 88 Queen St E, Toronto, ON\nEmergency: Tom Jenkins (416) 555-3188\nBenefits: Standard\nDemo: 2024 RAV4 XLE' },
+  { name: 'David Miller', email: 'david.miller@dealership.example', phone: '(416) 555-3103', department: 'F&I', team: 'F&I', job_title: 'Finance Manager', location_name: 'Finance Office', start_date: '2020-01-10', employee_number: 'EMP-2001', notes: 'Birthday: 1982-01-22\nLicence: F9988-22110\nEmergency: Ana Miller (416) 555-3177\nBenefits: Gold\nInsurance: Sun Life family' },
+  { name: 'Elena Rostova', email: 'elena.rostova@dealership.example', phone: '(416) 555-3104', department: 'Service', team: 'Service', job_title: 'Service Manager', location_name: 'Service Bay', start_date: '2019-08-20', employee_number: 'EMP-3001', notes: 'Birthday: 1988-11-08\nLicence: T4411-00991\nEmergency: Nik Rostova (416) 555-3166\nBenefits: Gold\nDemo: Service loaner F-150' },
+  { name: 'Chris Patel', email: 'chris.patel@dealership.example', phone: '(416) 555-3105', department: 'Parts', team: 'Parts', job_title: 'Parts Manager', location_name: 'Parts Counter', start_date: '2018-04-02', employee_number: 'EMP-4001', notes: 'Birthday: 1985-07-19\nLicence: P1100-33445\nEmergency: Meera Patel (416) 555-3155\nBenefits: Standard' },
+  { name: 'Olivia Chen', email: 'olivia.chen@dealership.example', phone: '(416) 555-3106', department: 'Accounting', team: 'Accounting', job_title: 'Controller', location_name: 'Office', start_date: '2017-02-14', employee_number: 'EMP-5001', notes: 'Birthday: 1980-05-30\nEmergency: Wei Chen (416) 555-3144\nBenefits: Gold\nInsurance: Manulife' },
+  { name: 'Jordan Blake', email: 'jordan.blake@dealership.example', phone: '(416) 555-3107', department: 'Recon', team: 'Cleanup', job_title: 'Recon Lead', location_name: 'Detail Bay', start_date: '2023-01-09', employee_number: 'EMP-6001', notes: 'Birthday: 1996-12-01\nLicence: C2002-77881\nBenefits: Standard' },
 ]
 
 const isPlatformOwner = req => hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)
@@ -101,23 +104,7 @@ async function seedBase({ dealershipId, ownerId, products }) {
 
   // Demo teammates are real employment records. They intentionally have no user_id until
   // invited, proving People can precede access while Users & Access remains honest.
-  for (const employee of DEMO_EMPLOYEES) {
-    const { data: existing, error: findError } = await supabaseAdmin.from('staff_members')
-      .select('id').eq('dealership_id', dealershipId).eq('email', employee.email).maybeSingle()
-    if (findError) throw findError
-    if (!existing) {
-      const { data: created, error } = await supabaseAdmin.from('staff_members').insert({
-        dealership_id: dealershipId, ...employee, employment_status: 'active', active: true,
-        onboarding_status: 'not_started', compliance_status: 'not_started', created_by: ownerId,
-      }).select('id').single()
-      if (error) throw error
-      const { error: historyError } = await supabaseAdmin.from('staff_status_history').insert({
-        dealership_id: dealershipId, staff_member_id: created.id, from_status: null,
-        to_status: 'active', reason: 'Canonical demo employment seeded', changed_by: ownerId,
-      })
-      if (historyError) throw historyError
-    }
-  }
+  await seedDemoEmployees(dealershipId, ownerId)
 
   const productSet = new Set(products)
   const byStock = {}
@@ -330,4 +317,23 @@ export function registerDemo(app) {
       res.status(500).json({ error: 'Could not reset this demo account.' })
     }
   })
+}
+
+
+export async function seedDemoEmployees(dealershipId, ownerId) {
+  for (const employee of DEMO_EMPLOYEES) {
+    const { data: existing, error: findError } = await supabaseAdmin.from('staff_members')
+      .select('id').eq('dealership_id', dealershipId).eq('email', employee.email).maybeSingle()
+    if (findError) throw findError
+    if (existing) continue
+    const { data: created, error } = await supabaseAdmin.from('staff_members').insert({
+      dealership_id: dealershipId, ...employee, employment_status: 'active', active: true,
+      onboarding_status: 'not_started', compliance_status: 'not_started', created_by: ownerId,
+    }).select('id').single()
+    if (error) throw error
+    await supabaseAdmin.from('staff_status_history').insert({
+      dealership_id: dealershipId, staff_member_id: created.id, from_status: null,
+      to_status: 'active', reason: 'Canonical demo employment seeded', changed_by: ownerId,
+    })
+  }
 }
