@@ -1226,10 +1226,15 @@ function commStatusPill(s) {
   const [c, l] = map[s] || ['bg-slate-100 dark:bg-slate-800 text-slate-600', s];
   return `<span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${c}">${l}</span>`;
 }
-function loadCommissionsPage() {
+function loadCommissionsPage(rootEl) {
   if (!__commState.tab) __commState.tab = commIsMgr() ? 'ai-importer' : 'mine';
-  if (!commIsMgr() && __commState.tab !== 'mine') __commState.tab = 'mine';
-  const root = document.getElementById('commissions-root');
+  if (!commIsMgr() && !['mine', 'statements'].includes(__commState.tab)) __commState.tab = 'mine';
+  // Prefer an explicit mount (Accounting → Commissions). The global #commissions-root
+  // lives on the standalone commissions page and would steal getElementById.
+  const root = rootEl
+    || document.getElementById('accounting-commissions-root')
+    || document.querySelector('[data-engine-body="accounting-overview"] #commissions-root')
+    || document.getElementById('commissions-root');
   if (!root) return;
   const tab = (id, label) => `<button onclick="commSetTab('${id}')" class="px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${__commState.tab === id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>`;
   root.innerHTML = `
