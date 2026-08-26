@@ -459,26 +459,40 @@ export function registerCrm(app) {
     const subject = String(req.body?.subject || '').trim()
     const body = String(req.body?.body || '').trim()
     if (!subject || !body) return res.status(400).json({ error: 'Subject and message are required' })
-    const { data: rep } = await req.supabase.from('profiles').select('full_name, display_name, email_signature, email_reply_to').eq('id', req.user.id).maybeSingle()
-    const repName = rep?.full_name || rep?.display_name || null
-    // Signature: the rep's saved signature (Settings) if present, else just their name.
-    // Reply-to: their chosen reply address (personal inbox) if set, else their login email —
-    // so the customer's reply lands with the rep, not the shared MarketSync address.
+    const { data: rep } = await req.supabase.from('profiles').select('full_name, display_name, email, email_signature, email_reply_to').eq('id', req.user.id).maybeSingle()
+    const { data: dealer } = await req.supabase.from('dealerships').select('name, automation_settings').eq('id', req.dealershipId).maybeSingle()
+    const repName = rep?.full_name || rep?.display_name || req.user.email || 'MarketSync'
+    const userEmail = String(req.body?.from_email || rep?.email_reply_to || rep?.email || req.user.email || '').trim()
+    const houseEmail = dealer?.automation_settings?.house_email || null
     const sig = (rep?.email_signature || '').trim()
     const sigHtml = sig ? sig.replace(/\n/g, '<br>') : (repName || '')
-    const replyTo = (rep?.email_reply_to || '').trim() || req.user.email || undefined
+    const replyTo = userEmail || undefined
+    const fromUser = userEmail ? `${repName} <${userEmail}>` : null
+    const fromHouse = houseEmail ? `${repName} <${houseEmail}>` : null
     try {
       const html = body.replace(/\n/g, '<br>')
-      await resend.emails.send({
-        from: EMAIL_FROM, to: contact.email, subject,
+      const payload = {
+        to: contact.email, subject, reply_to: replyTo,
         html: `<div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;color:#0f172a;line-height:1.5">${html}${sigHtml ? `<br><br>—<br>${sigHtml}` : ''}</div>`,
-        reply_to: replyTo,
-      })
+      }
+      let sentFrom = EMAIL_FROM
+      try {
+        if (fromUser) {
+          await resend.emails.send({ ...payload, from: fromUser })
+          sentFrom = fromUser
+        } else {
+          throw new Error('no user from')
+        }
+      } catch (sendErr) {
+        const fallback = fromHouse || EMAIL_FROM
+        await resend.emails.send({ ...payload, from: fallback })
+        sentFrom = fallback
+      }
       const comm = await logComm({
         dealershipId: req.dealershipId, contactId: contact.id, channel: 'email', direction: 'out',
-        subject, body, repId: req.user.id, meta: { to: contact.email },
+        subject, body, repId: req.user.id, meta: { to: contact.email, from: sentFrom, reply_to: replyTo },
       })
-      res.json({ ok: true, comm })
+      return res.json({ ok: true, comm, from: sentFrom })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
