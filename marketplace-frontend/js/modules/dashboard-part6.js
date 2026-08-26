@@ -376,7 +376,7 @@ function dealFormFieldsHtml(deal = {}) {
     <option value="">—</option>${opts.map(o => `<option value="${o}" ${val(k) === o ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
   const txt = (k, type = 'text', ph = '') => `<input id="dl-${k}" type="${type}" value="${esc(val(k))}" placeholder="${ph}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">`;
   const cbx = (k, label) => `<label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200 cursor-pointer"><input type="checkbox" id="dl-${k}" ${chk(k)} class="rounded"> ${label}</label>`;
-  const field = (label, html) => `<div><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">${label}</label>${html}</div>`;
+  const field = (label, html) => `<div><label class="text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-300 font-bold block mb-1">${label}</label>${html}</div>`;
   return `
     ${field('Delivery date', txt('delivery_date', 'date'))}
     ${field('Delivery time', txt('delivery_time', 'time'))}
@@ -551,24 +551,24 @@ async function loadDeskDeal() {
   const isAdmin = ['DEALER_ADMIN', 'OWNER'].includes(profileContext?.role);
   const needsSetup = !(__deskDealer.hst && __deskDealer.omvic && __deskDealer.street);
   root.innerHTML = `
-    <div class="mb-5">
-      <h1 class="text-2xl font-black text-slate-900 dark:text-white">Desk a deal</h1>
-      <p class="text-sm text-slate-500 dark:text-slate-400">Search any customer, structure the full deal, and print an estimate or bill of sale. Everything is stored on the customer's record. Financing figures are estimates only — not a lender commitment.</p>
+    <div class="ms-c ms-c--glass mb-5 p-5">
+      <h1 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Desk a deal</h1>
+      <p class="text-sm font-medium text-slate-700 dark:text-slate-300 mt-1">Search any customer, structure the full deal, and print an estimate or bill of sale. Everything is stored on the customer record. Financing figures are estimates only — not a lender commitment.</p>
     </div>
     ${(isAdmin && needsSetup) ? `
-    <div id="desk-dealer-setup" class="bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-800 rounded-xl mb-4">
+    <div id="desk-dealer-setup" class="ms-c ms-c--glass mb-4">
       <div class="px-4 sm:px-5 py-3 text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
         Dealer details for documents <span class="text-[10px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">Setup needed</span>
       </div>
       <p class="px-4 sm:px-5 -mt-1 mb-2 text-xs text-slate-400">A one-time setup — this appears on the bill of sale. Once saved, it disappears from here and you can edit it anytime in Settings › Dealer Management.</p>
       <div class="p-4 sm:p-5 pt-0 grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div class="col-span-2 sm:col-span-3"><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">Legal / trade name</label><input id="dlr-legal_name" value="${esc(__deskDealer.name || '')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
-        <div class="col-span-2 sm:col-span-3"><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">Street address</label><input id="dlr-street_address" value="${esc(__deskDealer.street || '')}" placeholder="915 Niagara St" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
-        <div><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">Phone</label><input id="dlr-phone" value="${esc(__deskDealer.phone || '')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
-        <div><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">Fax</label><input id="dlr-fax" value="${esc(__deskDealer.fax || '')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
-        <div><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">HST #</label><input id="dlr-hst_number" value="${esc(__deskDealer.hst || '')}" placeholder="R715748679" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
-        <div><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">OMVIC / dealer reg #</label><input id="dlr-omvic_reg" value="${esc(__deskDealer.omvic || '')}" placeholder="5686852" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
-        <div class="col-span-2 sm:col-span-3"><button onclick="deskSaveDealer(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-5 py-2 rounded-lg transition">Save dealer details</button></div>
+        <div class="col-span-2 sm:col-span-3"><label class="text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-300 font-bold block mb-1">Legal / trade name</label><input id="dlr-legal_name" value="${esc(__deskDealer.name || '')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+        <div class="col-span-2 sm:col-span-3"><label class="text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-300 font-bold block mb-1">Street address</label><input id="dlr-street_address" value="${esc(__deskDealer.street || '')}" placeholder="915 Niagara St" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+        <div><label class="text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-300 font-bold block mb-1">Phone</label><input id="dlr-phone" value="${esc(__deskDealer.phone || '')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+        <div><label class="text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-300 font-bold block mb-1">Fax</label><input id="dlr-fax" value="${esc(__deskDealer.fax || '')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+        <div><label class="text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-300 font-bold block mb-1">HST #</label><input id="dlr-hst_number" value="${esc(__deskDealer.hst || '')}" placeholder="R715748679" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+        <div><label class="text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-300 font-bold block mb-1">OMVIC / dealer reg #</label><input id="dlr-omvic_reg" value="${esc(__deskDealer.omvic || '')}" placeholder="5686852" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+        <div class="col-span-2 sm:col-span-3"><button onclick="deskSaveDealer(this)" class="liquid-glass-btn text-sm font-black px-5 py-2.5 rounded-xl">Save dealer details</button></div>
       </div>
     </div>` : ''}
 
@@ -758,12 +758,12 @@ function deskRenderForm(contactId) {
   const dkProvince = d.tax_province || (DESK_TAX[dkCountry]?.regions?.[_dealerProv] ? _dealerProv : '');
   const apr = d.apr != null ? d.apr : DESK_DEFAULT_APR;
   const taxOnDiff = d.tax_on_difference !== false;
-  const iCls = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition';
-  const fld = (label, html) => `<div><label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">${label}</label>${html}</div>`;
+  const iCls = 'liquid-glass-input w-full rounded-xl px-3 py-2 text-sm font-semibold text-slate-900 dark:text-white';
+  const fld = (label, html) => `<div><label class="text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-300 font-bold block mb-1">${label}</label>${html}</div>`;
   const txt = (id, v, ph = '', type = 'text', extra = '') => `<input id="${id}" type="${type}" value="${esc(v == null ? '' : String(v))}" placeholder="${ph}" ${extra} class="${iCls}">`;
   const money = (id, v, ph = '0.00') => `<input id="${id}" type="text" inputmode="decimal" data-money value="${v == null ? '' : msFmtMoney(v)}" placeholder="${ph}" oninput="deskRenderSummary()" class="${iCls}">`;
-  const card = (title, body, sub = '') => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden mb-4 shadow-sm">
-    <div class="px-5 py-3.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between"><h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">${title}</h3>${sub ? `<p class="text-xs text-slate-400">${sub}</p>` : ''}</div>
+  const card = (title, body, sub = '') => `<div class="ms-c ms-c--glass overflow-hidden mb-4">
+    <div class="px-5 py-3.5 border-b border-slate-200/80 dark:border-slate-700 flex items-center justify-between"><h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">${title}</h3>${sub ? `<p class="text-xs text-slate-500">${sub}</p>` : ''}</div>
     <div class="p-5">${body}</div></div>`;
 
   const customerHeaderHtml = b ? `
@@ -791,7 +791,7 @@ function deskRenderForm(contactId) {
           <label class="text-xs uppercase tracking-wider text-slate-400 font-black block">Customer Selection</label>
           <p class="text-xs text-slate-500">Search an existing customer or click below to add a new customer.</p>
         </div>
-        <button type="button" onclick="deskOpenAddCustomerModal('')" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition flex items-center gap-1.5 shadow-md">
+        <button type="button" onclick="deskOpenAddCustomerModal('')" class="liquid-glass-btn px-4 py-2 rounded-xl font-black text-xs flex items-center gap-1.5">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
           <span>+ Add New Customer</span>
         </button>
@@ -807,7 +807,7 @@ function deskRenderForm(contactId) {
     ${customerHeaderHtml}
 
     <div class="mb-4">
-      <label class="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">Co-buyer <span class="font-normal normal-case">(optional)</span></label>
+      <label class="text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-300 font-bold block mb-1">Co-buyer <span class="font-normal normal-case">(optional)</span></label>
       <input id="dk-co_buyer" value="${esc(d.co_buyer || '')}" placeholder="Second buyer's full name" class="${iCls} max-w-md">
     </div>
 
@@ -922,14 +922,14 @@ function deskRenderForm(contactId) {
         <div id="desk-summary" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5"></div>
         <div id="desk-status-bar" class="mt-3">${deskStatusBar(contactId)}</div>
         <div class="flex flex-col gap-2 mt-3">
-          <button id="desk-save" onclick="deskSave('${contactId}')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-6 py-2.5 rounded-lg transition">Save deal</button>
+          <button id="desk-save" onclick="deskSave('${contactId}')" class="liquid-glass-btn text-sm font-black px-6 py-2.5 rounded-xl">Save deal</button>
           <div class="grid grid-cols-2 gap-2">
-            <button onclick="deskPrint('estimate')" class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-sm font-bold px-3 py-2.5 rounded-lg transition">Print estimate</button>
-            <button onclick="deskPrint('bill')" class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-sm font-bold px-3 py-2.5 rounded-lg transition">Bill of sale</button>
+            <button onclick="deskPrint('estimate')" class="liquid-glass-btn-secondary text-sm font-black px-3 py-2.5 rounded-xl">Print estimate</button>
+            <button onclick="deskPrint('bill')" class="liquid-glass-btn-secondary text-sm font-black px-3 py-2.5 rounded-xl">Bill of sale</button>
           </div>
           <button onclick="openCreditApp('${contactId}')" class="w-full inline-flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold px-3 py-2.5 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Credit application</button>
-          <button onclick="deskEsign('${contactId}','bill')" class="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold px-3 py-2.5 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>Send for e-signature</button>
-          <button id="desk-deposit-btn" onclick="deskCollectDeposit('${contactId}')" class="w-full inline-flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-500 text-white text-sm font-bold px-3 py-2.5 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>Collect deposit</button>
+          <button onclick="deskEsign('${contactId}','bill')" class="w-full inline-flex items-center justify-center gap-2 liquid-glass-btn text-sm font-black px-3 py-2.5 rounded-xl"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>Send for e-signature</button>
+          <button id="desk-deposit-btn" onclick="deskCollectDeposit('${contactId}')" class="w-full inline-flex items-center justify-center gap-2 liquid-glass-btn-secondary text-sm font-black px-3 py-2.5 rounded-xl"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>Collect deposit</button>
           <button onclick="openEsignStatus('${contactId}')" class="w-full text-center text-xs font-semibold text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition py-1">View signature status →</button>
         </div>
       </div>
