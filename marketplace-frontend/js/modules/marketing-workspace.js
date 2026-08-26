@@ -917,7 +917,10 @@ function mktPulseOverview(body, d, suite, cfg, dayCaveat = '') {
         ? mktAdRoi(d)
         : engCard('Ad channels', sourceEmpty('roi', 'No connected ad-channel performance is available yet.'))}
     </section>
+    <section id="mkt-performance-mount" class="mt-4"></section>
   </div>`;
+  const mount = document.getElementById('mkt-performance-mount');
+  if (mount && typeof renderAutoPerformanceTab === 'function') renderAutoPerformanceTab(mount);
 }
 
 ENGINES['marketing-overview'] = {
@@ -969,7 +972,7 @@ ENGINES['marketing-overview'] = {
     const has = (...ids) => all || access.isPlatformStaff || ids.some(id => feats.includes(id));
     const base = ['overview'];
     if (has('email.automations', 'os.automations')) base.push('automations');
-    base.push('campaigns', 'templates', 'audiences', 'performance');
+    base.push('campaigns', 'templates', 'audiences');
     // The MarketSync Digital surfaces — shown when the plan grants each product. In
     // DealerOS Complete (full Digital bundle) all four appear; a Core/Pro operational
     // plan without Digital shows none of them.
@@ -986,7 +989,7 @@ ENGINES['marketing-overview'] = {
     { label: 'New Campaign', icon: 'megaphone', onclick: "openEmailSmsBuilder()" },
     { label: 'Browse Template Library', icon: 'document', onclick: "autoTab('templates')" },
     { label: 'Audiences & Segments', icon: 'users', onclick: "autoTab('audiences')" },
-    { label: 'Deliverability & Health', icon: 'sparkles', onclick: "autoTab('performance')" },
+    { label: 'Deliverability & Health', icon: 'sparkles', onclick: "engineTab('marketing-overview','overview'); setTimeout(()=>document.getElementById('mkt-performance-mount')?.scrollIntoView({behavior:'smooth'}), 80)" },
     { label: 'Design Studio', icon: 'camera', onclick: "engineTab('marketing-overview','studio')" },
   ],
   nextActions: (d) => (d?.needsAttention || []).slice(0, 5).map(x => ({
@@ -1113,12 +1116,8 @@ ENGINES['marketing-overview'] = {
       }
     },
 
-    performance(body) {
-      body.innerHTML = `<div id="mkt-performance-mount"></div>`;
-      const mount = document.getElementById('mkt-performance-mount');
-      if (mount && typeof renderAutoPerformanceTab === 'function') {
-        renderAutoPerformanceTab(mount);
-      }
+    performance(body, d) {
+      this.overview(body, d);
     },
 
     // ── AI ChatBot ───────────────────────────────────────────────────────────
