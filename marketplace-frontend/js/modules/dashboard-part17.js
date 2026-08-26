@@ -153,7 +153,7 @@ function siteSettingsFields(cfg) {
   const ta = (id, v, ph, rows, mono) => `<textarea id="${id}" rows="${rows}" placeholder="${esc(ph)}" class="w-full ${mono ? 'font-mono text-[11px]' : 'text-sm'} bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2">${esc(v || '')}</textarea>`;
   // Card wrapper — matches the Settings page cards (rounded-xl, border, padding,
   // text-lg heading) so Website settings reads as part of the same Settings design.
-  const sec = (title, desc, inner) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+  const sec = (title, desc, inner) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-6 w-full shadow-xs hover:shadow-md transition-shadow">
     <h2 class="text-lg font-bold text-slate-900 dark:text-white">${title}</h2>
     ${desc ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">${desc}</p>` : '<div class="mb-3"></div>'}
     ${inner}</div>`;
@@ -191,12 +191,12 @@ function siteSettingsFields(cfg) {
         <div>${lbl('Brand colour')}<input id="site-color" type="color" value="${esc(c.primary_color || '#1e3a8a')}" class="w-full h-9 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg"></div>
         <div>${lbl('Hero image')}<div class="flex gap-1">${inp('site-hero', c.hero_url, 'Paste URL or upload', 'flex-1')}<input id="site-hero-file" type="file" accept="image/*" class="hidden" onchange="uploadSiteImage('site-hero', this.files[0])"><button type="button" onclick="document.getElementById('site-hero-file').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 rounded-lg">Upload</button><button type="button" onclick="openWsPhotoPicker(url => { const el = document.getElementById('site-hero'); if (el) el.value = url; })" class="text-xs font-bold bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600/20 px-3 rounded-lg">Browse Photos</button></div></div>
       </div>`)}
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-6 w-full shadow-xs hover:shadow-md transition-shadow">
       <h2 class="text-lg font-bold text-slate-900 dark:text-white">Build &amp; Price brands</h2>
       <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Which brands do you sell new? Only these appear on your Build &amp; Price page — keeps used trade-ins and off-brands out. Leave all unchecked to auto-detect from your new inventory.</p>
       <div id="bm-wrap" class="flex flex-wrap gap-x-3 gap-y-1">${(() => { const set = new Set((c.build_makes || []).map(s => String(s).toLowerCase())); return ['Chevrolet', 'GMC', 'Buick', 'Cadillac', 'Ford', 'Lincoln', 'Toyota', 'Honda', 'Nissan', 'Hyundai', 'Kia', 'Mazda', 'Subaru', 'Volkswagen', 'Jeep', 'Ram', 'Dodge', 'Chrysler'].map(b => `<label class="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-200"><input type="checkbox" class="bm-check accent-indigo-600" value="${b}" ${set.has(b.toLowerCase()) ? 'checked' : ''}>${b}</label>`).join(''); })()}</div>
     </div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-6 w-full shadow-xs hover:shadow-md transition-shadow">
       <h2 class="text-lg font-bold text-slate-900 dark:text-white">SEO</h2>
       <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">How your site shows in Google and when shared. Leave blank to auto-generate from your name, city and About.</p>
       <div class="space-y-2">
@@ -207,7 +207,7 @@ function siteSettingsFields(cfg) {
         <div>${lbl('Social share image')}<div class="flex gap-1">${inp('seo-image', c.seo_image, 'Paste URL or upload (falls back to hero)', 'flex-1')}<input id="seo-image-file" type="file" accept="image/*" class="hidden" onchange="uploadSiteImage('seo-image', this.files[0])"><button type="button" onclick="document.getElementById('seo-image-file').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 rounded-lg">Upload</button></div></div>
       </div>
     </div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-6 w-full shadow-xs hover:shadow-md transition-shadow">
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-lg font-bold text-slate-900 dark:text-white">AI sales chat</h2>
@@ -244,7 +244,7 @@ function siteSettingsFields(cfg) {
         </div>
       </div>
     </div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-6 w-full shadow-xs hover:shadow-md transition-shadow">
       <h2 class="text-lg font-bold text-slate-900 dark:text-white">Widgets &amp; integrations</h2>
       <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Paste embed code from Keyloop, Equifax, trade-value tools, chat or AI tools. Global scripts (analytics/chat) go in “site-wide code”; placed embeds appear as blocks in a chosen section.</p>
       ${lbl('Site-wide code — runs in the page &lt;head&gt;')}
@@ -255,7 +255,7 @@ function siteSettingsFields(cfg) {
       </div>
       <div id="site-widget-list" class="space-y-2"></div>
     </div>
-    <div class="text-[11px] text-slate-400">Pages, Team and design live on their own tabs. Logo comes from your branding.</div>`;
+    <div class="text-[11px] text-slate-400 break-inside-avoid mb-6">Pages, Team and design live on their own tabs. Logo comes from your branding.</div>`;
 }
 async function openSiteManager() {
   let cfg = {};
@@ -287,7 +287,7 @@ function wsSettings() {
         </div>
         <button type="button" onclick="saveSite(this)" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md cursor-pointer">Save Website Settings</button>
       </div>
-      <div class="space-y-4">${siteSettingsFields(__siteCfg)}</div>
+      <div class="columns-1 md:columns-2 xl:columns-3 gap-6 w-full [column-fill:_balance]">${siteSettingsFields(__siteCfg)}</div>
       <div class="flex justify-end border-t border-slate-200 dark:border-slate-800 pt-5">
         <button type="button" onclick="saveSite(this)" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm transition shadow-md cursor-pointer">Save Website Settings</button>
       </div>
@@ -4570,15 +4570,15 @@ function renderSeoWorkspace() {
 
   root.innerHTML = `
     <!-- Top Header Bar with Mode Switcher -->
-    <div class="flex items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-indigo-950/90 to-slate-900 border border-indigo-500/30 rounded-3xl p-5 text-white flex-wrap shadow-2xl backdrop-blur-xl">
+    <div class="flex items-center justify-between gap-4 border border-indigo-500/30 rounded-3xl p-5 flex-wrap shadow-2xl backdrop-blur-xl" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%) !important; color: #ffffff !important;">
       <div class="flex items-center gap-3.5">
-        <div class="w-12 h-12 rounded-2xl bg-indigo-600/30 border border-indigo-400/50 flex items-center justify-center text-indigo-300 font-black text-xl shadow-inner">SEO</div>
+        <div class="w-12 h-12 rounded-2xl border border-indigo-400/60 flex items-center justify-center font-black text-xl shadow-inner shrink-0" style="color: #818cf8 !important; background: rgba(79,70,229,0.3) !important;">SEO</div>
         <div>
-          <div class="flex items-center gap-3">
-            <h2 class="text-xl font-black text-white tracking-tight">MarketSync SEO Suite</h2>
-            ${d.standardsVersion ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/30 text-emerald-300 border border-emerald-400/50">${esc(d.standardsVersion)}</span>` : ''}
+          <div class="flex items-center gap-3 flex-wrap">
+            <h2 class="text-xl font-black tracking-tight" style="color: #ffffff !important;">MarketSync SEO Suite</h2>
+            ${d.standardsVersion ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border border-emerald-400/50" style="color: #6ee7b7 !important; background: rgba(16,185,129,0.2) !important;">${esc(d.standardsVersion)}</span>` : ''}
           </div>
-          <p class="text-xs text-indigo-200 font-semibold mt-0.5">Full Dealership Search Engine &amp; AI Discovery Platform</p>
+          <p class="text-xs font-bold mt-0.5" style="color: #cbd5e1 !important;">Full Dealership Search Engine &amp; AI Discovery Platform</p>
         </div>
       </div>
       <div class="flex items-center gap-3">

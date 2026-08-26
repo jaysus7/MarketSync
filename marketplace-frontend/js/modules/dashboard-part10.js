@@ -783,60 +783,133 @@ function engEmpty(msg) { return `<div class="text-sm font-bold text-slate-700 da
 
 // ── Pulse widget grid — shared across every department's Pulse (overview) tab ─
 // The Pulse screen is a dense grid of small, always-open glance cards (per the
-// 08/23 department wireframes), not the stacked full-width accordions engCard/
-// engSection render for the deeper work tabs (Customers, Repair Orders, …) —
-// those stay exactly as they are. A Pulse card never invents a number: every
-// value here traces back to a field the engine's own fetch() already returns.
-function pulseHeader(title, sub) {
+// 08/23 department wireframes), supporting WordPress-style movable drag-and-drop
+// reordering and dynamic section scaling (1x1, 1x2, 2x1, 2x2, 2x3, 3x1, 3x2, 4x1).
+// Every card traces back to a field the engine's own fetch() already returns.
+const PULSE_SCALE_CLASSES = {
+  '1x1': 'col-span-1 row-span-1',
+  '1x2': 'col-span-1 row-span-2',
+  '2x1': 'col-span-1 sm:col-span-2 row-span-1',
+  '2x2': 'col-span-1 sm:col-span-2 row-span-2',
+  '2x3': 'col-span-1 sm:col-span-2 row-span-3',
+  '3x1': 'col-span-1 sm:col-span-2 lg:col-span-3 row-span-1',
+  '3x2': 'col-span-1 sm:col-span-2 lg:col-span-3 row-span-2',
+  '4x1': 'col-span-full row-span-1',
+  '4x2': 'col-span-full row-span-2'
+};
+
+function pulseHeader(title, sub, gridId) {
   const today = new Date().toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: '2-digit' });
-  return `<div class="flex items-baseline justify-between gap-3 mb-1">
-    <h2 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">${esc(title)}</h2>
-    <span class="text-[12px] font-bold text-slate-400 tabular-nums shrink-0">${today}</span>
+  const gid = gridId || (title ? title.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'pulse-main');
+  return `<div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+    <div>
+      <h2 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">${esc(title)}</h2>
+    </div>
+    <div class="flex items-center gap-2 shrink-0">
+      <button type="button" onclick="resetPulseGridLayout('${gid}')" class="px-2 py-1 rounded-lg text-[11px] font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer" title="Reset widgets to default layout">Reset Layout</button>
+      <span class="text-[12px] font-bold text-slate-400 tabular-nums">${today}</span>
+    </div>
   </div>${sub ? `<p class="text-[13px] text-slate-500 dark:text-slate-400 mb-4">${esc(sub)}</p>` : '<div class="mb-4"></div>'}`;
 }
-function pulseGrid(cardsHtml) {
-  // grid-flow-dense: a row-span-2 card (span:'tall') leaves a pocket next to it at
-  // some column counts; without dense packing CSS Grid's sparse algorithm never
-  // backfills that pocket, so later cards land past it instead — the classic
-  // "random gaps" pattern, worst right around 3-column widths (tablets/Chromebooks).
-  return `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 items-start grid-flow-dense">${(cardsHtml || []).filter(Boolean).join('')}</div>`;
+
+function pulseGrid(cardsHtml, gridId) {
+  const gid = gridId || 'pulse-main';
+  let list = (cardsHtml || []).filter(Boolean);
+  
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const savedOrder = JSON.parse(localStorage.getItem('ms_pulse_order_' + gid) || '[]');
+      const savedScales = JSON.parse(localStorage.getItem('ms_pulse_scales_' + gid) || '{}');
+      
+      if (savedScales && Object.keys(savedScales).length) {
+        list = list.map(cardStr => {
+          for (const [wid, s] of Object.entries(savedScales)) {
+            if (cardStr.includes(`data-widget-id="${wid}"`)) {
+              const newCls = PULSE_SCALE_CLASSES[s] || PULSE_SCALE_CLASSES['1x1'];
+              cardStr = cardStr.replace(/data-scale="[^"]*"/, `data-scale="${s}"`);
+              cardStr = cardStr.replace(/<span class="pulse-scale-label">[^<]*<\/span>/, `<span class="pulse-scale-label">${s.toUpperCase()}</span>`);
+              cardStr = cardStr.replace(/class="([^"]*)\b(col-span-[^\s"]+|row-span-[^\s"]+|sm:col-span-[^\s"]+|lg:col-span-[^\s"]+)\b([^"]*)"/g, (m, p1, p2, p3) => `class="${p1} ${newCls} ${p3}"`);
+            }
+          }
+          return cardStr;
+        });
+      }
+      
+      if (Array.isArray(savedOrder) && savedOrder.length) {
+        const cardMap = {};
+        list.forEach(c => {
+          const m = c.match(/data-widget-id="([^"]+)"/);
+          if (m && m[1]) cardMap[m[1]] = c;
+        });
+        const reordered = [];
+        savedOrder.forEach(wid => {
+          if (cardMap[wid]) {
+            reordered.push(cardMap[wid]);
+            delete cardMap[wid];
+          }
+        });
+        Object.values(cardMap).forEach(c => reordered.push(c));
+        if (reordered.length) list = reordered;
+      }
+    } catch {}
+  }
+
+  return `<div data-pulse-grid-id="${gid}" class="pulse-masonry-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 items-start grid-flow-dense">${list.join('')}</div>`;
 }
-// span: 2 = sm:col-span-2 (wide); 'tall' = row-span-2 (the sketch's big list column)
-//
-// The card body is ALWAYS a <div>, never a <button> — pulseRow/pulseLeaderRow render
-// AS buttons when they carry their own onclick, and a <button> can never legally
-// contain another <button>. A card that nested one (card-level onclick + clickable
-// rows inside it) silently broke: the browser's parser ejects the invalid nested
-// button out of its parent, so the row visibly detaches from its card and lands as a
-// stray sibling in the grid. The card's own click-through affordance lives on its
-// header only, which is its own sibling-level control — never an ancestor of the rows.
-function pulseCard({ title, count, tone, onclick, inner, span, empty }) {
-  const spanCls = span === 2 ? 'sm:col-span-2' : span === 'tall' ? 'row-span-2' : '';
+
+function pulseCard({ id, title, count, tone, onclick, inner, span, empty, scale }) {
+  const wid = id || String(title || 'widget').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  let initialScale = scale || (span === 2 ? '2x1' : span === 'tall' ? '1x2' : '1x1');
   const countBadge = count != null ? `<span class="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-black ${tone || 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">${esc(String(count))}</span>` : '';
-  const header = onclick
-    ? `<button type="button" onclick="${onclick}" class="group/h w-full flex items-center justify-between gap-2 text-left -m-0.5 p-0.5">
-        <span class="text-[11px] uppercase tracking-wider font-black text-slate-800 dark:text-slate-200 group-hover/h:text-slate-950 dark:group-hover/h:text-white transition-colors">${esc(title)}</span>
-        <span class="flex items-center gap-1.5 shrink-0">${countBadge}<svg class="w-3 h-3 text-slate-300 dark:text-slate-600 transition-transform group-hover/h:translate-x-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 010-1.06L11.94 9 7.2 4.29a.75.75 0 111.06-1.06l5.25 5.25a.75.75 0 010 1.06L8.27 14.77a.75.75 0 01-1.06 0z" clip-rule="evenodd"/></svg></span>
+  
+  const titleContent = onclick
+    ? `<button type="button" onclick="${onclick}" class="group/h flex items-center gap-1.5 text-left text-[11px] uppercase tracking-wider font-black text-slate-800 dark:text-slate-200 group-hover/h:text-slate-950 dark:group-hover/h:text-white transition-colors truncate">
+        <span class="truncate">${esc(title)}</span>
+        <svg class="w-3 h-3 shrink-0 text-slate-300 dark:text-slate-600 transition-transform group-hover/h:translate-x-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 010-1.06L11.94 9 7.2 4.29a.75.75 0 111.06-1.06l5.25 5.25a.75.75 0 010 1.06L8.27 14.77a.75.75 0 01-1.06 0z" clip-rule="evenodd"/></svg>
       </button>`
-    : `<div class="w-full flex items-center justify-between gap-2">
-        <span class="text-[11px] uppercase tracking-wider font-black text-slate-800 dark:text-slate-200">${esc(title)}</span>
+    : `<span class="text-[11px] uppercase tracking-wider font-black text-slate-800 dark:text-slate-200 truncate">${esc(title)}</span>`;
+
+  const dragGrip = `<span class="pulse-drag-handle cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 select-none p-0.5 -ml-1 rounded transition shrink-0" title="Drag to reposition widget" aria-label="Drag handle">
+    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
+  </span>`;
+
+  const scaleMenu = `<div class="relative shrink-0">
+    <button type="button" onclick="event.stopPropagation(); togglePulseScaleMenu(event, '${wid}')" class="pulse-scale-btn px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-slate-200 transition flex items-center gap-0.5 cursor-pointer" title="Change widget scale">
+      <span class="pulse-scale-label">${initialScale.toUpperCase()}</span>
+      <svg class="w-2.5 h-2.5 opacity-60" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+    </button>
+    <div id="pulse-scale-menu-${wid}" class="pulse-scale-popup hidden absolute right-0 top-full mt-1 z-30 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-1 w-28 text-left">
+      <div class="text-[9px] font-black uppercase tracking-wider text-slate-400 px-2 py-1">Widget Scale</div>
+      ${[['1x1', '1×1 Normal'], ['1x2', '1×2 Tall'], ['2x1', '2×1 Wide'], ['2x2', '2×2 Large'], ['2x3', '2×3 Extra Tall'], ['3x1', '3×1 Banner'], ['3x2', '3×2 Giant'], ['4x1', 'Full Width']].map(([s, label]) => `
+        <button type="button" onclick="event.stopPropagation(); setPulseWidgetScale('${wid}', '${s}')" class="w-full text-left px-2 py-1 rounded text-[11px] font-bold text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 hover:text-indigo-600 transition flex items-center justify-between cursor-pointer">
+          <span>${label}</span>
+        </button>
+      `).join('')}
+    </div>
+  </div>`;
+
+  const scaleClass = PULSE_SCALE_CLASSES[initialScale] || PULSE_SCALE_CLASSES['1x1'];
+
+  return `<div data-widget-id="${wid}" data-scale="${initialScale}" draggable="true" ondragstart="pulseWidgetDragStart(event)" ondragover="pulseWidgetDragOver(event)" ondragleave="pulseWidgetDragLeave(event)" ondrop="pulseWidgetDrop(event)" ondragend="pulseWidgetDragEnd(event)" class="pulse-widget-card w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 flex flex-col gap-2 ${scaleClass} transition-all hover:shadow-[0_6px_20px_-8px_rgba(15,23,42,.18)] dark:hover:shadow-[0_6px_20px_-8px_rgba(0,0,0,.45)] group/pw relative">
+    <div class="w-full flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/60 pb-2 mb-0.5">
+      <div class="flex items-center gap-1.5 min-w-0 flex-1">
+        ${dragGrip}
+        ${titleContent}
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
         ${countBadge}
-      </div>`;
-  return `<div class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 flex flex-col gap-2 ${spanCls} transition-shadow hover:shadow-[0_6px_20px_-8px_rgba(15,23,42,.18)] dark:hover:shadow-[0_6px_20px_-8px_rgba(0,0,0,.45)]">
-    ${header}
+        ${scaleMenu}
+      </div>
+    </div>
     <div class="flex-1 min-h-0">${inner || (empty ? `<div class="text-[12px] text-slate-400 py-4 text-center">${esc(empty)}</div>` : '')}</div>
   </div>`;
 }
-// A compact row inside a pulse card: circled badge + label(+sub) + trailing value.
-// done:true renders the label struck through, for a resolved/closed/removed item.
-// icon (a name from SVG_ICONS, e.g. 'check'/'calendar'/'phone') takes precedence over
-// badge (short escaped text — a number, '$', '!') when both are given — never pass an
-// emoji glyph as badge; this codebase's icon system is the only approved decoration
-// (see test/no-emoji-ui.test.js).
+
+// Compact row inside a pulse card: circled badge + label(+sub) + trailing value.
 function pulseRow({ badge, icon, badgeTone, label, sub, value, valueTone, done, onclick }) {
   const Tag = onclick ? 'button' : 'div';
   const badgeInner = icon ? svgIcon(icon, 'w-3 h-3') : esc(badge ?? '');
-  return `<${Tag} ${onclick ? `onclick="${onclick}"` : ''} class="w-full text-left flex items-center gap-2.5 py-1.5 px-1.5 -mx-1.5 rounded-lg ${onclick ? 'hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors' : ''} ${done ? 'opacity-50' : ''}">
+  return `<${Tag} ${onclick ? `onclick="${onclick}"` : ''} class="w-full text-left flex items-center gap-2.5 py-1.5 px-1.5 -mx-1.5 rounded-lg ${onclick ? 'hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer' : ''} ${done ? 'opacity-50' : ''}">
     <span class="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${badgeTone || 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}">${badgeInner}</span>
     <span class="min-w-0 flex-1">
       <span class="block text-[12.5px] font-bold text-slate-800 dark:text-slate-100 truncate ${done ? 'line-through' : ''}">${esc(label ?? '')}</span>
@@ -845,17 +918,19 @@ function pulseRow({ badge, icon, badgeTone, label, sub, value, valueTone, done, 
     ${value != null ? `<span class="shrink-0 text-[12px] font-black tabular-nums ${valueTone || 'text-slate-700 dark:text-slate-200'}">${esc(String(value))}</span>` : ''}
   </${Tag}>`;
 }
+
 // Search-box widget card — click-through to the department's real search/list page.
-function pulseSearchCard({ title, placeholder, onclick, count }) {
-  return pulseCard({ title, count, onclick, inner: `<div class="mt-1 flex items-center gap-2 px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-400 text-[12px] font-semibold">
+function pulseSearchCard({ title, placeholder, onclick, count, id }) {
+  return pulseCard({ id, title, count, onclick, inner: `<div class="mt-1 flex items-center gap-2 px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-400 text-[12px] font-semibold">
     <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd"/></svg>
     ${esc(placeholder || 'Search')}</div>` });
 }
+
 // Ranked row for a leaderboard-style widget — initials avatar + name + one stat.
 function pulseLeaderRow({ rank, name, value, sub, valueTone, onclick }) {
   const initials = (name || '?').trim().split(/\s+/).map(s => s[0]).slice(0, 2).join('').toUpperCase();
   const Tag = onclick ? 'button' : 'div';
-  return `<${Tag} ${onclick ? `onclick="${onclick}"` : ''} class="w-full text-left flex items-center gap-2.5 py-1.5 px-1.5 -mx-1.5 rounded-lg ${onclick ? 'hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors' : ''}">
+  return `<${Tag} ${onclick ? `onclick="${onclick}"` : ''} class="w-full text-left flex items-center gap-2.5 py-1.5 px-1.5 -mx-1.5 rounded-lg ${onclick ? 'hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer' : ''}">
     <span class="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">${rank != null ? esc(String(rank)) : esc(initials)}</span>
     <span class="min-w-0 flex-1">
       <span class="block text-[12.5px] font-bold text-slate-800 dark:text-slate-100 truncate">${esc(name || 'Unknown')}</span>
@@ -864,21 +939,21 @@ function pulseLeaderRow({ rank, name, value, sub, valueTone, onclick }) {
     ${value != null ? `<span class="shrink-0 text-[12px] font-black tabular-nums ${valueTone || 'text-slate-700 dark:text-slate-200'}">${esc(String(value))}</span>` : ''}
   </${Tag}>`;
 }
+
 // A row of big quick-action buttons across the top of a Pulse page (Check-in / Check-out …).
 function pulseActionsRow(actions) {
   return `<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">${(actions || []).map(a => `
-    <button onclick="${a.onclick}" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-3 text-center hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-[0_6px_20px_-8px_rgba(15,23,42,.18)] dark:hover:shadow-[0_6px_20px_-8px_rgba(0,0,0,.45)] transition">
+    <button onclick="${a.onclick}" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-3 text-center hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-[0_6px_20px_-8px_rgba(15,23,42,.18)] dark:hover:shadow-[0_6px_20px_-8px_rgba(0,0,0,.45)] transition cursor-pointer">
       <div class="text-[12.5px] font-black text-slate-800 dark:text-slate-100">${esc(a.label)}</div>
     </button>`).join('')}</div>`;
 }
-// Leaderboard widget for a Pulse page — reads the SAME /gamification payload the
-// real Performance/Leaderboard page (switchPage('leaderboard')) already renders, so a
-// Pulse card never shows a number that isn't also standing behind that page today.
-// gam: the raw /gamification response (or null if it could not be loaded).
-function pulseLeaderboardCard(gam, deptKey, { title, metric, onclick } = {}) {
+
+// Leaderboard widget for a Pulse page
+function pulseLeaderboardCard(gam, deptKey, { title, metric, onclick, id } = {}) {
   const dept = gam?.departments?.[deptKey];
   const rows = (dept?.leaderboard || []).slice().sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99)).slice(0, 5);
   return pulseCard({
+    id: id || `${deptKey}-leaderboard`,
     title: title || (dept?.title ? `${dept.title} leaderboard` : 'Leaderboard'),
     onclick: onclick || "switchPage('leaderboard')",
     inner: rows.length ? rows.map(r => pulseLeaderRow({
@@ -889,10 +964,141 @@ function pulseLeaderboardCard(gam, deptKey, { title, metric, onclick } = {}) {
     empty: gam === null ? 'Could not be loaded.' : 'No ranked activity yet.',
   });
 }
+
+// ── Drag-and-Drop & Scale Controller Functions ──────────────────────────────
+let __draggedPulseWidget = null;
+
+function pulseWidgetDragStart(e) {
+  const card = e.target.closest('.pulse-widget-card');
+  if (!card) return;
+  __draggedPulseWidget = card;
+  e.dataTransfer.effectAllowed = 'move';
+  try { e.dataTransfer.setData('text/plain', card.dataset.widgetId || ''); } catch {}
+  setTimeout(() => card.classList.add('opacity-40', 'scale-[0.98]', 'ring-2', 'ring-indigo-500'), 0);
+}
+
+function pulseWidgetDragOver(e) {
+  e.preventDefault();
+  const targetCard = e.target.closest('.pulse-widget-card');
+  if (!targetCard || targetCard === __draggedPulseWidget) return;
+  e.dataTransfer.dropEffect = 'move';
+  targetCard.classList.add('ring-2', 'ring-indigo-400', 'bg-indigo-50/20');
+}
+
+function pulseWidgetDragLeave(e) {
+  const targetCard = e.target.closest('.pulse-widget-card');
+  if (targetCard && targetCard !== __draggedPulseWidget) {
+    targetCard.classList.remove('ring-2', 'ring-indigo-400', 'bg-indigo-50/20');
+  }
+}
+
+function pulseWidgetDrop(e) {
+  e.preventDefault();
+  const targetCard = e.target.closest('.pulse-widget-card');
+  if (!targetCard || !__draggedPulseWidget || targetCard === __draggedPulseWidget) return;
+  
+  const grid = targetCard.closest('.pulse-masonry-grid');
+  if (!grid) return;
+  
+  const rect = targetCard.getBoundingClientRect();
+  const next = (e.clientX - rect.left) > (rect.width / 2) || (e.clientY - rect.top) > (rect.height / 2);
+  if (next) {
+    targetCard.after(__draggedPulseWidget);
+  } else {
+    targetCard.before(__draggedPulseWidget);
+  }
+  
+  const gid = grid.dataset.pulseGridId || 'pulse-main';
+  const cards = Array.from(grid.querySelectorAll('.pulse-widget-card'));
+  const order = cards.map(c => c.dataset.widgetId).filter(Boolean);
+  try {
+    localStorage.setItem('ms_pulse_order_' + gid, JSON.stringify(order));
+  } catch {}
+  if (typeof showToast === 'function') showToast('Dashboard layout updated', 'success');
+}
+
+function pulseWidgetDragEnd(e) {
+  if (__draggedPulseWidget) {
+    __draggedPulseWidget.classList.remove('opacity-40', 'scale-[0.98]', 'ring-2', 'ring-indigo-500');
+    __draggedPulseWidget = null;
+  }
+  document.querySelectorAll('.pulse-widget-card').forEach(c => {
+    c.classList.remove('ring-2', 'ring-indigo-400', 'bg-indigo-50/20', 'opacity-40', 'scale-[0.98]');
+  });
+}
+
+function togglePulseScaleMenu(e, wid) {
+  document.querySelectorAll('.pulse-scale-popup').forEach(p => {
+    if (p.id !== 'pulse-scale-menu-' + wid) p.classList.add('hidden');
+  });
+  const menu = document.getElementById('pulse-scale-menu-' + wid);
+  if (menu) menu.classList.toggle('hidden');
+}
+
+function setPulseWidgetScale(wid, scale) {
+  const menu = document.getElementById('pulse-scale-menu-' + wid);
+  if (menu) menu.classList.add('hidden');
+  
+  const card = document.querySelector(`.pulse-widget-card[data-widget-id="${wid}"]`);
+  if (!card) return;
+  
+  const grid = card.closest('.pulse-masonry-grid');
+  const gid = grid ? (grid.dataset.pulseGridId || 'pulse-main') : 'pulse-main';
+  
+  card.dataset.scale = scale;
+  
+  const label = card.querySelector('.pulse-scale-label');
+  if (label) label.textContent = scale.toUpperCase();
+  
+  const allSpanClasses = [
+    'col-span-1', 'col-span-2', 'col-span-3', 'col-span-4', 'col-span-full',
+    'row-span-1', 'row-span-2', 'row-span-3',
+    'sm:col-span-2', 'md:col-span-3', 'lg:col-span-3', 'xl:col-span-4'
+  ];
+  allSpanClasses.forEach(cls => card.classList.remove(cls));
+  
+  const newClasses = (PULSE_SCALE_CLASSES[scale] || PULSE_SCALE_CLASSES['1x1']).split(' ');
+  newClasses.forEach(cls => card.classList.add(cls));
+  
+  try {
+    const savedScales = JSON.parse(localStorage.getItem('ms_pulse_scales_' + gid) || '{}');
+    savedScales[wid] = scale;
+    localStorage.setItem('ms_pulse_scales_' + gid, JSON.stringify(savedScales));
+  } catch {}
+  if (typeof showToast === 'function') showToast(`Widget scaled to ${scale}`, 'info');
+}
+
+function resetPulseGridLayout(gid) {
+  try {
+    localStorage.removeItem('ms_pulse_order_' + gid);
+    localStorage.removeItem('ms_pulse_scales_' + gid);
+  } catch {}
+  if (typeof showToast === 'function') showToast('Dashboard layout reset to default', 'info');
+  if (typeof renderCurrentEngineTab === 'function') renderCurrentEngineTab();
+  else if (typeof refreshCurrentPage === 'function') refreshCurrentPage();
+  else {
+    const grid = document.querySelector(`[data-pulse-grid-id="${gid}"]`);
+    if (grid) location.reload();
+  }
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.pulse-scale-btn') && !e.target.closest('.pulse-scale-popup')) {
+      document.querySelectorAll('.pulse-scale-popup').forEach(p => p.classList.add('hidden'));
+    }
+  });
+}
+
 if (typeof window !== 'undefined') {
+  window.PULSE_SCALE_CLASSES = PULSE_SCALE_CLASSES;
   window.pulseHeader = pulseHeader; window.pulseGrid = pulseGrid; window.pulseCard = pulseCard;
   window.pulseRow = pulseRow; window.pulseSearchCard = pulseSearchCard; window.pulseLeaderRow = pulseLeaderRow;
   window.pulseActionsRow = pulseActionsRow; window.pulseLeaderboardCard = pulseLeaderboardCard;
+  window.pulseWidgetDragStart = pulseWidgetDragStart; window.pulseWidgetDragOver = pulseWidgetDragOver;
+  window.pulseWidgetDragLeave = pulseWidgetDragLeave; window.pulseWidgetDrop = pulseWidgetDrop;
+  window.pulseWidgetDragEnd = pulseWidgetDragEnd; window.togglePulseScaleMenu = togglePulseScaleMenu;
+  window.setPulseWidgetScale = setPulseWidgetScale; window.resetPulseGridLayout = resetPulseGridLayout;
 }
 
 // ── Sections you scroll to, instead of a second row of tabs ──────────────────

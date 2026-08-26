@@ -823,16 +823,17 @@ function renderSocialComposerView(container) {
 
             <!-- AI Prompts / Tools -->
             <div class="flex items-center gap-1.5 flex-wrap pb-1">
-              <button type="button" onclick="studioSchedulerAiCaption('auto_dealership')" class="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 text-[11px] font-bold hover:bg-indigo-100 transition flex items-center gap-1">
-                <span>✨ AI Caption</span>
+              <button type="button" onclick="studioSchedulerAiCaption('auto_dealership')" class="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 text-[11px] font-bold hover:bg-indigo-100 transition flex items-center gap-1 cursor-pointer">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/></svg>
+                <span>AI Caption</span>
               </button>
-              <button type="button" onclick="studioSchedulerAiCaption('punchy')" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-bold hover:bg-slate-200 transition">
-                ⚡ Punchy
+              <button type="button" onclick="studioSchedulerAiCaption('punchy')" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer">
+                Punchy
               </button>
-              <button type="button" onclick="studioSchedulerAiCaption('cta')" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-bold hover:bg-slate-200 transition">
-                🎯 Add CTA
+              <button type="button" onclick="studioSchedulerAiCaption('cta')" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer">
+                Add CTA
               </button>
-              <button type="button" onclick="studioSchedulerAddHashtags()" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-bold hover:bg-slate-200 transition">
+              <button type="button" onclick="studioSchedulerAddHashtags()" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer">
                 # Hashtags
               </button>
             </div>
@@ -845,24 +846,26 @@ function renderSocialComposerView(container) {
             <label class="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">3. Media &amp; Inventory Attachments</label>
             
             <div class="flex items-center gap-2 flex-wrap">
-              <label class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer">
+              <label class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
                 <span>Upload Media</span>
                 <input type="file" accept="image/*,video/*" class="hidden" onchange="studioComposerHandleUpload(this)">
               </label>
 
-              <button type="button" onclick="studioComposerOpenDesignStudio()" class="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition flex items-center gap-1.5 cursor-pointer">
-                <span>🎨 Create in Design Studio</span>
+              <button type="button" onclick="studioComposerOpenDesignStudio()" class="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition flex items-center gap-1.5 cursor-pointer border border-slate-200 dark:border-slate-700">
+                <svg class="w-4 h-4 text-violet-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42"/></svg>
+                <span>Create in Design Studio</span>
               </button>
 
-              <button type="button" onclick="studioComposerOpenVehicleSearch()" class="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition flex items-center gap-1.5 cursor-pointer">
-                <span>🚗 Add Vehicle</span>
+              <button type="button" onclick="studioComposerOpenVehicleSearch()" class="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition flex items-center gap-1.5 cursor-pointer border border-slate-200 dark:border-slate-700">
+                <svg class="w-4 h-4 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6"/></svg>
+                <span>Add Vehicle</span>
               </button>
             </div>
 
             <!-- Media Preview List -->
             <div id="composer-media-list" class="flex items-center gap-3 overflow-x-auto p-2 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 min-h-[80px]">
-              <div class="text-xs text-slate-400 italic px-2">No media attached yet. Upload photos, videos, or choose from Design Studio.</div>
+              <div class="text-xs text-slate-400 italic px-2">No media attached yet. Upload photos, videos, or choose from Design Studio or Add Vehicle.</div>
             </div>
           </div>
 
@@ -874,11 +877,13 @@ function renderSocialComposerView(container) {
                 <input type="datetime-local" id="composer-scheduled-date" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white">
               </div>
               <div class="flex items-end gap-2">
-                <button type="button" onclick="studioComposerSavePost(false, false)" class="flex-1 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-sm transition cursor-pointer">
-                  📅 Schedule Post
+                <button type="button" onclick="studioComposerSavePost(false, false)" class="flex-1 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-sm transition cursor-pointer flex items-center justify-center gap-1.5">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+                  <span>Schedule Post</span>
                 </button>
-                <button type="button" onclick="studioComposerSavePost(true, false)" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition cursor-pointer" title="Publish Immediately">
-                  🚀 Publish Now
+                <button type="button" onclick="studioComposerSavePost(true, false)" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition cursor-pointer flex items-center gap-1.5" title="Publish Immediately">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/></svg>
+                  <span>Publish Now</span>
                 </button>
                 <button type="button" onclick="studioComposerSavePost(false, true)" class="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 text-xs font-bold transition cursor-pointer" title="Save as Draft">
                   Draft
@@ -908,7 +913,7 @@ function renderSocialComposerView(container) {
               </div>
               <div>
                 <div class="text-xs font-bold text-slate-900 dark:text-white" id="preview-acc-name">Dealership Page</div>
-                <div class="text-[10px] text-slate-400">Just now · 🌎 Public</div>
+                <div class="text-[10px] text-slate-400">Just now · Public</div>
               </div>
             </div>
 
@@ -924,7 +929,7 @@ function renderSocialComposerView(container) {
 
             <!-- Mock Reactions -->
             <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400 font-medium">
-              <span>👍 ❤️ 24 likes</span>
+              <span>24 likes</span>
               <span>3 comments · 1 share</span>
             </div>
           </div>
@@ -961,6 +966,42 @@ function updateComposerPreview() {
 }
 window.updateComposerPreview = updateComposerPreview;
 
+function renderComposerMediaList() {
+  const list = document.getElementById('composer-media-list');
+  if (!list) return;
+  if (!__studioComposerMedia.length) {
+    list.innerHTML = `<div class="text-xs text-slate-400 italic px-2">No media attached yet. Upload photos, videos, or choose from Design Studio or Add Vehicle.</div>`;
+    const prevMedia = document.getElementById('preview-media');
+    if (prevMedia) prevMedia.innerHTML = `<span>Attached photo or video preview</span>`;
+    return;
+  }
+
+  list.innerHTML = __studioComposerMedia.map((m, idx) => `
+    <div class="relative w-20 h-20 rounded-xl overflow-hidden border-2 border-indigo-500 shrink-0 group/m shadow-sm">
+      ${m.type === 'video' 
+        ? `<video src="${esc(m.url)}" class="w-full h-full object-cover"></video><div class="absolute inset-0 bg-black/30 flex items-center justify-center text-white"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/></svg></div>`
+        : `<img src="${esc(m.url)}" class="w-full h-full object-cover">`
+      }
+      <button type="button" onclick="studioComposerRemoveMedia(${idx})" class="absolute top-1 right-1 w-5 h-5 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px] font-black opacity-0 group-hover/m:opacity-100 transition shadow cursor-pointer" title="Remove attachment">✕</button>
+    </div>
+  `).join('');
+
+  const prevMedia = document.getElementById('preview-media');
+  if (prevMedia && __studioComposerMedia[0]) {
+    const first = __studioComposerMedia[0];
+    prevMedia.innerHTML = first.type === 'video'
+      ? `<video src="${esc(first.url)}" class="w-full h-full object-cover" controls></video>`
+      : `<img src="${esc(first.url)}" class="w-full h-full object-cover">`;
+  }
+}
+window.renderComposerMediaList = renderComposerMediaList;
+
+function studioComposerRemoveMedia(idx) {
+  __studioComposerMedia.splice(idx, 1);
+  renderComposerMediaList();
+}
+window.studioComposerRemoveMedia = studioComposerRemoveMedia;
+
 function studioComposerSelectAllAccounts(checked) {
   document.querySelectorAll('input[name="composer_account"]').forEach(cb => cb.checked = checked);
   updateComposerPreview();
@@ -983,18 +1024,218 @@ function studioComposerOpenDesignStudio() {
 }
 window.studioComposerOpenDesignStudio = studioComposerOpenDesignStudio;
 
-function studioComposerOpenVehicleSearch() {
-  const vin = prompt('Enter Vehicle VIN or Stock Number to generate social spotlight:', '');
-  if (!vin) return;
+// ── Vehicle Search Modal for Social Composer ────────────────────────────────
+let __cachedVehiclesForComposer = null;
+let __composerVehicleFilter = 'all';
+let __composerVehicleQuery = '';
 
-  const captionEl = document.getElementById('composer-caption');
-  if (captionEl) {
-    captionEl.value = `🚗 NEW ARRIVAL SPOTLIGHT!\n\nCheck out this stunning vehicle ready for delivery! Clean title, fully inspected, and priced to move fast.\n\n📍 Visit Downtown Motors or message us today for test drive availability!\n\n#CarDealership #NewArrival #PreOwned #CarsForSale #AutoSales`;
-    updateComposerPreview();
-    showToast('Vehicle spotlight copy added!', 'success');
+async function studioComposerOpenVehicleSearch() {
+  let modal = document.getElementById('studio-vehicle-modal-backdrop');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'studio-vehicle-modal-backdrop';
+    modal.className = 'fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 overflow-y-auto';
+    modal.onclick = (e) => {
+      if (e.target === modal) studioComposerCloseVehicleSearch();
+    };
+    document.body.appendChild(modal);
   }
+
+  modal.innerHTML = `
+    <div class="relative w-full max-w-4xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" onclick="event.stopPropagation()">
+      <!-- Modal Header -->
+      <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 bg-slate-50 dark:bg-slate-950">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-indigo-600/10 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.635l-3 3m0 0l-3-3m3 3V3"/></svg>
+          </div>
+          <div>
+            <h3 class="text-base font-black text-slate-900 dark:text-white">Select Vehicle from Inventory</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Search lot inventory to attach vehicle photos and generate spotlight copy.</p>
+          </div>
+        </div>
+        <button type="button" onclick="studioComposerCloseVehicleSearch()" class="w-8 h-8 rounded-full bg-slate-200/60 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white flex items-center justify-center text-sm font-bold transition cursor-pointer" title="Close">✕</button>
+      </div>
+
+      <!-- Search & Filters -->
+      <div class="p-4 border-b border-slate-200 dark:border-slate-800 space-y-3 bg-white dark:bg-slate-900">
+        <div class="relative">
+          <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+          <input type="text" id="studio-vehicle-search-input" placeholder="Search by Year, Make, Model, Trim, VIN, or Stock #..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl pl-10 pr-4 py-2.5 text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500" oninput="studioComposerFilterVehicles(this.value)">
+        </div>
+
+        <div class="flex items-center justify-between flex-wrap gap-2 text-xs">
+          <div class="flex items-center gap-1.5 flex-wrap" id="studio-vehicle-filter-chips">
+            <button type="button" onclick="studioComposerSetFilter('all')" class="px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${__composerVehicleFilter === 'all' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">All Vehicles</button>
+            <button type="button" onclick="studioComposerSetFilter('in_stock')" class="px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${__composerVehicleFilter === 'in_stock' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">In Stock</button>
+            <button type="button" onclick="studioComposerSetFilter('used')" class="px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${__composerVehicleFilter === 'used' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">Pre-Owned</button>
+            <button type="button" onclick="studioComposerSetFilter('new')" class="px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${__composerVehicleFilter === 'new' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">New</button>
+          </div>
+          <span id="studio-vehicle-count" class="text-[11px] font-bold text-slate-400 tabular-nums">Loading inventory…</span>
+        </div>
+      </div>
+
+      <!-- Vehicle List Body -->
+      <div id="studio-vehicle-results-grid" class="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 gap-3 min-h-[300px]">
+        <div class="col-span-full py-12 text-center text-xs text-slate-400 flex flex-col items-center justify-center gap-2">
+          <div class="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+          <span>Loading dealership vehicles…</span>
+        </div>
+      </div>
+    </div>
+  `;
+  modal.classList.remove('hidden');
+
+  await studioComposerLoadVehicles();
 }
 window.studioComposerOpenVehicleSearch = studioComposerOpenVehicleSearch;
+
+function studioComposerCloseVehicleSearch() {
+  const modal = document.getElementById('studio-vehicle-modal-backdrop');
+  if (modal) modal.classList.add('hidden');
+}
+window.studioComposerCloseVehicleSearch = studioComposerCloseVehicleSearch;
+
+async function studioComposerLoadVehicles() {
+  if (!__cachedVehiclesForComposer) {
+    try {
+      const res = await apiGetJson('/inventory/all').catch(() => apiGetJson('/inventory'));
+      __cachedVehiclesForComposer = Array.isArray(res?.vehicles) ? res.vehicles : (Array.isArray(res?.inventory) ? res.inventory : (Array.isArray(res) ? res : []));
+    } catch (e) {
+      __cachedVehiclesForComposer = [];
+    }
+  }
+  studioComposerRenderVehicles();
+}
+
+function studioComposerSetFilter(filter) {
+  __composerVehicleFilter = filter;
+  const chips = document.getElementById('studio-vehicle-filter-chips');
+  if (chips) {
+    chips.querySelectorAll('button').forEach(btn => {
+      const match = btn.getAttribute('onclick')?.includes(`'${filter}'`);
+      btn.className = `px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${match ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}`;
+    });
+  }
+  studioComposerRenderVehicles();
+}
+window.studioComposerSetFilter = studioComposerSetFilter;
+
+function studioComposerFilterVehicles(query) {
+  __composerVehicleQuery = (query || '').toLowerCase().trim();
+  studioComposerRenderVehicles();
+}
+window.studioComposerFilterVehicles = studioComposerFilterVehicles;
+
+function studioComposerRenderVehicles() {
+  const grid = document.getElementById('studio-vehicle-results-grid');
+  const countEl = document.getElementById('studio-vehicle-count');
+  if (!grid) return;
+
+  let list = __cachedVehiclesForComposer || [];
+
+  if (__composerVehicleFilter === 'in_stock') {
+    list = list.filter(v => !v.status || ['available', 'in_stock', 'frontline'].includes(String(v.status).toLowerCase()));
+  } else if (__composerVehicleFilter === 'used') {
+    list = list.filter(v => String(v.condition || v.type || '').toLowerCase().includes('used') || String(v.condition || '').toLowerCase().includes('pre-owned') || Number(v.mileage || 0) > 300);
+  } else if (__composerVehicleFilter === 'new') {
+    list = list.filter(v => String(v.condition || v.type || '').toLowerCase().includes('new') || (v.mileage != null && Number(v.mileage) <= 300));
+  }
+
+  if (__composerVehicleQuery) {
+    list = list.filter(v => {
+      const str = `${v.year || ''} ${v.make || ''} ${v.model || ''} ${v.trim || ''} ${v.stock_number || ''} ${v.vin || ''}`.toLowerCase();
+      return str.includes(__composerVehicleQuery);
+    });
+  }
+
+  if (countEl) countEl.textContent = `${list.length} unit${list.length === 1 ? '' : 's'} found`;
+
+  if (!list.length) {
+    grid.innerHTML = `
+      <div class="col-span-full py-12 text-center text-xs text-slate-400">
+        <p class="font-bold text-slate-600 dark:text-slate-300 mb-1">No vehicles matched your search</p>
+        <p class="text-[11px]">Try adjusting your search terms or filters.</p>
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = list.slice(0, 30).map(v => {
+    const title = `${v.year || ''} ${v.make || ''} ${v.model || ''}`.trim() || 'Vehicle';
+    const sub = [v.trim, v.body_style || v.body].filter(Boolean).join(' · ');
+    const photo = (Array.isArray(v.photos) && v.photos[0]) || (Array.isArray(v.image_urls) && v.image_urls[0]) || v.photo_url || v.thumbnail_url || '';
+    const price = v.price ? '$' + Number(v.price).toLocaleString() : (v.internet_price ? '$' + Number(v.internet_price).toLocaleString() : 'Inquire');
+    const miles = v.mileage ? Number(v.mileage).toLocaleString() + ' mi' : 'Low miles';
+    const stockVin = [v.stock_number ? `Stk #${v.stock_number}` : '', v.vin ? `VIN …${String(v.vin).slice(-6)}` : ''].filter(Boolean).join(' · ');
+
+    const vJson = esc(JSON.stringify(v).replace(/'/g, '&#39;'));
+
+    return `
+      <div class="bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-600 rounded-2xl p-3 flex gap-3 transition hover:shadow-md group/v">
+        <div class="w-24 h-20 rounded-xl bg-slate-200 dark:bg-slate-800 overflow-hidden shrink-0 flex items-center justify-center text-slate-400 relative">
+          ${photo 
+            ? `<img src="${esc(photo)}" class="w-full h-full object-cover" onerror="this.style.display='none'">`
+            : `<svg class="w-8 h-8 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.635l-3 3m0 0l-3-3m3 3V3"/></svg>`
+          }
+        </div>
+        <div class="flex-1 min-w-0 flex flex-col justify-between">
+          <div>
+            <div class="flex items-start justify-between gap-1">
+              <h4 class="text-xs font-black text-slate-900 dark:text-white truncate">${esc(title)}</h4>
+              <span class="text-xs font-black text-indigo-600 dark:text-indigo-400 shrink-0">${esc(price)}</span>
+            </div>
+            ${sub ? `<p class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 truncate">${esc(sub)}</p>` : ''}
+            <p class="text-[10px] text-slate-400 truncate mt-0.5">${esc(stockVin)} · ${esc(miles)}</p>
+          </div>
+          <div class="flex items-center justify-end pt-1">
+            <button type="button" onclick="studioComposerAttachVehicle(${vJson})" class="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold transition flex items-center gap-1 cursor-pointer shadow-sm">
+              <span>Attach Unit</span>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function studioComposerAttachVehicle(v) {
+  if (!v) return;
+
+  const captionEl = document.getElementById('composer-caption');
+  const title = `${v.year || ''} ${v.make || ''} ${v.model || ''} ${v.trim || ''}`.trim() || 'Featured Vehicle';
+  const price = v.price ? '$' + Number(v.price).toLocaleString() : (v.internet_price ? '$' + Number(v.internet_price).toLocaleString() : 'Special Pricing');
+  const miles = v.mileage ? Number(v.mileage).toLocaleString() + ' miles' : 'Low mileage';
+  const stock = v.stock_number ? `Stock #: ${v.stock_number}` : '';
+  const vin = v.vin ? `VIN: ${v.vin}` : '';
+
+  const cleanDetails = [stock, vin].filter(Boolean).join('\n');
+
+  const copy = `Featured Vehicle Spotlight: ${title}\n\nPrice: ${price}\nMileage: ${miles}${cleanDetails ? '\n' + cleanDetails : ''}\n\nFully inspected, certified, and ready for immediate delivery. Message our team or visit us today to schedule your VIP test drive!\n\n#${(v.make || '').replace(/[^a-zA-Z0-9]/g, '')} #${(v.model || '').replace(/[^a-zA-Z0-9]/g, '')} #Dealership #AutoSales #PreOwned #NewArrival #CarsForSale`;
+
+  if (captionEl) {
+    captionEl.value = copy;
+  }
+
+  // Attach all available photos
+  const photos = [];
+  if (Array.isArray(v.photos)) photos.push(...v.photos);
+  if (Array.isArray(v.image_urls)) photos.push(...v.image_urls);
+  if (v.photo_url && !photos.includes(v.photo_url)) photos.push(v.photo_url);
+
+  const cleanPhotos = [...new Set(photos.filter(p => typeof p === 'string' && p.startsWith('http')))];
+
+  if (cleanPhotos.length) {
+    __studioComposerMedia = cleanPhotos.map(url => ({ url, type: 'image', title }));
+  }
+
+  renderComposerMediaList();
+  updateComposerPreview();
+  studioComposerCloseVehicleSearch();
+  showToast(`Attached ${title} to post!`, 'success');
+}
+window.studioComposerAttachVehicle = studioComposerAttachVehicle;
 
 function studioSchedulerOpenDesignEditor(designId, assetUrl) {
   if (typeof window.openMarketSyncStudio === 'function') {
@@ -1028,16 +1269,16 @@ function studioSchedulerAiCaption(type) {
   if (!captionEl) return;
 
   if (type === 'rewrite') {
-    captionEl.value = `🔥 Special Deal Alert! Unbeatable savings this week on top-rated pre-owned & new vehicles. Don't miss out — visit us today!`;
+    captionEl.value = `Special Deal Alert: Unbeatable savings this week on top-rated pre-owned & new vehicles. Don't miss out — visit us today!`;
   } else if (type === 'hashtags') {
     studioSchedulerAddHashtags();
     return;
   } else if (type === 'punchy') {
-    captionEl.value = `🔥 Incredible deal of the week! Drive home in style with unbeatable pricing and instant financing approvals. Tap below or stop by the lot today!`;
+    captionEl.value = `Incredible deal of the week! Drive home in style with competitive pricing and instant financing approvals. Tap below or stop by the lot today!`;
   } else if (type === 'cta') {
-    captionEl.value += `\n\n👉 Send us a DM or tap the link in bio to schedule your VIP test drive today!`;
+    captionEl.value += `\n\nContact our sales specialists or message us today to schedule your VIP test drive!`;
   } else {
-    captionEl.value = `✨ Featured Deal of the Day!\n\nLooking for your next reliable ride? We just added exciting inventory with low mileage, warranty included, and great finance rates.\n\n📞 Call or message us to get pre-approved in minutes!\n\n#Dealership #CarSales #QualityVehicles #ShopLocal`;
+    captionEl.value = `Featured Deal of the Day:\n\nLooking for your next reliable ride? We just added exciting inventory with low mileage, warranty included, and great finance rates.\n\nCall or message us to get pre-approved in minutes!\n\n#Dealership #CarSales #QualityVehicles #ShopLocal`;
   }
   updateComposerPreview();
   showToast('AI copy updated!', 'success');
