@@ -884,6 +884,38 @@ export function registerAiRuntime(app) {
 
   // Authenticated chat (internal testing + logged-in surfaces). The public,
   // CORS-gated widget endpoint lands in Phase 3 on top of the same runtime.
+  app.post('/ai/compose', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
+    if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI is not configured' })
+    const kind = String(req.body?.kind || 'email').toLowerCase()
+    const name = String(req.body?.name || 'there').slice(0, 80)
+    const vehicle = String(req.body?.vehicle || '').slice(0, 160)
+    const existing = String(req.body?.existing || '').slice(0, 2000)
+    const notes = String(req.body?.notes || '').slice(0, 800)
+    const dealer = String(req.body?.dealer || req.profile?.dealership_name || 'the dealership').slice(0, 80)
+    const goal = String(req.body?.goal || '').slice(0, 200)
+    const sms = kind === 'sms' || kind === 'text'
+    const system = sms
+      ? 'You write dealership SMS to customers. Return ONLY the message. Under 280 characters. Warm, clear, no hype, no emoji spam, one question max.'
+      : 'You write dealership emails to customers. Return a subject line on the first line prefixed with Subject:, then a blank line, then the email body. Short paragraphs. No markdown. Sign off as the salesperson first name if given.'
+    const user = `Write a ${sms ? 'text message' : 'email'} to ${name} from ${dealer}.
+Vehicle of interest: ${vehicle || 'not specified'}.
+Context: ${notes || 'sales follow-up'}.
+Goal: ${goal || 'move the conversation forward toward a visit or decision'}.
+${existing ? `Improve or finish this draft:\n${existing}` : 'Write a fresh draft.'}
+Salesperson: ${req.profile?.full_name || 'the salesperson'}.`
+    try {
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+      const r = await anthropic.messages.create({ model: MODEL, max_tokens: sms ? 220 : 500, system, messages: [{ role: 'user', content: user }] })
+      const raw = (r.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim()
+      let subject = '', body = raw
+      const m = raw.match(/^Subject:\s*(.+)\n+([\s\S]+)/i)
+      if (m) { subject = m[1].trim(); body = m[2].trim() }
+      res.json({ ok: true, text: body, subject, kind })
+    } catch (e) {
+      res.status(500).json({ error: 'AI write failed: ' + (e.message || 'error') })
+    }
+  })
   app.post('/ai/chat', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const text = String(req.body?.message || '').trim()
