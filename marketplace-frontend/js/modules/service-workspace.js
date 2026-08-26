@@ -623,7 +623,7 @@ ENGINES['service-overview'] = {
           })).join('') : ''), empty: d.closedRos == null ? 'Could not be loaded.' : 'Nothing closed yet.',
         }),
         pulseCard({
-          title: 'Video Walkaround', tier: 'compact', onclick: "switchPage('video-studio')",
+          title: 'Video Walkaround', tier: 'compact', onclick: "typeof svcOpenVideoWalkaround==='function'&&svcOpenVideoWalkaround()",
           inner: `<p class="text-[12px] text-slate-500 dark:text-slate-400 leading-snug">Record a walkaround on any repair order to show the customer what was found.</p>`,
         }),
         pulseCard({
@@ -685,9 +685,9 @@ ENGINES['service-overview'] = {
       body.innerHTML = `
         ${pulseHeader('Service Pulse', 'One repair order — check in, estimate, authorize, repair, deliver')}
         ${pulseActionsRow([
-          { label: 'Check in', onclick: "engineTab('service-overview','appointments')" },
-          { label: 'Check out', onclick: "engineTab('service-overview','ros')" },
-          { label: 'Video Walkaround', onclick: "switchPage('video-studio')" },
+          { label: 'Check in', onclick: "typeof svcOpenCheckInModal==='function'&&svcOpenCheckInModal()" },
+          { label: 'Check out', onclick: "typeof svcOpenCheckOutModal==='function'&&svcOpenCheckOutModal()" },
+          { label: 'Video Walkaround', onclick: "typeof svcOpenVideoWalkaround==='function'&&svcOpenVideoWalkaround()" },
           { label: 'Repair Orders', onclick: "engineTab('service-overview','ros')" },
         ])}
         ${typeof svcUnavailableNote === 'function' ? svcUnavailableNote(d) : ''}
