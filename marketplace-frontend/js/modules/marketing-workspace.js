@@ -1169,24 +1169,43 @@ ENGINES['marketing-overview'] = {
     // ── Design Studio ────────────────────────────────────────────────────────
     // Leaves Marketing dashboard shell and opens the full-screen canvas workspace
     studio(body, d) {
-      if (typeof openMarketSyncStudio === 'function') {
-        openMarketSyncStudio();
-      }
       body.innerHTML = `
-        <div class="py-12 px-6 max-w-xl mx-auto text-center space-y-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs my-8">
-          <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/></svg>
+        <div class="space-y-6">
+          <div class="py-8 px-6 text-center space-y-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl">
+            <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+            </div>
+            <h3 class="text-base font-black">Design Studio Full-Screen Workspace</h3>
+            <p class="text-sm text-slate-500">Automotive social graphics, inventory flyers, and story assets. Branding here is the same kit as Settings and the Website.</p>
+            <div class="flex justify-center gap-3">
+              <button onclick="openMarketSyncStudio()" class="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-black text-xs">Open Studio Canvas →</button>
+              <button onclick="engineTab('marketing-overview','overview')" class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-bold text-xs">Back to Pulse</button>
+            </div>
           </div>
-          <div>
-            <h3 class="text-base font-black text-slate-900 dark:text-white">Design Studio Full-Screen Workspace</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Design Studio operates as a dedicated full-screen creative workspace for automotive social graphics, inventory flyers, and story assets.</p>
+          <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <section class="ms-c ms-c--standard ms-c--glass p-4 space-y-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-[11px] font-black uppercase tracking-wider text-slate-500">Brand kit</div>
+                  <div class="text-sm text-slate-500">Settings + Website + Studio share this.</div>
+                </div>
+                <button type="button" onclick="mktSaveStudioBrand()" class="liquid-glass-btn px-3 py-1.5 rounded-lg text-xs font-black">Save brand</button>
+              </div>
+              <div id="mkt-studio-brand" class="space-y-3 text-sm">Loading brand…</div>
+            </section>
+            <section class="ms-c ms-c--standard ms-c--glass p-4 space-y-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-[11px] font-black uppercase tracking-wider text-slate-500">Assets library</div>
+                  <div class="text-sm text-slate-500">Logos, photos, and clips used in Studio and posts.</div>
+                </div>
+                <label class="liquid-glass-btn px-3 py-1.5 rounded-lg text-xs font-black cursor-pointer">Upload<input type="file" class="hidden" accept="image/*,video/*" onchange="mktUploadStudioAsset(this)"></label>
+              </div>
+              <div id="mkt-studio-assets" class="grid grid-cols-2 md:grid-cols-3 gap-2">Loading assets…</div>
+            </section>
           </div>
-          <div class="pt-2 flex justify-center gap-3">
-            <button onclick="openMarketSyncStudio()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md">Open Studio Canvas &rarr;</button>
-            <button onclick="engineTab('marketing-overview','overview')" class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition">Back to Pulse</button>
-          </div>
-        </div>
-      `;
+        </div>`;
+      if (typeof mktLoadStudioBrandAndAssets === 'function') mktLoadStudioBrandAndAssets();
     },
 
     // ── Website ──────────────────────────────────────────────────────────────
@@ -1952,3 +1971,88 @@ Object.assign(window, {
   disconnectSocialChannel,
   closeSocialChannelModal
 });
+
+
+async function mktLoadStudioBrandAndAssets() {
+  const brandHost = document.getElementById('mkt-studio-brand');
+  const assetHost = document.getElementById('mkt-studio-assets');
+  let brand = {};
+  let site = {};
+  try { brand = (await apiGetJson('/branding')).branding || {}; } catch {}
+  try {
+    const sites = await apiGetJson('/websites').catch(() => ({}));
+    site = (sites.sites || sites.websites || [])[0] || sites.site || {};
+  } catch {}
+  const logo = brand.logo_url || site.logo_url || '';
+  const primary = brand.primary_color || site.primary_color || '#4f46e5';
+  const accent = brand.secondary_color || site.accent_color || '#0f172a';
+  const tagline = brand.tagline || site.tagline || '';
+  window.__mktStudioBrand = { ...brand, logo_url: logo, primary_color: primary, secondary_color: accent, tagline };
+  if (brandHost) brandHost.innerHTML = `
+    <div class="flex items-center gap-3">
+      <div class="w-16 h-16 rounded-xl border border-slate-200 dark:border-slate-700 bg-white flex items-center justify-center overflow-hidden">${logo ? `<img src="${esc(logo)}" class="max-h-14 max-w-14 object-contain">` : '<span class="text-[10px] text-slate-400">No logo</span>'}</div>
+      <label class="text-xs font-black cursor-pointer">Replace logo<input type="file" accept="image/*" class="hidden" onchange="mktUploadStudioLogo(this)"></label>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <label class="text-xs font-bold">Primary<input id="mkt-brand-primary" type="color" value="${esc(primary)}" class="w-full h-10 rounded-lg border border-slate-200"></label>
+      <label class="text-xs font-bold">Accent<input id="mkt-brand-accent" type="color" value="${esc(accent)}" class="w-full h-10 rounded-lg border border-slate-200"></label>
+    </div>
+    <input id="mkt-brand-tagline" value="${esc(tagline)}" placeholder="Tagline" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+    <div class="text-xs text-slate-500">Same record as Settings → Branding and the Website wordmark.</div>
+  `;
+  let assets = [];
+  try { assets = (await apiGetJson('/marketing/assets')).assets || []; } catch {}
+  window.__mktStudioAssets = assets;
+  if (assetHost) {
+    assetHost.innerHTML = assets.length ? assets.slice(0, 24).map(a => {
+      const url = a.url || a.public_url || a.src || '';
+      const name = a.name || a.filename || 'Asset';
+      return `<button type="button" onclick="openMarketSyncStudio()" class="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 text-left">
+        ${url && !String(a.kind||a.type||'').includes('video') ? `<img src="${esc(url)}" class="w-full h-24 object-cover">` : `<div class="h-24 flex items-center justify-center text-xs text-slate-400">File</div>`}
+        <div class="px-2 py-1.5 text-[11px] font-semibold truncate">${esc(name)}</div>
+      </button>`;
+    }).join('') : '<div class="col-span-full text-sm text-slate-400 py-6 text-center">No assets yet. Upload a logo or photo.</div>';
+  }
+}
+window.mktLoadStudioBrandAndAssets = mktLoadStudioBrandAndAssets;
+
+window.mktSaveStudioBrand = async function () {
+  const payload = {
+    ...(window.__mktStudioBrand || {}),
+    primary_color: document.getElementById('mkt-brand-primary')?.value,
+    secondary_color: document.getElementById('mkt-brand-accent')?.value,
+    tagline: document.getElementById('mkt-brand-tagline')?.value || '',
+  };
+  try {
+    await apiSendJson('/branding', 'PUT', payload);
+    showToast('Brand saved for Settings, Website, and Studio', 'success');
+  } catch (e) { showToast(e.message || 'Could not save brand', 'error'); }
+};
+
+window.mktUploadStudioLogo = async function (input) {
+  const file = input?.files?.[0];
+  if (!file) return;
+  const fd = new FormData();
+  fd.append('logo', file);
+  try {
+    const token = localStorage.getItem('token');
+    const r = await fetch(`${API}/branding/logo`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+    if (!r.ok) throw new Error('Logo upload failed');
+    showToast('Logo updated everywhere branding is used', 'success');
+    mktLoadStudioBrandAndAssets();
+  } catch (e) { showToast(e.message, 'error'); }
+};
+
+window.mktUploadStudioAsset = async function (input) {
+  const file = input?.files?.[0];
+  if (!file) return;
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const token = localStorage.getItem('token');
+    const r = await fetch(`${API}/marketing/assets`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+    if (!r.ok) throw new Error('Upload failed');
+    showToast('Added to the assets library', 'success');
+    mktLoadStudioBrandAndAssets();
+  } catch (e) { showToast(e.message, 'error'); }
+};
