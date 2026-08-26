@@ -223,7 +223,7 @@ async function loadSocialSchedulerPageTab(tab) {
             </div>
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2">
-                <h1 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">Social Scheduler</h1>
+                <h1 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">Social Studio &amp; Scheduler</h1>
                 <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/25">Social Media Suite</span>
               </div>
               <p class="text-sm text-slate-600 dark:text-slate-300 mt-1 max-w-2xl leading-relaxed">Publish and schedule across Facebook, Instagram, LinkedIn, TikTok, YouTube, and X.</p>
