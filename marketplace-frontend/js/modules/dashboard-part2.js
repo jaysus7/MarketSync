@@ -67,6 +67,11 @@ function isDemoAccount() {
 window.isDemoAccount = isDemoAccount;
 
 function dealerRoleLanding(role) {
+  const prod = String(window.__demoActiveProduct || window.__demoActivePackage || document.documentElement.getAttribute('data-product') || '').toLowerCase();
+  if (prod.includes('marketsync-digital') || prod.includes('marketsync_digital') || prod === 'digital') return 'marketing-overview';
+  if (prod.includes('sales-marketing-suite')) return 'marketing-overview';
+  if (prod.includes('service-marketing-suite')) return 'marketing-overview';
+  if (prod.includes('complete-marketing-suite')) return 'marketing-overview';
   const routes = {
     DEALER_ADMIN: 'command', OWNER: 'command', MANAGER: 'command',
     SALES_REP: 'sales', BDC: 'sales', FNI: 'fni-overview', SERVICE: 'service-overview',
@@ -2073,7 +2078,7 @@ function switchPage(pageId) {
   // safe home. The API + RLS already deny the data; this keeps the UI from opening an
   // empty/403 page from a stale link. profile (settings) is always reachable.
   if (pageId !== 'profile' && !pageFeatureOk(pageId)) {
-    pageId = (typeof deptNavEligible === 'function' && deptNavEligible(profileContext?.role)) ? 'command' : dealerRoleLanding(profileContext?.role);
+    pageId = dealerRoleLanding(profileContext?.role);
   }
 
   // Accounting has one container but each nav leaf (acct-insights, acct-tax, …) is
