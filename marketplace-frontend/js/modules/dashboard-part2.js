@@ -1417,11 +1417,12 @@ function pageFeatureOk(pg, invmode = null) {
   const requiredProduct = (pg === 'inventory' && (invmode || __inventoryMode) === 'facebook')
     ? 'facebook' : PAGE_PRODUCT[pg];
   if (requiredProduct) {
-    if (requiredProduct === 'design_studio') {
+    if (requiredProduct === 'design_studio' || requiredProduct === 'marketsync_social') {
       const suite = typeof getActiveMarketingSuite === 'function' ? getActiveMarketingSuite() : null;
       if (suite === 'digital' || suite === 'complete' || suite === 'sales' || suite === 'service') return true;
       const prod = String(window.__demoActiveProduct || window.__demoActivePackage || document.documentElement.getAttribute('data-product') || '');
-      if (/digital|marketing-suite|design_studio|design-studio/.test(prod)) return true;
+      if (/digital|marketing-suite|design_studio|design-studio|social|dealer_os|dealer-os/.test(prod)) return true;
+      if ((window.__access?.products || []).includes('dealer_os')) return true;
     }
     return !!((access && (access.isPlatformStaff || (access.products || []).includes(requiredProduct)))
       || fallback.products?.has(requiredProduct));
@@ -2188,7 +2189,14 @@ function switchPage(pageId) {
       .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-shell.js?v=20260826_studio_tp_v1'))
       .then(() => { if (typeof openMarketSyncStudio === 'function') openMarketSyncStudio(); });
   }
-  if (pageId === 'social-scheduler') { if (typeof loadSocialSchedulerPage === 'function') loadSocialSchedulerPage(); }
+  if (pageId === 'social-scheduler') {
+    const bootSched = () => { if (typeof loadSocialSchedulerPage === 'function') loadSocialSchedulerPage(); };
+    if (typeof loadSocialSchedulerPage === 'function') bootSched();
+    else if (window.msLoadScript) {
+      Promise.resolve(window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260826_sched_load_v1'))
+        .then(bootSched).catch(bootSched);
+    }
+  }
   if (pageId === 'video-studio') {
     Promise.resolve(window.msLoadScript ? window.msLoadScript('js/modules/video-studio.js?v=20260826_video_fix_v2') : null)
       .then(() => { if (typeof loadVideoStudioPage === 'function') loadVideoStudioPage(); });
