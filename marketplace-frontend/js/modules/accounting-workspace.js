@@ -138,6 +138,7 @@ ENGINES['accounting-overview'] = {
           </div>
           <button onclick="engineTab('accounting-overview','reports')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900">View Statements</button>
         `)}
+        ${typeof pulseDeptLeaderboard === 'function' ? pulseDeptLeaderboard(d.gamification, 'accounting', { title: 'Accounting leaderboard' }) : ''}
       `;
     },
     money_in(body, d) {
