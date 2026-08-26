@@ -2181,7 +2181,7 @@ function switchPage(pageId) {
   }
   if (pageId === 'social-scheduler') { if (typeof loadSocialSchedulerPage === 'function') loadSocialSchedulerPage(); }
   if (pageId === 'video-studio') {
-    Promise.resolve(window.msLoadScript ? window.msLoadScript('js/modules/video-studio.js?v=20260826_studio_tp_v1') : null)
+    Promise.resolve(window.msLoadScript ? window.msLoadScript('js/modules/video-studio.js?v=20260826_video_fix_v2') : null)
       .then(() => { if (typeof loadVideoStudioPage === 'function') loadVideoStudioPage(); });
   }
   if (pageId === 'academy') {
