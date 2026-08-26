@@ -271,17 +271,16 @@ ENGINES['fni-overview'] = {
       const deals = d.deals || [];
       const now = Date.now();
       const oneHourMs = 3600 * 1000;
-      
-      // Incoming deals desked within 1 hour (or recent deals)
       const incomingDeals = deals.filter(x => {
         const ts = new Date(x.desked_at || x.created_at || x.updated_at || 0).getTime();
         return (now - ts) <= oneHourMs;
       });
-      const deskedToShow = incomingDeals.length ? incomingDeals : deals.slice(0, 5);
-
       const pending = deals.filter(x => x.deal_status === 'pending').length;
       const inFni = deals.filter(x => x.deal_status === 'fni').length;
       const blocked = (d.blocked || []).length;
+      const funding = d.funding || deals.filter(x => x.deal_status === 'fni');
+      const products = d.products || [];
+      const deliveryQ = d.deliveryQueue || [];
 
       const formatTimeAgo = (tsStr) => {
         if (!tsStr) return 'Just now';
@@ -294,177 +293,94 @@ ENGINES['fni-overview'] = {
         return `${Math.floor(hrs / 24)}d ago`;
       };
 
-      const funding = d.funding || deals.filter(x => x.deal_status === 'fni');
-      const products = d.products || [];
-      const awaitingContracts = deals.filter(x => /sold|delivered/i.test(x.deal_status || '') && !x.contract_signed_at);
-
-      // ── Pulse grid — the at-a-glance widget wall ────────────────────────────
-      const grid = pulseBoard([
+      const cards = [
         pulseCard({
-          title: 'Deliveries', count: (d.deliveryQueue || []).length, tier: 'standard',
+          title: 'Needs attention', count: att.length,
+          tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
+          tier: att.length ? 'hero' : 'standard',
+          inner: att.length ? att.slice(0, 8).map(x => {
+            if (typeof fniAttentionRow === 'function') return fniAttentionRow(x);
+            return pulseRow({ badge: '!', label: x.reason || x.kind || 'Item', sub: x.action || '' });
+          }).join('') : '',
+          empty: 'Nothing needs F&I right now.',
+        }),
+        pulseCard({
+          title: 'Incoming desked (1h)', count: incomingDeals.length,
+          tier: incomingDeals.length ? 'feature' : 'standard',
+          onclick: "engineTab('fni-overview','deals')",
+          inner: (incomingDeals.length ? incomingDeals : deals.slice(0, 5)).slice(0, 6).map(x => pulseRow({
+            badge: formatTimeAgo(x.desked_at || x.created_at || x.updated_at),
+            label: (typeof fniCustomer === 'function' ? fniCustomer(x) : (x.customer_name || 'Deal')),
+            sub: [typeof fniStage === 'function' ? fniStage(x) : x.deal_status, typeof fniVehicle === 'function' ? fniVehicle(x) : x.vehicle_label].filter(Boolean).join(' · '),
+            onclick: "engineTab('fni-overview','deals')",
+          })).join(''),
+          empty: 'No recent desked deals.',
+        }),
+        pulseCard({
+          title: 'Pending approval', count: pending,
+          tier: pending ? 'feature' : 'standard',
+          onclick: "engineTab('fni-overview','deals')",
+          inner: deals.filter(x => x.deal_status === 'pending').slice(0, 6).map(x => pulseRow({
+            badge: '…', label: (typeof fniCustomer === 'function' ? fniCustomer(x) : (x.customer_name || 'Deal')),
+            sub: typeof fniVehicle === 'function' ? fniVehicle(x) : (x.vehicle_label || ''),
+            onclick: "engineTab('fni-overview','deals')",
+          })).join(''),
+          empty: 'No deals awaiting lender decision.',
+        }),
+        pulseCard({
+          title: 'In F&I', count: inFni, tier: 'standard',
+          onclick: "engineTab('fni-overview','deals')",
+          inner: deals.filter(x => x.deal_status === 'fni').slice(0, 5).map(x => pulseRow({
+            badge: '$', label: (typeof fniCustomer === 'function' ? fniCustomer(x) : (x.customer_name || 'Deal')),
+            sub: typeof fniVehicle === 'function' ? fniVehicle(x) : '',
+          })).join(''),
+          empty: 'No deals in F&I.',
+        }),
+        pulseCard({
+          title: 'Delivery blockers', count: blocked || deliveryQ.filter(x => x.blocker).length,
+          tone: (blocked || deliveryQ.some(x => x.blocker)) ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
+          tier: (blocked || deliveryQ.some(x => x.blocker)) ? 'feature' : 'compact',
           onclick: "switchPage('delivery')",
-          inner: (d.deliveryQueue || []).length ? d.deliveryQueue.slice(0, 5).map(x => pulseRow({
-            badge: x.blocker ? '!' : undefined, icon: x.blocker ? undefined : 'check', badgeTone: x.blocker ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300' : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
-            label: fniCustomer(x), sub: x.blocker || 'Ready', onclick: "switchPage('delivery')",
-          })).join('') : '', empty: 'Nothing in the delivery queue.',
+          inner: deliveryQ.slice(0, 5).map(x => pulseRow({
+            badge: x.blocker ? '!' : '•',
+            label: x.customer_name || x.stock || 'Unit',
+            sub: x.blocker || x.status || '',
+            onclick: "switchPage('delivery')",
+          })).join(''),
+          empty: 'No delivery queue blockers.',
         }),
         pulseCard({
-          title: 'Deals in funding', count: funding.length, tier: funding.length ? 'feature' : 'standard', tone: funding.length ? 'bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300' : '',
-          onclick: "switchPage('fni')",
-          inner: funding.length ? funding.slice(0, 5).map(x => pulseRow({
-            badge: '$', label: fniCustomer(x), sub: fniVehicle(x) || fniStage(x), onclick: "switchPage('fni')",
-          })).join('') : '', empty: 'No deals currently in funding.',
+          title: 'Products on menu', count: products.length, tier: 'compact',
+          onclick: "engineTab('fni-overview','products')",
+          inner: products.slice(0, 5).map(p => pulseRow({
+            badge: '•', label: p.name || p.product_name || 'Product', sub: p.category || '',
+          })).join(''),
+          empty: 'No F&I products configured.',
         }),
+        (typeof pulseLeaderboardCard === 'function'
+          ? pulseLeaderboardCard(d.gamification, 'fni', { title: 'F&I leaderboard', metric: 'fni_gross', tier: 'feature', limit: 8 })
+          : ''),
         pulseCard({
-          title: 'Incomplete deals', count: pending, tier: pending ? 'feature' : 'standard', tone: pending ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : '',
-          onclick: "switchPage('fni')",
-          inner: pending ? deals.filter(x => x.deal_status === 'pending').slice(0, 5).map(x => pulseRow({
-            badge: '…', label: fniCustomer(x), sub: fniVehicle(x), onclick: "switchPage('fni')",
-          })).join('') : '', empty: 'No deals awaiting a decision.',
+          title: 'Proactive F&I assistant',
+          tier: 'feature',
+          inner: `<div class="text-[12px] text-slate-700 dark:text-slate-200 space-y-1.5 leading-relaxed">
+            <p>• <strong>Incoming:</strong> ${incomingDeals.length ? `${incomingDeals.length} desked in the last hour` : 'Quiet in the last hour.'}</p>
+            <p>• <strong>Lender approvals:</strong> ${pending ? `<span class="text-amber-600 dark:text-amber-400 font-bold">${pending} pending</span>` : 'Clear.'}</p>
+            <p>• <strong>Delivery blockers:</strong> ${blocked ? `<span class="text-rose-600 dark:text-rose-400 font-bold">${blocked}</span>` : 'None.'}</p>
+            <p>• <strong>Products:</strong> ${products.length} on the menu.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 mt-3">
+            <button type="button" onclick="switchPage('delivery')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900">Check delivery</button>
+          </div>`,
         }),
-        pulseCard({
-          title: 'F&I products', count: products.length, tier: 'compact',
-          onclick: "engineTab('fni-overview','settings')",
-          inner: products.length ? products.slice(0, 5).map(p => pulseRow({
-            badge: p.active === false ? '–' : undefined, icon: p.active === false ? undefined : 'check', badgeTone: p.active === false ? 'bg-slate-100 dark:bg-slate-800 text-slate-400' : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
-            label: p.name || p.product_name || 'Product', sub: p.provider || '', done: p.active === false,
-          })).join('') : '', empty: 'No F&I products set up yet.',
-        }),
-        pulseCard({
-          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', tier: att.length ? 'hero' : 'standard',
-          inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '', empty: 'No deals need immediate attention.',
-        }),
-        pulseCard({
-          title: 'Deals by stage', count: deals.length, tier: 'standard',
-          inner: Object.entries(FNI_STAGE_LABEL).map(([st, label]) => {
-            const n = deals.filter(x => x.deal_status === st).length;
-            return n ? pulseRow({ badge: n, label, onclick: "switchPage('fni')" }) : '';
-          }).filter(Boolean).join('') || '', empty: 'No deals yet.',
-        }),
-        pulseCard({
-          title: 'Incoming desked deals', count: incomingDeals.length, tier: incomingDeals.length ? 'feature' : 'standard',
-          onclick: "switchPage('fni')",
-          inner: deskedToShow.length ? deskedToShow.slice(0, 6).map(x => pulseRow({
-            badge: '$', label: fniCustomer(x),
-            sub: [fniStage(x), fniVehicle(x), formatTimeAgo(x.desked_at || x.created_at || x.updated_at)].filter(Boolean).join(' · '),
-            onclick: "switchPage('fni')",
-          })).join('') : '', empty: 'No deals have been desked yet.',
-        }),
-        pulseCard({
-          title: 'Delivery blockers', count: blocked, tier: blocked ? 'hero' : 'standard',
-          tone: blocked ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
-          onclick: "switchPage('delivery')",
-          inner: blocked ? (d.blocked || []).slice(0, 6).map(x => pulseRow({
-            badge: '!', badgeTone: 'bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300',
-            label: fniCustomer(x), sub: x.blocker || 'Delivery requirement outstanding', onclick: "switchPage('delivery')",
-          })).join('') : '', empty: 'No delivery blockers.',
-        }),
-        pulseCard({
-          title: 'Contracts outstanding', count: awaitingContracts.length, tier: awaitingContracts.length ? 'feature' : 'standard',
-          onclick: "switchPage('fni')",
-          inner: awaitingContracts.length ? awaitingContracts.slice(0, 6).map(x => pulseRow({
-            icon: 'document', label: fniCustomer(x), sub: [fniVehicle(x), 'Contract not signed'].filter(Boolean).join(' · '), onclick: "switchPage('fni')",
-          })).join('') : '', empty: 'Every sold deal has a signed contract.',
-        }),
-        pulseLeaderboardCard(d.gamification, 'fni', { title: 'F&I leaderboard', metric: 'pvr_avg', tier: 'feature', limit: 8 }),
-      ]);
+      ].filter(Boolean);
 
-      // Keep one operational Pulse. The retired view below mirrors these same
-      // deal, funding, approval and delivery signals.
       body.innerHTML = `
         ${pulseHeader('F&I Pulse', 'Approvals, credit, products, contracts and delivery readiness')}
-        ${grid}`;
-      return;
-
-      const proactiveAiPanel = `
-        <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 ms-ai-panel text-white shadow-lg border border-slate-800">
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-sky-400">
-              <span>Proactive F&amp;I Manager AI Assistant</span>
-            </div>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">LIVE F&amp;I ACTIVITY</span>
-          </div>
-          <div class="text-xs text-slate-300 space-y-1.5 mb-3">
-            <p>• <strong>Desked Deals Incoming:</strong> ${incomingDeals.length ? `<span class="text-emerald-400 font-bold">${incomingDeals.length} deal(s) desked in the last 60 minutes ready for lender submission.</span>` : 'No new deals desked in the past hour.'}</p>
-            <p>• <strong>Lender Approvals Pending:</strong> ${pending ? `<span class="text-amber-300 font-bold">${pending} deal(s) awaiting lender credit decision or stipulation check-in.</span>` : 'All submitted deals have received lender decisions.'}</p>
-            <p>• <strong>Delivery Queue Blockers:</strong> ${blocked ? `<span class="text-rose-400 font-bold">${blocked} delivery unit(s) blocked on missing insurance, stips, or funding approval!</span>` : 'No delivery queue blockers.'}</p>
-            <p>• <strong>F&amp;I Product Index:</strong> ${(d.products || []).length} active protection &amp; warranty products available for menu presentation.</p>
-          </div>
-          <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
-            <button onclick="switchPage('delivery')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Check Delivery Blockers</button>
-          </div>
-        </div>
+        ${pulseBoard(cards)}
       `;
-
-      body.innerHTML = `
-        ${pulseHeader('F&I Pulse', 'Approvals, credit, products, contracts and delivery readiness')}
-        ${grid}
-
-        <div class="mt-5">${proactiveAiPanel}</div>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}
-          ${engKpi('Incoming (Last 1h)', incomingDeals.length, incomingDeals.length ? 'text-indigo-600 dark:text-indigo-400 font-bold' : '')}
-          ${engKpi('Pending approval', pending, pending ? 'text-amber-600 dark:text-amber-400' : '')}
-          ${engKpi('In F&I', inFni)}
-        </div>
-
-        <!-- Incoming Deals (Desked within 1 hour) -->
-        <div class="mb-4">
-          ${engCard('Incoming Desked Deals (Last 1 Hour)', deskedToShow.length ? deskedToShow.map(x => {
-            const timeAgoStr = formatTimeAgo(x.desked_at || x.created_at || x.updated_at);
-            return `<div class="flex items-center justify-between py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-              <div class="min-w-0 flex-1">
-                <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(fniCustomer(x))}</div>
-                <div class="text-[12px] text-slate-400 truncate">
-                  <span class="font-semibold text-slate-600 dark:text-slate-300">${esc(fniStage(x))}</span>
-                  ${fniVehicle(x) ? ` · ${esc(fniVehicle(x))}` : ''}
-                  ${x.selling_price ? ` · $${Number(x.selling_price).toLocaleString()}` : ''}
-                  · <span class="text-indigo-600 dark:text-indigo-400 font-semibold">${esc(timeAgoStr)}</span>
-                </div>
-              </div>
-              <button onclick="switchPage('fni')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition">Open Deal</button>
-            </div>`;
-          }).join('') : engEmpty('No deals desked in the last hour.'))}
-        </div>
-
-        <!-- F&I Worklist & Delivery Blockers -->
-        ${engCard('F&I Worklist', att.length ? att.map(salesAttentionRow).join('') : engEmpty('No deals need immediate attention.'))}
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
-          ${engCard('Delivery blockers', blocked ? (d.blocked || []).slice(0, 8).map(x => `
-            <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-              <div class="min-w-0 flex-1">
-                <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(fniCustomer(x))}</div>
-                <div class="text-[12px] text-rose-500 truncate">${esc(x.blocker || '')}</div>
-              </div>
-              <button onclick="switchPage('delivery')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Prepare Delivery</button>
-            </div>`).join('') : engEmpty('No delivery blockers.'))}
-          ${(() => {
-            // The department's whole book, folded in here rather than a separate Deals
-            // tab — one F&I header, not two. A delivered deal drops off the list.
-            const order = ['pending', 'approved', 'fni', 'contracted', 'sold', 'working'];
-            const inner = order.map(st => {
-              const rows = deals.filter(x => x.deal_status === st && !/delivered/i.test(x.deal_status || '') && !x.delivered_at);
-              return rows.length ? engCard(`${FNI_STAGE_LABEL[st] || st} (${rows.length})`, rows.slice(0, 12).map(fniRow).join('')) : '';
-            }).join('') || engCard('', engEmpty('No deals in progress.'));
-            return engSection('In progress', inner, 'Sold and in funding — a deal leaves here when it is delivered');
-          })()}
-        </div>
-
-        ${fniContractsAndFunding(d)}`;
-
-      const esignSection = document.createElement('div');
-      esignSection.className = 'mt-4';
-      body.appendChild(esignSection);
-      engMountPage(esignSection, 'fni-esignatures', () => {
-        if (typeof window.renderFniEsign === 'function') window.renderFniEsign();
-      });
-
-      // The full F&I deal list, with everything you can do to one — mounted here
-      // instead of behind a second "Deals" tab.
-      body.insertAdjacentHTML('beforeend', engSection('All F&I deals', '', 'The full deal list, with everything you can do to one'));
-      engMountPage(body, 'fni', () => loadFniPage());
     },
+
     insights(body, d) {
       const deals = d.deals || [];
       const counts = Object.keys(FNI_STAGE_LABEL).map(k => [FNI_STAGE_LABEL[k], deals.filter(x => x.deal_status === k).length]).filter(r => r[1] > 0);
