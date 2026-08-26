@@ -58,7 +58,12 @@ const DEMO_GROUP_ID = 'a0000000-0000-4000-a000-0000000000d3'
 const DEMO_ROLES = {
   group_admin: { roleId: 'dealer_owner', label: 'Group Admin', profileRole: 'DEALER_GROUP', accountRole: 'dealer_admin', groupId: DEMO_GROUP_ID },
   dealer_admin: { roleId: 'dealer_owner', label: 'Dealer Admin', profileRole: 'DEALER_ADMIN', accountRole: 'dealer_admin' },
-  sales_role: { roleId: 'salesperson', label: 'Sales Role', profileRole: 'SALES_REP', accountRole: 'sales_rep' },
+  sales_role: { roleId: 'salesperson', label: 'Sales', profileRole: 'SALES_REP', accountRole: 'sales_rep' },
+  fni_role: { roleId: 'fni_manager', label: 'F&I', profileRole: 'FNI', accountRole: 'fni' },
+  service_role: { roleId: 'service_manager', label: 'Service', profileRole: 'SERVICE', accountRole: 'service' },
+  parts_role: { roleId: 'service_manager', label: 'Parts', profileRole: 'PARTS', accountRole: 'parts' },
+  accounting_role: { roleId: 'accounting', label: 'Accounting', profileRole: 'ACCOUNTING', accountRole: 'accounting' },
+  cleanup_role: { roleId: 'salesperson', label: 'Cleanup', profileRole: 'CLEANUP', accountRole: 'cleanup' },
   independent: { roleId: 'salesperson', label: 'Independent (Facebook only)', profileRole: 'SALES_REP', accountRole: 'sales_rep', packageId: 'autoposter-salesperson' },
 }
 
