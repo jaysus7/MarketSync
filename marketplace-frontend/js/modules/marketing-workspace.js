@@ -553,19 +553,19 @@ function mktSalesServicePulseCards(d) {
   }).join('');
   const cards = [];
   if (mktFeatureOn('automation-builder')) {
-    cards.push(pulseCard({ title: 'Sales campaigns', count: salesCamps.length, tier: 'feature',
-      onclick: "switchPage('automation-builder')", inner: row(salesCamps), empty: 'No sales campaigns yet.' }));
-    cards.push(pulseCard({ title: 'Service campaigns', count: svcCamps.length, tier: 'feature',
-      onclick: "switchPage('automation-builder')", inner: row(svcCamps), empty: 'No service campaigns yet.' }));
-    cards.push(pulseCard({ title: 'Sales automations', count: salesAutos.length, tier: 'standard',
-      onclick: "switchPage('automation-builder')", inner: row(salesAutos), empty: 'No sales automations yet.' }));
-    cards.push(pulseCard({ title: 'Service automations', count: svcAutos.length, tier: 'standard',
-      onclick: "switchPage('automation-builder')", inner: row(svcAutos), empty: 'No service automations yet.' }));
+    cards.push(pulseCard({ title: 'Sales campaigns', count: salesCamps.length, tier: 'hero',
+      onclick: "engineTab('marketing-overview','campaigns')", inner: row(salesCamps), empty: 'No sales campaigns yet.' }));
+    cards.push(pulseCard({ title: 'Service campaigns', count: svcCamps.length, tier: 'hero',
+      onclick: "engineTab('marketing-overview','campaigns')", inner: row(svcCamps), empty: 'No service campaigns yet.' }));
+    cards.push(pulseCard({ title: 'Sales automations', count: salesAutos.length, tier: 'hero',
+      onclick: "engineTab('marketing-overview','automations')", inner: row(salesAutos), empty: 'No sales automations yet.' }));
+    cards.push(pulseCard({ title: 'Service automations', count: svcAutos.length, tier: 'hero',
+      onclick: "engineTab('marketing-overview','automations')", inner: row(svcAutos), empty: 'No service automations yet.' }));
   }
   if (mktFeatureOn('video-studio')) {
-    cards.push(pulseCard({ title: 'Sales video', count: salesVids.length, tier: 'standard',
+    cards.push(pulseCard({ title: 'Sales video', count: salesVids.length, tier: 'hero',
       onclick: "switchPage('video-studio')", inner: row(salesVids), empty: 'No sales videos yet.' }));
-    cards.push(pulseCard({ title: 'Service video', count: svcVids.length, tier: 'standard',
+    cards.push(pulseCard({ title: 'Service video', count: svcVids.length, tier: 'hero',
       onclick: "switchPage('video-studio')", inner: row(svcVids), empty: 'No service videos yet.' }));
   }
   return cards.filter(Boolean);
@@ -669,170 +669,119 @@ function mktDigitalPulseOverview(body, d, cfg, dayCaveat = '') {
       ${pulseHeader('Sales & Service', 'Campaigns, automations, and video — split by department, gated to what this dealership owns')}
       ${pulseBoard(mktSalesServicePulseCards(d))}
 
-      <!-- ALL FEATURE PULSES GRID -->
-      <div class="space-y-6 pt-1">
-        <div class="flex items-center justify-between mb-1">
+      <!-- Feature pulses — same hero layout as Automations -->
+      <div class="space-y-5">
+        <div>
           <h3 class="text-lg font-black tracking-tight text-slate-900 dark:text-white">Feature Pulses</h3>
-          <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">All 7 digital modules synced</span>
+          <p class="text-sm text-slate-600 dark:text-slate-300">Open the exact workspace — campaigns, automations, emails, studio, video, website.</p>
         </div>
 
-        <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-7">
-          <!-- 1. Dealer Website & SEO Pulse -->
-          <div class="ms-glass rounded-[var(--ms-radius-card,22px)] p-6 space-y-4 flex flex-col justify-between hover:border-indigo-500/40 transition group">
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <div class="w-10 h-10 rounded-xl bg-blue-600/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-.778.099-1.533.284-2.253"/></svg>
-                </div>
-                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">Live &amp; Secure</span>
-              </div>
-              <h4 class="text-lg font-black text-slate-900 dark:text-white">Dealer Website &amp; SEO Engine</h4>
-              <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">High-converting inventory showroom, real-time desking calculators, and AI-optimized metadata boosting Google organic search rank.</p>
-              <div class="grid grid-cols-2 gap-2 text-xs font-mono pt-2 border-t border-slate-200/60 dark:border-slate-800/60 text-slate-600 dark:text-slate-400">
-                <div>Pages: <b class="text-slate-900 dark:text-white">100% Mobile Ready</b></div>
-                <div>SEO Score: <b class="text-emerald-600 dark:text-emerald-400">98 / 100</b></div>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 pt-2">
-              <button onclick="switchPage('website')" class="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition text-center cursor-pointer">Launch Builder &rarr;</button>
-              <button onclick="switchPage('seo')" class="py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition cursor-pointer">SEO Pulse</button>
-            </div>
+      <section class="ms-c ms-c--glass ms-c--hero p-5">
+        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div class="min-w-0">
+            <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Broadcasts</div>
+            <h2 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5">Campaigns</h2>
+            <p class="text-sm text-slate-700 dark:text-slate-300 mt-1 max-w-2xl">Build and send sales or service campaigns from the campaign library.</p>
           </div>
-
-          <!-- 2. AI Customer Agent Pulse -->
-          <div class="ms-glass rounded-[var(--ms-radius-card,22px)] p-6 space-y-4 flex flex-col justify-between hover:border-emerald-500/40 transition group">
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <div class="w-10 h-10 rounded-xl bg-emerald-600/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/></svg>
-                </div>
-                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">24/7 Qualifying</span>
-              </div>
-              <h4 class="text-lg font-black text-slate-900 dark:text-white">AI Customer Service Agent</h4>
-              <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">Instant 3.2-second response across Web Chat and SMS. Answers vehicle specs, checks live lot inventory, and captures qualified trade-ins &amp; appointments.</p>
-              <div class="grid grid-cols-2 gap-2 text-xs font-mono pt-2 border-t border-slate-200/60 dark:border-slate-800/60 text-slate-600 dark:text-slate-400">
-                <div>Avg Latency: <b class="text-emerald-600 dark:text-emerald-400">3.2s</b></div>
-                <div>Capture Rate: <b class="text-slate-900 dark:text-white">88.4%</b></div>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 pt-2">
-              <button onclick="switchPage('ai-home')" class="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition text-center cursor-pointer">Live Conversations &rarr;</button>
-              <button onclick="engineTab('ai-home','setup')" class="py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition cursor-pointer">AI Knowledge</button>
-            </div>
-          </div>
-
-          <!-- 3. Design Studio & Social Studio Pulse -->
-          <div class="ms-glass rounded-[var(--ms-radius-card,22px)] p-6 space-y-4 flex flex-col justify-between hover:border-violet-500/40 transition group">
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <div class="w-10 h-10 rounded-xl bg-violet-600/10 text-violet-600 dark:text-violet-400 flex items-center justify-center font-black">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
-                </div>
-                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-500/30">Auto-Publish</span>
-              </div>
-              <h4 class="text-lg font-black text-slate-900 dark:text-white">Design Studio &amp; Social Studio</h4>
-              <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">Create brand-consistent visual ads, promotional banners, and schedule multi-platform posts directly to Facebook and Instagram.</p>
-              <div class="grid grid-cols-2 gap-2 text-xs font-mono pt-2 border-t border-slate-200/60 dark:border-slate-800/60 text-slate-600 dark:text-slate-400">
-                <div>Studio Assets: <b class="text-slate-900 dark:text-white">${assets.length || 42}</b></div>
-                <div>Queue: <b class="text-violet-600 dark:text-violet-400">${scheduledPosts.length || 4} Posts</b></div>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 pt-2">
-              <button onclick="if (typeof openMarketSyncStudio === 'function') openMarketSyncStudio(); else switchPage('studio');" class="flex-1 py-2 px-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs transition text-center cursor-pointer">Open Studio &rarr;</button>
-              <button onclick="switchPage('social-scheduler')" class="py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition cursor-pointer">Social Calendar</button>
-            </div>
-          </div>
-
-          <!-- 4. Facebook Marketplace Pulse -->
-          <div class="ms-glass rounded-[var(--ms-radius-card,22px)] p-6 space-y-4 flex flex-col justify-between hover:border-blue-500/40 transition group">
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <div class="w-10 h-10 rounded-xl bg-blue-600/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.62 1.022 1.072 1.376M10.34 6.66A12.001 12.001 0 0112 3.75c.616 0 1.218.06 1.802.176.495.099.948.337 1.312.695.426.417.753.93.96 1.494M10.34 6.66c.253-.962.584-1.892.985-2.783m3.675 2.783c.688.06 1.386.09 2.09.09h.75a4.5 4.5 0 110 9h-.75c-.704 0-1.402.03-2.09.09m0-9.18c-.253.962-.584 1.892-.985 2.783m0 0a12.001 12.001 0 01-3.675 0m3.675 0c.426.417.753.93.96 1.494.247.55.378 1.144.385 1.744.007.6-.11 1.196-.347 1.749-.238.553-.594 1.045-1.042 1.442"/></svg>
-                </div>
-                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30">Auto Catalog</span>
-              </div>
-              <h4 class="text-lg font-black text-slate-900 dark:text-white">Facebook Marketplace</h4>
-              <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">Direct vehicle inventory syndication with automatic price-drop alerts, fresh photos, and instant Messenger lead capture.</p>
-              <div class="grid grid-cols-2 gap-2 text-xs font-mono pt-2 border-t border-slate-200/60 dark:border-slate-800/60 text-slate-600 dark:text-slate-400">
-                <div>Syndicated: <b class="text-blue-600 dark:text-blue-400">${invCount} Vehicles</b></div>
-                <div>Status: <b class="text-emerald-600 dark:text-emerald-400">100% Synced</b></div>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 pt-2">
-              <button onclick="switchPage('inventory'); if (typeof setInventoryMode === 'function') setInventoryMode('facebook');" class="w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition text-center cursor-pointer">Manage Marketplace &rarr;</button>
-            </div>
-          </div>
-
-          <!-- 5. Personalized Video Engine Pulse -->
-          <div class="ms-glass rounded-[var(--ms-radius-card,22px)] p-6 space-y-4 flex flex-col justify-between hover:border-rose-500/40 transition group">
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <div class="w-10 h-10 rounded-xl bg-rose-600/10 text-rose-600 dark:text-rose-400 flex items-center justify-center font-black">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"/></svg>
-                </div>
-                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">72% Open Rate</span>
-              </div>
-              <h4 class="text-lg font-black text-slate-900 dark:text-white">Personalized Video Studio</h4>
-              <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">Rep-recorded walkarounds, VIP greeting videos, and service repair explanations sent via SMS with real-time viewer tracking.</p>
-              <div class="grid grid-cols-2 gap-2 text-xs font-mono pt-2 border-t border-slate-200/60 dark:border-slate-800/60 text-slate-600 dark:text-slate-400">
-                <div>Sent This Month: <b class="text-slate-900 dark:text-white">68 Videos</b></div>
-                <div>Engagement: <b class="text-rose-600 dark:text-rose-400">4.8 min avg</b></div>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 pt-2">
-              <button onclick="switchPage('video-studio')" class="w-full py-2 px-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition text-center cursor-pointer">Launch Video Studio &rarr;</button>
-            </div>
-          </div>
-
-          <!-- 6. Email, SMS & Automated Workflows Pulse -->
-          <div class="ms-glass rounded-[var(--ms-radius-card,22px)] p-6 space-y-4 flex flex-col justify-between hover:border-indigo-500/40 transition group">
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <div class="w-10 h-10 rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
-                </div>
-                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">Zero Latency</span>
-              </div>
-              <h4 class="text-lg font-black text-slate-900 dark:text-white">Email, SMS &amp; Automations</h4>
-              <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">Visual drag-and-drop workflow journeys, instant speed-to-lead auto-responses, 5-year post-delivery retention cadences, and review requests.</p>
-              <div class="grid grid-cols-2 gap-2 text-xs font-mono pt-2 border-t border-slate-200/60 dark:border-slate-800/60 text-slate-600 dark:text-slate-400">
-                <div>Active Flows: <b class="text-emerald-600 dark:text-emerald-400">${activeAutos.length || 23} Sequences</b></div>
-                <div>Speed SLA: <b class="text-indigo-600 dark:text-indigo-400">&lt; 90 seconds</b></div>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 pt-2">
-              <button onclick="switchPage('automation-builder')" class="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition text-center cursor-pointer">Open Workflows &rarr;</button>
-              <button onclick="openEmailSmsBuilder({ mode: 'email' })" class="py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition cursor-pointer">New Broadcast</button>
-            </div>
-          </div>
-
-          <!-- 7. DMS / CMS / CRM Connector Hub Pulse -->
-          <div class="ms-glass rounded-[var(--ms-radius-card,22px)] p-6 space-y-4 flex flex-col justify-between hover:border-amber-500/40 transition group md:col-span-2 xl:col-span-3">
-            <div class="flex items-center justify-between flex-wrap gap-4">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-amber-600/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-black">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/></svg>
-                </div>
-                <div>
-                  <h4 class="text-base font-black text-slate-900 dark:text-white">DMS / CMS / CRM Connector Hub</h4>
-                  <p class="text-xs text-slate-600 dark:text-slate-300">Bi-directional synchronization: Ingest inventory &amp; customers from DMS/CMS, push ADF XML leads directly to CRM.</p>
-                </div>
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="px-3 py-1 rounded-full text-xs font-black uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
-                  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Active Stream
-                </span>
-                <button onclick="switchPage('automation-builder'); setTimeout(() => autoTab('connectors'), 50);" class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs transition shadow-xs cursor-pointer">
-                  Configure Connectors &rarr;
-                </button>
-              </div>
-            </div>
+          <div class="flex flex-wrap gap-2 shrink-0">
+            <button type="button" onclick="engineTab('marketing-overview','campaigns')" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Open campaigns</button>
+            <button type="button" onclick="engineTab('marketing-overview','campaigns')" class="liquid-glass-btn-secondary px-4 py-2 rounded-xl text-sm font-black">New campaign</button>
           </div>
         </div>
+      </section>
+      <section class="ms-c ms-c--glass ms-c--hero p-5">
+        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div class="min-w-0">
+            <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Logic & journeys</div>
+            <h2 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5">Automations</h2>
+            <p class="text-sm text-slate-700 dark:text-slate-300 mt-1 max-w-2xl">Event-driven emails and SMS: speed-to-lead, service intervals, reviews.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 shrink-0">
+            <button type="button" onclick="engineTab('marketing-overview','automations')" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Open automations</button>
+            <button type="button" onclick="engineTab('marketing-overview','automations')" class="liquid-glass-btn-secondary px-4 py-2 rounded-xl text-sm font-black">Build automation</button>
+          </div>
+        </div>
+      </section>
+      <section class="ms-c ms-c--glass ms-c--hero p-5">
+        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div class="min-w-0">
+            <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Inbox &amp; sends</div>
+            <h2 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5">Emails &amp; SMS</h2>
+            <p class="text-sm text-slate-700 dark:text-slate-300 mt-1 max-w-2xl">Templates, audiences, and one-off email or SMS from the same builder.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 shrink-0">
+            <button type="button" onclick="engineTab('marketing-overview','emails')" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Open emails</button>
+            <button type="button" onclick="engineTab('marketing-overview','templates')" class="liquid-glass-btn-secondary px-4 py-2 rounded-xl text-sm font-black">Templates</button>
+          </div>
+        </div>
+      </section>
+      <section class="ms-c ms-c--glass ms-c--hero p-5">
+        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div class="min-w-0">
+            <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Creative</div>
+            <h2 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5">Design Studio</h2>
+            <p class="text-sm text-slate-700 dark:text-slate-300 mt-1 max-w-2xl">Automotive graphics, flyers, and story assets on the full-screen canvas.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 shrink-0">
+            <button type="button" onclick="if(typeof openMarketSyncStudio==='function')openMarketSyncStudio();else engineTab('marketing-overview','studio')" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Open studio</button>
+            
+          </div>
+        </div>
+      </section>
+      <section class="ms-c ms-c--glass ms-c--hero p-5">
+        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div class="min-w-0">
+            <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Calendar</div>
+            <h2 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5">Social Scheduler</h2>
+            <p class="text-sm text-slate-700 dark:text-slate-300 mt-1 max-w-2xl">Queue and approve Facebook and Instagram posts.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 shrink-0">
+            <button type="button" onclick="switchPage('social-scheduler')" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Open scheduler</button>
+            
+          </div>
+        </div>
+      </section>
+      <section class="ms-c ms-c--glass ms-c--hero p-5">
+        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div class="min-w-0">
+            <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Walkarounds</div>
+            <h2 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5">Video Studio</h2>
+            <p class="text-sm text-slate-700 dark:text-slate-300 mt-1 max-w-2xl">Record and send customer vehicle videos.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 shrink-0">
+            <button type="button" onclick="switchPage('video-studio')" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Open video studio</button>
+            
+          </div>
+        </div>
+      </section>
+      <section class="ms-c ms-c--glass ms-c--hero p-5">
+        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div class="min-w-0">
+            <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Showroom</div>
+            <h2 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5">Website &amp; SEO</h2>
+            <p class="text-sm text-slate-700 dark:text-slate-300 mt-1 max-w-2xl">Live website builder, blog, and SEO pulse.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 shrink-0">
+            <button type="button" onclick="switchPage('website')" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Open website</button>
+            <button type="button" onclick="switchPage('seo')" class="liquid-glass-btn-secondary px-4 py-2 rounded-xl text-sm font-black">Open SEO</button>
+          </div>
+        </div>
+      </section>
+      <section class="ms-c ms-c--glass ms-c--hero p-5">
+        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div class="min-w-0">
+            <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Conversations</div>
+            <h2 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5">AI Chatbot</h2>
+            <p class="text-sm text-slate-700 dark:text-slate-300 mt-1 max-w-2xl">Live chat, takeovers, and dealership knowledge.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 shrink-0">
+            <button type="button" onclick="switchPage('ai-home')" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Open chatbot</button>
+            
+          </div>
+        </div>
+      </section>
       </div>
-    </div>
+
   `;
 }
 
