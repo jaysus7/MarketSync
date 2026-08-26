@@ -1720,39 +1720,6 @@ function renderAutoTemplatesTab(container) {
         ${filtered.map(t => `
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs hover:border-indigo-500 transition flex flex-col justify-between space-y-3 group">
             
-            <!-- Simulated Layout Thumbnail -->
-            <div class="w-full h-32 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 p-2.5 flex flex-col justify-between overflow-hidden relative select-none">
-              <div class="flex items-center justify-between pb-1 border-b border-slate-200/60 dark:border-slate-800">
-                <div class="w-8 h-2 rounded bg-indigo-500/40"></div>
-                <div class="w-12 h-1.5 rounded bg-slate-300 dark:bg-slate-700"></div>
-              </div>
-              
-              <div class="space-y-1.5 my-auto">
-                <div class="w-3/4 h-2.5 rounded bg-slate-800 dark:bg-slate-200 font-bold"></div>
-                <div class="w-full h-1.5 rounded bg-slate-300 dark:bg-slate-700"></div>
-                <div class="w-5/6 h-1.5 rounded bg-slate-300 dark:bg-slate-700"></div>
-                ${t.blocks && t.blocks.some(b => b.type === 'vehicle_card' || b.type === 'inventory_grid') ? `
-                  <div class="h-8 w-full rounded bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200/50 dark:border-indigo-900/30 flex items-center px-2 gap-2 mt-1">
-                    <div class="w-6 h-5 rounded bg-indigo-200 dark:bg-indigo-800/60"></div>
-                    <div class="space-y-0.5 flex-1">
-                      <div class="w-16 h-1.5 rounded bg-indigo-600/40"></div>
-                      <div class="w-10 h-1 rounded bg-slate-400"></div>
-                    </div>
-                  </div>
-                ` : t.blocks && t.blocks.some(b => b.type === 'service_offer') ? `
-                  <div class="h-8 w-full rounded bg-emerald-50 dark:bg-emerald-950/50 border border-dashed border-emerald-300 dark:border-emerald-800 flex items-center justify-between px-2 mt-1">
-                    <div class="w-12 h-2 rounded bg-emerald-600/50"></div>
-                    <div class="w-8 h-3 rounded bg-emerald-500/30"></div>
-                  </div>
-                ` : ''}
-              </div>
-
-              <div class="pt-1 flex items-center justify-between border-t border-slate-200/60 dark:border-slate-800">
-                <div class="w-14 h-2 rounded bg-indigo-600/80"></div>
-                <div class="w-10 h-1 rounded bg-slate-300 dark:bg-slate-700"></div>
-              </div>
-            </div>
-
             <!-- Details -->
             <div class="space-y-1.5">
               <div class="flex items-center justify-between">
