@@ -4621,7 +4621,7 @@ function renderSeoWorkspace() {
     </section>
 
     <!-- SEO Workspace Navigation Tabs (Full Suite) -->
-    <div class="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800 text-xs font-bold no-scrollbar">
+    <div role="tablist" class="flex flex-wrap items-center gap-1.5 pb-2 border-b border-slate-200/80 dark:border-slate-800 text-xs font-bold">
       <button onclick="setSeoMainTab('overview')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'overview' || __seoMainTab === 'analytics' || __seoMainTab === 'pulse' ? 'bg-indigo-600 text-white font-black shadow-sm' : 'text-slate-800 dark:text-slate-200 hover:text-indigo-700 dark:hover:text-white font-bold'}">Pulse</button>
       <button onclick="setSeoMainTab('settings')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'settings' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-800 dark:text-slate-200 hover:text-indigo-700 dark:hover:text-white font-bold'}">SEO Settings &amp; Rules</button>
       <button onclick="setSeoMainTab('keywords')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'keywords' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">Keywords &amp; Clusters</button>
