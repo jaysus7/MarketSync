@@ -612,8 +612,8 @@ function mktDigitalPulseOverview(body, d, cfg, dayCaveat = '') {
       </section>
 
       <!-- ALL FEATURE PULSES GRID -->
-      <div class="space-y-4">
-        <div class="flex items-center justify-between">
+      <div class="space-y-6 pt-1">
+        <div class="flex items-center justify-between mb-1">
           <h3 class="text-lg font-black tracking-tight text-slate-900 dark:text-white">Feature Pulses</h3>
           <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">All 7 digital modules synced</span>
         </div>
