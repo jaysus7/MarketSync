@@ -101,7 +101,7 @@ ENGINES['people-overview'] = {
     overview: 'Pulse',
     people: 'People',
     work: 'Staff',
-    insights: 'Insights', time: 'Time & Docs',
+    insights: 'Insights', time: 'Time & Docs', reports: 'Reports',
     time: 'Time',
     hiring: 'Hiring',
     compliance: 'Compliance',
@@ -109,8 +109,8 @@ ENGINES['people-overview'] = {
   },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    return mgr ? ['overview', 'work', 'time', 'settings']
-               : ['overview', 'work', 'time'];
+    return mgr ? ['overview', 'work', 'time', 'reports', 'settings']
+               : ['overview', 'work', 'time', 'reports'];
   },
 
   quickActions: [
@@ -265,6 +265,9 @@ ENGINES['people-overview'] = {
     },
 
     insights(body, d) { this.compliance(body, d); },
+    reports(body, d) {
+      body.innerHTML = typeof pplRenderReports === 'function' ? pplRenderReports(d) : engEmpty('Reports loading…');
+    },
 
     settings: pplRenderSettings,
   },
