@@ -555,6 +555,27 @@ function minutesOf(iso) {
   return d.getHours() * 60 + d.getMinutes()
 }
 
+const DEFAULT_HR_DOCUMENTS = [
+  { group: 'Onboarding Documents', title: 'Company Demonstrator Policy', department: 'All' },
+  { group: 'Onboarding Documents', title: 'Email, Internet and Computer Use Policy', department: 'All' },
+  { group: 'Onboarding Documents', title: 'Employee Agreement', department: 'All' },
+  { group: 'Onboarding Documents', title: 'Employee New Hire Checklist', department: 'All' },
+  { group: 'Onboarding Documents', title: 'Employee Orientation Checklist', department: 'All' },
+  { group: 'Onboarding Documents', title: 'Group Coverage Form', department: 'All' },
+  { group: 'Onboarding Documents', title: 'Sexual Harassment Policy', department: 'All' },
+  { group: 'Onboarding Documents', title: 'Substance Use Policy', department: 'All' },
+  { group: 'Onboarding Documents', title: 'Workplace Violence and Harassment Policy', department: 'All' },
+  { group: 'Onboarding Documents', title: 'Health and Safety Policy', department: 'All' },
+  { group: 'Onboarding Documents', title: 'Confidentiality and Privacy Agreement', department: 'All' },
+  { group: 'Onboarding Documents', title: 'Code of Conduct', department: 'All' },
+  { group: 'Tax Forms', title: '2026 Federal TD1 Form', department: 'All' },
+  { group: 'Tax Forms', title: '2026 Ontario TD1ON Form', department: 'All' },
+  { group: 'Payroll & Banking', title: 'Direct Deposit Authorization', department: 'All' },
+  { group: 'Payroll & Banking', title: 'Emergency Contact Form', department: 'All' },
+  { group: 'Licensing', title: 'OMVIC Registration Copy', department: 'Sales' },
+  { group: 'Licensing', title: 'Driver Licence Copy', department: 'All' },
+];
+
 async function loadHrOps(dealershipId) {
   const { data } = await supabaseAdmin.from('dealer_config').select('value')
     .eq('dealership_id', dealershipId).eq('key', 'hr_ops').maybeSingle()
@@ -562,7 +583,7 @@ async function loadHrOps(dealershipId) {
   return {
     schedules: Array.isArray(value.schedules) ? value.schedules : [],
     time_off: Array.isArray(value.time_off) ? value.time_off : [],
-    documents: Array.isArray(value.documents) ? value.documents : [],
+    documents: Array.isArray(value.documents) && value.documents.length ? value.documents : DEFAULT_HR_DOCUMENTS.map(d => ({ ...d, template: true })),
     timesheets: Array.isArray(value.timesheets) ? value.timesheets : [],
   }
 }
