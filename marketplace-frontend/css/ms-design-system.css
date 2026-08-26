@@ -124,12 +124,12 @@
 
   /* — Type scale — */
   --ms-f-page:    clamp(1.5rem, 1.2rem + 1.1vw, 2rem);      /* 24 → 32 */
-  --ms-f-section: clamp(1.25rem, 1.1rem + 0.5vw, 1.5rem);   /* 20 → 24 */
-  --ms-f-card:    0.9375rem;                                 /* 15      */
-  --ms-f-body:    0.9375rem;
-  --ms-f-meta:    0.8125rem;                                 /* 13      */
-  --ms-f-caption: 0.75rem;                                   /* 12      */
-  --ms-f-eyebrow: 0.6875rem;                                 /* 11      */
+  --ms-f-section: clamp(1.125rem, 1.1rem + 0.4vw, 1.25rem); /* 18 → 20 */
+  --ms-f-card:    1rem;                                      /* 16      */
+  --ms-f-body:    1rem;
+  --ms-f-meta:    0.875rem;                                  /* 14      */
+  --ms-f-caption: 0.875rem;                                  /* 14      */
+  --ms-f-eyebrow: 0.8125rem;                                 /* 13      */
   --ms-f-metric:  clamp(1.375rem, 1.1rem + 1.2vw, 1.875rem); /* 22 → 30 */
   --ms-f-hero:    clamp(1.875rem, 1.4rem + 2.2vw, 2.75rem);  /* 30 → 44 */
   --ms-lh-tight:  1.2;
