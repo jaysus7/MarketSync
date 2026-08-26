@@ -62,41 +62,33 @@ function buildMarketingSuiteConfig(key) {
       mobileQuickRow: navItems.slice(0, 4),
     };
   }
-  const marketing = [];
+  // Match MarketSync Digital's feature-style nav: one flat list of product destinations
+  // under the suite badge (not nested Marketing/Content groups). Suite-specific hubs
+  // (Sales Marketing / Service Marketing) stay as the only package-unique items.
+  // Campaigns / Automations / Email & SMS / Campaign Library collapse into the same
+  // Email, SMS & Campaigns destination Digital uses (tabs live inside that page).
+  const navItems = [
+    suiteItem('marketing-overview', 'Pulse', 'chart', { tab: 'overview' }),
+  ];
   if (definition.marketingModes.includes('sales')) {
-    marketing.push(suiteItem('marketing-overview', 'Sales Marketing', 'currency', { tab: 'sales_overview' }));
+    navItems.push(suiteItem('marketing-overview', 'Sales Marketing', 'currency', { tab: 'sales_overview' }));
   }
   if (definition.marketingModes.includes('service')) {
-    marketing.push(suiteItem('marketing-overview', 'Service Marketing', 'wrench', { tab: 'service_overview' }));
+    navItems.push(suiteItem('marketing-overview', 'Service Marketing', 'wrench', { tab: 'service_overview' }));
   }
-  marketing.push(
-    suiteItem('marketing-overview', 'Campaigns', 'megaphone', { tab: 'campaigns' }),
-    suiteItem('automation-builder', 'Automations', 'bolt', { tab: 'automations' }),
-    suiteItem('email-sms', 'Email & SMS', 'chat', { tab: 'campaigns' }),
-    suiteItem('email-marketing', 'Campaign Library', 'document'),
+  navItems.push(
+    suiteItem('automation-builder', 'Email, SMS & Campaigns', 'chat', { tab: 'overview' }),
+    suiteItem('studio', 'Design Studio', 'camera', { studioLaunch: true }),
+    suiteItem('social-scheduler', 'Social Studio & Scheduler', 'calendar'),
+    suiteItem('video-studio', 'Video', 'video'),
+    suiteItem('academy', 'Academy', 'sparkles'),
   );
 
+  // Single area so the shell renders like Digital (flat feature list under the suite).
+  // SEO is still injected live by getMarketingSuiteConfig when marketsync_seo is owned.
   const areas = [
-    { id: 'pulse', label: 'Pulse', icon: 'chart', items: [suiteItem('marketing-overview', 'Pulse', 'chart', { tab: 'overview' })] },
-    { id: 'marketing', label: 'Marketing', icon: 'megaphone', items: marketing },
-    { id: 'content', label: 'Content', icon: 'camera', defaultPage: 'social-scheduler', items: [
-      suiteItem('studio', 'Design Studio', 'camera', { studioLaunch: true }),
-      suiteItem('social-scheduler', 'Social Scheduler', 'calendar'),
-      suiteItem('video-studio', 'Video', 'video'),
-    ] },
+    { id: 'suite', label: definition.badge, icon: 'megaphone', items: navItems },
   ];
-  // definition.digitalPresence is only ever true for 'digital', which takes the early
-  // return above and never reaches here — Sales/Service/Complete Marketing Suite don't
-  // sell Website or the bundled Digital Presence area at all. A conditional MarketSync
-  // SEO area (for dealers who independently add that product) is injected live by
-  // getMarketingSuiteConfig() below — this function runs once at script load, before
-  // window.__access exists, so it cannot itself see a per-dealer entitlement.
-  //
-  // No separate "Reports" / "Performance" destination — see Pulse (marketing-overview,
-  // tab: overview), which is where every suite's performance metrics live.
-  areas.push(
-    { id: 'academy', label: 'Academy', icon: 'sparkles', items: [suiteItem('academy', 'Academy', 'sparkles')] },
-  );
 
   return {
     id: key,
@@ -104,12 +96,9 @@ function buildMarketingSuiteConfig(key) {
     badge: definition.badge,
     title: definition.badge,
     areas,
-    // Compatibility for older consumers while all navigation renders from areas.
-    sections: areas.map(area => ({ title: area.label.toUpperCase(), items: area.items })),
-    // Mobile area buttons must use the same practical landing as the desktop
-    // area button. Content intentionally lands in Social Scheduler, while the
-    // full area still keeps Design Studio available as its first sub-item.
-    mobileQuickRow: areas.slice(0, 3).map(area => ({ ...(area.items.find(item => item.page === area.defaultPage) || area.items[0]), label: area.label })),
+    navItems,
+    sections: [{ title: definition.badge.toUpperCase(), items: navItems }],
+    mobileQuickRow: navItems.slice(0, 4),
   };
 }
 
@@ -196,18 +185,19 @@ function getMarketingSuiteConfig(suiteKey) {
   // never combined with anything else. Checked live (this accessor is called fresh on
   // every nav render), unlike MARKETING_SUITE_CONFIG which is built once at load,
   // before window.__access exists. 'digital' already has its own SEO area baked in.
-  if (key !== 'digital' && !base.areas.some(area => area.id === 'seo')) {
+  if (key !== 'digital' && !base.areas.some(area => area.id === 'seo') && !(base.navItems || []).some(i => i.page === 'seo')) {
     const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
     const ownsSeo = access.isPlatformStaff || (Array.isArray(access.products) && access.products.includes('marketsync_seo'));
     if (ownsSeo) {
-      const seoArea = { id: 'seo', label: 'MarketSync SEO', icon: 'chart', items: [
-        suiteItem('seo', 'SEO Builder', 'sparkles', { tab: 'settings' }),
-        suiteItem('seo', 'Pulse', 'chart', { tab: 'overview' }),
-      ] };
-      const academyIdx = base.areas.findIndex(area => area.id === 'academy');
-      const areas = [...base.areas];
-      areas.splice(academyIdx === -1 ? areas.length : academyIdx, 0, seoArea);
-      return { ...base, areas, sections: areas.map(area => ({ title: area.label.toUpperCase(), items: area.items })) };
+      // Inject SEO as a feature item (Digital-style) before Academy when present.
+      const seoItems = [
+        suiteItem('seo', 'MarketSync SEO', 'chart', { tab: 'settings' }),
+      ];
+      const navItems = [...(base.navItems || base.areas[0]?.items || [])];
+      const academyIdx = navItems.findIndex(i => i.page === 'academy');
+      navItems.splice(academyIdx === -1 ? navItems.length : academyIdx, 0, ...seoItems);
+      const areas = [{ id: 'suite', label: base.badge, icon: 'megaphone', items: navItems }];
+      return { ...base, areas, navItems, sections: [{ title: (base.badge || '').toUpperCase(), items: navItems }] };
     }
   }
   return base;
