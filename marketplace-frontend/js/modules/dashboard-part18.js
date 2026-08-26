@@ -3974,7 +3974,7 @@ function openEmailSmsBuilder(opts = {}) {
   if (!modal) {
     modal = document.createElement('div');
     modal.id = 'email-sms-builder-modal';
-    modal.className = 'fixed inset-0 z-[999] bg-slate-950 text-slate-100 flex flex-col font-sans select-none animate-fadeIn';
+    modal.className = 'fixed inset-0 z-[999] bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans select-none animate-fadeIn';
     document.body.appendChild(modal);
   }
 
@@ -4012,9 +4012,9 @@ function renderEsbLayout() {
 
   modal.innerHTML = `
     <!-- Top Global Header -->
-    <header class="h-14 border-b border-slate-800 bg-slate-900/90 backdrop-blur px-4 flex items-center justify-between flex-shrink-0 z-20">
+    <header class="h-14 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 flex items-center justify-between flex-shrink-0 z-20">
       <div class="flex items-center gap-3">
-        <button onclick="closeEmailSmsBuilder()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 hover:text-white transition cursor-pointer">
+        <button onclick="closeEmailSmsBuilder()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition cursor-pointer">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
           <span>${__esb.returnToBuilder ? 'Back to Workflow' : 'Back to Email & SMS'}</span>
         </button>
@@ -4022,16 +4022,16 @@ function renderEsbLayout() {
         <div class="h-5 w-px bg-slate-800"></div>
 
         <!-- Mode Switcher (Email / SMS / Sequence) -->
-        <div class="flex items-center bg-slate-950 p-0.5 rounded-xl border border-slate-800">
-          <button onclick="switchEsbMode('email')" class="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${__esb.mode === 'email' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'}">
+        <div class="flex items-center bg-slate-100 dark:bg-slate-950 p-0.5 rounded-xl border border-slate-200 dark:border-slate-800">
+          <button onclick="switchEsbMode('email')" class="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${__esb.mode === 'email' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
             <span>Email Designer</span>
           </button>
-          <button onclick="switchEsbMode('sms')" class="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${__esb.mode === 'sms' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'}">
+          <button onclick="switchEsbMode('sms')" class="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${__esb.mode === 'sms' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"/></svg>
             <span>SMS Simulator</span>
           </button>
-          <button onclick="switchEsbMode('sequence')" class="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${__esb.mode === 'sequence' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'}">
+          <button onclick="switchEsbMode('sequence')" class="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${__esb.mode === 'sequence' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z"/></svg>
             <span>Email + SMS Sequence</span>
           </button>
@@ -4040,14 +4040,14 @@ function renderEsbLayout() {
         <div class="h-5 w-px bg-slate-800"></div>
 
         <!-- Campaign / Template Title Input -->
-        <input id="esb-campaign-name" value="${esc(__esb.campaignName)}" onchange="__esb.campaignName = this.value" placeholder="Enter Campaign / Template Title..." class="bg-transparent text-sm font-black text-white hover:bg-slate-800/50 focus:bg-slate-950 px-2 py-1 rounded-lg border border-transparent focus:border-slate-700 outline-none w-64 transition">
+        <input id="esb-campaign-name" value="${esc(__esb.campaignName)}" onchange="__esb.campaignName = this.value" placeholder="Enter Campaign / Template Title..." class="bg-transparent text-sm font-black text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-950 px-2 py-1 rounded-lg border border-transparent focus:border-slate-300 dark:focus:border-slate-700 outline-none w-64 transition">
       </div>
 
       <!-- Header Right Action Tools -->
       <div class="flex items-center gap-2">
         ${__esb.mode === 'email' ? `
           <!-- Device Preview Toggles -->
-          <div class="flex items-center bg-slate-950 p-0.5 rounded-xl border border-slate-800">
+          <div class="flex items-center bg-slate-100 dark:bg-slate-950 p-0.5 rounded-xl border border-slate-200 dark:border-slate-800">
             <button onclick="setEsbDevice('desktop')" title="Desktop View" class="p-1.5 rounded-lg transition cursor-pointer ${__esb.device === 'desktop' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25"/></svg>
             </button>
@@ -4106,9 +4106,9 @@ function setEsbDevice(d) {
 function renderEsbEmailStudio() {
   return `
     <!-- Left Blocks Palette -->
-    <aside class="w-72 border-r border-slate-800 bg-slate-900/60 flex flex-col flex-shrink-0">
-      <div class="p-3.5 border-b border-slate-800 flex items-center justify-between">
-        <span class="text-xs font-black uppercase tracking-wider text-slate-300">Content Blocks</span>
+    <aside class="w-72 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col flex-shrink-0">
+      <div class="p-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <span class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Content Blocks</span>
         <span class="text-[10px] text-slate-500">Click to add</span>
       </div>
       <div class="flex-1 overflow-y-auto p-3 space-y-4">
@@ -4122,7 +4122,7 @@ function renderEsbEmailStudio() {
             ${['vehicle_card', 'inventory_grid', 'service_offer', 'trade_cta', 'finance_cta', 'rep_card', 'review_request', 'video_message'].map(type => {
               const b = ESB_BLOCK_TYPES[type];
               return `
-                <div onclick="addEsbBlock('${type}')" class="p-2.5 rounded-xl bg-slate-950/80 hover:bg-slate-800/80 border border-slate-800/80 hover:border-indigo-500/50 transition cursor-pointer flex items-start gap-2.5 group">
+                <div onclick="addEsbBlock('${type}')" class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/80 hover:bg-slate-100 dark:hover:bg-slate-800/80 border border-slate-200 dark:border-slate-800/80 hover:border-indigo-500/50 transition cursor-pointer flex items-start gap-2.5 group">
                   <div class="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-400 group-hover:text-white flex items-center justify-center flex-shrink-0">
                     ${b.icon}
                   </div>
@@ -4143,7 +4143,7 @@ function renderEsbEmailStudio() {
             ${['heading', 'text', 'button', 'image', 'divider', 'spacer', 'footer'].map(type => {
               const b = ESB_BLOCK_TYPES[type];
               return `
-                <div onclick="addEsbBlock('${type}')" class="p-2.5 rounded-xl bg-slate-950/80 hover:bg-slate-800/80 border border-slate-800/80 hover:border-slate-700 transition cursor-pointer flex items-start gap-2.5 group">
+                <div onclick="addEsbBlock('${type}')" class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/80 hover:bg-slate-100 dark:hover:bg-slate-800/80 border border-slate-200 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700 transition cursor-pointer flex items-start gap-2.5 group">
                   <div class="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 group-hover:text-white flex items-center justify-center flex-shrink-0">
                     ${b.icon}
                   </div>
@@ -4160,16 +4160,16 @@ function renderEsbEmailStudio() {
     </aside>
 
     <!-- Center Canvas Area -->
-    <main class="flex-1 bg-slate-950 overflow-y-auto p-6 flex flex-col items-center">
+    <main class="flex-1 bg-slate-100 dark:bg-slate-950 overflow-y-auto p-6 flex flex-col items-center">
       <!-- Email Subject & Preheader Bar -->
-      <div class="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-6 space-y-3 shadow-md">
+      <div class="w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 mb-6 space-y-3 shadow-md">
         <div class="flex items-center gap-2">
           <span class="text-[11px] font-bold text-slate-400 w-20 flex-shrink-0">Subject Line:</span>
-          <input value="${esc(__esb.email.subject)}" onchange="__esb.email.subject = this.value" placeholder="Enter compelling subject line with {{variables}}..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white">
+          <input value="${esc(__esb.email.subject)}" onchange="__esb.email.subject = this.value" placeholder="Enter compelling subject line with {{variables}}..." class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-white">
         </div>
         <div class="flex items-center gap-2">
           <span class="text-[11px] font-bold text-slate-400 w-20 flex-shrink-0">Preheader:</span>
-          <input value="${esc(__esb.email.preheader)}" onchange="__esb.email.preheader = this.value" placeholder="Preview snippet shown in inbox..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300">
+          <input value="${esc(__esb.email.preheader)}" onchange="__esb.email.preheader = this.value" placeholder="Preview snippet shown in inbox..." class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300">
         </div>
       </div>
 
@@ -4182,7 +4182,7 @@ function renderEsbEmailStudio() {
     </main>
 
     <!-- Right Block Inspector & Merge Tag Picker -->
-    <aside id="esb-inspector-panel" class="w-80 border-l border-slate-800 bg-slate-900/80 flex flex-col flex-shrink-0">
+    <aside id="esb-inspector-panel" class="w-80 border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col flex-shrink-0">
       <!-- Rendered dynamically -->
     </aside>
   `;
@@ -4419,7 +4419,7 @@ function renderEsbInspector() {
               <div class="text-[10px] font-bold text-slate-500 mb-1">${grp.group}</div>
               <div class="flex flex-wrap gap-1">
                 ${grp.vars.map(v => `
-                  <button type="button" onclick="insertEsbMergeVar('{{${v}}}')" class="px-2 py-0.5 rounded bg-slate-950 hover:bg-indigo-600 hover:text-white text-[10px] font-mono text-slate-300 border border-slate-800 transition cursor-pointer">{{${v}}}</button>
+                  <button type="button" onclick="insertEsbMergeVar('{{${v}}}')" class="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-950 hover:bg-indigo-600 hover:text-white text-[10px] font-mono text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 transition cursor-pointer">{{${v}}}</button>
                 `).join('')}
               </div>
             </div>
@@ -4439,9 +4439,9 @@ function renderEsbBlockEditorFields(block) {
       <div>
         <label class="block text-[11px] font-bold text-slate-400 mb-1">Year / Make / Model</label>
         <div class="grid grid-cols-3 gap-1.5">
-          <input value="${esc(d.year || '')}" onchange="updateEsbBlockData('year', this.value)" class="bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 text-xs text-white font-mono">
-          <input value="${esc(d.make || '')}" onchange="updateEsbBlockData('make', this.value)" class="bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 text-xs text-white">
-          <input value="${esc(d.model || '')}" onchange="updateEsbBlockData('model', this.value)" class="bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 text-xs text-white">
+          <input value="${esc(d.year || '')}" onchange="updateEsbBlockData('year', this.value)" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2 py-1.5 text-xs text-slate-900 dark:text-white font-mono">
+          <input value="${esc(d.make || '')}" onchange="updateEsbBlockData('make', this.value)" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2 py-1.5 text-xs text-slate-900 dark:text-white">
+          <input value="${esc(d.model || '')}" onchange="updateEsbBlockData('model', this.value)" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2 py-1.5 text-xs text-slate-900 dark:text-white">
         </div>
       </div>
       <div class="grid grid-cols-2 gap-2">
@@ -4628,7 +4628,7 @@ function renderEsbSmsStudio() {
           <span class="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Dynamic Merge Tags:</span>
           <div class="flex flex-wrap gap-1 max-h-36 overflow-y-auto pr-1">
             ${['customer.first_name', 'vehicle.year', 'vehicle.make', 'vehicle.model', 'rep.first_name', 'rep.phone', 'dealership.name'].map(v => `
-              <button type="button" onclick="insertEsbMergeVar('{{${v}}}')" class="px-2 py-0.5 rounded bg-slate-950 hover:bg-indigo-600 hover:text-white text-[10px] font-mono text-slate-300 border border-slate-800 transition cursor-pointer">{{${v}}}</button>
+              <button type="button" onclick="insertEsbMergeVar('{{${v}}}')" class="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-950 hover:bg-indigo-600 hover:text-white text-[10px] font-mono text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 transition cursor-pointer">{{${v}}}</button>
             `).join('')}
           </div>
         </div>
