@@ -552,13 +552,14 @@ const MS_ALLOWED_PAGES = new Set(['saas-command', 'saas-customers', 'saas-follow
 // these roles in particular — F&I credit compliance, service authorization — so a specialized
 // role that cannot reach its own required courses is the worst version of this gate.
 const STAFF_ROLE_NAV = {
-  SALES_REP: { groups: [], pages: ['command', 'video-studio', 'website', 'inventory', 'leaderboard', 'profile'], home: 'command' },
-  FNI: { groups: ['crm', 'sales', 'acquisition'], pages: ['insights', 'crm', 'tasks', 'appointments', 'leads', 'appraisal', 'fni', 'recon', 'desk', 'taskboard', 'profile', 'academy'], home: 'crm' },
-  SERVICE: { groups: ['crm', 'service', 'acquisition'], pages: ['crm', 'tasks', 'appointments', 'service-appointments', 'equity', 'service-settings', 'taskboard', 'profile', 'academy'], home: 'service-appointments' },
-  ACCOUNTING: { groups: ['crm', 'accounting'], pages: ['crm', 'tasks', 'appointments', 'acct-insights', 'acct-reconciliation', 'acct-bank', 'commissions', 'acct-expenses', 'acct-budget', 'acct-tax', 'acct-reports', 'acct-settings', 'taskboard', 'profile', 'academy'], home: 'acct-insights' },
+  SALES_REP: { groups: ['crm', 'sales'], pages: ['sales', 'crm', 'tasks', 'appointments', 'leads', 'appraisal', 'desk', 'video-studio', 'inventory', 'leaderboard', 'profile', 'academy'], home: 'sales' },
+  FNI: { groups: ['crm', 'sales', 'acquisition'], pages: ['fni-overview', 'insights', 'crm', 'tasks', 'appointments', 'leads', 'appraisal', 'fni', 'recon', 'desk', 'taskboard', 'profile', 'academy'], home: 'fni-overview' },
+  SERVICE: { groups: ['crm', 'service'], pages: ['service-overview', 'crm', 'tasks', 'appointments', 'service-appointments', 'service-settings', 'taskboard', 'profile', 'academy'], home: 'service-overview' },
+  PARTS: { groups: ['parts'], pages: ['parts-overview', 'profile', 'academy'], home: 'parts-overview' },
+  ACCOUNTING: { groups: ['crm', 'accounting'], pages: ['accounting-overview', 'crm', 'tasks', 'appointments', 'acct-insights', 'acct-reconciliation', 'acct-bank', 'commissions', 'acct-expenses', 'acct-budget', 'acct-tax', 'acct-reports', 'acct-settings', 'taskboard', 'profile', 'academy'], home: 'accounting-overview' },
   CLEANUP: { groups: ['sales'], pages: ['recon', 'taskboard', 'profile', 'academy'], home: 'recon' },
 };
-const STAFF_ROLE_LABELS = { FNI: 'F&I', SERVICE: 'Service', ACCOUNTING: 'Accounting', CLEANUP: 'Cleanup' };
+const STAFF_ROLE_LABELS = { SALES_REP: 'Sales', FNI: 'F&I', SERVICE: 'Service', PARTS: 'Parts', ACCOUNTING: 'Accounting', CLEANUP: 'Cleanup' };
 // Roles allowed to desk/appraise/work a deal from a CRM card (managers + F&I).
 const SALES_ROLES = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'];
 let __staffAllowedPages = null;   // Set of reachable data-page values, or null for full-access roles
@@ -569,10 +570,16 @@ let __staffHome = null;           // landing page for a staff role
 // (Service / Accounting) is the final word. Returns true if a staff role applied.
 function applyStaffRoleNav(role) {
   window.applyStaffRoleNav = applyStaffRoleNav;
-  const cfg = STAFF_ROLE_NAV[role];
+  const extras = String((typeof profileContext !== 'undefined' && profileContext?.mgr_role) || '').split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+  const roles = [role, ...extras].filter(r => STAFF_ROLE_NAV[r]);
+  const cfg = STAFF_ROLE_NAV[roles[0]];
   if (!cfg) return false;
   const allowGroups = new Set(cfg.groups);
   const allowPages = new Set(cfg.pages);
+  roles.slice(1).forEach(r => {
+    (STAFF_ROLE_NAV[r].groups || []).forEach(g => allowGroups.add(g));
+    (STAFF_ROLE_NAV[r].pages || []).forEach(pg => allowPages.add(pg));
+  });
   __staffAllowedPages = allowPages;
   __staffHome = cfg.home;
   if (role === 'SALES_REP') __inventoryMode = 'facebook';
