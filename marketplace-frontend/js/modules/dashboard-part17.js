@@ -4569,7 +4569,9 @@ async function loadDealerSeo() {
 }
 
 function setSeoMainTab(tab) {
-  __seoMainTab = tab || 'analytics';
+  // Pulse is the product name for the overview/analytics home.
+  if (tab === 'pulse' || tab === 'analytics') tab = 'overview';
+  __seoMainTab = tab || 'overview';
   renderSeoWorkspace();
 }
 window.setSeoMainTab = setSeoMainTab;
@@ -4599,30 +4601,28 @@ function renderSeoWorkspace() {
   const isEasy = __seoMode !== 'advanced';
 
   root.innerHTML = `
-    <!-- Top Header Bar with Mode Switcher -->
-    <div class="flex items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-indigo-950/90 to-slate-900 border border-indigo-500/30 rounded-3xl p-5 text-white flex-wrap shadow-2xl backdrop-blur-xl">
-      <div class="flex items-center gap-3.5">
-        <div class="w-12 h-12 rounded-2xl bg-indigo-600/30 border border-indigo-400/50 flex items-center justify-center text-indigo-300 font-black text-xl shadow-inner">SEO</div>
-        <div>
-          <div class="flex items-center gap-3">
-            <h2 class="text-xl font-black text-white tracking-tight">MarketSync SEO Suite</h2>
-            ${d.standardsVersion ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/30 text-emerald-300 border border-emerald-400/50">${esc(d.standardsVersion)}</span>` : ''}
+    <!-- Department-style header (matches DealerOS / Website Setup) -->
+    <section class="ms-glass rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/85 dark:bg-slate-900/75 p-5 md:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shadow-sm">
+      <div class="min-w-0 flex items-start gap-3.5">
+        <div class="w-12 h-12 rounded-2xl bg-indigo-600/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/25 flex items-center justify-center font-black text-sm tracking-tight flex-shrink-0">SEO</div>
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            <h2 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">MarketSync SEO</h2>
+            ${d.standardsVersion ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30">${esc(d.standardsVersion)}</span>` : ''}
           </div>
-          <p class="text-xs text-indigo-200 font-semibold mt-0.5">Full Dealership Search Engine &amp; AI Discovery Platform</p>
+          <p class="text-sm text-slate-600 dark:text-slate-300 mt-1 max-w-2xl leading-relaxed">Dealership search engine, rankings, and AI discovery — settings, pulse, and technical controls.</p>
         </div>
       </div>
-      <div class="flex items-center gap-3">
-        <div class="inline-flex rounded-xl border border-white/20 p-1 bg-black/40 backdrop-blur-md shadow-inner gap-1">
-          <button onclick="setSeoMode('easy')" class="px-4 py-1.5 rounded-lg transition cursor-pointer text-xs font-bold ${isEasy ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-300 hover:text-white'}">Basic</button>
-          <button onclick="setSeoMode('advanced')" class="px-4 py-1.5 rounded-lg transition cursor-pointer text-xs font-bold ${!isEasy ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-300 hover:text-white'}">Advanced</button>
-        </div>
+      <div class="inline-flex rounded-xl border border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-950/60 gap-1 flex-shrink-0">
+        <button onclick="setSeoMode('easy')" class="px-4 py-1.5 rounded-lg transition cursor-pointer text-xs font-bold ${isEasy ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'}">Basic</button>
+        <button onclick="setSeoMode('advanced')" class="px-4 py-1.5 rounded-lg transition cursor-pointer text-xs font-bold ${!isEasy ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'}">Advanced</button>
       </div>
-    </div>
+    </section>
 
     <!-- SEO Workspace Navigation Tabs (Full Suite) -->
     <div class="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800 text-xs font-bold no-scrollbar">
-      <button onclick="setSeoMainTab('overview')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'overview' || __seoMainTab === 'analytics' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">Overview</button>
-      <button onclick="setSeoMainTab('settings')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'settings' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">SEO Settings &amp; Rules</button>
+      <button onclick="setSeoMainTab('overview')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'overview' || __seoMainTab === 'analytics' || __seoMainTab === 'pulse' ? 'bg-indigo-600 text-white font-black shadow-sm' : 'text-slate-800 dark:text-slate-200 hover:text-indigo-700 dark:hover:text-white font-bold'}">Pulse</button>
+      <button onclick="setSeoMainTab('settings')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'settings' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-800 dark:text-slate-200 hover:text-indigo-700 dark:hover:text-white font-bold'}">SEO Settings &amp; Rules</button>
       <button onclick="setSeoMainTab('keywords')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'keywords' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">Keywords &amp; Clusters</button>
       <button onclick="setSeoMainTab('rankings')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'rankings' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">Rankings &amp; SERP</button>
       <button onclick="setSeoMainTab('competitors')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'competitors' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">Competitor Ranks</button>
