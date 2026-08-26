@@ -2049,14 +2049,22 @@ body {
    behind the card and the shadow, which is what a scrim is for. */
 .ms-crm-glass {
   color: var(--ms-t-primary, #0f172a);
-  border: 1px solid var(--ms-g-border, rgba(23,25,31,.10));
+  border: 1px solid rgba(15,23,42,.10);
   border-radius: 28px !important;
-  background: var(--ms-s-glass, rgba(255,255,255,.82)) !important;
-  box-shadow: var(--ms-g-shadow, 0 24px 80px rgba(15,23,42,.16)), var(--ms-g-highlight, inset 0 1px 0 rgba(255,255,255,.7)) !important;
-  -webkit-backdrop-filter: blur(22px) saturate(1.4);
-  backdrop-filter: blur(22px) saturate(1.4);
+  background: #ffffff !important;
+  box-shadow: 0 24px 80px rgba(15,23,42,.18) !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
+.ms-crm-glass .ms-glass,
+.ms-crm-glass .ms-c--glass {
+  background: #fff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  border-color: rgba(15,23,42,.08) !important;
+}
 .ms-crm-glass > .sticky {
   background: #FFFFFF !important;
   border-color: rgba(23,25,31,.10) !important;
