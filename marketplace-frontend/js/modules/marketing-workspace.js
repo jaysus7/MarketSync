@@ -59,7 +59,11 @@ function buildMarketingSuiteConfig(key) {
       areas,
       navItems,
       sections: [{ title: definition.badge.toUpperCase(), items: navItems }],
-      mobileQuickRow: navItems.slice(0, 4),
+      mobileQuickRow: [
+        suiteItem('marketing-overview', 'Pulse', 'chart', { tab: 'overview' }),
+        suiteItem('website', 'Website', 'globe', { tab: 'setup' }),
+        suiteItem('video-studio', 'Video', 'video'),
+      ],
     };
   }
   // Match MarketSync Digital's feature-style nav: one flat list of product destinations
