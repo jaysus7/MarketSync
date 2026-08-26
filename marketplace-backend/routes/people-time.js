@@ -509,4 +509,150 @@ export function registerPeopleTime(app) {
     try { res.json({ items: await timeAttention(req.dealershipId) }) }
     catch (e) { res.status(500).json({ error: e.message }) }
   })
+
+  app.get('/hr/time/board', requireAuth, requirePermission('staff.view'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    try { res.json(await attendanceBoard(req.dealershipId)) }
+    catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.get('/hr/ops', requireAuth, requirePermission('staff.view'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    try { res.json({ ops: await loadHrOps(req.dealershipId) }) }
+    catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.put('/hr/ops', requireAuth, requireMfa, requirePermission('staff.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    try {
+      const ops = await saveHrOps(req.dealershipId, req.body || {}, req.user.id)
+      res.json({ ok: true, ops })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.post('/hr/time/late-digest', requireAuth, requireMfa, requirePermission('staff.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    try {
+      const board = await attendanceBoard(req.dealershipId)
+      const { sendEmail } = await import('../shared.js')
+      const to = req.body?.to || req.profile?.email || req.profile?.business_email
+      if (!to) return res.status(400).json({ error: 'No email on this account to send the digest to.' })
+      const rows = (board.week?.late || []).map(p => `<tr><td>${p.name}</td><td>${p.department || ''}</td><td>${p.late_days}</td></tr>`).join('')
+      const html = `<h2>Late this week</h2><p>${board.week?.late?.length || 0} people late. Missing punches today: ${(board.today?.missing || []).length}.</p>
+        <table border="1" cellpadding="6"><tr><th>Name</th><th>Dept</th><th>Late days</th></tr>${rows || '<tr><td colspan="3">Nobody late</td></tr>'}</table>`
+      const mail = await sendEmail({ to, subject: `Late digest — ${board.today?.date || 'this week'}`, html, tags: [{ name: 'message_type', value: 'hr_late_digest' }] })
+      res.json({ ok: !!mail?.ok, sent_to: to, board: { week: board.week, today: board.today }, mail })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+}
+
+
+const DEFAULT_START = 9 * 60
+const GRACE = 8
+
+function minutesOf(iso) {
+  const d = new Date(iso)
+  return d.getHours() * 60 + d.getMinutes()
+}
+
+async function loadHrOps(dealershipId) {
+  const { data } = await supabaseAdmin.from('dealer_config').select('value')
+    .eq('dealership_id', dealershipId).eq('key', 'hr_ops').maybeSingle()
+  const value = data?.value || {}
+  return {
+    schedules: Array.isArray(value.schedules) ? value.schedules : [],
+    time_off: Array.isArray(value.time_off) ? value.time_off : [],
+    documents: Array.isArray(value.documents) ? value.documents : [],
+    timesheets: Array.isArray(value.timesheets) ? value.timesheets : [],
+  }
+}
+
+async function saveHrOps(dealershipId, body, actorId) {
+  const current = await loadHrOps(dealershipId)
+  const next = {
+    schedules: body.schedules ?? current.schedules,
+    time_off: body.time_off ?? current.time_off,
+    documents: body.documents ?? current.documents,
+    timesheets: body.timesheets ?? current.timesheets,
+    updated_by: actorId,
+    updated_at: new Date().toISOString(),
+  }
+  const { data: existing } = await supabaseAdmin.from('dealer_config').select('id')
+    .eq('dealership_id', dealershipId).eq('key', 'hr_ops').maybeSingle()
+  if (existing?.id) {
+    await supabaseAdmin.from('dealer_config').update({ value: next }).eq('id', existing.id)
+  } else {
+    await supabaseAdmin.from('dealer_config').insert({ dealership_id: dealershipId, key: 'hr_ops', value: next })
+  }
+  return next
+}
+
+export async function attendanceBoard(dealershipId) {
+  const startOfDay = new Date(); startOfDay.setHours(0,0,0,0)
+  const weekStart = new Date(startOfDay); weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7))
+  const [{ data: staff }, { data: entries }, ops] = await Promise.all([
+    supabaseAdmin.from('staff_members').select('id, name, department, team, employment_status, email, phone')
+      .eq('dealership_id', dealershipId).in('employment_status', ['active', 'invited']),
+    supabaseAdmin.from('time_entries').select('id, employee_id, clock_in, clock_out, status')
+      .eq('dealership_id', dealershipId).gte('clock_in', weekStart.toISOString()),
+    loadHrOps(dealershipId).catch(() => ({ schedules: [], time_off: [] })),
+  ])
+  const people = staff || []
+  const byEmp = new Map()
+  for (const e of entries || []) {
+    const list = byEmp.get(e.employee_id) || []
+    list.push(e)
+    byEmp.set(e.employee_id, list)
+  }
+  const schedFor = (person) => {
+    const hit = (ops.schedules || []).find(s => s.staff_id === person.id || (s.department && s.department === person.department))
+    if (!hit) return { start: DEFAULT_START, end: 17 * 60 }
+    const [h, m] = String(hit.start || '09:00').split(':').map(Number)
+    const [eh, em] = String(hit.end || '17:00').split(':').map(Number)
+    return { start: (h || 9) * 60 + (m || 0), end: (eh || 17) * 60 + (em || 0) }
+  }
+  const todayOff = new Set((ops.time_off || []).filter(t => t.status !== 'denied' && t.date === startOfDay.toISOString().slice(0,10)).map(t => t.staff_id))
+  const liveIn = []
+  const liveOut = []
+  const late = []
+  const early = []
+  const onTime = []
+  const missing = []
+  const weekLate = []
+  const todayKey = startOfDay.toISOString().slice(0,10)
+
+  for (const person of people) {
+    const list = (byEmp.get(person.id) || []).sort((a,b) => new Date(a.clock_in) - new Date(b.clock_in))
+    const open = list.find(e => !e.clock_out)
+    const todays = list.filter(e => String(e.clock_in).slice(0,10) === todayKey)
+    const first = todays[0]
+    const sched = schedFor(person)
+    if (open) liveIn.push({ id: person.id, name: person.name, department: person.department, since: open.clock_in })
+    else liveOut.push({ id: person.id, name: person.name, department: person.department })
+    if (todayOff.has(person.id)) continue
+    if (!first) missing.push({ id: person.id, name: person.name, department: person.department })
+    else {
+      const mins = minutesOf(first.clock_in)
+      const row = { id: person.id, name: person.name, department: person.department, punched: first.clock_in }
+      if (mins > sched.start + GRACE) late.push(row)
+      else if (mins < sched.start - 15) early.push(row)
+      else onTime.push(row)
+    }
+    const days = {}
+    for (const e of list) {
+      const day = String(e.clock_in).slice(0,10)
+      if (!days[day] || new Date(e.clock_in) < new Date(days[day])) days[day] = e.clock_in
+    }
+    let lateDays = 0
+    for (const iso of Object.values(days)) {
+      if (minutesOf(iso) > sched.start + GRACE) lateDays += 1
+    }
+    if (lateDays) weekLate.push({ id: person.id, name: person.name, department: person.department, late_days: lateDays })
+  }
+  weekLate.sort((a,b) => b.late_days - a.late_days)
+  return {
+    today: { date: todayKey, late, early, on_time: onTime, missing },
+    live: { in: liveIn, out: liveOut },
+    week: { late: weekLate, from: weekStart.toISOString().slice(0,10) },
+  }
 }
