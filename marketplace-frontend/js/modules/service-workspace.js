@@ -678,7 +678,6 @@ ENGINES['service-overview'] = {
         }),
         // Department leaderboard embeds on the Service Pulse (same /gamification
         // payload as the full Leaderboard page — ranked here, not navigated away).
-        pulseLeaderboardCard(d.gamification, 'service', { title: 'Service leaderboard', metric: 'ro_closed', tier: 'feature', limit: 8 }),
       ]);
 
       // The widget grid is the Service Pulse. Detailed repair-order work remains
@@ -692,7 +691,8 @@ ENGINES['service-overview'] = {
           { label: 'Repair Orders', onclick: "engineTab('service-overview','ros')" },
         ])}
         ${typeof svcUnavailableNote === 'function' ? svcUnavailableNote(d) : ''}
-        ${grid}`;
+        ${grid}
+        ${typeof pulseDeptLeaderboard === 'function' ? pulseDeptLeaderboard(d.gamification, 'service', { title: 'Service leaderboard', metric: 'ro_closed' }) : ''}`;
     },
     appointments: svcRenderAppointments,
     ros: svcRenderRos,
