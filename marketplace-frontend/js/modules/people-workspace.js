@@ -1,3 +1,15 @@
+
+function pplDemoFallbackTeam() {
+  return [
+    { id: 'demo-marcus', staff_member_id: 'demo-marcus', name: 'Marcus Vance', email: 'marcus.vance@dealership.example', phone: '(416) 555-3101', department: 'Sales', job_title: 'General Sales Manager', employment_status: 'active', has_employment: true, employee_number: 'EMP-1001' },
+    { id: 'demo-sarah', staff_member_id: 'demo-sarah', name: 'Sarah Jenkins', email: 'sarah.jenkins@dealership.example', phone: '(416) 555-3102', department: 'Sales', job_title: 'Senior Sales Representative', employment_status: 'active', has_employment: true, employee_number: 'EMP-1002' },
+    { id: 'demo-david', staff_member_id: 'demo-david', name: 'David Miller', email: 'david.miller@dealership.example', phone: '(416) 555-3103', department: 'F&I', job_title: 'Finance Manager', employment_status: 'active', has_employment: true, employee_number: 'EMP-2001' },
+    { id: 'demo-elena', staff_member_id: 'demo-elena', name: 'Elena Rostova', email: 'elena.rostova@dealership.example', phone: '(416) 555-3104', department: 'Service', job_title: 'Service Manager', employment_status: 'active', has_employment: true, employee_number: 'EMP-3001' },
+    { id: 'demo-chris', staff_member_id: 'demo-chris', name: 'Chris Patel', email: 'chris.patel@dealership.example', phone: '(416) 555-3105', department: 'Parts', job_title: 'Parts Manager', employment_status: 'active', has_employment: true, employee_number: 'EMP-4001' },
+    { id: 'demo-olivia', staff_member_id: 'demo-olivia', name: 'Olivia Chen', email: 'olivia.chen@dealership.example', phone: '(416) 555-3106', department: 'Accounting', job_title: 'Controller', employment_status: 'active', has_employment: true, employee_number: 'EMP-5001' },
+    { id: 'demo-jordan', staff_member_id: 'demo-jordan', name: 'Jordan Blake', email: 'jordan.blake@dealership.example', phone: '(416) 555-3107', department: 'Recon', job_title: 'Recon Lead', employment_status: 'active', has_employment: true, employee_number: 'EMP-6001' },
+  ];
+}
 /**
  * People — the department's operating surface (Phase 7 PR 7.7).
  *
@@ -95,7 +107,7 @@ ENGINES['people-overview'] = {
   fetch: async () => {
     const [day, team, compliance, policies, templates, board, opsWrap] = await Promise.all([
       apiGetJson('/my-day').catch(() => ({ needs_attention: [], failed: [{ source: 'my-day', label: 'My Day', reason: 'could not be loaded' }], not_covered: [] })),
-      apiGetJson('/hr/team').catch(() => ({ team: [] })),
+      apiGetJson('/hr/team' + ((typeof isDemoAccount === 'function' && isDemoAccount()) ? '?seed=1' : '')).catch(() => ({ team: [] })),
       apiGetJson('/hr/compliance').catch(() => null),
       apiGetJson('/hr/policies').catch(() => null),
       apiGetJson('/hr/lifecycle/templates').catch(() => null),
@@ -107,7 +119,7 @@ ENGINES['people-overview'] = {
       needsAttention: (day.needs_attention || []).filter(x => mine.includes(x.source)),
       allAttention: day.needs_attention || [],
       dayFailed: day.failed || [],
-      team: team.team || [],
+      team: (team.team && team.team.length) ? team.team : ((typeof isDemoAccount === 'function' && isDemoAccount()) ? pplDemoFallbackTeam() : []),
       compliance,
       policies: policies ? (policies.policies || []) : null,
       lifecycleTemplates: templates ? (templates.templates || []) : null,
@@ -267,6 +279,12 @@ async function pplOpenPerson(staffId) {
   __pplTab = 'summary';
   const el = crmOverlay(`<div class="p-6"><div class="text-sm text-slate-400 py-10 text-center">Loading the employee record…</div></div>`, 'max-w-4xl');
   __pplPanel = el.firstElementChild;
+  const demo = pplDemoFallbackTeam().find(p => p.id === staffId || p.staff_member_id === staffId);
+  if (demo && String(staffId).startsWith('demo-')) {
+    __pplPerson = { person: demo, standing: {}, training: { items: [] }, certifications: { items: [] }, policies: { items: [] }, lifecycle: { items: [] }, documents: { items: [] }, performance: {} };
+    pplRenderPerson();
+    return;
+  }
   try {
     const r = await apiGetJson(`/hr/employees/${staffId}/dossier`);
     __pplPerson = r.dossier;
