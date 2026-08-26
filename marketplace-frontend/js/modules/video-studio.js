@@ -74,6 +74,14 @@ const VIDEO_TEMPLATES = {
     title: 'Service Multi-Point Inspection (DVI)',
     text: `Hi {CUSTOMER_NAME}, this is {REP_NAME} from Service at {STORE_NAME}. Our certified technician has your {VEHICLE_LABEL} up on the rack right now. Your front brakes and tires look great, but we noticed the rear cabin filter is due for replacement. I've attached the quick approval button right below this video!`
   },
+  social_ad: {
+    title: 'Social Ad / Reel',
+    text: `This week at {STORE_NAME} — {VEHICLE_LABEL} is ready to go. Clean, priced, and available now. Message us for the details or stop by and drive it today.`
+  },
+  lot_update: {
+    title: 'Lot / Offer Update',
+    text: `Quick update from {STORE_NAME}. New units just landed and this {VEHICLE_LABEL} is the one to see. Ask for {REP_NAME} and we will walk you through it.`
+  },
   thankyou: {
     title: 'Post-Purchase Thank You & Check-In',
     text: `Hi {CUSTOMER_NAME}! {REP_NAME} here from {STORE_NAME}. I just wanted to reach out and say congratulations on your new {VEHICLE_LABEL}! I hope your first drive home was fantastic. If you ever have questions about any features, I'm always one text away!`
@@ -162,7 +170,9 @@ function renderStudioSetupHtml(contact, options) {
   const activeKey = window.__videoStudioState.activeScriptKey || (activeDept === 'Service' ? 'service' : 'walkaround');
   const isService = activeDept === 'Service';
 
-  const allowedScripts = isSaas ? ['product_demo', 'onboarding', 'feature_update', 'thankyou'] : Object.keys(VIDEO_TEMPLATES);
+  const allowedScripts = options.studioMode
+    ? ['social_ad', 'lot_update', 'product_demo', 'thankyou']
+    : (isSaas ? ['product_demo', 'onboarding', 'feature_update', 'thankyou'] : Object.keys(VIDEO_TEMPLATES));
   const scriptOptions = allowedScripts.map(key => `
     <button onclick="vidSelectScript('${key}')" id="vid-script-btn-${key}"
       class="px-3 py-1.5 rounded-lg text-xs font-bold transition ${key === activeKey ? (isService ? 'bg-emerald-600 text-white shadow-sm' : 'bg-indigo-600 text-white shadow-sm') : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">
@@ -171,7 +181,7 @@ function renderStudioSetupHtml(contact, options) {
   `).join('');
 
   const currentTemplateText = VIDEO_TEMPLATES[activeKey]?.text || VIDEO_TEMPLATES.walkaround.text;
-  const formattedScript = currentTemplateText
+  const formattedScript = (options.initialScript || currentTemplateText)
     .replace(/{CUSTOMER_NAME}/g, custName)
     .replace(/{REP_NAME}/g, repName)
     .replace(/{STORE_NAME}/g, storeName)
@@ -283,12 +293,9 @@ function renderStudioCameraHtml(contact, options) {
         <!-- Teleprompter Floating Overlay — hidden by default per the persisted
              preference (vidTeleprompterHiddenByDefault()), draggable via
              makeWsPanelDraggable(), wired up in initCameraFeed(). -->
-        <div class="absolute inset-x-4 top-16 sm:top-20 bg-slate-900/90 backdrop-blur-md p-3 rounded-xl border border-slate-700/80 text-xs font-semibold text-sky-200 shadow-lg max-h-32 overflow-y-auto transition-all z-10${tpHiddenClass}" id="vid-teleprompter-box">
-          <div id="vid-teleprompter-handle" class="text-[10px] font-black uppercase text-sky-400 mb-0.5 flex items-center justify-between cursor-grab active:cursor-grabbing">
-            <span class="flex items-center gap-1"><svg class="w-3 h-3 opacity-60" fill="currentColor" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>Teleprompter Script:</span>
-            <span class="text-[9px] text-slate-400">Scrolls / Live Sync</span>
-          </div>
-          <div id="vid-teleprompter-text">${escV(scriptText)}</div>
+        <div class="absolute inset-x-5 top-16 sm:top-20 bg-transparent p-1 max-h-40 overflow-y-auto transition-all z-10${tpHiddenClass}" id="vid-teleprompter-box" style="background:transparent;border:0;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none">
+          <div id="vid-teleprompter-handle" class="h-4 mb-1 cursor-grab active:cursor-grabbing opacity-40" title="Drag"></div>
+          <div id="vid-teleprompter-text" class="text-[15px] sm:text-base font-semibold leading-relaxed text-white text-center" style="text-shadow:0 1px 2px rgba(0,0,0,.85),0 0 10px rgba(0,0,0,.45);background:transparent">${escV(scriptText)}</div>
         </div>
 
         <!-- Live Recording Status Overlay -->
@@ -1650,48 +1657,50 @@ function renderVideoStudioWorkspace(videos, isSaas = false) {
   });
 
   return `
-    <div class="space-y-6">
-      <!-- App Top Navigation Bar -->
-      <div class="flex items-center justify-between flex-wrap gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-violet-600/10 text-violet-600 dark:text-violet-400 flex items-center justify-center font-black">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+    <div class="space-y-6 md:space-y-8">
+      <!-- Feature header (suite product — not a department) -->
+      <section class="ms-glass rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/85 dark:bg-slate-900/75 p-7 md:p-9 shadow-sm">
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div class="min-w-0 flex items-start gap-4">
+            <div class="w-14 h-14 rounded-2xl bg-violet-600/10 text-violet-700 dark:text-violet-300 border border-violet-500/25 flex items-center justify-center flex-shrink-0">
+              <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            </div>
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <h1 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-none">${isSaas ? 'Product Video Studio' : 'MarketSync Video'}</h1>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/10 text-violet-800 dark:text-violet-300 border border-violet-500/25">${isSaas ? 'Product' : 'Feature'}</span>
+              </div>
+              <p class="text-sm text-slate-600 dark:text-slate-300 mt-1 max-w-2xl leading-relaxed">${isSaas ? 'Customer demos, onboarding, product updates, and watch-time evidence.' : 'Record, send, and library customer videos for sales and service — one studio.'}</p>
+            </div>
           </div>
-          <div>
-            <h1 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">${isSaas ? 'Product Video Studio' : 'MarketSync Video'}</h1>
-            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">${isSaas ? 'Customer demos, onboarding videos, product updates, and watch-time evidence' : 'Canonical Customer Video Messaging & Sent Videos Library'}</p>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <button onclick="openCustomerVideoStudio('', ${isSaas ? "{department:'MarketSync',scriptKey:'product_demo'}" : '{}'} )" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition flex items-center gap-2 shadow-sm cursor-pointer">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+          <button onclick="openCustomerVideoStudio('', ${isSaas ? "{department:'MarketSync',scriptKey:'product_demo'}" : '{}'} )" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer flex-shrink-0">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
             Record Video
           </button>
         </div>
-      </div>
+      </section>
 
       <!-- Filter Controls & Search -->
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-4">
+      <div class="ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div class="flex flex-wrap items-center gap-2">
-            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Status:</span>
+            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400">Status</span>
             ${['all', 'draft', 'sent', 'viewed'].map(st => `
-              <button onclick="msFilterVideoStatus('${st}')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition capitalize ${__videoLibraryFilterStatus === st ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}">${st === 'all' ? 'All Videos' : st}</button>
+              <button onclick="msFilterVideoStatus('${st}')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition capitalize ${__videoLibraryFilterStatus === st ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'}">${st === 'all' ? 'All Videos' : st}</button>
             `).join('')}
           </div>
 
           <div class="${isSaas ? 'hidden' : 'flex'} items-center gap-2">
-            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Dept:</span>
+            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400">Dept</span>
             ${(isSaas ? ['all'] : ['all', 'sales', 'service']).map(dp => `
-              <button onclick="msFilterVideoDept('${dp}')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition capitalize ${__videoLibraryFilterDept === dp ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}">${dp}</button>
+              <button onclick="msFilterVideoDept('${dp}')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition capitalize ${__videoLibraryFilterDept === dp ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'}">${dp}</button>
             `).join('')}
           </div>
         </div>
 
         <div class="relative">
-          <input type="text" oninput="msSearchVideos(this.value)" value="${escV(__videoLibrarySearch)}" placeholder="${isSaas ? 'Search by customer, product, title, or employee…' : 'Search by customer name, title, vehicle, or salesperson...'}" class="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-violet-500">
-          <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          <input type="text" oninput="msSearchVideos(this.value)" value="${escV(__videoLibrarySearch)}" placeholder="${isSaas ? 'Search by customer, product, title, or employee…' : 'Search by customer name, title, vehicle, or salesperson...'}" class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-violet-500">
+          <svg class="w-4 h-4 text-slate-400 absolute left-3 top-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         </div>
       </div>
 
@@ -1804,3 +1813,14 @@ window.loadSaasVideoStudio = loadSaasVideoStudio;
 window.msFilterVideoStatus = msFilterVideoStatus;
 window.msFilterVideoDept = msFilterVideoDept;
 window.msSearchVideos = msSearchVideos;
+
+
+window.openStudioTeleprompterRecorder = function openStudioTeleprompterRecorder(script) {
+  const text = (script || '').trim();
+  return openCustomerVideoStudio(null, {
+    studioMode: true,
+    scriptKey: 'social_ad',
+    department: 'Sales',
+    initialScript: text || undefined,
+  });
+};

@@ -216,7 +216,28 @@ function setupMobileMoreMenu() {
       b.addEventListener('click', () => { close(); window.msSignOut(); });
       list.appendChild(b);
     };
-    const restricted = restrictedNavPages();
+    if (mktCfg && Array.isArray(mktCfg.navItems) && mktCfg.navItems.length) {
+      mktCfg.navItems.forEach(p => {
+        const b = mk(`<button type="button" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition text-left"><span class="w-5 h-5 flex-shrink-0 text-indigo-500">${typeof svgIcon === 'function' ? svgIcon(p.icon || 'dot', 'w-5 h-5') : ''}</span><span class="truncate">${esc(p.label)}</span></button>`);
+        b.addEventListener('click', () => {
+          close();
+          if (p.studioLaunch) { window.openMarketSyncStudio?.(); return; }
+          if (typeof deptGo === 'function') deptGo(p.page, p.invmode || '', p.tab || '');
+          else switchPage(p.page);
+        });
+        list.appendChild(b);
+      });
+      appendMobileSignOut();
+      menu.classList.remove('hidden');
+      return;
+    }
+    let restricted = restrictedNavPages();
+    const previewKey = String(window.__demoActiveProduct || window.__demoActivePackage || document.documentElement.getAttribute('data-product') || '').trim();
+    if (restricted && restricted[0] && restricted[0].page === 'saas-command' && previewKey && previewKey !== 'dealer_os') {
+      const mapped = typeof navPagesForProductKey === 'function' ? navPagesForProductKey(previewKey) : null;
+      if (mapped && mapped.length) restricted = mapped;
+    }
+    if (headerTitle && restricted && restricted.length === 1) headerTitle.textContent = restricted[0].label;
     if (restricted) {
       let currentSection = null;
       restricted.forEach(p => {

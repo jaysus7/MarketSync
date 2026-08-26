@@ -28,6 +28,19 @@ const svcCustomer = (r) => r.customer_name || r.customer || 'Customer';
 const svcVehicle = (r) => r.vehicle_desc || [r.year, r.make, r.model].filter(Boolean).join(' ') || '';
 const svcAge = (iso) => { if (!iso) return null; const h = (Date.now() - new Date(iso).getTime()) / 36e5; return Number.isFinite(h) ? Math.floor(h) : null; };
 const svcAgeLabel = (iso) => { const h = svcAge(iso); return h == null ? '' : (h < 48 ? `${h}h` : `${Math.floor(h / 24)}d`); };
+// How late a promise already is, in the words an advisor would use on the phone.
+const svcLateBy = (iso) => {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (!Number.isFinite(mins) || mins <= 0) return 'due now';
+  if (mins < 60) return `${mins} min late`;
+  const hrs = Math.floor(mins / 60);
+  return hrs < 24 ? `${hrs}h late` : `${Math.floor(hrs / 24)}d late`;
+};
+// A count and its records come from the same array here, but the list is capped so
+// the card stays readable. Say so rather than implying the cap is the whole truth.
+const SVC_LEAD_ROWS = 6;
+const svcMoreNote = (shown, total) => total > shown
+  ? `<div class="text-[11px] text-slate-400 pt-1.5">Showing ${shown} of ${total}.</div>` : '';
 
 // ── Today: what is stopping the shop from moving work forward ────────────────
 // Every category below is a REAL canonical state or a real parts blocker. Nothing here
@@ -449,13 +462,14 @@ ENGINES['service-overview'] = {
     // dead endpoint and a quiet shop looked identical on screen.
     const miss = [];
     const grab = (label, p) => p.catch(() => { miss.push(label); return null; });
-    const [ros, appts, reqs, closed, calls, cfg] = await Promise.all([
+    const [ros, appts, reqs, closed, calls, cfg, gamification] = await Promise.all([
       grab('repair orders', apiGetJson('/service-engine/ros')),
       grab('the appointment book', apiGetJson('/service/appointments')),
       grab('parts demand', apiGetJson('/service-engine/part-requests')),
       grab('closed repair orders', apiGetJson('/service-engine/ros?status=closed')),
       grab('follow-up calls', apiGetJson('/service-engine/follow-up-calls')),
       grab('service settings', apiGetJson('/service-engine/config')),
+      apiGetJson('/gamification').catch(() => null),
     ]);
     const d = {
       ros: (ros?.ros || []).filter(r => r.status !== 'closed'),
@@ -465,6 +479,7 @@ ENGINES['service-overview'] = {
       closedRos: closed ? (closed.ros || []) : null,
       followUps: calls ? (calls.calls || []) : null,
       config: cfg ? (cfg.config || null) : null,
+      gamification,
       unavailable: miss,
     };
     __svcData = d;
@@ -521,7 +536,10 @@ ENGINES['service-overview'] = {
       const att = svcAttention(d);
       const ros = d.ros || [];
       const waiting = ros.filter(r => r.status === 'estimate_sent').length;
-      const blocked = new Set((d.partRequests || []).filter(q => ['requested', 'backordered'].includes(q.status)).map(q => q.ro_id)).size;
+      const blockedRoIds = [...new Set((d.partRequests || [])
+        .filter(q => ['requested', 'backordered'].includes(q.status)).map(q => q.ro_id).filter(Boolean))];
+      const blocked = blockedRoIds.length;
+      const roById = new Map(ros.map(r => [r.id, r]));
       const ready = ros.filter(r => r.status === 'ready').length;
       const inspection = ros.filter(r => r.status === 'inspection').length;
       const onFloor = ros.filter(r => ['in_progress', 'quality_check'].includes(r.status));
@@ -534,19 +552,62 @@ ENGINES['service-overview'] = {
       // Customers owed a call back after a closed RO — the day's work, not a report.
       const callbacks = d.followUps == null ? null : (d.followUps || []).filter(c => !c.done);
 
-      // ── Pulse grid — the at-a-glance widget wall ────────────────────────────
-      const grid = pulseGrid([
+      // ── Pulse board — size assigned from operational tier ───────────────────
+      // Service does not lead on the same thing the Dealership Pulse leads on. An
+      // advisor's first question is never "how many repair orders are open"; it is
+      // "whose promise have I broken, and what is stuck". Those two were the least
+      // visible things on this page — both were the third row inside a composite
+      // card — so they are now cards in their own right, and they only take the
+      // large tiers while their number is non-zero. A shop that is on time and
+      // unblocked flattens back to a wall of equals, which is the honest picture of
+      // a shop that is on time and unblocked.
+      const grid = pulseBoard([
         pulseCard({
-          title: "What's waiting", count: waiting + inspection, tone: (waiting + inspection) ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : '',
+          title: 'Past promise time', count: overduePromise.length,
+          tier: overduePromise.length ? 'hero' : 'standard',
+          tone: overduePromise.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
+          onclick: "engineTab('service-overview','ros')",
+          inner: overduePromise.length
+            ? overduePromise.slice(0, SVC_LEAD_ROWS).map(r => pulseRow({
+                icon: 'flame', badgeTone: 'bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300',
+                label: svcCustomer(r), sub: [svcVehicle(r), svcStatusLabel(r.status)].filter(Boolean).join(' · '),
+                value: svcLateBy(r.promise_time), valueTone: 'text-rose-600 dark:text-rose-400',
+                onclick: `svcOpenRecord('${r.id}')`,
+              })).join('') + svcMoreNote(Math.min(SVC_LEAD_ROWS, overduePromise.length), overduePromise.length)
+            : '',
+          empty: 'Every promise time is still good.',
+        }),
+        pulseCard({
+          title: 'Blocked on parts', count: blocked,
+          tier: blocked ? 'feature' : 'standard',
+          tone: blocked ? 'bg-orange-100 dark:bg-orange-950/50 text-orange-700 dark:text-orange-300' : '',
+          onclick: "switchPage('parts-overview')",
+          inner: blocked
+            ? blockedRoIds.slice(0, SVC_LEAD_ROWS).map(id => {
+                // A repair order that is not in the open list can still be waiting on
+                // a part. Name it by its id rather than inventing a customer for it.
+                const r = roById.get(id);
+                return pulseRow({
+                  icon: 'gem', badgeTone: 'bg-orange-100 dark:bg-orange-950/50 text-orange-600 dark:text-orange-300',
+                  label: r ? svcCustomer(r) : `RO x${String(id).slice(-2)}`,
+                  sub: r ? [svcVehicle(r), svcStatusLabel(r.status)].filter(Boolean).join(' · ') : 'Not in the open repair-order list',
+                  onclick: r ? `svcOpenRecord('${r.id}')` : '',
+                });
+              }).join('') + svcMoreNote(Math.min(SVC_LEAD_ROWS, blocked), blocked)
+            : '',
+          empty: 'Nothing is waiting on a part.',
+        }),
+        pulseCard({
+          title: "What's waiting", count: waiting + inspection, tier: (waiting + inspection) ? 'feature' : 'standard',
+          tone: (waiting + inspection) ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : '',
           onclick: "engineTab('service-overview','ros')",
           inner: [
             pulseRow({ badge: waiting, label: 'Awaiting customer approval', onclick: "engineTab('service-overview','ros')" }),
             pulseRow({ badge: inspection, label: 'Waiting inspection', onclick: "engineTab('service-overview','ros')" }),
-            pulseRow({ badge: blocked, label: 'Blocked on parts', valueTone: blocked ? 'text-orange-600 dark:text-orange-400' : undefined, onclick: "switchPage('parts-overview')" }),
           ].join(''),
         }),
         pulseCard({
-          title: 'Live ROs', count: ros.length,
+          title: 'Live ROs', count: ros.length, tier: ros.length ? 'feature' : 'standard',
           onclick: "engineTab('service-overview','ros')",
           inner: ros.length ? ros.slice(0, 5).map(r => pulseRow({
             badge: '●', badgeTone: 'bg-sky-100 dark:bg-sky-950/50 text-sky-600 dark:text-sky-300',
@@ -554,7 +615,7 @@ ENGINES['service-overview'] = {
           })).join('') : '', empty: 'No open repair orders.',
         }),
         pulseCard({
-          title: 'Closed ROs', count: d.closedRos == null ? '—' : d.closedRos.length,
+          title: 'Closed ROs', count: d.closedRos == null ? '—' : d.closedRos.length, tier: 'standard',
           onclick: "engineTab('service-overview','ros')",
           inner: d.closedRos == null ? '' : (d.closedRos.length ? d.closedRos.slice(0, 5).map(r => pulseRow({
             icon: 'check', badgeTone: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
@@ -562,15 +623,15 @@ ENGINES['service-overview'] = {
           })).join('') : ''), empty: d.closedRos == null ? 'Could not be loaded.' : 'Nothing closed yet.',
         }),
         pulseCard({
-          title: 'Video Walkaround', onclick: "switchPage('video-studio')",
+          title: 'Video Walkaround', tier: 'compact', onclick: "switchPage('video-studio')",
           inner: `<p class="text-[12px] text-slate-500 dark:text-slate-400 leading-snug">Record a walkaround on any repair order to show the customer what was found.</p>`,
         }),
         pulseCard({
-          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', span: 'tall',
+          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', tier: att.length ? 'hero' : 'standard',
           inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '', empty: 'Nothing is blocking the shop.',
         }),
         pulseCard({
-          title: 'Booked today', count: todaysAppts.length,
+          title: 'Booked today', count: todaysAppts.length, tier: 'standard',
           onclick: "engineTab('service-overview','appointments')",
           inner: todaysAppts.length ? todaysAppts.slice(0, 6).map(a => pulseRow({
             icon: 'calendar', label: a.customer_name || 'Customer',
@@ -578,13 +639,13 @@ ENGINES['service-overview'] = {
           })).join('') : '', empty: 'Nothing booked for today.',
         }),
         pulseCard({
-          title: 'Customers to call back', count: callbacks == null ? '—' : callbacks.length, tone: callbacks && callbacks.length ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : '',
+          title: 'Customers to call back', count: callbacks == null ? '—' : callbacks.length, tier: 'standard', tone: callbacks && callbacks.length ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : '',
           inner: callbacks == null ? '' : (callbacks.length ? callbacks.slice(0, 6).map(c => pulseRow({
             icon: 'phone', label: c.customer || 'Customer', sub: c.title || 'Follow-up call', onclick: `svcOpenRecord('${c.repair_order_id}')`,
           })).join('') : ''), empty: callbacks == null ? 'Could not be loaded.' : 'Every closed RO has been called back.',
         }),
         pulseCard({
-          title: 'Ready for the customer', count: ready,
+          title: 'Ready for the customer', count: ready, tier: 'standard',
           tone: ready ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300' : '',
           onclick: "engineTab('service-overview','ros')",
           inner: ready ? ros.filter(r => r.status === 'ready').slice(0, 6).map(r => pulseRow({
@@ -593,38 +654,31 @@ ENGINES['service-overview'] = {
           })).join('') : '', empty: 'Nothing is waiting for collection.',
         }),
         pulseCard({
-          title: 'On the floor', count: onFloor.length,
+          title: 'On the floor', count: onFloor.length, tier: 'standard',
           onclick: "engineTab('service-overview','ros')",
           inner: onFloor.length ? onFloor.slice(0, 6).map(r => pulseRow({
             badge: '#', label: svcCustomer(r), sub: svcStatusLabel(r.status), onclick: `svcOpenRecord('${r.id}')`,
           })).join('') : '', empty: 'Nothing is in progress.',
         }),
         pulseCard({
-          title: 'Authorization and SLA', count: overduePromise.length,
-          tone: overduePromise.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
+          title: 'Authorization', count: authorized.length + declined.length, tier: 'standard',
           onclick: "engineTab('service-overview','ros')",
           inner: [
             pulseRow({ badge: authorized.length, label: 'Authorized work' }),
             pulseRow({ badge: declined.length, label: 'Declined work', valueTone: declined.length ? 'text-amber-600 dark:text-amber-400' : undefined }),
-            pulseRow({ badge: overduePromise.length, label: 'Past promise time', valueTone: overduePromise.length ? 'text-rose-600 dark:text-rose-400' : undefined }),
           ].join(''),
         }),
         pulseCard({
-          title: 'Repair orders by stage', count: ros.length,
+          title: 'Repair orders by stage', count: ros.length, tier: 'standard',
           onclick: "engineTab('service-overview','ros')",
           inner: Object.keys(SVC_STATUS_LABEL).map(status => {
             const count = ros.filter(r => r.status === status).length;
             return count ? pulseRow({ badge: count, label: svcStatusLabel(status), onclick: "engineTab('service-overview','ros')" }) : '';
           }).filter(Boolean).join(''), empty: 'No open repair orders.',
         }),
-        // Service must call no endpoint outside /service(-engine)/… (it is sold and must
-        // work standalone), so the leaderboard itself is NOT fetched here — this links to
-        // the platform's own Leaderboard page, pre-set to the Service department, which
-        // reads /gamification on its own.
-        pulseCard({
-          title: 'Service leaderboard', onclick: "window.__activeLbDept='service'; switchPage('leaderboard')",
-          inner: `<p class="text-[12px] text-slate-500 dark:text-slate-400 leading-snug">Repair orders closed, revenue and CSI, ranked by advisor and tech.</p>`,
-        }),
+        // Department leaderboard embeds on the Service Pulse (same /gamification
+        // payload as the full Leaderboard page — ranked here, not navigated away).
+        pulseLeaderboardCard(d.gamification, 'service', { title: 'Service leaderboard', metric: 'ro_closed', tier: 'feature', limit: 8 }),
       ]);
 
       // The widget grid is the Service Pulse. Detailed repair-order work remains
@@ -637,32 +691,8 @@ ENGINES['service-overview'] = {
           { label: 'Video Walkaround', onclick: "switchPage('video-studio')" },
           { label: 'Repair Orders', onclick: "engineTab('service-overview','ros')" },
         ])}
-        ${svcUnavailableNote(d)}
+        ${typeof svcUnavailableNote === 'function' ? svcUnavailableNote(d) : ''}
         ${grid}`;
-      return;
-
-      body.innerHTML = `
-        ${pulseHeader('Service Pulse', 'One repair order — check in, estimate, authorize, repair, deliver')}
-        ${pulseActionsRow([
-          { label: 'Check in', onclick: "engineTab('service-overview','appointments')" },
-          { label: 'Check out', onclick: "engineTab('service-overview','ros')" },
-          { label: 'Video Walkaround', onclick: "switchPage('video-studio')" },
-          { label: 'Repair Orders', onclick: "engineTab('service-overview','ros')" },
-        ])}
-        ${grid}
-
-        <div class="mt-5">
-          ${svcUnavailableNote(d)}
-          ${typeof window.svcRenderTriageBar === 'function' ? window.svcRenderTriageBar(d) : ''}
-          ${typeof window.svcRenderProactiveAiPanel === 'function' ? window.svcRenderProactiveAiPanel(d) : ''}
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
-          ${engCard(`Ready for the customer (${ready})`, ready ? ros.filter(r => r.status === 'ready').slice(0, 6).map(r => svcRoRow(r, d)).join('') : engEmpty('Nothing waiting for collection.'))}
-          ${engCard('On the floor', onFloor.length ? onFloor.slice(0, 6).map(r => svcRoRow(r, d)).join('') : engEmpty('Nothing in progress.'))}
-        </div>
-        ${typeof window.svcRenderPerformanceLayer === 'function' ? window.svcRenderPerformanceLayer(d) : ''}
-        ${svcInsightsStrip(d)}`;
     },
     appointments: svcRenderAppointments,
     ros: svcRenderRos,

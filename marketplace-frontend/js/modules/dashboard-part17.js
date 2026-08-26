@@ -151,11 +151,10 @@ function siteSettingsFields(cfg) {
   const inp = (id, v, ph, cls = '') => `<input id="${id}" value="${esc(v == null ? '' : v)}" placeholder="${esc(ph)}" class="${cls} bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">`;
   const lbl = (t) => `<label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">${t}</label>`;
   const ta = (id, v, ph, rows, mono) => `<textarea id="${id}" rows="${rows}" placeholder="${esc(ph)}" class="w-full ${mono ? 'font-mono text-[11px]' : 'text-sm'} bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2">${esc(v || '')}</textarea>`;
-  // Card wrapper — matches the Settings page cards (rounded-xl, border, padding,
-  // text-lg heading) so Website settings reads as part of the same Settings design.
-  const sec = (title, desc, inner) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-6 w-full shadow-xs hover:shadow-md transition-shadow">
-    <h2 class="text-lg font-bold text-slate-900 dark:text-white">${title}</h2>
-    ${desc ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">${desc}</p>` : '<div class="mb-3"></div>'}
+  // Card wrapper — even 3-column grid (DealerOS-style) for Digital Website Settings.
+  const sec = (title, desc, inner, span = '') => `<div class="ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 h-full ${span}">
+    <h2 class="text-base font-black text-slate-900 dark:text-white tracking-tight">${title}</h2>
+    ${desc ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3 leading-relaxed">${desc}</p>` : '<div class="mb-3"></div>'}
     ${inner}</div>`;
   return `
     ${sec('Address &amp; visibility', 'Your site&rsquo;s public link and whether it&rsquo;s live.', `
@@ -191,13 +190,13 @@ function siteSettingsFields(cfg) {
         <div>${lbl('Brand colour')}<input id="site-color" type="color" value="${esc(c.primary_color || '#1e3a8a')}" class="w-full h-9 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg"></div>
         <div>${lbl('Hero image')}<div class="flex gap-1">${inp('site-hero', c.hero_url, 'Paste URL or upload', 'flex-1')}<input id="site-hero-file" type="file" accept="image/*" class="hidden" onchange="uploadSiteImage('site-hero', this.files[0])"><button type="button" onclick="document.getElementById('site-hero-file').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 rounded-lg">Upload</button><button type="button" onclick="openWsPhotoPicker(url => { const el = document.getElementById('site-hero'); if (el) el.value = url; })" class="text-xs font-bold bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600/20 px-3 rounded-lg">Browse Photos</button></div></div>
       </div>`)}
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-6 w-full shadow-xs hover:shadow-md transition-shadow">
-      <h2 class="text-lg font-bold text-slate-900 dark:text-white">Build &amp; Price brands</h2>
+    <div class="ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 h-full">
+      <h2 class="text-base font-black text-slate-900 dark:text-white tracking-tight">Build &amp; Price brands</h2>
       <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Which brands do you sell new? Only these appear on your Build &amp; Price page — keeps used trade-ins and off-brands out. Leave all unchecked to auto-detect from your new inventory.</p>
       <div id="bm-wrap" class="flex flex-wrap gap-x-3 gap-y-1">${(() => { const set = new Set((c.build_makes || []).map(s => String(s).toLowerCase())); return ['Chevrolet', 'GMC', 'Buick', 'Cadillac', 'Ford', 'Lincoln', 'Toyota', 'Honda', 'Nissan', 'Hyundai', 'Kia', 'Mazda', 'Subaru', 'Volkswagen', 'Jeep', 'Ram', 'Dodge', 'Chrysler'].map(b => `<label class="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-200"><input type="checkbox" class="bm-check accent-indigo-600" value="${b}" ${set.has(b.toLowerCase()) ? 'checked' : ''}>${b}</label>`).join(''); })()}</div>
     </div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-6 w-full shadow-xs hover:shadow-md transition-shadow">
-      <h2 class="text-lg font-bold text-slate-900 dark:text-white">SEO</h2>
+    <div class="ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 h-full">
+      <h2 class="text-base font-black text-slate-900 dark:text-white tracking-tight">SEO</h2>
       <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">How your site shows in Google and when shared. Leave blank to auto-generate from your name, city and About.</p>
       <div class="space-y-2">
         <div class="flex justify-end -mb-1"><button type="button" onclick="aiSiteMeta(this)" class="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500"> AI write title + meta</button></div>
@@ -207,10 +206,10 @@ function siteSettingsFields(cfg) {
         <div>${lbl('Social share image')}<div class="flex gap-1">${inp('seo-image', c.seo_image, 'Paste URL or upload (falls back to hero)', 'flex-1')}<input id="seo-image-file" type="file" accept="image/*" class="hidden" onchange="uploadSiteImage('seo-image', this.files[0])"><button type="button" onclick="document.getElementById('seo-image-file').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 rounded-lg">Upload</button></div></div>
       </div>
     </div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-6 w-full shadow-xs hover:shadow-md transition-shadow">
+    <div class="ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 h-full md:col-span-2 xl:col-span-2">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <h2 class="text-lg font-bold text-slate-900 dark:text-white">AI sales chat</h2>
+          <h2 class="text-base font-black text-slate-900 dark:text-white tracking-tight">AI sales chat</h2>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 max-w-md">A concierge chat bubble on your site that answers shopper questions from your live inventory and captures leads. Replies come from your stock only.</p>
         </div>
         <label class="flex items-center gap-2 text-sm font-bold whitespace-nowrap"><input id="site-sales-chat" type="checkbox" ${c.sales_chat ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Enabled</label>
@@ -244,8 +243,8 @@ function siteSettingsFields(cfg) {
         </div>
       </div>
     </div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-6 w-full shadow-xs hover:shadow-md transition-shadow">
-      <h2 class="text-lg font-bold text-slate-900 dark:text-white">Widgets &amp; integrations</h2>
+    <div class="ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 h-full md:col-span-2 xl:col-span-3">
+      <h2 class="text-base font-black text-slate-900 dark:text-white tracking-tight">Widgets &amp; integrations</h2>
       <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Paste embed code from Keyloop, Equifax, trade-value tools, chat or AI tools. Global scripts (analytics/chat) go in “site-wide code”; placed embeds appear as blocks in a chosen section.</p>
       ${lbl('Site-wide code — runs in the page &lt;head&gt;')}
       ${ta('site-head', c.head_html, '<script>…</script> — analytics, chat, Keyloop tags', 3, true)}
@@ -255,7 +254,7 @@ function siteSettingsFields(cfg) {
       </div>
       <div id="site-widget-list" class="space-y-2"></div>
     </div>
-    <div class="text-[11px] text-slate-400 break-inside-avoid mb-6">Pages, Team and design live on their own tabs. Logo comes from your branding.</div>`;
+    <div class="text-[11px] text-slate-400">Pages, Team and design live on their own tabs. Logo comes from your branding.</div>`;
 }
 async function openSiteManager() {
   let cfg = {};
@@ -279,16 +278,21 @@ async function openSiteManager() {
 function wsSettings() {
   if (!__siteCfg) return '<div class="mt-4 text-sm text-slate-400">Loading…</div>';
   return `
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full space-y-6">
-      <div class="flex items-center justify-between flex-wrap gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
-        <div>
-          <h1 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Website Settings</h1>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Manage the public site address, business details, search appearance, chat, and embedded tools.</p>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full space-y-8">
+      <section class="ms-glass rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/70 p-5 md:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shadow-sm">
+        <div class="min-w-0 flex items-start gap-3.5">
+          <div class="w-11 h-11 rounded-2xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </div>
+          <div class="min-w-0">
+            <h1 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">Website Settings</h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">Address, business details, branding, SEO, chat, and embed tools.</p>
+          </div>
         </div>
-        <button type="button" onclick="saveSite(this)" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md cursor-pointer">Save Website Settings</button>
-      </div>
-      <div class="columns-1 md:columns-2 xl:columns-3 gap-6 w-full [column-fill:_balance]">${siteSettingsFields(__siteCfg)}</div>
-      <div class="flex justify-end border-t border-slate-200 dark:border-slate-800 pt-5">
+        <button type="button" onclick="saveSite(this)" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md cursor-pointer flex-shrink-0">Save Website Settings</button>
+      </section>
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6 items-stretch">${siteSettingsFields(__siteCfg)}</div>
+      <div class="flex justify-end">
         <button type="button" onclick="saveSite(this)" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm transition shadow-md cursor-pointer">Save Website Settings</button>
       </div>
     </div>`;
@@ -399,26 +403,24 @@ function wsSetup() {
   const isDomainVerified = !!__siteCfg?.custom_domain_verified;
 
   const card = (id, iconSvg, title, desc, metaRows, badgeHtml, btnText = 'Configure') => `
-    <div class="break-inside-avoid mb-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition flex flex-col justify-between space-y-4">
-      <div class="space-y-3">
-        <div class="flex items-center justify-between gap-2">
-          <div class="flex items-center gap-2.5">
-            <div class="w-9 h-9 rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold border border-indigo-500/20">
+    <div class="ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition flex flex-col justify-between gap-4 h-full">
+      <div class="space-y-3 flex-1">
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold border border-indigo-500/20 flex-shrink-0">
               ${iconSvg}
             </div>
-            <div>
-              <h3 class="text-sm font-black text-slate-900 dark:text-white tracking-tight">${title}</h3>
-            </div>
+            <h3 class="text-sm font-black text-slate-900 dark:text-white tracking-tight leading-snug">${title}</h3>
           </div>
           ${badgeHtml || ''}
         </div>
         <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">${desc}</p>
-        <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800/80 space-y-1 text-[11px]">
+        <div class="p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800/80 space-y-1.5 text-[11px]">
           ${metaRows}
         </div>
       </div>
-      <div class="pt-2 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
-        <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Settings Section</span>
+      <div class="pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-2">
+        <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Settings</span>
         <button type="button" onclick="openSetupModal('${id}')" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow-xs cursor-pointer flex items-center gap-1">
           <span>${btnText}</span>
           <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
@@ -428,26 +430,32 @@ function wsSetup() {
   `;
 
   return `
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full space-y-6">
-      <!-- Setup Page Header -->
-      <div class="flex items-center justify-between flex-wrap gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
-        <div>
-          <div class="flex items-center gap-2">
-            <h1 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Website Setup &amp; Configuration</h1>
-            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${isPub ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40'}">
-              ${isPub ? 'Live' : 'Draft'}
-            </span>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full space-y-8">
+      <!-- Setup header — DealerOS-style glass bar -->
+      <section class="ms-glass rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/70 p-5 md:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shadow-sm">
+        <div class="min-w-0 flex items-start gap-3.5">
+          <div class="w-11 h-11 rounded-2xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18zM2.25 12h19.5"/></svg>
           </div>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Configure dealership profile, domain DNS, branding, contact info, lead routing, inventory feeds, analytics, and integrations.</p>
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <h1 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">Website</h1>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${isPub ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'}">
+                ${isPub ? 'Live' : 'Draft'}
+              </span>
+            </div>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">Domain, branding, contact, lead routing, inventory feeds, analytics, and integrations.</p>
+          </div>
         </div>
-        <div class="flex items-center gap-2">
-          ${slug ? `<a href="${SITE_BASE}?d=${encodeURIComponent(slug)}" target="_blank" class="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition">Preview Site ↗</a>` : ''}
-          <button onclick="saveWebsite(this)" class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md cursor-pointer">Save All Changes</button>
+        <div class="flex items-center gap-2 flex-shrink-0 flex-wrap">
+          <button type="button" onclick="openWebsiteBuilder()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md cursor-pointer">Open Builder</button>
+          ${slug ? `<a href="${SITE_BASE}?d=${encodeURIComponent(slug)}" target="_blank" rel="noopener noreferrer" class="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition">Preview Site ↗</a>` : ''}
+          <button onclick="saveWebsite(this)" class="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition">Save All Changes</button>
         </div>
-      </div>
+      </section>
 
-      <!-- 3-Column Masonry Grid on Desktop, 2-Col Tablet, 1-Col Mobile -->
-      <div class="columns-1 md:columns-2 lg:columns-3 gap-5">
+      <!-- Even CSS grid (replaces uneven masonry columns) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6">
         <!-- 1. Dealership Information -->
         ${card('info', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009 9c.63 0 1.213-.19 1.7-.514m-5.45 0A2.996 2.996 0 016 7.5c0-.63.19-1.213.514-1.7m5.45 0A2.996 2.996 0 0012 4.5c.63 0 1.213.19 1.7.514M18 9.35a3.001 3.001 0 003.75-.615A2.993 2.993 0 0021 7.5a2.996 2.996 0 00-.514-1.7"/></svg>`,
           'Dealership Information', 'Legal business name, tagline, description, operating hours, and business license.',
@@ -2620,6 +2628,16 @@ async function aiBuildPageLayoutFromPrompt() {
 }
 window.aiBuildPageLayoutFromPrompt = aiBuildPageLayoutFromPrompt;
 
+// The inspector body re-renders in place after an edit made from inside it — a
+// photo pick, say — so the field shows the value that was just chosen. The outer
+// shell (#ws-inspector-panel) stays put; only its content is rebuilt, which is
+// the same split setWsInspectorTab uses.
+function refreshWsRightInspector() {
+  const panel = document.getElementById('ws-inspector-content');
+  if (panel) panel.innerHTML = renderWsRightInspectorContent();
+}
+window.refreshWsRightInspector = refreshWsRightInspector;
+
 function renderWsRightInspectorHtml() {
   const sec = __siteSections[__wsSelectedSecIdx];
   const meta = sec ? (SEC_META[sec.type] || { label: sec.type }) : null;
@@ -2673,7 +2691,7 @@ function renderWsRightInspectorContent() {
           <div class="flex gap-1.5 items-center">
             ${c.logo_url ? `<img src="${esc(c.logo_url)}" class="w-9 h-7 object-contain rounded border border-slate-700 bg-white/10" />` : ''}
             <input type="text" value="${esc(c.logo_url || '')}" oninput="setSiteGlobal('logo_url', this.value)" class="w-full liquid-glass-input px-3 py-2 text-slate-950 dark:text-white font-semibold flex-1" placeholder="https://..." />
-            <button type="button" onclick="openWsPhotoPicker(url => { setSiteGlobal('logo_url', url); renderWsRightInspector(); })" class="liquid-glass-btn px-2.5 py-2 text-[11px] font-bold">Browse</button>
+            <button type="button" onclick="openWsPhotoPicker(url => { setSiteGlobal('logo_url', url); refreshWsRightInspector(); })" class="liquid-glass-btn px-2.5 py-2 text-[11px] font-bold">Browse</button>
           </div>
         </div>
         <div class="space-y-1.5">
@@ -4402,14 +4420,27 @@ async function ensureAutoCfg(rootId) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 let __seoSubTab = 'attention';
-let __seoMainTab = 'settings';
+let __seoMainTab = 'overview';
 let __seoMode = 'easy';
 let __seoData = null;
 
+// Ownership is a question for the entitlement engine, and its answer comes in two
+// forms: products and features. Checking only `products` asks half the question.
+// With a healthy access context every SEO-granting plan does list marketsync_seo,
+// so this is not the bug that hid the tab — that was the nav gate (see
+// PAGE_ANY_FEATURE.seo in dashboard-part2.js). This is the same question asked
+// completely, so any path that resolves features without repopulating the product
+// list cannot show a paying customer a paywall for what they already own.
+// Note it still fails closed when there is no access context at all: not knowing
+// is not the same as owning.
 function isSeoOwned() {
   if (__siteCfg && (__siteCfg.seo_active || __siteCfg.seo_paid)) return true;
-  if (window.__access && Array.isArray(window.__access.products)) {
-    if (window.__access.products.includes('marketsync_seo') || window.__access.products.includes('seo')) return true;
+  const access = window.__access;
+  if (access && Array.isArray(access.products)) {
+    if (access.products.includes('marketsync_seo') || access.products.includes('seo')) return true;
+  }
+  if (access && Array.isArray(access.features)) {
+    if (access.features.some(f => typeof f === 'string' && f.startsWith('seo.'))) return true;
   }
   return false;
 }
@@ -4539,7 +4570,9 @@ async function loadDealerSeo() {
 }
 
 function setSeoMainTab(tab) {
-  __seoMainTab = tab || 'analytics';
+  // Pulse is the product name for the overview/analytics home.
+  if (tab === 'pulse' || tab === 'analytics') tab = 'overview';
+  __seoMainTab = tab || 'overview';
   renderSeoWorkspace();
 }
 window.setSeoMainTab = setSeoMainTab;
@@ -4569,30 +4602,28 @@ function renderSeoWorkspace() {
   const isEasy = __seoMode !== 'advanced';
 
   root.innerHTML = `
-    <!-- Top Header Bar with Mode Switcher -->
-    <div class="flex items-center justify-between gap-4 border border-indigo-500/30 rounded-3xl p-5 flex-wrap shadow-2xl backdrop-blur-xl" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%) !important; color: #ffffff !important;">
-      <div class="flex items-center gap-3.5">
-        <div class="w-12 h-12 rounded-2xl border border-indigo-400/60 flex items-center justify-center font-black text-xl shadow-inner shrink-0" style="color: #818cf8 !important; background: rgba(79,70,229,0.3) !important;">SEO</div>
-        <div>
-          <div class="flex items-center gap-3 flex-wrap">
-            <h2 class="text-xl font-black tracking-tight" style="color: #ffffff !important;">MarketSync SEO Suite</h2>
-            ${d.standardsVersion ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border border-emerald-400/50" style="color: #6ee7b7 !important; background: rgba(16,185,129,0.2) !important;">${esc(d.standardsVersion)}</span>` : ''}
+    <!-- Department-style header (matches DealerOS / Website Setup) -->
+    <section class="ms-glass rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/85 dark:bg-slate-900/75 p-5 md:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shadow-sm">
+      <div class="min-w-0 flex items-start gap-3.5">
+        <div class="w-12 h-12 rounded-2xl bg-indigo-600/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/25 flex items-center justify-center font-black text-sm tracking-tight flex-shrink-0">SEO</div>
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            <h2 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">MarketSync SEO</h2>
+            ${d.standardsVersion ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30">${esc(d.standardsVersion)}</span>` : ''}
           </div>
-          <p class="text-xs font-bold mt-0.5" style="color: #cbd5e1 !important;">Full Dealership Search Engine &amp; AI Discovery Platform</p>
+          <p class="text-sm text-slate-600 dark:text-slate-300 mt-1 max-w-2xl leading-relaxed">Dealership search engine, rankings, and AI discovery — settings, pulse, and technical controls.</p>
         </div>
       </div>
-      <div class="flex items-center gap-3">
-        <div class="inline-flex rounded-xl border border-white/20 p-1 bg-black/40 backdrop-blur-md shadow-inner gap-1">
-          <button onclick="setSeoMode('easy')" class="px-4 py-1.5 rounded-lg transition cursor-pointer text-xs font-bold ${isEasy ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-300 hover:text-white'}">Basic</button>
-          <button onclick="setSeoMode('advanced')" class="px-4 py-1.5 rounded-lg transition cursor-pointer text-xs font-bold ${!isEasy ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-300 hover:text-white'}">Advanced</button>
-        </div>
+      <div class="inline-flex rounded-xl border border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-950/60 gap-1 flex-shrink-0">
+        <button onclick="setSeoMode('easy')" class="px-4 py-1.5 rounded-lg transition cursor-pointer text-xs font-bold ${isEasy ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'}">Basic</button>
+        <button onclick="setSeoMode('advanced')" class="px-4 py-1.5 rounded-lg transition cursor-pointer text-xs font-bold ${!isEasy ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'}">Advanced</button>
       </div>
-    </div>
+    </section>
 
     <!-- SEO Workspace Navigation Tabs (Full Suite) -->
     <div class="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800 text-xs font-bold no-scrollbar">
-      <button onclick="setSeoMainTab('overview')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'overview' || __seoMainTab === 'analytics' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">Overview</button>
-      <button onclick="setSeoMainTab('settings')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'settings' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">SEO Settings &amp; Rules</button>
+      <button onclick="setSeoMainTab('overview')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'overview' || __seoMainTab === 'analytics' || __seoMainTab === 'pulse' ? 'bg-indigo-600 text-white font-black shadow-sm' : 'text-slate-800 dark:text-slate-200 hover:text-indigo-700 dark:hover:text-white font-bold'}">Pulse</button>
+      <button onclick="setSeoMainTab('settings')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'settings' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-800 dark:text-slate-200 hover:text-indigo-700 dark:hover:text-white font-bold'}">SEO Settings &amp; Rules</button>
       <button onclick="setSeoMainTab('keywords')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'keywords' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">Keywords &amp; Clusters</button>
       <button onclick="setSeoMainTab('rankings')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'rankings' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">Rankings &amp; SERP</button>
       <button onclick="setSeoMainTab('competitors')" class="px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap ${__seoMainTab === 'competitors' ? 'liquid-glass-btn text-white font-black shadow-md' : 'text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white font-bold'}">Competitor Ranks</button>

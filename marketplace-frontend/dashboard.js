@@ -176,7 +176,41 @@ function apiErrorMessage(data, status) {
   };
   return messages[code] || code || `HTTP ${status}`;
 }
-async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}) {
+const __apiTtlCache = new Map();
+const __API_TTL_MS = 20000;
+function __apiIsCacheable(path) {
+  const p = String(path || '').split('?')[0];
+  return (
+    p === '/access' || p === '/access/context' || p === '/branding' ||
+    p === '/auth/me' || p === '/ai/config' || p === '/gamification' ||
+    p === '/dealership' || p.startsWith('/access/')
+  );
+}
+window.msLoadScript = function msLoadScript(src) {
+  window.__msScripts = window.__msScripts || {};
+  if (window.__msScripts[src]) return window.__msScripts[src];
+  window.__msScripts[src] = new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[src="' + src + '"]');
+    if (existing) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = false;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Failed to load ' + src));
+    document.body.appendChild(s);
+  });
+  return window.__msScripts[src];
+};
+window.msEnsureChart = function () {
+  if (window.Chart) return Promise.resolve();
+  return window.msLoadScript('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js');
+};
+
+async function apiGetJson(path, { retries = 2, timeoutMs = 12000, onRetry, fresh = false } = {}) {
+  if (!fresh && __apiIsCacheable(path)) {
+    const hit = __apiTtlCache.get(path);
+    if (hit && (Date.now() - hit.at) < __API_TTL_MS) return hit.data;
+  }
   if (__apiInflight.has(path)) return __apiInflight.get(path);
   const reqPromise = (async () => {
     let lastErr;
@@ -196,7 +230,11 @@ async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}
           const ok = await refreshSessionSilently();
           if (ok) { attempt--; continue; }
         }
-        if (r.ok) return await r.json();
+        if (r.ok) {
+          const data = await r.json();
+          if (__apiIsCacheable(path)) __apiTtlCache.set(path, { at: Date.now(), data });
+          return data;
+        }
         if ([429, 500, 502, 503, 504].includes(r.status) && attempt < retries) {
           lastErr = new Error(`HTTP ${r.status}`);
         } else {
@@ -1267,11 +1305,23 @@ function applyProductNav(products) {
   if (products.dealer_os) {
     __productAllowedPages = null;
     __productHome = null;
-    window.__teamChatAllowed = true;
     document.documentElement.removeAttribute('data-product');
     document.getElementById('header-social-icons')?.classList.remove('hidden');
-    document.getElementById('staff-chat-dock-bar')?.classList.remove('hidden');
-    if (typeof window.enableStaffChatDock === 'function') window.enableStaffChatDock();
+    // Team Messaging requires os.team (Complete / paid Team) — not Core or Pro.
+    const teamOk = (typeof pageFeatureOk === 'function')
+      ? pageFeatureOk('people-overview')
+      : !!(window.__demoEntitlements?.features || []).includes('os.team')
+        || !!(window.__access?.features || []).includes('os.team')
+        || !!(typeof dealerPlanFallback === 'function' && dealerPlanFallback()?.features?.has('os.team'));
+    window.__teamChatAllowed = !!teamOk;
+    if (teamOk) {
+      document.getElementById('staff-chat-dock-bar')?.classList.remove('hidden');
+      if (typeof window.enableStaffChatDock === 'function') window.enableStaffChatDock();
+    } else {
+      document.getElementById('staff-chat-dock-bar')?.classList.add('hidden');
+      if (typeof window.disableStaffChatDock === 'function') window.disableStaffChatDock();
+      window.__teamChatAllowed = false;
+    }
     applyMobileQuickRow();
     return;
   }
@@ -1441,11 +1491,59 @@ window.applyMobileQuickRow = applyMobileQuickRow;
 
 // The page list for a restricted tier's mobile "more" sheet (with labels/icons), or
 // null for the full-OS experience (which uses the department / legacy renderers).
+
+function navPagesForProductKey(key) {
+  const only = String(key || '').toLowerCase().replace(/-/g, '_');
+  if (!only) return null;
+  const one = (page, label, icon, extra = {}) => [{ page, label, icon, ...extra }];
+  if (/facebook|autoposter|fb_solo|fb_dealership|^fb$/.test(only)) {
+    return one('inventory', 'Facebook Auto Poster', 'megaphone', { invmode: 'facebook' });
+  }
+  if (/ai_chatbot|ai_dealer|^ai$/.test(only)) {
+    return one('ai-home', 'AI Customer Agent', 'sparkles', { tab: 'conversations' });
+  }
+  if (/design_studio/.test(only)) {
+    return one('studio', 'Design Studio', 'camera', { studioLaunch: true });
+  }
+  if (/identity/.test(only)) {
+    return one('crm', 'Customer Verification', 'shield');
+  }
+  if (/social/.test(only)) {
+    return one('social-scheduler', 'Social Studio & Scheduler', 'calendar', { tab: 'overview' });
+  }
+  if (/email|campaign|automation/.test(only)) {
+    return one('automation-builder', 'Email, SMS & Campaigns', 'chat', { tab: 'overview' });
+  }
+  if (/video/.test(only)) {
+    return one('video-studio', 'MarketSync Video', 'video');
+  }
+  if (/^seo$|marketsync_seo/.test(only)) {
+    return one('seo', 'MarketSync SEO', 'chart', { tab: 'overview' });
+  }
+  if (/website|dealer_website/.test(only)) {
+    return one('website', 'Dealer Website', 'globe', { tab: 'setup' });
+  }
+  return null;
+}
+window.navPagesForProductKey = navPagesForProductKey;
+
 function restrictedNavPages() {
   // MarketSync Internal is a server-resolved workspace, not a dealer role or
   // product bundle. Resolve it before dealer-role/product navigation so a
   // platform owner can never inherit a dealership Pulse from stale entitlements.
-  if (profileContext?.workspace === 'saas_admin' || profileContext?.is_marketsync === true) {
+  const suiteNow = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;
+  const demoProd = String(window.__demoActiveProduct || window.__demoActivePackage || '').toLowerCase();
+  const productAttr = String(document.documentElement.getAttribute('data-product') || '').trim();
+  const previewKey = demoProd || (productAttr && productAttr.split(/\s+/).length === 1 ? productAttr : '');
+  if (suiteNow && typeof getMarketingSuiteConfig === 'function') {
+    const cfg = getMarketingSuiteConfig(suiteNow);
+    if (cfg && Array.isArray(cfg.navItems) && cfg.navItems.length) return cfg.navItems;
+  }
+  if (previewKey && previewKey !== 'dealer_os' && !/^marketsync$|^saas/.test(previewKey)) {
+    const pages = typeof navPagesForProductKey === 'function' ? navPagesForProductKey(previewKey) : null;
+    if (pages && pages.length) return pages;
+  }
+  if ((profileContext?.workspace === 'saas_admin' || profileContext?.is_marketsync === true) && !previewKey) {
     return [
       { page: 'saas-command', label: 'Pulse', icon: 'chart' },
       { page: 'saas-customers', label: 'Accounts', icon: 'building' },
@@ -1499,74 +1597,50 @@ function restrictedNavPages() {
     ];
   }
 
-  if (activeProducts.length === 1 && /facebook_dealer/.test(product)) {
-    return canManageTeam ? [INV('Inventory'), LEADER] : [INV('My Inventory'), LEADER];
-  }
-  if (activeProducts.length === 1 && /ai_chatbot/.test(product)) {
-    return [
-      { page: 'ai-home', tab: 'conversations', label: 'Pulse', icon: 'sparkles' },
-      { page: 'ai-home', tab: 'setup', label: 'Setup', icon: 'wrench' }
-    ];
-  }
-  if (activeProducts.length === 1 && /design_studio/.test(product)) {
-    // Keep the merged Design Studio + Scheduler experience visible without routing
-    // into the separate Social Scheduler dashboard. Settings remains under Profile.
-    return [
-      { page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true },
-      { page: 'studio-scheduler', label: 'Scheduler', icon: 'calendar', studioSchedulerLaunch: true }
-    ];
-  }
-  if (activeProducts.length === 1 && /(marketsync_identity|identity_verify)/.test(product)) {
-    return [{ page: 'crm', label: 'Customer Verification', icon: 'shield' }];
-  }
-  if (activeProducts.length === 1 && /(marketsync_social|social[-_]scheduler)/.test(product)) {
-    return [
-      { page: 'social-scheduler', tab: 'overview', label: 'Pulse', icon: 'chart' },
-      { page: 'social-scheduler', tab: 'calendar', label: 'Calendar', icon: 'calendar' },
-      { page: 'social-scheduler', tab: 'create', label: 'Create Post', icon: 'sparkles' },
-      { page: 'social-scheduler', tab: 'scheduled', label: 'Scheduled', icon: 'clock' },
-      { page: 'social-scheduler', tab: 'drafts', label: 'Drafts', icon: 'document' },
-      { page: 'social-scheduler', tab: 'published', label: 'Published', icon: 'check' },
-      { page: 'social-scheduler', tab: 'library', label: 'Content Library', icon: 'camera' },
-      { page: 'social-scheduler', tab: 'accounts', label: 'Social Accounts', icon: 'users' },
-      { page: 'social-scheduler', tab: 'analytics', label: 'Analytics', icon: 'chart' },
-      { page: 'social-scheduler', tab: 'settings', label: 'Settings', icon: 'shield' },
-    ];
-  }
-  if (activeProducts.length === 1 && /(marketsync_email|email_marketing|campaigns[-_]email[-_]sms|marketing[-_]overview|marketing|campaigns|automations)/.test(product)) {
-    return [
-      { page: 'automation-builder', tab: 'overview', label: 'Pulse', icon: 'megaphone' },
-      { page: 'automation-builder', tab: 'automations', label: 'Automations', icon: 'bolt' },
-    ];
+  // ── Single purchased product: exactly ONE nav destination ──────────────────
+  // Header/product name is the product itself. No departments, no multi-page
+  // sidebars. In-page tabs (Setup, Calendar, Builder, etc.) stay on the page.
+  if (activeProducts.length === 1) {
+    const only = activeProducts[0];
+    const one = (page, label, icon, extra = {}) => [{ page, label, icon, ...extra }];
+
+    if (/facebook_dealer|facebook_solo|facebook$/.test(only) || only === 'facebook') {
+      return one('inventory', 'Facebook Marketplace', 'megaphone', { invmode: 'facebook' });
+    }
+    if (/ai_chatbot|ai_dealer|ai$/.test(only)) {
+      return one('ai-home', 'AI Customer Agent', 'sparkles', { tab: 'conversations' });
+    }
+    if (/design_studio/.test(only)) {
+      return one('studio', 'Design Studio', 'camera', { studioLaunch: true });
+    }
+    if (/marketsync_identity|identity_verify/.test(only)) {
+      return one('crm', 'Customer Verification', 'shield');
+    }
+    if (/marketsync_social|social[-_]scheduler|^social$/.test(only)) {
+      return one('social-scheduler', 'Social Studio & Scheduler', 'calendar', { tab: 'overview' });
+    }
+    if (/marketsync_email|email_marketing|campaigns|automations/.test(only)) {
+      return one('automation-builder', 'Email, SMS & Campaigns', 'chat', { tab: 'overview' });
+    }
+    if (/marketsync_video|^video$/.test(only)) {
+      return one('video-studio', 'MarketSync Video', 'video');
+    }
+    if (/marketsync_seo|^seo$/.test(only)) {
+      return one('seo', 'MarketSync SEO', 'chart', { tab: 'overview' });
+    }
+    if (/marketsync_website|^website$|dealer[-_]website/.test(only)) {
+      return one('website', 'Dealer Website', 'globe', { tab: 'setup' });
+    }
   }
 
   const isWebsiteProduct = (typeof isStandaloneWebsiteWorkspace === 'function' && isStandaloneWebsiteWorkspace())
     || (window.__demoActiveProduct === 'dealer-website');
 
   if (isWebsiteProduct) {
-    const list = [
-      // Builder is the full-screen site editor (the one intentional "full pager").
-      // Blog and SEO open as normal in-dashboard pages (page content area + sidebar),
-      // like the rest of MarketSync — not the full-screen workspace. Setup stays with
-      // the Builder workspace (it configures that editor).
-      { page: 'website', tab: 'builder', label: 'Website', icon: 'globe' },
-      { page: 'blog', label: 'Blog', icon: 'document' },
-      { page: 'seo', label: 'SEO', icon: 'chart' },
-      { page: 'website', tab: 'setup', label: 'Setup', icon: 'wrench' },
-      { page: 'website-settings', label: 'Website Settings', icon: 'shield' },
-    ];
-    const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
-    const hasAi = !!(window.__aiBoostActive || (window.__siteCfg && window.__siteCfg.ai_boost_active)
-      || (access.products && (access.products.includes('marketsync_ai') || access.products.includes('ai_boost') || access.products.includes('ai_chatbot') || access.products.includes('ai')))
-      || /(?:^|\s)(?:marketsync_ai|ai_boost|ai_chatbot|ai)(?:\s|$)/.test(product));
-
-    if (hasAi) {
-      list.push({ page: 'ai-home', label: 'AI', icon: 'sparkles' });
-    }
-    return list;
+    return [{ page: 'website', tab: 'setup', label: 'Dealer Website', icon: 'globe' }];
   }
 
-  // Fallback for any other restricted product set (keeps generic behavior).
+    // Fallback for any other restricted product set (keeps generic behavior).
   // 'sales-team' is deliberately absent — no restricted tier gets it as a nav
   // page any more, Staff management lives in Settings for all of them.
   if (__productAllowedPages) {

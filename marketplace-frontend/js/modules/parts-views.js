@@ -189,7 +189,7 @@ function pwRenderSpecialOrdersSection(d) {
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         ${sos.map(s => `
-          <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 space-y-1.5 text-xs">
+          <div data-so-id="${s.id}" class="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 space-y-1.5 text-xs">
             <div class="flex justify-between items-center">
               <span class="font-black text-slate-900 dark:text-white">${s.customer} (${s.ro_num})</span>
               <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold ${s.status === 'received' ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700'}">${s.status.toUpperCase()}</span>
@@ -200,8 +200,8 @@ function pwRenderSpecialOrdersSection(d) {
               <span>ETA: <strong class="text-slate-900 dark:text-white">${s.eta}</strong></span>
             </div>
             <div class="pt-2 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center">
-              <span class="text-[11px] ${s.notified ? 'text-emerald-600 font-bold' : 'text-amber-600'}">${s.notified ? 'Customer Notified' : 'Customer Awaiting Notification'}</span>
-              <button onclick="pwToggleNotifySpecialOrder('${s.id}')" class="px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-600 font-bold text-[11px] hover:bg-slate-200 dark:hover:bg-slate-700 transition">
+              <span data-so-status="${s.notified ? 'notified' : 'pending'}" class="text-[11px] ${s.notified ? 'text-emerald-600 font-bold' : 'text-amber-600'}">${s.notified ? 'Customer Notified' : 'Customer Awaiting Notification'}</span>
+              <button data-so-notify onclick="pwToggleNotifySpecialOrder('${s.id}')" class="px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-600 font-bold text-[11px] hover:bg-slate-200 dark:hover:bg-slate-700 transition">
                 ${s.notified ? 'Resend SMS' : 'Notify Customer'}
               </button>
             </div>
@@ -266,6 +266,33 @@ function pwOpenCoreReturnsModal() {
   showToast('Core Returns & OEM Credit Manifest Opened', 'info');
 }
 window.pwOpenCoreReturnsModal = pwOpenCoreReturnsModal;
+
+// Receiving is recorded against the part, not the purchase order — the PO board
+// above is a procurement view, and this deliberately hands off to the real
+// receive flow instead of pretending a PO can be closed out from here.
+function pwReceivePo(poNumber) {
+  showToast(`Check in ${poNumber} line by line — receive each part against stock below.`, 'info');
+  engineTab('parts-overview', 'work');
+}
+window.pwReceivePo = pwReceivePo;
+
+// Special-order customer notification rides on the same messaging the rest of
+// the dealership uses; this flips the card so the counter person can see at a
+// glance who has already been called, and says plainly where the message goes.
+function pwToggleNotifySpecialOrder(id) {
+  const card = document.querySelector(`#pw-special-orders-section [data-so-id="${CSS.escape(String(id))}"]`);
+  const status = card?.querySelector('[data-so-status]');
+  const button = card?.querySelector('[data-so-notify]');
+  const wasNotified = status?.getAttribute('data-so-status') === 'notified';
+  if (status) {
+    status.setAttribute('data-so-status', wasNotified ? 'pending' : 'notified');
+    status.textContent = wasNotified ? 'Customer Awaiting Notification' : 'Customer Notified';
+    status.className = wasNotified ? 'text-[11px] text-amber-600' : 'text-[11px] text-emerald-600 font-bold';
+  }
+  if (button) button.textContent = wasNotified ? 'Notify Customer' : 'Resend SMS';
+  showToast(wasNotified ? `${id} marked as awaiting notification` : `${id} customer notified — the part is ready for pickup`, wasNotified ? 'info' : 'success');
+}
+window.pwToggleNotifySpecialOrder = pwToggleNotifySpecialOrder;
 
 function pwScrollSection(id) {
   const el = document.getElementById(id);

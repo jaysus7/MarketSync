@@ -78,8 +78,8 @@
   --font-primary: 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-ui: 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
-  --text-xs: 0.75rem;     /* 12px */
-  --text-sm: 0.875rem;    /* 14px */
+  --text-xs: 0.875rem;    /* 14px */
+  --text-sm: 1rem;        /* 16px */
   --text-base: 1rem;      /* 16px */
   --text-lg: 1.125rem;    /* 18px */
   --text-xl: 1.25rem;     /* 20px */
@@ -734,9 +734,13 @@ html.dark td {
 }
 
 .staff-chat-window {
-  width: 320px;
-  height: 420px;
-  border-radius: 12px 12px 0 0;
+  position: fixed !important;
+  left: auto !important;
+  right: 12px;
+  bottom: 88px;
+  width: min(360px, calc(100vw - 24px));
+  height: min(440px, calc(100dvh - 160px));
+  border-radius: 16px;
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.25);
   display: flex;
   flex-direction: column;
@@ -744,6 +748,14 @@ html.dark td {
   border: 1px solid var(--color-border);
   overflow: hidden;
   transition: height 200ms ease, transform 200ms ease;
+  z-index: 10001;
+}
+@media (min-width: 768px) {
+  .staff-chat-window {
+    right: 24px;
+    bottom: 88px;
+    width: 360px;
+  }
 }
 .staff-chat-window.minimized {
   height: 44px;
@@ -1626,14 +1638,11 @@ body {
     var(--ms-bg) !important;
 }
 
-#dept-sidebar,
 #nav-desktop,
 #nav-mobile,
 #report-rail,
 .ms-engine-header,
-.ms-glass,
-.bg-white:not(#studio-artboard-container):not(#dashboard-nav),
-.dark\:bg-slate-900:not(#studio-artboard-container):not(#dashboard-nav) {
+.ms-glass {
   background: linear-gradient(135deg, rgba(255,255,255,.76), rgba(255,255,255,.58)) !important;
   border-color: rgba(255,255,255,.20) !important;
   box-shadow: 0 18px 50px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.11) !important;
@@ -1649,12 +1658,28 @@ body {
 .dark #report-rail,
 .dark .ms-engine-header,
 .dark .ms-glass,
-.dark .ms-card,
-.dark .bg-white:not(#studio-artboard-container):not(#dashboard-nav),
-.dark .dark\:bg-slate-900:not(#studio-artboard-container):not(#dashboard-nav) {
+.dark .ms-card {
   background: linear-gradient(135deg, rgba(30,41,72,.58), rgba(15,23,42,.40)) !important;
   border-color: rgba(148,163,184,.20) !important;
 }
+
+/* ── Liquid Glass is OPT-IN ──────────────────────────────────────────────────
+   Glass used to be applied by `.bg-white:not(#studio-artboard-container)`, a
+   blanket selector that caught all 1,297 bg-white call sites: every KPI tile,
+   every record card, every dense table, on every page. That is why light mode
+   read as milky, why cards looked equally important regardless of what they
+   held, and why a repair-order table sat behind blur(20px).
+
+   Glass now belongs only to surfaces that genuinely FLOAT above content — the
+   header, the sidebar, nav, the report rail, .ms-engine-header and anything
+   explicitly marked .ms-glass / .ms-c--glass. Cards keep their own solid
+   Tailwind background, which is what a content surface should be. Depth comes
+   from the tinted page background behind them, not from blurring the page
+   through them.
+
+   If a card needs to read as elevated, give it .ms-c--elevated. Do not bring
+   back a selector that decides material by colour class.
+   ─────────────────────────────────────────────────────────────────────────── */
 
 /* Notebook Pulse composition shared by Executive, Sales, F&I, Service and Parts. */
 .ms-pulse-board {
@@ -1710,15 +1735,10 @@ body {
   backdrop-filter: blur(var(--ms-glass-blur));
 }
 
-.pulse-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(10.5rem, 100%), 1fr));
-  gap: clamp(.75rem, 1.1vw, 1rem);
-  width: 100%;
-  min-width: 0;
-}
-
-.pulse-summary-grid > * { min-width: 0; }
+/* The Pulse tile row is laid out by the design system, which sizes each tile
+   from its own data (see "PULSE KPI HIERARCHY" in ms-design-system.css). The
+   equal-width auto-fit grid that used to live here is what made five tiles of
+   wildly different urgency read as five of the same thing. */
 
 @media (max-width: 639px) {
   .ms-pulse-board,
@@ -1740,8 +1760,8 @@ body {
    also painted over the dark AI panel's own gradient. Real cards (engCard, the rail,
    the department sections) all carry bg-white/dark:bg-slate-900 and are matched by
    the selectors above them, so they keep the glass. */
-.ms-pulse-board .bg-white,
-.ms-pulse-board .dark\:bg-slate-900,
+.ms-pulse-board .bg-white:not(.ms-kpi),
+.ms-pulse-board .dark\:bg-slate-900:not(.ms-kpi),
 [data-engine-rail] details {
   border-radius: var(--ms-radius-card) !important;
   background: linear-gradient(145deg, rgba(255,255,255,.76), rgba(255,255,255,.58)) !important;
@@ -1751,8 +1771,8 @@ body {
   -webkit-backdrop-filter: blur(18px) saturate(140%) !important;
 }
 
-.dark .ms-pulse-board .bg-white,
-.dark .ms-pulse-board .dark\:bg-slate-900,
+.dark .ms-pulse-board .bg-white:not(.ms-kpi),
+.dark .ms-pulse-board .dark\:bg-slate-900:not(.ms-kpi),
 .dark [data-engine-rail] details {
   background: linear-gradient(145deg, rgba(30,41,72,.56), rgba(15,23,42,.38)) !important;
   border-color: rgba(148,163,184,.18) !important;
@@ -1792,30 +1812,14 @@ body {
   .ms-engine-layout--rail {
     grid-template-columns: minmax(0, 1fr) 300px !important;
   }
-
-  /* …except on a Pulse tab, where the board takes the whole column. Compound
-     selector so it outranks the rule above without a second !important war;
-     engineTab() adds .ms-pulse-wide only while a Pulse/overview tab is active,
-     so every other tab in the same engine keeps the two-column shell. */
-  .ms-engine-layout--rail.ms-pulse-wide {
-    grid-template-columns: minmax(0, 1fr) !important;
-  }
 }
 
-/* The rail becomes a horizontal strip above the board rather than disappearing:
-   Reports, Next Actions and Quick Actions are still one click away, they just run
-   across the top. `position: static` undoes the xl:sticky the shell puts on the
-   aside — sticky is meaningful for a tall side column, but a strip that follows
-   you down the page is just in the way. */
-.ms-pulse-wide > [data-engine-rail] {
-  order: -1;
-  position: static !important;
-  top: auto !important;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
-  gap: .75rem;
-  align-items: start;
-}
+/* Pulse keeps the operations rail as a right-hand COLUMN, like every other tab.
+   It was briefly collapsed into a full-width strip above the board to buy the
+   board more width; Reports, Next Actions and Quick Actions belong beside the
+   board, not stacked above it, so the rail stays where it is. The board still
+   fills its own column — the "boxed" look it used to have came from padding-less
+   wrappers picking up a glass box, which is fixed separately. */
 
 @media (min-width: 1024px) {
   .ms-pulse-board[data-pulse-kind="sales"] > .grid:last-child,
@@ -1935,17 +1939,14 @@ body {
   background-attachment: fixed !important;
 }
 
-.dark #dept-sidebar,
 .dark #nav-desktop,
 .dark #nav-mobile,
 .dark #report-rail,
 .dark .ms-engine-header,
 .dark .ms-glass,
 .dark .ms-card,
-.dark .bg-white:not(#studio-artboard-container):not(#dashboard-nav),
-.dark .dark\:bg-slate-900:not(#studio-artboard-container):not(#dashboard-nav),
-.dark .ms-pulse-board .bg-white,
-.dark .ms-pulse-board .dark\:bg-slate-900,
+.dark .ms-pulse-board .bg-white:not(.ms-kpi),
+.dark .ms-pulse-board .dark\:bg-slate-900:not(.ms-kpi),
 .dark [data-engine-rail] details {
   background: linear-gradient(145deg, rgba(24, 36, 60, .68), rgba(10, 17, 31, .50)) !important;
   border-color: rgba(190, 205, 230, .15) !important;
@@ -1957,9 +1958,26 @@ body {
 .ms-engine-header,
 .ms-card,
 .ms-glass,
-.ms-pulse-board .bg-white,
-.ms-pulse-board .dark\:bg-slate-900,
+.ms-pulse-board .bg-white:not(.ms-kpi),
+.ms-pulse-board .dark\:bg-slate-900:not(.ms-kpi),
 [data-engine-rail] details { border-radius: var(--ms-radius-card) !important; }
+
+/* .ms-kpi is exempt from the board glass above. Those rules set border-color and
+   box-shadow with !important, which silently killed the amber border the tile
+   renderer has always put on an urgent count — the "hot" state was dead inside
+   the board long before the KPI hierarchy needed an accent of its own. KPI tiles
+   are content surfaces: solid background, their own border, and the lead tile's
+   accent edge from ms-design-system.css. */
+
+/* A department header is a title plus an action group. On a phone the group is two
+   or three buttons that cannot fit beside the title, and the row did not wrap — so
+   "Open Accounting Workspace" ran off the right edge of the card. The header itself
+   now wraps (markup), and the action group wraps within it. Scoped to the Pulse
+   department sections: this is their layout, not a global flex override. */
+.pulse-dept-section > .flex.justify-between > .flex {
+  flex-wrap: wrap;
+  row-gap: .5rem;
+}
 
 /* Keep empty Pulse cards compact instead of stretching them into blank tiles. */
 .ms-pulse-board .text-center.text-slate-400 {
@@ -2019,31 +2037,50 @@ body {
   -webkit-backdrop-filter: blur(10px) saturate(90%);
 }
 
+/* A modal is the surface you READ and TYPE on, so it is opaque. It used to be a
+   translucent gradient (.94 -> .82 alpha) sitting on a dark .52 scrim, which meant
+   the scrim bled through progressively down the card: the header rendered ~#F7F7F8
+   and the bottom ~#DCDFE5. On a tall record modal that reads as the lower half
+   being disabled — the Email/Call/Text row looked greyed out when it was perfectly
+   active. The gradient stops below are the ORIGINAL design intent, now at full
+   alpha, so the card looks as it was drawn instead of as the scrim repaints it.
+   backdrop-filter is dropped with them: it composites a layer to blur something
+   that is no longer visible through the card. Depth here comes from the scrim
+   behind the card and the shadow, which is what a scrim is for. */
 .ms-crm-glass {
-  color: var(--ms-text);
-  border: 1px solid rgba(23,25,31,.12);
-  border-radius: 30px !important;
-  background: linear-gradient(145deg, rgba(255,255,255,.94), rgba(242,246,251,.82)) !important;
-  box-shadow: 0 34px 110px rgba(15,23,42,.20), inset 0 1px 0 rgba(255,255,255,.74) !important;
-  backdrop-filter: blur(24px) saturate(118%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(118%) !important;
+  color: var(--ms-t-primary, #0f172a);
+  border: 1px solid rgba(15,23,42,.10);
+  border-radius: 28px !important;
+  background: #ffffff !important;
+  box-shadow: 0 24px 80px rgba(15,23,42,.18) !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
+.ms-crm-glass .ms-glass,
+.ms-crm-glass .ms-c--glass {
+  background: #fff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  border-color: rgba(15,23,42,.08) !important;
+}
 .ms-crm-glass > .sticky {
-  background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.80)) !important;
+  background: #FFFFFF !important;
   border-color: rgba(23,25,31,.10) !important;
-  backdrop-filter: blur(20px) saturate(115%);
-  -webkit-backdrop-filter: blur(20px) saturate(115%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .dark .ms-crm-glass {
   border-color: rgba(190,205,230,.18);
-  background: linear-gradient(145deg, rgba(28,41,67,.90), rgba(9,16,30,.80)) !important;
+  /* Same stops as before, at full alpha. */
+  background: linear-gradient(145deg, #1C2943, #09101E) !important;
   box-shadow: 0 34px 110px rgba(0,0,0,.52), inset 0 1px 0 rgba(255,255,255,.12) !important;
 }
 
 .dark .ms-crm-glass > .sticky {
-  background: linear-gradient(180deg, rgba(22,34,56,.92), rgba(22,34,56,.80)) !important;
+  background: #162238 !important;
   border-color: rgba(190,205,230,.12) !important;
 }
 
@@ -2070,8 +2107,13 @@ body {
   caret-color: #818cf8 !important;
 }
 
+/* #94a3b8 is 2.56:1 on a white field — legible on the dark card it was picked for,
+   not on the light one. Scoped per theme; slate-500 gives 4.76:1 in light. */
 .ms-crm-glass input::placeholder,
-.ms-crm-glass textarea::placeholder { color: #94a3b8 !important; opacity: 1; }
+.ms-crm-glass textarea::placeholder { color: #64748b !important; opacity: 1; }
+
+.dark .ms-crm-glass input::placeholder,
+.dark .ms-crm-glass textarea::placeholder { color: #94a3b8 !important; opacity: 1; }
 
 .ms-staff-editor { padding: 1.25rem; }
 .ms-staff-editor .ms-staff-actions { align-items: center; }
@@ -2088,17 +2130,41 @@ body {
 
 .ms-crm-actions { gap: .55rem !important; }
 
+/* These buttons were styled for a dark modal — #d7e0ed text on a 10%-alpha fill —
+   and there was no .dark variant, so that styling also landed on the LIGHT card.
+   #d7e0ed on white is about 1.3:1; WCAG asks 4.5:1. Email / Call / Text / Log
+   activity were not "greyed out" in the screenshot, they were very nearly
+   invisible, and they are the primary actions on a customer record.
+   Shared geometry first, then a palette per theme. */
 .ms-crm-actions button {
   min-height: 2.35rem;
   padding: .55rem .8rem !important;
-  color: #d7e0ed !important;
-  background: rgba(148,163,184,.10) !important;
-  border: 1px solid rgba(190,205,230,.14) !important;
   border-radius: 13px !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.07) !important;
+}
+
+/* Light: slate-700 on a faint slate fill — about 10:1. */
+.ms-crm-actions button {
+  color: #334155 !important;
+  background: rgba(15,23,42,.05) !important;
+  border: 1px solid rgba(15,23,42,.12) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.60) !important;
 }
 
 .ms-crm-actions button:hover {
+  color: #0f172a !important;
+  background: rgba(15,23,42,.09) !important;
+  border-color: rgba(15,23,42,.20) !important;
+}
+
+/* Dark: the original treatment, now only where it was designed to be. */
+.dark .ms-crm-actions button {
+  color: #d7e0ed !important;
+  background: rgba(148,163,184,.10) !important;
+  border: 1px solid rgba(190,205,230,.14) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07) !important;
+}
+
+.dark .ms-crm-actions button:hover {
   color: #fff !important;
   background: rgba(148,163,184,.17) !important;
   border-color: rgba(190,205,230,.24) !important;
@@ -2146,8 +2212,7 @@ body {
 @media (prefers-reduced-transparency: reduce) {
   .ms-engine-header, .ms-glass, .ms-card, .ms-crm-glass, .ms-toast,
   [data-engine-rail] details, [data-engine-rail] details[open] > summary,
-  body > header, #dept-sidebar, #nav-desktop, #nav-mobile, #report-rail,
-  .bg-white:not(#studio-artboard-container):not(#dashboard-nav), .dark\:bg-slate-900:not(#studio-artboard-container):not(#dashboard-nav) {
+  body > header, #dept-sidebar, #nav-desktop, #nav-mobile, #report-rail {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     background: var(--ms-surface-solid) !important;
@@ -2207,6 +2272,13 @@ body {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
+/* #dept-sidebar is the sidebar COLUMN, not a panel. The one glass surface in
+   that column is #dashboard-nav, which paints itself at >=768px. While the
+   wrapper was also in the glass lists above, `.dark #dept-sidebar` (a class
+   plus an id) out-specified this bare-id reset, so dark mode painted a second
+   panel a few pixels outside the nav's — two stacked boxes with a hard seam.
+   Specificity, not source order, decided it; the fix is to not claim the
+   wrapper is glass in the first place. */
 #dept-sidebar {
   border: 0 !important;
   border-radius: 0 !important;
@@ -2340,9 +2412,15 @@ body > header {
 /* MarketSync Digital & Settings — Liquid Glass material across workspaces.
    Applies glassmorphism, satin specular borders, and blur depth to settings cards,
    roster tables, and digital suite cards alike. */
-html[data-ms-suite="digital"] #dept-sidebar,
 html[data-ms-suite="digital"] #dept-tabbar,
-html[data-ms-suite="digital"] .page-content :is(.rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border),
+/* Brand modes restyle every rounded, bordered card inside .page-content. A Pulse
+   KPI tile is exactly that shape, so both modes re-glassed it and repainted its
+   border — which erased the amber that marks an urgent count. Measured: in
+   `marketsync` and `digital` the lead tile and a normal tile ended up with the
+   SAME border colour, so urgency was invisible in two of the four dashboard
+   modes while looking perfectly fine in the other two. .ms-kpi is a content
+   surface and owns its own edge. */
+html[data-ms-suite="digital"] .page-content :is(.rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border):not(.ms-kpi),
 html[data-ms-suite="digital"] .ms-digital-suite > div,
 [data-page-content="settings"] :is(.rounded-lg, .rounded-xl, .rounded-2xl):is(.bg-white, .dark\:bg-slate-900),
 #lead-routing-card > div,
@@ -2360,9 +2438,8 @@ html[data-ms-suite="digital"] .ms-digital-suite > div,
   -webkit-backdrop-filter: blur(24px) saturate(155%) !important;
 }
 
-.dark[data-ms-suite="digital"] #dept-sidebar,
 .dark[data-ms-suite="digital"] #dept-tabbar,
-.dark[data-ms-suite="digital"] .page-content :is(.rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border),
+.dark[data-ms-suite="digital"] .page-content :is(.rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border):not(.ms-kpi),
 .dark[data-ms-suite="digital"] .ms-digital-suite > div,
 .dark [data-page-content="settings"] :is(.rounded-lg, .rounded-xl, .rounded-2xl):is(.bg-white, .dark\:bg-slate-900),
 .dark #lead-routing-card > div,
@@ -2438,7 +2515,7 @@ html[data-dash-mode="marketsync"] body {
     radial-gradient(54rem 34rem at 100% 0%, rgba(124,58,237,.10), transparent 66%),
     var(--ms-bg) !important;
 }
-html[data-dash-mode="marketsync"] :is(#dept-sidebar, #dept-tabbar, .page-content .eng-shell-header, .page-content .rounded-xl.border, .page-content .rounded-2xl.border) {
+html[data-dash-mode="marketsync"] :is(#dept-tabbar, .page-content .eng-shell-header, .page-content .rounded-xl.border:not(.ms-kpi), .page-content .rounded-2xl.border:not(.ms-kpi)) {
   background: linear-gradient(145deg, rgba(255,255,255,.72), rgba(245,248,255,.52)) !important;
   border-color: rgba(255,255,255,.62) !important;
   border-radius: 1.4rem !important;
@@ -2446,7 +2523,7 @@ html[data-dash-mode="marketsync"] :is(#dept-sidebar, #dept-tabbar, .page-content
   backdrop-filter: blur(24px) saturate(150%) !important;
   -webkit-backdrop-filter: blur(24px) saturate(150%) !important;
 }
-.dark[data-dash-mode="marketsync"] :is(#dept-sidebar, #dept-tabbar, .page-content .eng-shell-header, .page-content .rounded-xl.border, .page-content .rounded-2xl.border) {
+.dark[data-dash-mode="marketsync"] :is(#dept-tabbar, .page-content .eng-shell-header, .page-content .rounded-xl.border:not(.ms-kpi), .page-content .rounded-2xl.border:not(.ms-kpi)) {
   background: linear-gradient(145deg, rgba(25,36,60,.72), rgba(8,15,29,.56)) !important;
   border-color: rgba(203,213,225,.16) !important;
   box-shadow: 0 22px 56px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.08) !important;
@@ -2646,4 +2723,92 @@ html.dark[data-dash-mode="marketsync"] .page-content .ms-ai-panel {
 
 @media (prefers-reduced-motion: reduce) {
   #report-rail, #report-rail svg { transition: none; }
+}
+
+
+/* Team Messages panel sits to the RIGHT of the left-dock bubble so the
+   launcher never disappears under the conversation. */
+.team-chat-dock-panel {
+  position: fixed;
+  z-index: 10000;
+  left: auto;
+  right: 12px;
+  bottom: 88px;
+  width: min(380px, calc(100vw - 24px));
+  max-height: min(560px, calc(100dvh - 160px));
+  height: min(520px, calc(100dvh - 160px));
+}
+@media (min-width: 768px) {
+  .team-chat-dock-panel {
+    right: 24px;
+    width: 380px;
+  }
+}
+
+.ms-crm-glass .ms-crm-actions button,
+.ms-crm-glass #crm-actions-menu button { color: #0f172a; }
+.dark .ms-crm-glass #crm-actions-menu button { color: #f1f5f9; }
+
+/* Facebook-only product keeps a larger Marketplace hero. Complete stays compact. */
+html[data-dash-tier="fb"] #feeds-panel { padding: 1.75rem !important; }
+html[data-dash-tier="fb"] #feeds-panel h2 { font-size: 1.875rem !important; line-height: 1.1 !important; }
+html[data-dash-tier="fb"] #feeds-panel .fb-hero-copy { display: block !important; }
+
+/* Inventory Intelligence + Market: liquid glass, branded, less neon violet. */
+.ms-inventory-intelligence .bg-white,
+[data-page-content="market"] .bg-white {
+  background: var(--ms-s-glass, rgba(255,255,255,.78)) !important;
+  border-color: var(--ms-g-border, rgba(15,23,42,.10)) !important;
+  box-shadow: var(--ms-g-shadow, 0 10px 30px rgba(15,23,42,.06)) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  backdrop-filter: blur(18px) saturate(1.3);
+}
+.dark .ms-inventory-intelligence .bg-white,
+.dark [data-page-content="market"] .bg-white {
+  background: var(--ms-s-glass, rgba(15,23,42,.55)) !important;
+}
+.ms-inventory-intelligence .bg-violet-50,
+.ms-inventory-intelligence .bg-violet-600,
+[data-page-content="inv-intel"] .bg-violet-600 {
+  background: #4f46e5 !important;
+}
+.ms-inventory-intelligence .text-violet-500,
+.ms-inventory-intelligence .text-violet-600,
+.ms-inventory-intelligence .text-violet-800 {
+  color: #4338ca !important;
+}
+.ms-inventory-intelligence .ai-stat-card,
+[data-page-content="market"] .rounded-xl {
+  border-radius: 22px !important;
+}
+
+
+/* Global readability: body copy 16px minimum, headings 18–20px. */
+html { font-size: 16px; }
+body { font-size: 16px; line-height: 1.5; }
+p, li, td, th, label, input, select, textarea, button {
+  font-size: inherit;
+}
+.page-content p,
+.ms-text-body,
+.ms-c__body {
+  font-size: 16px !important;
+  line-height: 1.5 !important;
+}
+.text-sm { font-size: 16px !important; line-height: 1.5 !important; }
+.text-xs,
+.text-\[10px\],
+.text-\[11px\],
+.text-\[12px\],
+.text-\[13px\] {
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+}
+h1, .ms-engine-title, .ms-title-page, .text-2xl, .text-3xl {
+  font-size: 20px !important;
+  line-height: 1.25 !important;
+}
+h2, h3, .ms-title-section, .text-xl, .text-lg {
+  font-size: 18px !important;
+  line-height: 1.3 !important;
 }

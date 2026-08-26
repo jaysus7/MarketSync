@@ -1133,31 +1133,37 @@ function renderReconBoard() {
     return;
   }
 
-  const rows = sorted.map(c => {
+  const reconItem = (c) => {
     const d = reconDelivery(c.delivery_at);
     const done = reconChkDone(c), tot = reconChkTotal(c), ready = reconIsReady(c);
-    const img = c.photo
-      ? `<img src="${API}/proxy-image?url=${encodeURIComponent(c.photo)}" loading="lazy" class="w-12 h-9 object-cover rounded bg-slate-100 dark:bg-slate-800 flex-shrink-0">`
-      : `<div class="w-12 h-9 rounded bg-slate-100 dark:bg-slate-800 flex-shrink-0"></div>`;
-    return `<tr class="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer" data-recon-open="${c.inventory_id}">
-      <td class="py-2.5 px-3"><div class="flex items-center gap-2">${img}<div class="min-w-0"><div class="text-sm font-semibold text-slate-900 dark:text-white truncate">${esc(c.label)}</div><div class="text-[11px] text-slate-400">${c.stocknumber ? '#' + esc(c.stocknumber) : ''}</div></div></div></td>
-      <td class="py-2.5 px-3 text-sm font-semibold ${d.cls} whitespace-nowrap">${d.txt}</td>
-      <td class="py-2.5 px-3 text-sm text-slate-600 dark:text-slate-300">${c.salesperson_name ? esc(c.salesperson_name) : '<span class="text-slate-400">—</span>'}</td>
-      <td class="py-2.5 px-3 text-sm">${tot ? `<span class="font-bold ${ready ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-300'}">${done}/${tot}</span>` : '<span class="text-slate-400">No list</span>'}${(c.tasks && c.tasks.length) ? `<span class="ml-1.5 text-[10px] font-bold text-teal-600 dark:text-teal-400">+${c.tasks.length} task${c.tasks.length === 1 ? '' : 's'}</span>` : ''}</td>
-      <td class="py-2.5 px-3">${ready ? '<span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">Ready</span>' : '<span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">In progress</span>'}</td>
-      <td class="py-2.5 px-3 text-right whitespace-nowrap"><span class="text-indigo-500 text-xs font-bold">Stock card ›</span></td>
-    </tr>`;
-  }).join('');
-
-  root.innerHTML = header + `
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-      <div class="overflow-x-auto"><table class="w-full text-left min-w-[720px]">
-        <thead><tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase text-xs tracking-wider">
-          <th class="py-3 px-3">Vehicle</th><th class="py-3 px-3">Delivery</th><th class="py-3 px-3">Salesperson</th><th class="py-3 px-3">Checklist</th><th class="py-3 px-3">Status</th><th class="py-3 px-3 text-right">Stock card</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>
-    </div>`;
+    const chk = tot ? `${done}/${tot}` : 'No list';
+    const extra = (c.tasks && c.tasks.length) ? ` · +${c.tasks.length} task${c.tasks.length === 1 ? '' : 's'}` : '';
+    if (typeof pulseRow === 'function') {
+      return pulseRow({
+        label: c.label || 'Vehicle',
+        sub: [c.stocknumber ? '#' + c.stocknumber : '', d.txt, c.salesperson_name || '', chk + extra].filter(Boolean).join(' · '),
+        actionLabel: 'Stock card',
+        onclick: `openReconCard('${c.inventory_id}')`,
+      });
+    }
+    return `<button type="button" data-recon-open="${c.inventory_id}" class="w-full text-left px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 mb-2">
+      <div class="font-bold text-sm text-slate-900 dark:text-white">${esc(c.label)}</div>
+      <div class="text-[12px] text-slate-500">${esc(d.txt)} · ${esc(chk)}</div>
+    </button>`;
+  };
+  const todayList = sorted.filter(c => c.delivery_at && new Date(c.delivery_at).toDateString() === today);
+  const readyList = sorted.filter(reconIsReady);
+  const progressList = sorted.filter(c => !reconIsReady(c));
+  const card = (title, count, tier, list, empty) => (typeof pulseCard === 'function'
+    ? pulseCard({ title, count, tier, inner: list.length ? list.map(reconItem).join('') : '', empty })
+    : `<div class="ms-c ms-c--glass p-4"><div class="text-xs font-black uppercase mb-2">${title} (${count})</div>${list.length ? list.map(reconItem).join('') : `<div class="text-sm text-slate-400">${empty}</div>`}</div>`);
+  const board = [
+    card('Delivering today', deliveringToday, deliveringToday ? 'hero' : 'standard', todayList, 'Nothing delivering today.'),
+    card('Ready for delivery', readyCount, readyCount ? 'feature' : 'standard', readyList, 'No units signed off yet.'),
+    card('Still in cleanup', progressList.length, 'feature', progressList, 'Every unit is ready.'),
+    card('All units', cards.length, 'hero', sorted, 'No vehicles in cleanup.'),
+  ];
+  root.innerHTML = header + ((typeof pulseBoard === 'function') ? pulseBoard(board) : `<div class="grid gap-4">${board.join('')}</div>`);
 
   wire();
 }

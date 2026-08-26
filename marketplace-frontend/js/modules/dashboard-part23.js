@@ -21,7 +21,8 @@ async function openTeamChatWidget() {
   const btn = document.getElementById('team-chat-dock-btn');
   if (!panel) return;
   panel.classList.remove('hidden');
-  if (btn) btn.classList.add('hidden');
+  // Keep the left bubble visible. The conversation panel docks to its right.
+  if (btn) btn.classList.remove('hidden');
 
   await refreshWidgetRoster();
   if (__widgetActiveUserId) {

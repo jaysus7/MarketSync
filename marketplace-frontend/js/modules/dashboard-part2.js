@@ -1,3 +1,29 @@
+
+function hydrateDemoPackageCache() {
+  try {
+    const cached = sessionStorage.getItem('ms_demo_package') || localStorage.getItem('ms_demo_package');
+    if (!cached) return;
+    window.__demoActivePackage = window.__demoActivePackage || cached;
+    window.__demoPackageId = window.__demoPackageId || cached;
+    if (!window.__demoActiveProduct) {
+      const id = String(cached).toLowerCase();
+      if (id.includes('digital')) window.__demoActiveProduct = 'marketsync-digital';
+      else if (id.includes('sales-marketing') || id.includes('sales_marketing')) window.__demoActiveProduct = 'sales-marketing-suite';
+      else if (id.includes('service-marketing') || id.includes('service_marketing')) window.__demoActiveProduct = 'service-marketing-suite';
+      else if (id.includes('complete-marketing') || id.includes('complete_marketing')) window.__demoActiveProduct = 'complete-marketing-suite';
+      else if (id.includes('design')) window.__demoActiveProduct = 'design_studio';
+      else if (id.includes('facebook') || id.includes('autoposter') || id.includes('fb_')) window.__demoActiveProduct = 'facebook';
+      else if (id.includes('video')) window.__demoActiveProduct = 'video';
+      else if (id.includes('website')) window.__demoActiveProduct = 'website';
+      else if (id.includes('chatbot') || id.includes('ai_')) window.__demoActiveProduct = 'ai_chatbot';
+      else if (id.includes('seo')) window.__demoActiveProduct = 'seo';
+      else window.__demoActiveProduct = cached;
+    }
+  } catch {}
+}
+window.hydrateDemoPackageCache = hydrateDemoPackageCache;
+hydrateDemoPackageCache();
+
 /* dashboard.js split part 2/26 — contiguous, load-order-critical. Do not reorder the <script> tags in dashboard.html. */
 
 // Page permission flags (set after profile loads, read by switchPage to mirror panels into Insights)
@@ -1038,7 +1064,15 @@ async function initializeDashboardEcosystem() {
     applyExtensionVisibility();   // hide the FB extension CTA for SaaS / AI-only accounts
     // The canonical workspace and navigation are now final. Reveal exactly that page
     // on the next frame; legacy compatibility containers were never painted.
-    requestAnimationFrame(() => document.body.classList.remove('ms-app-booting'));
+    const waitDemo = !!(profileContext?.workspace === 'saas_admin' || profileContext?.is_marketsync || window.__demoActivePackage);
+    if (waitDemo) {
+      window.__msHoldBootForDemo = true;
+      setTimeout(() => {
+        if (document.body.classList.contains('ms-app-booting')) document.body.classList.remove('ms-app-booting');
+      }, 900);
+    } else {
+      requestAnimationFrame(() => document.body.classList.remove('ms-app-booting'));
+    }
 
     // Global leaderboard — available to EVERYONE (solo reps included). Loaded lazily on first carousel switch.
     initGlobalLeaderboard();
@@ -1256,6 +1290,10 @@ const PAGE_FEATURE = {
   appraisal: 'os.crm', equity: 'os.crm',
   inventory: 'os.inventory', recon: 'os.automations',
   accounting: 'os.accounting',
+  commissions: 'os.accounting',
+  'acct-insights': 'os.accounting', 'acct-reconciliation': 'os.accounting', 'acct-bank': 'os.accounting',
+  'acct-expenses': 'os.accounting', 'acct-budget': 'os.accounting', 'acct-tax': 'os.accounting',
+  'acct-reports': 'os.accounting', 'acct-settings': 'os.accounting',
   'service-ros': 'os.service', 'service-appointments': 'os.service', 'service-parts': 'os.service',
   website: 'os.website', seo: 'os.marketing',
   'automation-builder': 'os.automations', operations: 'os.automations', taskboard: 'os.automations',
@@ -1294,7 +1332,14 @@ const PAGE_ANY_FEATURE = {
   'automation-builder': ['os.automations', 'os.marketing', 'os.email_marketing', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations'],
   'video-studio': ['os.marketing', 'video.library'],
   website: ['os.website', 'website.builder'],
-  seo: ['os.marketing', 'seo.intelligence', 'seo.standalone'],
+  // `seo.intelligence` and `seo.standalone` never existed in the catalog, so this
+  // gate only ever really asked `os.marketing`. That is the wrong question: it is
+  // the DealerOS marketing engine, which a customer who bought SEO on its own does
+  // not have. Measured against the catalog, MarketSync SEO and MarketSync Digital
+  // both grant all ten seo.* features and both FAILED this gate — they owned the
+  // product and could not see the tab. DealerOS Complete passed only incidentally,
+  // via os.marketing, rather than because it owns SEO.
+  seo: ['seo.overview', 'seo.audit', 'seo.settings', 'os.marketing'],
   'ai-home': ['os.marketing', 'ai.overview'],
 };
 // The dealership record also carries its server-authored package name. This fallback
@@ -1398,12 +1443,13 @@ function renderDeptTabbar(pageId) {
   const suite = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;
   if (suite && typeof getMarketingSuiteConfig === 'function') {
     const cfg = getMarketingSuiteConfig(suite);
-    // Sales/Service/Complete Marketing Suite's sidebar (renderMarketingSuiteNav) already
-    // lists every area's items flat — this header+tab-strip would just repeat it above
-    // the page content ("headers that are also on the main nav"). Only MarketSync
-    // Digital's sidebar is condensed to one item per product (cfg.navItems is set for
-    // it, not for the other three), where this tab strip is the only way to reach an
-    // area's sub-destinations (e.g. Website's Setup/Builder/Settings).
+    // Complete / Sales / Service suites: left nav already lists every feature.
+    // A second top tab strip is pure duplication — hide it.
+    // MarketSync Digital keeps area sub-tabs only when an area has multiple destinations.
+    if (suite === 'complete' || suite === 'sales' || suite === 'service') {
+      document.getElementById('suite-feature-tabbar')?.replaceChildren();
+      return hide();
+    }
     if (!cfg.navItems) return hide();
     const activeTab = pageId === 'marketing-overview'
       ? ((typeof ENGINE_STATE !== 'undefined' && ENGINE_STATE['marketing-overview']) || 'overview')
@@ -1423,7 +1469,17 @@ function renderDeptTabbar(pageId) {
         : `deptGo('${esc(item.page)}'${item.tab ? `,'','${esc(item.tab)}'` : ''})`;
       return `<button type="button" role="tab" aria-selected="${on}"${on ? ' aria-current="page"' : ''} onclick="${call}" class="px-3.5 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${on ? 'text-indigo-700 dark:text-indigo-300 border-current' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}">${esc(item.label)}</button>`;
     }).join('');
-    bar.innerHTML = `<div class="flex items-center gap-2 mb-1"><span class="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 flex items-center justify-center flex-shrink-0">${svgIcon(area.icon || 'dot', 'w-4 h-4')}</span><span class="text-sm font-black text-slate-900 dark:text-white">${esc(area.label)}</span></div><div role="tablist" aria-label="${esc(area.label)}" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto overscroll-x-contain">${tabs}</div>`;
+    // Tabs only — suite title lives on the engine header (no triple title stack).
+    // Prefer the in-engine mount under the main header when present.
+    const tabsHtml = `<div role="tablist" aria-label="${esc(cfg.badge || area.label || 'Suite')}" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto overscroll-x-contain">${tabs}</div>`;
+    const underHeader = document.getElementById('suite-feature-tabbar');
+    if (underHeader) {
+      underHeader.innerHTML = tabsHtml;
+      underHeader.classList.remove('hidden');
+      hide();
+      return;
+    }
+    bar.innerHTML = tabsHtml;
     bar.classList.remove('hidden');
     return;
   }
@@ -1656,6 +1712,14 @@ function deptHasRealPage(dept) {
 function deptVisible(dept) {
   if (!deptRoleOk(dept)) return false;   // role gate first (managers-only departments)
   if (dept.always) return true;
+  // Plan-tier gate: Core / Pro must not show Marketing, HR/Team, or other paid
+  // workspaces that only Complete (or an add-on) includes. A department is visible
+  // only when at least one of its non-legacy pages is entitled for this account.
+  const entitledPages = (dept.pages || []).filter(p => p && !p.legacy);
+  if (entitledPages.length && typeof pageFeatureOk === 'function'
+      && !entitledPages.some(p => pageFeatureOk(p.page, p.invmode || null))) {
+    return false;
+  }
   if (deptHasRealPage(dept)) return true;
   if (dept.probe) { const el = document.querySelector(dept.probe); if (el && !el.classList.contains('hidden')) return true; }
   return false;
@@ -1676,7 +1740,8 @@ function renderMarketingSuiteNav(suiteKey, host, navRoot) {
   // previous area-only rail made the suite look like it was missing Builder,
   // AI, Design Studio, Social Scheduler, Automations and campaigns.
   if (Array.isArray(cfg.navItems)) {
-    html += cfg.navItems.map(item => {
+    const dealer = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'DEALER_GROUP'].includes(String(profileContext?.role || ''));
+    html += cfg.navItems.filter(item => !item.dealerOnly || dealer).map(item => {
       const call = item.studioLaunch
         ? 'window.openMarketSyncStudio()'
         : `deptGo('${esc(item.page)}'${item.invmode ? `,'${esc(item.invmode)}'` : `,''`}${item.tab ? `,'${esc(item.tab)}'` : ''})`;
@@ -2107,10 +2172,22 @@ function switchPage(pageId) {
   if (pageId === 'automation') loadAutomationPage();
   if (pageId === 'automation-builder') loadAutoBuilderPage();
   if (pageId === 'email-marketing' || pageId === 'email-campaigns') loadDealerEmail();
-  if (pageId === 'studio' || pageId === 'design-studio') { if (typeof openMarketSyncStudio === 'function') openMarketSyncStudio(); }
+  if (pageId === 'studio' || pageId === 'design-studio') {
+    Promise.resolve(window.msLoadScript ? window.msLoadScript('js/modules/studio/scene-model.js?v=20260814_v12') : null)
+      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260818_fontfamily_v1'))
+      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260826_digital_pages_v3'))
+      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-shell.js?v=20260826_studio_tp_v1'))
+      .then(() => { if (typeof openMarketSyncStudio === 'function') openMarketSyncStudio(); });
+  }
   if (pageId === 'social-scheduler') { if (typeof loadSocialSchedulerPage === 'function') loadSocialSchedulerPage(); }
-  if (pageId === 'video-studio') loadVideoStudioPage();
-  if (pageId === 'academy') loadAcademyWorkspace();
+  if (pageId === 'video-studio') {
+    Promise.resolve(window.msLoadScript ? window.msLoadScript('js/modules/video-studio.js?v=20260826_studio_tp_v1') : null)
+      .then(() => { if (typeof loadVideoStudioPage === 'function') loadVideoStudioPage(); });
+  }
+  if (pageId === 'academy') {
+    Promise.resolve(window.msLoadScript ? window.msLoadScript('js/modules/academy-workspace.js?v=20260826_academy_load_v1') : null)
+      .then(() => { if (typeof loadAcademyWorkspace === 'function') loadAcademyWorkspace(); });
+  }
   if (pageId === 'launch') loadLaunchHub();
   if (pageId === 'people-overview') loadPeopleWorkspace();
   if (pageId === 'fni') loadFniPage();

@@ -173,6 +173,16 @@ test('Service leads with My Day and carries no Work or Insights tab', () => {
 test('insights moved into My Day rather than disappearing', () => {
   const overview = ws.match(/overview\(body, d\)[\s\S]*?\n    \},/)?.[0] || ''
   assert.match(overview, /svcInsightsStrip\(d\)/, 'My Day must render the insights strip')
+  // This assertion was false-green for as long as the call sat after an
+  // unconditional `return;` in a dead second render block: the text was present,
+  // the strip was not on anyone's screen. Matching source text cannot tell those
+  // apart, so pin reachability directly — nothing may return before the advisor
+  // branch assigns body.innerHTML.
+  const advisor = overview.slice(overview.indexOf('const grid = pulseBoard(['))
+  assert.ok(!/\n      return;/.test(advisor),
+    'the advisor branch must not return before rendering — that is how the strip died silently')
+  assert.equal((advisor.match(/body\.innerHTML = /g) || []).length, 1,
+    'exactly one reachable render; a second assignment after a return is dead code')
   assert.match(ws, /function svcInsightsStrip/)
   assert.match(ws, /Where the work is/)
   // Today's appointments belong in the day too.

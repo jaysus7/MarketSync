@@ -295,12 +295,15 @@ window.crmQuickStatus = crmQuickStatus;
 
 // ── Contact detail modal ─────────────────────────────────────────────────────
 function crmOverlay(inner, maxW = 'max-w-2xl') {
-  const el = document.createElement('div');
-  el.className = 'ms-modal-scrim fixed inset-0 z-[9998] flex items-start md:items-center justify-center p-3 overflow-y-auto';
+  let el = document.querySelector('.ms-modal-scrim');
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'ms-modal-scrim fixed inset-0 z-[9998] flex items-start md:items-center justify-center p-3 overflow-y-auto';
+    el.addEventListener('click', (ev) => { if (ev.target === el) el.remove(); });
+    document.addEventListener('keydown', function esc2(ev) { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', esc2); } });
+    document.body.appendChild(el);
+  }
   el.innerHTML = `<div class="ms-crm-glass w-full ${maxW} my-4 max-h-[92vh] overflow-y-auto" onclick="event.stopPropagation()">${inner}</div>`;
-  el.addEventListener('click', () => el.remove());
-  document.addEventListener('keydown', function esc2(ev) { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', esc2); } });
-  document.body.appendChild(el);
   return el;
 }
 // Can the current user make changes to this contact? Managers/admins always can;
@@ -364,6 +367,23 @@ function crmSwitchCardTab(tabName) {
 }
 window.crmSwitchCardTab = crmSwitchCardTab;
 
+function toggleCrmActionsMenu(ev) {
+  if (ev) ev.stopPropagation();
+  const menu = document.getElementById('crm-actions-menu');
+  if (!menu) return;
+  const open = menu.classList.toggle('hidden') === false;
+  if (open) {
+    const close = (e) => {
+      if (e.target.closest && e.target.closest('#crm-actions-wrap')) return;
+      menu.classList.add('hidden');
+      document.removeEventListener('click', close);
+    };
+    setTimeout(() => document.addEventListener('click', close), 0);
+  }
+}
+window.toggleCrmActionsMenu = toggleCrmActionsMenu;
+
+
 function crmEquityMiningTab(c, d, eqData) {
   const lease = eqData?.lease || {};
   const tv = c.trade_vehicle || {};
@@ -382,47 +402,49 @@ function crmEquityMiningTab(c, d, eqData) {
 
   return `
     <div class="space-y-4">
-      <div class="bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900 border border-indigo-500/30 rounded-xl p-4">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4">
         <div class="flex items-center justify-between gap-3 flex-wrap mb-2">
           <div class="flex items-center gap-2">
-            <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <span class="text-sm font-bold text-white">Equity &amp; Lease Opportunity</span>
+            <span class="w-8 h-8 rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </span>
+            <span class="text-sm font-bold text-slate-900 dark:text-white">Equity &amp; Lease Opportunity</span>
           </div>
           <div>${eqBadge}</div>
         </div>
-        ${isPos ? `
-        <div class="text-xs text-indigo-200 bg-indigo-950/80 border border-indigo-800/60 rounded-lg p-2.5 mb-3">
-          <span class="text-amber-500 mr-2"><i data-lucide="zap" class="w-5 h-5 inline"></i></span> <b>Auto Alert:</b> Customer has <b>$${Math.abs(netEq).toLocaleString()}</b> in positive trade equity. Eligible to upgrade into a new vehicle with <b>$0 cash down</b> while keeping monthly payment at or under <b>$${payment ? payment : 'current'}/mo</b>.
+        ${isPos && netEq > 0 ? `
+        <div class="text-xs text-slate-700 dark:text-slate-200 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-800 rounded-xl p-2.5 mb-3">
+          <b>Auto Alert:</b> Customer has <b>$${Math.abs(netEq).toLocaleString()}</b> in positive trade equity. Eligible to upgrade into a new vehicle with <b>$0 cash down</b> while keeping monthly payment at or under <b>$${payment ? payment : 'current'}/mo</b>.
         </div>` : `
-        <div class="text-xs text-slate-300 bg-slate-950/80 border border-slate-800 rounded-lg p-2.5 mb-3">
-          Customer currently has negative equity position ($${Math.abs(netEq).toLocaleString()}). Review lender roll-over terms or appraisal adjustment.
+        <div class="text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 mb-3">
+          ${netEq < 0 ? `Customer currently has negative equity ($${Math.abs(netEq).toLocaleString()}). Review lender roll-over terms or appraisal adjustment.` : 'Equity calculation pending — add a trade to estimate market value and payoff.'}
         </div>`}
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs mb-3">
-          <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
-            <div class="text-slate-400 font-medium">Trade Vehicle</div>
-            <div class="font-bold text-white truncate" title="${esc(vehLabel)}">${esc(vehLabel)}</div>
+          <div class="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div class="text-slate-500 font-medium">Trade Vehicle</div>
+            <div class="font-bold text-slate-900 dark:text-white truncate" title="${esc(vehLabel)}">${esc(vehLabel)}</div>
             ${vin !== '—' ? `<div class="text-[10px] text-slate-500 font-mono">VIN ${esc(vin)}</div>` : ''}
-            ${tv.unappraised ? `<div class="text-[10px] text-emerald-400 font-semibold mt-0.5">Quick Add (No Appraisal)</div>` : ''}
+            ${tv.unappraised ? `<div class="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold mt-0.5">Quick Add (No Appraisal)</div>` : ''}
           </div>
-          <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
-            <div class="text-slate-400 font-medium">Est. Market Value</div>
-            <div class="font-bold text-emerald-400 text-sm">$${Number(estVal || 0).toLocaleString()}</div>
+          <div class="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div class="text-slate-500 font-medium">Est. Market Value</div>
+            <div class="font-bold text-slate-900 dark:text-white text-sm">$${Number(estVal || 0).toLocaleString()}</div>
           </div>
-          <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
-            <div class="text-slate-400 font-medium">Payoff / Residual</div>
-            <div class="font-bold text-slate-200 text-sm">$${Number(payoff || 0).toLocaleString()}</div>
+          <div class="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div class="text-slate-500 font-medium">Payoff / Residual</div>
+            <div class="font-bold text-slate-900 dark:text-white text-sm">$${Number(payoff || 0).toLocaleString()}</div>
           </div>
-          <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
-            <div class="text-slate-400 font-medium">Monthly Payment</div>
-            <div class="font-bold text-indigo-300 text-sm">${payment ? '$' + Number(payment).toLocaleString() + '/mo' : '—'}</div>
+          <div class="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div class="text-slate-500 font-medium">Monthly Payment</div>
+            <div class="font-bold text-slate-900 dark:text-white text-sm">${payment ? '$' + Number(payment).toLocaleString() + '/mo' : '—'}</div>
           </div>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
-          <button onclick="openDeskForContact('${c.id}')" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1">
+          <button onclick="openDeskForContact('${c.id}')" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-xl flex items-center gap-1">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m3 6V7m3 10v-4M4 4h16v16H4z"/></svg>
             Desk Deal with Equity
           </button>
-          ${allowQuickAdd ? `<button onclick="crmQuickAddTradeModal('${c.id}')" class="text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1">
+          ${allowQuickAdd ? `<button onclick="crmQuickAddTradeModal('${c.id}')" class="text-xs font-bold bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 px-3 py-1.5 rounded-xl flex items-center gap-1">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
             ${tv.make || tv.vin ? 'Edit Quick Trade' : 'Quick Add Trade'}
           </button>` : ''}
@@ -430,7 +452,7 @@ function crmEquityMiningTab(c, d, eqData) {
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             Appraise Trade (Full)
           </button>
-          ${c.email ? `<button onclick="crmEmailForm('${c.id}')" class="text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1">
+          ${c.email ? `<button onclick="crmEmailForm('${c.id}')" class="text-xs font-bold bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 px-3 py-1.5 rounded-xl flex items-center gap-1">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l9 6 9-6M4 6h16v12H4z"/></svg>
             Send Equity Offer
           </button>` : ''}
@@ -544,17 +566,25 @@ function crmDetailHtml(d, eqData = {}, initialTab = 'timeline') {
     </div>
   </div>
 
-  <!-- Primary Operations Bar -->
-  <div class="ms-crm-actions px-5 pt-3 flex flex-wrap gap-2 ${!canEdit ? 'hidden' : ''}">
-    ${c.email && !c.dnc && c.consent_email !== false ? `<button onclick="crmEmailForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l9 6 9-6M4 6h16v12H4z"/></svg>Email</button>` : ''}
-    ${phone ? `<button type="button" onclick="crmStartInAppCall('${c.id}','${esc(c.full_name || 'Customer')}','${esc(phone)}')" class="flex items-center gap-1.5 text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800/60 transition"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/></svg>Call</button>` : ''}
-    ${phone ? `<button type="button" onclick="crmOpenInAppSmsDrawer('${c.id}','${esc(c.full_name || 'Customer')}','${esc(phone)}')" class="flex items-center gap-1.5 text-xs font-bold bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800/60 transition"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h8M8 8h8m-8 8h4m5-13H3v14l4-3h14V3z"/></svg>Text</button>` : ''}
-    <button onclick="crmLogForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg">Log activity</button>
-    <button onclick="crmTaskForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg">Add task</button>
-    <button onclick="crmApptForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 hover:bg-violet-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z"/></svg>Book appointment</button>
-    ${SALES_ROLES.includes(profileContext?.role) ? `<button onclick="openDeskForContact('${c.id}')" class="ms-action-primary flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 transition"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m3 6V7m3 10v-4M4 4h16v16H4z"/></svg>${d.deal ? 'View deal' : 'Desk deal'}</button>` : ''}
-    ${SALES_ROLES.includes(profileContext?.role) ? `<button onclick='apprFromContact(${JSON.stringify({ id: c.id, full_name: c.full_name || '', first_name: c.first_name || '', last_name: c.last_name || '', email: c.email || '', phone: c.phone || '', address: c.address || '', postal_code: c.postal_code || '' }).replace(/'/g, "&#39;")})' class="flex items-center gap-1.5 text-xs font-bold bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Appraise vehicle</button>` : ''}
-    <button onclick="openCustomerVideoStudio('${c.id}')" title="Record Video Walkaround for Customer" class="flex items-center gap-1.5 text-xs font-black bg-rose-600 hover:bg-rose-500 text-white px-3 py-1.5 rounded-lg shadow-sm transition"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>Record Video</button>
+  <!-- Primary actions — one dropdown on mobile and desktop -->
+  <div class="px-5 pt-3 ${!canEdit ? 'hidden' : ''}">
+    <div class="relative inline-block" id="crm-actions-wrap">
+      <button type="button" onclick="toggleCrmActionsMenu(event)" class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/70 text-sm font-bold text-slate-800 dark:text-slate-100 shadow-sm hover:bg-white dark:hover:bg-slate-800">
+        Actions
+        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+      </button>
+      <div id="crm-actions-menu" class="hidden absolute left-0 top-full mt-2 z-20 min-w-[220px] rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl py-1 overflow-hidden">
+        ${c.email && !c.dnc && c.consent_email !== false ? `<button type="button" onclick="crmEmailForm('${c.id}');toggleCrmActionsMenu()" class="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800">Email</button>` : ''}
+        ${phone ? `<button type="button" onclick="crmStartInAppCall('${c.id}','${esc(c.full_name || 'Customer')}','${esc(phone)}');toggleCrmActionsMenu()" class="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800">Call</button>` : ''}
+        ${phone ? `<button type="button" onclick="crmOpenInAppSmsDrawer('${c.id}','${esc(c.full_name || 'Customer')}','${esc(phone)}');toggleCrmActionsMenu()" class="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800">Text</button>` : ''}
+        <button type="button" onclick="crmLogForm('${c.id}');toggleCrmActionsMenu()" class="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800">Log activity</button>
+        <button type="button" onclick="crmTaskForm('${c.id}');toggleCrmActionsMenu()" class="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800">Add task</button>
+        <button type="button" onclick="crmApptForm('${c.id}');toggleCrmActionsMenu()" class="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800">Book appointment</button>
+        ${SALES_ROLES.includes(profileContext?.role) ? `<button type="button" onclick="openDeskForContact('${c.id}');toggleCrmActionsMenu()" class="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800">${d.deal ? 'View deal' : 'Desk deal'}</button>` : ''}
+        ${SALES_ROLES.includes(profileContext?.role) ? `<button type="button" onclick='apprFromContact(${JSON.stringify({ id: c.id, full_name: c.full_name || '', first_name: c.first_name || '', last_name: c.last_name || '', email: c.email || '', phone: c.phone || '', address: c.address || '', postal_code: c.postal_code || '' }).replace(/'/g, "&#39;")});toggleCrmActionsMenu()' class="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800">Appraise vehicle</button>` : ''}
+        <button type="button" onclick="openCustomerVideoStudio('${c.id}');toggleCrmActionsMenu()" class="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800">Record video</button>
+      </div>
+    </div>
   </div>
 
   <!-- Unified Sub-Tabs Header -->
@@ -753,18 +783,18 @@ function crmVehicleCards(c, d) {
       <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(label || 'Trade vehicle')}</div>
       ${sub ? `<div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(sub)}</div>` : ''}
       <div class="flex items-center gap-1.5 flex-wrap mt-2">
-        ${allowQuickAddCard ? `<button onclick="crmQuickAddTradeModal('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1">Edit Quick Trade</button>` : ''}
+        ${allowQuickAddCard ? `<button onclick="crmQuickAddTradeModal('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1">Edit Quick Trade</button>` : ''}
         ${SALES_ROLES.includes(profileContext?.role) ? `<button onclick="switchPage('appraisal')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200">${tv.appraisal_id ? 'View appraisal' : 'Full Appraisal'}</button>` : ''}
       </div>
     </div>`);
   } else if (allowQuickAddCard) {
-    cards.push(`<div class="flex-1 min-w-[220px] bg-slate-900/50 border border-slate-800 border-dashed rounded-xl p-3 flex flex-col justify-between">
+    cards.push(`<div class="flex-1 min-w-[220px] bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-600 rounded-xl p-3 flex flex-col justify-between">
       <div>
         <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1">${svgIcon('tag', 'w-3.5 h-3.5')}Trade-in</div>
-        <div class="text-xs text-slate-400">No trade vehicle on file</div>
+        <div class="text-xs text-slate-500">No trade vehicle on file</div>
       </div>
       <div class="flex items-center gap-1.5 mt-2">
-        <button onclick="crmQuickAddTradeModal('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1">+ Quick Add Trade</button>
+        <button onclick="crmQuickAddTradeModal('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1">+ Quick Add Trade</button>
       </div>
     </div>`);
   }
@@ -1039,22 +1069,39 @@ async function crmQuickLogSave(id, channel) {
 let __crmActiveCallTimer = null;
 let __crmCallStartTime = 0;
 
+function crmDialOnDevice(phone) {
+  const raw = String(phone || '').trim();
+  const href = 'tel:' + raw.replace(/[^\d+]/g, '');
+  if (href === 'tel:' || href === 'tel:+') return false;
+  try {
+    const a = document.createElement('a');
+    a.href = href;
+    a.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return true;
+  } catch {
+    try { window.location.href = href; return true; } catch { return false; }
+  }
+}
+
 function crmStartInAppCall(contactId, name, phone) {
   __crmCallStartTime = Date.now();
+  const dialed = crmDialOnDevice(phone);
   crmDetailFormSlot(`
-    <div class="bg-slate-900 text-white rounded-2xl p-4 space-y-4 border border-slate-800 shadow-2xl relative overflow-hidden">
-      <div class="absolute -top-12 -right-12 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
-      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+    <div class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl p-4 space-y-4 border border-slate-200 dark:border-slate-700">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
         <div class="flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-          <span class="text-xs font-black text-emerald-400 uppercase tracking-wider">In-App VoIP Call Active</span>
+          <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></span>
+          <span class="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">${dialed ? 'Calling on your phone' : 'Call tracker'}</span>
         </div>
-        <div class="text-xs font-mono font-bold text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full border border-slate-700">${esc(phone)}</div>
+        <a href="tel:${esc(String(phone || '').replace(/[^\d+]/g, ''))}" class="text-xs font-mono font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-1 rounded-full border border-indigo-200 dark:border-indigo-800">${esc(phone)}</a>
       </div>
       <div class="text-center py-2 space-y-1">
-        <div class="text-sm font-bold text-slate-200">${esc(name)}</div>
-        <div id="crm-inapp-call-timer" class="text-4xl font-black font-mono text-emerald-400 tracking-tight">00:00</div>
-        <div class="text-[11px] text-slate-400">Call duration is recorded live and automatically logged upon ending call.</div>
+        <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(name)}</div>
+        <div id="crm-inapp-call-timer" class="text-4xl font-black font-mono text-indigo-600 dark:text-indigo-400 tracking-tight">00:00</div>
+        <div class="text-[11px] text-slate-500">Your phone should be dialing now. End the call here to log duration.</div>
       </div>
       <div class="space-y-1.5">
         <label class="block text-[11px] font-bold text-slate-300 uppercase tracking-wider">Live Call Notes &amp; Highlights</label>
@@ -1109,8 +1156,11 @@ function crmInsertCallTemplate(text) {
   }
 }
 
+let __crmEndingCall = false;
 async function crmEndInAppCall(contactId, name, phone) {
-  if (__crmActiveCallTimer) clearInterval(__crmActiveCallTimer);
+  if (__crmEndingCall) return;
+  __crmEndingCall = true;
+  if (__crmActiveCallTimer) { clearInterval(__crmActiveCallTimer); __crmActiveCallTimer = null; }
 
   const elapsedSec = Math.max(1, Math.floor((Date.now() - __crmCallStartTime) / 1000));
   const m = Math.floor(elapsedSec / 60);
@@ -1131,9 +1181,12 @@ async function crmEndInAppCall(contactId, name, phone) {
     if (typeof showToast === 'function') {
       showToast(`Call ended! Recorded length (${durationText}) in customer timeline.`, 'success');
     }
-    openCrmContact(contactId);
+    if (typeof crmDetailFormSlot === 'function') crmDetailFormSlot('');
+    await openCrmContact(contactId);
   } catch (err) {
     if (typeof showToast === 'function') showToast(err.message || 'Error saving call log', 'error');
+  } finally {
+    __crmEndingCall = false;
   }
 }
 
@@ -1242,10 +1295,11 @@ Object.assign(window, {
 function crmEmailForm(id) {
   crmDetailFormSlot(`<div class="bg-slate-50 dark:bg-slate-950 border border-indigo-200 dark:border-indigo-900 rounded-lg p-3 space-y-2">
     <div class="text-[11px] font-bold uppercase tracking-wider text-indigo-500">Send email</div>
+    <div class="text-[11px] text-slate-500">From ${esc((profileContext?.email_reply_to || profileContext?.email || window.__user?.email) || 'your login email')}</div>
     <input id="crm-email-subject" placeholder="Subject" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm">
     <textarea id="crm-email-body" rows="4" placeholder="Message…" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></textarea>
     <div class="flex items-center justify-between gap-2">
-      <span class="text-[10px] text-slate-400">Replies go to ${esc((profileContext?.email_reply_to || profileContext?.email) || 'your inbox')} · <button type="button" onclick="switchPage('profile');settingsTab('account')" class="text-indigo-500 font-bold">change</button></span>
+      <span class="text-[10px] text-slate-400">Sends as you · replies to the same address · <button type="button" onclick="switchPage('profile');settingsTab('account')" class="text-indigo-500 font-bold">change</button></span>
       <div class="flex gap-2"><button onclick="crmDetailFormSlot('')" class="text-xs font-bold text-slate-500 px-3 py-1.5">Cancel</button>
       <button onclick="crmSendEmail('${id}')" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg">Send</button></div>
     </div>
@@ -1255,7 +1309,8 @@ async function crmSendEmail(id) {
   const subject = document.getElementById('crm-email-subject')?.value || '';
   const body = document.getElementById('crm-email-body')?.value || '';
   if (!subject.trim() || !body.trim()) { showToast('Subject and message required', 'error'); return; }
-  try { await apiSendJson(`/crm/contacts/${id}/email`, 'POST', { subject, body }); showToast('Email sent', 'success'); openCrmContact(id); }
+  const fromEmail = (profileContext?.email_reply_to || profileContext?.email || window.__user?.email || '').trim();
+  try { await apiSendJson(`/crm/contacts/${id}/email`, 'POST', { subject, body, from_email: fromEmail }); showToast('Email sent from ' + (fromEmail || 'your account'), 'success'); openCrmContact(id); }
   catch (e) { showToast(e.message, 'error'); }
 }
 function crmTaskForm(id) {
@@ -1751,7 +1806,7 @@ async function crmVehicleFit(contactId) {
     const a = r.affordability || {}, rows = r.matches || [];
     __vehicleFitResults[contactId] = rows;
     const paymentContext = a.assumptions_complete ? `${a.apr}% · ${a.term_months} months` : 'Payment estimate unavailable until rate and term are known';
-    host.innerHTML = `<div class="text-[11px] text-slate-500">${esc(paymentContext)} · Next action: <b>${esc(r.next_action || 'Review')}</b></div>${rows.length ? `<div class="flex flex-wrap gap-2"><button type="button" onclick="crmFitSendOptions('${contactId}')" class="text-[11px] font-bold bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg">Send vehicle options</button><button type="button" onclick="crmFitBookAppointment('${contactId}')" class="text-[11px] font-bold border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 rounded-lg">Book appointment</button><button type="button" onclick="crmFitDeskDeal('${contactId}')" class="text-[11px] font-bold border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 rounded-lg">Desk deal</button></div>${rows.slice(0, 6).map(v => `<button type="button" onclick="openVehicleRecord('${v.inventory_id}')" class="w-full text-left flex gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2"><div class="w-16 h-12 rounded bg-slate-100 dark:bg-slate-800 bg-cover bg-center shrink-0" ${v.photo ? `style="background-image:url('${esc(v.photo)}')"` : ''}></div><div class="min-w-0 flex-1"><div class="text-xs font-bold text-slate-900 dark:text-white">${esc([v.year,v.make,v.model,v.trim].filter(Boolean).join(' '))}</div><div class="text-[11px] text-slate-500">Stock ${esc(v.stock_number || '—')} · ${money(v.price)}${v.estimated_payment != null ? ` · est. ${money(v.estimated_payment)}/mo` : ''}</div><div class="text-[11px] font-bold text-indigo-600">Fit ${v.fit_score}/100 · ${esc((v.reasons || []).join(' · '))}</div></div></button>`).join('')}` : '<div class="text-xs text-amber-600">No currently available inventory fits the supported budget.</div>'}`;
+    host.innerHTML = `<div class="text-[11px] text-slate-500">${esc(paymentContext)} · Next action: <b>${esc(r.next_action || 'Review')}</b></div>${rows.length ? `<div class="flex flex-wrap gap-2"><button type="button" onclick="crmFitSendOptions('${contactId}')" class="text-[11px] font-bold bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg">Send vehicle options</button><button type="button" onclick="crmFitBookAppointment('${contactId}')" class="text-[11px] font-bold border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 rounded-lg">Book appointment</button><button type="button" onclick="crmFitDeskDeal('${contactId}')" class="text-[11px] font-bold border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 rounded-lg">Desk deal</button></div>${rows.slice(0, 6).map(v => `<button type="button" onclick="opsOpenEntity('vehicle', decodeURIComponent('${encodeURIComponent(v.inventory_id)}'))" class="w-full text-left flex gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2"><div class="w-16 h-12 rounded bg-slate-100 dark:bg-slate-800 bg-cover bg-center shrink-0" ${v.photo ? `style="background-image:url('${esc(v.photo)}')"` : ''}></div><div class="min-w-0 flex-1"><div class="text-xs font-bold text-slate-900 dark:text-white">${esc([v.year,v.make,v.model,v.trim].filter(Boolean).join(' '))}</div><div class="text-[11px] text-slate-500">Stock ${esc(v.stock_number || '—')} · ${money(v.price)}${v.estimated_payment != null ? ` · est. ${money(v.estimated_payment)}/mo` : ''}</div><div class="text-[11px] font-bold text-indigo-600">Fit ${v.fit_score}/100 · ${esc((v.reasons || []).join(' · '))}</div></div></button>`).join('')}` : '<div class="text-xs text-amber-600">No currently available inventory fits the supported budget.</div>'}`;
   } catch (e) { host.innerHTML = `<div class="text-xs text-rose-500">${esc(e.message || 'Could not calculate vehicle fit.')}</div>`; }
 }
 Object.assign(window, { crmVehicleFit, crmFitSendOptions, crmFitBookAppointment, crmFitDeskDeal });

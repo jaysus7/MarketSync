@@ -154,17 +154,21 @@ export function registerCrm(app) {
     const source = String(req.query.source || '').trim()
     const repFilter = String(req.query.rep || '').trim()
     const scopeAll = String(req.query.scope || '').trim() === 'all'   // "Search Customers" = whole dealership
-    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit) || 200))
+    const mine = String(req.query.mine || '').trim() === '1'
+    const countryQ = String(req.query.country || '').trim().replace(/[(),]/g, ' ')
+    const provinceQ = String(req.query.province || '').trim().replace(/[(),]/g, ' ')
+    const postalQ = String(req.query.postal || req.query.postal_code || '').trim().replace(/[(),]/g, ' ')
+    const addressQ = String(req.query.address || '').trim().replace(/[(),]/g, ' ')
+    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit) || (mine ? 30 : 200)))
     const dealer = isDealerLevel(req)
-    const searching = q.length > 0
+    const searching = q.length > 0 || !!(countryQ || provinceQ || postalQ || addressQ)
     let query = req.supabase.from('contacts')
-      .select('id, full_name, first_name, last_name, email, phone, phone_mobile, phone_home, address, city, province, postal_code, assigned_rep, source, sold_source, status, tags, dnc, last_activity_at, created_at')
+      .select('id, full_name, first_name, last_name, email, phone, phone_mobile, phone_home, address, city, province, postal_code, country, assigned_rep, created_by, source, sold_source, status, tags, dnc, last_activity_at, created_at')
       .eq('dealership_id', req.dealershipId)
-      .order('last_activity_at', { ascending: false, nullsFirst: false })
+      .order(mine && !searching ? 'created_at' : 'last_activity_at', { ascending: false, nullsFirst: false })
       .limit(limit)
-    // Ownership scope applies only while BROWSING (no search) and NOT in the all-
-    // customers "Search Customers" view. Search and scope=all see the whole store.
-    if (!dealer && !searching && !scopeAll) query = query.or(`assigned_rep.eq.${req.user.id},created_by.eq.${req.user.id}`)
+    if (mine && !searching) query = query.eq('created_by', req.user.id)
+    else if (!dealer && !searching && !scopeAll) query = query.or(`assigned_rep.eq.${req.user.id},created_by.eq.${req.user.id}`)
     // "By rep" filter — managers only (a rep can't browse another rep's whole book).
     if (repFilter && dealer) query = query.eq('assigned_rep', repFilter)
     if (status) { const list = status.split(',').map(s => s.trim()).filter(Boolean); query = list.length > 1 ? query.in('status', list) : query.eq('status', list[0]) }
@@ -180,7 +184,19 @@ export function registerCrm(app) {
       const list = source.split(',').map(s => s.trim()).filter(Boolean)
       if (list.length) query = list.length > 1 ? query.in('source', list) : query.eq('source', list[0])
     }
-    if (q) query = query.or(`full_name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%,phone_mobile.ilike.%${q}%,company_name.ilike.%${q}%`)
+    if (q) {
+      const terms = [
+        `full_name.ilike.%${q}%`, `first_name.ilike.%${q}%`, `last_name.ilike.%${q}%`,
+        `email.ilike.%${q}%`, `phone.ilike.%${q}%`, `phone_mobile.ilike.%${q}%`, `phone_home.ilike.%${q}%`,
+        `address.ilike.%${q}%`, `city.ilike.%${q}%`, `province.ilike.%${q}%`, `postal_code.ilike.%${q}%`, `country.ilike.%${q}%`,
+        `company_name.ilike.%${q}%`,
+      ]
+      query = query.or(terms.join(','))
+    }
+    if (countryQ) query = query.ilike('country', `%${countryQ}%`)
+    if (provinceQ) query = query.ilike('province', `%${provinceQ}%`)
+    if (postalQ) query = query.ilike('postal_code', `%${postalQ}%`)
+    if (addressQ) query = query.or(`address.ilike.%${addressQ}%,city.ilike.%${addressQ}%`)
     const { data, error } = await query
     if (error) return res.status(500).json({ error: error.message })
 
@@ -459,26 +475,40 @@ export function registerCrm(app) {
     const subject = String(req.body?.subject || '').trim()
     const body = String(req.body?.body || '').trim()
     if (!subject || !body) return res.status(400).json({ error: 'Subject and message are required' })
-    const { data: rep } = await req.supabase.from('profiles').select('full_name, display_name, email_signature, email_reply_to').eq('id', req.user.id).maybeSingle()
-    const repName = rep?.full_name || rep?.display_name || null
-    // Signature: the rep's saved signature (Settings) if present, else just their name.
-    // Reply-to: their chosen reply address (personal inbox) if set, else their login email —
-    // so the customer's reply lands with the rep, not the shared MarketSync address.
+    const { data: rep } = await req.supabase.from('profiles').select('full_name, display_name, email, email_signature, email_reply_to').eq('id', req.user.id).maybeSingle()
+    const { data: dealer } = await req.supabase.from('dealerships').select('name, automation_settings').eq('id', req.dealershipId).maybeSingle()
+    const repName = rep?.full_name || rep?.display_name || req.user.email || 'MarketSync'
+    const userEmail = String(req.body?.from_email || rep?.email_reply_to || rep?.email || req.user.email || '').trim()
+    const houseEmail = dealer?.automation_settings?.house_email || null
     const sig = (rep?.email_signature || '').trim()
     const sigHtml = sig ? sig.replace(/\n/g, '<br>') : (repName || '')
-    const replyTo = (rep?.email_reply_to || '').trim() || req.user.email || undefined
+    const replyTo = userEmail || undefined
+    const fromUser = userEmail ? `${repName} <${userEmail}>` : null
+    const fromHouse = houseEmail ? `${repName} <${houseEmail}>` : null
     try {
       const html = body.replace(/\n/g, '<br>')
-      await resend.emails.send({
-        from: EMAIL_FROM, to: contact.email, subject,
+      const payload = {
+        to: contact.email, subject, reply_to: replyTo,
         html: `<div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;color:#0f172a;line-height:1.5">${html}${sigHtml ? `<br><br>—<br>${sigHtml}` : ''}</div>`,
-        reply_to: replyTo,
-      })
+      }
+      let sentFrom = EMAIL_FROM
+      try {
+        if (fromUser) {
+          await resend.emails.send({ ...payload, from: fromUser })
+          sentFrom = fromUser
+        } else {
+          throw new Error('no user from')
+        }
+      } catch (sendErr) {
+        const fallback = fromHouse || EMAIL_FROM
+        await resend.emails.send({ ...payload, from: fallback })
+        sentFrom = fallback
+      }
       const comm = await logComm({
         dealershipId: req.dealershipId, contactId: contact.id, channel: 'email', direction: 'out',
-        subject, body, repId: req.user.id, meta: { to: contact.email },
+        subject, body, repId: req.user.id, meta: { to: contact.email, from: sentFrom, reply_to: replyTo },
       })
-      res.json({ ok: true, comm })
+      return res.json({ ok: true, comm, from: sentFrom })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 

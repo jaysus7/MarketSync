@@ -7,6 +7,8 @@
   <link rel="icon" type="image/png" href="/favicon.png">
   <title>MarketSync Academy · Premium Dealership Learning Platform</title>
   <link rel="stylesheet" href="css/tailwind-built-media.css?v=20260825_header_spacing_v1">
+  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260826_type_16_v1">
+  <link rel="stylesheet" href="css/ms-design-system.css?v=20260826_type_16_v1">
   <style>
     html{scroll-behavior:smooth} body{min-height:100vh}
     .lesson-copy p,.lesson-copy li{line-height:1.65}
@@ -36,85 +38,144 @@
     @media(max-width:720px){.training-screen-grid{grid-template-columns:1fr}.training-screen-nav{display:none}.training-vehicle,.training-calendar,.training-builder,.training-form-layout,.training-crm,.training-deal{grid-template-columns:1fr}.training-conversation{grid-template-columns:6.5rem 1fr}.training-inventory{grid-template-columns:1fr}.training-lot-score{width:7rem;margin:auto}.training-step-marker{display:none}}
     @media(prefers-color-scheme:dark){.training-screen{background:linear-gradient(135deg,#1e1b4b 0%,#0f172a 48%,#2e1065 100%)}}
     @media print{header,#academy-sidebar,#academy-toolbar,#lesson-actions{display:none!important}#academy-layout{display:block!important}#lesson-panel{max-width:none!important;border:0!important;box-shadow:none!important}}
+
+    /* Academy theme surfaces — class-based contrast (Tailwind dark is media-based
+       and several gradient utilities are missing from the built CSS, which washed
+       out hero/cert text on dark system themes). */
+    .ac-shell { min-height: 100vh; width: 100%; }
+    .ac-main { width: 100%; max-width: 1600px; margin: 0 auto; padding: 1.25rem 1.25rem 2.5rem; }
+    @media (min-width: 640px) { .ac-main { padding: 1.75rem 2rem 3rem; } }
+    .ac-hero {
+      background: linear-gradient(135deg, #eef2ff 0%, #ffffff 45%, #f5f3ff 100%);
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      color: #0f172a;
+    }
+    .ac-hero h1 { color: #0f172a !important; }
+    .ac-hero .ac-lead { color: #475569 !important; }
+    .ac-panel {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      color: #0f172a;
+      backdrop-filter: blur(16px);
+    }
+    .ac-panel h2, .ac-panel h3, .ac-title { color: #0f172a !important; }
+    .ac-muted { color: #64748b !important; }
+    .ac-progress {
+      background: rgba(255,255,255,0.95);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+    }
+    html.dark body { background: #0b0d10 !important; color: #f1f5f9 !important; }
+    html.dark .ac-hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%) !important;
+      border-color: rgba(129, 140, 248, 0.25) !important;
+      color: #f8fafc !important;
+    }
+    html.dark .ac-hero h1 { color: #f8fafc !important; }
+    html.dark .ac-hero .ac-lead { color: #cbd5e1 !important; }
+    html.dark .ac-panel,
+    html.dark .ac-progress {
+      background: rgba(23, 26, 30, 0.92) !important;
+      border-color: rgba(255,255,255,0.08) !important;
+      color: #f1f5f9 !important;
+    }
+    html.dark .ac-panel h2,
+    html.dark .ac-panel h3,
+    html.dark .ac-title { color: #f8fafc !important; }
+    html.dark .ac-muted { color: #94a3b8 !important; }
+    html.dark header.ac-header {
+      background: rgba(11, 13, 16, 0.88) !important;
+      border-color: rgba(255,255,255,0.08) !important;
+    }
+
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 antialiased min-h-screen">
+<body class="ac-shell bg-[#F5F7F9] text-slate-900 antialiased">
+    <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('ms-theme') || localStorage.getItem('theme');
+        var dark = t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', !!dark);
+      } catch (e) {}
+    })();
+  </script>
   <!-- Global Loading -->
-  <div id="academy-loading" class="fixed inset-0 z-50 grid place-items-center bg-slate-950">
+  <div id="academy-loading" class="fixed inset-0 z-50 grid place-items-center bg-white/80 dark:bg-slate-950/90 backdrop-blur-sm">
     <div class="text-center">
       <div class="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-indigo-500/30 border-t-indigo-500"></div>
-      <p class="text-sm font-bold text-slate-300">Loading MarketSync Academy...</p>
+      <p class="text-sm font-bold text-slate-600 dark:text-slate-300">Loading MarketSync Academy...</p>
     </div>
   </div>
 
-  <!-- Kajabi-style Top Bar -->
-  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md">
+  <!-- Academy Top Bar -->
+  <header class="ac-header sticky top-0 z-40 border-b border-slate-200/80 bg-white/80 backdrop-blur-xl shadow-sm">
     <div class="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
       <div class="flex items-center gap-3">
         <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 font-black text-white shadow-lg shadow-indigo-500/25">
           <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147L12 14.6l7.74-4.453M12 4.5l7.74 4.453v9.094L12 22.5l-7.74-4.453V8.953L12 4.5z"/></svg>
         </div>
         <div>
-          <div class="text-base font-black tracking-tight text-white flex items-center gap-2">
-            Market<span class="text-indigo-400">Sync</span> Academy
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Kajabi LMS Engine</span>
+          <div class="text-base font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+            Market<span class="text-indigo-600 dark:text-indigo-400">Sync</span> Academy
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20">MarketSync LMS</span>
           </div>
-          <div id="academy-identity" class="truncate text-xs text-slate-400">Loading student profile...</div>
+          <div id="academy-identity" class="truncate text-xs text-slate-500 dark:text-slate-400">Loading student profile...</div>
         </div>
       </div>
 
       <div class="flex items-center gap-3">
         <button id="tab-btn-library" onclick="switchAcademyView('library')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition hover:bg-indigo-500">Course Library</button>
-        <button id="tab-btn-certs" onclick="switchAcademyView('certs')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:text-white transition">My Certificates</button>
-        <a href="/dashboard.html" class="rounded-lg border border-slate-700 bg-slate-900 px-3.5 py-1.5 text-xs font-bold text-slate-300 hover:border-slate-600 hover:text-white transition">Dashboard &rarr;</a>
+        <button id="tab-btn-certs" onclick="switchAcademyView('certs')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:text-white transition">My Certificates</button>
+        <button type="button" id="academy-theme-toggle" onclick="toggleAcademyTheme()" class="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:border-indigo-300 transition" title="Toggle light / dark">Theme</button>
+        <a href="/dashboard.html" target="_blank" rel="noopener noreferrer" class="rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition">Dashboard →</a>
       </div>
     </div>
   </header>
 
-  <main class="mx-auto max-w-[1500px] px-5 py-6 sm:px-8 sm:py-8">
+  <main class="ac-main">
 
-    <!-- Hero / Progress Header (Kajabi Style) -->
-    <section class="mb-8 overflow-hidden rounded-3xl border border-indigo-500/20 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 sm:p-9 shadow-2xl relative">
+    <!-- Hero / Progress Header -->
+    <section class="ac-hero mb-8 overflow-hidden rounded-3xl p-6 sm:p-9 shadow-sm relative">
       <div class="absolute -right-20 -bottom-20 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
       
       <div class="grid gap-6 lg:grid-cols-[1fr_380px] items-center">
         <div>
-          <div class="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-extrabold uppercase tracking-wider text-indigo-400 mb-3">
+          <div class="inline-flex items-center gap-2 rounded-full border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-500/10 px-3 py-1 text-xs font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-400 mb-3">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             Interactive Dealership Training
           </div>
-          <h1 class="text-3xl sm:text-4xl font-black tracking-tight text-white leading-tight">
+          <h1 class="text-3xl sm:text-4xl font-black tracking-tight leading-tight">
             Master your dealership software with step-by-step video courses.
           </h1>
-          <p class="mt-3 text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl">
+          <p class="ac-lead mt-3 text-sm sm:text-base leading-relaxed max-w-2xl">
             Track your course progress, complete lessons, earn official MarketSync certificates, and equip your entire sales, service, and executive team.
           </p>
         </div>
 
         <!-- Student Progress Graph Card -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-950/70 p-5 backdrop-blur-md shadow-lg space-y-4">
+        <div class="ac-progress rounded-2xl p-5 shadow-sm space-y-4">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-black uppercase tracking-wider text-slate-400">Student Progress</span>
+            <span class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Student Progress</span>
             <span id="academy-progress-percent" class="text-xl font-black text-indigo-400">0%</span>
           </div>
 
           <!-- Fill Bar Graph -->
-          <div class="h-3 w-full rounded-full bg-slate-800 overflow-hidden p-0.5">
+          <div class="h-3 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden p-0.5">
             <div id="academy-progress-bar" class="h-full rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-emerald-400 transition-all duration-500" style="width:0%"></div>
           </div>
 
-          <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800/80 text-center">
+          <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200 dark:border-slate-800/80 text-center">
             <div>
-              <div id="academy-visible-count" class="text-lg font-black text-white">0</div>
-              <div class="text-[10px] font-bold uppercase text-slate-400">Lessons</div>
+              <div id="academy-visible-count" class="text-lg font-black text-slate-900 dark:text-white">0</div>
+              <div class="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">Lessons</div>
             </div>
             <div>
               <div id="academy-complete-count" class="text-lg font-black text-emerald-400">0</div>
-              <div class="text-[10px] font-bold uppercase text-slate-400">Completed</div>
+              <div class="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">Completed</div>
             </div>
             <div>
               <div id="academy-cert-count" class="text-lg font-black text-amber-400">0</div>
-              <div class="text-[10px] font-bold uppercase text-slate-400">Certificates</div>
+              <div class="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">Certificates</div>
             </div>
           </div>
         </div>
@@ -124,25 +185,25 @@
     <!-- Library View Container -->
     <div id="academy-library-view" class="space-y-6">
 
-      <!-- Kajabi Filter Controls Bar -->
-      <div id="academy-toolbar" class="grid gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg md:grid-cols-[1fr_180px_180px_180px]">
+      <!-- Filter Controls -->
+      <div id="academy-toolbar" class="ac-panel grid gap-3 rounded-2xl p-4 shadow-sm md:grid-cols-[1fr_180px_180px_180px]">
         <div class="relative">
           <svg class="absolute left-3.5 top-3 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/></svg>
-          <input id="training-search" type="search" placeholder="Search lessons, keywords, or topics..." class="w-full rounded-xl border border-slate-700 bg-slate-950 py-2.5 pl-10 pr-3 text-sm text-white outline-none focus:border-indigo-500">
+          <input id="training-search" type="search" placeholder="Search lessons, keywords, or topics..." class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 py-2.5 pl-10 pr-3 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500">
         </div>
 
-        <select id="training-status" class="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm font-semibold text-slate-200 outline-none focus:border-indigo-500">
+        <select id="training-status" class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 outline-none focus:border-indigo-500">
           <option value="">All Statuses</option>
           <option value="in_progress">In Progress</option>
           <option value="completed">Completed</option>
           <option value="not_started">Not Started</option>
         </select>
 
-        <select id="training-product" class="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm font-semibold text-slate-200 outline-none focus:border-indigo-500">
+        <select id="training-product" class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 outline-none focus:border-indigo-500">
           <option value="">All Products</option>
         </select>
 
-        <select id="training-course" class="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm font-semibold text-slate-200 outline-none focus:border-indigo-500">
+        <select id="training-course" class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 outline-none focus:border-indigo-500">
           <option value="">All Departments</option>
         </select>
       </div>
@@ -151,23 +212,23 @@
       <div id="academy-layout" class="grid items-start gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
         
         <!-- Course Sidebar Stream -->
-        <aside id="academy-sidebar" class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/90 shadow-xl lg:sticky lg:top-20">
-          <div class="border-b border-slate-800 px-4 py-3.5 flex items-center justify-between">
-            <div class="text-xs font-black uppercase tracking-wider text-slate-300">Course Lessons</div>
+        <aside id="academy-sidebar" class="ac-panel overflow-hidden rounded-2xl shadow-sm lg:sticky lg:top-20">
+          <div class="border-b border-slate-200 dark:border-slate-800 px-4 py-3.5 flex items-center justify-between">
+            <div class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Course Lessons</div>
             <div id="lesson-result-count" class="text-xs font-bold text-indigo-400">Loading...</div>
           </div>
           <div id="lesson-list" class="max-h-[calc(100vh-14rem)] overflow-y-auto p-2.5 space-y-1"></div>
         </aside>
 
         <!-- Lesson Viewer Panel -->
-        <article id="lesson-panel" class="min-h-[680px] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/90 shadow-xl">
+        <article id="lesson-panel" class="ac-panel min-h-[680px] overflow-hidden rounded-2xl shadow-sm">
           <div id="lesson-empty" class="grid min-h-[680px] place-items-center p-10 text-center">
             <div>
               <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
                 <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
               </div>
-              <h2 class="text-xl font-black text-white">Select a lesson to begin learning</h2>
-              <p class="mt-2 max-w-md text-xs leading-5 text-slate-400">Choose a course module from the left sidebar to watch the video, step through interactive walkthroughs, and complete your certification.</p>
+              <h2 class="text-xl font-black text-slate-900 dark:text-white">Select a lesson to begin learning</h2>
+              <p class="mt-2 max-w-md text-xs leading-5 text-slate-500 dark:text-slate-400">Choose a course module from the left sidebar to watch the video, step through interactive walkthroughs, and complete your certification.</p>
             </div>
           </div>
           <div id="lesson-content" class="hidden"></div>
@@ -178,11 +239,11 @@
 
     <!-- Certificates View Container -->
     <div id="academy-certs-view" class="hidden space-y-6">
-      <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 sm:p-8">
-        <div class="flex items-center justify-between mb-6 border-b border-slate-800 pb-4">
+      <div class="ac-panel rounded-2xl p-6 sm:p-8">
+        <div class="flex items-center justify-between mb-6 border-b border-slate-200/80 dark:border-white/10 pb-4">
           <div>
-            <h2 class="text-2xl font-black text-white">Earned Certificates &amp; Credentials</h2>
-            <p class="text-xs text-slate-400 mt-1">Official certifications earned by completing MarketSync course modules.</p>
+            <h2 class="text-2xl font-black">Earned Certificates &amp; Credentials</h2>
+            <p class="ac-muted text-xs mt-1">Official certifications earned by completing MarketSync course modules.</p>
           </div>
           <button onclick="switchAcademyView('library')" class="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white">Browse Courses</button>
         </div>
@@ -195,6 +256,6 @@
 
   </main>
 
-  <script src="/training.js?v=20260814_kajabi"></script>
+  <script src="/training.js?v=20260826_academy_load_v1"></script>
 </body>
 </html>

@@ -367,7 +367,7 @@ function openMailchimpEmailBuilder(targetItem = 'inventory', isTemplate = false)
 
           <!-- Active Block Inspector -->
           <div class="p-4 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-xl space-y-3 flex-1">
-            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+            <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 dark:border-slate-800 pb-2">
               <div class="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Block Settings</div>
               <div id="inspector-block-tag" class="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600">Header</div>
             </div>
@@ -1248,7 +1248,7 @@ window.pulseSalesDeptSection = function(d) {
 
   return `
     <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+      <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-amber-500"></span>
           <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Sales Department</h2>
@@ -1420,7 +1420,7 @@ window.pulseInventoryDeptSection = function(d) {
 
   return `
     <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+      <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-indigo-500"></span>
           <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Inventory Department</h2>
@@ -1466,7 +1466,7 @@ window.pulseFniDeptSection = function(d) {
 
   return `
     <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+      <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
           <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">F&I Department</h2>
@@ -1510,7 +1510,7 @@ window.pulseCleanupDeptSection = function(d) {
   const cars = d.reconVehicles || [];
   return `
     <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-4 shadow-sm">
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+      <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-sky-500"></span>
           <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Clean Up Department</h2>
@@ -1541,7 +1541,7 @@ window.pulseServiceDeptSection = function(d) {
 
   return `
     <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+      <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-cyan-500"></span>
           <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Service Department</h2>
@@ -1590,7 +1590,7 @@ window.pulsePartsDeptSection = function(d) {
   const reserved = parts.filter(part => String(part.status || '').toLowerCase() === 'reserved').length;
   return `
     <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+      <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-orange-500"></span>
           <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Parts Department</h2>
@@ -1613,7 +1613,7 @@ window.pulseAccountingDeptSection = function(d) {
   const actualMoney = value => value != null && Number.isFinite(Number(value)) ? cmdMoney(Number(value)) : '—';
   return `
     <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+      <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-emerald-600"></span>
           <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Accounting Department</h2>
@@ -1697,7 +1697,7 @@ window.pulseMarketingDeptSection = function(d) {
   return `
     <div class="mb-8 p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-6 shadow-sm">
       <!-- Section Header (No redundant workspace link) -->
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+      <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 dark:border-slate-800 pb-4">
         <div class="flex items-center gap-3">
           <span class="w-3.5 h-3.5 rounded-full bg-purple-500 animate-pulse"></span>
           <div>
@@ -1726,7 +1726,7 @@ window.pulseMarketingDeptSection = function(d) {
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <!-- 1. Ad Spend & Paid Campaign Performance -->
         <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
-          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
+          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-200 dark:border-slate-700/60 pb-2">
             <h3 class="text-xs font-black uppercase text-slate-900 dark:text-white tracking-wider flex items-center gap-1.5">
               <span> Paid Ad Campaigns &amp; Spend ROI</span>
             </h3>
@@ -1768,7 +1768,7 @@ window.pulseMarketingDeptSection = function(d) {
 
         <!-- 2. Website Analytics & Live Traffic -->
         <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
-          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
+          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-200 dark:border-slate-700/60 pb-2">
             <h3 class="text-xs font-black uppercase text-slate-900 dark:text-white tracking-wider flex items-center gap-1.5">
               <span> Website Analytics &amp; Live Traffic</span>
             </h3>
@@ -1799,7 +1799,7 @@ window.pulseMarketingDeptSection = function(d) {
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <!-- 3. AI ChatBot Convos & Lead Capture -->
         <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
-          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
+          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-200 dark:border-slate-700/60 pb-2">
             <h3 class="text-xs font-black uppercase text-purple-600 dark:text-purple-400 tracking-wider flex items-center gap-1.5">
               <span> AI ChatBot &amp; Lead Conversion</span>
             </h3>
@@ -1823,7 +1823,7 @@ window.pulseMarketingDeptSection = function(d) {
 
         <!-- 4. Customer Videos Sent & Engagement -->
         <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
-          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
+          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-200 dark:border-slate-700/60 pb-2">
             <h3 class="text-xs font-black uppercase text-rose-600 dark:text-rose-400 tracking-wider flex items-center gap-1.5">
               <span> Customer Videos Sent Analytics</span>
             </h3>
@@ -1850,7 +1850,7 @@ window.pulseMarketingDeptSection = function(d) {
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <!-- 5. Scheduled Social Media Posts -->
         <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
-          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
+          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-200 dark:border-slate-700/60 pb-2">
             <h3 class="text-xs font-black uppercase text-sky-600 dark:text-sky-400 tracking-wider flex items-center gap-1.5">
               <span> Scheduled Social Posts (${scheduledPosts.length})</span>
             </h3>
@@ -1891,7 +1891,7 @@ window.pulseMarketingDeptSection = function(d) {
 
         <!-- 6. Published Social Posts & Engagement Feed -->
         <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-3">
-          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2">
+          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-200 dark:border-slate-700/60 pb-2">
             <h3 class="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider flex items-center gap-1.5">
               <span> Recently Published Posts &amp; Reach</span>
             </h3>
@@ -1925,7 +1925,7 @@ window.pulseHrDeptSection = function(d) {
 
   return `
     <div class="pulse-dept-section mb-8 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5 shadow-sm">
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+      <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full bg-teal-500"></span>
           <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">HR & Staff Department</h2>
@@ -2052,11 +2052,36 @@ ENGINES['command'] = {
     pulse(body, d) { this.overview(body, d); },
     overview(body, d) {
       const t = d.cc.tiles || {};
-      const tile = (label, val, page, attention) => {
-        const hot = attention && val > 0;
-        return `<button onclick="switchPage('${page}')" class="text-left bg-white dark:bg-slate-900 border rounded-xl px-4 py-4 transition hover:shadow-md ${hot ? 'border-amber-300 dark:border-amber-800' : 'border-slate-200 dark:border-slate-800'}">
-          <div class="text-3xl font-black ${hot ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-100'}">${val}</div>
-          <div class="text-[12px] font-bold text-slate-500 dark:text-slate-400 mt-1">${esc(label)}</div></button>`;
+      // A tile's prominence comes from its own number, not from its position in
+      // the row. `lead` marks the one metric that is a reason to open this page
+      // at all; it only actually leads while it is non-zero. On a calm morning
+      // every tile is quiet and the row reads as five equals — which is the
+      // honest picture of a calm store. Sizing lives in ms-design-system.css
+      // under "PULSE KPI HIERARCHY"; this only decides which bucket applies.
+      const records = cmdPulseRecords(d);
+      // A tile's prominence comes from its own number, not from its position in
+      // the row. `lead` marks the one metric that is a reason to open this page
+      // at all; it only actually leads while it is non-zero. On a calm morning
+      // every tile is quiet and the row reads as five equals — which is the
+      // honest picture of a calm store. Sizing lives in ms-design-system.css
+      // under "PULSE KPI HIERARCHY"; this only decides which bucket applies.
+      //
+      // A tile with records opens them in place rather than navigating: the
+      // count is the question, the records are the answer, and making someone
+      // leave the page to re-find them is what this row used to do.
+      const tile = (label, val, page, attention, lead, key) => {
+        const n = Number(val) || 0;
+        const emphasis = n === 0 ? 'quiet'
+          : (lead && attention) ? 'lead'
+          : attention ? 'alert'
+          : 'normal';
+        const hot = attention && n > 0;
+        const expandable = n > 0 && !!records[key];
+        const onclick = expandable ? `cmdPulseTileToggle('${key}')` : `switchPage('${page}')`;
+        return `<button onclick="${onclick}" data-emphasis="${emphasis}" ${expandable ? `data-tile-key="${key}" aria-expanded="false"` : ''} class="ms-kpi text-left bg-white dark:bg-slate-900 border rounded-xl px-4 py-4 transition hover:shadow-md ${hot ? 'border-amber-300 dark:border-amber-800' : 'border-slate-200 dark:border-slate-800'}">
+          <div class="ms-kpi__value ${hot ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-100'}">${val}</div>
+          <div class="ms-kpi__label text-slate-500 dark:text-slate-400">${esc(label)}</div>
+          ${expandable ? `<div class="ms-kpi__hint text-[11px] font-bold text-indigo-600 dark:text-indigo-400 mt-1.5">Show who and what →</div>` : ''}</button>`;
       };
       const now = new Date();
       const hour = now.getHours();
@@ -2095,11 +2120,14 @@ ENGINES['command'] = {
 
       const proactiveAiExecutivePanel = `
         <div class="mb-6 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 ms-ai-panel text-white shadow-lg border border-slate-800">
-          <div class="flex items-center justify-between mb-2">
+          <!-- Wraps: the title and the telemetry badge cannot share one line on a
+               phone. Without a wrap the badge was squeezed against the title and
+               broken across three lines, reading as a collision rather than a label. -->
+          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 mb-2">
             <div class="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-sky-400">
               <span>Proactive General Manager AI Executive Assistant</span>
             </div>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">STORE-WIDE EXECUTIVE TELEMETRY</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold whitespace-nowrap bg-sky-500/20 text-sky-300 border border-sky-500/30">STORE-WIDE EXECUTIVE TELEMETRY</span>
           </div>
           <div class="text-xs text-slate-300 space-y-1.5 mb-3">
             <p>• <strong>Net operating income:</strong> ${Number.isFinite(netIncome) ? `<strong>${cmdMoney(netIncome)}</strong> recorded this month.` : 'Accounting has not supplied this figure.'}</p>
@@ -2125,12 +2153,17 @@ ENGINES['command'] = {
             <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Updated from connected workflows</div>
           </div>
           <div class="pulse-summary-grid">
-            ${tile('Items needing attention', attention.length, 'command', true)}
-            ${tile('Deals in progress', t.deals_in_progress ?? 0, 'sales', false)}
-            ${tile('Deliveries today', t.deliveries_today ?? 0, 'delivery', false)}
-            ${tile('Recon delays', t.recon_delays ?? 0, 'recon', true)}
-            ${tile('Service bottlenecks', t.service_bottlenecks ?? 0, 'service-overview', true)}
+            ${tile('Items needing attention', attention.length, 'command', true, true, 'attention')}
+            ${tile('Deals in progress', t.deals_in_progress ?? 0, 'sales', false, false, 'deals')}
+            ${tile('Deliveries today', t.deliveries_today ?? 0, 'delivery', false, false, 'deliveries')}
+            ${tile('Recon delays', t.recon_delays ?? 0, 'recon', true, false, 'recon')}
+            ${tile('Service bottlenecks', t.service_bottlenecks ?? 0, 'service-overview', true, false, 'service')}
           </div>
+          ${cmdPulseTilePanel('attention', records.attention, attention.length)}
+          ${cmdPulseTilePanel('deals', records.deals, Number(t.deals_in_progress ?? 0))}
+          ${cmdPulseTilePanel('deliveries', records.deliveries, Number(t.deliveries_today ?? 0))}
+          ${cmdPulseTilePanel('recon', records.recon, Number(t.recon_delays ?? 0))}
+          ${cmdPulseTilePanel('service', records.service, Number(t.service_bottlenecks ?? 0))}
         </section>
       `;
 
@@ -2320,6 +2353,163 @@ ENGINES['command'] = {
 function cmdOpenAttention(link) {
   if (typeof link === 'string' && /^#\/w\/[a-z0-9-]+\/[a-z0-9-]+$/i.test(link)) location.hash = link;
 }
+// ── Every count on the Pulse names the records behind it ────────────────────
+// A tile that says "3" and jumps to a whole page makes the reader do the work
+// again: open the page, re-find the three. These builders turn each count into
+// the actual customers, units and repair orders it counts, each one a link
+// straight to that record.
+//
+// Fields are read tolerantly because these arrays come from five different
+// endpoints with their own naming. What is never done is inventing an identity:
+// a record we cannot name is shown by its id, and a record we cannot link is
+// shown without a link, rather than guessing either.
+function cmdField(obj, ...keys) {
+  for (const k of keys) {
+    const v = obj?.[k];
+    if (v != null && String(v).trim()) return String(v).trim();
+  }
+  return '';
+}
+
+// A count should land you on the RECORD, not on the department page with the work
+// of re-finding it. opsOpenEntity() already opens any entity by type and id — it
+// reads /timeline/:type/:id, the workflow instances and the tasks — so a
+// record-level link needs no new endpoint, only the id the record already
+// carries. The page fallback is used ONLY when there is no id to open, so a link
+// never promises a record it cannot show.
+function cmdRecordOpen(entityType, id, page) {
+  return id
+    ? `opsOpenEntity('${entityType}', decodeURIComponent('${encodeURIComponent(id)}'))`
+    : `switchPage('${page}')`;
+}
+
+function cmdRecordRows(items, map) {
+  return items.map(map).filter(r => r && (r.title || r.meta));
+}
+
+// Returns { key: { label, page, pageLabel, rows: [{title, meta, open}] } }.
+// `rows` may legitimately be shorter than the tile's own count — the counts come
+// from the server's command-centre tiles while these come from the underlying
+// record endpoints, and one can be entitled or reachable when the other is not.
+// cmdPulseTilePanel says so out loud rather than quietly implying "that's all".
+function cmdPulseRecords(d) {
+  const arr = (v, ...nested) => {
+    if (Array.isArray(v)) return v;
+    for (const k of nested) if (Array.isArray(v?.[k])) return v[k];
+    return [];
+  };
+  const openLater = ro => !['closed', 'completed', 'delivered', 'sold', 'lost'].includes(
+    String(ro.status || ro.stage || '').toLowerCase());
+
+  const attention = arr(d.day?.needs_attention);
+  const deals = arr(d.fniDeals, 'deals').length ? arr(d.fniDeals, 'deals') : arr(d.pipeline?.deals);
+  const deliveries = arr(d.deliveries, 'queue', 'deliveries');
+  const recon = arr(d.reconVehicles, 'vehicles', 'recon');
+  const ros = arr(d.serviceRos, 'ros');
+
+  return {
+    attention: {
+      label: 'Items needing attention', page: 'command', pageLabel: 'Management',
+      rows: cmdRecordRows(attention, x => ({
+        title: cmdField(x, 'title', 'subject') || cmdField(x, 'reason').slice(0, 60),
+        meta: [cmdField(x, 'department', 'source_label'), cmdField(x, 'reason')].filter(Boolean).join(' · '),
+        action: cmdField(x, 'next_action', 'action') || 'Review',
+        open: x.deep_link
+          ? `cmdOpenAttention(decodeURIComponent('${encodeURIComponent(x.deep_link)}'))`
+          : '',
+      })),
+    },
+    deals: {
+      label: 'Deals in progress', page: 'sales', pageLabel: 'Sales',
+      rows: cmdRecordRows(deals.filter(openLater), x => ({
+        title: cmdField(x, 'customer_name', 'buyer_name', 'customer', 'name') || `Deal ${cmdField(x, 'id', 'deal_number')}`,
+        meta: [cmdField(x, 'vehicle', 'vehicle_name', 'unit'), cmdField(x, 'stage', 'status')].filter(Boolean).join(' · '),
+        action: 'Open deal', open: cmdRecordOpen('deal', cmdField(x, 'id', 'deal_id'), 'sales'),
+      })),
+    },
+    deliveries: {
+      label: 'Deliveries today', page: 'delivery', pageLabel: 'Delivery',
+      rows: cmdRecordRows(deliveries, x => ({
+        title: cmdField(x, 'customer_name', 'customer', 'buyer_name') || cmdField(x, 'vehicle') || 'Delivery',
+        meta: [cmdField(x, 'vehicle', 'vehicle_name'), cmdField(x, 'stock_num', 'stock_number')].filter(Boolean).join(' · '),
+        action: 'Open delivery',
+        open: cmdField(x, 'deal_id')
+          ? cmdRecordOpen('deal', cmdField(x, 'deal_id'), 'delivery')
+          : cmdRecordOpen('vehicle', cmdField(x, 'vehicle_id', 'inventory_id'), 'delivery'),
+      })),
+    },
+    recon: {
+      label: 'Recon delays', page: 'recon', pageLabel: 'Cleanup',
+      rows: cmdRecordRows(recon, x => ({
+        title: [cmdField(x, 'stock_num', 'stock_number'), cmdField(x, 'vehicle', 'vehicle_name')].filter(Boolean).join(' · ')
+          || `Unit ${cmdField(x, 'id')}`,
+        meta: [cmdField(x, 'stage', 'status'), cmdField(x, 'days_in_recon') && `${cmdField(x, 'days_in_recon')} days in recon`]
+          .filter(Boolean).join(' · '),
+        action: 'Open unit', open: cmdRecordOpen('vehicle', cmdField(x, 'vehicle_id', 'inventory_id', 'id'), 'recon'),
+      })),
+    },
+    service: {
+      label: 'Service bottlenecks', page: 'service-overview', pageLabel: 'Service',
+      rows: cmdRecordRows(ros.filter(openLater), x => ({
+        title: [cmdField(x, 'ro_number', 'ro_no', 'number') && `RO ${cmdField(x, 'ro_number', 'ro_no', 'number')}`,
+                cmdField(x, 'customer_name', 'customer')].filter(Boolean).join(' · ')
+          || `Repair order ${cmdField(x, 'id')}`,
+        meta: [cmdField(x, 'vehicle', 'vehicle_name'), cmdField(x, 'status')].filter(Boolean).join(' · '),
+        action: 'Open RO', open: cmdRecordOpen('ro', cmdField(x, 'id', 'ro_id'), 'service-overview'),
+      })),
+    },
+  };
+}
+
+const CMD_TILE_ROW_LIMIT = 6;
+
+function cmdPulseTilePanel(key, group, count) {
+  const rows = group.rows.slice(0, CMD_TILE_ROW_LIMIT);
+  const more = group.rows.length - rows.length;
+  // The tile count and the record list come from different endpoints. When they
+  // disagree, say which is which — a short list under a bigger number must not
+  // read as "the rest do not exist".
+  const shortfall = count > group.rows.length
+    ? `<div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-2">Showing ${group.rows.length} of ${count}. The rest are not readable from this page — open ${esc(group.pageLabel)} for the full list.</div>`
+    : '';
+  const body = rows.length
+    ? `<div class="grid grid-cols-1 md:grid-cols-2 gap-2">${rows.map(r => `
+        <${r.open ? 'button' : 'div'} ${r.open ? `onclick="${r.open}"` : ''} class="ms-kpi-record w-full text-left rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 ${r.open ? 'hover:border-indigo-300 dark:hover:border-indigo-700 transition' : ''}">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="text-[13px] font-bold text-slate-900 dark:text-white truncate">${esc(r.title)}</div>
+              ${r.meta ? `<div class="ms-kpi-record__meta text-[11px] text-slate-500 dark:text-slate-400 truncate">${esc(r.meta)}</div>` : ''}
+            </div>
+            ${r.open ? `<span class="text-[11px] font-black text-indigo-600 dark:text-indigo-400 whitespace-nowrap">${esc(r.action)}</span>` : ''}
+          </div>
+        </${r.open ? 'button' : 'div'}>`).join('')}</div>`
+    : `<div class="text-xs font-semibold text-slate-400 py-2">No individual records are readable from this page. Open ${esc(group.pageLabel)} to see them.</div>`;
+  return `<div data-tile-panel="${esc(key)}" class="ms-kpi-panel mt-3" hidden>
+    <div class="flex items-center justify-between gap-3 mb-2">
+      <div class="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">${esc(group.label)}</div>
+      <button onclick="switchPage('${group.page}')" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Open ${esc(group.pageLabel)} →</button>
+    </div>
+    ${shortfall}${body}
+    ${more > 0 ? `<button onclick="switchPage('${group.page}')" class="mt-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:underline">+ ${more} more in ${esc(group.pageLabel)} →</button>` : ''}
+  </div>`;
+}
+
+// One panel open at a time: the row stays scannable, and the records you asked
+// for sit directly under it instead of replacing the page you were reading.
+function cmdPulseTileToggle(key) {
+  const panels = document.querySelectorAll('[data-tile-panel]');
+  let opened = false;
+  panels.forEach(p => {
+    const isTarget = p.getAttribute('data-tile-panel') === key;
+    const show = isTarget && p.hidden;
+    p.hidden = !show;
+    if (show) opened = true;
+  });
+  document.querySelectorAll('[data-tile-key]').forEach(b => {
+    b.setAttribute('aria-expanded', String(opened && b.getAttribute('data-tile-key') === key));
+  });
+}
+
 function cmdAttentionCard(item) {
   const link = encodeURIComponent(item.deep_link || '');
   return `<button onclick="cmdOpenAttention(decodeURIComponent('${link}'))" class="w-full text-left rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 hover:border-indigo-300 dark:hover:border-indigo-700 transition"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="text-[11px] font-bold uppercase tracking-wide text-slate-400">${esc(item.department || item.source_label || 'Management')}</div><div class="text-sm font-bold text-slate-900 dark:text-white">${esc(item.title || item.subject || item.reason)}</div><div class="text-[12px] text-slate-500 dark:text-slate-400 mt-1">${esc(item.reason || '')}</div></div><span class="text-[11px] font-black text-indigo-600 dark:text-indigo-400 whitespace-nowrap">${esc(item.next_action || item.action || 'Review')}</span></div></button>`;
@@ -2338,7 +2528,7 @@ async function cmdResolveException(id) {
   try { await apiSendJson(`/exceptions/${id}/resolve`, 'POST'); showToast('Resolved ', 'success'); renderEngine('command'); }
   catch (e) { showToast(e.message, 'error'); }
 }
-Object.assign(window, { loadCommandCenter, cmdResolveException, cmdOpenAttention, cmdReviewIdentity });
+Object.assign(window, { loadCommandCenter, cmdResolveException, cmdOpenAttention, cmdReviewIdentity, cmdPulseTileToggle });
 
 async function loadOperationsPage() {
   const root = document.getElementById('operations-root');

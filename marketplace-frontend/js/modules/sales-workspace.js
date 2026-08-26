@@ -157,31 +157,28 @@ function salesAttention(d) {
 }
 
 function salesAttentionRow(it) {
-  const tone = SALES_TONE[it.action?.tone] || SALES_TONE.slate;
   const onclick = it.id ? `openCrmContact('${it.id}')` : (it.action?.onclick || '');
-  return `<button onclick="${onclick}" class="w-full text-left flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+  const sub = [it.why, it.sub, it.age].filter(Boolean).join(' · ');
+  if (typeof pulseRow === 'function') {
+    return pulseRow({ label: it.who, sub, onclick, actionLabel: it.action?.label || 'View' });
+  }
+  return `<div class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-white border border-slate-100 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
     <div class="min-w-0 flex-1">
-      <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(it.who)}</div>
-      <div class="text-[12px] ${tone} truncate">${esc(it.why)}${it.sub ? ` · <span class="text-slate-400">${esc(it.sub)}</span>` : ''}</div>
+      <div class="font-bold text-[14px] text-slate-900 truncate">${esc(it.who)}</div>
+      <div class="text-[12px] text-slate-500 mt-0.5 truncate">${esc(sub)}</div>
     </div>
-    ${it.age ? `<div class="text-[11px] font-bold text-slate-400 tabular-nums shrink-0 pr-2">${esc(it.age)}</div>` : ''}
-  </button>`;
+    ${onclick ? `<button type="button" onclick="${onclick}" class="shrink-0 px-3.5 py-1.5 rounded-full border border-slate-200 text-[13px] font-semibold">View</button>` : ''}
+  </div>`;
 }
 
 function salesOppRow(c, d) {
   const na = salesNextAction(c, d);
   const appt = (d.apptByContact || {})[c.id];
-  return `<button onclick="openCrmContact('${c.id}')" class="w-full flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition text-left">
-    <div class="min-w-0 flex-1">
-      <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(salesName(c))}</div>
-      <div class="text-[12px] text-slate-400 truncate">
-        <span class="font-semibold text-slate-500 dark:text-slate-300">${esc(salesLabel(c.status))}</span>
-        ${c.source ? ` · ${esc(c.source)}` : ''}${appt ? ` · appt ${esc(new Date(appt.appointment_at).toLocaleDateString())}` : ''}
-        ${c.last_activity_at ? ` · ${esc(salesAge(c.last_activity_at))} ago` : ''}
-      </div>
-    </div>
-    <div class="shrink-0 px-2 py-1 text-[12px] font-bold text-slate-500">${esc(na.label)}</div>
-  </button>`;
+  const bits = [salesLabel(c.status), c.source, appt ? `appt ${new Date(appt.appointment_at).toLocaleDateString()}` : '', c.last_activity_at ? `${salesAge(c.last_activity_at)} ago` : ''].filter(Boolean);
+  if (typeof pulseRow === 'function') {
+    return pulseRow({ label: salesName(c), sub: bits.join(' · '), onclick: `openCrmContact('${c.id}')`, actionLabel: na.label || 'View' });
+  }
+  return pulseRow({ label: salesName(c), sub: bits.join(' · '), onclick: `openCrmContact('${c.id}')` });
 }
 
 Object.assign(window, { salesAttentionRow, salesOppRow });
@@ -313,7 +310,7 @@ ENGINES['sales'] = {
 
   fetch: async () => {
     const [contacts, tasks, appts, deals, deliveries, insights, gamification, videos] = await Promise.all([
-      apiGetJson('/crm/contacts?limit=200').catch(() => ({ contacts: [] })),
+      apiGetJson('/crm/contacts?mine=1&limit=30').catch(() => ({ contacts: [] })),
       apiGetJson('/crm/tasks?scope=open').catch(() => ({ tasks: [] })),
       apiGetJson('/appointments').catch(() => ({ appointments: [] })),
       apiGetJson('/fni/deals').catch(() => null),
@@ -371,163 +368,134 @@ ENGINES['sales'] = {
         const when = a.appointment_at || a.when || a.scheduled_at;
         return when && new Date(when).toDateString() === today && !['canceled', 'cancelled', 'no_show'].includes(String(a.status || '').toLowerCase());
       });
-      const open = (d.contacts || []).filter(c => SALES_OPEN_STAGES.includes(c.status));
       const overdue = (d.tasks || []).filter(t => t.due_at && new Date(t.due_at) < now);
       const newLeads = (d.contacts || []).filter(c => c.status === 'uncontacted');
 
-      const f = (d.insights && d.insights.funnel) || {};
-      const taskByType = { lead_followup: 0, delivery_followup: 0, appointment: 0, other: 0 };
-      for (const t of d.tasks || []) taskByType[['lead_followup', 'delivery_followup', 'appointment'].includes(t.type) ? t.type : 'other']++;
+      const aiCard = pulseCard({
+        title: 'Proactive sales assistant',
+        tier: 'feature',
+        inner: `<div class="text-[12px] text-slate-700 dark:text-slate-200 space-y-1.5 leading-relaxed">
+          <p>• <strong>Needs attention:</strong> ${att.length ? `<span class="text-rose-600 dark:text-rose-400 font-bold">${att.length} item(s)</span>` : 'Clear.'}</p>
+          <p>• <strong>New leads:</strong> ${newLeads.length ? `${newLeads.length} uncontacted` : 'None waiting.'}</p>
+          <p>• <strong>Today's appointments:</strong> ${todays.length}</p>
+          <p>• <strong>Overdue tasks:</strong> ${overdue.length ? `<span class="text-rose-600 dark:text-rose-400 font-bold">${overdue.length}</span>` : 'None.'}</p>
+        </div>
+        <div class="flex flex-wrap gap-2 mt-3">
+          <button type="button" onclick="engineTab('sales','work')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900">Prioritize work</button>
+          <button type="button" onclick="engineTab('sales','desk')" class="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700">Review deals</button>
+        </div>`,
+      });
 
-      // ── Pulse grid — the at-a-glance widget wall ────────────────────────────
-      const grid = pulseGrid([
+      const cards = [
         pulseCard({
-          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', span: 'tall',
-          inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '', empty: 'Nothing needs you right now.',
+          title: 'Needs attention', count: att.length,
+          tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
+          tier: att.length ? 'hero' : 'standard',
+          inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '',
+          empty: 'Nothing needs you right now.',
         }),
         pulseCard({
           title: 'Deals in progress', count: d.deals == null ? '—' : d.deals.length,
+          tier: (d.deals && d.deals.length) ? 'feature' : 'standard',
           onclick: "engineTab('sales','desk')",
-          inner: d.deals == null ? '' : d.deals.slice(0, 5).map(x => {
+          inner: d.deals == null ? '' : (d.deals || []).slice(0, 6).map(x => {
             const customer = x.customer_name || x.contact_name;
             const vehicle = x.vehicle_label || x.vehicle;
-            // A blank customer_name is common at desking time — lead with the vehicle
-            // instead of a bare "Deal" repeated on every row with nothing to tell them apart.
             return pulseRow({
               badge: '$', label: customer || vehicle || 'Deal',
               sub: customer ? [vehicle, x.status].filter(Boolean).join(' · ') : x.status || '',
               onclick: "switchPage('desk')",
             });
-          }).join(''), empty: d.deals == null ? 'No permission to view deals.' : 'No deals in progress.',
-        }),
-        pulseCard({
-          title: "Today's videos sent", count: (d.videosToday || []).length,
-          onclick: "switchPage('video-studio')",
-          inner: (d.videosToday || []).slice(0, 5).map(v => pulseRow({
-            icon: v.first_played_at ? 'play' : 'chat', badgeTone: v.first_played_at ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-300',
-            label: v.contact_name, sub: v.vehicle, onclick: `openPublicVideoLink('${v.share_token}', '${v.contact_id}')`,
-          })).join(''), empty: 'No customer videos sent today.',
-        }),
-        pulseSearchCard({ title: 'Inventory', placeholder: 'Search inventory by year, make or model', onclick: "switchPage('inventory-overview')" }),
-        pulseCard({
-          title: 'Follow-up tasks', count: (d.tasks || []).length,
-          onclick: "engineTab('sales','work')",
-          inner: [
-            pulseRow({ badge: taskByType.lead_followup, label: 'New leads' }),
-            pulseRow({ badge: taskByType.appointment, label: 'Appointments' }),
-            pulseRow({ badge: taskByType.delivery_followup, label: 'Delivery follow-ups' }),
-            pulseRow({ badge: taskByType.other, label: 'Other follow-ups' }),
-          ].join(''),
-        }),
-        pulseCard({
-          title: 'Sales stats — last 30 days', tone: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
-          onclick: "openDeptReport('sales')",
-          inner: d.insights ? [
-            pulseRow({ badge: f.leads ?? '—', label: 'Leads' }),
-            pulseRow({ badge: f.appointments ?? '—', label: 'Appointments' }),
-            pulseRow({ badge: f.sold ?? '—', label: 'Sold', valueTone: 'text-emerald-600 dark:text-emerald-400' }),
-            f.leads && f.sold != null ? pulseRow({ badge: Math.round((f.sold / f.leads) * 100) + '%', label: 'Close rate' }) : '',
-          ].join('') : '', empty: 'Performance could not be loaded.',
+          }).join(''),
+          empty: d.deals == null ? 'No permission to view deals.' : 'No deals in progress.',
         }),
         pulseCard({
           title: "Today's appointments", count: todays.length,
-          onclick: "switchPage('appointments')",
+          tier: todays.length ? 'feature' : 'standard',
+          onclick: "engineTab('sales','appointments')",
           inner: todays.length ? todays.slice(0, 6).map(a => pulseRow({
-            icon: 'calendar', label: a.customer_name || 'Customer',
-            sub: [a.appointment_at ? new Date(a.appointment_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '', a.vehicle_label || a.vehicle, a.rep_name].filter(Boolean).join(' · '),
-            onclick: a.contact_id ? `openCrmContact('${a.contact_id}')` : "switchPage('appointments')",
-          })).join('') : '', empty: 'No appointments today.',
+            badge: new Date(a.appointment_at || a.when || a.scheduled_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+            label: a.customer_name || '—',
+            sub: [a.vehicle_label, a.rep_name].filter(Boolean).join(' · '),
+            onclick: a.contact_id ? `openCrmContact('${a.contact_id}')` : "engineTab('sales','appointments')",
+          })).join('') : '',
+          empty: 'No appointments today.',
         }),
         pulseCard({
-          title: 'Deliveries', count: d.deliveries == null ? '—' : d.deliveries.length,
-          onclick: "switchPage('delivery')",
-          inner: d.deliveries == null ? '' : d.deliveries.slice(0, 6).map(x => pulseRow({
-            icon: 'check', label: x.customer_name || x.contact_name || 'Delivery',
-            sub: [x.vehicle_label || x.vehicle, x.scheduled_for || x.status].filter(Boolean).join(' · '),
-            onclick: "switchPage('delivery')",
-          })).join(''), empty: d.deliveries == null ? 'Could not be loaded.' : 'Nothing is waiting to be delivered.',
-        }),
-        pulseCard({
-          title: 'Active opportunities', count: open.length,
+          title: 'New leads', count: newLeads.length,
+          tier: 'standard',
           onclick: "engineTab('sales','work')",
-          inner: open.length ? open.slice(0, 7).map(c => pulseRow({
-            badge: c.status === 'uncontacted' ? '!' : '#',
-            badgeTone: c.status === 'uncontacted' ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : undefined,
-            label: c.full_name || c.name || 'Customer',
-            sub: [c.status, c.vehicle_interest || c.vehicle, c.source].filter(Boolean).join(' · '),
+          inner: newLeads.length ? newLeads.slice(0, 5).map(c => pulseRow({
+            badge: '•', label: c.full_name || c.name || 'Lead', sub: c.status || '',
             onclick: c.id ? `openCrmContact('${c.id}')` : "engineTab('sales','work')",
-          })).join('') : '', empty: 'No open opportunities.',
+          })).join('') : '',
+          empty: 'No uncontacted leads.',
         }),
-        pulseLeaderboardCard(d.gamification, 'sales', { title: 'Sales leaderboard', metric: 'total_sold' }),
-        pulseLeaderboardCard(d.gamification, 'facebook', { title: 'Facebook Marketplace leaderboard' }),
-      ]);
+        pulseCard({
+          title: 'Overdue tasks', count: overdue.length,
+          tone: overdue.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
+          tier: 'standard',
+          onclick: "engineTab('sales','work')",
+          inner: overdue.length ? overdue.slice(0, 5).map(t => pulseRow({
+            badge: '!', label: t.title || t.type || 'Task',
+            sub: t.due_at ? new Date(t.due_at).toLocaleDateString() : '',
+            onclick: "engineTab('sales','work')",
+          })).join('') : '',
+          empty: 'No overdue tasks.',
+        }),
+        (typeof pulseLeaderboardCard === 'function'
+          ? pulseLeaderboardCard(d.gamification, 'sales', { title: 'Sales leaderboard', metric: 'deals_sold', tier: 'standard', limit: 8 })
+          : ''),
+        (typeof pulseLeaderboardCard === 'function'
+          ? pulseLeaderboardCard(d.gamification, 'facebook', { title: 'Facebook Marketplace', metric: 'score', tier: 'standard', limit: 6 })
+          : ''),
+        aiCard,
+      ].filter(Boolean);
 
-      // Pulse is the canonical at-a-glance view. The former dashboard repeated the
-      // same leads, appointments, deals, videos and leaderboards below this grid.
       body.innerHTML = `
-        ${pulseHeader('Sales Pulse', 'Your customers, appointments and deals — what needs you first')}
-        ${grid}`;
-      return;
-
-      const proactiveAiPanel = `
-        <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 ms-ai-panel text-white shadow-lg border border-slate-800">
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-sky-400">
-              <span>Proactive Sales &amp; F&amp;I AI Assistant</span>
-            </div>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">LIVE SALES TELEMETRY</span>
-          </div>
-          <div class="text-xs text-slate-300 space-y-1.5 mb-3">
-            <p>• <strong>Uncontacted Leads:</strong> ${newLeads.length ? `<span class="text-amber-300 font-bold">${newLeads.length} new internet lead(s) waiting over 15 minutes for rep contact.</span>` : 'All incoming internet leads have been contacted.'}</p>
-            <p>• <strong>Overdue Follow-Up Tasks:</strong> ${overdue.length ? `<span class="text-rose-400 font-bold">${overdue.length} scheduled customer task(s) are past due today!</span>` : 'No overdue customer tasks outstanding.'}</p>
-            <p>• <strong>Deals Pending F&amp;I Approval:</strong> ${(d.deals || []).length} active deal(s) currently awaiting desk &amp; lender submit.</p>
-            <p>• <strong>Today's Appointments:</strong> ${todays.length} showroom customer appointment(s) scheduled today.</p>
-          </div>
-          <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
-            <button onclick="engineTab('sales','work')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Prioritize Hot Leads</button>
-            <button onclick="engineTab('sales','desk')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Review Pending Deals</button>
-          </div>
-        </div>
+        ${pulseHeader('Sales Pulse', 'Customers, appointments and deals — what needs you first')}
+        ${pulseBoard(cards)}
       `;
+    },
 
+    work(body, d) {
+      const list = d.contacts || [];
+      const row = (c) => {
+        const name = c.full_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Customer';
+        const loc = [c.address, c.city, c.province, c.postal_code, c.country].filter(Boolean).join(' · ');
+        const bits = [c.email, c.phone || c.phone_mobile, loc].filter(Boolean).join(' · ');
+        return `<button type="button" onclick="openCrmContact('${c.id}')" class="w-full text-left px-4 py-3 border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition">
+          <div class="font-bold text-base text-slate-900 dark:text-white">${esc(name)}</div>
+          <div class="text-sm text-slate-600 dark:text-slate-400 truncate">${esc(bits || 'No contact details')}</div>
+        </button>`;
+      };
       body.innerHTML = `
-        ${pulseHeader('Sales Pulse', 'Your customers, appointments and deals — what needs you first')}
-        ${grid}
-
-        <div class="mt-5">${proactiveAiPanel}</div>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '', "engineTab('sales', 'work')")}
-          ${engKpi('New leads', newLeads.length, newLeads.length ? 'text-amber-600 dark:text-amber-400' : '', "salesWorkView('opportunities')")}
-          ${engKpi("Today's appointments", todays.length, '', "engineTab('sales', 'appointments')")}
-          ${engKpi('Overdue tasks', overdue.length, overdue.length ? 'text-rose-600 dark:text-rose-400' : '', "engineTab('sales', 'work')")}
+        ${typeof pulseHeader === 'function' ? pulseHeader('Customers', 'Your newest records. Search the store for anyone else.') : '<h1 class="text-2xl font-black mb-3">Customers</h1>'}
+        <div class="ms-c ms-c--glass p-4 mb-4">
+          <label for="sales-cust-q" class="block text-base font-black text-slate-900 dark:text-white mb-2">Search customers</label>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input id="sales-cust-q" type="search" placeholder="First name, last name, email, or phone" class="flex-1 min-w-0 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 text-base font-semibold text-slate-900 dark:text-white">
+            <button type="button" id="sales-cust-go" class="liquid-glass-btn rounded-xl text-base font-black px-5 py-3 shrink-0">Search</button>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-3">
+            <input id="sales-cust-address" type="search" placeholder="Street / city" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-900 dark:text-white">
+            <input id="sales-cust-province" type="search" placeholder="Province / state" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-900 dark:text-white">
+            <input id="sales-cust-postal" type="search" placeholder="Postal / ZIP" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-900 dark:text-white">
+            <input id="sales-cust-country" type="search" placeholder="Country" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-900 dark:text-white">
+          </div>
         </div>
-        ${salesPerformanceStrip(d)}
-        ${salesDealsAndDeliveries(d)}
-        <div class="mt-3">
-          ${salesTodayVideosCard(d)}
-        </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
-          ${engCard("Today's appointments", todays.length ? todays.map(a => `
-            <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-              <div class="text-[12px] font-bold text-slate-500 tabular-nums shrink-0">${esc(new Date(a.appointment_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}</div>
-              <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(a.customer_name || '—')}</div>
-                <div class="text-[12px] text-slate-400 truncate">${esc(a.vehicle_label || '')}${a.rep_name ? ` · ${esc(a.rep_name)}` : ''}</div></div>
-              <button onclick="${a.contact_id ? `openCrmContact('${a.contact_id}')` : `switchPage('appointments')`}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Open Customer</button>
-            </div>`).join('') : engEmpty('No appointments today.'))}
-          ${engCard('Active opportunities', open.length ? open.slice(0, 8).map(c => salesOppRow(c, d)).join('') : engEmpty('No open opportunities.'))}
+        <div id="sales-cust-results" class="ms-c ms-c--glass overflow-hidden">
+          ${list.length ? list.map(row).join('') : '<div class="p-6 text-base text-slate-600">No recent customers of yours yet. Search the store above.</div>'}
         </div>`;
+      window.__salesCustomerRow = row;
+      const bind = (id) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); salesSearchCustomers(); } });
+      };
+      ['sales-cust-q','sales-cust-address','sales-cust-province','sales-cust-postal','sales-cust-country'].forEach(bind);
+      document.getElementById('sales-cust-go')?.addEventListener('click', () => salesSearchCustomers());
     },
 
-    // ── CUSTOMERS — unified rich customer view with search, filters & actions ───
-    async work(body, d) {
-      if (typeof crmLoadContacts === 'function') {
-        await crmLoadContacts(body);
-      } else {
-        body.innerHTML = engCard('Customers', (d.contacts || []).slice(0, 50).map(c => salesOppRow(c, d)).join('') || engEmpty('No customers yet.'));
-      }
-    },
-
-    // ── DESK A DEAL ──────────────────────────────────────────────────────────
     desk(body, d) {
       if (typeof engMountPage === 'function') {
         engMountPage(body, 'desk', () => {
@@ -630,3 +598,31 @@ ENGINES['sales'] = {
 
 function loadSalesWorkspace() { renderEngine('sales'); }
 window.loadSalesWorkspace = loadSalesWorkspace;
+
+
+async function salesSearchCustomers() {
+  const q = document.getElementById('sales-cust-q')?.value.trim() || '';
+  const address = document.getElementById('sales-cust-address')?.value.trim() || '';
+  const province = document.getElementById('sales-cust-province')?.value.trim() || '';
+  const postal = document.getElementById('sales-cust-postal')?.value.trim() || '';
+  const country = document.getElementById('sales-cust-country')?.value.trim() || '';
+  const box = document.getElementById('sales-cust-results');
+  if (!box) return;
+  box.innerHTML = '<div class="p-6 text-sm text-slate-500">Searching…</div>';
+  const params = new URLSearchParams({ limit: '50' });
+  if (q) params.set('q', q);
+  if (address) params.set('address', address);
+  if (province) params.set('province', province);
+  if (postal) params.set('postal', postal);
+  if (country) params.set('country', country);
+  if (!q && !address && !province && !postal && !country) params.set('mine', '1');
+  try {
+    const d = await apiGetJson(`/crm/contacts?${params.toString()}`);
+    const rows = d.contacts || [];
+    const row = window.__salesCustomerRow || ((c) => `<div class="px-4 py-3 text-sm">${esc(c.full_name || '')}</div>`);
+    box.innerHTML = rows.length ? rows.map(row).join('') : '<div class="p-6 text-sm text-slate-500">No matching customers.</div>';
+  } catch (e) {
+    box.innerHTML = `<div class="p-6 text-sm text-rose-500">${esc(e.message || 'Search failed')}</div>`;
+  }
+}
+window.salesSearchCustomers = salesSearchCustomers;

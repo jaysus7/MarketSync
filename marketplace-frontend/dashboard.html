@@ -23,15 +23,13 @@
   <title>DealerOS by MarketSync · Dashboard</title>
   <link rel="preconnect" href="https://api.fontshare.com">
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260825_pulse_wide_restored_v1">
+  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260826_type_16_v1">
   <link rel="stylesheet" href="css/dashboard-nav.css">
   <link rel="stylesheet" href="css/dashboard-brand-repaint.css">
   <link rel="stylesheet" href="css/tailwind-built.css?v=20260825_header_spacing_v1">
-  <link rel="stylesheet" href="css/ms-design-system.css?v=20260825_ds_phase1_v1">
+  <link rel="stylesheet" href="css/ms-design-system.css?v=20260826_type_16_v1">
   <meta name="color-scheme" content="light dark">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@simplewebauthn/browser@11/dist/bundle/index.umd.min.js"></script>
+  <!-- Chart.js / QR / WebAuthn load on demand via msLoadScript — they blocked first paint when in <head>. -->
   <script src="password-toggle.js" defer></script>
   <style>
     /* Role-gated UI (dealer/admin/team links) stays hidden until the signed-in
@@ -189,9 +187,16 @@
        dashboard mode so the visible MarketSync mark—not its empty image box—is large. */
     #dashboard-brand{width:15rem;height:4rem;overflow:hidden;position:relative}
     #dashboard-brand img[alt="MarketSync DealerOS"]{position:absolute;width:17rem!important;height:auto!important;max-width:none;left:-1.45rem;top:-4.35rem}
+    /* Phone crop. These numbers are derived from the logos' measured ink box, not
+       tuned by eye: both PNGs are 1536x1024 with visible ink spanning x 8.7%..91.3%
+       (Logo 2.0) / 7.2%..89.7% (Logo 2.1) and y 38.7%..61.2%. The previous crop
+       used a 13rem image in a 10.5rem box, which needs 10.77rem of width for the
+       ink — so the last ~4px of "MarketSync" was cut off mid-letter, and the Demo
+       pill sitting immediately after read as if it were overlapping the logo.
+       12.2rem keeps BOTH logos' ink inside the box with ~0.2rem to spare. */
     @media (max-width:639px){
       #dashboard-brand{width:10.5rem;height:3.25rem}
-      #dashboard-brand img[alt="MarketSync DealerOS"]{width:13rem!important;left:-1.1rem;top:-3.33rem}
+      #dashboard-brand img[alt="MarketSync DealerOS"]{width:12.2rem!important;left:-0.85rem;top:-2.44rem}
     }
     html[data-dash-mode="marketsync"] #ui-role-pill{font-size:0;background:#0b2a50!important;border-color:#2563eb!important;color:#bfdbfe!important;padding:.4rem .65rem}
     html[data-dash-mode="marketsync"] #ui-role-pill::after{content:"MARKETSYNC INTERNAL";font-size:.75rem;font-weight:800;letter-spacing:.08em}
@@ -326,8 +331,48 @@
     }
     /* Workforce time clock is a DealerOS Complete entitlement. Keep it out of the
        shell until the authenticated access context proves this account owns Complete. */
+
+    [data-page-content="desk"] {
+      color: #0f172a;
+    }
+    [data-page-content="desk"] input,
+    [data-page-content="desk"] select,
+    [data-page-content="desk"] textarea {
+      background: #fff !important;
+      color: #0f172a !important;
+      border-color: #cbd5e1 !important;
+    }
+    html.dark [data-page-content="desk"] input,
+    html.dark [data-page-content="desk"] select,
+    html.dark [data-page-content="desk"] textarea {
+      background: #0f172a !important;
+      color: #f8fafc !important;
+      border-color: #475569 !important;
+    }
+
+    [data-engine-mount="inv-intel"] > [data-page-content="inv-intel"] > .ms-c--feature:first-of-type { display: none !important; }
+    [data-engine-mount="inv-intel"] > [data-page-content="inv-intel"] { padding: 0 !important; margin: 0 !important; }
+
+    [data-page-content="recon"] { gap: 1.25rem; }
+    [data-page-content="recon"] .ms-engine-header { margin-bottom: .25rem; }
+    [data-page-content="recon"] .ms-engine-tabs { margin: .25rem 0 .75rem; }
+    [data-page-content="recon"] #recon-root { display: flex; flex-direction: column; gap: 1.25rem; padding-bottom: 2.5rem; }
+    [data-page-content="recon"] .ms-board { gap: 1.25rem; }
     #header-shift-clock-wrapper { display: none !important; }
     #header-shift-clock-wrapper.ms-timeclock-entitled { display: inline-block !important; }
+    @media (max-width: 639px) {
+      #header-shift-dropdown {
+        position: fixed !important;
+        left: 12px !important;
+        right: 12px !important;
+        top: 58px !important;
+        width: auto !important;
+        max-width: none !important;
+        max-height: calc(100dvh - 72px);
+        overflow-y: auto;
+        z-index: 60 !important;
+      }
+    }
     /* Never paint a legacy/default page while access context and the workspace
        registry are still deciding the one canonical destination. JS removes this
        class only after product gates + department nav + final route are settled. */
@@ -374,7 +419,7 @@
         </button>
 
         <!-- Punch Clock Dropdown Menu -->
-        <div id="header-shift-dropdown" class="hidden absolute left-0 mt-2 w-80 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-4 z-50 space-y-3 text-xs">
+        <div id="header-shift-dropdown" class="hidden absolute left-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))] max-w-[calc(100vw-1.5rem)] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-4 z-50 space-y-3 text-xs">
           <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
             <div class="font-black text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">Employee Punch Attendance</div>
             <span id="shift-dropdown-status-badge" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-600">Clocked Out</span>
@@ -1393,7 +1438,7 @@
     <section class="w-full md:col-span-1 min-w-0 flex-1 md:flex-none min-h-0 overflow-y-auto overflow-x-hidden md:h-full md:overflow-y-auto md:overflow-x-hidden">
       <!-- Full-width scroll region (scrollbar hugs the screen edge); an inner
            wrapper caps the readable content width so nothing sprawls edge-to-edge. -->
-      <div class="w-full pt-1 pb-4">
+      <div class="w-full pt-1 pb-24">
 
       <!-- Department tab-bar — when the active page belongs to a multi-page
            department (Sales, Service, …), its sibling pages appear here as tabs.
@@ -1428,6 +1473,7 @@
         <div id="settings-tabs" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none -mx-1 px-1">
           <button data-stab="account" onclick="settingsTab('account')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">My Account</button>
           <button data-stab="admin" data-admin-only onclick="settingsTab('admin')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Administration</button>
+          <button data-stab="team_chat" data-admin-only onclick="settingsTab('team_chat')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Team Chat</button>
           <button data-stab="hr" data-admin-only onclick="settingsTab('hr')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">HR &amp; Compliance</button>
           <button data-stab="sales" data-admin-only onclick="settingsTab('sales')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Sales</button>
           <button data-stab="marketing" data-admin-only onclick="settingsTab('marketing')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Marketing</button>
@@ -1461,6 +1507,20 @@
              bare, full-width wrapper so that panel (and the owner SaaS-roles panel)
              has a home without nesting a card inside a card. -->
         <div id="settings-team" data-stab-panel="team" data-full-width="true" class="break-inside-avoid mb-5"></div>
+
+        <div id="settings-team-chat-card" data-admin-only class="stab-hide bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 break-inside-avoid mb-5 shadow-xs">
+          <div class="flex items-start justify-between gap-3 mb-1">
+            <div>
+              <h2 class="text-lg font-bold text-slate-900 dark:text-white">Team Chat</h2>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Internal messaging for this dealership. Conversations stay in MarketSync and auto-delete after 90 days.</p>
+            </div>
+            <button type="button" onclick="openTeamChatWidget()" class="shrink-0 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800">Open chat</button>
+          </div>
+          <div id="team-chat-settings-root" class="mt-4 space-y-4">
+            <div class="text-sm text-slate-400 italic">Loading…</div>
+          </div>
+        </div>
+
 
         <!-- CRM / DMS connection (ADF lead delivery & DMS Sync) -->
         <div id="crm-dms-card" data-admin-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 break-inside-avoid mb-5 shadow-xs">
@@ -1996,13 +2056,21 @@
       <div data-page-content="inventory" class="page-content hidden space-y-8">
 
 
-      <div id="feeds-panel" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
-        <div class="flex flex-wrap justify-between items-start mb-4 gap-3">
-          <div>
-            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Inventory Source &amp; Feeds</h2>
-            <p class="text-slate-500 dark:text-slate-400 text-xs">Connect your dealership website or inventory feed URL to sync vehicles for 1-click Facebook posting.</p>
+      <div id="feeds-panel" class="hidden ms-glass rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/85 dark:bg-slate-900/75 p-4 shadow-sm space-y-3">
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0 flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-[#1877F2]/10 text-[#1877F2] border border-[#1877F2]/25 flex items-center justify-center flex-shrink-0">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M22 12.07C22 6.48 17.52 2 11.93 2S2 6.48 2 12.07c0 5.02 3.66 9.18 8.44 9.93v-7.02H7.9v-2.91h2.54V9.84c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.87h2.78l-.44 2.91h-2.34V22c4.78-.75 8.44-4.91 8.44-9.93z"/></svg>
+            </div>
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <h2 class="text-base font-black text-slate-900 dark:text-white tracking-tight leading-none">Facebook Marketplace</h2>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#1877F2]/10 text-[#1877F2] border border-[#1877F2]/25">Auto Poster</span>
+              </div>
+              <p class="hidden fb-hero-copy text-xs text-slate-500 dark:text-slate-400 mt-1">Connect a feed and post with one click.</p>
+            </div>
           </div>
-          <button id="sync-now-btn" data-admin-only class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition whitespace-nowrap">
+          <button id="sync-now-btn" data-admin-only class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black px-4 py-2 rounded-xl transition whitespace-nowrap shadow-md flex-shrink-0">
             Sync Now
           </button>
         </div>
@@ -2359,9 +2427,9 @@
       <!-- ── Inventory Intelligence Page ───────────────────────────────────── -->
       <!-- ───────── MARKET & COMPETITORS PAGE (Inventory Intelligence) ───────── -->
       <div data-page-content="market" class="page-content hidden space-y-6">
-        <div>
-          <h1 class="text-2xl font-black text-slate-900 dark:text-white">Market &amp; Competitors</h1>
-          <p class="text-sm text-slate-500 dark:text-slate-400">Live market snapshots and nearby-lot pricing — part of Inventory Intelligence.</p>
+        <div class="ms-c ms-c--glass ms-c--feature p-5">
+          <h1 class="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Market &amp; Competitors</h1>
+          <p class="text-sm text-slate-600 dark:text-slate-300 mt-1">Live market snapshots and nearby-lot pricing.</p>
         </div>
         <div id="market-upsell" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 text-sm text-slate-500 dark:text-slate-400">Market &amp; Competitors is part of <span class="font-bold text-slate-700 dark:text-slate-200">Inventory Intelligence</span>. Activate it to track nearby lots and pull live market snapshots.</div>
         <div id="market-content" class="space-y-6">
@@ -2434,13 +2502,15 @@
       <div data-page-content="inv-intel" class="page-content hidden space-y-6 ms-inventory-intelligence">
 
         <!-- Header -->
-        <div class="flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <svg class="w-5 h-5 text-violet-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
-              Intelligence by MarketSync
-            </h2>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Inventory Intelligence for your lot: turn rate, health scores, vehicle gaps, and approved actions.</p>
+        <div class="ms-c ms-c--glass ms-c--feature p-5 mb-2">
+          <div class="flex items-start gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 flex items-center justify-center flex-shrink-0">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
+            </div>
+            <div class="min-w-0">
+              <h2 class="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Inventory Intelligence</h2>
+              <p class="text-sm text-slate-600 dark:text-slate-300 mt-1">Turn rate, lot health, vehicle gaps, market position, and approved actions.</p>
+            </div>
           </div>
         </div>
 
@@ -2909,11 +2979,24 @@
       </div>
 
       <!-- Email & SMS Automation Engine -->
-      <div data-page-content="automation-builder" class="page-content hidden space-y-6">
-        <div>
-          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">Campaigns and Automations</h2>
-          <p class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mt-1">Automated lead response, service retention, reviews, and visual workflow journeys.</p>
-        </div>
+      <div data-page-content="automation-builder" class="page-content hidden space-y-6 md:space-y-8">
+        <section class="ms-glass rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/85 dark:bg-slate-900/75 p-7 md:p-9 shadow-sm">
+          <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div class="min-w-0 flex items-start gap-4">
+              <div class="w-14 h-14 rounded-2xl bg-indigo-600/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/25 flex items-center justify-center flex-shrink-0">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+              </div>
+              <div class="min-w-0">
+                <h2 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-none">Email, SMS &amp; Campaigns</h2>
+                <p class="text-base text-slate-600 dark:text-slate-300 mt-2 max-w-3xl leading-relaxed">Automations and broadcasts — lead response, service retention, reviews, and journeys.</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap shrink-0">
+              <button type="button" onclick="typeof openVisualWorkflowBuilder==='function' && openVisualWorkflowBuilder()" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black shadow-md">Build Automation</button>
+              <button type="button" onclick="typeof openEmailSmsBuilder==='function' && openEmailSmsBuilder({mode:'email'})" class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-sm font-black">New Campaign</button>
+            </div>
+          </div>
+        </section>
         <div id="auto-builder-metrics"></div>
         <div id="auto-builder-tabs" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 flex-wrap"></div>
         <div id="auto-leads-root" class="space-y-6 hidden"><div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div></div>
@@ -2988,13 +3071,13 @@
           </button>
         </div>
 
-        <!-- Appraisal flow (3-column workflow) on the left; Appraisals list pinned right on wide screens -->
-        <div class="grid gap-6 items-start xl:grid-cols-[minmax(0,1fr)_340px]">
+        <!-- Appraisal flow on the left; Appraisals list pinned right on wide screens (stacks under form when space is tight / engine-mounted) -->
+        <div class="grid gap-6 items-start xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
           <div class="space-y-6 min-w-0">
 
         <!-- Appraisal workflow — three columns: Vehicle & VIN · Condition & Appraisal · Market & Value.
              One column on mobile, two on tablet, three on desktop; no control is ever squeezed. -->
-        <div class="grid gap-4 items-start md:grid-cols-2 xl:grid-cols-3">
+        <div class="grid gap-4 items-start md:grid-cols-2">
 
         <!-- Column / Card 1 — Vehicle & VIN -->
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
@@ -3097,8 +3180,8 @@
 
         </div>
 
-        <!-- Column / Card 3 — Market & Value -->
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+        <!-- Market & Value — full width under vehicle/condition (avoids empty third column) -->
+        <div class="md:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
           <div class="flex items-center gap-2"><span class="w-1.5 h-4 rounded-full bg-emerald-500 flex-shrink-0"></span><h3 class="text-sm font-bold text-slate-900 dark:text-white">Market &amp; Value</h3></div>
           <p class="text-xs text-slate-500 dark:text-slate-400">Live retail comps and a suggested cash/trade offer from MarketCheck.</p>
           <button id="appr-run" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-5 py-2.5 rounded-lg transition">Appraise</button>
@@ -3344,12 +3427,12 @@
   <div id="setup-status-banner" onclick="switchPage('launch')" role="button" tabindex="0" aria-label="Finish dealership setup" class="hidden fixed bottom-0 inset-x-0 z-30 px-3 pb-3 cursor-pointer"></div>
 
   <!-- ── Floating Intelligence Assistant (Bottom Right) ── -->
-  <button id="ai-dock-btn" onclick="toggleAiDock()" type="button" aria-label="Intelligence" class="fixed bottom-5 right-5 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm pl-4 pr-5 py-3 rounded-full shadow-lg shadow-indigo-600/40 transition">
+  <button id="ai-dock-btn" onclick="toggleAiDock()" type="button" aria-label="Intelligence" style="bottom:max(1.25rem,env(safe-area-inset-bottom));right:1.25rem" class="fixed bottom-5 right-5 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm pl-4 pr-5 py-3 rounded-full shadow-lg shadow-indigo-600/40 transition">
     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z"/></svg>
     <span id="ai-dock-btn-label">Intelligence</span>
   </button>
 
-  <div id="ai-dock-panel" class="hidden fixed z-50 bottom-4 right-4 left-4 sm:left-auto sm:w-[390px] max-h-[calc(100dvh-2rem)] h-[560px] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+  <div id="ai-dock-panel" class="hidden fixed z-50 bottom-5 right-5 left-4 sm:left-auto sm:w-[390px] max-h-[calc(100dvh-2rem)] h-[560px] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
     <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
       <div class="flex items-center gap-2 min-w-0">
         <span class="flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-600 text-white flex-shrink-0">
@@ -3371,7 +3454,7 @@
     </div>
     <div id="ai-dock-messages" class="flex-1 overflow-y-auto px-3.5 py-3 space-y-3 text-sm"></div>
     <div id="ai-dock-file-status" class="hidden border-t border-slate-200 dark:border-slate-800 px-3 py-2 text-xs text-slate-600 dark:text-slate-300 bg-indigo-50 dark:bg-indigo-950/30"></div>
-    <form id="ai-dock-form" onsubmit="sendAiDockMessage(event)" class="border-t border-slate-200 dark:border-slate-800 p-2.5 flex items-end gap-2">
+    <form id="ai-dock-form" class="border-t border-slate-200 dark:border-slate-800 p-2.5 flex items-end gap-2">
       <input id="ai-dock-file" type="file" accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.txt,.md,.csv,.json,.rtf" class="hidden">
       <button id="ai-dock-attach" type="button" title="Attach a document" class="flex-shrink-0 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition" aria-label="Attach document">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m20.5 11.5-8.8 8.8a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>
@@ -3384,7 +3467,7 @@
   </div>
 
   <!-- ── Google Hangouts style Team Messaging Widget Panel ── -->
-  <div id="team-chat-dock-panel" class="hidden fixed z-50 bottom-4 left-4 right-4 sm:right-auto sm:w-[380px] max-h-[calc(100dvh-2rem)] h-[560px] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+  <div id="team-chat-dock-panel" class="hidden team-chat-dock-panel flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
     <!-- View 1: Roster View -->
     <div id="widget-roster-view" class="flex flex-col h-full">
       <div class="p-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-between">
@@ -3901,56 +3984,50 @@
   <!-- Workspace registry: SINGLE SOURCE OF TRUTH for sidebar, workspace tabs and
        mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
   <script src="js/modules/workspace-registry.js?v=20260824_inventory_accuracy_v1"></script>
-  <script src="dashboard.js?v=20260825_dealeros_chat_v4"></script>
-  <script src="js/modules/dashboard-part2.js?v=20260825_internal_ops_v1"></script>
+  <script src="dashboard.js?v=20260826_perf_b1"></script>
+  <script src="js/modules/dashboard-part2.js?v=20260826_perf_b1"></script>
   <script src="js/modules/dashboard-part3.js?v=20260814_v12"></script>
-  <script src="js/modules/dashboard-part4.js?v=20260824_glass_modal_v1"></script>
-  <script src="js/modules/dashboard-part5.js?v=20260824_mobile_menu_signout_v1"></script>
-  <script src="js/modules/dashboard-part6.js?v=20260814_v12"></script>
+  <script src="js/modules/dashboard-part4.js?v=20260826_crm_no_double_v1"></script>
+  <script src="js/modules/dashboard-part5.js?v=20260826_single_prod_nav_v1"></script>
+  <script src="js/modules/dashboard-part6.js?v=20260826_desk_glass_v1"></script>
   <script src="js/modules/dashboard-part7.js?v=20260814_v12"></script>
-  <script src="js/modules/dashboard-part8.js?v=20260818_videostaff_v2"></script>
+  <script src="js/modules/dashboard-part8.js?v=20260826_team_chat_settings_v1"></script>
   <script src="js/modules/dashboard-part9.js?v=20260825_settings_masonry_v1"></script>
-  <script src="js/modules/dashboard-part10.js?v=20260825_pulse_wide_restored_v1"></script>
-  <script src="js/modules/dashboard-part11.js?v=20260825_daily_focus_v2"></script>
-  <script src="js/modules/dashboard-part12.js?v=20260814_v12"></script>
-  <script src="js/modules/dashboard-part13.js?v=20260824_ai_panel_contrast_v1"></script>
+  <script src="js/modules/dashboard-part10.js?v=20260826_fb_poster_first_v1"></script>
+  <script src="js/modules/dashboard-part11.js?v=20260825_mobile_polish_v1"></script>
+  <script src="js/modules/dashboard-part12.js?v=20260825_deep_links_v1"></script>
+  <script src="js/modules/dashboard-part13.js?v=20260826_comm_teams_rail_v1"></script>
   <script src="js/modules/dashboard-part14.js?v=20260824_staff_password_css_v1"></script>
-  <script src="js/modules/dashboard-part15.js?v=20260814_v12"></script>
+  <script src="js/modules/dashboard-part15.js?v=20260826_cleanup_pulse_v1&x=20260814_v12"></script>
   <script src="js/modules/dashboard-part16.js?v=20260814_v12"></script>
-  <script src="js/modules/dashboard-part17.js?v=20260825_builder_click_edit_v1"></script>
-  <script src="js/modules/dashboard-part18.js?v=20260824_digital_restore_v1"></script>
-  <script src="js/modules/dashboard-part19.js?v=20260814_v12"></script>
+  <script src="js/modules/dashboard-part17.js?v=20260826_ws_builder_btn_v1"></script>
+  <script src="js/modules/dashboard-part18.js?v=20260826_catalog_null_v1"></script>
+  <script src="js/modules/dashboard-part19.js?v=20260826_catalog_null_v1"></script>
   <script src="js/modules/dashboard-part20.js?v=20260824_inventory_accuracy_v1"></script>
   <script src="js/modules/dashboard-part21.js?v=20260824_inventory_accuracy_v1"></script>
-  <script src="js/modules/dashboard-part22.js?v=20260824_inventory_accuracy_v2"></script>
-  <script src="js/modules/dashboard-part23.js?v=20260825_intelligence_name_v2"></script>
+  <script src="js/modules/dashboard-part22.js?v=20260825_dead_handlers_v1"></script>
+  <script src="js/modules/dashboard-part23.js?v=20260826_chat_dock_right_v1"></script>
   <script src="js/modules/dashboard-part24.js?v=20260814_v12"></script>
-  <script src="js/modules/dashboard-part25.js?v=20260817_punchclock_v1"></script>
+  <script src="js/modules/dashboard-part25.js?v=20260826_clock_mobile_v1"></script>
   <script src="js/modules/dashboard-part26.js?v=20260824_staff_password_css_v1"></script>
   <!-- Sales workspace: registers ENGINES['sales']; must load after the parts. -->
-  <script src="js/modules/sales-workspace.js?v=20260824_pulse_cleanup_v2"></script>
-  <script src="js/modules/inventory-workspace.js?v=20260824_ai_panel_contrast_inventory_v2"></script>
-  <script src="js/modules/fni-workspace.js?v=20260824_pulse_cleanup_v2"></script>
+  <script src="js/modules/sales-workspace.js?v=20260826_cust_search_v2"></script>
+  <script src="js/modules/inventory-workspace.js?v=20260826_inv_intel_pulse_v1"></script>
+  <script src="js/modules/fni-workspace.js?v=20260826_pulse_clean_v2"></script>
   <!-- Vehicle Record: one unit, one surface. Loads after inventory-workspace.js,
        whose merchandising/acquisition definitions it renders. -->
   <script src="js/modules/vehicle-record.js?v=20260824_inventory_accuracy_v1"></script>
   <script src="js/modules/receipt-engine.js?v=20260824_real_receipt_data_v1"></script>
-  <script src="js/modules/video-studio.js?v=20260824_no_hardcoded_videos_digital_restore_v1"></script>
   <script src="js/modules/service-views.js?v=20260824_ai_panel_contrast_v1"></script>
-  <script src="js/modules/service-workspace.js?v=20260824_pulse_cleanup_v2"></script>
-  <script src="js/modules/parts-views.js?v=20260824_ai_panel_contrast_v1"></script>
-  <script src="js/modules/parts-workspace.js?v=20260824_pulse_cleanup_v2"></script>
+  <script src="js/modules/service-workspace.js?v=20260826_pulse_clean_v2"></script>
+  <script src="js/modules/parts-views.js?v=20260825_dead_handlers_v1"></script>
+  <script src="js/modules/parts-workspace.js?v=20260826_pulse_appr_v4"></script>
   <script src="js/modules/accounting-views.js?v=20260817_simple_internal"></script>
-  <script src="js/modules/accounting-workspace.js?v=20260824_department_header_v1"></script>
-  <script src="js/modules/studio/scene-model.js?v=20260814_v12"></script>
-  <script src="js/modules/studio/fabric-adapter.js?v=20260818_fontfamily_v1"></script>
-  <script src="js/modules/studio/studio-scheduler.js?v=20260824_scheduler_standalone_v1"></script>
-  <script src="js/modules/studio/studio-shell.js?v=20260824_scheduler_standalone_v1"></script>
-  <script src="js/modules/marketing-workspace.js?v=20260825_connected_pulse_v2"></script>
-  <script src="js/modules/academy-workspace.js?v=20260814_v12"></script>
+  <script src="js/modules/accounting-workspace.js?v=20260826_dept_pulse_board_v1"></script>
+  <script src="js/modules/marketing-workspace.js?v=20260826_fb_poster_first_v1"></script>
   <script src="js/modules/launch-workspace.js?v=20260824_ai_panel_contrast_v1"></script>
   <script src="js/modules/people-views.js?v=20260824_ai_panel_contrast_v1"></script>
-  <script src="js/modules/people-workspace.js?v=20260824_no_fake_stat_fallbacks_v1"></script>
+  <script src="js/modules/people-workspace.js?v=20260826_dept_pulse_board_v1"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
@@ -3958,8 +4035,11 @@
     };
   </script>
   <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async></script>
-  <script src="js/modules/staff-chat-dock.js?v=20260825_dealeros_chat_v7"></script>
-  <script src="js/modules/demo-control-panel.js?v=20260821_campaign_email_v1"></script>
+  <script src="js/modules/staff-chat-dock.js?v=20260826_team_chat_settings_v1"></script>
+  <script src="js/modules/demo-control-panel.js?v=20260826_no_mkt_flash_v1"></script>
   <script src="table-sort.js?v=20260706a_noemoji"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@simplewebauthn/browser@11/dist/bundle/index.umd.min.js" defer></script>
 </body>
 </html>

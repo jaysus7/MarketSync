@@ -111,6 +111,27 @@ Object.assign(window, { loadApiKeys, apiGenerateKey, apiRevokeKey });
 
 // ══ AI Employee — AI Chatbot product home (conversations feed + knowledge & setup) ══
 let __aiHomeTab = 'conversations';
+
+function aiAgentHeader({ title = 'AI Customer Agent', sub = '', live = null, name = '' } = {}) {
+  const badge = live == null ? '' : (live
+    ? `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Live${name ? ' · ' + esc(name) : ''}</span>`
+    : `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Offline</span>`);
+  return `<section class="ms-glass rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/85 dark:bg-slate-900/75 p-5 md:p-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between shadow-sm">
+    <div class="min-w-0 flex items-start gap-3.5">
+      <div class="w-12 h-12 rounded-2xl bg-violet-600/10 text-violet-700 dark:text-violet-300 border border-violet-500/25 flex items-center justify-center flex-shrink-0">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/></svg>
+      </div>
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <h2 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">${esc(title)}</h2>
+          ${badge}
+        </div>
+        ${sub ? `<p class="text-sm text-slate-600 dark:text-slate-300 mt-1 max-w-2xl leading-relaxed">${sub}</p>` : ''}
+      </div>
+    </div>
+  </section>`;
+}
+
 async function loadAiHome(tab) {
   const root = document.getElementById('ai-home-root');
   if (!root) return;
@@ -129,9 +150,13 @@ async function loadAiHome(tab) {
 
 async function aiHomeCombinedSetup(body) {
   body.innerHTML = `
-    <div class="space-y-8 max-w-6xl">
+    <div class="space-y-6 md:space-y-8 max-w-7xl">
+      ${aiAgentHeader({
+        title: 'AI Customer Agent',
+        sub: 'Scan your site, pick an industry package, set the role persona, and fill the knowledge base the agent answers from.',
+      })}
       <div id="ai-setup-kb-wrapper"></div>
-      <div id="ai-setup-settings-wrapper" class="pt-6 border-t border-slate-200 dark:border-slate-800"></div>
+      <div id="ai-setup-settings-wrapper" class="pt-2"></div>
     </div>
   `;
   const kbW = document.getElementById('ai-setup-kb-wrapper');
@@ -169,13 +194,13 @@ async function aiHomeOverviewAndFeed(body) {
   `;
 
   const insights = `
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
       ${tile('Conversations', s.conversations, 'text-emerald-600 dark:text-emerald-400')}
       ${tile('Leads Captured', s.leads_captured)}
       ${tile('Appointments Booked', s.booked, 'text-emerald-600 dark:text-emerald-400')}
       ${tile('Hot Leads', s.hot_leads, 'text-rose-600 dark:text-rose-400')}
     </div>
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
       ${tile('Sales', byDept.sales, 'text-emerald-600 dark:text-emerald-400')}
       ${tile('Service', byDept.service, 'text-sky-600 dark:text-sky-400')}
       ${tile('Parts', byDept.parts, 'text-amber-600 dark:text-amber-400')}
@@ -213,20 +238,23 @@ async function aiHomeOverviewAndFeed(body) {
   const sel = 'px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px] font-semibold';
 
   body.innerHTML = `
-    <div class="mb-4 flex items-center gap-2 rounded-xl border ${chatbot.active ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30' : 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30'} px-4 py-3">
-      <span class="w-2.5 h-2.5 rounded-full ${chatbot.active ? 'bg-emerald-500' : 'bg-amber-500'}"></span>
-      <span class="text-sm font-bold text-slate-800 dark:text-slate-100">${chatbot.active ? 'Chatbot is live' : 'Chatbot is not live'}</span>
-      <span class="text-xs text-slate-500 dark:text-slate-400">${chatbot.assistant_name ? '· ' + esc(chatbot.assistant_name) : '· Set your assistant name in Setup'}</span>
-    </div>
+    <div class="space-y-6 md:space-y-8">
+    ${aiAgentHeader({
+      title: 'AI Customer Agent',
+      sub: '24/7 website and messaging agent — conversations, leads, and handoffs in one pulse.',
+      live: !!chatbot.active,
+      name: chatbot.assistant_name || '',
+    })}
 
-    ${insights}
-
-    <div class="grid md:grid-cols-2 gap-3 mb-6">
-      ${breakdown('By department', byDept, AI_DEPT_LABELS, 'bg-emerald-500')}
-      ${breakdown('By lead type', byType, AI_TYPE_LABELS, 'bg-indigo-500')}
-    </div>
-
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4">
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-5 md:gap-6 items-start">
+      <div class="xl:col-span-5 space-y-4 min-w-0">
+        ${insights}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          ${breakdown('By department', byDept, AI_DEPT_LABELS, 'bg-emerald-500')}
+          ${breakdown('By lead type', byType, AI_TYPE_LABELS, 'bg-indigo-500')}
+        </div>
+      </div>
+      <div class="xl:col-span-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4 min-w-0">
       <div class="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 class="text-base font-black text-slate-900 dark:text-white uppercase tracking-wider">AI Leads &amp; Conversations</h2>
@@ -242,6 +270,8 @@ async function aiHomeOverviewAndFeed(body) {
       </div>
 
       <div id="ai-feed-list"><div class="text-sm text-slate-400 py-6 text-center">Loading feed…</div></div>
+    </div>
+    </div>
     </div>
   `;
 
@@ -414,29 +444,25 @@ async function aiHomeKnowledge(body) {
 
   body.innerHTML = `
     <div class="space-y-6">
-      <!-- Instant Website Scan & Auto-Fill ("Scan & Paste") Card -->
-      <div class="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-950 border border-indigo-500/30 rounded-2xl p-5 text-white space-y-3 shadow-lg">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6 items-stretch">
+      <!-- Instant Website Scan — full width -->
+      <div class="md:col-span-2 xl:col-span-3 ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-3 shadow-sm">
         <div class="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h3 class="text-base font-black text-white flex items-center gap-2">
-              <span>Instant Website Scan &amp; Auto-Fill ("Scan &amp; Paste")</span>
-            </h3>
-            <p class="text-xs text-slate-300">Enter your current website URL to scan and automatically import your store info, hours, services, and FAQs into your AI Knowledge Base and Website Builder template.</p>
+            <h3 class="text-base font-black text-slate-900 dark:text-white tracking-tight">Instant Website Scan &amp; Auto-Fill</h3>
+            <p class="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">Scan your current site to import store info, hours, services, and FAQs into the knowledge base and website template.</p>
           </div>
-          <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">1-CLICK SCAN &amp; PASTE</span>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30">1-click scan</span>
         </div>
-
         <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap pt-1">
-          <input id="ai-scan-url-input" type="url" placeholder="Enter website URL (e.g. https://www.yourdealership.com)..." class="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-700 bg-slate-950 text-xs font-bold text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
-          <button onclick="aiRunWebsiteScan(this)" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shrink-0 shadow-md cursor-pointer">
-            Scan Website
-          </button>
+          <input id="ai-scan-url-input" type="url" placeholder="https://www.yourdealership.com" class="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500">
+          <button onclick="aiRunWebsiteScan(this)" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shrink-0 shadow-md cursor-pointer">Scan Website</button>
         </div>
         <div id="ai-scan-results-container"></div>
       </div>
 
-      <!-- Industry Package Selection -->
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-3">
+      <!-- Industry Package Selection — full width -->
+      <div class="md:col-span-2 xl:col-span-3 ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-3">
         <div class="flex items-center justify-between">
           <div>
             <h3 class="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">Select Industry Package</h3>
@@ -450,24 +476,22 @@ async function aiHomeKnowledge(body) {
       </div>
 
       <!-- AI Role Persona & Goals -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-3">
-          <label class="block text-xs font-black uppercase tracking-wider text-slate-400">AI Employee Role Persona</label>
+      <div class="md:col-span-1 xl:col-span-1 ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-3">
+          <label class="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-400">AI Employee Role Persona</label>
           <select id="ai-role-select" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
             ${roleOptions}
           </select>
         </div>
 
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-3">
-          <label class="block text-xs font-black uppercase tracking-wider text-slate-400">AI Employee Goals</label>
+      <div class="md:col-span-1 xl:col-span-2 ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-3">
+          <label class="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-400">AI Employee Goals</label>
           <div class="flex flex-wrap gap-1.5">
             ${goalCheckboxes}
           </div>
         </div>
-      </div>
 
-      <!-- Dynamic Knowledge Base Sections -->
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4">
+      <!-- Dynamic Knowledge Base Sections — full width -->
+      <div class="md:col-span-2 xl:col-span-3 ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-4">
         <div class="flex items-center justify-between">
           <div>
             <h3 class="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">Business Knowledge Base</h3>
@@ -484,6 +508,7 @@ async function aiHomeKnowledge(body) {
           <button type="button" onclick="aiHomeSaveKnowledge()" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition shadow-sm">Save Knowledge Base &amp; Setup</button>
         </div>
       </div>
+    </div>
     </div>
   `;
 }
@@ -755,10 +780,43 @@ if (typeof window !== 'undefined') {
 }
 
 // Shared building blocks so every engine's tabs look identical.
+// A tone is an alert, and an alert about nothing is noise. Callers pass a fixed
+// tone per metric — Expenses MTD is always amber — so a store with no expenses
+// showed "$0" in warning amber, and a figure that could not be READ showed "—" in
+// warning amber too, which is worse: it colours an unknown as if it were a
+// finding. A value carries a tone only when it has a magnitude to carry it. Same
+// rule as the Pulse tile row: emphasis follows the data.
+// Reads the text OUTSIDE any markup, so a tag's own attributes cannot be mistaken
+// for the value: class="text-3xl" contains a 3, and a naive digit test on the raw
+// string would call an empty KPI non-empty because of its own styling.
+//
+// This is deliberately a scan rather than `replace(/<[^>]*>/g, '')`. That regex is
+// incomplete — "<scr<script>ipt>" survives it — which CodeQL flagged, and it is
+// also simply wrong for this job because it cannot handle nesting. The result is
+// only ever tested for a digit and is never written back to the DOM, so this is a
+// parser for a numeric test, not a sanitizer; nothing here should be reused as one.
+function engKpiText(val) {
+  const s = String(val ?? '');
+  let out = '';
+  let depth = 0;
+  for (const ch of s) {
+    if (ch === '<') { depth++; continue; }
+    if (ch === '>') { if (depth > 0) depth--; continue; }
+    if (depth === 0) out += ch;
+  }
+  return out;
+}
+
+function engKpiIsQuiet(val) {
+  return !/[1-9]/.test(engKpiText(val));
+}
+
 function engKpi(label, val, tone, onclick) {
+  const quiet = engKpiIsQuiet(val);
+  const shown = quiet ? 'text-slate-900 dark:text-white' : (tone || 'text-slate-900 dark:text-white');
   const inner = `
     <div class="text-[11px] uppercase tracking-wider text-slate-800 dark:text-slate-200 font-black">${esc(label)}</div>
-    <div class="text-2xl sm:text-3xl font-black mt-1 ${tone || 'text-slate-900 dark:text-white'}">${val}</div>
+    <div class="text-2xl sm:text-3xl font-black mt-1 ${shown}" data-emphasis="${quiet ? 'quiet' : 'normal'}">${val}</div>
   `;
   if (onclick) {
     return `<button onclick="${onclick}" class="w-full text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3.5 hover:border-slate-300 dark:hover:border-slate-700 transition cursor-pointer">
@@ -783,322 +841,159 @@ function engEmpty(msg) { return `<div class="text-sm font-bold text-slate-700 da
 
 // ── Pulse widget grid — shared across every department's Pulse (overview) tab ─
 // The Pulse screen is a dense grid of small, always-open glance cards (per the
-// 08/23 department wireframes), supporting WordPress-style movable drag-and-drop
-// reordering and dynamic section scaling (1x1, 1x2, 2x1, 2x2, 2x3, 3x1, 3x2, 4x1).
-// Every card traces back to a field the engine's own fetch() already returns.
-const PULSE_SCALE_CLASSES = {
-  '1x1': 'col-span-1 row-span-1',
-  '1x2': 'col-span-1 row-span-2',
-  '2x1': 'col-span-1 sm:col-span-2 row-span-1',
-  '2x2': 'col-span-1 sm:col-span-2 row-span-2',
-  '2x3': 'col-span-1 sm:col-span-2 row-span-3',
-  '3x1': 'col-span-1 sm:col-span-2 lg:col-span-3 row-span-1',
-  '3x2': 'col-span-1 sm:col-span-2 lg:col-span-3 row-span-2',
-  '4x1': 'col-span-full row-span-1',
-  '4x2': 'col-span-full row-span-2'
-};
-
-function pulseHeader(title, sub, gridId) {
+// 08/23 department wireframes), not the stacked full-width accordions engCard/
+// engSection render for the deeper work tabs (Customers, Repair Orders, …) —
+// those stay exactly as they are. A Pulse card never invents a number: every
+// value here traces back to a field the engine's own fetch() already returns.
+function pulseHeader(title, sub) {
   const today = new Date().toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: '2-digit' });
-  const gid = gridId || (title ? title.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'pulse-main');
-  return `<div class="flex items-center justify-between flex-wrap gap-2 mb-1">
-    <div>
-      <h2 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">${esc(title)}</h2>
-    </div>
-    <div class="flex items-center gap-2 shrink-0">
-      <button type="button" onclick="resetPulseGridLayout('${gid}')" class="px-2 py-1 rounded-lg text-[11px] font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer" title="Reset widgets to default layout">Reset Layout</button>
-      <span class="text-[12px] font-bold text-slate-400 tabular-nums">${today}</span>
-    </div>
+  return `<div class="flex items-baseline justify-between gap-3 mb-1">
+    <h2 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">${esc(title)}</h2>
+    <span class="text-[12px] font-bold text-slate-400 tabular-nums shrink-0">${today}</span>
   </div>${sub ? `<p class="text-[13px] text-slate-500 dark:text-slate-400 mb-4">${esc(sub)}</p>` : '<div class="mb-4"></div>'}`;
 }
-
-function pulseGrid(cardsHtml, gridId) {
-  const gid = gridId || 'pulse-main';
-  let list = (cardsHtml || []).filter(Boolean);
-  
-  if (typeof localStorage !== 'undefined') {
-    try {
-      const savedOrder = JSON.parse(localStorage.getItem('ms_pulse_order_' + gid) || '[]');
-      const savedScales = JSON.parse(localStorage.getItem('ms_pulse_scales_' + gid) || '{}');
-      
-      if (savedScales && Object.keys(savedScales).length) {
-        list = list.map(cardStr => {
-          for (const [wid, s] of Object.entries(savedScales)) {
-            if (cardStr.includes(`data-widget-id="${wid}"`)) {
-              const newCls = PULSE_SCALE_CLASSES[s] || PULSE_SCALE_CLASSES['1x1'];
-              cardStr = cardStr.replace(/data-scale="[^"]*"/, `data-scale="${s}"`);
-              cardStr = cardStr.replace(/<span class="pulse-scale-label">[^<]*<\/span>/, `<span class="pulse-scale-label">${s.toUpperCase()}</span>`);
-              cardStr = cardStr.replace(/class="([^"]*)\b(col-span-[^\s"]+|row-span-[^\s"]+|sm:col-span-[^\s"]+|lg:col-span-[^\s"]+)\b([^"]*)"/g, (m, p1, p2, p3) => `class="${p1} ${newCls} ${p3}"`);
-            }
-          }
-          return cardStr;
-        });
-      }
-      
-      if (Array.isArray(savedOrder) && savedOrder.length) {
-        const cardMap = {};
-        list.forEach(c => {
-          const m = c.match(/data-widget-id="([^"]+)"/);
-          if (m && m[1]) cardMap[m[1]] = c;
-        });
-        const reordered = [];
-        savedOrder.forEach(wid => {
-          if (cardMap[wid]) {
-            reordered.push(cardMap[wid]);
-            delete cardMap[wid];
-          }
-        });
-        Object.values(cardMap).forEach(c => reordered.push(c));
-        if (reordered.length) list = reordered;
-      }
-    } catch {}
-  }
-
-  return `<div data-pulse-grid-id="${gid}" class="pulse-masonry-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 items-start grid-flow-dense">${list.join('')}</div>`;
+function pulseGrid(cardsHtml) {
+  // grid-flow-dense: a row-span-2 card (span:'tall') leaves a pocket next to it at
+  // some column counts; without dense packing CSS Grid's sparse algorithm never
+  // backfills that pocket, so later cards land past it instead — the classic
+  // "random gaps" pattern, worst right around 3-column widths (tablets/Chromebooks).
+  return `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 items-start grid-flow-dense">${(cardsHtml || []).filter(Boolean).join('')}</div>`;
+}
+// The design system's semantic masonry board (.ms-board), as an opt-in
+// alternative to pulseGrid's fixed Tailwind column counts.
+//
+// Phase 4 adopts this on ONE department Pulse (Service) before the other seven,
+// because until now the phase 1 card and grid primitives had zero uses in real
+// markup — they were internally consistent and completely unproven against real
+// content. Defects in an unused foundation surface the moment they meet data,
+// and finding them once is cheaper than finding them eight times.
+//
+// The difference that matters: pulseGrid gives every card the same track, so
+// size cannot say anything. .ms-board assigns span from OPERATIONAL TIER, which
+// is what lets a broken promise occupy six columns while a promo card takes two.
+function pulseBoard(cardsHtml) {
+  return `<div class="ms-board">${(cardsHtml || []).filter(Boolean).join('')}</div>`;
 }
 
-function pulseCard({ id, title, count, tone, onclick, inner, span, empty, scale }) {
-  const wid = id || String(title || 'widget').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-  let initialScale = scale || (span === 2 ? '2x1' : span === 'tall' ? '1x2' : '1x1');
+// span: 2 = sm:col-span-2 (wide); 'tall' = row-span-2 (the sketch's big list column)
+//
+// The card body is ALWAYS a <div>, never a <button> — pulseRow/pulseLeaderRow render
+// AS buttons when they carry their own onclick, and a <button> can never legally
+// contain another <button>. A card that nested one (card-level onclick + clickable
+// rows inside it) silently broke: the browser's parser ejects the invalid nested
+// button out of its parent, so the row visibly detaches from its card and lands as a
+// stray sibling in the grid. The card's own click-through affordance lives on its
+// header only, which is its own sibling-level control — never an ancestor of the rows.
+function pulseCard({ title, count, tone, onclick, inner, span, empty, tier }) {
+  const spanCls = span === 2 ? 'sm:col-span-2' : span === 'tall' ? 'row-span-2' : '';
   const countBadge = count != null ? `<span class="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-black ${tone || 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">${esc(String(count))}</span>` : '';
-  
-  const titleContent = onclick
-    ? `<button type="button" onclick="${onclick}" class="group/h flex items-center gap-1.5 text-left text-[11px] uppercase tracking-wider font-black text-slate-800 dark:text-slate-200 group-hover/h:text-slate-950 dark:group-hover/h:text-white transition-colors truncate">
-        <span class="truncate">${esc(title)}</span>
-        <svg class="w-3 h-3 shrink-0 text-slate-300 dark:text-slate-600 transition-transform group-hover/h:translate-x-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 010-1.06L11.94 9 7.2 4.29a.75.75 0 111.06-1.06l5.25 5.25a.75.75 0 010 1.06L8.27 14.77a.75.75 0 01-1.06 0z" clip-rule="evenodd"/></svg>
+  const header = onclick
+    ? `<button type="button" onclick="${onclick}" class="group/h w-full flex items-center justify-between gap-2 text-left -m-0.5 p-0.5">
+        <span class="text-[11px] uppercase tracking-wider font-black text-slate-800 dark:text-slate-200 group-hover/h:text-slate-950 dark:group-hover/h:text-white transition-colors">${esc(title)}</span>
+        <span class="flex items-center gap-1.5 shrink-0">${countBadge}<svg class="w-3 h-3 text-slate-300 dark:text-slate-600 transition-transform group-hover/h:translate-x-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 010-1.06L11.94 9 7.2 4.29a.75.75 0 111.06-1.06l5.25 5.25a.75.75 0 010 1.06L8.27 14.77a.75.75 0 01-1.06 0z" clip-rule="evenodd"/></svg></span>
       </button>`
-    : `<span class="text-[11px] uppercase tracking-wider font-black text-slate-800 dark:text-slate-200 truncate">${esc(title)}</span>`;
-
-  const dragGrip = `<span class="pulse-drag-handle cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 select-none p-0.5 -ml-1 rounded transition shrink-0" title="Drag to reposition widget" aria-label="Drag handle">
-    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
-  </span>`;
-
-  const scaleMenu = `<div class="relative shrink-0">
-    <button type="button" onclick="event.stopPropagation(); togglePulseScaleMenu(event, '${wid}')" class="pulse-scale-btn px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-slate-200 transition flex items-center gap-0.5 cursor-pointer" title="Change widget scale">
-      <span class="pulse-scale-label">${initialScale.toUpperCase()}</span>
-      <svg class="w-2.5 h-2.5 opacity-60" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
-    </button>
-    <div id="pulse-scale-menu-${wid}" class="pulse-scale-popup hidden absolute right-0 top-full mt-1 z-30 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-1 w-28 text-left">
-      <div class="text-[9px] font-black uppercase tracking-wider text-slate-400 px-2 py-1">Widget Scale</div>
-      ${[['1x1', '1×1 Normal'], ['1x2', '1×2 Tall'], ['2x1', '2×1 Wide'], ['2x2', '2×2 Large'], ['2x3', '2×3 Extra Tall'], ['3x1', '3×1 Banner'], ['3x2', '3×2 Giant'], ['4x1', 'Full Width']].map(([s, label]) => `
-        <button type="button" onclick="event.stopPropagation(); setPulseWidgetScale('${wid}', '${s}')" class="w-full text-left px-2 py-1 rounded text-[11px] font-bold text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 hover:text-indigo-600 transition flex items-center justify-between cursor-pointer">
-          <span>${label}</span>
-        </button>
-      `).join('')}
-    </div>
-  </div>`;
-
-  const scaleClass = PULSE_SCALE_CLASSES[initialScale] || PULSE_SCALE_CLASSES['1x1'];
-
-  return `<div data-widget-id="${wid}" data-scale="${initialScale}" draggable="true" ondragstart="pulseWidgetDragStart(event)" ondragover="pulseWidgetDragOver(event)" ondragleave="pulseWidgetDragLeave(event)" ondrop="pulseWidgetDrop(event)" ondragend="pulseWidgetDragEnd(event)" class="pulse-widget-card w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 flex flex-col gap-2 ${scaleClass} transition-all hover:shadow-[0_6px_20px_-8px_rgba(15,23,42,.18)] dark:hover:shadow-[0_6px_20px_-8px_rgba(0,0,0,.45)] group/pw relative">
-    <div class="w-full flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/60 pb-2 mb-0.5">
-      <div class="flex items-center gap-1.5 min-w-0 flex-1">
-        ${dragGrip}
-        ${titleContent}
-      </div>
-      <div class="flex items-center gap-1.5 shrink-0">
+    : `<div class="w-full flex items-center justify-between gap-2">
+        <span class="text-[11px] uppercase tracking-wider font-black text-slate-800 dark:text-slate-200">${esc(title)}</span>
         ${countBadge}
-        ${scaleMenu}
-      </div>
-    </div>
-    <div class="flex-1 min-h-0">${inner || (empty ? `<div class="text-[12px] text-slate-400 py-4 text-center">${esc(empty)}</div>` : '')}</div>
+      </div>`;
+  const body = `${header}
+    <div class="flex-1 min-h-0 mt-3 flex flex-col gap-2">${inner || (empty ? `<div class="text-[12px] text-slate-400 py-4 text-center">${esc(empty)}</div>` : '')}</div>`;
+  // A tiered card takes its material, radius, padding and span from the design
+  // system, so it must NOT also carry the Tailwind card utilities — those are the
+  // same properties, and two sources for one decision is how a card ends up with
+  // desktop padding on a phone. data-empty lets the board collapse a hero that
+  // has nothing in it rather than reserving three rows for an empty box.
+  if (tier) {
+    const material = ' ms-c--glass';
+    const interactive = onclick ? ' ms-c--interactive' : '';
+    return `<div class="ms-c ms-c--${esc(tier)}${material}${interactive}" data-tier="${esc(tier)}"${inner ? '' : ' data-empty="true"'}>${body}</div>`;
+  }
+  return `<div class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 flex flex-col gap-2 ${spanCls} transition-shadow hover:shadow-[0_6px_20px_-8px_rgba(15,23,42,.18)] dark:hover:shadow-[0_6px_20px_-8px_rgba(0,0,0,.45)]">
+    ${body}
   </div>`;
 }
-
-// Compact row inside a pulse card: circled badge + label(+sub) + trailing value.
-function pulseRow({ badge, icon, badgeTone, label, sub, value, valueTone, done, onclick }) {
-  const Tag = onclick ? 'button' : 'div';
-  const badgeInner = icon ? svgIcon(icon, 'w-3 h-3') : esc(badge ?? '');
-  return `<${Tag} ${onclick ? `onclick="${onclick}"` : ''} class="w-full text-left flex items-center gap-2.5 py-1.5 px-1.5 -mx-1.5 rounded-lg ${onclick ? 'hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer' : ''} ${done ? 'opacity-50' : ''}">
-    <span class="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${badgeTone || 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}">${badgeInner}</span>
-    <span class="min-w-0 flex-1">
-      <span class="block text-[12.5px] font-bold text-slate-800 dark:text-slate-100 truncate ${done ? 'line-through' : ''}">${esc(label ?? '')}</span>
-      ${sub ? `<span class="block text-[11px] text-slate-400 truncate">${esc(sub)}</span>` : ''}
-    </span>
-    ${value != null ? `<span class="shrink-0 text-[12px] font-black tabular-nums ${valueTone || 'text-slate-700 dark:text-slate-200'}">${esc(String(value))}</span>` : ''}
-  </${Tag}>`;
+// A compact row inside a pulse card: circled badge + label(+sub) + trailing value.
+// done:true renders the label struck through, for a resolved/closed/removed item.
+// icon (a name from SVG_ICONS, e.g. 'check'/'calendar'/'phone') takes precedence over
+// badge (short escaped text — a number, '$', '!') when both are given — never pass an
+// emoji glyph as badge; this codebase's icon system is the only approved decoration
+// (see test/no-emoji-ui.test.js).
+function pulseRow({ badge, icon, badgeTone, label, sub, value, valueTone, done, onclick, actionLabel }) {
+  const go = onclick || '';
+  const action = actionLabel || 'View';
+  const subline = [sub, value != null ? String(value) : ''].filter(Boolean).join(' · ');
+  return `<div class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-white dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.05)] ${done ? 'opacity-50' : ''}">
+    <div class="min-w-0 flex-1">
+      <div class="font-bold text-[14px] text-slate-900 dark:text-white truncate ${done ? 'line-through' : ''}">${esc(label ?? '')}</div>
+      ${subline ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">${esc(subline)}</div>` : ''}
+    </div>
+    ${go ? `<button type="button" onclick="${go}" class="shrink-0 px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition">${esc(action)}</button>` : ''}
+  </div>`;
 }
-
 // Search-box widget card — click-through to the department's real search/list page.
-function pulseSearchCard({ title, placeholder, onclick, count, id }) {
-  return pulseCard({ id, title, count, onclick, inner: `<div class="mt-1 flex items-center gap-2 px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-400 text-[12px] font-semibold">
+function pulseSearchCard({ title, placeholder, onclick, count, tier }) {
+  return pulseCard({ title, count, onclick, tier, inner: `<div class="mt-1 flex items-center gap-2 px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-400 text-[12px] font-semibold">
     <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd"/></svg>
     ${esc(placeholder || 'Search')}</div>` });
 }
-
 // Ranked row for a leaderboard-style widget — initials avatar + name + one stat.
 function pulseLeaderRow({ rank, name, value, sub, valueTone, onclick }) {
-  const initials = (name || '?').trim().split(/\s+/).map(s => s[0]).slice(0, 2).join('').toUpperCase();
-  const Tag = onclick ? 'button' : 'div';
-  return `<${Tag} ${onclick ? `onclick="${onclick}"` : ''} class="w-full text-left flex items-center gap-2.5 py-1.5 px-1.5 -mx-1.5 rounded-lg ${onclick ? 'hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer' : ''}">
-    <span class="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">${rank != null ? esc(String(rank)) : esc(initials)}</span>
-    <span class="min-w-0 flex-1">
-      <span class="block text-[12.5px] font-bold text-slate-800 dark:text-slate-100 truncate">${esc(name || 'Unknown')}</span>
-      ${sub ? `<span class="block text-[11px] text-slate-400 truncate">${esc(sub)}</span>` : ''}
-    </span>
-    ${value != null ? `<span class="shrink-0 text-[12px] font-black tabular-nums ${valueTone || 'text-slate-700 dark:text-slate-200'}">${esc(String(value))}</span>` : ''}
-  </${Tag}>`;
+  const subline = [sub, value != null ? String(value) : ''].filter(Boolean).join(' · ');
+  return `<div class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-white dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
+    <div class="min-w-0 flex-1">
+      <div class="font-bold text-[14px] text-slate-900 dark:text-white truncate">${rank != null ? esc(String(rank)) + '. ' : ''}${esc(name || 'Unknown')}</div>
+      ${subline ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">${esc(subline)}</div>` : ''}
+    </div>
+    ${onclick ? `<button type="button" onclick="${onclick}" class="shrink-0 px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition">View</button>` : ''}
+  </div>`;
 }
-
 // A row of big quick-action buttons across the top of a Pulse page (Check-in / Check-out …).
 function pulseActionsRow(actions) {
   return `<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">${(actions || []).map(a => `
-    <button onclick="${a.onclick}" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-3 text-center hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-[0_6px_20px_-8px_rgba(15,23,42,.18)] dark:hover:shadow-[0_6px_20px_-8px_rgba(0,0,0,.45)] transition cursor-pointer">
+    <button onclick="${a.onclick}" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-3 text-center hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-[0_6px_20px_-8px_rgba(15,23,42,.18)] dark:hover:shadow-[0_6px_20px_-8px_rgba(0,0,0,.45)] transition">
       <div class="text-[12.5px] font-black text-slate-800 dark:text-slate-100">${esc(a.label)}</div>
     </button>`).join('')}</div>`;
 }
-
-// Leaderboard widget for a Pulse page
-function pulseLeaderboardCard(gam, deptKey, { title, metric, onclick, id } = {}) {
+// Leaderboard widget for a Pulse page — reads the SAME /gamification payload the
+// real Performance/Leaderboard page (switchPage('leaderboard')) already renders, so a
+// Pulse card never shows a number that isn't also standing behind that page today.
+// gam: the raw /gamification response (or null if it could not be loaded).
+function pulseLeaderboardCard(gam, deptKey, { title, metric, onclick, tier, limit } = {}) {
+  // Embedded department leaderboard — lives ON the Pulse. Do not navigate away
+  // unless the caller explicitly passes onclick (e.g. a "View full board" affordance).
   const dept = gam?.departments?.[deptKey];
-  const rows = (dept?.leaderboard || []).slice().sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99)).slice(0, 5);
+  const rows = (dept?.leaderboard || []).slice().sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99)).slice(0, limit || 8);
+  const formatPts = (v) => {
+    if (v == null || v === '') return null;
+    const n = Number(v);
+    if (!Number.isFinite(n)) return String(v);
+    return n >= 1000 ? `${n.toLocaleString()} pts` : `${n} pts`;
+  };
+  const inner = rows.length ? rows.map(r => {
+    const raw = metric ? (r.metrics?.[metric] ?? r.score ?? null) : (r.score ?? null);
+    return pulseLeaderRow({
+      rank: r.rank,
+      name: r.full_name,
+      sub: r.title || '',
+      value: formatPts(raw),
+      valueTone: 'text-amber-600 dark:text-amber-400',
+      // Rows stay on the pulse; only an explicit onclick navigates.
+      onclick: onclick || null,
+    });
+  }).join('') : '';
   return pulseCard({
-    id: id || `${deptKey}-leaderboard`,
     title: title || (dept?.title ? `${dept.title} leaderboard` : 'Leaderboard'),
-    onclick: onclick || "switchPage('leaderboard')",
-    inner: rows.length ? rows.map(r => pulseLeaderRow({
-      rank: r.rank, name: r.full_name, sub: r.title || '',
-      value: metric ? (r.metrics?.[metric] ?? r.score ?? null) : (r.score ?? null),
-      onclick: onclick || "switchPage('leaderboard')",
-    })).join('') : '',
+    // No card-level navigation — the board is the destination.
+    onclick: null,
+    tier: tier || 'standard',
+    inner,
     empty: gam === null ? 'Could not be loaded.' : 'No ranked activity yet.',
   });
 }
-
-// ── Drag-and-Drop & Scale Controller Functions ──────────────────────────────
-let __draggedPulseWidget = null;
-
-function pulseWidgetDragStart(e) {
-  const card = e.target.closest('.pulse-widget-card');
-  if (!card) return;
-  __draggedPulseWidget = card;
-  e.dataTransfer.effectAllowed = 'move';
-  try { e.dataTransfer.setData('text/plain', card.dataset.widgetId || ''); } catch {}
-  setTimeout(() => card.classList.add('opacity-40', 'scale-[0.98]', 'ring-2', 'ring-indigo-500'), 0);
-}
-
-function pulseWidgetDragOver(e) {
-  e.preventDefault();
-  const targetCard = e.target.closest('.pulse-widget-card');
-  if (!targetCard || targetCard === __draggedPulseWidget) return;
-  e.dataTransfer.dropEffect = 'move';
-  targetCard.classList.add('ring-2', 'ring-indigo-400', 'bg-indigo-50/20');
-}
-
-function pulseWidgetDragLeave(e) {
-  const targetCard = e.target.closest('.pulse-widget-card');
-  if (targetCard && targetCard !== __draggedPulseWidget) {
-    targetCard.classList.remove('ring-2', 'ring-indigo-400', 'bg-indigo-50/20');
-  }
-}
-
-function pulseWidgetDrop(e) {
-  e.preventDefault();
-  const targetCard = e.target.closest('.pulse-widget-card');
-  if (!targetCard || !__draggedPulseWidget || targetCard === __draggedPulseWidget) return;
-  
-  const grid = targetCard.closest('.pulse-masonry-grid');
-  if (!grid) return;
-  
-  const rect = targetCard.getBoundingClientRect();
-  const next = (e.clientX - rect.left) > (rect.width / 2) || (e.clientY - rect.top) > (rect.height / 2);
-  if (next) {
-    targetCard.after(__draggedPulseWidget);
-  } else {
-    targetCard.before(__draggedPulseWidget);
-  }
-  
-  const gid = grid.dataset.pulseGridId || 'pulse-main';
-  const cards = Array.from(grid.querySelectorAll('.pulse-widget-card'));
-  const order = cards.map(c => c.dataset.widgetId).filter(Boolean);
-  try {
-    localStorage.setItem('ms_pulse_order_' + gid, JSON.stringify(order));
-  } catch {}
-  if (typeof showToast === 'function') showToast('Dashboard layout updated', 'success');
-}
-
-function pulseWidgetDragEnd(e) {
-  if (__draggedPulseWidget) {
-    __draggedPulseWidget.classList.remove('opacity-40', 'scale-[0.98]', 'ring-2', 'ring-indigo-500');
-    __draggedPulseWidget = null;
-  }
-  document.querySelectorAll('.pulse-widget-card').forEach(c => {
-    c.classList.remove('ring-2', 'ring-indigo-400', 'bg-indigo-50/20', 'opacity-40', 'scale-[0.98]');
-  });
-}
-
-function togglePulseScaleMenu(e, wid) {
-  document.querySelectorAll('.pulse-scale-popup').forEach(p => {
-    if (p.id !== 'pulse-scale-menu-' + wid) p.classList.add('hidden');
-  });
-  const menu = document.getElementById('pulse-scale-menu-' + wid);
-  if (menu) menu.classList.toggle('hidden');
-}
-
-function setPulseWidgetScale(wid, scale) {
-  const menu = document.getElementById('pulse-scale-menu-' + wid);
-  if (menu) menu.classList.add('hidden');
-  
-  const card = document.querySelector(`.pulse-widget-card[data-widget-id="${wid}"]`);
-  if (!card) return;
-  
-  const grid = card.closest('.pulse-masonry-grid');
-  const gid = grid ? (grid.dataset.pulseGridId || 'pulse-main') : 'pulse-main';
-  
-  card.dataset.scale = scale;
-  
-  const label = card.querySelector('.pulse-scale-label');
-  if (label) label.textContent = scale.toUpperCase();
-  
-  const allSpanClasses = [
-    'col-span-1', 'col-span-2', 'col-span-3', 'col-span-4', 'col-span-full',
-    'row-span-1', 'row-span-2', 'row-span-3',
-    'sm:col-span-2', 'md:col-span-3', 'lg:col-span-3', 'xl:col-span-4'
-  ];
-  allSpanClasses.forEach(cls => card.classList.remove(cls));
-  
-  const newClasses = (PULSE_SCALE_CLASSES[scale] || PULSE_SCALE_CLASSES['1x1']).split(' ');
-  newClasses.forEach(cls => card.classList.add(cls));
-  
-  try {
-    const savedScales = JSON.parse(localStorage.getItem('ms_pulse_scales_' + gid) || '{}');
-    savedScales[wid] = scale;
-    localStorage.setItem('ms_pulse_scales_' + gid, JSON.stringify(savedScales));
-  } catch {}
-  if (typeof showToast === 'function') showToast(`Widget scaled to ${scale}`, 'info');
-}
-
-function resetPulseGridLayout(gid) {
-  try {
-    localStorage.removeItem('ms_pulse_order_' + gid);
-    localStorage.removeItem('ms_pulse_scales_' + gid);
-  } catch {}
-  if (typeof showToast === 'function') showToast('Dashboard layout reset to default', 'info');
-  if (typeof renderCurrentEngineTab === 'function') renderCurrentEngineTab();
-  else if (typeof refreshCurrentPage === 'function') refreshCurrentPage();
-  else {
-    const grid = document.querySelector(`[data-pulse-grid-id="${gid}"]`);
-    if (grid) location.reload();
-  }
-}
-
-if (typeof document !== 'undefined') {
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.pulse-scale-btn') && !e.target.closest('.pulse-scale-popup')) {
-      document.querySelectorAll('.pulse-scale-popup').forEach(p => p.classList.add('hidden'));
-    }
-  });
-}
-
 if (typeof window !== 'undefined') {
-  window.PULSE_SCALE_CLASSES = PULSE_SCALE_CLASSES;
-  window.pulseHeader = pulseHeader; window.pulseGrid = pulseGrid; window.pulseCard = pulseCard;
+  window.pulseHeader = pulseHeader; window.pulseGrid = pulseGrid; window.pulseBoard = pulseBoard; window.pulseCard = pulseCard;
   window.pulseRow = pulseRow; window.pulseSearchCard = pulseSearchCard; window.pulseLeaderRow = pulseLeaderRow;
   window.pulseActionsRow = pulseActionsRow; window.pulseLeaderboardCard = pulseLeaderboardCard;
-  window.pulseWidgetDragStart = pulseWidgetDragStart; window.pulseWidgetDragOver = pulseWidgetDragOver;
-  window.pulseWidgetDragLeave = pulseWidgetDragLeave; window.pulseWidgetDrop = pulseWidgetDrop;
-  window.pulseWidgetDragEnd = pulseWidgetDragEnd; window.togglePulseScaleMenu = togglePulseScaleMenu;
-  window.setPulseWidgetScale = setPulseWidgetScale; window.resetPulseGridLayout = resetPulseGridLayout;
 }
 
 // ── Sections you scroll to, instead of a second row of tabs ──────────────────
@@ -1249,14 +1144,9 @@ async function engineTab(engineId, tab, force) {
   ];
   const isPulseLayout = pulseEngines.includes(engineId) && ['overview', 'pulse'].includes(tab);
   body.classList.toggle('ms-pulse-board', isPulseLayout);
-  // A Pulse page is a wall of glance widgets and wants the whole content column;
-  // the shell's fixed 300px rail left the board at ~74% of the width the engine
-  // header above it spans, with dead space beside every department section. On
-  // Pulse tabs only, the rail stops being a column and becomes a full-width strip
-  // under the header — Reports, Next Actions and Quick Actions all stay, they just
-  // sit across the top instead of down the side. Every other tab keeps the native
-  // two-column shell, so .ms-engine-layout--rail is untouched there.
-  body.parentElement?.classList.toggle('ms-pulse-wide', isPulseLayout);
+  // Pulse keeps the same two-column shell as every other tab: the operations rail
+  // stays a right-hand column. The board is a wall of glance widgets, but Reports,
+  // Next Actions and Quick Actions are read alongside it, not above it.
   if (isPulseLayout) body.dataset.pulseKind = engineId;
   else delete body.dataset.pulseKind;
   // A borrowed page panel may be sitting in here; hand it back before the wipe or
@@ -1302,7 +1192,20 @@ function engineRail(eng, d) {
         <span class="mt-0.5 ${a.tone || 'text-slate-500'}">${svgIcon(a.icon || 'chevronRight', 'w-3.5 h-3.5')}</span>
         <span class="text-xs font-semibold text-slate-800 dark:text-slate-100">${esc(a.label)}</span></button>`).join('')
     : `<div class="text-xs font-medium text-slate-500 dark:text-slate-400 py-1">Nothing needs attention.</div>`;
-  const qa = (eng.quickActions || []).map(q =>
+  // Team Messaging lives on the department right rail (not as a left-nav department).
+  const teamQa = [];
+  try {
+    const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+    const teamOk = access.isPlatformStaff
+      || window.__teamChatAllowed === true
+      || (Array.isArray(access.features) && access.features.includes('os.team'))
+      || (typeof pageFeatureOk === 'function' && pageFeatureOk('sales-team'));
+    if (teamOk) {
+      teamQa.push({ label: 'Team Messaging', icon: 'chat', onclick: "switchPage('ai-inbox')" });
+    }
+  } catch {}
+  const qaList = [...teamQa, ...(eng.quickActions || [])];
+  const qa = qaList.map(q =>
     `<button onclick="${q.onclick}" class="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">${svgIcon(q.icon || 'bolt', 'w-3.5 h-3.5 ' + A.text)}${esc(q.label)}</button>`
   ).join('') || '<div class="text-xs text-slate-400">—</div>';
   return sec('Reports', 'chart', reportsHtml) + sec('Next Actions', 'check', naHtml) + sec('Quick Actions', 'bolt', qa);
@@ -1319,17 +1222,27 @@ function renderEngine(engineId, force = false) {
   const A = ENGINE_ACCENTS[eng.accent] || ENGINE_ACCENTS.indigo;
   const tabBtn = (t) => `<button data-engine-tab="${t}" role="tab" onclick="engineTab('${engineId}','${t}')"
     class="ms-engine-tab px-4 py-2.5 text-xs font-bold whitespace-nowrap transition border-transparent text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400">${svgIcon(ENGINE_TAB_ICON[t] || 'dot', 'w-4 h-4')}<span>${esc((eng.tabLabels && eng.tabLabels[t]) || ENGINE_TAB_LABEL[t])}</span></button>`;
+  // Suite products: primary actions live on the main header (no second title card).
+  const isMktSuite = engineId === 'marketing-overview' && typeof getActiveMarketingSuite === 'function' && !!getActiveMarketingSuite();
+  const suiteActions = isMktSuite ? `
+      <button type="button" onclick="deptGo('inventory','facebook')" class="px-3.5 py-2 rounded-xl bg-[#1877F2] hover:bg-[#166fe0] text-white text-[13px] font-black shadow-sm transition">Facebook Auto Poster</button>
+      <button type="button" onclick="openEmailSmsBuilder({ mode: 'email' })" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-[13px] font-black transition">New Campaign</button>` : '';
+
   root.innerHTML = (eng.hideHeader ? '' : `
-    <div class="ms-engine-header flex items-start justify-between flex-wrap gap-3 mb-4">
-      <div class="flex items-center gap-3">
+    <div class="ms-engine-header flex items-start justify-between flex-wrap gap-3 mb-3">
+      <div class="flex items-center gap-3 min-w-0">
         <div class="ms-engine-mark w-11 h-11 rounded-xl ${A.bg} ${A.text} flex items-center justify-center flex-shrink-0 shadow-xs">${svgIcon(eng.icon || 'chart', 'w-5.5 h-5.5')}</div>
-        <div>
+        <div class="min-w-0">
           <h1 class="ms-engine-title text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">${esc(eng.title)}</h1>
           <p class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mt-1">${esc(eng.subtitle || '')}</p>
         </div>
       </div>
-      <button onclick="renderEngine('${engineId}', true)" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1.5 transition">${svgIcon('refresh', 'w-3.5 h-3.5')}Refresh</button>
+      <div class="flex items-center gap-2 flex-wrap">
+        ${suiteActions}
+        <button onclick="renderEngine('${engineId}', true)" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1.5 transition">${svgIcon('refresh', 'w-3.5 h-3.5')}Refresh</button>
+      </div>
     </div>`) + `
+    <div id="suite-feature-tabbar" class="mb-3"></div>
     <div data-engine-tabbar="${engineId}" role="tablist" class="ms-engine-tabs ${(order.length <= 1 || eng.hideTabBar) ? 'hidden' : 'flex'} items-center gap-2 mb-4 overflow-x-auto">
       ${order.map(tabBtn).join('')}
     </div>
@@ -1338,7 +1251,12 @@ function renderEngine(engineId, force = false) {
       ${eng.hideRail ? '' : `<aside data-engine-rail="${engineId}" class="space-y-3 xl:sticky xl:top-4"></aside>`}
     </div>`;
   engineTab(engineId, tab, force);   // full render re-uses cached data unless `force` is explicitly requested
+  // Suite top-strip decision needs suite-feature-tabbar in the DOM (just mounted above).
+  if (engineId === 'marketing-overview' && typeof renderDeptTabbar === 'function') {
+    try { renderDeptTabbar(engineId); } catch {}
+  }
 }
+
 window.renderEngine = renderEngine;
 
 function openInventoryIntelligence(focusId) {

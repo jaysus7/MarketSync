@@ -892,6 +892,57 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── Notification Center ────────────────────────────────────────────────────
+// Desktop alerts are a browser-level grant, so this is the one place that asks
+// for it. Both the header bell and the notification panel point here, and the
+// panel also calls it once on first open. Permission can only be requested from
+// a user gesture, and once the browser has denied it we cannot ask again — say
+// so plainly rather than firing a request that silently does nothing.
+function syncDesktopNotifToggle() {
+  const state = ('Notification' in window) ? Notification.permission : 'unsupported';
+  document.querySelectorAll('#notif-desktop-toggle').forEach(btn => {
+    if (state === 'granted') {
+      btn.title = 'Desktop alerts are on';
+      btn.classList.add('text-indigo-600', 'dark:text-indigo-400');
+      btn.classList.remove('text-slate-400');
+    } else {
+      btn.title = state === 'denied' ? 'Desktop alerts are blocked in your browser' : 'Turn on desktop alerts';
+      btn.classList.remove('text-indigo-600', 'dark:text-indigo-400');
+      btn.classList.add('text-slate-400');
+    }
+  });
+  return state;
+}
+window.syncDesktopNotifToggle = syncDesktopNotifToggle;
+
+async function requestDesktopPermission() {
+  if (!('Notification' in window)) {
+    if (typeof showToast === 'function') showToast('This browser does not support desktop alerts', 'info');
+    return 'unsupported';
+  }
+  if (Notification.permission === 'granted') {
+    syncDesktopNotifToggle();
+    if (typeof showToast === 'function') showToast('Desktop alerts are already on', 'info');
+    return 'granted';
+  }
+  if (Notification.permission === 'denied') {
+    syncDesktopNotifToggle();
+    if (typeof showToast === 'function') showToast('Desktop alerts are blocked — turn them back on in your browser settings for this site', 'info');
+    return 'denied';
+  }
+  let result = 'default';
+  try {
+    result = await Notification.requestPermission();
+  } catch {
+    return 'default';
+  }
+  syncDesktopNotifToggle();
+  if (typeof showToast === 'function') {
+    if (result === 'granted') showToast('Desktop alerts are on', 'success');
+    else if (result === 'denied') showToast('Desktop alerts stay off — you will still see them in the bell', 'info');
+  }
+  return result;
+}
+window.requestDesktopPermission = requestDesktopPermission;
 ;(function() {
   const bell    = document.getElementById('notif-bell')
   const badge   = document.getElementById('notif-badge')
@@ -1176,6 +1227,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function openPanel() {
     panel.classList.remove('hidden')
     document.body.style.overflow = 'hidden'
+    syncDesktopNotifToggle()
     if (('Notification' in window) && Notification.permission === 'default' && !localStorage.getItem('ms_desktop_prompted')) {
       localStorage.setItem('ms_desktop_prompted', '1')
       requestDesktopPermission()

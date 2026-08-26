@@ -465,7 +465,8 @@ export function registerAccounting(app) {
         totalExpense += amt
       }
     }
-    res.json({ ok: true, month, budgets, actuals, incomeActuals, totalIncome, totalExpense, entries: entries || [] })
+    const workbook = (raw.budget_workbook && typeof raw.budget_workbook === 'object') ? raw.budget_workbook : { year: Number(month.slice(0, 4)), lines: [] }
+    res.json({ ok: true, month, budgets, actuals, incomeActuals, totalIncome, totalExpense, entries: entries || [], workbook })
   })
   app.put('/accounting/budget', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
@@ -477,8 +478,25 @@ export function registerAccounting(app) {
     }
     const { data: row } = await supabaseAdmin.from('dealerships').select('accounting_settings').eq('id', req.dealershipId).maybeSingle()
     const raw = (row?.accounting_settings && typeof row.accounting_settings === 'object') ? row.accounting_settings : {}
-    await supabaseAdmin.from('dealerships').update({ accounting_settings: { ...raw, budgets } }).eq('id', req.dealershipId)
-    res.json({ ok: true, budgets })
+    const next = { ...raw, budgets }
+    const wbIn = req.body && req.body.workbook
+    if (wbIn && typeof wbIn === 'object') {
+      const year = Number(wbIn.year) || new Date().getUTCFullYear()
+      const lines = Array.isArray(wbIn.lines) ? wbIn.lines.slice(0, 200).map((ln, i) => {
+        const amounts = Array.isArray(ln.amounts) ? ln.amounts.slice(0, 12).map(v => Math.max(0, round2(v) || 0)) : Array(12).fill(0)
+        while (amounts.length < 12) amounts.push(0)
+        return {
+          id: String(ln.id || `ln_${i}_${Date.now()}`).slice(0, 64),
+          name: String(ln.name || '').slice(0, 80),
+          kind: ln.kind === 'income' ? 'income' : 'expense',
+          amounts,
+          notes: String(ln.notes || '').slice(0, 200),
+        }
+      }) : []
+      next.budget_workbook = { year, lines }
+    }
+    await supabaseAdmin.from('dealerships').update({ accounting_settings: next }).eq('id', req.dealershipId)
+    res.json({ ok: true, budgets, workbook: next.budget_workbook || null })
   })
 
   // ── Cron: reconcile yesterday for every dealership, alert on anything off ─────

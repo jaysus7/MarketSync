@@ -1,3 +1,14 @@
+function toggleAcademyTheme() {
+  const root = document.documentElement;
+  const next = root.classList.contains('dark') ? 'light' : 'dark';
+  root.classList.toggle('dark', next === 'dark');
+  try {
+    localStorage.setItem('ms-theme', next);
+    localStorage.setItem('theme', next);
+  } catch (e) {}
+}
+window.toggleAcademyTheme = toggleAcademyTheme;
+
 const API = location.hostname.includes('staging')
   ? 'https://marketsync-staging-backend.onrender.com'
   : 'https://vehicle-marketplace-s0e4.onrender.com';
@@ -98,7 +109,7 @@ function renderList() {
   listEl.innerHTML = lessons.length ? lessons.map(item => {
     const isDone = completed.has(item.id);
     return `
-    <button type="button" data-lesson="${esc(item.id)}" class="lesson-link w-full rounded-xl border border-slate-800 p-3.5 text-left transition hover:border-indigo-500/50 hover:bg-slate-800/60 ${isDone ? 'bg-slate-900/40' : 'bg-slate-950/60'}">
+    <button type="button" data-lesson="${esc(item.id)}" class="lesson-link w-full rounded-xl border border-slate-200 dark:border-slate-800 p-3.5 text-left transition hover:border-indigo-400/60 hover:bg-indigo-50/50 dark:hover:border-indigo-500/50 dark:hover:bg-slate-800/60 ${isDone ? 'bg-slate-50 dark:bg-slate-900/40' : 'bg-white dark:bg-slate-950/60'}">
       <div class="mb-1.5 flex items-center justify-between gap-2">
         <span class="text-[10px] font-black uppercase tracking-wider ${isDone ? 'text-emerald-400' : 'text-indigo-400'}">${esc(item.id)} · ${esc(productLabels[item.product] || item.product)}</span>
         <span class="inline-flex items-center gap-1 text-[11px] font-extrabold ${isDone ? 'text-emerald-400' : 'text-slate-400'}">
@@ -133,10 +144,10 @@ function section(title, body, tone = 'slate') {
 
 function videoPlayerBox(lesson) {
   return `
-  <div class="mb-6 overflow-hidden rounded-2xl border border-indigo-500/30 bg-slate-950 shadow-2xl relative">
+  <div class="mb-6 overflow-hidden rounded-2xl border border-indigo-200 dark:border-indigo-500/30 bg-slate-950 shadow-2xl relative">
     <div class="relative aspect-video w-full bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex flex-col items-center justify-center p-6 text-center">
       
-      <!-- Kajabi Video Watermark / Player Controls Overlay -->
+      <!-- Video player chrome -->
       <div class="absolute top-4 left-4 flex items-center gap-2">
         <span class="px-2.5 py-1 rounded-md text-[10px] font-black uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5">
           <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span> Video Lesson Stream
@@ -192,7 +203,7 @@ function openLesson(id, updateUrl = true) {
   const steps = (lesson.steps || []).map(step => `<li class="lesson-step flex gap-4 py-4"><div class="flex-1"><div class="font-black text-white">${esc(step.title)}</div><p class="mt-1 text-sm text-slate-300">${esc(step.body)}</p></div></li>`).join('');
 
   panel.innerHTML = `
-    <div class="border-b border-slate-800 p-6 sm:p-8 bg-slate-950/40">
+    <div class="border-b border-slate-200 dark:border-slate-800 p-6 sm:p-8 bg-slate-50 dark:bg-slate-950/40">
       <div class="mb-3 flex flex-wrap items-center gap-2">
         <span class="rounded-full bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-indigo-400">${esc(productLabels[lesson.product] || lesson.product)}</span>
         <span class="rounded-full bg-slate-800 px-3 py-1 text-[10px] font-bold text-slate-300">${esc(lesson.course)}</span>
@@ -207,7 +218,7 @@ function openLesson(id, updateUrl = true) {
         <button id="complete-lesson" class="flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-black transition ${isDone ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-lg shadow-emerald-600/30' : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-600/30'}">
           ${isDone ? '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Completed' : 'Mark Lesson Complete'}
         </button>
-        <button onclick="window.print()" class="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-xs font-bold text-slate-300 hover:border-slate-600 hover:text-white transition">Print Guide</button>
+        <button onclick="window.print()" class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:border-slate-400 dark:hover:border-slate-600 hover:text-slate-900 dark:hover:text-white transition">Print Guide</button>
       </div>
     </div>
 
@@ -274,14 +285,14 @@ function switchAcademyView(tab) {
   if (tab === 'certs') {
     if (libView) libView.classList.add('hidden');
     if (certsView) certsView.classList.remove('hidden');
-    if (libBtn) libBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:text-white transition';
+    if (libBtn) libBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:text-white transition';
     if (certsBtn) certsBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition';
     renderCertificatesView();
   } else {
     if (certsView) certsView.classList.add('hidden');
     if (libView) libView.classList.remove('hidden');
     if (libBtn) libBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition';
-    if (certsBtn) certsBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:text-white transition';
+    if (certsBtn) certsBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:text-white transition';
   }
 }
 window.switchAcademyView = switchAcademyView;
@@ -304,19 +315,19 @@ function renderCertificatesView() {
     const certId = `MS-ACAD-${cert.key.toUpperCase()}-${Math.abs(studentName.length * 777)}`;
 
     return `
-    <div class="rounded-2xl border ${isEarned ? 'border-amber-500/40 bg-gradient-to-br from-amber-950/20 via-slate-900 to-slate-950 shadow-xl shadow-amber-500/5' : 'border-slate-800 bg-slate-950/50'} p-6 flex flex-col justify-between">
+    <div class="ac-panel rounded-2xl p-6 flex flex-col justify-between ${isEarned ? 'ring-1 ring-amber-400/40' : ''}">
       <div>
         <div class="flex items-center justify-between mb-3">
-          <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${isEarned ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-slate-800 text-slate-400'}">
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${isEarned ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-slate-100 text-slate-600 border border-slate-200'}">
             ${isEarned ? 'Official Certification' : 'In Progress'}
           </span>
-          <span class="text-xs font-mono text-slate-400">${esc(certId)}</span>
+          <span class="ac-muted text-xs font-mono">${esc(certId)}</span>
         </div>
-        <h3 class="text-base font-black text-white">${esc(cert.title)}</h3>
-        <p class="text-xs text-slate-400 mt-2 leading-relaxed">${esc(cert.desc)}</p>
+        <h3 class="ac-title text-base font-black">${esc(cert.title)}</h3>
+        <p class="ac-muted text-xs mt-2 leading-relaxed">${esc(cert.desc)}</p>
       </div>
 
-      <div class="mt-6 pt-4 border-t border-slate-800/80">
+      <div class="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800/80">
         ${isEarned ? `
           <div class="mb-3 text-[11px] font-bold text-emerald-400 flex items-center gap-1.5">
             <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -328,7 +339,7 @@ function renderCertificatesView() {
             <span>Progress (${finishedCount}/${cert.required} Modules)</span>
             <span>${Math.round(Math.min(100, (finishedCount / cert.required) * 100))}%</span>
           </div>
-          <div class="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
+          <div class="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
             <div class="h-full bg-indigo-500" style="width: ${Math.min(100, (finishedCount / cert.required) * 100)}%"></div>
           </div>
         `}
@@ -352,13 +363,15 @@ async function bootAcademy() {
     const catalogRequest = window.__TRAINING_CATALOG__
       ? Promise.resolve(window.__TRAINING_CATALOG__)
       : Promise.all([
-          fetch('/training/catalog.json?v=20260814_kajabi'),
-          fetch('/training/catalog-expanded.json?v=20260814_kajabi'),
-          fetch('/training/visuals.json?v=20260814_kajabi'),
+          fetch('/training/catalog.json?v=20260826_academy_brand_v1'),
+          fetch('/training/catalog-expanded.json?v=20260826_academy_brand_v1'),
+          fetch('/training/visuals.json?v=20260826_academy_brand_v1'),
         ]).then(async responses => {
-          if (responses.some(response => !response.ok)) throw new Error('CATALOG');
-          const [core, expanded, visualCatalog] = await Promise.all(responses.map(response => response.json()));
-          return { lessons: [...(core.lessons || []), ...(expanded.lessons || [])], visuals: visualCatalog.visuals || {} };
+          const parse = async (response) => response && response.ok ? response.json() : {};
+          const [core, expanded, visualCatalog] = await Promise.all(responses.map(parse));
+          const lessons = [...(core.lessons || []), ...(expanded.lessons || [])];
+          if (!lessons.length) throw new Error('CATALOG');
+          return { lessons, visuals: visualCatalog.visuals || {} };
         });
     const [profile, catalog] = await Promise.all([LOCAL_PREVIEW ? Promise.resolve(previewProfile) : authenticatedJson('/auth/me'), catalogRequest]);
     academyUser = profile;
@@ -391,7 +404,7 @@ async function bootAcademy() {
     else {
       const loadingEl = document.getElementById('academy-loading');
       if (loadingEl) {
-        loadingEl.innerHTML = '<div class="max-w-md p-8 text-center bg-slate-900 border border-slate-800 rounded-2xl"><h1 class="text-lg font-black text-white">Academy could not load</h1><p class="mt-2 text-xs text-slate-400">Return to the dashboard and try again.</p><a href="/dashboard.html" class="mt-5 inline-block rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white">Back to dashboard</a></div>';
+        loadingEl.innerHTML = '<div class="max-w-md p-8 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm"><h1 class="text-lg font-black text-slate-900 dark:text-white">Academy could not load</h1><p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Return to the dashboard and try again.</p><a href="/dashboard.html" target="_blank" rel="noopener noreferrer" class="mt-5 inline-block rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white">Back to dashboard</a></div>';
       }
     }
   }
