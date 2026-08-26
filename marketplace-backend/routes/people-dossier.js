@@ -413,6 +413,35 @@ export function registerPeopleDossier(app) {
   // set a password and it never reveals one: HR triggers the email, the employee
   // chooses the password. An admin who could type a colleague's new password could
   // then sign in as them, and every action would be logged as theirs.
+
+  app.put('/hr/employees/:id/access', requireAuth, requireMfa, canManage, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const role = String(req.body?.role || '').toUpperCase()
+    const allowed = ['DEALER_ADMIN','OWNER','MANAGER','SALES_REP','BDC','FNI','SERVICE','PARTS','ACCOUNTING','CLEANUP']
+    if (!allowed.includes(role)) return res.status(400).json({ error: 'Unknown role' })
+    const departments = Array.isArray(req.body?.departments)
+      ? req.body.departments.map(x => String(x).toUpperCase()).filter(x => allowed.includes(x))
+      : [role]
+    const { data: person } = await supabaseAdmin.from('staff_members')
+      .select('id, user_id, name, department, notes')
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!person) return res.status(404).json({ error: 'Employee not found' })
+    if (!person.user_id) return res.status(409).json({ error: 'This employee has no login yet.' })
+    const { syncDealerRole } = await import('../authorization.js')
+    await syncDealerRole(person.user_id, req.dealershipId, role, req.user.id)
+    const { error: profileError } = await supabaseAdmin.from('profiles')
+      .update({ role, account_role: role.toLowerCase(), mgr_role: departments.filter(x => x !== role).join(',') || null })
+      .eq('id', person.user_id)
+    if (profileError) return res.status(500).json({ error: profileError.message })
+    await supabaseAdmin.from('staff_members').update({
+      department: departments.join(', '),
+      notes: (String(person.notes || '').replace(/<!--ms-access:.*?-->/g, '').trim() + '\n<!--ms-access:' + departments.join(',') + '-->').trim(),
+      updated_at: new Date().toISOString(),
+      updated_by: req.user.id,
+    }).eq('id', person.id)
+    res.json({ ok: true, role, departments })
+  })
+
   app.post('/hr/employees/:id/password-reset', requireAuth, requireMfa, canManage, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { data: person } = await supabaseAdmin.from('staff_members')
