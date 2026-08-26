@@ -29,9 +29,7 @@
   <link rel="stylesheet" href="css/tailwind-built.css?v=20260825_header_spacing_v1">
   <link rel="stylesheet" href="css/ms-design-system.css?v=20260826_type_16_v1">
   <meta name="color-scheme" content="light dark">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@simplewebauthn/browser@11/dist/bundle/index.umd.min.js"></script>
+  <!-- Chart.js / QR / WebAuthn load on demand via msLoadScript — they blocked first paint when in <head>. -->
   <script src="password-toggle.js" defer></script>
   <style>
     /* Role-gated UI (dealer/admin/team links) stays hidden until the signed-in
@@ -3986,8 +3984,8 @@
   <!-- Workspace registry: SINGLE SOURCE OF TRUTH for sidebar, workspace tabs and
        mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
   <script src="js/modules/workspace-registry.js?v=20260824_inventory_accuracy_v1"></script>
-  <script src="dashboard.js?v=20260826_single_prod_nav_v1"></script>
-  <script src="js/modules/dashboard-part2.js?v=20260826_no_mkt_flash_v1"></script>
+  <script src="dashboard.js?v=20260826_perf_b1"></script>
+  <script src="js/modules/dashboard-part2.js?v=20260826_perf_b1"></script>
   <script src="js/modules/dashboard-part3.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part4.js?v=20260826_crm_no_double_v1"></script>
   <script src="js/modules/dashboard-part5.js?v=20260826_single_prod_nav_v1"></script>
@@ -4020,19 +4018,13 @@
        whose merchandising/acquisition definitions it renders. -->
   <script src="js/modules/vehicle-record.js?v=20260824_inventory_accuracy_v1"></script>
   <script src="js/modules/receipt-engine.js?v=20260824_real_receipt_data_v1"></script>
-  <script src="js/modules/video-studio.js?v=20260826_studio_tp_v1"></script>
   <script src="js/modules/service-views.js?v=20260824_ai_panel_contrast_v1"></script>
   <script src="js/modules/service-workspace.js?v=20260826_pulse_clean_v2"></script>
   <script src="js/modules/parts-views.js?v=20260825_dead_handlers_v1"></script>
   <script src="js/modules/parts-workspace.js?v=20260826_pulse_appr_v4"></script>
   <script src="js/modules/accounting-views.js?v=20260817_simple_internal"></script>
   <script src="js/modules/accounting-workspace.js?v=20260826_dept_pulse_board_v1"></script>
-  <script src="js/modules/studio/scene-model.js?v=20260814_v12"></script>
-  <script src="js/modules/studio/fabric-adapter.js?v=20260818_fontfamily_v1"></script>
-  <script src="js/modules/studio/studio-scheduler.js?v=20260826_digital_pages_v3"></script>
-  <script src="js/modules/studio/studio-shell.js?v=20260826_studio_tp_v1"></script>
   <script src="js/modules/marketing-workspace.js?v=20260826_fb_poster_first_v1"></script>
-  <script src="js/modules/academy-workspace.js?v=20260826_academy_load_v1"></script>
   <script src="js/modules/launch-workspace.js?v=20260824_ai_panel_contrast_v1"></script>
   <script src="js/modules/people-views.js?v=20260824_ai_panel_contrast_v1"></script>
   <script src="js/modules/people-workspace.js?v=20260826_dept_pulse_board_v1"></script>
@@ -4046,5 +4038,8 @@
   <script src="js/modules/staff-chat-dock.js?v=20260826_team_chat_settings_v1"></script>
   <script src="js/modules/demo-control-panel.js?v=20260826_no_mkt_flash_v1"></script>
   <script src="table-sort.js?v=20260706a_noemoji"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@simplewebauthn/browser@11/dist/bundle/index.umd.min.js" defer></script>
 </body>
 </html>
