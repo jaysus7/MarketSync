@@ -596,7 +596,7 @@ ENGINES['service-overview'] = {
           empty: 'Nothing is waiting on a part.',
         }),
         pulseCard({
-          title: "What's waiting", count: waiting + inspection, tier: 'standard',
+          title: "What's waiting", count: waiting + inspection, tier: (waiting + inspection) ? 'feature' : 'standard',
           tone: (waiting + inspection) ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : '',
           onclick: "engineTab('service-overview','ros')",
           inner: [
@@ -605,7 +605,7 @@ ENGINES['service-overview'] = {
           ].join(''),
         }),
         pulseCard({
-          title: 'Live ROs', count: ros.length, tier: 'standard',
+          title: 'Live ROs', count: ros.length, tier: ros.length ? 'feature' : 'standard',
           onclick: "engineTab('service-overview','ros')",
           inner: ros.length ? ros.slice(0, 5).map(r => pulseRow({
             badge: '●', badgeTone: 'bg-sky-100 dark:bg-sky-950/50 text-sky-600 dark:text-sky-300',
@@ -625,7 +625,7 @@ ENGINES['service-overview'] = {
           inner: `<p class="text-[12px] text-slate-500 dark:text-slate-400 leading-snug">Record a walkaround on any repair order to show the customer what was found.</p>`,
         }),
         pulseCard({
-          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', tier: att.length ? 'tall' : 'standard',
+          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', tier: att.length ? 'hero' : 'standard',
           inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '', empty: 'Nothing is blocking the shop.',
         }),
         pulseCard({
