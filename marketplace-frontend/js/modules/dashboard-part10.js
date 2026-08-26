@@ -958,42 +958,62 @@ function pulseActionsRow(actions) {
 // real Performance/Leaderboard page (switchPage('leaderboard')) already renders, so a
 // Pulse card never shows a number that isn't also standing behind that page today.
 // gam: the raw /gamification response (or null if it could not be loaded).
+function pulseLeaderboardPodium(rows) {
+  const top = [rows[1], rows[0], rows[2]];
+  const meta = [
+    { place: 2, h: 'h-24', bar: 'from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500', icon: 'star' },
+    { place: 1, h: 'h-32', bar: 'from-amber-300 to-amber-500', icon: 'trophy' },
+    { place: 3, h: 'h-20', bar: 'from-orange-300 to-orange-500', icon: 'star' },
+  ];
+  return `<div class="grid grid-cols-3 gap-3 items-end mb-5">${meta.map((m, i) => {
+    const r = top[i];
+    const name = r ? esc(r.full_name || r.name || 'Teammate') : 'Open';
+    const pts = r ? `${Number(r.score || r.points || 0).toLocaleString()} pts` : '—';
+    return `<div class="flex flex-col items-center text-center ${r ? '' : 'opacity-40'}">
+      <div class="mb-1 text-amber-500">${typeof svgIcon === 'function' ? svgIcon(m.icon, m.place === 1 ? 'w-7 h-7' : 'w-6 h-6') : ''}</div>
+      <div class="font-black text-sm text-slate-900 dark:text-white truncate w-full">${name}</div>
+      <div class="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-1 mb-2">${pts}</div>
+      <div class="w-full rounded-t-xl bg-gradient-to-b ${m.bar} ${m.h} flex items-start justify-center pt-2 text-white font-black text-xl">${m.place}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
 function pulseLeaderboardCard(gam, deptKey, { title, metric, onclick, tier, limit } = {}) {
-  // Embedded department leaderboard — lives ON the Pulse. Do not navigate away
-  // unless the caller explicitly passes onclick (e.g. a "View full board" affordance).
   const dept = gam?.departments?.[deptKey];
-  const rows = (dept?.leaderboard || []).slice().sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99)).slice(0, limit || 8);
+  const rows = (dept?.leaderboard || []).slice().sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
+  const shown = rows.slice(0, limit || 12);
   const formatPts = (v) => {
     if (v == null || v === '') return null;
     const n = Number(v);
     if (!Number.isFinite(n)) return String(v);
-    return n >= 1000 ? `${n.toLocaleString()} pts` : `${n} pts`;
+    return `${n.toLocaleString()} pts`;
   };
-  const inner = rows.length ? rows.map(r => {
-    const raw = metric ? (r.metrics?.[metric] ?? r.score ?? null) : (r.score ?? null);
-    return pulseLeaderRow({
-      rank: r.rank,
-      name: r.full_name,
-      sub: r.title || '',
-      value: formatPts(raw),
-      valueTone: 'text-amber-600 dark:text-amber-400',
-      // Rows stay on the pulse; only an explicit onclick navigates.
-      onclick: onclick || null,
-    });
-  }).join('') : '';
+  const list = shown.map(r => pulseLeaderRow({
+    rank: r.rank,
+    name: r.full_name,
+    sub: r.title || '',
+    value: formatPts(metric ? (r.metrics?.[metric] ?? r.score) : r.score),
+    valueTone: 'text-amber-700 dark:text-amber-400',
+    onclick: onclick || null,
+  })).join('');
+  const inner = `${pulseLeaderboardPodium(rows)}${list || ''}`;
   return pulseCard({
     title: title || (dept?.title ? `${dept.title} leaderboard` : 'Leaderboard'),
-    // No card-level navigation — the board is the destination.
     onclick: null,
-    tier: tier || 'standard',
+    tier: 'hero',
     inner,
-    empty: gam === null ? 'Could not be loaded.' : 'No ranked activity yet.',
+    empty: shown.length ? '' : (gam === null ? 'Could not be loaded.' : 'No ranked activity yet.'),
   });
 }
+
+function pulseDeptLeaderboard(gam, deptKey, opts = {}) {
+  return `<section class="mt-8 w-full">${pulseLeaderboardCard(gam, deptKey, { ...opts, tier: 'hero' })}</section>`;
+}
+
 if (typeof window !== 'undefined') {
   window.pulseHeader = pulseHeader; window.pulseGrid = pulseGrid; window.pulseBoard = pulseBoard; window.pulseCard = pulseCard;
   window.pulseRow = pulseRow; window.pulseSearchCard = pulseSearchCard; window.pulseLeaderRow = pulseLeaderRow;
-  window.pulseActionsRow = pulseActionsRow; window.pulseLeaderboardCard = pulseLeaderboardCard;
+  window.pulseActionsRow = pulseActionsRow; window.pulseLeaderboardCard = pulseLeaderboardCard; window.pulseDeptLeaderboard = pulseDeptLeaderboard; window.pulseLeaderboardPodium = pulseLeaderboardPodium;
 }
 
 // ── Sections you scroll to, instead of a second row of tabs ──────────────────
