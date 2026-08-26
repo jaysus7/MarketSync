@@ -2036,13 +2036,13 @@ body {
    that is no longer visible through the card. Depth here comes from the scrim
    behind the card and the shadow, which is what a scrim is for. */
 .ms-crm-glass {
-  color: var(--ms-text);
-  border: 1px solid rgba(23,25,31,.12);
-  border-radius: 30px !important;
-  background: linear-gradient(145deg, #FFFFFF, #F2F6FB) !important;
-  box-shadow: 0 34px 110px rgba(15,23,42,.20), inset 0 1px 0 rgba(255,255,255,.74) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+  color: var(--ms-t-primary, #0f172a);
+  border: 1px solid var(--ms-g-border, rgba(23,25,31,.10));
+  border-radius: 28px !important;
+  background: var(--ms-s-glass, rgba(255,255,255,.82)) !important;
+  box-shadow: var(--ms-g-shadow, 0 24px 80px rgba(15,23,42,.16)), var(--ms-g-highlight, inset 0 1px 0 rgba(255,255,255,.7)) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(22px) saturate(1.4);
 }
 
 .ms-crm-glass > .sticky {
@@ -2725,3 +2725,7 @@ html.dark[data-dash-mode="marketsync"] .page-content .ms-ai-panel {
     height: min(520px, calc(100dvh - 88px));
   }
 }
+
+.ms-crm-glass .ms-crm-actions button,
+.ms-crm-glass #crm-actions-menu button { color: #0f172a; }
+.dark .ms-crm-glass #crm-actions-menu button { color: #f1f5f9; }
