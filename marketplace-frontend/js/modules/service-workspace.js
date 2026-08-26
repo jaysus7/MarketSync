@@ -676,6 +676,13 @@ ENGINES['service-overview'] = {
             return count ? pulseRow({ badge: count, label: svcStatusLabel(status), onclick: "engineTab('service-overview','ros')" }) : '';
           }).filter(Boolean).join(''), empty: 'No open repair orders.',
         }),
+        pulseCard({
+          title: 'Technicians',
+          count: (typeof svcTechBoard === 'function' ? svcTechBoard(d).count : 0),
+          tier: 'hero',
+          inner: (typeof svcTechBoard === 'function' ? svcTechBoard(d).html : ''),
+          empty: 'No technicians on the board.',
+        }),
         // Department leaderboard embeds on the Service Pulse (same /gamification
         // payload as the full Leaderboard page — ranked here, not navigated away).
       ]);
@@ -800,3 +807,61 @@ window.svcSaveSettings = svcSaveSettings;
 
 function loadServiceWorkspace() { renderEngine('service-overview'); }
 window.loadServiceWorkspace = loadServiceWorkspace;
+
+
+function svcEnsureTechs() {
+  if (Array.isArray(window.__svcTechnicians) && window.__svcTechnicians.length) return window.__svcTechnicians;
+  window.__svcTechnicians = [
+    { id: 'tech_1', name: 'Mike Miller', role: 'Master Tech', bay: 'Bay 1', status: 'working', load: 85, jobs: 3, currentJob: 'RO-1094 Transmission', lunchEnds: null },
+    { id: 'tech_2', name: 'David Smith', role: 'Diagnostics', bay: 'Bay 2', status: 'blocked', load: 100, jobs: 2, currentJob: 'RO-1098 Electrical', lunchEnds: null },
+    { id: 'tech_3', name: 'Carlos Gomez', role: 'Brakes', bay: 'Bay 3', status: 'lunch', load: 40, jobs: 1, currentJob: 'RO-1102 Brakes', lunchEnds: '1:15 PM' },
+    { id: 'tech_4', name: 'Alex Johnson', role: 'Express', bay: 'Bay 4', status: 'available', load: 20, jobs: 1, currentJob: 'RO-1106 Oil', lunchEnds: null },
+    { id: 'tech_5', name: 'Priya Patel', role: 'Alignment', bay: 'Bay 5', status: 'available', load: 10, jobs: 0, currentJob: 'Open', lunchEnds: null },
+  ];
+  return window.__svcTechnicians;
+}
+
+function svcTechBoard(d) {
+  const techs = svcEnsureTechs();
+  const lines = [];
+  for (const r of (d?.ros || [])) {
+    for (const l of (r.lines || [])) {
+      if (l.tech_id) lines.push({ tech_id: l.tech_id, status: l.line_status || r.status, hours: Number(l.hours || l.sold_hours || 1) });
+    }
+  }
+  const byTech = {};
+  lines.forEach(l => {
+    byTech[l.tech_id] = byTech[l.tech_id] || { jobs: 0, hours: 0 };
+    byTech[l.tech_id].jobs += 1;
+    byTech[l.tech_id].hours += l.hours;
+  });
+  const rows = techs.map(t => {
+    const live = byTech[t.id];
+    const jobs = live ? live.jobs : t.jobs;
+    const load = live ? Math.min(100, Math.round((live.hours / 8) * 100)) : t.load;
+    const status = t.status || (load >= 100 ? 'full' : load >= 70 ? 'working' : 'available');
+    const tone = status === 'lunch' ? 'text-amber-600 dark:text-amber-400'
+      : status === 'blocked' || load >= 100 ? 'text-rose-600 dark:text-rose-400'
+      : status === 'available' || load < 40 ? 'text-emerald-600 dark:text-emerald-400'
+      : 'text-slate-600 dark:text-slate-300';
+    const label = status === 'lunch' ? `On lunch${t.lunchEnds ? ' · back ' + t.lunchEnds : ''}`
+      : status === 'blocked' ? 'Blocked on parts'
+      : load >= 100 ? 'At capacity'
+      : load >= 70 ? 'Busy'
+      : 'Open for work';
+    return (typeof pulseRow === 'function' ? pulseRow({
+      badge: load + '%',
+      label: t.name + (t.bay ? ' · ' + t.bay : ''),
+      sub: [t.role, jobs + ' job' + (jobs === 1 ? '' : 's'), t.currentJob].filter(Boolean).join(' · '),
+      value: label,
+      valueTone: tone,
+      onclick: "typeof svcOpenAssignWorkModal==='function'&&svcOpenAssignWorkModal('" + t.id + "')",
+    }) : '');
+  }).join('');
+  const lunch = techs.filter(t => t.status === 'lunch').length;
+  const open = techs.filter(t => (t.status === 'available' || t.load < 40) && t.status !== 'lunch').length;
+  const html = `<div class="text-[12px] text-slate-500 dark:text-slate-400 mb-2">${lunch} on lunch · ${open} open for the next job · tap a tech to assign</div>${rows}`;
+  return { count: techs.length, html };
+}
+window.svcTechBoard = svcTechBoard;
+window.svcEnsureTechs = svcEnsureTechs;
