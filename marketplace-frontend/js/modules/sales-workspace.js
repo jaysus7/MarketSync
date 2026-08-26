@@ -462,8 +462,8 @@ ENGINES['sales'] = {
             onclick: c.id ? `openCrmContact('${c.id}')` : "engineTab('sales','work')",
           })).join('') : '', empty: 'No open opportunities.',
         }),
-        pulseLeaderboardCard(d.gamification, 'sales', { title: 'Sales leaderboard', metric: 'total_sold' }),
-        pulseLeaderboardCard(d.gamification, 'facebook', { title: 'Facebook Marketplace leaderboard' }),
+        pulseLeaderboardCard(d.gamification, 'sales', { title: 'Internal Sales leaderboard', metric: 'total_sold', tier: 'feature', limit: 8 }),
+        pulseLeaderboardCard(d.gamification, 'facebook', { title: 'Facebook Marketplace leaderboard', metric: 'total_posted', tier: 'feature', limit: 8 }),
       ]);
 
       // Pulse is the canonical at-a-glance view. The former dashboard repeated the
