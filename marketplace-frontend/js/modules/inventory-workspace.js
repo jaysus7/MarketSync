@@ -335,17 +335,21 @@ ENGINES['inventory-overview'] = {
       `;
 
       body.innerHTML = `
-        ${proactiveAiPanel}
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}
-          ${engKpi('In stock', veh.length)}
-          ${engKpi('Awaiting possession', awaiting, awaiting ? 'text-amber-600 dark:text-amber-400' : '')}
-          ${engKpi('Not frontline ready', notReady.length, notReady.length ? 'text-rose-600 dark:text-rose-400' : '')}
-        </div>
-        ${engCard('Needs attention', att.length ? att.map(salesAttentionRow).join('') : engEmpty('Every vehicle is frontline ready.'))}
-        <div class="mt-3">
-          ${engCard('Not frontline ready', notReady.length ? notReady.slice(0, 8).map(v => invRow(v, d, `<span class="text-rose-500">${esc(invMerchGaps(v).map(g => g.gap).join(' · '))}</span>`)).join('') : engEmpty('Every vehicle is merchandised.'))}
-        </div>`;
+        ${pulseHeader('Inventory Pulse', 'Lot health, merchandising gaps, acquisition and aged units')}
+        ${pulseBoard([
+          pulseCard({ title: 'Needs attention', count: att.length, tier: att.length ? 'hero' : 'feature',
+            tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
+            inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '',
+            empty: 'Every vehicle is frontline ready.' }),
+          pulseCard({ title: 'Not frontline ready', count: notReady.length, tier: notReady.length ? 'feature' : 'standard',
+            inner: notReady.length ? notReady.slice(0, 8).map(v => invRow(v, d, `<span class="text-rose-500">${esc(invMerchGaps(v).map(g => g.gap).join(' · '))}</span>`)).join('') : '',
+            empty: 'Every vehicle is merchandised.' }),
+          pulseCard({ title: 'In stock', count: veh.length, tier: 'compact' }),
+          pulseCard({ title: 'Awaiting possession', count: awaiting, tier: awaiting ? 'standard' : 'compact',
+            tone: awaiting ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300' : '',
+            onclick: "engineTab('inventory-overview','work')" }),
+          pulseCard({ title: 'AI merchandising', tier: 'feature', inner: proactiveAiPanel }),
+        ])}`;
 
       // Acquisition — what is coming in, and what has been taken possession of. Lives
       // here in Pulse (not also in the Inventory list tab) so there is one copy.
