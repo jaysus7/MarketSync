@@ -1,5 +1,15 @@
 // background.js
-const API = 'https://vehicle-marketplace-s0e4.onrender.com'
+let API = 'https://vehicle-marketplace-s0e4.onrender.com'
+
+chrome.storage.local.get(['customApi'], ({ customApi }) => {
+  if (customApi) API = customApi
+})
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.customApi?.newValue) {
+    API = changes.customApi.newValue
+  }
+})
 
 // Clicking the toolbar icon opens the docked side panel (like Market Post Pro),
 // so MarketSync stays open beside Facebook while you post. Guarded for older

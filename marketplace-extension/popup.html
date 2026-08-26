@@ -89,24 +89,37 @@
     .header-brand {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 9px;
     }
-    .header-logo {
+    .header-logo-img {
       width: 28px;
       height: 28px;
-      background: linear-gradient(135deg, var(--accent-2), var(--purple));
       border-radius: 7px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      object-fit: contain;
       flex-shrink: 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
     }
-    .header-logo svg { width: 16px; height: 16px; color: #fff; }
     .header-title-wrap { line-height: 1.2; }
     .header-name-row { display: flex; align-items: center; gap: 6px; }
     .header h1 { font-size: 13px; font-weight: 700; color: var(--text); }
     .header .dealer { font-size: 11px; color: var(--text-3); margin-top: 1px; }
     .header-right { display: flex; align-items: center; gap: 6px; }
+    .sync-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      display: inline-block;
+      transition: all .2s;
+    }
+    .sync-dot.syncing {
+      background: var(--accent);
+      animation: pulse-sync 1s infinite alternate;
+    }
+    @keyframes pulse-sync {
+      0% { transform: scale(0.8); opacity: 0.5; }
+      100% { transform: scale(1.2); opacity: 1; }
+    }
 
     .dashboard-link {
       background: var(--accent-bg);
@@ -370,18 +383,20 @@
     .auth-logo-row {
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 20px;
+      margin-bottom: 22px;
     }
-    .auth-logo {
-      width: 36px; height: 36px;
-      background: linear-gradient(135deg, var(--accent-2), var(--purple));
-      border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
+    .auth-logo-img {
+      height: 38px;
+      width: auto;
+      max-width: 220px;
+      object-fit: contain;
     }
-    .auth-logo svg { width: 20px; height: 20px; color: #fff; }
-    .auth-app-name { font-size: 17px; font-weight: 800; color: var(--text); letter-spacing: -.02em; }
-    .auth-app-sub { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+    .auth-logo-dark { display: none; }
+    .auth-logo-light { display: block; }
+    @media (prefers-color-scheme: dark) {
+      .auth-logo-dark { display: block; }
+      .auth-logo-light { display: none; }
+    }
 
     #login-screen h2, #register-screen h2 {
       font-size: 15px;
@@ -466,13 +481,8 @@
   <div id="login-screen" class="view-screen active">
     <div class="auth-wrap">
       <div class="auth-logo-row">
-        <div class="auth-logo">
-          <svg fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/><path stroke-linecap="round" stroke-linejoin="round" d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/></svg>
-        </div>
-        <div>
-          <div class="auth-app-name">MarketSync</div>
-          <div class="auth-app-sub">Dealer inventory on Facebook</div>
-        </div>
+        <img src="icons/logo-dark.png" alt="MarketSync" class="auth-logo-img auth-logo-dark">
+        <img src="icons/logo-light.png" alt="MarketSync" class="auth-logo-img auth-logo-light">
       </div>
       <h2>Sign in</h2>
       <p>Access your dealership or personal account</p>
@@ -501,13 +511,8 @@
   <div id="register-screen" class="view-screen">
     <div class="auth-wrap">
       <div class="auth-logo-row">
-        <div class="auth-logo">
-          <svg fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/><path stroke-linecap="round" stroke-linejoin="round" d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/></svg>
-        </div>
-        <div>
-          <div class="auth-app-name">MarketSync</div>
-          <div class="auth-app-sub">Set up your workspace</div>
-        </div>
+        <img src="icons/logo-dark.png" alt="MarketSync" class="auth-logo-img auth-logo-dark">
+        <img src="icons/logo-light.png" alt="MarketSync" class="auth-logo-img auth-logo-light">
       </div>
       <h2>Create Workspace</h2>
       <p>Connect your dealership inventory in minutes</p>
@@ -532,13 +537,12 @@
     <!-- Header -->
     <div class="header">
       <div class="header-brand">
-        <div class="header-logo">
-          <svg fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/><path stroke-linecap="round" stroke-linejoin="round" d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/></svg>
-        </div>
+        <img src="icons/logo-mark.png" alt="MarketSync" class="header-logo-img">
         <div class="header-title-wrap">
           <div class="header-name-row">
             <h1 id="header-name">—</h1>
             <span id="ai-boost-badge">✦ AI</span>
+            <span id="sync-dot" class="sync-dot" title="Ready"></span>
           </div>
           <div class="dealer" id="header-dealer"></div>
         </div>
