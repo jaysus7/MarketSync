@@ -357,9 +357,6 @@ ENGINES['fni-overview'] = {
           })).join(''),
           empty: 'No F&I products configured.',
         }),
-        (typeof pulseLeaderboardCard === 'function'
-          ? pulseLeaderboardCard(d.gamification, 'fni', { title: 'F&I leaderboard', metric: 'fni_gross', tier: 'feature', limit: 8 })
-          : ''),
         pulseCard({
           title: 'Proactive F&I assistant',
           tier: 'feature',
@@ -378,6 +375,7 @@ ENGINES['fni-overview'] = {
       body.innerHTML = `
         ${pulseHeader('F&I Pulse', 'Approvals, credit, products, contracts and delivery readiness')}
         ${pulseBoard(cards)}
+        ${typeof pulseDeptLeaderboard === 'function' ? pulseDeptLeaderboard(d.gamification, 'fni', { title: 'F&I leaderboard', metric: 'fni_gross' }) : ''}
       `;
     },
 
