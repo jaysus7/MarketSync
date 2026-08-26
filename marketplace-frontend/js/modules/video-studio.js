@@ -1817,6 +1817,7 @@ async function msRegenerateVideoShare(videoId) {
 window.msRevokeVideoShare = msRevokeVideoShare;
 window.msRegenerateVideoShare = msRegenerateVideoShare;
 window.loadVideoStudioPage = loadVideoStudioPage;
+window.renderVideoStudioWorkspace = renderVideoStudioWorkspace;
 window.loadSaasVideoStudio = loadSaasVideoStudio;
 window.msFilterVideoStatus = msFilterVideoStatus;
 window.msFilterVideoDept = msFilterVideoDept;
