@@ -1929,7 +1929,7 @@ const MS_LEGACY_PAGE_REDIRECTS = Object.freeze({
   'service-ros': 'service-overview', 'service-appointments': 'service-overview',
   parts: 'parts-overview', accounting: 'accounting-overview', marketing: 'marketing-overview',
   people: 'people-overview', hr: 'people-overview', crm: 'sales', leads: 'sales',
-  appointments: 'sales', appraisal: 'inventory-overview', reports: 'command',
+  appointments: 'sales', reports: 'command',
   operations: 'command', taskboard: 'command', settings: 'profile',
 });
 function canonicalDashboardPage(pageId) {
