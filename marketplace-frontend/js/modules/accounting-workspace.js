@@ -160,8 +160,14 @@ ENGINES['accounting-overview'] = {
       body.innerHTML = engSection('General journal', engEmpty('Journal entries load from the ledger.'), 'Every posted entry');
     },
     payroll(body, d) {
-      body.innerHTML = `<div id="commissions-root" class="space-y-4"></div>`;
-      if (typeof window.loadCommissionsPage === 'function') window.loadCommissionsPage();
+      body.innerHTML = `<div id="accounting-commissions-root" class="space-y-4 min-h-[20rem]"></div>`;
+      const mount = document.getElementById('accounting-commissions-root');
+      if (typeof window.loadCommissionsPage === 'function') {
+        try { window.loadCommissionsPage(mount); }
+        catch (e) { body.innerHTML = engCard('Commissions', engEmpty(e.message || 'Could not load commission engine.')); }
+      } else {
+        body.innerHTML = engCard('Commissions', engEmpty('Commission engine is loading… refresh in a moment.'));
+      }
     },
     budget(body, d) {
       if (typeof window.accRenderBudgetSheet === 'function') window.accRenderBudgetSheet(body, d);
