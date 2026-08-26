@@ -426,7 +426,7 @@ ENGINES['sales'] = {
         }),
         pulseCard({
           title: 'New leads', count: newLeads.length,
-          tier: newLeads.length ? 'standard' : 'compact',
+          tier: 'standard',
           onclick: "engineTab('sales','work')",
           inner: newLeads.length ? newLeads.slice(0, 5).map(c => pulseRow({
             badge: '•', label: c.full_name || c.name || 'Lead', sub: c.status || '',
@@ -437,7 +437,7 @@ ENGINES['sales'] = {
         pulseCard({
           title: 'Overdue tasks', count: overdue.length,
           tone: overdue.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
-          tier: overdue.length ? 'standard' : 'compact',
+          tier: 'standard',
           onclick: "engineTab('sales','work')",
           inner: overdue.length ? overdue.slice(0, 5).map(t => pulseRow({
             badge: '!', label: t.title || t.type || 'Task',
@@ -447,7 +447,7 @@ ENGINES['sales'] = {
           empty: 'No overdue tasks.',
         }),
         (typeof pulseLeaderboardCard === 'function'
-          ? pulseLeaderboardCard(d.gamification, 'sales', { title: 'Sales leaderboard', metric: 'deals_sold', tier: 'feature', limit: 8 })
+          ? pulseLeaderboardCard(d.gamification, 'sales', { title: 'Sales leaderboard', metric: 'deals_sold', tier: 'standard', limit: 8 })
           : ''),
         (typeof pulseLeaderboardCard === 'function'
           ? pulseLeaderboardCard(d.gamification, 'facebook', { title: 'Facebook Marketplace', metric: 'score', tier: 'standard', limit: 6 })
