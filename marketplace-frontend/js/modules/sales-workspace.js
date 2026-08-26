@@ -443,18 +443,14 @@ ENGINES['sales'] = {
           })).join('') : '',
           empty: 'No overdue tasks.',
         }),
-        (typeof pulseLeaderboardCard === 'function'
-          ? pulseLeaderboardCard(d.gamification, 'sales', { title: 'Sales leaderboard', metric: 'deals_sold', tier: 'standard', limit: 8 })
-          : ''),
-        (typeof pulseLeaderboardCard === 'function'
-          ? pulseLeaderboardCard(d.gamification, 'facebook', { title: 'Facebook Marketplace', metric: 'score', tier: 'standard', limit: 6 })
-          : ''),
         aiCard,
       ].filter(Boolean);
 
       body.innerHTML = `
         ${pulseHeader('Sales Pulse', 'Customers, appointments and deals — what needs you first')}
         ${pulseBoard(cards)}
+        ${typeof pulseDeptLeaderboard === 'function' ? pulseDeptLeaderboard(d.gamification, 'sales', { title: 'Sales leaderboard', metric: 'deals_sold' }) : ''}
+        ${typeof pulseDeptLeaderboard === 'function' ? pulseDeptLeaderboard(d.gamification, 'facebook', { title: 'Facebook Marketplace', metric: 'score' }) : ''}
       `;
     },
 
