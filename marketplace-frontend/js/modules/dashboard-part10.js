@@ -111,6 +111,27 @@ Object.assign(window, { loadApiKeys, apiGenerateKey, apiRevokeKey });
 
 // ══ AI Employee — AI Chatbot product home (conversations feed + knowledge & setup) ══
 let __aiHomeTab = 'conversations';
+
+function aiAgentHeader({ title = 'AI Customer Agent', sub = '', live = null, name = '' } = {}) {
+  const badge = live == null ? '' : (live
+    ? `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Live${name ? ' · ' + esc(name) : ''}</span>`
+    : `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Offline</span>`);
+  return `<section class="ms-glass rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/85 dark:bg-slate-900/75 p-5 md:p-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between shadow-sm">
+    <div class="min-w-0 flex items-start gap-3.5">
+      <div class="w-12 h-12 rounded-2xl bg-violet-600/10 text-violet-700 dark:text-violet-300 border border-violet-500/25 flex items-center justify-center flex-shrink-0">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/></svg>
+      </div>
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <h2 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">${esc(title)}</h2>
+          ${badge}
+        </div>
+        ${sub ? `<p class="text-sm text-slate-600 dark:text-slate-300 mt-1 max-w-2xl leading-relaxed">${sub}</p>` : ''}
+      </div>
+    </div>
+  </section>`;
+}
+
 async function loadAiHome(tab) {
   const root = document.getElementById('ai-home-root');
   if (!root) return;
@@ -129,9 +150,13 @@ async function loadAiHome(tab) {
 
 async function aiHomeCombinedSetup(body) {
   body.innerHTML = `
-    <div class="space-y-8 max-w-6xl">
+    <div class="space-y-6 md:space-y-8 max-w-7xl">
+      ${aiAgentHeader({
+        title: 'AI Customer Agent',
+        sub: 'Scan your site, pick an industry package, set the role persona, and fill the knowledge base the agent answers from.',
+      })}
       <div id="ai-setup-kb-wrapper"></div>
-      <div id="ai-setup-settings-wrapper" class="pt-6 border-t border-slate-200 dark:border-slate-800"></div>
+      <div id="ai-setup-settings-wrapper" class="pt-2"></div>
     </div>
   `;
   const kbW = document.getElementById('ai-setup-kb-wrapper');
@@ -169,13 +194,13 @@ async function aiHomeOverviewAndFeed(body) {
   `;
 
   const insights = `
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
       ${tile('Conversations', s.conversations, 'text-emerald-600 dark:text-emerald-400')}
       ${tile('Leads Captured', s.leads_captured)}
       ${tile('Appointments Booked', s.booked, 'text-emerald-600 dark:text-emerald-400')}
       ${tile('Hot Leads', s.hot_leads, 'text-rose-600 dark:text-rose-400')}
     </div>
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
       ${tile('Sales', byDept.sales, 'text-emerald-600 dark:text-emerald-400')}
       ${tile('Service', byDept.service, 'text-sky-600 dark:text-sky-400')}
       ${tile('Parts', byDept.parts, 'text-amber-600 dark:text-amber-400')}
@@ -213,20 +238,23 @@ async function aiHomeOverviewAndFeed(body) {
   const sel = 'px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px] font-semibold';
 
   body.innerHTML = `
-    <div class="mb-4 flex items-center gap-2 rounded-xl border ${chatbot.active ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30' : 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30'} px-4 py-3">
-      <span class="w-2.5 h-2.5 rounded-full ${chatbot.active ? 'bg-emerald-500' : 'bg-amber-500'}"></span>
-      <span class="text-sm font-bold text-slate-800 dark:text-slate-100">${chatbot.active ? 'Chatbot is live' : 'Chatbot is not live'}</span>
-      <span class="text-xs text-slate-500 dark:text-slate-400">${chatbot.assistant_name ? '· ' + esc(chatbot.assistant_name) : '· Set your assistant name in Setup'}</span>
-    </div>
+    <div class="space-y-6 md:space-y-8">
+    ${aiAgentHeader({
+      title: 'AI Customer Agent',
+      sub: '24/7 website and messaging agent — conversations, leads, and handoffs in one pulse.',
+      live: !!chatbot.active,
+      name: chatbot.assistant_name || '',
+    })}
 
-    ${insights}
-
-    <div class="grid md:grid-cols-2 gap-3 mb-6">
-      ${breakdown('By department', byDept, AI_DEPT_LABELS, 'bg-emerald-500')}
-      ${breakdown('By lead type', byType, AI_TYPE_LABELS, 'bg-indigo-500')}
-    </div>
-
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4">
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-5 md:gap-6 items-start">
+      <div class="xl:col-span-3 space-y-4">
+        ${insights}
+        <div class="grid md:grid-cols-2 gap-4">
+          ${breakdown('By department', byDept, AI_DEPT_LABELS, 'bg-emerald-500')}
+          ${breakdown('By lead type', byType, AI_TYPE_LABELS, 'bg-indigo-500')}
+        </div>
+      </div>
+      <div class="xl:col-span-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4">
       <div class="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 class="text-base font-black text-slate-900 dark:text-white uppercase tracking-wider">AI Leads &amp; Conversations</h2>
@@ -242,6 +270,8 @@ async function aiHomeOverviewAndFeed(body) {
       </div>
 
       <div id="ai-feed-list"><div class="text-sm text-slate-400 py-6 text-center">Loading feed…</div></div>
+    </div>
+    </div>
     </div>
   `;
 
@@ -414,29 +444,25 @@ async function aiHomeKnowledge(body) {
 
   body.innerHTML = `
     <div class="space-y-6">
-      <!-- Instant Website Scan & Auto-Fill ("Scan & Paste") Card -->
-      <div class="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-950 border border-indigo-500/30 rounded-2xl p-5 text-white space-y-3 shadow-lg">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6 items-stretch">
+      <!-- Instant Website Scan — full width -->
+      <div class="md:col-span-2 xl:col-span-3 ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-3 shadow-sm">
         <div class="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h3 class="text-base font-black text-white flex items-center gap-2">
-              <span>Instant Website Scan &amp; Auto-Fill ("Scan &amp; Paste")</span>
-            </h3>
-            <p class="text-xs text-slate-300">Enter your current website URL to scan and automatically import your store info, hours, services, and FAQs into your AI Knowledge Base and Website Builder template.</p>
+            <h3 class="text-base font-black text-slate-900 dark:text-white tracking-tight">Instant Website Scan &amp; Auto-Fill</h3>
+            <p class="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">Scan your current site to import store info, hours, services, and FAQs into the knowledge base and website template.</p>
           </div>
-          <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">1-CLICK SCAN &amp; PASTE</span>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30">1-click scan</span>
         </div>
-
         <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap pt-1">
-          <input id="ai-scan-url-input" type="url" placeholder="Enter website URL (e.g. https://www.yourdealership.com)..." class="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-700 bg-slate-950 text-xs font-bold text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
-          <button onclick="aiRunWebsiteScan(this)" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shrink-0 shadow-md cursor-pointer">
-            Scan Website
-          </button>
+          <input id="ai-scan-url-input" type="url" placeholder="https://www.yourdealership.com" class="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500">
+          <button onclick="aiRunWebsiteScan(this)" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shrink-0 shadow-md cursor-pointer">Scan Website</button>
         </div>
         <div id="ai-scan-results-container"></div>
       </div>
 
-      <!-- Industry Package Selection -->
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-3">
+      <!-- Industry Package Selection — full width -->
+      <div class="md:col-span-2 xl:col-span-3 ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-3">
         <div class="flex items-center justify-between">
           <div>
             <h3 class="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">Select Industry Package</h3>
@@ -450,24 +476,22 @@ async function aiHomeKnowledge(body) {
       </div>
 
       <!-- AI Role Persona & Goals -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-3">
-          <label class="block text-xs font-black uppercase tracking-wider text-slate-400">AI Employee Role Persona</label>
+      <div class="md:col-span-1 xl:col-span-1 ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-3">
+          <label class="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-400">AI Employee Role Persona</label>
           <select id="ai-role-select" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
             ${roleOptions}
           </select>
         </div>
 
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-3">
-          <label class="block text-xs font-black uppercase tracking-wider text-slate-400">AI Employee Goals</label>
+      <div class="md:col-span-1 xl:col-span-2 ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-3">
+          <label class="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-400">AI Employee Goals</label>
           <div class="flex flex-wrap gap-1.5">
             ${goalCheckboxes}
           </div>
         </div>
-      </div>
 
-      <!-- Dynamic Knowledge Base Sections -->
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4">
+      <!-- Dynamic Knowledge Base Sections — full width -->
+      <div class="md:col-span-2 xl:col-span-3 ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-4">
         <div class="flex items-center justify-between">
           <div>
             <h3 class="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">Business Knowledge Base</h3>
@@ -484,6 +508,7 @@ async function aiHomeKnowledge(body) {
           <button type="button" onclick="aiHomeSaveKnowledge()" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition shadow-sm">Save Knowledge Base &amp; Setup</button>
         </div>
       </div>
+    </div>
     </div>
   `;
 }
