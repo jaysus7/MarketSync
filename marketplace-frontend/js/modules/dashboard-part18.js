@@ -5702,6 +5702,7 @@ if (typeof removePhotoBackground !== 'undefined') window.removePhotoBackground =
 async function loadInventoryCatalog() {
   if (typeof setupExtensionBridge === 'function') setupExtensionBridge();  // so card "Post" can detect the extension
   const list = document.getElementById('catalog-list');
+  if (!list) return; // inventory page not mounted (Pulse / other workspaces)
   list.innerHTML = '<div class="text-xs text-slate-500 italic col-span-full">Loading catalog...</div>';
   try {
     const res = await fetch(`${API}/inventory/all`, { headers: { 'Authorization': `Bearer ${token}` } });
