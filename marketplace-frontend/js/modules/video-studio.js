@@ -74,6 +74,14 @@ const VIDEO_TEMPLATES = {
     title: 'Service Multi-Point Inspection (DVI)',
     text: `Hi {CUSTOMER_NAME}, this is {REP_NAME} from Service at {STORE_NAME}. Our certified technician has your {VEHICLE_LABEL} up on the rack right now. Your front brakes and tires look great, but we noticed the rear cabin filter is due for replacement. I've attached the quick approval button right below this video!`
   },
+  social_ad: {
+    title: 'Social Ad / Reel',
+    text: `This week at {STORE_NAME} — {VEHICLE_LABEL} is ready to go. Clean, priced, and available now. Message us for the details or stop by and drive it today.`
+  },
+  lot_update: {
+    title: 'Lot / Offer Update',
+    text: `Quick update from {STORE_NAME}. New units just landed and this {VEHICLE_LABEL} is the one to see. Ask for {REP_NAME} and we will walk you through it.`
+  },
   thankyou: {
     title: 'Post-Purchase Thank You & Check-In',
     text: `Hi {CUSTOMER_NAME}! {REP_NAME} here from {STORE_NAME}. I just wanted to reach out and say congratulations on your new {VEHICLE_LABEL}! I hope your first drive home was fantastic. If you ever have questions about any features, I'm always one text away!`
@@ -162,7 +170,9 @@ function renderStudioSetupHtml(contact, options) {
   const activeKey = window.__videoStudioState.activeScriptKey || (activeDept === 'Service' ? 'service' : 'walkaround');
   const isService = activeDept === 'Service';
 
-  const allowedScripts = isSaas ? ['product_demo', 'onboarding', 'feature_update', 'thankyou'] : Object.keys(VIDEO_TEMPLATES);
+  const allowedScripts = options.studioMode
+    ? ['social_ad', 'lot_update', 'product_demo', 'thankyou']
+    : (isSaas ? ['product_demo', 'onboarding', 'feature_update', 'thankyou'] : Object.keys(VIDEO_TEMPLATES));
   const scriptOptions = allowedScripts.map(key => `
     <button onclick="vidSelectScript('${key}')" id="vid-script-btn-${key}"
       class="px-3 py-1.5 rounded-lg text-xs font-bold transition ${key === activeKey ? (isService ? 'bg-emerald-600 text-white shadow-sm' : 'bg-indigo-600 text-white shadow-sm') : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">
@@ -171,7 +181,7 @@ function renderStudioSetupHtml(contact, options) {
   `).join('');
 
   const currentTemplateText = VIDEO_TEMPLATES[activeKey]?.text || VIDEO_TEMPLATES.walkaround.text;
-  const formattedScript = currentTemplateText
+  const formattedScript = (options.initialScript || currentTemplateText)
     .replace(/{CUSTOMER_NAME}/g, custName)
     .replace(/{REP_NAME}/g, repName)
     .replace(/{STORE_NAME}/g, storeName)
@@ -1803,3 +1813,14 @@ window.loadSaasVideoStudio = loadSaasVideoStudio;
 window.msFilterVideoStatus = msFilterVideoStatus;
 window.msFilterVideoDept = msFilterVideoDept;
 window.msSearchVideos = msSearchVideos;
+
+
+window.openStudioTeleprompterRecorder = function openStudioTeleprompterRecorder(script) {
+  const text = (script || '').trim();
+  return openCustomerVideoStudio(null, {
+    studioMode: true,
+    scriptKey: 'social_ad',
+    department: 'Sales',
+    initialScript: text || undefined,
+  });
+};
