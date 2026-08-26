@@ -299,7 +299,7 @@ export function registerRoutes(app) {
     // The RBAC users.manage permission is the authority to add team members. Keep
     // the stored legacy label only for existing UI compatibility; syncDealerRole
     // assigns the canonical role in user_roles for every new user.
-    const ASSIGNABLE = ['MANAGER', 'SALES_REP', 'FNI', 'SERVICE', 'ACCOUNTING', 'CLEANUP']
+    const ASSIGNABLE = ['MANAGER', 'SALES_REP', 'FNI', 'SERVICE', 'PARTS', 'ACCOUNTING', 'CLEANUP']
     const requestedRole = String(req.body?.role || 'SALES_REP').toUpperCase()
     if (!ASSIGNABLE.includes(requestedRole)) {
       return res.status(400).json({ error: `role must be one of ${ASSIGNABLE.join(', ')}` })
@@ -421,7 +421,7 @@ export function registerRoutes(app) {
     // sub-roles (FNI / SERVICE / ACCOUNTING / CLEANUP) each see only their own
     // workspace; none carries admin power, so they map to the 'sales_rep'
     // account_role and are gated per-domain on the API side.
-    const ASSIGNABLE = ['MANAGER', 'SALES_REP', 'FNI', 'SERVICE', 'ACCOUNTING', 'CLEANUP']
+    const ASSIGNABLE = ['MANAGER', 'SALES_REP', 'FNI', 'SERVICE', 'PARTS', 'ACCOUNTING', 'CLEANUP']
     if (!ASSIGNABLE.includes(role)) {
       return res.status(400).json({ error: `role must be one of ${ASSIGNABLE.join(', ')}` })
     }
