@@ -527,11 +527,11 @@ function mktDigitalPulseOverview(body, d, cfg, dayCaveat = '') {
   const invCount = inventory.length || 24;
 
   body.innerHTML = `
-    <div class="space-y-7 ms-digital-suite">
+    <div class="space-y-10 md:space-y-12 ms-digital-suite">
       ${dayCaveat}
 
       <!-- Top Liquid Glass Hero Header -->
-      <section class="ms-glass rounded-[var(--ms-radius-card,24px)] p-6 md:p-8 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between shadow-lg">
+      <section class="ms-glass rounded-[var(--ms-radius-card,24px)] p-7 md:p-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between shadow-lg">
         <div class="min-w-0">
           <div class="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-600/10 px-3.5 py-1 text-xs font-black uppercase tracking-[0.14em] text-indigo-600 dark:text-indigo-400">
             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -559,7 +559,7 @@ function mktDigitalPulseOverview(body, d, cfg, dayCaveat = '') {
       </section>
 
       <!-- 8 Live Connected Metric Tiles -->
-      <section aria-label="Digital operational metrics" class="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3">
+      <section aria-label="Digital operational metrics" class="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-4 md:gap-5">
         <div class="ms-glass rounded-2xl p-4 min-w-0">
           <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Website Status</div>
           <div class="mt-1 text-xl font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
@@ -618,7 +618,7 @@ function mktDigitalPulseOverview(body, d, cfg, dayCaveat = '') {
           <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">All 7 digital modules synced</span>
         </div>
 
-        <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
+        <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-7">
           <!-- 1. Dealer Website & SEO Pulse -->
           <div class="ms-glass rounded-[var(--ms-radius-card,22px)] p-6 space-y-4 flex flex-col justify-between hover:border-indigo-500/40 transition group">
             <div class="space-y-3">
@@ -856,7 +856,7 @@ function mktPulseOverview(body, d, suite, cfg, dayCaveat = '') {
   const subtitle = cfg?.subtitle || 'Connected campaign, automation, social, conversation, and attribution activity.';
   const badge = cfg?.badge || 'Marketing';
 
-  body.innerHTML = `<div class="space-y-9">
+  body.innerHTML = `<div class="space-y-10 md:space-y-12">
     ${dayCaveat}
     ${unavailable.length ? `<div class="rounded-2xl border border-amber-200/80 bg-amber-50/80 p-4 text-sm text-amber-900 backdrop-blur-xl dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
       Some Marketing sources are unavailable: ${esc(unavailable.map(mktLabel).join(', '))}. Their values are shown as — and are not estimated.
