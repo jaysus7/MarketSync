@@ -206,7 +206,7 @@ function siteSettingsFields(cfg) {
         <div>${lbl('Social share image')}<div class="flex gap-1">${inp('seo-image', c.seo_image, 'Paste URL or upload (falls back to hero)', 'flex-1')}<input id="seo-image-file" type="file" accept="image/*" class="hidden" onchange="uploadSiteImage('seo-image', this.files[0])"><button type="button" onclick="document.getElementById('seo-image-file').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 rounded-lg">Upload</button></div></div>
       </div>
     </div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+    <div class="ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 h-full md:col-span-2 xl:col-span-2">
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-base font-black text-slate-900 dark:text-white tracking-tight">AI sales chat</h2>
