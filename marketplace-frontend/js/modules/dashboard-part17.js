@@ -399,26 +399,24 @@ function wsSetup() {
   const isDomainVerified = !!__siteCfg?.custom_domain_verified;
 
   const card = (id, iconSvg, title, desc, metaRows, badgeHtml, btnText = 'Configure') => `
-    <div class="break-inside-avoid mb-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition flex flex-col justify-between space-y-4">
-      <div class="space-y-3">
-        <div class="flex items-center justify-between gap-2">
-          <div class="flex items-center gap-2.5">
-            <div class="w-9 h-9 rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold border border-indigo-500/20">
+    <div class="ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition flex flex-col justify-between gap-4 h-full">
+      <div class="space-y-3 flex-1">
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold border border-indigo-500/20 flex-shrink-0">
               ${iconSvg}
             </div>
-            <div>
-              <h3 class="text-sm font-black text-slate-900 dark:text-white tracking-tight">${title}</h3>
-            </div>
+            <h3 class="text-sm font-black text-slate-900 dark:text-white tracking-tight leading-snug">${title}</h3>
           </div>
           ${badgeHtml || ''}
         </div>
         <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">${desc}</p>
-        <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800/80 space-y-1 text-[11px]">
+        <div class="p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800/80 space-y-1.5 text-[11px]">
           ${metaRows}
         </div>
       </div>
-      <div class="pt-2 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
-        <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Settings Section</span>
+      <div class="pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-2">
+        <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Settings</span>
         <button type="button" onclick="openSetupModal('${id}')" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow-xs cursor-pointer flex items-center gap-1">
           <span>${btnText}</span>
           <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
@@ -428,26 +426,31 @@ function wsSetup() {
   `;
 
   return `
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full space-y-6">
-      <!-- Setup Page Header -->
-      <div class="flex items-center justify-between flex-wrap gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
-        <div>
-          <div class="flex items-center gap-2">
-            <h1 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Website Setup &amp; Configuration</h1>
-            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${isPub ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40'}">
-              ${isPub ? 'Live' : 'Draft'}
-            </span>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full space-y-8">
+      <!-- Setup header — DealerOS-style glass bar -->
+      <section class="ms-glass rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/70 p-5 md:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shadow-sm">
+        <div class="min-w-0 flex items-start gap-3.5">
+          <div class="w-11 h-11 rounded-2xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18zM2.25 12h19.5"/></svg>
           </div>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Configure dealership profile, domain DNS, branding, contact info, lead routing, inventory feeds, analytics, and integrations.</p>
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <h1 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">Website Setup</h1>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${isPub ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'}">
+                ${isPub ? 'Live' : 'Draft'}
+              </span>
+            </div>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">Domain, branding, contact, lead routing, inventory feeds, analytics, and integrations.</p>
+          </div>
         </div>
-        <div class="flex items-center gap-2">
-          ${slug ? `<a href="${SITE_BASE}?d=${encodeURIComponent(slug)}" target="_blank" class="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition">Preview Site ↗</a>` : ''}
-          <button onclick="saveWebsite(this)" class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md cursor-pointer">Save All Changes</button>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          ${slug ? `<a href="${SITE_BASE}?d=${encodeURIComponent(slug)}" target="_blank" rel="noopener noreferrer" class="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition">Preview Site ↗</a>` : ''}
+          <button onclick="saveWebsite(this)" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md cursor-pointer">Save All Changes</button>
         </div>
-      </div>
+      </section>
 
-      <!-- 3-Column Masonry Grid on Desktop, 2-Col Tablet, 1-Col Mobile -->
-      <div class="columns-1 md:columns-2 lg:columns-3 gap-5">
+      <!-- Even CSS grid (replaces uneven masonry columns) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6">
         <!-- 1. Dealership Information -->
         ${card('info', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009 9c.63 0 1.213-.19 1.7-.514m-5.45 0A2.996 2.996 0 016 7.5c0-.63.19-1.213.514-1.7m5.45 0A2.996 2.996 0 0012 4.5c.63 0 1.213.19 1.7.514M18 9.35a3.001 3.001 0 003.75-.615A2.993 2.993 0 0021 7.5a2.996 2.996 0 00-.514-1.7"/></svg>`,
           'Dealership Information', 'Legal business name, tagline, description, operating hours, and business license.',
