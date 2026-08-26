@@ -169,8 +169,12 @@ ENGINES['people-overview'] = {
           <p class="text-[12px] text-slate-500 mb-1">These logins have no employment record. Until they do, nothing can be assigned to them and they appear in no report.</p>
           ${unlinked.map(pplPersonRow).join('')}
         `), 'Fix these first — they are invisible to every other screen') : ''}
-        ${engSection('Staff Directory', engCard('', rest.length ? rest.map(pplPersonRow).join('') : engEmpty('Nobody has an employment record yet.')),
-          'Open anybody to see their whole record and employee dossier')}
+        ${engSection('Staff Directory', `
+          <div class="flex justify-end mb-3">
+            <button type="button" onclick="pplOpenAddStaff()" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">+ Add / onboard staff</button>
+          </div>
+          ${engCard('', rest.length ? rest.map(pplPersonRow).join('') : engEmpty('Nobody has an employment record yet. Add a person to create their file.'))}
+        `, 'Open anybody to see their whole record and employee dossier')}
       `;
     },
 
@@ -447,7 +451,56 @@ function pplSummaryPanel(d) {
   const csat = p.csat || d.performance?.csat || '—';
   const responseSpeed = p.response_speed || d.performance?.response_speed || '—';
 
+  const years = (() => {
+    const start = p.start_date || p.hired_at || p.created_at;
+    if (!start) return '—';
+    const y = (Date.now() - new Date(start).getTime()) / (365.25*24*3600*1000);
+    return Number.isFinite(y) ? y.toFixed(1) + ' yrs' : '—';
+  })();
+  const age = p.date_of_birth ? Math.floor((Date.now() - new Date(p.date_of_birth).getTime()) / (365.25*24*3600*1000)) : p.age;
+  const money = (k, fallback='—') => {
+    const v = d.performance?.[k] ?? p[k];
+    if (v == null || v === '') return fallback;
+    const n = Number(v);
+    return Number.isFinite(n) ? '$' + n.toLocaleString() : String(v);
+  };
   return `
+    ${engCard('Identity & contact', `
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+        <div><div class="text-[11px] font-bold uppercase text-slate-500">Birthday</div><div class="font-semibold">${esc(p.date_of_birth || p.birthday || '—')}</div></div>
+        <div><div class="text-[11px] font-bold uppercase text-slate-500">Age</div><div class="font-semibold">${esc(age ?? '—')}</div></div>
+        <div><div class="text-[11px] font-bold uppercase text-slate-500">Employee #</div><div class="font-semibold">${esc(p.employee_number || '—')}</div></div>
+        <div><div class="text-[11px] font-bold uppercase text-slate-500">Licence</div><div class="font-semibold">${esc(p.licence_number || p.license_number || '—')}</div></div>
+        <div><div class="text-[11px] font-bold uppercase text-slate-500">Years in service</div><div class="font-semibold">${esc(years)}</div></div>
+        <div><div class="text-[11px] font-bold uppercase text-slate-500">Phone</div><div class="font-semibold">${esc(p.phone || '—')}</div></div>
+        <div class="md:col-span-2"><div class="text-[11px] font-bold uppercase text-slate-500">Address</div><div class="font-semibold">${esc([p.address, p.city, p.province, p.postal_code].filter(Boolean).join(', ') || '—')}</div></div>
+        <div><div class="text-[11px] font-bold uppercase text-slate-500">Emergency contact</div><div class="font-semibold">${esc(p.emergency_contact_name || '—')}</div><div class="text-xs text-slate-500">${esc(p.emergency_contact_phone || '')}</div></div>
+        <div><div class="text-[11px] font-bold uppercase text-slate-500">Benefits / insurance</div><div class="font-semibold">${esc(p.benefits_plan || p.insurance_plan || 'On file if recorded')}</div></div>
+        <div><div class="text-[11px] font-bold uppercase text-slate-500">Demo vehicle</div><div class="font-semibold">${esc(p.demo_vehicle || d.assets?.items?.[0]?.label || 'None assigned')}</div></div>
+      </div>
+      <div class="mt-3">
+        <button type="button" onclick="pplResetPassword('${esc(p.id || '')}')" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Reset password</button>
+      </div>
+    `)}
+
+    ${engCard('Sales, commission, revenue & profit', `
+      <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead><tr class="text-[11px] uppercase text-slate-500">
+          <th class="text-left py-2">Period</th><th class="text-right">Sales</th><th class="text-right">Commission</th><th class="text-right">Revenue</th><th class="text-right">Profit</th>
+        </tr></thead>
+        <tbody>
+          ${[['Week', 'week'],['Month','month'],['Year','year'],['Lifetime','lifetime']].map(([label,k]) => `
+            <tr class="border-t border-slate-100 dark:border-slate-800">
+              <td class="py-2 font-semibold">${label}</td>
+              <td class="text-right">${esc(d.performance?.[k+'_units'] ?? p[k+'_units'] ?? '—')}</td>
+              <td class="text-right">${money(k+'_commission')}</td>
+              <td class="text-right">${money(k+'_revenue')}</td>
+              <td class="text-right">${money(k+'_profit')}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table></div>
+    `)}
+
     <!-- 1. Sales & Revenue Performance Card -->
     <div class="mb-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
       <div class="flex items-center justify-between mb-3">
@@ -899,3 +952,49 @@ async function pplSaveAccess(staffId) {
   } catch (e) { showToast(e.message, 'error'); }
 }
 window.pplSaveAccess = pplSaveAccess;
+
+
+function pplOpenAddStaff() {
+  const el = crmOverlay(`
+    <div class="p-6 space-y-4">
+      <h2 class="text-xl font-black text-slate-900 dark:text-white">Add / onboard staff</h2>
+      <p class="text-sm text-slate-600 dark:text-slate-300">Creates their login, employment file, and sends a password setup email.</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <label class="block sm:col-span-2"><span class="text-[12px] font-bold">Full name</span><input id="ppl-new-name" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"></label>
+        <label class="block"><span class="text-[12px] font-bold">Email</span><input id="ppl-new-email" type="email" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"></label>
+        <label class="block"><span class="text-[12px] font-bold">Phone</span><input id="ppl-new-phone" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"></label>
+        <label class="block"><span class="text-[12px] font-bold">Role</span>
+          <select id="ppl-new-role" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+            <option value="SALES_REP">Sales</option><option value="FNI">F&amp;I</option><option value="SERVICE">Service</option>
+            <option value="PARTS">Parts</option><option value="ACCOUNTING">Accounting</option><option value="CLEANUP">Cleanup</option>
+            <option value="MANAGER">Manager</option>
+          </select>
+        </label>
+        <label class="block"><span class="text-[12px] font-bold">Job title</span><input id="ppl-new-title" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"></label>
+      </div>
+      <div class="flex gap-2">
+        <button type="button" onclick="pplSubmitAddStaff()" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Send invite</button>
+        <button type="button" onclick="document.querySelector('.ms-modal-scrim')?.remove()" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold">Cancel</button>
+      </div>
+    </div>`, 'max-w-xl');
+}
+window.pplOpenAddStaff = pplOpenAddStaff;
+
+async function pplSubmitAddStaff() {
+  const full_name = document.getElementById('ppl-new-name')?.value?.trim();
+  const email = document.getElementById('ppl-new-email')?.value?.trim();
+  const role = document.getElementById('ppl-new-role')?.value || 'SALES_REP';
+  if (!full_name || !email) { showToast('Name and email are required.', 'error'); return; }
+  try {
+    await apiSendJson('/admin/users/invite', 'POST', {
+      full_name, email, role,
+      phone: document.getElementById('ppl-new-phone')?.value || '',
+      job_title: document.getElementById('ppl-new-title')?.value || '',
+    });
+    showToast('Invite sent. Their employment file is ready.', 'success');
+    document.querySelector('.ms-modal-scrim')?.remove();
+    ENGINE_DATA['people-overview'] = undefined;
+    engineTab('people-overview', 'people', true);
+  } catch (e) { showToast(e.message, 'error'); }
+}
+window.pplSubmitAddStaff = pplSubmitAddStaff;
