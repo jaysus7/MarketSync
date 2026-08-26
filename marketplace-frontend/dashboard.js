@@ -176,7 +176,41 @@ function apiErrorMessage(data, status) {
   };
   return messages[code] || code || `HTTP ${status}`;
 }
-async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}) {
+const __apiTtlCache = new Map();
+const __API_TTL_MS = 20000;
+function __apiIsCacheable(path) {
+  const p = String(path || '').split('?')[0];
+  return (
+    p === '/access' || p === '/access/context' || p === '/branding' ||
+    p === '/auth/me' || p === '/ai/config' || p === '/gamification' ||
+    p === '/dealership' || p.startsWith('/access/')
+  );
+}
+window.msLoadScript = function msLoadScript(src) {
+  window.__msScripts = window.__msScripts || {};
+  if (window.__msScripts[src]) return window.__msScripts[src];
+  window.__msScripts[src] = new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[src="' + src + '"]');
+    if (existing) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = false;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Failed to load ' + src));
+    document.body.appendChild(s);
+  });
+  return window.__msScripts[src];
+};
+window.msEnsureChart = function () {
+  if (window.Chart) return Promise.resolve();
+  return window.msLoadScript('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js');
+};
+
+async function apiGetJson(path, { retries = 2, timeoutMs = 12000, onRetry, fresh = false } = {}) {
+  if (!fresh && __apiIsCacheable(path)) {
+    const hit = __apiTtlCache.get(path);
+    if (hit && (Date.now() - hit.at) < __API_TTL_MS) return hit.data;
+  }
   if (__apiInflight.has(path)) return __apiInflight.get(path);
   const reqPromise = (async () => {
     let lastErr;
@@ -196,7 +230,11 @@ async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}
           const ok = await refreshSessionSilently();
           if (ok) { attempt--; continue; }
         }
-        if (r.ok) return await r.json();
+        if (r.ok) {
+          const data = await r.json();
+          if (__apiIsCacheable(path)) __apiTtlCache.set(path, { at: Date.now(), data });
+          return data;
+        }
         if ([429, 500, 502, 503, 504].includes(r.status) && attempt < retries) {
           lastErr = new Error(`HTTP ${r.status}`);
         } else {
