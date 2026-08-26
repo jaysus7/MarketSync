@@ -2,7 +2,10 @@ function toggleAcademyTheme() {
   const root = document.documentElement;
   const next = root.classList.contains('dark') ? 'light' : 'dark';
   root.classList.toggle('dark', next === 'dark');
-  try { localStorage.setItem('ms-theme', next); localStorage.setItem('theme', next); } catch (e) {}
+  try {
+    localStorage.setItem('ms-theme', next);
+    localStorage.setItem('theme', next);
+  } catch (e) {}
 }
 window.toggleAcademyTheme = toggleAcademyTheme;
 
@@ -312,16 +315,16 @@ function renderCertificatesView() {
     const certId = `MS-ACAD-${cert.key.toUpperCase()}-${Math.abs(studentName.length * 777)}`;
 
     return `
-    <div class="rounded-2xl border ${isEarned ? 'border-amber-500/40 bg-gradient-to-br from-amber-50 dark:from-amber-950/20 via-white dark:via-slate-900 to-slate-50 dark:to-slate-950 shadow-xl shadow-amber-500/5' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/50'} p-6 flex flex-col justify-between">
+    <div class="ac-panel rounded-2xl p-6 flex flex-col justify-between ${isEarned ? 'ring-1 ring-amber-400/40' : ''}">
       <div>
         <div class="flex items-center justify-between mb-3">
-          <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${isEarned ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-500/30' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}">
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${isEarned ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-slate-100 text-slate-600 border border-slate-200'}">
             ${isEarned ? 'Official Certification' : 'In Progress'}
           </span>
-          <span class="text-xs font-mono text-slate-400">${esc(certId)}</span>
+          <span class="ac-muted text-xs font-mono">${esc(certId)}</span>
         </div>
-        <h3 class="text-base font-black text-slate-900 dark:text-white">${esc(cert.title)}</h3>
-        <p class="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">${esc(cert.desc)}</p>
+        <h3 class="ac-title text-base font-black">${esc(cert.title)}</h3>
+        <p class="ac-muted text-xs mt-2 leading-relaxed">${esc(cert.desc)}</p>
       </div>
 
       <div class="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800/80">
