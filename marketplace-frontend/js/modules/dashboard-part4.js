@@ -998,6 +998,7 @@ function crmReplyForm(id, channel, subject) {
     <div class="text-xs font-bold text-slate-600 dark:text-slate-300">Reply via ${isEmail ? 'email' : channel === 'sms' ? 'text' : 'call note'}</div>
     ${isEmail ? `<input id="crm-reply-subject" value="${esc(re)}" placeholder="Subject" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm">` : ''}
     <textarea id="crm-reply-body" rows="3" placeholder="${isEmail ? 'Type your reply…' : 'What you said / will say…'}" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></textarea>
+    <button type="button" id="ms-ai-write-btn" onclick="msAiWriteCustomer('${isEmail ? 'email' : 'sms'}','crm-reply-body')" class="text-xs font-black text-indigo-600 dark:text-indigo-400">AI write</button>
     <div class="flex gap-2 justify-end"><button onclick="crmDetailFormSlot('')" class="text-xs font-bold text-slate-500 px-3 py-1.5">Cancel</button>
       <button id="crm-reply-send" onclick="crmSendReply('${id}','${channel}')" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg">${isEmail ? 'Send email' : 'Log reply'}</button></div>
   </div>`);
@@ -1248,12 +1249,9 @@ function crmSetSmsTemplate(text) {
 }
 
 function crmAiGenerateSmsDraft(name) {
-  const input = document.getElementById('crm-inapp-sms-body');
-  if (input) {
-    input.value = `Hi ${name}, thanks for reaching out to MarketSync Motors! I have all details on your inquiry ready. Would morning or afternoon work best for a quick chat?`;
-  }
-  if (typeof showToast === 'function') showToast('\u{2728} AI response draft generated!', 'success');
+  msAiWriteCustomer('sms', 'crm-inapp-sms-body');
 }
+
 
 async function crmSendInAppSms(contactId, name, phone) {
   const body = (document.getElementById('crm-inapp-sms-body')?.value || '').trim();
@@ -1292,6 +1290,33 @@ Object.assign(window, {
   crmAiGenerateSmsDraft,
   crmSendInAppSms
 });
+
+async function msAiWriteCustomer(kind, bodyId, subjectId) {
+  const btn = document.getElementById('ms-ai-write-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Writing…'; }
+  const c = (typeof __crmActiveContact !== 'undefined' && __crmActiveContact) || {};
+  const name = c.full_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || 'there';
+  const tv = c.trade_vehicle || {};
+  const vehicle = [c.interest_year, c.interest_make, c.interest_model, c.vehicle, [tv.year, tv.make, tv.model].filter(Boolean).join(' ')].filter(Boolean).join(' ');
+  const existing = document.getElementById(bodyId)?.value || '';
+  try {
+    const r = await apiSendJson('/ai/compose', 'POST', {
+      kind, name, vehicle, existing,
+      notes: c.notes || c.status || '',
+      dealer: (typeof profileContext !== 'undefined' && (profileContext.dealership_name || profileContext.dealership?.name)) || 'the dealership',
+    });
+    const bodyEl = document.getElementById(bodyId);
+    if (bodyEl) bodyEl.value = r.text || r.body || existing;
+    if (subjectId && r.subject) {
+      const s = document.getElementById(subjectId);
+      if (s && !s.value.trim()) s.value = r.subject;
+    }
+    showToast('AI draft ready — edit then send.', 'success');
+  } catch (e) { showToast(e.message || 'AI write failed', 'error'); }
+  if (btn) { btn.disabled = false; btn.textContent = 'AI write'; }
+}
+window.msAiWriteCustomer = msAiWriteCustomer;
+
 function crmEmailForm(id) {
   crmDetailFormSlot(`<div class="bg-slate-50 dark:bg-slate-950 border border-indigo-200 dark:border-indigo-900 rounded-lg p-3 space-y-2">
     <div class="text-[11px] font-bold uppercase tracking-wider text-indigo-500">Send email</div>
@@ -1299,6 +1324,7 @@ function crmEmailForm(id) {
     <input id="crm-email-subject" placeholder="Subject" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm">
     <textarea id="crm-email-body" rows="4" placeholder="Message…" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></textarea>
     <div class="flex items-center justify-between gap-2">
+      <button type="button" id="ms-ai-write-btn" onclick="msAiWriteCustomer('email','crm-email-body','crm-email-subject')" class="text-xs font-black text-indigo-600 dark:text-indigo-400">AI write</button>
       <span class="text-[10px] text-slate-400">Sends as you · replies to the same address · <button type="button" onclick="switchPage('profile');settingsTab('account')" class="text-indigo-500 font-bold">change</button></span>
       <div class="flex gap-2"><button onclick="crmDetailFormSlot('')" class="text-xs font-bold text-slate-500 px-3 py-1.5">Cancel</button>
       <button onclick="crmSendEmail('${id}')" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg">Send</button></div>
