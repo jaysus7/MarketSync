@@ -157,31 +157,28 @@ function salesAttention(d) {
 }
 
 function salesAttentionRow(it) {
-  const tone = SALES_TONE[it.action?.tone] || SALES_TONE.slate;
   const onclick = it.id ? `openCrmContact('${it.id}')` : (it.action?.onclick || '');
-  return `<button onclick="${onclick}" class="w-full text-left flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+  const sub = [it.why, it.sub, it.age].filter(Boolean).join(' · ');
+  if (typeof pulseRow === 'function') {
+    return pulseRow({ label: it.who, sub, onclick, actionLabel: it.action?.label || 'View' });
+  }
+  return `<div class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-white border border-slate-100 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
     <div class="min-w-0 flex-1">
-      <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(it.who)}</div>
-      <div class="text-[12px] ${tone} truncate">${esc(it.why)}${it.sub ? ` · <span class="text-slate-400">${esc(it.sub)}</span>` : ''}</div>
+      <div class="font-bold text-[14px] text-slate-900 truncate">${esc(it.who)}</div>
+      <div class="text-[12px] text-slate-500 mt-0.5 truncate">${esc(sub)}</div>
     </div>
-    ${it.age ? `<div class="text-[11px] font-bold text-slate-400 tabular-nums shrink-0 pr-2">${esc(it.age)}</div>` : ''}
-  </button>`;
+    ${onclick ? `<button type="button" onclick="${onclick}" class="shrink-0 px-3.5 py-1.5 rounded-full border border-slate-200 text-[13px] font-semibold">View</button>` : ''}
+  </div>`;
 }
 
 function salesOppRow(c, d) {
   const na = salesNextAction(c, d);
   const appt = (d.apptByContact || {})[c.id];
-  return `<button onclick="openCrmContact('${c.id}')" class="w-full flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition text-left">
-    <div class="min-w-0 flex-1">
-      <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(salesName(c))}</div>
-      <div class="text-[12px] text-slate-400 truncate">
-        <span class="font-semibold text-slate-500 dark:text-slate-300">${esc(salesLabel(c.status))}</span>
-        ${c.source ? ` · ${esc(c.source)}` : ''}${appt ? ` · appt ${esc(new Date(appt.appointment_at).toLocaleDateString())}` : ''}
-        ${c.last_activity_at ? ` · ${esc(salesAge(c.last_activity_at))} ago` : ''}
-      </div>
-    </div>
-    <div class="shrink-0 px-2 py-1 text-[12px] font-bold text-slate-500">${esc(na.label)}</div>
-  </button>`;
+  const bits = [salesLabel(c.status), c.source, appt ? `appt ${new Date(appt.appointment_at).toLocaleDateString()}` : '', c.last_activity_at ? `${salesAge(c.last_activity_at)} ago` : ''].filter(Boolean);
+  if (typeof pulseRow === 'function') {
+    return pulseRow({ label: salesName(c), sub: bits.join(' · '), onclick: `openCrmContact('${c.id}')`, actionLabel: na.label || 'View' });
+  }
+  return pulseRow({ label: salesName(c), sub: bits.join(' · '), onclick: `openCrmContact('${c.id}')` });
 }
 
 Object.assign(window, { salesAttentionRow, salesOppRow });
