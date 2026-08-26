@@ -36,7 +36,7 @@ const PPL_TONE = { 3: 'text-rose-600 dark:text-rose-400', 2: 'text-amber-600 dar
 // Storage states are written for a database, not for somebody standing at a desk.
 const PPL_STATUS = {
   invited: 'Invited', active: 'Active', on_leave: 'On leave',
-  suspended: 'Suspended', terminated: 'No longer here',
+  suspended: 'Suspended', terminated: 'Archived',
 }
 const pplStatus = (s) => PPL_STATUS[s] || (s ? String(s).replace(/_/g, ' ') : 'Unknown')
 
@@ -233,8 +233,9 @@ ENGINES['people-overview'] = {
           <div class="flex justify-end mb-3">
             <button type="button" onclick="pplOpenAddStaff()" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">+ Add / onboard staff</button>
           </div>
-          ${engCard('', rest.length ? rest.map(pplPersonRow).join('') : engEmpty('Nobody has an employment record yet. Add a person to create their file.'))}
+          ${engCard('', rest.filter(p => p.employment_status !== 'terminated').length ? rest.filter(p => p.employment_status !== 'terminated').map(pplPersonRow).join('') : engEmpty('Nobody has an employment record yet. Add a person to create their file.'))}
         `, 'Open anybody to see their whole record and employee dossier')}
+        ${rest.filter(p => p.employment_status === 'terminated').length ? engSection('Archived staff', engCard('', rest.filter(p => p.employment_status === 'terminated').map(pplPersonRow).join('')), 'Offboarded people stay on file. They are not deleted.') : ''}
       `;
     },
 
@@ -779,7 +780,7 @@ function pplDetailsPanel(d) {
         ${p.user_id
           ? `<button onclick="pplResetPassword('${esc(p.id)}')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition">Send a password reset</button>`
           : '<span class="text-[13px] text-amber-600 dark:text-amber-400">No login is linked, so there is no password to reset.</span>'}
-        <button onclick="pplOffboard('${esc(p.id)}')" class="px-3 py-2 rounded-lg border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-50 dark:hover:bg-rose-950/30 transition">Offboard</button>
+        <button onclick="pplOffboard('${esc(p.id)}')" class="px-3 py-2 rounded-lg border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-50 dark:hover:bg-rose-950/30 transition">Archive / offboard</button>
       </div>
       <p class="text-[12px] text-slate-400 mt-2">A reset emails <em>them</em> a link — it never shows you a password. An admin who could set a colleague's password could sign in as them, and every action would be logged as theirs.</p>`)}</div>`;
 }
@@ -819,14 +820,14 @@ async function pplOffboard(staffId) {
   const lines = Object.entries(owned?.owned || owned || {})
     .filter(([, v]) => Number(v) > 0).map(([k, v]) => `${v} ${k.replace(/_/g, ' ')}`);
   const warning = lines.length
-    ? `They still own:\n\n${lines.join('\n')}\n\nOffboarding revokes their access. Reassign this work first, or it becomes nobody's.\n\nOffboard anyway?`
-    : 'They own no open work. Offboarding revokes their access and closes their employment record.\n\nContinue?';
+    ? `They still own:\n\n${lines.join('\n')}\n\nArchiving revokes access but keeps their employee file. Reassign this work first.\n\nArchive anyway?`
+    : 'They own no open work. Archiving revokes access and keeps the employee file. Nothing is deleted.\n\nContinue?';
   if (!confirm(warning)) return;
   const reason = prompt('Why are they leaving? (recorded on the employment record)');
   if (!reason || !reason.trim()) { showToast('Offboarding needs a reason on the record.', 'error'); return; }
   try {
     await apiSendJson(`/hr/employees/${staffId}/offboard`, 'POST', { reason: reason.trim() });
-    showToast('Offboarded — access revoked and the record closed', 'success');
+    showToast('Archived — access revoked, employee file kept', 'success');
     document.querySelectorAll('.fixed.inset-0.z-\\[9998\\]').forEach(n => n.remove());
     ENGINE_DATA['people-overview'] = undefined;
     engineTab('people-overview', 'work', true);
