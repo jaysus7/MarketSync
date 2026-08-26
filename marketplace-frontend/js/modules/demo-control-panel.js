@@ -208,7 +208,7 @@
       const current = window.__currentPage || '';
       if (isIdentityVerifyDemo && current !== 'crm') {
         if (typeof switchPage === 'function') switchPage('crm');
-      } else if (isMarketingSuiteDemo && current !== 'marketing-overview') {
+      } else if (isMarketingSuiteDemo) {
         if (typeof deptGo === 'function') deptGo('marketing-overview', '', 'overview');
         else if (typeof switchPage === 'function') switchPage('marketing-overview');
       }
