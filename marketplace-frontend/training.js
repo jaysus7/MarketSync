@@ -367,9 +367,11 @@ async function bootAcademy() {
           fetch('/training/catalog-expanded.json?v=20260826_academy_brand_v1'),
           fetch('/training/visuals.json?v=20260826_academy_brand_v1'),
         ]).then(async responses => {
-          if (responses.some(response => !response.ok)) throw new Error('CATALOG');
-          const [core, expanded, visualCatalog] = await Promise.all(responses.map(response => response.json()));
-          return { lessons: [...(core.lessons || []), ...(expanded.lessons || [])], visuals: visualCatalog.visuals || {} };
+          const parse = async (response) => response && response.ok ? response.json() : {};
+          const [core, expanded, visualCatalog] = await Promise.all(responses.map(parse));
+          const lessons = [...(core.lessons || []), ...(expanded.lessons || [])];
+          if (!lessons.length) throw new Error('CATALOG');
+          return { lessons, visuals: visualCatalog.visuals || {} };
         });
     const [profile, catalog] = await Promise.all([LOCAL_PREVIEW ? Promise.resolve(previewProfile) : authenticatedJson('/auth/me'), catalogRequest]);
     academyUser = profile;
