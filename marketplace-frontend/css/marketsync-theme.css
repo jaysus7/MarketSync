@@ -2734,3 +2734,31 @@ html.dark[data-dash-mode="marketsync"] .page-content .ms-ai-panel {
 html[data-dash-tier="fb"] #feeds-panel { padding: 1.75rem !important; }
 html[data-dash-tier="fb"] #feeds-panel h2 { font-size: 1.875rem !important; line-height: 1.1 !important; }
 html[data-dash-tier="fb"] #feeds-panel .fb-hero-copy { display: block !important; }
+
+/* Inventory Intelligence + Market: liquid glass, branded, less neon violet. */
+.ms-inventory-intelligence .bg-white,
+[data-page-content="market"] .bg-white {
+  background: var(--ms-s-glass, rgba(255,255,255,.78)) !important;
+  border-color: var(--ms-g-border, rgba(15,23,42,.10)) !important;
+  box-shadow: var(--ms-g-shadow, 0 10px 30px rgba(15,23,42,.06)) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  backdrop-filter: blur(18px) saturate(1.3);
+}
+.dark .ms-inventory-intelligence .bg-white,
+.dark [data-page-content="market"] .bg-white {
+  background: var(--ms-s-glass, rgba(15,23,42,.55)) !important;
+}
+.ms-inventory-intelligence .bg-violet-50,
+.ms-inventory-intelligence .bg-violet-600,
+[data-page-content="inv-intel"] .bg-violet-600 {
+  background: #4f46e5 !important;
+}
+.ms-inventory-intelligence .text-violet-500,
+.ms-inventory-intelligence .text-violet-600,
+.ms-inventory-intelligence .text-violet-800 {
+  color: #4338ca !important;
+}
+.ms-inventory-intelligence .ai-stat-card,
+[data-page-content="market"] .rounded-xl {
+  border-radius: 22px !important;
+}
