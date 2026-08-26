@@ -955,14 +955,16 @@ window.pplSaveAccess = pplSaveAccess;
 
 
 function pplOpenAddStaff() {
-  const el = crmOverlay(`
+  const field = (id, label, type='text', extra='') => `<label class="block"><span class="text-[12px] font-bold">${label}</span><input id="${id}" type="${type}" ${extra} class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"></label>`;
+  crmOverlay(`
     <div class="p-6 space-y-4">
       <h2 class="text-xl font-black text-slate-900 dark:text-white">Add / onboard staff</h2>
-      <p class="text-sm text-slate-600 dark:text-slate-300">Creates their login, employment file, and sends a password setup email.</p>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <label class="block sm:col-span-2"><span class="text-[12px] font-bold">Full name</span><input id="ppl-new-name" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"></label>
-        <label class="block"><span class="text-[12px] font-bold">Email</span><input id="ppl-new-email" type="email" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"></label>
-        <label class="block"><span class="text-[12px] font-bold">Phone</span><input id="ppl-new-phone" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"></label>
+      <p class="text-sm text-slate-600 dark:text-slate-300">Saves their employment file and sends a password setup email when possible.</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[65vh] overflow-y-auto pr-1">
+        ${field('ppl-new-name','Full name')}
+        ${field('ppl-new-email','Email','email')}
+        ${field('ppl-new-phone','Phone','tel')}
+        ${field('ppl-new-title','Job title')}
         <label class="block"><span class="text-[12px] font-bold">Role</span>
           <select id="ppl-new-role" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
             <option value="SALES_REP">Sales</option><option value="FNI">F&amp;I</option><option value="SERVICE">Service</option>
@@ -970,13 +972,24 @@ function pplOpenAddStaff() {
             <option value="MANAGER">Manager</option>
           </select>
         </label>
-        <label class="block"><span class="text-[12px] font-bold">Job title</span><input id="ppl-new-title" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"></label>
+        ${field('ppl-new-dept','Department')}
+        ${field('ppl-new-empno','Employee / registration #')}
+        ${field('ppl-new-dob','Birthday','date')}
+        ${field('ppl-new-licence','Licence #')}
+        ${field('ppl-new-start','Start date','date')}
+        ${field('ppl-new-address','Address')}
+        ${field('ppl-new-emerg-name','Emergency contact')}
+        ${field('ppl-new-emerg-phone','Emergency phone','tel')}
+        ${field('ppl-new-benefits','Benefits plan')}
+        ${field('ppl-new-insurance','Insurance')}
+        ${field('ppl-new-demo','Demo vehicle')}
+        <label class="block sm:col-span-2"><span class="text-[12px] font-bold">Notes</span><textarea id="ppl-new-notes" rows="2" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"></textarea></label>
       </div>
       <div class="flex gap-2">
-        <button type="button" onclick="pplSubmitAddStaff()" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Send invite</button>
+        <button type="button" onclick="pplSubmitAddStaff()" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Save &amp; send invite</button>
         <button type="button" onclick="document.querySelector('.ms-modal-scrim')?.remove()" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold">Cancel</button>
       </div>
-    </div>`, 'max-w-xl');
+    </div>`, 'max-w-2xl');
 }
 window.pplOpenAddStaff = pplOpenAddStaff;
 
@@ -985,13 +998,26 @@ async function pplSubmitAddStaff() {
   const email = document.getElementById('ppl-new-email')?.value?.trim();
   const role = document.getElementById('ppl-new-role')?.value || 'SALES_REP';
   if (!full_name || !email) { showToast('Name and email are required.', 'error'); return; }
+  const body = {
+    full_name, email, role,
+    phone: document.getElementById('ppl-new-phone')?.value || '',
+    job_title: document.getElementById('ppl-new-title')?.value || '',
+    department: document.getElementById('ppl-new-dept')?.value || '',
+    employee_number: document.getElementById('ppl-new-empno')?.value || '',
+    date_of_birth: document.getElementById('ppl-new-dob')?.value || '',
+    licence_number: document.getElementById('ppl-new-licence')?.value || '',
+    start_date: document.getElementById('ppl-new-start')?.value || '',
+    address: document.getElementById('ppl-new-address')?.value || '',
+    emergency_contact_name: document.getElementById('ppl-new-emerg-name')?.value || '',
+    emergency_contact_phone: document.getElementById('ppl-new-emerg-phone')?.value || '',
+    benefits_plan: document.getElementById('ppl-new-benefits')?.value || '',
+    insurance_plan: document.getElementById('ppl-new-insurance')?.value || '',
+    demo_vehicle: document.getElementById('ppl-new-demo')?.value || '',
+    notes: document.getElementById('ppl-new-notes')?.value || '',
+  };
   try {
-    await apiSendJson('/admin/users/invite', 'POST', {
-      full_name, email, role,
-      phone: document.getElementById('ppl-new-phone')?.value || '',
-      job_title: document.getElementById('ppl-new-title')?.value || '',
-    });
-    showToast('Invite sent. Their employment file is ready.', 'success');
+    const r = await apiSendJson('/admin/users/invite', 'POST', body);
+    showToast(r.invitation_sent === false ? (r.note || 'Staff saved. Invite email did not send.') : 'Staff saved and invite sent.', r.invitation_sent === false ? 'warning' : 'success');
     document.querySelector('.ms-modal-scrim')?.remove();
     ENGINE_DATA['people-overview'] = undefined;
     engineTab('people-overview', 'people', true);
