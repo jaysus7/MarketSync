@@ -897,7 +897,7 @@ function pulseCard({ title, count, tone, onclick, inner, span, empty, tier }) {
         ${countBadge}
       </div>`;
   const body = `${header}
-    <div class="flex-1 min-h-0">${inner || (empty ? `<div class="text-[12px] text-slate-400 py-4 text-center">${esc(empty)}</div>` : '')}</div>`;
+    <div class="flex-1 min-h-0 mt-3 flex flex-col gap-2">${inner || (empty ? `<div class="text-[12px] text-slate-400 py-4 text-center">${esc(empty)}</div>` : '')}</div>`;
   // A tiered card takes its material, radius, padding and span from the design
   // system, so it must NOT also carry the Tailwind card utilities — those are the
   // same properties, and two sources for one decision is how a card ends up with
@@ -918,17 +918,17 @@ function pulseCard({ title, count, tone, onclick, inner, span, empty, tier }) {
 // badge (short escaped text — a number, '$', '!') when both are given — never pass an
 // emoji glyph as badge; this codebase's icon system is the only approved decoration
 // (see test/no-emoji-ui.test.js).
-function pulseRow({ badge, icon, badgeTone, label, sub, value, valueTone, done, onclick }) {
-  const Tag = onclick ? 'button' : 'div';
-  const badgeInner = icon ? svgIcon(icon, 'w-3 h-3') : esc(badge ?? '');
-  return `<${Tag} ${onclick ? `onclick="${onclick}"` : ''} class="w-full text-left flex items-center gap-2.5 py-1.5 px-1.5 -mx-1.5 rounded-lg ${onclick ? 'hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors' : ''} ${done ? 'opacity-50' : ''}">
-    <span class="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${badgeTone || 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}">${badgeInner}</span>
-    <span class="min-w-0 flex-1">
-      <span class="block text-[12.5px] font-bold text-slate-800 dark:text-slate-100 truncate ${done ? 'line-through' : ''}">${esc(label ?? '')}</span>
-      ${sub ? `<span class="block text-[11px] text-slate-400 truncate">${esc(sub)}</span>` : ''}
-    </span>
-    ${value != null ? `<span class="shrink-0 text-[12px] font-black tabular-nums ${valueTone || 'text-slate-700 dark:text-slate-200'}">${esc(String(value))}</span>` : ''}
-  </${Tag}>`;
+function pulseRow({ badge, icon, badgeTone, label, sub, value, valueTone, done, onclick, actionLabel }) {
+  const go = onclick || '';
+  const action = actionLabel || 'View';
+  const subline = [sub, value != null ? String(value) : ''].filter(Boolean).join(' · ');
+  return `<div class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-white dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.05)] ${done ? 'opacity-50' : ''}">
+    <div class="min-w-0 flex-1">
+      <div class="font-bold text-[14px] text-slate-900 dark:text-white truncate ${done ? 'line-through' : ''}">${esc(label ?? '')}</div>
+      ${subline ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">${esc(subline)}</div>` : ''}
+    </div>
+    ${go ? `<button type="button" onclick="${go}" class="shrink-0 px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition">${esc(action)}</button>` : ''}
+  </div>`;
 }
 // Search-box widget card — click-through to the department's real search/list page.
 function pulseSearchCard({ title, placeholder, onclick, count, tier }) {
@@ -938,16 +938,14 @@ function pulseSearchCard({ title, placeholder, onclick, count, tier }) {
 }
 // Ranked row for a leaderboard-style widget — initials avatar + name + one stat.
 function pulseLeaderRow({ rank, name, value, sub, valueTone, onclick }) {
-  const initials = (name || '?').trim().split(/\s+/).map(s => s[0]).slice(0, 2).join('').toUpperCase();
-  const Tag = onclick ? 'button' : 'div';
-  return `<${Tag} ${onclick ? `onclick="${onclick}"` : ''} class="w-full text-left flex items-center gap-2.5 py-1.5 px-1.5 -mx-1.5 rounded-lg ${onclick ? 'hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors' : ''}">
-    <span class="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">${rank != null ? esc(String(rank)) : esc(initials)}</span>
-    <span class="min-w-0 flex-1">
-      <span class="block text-[12.5px] font-bold text-slate-800 dark:text-slate-100 truncate">${esc(name || 'Unknown')}</span>
-      ${sub ? `<span class="block text-[11px] text-slate-400 truncate">${esc(sub)}</span>` : ''}
-    </span>
-    ${value != null ? `<span class="shrink-0 text-[12px] font-black tabular-nums ${valueTone || 'text-slate-700 dark:text-slate-200'}">${esc(String(value))}</span>` : ''}
-  </${Tag}>`;
+  const subline = [sub, value != null ? String(value) : ''].filter(Boolean).join(' · ');
+  return `<div class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-white dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
+    <div class="min-w-0 flex-1">
+      <div class="font-bold text-[14px] text-slate-900 dark:text-white truncate">${rank != null ? esc(String(rank)) + '. ' : ''}${esc(name || 'Unknown')}</div>
+      ${subline ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">${esc(subline)}</div>` : ''}
+    </div>
+    ${onclick ? `<button type="button" onclick="${onclick}" class="shrink-0 px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition">View</button>` : ''}
+  </div>`;
 }
 // A row of big quick-action buttons across the top of a Pulse page (Check-in / Check-out …).
 function pulseActionsRow(actions) {
