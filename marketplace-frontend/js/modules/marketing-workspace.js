@@ -823,25 +823,16 @@ function mktPulseOverview(body, d, suite, cfg, dayCaveat = '') {
     ${unavailable.length ? `<div class="rounded-2xl border border-amber-200/80 bg-amber-50/80 p-4 text-sm text-amber-900 backdrop-blur-xl dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
       Some Marketing sources are unavailable: ${esc(unavailable.map(mktLabel).join(', '))}. Their values are shown as — and are not estimated.
     </div>` : ''}
-    <section aria-label="Connected marketing metrics" class="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-8 md:gap-5">
-      ${kpi('Needs attention', metric('myDay', attention.length), 'Connected My Day items')}
-      ${kpi('Opportunities', metric('myDay', opportunities.length), 'Connected My Day items')}
-      ${kpi('Active campaigns', metric('campaigns', campaigns.filter(isActive).length), `${metric('campaigns', campaigns.length)} loaded`)}
-      ${kpi('Active automations', metric('automations', automations.filter(isActive).length), `${metric('automations', automations.length)} configured`)}
-      ${kpi('Connected channels', metric('accounts', connectedAccounts.length), 'Connected social accounts')}
-      ${kpi('Scheduled posts', metric('posts', scheduledPosts.length), 'Queued from Social')}
-      ${kpi('Open conversations', metric('conversations', openConversations.length), `${metric('conversations', conversations.length)} loaded`)}
-      ${kpi('Actual spend', spendValue, campaignsWithSpend.length ? 'Reported by campaigns' : 'No actual spend reported')}
-    </section>
-
-    <section class="grid gap-6 xl:grid-cols-2">
-      ${engCard('Needs attention', attentionRows)}
-      ${engCard('Opportunities', opportunityRows)}
-    </section>
-    <section class="grid gap-6 xl:grid-cols-2">
-      ${engCard('Campaigns from connected data', campaignRows)}
-      ${engCard('Automation workflows from connected data', automationRows)}
-    </section>
+    ${pulseBoard([
+      pulseCard({ title: 'Needs attention', count: metric('myDay', attention.length), tier: attention.length ? 'hero' : 'feature', inner: attentionRows }),
+      pulseCard({ title: 'Opportunities', count: metric('myDay', opportunities.length), tier: 'feature', inner: opportunityRows }),
+      pulseCard({ title: 'Active campaigns', count: metric('campaigns', campaigns.filter(isActive).length), tier: 'standard', inner: campaignRows }),
+      pulseCard({ title: 'Active automations', count: metric('automations', automations.filter(isActive).length), tier: 'standard', inner: automationRows }),
+      pulseCard({ title: 'Connected channels', count: metric('accounts', connectedAccounts.length), tier: 'compact' }),
+      pulseCard({ title: 'Scheduled posts', count: metric('posts', scheduledPosts.length), tier: 'compact' }),
+      pulseCard({ title: 'Open conversations', count: metric('conversations', openConversations.length), tier: 'compact' }),
+      pulseCard({ title: 'Actual spend', count: spendValue, tier: 'compact' }),
+    ])}
     <section>
       ${isAvailable('roi') && d.roi != null
         ? mktAdRoi(d)
