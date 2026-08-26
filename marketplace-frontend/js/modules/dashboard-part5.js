@@ -231,7 +231,13 @@ function setupMobileMoreMenu() {
       menu.classList.remove('hidden');
       return;
     }
-    const restricted = restrictedNavPages();
+    let restricted = restrictedNavPages();
+    const previewKey = String(window.__demoActiveProduct || window.__demoActivePackage || document.documentElement.getAttribute('data-product') || '').trim();
+    if (restricted && restricted[0] && restricted[0].page === 'saas-command' && previewKey && previewKey !== 'dealer_os') {
+      const mapped = typeof navPagesForProductKey === 'function' ? navPagesForProductKey(previewKey) : null;
+      if (mapped && mapped.length) restricted = mapped;
+    }
+    if (headerTitle && restricted && restricted.length === 1) headerTitle.textContent = restricted[0].label;
     if (restricted) {
       let currentSection = null;
       restricted.forEach(p => {
