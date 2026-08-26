@@ -1,3 +1,18 @@
+
+function mktSuiteBand(eyebrow, title, sub, actionsHtml) {
+  return `<section class="ms-c ms-c--glass ms-c--hero p-5 mb-5">
+    <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+      <div class="min-w-0">
+        <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">${esc(eyebrow)}</div>
+        <h2 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5">${esc(title)}</h2>
+        <p class="text-sm text-slate-700 dark:text-slate-300 mt-1 max-w-2xl">${esc(sub)}</p>
+      </div>
+      <div class="flex flex-wrap gap-2 shrink-0">${actionsHtml || ''}</div>
+    </div>
+  </section>`;
+}
+window.mktSuiteBand = mktSuiteBand;
+
 // ── Canonical Marketing Suite Configurations ────────────────────────────────
 // Defines the 4 distinct Marketing Suite product experiences:
 // 1. Sales Marketing Suite
@@ -763,8 +778,8 @@ function mktDigitalPulseOverview(body, d, cfg, dayCaveat = '') {
             <p class="text-sm text-slate-700 dark:text-slate-300 mt-1 max-w-2xl">Live website builder, blog, and SEO pulse.</p>
           </div>
           <div class="flex flex-wrap gap-2 shrink-0">
-            <button type="button" onclick="switchPage('website')" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Open website</button>
-            <button type="button" onclick="switchPage('seo')" class="liquid-glass-btn-secondary px-4 py-2 rounded-xl text-sm font-black">Open SEO</button>
+            <button type="button" onclick="engineTab('marketing-overview','website')" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Open website</button>
+            <button type="button" onclick="engineTab('marketing-overview','website')" class="liquid-glass-btn-secondary px-4 py-2 rounded-xl text-sm font-black">SEO</button>
           </div>
         </div>
       </section>
@@ -1123,13 +1138,9 @@ ENGINES['marketing-overview'] = {
     // ── AI ChatBot ───────────────────────────────────────────────────────────
     chatbot(body, d) {
       body.innerHTML = `
-        <div class="space-y-4">
-          <div class="pb-3 border-b border-slate-200 dark:border-slate-800">
-            <h3 class="text-sm font-black text-slate-900 dark:text-white">AI ChatBot Product Workspace</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Live conversations, human takeovers, and AI dealership knowledgebase configuration.</p>
-          </div>
-          <div id="mkt-chatbot-mount" class="space-y-4"></div>
-        </div>
+        ${mktSuiteBand('Conversations', 'AI ChatBot', 'Live chats, takeovers, and what the assistant knows about the store.',
+          '<button type="button" onclick="switchPage(\'ai-home\')" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Open chatbot</button>')}
+        <div id="mkt-chatbot-mount" class="space-y-4"></div>
       `;
       const mount = document.getElementById('mkt-chatbot-mount');
       if (mount) {
@@ -1209,34 +1220,29 @@ ENGINES['marketing-overview'] = {
     },
 
     // ── Website ──────────────────────────────────────────────────────────────
-    // Leaves Marketing dashboard shell and enters dedicated Website product shell
+    // Pulse home for the site: SEO analytics live here. Builder is a tool that
+    // returns to this Pulse. Dealer OS treats SEO as under Website.
     website(body) {
-      window.websiteWorkspacePreviousRoute = { dept: 'marketing', page: 'marketing-overview' };
+      window.websiteWorkspacePreviousRoute = { dept: 'marketing', page: 'marketing-overview', tab: 'overview' };
       body.innerHTML = `
-        <div class="py-12 px-6 max-w-xl mx-auto text-center space-y-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs my-8">
-          <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"/></svg>
-          </div>
-          <div>
-            <h3 class="text-base font-black text-slate-900 dark:text-white">Dealer Website Product Workspace</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Dedicated website workspace featuring Live Visual Builder, Blog CMS, AI SEO, and 3-Column Configuration Setup.</p>
-          </div>
-          <div class="pt-2 flex justify-center gap-3">
-            <button onclick="if (typeof switchPage === 'function') switchPage('website'); else loadWebsitePage();" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md">Open Website Workspace &rarr;</button>
-            <button onclick="engineTab('marketing-overview','overview')" class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition">Back to Pulse</button>
-          </div>
-        </div>
+        ${mktSuiteBand('Website', 'Websites', 'SEO analytics live on this Pulse. The builder opens full screen and comes back here.',
+          `<button type="button" onclick="window.websiteWorkspacePreviousRoute={dept:'marketing',page:'marketing-overview',tab:'website'};switchPage('website')" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Open builder</button>
+           <button type="button" onclick="document.getElementById('seo-workspace-root')?.scrollIntoView({behavior:'smooth'})" class="liquid-glass-btn-secondary px-4 py-2 rounded-xl text-sm font-black">SEO</button>`)}
+        <div id="seo-workspace-root" class="space-y-6"></div>
       `;
-      if (typeof switchPage === 'function') {
-        switchPage('website');
-      } else {
-        engMountPage(body, 'website', () => loadWebsitePage());
+      if (typeof loadDealerSeo === 'function') loadDealerSeo();
+      else if (typeof loadSeoPage === 'function') {
+        const host = document.getElementById('seo-workspace-root');
+        if (host) { host.id = 'ms-seo-root'; loadSeoPage(); }
       }
     },
 
     // ── Video Studio ─────────────────────────────────────────────────────────
     'video-studio'(body) {
-      body.innerHTML = `<div id="mkt-video-studio-mount"></div>`;
+      body.innerHTML = `
+        ${mktSuiteBand('Creative', 'Video Studio', 'Sales and service videos for customers, plus a marketing library you can post from.',
+          '<button type="button" onclick="msRecordForLane && msRecordForLane()" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Record video</button>')}
+        <div id="mkt-video-studio-mount"></div>`;
       const mount = document.getElementById('mkt-video-studio-mount');
       if (mount && typeof loadVideoStudioPage === 'function') loadVideoStudioPage(mount);
       else if (mount && typeof renderVideoStudioWorkspace === 'function') {
