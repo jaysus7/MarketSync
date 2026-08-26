@@ -2612,11 +2612,11 @@ function renderVisualBuilderModal() {
 
   const modal = document.createElement('div');
   modal.id = 'visual-workflow-builder-modal';
-  modal.className = 'fixed inset-0 z-50 bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col select-none overflow-hidden';
+  modal.className = 'fixed inset-0 z-[80] bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col select-none overflow-hidden';
 
   modal.innerHTML = `
     <!-- Top Toolbar Header -->
-    <header class="h-14 ms-glass bg-white/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between flex-shrink-0 z-20 backdrop-blur-md">
+    <header class="h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between flex-shrink-0 z-20">
       <!-- Left: Back & Workflow Title -->
       <div class="flex items-center gap-3">
         <button onclick="closeVisualBuilder()" title="Back to Automations" class="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
@@ -2675,9 +2675,9 @@ function renderVisualBuilderModal() {
     <!-- Canvas Main Workspace -->
     <div class="flex-1 flex overflow-hidden relative">
       <!-- Left Drawer: Node Library Palette -->
-      <aside id="vb-palette" class="w-72 ms-glass bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-r border-slate-200 dark:border-slate-800 flex flex-col flex-shrink-0 z-10">
+      <aside id="vb-palette" class="w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col flex-shrink-0 z-10">
         <div class="p-3 border-b border-slate-200 dark:border-slate-800">
-          <input id="vb-palette-search" placeholder="Search triggers, actions, logic..." oninput="filterVbPalette(this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:border-indigo-500 outline-none">
+          <input id="vb-palette-search" placeholder="Search triggers, actions, logic..." oninput="filterVbPalette(this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:border-indigo-500 outline-none">
           <div class="flex gap-1 mt-2 text-[10px] font-bold">
             <button onclick="filterVbPaletteCat('all')" class="px-2 py-0.5 rounded-md bg-slate-800 text-white">All</button>
             <button onclick="filterVbPaletteCat('triggers')" class="px-2 py-0.5 rounded-md bg-blue-900/40 text-blue-400">Triggers</button>
@@ -2694,10 +2694,12 @@ function renderVisualBuilderModal() {
       <!-- Center Interactive Canvas -->
       <div id="vb-canvas-viewport" class="flex-1 h-full overflow-hidden relative bg-slate-100 dark:bg-slate-950 cursor-grab active:cursor-grabbing">
          <style>
-           #vb-canvas-viewport { background-image: radial-gradient(circle, rgba(148,163,184,0.35) 1px, transparent 1px); background-size: 20px 20px; }
-           .dark #vb-canvas-viewport, html.dark #vb-canvas-viewport { background-image: radial-gradient(circle, rgba(51,65,85,0.55) 1px, transparent 1px); }
-           #visual-workflow-builder-modal .vb-node-card { background: rgba(255,255,255,0.92); }
-           .dark #visual-workflow-builder-modal .vb-node-card, html.dark #visual-workflow-builder-modal .vb-node-card { background: rgba(15,23,42,0.92); }
+           #visual-workflow-builder-modal { background: #f8fafc !important; }
+           html.dark #visual-workflow-builder-modal { background: #020617 !important; }
+           #vb-canvas-viewport { background-color: #f1f5f9 !important; background-image: radial-gradient(circle, rgba(148,163,184,0.45) 1px, transparent 1px); background-size: 20px 20px; }
+           html.dark #vb-canvas-viewport { background-color: #020617 !important; background-image: radial-gradient(circle, rgba(51,65,85,0.7) 1px, transparent 1px); }
+           #visual-workflow-builder-modal .vb-node-card { background: #ffffff !important; color: #0f172a; box-shadow: 0 8px 24px rgba(15,23,42,0.08); }
+           html.dark #visual-workflow-builder-modal .vb-node-card { background: #0f172a !important; color: #e2e8f0; }
          </style>
         <!-- Background Grid Pattern -->
         <svg class="absolute inset-0 w-full h-full pointer-events-none opacity-20">
@@ -2869,7 +2871,7 @@ function renderVbNodes() {
     const isTrigger = cat === 'trigger';
 
     return `
-      <div id="vb-node-${n.id}" onmousedown="onVbNodeMouseDown(event, '${n.id}')" onclick="selectVbNode('${n.id}')" class="vb-node-card absolute w-64 ms-c--glass backdrop-blur-md border ${cardBorder} rounded-2xl p-3.5 shadow-lg cursor-move transition-all select-none space-y-2 text-slate-900 dark:text-slate-100" style="left: ${n.x}px; top: ${n.y}px;">
+      <div id="vb-node-${n.id}" onmousedown="onVbNodeMouseDown(event, '${n.id}')" onclick="selectVbNode('${n.id}')" class="vb-node-card absolute w-64 bg-white dark:bg-slate-900 border ${cardBorder} rounded-2xl p-3.5 shadow-md cursor-move transition-all select-none space-y-2 text-slate-900 dark:text-slate-100" style="left: ${n.x}px; top: ${n.y}px;">
         <!-- In Port (Top Handle) -->
         ${!isTrigger ? `
           <div title="Input Port" class="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-slate-800 border-2 border-indigo-500 shadow-xs flex items-center justify-center cursor-crosshair">
@@ -2884,7 +2886,7 @@ function renderVbNodes() {
               ${vbSvg(n.icon || 'mail', 'w-3.5 h-3.5')}
             </div>
             <div class="min-w-0">
-              <h4 class="text-xs font-black text-white truncate">${esc(n.label)}</h4>
+              <h4 class="text-xs font-black text-slate-900 dark:text-white truncate">${esc(n.label)}</h4>
               <span class="px-1.5 py-0.2 rounded text-[9px] font-mono uppercase font-black ${catBadge}">${esc(cat)}</span>
             </div>
           </div>
@@ -2900,7 +2902,7 @@ function renderVbNodes() {
         </div>
 
         <!-- Node Summary Details -->
-        <div class="text-[11px] text-slate-400 line-clamp-2 bg-slate-950/60 p-2 rounded-xl border border-slate-800/60 font-mono">
+        <div class="text-[11px] text-slate-700 dark:text-slate-200 line-clamp-2 bg-slate-50 dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700 font-mono">
           ${getNodeSummaryText(n)}
         </div>
 
