@@ -523,6 +523,9 @@ function pplSummaryPanel(d) {
         <div><div class="text-[11px] font-bold uppercase text-slate-500">Age</div><div class="font-semibold">${esc(age ?? '—')}</div></div>
         <div><div class="text-[11px] font-bold uppercase text-slate-500">Employee #</div><div class="font-semibold">${esc(p.employee_number || '—')}</div></div>
         <div><div class="text-[11px] font-bold uppercase text-slate-500">Licence</div><div class="font-semibold">${esc(p.licence_number || p.license_number || '—')}</div></div>
+        <div><div class="text-[11px] font-bold uppercase text-slate-500">Pay role</div><div class="font-semibold">${esc(p.commission_role || p.role || '—')}</div></div>
+        <div><div class="text-[11px] font-bold uppercase text-slate-500">Commission plan</div><div class="font-semibold">${esc(p.commission_plan_name || 'Default')}</div></div>
+        <div><div class="text-[11px] font-bold uppercase text-slate-500">Bonus plan</div><div class="font-semibold">${esc(p.bonus_plan_name || 'Default')}</div></div>
         <div><div class="text-[11px] font-bold uppercase text-slate-500">Years in service</div><div class="font-semibold">${esc(years)}</div></div>
         <div><div class="text-[11px] font-bold uppercase text-slate-500">Phone</div><div class="font-semibold">${esc(p.phone || '—')}</div></div>
         <div class="md:col-span-2"><div class="text-[11px] font-bold uppercase text-slate-500">Address</div><div class="font-semibold">${esc([p.address, p.city, p.province, p.postal_code].filter(Boolean).join(', ') || '—')}</div></div>
@@ -538,7 +541,7 @@ function pplSummaryPanel(d) {
     ${engCard('Sales, commission, revenue & profit', `
       <div class="overflow-x-auto"><table class="w-full text-sm">
         <thead><tr class="text-[11px] uppercase text-slate-500">
-          <th class="text-left py-2">Period</th><th class="text-right">Sales</th><th class="text-right">Commission</th><th class="text-right">Revenue</th><th class="text-right">Profit</th>
+          <th class="text-left py-2">Period</th><th class="text-right">Units / ROs</th><th class="text-right">Commission</th><th class="text-right">Bonus</th><th class="text-right">Revenue</th><th class="text-right">Profit</th>
         </tr></thead>
         <tbody>
           ${[['Week', 'week'],['Month','month'],['Year','year'],['Lifetime','lifetime']].map(([label,k]) => `
@@ -546,6 +549,7 @@ function pplSummaryPanel(d) {
               <td class="py-2 font-semibold">${label}</td>
               <td class="text-right">${esc(d.performance?.[k+'_units'] ?? p[k+'_units'] ?? '—')}</td>
               <td class="text-right">${money(k+'_commission')}</td>
+              <td class="text-right">${money(k+'_bonus')}</td>
               <td class="text-right">${money(k+'_revenue')}</td>
               <td class="text-right">${money(k+'_profit')}</td>
             </tr>`).join('')}
