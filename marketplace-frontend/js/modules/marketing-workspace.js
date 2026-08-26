@@ -851,18 +851,6 @@ function mktPulseOverview(body, d, suite, cfg, dayCaveat = '') {
     ${unavailable.length ? `<div class="rounded-2xl border border-amber-200/80 bg-amber-50/80 p-4 text-sm text-amber-900 backdrop-blur-xl dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
       Some Marketing sources are unavailable: ${esc(unavailable.map(mktLabel).join(', '))}. Their values are shown as — and are not estimated.
     </div>` : ''}
-    <section class="ms-glass rounded-[var(--ms-radius-card,20px)] p-5 md:p-6 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-      <div class="min-w-0">
-        <span class="inline-flex rounded-full border border-[var(--ms-border)] bg-white/45 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[var(--ms-text-muted)] dark:bg-white/5">${esc(badge)}</span>
-        <h2 class="mt-2 text-2xl md:text-3xl font-black tracking-tight text-[var(--ms-text)]">${esc(title)}</h2>
-        <p class="mt-2 max-w-3xl text-base leading-6 text-[var(--ms-text-muted)]">${esc(subtitle)}</p>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <button onclick="openVisualWorkflowBuilder()" class="ms-button-primary px-4 py-2.5 text-sm font-black">Build Automation</button>
-        <button onclick="openEmailSmsBuilder({ mode: 'email' })" class="rounded-[var(--ms-radius-control,12px)] border border-[var(--ms-border)] bg-white/55 px-4 py-2.5 text-sm font-black text-[var(--ms-text)] backdrop-blur-xl hover:bg-white/75 dark:bg-white/10 dark:hover:bg-white/15">New Campaign</button>
-      </div>
-    </section>
-
     <section aria-label="Connected marketing metrics" class="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-8 md:gap-5">
       ${kpi('Needs attention', metric('myDay', attention.length), 'Connected My Day items')}
       ${kpi('Opportunities', metric('myDay', opportunities.length), 'Connected My Day items')}
@@ -1425,24 +1413,7 @@ ENGINES['marketing-overview'] = {
       body.innerHTML = `
         <div class="space-y-6">
           ${caveat}
-          <!-- Complete Suite Header -->
-          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60">${esc(cfg.badge)}</span>
-              <h2 class="text-xl font-black text-slate-900 dark:text-white mt-1.5">${esc(cfg.title)}</h2>
-              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">${esc(cfg.subtitle)}</p>
-            </div>
-            <div class="flex items-center gap-2 flex-wrap">
-              <button onclick="openVisualWorkflowBuilder()" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs border border-slate-700 shadow-xs transition flex items-center gap-1.5 cursor-pointer">
-                <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
-                <span>Build Automation</span>
-              </button>
-              <button onclick="openEmailSmsBuilder({ mode: 'email' })" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
-                <span>New Campaign</span>
-              </button>
-            </div>
-          </div>
+          
 
           <!-- 8 KPI Metrics Strip -->
           <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
