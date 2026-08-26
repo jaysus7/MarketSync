@@ -1434,7 +1434,17 @@ function renderDeptTabbar(pageId) {
         : `deptGo('${esc(item.page)}'${item.tab ? `,'','${esc(item.tab)}'` : ''})`;
       return `<button type="button" role="tab" aria-selected="${on}"${on ? ' aria-current="page"' : ''} onclick="${call}" class="px-3.5 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${on ? 'text-indigo-700 dark:text-indigo-300 border-current' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}">${esc(item.label)}</button>`;
     }).join('');
-    bar.innerHTML = `<div class="flex items-center gap-2 mb-1"><span class="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 flex items-center justify-center flex-shrink-0">${svgIcon(area.icon || 'dot', 'w-4 h-4')}</span><span class="text-sm font-black text-slate-900 dark:text-white">${esc(area.label)}</span></div><div role="tablist" aria-label="${esc(area.label)}" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto overscroll-x-contain">${tabs}</div>`;
+    // Tabs only — suite title lives on the engine header (no triple title stack).
+    // Prefer the in-engine mount under the main header when present.
+    const tabsHtml = `<div role="tablist" aria-label="${esc(cfg.badge || area.label || 'Suite')}" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto overscroll-x-contain">${tabs}</div>`;
+    const underHeader = document.getElementById('suite-feature-tabbar');
+    if (underHeader) {
+      underHeader.innerHTML = tabsHtml;
+      underHeader.classList.remove('hidden');
+      hide();
+      return;
+    }
+    bar.innerHTML = tabsHtml;
     bar.classList.remove('hidden');
     return;
   }
