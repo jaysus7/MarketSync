@@ -691,9 +691,8 @@ ENGINES['service-overview'] = {
           { label: 'Video Walkaround', onclick: "switchPage('video-studio')" },
           { label: 'Repair Orders', onclick: "engineTab('service-overview','ros')" },
         ])}
-        ${svcUnavailableNote(d)}
-        ${grid}
-        ${svcInsightsStrip(d)}`;
+        ${typeof svcUnavailableNote === 'function' ? svcUnavailableNote(d) : ''}
+        ${grid}`;
     },
     appointments: svcRenderAppointments,
     ros: svcRenderRos,
