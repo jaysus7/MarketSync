@@ -52,21 +52,13 @@ function pplAttentionGo(x) {
 function pplAttentionRow(x) {
   const label = x.subject || x.kind || 'Needs attention';
   const sub = [x.reason, x.action, x.source_label].filter(Boolean).join(' · ');
-  if (typeof pulseRow === 'function') {
-    return pulseRow({
-      label,
-      sub,
-      onclick: pplAttentionGo(x),
-      actionLabel: x.action_label || 'Open',
-      badge: x.severity >= 3 ? '!' : null,
-      badgeTone: x.severity >= 3 ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
-    });
-  }
-  return `<div class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-white dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800">
+  const go = pplAttentionGo(x);
+  return `<div class="ms-pulse-item w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-white dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
     <div class="min-w-0 flex-1">
-      <div class="font-bold text-[14px] text-slate-900 dark:text-white">${esc(label)}</div>
-      <div class="text-[12px] text-slate-500 mt-0.5">${esc(sub)}</div>
+      <div class="font-bold text-[14px] text-slate-900 dark:text-white truncate">${esc(label)}</div>
+      <div class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5">${esc(sub)}</div>
     </div>
+    <button type="button" onclick="${go}" class="shrink-0 px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[13px] font-semibold text-slate-700 dark:text-slate-200">Open</button>
   </div>`;
 }
 
