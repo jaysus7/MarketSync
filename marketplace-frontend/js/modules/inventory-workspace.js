@@ -338,12 +338,13 @@ ENGINES['inventory-overview'] = {
         ${pulseHeader('Inventory Pulse', 'Lot health, merchandising gaps, acquisition and aged units')}
         ${pulseBoard([
           pulseCard({ title: 'Inventory Intelligence', tier: 'hero',
-            onclick: "typeof openInventoryIntelligence==='function'&&openInventoryIntelligence()",
-            inner: `<div class="text-[13px] text-slate-600 dark:text-slate-300 leading-relaxed">Turn rate, lot health, aged units, market position, and scan actions — live from Inventory Intelligence.</div>
-              <div class="mt-3 flex flex-wrap gap-2">
-                <button type="button" onclick="event.stopPropagation();typeof openInventoryIntelligence==='function'&&openInventoryIntelligence()" class="px-3 py-1.5 rounded-full bg-indigo-600 text-white text-xs font-black">Open Intelligence</button>
-                <button type="button" onclick="event.stopPropagation();switchPage('market')" class="px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 text-xs font-bold">Market &amp; Competitors</button>
-              </div>` }),
+            inner: `<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                <div class="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2"><div class="text-[10px] font-black uppercase tracking-wider text-slate-500">On lot</div><div class="text-lg font-black text-slate-900 dark:text-white">${veh.length}</div></div>
+                <div class="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2"><div class="text-[10px] font-black uppercase tracking-wider text-slate-500">Aged 60+</div><div class="text-lg font-black ${agedCount ? 'text-rose-600' : 'text-slate-900 dark:text-white'}">${agedCount}</div></div>
+                <div class="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2"><div class="text-[10px] font-black uppercase tracking-wider text-slate-500">Merch gaps</div><div class="text-lg font-black text-slate-900 dark:text-white">${notReady.length}</div></div>
+                <div class="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2"><div class="text-[10px] font-black uppercase tracking-wider text-slate-500">Awaiting</div><div class="text-lg font-black text-slate-900 dark:text-white">${awaiting}</div></div>
+              </div>
+              <div id="inv-pulse-intel-slot" class="mt-1"></div>` }),
 
           pulseCard({ title: 'Needs attention', count: att.length, tier: att.length ? 'hero' : 'feature',
             tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
@@ -356,7 +357,7 @@ ENGINES['inventory-overview'] = {
           pulseCard({ title: 'Awaiting possession', count: awaiting, tier: awaiting ? 'standard' : 'compact',
             tone: awaiting ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300' : '',
             onclick: "engineTab('inventory-overview','work')" }),
-          pulseCard({ title: 'AI merchandising', tier: 'feature', inner: proactiveAiPanel }),
+          pulseCard({ title: 'AI merchandising', tier: 'hero', inner: proactiveAiPanel }),
         ])}`;
 
       // Acquisition — what is coming in, and what has been taken possession of. Lives
@@ -372,12 +373,20 @@ ENGINES['inventory-overview'] = {
         'Units carrying no price, and units carrying too much time'));
 
       // One source of truth: mount the connected API-backed Intelligence page here.
-      body.insertAdjacentHTML('beforeend', engSection('Intelligence by MarketSync', '', 'Inventory Intelligence · Live lot health, turn rate, market position and actions from the connected intelligence engine'));
-      engMountPage(body, 'inv-intel', () => {
-        document.querySelector('[data-page-content="inv-intel"]')?.classList.add('ms-inventory-intelligence');
-        loadInvIntelPage();
-      });
-      engMountPage(body, 'market', () => loadMarketPage());
+      const intelSlot = body.querySelector('#inv-pulse-intel-slot');
+      if (intelSlot) {
+        intelSlot.dataset.engineMount = 'inv-intel';
+        engMountPage(intelSlot, 'inv-intel', () => {
+          document.querySelector('[data-page-content="inv-intel"]')?.classList.add('ms-inventory-intelligence');
+          if (typeof loadInvIntelPage === 'function') loadInvIntelPage();
+        });
+      } else {
+        engMountPage(body, 'inv-intel', () => {
+          document.querySelector('[data-page-content="inv-intel"]')?.classList.add('ms-inventory-intelligence');
+          if (typeof loadInvIntelPage === 'function') loadInvIntelPage();
+        });
+      }
+      engMountPage(body, 'market', () => { if (typeof loadMarketPage === 'function') loadMarketPage(); });
     },
     work: invRenderWork,
   },
