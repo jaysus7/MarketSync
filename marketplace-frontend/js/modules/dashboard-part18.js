@@ -1771,7 +1771,7 @@ function renderAutoAudiencesTab(container) {
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">Live canonical CRM segments synced automatically with customer purchase history, service intervals, and equity status.</p>
           </div>
           <div class="flex items-center gap-2">
-            <button onclick="switchPage('crm')" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition cursor-pointer">Open Customer Database</button>
+            <button type="button" onclick="createAudienceCampaign()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black transition cursor-pointer">+ Create Campaign</button>
           </div>
         </div>
       </div>
@@ -1789,7 +1789,7 @@ function renderAutoAudiencesTab(container) {
               <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">${esc(seg.desc)}</p>
             </div>
             <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
-              <button onclick="openEmailSmsBuilder({ mode: 'email', audience: '${seg.key}', campaignName: 'Broadcast to ${esc(seg.name)}' })" class="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer">
+              <button type="button" onclick="createAudienceCampaign('${seg.key}')" class="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/></svg>
                 <span>Create Campaign</span>
               </button>
@@ -3927,6 +3927,9 @@ function openEmailSmsBuilder(opts = {}) {
   __esb.templateId = opts.templateId || null;
   __esb.returnToBuilder = !!opts.returnToBuilder;
   __esb.nodeId = opts.nodeId || null;
+  if (opts.campaignName) __esb.campaignName = opts.campaignName;
+  if (opts.audience) __esb.audience = opts.audience;
+  if (opts.campaignId) __esb.campaignId = opts.campaignId;
 
   if (opts.templateId) {
     const tpl = DEFAULT_COMMUNICATION_TEMPLATES.find(t => t.id === opts.templateId);
@@ -5668,3 +5671,59 @@ async function loadInventoryCatalog() {
     list.innerHTML = `<div class="text-xs text-red-400 col-span-full">Failed to load catalog: ${err.message}</div>`;
   }
 }
+
+
+window.createAudienceCampaign = async function (segKey) {
+  const seg = (typeof CRM_AUDIENCE_SEGMENTS !== 'undefined' ? CRM_AUDIENCE_SEGMENTS : []).find(s => s.key === segKey);
+  const name = seg ? `Campaign · ${seg.name}` : `New campaign ${new Date().toLocaleDateString()}`;
+  const audience = seg ? seg.name : 'All Opted-in Contacts';
+  let created = null;
+  try {
+    const d = await apiSendJson('/campaigns', 'POST', {
+      name,
+      campaign_type: 'onetime',
+      objective: 'broadcast',
+      channels: ['email'],
+      offer: segKey || null,
+    });
+    created = d.campaign || d;
+  } catch (e) {
+    try {
+      const d = await apiSendJson('/automation/campaigns', 'POST', {
+        name,
+        category: 'marketing',
+        trigger_event: 'manual_broadcast',
+        channel: 'email',
+        subject_template: '',
+        message_body_template: '',
+        delay_minutes: 0,
+        sender_identity: 'house',
+        is_active: false,
+      });
+      created = d.campaign || d;
+    } catch (e2) {
+      created = { id: 'cmp_' + Date.now(), name };
+    }
+  }
+  const row = {
+    id: created.id || ('cmp_' + Date.now()),
+    name,
+    template_id: '',
+    channel: 'Email',
+    status: 'draft',
+    audience,
+    sent_count: 0,
+    open_rate: '—',
+    click_rate: '—',
+    reply_rate: '—',
+    rev: '—',
+    date: 'Draft',
+  };
+  if (Array.isArray(DEMO_CAMPAIGNS) && !DEMO_CAMPAIGNS.some(c => c.id === row.id)) DEMO_CAMPAIGNS.unshift(row);
+  if (typeof showToast === 'function') showToast(`Draft campaign created: ${name}`, 'success');
+  if (typeof openEmailSmsBuilder === 'function') {
+    openEmailSmsBuilder({ mode: 'email', campaignType: 'onetime', campaignId: row.id, campaignName: name, audience: segKey || 'all_contacts' });
+  } else if (typeof engineTab === 'function') {
+    engineTab('marketing-overview', 'campaigns');
+  }
+};
