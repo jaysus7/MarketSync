@@ -447,14 +447,14 @@ ENGINES['service-overview'] = {
   ],
   get tabLabels() {
     return svcIsTechnician() ? { overview: 'Pulse' }
-      : { overview: 'Pulse', appointments: 'Appointments', ros: 'Repair Orders', settings: 'Settings' };
+      : { overview: 'Pulse', appointments: 'Appointments', ros: 'Repair Orders', loaners: 'Loaners', settings: 'Settings' };
   },
   get tabOrder() {
     if (svcIsTechnician()) return ['overview'];          // My Work is the whole job
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     // Settings writes the labour rate and tax that price every RO, so it stays with
     // the desk. An advisor still gets the book and the whole repair-order list.
-    return mgr ? ['overview', 'appointments', 'ros', 'settings'] : ['overview', 'appointments', 'ros'];
+    return mgr ? ['overview', 'appointments', 'ros', 'loaners', 'settings'] : ['overview', 'appointments', 'ros', 'loaners'];
   },
 
   fetch: async () => {
@@ -683,6 +683,14 @@ ENGINES['service-overview'] = {
           inner: (typeof svcTechBoard === 'function' ? svcTechBoard(d).html : ''),
           empty: 'No technicians on the board.',
         }),
+        pulseCard({
+          title: 'Loaners',
+          count: (typeof svcLoanerBoard === 'function' ? svcLoanerBoard().available : 0),
+          tier: 'standard',
+          onclick: "engineTab('service-overview','loaners')",
+          inner: (typeof svcLoanerBoard === 'function' ? svcLoanerBoard().html : ''),
+          empty: 'No loaner vehicles in stock.',
+        }),
         // Department leaderboard embeds on the Service Pulse (same /gamification
         // payload as the full Leaderboard page — ranked here, not navigated away).
       ]);
@@ -703,6 +711,7 @@ ENGINES['service-overview'] = {
     },
     appointments: svcRenderAppointments,
     ros: svcRenderRos,
+    loaners: svcRenderLoaners,
     settings: svcRenderSettings,
   },
 };
@@ -865,3 +874,125 @@ function svcTechBoard(d) {
 }
 window.svcTechBoard = svcTechBoard;
 window.svcEnsureTechs = svcEnsureTechs;
+
+
+function svcEnsureLoaners() {
+  if (Array.isArray(window.__svcLoaners) && window.__svcLoaners.length) return window.__svcLoaners;
+  window.__svcLoaners = [
+    { id: 'ln_1', stock: 'LN-101', year: 2024, make: 'Toyota', model: 'Camry', plate: 'LNAR 101', km: 12840, fuel: '3/4', status: 'available' },
+    { id: 'ln_2', stock: 'LN-102', year: 2024, make: 'Honda', model: 'CR-V', plate: 'LNAR 102', km: 22110, fuel: 'Full', status: 'out', customer: 'Sarah Connor', outKm: 21980, outFuel: 'Full' },
+    { id: 'ln_3', stock: 'LN-103', year: 2023, make: 'Hyundai', model: 'Elantra', plate: 'LNAR 103', km: 34120, fuel: '1/2', status: 'available' },
+    { id: 'ln_4', stock: 'LN-104', year: 2025, make: 'Ford', model: 'Escape', plate: 'LNAR 104', km: 8020, fuel: 'Full', status: 'requested', requestedBy: 'Sales · Alex Rivera', forWhen: 'Tomorrow 10:00' },
+    { id: 'ln_5', stock: 'LN-105', year: 2024, make: 'Chevy', model: 'Trax', plate: 'LNAR 105', km: 15660, fuel: '3/4', status: 'available' },
+    { id: 'ln_6', stock: 'LN-106', year: 2023, make: 'Kia', model: 'Forte', plate: 'LNAR 106', km: 41002, fuel: '1/4', status: 'service' },
+  ];
+  window.__svcLoanerRequests = window.__svcLoanerRequests || [
+    { id: 'lr_1', by: 'Alex Rivera', role: 'Sales', when: 'Tomorrow 10:00', customer: 'Jordan Lee', reason: 'Appraisal appointment', status: 'pending' },
+  ];
+  return window.__svcLoaners;
+}
+
+function svcLoanerBoard() {
+  const fleet = svcEnsureLoaners();
+  const available = fleet.filter(c => c.status === 'available').length;
+  const out = fleet.filter(c => c.status === 'out').length;
+  const requested = fleet.filter(c => c.status === 'requested').length;
+  const html = [
+    typeof pulseRow === 'function' ? pulseRow({ badge: available, label: 'On the lot', sub: 'Ready to check out', onclick: "engineTab('service-overview','loaners')" }) : '',
+    typeof pulseRow === 'function' ? pulseRow({ badge: out, label: 'Checked out', sub: 'Need KM and fuel on return', onclick: "engineTab('service-overview','loaners')" }) : '',
+    typeof pulseRow === 'function' ? pulseRow({ badge: requested, label: 'Sales requests', sub: 'Waiting on service desk', onclick: "engineTab('service-overview','loaners')" }) : '',
+  ].join('');
+  return { available, html };
+}
+
+function svcRenderLoaners(body) {
+  const fleet = svcEnsureLoaners();
+  const reqs = window.__svcLoanerRequests || [];
+  const tone = (s) => s === 'available' ? 'text-emerald-600' : s === 'out' ? 'text-amber-600' : s === 'requested' ? 'text-indigo-600' : 'text-slate-500';
+  const rows = fleet.map(c => {
+    const title = `${c.year} ${c.make} ${c.model}`;
+    const actions = c.status === 'available'
+      ? `<button class="text-xs font-black text-indigo-600" onclick="svcLoanerCheckout('${c.id}')">Check out</button>`
+      : c.status === 'out'
+      ? `<button class="text-xs font-black text-emerald-600" onclick="svcLoanerCheckin('${c.id}')">Check in</button>`
+      : c.status === 'requested'
+      ? `<button class="text-xs font-black text-indigo-600" onclick="svcLoanerFulfill('${c.id}')">Assign &amp; check out</button>`
+      : '';
+    return (typeof pulseRow === 'function' ? pulseRow({
+      badge: c.stock,
+      label: title,
+      sub: `${c.plate} · ${Number(c.km).toLocaleString()} km · fuel ${c.fuel}${c.customer ? ' · ' + c.customer : ''}${c.requestedBy ? ' · ' + c.requestedBy : ''}`,
+      value: c.status,
+      valueTone: tone(c.status),
+    }) : '') + `<div class="flex justify-end -mt-1 mb-2">${actions}</div>`;
+  }).join('');
+  const reqHtml = reqs.map(r => (typeof pulseRow === 'function' ? pulseRow({
+    badge: r.role,
+    label: r.by + ' · ' + r.customer,
+    sub: r.when + ' · ' + r.reason,
+    value: r.status,
+  }) : '')).join('');
+  body.innerHTML = `
+    ${typeof pulseHeader === 'function' ? pulseHeader('Loaner fleet', 'Stock, check-out, check-in, kilometres, and fuel') : ''}
+    ${typeof pulseActionsRow === 'function' ? pulseActionsRow([
+      { label: 'Request loaner', onclick: "svcLoanerRequest()" },
+      { label: 'Add loaner to stock', onclick: "svcLoanerAdd()" },
+    ]) : ''}
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <div class="xl:col-span-2 space-y-3">${typeof pulseCard === 'function' ? pulseCard({ title: 'On the lot', count: fleet.length, tier: 'hero', inner: rows }) : rows}</div>
+      <div>${typeof pulseCard === 'function' ? pulseCard({ title: 'Sales & advisor requests', count: reqs.length, tier: 'standard', inner: reqHtml, empty: 'No open requests.' }) : reqHtml}</div>
+    </div>`;
+}
+
+window.svcLoanerCheckout = function(id) {
+  const c = svcEnsureLoaners().find(x => x.id === id); if (!c) return;
+  const km = prompt('Kilometres out', String(c.km)); if (km == null) return;
+  const fuel = prompt('Fuel out (Full / 3/4 / 1/2 / 1/4)', c.fuel || 'Full'); if (fuel == null) return;
+  const who = prompt('Customer name', c.customer || '');
+  c.status = 'out'; c.outKm = Number(String(km).replace(/[^\d.]/g,'')) || c.km; c.outFuel = fuel; c.km = c.outKm; c.fuel = fuel; c.customer = who || c.customer;
+  if (typeof showToast === 'function') showToast(c.stock + ' checked out at ' + c.outKm + ' km', 'success');
+  engineTab('service-overview', 'loaners', true);
+};
+window.svcLoanerCheckin = function(id) {
+  const c = svcEnsureLoaners().find(x => x.id === id); if (!c) return;
+  const km = prompt('Kilometres in', String(c.km)); if (km == null) return;
+  const fuel = prompt('Fuel in (Full / 3/4 / 1/2 / 1/4)', c.fuel || '3/4'); if (fuel == null) return;
+  c.km = Number(String(km).replace(/[^\d.]/g,'')) || c.km;
+  c.fuel = fuel; c.status = 'available'; c.customer = '';
+  if (typeof showToast === 'function') showToast(c.stock + ' checked in · ' + c.km.toLocaleString() + ' km · fuel ' + fuel, 'success');
+  engineTab('service-overview', 'loaners', true);
+};
+window.svcLoanerFulfill = function(id) {
+  const c = svcEnsureLoaners().find(x => x.id === id); if (!c) return;
+  c.status = 'available';
+  svcLoanerCheckout(id);
+};
+window.svcLoanerRequest = function(opts) {
+  opts = opts || {};
+  const customer = opts.customer || prompt('Customer name') || '';
+  if (!customer) return;
+  const when = opts.when || prompt('Appointment time', 'Tomorrow 10:00') || '';
+  const reason = opts.reason || prompt('Reason', 'Sales appointment') || 'Sales appointment';
+  const who = (typeof profileContext !== 'undefined' && (profileContext.full_name || profileContext.name)) || 'Sales';
+  const role = String((typeof profileContext !== 'undefined' && profileContext.role) || 'SALES_REP');
+  (window.__svcLoanerRequests || (window.__svcLoanerRequests = [])).unshift({
+    id: 'lr_' + Date.now(), by: who, role: /SERVICE/.test(role) ? 'Service' : 'Sales', when, customer, reason, status: 'pending',
+  });
+  const open = svcEnsureLoaners().find(c => c.status === 'available');
+  if (open) { open.status = 'requested'; open.requestedBy = who; open.forWhen = when; }
+  if (typeof showToast === 'function') showToast('Loaner requested for ' + customer, 'success');
+  if (typeof engineTab === 'function') engineTab('service-overview', 'loaners', true);
+};
+window.svcLoanerAdd = function() {
+  const stock = prompt('Stock number', 'LN-10' + (svcEnsureLoaners().length + 1)); if (!stock) return;
+  const ymm = prompt('Year Make Model', '2024 Toyota Corolla') || 'Loaner';
+  const parts = ymm.split(' ');
+  svcEnsureLoaners().push({
+    id: 'ln_' + Date.now(), stock, year: parts[0], make: parts[1] || '', model: parts.slice(2).join(' '),
+    plate: stock, km: 0, fuel: 'Full', status: 'available',
+  });
+  engineTab('service-overview', 'loaners', true);
+};
+window.svcEnsureLoaners = svcEnsureLoaners;
+window.svcLoanerBoard = svcLoanerBoard;
+window.svcRenderLoaners = svcRenderLoaners;
