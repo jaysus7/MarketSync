@@ -879,7 +879,9 @@ function pulseCard({ title, count, tone, onclick, inner, span, empty, tier }) {
   // desktop padding on a phone. data-empty lets the board collapse a hero that
   // has nothing in it rather than reserving three rows for an empty box.
   if (tier) {
-    return `<div class="ms-c ms-c--${esc(tier)}" data-tier="${esc(tier)}"${inner ? '' : ' data-empty="true"'}>${body}</div>`;
+    const material = (tier === 'hero' || tier === 'feature') ? ' ms-c--glass' : '';
+    const interactive = onclick ? ' ms-c--interactive' : '';
+    return `<div class="ms-c ms-c--${esc(tier)}${material}${interactive}" data-tier="${esc(tier)}"${inner ? '' : ' data-empty="true"'}>${body}</div>`;
   }
   return `<div class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 flex flex-col gap-2 ${spanCls} transition-shadow hover:shadow-[0_6px_20px_-8px_rgba(15,23,42,.18)] dark:hover:shadow-[0_6px_20px_-8px_rgba(0,0,0,.45)]">
     ${body}
@@ -933,12 +935,13 @@ function pulseActionsRow(actions) {
 // real Performance/Leaderboard page (switchPage('leaderboard')) already renders, so a
 // Pulse card never shows a number that isn't also standing behind that page today.
 // gam: the raw /gamification response (or null if it could not be loaded).
-function pulseLeaderboardCard(gam, deptKey, { title, metric, onclick } = {}) {
+function pulseLeaderboardCard(gam, deptKey, { title, metric, onclick, tier } = {}) {
   const dept = gam?.departments?.[deptKey];
   const rows = (dept?.leaderboard || []).slice().sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99)).slice(0, 5);
   return pulseCard({
     title: title || (dept?.title ? `${dept.title} leaderboard` : 'Leaderboard'),
     onclick: onclick || "switchPage('leaderboard')",
+    tier: tier || 'compact',
     inner: rows.length ? rows.map(r => pulseLeaderRow({
       rank: r.rank, name: r.full_name, sub: r.title || '',
       value: metric ? (r.metrics?.[metric] ?? r.score ?? null) : (r.score ?? null),
@@ -948,7 +951,7 @@ function pulseLeaderboardCard(gam, deptKey, { title, metric, onclick } = {}) {
   });
 }
 if (typeof window !== 'undefined') {
-  window.pulseHeader = pulseHeader; window.pulseGrid = pulseGrid; window.pulseCard = pulseCard;
+  window.pulseHeader = pulseHeader; window.pulseGrid = pulseGrid; window.pulseBoard = pulseBoard; window.pulseCard = pulseCard;
   window.pulseRow = pulseRow; window.pulseSearchCard = pulseSearchCard; window.pulseLeaderRow = pulseLeaderRow;
   window.pulseActionsRow = pulseActionsRow; window.pulseLeaderboardCard = pulseLeaderboardCard;
 }
