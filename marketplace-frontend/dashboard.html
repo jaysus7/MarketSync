@@ -351,6 +351,9 @@
       color: #f8fafc !important;
       border-color: #475569 !important;
     }
+
+    [data-engine-mount="inv-intel"] > [data-page-content="inv-intel"] > .ms-c--feature:first-of-type { display: none !important; }
+    [data-engine-mount="inv-intel"] > [data-page-content="inv-intel"] { padding: 0 !important; margin: 0 !important; }
     #header-shift-clock-wrapper { display: none !important; }
     #header-shift-clock-wrapper.ms-timeclock-entitled { display: inline-block !important; }
     @media (max-width: 639px) {
@@ -4005,7 +4008,7 @@
   <script src="js/modules/dashboard-part26.js?v=20260824_staff_password_css_v1"></script>
   <!-- Sales workspace: registers ENGINES['sales']; must load after the parts. -->
   <script src="js/modules/sales-workspace.js?v=20260826_sales_cust_v1"></script>
-  <script src="js/modules/inventory-workspace.js?v=20260826_inv_intel_glass_v1"></script>
+  <script src="js/modules/inventory-workspace.js?v=20260826_inv_intel_pulse_v1"></script>
   <script src="js/modules/fni-workspace.js?v=20260826_pulse_clean_v2"></script>
   <!-- Vehicle Record: one unit, one surface. Loads after inventory-workspace.js,
        whose merchandising/acquisition definitions it renders. -->
