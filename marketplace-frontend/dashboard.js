@@ -1267,11 +1267,23 @@ function applyProductNav(products) {
   if (products.dealer_os) {
     __productAllowedPages = null;
     __productHome = null;
-    window.__teamChatAllowed = true;
     document.documentElement.removeAttribute('data-product');
     document.getElementById('header-social-icons')?.classList.remove('hidden');
-    document.getElementById('staff-chat-dock-bar')?.classList.remove('hidden');
-    if (typeof window.enableStaffChatDock === 'function') window.enableStaffChatDock();
+    // Team Messaging requires os.team (Complete / paid Team) — not Core or Pro.
+    const teamOk = (typeof pageFeatureOk === 'function')
+      ? pageFeatureOk('people-overview')
+      : !!(window.__demoEntitlements?.features || []).includes('os.team')
+        || !!(window.__access?.features || []).includes('os.team')
+        || !!(typeof dealerPlanFallback === 'function' && dealerPlanFallback()?.features?.has('os.team'));
+    window.__teamChatAllowed = !!teamOk;
+    if (teamOk) {
+      document.getElementById('staff-chat-dock-bar')?.classList.remove('hidden');
+      if (typeof window.enableStaffChatDock === 'function') window.enableStaffChatDock();
+    } else {
+      document.getElementById('staff-chat-dock-bar')?.classList.add('hidden');
+      if (typeof window.disableStaffChatDock === 'function') window.disableStaffChatDock();
+      window.__teamChatAllowed = false;
+    }
     applyMobileQuickRow();
     return;
   }
