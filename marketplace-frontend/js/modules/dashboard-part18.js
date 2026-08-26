@@ -501,8 +501,8 @@ function autoRerenderCurrent() {
 // Automation Builder: one page, tabbed like the Website builder. Each tab's body
 // keeps its original root id, so the existing bucket loaders render unchanged.
 // ── Email & SMS: Central Dealership Communication Automation Engine ──────────
-let __autoTab = 'overview';
-function autoTab(t) { __autoTab = t; loadAutoBuilderPage(); }
+let __autoTab = 'automations';
+function autoTab(t) { __autoTab = (t === 'overview' ? 'automations' : t); loadAutoBuilderPage(); }
 window.autoTab = autoTab;
 
 // Comprehensive dictionary of categorized dealership automation workflows
@@ -840,7 +840,6 @@ async function loadAutoBuilderPage() {
 
   tabsEl.innerHTML = `
     <div role="tablist" aria-label="Campaigns and Automations" class="flex items-center gap-1 min-w-0 overflow-x-auto overscroll-x-contain">
-      ${tabBtn('overview', 'Overview', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>`)}
       ${tabBtn('automations', 'Automations', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>`)}
       ${tabBtn('campaigns', 'Campaigns', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/></svg>`)}
       ${tabBtn('templates', 'Templates', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>`)}
@@ -867,7 +866,7 @@ async function loadAutoBuilderPage() {
   };
 
   if (__autoTab === 'overview') {
-    renderAutoOverviewTab(mainRoot);
+    renderAutoAutomationsTab(mainRoot);
   } else if (__autoTab === 'automations' || categoryMap[__autoTab]) {
     if (categoryMap[__autoTab]) {
       __autoCategoryFilter = categoryMap[__autoTab];
@@ -1810,49 +1809,92 @@ function renderAutoPerformanceTab(container) {
     { name: 'Price Drop Alert on Viewed Units', channel: 'Email + SMS', sent: 2150, delivered: '99.2%', opened: '62.4%', replied: '14.8%', appts: 9, sales: 4, rev: '$42,500' },
     { name: '6-Month Factory Maintenance Reminder', channel: 'Email + SMS', sent: 4890, delivered: '99.5%', opened: '54.8%', replied: '22.1%', appts: 94, sales: '—', rev: '$38,900' },
     { name: 'Lease 6-Month Maturity Pull-Ahead', channel: 'Email + SMS', sent: 420, delivered: '99.6%', opened: '71.2%', replied: '31.5%', appts: 12, sales: 7, rev: '$78,400' },
+    { name: 'Day 1 Personal Follow-up', channel: 'SMS', sent: 2680, delivered: '99.6%', opened: '91.0%', replied: '18.7%', appts: 22, sales: 6, rev: '$51,200' },
+    { name: 'Day 3 Still Looking Bump', channel: 'SMS', sent: 1940, delivered: '99.4%', opened: '88.1%', replied: '12.4%', appts: 11, sales: 3, rev: '$27,800' },
+    { name: 'Missed Lead Manager Escalation', channel: 'Task', sent: 410, delivered: '100%', opened: '—', replied: '—', appts: 28, sales: 9, rev: '$96,400' },
+    { name: 'Monthly Dealership Newsletter', channel: 'Email', sent: 8940, delivered: '98.8%', opened: '49.2%', replied: '3.1%', appts: 14, sales: 5, rev: '$31,400' },
   ];
-
+  const campaigns = (typeof DEMO_CAMPAIGNS !== 'undefined' ? DEMO_CAMPAIGNS : []);
+  const kpi = (label, val, note) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400">${label}</div><div class="text-2xl font-black text-slate-900 dark:text-white mt-1">${val}</div><div class="text-[11px] text-slate-500 mt-0.5">${note}</div></div>`;
   container.innerHTML = `
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-4">
-      <div class="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <h3 class="text-lg font-black text-slate-900 dark:text-white">Email &amp; SMS Performance Telemetry</h3>
-          <p class="text-xs text-slate-500 dark:text-slate-400">Detailed conversion metrics, response rates, and closed revenue attribution.</p>
-        </div>
-        <button onclick="showToast('Exporting CSV report...', 'info')" class="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">Export CSV</button>
+    <div class="space-y-6">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        ${kpi('Messages sent', '26,880', 'Last 30 days across email + SMS')}
+        ${kpi('Delivery', '99.4%', 'Email 98.9% · SMS 99.7%')}
+        ${kpi('Reply rate', '17.8%', 'Human replies attributed to journeys')}
+        ${kpi('Attributed revenue', '$661k', 'Deals and RO work tied to sends')}
       </div>
-
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr class="border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase text-slate-400">
-              <th class="py-3 px-2">Automation Workflow</th>
-              <th class="py-3 px-2">Channel</th>
-              <th class="py-3 px-2">Sent</th>
-              <th class="py-3 px-2">Delivery</th>
-              <th class="py-3 px-2">Open Rate</th>
-              <th class="py-3 px-2">Reply Rate</th>
-              <th class="py-3 px-2">Appts</th>
-              <th class="py-3 px-2">Deals</th>
-              <th class="py-3 px-2">Attributed Rev</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-            ${rows.map(r => `
-              <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
-                <td class="py-3 px-2 font-bold text-slate-900 dark:text-white">${esc(r.name)}</td>
-                <td class="py-3 px-2"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400">${esc(r.channel)}</span></td>
-                <td class="py-3 px-2 font-mono">${r.sent.toLocaleString()}</td>
-                <td class="py-3 px-2 font-mono text-emerald-600 dark:text-emerald-400 font-bold">${r.delivered}</td>
-                <td class="py-3 px-2 font-mono">${r.opened}</td>
-                <td class="py-3 px-2 font-mono text-indigo-600 dark:text-indigo-400 font-bold">${r.replied}</td>
-                <td class="py-3 px-2 font-mono font-bold">${r.appts}</td>
-                <td class="py-3 px-2 font-mono font-bold">${r.sales}</td>
-                <td class="py-3 px-2 font-mono font-black text-emerald-600 dark:text-emerald-400">${r.rev}</td>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        ${kpi('Appointments booked', '270', 'From reminders and follow-up')}
+        ${kpi('Deals closed', '66', 'Sales journeys only')}
+        ${kpi('Active journeys', String((Array.isArray(__autoCfg?.campaigns) ? __autoCfg.campaigns.filter(c => c.is_active !== false).length : 13)), 'Live automations this dealership')}
+      </div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-4">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h3 class="text-lg font-black text-slate-900 dark:text-white">Journey performance</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Sends, delivery, replies, appointments, deals, and attributed revenue by workflow.</p>
+          </div>
+          <button onclick="showToast('Exporting CSV report...', 'info')" class="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">Export CSV</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase text-slate-400">
+                <th class="py-3 px-2">Automation Workflow</th>
+                <th class="py-3 px-2">Channel</th>
+                <th class="py-3 px-2">Sent</th>
+                <th class="py-3 px-2">Delivery</th>
+                <th class="py-3 px-2">Open Rate</th>
+                <th class="py-3 px-2">Reply Rate</th>
+                <th class="py-3 px-2">Appts</th>
+                <th class="py-3 px-2">Deals</th>
+                <th class="py-3 px-2">Attributed Rev</th>
               </tr>
-            `).join('')}
-          </tbody>
-        </table>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+              ${rows.map(r => `
+                <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
+                  <td class="py-3 px-2 font-bold text-slate-900 dark:text-white">${esc(r.name)}</td>
+                  <td class="py-3 px-2"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400">${esc(r.channel)}</span></td>
+                  <td class="py-3 px-2 font-mono">${r.sent.toLocaleString()}</td>
+                  <td class="py-3 px-2 font-mono text-emerald-600 dark:text-emerald-400 font-bold">${r.delivered}</td>
+                  <td class="py-3 px-2 font-mono">${r.opened}</td>
+                  <td class="py-3 px-2 font-mono text-indigo-600 dark:text-indigo-400 font-bold">${r.replied}</td>
+                  <td class="py-3 px-2 font-mono font-bold">${r.appts}</td>
+                  <td class="py-3 px-2 font-mono font-bold">${r.sales}</td>
+                  <td class="py-3 px-2 font-mono font-black text-emerald-600 dark:text-emerald-400">${r.rev}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-4">
+        <h3 class="text-lg font-black text-slate-900 dark:text-white">Campaign performance</h3>
+        <p class="text-xs text-slate-500 dark:text-slate-400">One-time broadcasts and their open / click / reply rates.</p>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase text-slate-400">
+                <th class="py-3 px-2">Campaign</th><th class="py-3 px-2">Channel</th><th class="py-3 px-2">Audience</th><th class="py-3 px-2">Sent</th><th class="py-3 px-2">Open</th><th class="py-3 px-2">Click</th><th class="py-3 px-2">Reply</th><th class="py-3 px-2">Rev</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60">
+              ${campaigns.map(c => `
+                <tr>
+                  <td class="py-3 px-2 font-bold text-slate-900 dark:text-white">${esc(c.name)}</td>
+                  <td class="py-3 px-2">${esc(c.channel || '—')}</td>
+                  <td class="py-3 px-2">${esc(c.audience || '—')}</td>
+                  <td class="py-3 px-2 font-mono">${c.sent_count ?? '—'}</td>
+                  <td class="py-3 px-2 font-mono">${esc(c.open_rate || '—')}</td>
+                  <td class="py-3 px-2 font-mono">${esc(c.click_rate || '—')}</td>
+                  <td class="py-3 px-2 font-mono">${esc(c.reply_rate || '—')}</td>
+                  <td class="py-3 px-2 font-mono font-black text-emerald-600">${esc(c.rev || '—')}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   `;
