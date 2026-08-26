@@ -1,5 +1,27 @@
-const API = 'https://vehicle-marketplace-s0e4.onrender.com'
-const DASHBOARD_BASE = 'https://marketsync.link/dashboard.html'
+let API = 'https://vehicle-marketplace-s0e4.onrender.com'
+let DASHBOARD_BASE = 'https://marketsync.link/dashboard.html'
+
+async function resolveApi() {
+  try {
+    const { customApi } = await new Promise(r => chrome.storage.local.get(['customApi'], r))
+    if (customApi) {
+      API = customApi
+      if (customApi.includes('staging')) {
+        DASHBOARD_BASE = 'https://marketsync-staging-site.onrender.com/dashboard.html'
+      } else {
+        DASHBOARD_BASE = 'https://marketsync.link/dashboard.html'
+      }
+    }
+  } catch {}
+  return API
+}
+
+function setSyncing(isSyncing, title = '') {
+  const dot = $('sync-dot')
+  if (!dot) return
+  dot.classList.toggle('syncing', !!isSyncing)
+  dot.title = title || (isSyncing ? 'Syncing latest inventory…' : 'Connected')
+}
 
 const $ = (id) => document.getElementById(id)
 
@@ -18,7 +40,8 @@ function formatPrice(p) {
 // after a lull can hang or return a 502/503/504 for ~30–60s while it wakes.
 // Retry those (and timeouts) a few times with backoff so the popup self-heals
 // instead of showing empty stats/inventory. 401/402 are never retried.
-async function apiGet(path, token, { timeout = 20000, retries = 3 } = {}) {
+async function apiGet(path, token, { timeout = 8000, retries = 2 } = {}) {
+  await resolveApi()
   let lastErr
   for (let attempt = 0; attempt <= retries; attempt++) {
     const controller = new AbortController()
@@ -50,7 +73,7 @@ async function apiGet(path, token, { timeout = 20000, retries = 3 } = {}) {
       // Server waking up / gateway error → retry.
       if ([429, 500, 502, 503, 504].includes(r.status)) {
         lastErr = new Error(`Server status [${r.status}]`)
-        if (attempt < retries) { await sleep(1000 * Math.pow(2, attempt)); continue }
+        if (attempt < retries) { await sleep(600 * Math.pow(2, attempt)); continue }
         throw lastErr
       }
       const contentType = r.headers.get('content-type')
@@ -66,7 +89,7 @@ async function apiGet(path, token, { timeout = 20000, retries = 3 } = {}) {
       const transient = e.name === 'AbortError' || /Failed to fetch|NetworkError|Server status/.test(e.message || '')
       if (transient && !/AUTH_EXPIRED|SUBSCRIPTION_REQUIRED/.test(e.message || '') && attempt < retries) {
         lastErr = e
-        await sleep(1000 * Math.pow(2, attempt))
+        await sleep(600 * Math.pow(2, attempt))
         continue
       }
       if (e.name === 'AbortError') throw new Error('Server waking up — click Refresh in a moment')
@@ -95,6 +118,7 @@ function handleSubscriptionGate(token) {
     btn.textContent = 'Connecting to Stripe...'
     btn.disabled = true
     try {
+      await resolveApi()
       let r = await fetch(`${API}/billing/portal`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
@@ -154,366 +178,394 @@ function applySearchFilter() {
   }
 }
 
-async function loadInventory(token) {
-  $('vehicle-list').innerHTML = '<div class="loading">Loading inventory...</div>'
+function renderInventoryData(inventory, listings, soldListings, token) {
+  const postedMap = new Map()
+  for (const l of listings) {
+    const invId = l?.inventory_id || l?.inventory?.id
+    if (invId && l?.id) postedMap.set(invId, {
+      listingId: l.id, vehicle: l.inventory || null, fbUrl: l.fb_listing_url || null
+    })
+  }
+
+  const soldMap = new Map()
+  for (const l of soldListings) {
+    const invId = l?.inventory_id || l?.inventory?.id
+    if (invId && l?.id) soldMap.set(invId, {
+      listingId: l.id, vehicle: l.inventory || null, fbUrl: l.fb_listing_url || null,
+      fbSyncAction: l.fb_sync_action || null, fbSyncedAt: l.fb_synced_at || null,
+      soldAt: l.sold_at || null, vehicleLabel: l.vehicle_label || null
+    })
+  }
+
+  // Merged display list
+  const seenIds = new Set(inventory.map(v => v.id))
+  const displayList = [...inventory]
+  for (const [invId, entry] of postedMap) {
+    if (!seenIds.has(invId) && entry.vehicle) {
+      displayList.push({ ...entry.vehicle, _outOfStock: true })
+    }
+  }
+
+  const isAvail = (v) => String(v.status || 'available').toLowerCase() === 'available'
+  const availableCount = inventory.filter(isAvail).length
+  const postedInStock = inventory.filter(v => postedMap.has(v.id)).length
+  const pendingCount = inventory.filter(v => String(v.status || '').toLowerCase() === 'pending').length
+
+  $('stat-total').textContent = availableCount
+  $('stat-posted').textContent = postedMap.size
+  $('stat-pending').textContent = pendingCount
+  $('stat-remaining').textContent = Math.max(0, availableCount - postedInStock)
+
+  window.__msInvCache = { inventory, listings, soldListings, displayList, postedMap, soldMap, token }
+
+  // Personal posting stats (derived from listings already fetched)
+  const todayStr = new Date().toDateString()
+  const postedToday = listings.filter(l => l.posted_at && new Date(l.posted_at).toDateString() === todayStr).length
+  const statsEl = document.getElementById('my-stats-strip')
+  if (statsEl) {
+    statsEl.textContent = postedToday > 0
+      ? `⚡ You posted ${postedToday} listing${postedToday === 1 ? '' : 's'} today · ${postedMap.size} total active`
+      : `${postedMap.size} listing${postedMap.size === 1 ? '' : 's'} active on Facebook`
+  }
+
+  // Apply status filter
+  const activeStatus = window.__msStatusFilter || 'all'
+  const activeCond = window.__msCondFilter || 'all'
+  const activeSeg = window.__msSegFilter || 'all'
+
+  let filtered = displayList.filter(v => {
+    const isPosted = postedMap.has(v.id)
+    const isSold = soldMap.has(v.id)
+    const status = String(v.status || 'available').toLowerCase()
+    const cond = String(v.condition || '').toLowerCase()
+
+    // status filter
+    if (activeStatus === 'available' && (isPosted || isSold || status === 'sold' || status === 'pending')) return false
+    if (activeStatus === 'posted' && !isPosted) return false
+    if (activeStatus === 'pending' && status !== 'pending') return false
+    if (activeStatus === 'sold' && !isSold && status !== 'sold') return false
+
+    // condition filter
+    if (activeCond !== 'all' && cond !== activeCond) return false
+
+    // segment filter
+    if (activeSeg !== 'all') {
+      const mm = `${v.make} ${v.model}`.toLowerCase()
+      if (activeSeg === 'hot' && !window.__msHotMakeModels?.has(mm)) return false
+      if (activeSeg === 'cold' && !window.__msColdMakeModels?.has(mm)) return false
+    }
+
+    return true
+  })
+
+  // Sort: New → Used/Demo → Posted → Pending → Sold
+  filtered.sort((a, b) => vehicleSortRank(a, postedMap, soldMap) - vehicleSortRank(b, postedMap, soldMap))
+
+  if (!filtered.length) {
+    $('vehicle-list').innerHTML = `
+      <div class="empty-state" style="padding:24px 12px;text-align:center;">
+        <div style="font-size:28px;margin-bottom:8px;">🚗</div>
+        <p style="color:#aaa;">No vehicles match the current filters.</p>
+      </div>`
+    return
+  }
+
+  // Banners
+  const cleanupNeeded = displayList.filter(v => v._outOfStock && postedMap.has(v.id))
+  const soldNeedingFbDelete = soldListings.filter(l => l.fb_listing_url && !l.fb_synced_at)
+
+  let soldBanner = ''
+  if (soldMap.size > 0) {
+    const needsFbDelete = soldNeedingFbDelete.length
+    soldBanner = `
+      <div id="sold-listings-banner" style="background:#1a1a2e;border:1px solid #6366f1;border-radius:8px;padding:12px;margin:10px 12px;">
+        <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:${needsFbDelete ? '10px' : '0'};">
+          <span style="font-size:18px;line-height:1;">🏷️</span>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:700;color:#fff;">${soldMap.size} vehicle${soldMap.size === 1 ? '' : 's'} marked sold</div>
+            ${needsFbDelete
+              ? `<div style="font-size:11px;color:#a5b4fc;margin-top:2px;line-height:1.4;">⚠️ ${needsFbDelete} still need${needsFbDelete === 1 ? 's' : ''} to be removed from Facebook Marketplace</div>`
+              : `<div style="font-size:11px;color:#6ee7b7;margin-top:2px;">✓ All sold listings removed from Facebook</div>`
+            }
+          </div>
+        </div>
+        ${needsFbDelete ? `
+        <button id="open-sold-fb-listings" style="background:#6366f1;color:#fff;border:none;padding:8px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;width:100%;">
+          Open ${needsFbDelete === 1 ? 'listing' : `${needsFbDelete} listings`} on Facebook to delete
+        </button>` : ''}
+      </div>`
+  }
+
+  let cleanupBanner = ''
+  if (cleanupNeeded.length > 0) {
+    cleanupBanner = `
+      <div id="cleanup-banner" style="background:#3a1a1a;border:1px solid #ef4444;border-radius:8px;padding:12px;margin:10px 12px;">
+        <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;">
+          <span style="font-size:18px;line-height:1;">⚠️</span>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:700;color:#fff;">${cleanupNeeded.length} sold ${cleanupNeeded.length === 1 ? 'listing needs' : 'listings need'} FB cleanup</div>
+            <div style="font-size:11px;color:#fca5a5;margin-top:2px;line-height:1.4;">These vehicles are no longer in your inventory but may still be live on Facebook Marketplace.</div>
+          </div>
+        </div>
+        <button id="cleanup-fb-open-all" style="background:#ef4444;color:#fff;border:none;padding:8px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;width:100%;">Open ${cleanupNeeded.length === 1 ? 'listing' : 'all'} on Facebook</button>
+      </div>`
+  }
+
+  // Render vehicles grouped by rank section
+  let lastRank = -1
+  const groupLabels = { 0: 'New', 10: 'Used / Demo', 20: 'Posted on Facebook', 30: 'Pending', 40: 'Sold' }
+
+  const rows = filtered.map(v => {
+    const entry = postedMap.get(v.id)
+    const soldEntry = soldMap.get(v.id)
+    const listingId = entry?.listingId
+    const isPosted = !!listingId
+    const isSold = !!soldEntry && !isPosted
+    const img = v.image_urls?.[0]
+    const rank = vehicleSortRank(v, postedMap, soldMap)
+
+    const thumb = img
+      ? `<img class="vehicle-thumb" src="${img}" onerror="this.style.display='none'">`
+      : `<div class="vehicle-thumb" style="display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#1a1a1a;font-size:18px;">🚗</div>`
+
+    const vehName = `${v.year || ''} ${v.make || ''} ${v.model || ''}`.trim()
+    const fbUrl = entry?.fbUrl || ''
+    const status = String(v.status || 'available').toLowerCase()
+    const available = status === 'available'
+
+    // Days on lot
+    const daysOnLot = v.created_at
+      ? Math.floor((Date.now() - new Date(v.created_at)) / 86400000)
+      : null
+    const daysLabel = daysOnLot !== null
+      ? (daysOnLot === 0 ? 'Today' : `${daysOnLot}d on lot`)
+      : ''
+
+    // "View on FB" button only when we have an actual item URL
+    const isValidFbUrl = url => url && /facebook\.com\/marketplace\/item\/\d+/i.test(url)
+    const viewFbBtn = isPosted && isValidFbUrl(fbUrl)
+      ? `<button class="open-fb-btn" data-fb-url="${fbUrl}" style="background:none;border:1px solid #3b82f6;color:#3b82f6;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;">View ↗</button>`
+      : ''
+
+    const openFbBtn = (isPosted && v._outOfStock)
+      ? `<button class="open-fb-btn" data-fb-url="${fbUrl}" style="background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;margin-bottom:4px;">Open on FB</button>`
+      : ''
+
+    const pendingBadge = status === 'pending'
+      ? `<span style="background:#1c1400;border:1px solid #fbbf24;color:#fbbf24;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-align:center;">PENDING</span>`
+      : ''
+    const soldBtns = `<div style="display:flex;flex-direction:column;gap:3px;align-items:stretch;">
+      ${pendingBadge}
+      ${viewFbBtn}
+      <button class="relist-btn" data-id="${v.id}" style="background:#3a2a0a;border:1px solid #f59e0b;color:#fcd34d;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;" title="Post a fresh Facebook listing to refresh visibility">🔁 Relist</button>
+      <button class="sold-by-me-btn" data-listing-id="${listingId}" data-vehicle-name="${vehName}" data-fb-url="${fbUrl}" style="background:#14532d;border:1px solid #22c55e;color:#86efac;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">🤝 I Sold It</button>
+      <button class="sold-on-fb-btn" data-listing-id="${listingId}" data-vehicle-name="${vehName}" data-fb-url="${fbUrl}" style="background:#172554;border:1px solid #3b82f6;color:#93c5fd;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">📘 Sold on FB</button>
+      <button class="sold-by-other-btn" data-listing-id="${listingId}" data-vehicle-name="${vehName}" style="background:#3a1a1a;border:1px solid #ef4444;color:#fca5a5;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;">🔄 Someone Else</button>
+    </div>`
+
+    const statusBadge = `<span style="background:#1f2937;border:1px solid #374151;color:${status === 'sold' ? '#9ca3af' : '#fbbf24'};padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;text-transform:uppercase;white-space:nowrap;flex-shrink:0;">${status}</span>`
+
+    const soldFbNotice = isSold && soldEntry?.fbUrl && !soldEntry?.fbSyncedAt
+      ? `<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end;">
+           <span style="background:#7f1d1d;color:#fca5a5;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;">SOLD</span>
+           <button class="delete-from-fb-btn" data-fb-url="${soldEntry.fbUrl}" style="background:#3a1a1a;border:1px solid #ef4444;color:#fca5a5;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;">🗑️ Delete from FB</button>
+         </div>`
+      : isSold
+      ? `<span style="background:#1f2937;color:#6ee7b7;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">SOLD ✓</span>`
+      : null
+
+    const actionBtn = soldFbNotice !== null
+      ? soldFbNotice
+      : isPosted
+      ? soldBtns
+      : available
+      ? `<button class="post-btn" data-id="${v.id}">Post</button>`
+      : statusBadge
+
+    // Condition badge on vehicle name line
+    const condBadge = v.condition ? `<span style="font-size:9px;font-weight:700;text-transform:uppercase;color:#555;margin-left:4px;">${v.condition}</span>` : ''
+
+    // Hot/cold segment tag
+    const mm = `${v.make} ${v.model}`.toLowerCase()
+    const segTag = window.__msHotMakeModels?.has(mm)
+      ? `<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:99px;background:#fff7ed;color:#c2410c;margin-left:4px;">🔥 Hot</span>`
+      : window.__msColdMakeModels?.has(mm)
+        ? `<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:99px;background:#f0f9ff;color:#0369a1;margin-left:4px;">❄️ Cold</span>`
+        : ''
+
+    // Group divider
+    let divider = ''
+    if (rank !== lastRank && groupLabels[rank]) {
+      divider = `<div class="group-divider">${groupLabels[rank]}</div>`
+      lastRank = rank
+    }
+
+    const stockNum = v.stock_number || v.stocknumber
+    const subParts = [
+      stockNum ? `#${stockNum}` : null,
+      v.trim,
+      v.mileage ? v.mileage.toLocaleString() + ' km' : null,
+      daysLabel
+    ].filter(Boolean)
+
+    return `${divider}
+      <div class="vehicle-item" data-id="${v.id}">
+        ${thumb}
+        <div class="vehicle-info">
+          <div class="vehicle-name">${vehName}${condBadge}${segTag}</div>
+          <div class="vehicle-sub">${subParts.join(' · ')}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
+          <div style="display:flex;align-items:center;gap:5px;">
+            <div class="vehicle-price">${formatPrice(v.price)}</div>
+          </div>
+          ${openFbBtn}
+          ${actionBtn}
+        </div>
+      </div>`
+  }).join('')
+
+  $('vehicle-list').innerHTML = soldBanner + cleanupBanner + rows
+
+  // Wire up buttons
+  document.querySelectorAll('.post-btn').forEach(btn => {
+    btn.addEventListener('click', () => postVehicle(btn.dataset.id, token))
+  })
+  document.querySelectorAll('.relist-btn').forEach(btn => {
+    btn.addEventListener('click', () => postVehicle(btn.dataset.id, token))
+  })
+  document.querySelectorAll('.sold-by-me-btn').forEach(btn => {
+    btn.addEventListener('click', () => markSold(btn.dataset.listingId, btn.dataset.vehicleName, token, 'sold-by-me', btn.dataset.fbUrl))
+  })
+  document.querySelectorAll('.sold-on-fb-btn').forEach(btn => {
+    btn.addEventListener('click', () => markSold(btn.dataset.listingId, btn.dataset.vehicleName, token, 'sold-on-fb', btn.dataset.fbUrl))
+  })
+  document.querySelectorAll('.sold-by-other-btn').forEach(btn => {
+    btn.addEventListener('click', () => markSold(btn.dataset.listingId, btn.dataset.vehicleName, token, 'sold-by-other'))
+  })
+  document.getElementById('cleanup-fb-open-all')?.addEventListener('click', () => {
+    const isValidUrl = url => url && /facebook\.com\/marketplace\/item\//.test(url)
+    cleanupNeeded.forEach(v => {
+      const entry = postedMap.get(v.id)
+      const url = isValidUrl(entry?.fbUrl) ? entry.fbUrl : 'https://www.facebook.com/marketplace/you/selling'
+      chrome.tabs.create({ url, active: false })
+    })
+  })
+  document.querySelectorAll('.open-fb-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const url = btn.dataset.fbUrl && /facebook\.com\/marketplace\/item\/\d+/i.test(btn.dataset.fbUrl)
+        ? btn.dataset.fbUrl : 'https://www.facebook.com/marketplace/you/selling'
+      chrome.tabs.create({ url })
+    })
+  })
+  document.querySelectorAll('.delete-from-fb-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const url = btn.dataset.fbUrl && /facebook\.com\/marketplace\/item\/\d+/i.test(btn.dataset.fbUrl)
+        ? btn.dataset.fbUrl : 'https://www.facebook.com/marketplace/you/selling'
+      chrome.tabs.create({ url })
+    })
+  })
+  document.getElementById('open-sold-fb-listings')?.addEventListener('click', () => {
+    soldNeedingFbDelete.forEach(l => {
+      const url = l.fb_listing_url && /facebook\.com\/marketplace\/item\/\d+/i.test(l.fb_listing_url)
+        ? l.fb_listing_url : 'https://www.facebook.com/marketplace/you/selling'
+      chrome.tabs.create({ url, active: false })
+    })
+  })
+
+  applySearchFilter()
+}
+
+async function loadInventory(token, { background = false } = {}) {
+  let hasRenderedCache = false
+
+  // 1. Instant Cache Hydration: Render cached data from memory or chrome.storage immediately!
+  if (!background) {
+    if (window.__msInvCache?.inventory) {
+      hasRenderedCache = true
+      renderInventoryData(window.__msInvCache.inventory, window.__msInvCache.listings || [], window.__msInvCache.soldListings || [], token)
+      setSyncing(true, 'Syncing inventory…')
+    } else {
+      const cached = await new Promise(r => chrome.storage.local.get(['ms_cached_inventory', 'ms_cached_listings', 'ms_cached_sold'], r))
+      if (Array.isArray(cached.ms_cached_inventory) && cached.ms_cached_inventory.length > 0) {
+        hasRenderedCache = true
+        renderInventoryData(cached.ms_cached_inventory, cached.ms_cached_listings || [], cached.ms_cached_sold || [], token)
+        setSyncing(true, 'Syncing inventory…')
+      }
+    }
+  }
+
+  if (!hasRenderedCache && !background) {
+    $('vehicle-list').innerHTML = '<div class="loading">Loading inventory...</div>'
+    setSyncing(true, 'Loading inventory…')
+  }
 
   try {
     const [inventoryRaw, listingsRes, soldListingsRes] = await Promise.all([
-      apiGet('/inventory/all', token).catch(() => []),
+      apiGet('/inventory/all', token),
       apiGet('/listings', token).catch(() => []),
       apiGet('/listings?status=sold', token).catch(() => [])
     ])
     const inventory = Array.isArray(inventoryRaw) ? inventoryRaw : []
-
     const listings = Array.isArray(listingsRes)
       ? listingsRes
       : (listingsRes && Array.isArray(listingsRes.data) ? listingsRes.data : [])
-
     const soldListings = Array.isArray(soldListingsRes)
       ? soldListingsRes
       : (soldListingsRes && Array.isArray(soldListingsRes.data) ? soldListingsRes.data : [])
 
-    const postedMap = new Map()
-    for (const l of listings) {
-      const invId = l?.inventory_id || l?.inventory?.id
-      if (invId && l?.id) postedMap.set(invId, {
-        listingId: l.id, vehicle: l.inventory || null, fbUrl: l.fb_listing_url || null
-      })
-    }
-
-    const soldMap = new Map()
-    for (const l of soldListings) {
-      const invId = l?.inventory_id || l?.inventory?.id
-      if (invId && l?.id) soldMap.set(invId, {
-        listingId: l.id, vehicle: l.inventory || null, fbUrl: l.fb_listing_url || null,
-        fbSyncAction: l.fb_sync_action || null, fbSyncedAt: l.fb_synced_at || null,
-        soldAt: l.sold_at || null, vehicleLabel: l.vehicle_label || null
-      })
-    }
-
-    // Merged display list
-    const seenIds = new Set(inventory.map(v => v.id))
-    const displayList = [...inventory]
-    for (const [invId, entry] of postedMap) {
-      if (!seenIds.has(invId) && entry.vehicle) {
-        displayList.push({ ...entry.vehicle, _outOfStock: true })
-      }
-    }
-
-    const isAvail = (v) => String(v.status || 'available').toLowerCase() === 'available'
-    const availableCount = inventory.filter(isAvail).length
-    const postedInStock = inventory.filter(v => postedMap.has(v.id)).length
-    const pendingCount = inventory.filter(v => String(v.status || '').toLowerCase() === 'pending').length
-
-    $('stat-total').textContent = availableCount
-    $('stat-posted').textContent = postedMap.size
-    $('stat-pending').textContent = pendingCount
-    $('stat-remaining').textContent = Math.max(0, availableCount - postedInStock)
-
-    window.__msInvCache = { inventory, displayList, postedMap, soldMap, token }
-
-    // Price-change detection: compare current prices against last-seen cache
-    const priceCache = await new Promise(resolve =>
-      chrome.storage.local.get('msPrice', d => resolve(d.msPrice || {}))
-    )
-    const newPriceCache = {}
-    for (const v of displayList) {
-      if (v.id && v.price != null) newPriceCache[v.id] = Number(v.price)
-    }
-    chrome.storage.local.set({ msPrice: newPriceCache })
-
-    // Personal posting stats (derived from listings already fetched)
-    const todayStr = new Date().toDateString()
-    const postedToday = listings.filter(l => l.posted_at && new Date(l.posted_at).toDateString() === todayStr).length
-    const statsEl = document.getElementById('my-stats-strip')
-    if (statsEl) {
-      statsEl.textContent = postedToday > 0
-        ? `⚡ You posted ${postedToday} listing${postedToday === 1 ? '' : 's'} today · ${postedMap.size} total active`
-        : `${postedMap.size} listing${postedMap.size === 1 ? '' : 's'} active on Facebook`
-    }
-
-    // Apply status filter
-    const activeStatus = window.__msStatusFilter || 'all'
-    const activeCond = window.__msCondFilter || 'all'
-    const activeSeg = window.__msSegFilter || 'all'
-
-    let filtered = displayList.filter(v => {
-      const isPosted = postedMap.has(v.id)
-      const isSold = soldMap.has(v.id)
-      const status = String(v.status || 'available').toLowerCase()
-      const cond = String(v.condition || '').toLowerCase()
-
-      // status filter
-      if (activeStatus === 'available' && (isPosted || isSold || status === 'sold' || status === 'pending')) return false
-      if (activeStatus === 'posted' && !isPosted) return false
-      if (activeStatus === 'pending' && status !== 'pending') return false
-      if (activeStatus === 'sold' && !isSold && status !== 'sold') return false
-
-      // condition filter
-      if (activeCond !== 'all' && cond !== activeCond) return false
-
-      // segment filter
-      if (activeSeg !== 'all') {
-        const mm = `${v.make} ${v.model}`.toLowerCase()
-        if (activeSeg === 'hot' && !window.__msHotMakeModels?.has(mm)) return false
-        if (activeSeg === 'cold' && !window.__msColdMakeModels?.has(mm)) return false
-      }
-
-      return true
+    // Cache immediately to storage for future instant boots
+    chrome.storage.local.set({
+      ms_cached_inventory: inventory,
+      ms_cached_listings: listings,
+      ms_cached_sold: soldListings,
+      ms_cached_at: Date.now()
     })
 
-    // Sort: New → Used/Demo → Posted → Pending → Sold
-    filtered.sort((a, b) => vehicleSortRank(a, postedMap, soldMap) - vehicleSortRank(b, postedMap, soldMap))
-
-    if (!filtered.length) {
-      $('vehicle-list').innerHTML = `
-        <div class="empty-state" style="padding:24px 12px;text-align:center;">
-          <div style="font-size:28px;margin-bottom:8px;">🚗</div>
-          <p style="color:#aaa;">No vehicles match the current filters.</p>
-        </div>`
-      return
-    }
-
-    // Banners
-    const cleanupNeeded = displayList.filter(v => v._outOfStock && postedMap.has(v.id))
-    const soldNeedingFbDelete = soldListings.filter(l => l.fb_listing_url && !l.fb_synced_at)
-
-    let soldBanner = ''
-    if (soldMap.size > 0) {
-      const needsFbDelete = soldNeedingFbDelete.length
-      soldBanner = `
-        <div id="sold-listings-banner" style="background:#1a1a2e;border:1px solid #6366f1;border-radius:8px;padding:12px;margin:10px 12px;">
-          <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:${needsFbDelete ? '10px' : '0'};">
-            <span style="font-size:18px;line-height:1;">🏷️</span>
-            <div style="flex:1;">
-              <div style="font-size:13px;font-weight:700;color:#fff;">${soldMap.size} vehicle${soldMap.size === 1 ? '' : 's'} marked sold</div>
-              ${needsFbDelete
-                ? `<div style="font-size:11px;color:#a5b4fc;margin-top:2px;line-height:1.4;">⚠️ ${needsFbDelete} still need${needsFbDelete === 1 ? 's' : ''} to be removed from Facebook Marketplace</div>`
-                : `<div style="font-size:11px;color:#6ee7b7;margin-top:2px;">✓ All sold listings removed from Facebook</div>`
-              }
-            </div>
-          </div>
-          ${needsFbDelete ? `
-          <button id="open-sold-fb-listings" style="background:#6366f1;color:#fff;border:none;padding:8px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;width:100%;">
-            Open ${needsFbDelete === 1 ? 'listing' : `${needsFbDelete} listings`} on Facebook to delete
-          </button>` : ''}
-        </div>`
-    }
-
-    let cleanupBanner = ''
-    if (cleanupNeeded.length > 0) {
-      cleanupBanner = `
-        <div id="cleanup-banner" style="background:#3a1a1a;border:1px solid #ef4444;border-radius:8px;padding:12px;margin:10px 12px;">
-          <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;">
-            <span style="font-size:18px;line-height:1;">⚠️</span>
-            <div style="flex:1;">
-              <div style="font-size:13px;font-weight:700;color:#fff;">${cleanupNeeded.length} sold ${cleanupNeeded.length === 1 ? 'listing needs' : 'listings need'} FB cleanup</div>
-              <div style="font-size:11px;color:#fca5a5;margin-top:2px;line-height:1.4;">These vehicles are no longer in your inventory but may still be live on Facebook Marketplace.</div>
-            </div>
-          </div>
-          <button id="cleanup-fb-open-all" style="background:#ef4444;color:#fff;border:none;padding:8px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;width:100%;">Open ${cleanupNeeded.length === 1 ? 'listing' : 'all'} on Facebook</button>
-        </div>`
-    }
-
-    // Render vehicles grouped by rank section
-    let lastRank = -1
-    const groupLabels = { 0: 'New', 10: 'Used / Demo', 20: 'Posted on Facebook', 30: 'Pending', 40: 'Sold' }
-
-    const rows = filtered.map(v => {
-      const entry = postedMap.get(v.id)
-      const soldEntry = soldMap.get(v.id)
-      const listingId = entry?.listingId
-      const isPosted = !!listingId
-      const isSold = !!soldEntry && !isPosted
-      const img = v.image_urls?.[0]
-      const rank = vehicleSortRank(v, postedMap, soldMap)
-
-      const thumb = img
-        ? `<img class="vehicle-thumb" src="${img}" onerror="this.style.display='none'">`
-        : `<div class="vehicle-thumb" style="display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#1a1a1a;font-size:18px;">🚗</div>`
-
-      const vehName = `${v.year || ''} ${v.make || ''} ${v.model || ''}`.trim()
-      const fbUrl = entry?.fbUrl || ''
-      const status = String(v.status || 'available').toLowerCase()
-      const available = status === 'available'
-
-      // Days on lot (from first-sync date — best available approximation)
-      const daysOnLot = v.created_at
-        ? Math.floor((Date.now() - new Date(v.created_at)) / 86400000)
-        : null
-      const daysLabel = daysOnLot !== null
-        ? (daysOnLot === 0 ? 'Today' : `${daysOnLot}d on lot`)
-        : ''
-
-      // Price change indicator vs last-seen price
-      const prevPrice = priceCache[v.id]
-      const currPrice = Number(v.price)
-      let priceChangeBadge = ''
-      if (prevPrice !== undefined && !isNaN(currPrice) && prevPrice !== currPrice) {
-        const diff = currPrice - prevPrice
-        const pct = Math.abs(Math.round((diff / prevPrice) * 100))
-        priceChangeBadge = diff < 0
-          ? `<span style="color:#22c55e;font-size:10px;font-weight:700;">↓ ${pct}%</span>`
-          : `<span style="color:#ef4444;font-size:10px;font-weight:700;">↑ ${pct}%</span>`
-      }
-
-      // "View on FB" button only when we have an actual item URL (not create/other pages)
-      const isValidFbUrl = url => url && /facebook\.com\/marketplace\/item\/\d+/i.test(url)
-      const viewFbBtn = isPosted && isValidFbUrl(fbUrl)
-        ? `<button class="open-fb-btn" data-fb-url="${fbUrl}" style="background:none;border:1px solid #3b82f6;color:#3b82f6;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;">View ↗</button>`
-        : ''
-
-      const openFbBtn = (isPosted && v._outOfStock)
-        ? `<button class="open-fb-btn" data-fb-url="${fbUrl}" style="background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;margin-bottom:4px;">Open on FB</button>`
-        : ''
-
-      const pendingBadge = status === 'pending'
-        ? `<span style="background:#1c1400;border:1px solid #fbbf24;color:#fbbf24;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-align:center;">PENDING</span>`
-        : ''
-      const soldBtns = `<div style="display:flex;flex-direction:column;gap:3px;align-items:stretch;">
-        ${pendingBadge}
-        ${viewFbBtn}
-        <button class="relist-btn" data-id="${v.id}" style="background:#3a2a0a;border:1px solid #f59e0b;color:#fcd34d;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;" title="Post a fresh Facebook listing to refresh visibility">🔁 Relist</button>
-        <button class="sold-by-me-btn" data-listing-id="${listingId}" data-vehicle-name="${vehName}" data-fb-url="${fbUrl}" style="background:#14532d;border:1px solid #22c55e;color:#86efac;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">🤝 I Sold It</button>
-        <button class="sold-on-fb-btn" data-listing-id="${listingId}" data-vehicle-name="${vehName}" data-fb-url="${fbUrl}" style="background:#172554;border:1px solid #3b82f6;color:#93c5fd;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">📘 Sold on FB</button>
-        <button class="sold-by-other-btn" data-listing-id="${listingId}" data-vehicle-name="${vehName}" style="background:#3a1a1a;border:1px solid #ef4444;color:#fca5a5;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;">🔄 Someone Else</button>
-      </div>`
-
-      const statusBadge = `<span style="background:#1f2937;border:1px solid #374151;color:${status === 'sold' ? '#9ca3af' : '#fbbf24'};padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;text-transform:uppercase;white-space:nowrap;flex-shrink:0;">${status}</span>`
-
-      const soldFbNotice = isSold && soldEntry?.fbUrl && !soldEntry?.fbSyncedAt
-        ? `<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end;">
-             <span style="background:#7f1d1d;color:#fca5a5;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;">SOLD</span>
-             <button class="delete-from-fb-btn" data-fb-url="${soldEntry.fbUrl}" style="background:#3a1a1a;border:1px solid #ef4444;color:#fca5a5;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;">🗑️ Delete from FB</button>
-           </div>`
-        : isSold
-        ? `<span style="background:#1f2937;color:#6ee7b7;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">SOLD ✓</span>`
-        : null
-
-      const actionBtn = soldFbNotice !== null
-        ? soldFbNotice
-        : isPosted
-        ? soldBtns
-        : available
-        ? `<button class="post-btn" data-id="${v.id}">Post</button>`
-        : statusBadge
-
-      // Condition badge on vehicle name line
-      const condBadge = v.condition ? `<span style="font-size:9px;font-weight:700;text-transform:uppercase;color:#555;margin-left:4px;">${v.condition}</span>` : ''
-
-      // Hot/cold segment tag
-      const mm = `${v.make} ${v.model}`.toLowerCase()
-      const segTag = window.__msHotMakeModels?.has(mm)
-        ? `<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:99px;background:#fff7ed;color:#c2410c;margin-left:4px;">🔥 Hot</span>`
-        : window.__msColdMakeModels?.has(mm)
-          ? `<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:99px;background:#f0f9ff;color:#0369a1;margin-left:4px;">❄️ Cold</span>`
-          : ''
-
-      // Group divider
-      let divider = ''
-      if (rank !== lastRank && groupLabels[rank]) {
-        divider = `<div class="group-divider">${groupLabels[rank]}</div>`
-        lastRank = rank
-      }
-
-      const stockNum = v.stock_number || v.stocknumber
-      const subParts = [
-        stockNum ? `#${stockNum}` : null,
-        v.trim,
-        v.mileage ? v.mileage.toLocaleString() + ' km' : null,
-        daysLabel
-      ].filter(Boolean)
-
-      return `${divider}
-        <div class="vehicle-item" data-id="${v.id}">
-          ${thumb}
-          <div class="vehicle-info">
-            <div class="vehicle-name">${vehName}${condBadge}${segTag}</div>
-            <div class="vehicle-sub">${subParts.join(' · ')}</div>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
-            <div style="display:flex;align-items:center;gap:5px;">
-              ${priceChangeBadge}
-              <div class="vehicle-price">${formatPrice(v.price)}</div>
-            </div>
-            ${openFbBtn}
-            ${actionBtn}
-          </div>
-        </div>`
-    }).join('')
-
-    $('vehicle-list').innerHTML = soldBanner + cleanupBanner + rows
-
-    // Wire up buttons
-    document.querySelectorAll('.post-btn').forEach(btn => {
-      btn.addEventListener('click', () => postVehicle(btn.dataset.id, token))
-    })
-    // Relist = re-post an already-listed vehicle to Facebook to refresh its listing.
-    document.querySelectorAll('.relist-btn').forEach(btn => {
-      btn.addEventListener('click', () => postVehicle(btn.dataset.id, token))
-    })
-    document.querySelectorAll('.sold-by-me-btn').forEach(btn => {
-      btn.addEventListener('click', () => markSold(btn.dataset.listingId, btn.dataset.vehicleName, token, 'sold-by-me', btn.dataset.fbUrl))
-    })
-    document.querySelectorAll('.sold-on-fb-btn').forEach(btn => {
-      btn.addEventListener('click', () => markSold(btn.dataset.listingId, btn.dataset.vehicleName, token, 'sold-on-fb', btn.dataset.fbUrl))
-    })
-    document.querySelectorAll('.sold-by-other-btn').forEach(btn => {
-      btn.addEventListener('click', () => markSold(btn.dataset.listingId, btn.dataset.vehicleName, token, 'sold-by-other'))
-    })
-    document.getElementById('cleanup-fb-open-all')?.addEventListener('click', () => {
-      const isValidUrl = url => url && /facebook\.com\/marketplace\/item\//.test(url)
-      cleanupNeeded.forEach(v => {
-        const entry = postedMap.get(v.id)
-        const url = isValidUrl(entry?.fbUrl) ? entry.fbUrl : 'https://www.facebook.com/marketplace/you/selling'
-        chrome.tabs.create({ url, active: false })
-      })
-    })
-    document.querySelectorAll('.open-fb-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const url = btn.dataset.fbUrl && /facebook\.com\/marketplace\/item\/\d+/i.test(btn.dataset.fbUrl)
-          ? btn.dataset.fbUrl : 'https://www.facebook.com/marketplace/you/selling'
-        chrome.tabs.create({ url })
-      })
-    })
-    document.querySelectorAll('.delete-from-fb-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const url = btn.dataset.fbUrl && /facebook\.com\/marketplace\/item\/\d+/i.test(btn.dataset.fbUrl)
-          ? btn.dataset.fbUrl : 'https://www.facebook.com/marketplace/you/selling'
-        chrome.tabs.create({ url })
-      })
-    })
-    document.getElementById('open-sold-fb-listings')?.addEventListener('click', () => {
-      soldNeedingFbDelete.forEach(l => {
-        const url = l.fb_listing_url && /facebook\.com\/marketplace\/item\/\d+/i.test(l.fb_listing_url)
-          ? l.fb_listing_url : 'https://www.facebook.com/marketplace/you/selling'
-        chrome.tabs.create({ url, active: false })
-      })
-    })
-
-    applySearchFilter()
+    renderInventoryData(inventory, listings, soldListings, token)
+    setSyncing(false, 'Inventory up to date')
   } catch (e) {
+    console.warn('loadInventory error:', e.message)
     if (e.message === 'SUBSCRIPTION_REQUIRED') {
       handleSubscriptionGate(token)
+      setSyncing(false, 'Subscription required')
+    } else if (hasRenderedCache) {
+      setSyncing(false, 'Using cached inventory')
     } else {
-      $('vehicle-list').innerHTML = `<div class="loading">⚠️ ${e.message || 'Error loading inventory.'}<br><br>Click Refresh to try again.</div>`
+      $('vehicle-list').innerHTML = `<div class="loading">⚠️ ${e.message || 'Error loading inventory.'}<br><br><button class="btn-secondary" id="retry-load-btn" style="margin-top:10px;">Retry</button></div>`
+      $('retry-load-btn')?.addEventListener('click', () => loadInventory(token))
+      setSyncing(false, 'Sync error')
     }
   }
 }
 
 async function showInventoryScreen(token, user) {
   setScreen('inventory')
-  $('header-name').textContent = user.email
-  $('header-dealer').textContent = 'Loading profile...'
+  $('header-name').textContent = user?.email || 'User'
+  $('header-dealer').textContent = ''
 
+  // Instant profile hydration from local storage
+  chrome.storage.local.get(['ms_cached_profile', 'ms_cached_guardrail'], ({ ms_cached_profile, ms_cached_guardrail }) => {
+    if (ms_cached_profile) {
+      $('header-name').textContent = ms_cached_profile.full_name || user?.email || ''
+      $('header-dealer').textContent = ms_cached_profile.dealership?.name || ''
+    }
+    if (ms_cached_guardrail) {
+      applyGuardrailData(ms_cached_guardrail)
+    }
+  })
+
+  // Start instant inventory loading (renders cache in <5ms)
   loadInventory(token)
   renderGuardrail(token)
 
+  // Fetch updated profile in background
   apiGet('/auth/me', token)
     .then(profile => {
       if (profile) {
-        $('header-name').textContent = profile.full_name || user.email
+        $('header-name').textContent = profile.full_name || user?.email || ''
         $('header-dealer').textContent = profile.dealership?.name || ''
+        chrome.storage.local.set({ ms_cached_profile: profile })
       }
     })
     .catch(err => {
@@ -703,12 +755,9 @@ function renderCaptureProgress(s) {
   if (subEl) subEl.textContent = sub
 }
 
-// Show the FB posting-safety status: posts today vs cap, and any cooldown.
-async function renderGuardrail(token) {
+function applyGuardrailData(g) {
   const el = $('ms-guardrail')
   if (!el) return
-  let g
-  try { g = await apiGet('/posting/guardrail', token) } catch { el.style.display = 'none'; return }
   if (!g || !g.enabled) { el.style.display = 'none'; return }
 
   let bg, color, icon, text
@@ -728,6 +777,17 @@ async function renderGuardrail(token) {
   el.style.color = color
   el.innerHTML = `<span>${icon}</span><span>${text}</span>`
   el.style.display = 'flex'
+}
+
+// Show the FB posting-safety status: posts today vs cap, and any cooldown.
+async function renderGuardrail(token) {
+  try {
+    const g = await apiGet('/posting/guardrail', token)
+    applyGuardrailData(g)
+    if (g) chrome.storage.local.set({ ms_cached_guardrail: g })
+  } catch {
+    // leave cached or hide
+  }
 }
 
 async function checkExtensionSyncNeeded(token) {

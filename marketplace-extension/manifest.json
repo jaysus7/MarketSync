@@ -16,6 +16,8 @@
   "host_permissions": [
     "https://www.facebook.com/*",
     "https://vehicle-marketplace-s0e4.onrender.com/*",
+    "https://marketsync-staging-backend.onrender.com/*",
+    "https://*.onrender.com/*",
     "https://yippi.uxauto.agency/*",
     "https://cardealerstg.blob.core.windows.net/*",
     "https://vehicleimages.leadboxhq.com/*"
@@ -53,7 +55,9 @@
     {
       "matches": [
         "https://marketsync.link/*",
-        "https://www.marketsync.link/*"
+        "https://www.marketsync.link/*",
+        "https://marketsync-staging-site.onrender.com/*",
+        "https://*.onrender.com/*"
       ],
       "js": [
         "dashboard-bridge.js"

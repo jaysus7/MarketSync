@@ -34,18 +34,26 @@
   const onLoginPage = () =>
     /(^|\/)(login|register|index)\.html?$/.test(location.pathname) || location.pathname === '/'
 
+  const getBackendApi = () => {
+    if (location.hostname.includes('staging')) return 'https://marketsync-staging-backend.onrender.com'
+    return 'https://vehicle-marketplace-s0e4.onrender.com'
+  }
+
   async function syncAuth() {
     const page = getPageAuth()
     const ext = await getExtAuth()
     const explicitLogout = sessionStorage.getItem('ms_logged_out') === '1'
+    const customApi = getBackendApi()
 
     // Site is logged in → it's the source of truth. Push to the extension.
     if (page?.token) {
       sessionStorage.removeItem('ms_logged_out')
       sessionStorage.removeItem('ms_autologin_tried')
-      if (!ext || ext.token !== page.token) {
-        chrome.storage.local.set({ token: page.token, user: page.user ?? ext?.user ?? null })
-      }
+      chrome.storage.local.get(['customApi'], ({ customApi: curApi }) => {
+        if (!ext || ext.token !== page.token || curApi !== customApi) {
+          chrome.storage.local.set({ token: page.token, user: page.user ?? ext?.user ?? null, customApi })
+        }
+      })
       return
     }
 
@@ -88,10 +96,13 @@
     const page = getPageAuth()
     if (!page?.token) return
     const ext = await getExtAuth()
-    if (!ext || ext.token !== page.token) {
-      sessionStorage.removeItem('ms_logged_out')
-      chrome.storage.local.set({ token: page.token, user: page.user ?? ext?.user ?? null })
-    }
+    const customApi = getBackendApi()
+    chrome.storage.local.get(['customApi'], ({ customApi: curApi }) => {
+      if (!ext || ext.token !== page.token || curApi !== customApi) {
+        sessionStorage.removeItem('ms_logged_out')
+        chrome.storage.local.set({ token: page.token, user: page.user ?? ext?.user ?? null, customApi })
+      }
+    })
   }
 
   syncAuth()
