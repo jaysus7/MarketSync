@@ -421,11 +421,22 @@ export function registerHR(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     try {
       try {
+        const { ensureStaffMember } = await import('./people-identity.js')
+        await ensureStaffMember(req.dealershipId, req.user.id, {
+          name: req.profile?.full_name || req.profile?.email,
+          email: req.profile?.email || req.user.email,
+          role: req.profile?.role,
+          status: 'active',
+          createdBy: req.user.id,
+        })
+      } catch (_) {}
+      try {
         const demo = await import('./demo.js')
-        if (await demo.isDemoDealershipId(req.dealershipId)) {
+        const force = String(req.query.seed || '') === '1'
+        if (force || await demo.isDemoDealershipId(req.dealershipId)) {
           await demo.seedDemoEmployees(req.dealershipId, req.user?.id || null)
         }
-      } catch (_) {}
+      } catch (e) { console.error('[hr/team] demo seed', e.message || e) }
       res.json({ team: await teamDirectory(req.dealershipId) })
     }
     catch (e) { res.status(500).json({ error: e.message }) }
