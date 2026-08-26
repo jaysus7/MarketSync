@@ -2823,3 +2823,20 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
   line-height: 1.45 !important;
   margin-top: .5rem !important;
 }
+
+
+/* Staff dossier modal — light tiles in light mode, dark tiles only in dark mode */
+.ms-crm-glass .ms-ai-panel {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.ms-c--glass.light\:bg-white, .ms-staff-kpi {
+  background: #f8fafc;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+}
+.dark .ms-staff-kpi {
+  background: #1e293b;
+  color: #f8fafc;
+  border-color: #334155;
+}
