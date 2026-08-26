@@ -310,7 +310,7 @@ ENGINES['sales'] = {
 
   fetch: async () => {
     const [contacts, tasks, appts, deals, deliveries, insights, gamification, videos] = await Promise.all([
-      apiGetJson('/crm/contacts?limit=200').catch(() => ({ contacts: [] })),
+      apiGetJson('/crm/contacts?mine=1&limit=30').catch(() => ({ contacts: [] })),
       apiGetJson('/crm/tasks?scope=open').catch(() => ({ tasks: [] })),
       apiGetJson('/appointments').catch(() => ({ appointments: [] })),
       apiGetJson('/fni/deals').catch(() => null),
@@ -458,6 +458,36 @@ ENGINES['sales'] = {
       `;
     },
 
+    work(body, d) {
+      const list = d.contacts || [];
+      const row = (c) => {
+        const name = c.full_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Customer';
+        const loc = [c.address, c.city, c.province, c.postal_code, c.country].filter(Boolean).join(' · ');
+        const bits = [c.email, c.phone || c.phone_mobile, loc].filter(Boolean).join(' · ');
+        return `<button type="button" onclick="openCrmContact('${c.id}')" class="w-full text-left px-4 py-3 border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition">
+          <div class="font-bold text-sm text-slate-900 dark:text-white">${esc(name)}</div>
+          <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(bits || 'No contact details')}</div>
+        </button>`;
+      };
+      body.innerHTML = `
+        ${typeof pulseHeader === 'function' ? pulseHeader('Customers', 'Your newest records. Search to find anyone else.') : '<h1 class="text-2xl font-black mb-3">Customers</h1>'}
+        <div class="ms-c ms-c--glass p-4 mb-4 space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            <input id="sales-cust-q" type="search" placeholder="Name, email, or phone" class="liquid-glass-input rounded-xl px-3 py-2 text-sm font-semibold" onkeydown="if(event.key===\'Enter\'){event.preventDefault();salesSearchCustomers()}">
+            <input id="sales-cust-address" type="search" placeholder="Street / city" class="liquid-glass-input rounded-xl px-3 py-2 text-sm font-semibold" onkeydown="if(event.key===\'Enter\'){event.preventDefault();salesSearchCustomers()}">
+            <input id="sales-cust-province" type="search" placeholder="Province / state" class="liquid-glass-input rounded-xl px-3 py-2 text-sm font-semibold" onkeydown="if(event.key===\'Enter\'){event.preventDefault();salesSearchCustomers()}">
+            <input id="sales-cust-postal" type="search" placeholder="Postal / ZIP" class="liquid-glass-input rounded-xl px-3 py-2 text-sm font-semibold" onkeydown="if(event.key===\'Enter\'){event.preventDefault();salesSearchCustomers()}">
+            <input id="sales-cust-country" type="search" placeholder="Country" class="liquid-glass-input rounded-xl px-3 py-2 text-sm font-semibold" onkeydown="if(event.key===\'Enter\'){event.preventDefault();salesSearchCustomers()}">
+            <button type="button" onclick="salesSearchCustomers()" class="liquid-glass-btn rounded-xl text-sm font-black">Search store</button>
+          </div>
+          <p class="text-[11px] text-slate-500">Default list is customers you added most recently. Search looks across the dealership by first/last name, email, phone, and address.</p>
+        </div>
+        <div id="sales-cust-results" class="ms-c ms-c--glass overflow-hidden">
+          ${list.length ? list.map(row).join('') : '<div class="p-6 text-sm text-slate-500">No recent customers of yours yet. Add one, or search the store.</div>'}
+        </div>`;
+      window.__salesCustomerRow = row;
+    },
+
     desk(body, d) {
       if (typeof engMountPage === 'function') {
         engMountPage(body, 'desk', () => {
@@ -560,3 +590,31 @@ ENGINES['sales'] = {
 
 function loadSalesWorkspace() { renderEngine('sales'); }
 window.loadSalesWorkspace = loadSalesWorkspace;
+
+
+async function salesSearchCustomers() {
+  const q = document.getElementById('sales-cust-q')?.value.trim() || '';
+  const address = document.getElementById('sales-cust-address')?.value.trim() || '';
+  const province = document.getElementById('sales-cust-province')?.value.trim() || '';
+  const postal = document.getElementById('sales-cust-postal')?.value.trim() || '';
+  const country = document.getElementById('sales-cust-country')?.value.trim() || '';
+  const box = document.getElementById('sales-cust-results');
+  if (!box) return;
+  box.innerHTML = '<div class="p-6 text-sm text-slate-500">Searching…</div>';
+  const params = new URLSearchParams({ limit: '50' });
+  if (q) params.set('q', q);
+  if (address) params.set('address', address);
+  if (province) params.set('province', province);
+  if (postal) params.set('postal', postal);
+  if (country) params.set('country', country);
+  if (!q && !address && !province && !postal && !country) params.set('mine', '1');
+  try {
+    const d = await apiGetJson(`/crm/contacts?${params.toString()}`);
+    const rows = d.contacts || [];
+    const row = window.__salesCustomerRow || ((c) => `<div class="px-4 py-3 text-sm">${esc(c.full_name || '')}</div>`);
+    box.innerHTML = rows.length ? rows.map(row).join('') : '<div class="p-6 text-sm text-slate-500">No matching customers.</div>';
+  } catch (e) {
+    box.innerHTML = `<div class="p-6 text-sm text-rose-500">${esc(e.message || 'Search failed')}</div>`;
+  }
+}
+window.salesSearchCustomers = salesSearchCustomers;
