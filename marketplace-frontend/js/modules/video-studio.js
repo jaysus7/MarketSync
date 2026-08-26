@@ -1626,17 +1626,14 @@ function refreshVideoLibrary() {
   return __videoLibraryRequest;
 }
 
-function loadVideoStudioPage() {
-  const root = document.getElementById('video-studio-root');
+function loadVideoStudioPage(container) {
+  const root = container || document.getElementById('video-studio-root');
   if (!root) return;
 
   // Paint immediately. A cold backend must not block opening Content → Video.
   root.innerHTML = renderVideoStudioWorkspace(__videoLibraryVideos);
   void refreshVideoLibrary().then(videos => {
-    const currentRoot = document.getElementById('video-studio-root');
-    if (currentRoot === root && root.isConnected) {
-      root.innerHTML = renderVideoStudioWorkspace(videos);
-    }
+    if (root.isConnected) root.innerHTML = renderVideoStudioWorkspace(videos);
   });
 }
 
