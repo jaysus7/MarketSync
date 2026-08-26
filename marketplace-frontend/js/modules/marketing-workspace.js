@@ -978,7 +978,7 @@ ENGINES['marketing-overview'] = {
   reports: [
     { label: 'Marketing ROI', icon: 'chart', onclick: "openDeptReport('marketing')" },
   ],
-  tabLabels: { overview: 'Pulse', sales_overview: 'Sales Marketing', service_overview: 'Service Marketing', automations: 'Automations', campaigns: 'Campaigns', templates: 'Templates', audiences: 'Audiences', performance: 'Performance', studio: 'Design Studio', 'video-studio': 'Video Studio', chatbot: 'AI ChatBot', website: 'Website' },
+  tabLabels: { overview: 'Pulse', sales_overview: 'Sales Marketing', service_overview: 'Service Marketing', automations: 'Automations', campaigns: 'Campaigns', templates: 'Templates', audiences: 'Audiences', performance: 'Performance', studio: 'Design Studio', scheduler: 'Scheduler', 'video-studio': 'Video Studio', chatbot: 'AI ChatBot', website: 'Website' },
   get tabOrder() {
     const access = (typeof window !== "undefined" && window.__access) ? window.__access : {};
     const feats = access.features || [];
@@ -992,6 +992,7 @@ ENGINES['marketing-overview'] = {
     // DealerOS Complete (full Digital bundle) all four appear; a Core/Pro operational
     // plan without Digital shows none of them.
     if (has('design.canvas', 'design.templates')) base.push('studio');
+    if (has('social.scheduler', 'os.marketing') || all) base.push('scheduler');
     if (has('video.library', 'video.record')) base.push('video-studio');
     if (has('ai.conversations', 'ai.overview')) base.push('chatbot');
     if (has('website.builder', 'website.pages', 'os.website')) base.push('website');
@@ -1133,6 +1134,14 @@ ENGINES['marketing-overview'] = {
 
     performance(body, d) {
       this.overview(body, d);
+    },
+
+    scheduler(body) {
+      body.innerHTML = `${typeof mktSuiteBand==='function'?mktSuiteBand('Social','Scheduler','Calendar, drafts, and scheduled posts.', '<button type="button" onclick="switchPage(\'social-scheduler\')" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Open scheduler</button>'):''}<div id="mkt-scheduler-mount" class="text-sm text-slate-500 p-4">Opening scheduler…</div>`;
+      const go = () => { if (typeof switchPage === 'function') switchPage('social-scheduler'); };
+      if (typeof loadSocialSchedulerPage === 'function') go();
+      else if (window.msLoadScript) window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260826_sched_load_v1').then(go).catch(go);
+      else go();
     },
 
     // ── AI ChatBot ───────────────────────────────────────────────────────────
