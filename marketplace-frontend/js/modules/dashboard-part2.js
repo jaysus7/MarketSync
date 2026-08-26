@@ -1706,7 +1706,8 @@ function renderMarketingSuiteNav(suiteKey, host, navRoot) {
   // previous area-only rail made the suite look like it was missing Builder,
   // AI, Design Studio, Social Scheduler, Automations and campaigns.
   if (Array.isArray(cfg.navItems)) {
-    html += cfg.navItems.map(item => {
+    const dealer = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'DEALER_GROUP'].includes(String(profileContext?.role || ''));
+    html += cfg.navItems.filter(item => !item.dealerOnly || dealer).map(item => {
       const call = item.studioLaunch
         ? 'window.openMarketSyncStudio()'
         : `deptGo('${esc(item.page)}'${item.invmode ? `,'${esc(item.invmode)}'` : `,''`}${item.tab ? `,'${esc(item.tab)}'` : ''})`;
