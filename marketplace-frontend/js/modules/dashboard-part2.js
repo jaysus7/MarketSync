@@ -70,7 +70,7 @@ function dealerRoleLanding(role) {
   const routes = {
     DEALER_ADMIN: 'command', OWNER: 'command', MANAGER: 'command',
     SALES_REP: 'sales', BDC: 'sales', FNI: 'fni-overview', SERVICE: 'service-overview',
-    ACCOUNTING: 'accounting-overview', CLEANUP: 'recon',
+    ACCOUNTING: 'accounting-overview', CLEANUP: 'recon', PARTS: 'parts-overview',
   };
   return routes[String(role || '').toUpperCase()] || 'sales';
 }
