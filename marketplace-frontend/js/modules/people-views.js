@@ -117,102 +117,59 @@ function pplRenderScheduleRiskStrip(d) {
 }
 
 function pplRenderTimeWorkspace(d) {
-  const team = d.team || [];
+  const board = d.board || { today: {}, live: {}, week: {} };
+  const ops = d.ops || { schedules: [], time_off: [], documents: [], timesheets: [] };
+  const row = (p, extra='') => `<div class="py-2 border-b border-slate-100 dark:border-slate-800 flex justify-between gap-2"><span class="font-semibold">${esc(p.name)}</span><span class="text-slate-500 text-sm">${esc(p.department || extra || '')}</span></div>`;
   return `
-    <div class="space-y-6">
-      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 ms-ai-panel text-white rounded-2xl p-5 border border-slate-800 shadow-md">
-        <div class="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 uppercase tracking-wider">Time &amp; Attendance Hub</span>
-            <h3 class="text-lg font-black text-white mt-1">Live Shift Clock, Timesheets &amp; Scheduling</h3>
-            <p class="text-xs text-slate-300 mt-0.5">Real-time punch tracking, manager timesheet approvals, and departmental shift scheduling.</p>
-          </div>
-          <div class="flex gap-2">
-            <button onclick="showToast('Timesheet export generated', 'success')" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition">Export Payroll Timesheets</button>
-            <button onclick="showToast('New shift added to schedule', 'info')" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition">+ Add Shift</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div class="lg:col-span-2 space-y-4">
-          <div class="border border-slate-200 dark:border-slate-800 rounded-xl p-4 bg-white dark:bg-slate-900 shadow-sm">
-            <div class="flex items-center justify-between mb-3">
-              <h4 class="text-sm font-black text-slate-900 dark:text-white">Departmental Weekly Schedule Roster</h4>
-              <span class="text-xs font-bold text-slate-500">Week of Aug 10 - Aug 16, 2026</span>
-            </div>
-            <div class="overflow-x-auto">
-              <table class="w-full text-left text-xs">
-                <thead>
-                  <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-400 font-bold uppercase">
-                    <th class="py-2 px-2">Employee</th>
-                    <th class="py-2 px-2">Role / Dept</th>
-                    <th class="py-2 px-2">Mon-Fri</th>
-                    <th class="py-2 px-2">Sat</th>
-                    <th class="py-2 px-2 text-right">Hours</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-semibold text-slate-700 dark:text-slate-200">
-                  <tr>
-                    <td class="py-2.5 px-2 font-bold text-slate-900 dark:text-white">Sarah Jenkins</td>
-                    <td class="py-2.5 px-2 text-slate-500">Sales Rep · Sales</td>
-                    <td class="py-2.5 px-2"><span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">8:30 AM - 5:00 PM</span></td>
-                    <td class="py-2.5 px-2"><span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">OFF</span></td>
-                    <td class="py-2.5 px-2 text-right font-mono font-bold">40.0h</td>
-                  </tr>
-                  <tr>
-                    <td class="py-2.5 px-2 font-bold text-slate-900 dark:text-white">Marcus Vance</td>
-                    <td class="py-2.5 px-2 text-slate-500">Master Tech · Service</td>
-                    <td class="py-2.5 px-2"><span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">7:30 AM - 4:00 PM</span></td>
-                    <td class="py-2.5 px-2"><span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">8:00 AM - 2:00 PM</span></td>
-                    <td class="py-2.5 px-2 text-right font-mono font-bold text-amber-600 dark:text-amber-400">46.0h</td>
-                  </tr>
-                  <tr>
-                    <td class="py-2.5 px-2 font-bold text-slate-900 dark:text-white">Elena Rostova</td>
-                    <td class="py-2.5 px-2 text-slate-500">Parts Specialist · Parts</td>
-                    <td class="py-2.5 px-2"><span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">8:00 AM - 4:30 PM</span></td>
-                    <td class="py-2.5 px-2"><span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">8:00 AM - 1:00 PM</span></td>
-                    <td class="py-2.5 px-2 text-right font-mono font-bold">42.5h</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="border border-slate-200 dark:border-slate-800 rounded-xl p-4 bg-white dark:bg-slate-900 shadow-sm">
-            <h4 class="text-sm font-black text-slate-900 dark:text-white mb-3">Pending PTO &amp; Time-Off Requests</h4>
-            <div class="divide-y divide-slate-100 dark:divide-slate-800">
-              <div class="py-3 flex items-center justify-between">
-                <div>
-                  <div class="text-xs font-bold text-slate-900 dark:text-white">David Miller · Service Advisor</div>
-                  <div class="text-[11px] text-slate-500">Vacation Leave · Aug 24 - Aug 28, 2026 (5 days)</div>
-                </div>
-                <div class="flex gap-1.5">
-                  <button onclick="showToast('PTO approved', 'success')" class="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition">Approve</button>
-                  <button onclick="showToast('PTO request declined', 'info')" class="px-3 py-1 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition">Decline</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="space-y-4">
-          <div class="border border-slate-200 dark:border-slate-800 rounded-xl p-4 bg-white dark:bg-slate-900 shadow-sm">
-            <h4 class="text-sm font-black text-slate-900 dark:text-white mb-2">Missed Punches &amp; Corrections</h4>
-            <p class="text-xs text-slate-500 mb-3">Timesheet exceptions requiring manager resolution before pay period close.</p>
-            <div class="space-y-2.5">
-              <div class="p-3 rounded-lg border border-amber-200 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20 text-xs">
-                <div class="font-bold text-amber-900 dark:text-amber-200">Marcus Vance · Aug 12</div>
-                <div class="text-slate-600 dark:text-slate-300 mt-0.5">Missing clock-out punch for afternoon shift.</div>
-                <button onclick="showToast('Opened punch correction modal', 'info')" class="mt-2 text-[11px] font-bold text-amber-700 dark:text-amber-300 hover:underline">Correct punch →</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+    ${pulseHeader('Time, schedules & documents', 'Live punches, late tracking, department schedules, time off and timesheets')}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      ${engCard('Clocked in live', (board.live?.in || []).length ? board.live.in.map(p => row(p, 'In')).join('') : engEmpty('Nobody is punched in.'))}
+      ${engCard('Not in', (board.live?.out || []).length ? board.live.out.map(p => row(p, 'Out')).join('') : engEmpty('Everybody is in.'))}
+      ${engCard('Late today', (board.today?.late || []).length ? board.today.late.map(p => row(p)).join('') : engEmpty('Nobody late.'))}
+      ${engCard('Has not punched in', (board.today?.missing || []).length ? board.today.missing.map(p => row(p)).join('') : engEmpty('All expected punches are in.'))}
     </div>
+    ${engCard('Late this week', `
+      ${(board.week?.late || []).map(p => `<div class="py-2 border-b border-slate-100 dark:border-slate-800 flex justify-between"><span class="font-semibold">${esc(p.name)}</span><span>${p.late_days} time(s)</span></div>`).join('') || engEmpty('No late days this week.')}
+      <button type="button" onclick="pplSendLateDigest()" class="mt-3 liquid-glass-btn px-3 py-2 rounded-xl text-sm font-black">Email late digest</button>
+    `)}
+    ${engCard('Department schedules', `
+      <div class="flex gap-2 mb-3 flex-wrap">
+        <input id="hr-sched-dept" placeholder="Department" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+        <input id="hr-sched-start" type="time" value="09:00" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+        <input id="hr-sched-end" type="time" value="17:00" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+        <button type="button" onclick="pplAddSchedule()" class="liquid-glass-btn px-3 py-2 rounded-xl text-sm font-black">Add schedule</button>
+      </div>
+      ${(ops.schedules || []).map((s,i) => `<div class="py-2 border-b border-slate-100 dark:border-slate-800 flex justify-between"><span>${esc(s.department || s.name || 'Schedule')} · ${esc(s.start)}–${esc(s.end)}</span><button class="text-sm font-bold" onclick="pplRemoveOps('schedules',${i})">Remove</button></div>`).join('') || engEmpty('No department schedules yet — default is 9:00–5:00.')}
+    `)}
+    ${engCard('Time off requests', `
+      <div class="flex gap-2 mb-3 flex-wrap">
+        <input id="hr-off-name" placeholder="Staff name" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+        <input id="hr-off-date" type="date" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+        <input id="hr-off-reason" placeholder="Reason" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+        <button type="button" onclick="pplAddTimeOff()" class="liquid-glass-btn px-3 py-2 rounded-xl text-sm font-black">Add request</button>
+      </div>
+      ${(ops.time_off || []).map((s,i) => `<div class="py-2 border-b border-slate-100 dark:border-slate-800 flex justify-between"><span>${esc(s.name || '')} · ${esc(s.date || '')} · ${esc(s.reason || '')} · ${esc(s.status || 'pending')}</span><button class="text-sm font-bold" onclick="pplRemoveOps('time_off',${i})">Remove</button></div>`).join('') || engEmpty('No time-off requests.')}
+    `)}
+    ${engCard('Timesheets', `
+      <div class="flex gap-2 mb-3 flex-wrap">
+        <input id="hr-ts-name" placeholder="Staff name" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+        <input id="hr-ts-hours" placeholder="Hours" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm w-28">
+        <input id="hr-ts-week" placeholder="Week of" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+        <button type="button" onclick="pplAddTimesheet()" class="liquid-glass-btn px-3 py-2 rounded-xl text-sm font-black">Add timesheet line</button>
+      </div>
+      ${(ops.timesheets || []).map((s,i) => `<div class="py-2 border-b border-slate-100 dark:border-slate-800 flex justify-between"><span>${esc(s.name || '')} · ${esc(s.week || '')} · ${esc(String(s.hours || ''))}h</span><button class="text-sm font-bold" onclick="pplRemoveOps('timesheets',${i})">Remove</button></div>`).join('') || engEmpty('No saved timesheet lines. Approved punches also feed payroll.')}
+    `)}
+    ${engCard('HR documents', `
+      <div class="flex gap-2 mb-3 flex-wrap">
+        <input id="hr-doc-title" placeholder="Document name (handbook, schedule, agreement)" class="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+        <input id="hr-doc-dept" placeholder="Department or All" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+        <button type="button" onclick="pplAddDocument()" class="liquid-glass-btn px-3 py-2 rounded-xl text-sm font-black">Create document</button>
+      </div>
+      ${(ops.documents || []).map((s,i) => `<div class="py-2 border-b border-slate-100 dark:border-slate-800 flex justify-between"><span>${esc(s.title)} · ${esc(s.department || 'All')}</span><button class="text-sm font-bold" onclick="pplRemoveOps('documents',${i})">Remove</button></div>`).join('') || engEmpty('No HR documents created yet.')}
+    `)}
   `;
 }
+
 
 function pplRenderHiringWorkspace(d) {
   return `
