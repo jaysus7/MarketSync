@@ -283,12 +283,9 @@ function renderStudioCameraHtml(contact, options) {
         <!-- Teleprompter Floating Overlay — hidden by default per the persisted
              preference (vidTeleprompterHiddenByDefault()), draggable via
              makeWsPanelDraggable(), wired up in initCameraFeed(). -->
-        <div class="absolute inset-x-4 top-16 sm:top-20 bg-slate-900/90 backdrop-blur-md p-3 rounded-xl border border-slate-700/80 text-xs font-semibold text-sky-200 shadow-lg max-h-32 overflow-y-auto transition-all z-10${tpHiddenClass}" id="vid-teleprompter-box">
-          <div id="vid-teleprompter-handle" class="text-[10px] font-black uppercase text-sky-400 mb-0.5 flex items-center justify-between cursor-grab active:cursor-grabbing">
-            <span class="flex items-center gap-1"><svg class="w-3 h-3 opacity-60" fill="currentColor" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>Teleprompter Script:</span>
-            <span class="text-[9px] text-slate-400">Scrolls / Live Sync</span>
-          </div>
-          <div id="vid-teleprompter-text">${escV(scriptText)}</div>
+        <div class="absolute inset-x-5 top-16 sm:top-20 bg-transparent p-1 max-h-40 overflow-y-auto transition-all z-10${tpHiddenClass}" id="vid-teleprompter-box" style="background:transparent;border:0;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none">
+          <div id="vid-teleprompter-handle" class="h-4 mb-1 cursor-grab active:cursor-grabbing opacity-40" title="Drag"></div>
+          <div id="vid-teleprompter-text" class="text-[15px] sm:text-base font-semibold leading-relaxed text-white text-center" style="text-shadow:0 1px 2px rgba(0,0,0,.85),0 0 10px rgba(0,0,0,.45);background:transparent">${escV(scriptText)}</div>
         </div>
 
         <!-- Live Recording Status Overlay -->
