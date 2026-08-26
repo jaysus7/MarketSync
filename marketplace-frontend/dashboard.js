@@ -1511,74 +1511,50 @@ function restrictedNavPages() {
     ];
   }
 
-  if (activeProducts.length === 1 && /facebook_dealer/.test(product)) {
-    return canManageTeam ? [INV('Inventory'), LEADER] : [INV('My Inventory'), LEADER];
-  }
-  if (activeProducts.length === 1 && /ai_chatbot/.test(product)) {
-    return [
-      { page: 'ai-home', tab: 'conversations', label: 'Pulse', icon: 'sparkles' },
-      { page: 'ai-home', tab: 'setup', label: 'Setup', icon: 'wrench' }
-    ];
-  }
-  if (activeProducts.length === 1 && /design_studio/.test(product)) {
-    // Keep the merged Design Studio + Scheduler experience visible without routing
-    // into the separate Social Scheduler dashboard. Settings remains under Profile.
-    return [
-      { page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true },
-      { page: 'studio-scheduler', label: 'Scheduler', icon: 'calendar', studioSchedulerLaunch: true }
-    ];
-  }
-  if (activeProducts.length === 1 && /(marketsync_identity|identity_verify)/.test(product)) {
-    return [{ page: 'crm', label: 'Customer Verification', icon: 'shield' }];
-  }
-  if (activeProducts.length === 1 && /(marketsync_social|social[-_]scheduler)/.test(product)) {
-    return [
-      { page: 'social-scheduler', tab: 'overview', label: 'Pulse', icon: 'chart' },
-      { page: 'social-scheduler', tab: 'calendar', label: 'Calendar', icon: 'calendar' },
-      { page: 'social-scheduler', tab: 'create', label: 'Create Post', icon: 'sparkles' },
-      { page: 'social-scheduler', tab: 'scheduled', label: 'Scheduled', icon: 'clock' },
-      { page: 'social-scheduler', tab: 'drafts', label: 'Drafts', icon: 'document' },
-      { page: 'social-scheduler', tab: 'published', label: 'Published', icon: 'check' },
-      { page: 'social-scheduler', tab: 'library', label: 'Content Library', icon: 'camera' },
-      { page: 'social-scheduler', tab: 'accounts', label: 'Social Accounts', icon: 'users' },
-      { page: 'social-scheduler', tab: 'analytics', label: 'Analytics', icon: 'chart' },
-      { page: 'social-scheduler', tab: 'settings', label: 'Settings', icon: 'shield' },
-    ];
-  }
-  if (activeProducts.length === 1 && /(marketsync_email|email_marketing|campaigns[-_]email[-_]sms|marketing[-_]overview|marketing|campaigns|automations)/.test(product)) {
-    return [
-      { page: 'automation-builder', tab: 'overview', label: 'Pulse', icon: 'megaphone' },
-      { page: 'automation-builder', tab: 'automations', label: 'Automations', icon: 'bolt' },
-    ];
+  // ── Single purchased product: exactly ONE nav destination ──────────────────
+  // Header/product name is the product itself. No departments, no multi-page
+  // sidebars. In-page tabs (Setup, Calendar, Builder, etc.) stay on the page.
+  if (activeProducts.length === 1) {
+    const only = activeProducts[0];
+    const one = (page, label, icon, extra = {}) => [{ page, label, icon, ...extra }];
+
+    if (/facebook_dealer|facebook_solo|facebook$/.test(only) || only === 'facebook') {
+      return one('inventory', 'Facebook Marketplace', 'megaphone', { invmode: 'facebook' });
+    }
+    if (/ai_chatbot|ai_dealer|ai$/.test(only)) {
+      return one('ai-home', 'AI Customer Agent', 'sparkles', { tab: 'conversations' });
+    }
+    if (/design_studio/.test(only)) {
+      return one('studio', 'Design Studio', 'camera', { studioLaunch: true });
+    }
+    if (/marketsync_identity|identity_verify/.test(only)) {
+      return one('crm', 'Customer Verification', 'shield');
+    }
+    if (/marketsync_social|social[-_]scheduler|^social$/.test(only)) {
+      return one('social-scheduler', 'Social Studio & Scheduler', 'calendar', { tab: 'overview' });
+    }
+    if (/marketsync_email|email_marketing|campaigns|automations/.test(only)) {
+      return one('automation-builder', 'Email, SMS & Campaigns', 'chat', { tab: 'overview' });
+    }
+    if (/marketsync_video|^video$/.test(only)) {
+      return one('video-studio', 'MarketSync Video', 'video');
+    }
+    if (/marketsync_seo|^seo$/.test(only)) {
+      return one('seo', 'MarketSync SEO', 'chart', { tab: 'overview' });
+    }
+    if (/marketsync_website|^website$|dealer[-_]website/.test(only)) {
+      return one('website', 'Dealer Website', 'globe', { tab: 'setup' });
+    }
   }
 
   const isWebsiteProduct = (typeof isStandaloneWebsiteWorkspace === 'function' && isStandaloneWebsiteWorkspace())
     || (window.__demoActiveProduct === 'dealer-website');
 
   if (isWebsiteProduct) {
-    const list = [
-      // Builder is the full-screen site editor (the one intentional "full pager").
-      // Blog and SEO open as normal in-dashboard pages (page content area + sidebar),
-      // like the rest of MarketSync — not the full-screen workspace. Setup stays with
-      // the Builder workspace (it configures that editor).
-      { page: 'website', tab: 'builder', label: 'Website', icon: 'globe' },
-      { page: 'blog', label: 'Blog', icon: 'document' },
-      { page: 'seo', label: 'SEO', icon: 'chart' },
-      { page: 'website', tab: 'setup', label: 'Setup', icon: 'wrench' },
-      { page: 'website-settings', label: 'Website Settings', icon: 'shield' },
-    ];
-    const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
-    const hasAi = !!(window.__aiBoostActive || (window.__siteCfg && window.__siteCfg.ai_boost_active)
-      || (access.products && (access.products.includes('marketsync_ai') || access.products.includes('ai_boost') || access.products.includes('ai_chatbot') || access.products.includes('ai')))
-      || /(?:^|\s)(?:marketsync_ai|ai_boost|ai_chatbot|ai)(?:\s|$)/.test(product));
-
-    if (hasAi) {
-      list.push({ page: 'ai-home', label: 'AI', icon: 'sparkles' });
-    }
-    return list;
+    return [{ page: 'website', tab: 'setup', label: 'Dealer Website', icon: 'globe' }];
   }
 
-  // Fallback for any other restricted product set (keeps generic behavior).
+    // Fallback for any other restricted product set (keeps generic behavior).
   // 'sales-team' is deliberately absent — no restricted tier gets it as a nav
   // page any more, Staff management lives in Settings for all of them.
   if (__productAllowedPages) {
