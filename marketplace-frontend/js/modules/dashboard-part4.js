@@ -1286,10 +1286,11 @@ Object.assign(window, {
 function crmEmailForm(id) {
   crmDetailFormSlot(`<div class="bg-slate-50 dark:bg-slate-950 border border-indigo-200 dark:border-indigo-900 rounded-lg p-3 space-y-2">
     <div class="text-[11px] font-bold uppercase tracking-wider text-indigo-500">Send email</div>
+    <div class="text-[11px] text-slate-500">From ${esc((profileContext?.email_reply_to || profileContext?.email || window.__user?.email) || 'your login email')}</div>
     <input id="crm-email-subject" placeholder="Subject" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm">
     <textarea id="crm-email-body" rows="4" placeholder="Message…" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></textarea>
     <div class="flex items-center justify-between gap-2">
-      <span class="text-[10px] text-slate-400">Replies go to ${esc((profileContext?.email_reply_to || profileContext?.email) || 'your inbox')} · <button type="button" onclick="switchPage('profile');settingsTab('account')" class="text-indigo-500 font-bold">change</button></span>
+      <span class="text-[10px] text-slate-400">Sends as you · replies to the same address · <button type="button" onclick="switchPage('profile');settingsTab('account')" class="text-indigo-500 font-bold">change</button></span>
       <div class="flex gap-2"><button onclick="crmDetailFormSlot('')" class="text-xs font-bold text-slate-500 px-3 py-1.5">Cancel</button>
       <button onclick="crmSendEmail('${id}')" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg">Send</button></div>
     </div>
@@ -1299,7 +1300,8 @@ async function crmSendEmail(id) {
   const subject = document.getElementById('crm-email-subject')?.value || '';
   const body = document.getElementById('crm-email-body')?.value || '';
   if (!subject.trim() || !body.trim()) { showToast('Subject and message required', 'error'); return; }
-  try { await apiSendJson(`/crm/contacts/${id}/email`, 'POST', { subject, body }); showToast('Email sent', 'success'); openCrmContact(id); }
+  const fromEmail = (profileContext?.email_reply_to || profileContext?.email || window.__user?.email || '').trim();
+  try { await apiSendJson(`/crm/contacts/${id}/email`, 'POST', { subject, body, from_email: fromEmail }); showToast('Email sent from ' + (fromEmail || 'your account'), 'success'); openCrmContact(id); }
   catch (e) { showToast(e.message, 'error'); }
 }
 function crmTaskForm(id) {
