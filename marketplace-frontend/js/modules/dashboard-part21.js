@@ -890,7 +890,7 @@ async function loadMarketcheckStatus() {
     el.innerHTML = `${dot('bg-emerald-500')} MarketCheck connected — live market data is active${s.sample_found ? ` (test query returned ${Number(s.sample_found).toLocaleString()} comps)` : ''}.`;
   } else if (s.status === 429) {
     el.className = 'text-xs font-semibold px-3 py-2 rounded-lg border flex items-center gap-2 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200';
-    el.innerHTML = `${dot('bg-amber-500')} MarketCheck key is active (rate limit reached / HTTP 429). Comps will refresh automatically as rate limits reset.`;
+    el.innerHTML = `${dot('bg-slate-400')} Market comps will update shortly.`;
   } else {
     el.className = 'text-xs font-semibold px-3 py-2 rounded-lg border flex items-center gap-2 bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900 text-red-800 dark:text-red-200';
     el.innerHTML = `${dot('bg-red-500')} MarketCheck key is set but the test call failed${s.status ? ` (HTTP ${s.status})` : ''}. Check the key or your plan/endpoint access.`;
