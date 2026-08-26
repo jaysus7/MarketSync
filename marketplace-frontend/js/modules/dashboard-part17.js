@@ -439,7 +439,7 @@ function wsSetup() {
           </div>
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-2">
-              <h1 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">Website Setup</h1>
+              <h1 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">Website</h1>
               <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${isPub ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'}">
                 ${isPub ? 'Live' : 'Draft'}
               </span>
@@ -4419,7 +4419,7 @@ async function ensureAutoCfg(rootId) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 let __seoSubTab = 'attention';
-let __seoMainTab = 'settings';
+let __seoMainTab = 'overview';
 let __seoMode = 'easy';
 let __seoData = null;
 
