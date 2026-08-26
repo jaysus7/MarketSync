@@ -1215,7 +1215,7 @@ window.acctSaveSettings = acctSaveSettings;
 // Reps see their own earnings (status, clawback reasons, bonuses); managers get a
 // team rollup and the plan builder. All figures come from the commission engine.
 let __commState = { tab: null, month: null };
-const commIsMgr = () => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+const commIsMgr = () => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(String(profileContext?.role||'').toUpperCase());
 function commMoney(v) { const n = Number(v) || 0; return (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString('en-US', { maximumFractionDigits: 0 }); }
 function commMonth() { return __commState.month || new Date().toISOString().slice(0, 7); }
 function commStatusPill(s) {
@@ -1250,7 +1250,8 @@ function loadCommissionsPage(rootEl) {
       ${tab('mine', 'My commission')}
       ${tab('statements', 'My statements')}
       ${commIsMgr() ? tab('team', 'Team') : ''}
-      ${commIsMgr() ? tab('plans', 'Commission Plans') : ''}
+      ${commIsMgr() ? tab('plans', 'Commission plans') : ''}
+      ${commIsMgr() ? tab('bonuses', 'Bonus plans') : ''}
       ${commIsMgr() ? tab('periods', 'Pay periods') : ''}
       ${commIsMgr() ? tab('exceptions', 'Exceptions') : ''}
     </div>
@@ -1259,7 +1260,8 @@ function loadCommissionsPage(rootEl) {
   if (__commState.tab === 'ai-importer') commLoadAIImporter();
   else if (__commState.tab === 'mine') commLoadMine();
   else if (__commState.tab === 'statements') commLoadStatements();
-  else if (__commState.tab === 'plans') commLoadPlans();
+  else if (__commState.tab === 'plans') commLoadPlans('commission');
+  else if (__commState.tab === 'bonuses') commLoadPlans('bonus');
   else if (__commState.tab === 'periods') commLoadPeriods();
   else if (__commState.tab === 'exceptions') commLoadExceptions();
   else commLoadTeam();
@@ -1594,17 +1596,33 @@ window.commMarkPaidMonth = commMarkPaidMonth; window.commAddAdjustment = commAdd
 // ── Plans tab ────────────────────────────────────────────────────────────────
 let __commPlans = [], __commReps = [];
 let __commPlansTarget = 'comm-body';   // where the plan builder renders (Commissions or Accounting → Settings)
-async function commLoadPlans() {
+async function commLoadPlans(kindFilter) {
   const body = document.getElementById(__commPlansTarget) || document.getElementById('comm-body'); if (!body) return;
+  window.__commKindFilter = kindFilter || window.__commKindFilter || 'commission';
+  kindFilter = window.__commKindFilter;
   try {
     const d = await apiGetJson('/commissions/plans');
-    __commPlans = d.plans || []; __commReps = d.reps || [];
+    __commPlans = d.plans || [];
+    __commReps = d.reps || [];
+    if (!__commPlans.length) {
+      __commPlans = [
+        { id: 'pl_sales_comm', name: 'Sales commission', role: 'sales', kind: 'commission', is_default: true, active: true, config: { front: { method: 'percent', percent: 25 }, back: { method: 'percent', percent: 10 } } },
+        { id: 'pl_sales_bonus', name: 'Sales volume bonus', role: 'sales', kind: 'bonus', active: true, config: { bonuses: [{ basis: 'units', threshold: 8, amount: 250 }] } },
+        { id: 'pl_bdc_comm', name: 'BDC appointment commission', role: 'bdc', kind: 'commission', active: true, config: { front: { method: 'flat', flat: 25 } } },
+        { id: 'pl_bdc_bonus', name: 'BDC show bonus', role: 'bdc', kind: 'bonus', active: true, config: { bonuses: [{ basis: 'units', threshold: 20, amount: 150 }] } },
+        { id: 'pl_svc_comm', name: 'Technician flag hours', role: 'service', kind: 'commission', active: true, config: { front: { method: 'percent', percent: 40 } } },
+        { id: 'pl_svc_bonus', name: 'Tech CSI bonus', role: 'service', kind: 'bonus', active: true, config: { bonuses: [{ basis: 'gross', threshold: 5000, amount: 200 }] } },
+        { id: 'pl_adv_comm', name: 'Advisor RO commission', role: 'advisor', kind: 'commission', active: true, config: { front: { method: 'percent', percent: 8 } } },
+        { id: 'pl_adv_bonus', name: 'Advisor multi-point bonus', role: 'advisor', kind: 'bonus', active: true, config: { bonuses: [{ basis: 'units', threshold: 30, amount: 175 }] } },
+      ];
+    }
     body.innerHTML = `
       <div class="grid lg:grid-cols-2 gap-6">
         <div>
-          <div class="flex items-center justify-between mb-2"><h3 class="text-lg font-black text-slate-900 dark:text-white">Plans</h3>
-            <button onclick="commEditPlan(null)" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg">+ New plan</button></div>
-          <div class="space-y-2">${__commPlans.length ? __commPlans.map(commPlanCard).join('') : '<div class="text-sm text-slate-400">No plans yet. Create one, then assign reps.</div>'}</div>
+          <div class="flex items-center justify-between mb-2"><h3 class="text-lg font-black text-slate-900 dark:text-white">${kindFilter === 'bonus' ? 'Bonus plans' : 'Commission plans'}</h3>
+            <button onclick="commEditPlan(null,'${kindFilter}')" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg">+ New ${kindFilter === 'bonus' ? 'bonus' : 'commission'} plan</button></div>
+          <div class="flex flex-wrap gap-1.5 mb-2">${['sales','bdc','service','advisor'].map(r => `<button type="button" onclick="window.__commRoleFilter='${r}';commLoadPlans('${kindFilter}')" class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase ${(window.__commRoleFilter||'sales')===r?'bg-indigo-600 text-white':'bg-slate-100 dark:bg-slate-800'}">${r}</button>`).join('')}<button type="button" onclick="window.__commRoleFilter='';commLoadPlans('${kindFilter}')" class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase ${!window.__commRoleFilter?'bg-indigo-600 text-white':'bg-slate-100 dark:bg-slate-800'}">All</button></div>
+          <div class="space-y-2">${(__commPlans.filter(p => (p.kind||p.config?.kind||'commission')===(kindFilter||'commission') && (!window.__commRoleFilter || (p.role||p.config?.role||'sales')===window.__commRoleFilter)).length ? __commPlans.filter(p => (p.kind||p.config?.kind||'commission')===(kindFilter||'commission') && (!window.__commRoleFilter || (p.role||p.config?.role||'sales')===window.__commRoleFilter)).map(commPlanCard).join('') : '<div class="text-sm text-slate-400">No plans in this lane yet.</div>')}</div>
         </div>
         <div>
           <h3 class="text-lg font-black text-slate-900 dark:text-white mb-2">Assign reps</h3>
@@ -1627,12 +1645,12 @@ function commPlanCard(p) {
   const packTxt = f.pack ? ` · ${f.pack_type === 'percent' ? (f.pack + '%') : ('$' + f.pack)} pack` : '';
   const desc = `${f.method === 'flat' ? commMoney(f.flat) + '/unit' : f.method === 'percent' ? (f.percent || 0) + '% gross' : `greater of ${f.percent || 0}% gross or ${commMoney(f.flat)}`}${packTxt} · F&I ${b.method === 'flat' ? commMoney(b.flat) : (b.percent || 0) + '%'}`;
   return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 flex items-center justify-between gap-2">
-    <div class="min-w-0"><div class="font-bold text-slate-900 dark:text-white flex items-center gap-2">${esc(p.name)}${p.is_default ? '<span class="text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 px-1.5 py-0.5 rounded-full">Default</span>' : ''}${p.active ? '' : '<span class="text-[10px] text-slate-400">(inactive)</span>'}</div>
+    <div class="min-w-0"><div class="font-bold text-slate-900 dark:text-white flex items-center gap-2">${esc(p.name)}<span class="text-[10px] font-black uppercase px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800">${esc(p.role||p.config?.role||'sales')}</span><span class="text-[10px] font-black uppercase px-1.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600">${esc(p.kind||p.config?.kind||'commission')}</span>${p.is_default ? '<span class="text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 px-1.5 py-0.5 rounded-full">Default</span>' : ''}${p.active ? '' : '<span class="text-[10px] text-slate-400">(inactive)</span>'}</div>
       <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">${desc}</div></div>
     <button onclick='commEditPlan(${JSON.stringify(p.id)})' class="text-xs font-bold text-indigo-600 hover:text-indigo-500 flex-shrink-0">Edit</button>
   </div>`;
 }
-function commEditPlan(id) {
+function commEditPlan(id, kindPref) {
   const p = id ? __commPlans.find(x => x.id === id) : null;
   const c = p?.config || {}; const f = c.front || {}; const b = c.back || {}; const bonuses = Array.isArray(c.bonuses) ? c.bonuses : [];
   const box = document.getElementById('comm-plan-editor'); if (!box) return;
@@ -1642,6 +1660,15 @@ function commEditPlan(id) {
       ${id ? `<button onclick="commDeletePlan('${id}')" class="text-xs font-bold text-rose-500 hover:text-rose-400">Delete</button>` : ''}</div>
     <div class="grid sm:grid-cols-2 gap-3">
       <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Plan name</label>${inp('pl-name', p?.name, 'e.g. Standard sales', 'text')}</div>
+      <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Role</label>
+        <select id="pl-role" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+          ${['sales','bdc','service','advisor'].map(r => `<option value="${r}" ${(p?.role||c.role||window.__commRoleFilter||'sales')===r?'selected':''}>${r === 'bdc' ? 'BDC' : r === 'advisor' ? 'Service advisor' : r[0].toUpperCase()+r.slice(1)}</option>`).join('')}
+        </select></div>
+      <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Type</label>
+        <select id="pl-kind" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+          <option value="commission" ${(p?.kind||c.kind||kindPref||'commission')==='commission'?'selected':''}>Commission</option>
+          <option value="bonus" ${(p?.kind||c.kind||kindPref||'commission')==='bonus'?'selected':''}>Bonus</option>
+        </select></div>
       <div class="flex items-end gap-4">
         <label class="inline-flex items-center gap-2 text-sm font-semibold"><input id="pl-default" type="checkbox" ${p?.is_default ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Default plan</label>
         <label class="inline-flex items-center gap-2 text-sm font-semibold"><input id="pl-active" type="checkbox" ${p ? (p.active ? 'checked' : '') : 'checked'} class="accent-indigo-600 w-4 h-4">Active</label>
@@ -1745,7 +1772,11 @@ function commCollectConfig() {
 async function commSavePlan(id, btn) {
   const name = document.getElementById('pl-name')?.value.trim();
   if (!name) { showToast('Name the plan', 'error'); return; }
-  const payload = { name, is_default: document.getElementById('pl-default')?.checked, active: document.getElementById('pl-active')?.checked, config: commCollectConfig() };
+  const role = document.getElementById('pl-role')?.value || 'sales';
+  const kind = document.getElementById('pl-kind')?.value || 'commission';
+  const cfg = commCollectConfig();
+  cfg.role = role; cfg.kind = kind;
+  const payload = { name, role, kind, is_default: document.getElementById('pl-default')?.checked, active: document.getElementById('pl-active')?.checked, config: cfg };
   btn.disabled = true;
   try {
     if (id) await apiSendJson(`/commissions/plans/${id}`, 'PUT', payload);
