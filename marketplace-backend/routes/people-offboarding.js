@@ -178,10 +178,17 @@ export async function offboardEmployee(dealershipId, {
     })
     if (!t.ok) return { ok: false, error: t.error, partial: true }
     employment = t.staff
+    const stamp = `ARCHIVED ${new Date().toISOString().slice(0,10)}: ${reason || 'Offboarded'}`
+    await supabaseAdmin.from('staff_members').update({
+      notes: [t.staff?.notes, stamp].filter(Boolean).join('\n'),
+      updated_by: actorId,
+    }).eq('id', staffMemberId).eq('dealership_id', dealershipId)
   }
 
   return {
     ok: true,
+    archived: true,
+    deleted: false,
     employment,
     reassigned: movedWork,
     roles_revoked: roles.revoked,
