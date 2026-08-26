@@ -371,167 +371,96 @@ ENGINES['sales'] = {
         const when = a.appointment_at || a.when || a.scheduled_at;
         return when && new Date(when).toDateString() === today && !['canceled', 'cancelled', 'no_show'].includes(String(a.status || '').toLowerCase());
       });
-      const open = (d.contacts || []).filter(c => SALES_OPEN_STAGES.includes(c.status));
       const overdue = (d.tasks || []).filter(t => t.due_at && new Date(t.due_at) < now);
       const newLeads = (d.contacts || []).filter(c => c.status === 'uncontacted');
 
-      const f = (d.insights && d.insights.funnel) || {};
-      const taskByType = { lead_followup: 0, delivery_followup: 0, appointment: 0, other: 0 };
-      for (const t of d.tasks || []) taskByType[['lead_followup', 'delivery_followup', 'appointment'].includes(t.type) ? t.type : 'other']++;
+      const aiCard = pulseCard({
+        title: 'Proactive sales assistant',
+        tier: 'feature',
+        inner: `<div class="text-[12px] text-slate-700 dark:text-slate-200 space-y-1.5 leading-relaxed">
+          <p>• <strong>Needs attention:</strong> ${att.length ? `<span class="text-rose-600 dark:text-rose-400 font-bold">${att.length} item(s)</span>` : 'Clear.'}</p>
+          <p>• <strong>New leads:</strong> ${newLeads.length ? `${newLeads.length} uncontacted` : 'None waiting.'}</p>
+          <p>• <strong>Today's appointments:</strong> ${todays.length}</p>
+          <p>• <strong>Overdue tasks:</strong> ${overdue.length ? `<span class="text-rose-600 dark:text-rose-400 font-bold">${overdue.length}</span>` : 'None.'}</p>
+        </div>
+        <div class="flex flex-wrap gap-2 mt-3">
+          <button type="button" onclick="engineTab('sales','work')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900">Prioritize work</button>
+          <button type="button" onclick="engineTab('sales','desk')" class="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700">Review deals</button>
+        </div>`,
+      });
 
-      // ── Pulse grid — the at-a-glance widget wall ────────────────────────────
-      const grid = pulseBoard([
+      const cards = [
         pulseCard({
-          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', tier: att.length ? 'hero' : 'standard',
-          inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '', empty: 'Nothing needs you right now.',
+          title: 'Needs attention', count: att.length,
+          tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
+          tier: att.length ? 'hero' : 'standard',
+          inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '',
+          empty: 'Nothing needs you right now.',
         }),
         pulseCard({
           title: 'Deals in progress', count: d.deals == null ? '—' : d.deals.length,
           tier: (d.deals && d.deals.length) ? 'feature' : 'standard',
           onclick: "engineTab('sales','desk')",
-          inner: d.deals == null ? '' : d.deals.slice(0, 5).map(x => {
+          inner: d.deals == null ? '' : (d.deals || []).slice(0, 6).map(x => {
             const customer = x.customer_name || x.contact_name;
             const vehicle = x.vehicle_label || x.vehicle;
-            // A blank customer_name is common at desking time — lead with the vehicle
-            // instead of a bare "Deal" repeated on every row with nothing to tell them apart.
             return pulseRow({
               badge: '$', label: customer || vehicle || 'Deal',
               sub: customer ? [vehicle, x.status].filter(Boolean).join(' · ') : x.status || '',
               onclick: "switchPage('desk')",
             });
-          }).join(''), empty: d.deals == null ? 'No permission to view deals.' : 'No deals in progress.',
+          }).join(''),
+          empty: d.deals == null ? 'No permission to view deals.' : 'No deals in progress.',
         }),
         pulseCard({
-          title: "Today's videos sent", count: (d.videosToday || []).length, tier: 'compact',
-          onclick: "switchPage('video-studio')",
-          inner: (d.videosToday || []).slice(0, 5).map(v => pulseRow({
-            icon: v.first_played_at ? 'play' : 'chat', badgeTone: v.first_played_at ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-300',
-            label: v.contact_name, sub: v.vehicle, onclick: `openPublicVideoLink('${v.share_token}', '${v.contact_id}')`,
-          })).join(''), empty: 'No customer videos sent today.',
-        }),
-        pulseLeaderboardCard(d.gamification, 'sales', { title: 'Internal Sales leaderboard', metric: 'total_sold', tier: 'feature', limit: 8 }),
-        pulseLeaderboardCard(d.gamification, 'facebook', { title: 'Facebook Marketplace leaderboard', metric: 'total_posted', tier: 'feature', limit: 8 }),
-        pulseSearchCard({ title: 'Inventory', placeholder: 'Search inventory by year, make or model', tier: 'compact', onclick: "switchPage('inventory-overview')" }),
-        pulseCard({
-          title: 'Follow-up tasks', count: (d.tasks || []).length,
-          tier: overdue.length ? 'feature' : 'standard',
-          onclick: "engineTab('sales','work')",
-          inner: [
-            pulseRow({ badge: taskByType.lead_followup, label: 'New leads' }),
-            pulseRow({ badge: taskByType.appointment, label: 'Appointments' }),
-            pulseRow({ badge: taskByType.delivery_followup, label: 'Delivery follow-ups' }),
-            pulseRow({ badge: taskByType.other, label: 'Other follow-ups' }),
-          ].join(''),
-        }),
-        pulseCard({
-          title: 'Sales stats — last 30 days', tier: 'standard', tone: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
-          onclick: "openDeptReport('sales')",
-          inner: d.insights ? [
-            pulseRow({ badge: f.leads ?? '—', label: 'Leads' }),
-            pulseRow({ badge: f.appointments ?? '—', label: 'Appointments' }),
-            pulseRow({ badge: f.sold ?? '—', label: 'Sold', valueTone: 'text-emerald-600 dark:text-emerald-400' }),
-            f.leads && f.sold != null ? pulseRow({ badge: Math.round((f.sold / f.leads) * 100) + '%', label: 'Close rate' }) : '',
-          ].join('') : '', empty: 'Performance could not be loaded.',
-        }),
-        pulseCard({
-          title: "Today's appointments", count: todays.length, tier: 'standard',
-          onclick: "switchPage('appointments')",
+          title: "Today's appointments", count: todays.length,
+          tier: todays.length ? 'feature' : 'standard',
+          onclick: "engineTab('sales','appointments')",
           inner: todays.length ? todays.slice(0, 6).map(a => pulseRow({
-            icon: 'calendar', label: a.customer_name || 'Customer',
-            sub: [a.appointment_at ? new Date(a.appointment_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '', a.vehicle_label || a.vehicle, a.rep_name].filter(Boolean).join(' · '),
-            onclick: a.contact_id ? `openCrmContact('${a.contact_id}')` : "switchPage('appointments')",
-          })).join('') : '', empty: 'No appointments today.',
+            badge: new Date(a.appointment_at || a.when || a.scheduled_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+            label: a.customer_name || '—',
+            sub: [a.vehicle_label, a.rep_name].filter(Boolean).join(' · '),
+            onclick: a.contact_id ? `openCrmContact('${a.contact_id}')` : "engineTab('sales','appointments')",
+          })).join('') : '',
+          empty: 'No appointments today.',
         }),
         pulseCard({
-          title: 'Deliveries', count: d.deliveries == null ? '—' : d.deliveries.length,
-          tier: 'standard',
-          onclick: "switchPage('delivery')",
-          inner: d.deliveries == null ? '' : d.deliveries.slice(0, 6).map(x => pulseRow({
-            icon: 'check', label: x.customer_name || x.contact_name || 'Delivery',
-            sub: [x.vehicle_label || x.vehicle, x.scheduled_for || x.status].filter(Boolean).join(' · '),
-            onclick: "switchPage('delivery')",
-          })).join(''), empty: d.deliveries == null ? 'Could not be loaded.' : 'Nothing is waiting to be delivered.',
-        }),
-        pulseCard({
-          title: 'Active opportunities', count: open.length,
-          tier: newLeads.length ? 'feature' : 'standard',
+          title: 'New leads', count: newLeads.length,
+          tier: newLeads.length ? 'standard' : 'compact',
           onclick: "engineTab('sales','work')",
-          inner: open.length ? open.slice(0, 7).map(c => pulseRow({
-            badge: c.status === 'uncontacted' ? '!' : '#',
-            badgeTone: c.status === 'uncontacted' ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : undefined,
-            label: c.full_name || c.name || 'Customer',
-            sub: [c.status, c.vehicle_interest || c.vehicle, c.source].filter(Boolean).join(' · '),
+          inner: newLeads.length ? newLeads.slice(0, 5).map(c => pulseRow({
+            badge: '•', label: c.full_name || c.name || 'Lead', sub: c.status || '',
             onclick: c.id ? `openCrmContact('${c.id}')` : "engineTab('sales','work')",
-          })).join('') : '', empty: 'No open opportunities.',
+          })).join('') : '',
+          empty: 'No uncontacted leads.',
         }),
-      ]);
+        pulseCard({
+          title: 'Overdue tasks', count: overdue.length,
+          tone: overdue.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
+          tier: overdue.length ? 'standard' : 'compact',
+          onclick: "engineTab('sales','work')",
+          inner: overdue.length ? overdue.slice(0, 5).map(t => pulseRow({
+            badge: '!', label: t.title || t.type || 'Task',
+            sub: t.due_at ? new Date(t.due_at).toLocaleDateString() : '',
+            onclick: "engineTab('sales','work')",
+          })).join('') : '',
+          empty: 'No overdue tasks.',
+        }),
+        (typeof pulseLeaderboardCard === 'function'
+          ? pulseLeaderboardCard(d.gamification, 'sales', { title: 'Sales leaderboard', metric: 'deals_sold', tier: 'feature', limit: 8 })
+          : ''),
+        (typeof pulseLeaderboardCard === 'function'
+          ? pulseLeaderboardCard(d.gamification, 'facebook', { title: 'Facebook Marketplace', metric: 'score', tier: 'standard', limit: 6 })
+          : ''),
+        aiCard,
+      ].filter(Boolean);
 
-      // Pulse is the canonical at-a-glance view. The former dashboard repeated the
-      // same leads, appointments, deals, videos and leaderboards below this grid.
       body.innerHTML = `
-        ${pulseHeader('Sales Pulse', 'Your customers, appointments and deals — what needs you first')}
-        ${grid}`;
-      return;
-
-      const proactiveAiPanel = `
-        <div class="mb-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 ms-ai-panel text-white shadow-lg border border-slate-800">
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-sky-400">
-              <span>Proactive Sales &amp; F&amp;I AI Assistant</span>
-            </div>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">LIVE SALES TELEMETRY</span>
-          </div>
-          <div class="text-xs text-slate-300 space-y-1.5 mb-3">
-            <p>• <strong>Uncontacted Leads:</strong> ${newLeads.length ? `<span class="text-amber-300 font-bold">${newLeads.length} new internet lead(s) waiting over 15 minutes for rep contact.</span>` : 'All incoming internet leads have been contacted.'}</p>
-            <p>• <strong>Overdue Follow-Up Tasks:</strong> ${overdue.length ? `<span class="text-rose-400 font-bold">${overdue.length} scheduled customer task(s) are past due today!</span>` : 'No overdue customer tasks outstanding.'}</p>
-            <p>• <strong>Deals Pending F&amp;I Approval:</strong> ${(d.deals || []).length} active deal(s) currently awaiting desk &amp; lender submit.</p>
-            <p>• <strong>Today's Appointments:</strong> ${todays.length} showroom customer appointment(s) scheduled today.</p>
-          </div>
-          <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
-            <button onclick="engineTab('sales','work')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition">Prioritize Hot Leads</button>
-            <button onclick="engineTab('sales','desk')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition">Review Pending Deals</button>
-          </div>
-        </div>
+        ${pulseHeader('Sales Pulse', 'Customers, appointments and deals — what needs you first')}
+        ${pulseBoard(cards)}
       `;
-
-      body.innerHTML = `
-        ${pulseHeader('Sales Pulse', 'Your customers, appointments and deals — what needs you first')}
-        ${grid}
-
-        <div class="mt-5">${proactiveAiPanel}</div>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '', "engineTab('sales', 'work')")}
-          ${engKpi('New leads', newLeads.length, newLeads.length ? 'text-amber-600 dark:text-amber-400' : '', "salesWorkView('opportunities')")}
-          ${engKpi("Today's appointments", todays.length, '', "engineTab('sales', 'appointments')")}
-          ${engKpi('Overdue tasks', overdue.length, overdue.length ? 'text-rose-600 dark:text-rose-400' : '', "engineTab('sales', 'work')")}
-        </div>
-        ${salesPerformanceStrip(d)}
-        ${salesDealsAndDeliveries(d)}
-        <div class="mt-3">
-          ${salesTodayVideosCard(d)}
-        </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
-          ${engCard("Today's appointments", todays.length ? todays.map(a => `
-            <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-              <div class="text-[12px] font-bold text-slate-500 tabular-nums shrink-0">${esc(new Date(a.appointment_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}</div>
-              <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(a.customer_name || '—')}</div>
-                <div class="text-[12px] text-slate-400 truncate">${esc(a.vehicle_label || '')}${a.rep_name ? ` · ${esc(a.rep_name)}` : ''}</div></div>
-              <button onclick="${a.contact_id ? `openCrmContact('${a.contact_id}')` : `switchPage('appointments')`}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Open Customer</button>
-            </div>`).join('') : engEmpty('No appointments today.'))}
-          ${engCard('Active opportunities', open.length ? open.slice(0, 8).map(c => salesOppRow(c, d)).join('') : engEmpty('No open opportunities.'))}
-        </div>`;
     },
 
-    // ── CUSTOMERS — unified rich customer view with search, filters & actions ───
-    async work(body, d) {
-      if (typeof crmLoadContacts === 'function') {
-        await crmLoadContacts(body);
-      } else {
-        body.innerHTML = engCard('Customers', (d.contacts || []).slice(0, 50).map(c => salesOppRow(c, d)).join('') || engEmpty('No customers yet.'));
-      }
-    },
-
-    // ── DESK A DEAL ──────────────────────────────────────────────────────────
     desk(body, d) {
       if (typeof engMountPage === 'function') {
         engMountPage(body, 'desk', () => {
