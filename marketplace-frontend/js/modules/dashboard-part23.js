@@ -815,12 +815,41 @@ function initApprDeal() {
 
   const qWrap = document.getElementById('appr-disclosure-qa');
   if (qWrap && !qWrap.children.length) {
-    qWrap.innerHTML = APPR_DISCLOSURE_SECTIONS.map(sec => `
-      <div class="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800 first:pt-0 first:border-0">
-        <div class="text-xs font-bold uppercase tracking-wider text-slate-400">${esc(sec.title)}</div>
-        ${sec.intro ? `<div class="text-sm font-medium text-slate-600 dark:text-slate-300">${esc(sec.intro)}</div>` : ''}
+    const history = APPR_DISCLOSURE_SECTIONS[0];
+    const rest = APPR_DISCLOSURE_SECTIONS.slice(1);
+    const page1 = [{ ...history, items: history.items.slice(0, 7) }];
+    const page2 = [{ ...history, title: 'Vehicle History (continued)', items: history.items.slice(7) }, ...rest];
+    const pageHtml = (sections, page) => sections.map(sec => `
+      <div class="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800 first:pt-0 first:border-0" data-disc-page="${page}">
+        <div class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">${esc(sec.title)}</div>
+        ${sec.intro ? `<div class="text-sm font-medium text-slate-700 dark:text-slate-300">${esc(sec.intro)}</div>` : ''}
         ${sec.items.map(apprDiscItemHtml).join('')}
       </div>`).join('');
+    qWrap.innerHTML = `
+      <div class="flex items-center justify-between gap-3 mb-2">
+        <div class="text-sm font-black text-slate-900 dark:text-white">Disclosure <span id="appr-disc-page-label">1 of 2</span></div>
+        <div class="flex gap-2">
+          <button type="button" id="appr-disc-prev" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-600 dark:text-slate-300 disabled:opacity-40">Back</button>
+          <button type="button" id="appr-disc-next" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-bold">Next</button>
+        </div>
+      </div>
+      ${pageHtml(page1, 1)}
+      ${pageHtml(page2, 2)}`;
+    window.__apprDiscPage = 1;
+    const showPage = (n) => {
+      window.__apprDiscPage = n;
+      qWrap.querySelectorAll('[data-disc-page]').forEach(el => {
+        el.classList.toggle('hidden', Number(el.dataset.discPage) !== n);
+      });
+      const lab = document.getElementById('appr-disc-page-label');
+      if (lab) lab.textContent = `${n} of 2`;
+      document.getElementById('appr-disc-prev')?.toggleAttribute('disabled', n === 1);
+      const next = document.getElementById('appr-disc-next');
+      if (next) next.textContent = n === 2 ? 'Page 1' : 'Next';
+    };
+    document.getElementById('appr-disc-prev')?.addEventListener('click', () => showPage(1));
+    document.getElementById('appr-disc-next')?.addEventListener('click', () => showPage(window.__apprDiscPage === 1 ? 2 : 1));
+    showPage(1);
   }
 
   loadApprAppraisers();
