@@ -1,3 +1,29 @@
+
+function hydrateDemoPackageCache() {
+  try {
+    const cached = sessionStorage.getItem('ms_demo_package') || localStorage.getItem('ms_demo_package');
+    if (!cached) return;
+    window.__demoActivePackage = window.__demoActivePackage || cached;
+    window.__demoPackageId = window.__demoPackageId || cached;
+    if (!window.__demoActiveProduct) {
+      const id = String(cached).toLowerCase();
+      if (id.includes('digital')) window.__demoActiveProduct = 'marketsync-digital';
+      else if (id.includes('sales-marketing') || id.includes('sales_marketing')) window.__demoActiveProduct = 'sales-marketing-suite';
+      else if (id.includes('service-marketing') || id.includes('service_marketing')) window.__demoActiveProduct = 'service-marketing-suite';
+      else if (id.includes('complete-marketing') || id.includes('complete_marketing')) window.__demoActiveProduct = 'complete-marketing-suite';
+      else if (id.includes('design')) window.__demoActiveProduct = 'design_studio';
+      else if (id.includes('facebook') || id.includes('autoposter') || id.includes('fb_')) window.__demoActiveProduct = 'facebook';
+      else if (id.includes('video')) window.__demoActiveProduct = 'video';
+      else if (id.includes('website')) window.__demoActiveProduct = 'website';
+      else if (id.includes('chatbot') || id.includes('ai_')) window.__demoActiveProduct = 'ai_chatbot';
+      else if (id.includes('seo')) window.__demoActiveProduct = 'seo';
+      else window.__demoActiveProduct = cached;
+    }
+  } catch {}
+}
+window.hydrateDemoPackageCache = hydrateDemoPackageCache;
+hydrateDemoPackageCache();
+
 /* dashboard.js split part 2/26 — contiguous, load-order-critical. Do not reorder the <script> tags in dashboard.html. */
 
 // Page permission flags (set after profile loads, read by switchPage to mirror panels into Insights)
@@ -1038,7 +1064,15 @@ async function initializeDashboardEcosystem() {
     applyExtensionVisibility();   // hide the FB extension CTA for SaaS / AI-only accounts
     // The canonical workspace and navigation are now final. Reveal exactly that page
     // on the next frame; legacy compatibility containers were never painted.
-    requestAnimationFrame(() => document.body.classList.remove('ms-app-booting'));
+    const waitDemo = !!(profileContext?.workspace === 'saas_admin' || profileContext?.is_marketsync || window.__demoActivePackage);
+    if (waitDemo) {
+      window.__msHoldBootForDemo = true;
+      setTimeout(() => {
+        if (document.body.classList.contains('ms-app-booting')) document.body.classList.remove('ms-app-booting');
+      }, 900);
+    } else {
+      requestAnimationFrame(() => document.body.classList.remove('ms-app-booting'));
+    }
 
     // Global leaderboard — available to EVERYONE (solo reps included). Loaded lazily on first carousel switch.
     initGlobalLeaderboard();
