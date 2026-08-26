@@ -1066,22 +1066,39 @@ async function crmQuickLogSave(id, channel) {
 let __crmActiveCallTimer = null;
 let __crmCallStartTime = 0;
 
+function crmDialOnDevice(phone) {
+  const raw = String(phone || '').trim();
+  const href = 'tel:' + raw.replace(/[^\d+]/g, '');
+  if (href === 'tel:' || href === 'tel:+') return false;
+  try {
+    const a = document.createElement('a');
+    a.href = href;
+    a.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return true;
+  } catch {
+    try { window.location.href = href; return true; } catch { return false; }
+  }
+}
+
 function crmStartInAppCall(contactId, name, phone) {
   __crmCallStartTime = Date.now();
+  const dialed = crmDialOnDevice(phone);
   crmDetailFormSlot(`
-    <div class="bg-slate-900 text-white rounded-2xl p-4 space-y-4 border border-slate-800 shadow-2xl relative overflow-hidden">
-      <div class="absolute -top-12 -right-12 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
-      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+    <div class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl p-4 space-y-4 border border-slate-200 dark:border-slate-700">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
         <div class="flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-          <span class="text-xs font-black text-emerald-400 uppercase tracking-wider">In-App VoIP Call Active</span>
+          <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></span>
+          <span class="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">${dialed ? 'Calling on your phone' : 'Call tracker'}</span>
         </div>
-        <div class="text-xs font-mono font-bold text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full border border-slate-700">${esc(phone)}</div>
+        <a href="tel:${esc(String(phone || '').replace(/[^\d+]/g, ''))}" class="text-xs font-mono font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-1 rounded-full border border-indigo-200 dark:border-indigo-800">${esc(phone)}</a>
       </div>
       <div class="text-center py-2 space-y-1">
-        <div class="text-sm font-bold text-slate-200">${esc(name)}</div>
-        <div id="crm-inapp-call-timer" class="text-4xl font-black font-mono text-emerald-400 tracking-tight">00:00</div>
-        <div class="text-[11px] text-slate-400">Call duration is recorded live and automatically logged upon ending call.</div>
+        <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(name)}</div>
+        <div id="crm-inapp-call-timer" class="text-4xl font-black font-mono text-indigo-600 dark:text-indigo-400 tracking-tight">00:00</div>
+        <div class="text-[11px] text-slate-500">Your phone should be dialing now. End the call here to log duration.</div>
       </div>
       <div class="space-y-1.5">
         <label class="block text-[11px] font-bold text-slate-300 uppercase tracking-wider">Live Call Notes &amp; Highlights</label>
