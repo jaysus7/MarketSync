@@ -1137,17 +1137,28 @@ ENGINES['marketing-overview'] = {
 
     // ── AI ChatBot ───────────────────────────────────────────────────────────
     chatbot(body, d) {
+      const rows = d.conversations || [];
+      const open = rows.filter(c => c.status !== 'closed');
+      const waiting = rows.filter(c => c.status === 'waiting_dealer');
+      const handoff = rows.filter(c => c.status === 'handoff');
+      const rowHtml = (list) => list.length
+        ? list.slice(0, 12).map(c => (typeof pulseRow === 'function'
+            ? pulseRow({
+                label: `${c.lead_type || 'Conversation'}${c.channel ? ' · ' + c.channel : ''}`,
+                sub: [mktLabel(c.status), c.last_message_at ? String(c.last_message_at).slice(0, 16).replace('T', ' ') : '', c.lead_score != null ? 'score ' + c.lead_score : ''].filter(Boolean).join(' · '),
+                actionLabel: c.status === 'waiting_dealer' ? 'Reply' : 'View',
+                onclick: "engineTab('marketing-overview','chatbot')",
+              })
+            : mktRow({ title: c.lead_type || 'Conversation', sub: mktLabel(c.status) }))).join('')
+        : '<div class="text-sm text-slate-400 py-4">None right now.</div>';
       body.innerHTML = `
-        ${mktSuiteBand('Conversations', 'AI ChatBot', 'Live chats, takeovers, and what the assistant knows about the store.',
-          '<button type="button" onclick="switchPage(\'ai-home\')" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Open chatbot</button>')}
-        <div id="mkt-chatbot-mount" class="space-y-4"></div>
+        ${mktSuiteBand('Conversations', 'AI ChatBot', 'Who is talking to the bot, who is waiting, and who is with a person.', '')}
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          ${typeof pulseCard === 'function' ? pulseCard({ title: 'Open', count: open.length, tier: 'feature', inner: rowHtml(open) }) : `<section class="ms-c ms-c--glass p-4"><div class="text-[11px] font-black uppercase text-slate-500 mb-2">Open · ${open.length}</div>${rowHtml(open)}</section>`}
+          ${typeof pulseCard === 'function' ? pulseCard({ title: 'Waiting on us', count: waiting.length, tier: waiting.length ? 'hero' : 'standard', inner: rowHtml(waiting) }) : `<section class="ms-c ms-c--glass p-4"><div class="text-[11px] font-black uppercase text-slate-500 mb-2">Waiting · ${waiting.length}</div>${rowHtml(waiting)}</section>`}
+          ${typeof pulseCard === 'function' ? pulseCard({ title: 'With a person', count: handoff.length, tier: 'standard', inner: rowHtml(handoff) }) : `<section class="ms-c ms-c--glass p-4"><div class="text-[11px] font-black uppercase text-slate-500 mb-2">With a person · ${handoff.length}</div>${rowHtml(handoff)}</section>`}
+        </div>
       `;
-      const mount = document.getElementById('mkt-chatbot-mount');
-      if (mount) {
-        mount.innerHTML = engSection('Conversations', mktConversationsView(d), 'Who is talking to the bot, and who is waiting on a human');
-        mount.insertAdjacentHTML('beforeend', engSection('The assistant', '', 'How it answers, and what it knows about your store'));
-        engMountPage(mount, 'ai-home', () => loadAiHome());
-      }
     },
 
     // ── Email & SMS ──────────────────────────────────────────────────────────
