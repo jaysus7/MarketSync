@@ -465,27 +465,35 @@ ENGINES['sales'] = {
         const loc = [c.address, c.city, c.province, c.postal_code, c.country].filter(Boolean).join(' · ');
         const bits = [c.email, c.phone || c.phone_mobile, loc].filter(Boolean).join(' · ');
         return `<button type="button" onclick="openCrmContact('${c.id}')" class="w-full text-left px-4 py-3 border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition">
-          <div class="font-bold text-sm text-slate-900 dark:text-white">${esc(name)}</div>
-          <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(bits || 'No contact details')}</div>
+          <div class="font-bold text-base text-slate-900 dark:text-white">${esc(name)}</div>
+          <div class="text-sm text-slate-600 dark:text-slate-400 truncate">${esc(bits || 'No contact details')}</div>
         </button>`;
       };
       body.innerHTML = `
-        ${typeof pulseHeader === 'function' ? pulseHeader('Customers', 'Your newest records. Search to find anyone else.') : '<h1 class="text-2xl font-black mb-3">Customers</h1>'}
-        <div class="ms-c ms-c--glass p-4 mb-4 space-y-3">
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            <input id="sales-cust-q" type="search" placeholder="Name, email, or phone" class="liquid-glass-input rounded-xl px-3 py-2 text-sm font-semibold" onkeydown="if(event.key===\'Enter\'){event.preventDefault();salesSearchCustomers()}">
-            <input id="sales-cust-address" type="search" placeholder="Street / city" class="liquid-glass-input rounded-xl px-3 py-2 text-sm font-semibold" onkeydown="if(event.key===\'Enter\'){event.preventDefault();salesSearchCustomers()}">
-            <input id="sales-cust-province" type="search" placeholder="Province / state" class="liquid-glass-input rounded-xl px-3 py-2 text-sm font-semibold" onkeydown="if(event.key===\'Enter\'){event.preventDefault();salesSearchCustomers()}">
-            <input id="sales-cust-postal" type="search" placeholder="Postal / ZIP" class="liquid-glass-input rounded-xl px-3 py-2 text-sm font-semibold" onkeydown="if(event.key===\'Enter\'){event.preventDefault();salesSearchCustomers()}">
-            <input id="sales-cust-country" type="search" placeholder="Country" class="liquid-glass-input rounded-xl px-3 py-2 text-sm font-semibold" onkeydown="if(event.key===\'Enter\'){event.preventDefault();salesSearchCustomers()}">
-            <button type="button" onclick="salesSearchCustomers()" class="liquid-glass-btn rounded-xl text-sm font-black">Search store</button>
+        ${typeof pulseHeader === 'function' ? pulseHeader('Customers', 'Your newest records. Search the store for anyone else.') : '<h1 class="text-2xl font-black mb-3">Customers</h1>'}
+        <div class="ms-c ms-c--glass p-4 mb-4">
+          <label for="sales-cust-q" class="block text-base font-black text-slate-900 dark:text-white mb-2">Search customers</label>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input id="sales-cust-q" type="search" placeholder="First name, last name, email, or phone" class="flex-1 min-w-0 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 text-base font-semibold text-slate-900 dark:text-white">
+            <button type="button" id="sales-cust-go" class="liquid-glass-btn rounded-xl text-base font-black px-5 py-3 shrink-0">Search</button>
           </div>
-          <p class="text-[11px] text-slate-500">Default list is customers you added most recently. Search looks across the dealership by first/last name, email, phone, and address.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-3">
+            <input id="sales-cust-address" type="search" placeholder="Street / city" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-900 dark:text-white">
+            <input id="sales-cust-province" type="search" placeholder="Province / state" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-900 dark:text-white">
+            <input id="sales-cust-postal" type="search" placeholder="Postal / ZIP" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-900 dark:text-white">
+            <input id="sales-cust-country" type="search" placeholder="Country" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-900 dark:text-white">
+          </div>
         </div>
         <div id="sales-cust-results" class="ms-c ms-c--glass overflow-hidden">
-          ${list.length ? list.map(row).join('') : '<div class="p-6 text-sm text-slate-500">No recent customers of yours yet. Add one, or search the store.</div>'}
+          ${list.length ? list.map(row).join('') : '<div class="p-6 text-base text-slate-600">No recent customers of yours yet. Search the store above.</div>'}
         </div>`;
       window.__salesCustomerRow = row;
+      const bind = (id) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); salesSearchCustomers(); } });
+      };
+      ['sales-cust-q','sales-cust-address','sales-cust-province','sales-cust-postal','sales-cust-country'].forEach(bind);
+      document.getElementById('sales-cust-go')?.addEventListener('click', () => salesSearchCustomers());
     },
 
     desk(body, d) {
