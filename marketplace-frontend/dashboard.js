@@ -1453,18 +1453,59 @@ window.applyMobileQuickRow = applyMobileQuickRow;
 
 // The page list for a restricted tier's mobile "more" sheet (with labels/icons), or
 // null for the full-OS experience (which uses the department / legacy renderers).
+
+function navPagesForProductKey(key) {
+  const only = String(key || '').toLowerCase().replace(/-/g, '_');
+  if (!only) return null;
+  const one = (page, label, icon, extra = {}) => [{ page, label, icon, ...extra }];
+  if (/facebook|autoposter|fb_solo|fb_dealership|^fb$/.test(only)) {
+    return one('inventory', 'Facebook Auto Poster', 'megaphone', { invmode: 'facebook' });
+  }
+  if (/ai_chatbot|ai_dealer|^ai$/.test(only)) {
+    return one('ai-home', 'AI Customer Agent', 'sparkles', { tab: 'conversations' });
+  }
+  if (/design_studio/.test(only)) {
+    return one('studio', 'Design Studio', 'camera', { studioLaunch: true });
+  }
+  if (/identity/.test(only)) {
+    return one('crm', 'Customer Verification', 'shield');
+  }
+  if (/social/.test(only)) {
+    return one('social-scheduler', 'Social Studio & Scheduler', 'calendar', { tab: 'overview' });
+  }
+  if (/email|campaign|automation/.test(only)) {
+    return one('automation-builder', 'Email, SMS & Campaigns', 'chat', { tab: 'overview' });
+  }
+  if (/video/.test(only)) {
+    return one('video-studio', 'MarketSync Video', 'video');
+  }
+  if (/^seo$|marketsync_seo/.test(only)) {
+    return one('seo', 'MarketSync SEO', 'chart', { tab: 'overview' });
+  }
+  if (/website|dealer_website/.test(only)) {
+    return one('website', 'Dealer Website', 'globe', { tab: 'setup' });
+  }
+  return null;
+}
+window.navPagesForProductKey = navPagesForProductKey;
+
 function restrictedNavPages() {
   // MarketSync Internal is a server-resolved workspace, not a dealer role or
   // product bundle. Resolve it before dealer-role/product navigation so a
   // platform owner can never inherit a dealership Pulse from stale entitlements.
   const suiteNow = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;
   const demoProd = String(window.__demoActiveProduct || window.__demoActivePackage || '').toLowerCase();
-  const suiteFromDemo = /digital|marketing/.test(demoProd);
+  const productAttr = String(document.documentElement.getAttribute('data-product') || '').trim();
+  const previewKey = demoProd || (productAttr && productAttr.split(/\s+/).length === 1 ? productAttr : '');
   if (suiteNow && typeof getMarketingSuiteConfig === 'function') {
     const cfg = getMarketingSuiteConfig(suiteNow);
     if (cfg && Array.isArray(cfg.navItems) && cfg.navItems.length) return cfg.navItems;
   }
-  if ((profileContext?.workspace === 'saas_admin' || profileContext?.is_marketsync === true) && !suiteFromDemo) {
+  if (previewKey && previewKey !== 'dealer_os' && !/^marketsync$|^saas/.test(previewKey)) {
+    const pages = typeof navPagesForProductKey === 'function' ? navPagesForProductKey(previewKey) : null;
+    if (pages && pages.length) return pages;
+  }
+  if ((profileContext?.workspace === 'saas_admin' || profileContext?.is_marketsync === true) && !previewKey) {
     return [
       { page: 'saas-command', label: 'Pulse', icon: 'chart' },
       { page: 'saas-customers', label: 'Accounts', icon: 'building' },
