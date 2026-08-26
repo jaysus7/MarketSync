@@ -40,12 +40,34 @@ const PPL_STATUS = {
 }
 const pplStatus = (s) => PPL_STATUS[s] || (s ? String(s).replace(/_/g, ' ') : 'Unknown')
 
+function pplAttentionGo(x) {
+  const src = String(x.source || x.source_label || '').toLowerCase();
+  if (src.includes('compliance')) return "engineTab('people-overview','time')";
+  if (src.includes('time') || src.includes('punch') || src.includes('schedule')) return "engineTab('people-overview','time')";
+  if (src.includes('people') || src.includes('staff')) return "engineTab('people-overview','people')";
+  if (src.includes('setup') || src.includes('accounting') || src.includes('inventory') || src.includes('tax')) return "switchPage('profile')";
+  if (x.onclick) return x.onclick;
+  return "engineTab('people-overview','overview')";
+}
 function pplAttentionRow(x) {
-  return `<div class="py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-    <div class="font-bold text-[13px] text-slate-900 dark:text-white">${esc(x.subject || x.kind)}</div>
-    <div class="text-[12px] text-slate-400">${esc(x.reason || '')}</div>
-    <div class="text-[12px] font-semibold mt-0.5 ${PPL_TONE[x.severity] || ''}">${esc(x.action || 'Review')}${x.source_label ? ` · ${esc(x.source_label)}` : ''}</div>
-  </div>`
+  const label = x.subject || x.kind || 'Needs attention';
+  const sub = [x.reason, x.action, x.source_label].filter(Boolean).join(' · ');
+  if (typeof pulseRow === 'function') {
+    return pulseRow({
+      label,
+      sub,
+      onclick: pplAttentionGo(x),
+      actionLabel: x.action_label || 'Open',
+      badge: x.severity >= 3 ? '!' : null,
+      badgeTone: x.severity >= 3 ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
+    });
+  }
+  return `<div class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-white dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800">
+    <div class="min-w-0 flex-1">
+      <div class="font-bold text-[14px] text-slate-900 dark:text-white">${esc(label)}</div>
+      <div class="text-[12px] text-slate-500 mt-0.5">${esc(sub)}</div>
+    </div>
+  </div>`;
 }
 
 function pplPersonRow(p) {
