@@ -1400,7 +1400,7 @@
     <section class="w-full md:col-span-1 min-w-0 flex-1 md:flex-none min-h-0 overflow-y-auto overflow-x-hidden md:h-full md:overflow-y-auto md:overflow-x-hidden">
       <!-- Full-width scroll region (scrollbar hugs the screen edge); an inner
            wrapper caps the readable content width so nothing sprawls edge-to-edge. -->
-      <div class="w-full pt-1 pb-32 md:pb-36">
+      <div class="w-full pt-1 pb-24">
 
       <!-- Department tab-bar — when the active page belongs to a multi-page
            department (Sales, Service, …), its sibling pages appear here as tabs.
@@ -3387,12 +3387,12 @@
   <div id="setup-status-banner" onclick="switchPage('launch')" role="button" tabindex="0" aria-label="Finish dealership setup" class="hidden fixed bottom-0 inset-x-0 z-30 px-3 pb-3 cursor-pointer"></div>
 
   <!-- ── Floating Intelligence Assistant (Bottom Right) ── -->
-  <button id="ai-dock-btn" onclick="toggleAiDock()" type="button" aria-label="Intelligence" class="fixed bottom-8 right-8 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm pl-4 pr-5 py-3 rounded-full shadow-lg shadow-indigo-600/40 transition">
+  <button id="ai-dock-btn" onclick="toggleAiDock()" type="button" aria-label="Intelligence" style="bottom:max(1.25rem,env(safe-area-inset-bottom));right:1.25rem" class="fixed bottom-5 right-5 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm pl-4 pr-5 py-3 rounded-full shadow-lg shadow-indigo-600/40 transition">
     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z"/></svg>
     <span id="ai-dock-btn-label">Intelligence</span>
   </button>
 
-  <div id="ai-dock-panel" class="hidden fixed z-50 bottom-8 right-8 left-4 sm:left-auto sm:w-[390px] max-h-[calc(100dvh-2rem)] h-[560px] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+  <div id="ai-dock-panel" class="hidden fixed z-50 bottom-5 right-5 left-4 sm:left-auto sm:w-[390px] max-h-[calc(100dvh-2rem)] h-[560px] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
     <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
       <div class="flex items-center gap-2 min-w-0">
         <span class="flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-600 text-white flex-shrink-0">
@@ -3427,7 +3427,7 @@
   </div>
 
   <!-- ── Google Hangouts style Team Messaging Widget Panel ── -->
-  <div id="team-chat-dock-panel" class="hidden fixed z-50 bottom-8 left-8 right-4 sm:right-auto sm:w-[380px] max-h-[calc(100dvh-2rem)] h-[560px] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+  <div id="team-chat-dock-panel" class="hidden fixed z-50 bottom-5 left-5 right-4 sm:right-auto sm:w-[380px] max-h-[calc(100dvh-2rem)] h-[560px] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
     <!-- View 1: Roster View -->
     <div id="widget-roster-view" class="flex flex-col h-full">
       <div class="p-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-between">
