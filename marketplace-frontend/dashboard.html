@@ -1435,6 +1435,7 @@
         <div id="settings-tabs" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none -mx-1 px-1">
           <button data-stab="account" onclick="settingsTab('account')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">My Account</button>
           <button data-stab="admin" data-admin-only onclick="settingsTab('admin')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Administration</button>
+          <button data-stab="team_chat" data-admin-only onclick="settingsTab('team_chat')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Team Chat</button>
           <button data-stab="hr" data-admin-only onclick="settingsTab('hr')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">HR &amp; Compliance</button>
           <button data-stab="sales" data-admin-only onclick="settingsTab('sales')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Sales</button>
           <button data-stab="marketing" data-admin-only onclick="settingsTab('marketing')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Marketing</button>
@@ -1468,6 +1469,20 @@
              bare, full-width wrapper so that panel (and the owner SaaS-roles panel)
              has a home without nesting a card inside a card. -->
         <div id="settings-team" data-stab-panel="team" data-full-width="true" class="break-inside-avoid mb-5"></div>
+
+        <div id="settings-team-chat-card" data-admin-only class="stab-hide bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 break-inside-avoid mb-5 shadow-xs">
+          <div class="flex items-start justify-between gap-3 mb-1">
+            <div>
+              <h2 class="text-lg font-bold text-slate-900 dark:text-white">Team Chat</h2>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Internal messaging for this dealership. Conversations stay in MarketSync and auto-delete after 90 days.</p>
+            </div>
+            <button type="button" onclick="openTeamChatWidget()" class="shrink-0 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800">Open chat</button>
+          </div>
+          <div id="team-chat-settings-root" class="mt-4 space-y-4">
+            <div class="text-sm text-slate-400 italic">Loading…</div>
+          </div>
+        </div>
+
 
         <!-- CRM / DMS connection (ADF lead delivery & DMS Sync) -->
         <div id="crm-dms-card" data-admin-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 break-inside-avoid mb-5 shadow-xs">
@@ -3936,7 +3951,7 @@
   <script src="js/modules/dashboard-part5.js?v=20260824_mobile_menu_signout_v1"></script>
   <script src="js/modules/dashboard-part6.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part7.js?v=20260814_v12"></script>
-  <script src="js/modules/dashboard-part8.js?v=20260818_videostaff_v2"></script>
+  <script src="js/modules/dashboard-part8.js?v=20260826_team_chat_settings_v1"></script>
   <script src="js/modules/dashboard-part9.js?v=20260825_settings_masonry_v1"></script>
   <script src="js/modules/dashboard-part10.js?v=20260826_pulse_pills_v1"></script>
   <script src="js/modules/dashboard-part11.js?v=20260825_mobile_polish_v1"></script>
@@ -3986,7 +4001,7 @@
     };
   </script>
   <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async></script>
-  <script src="js/modules/staff-chat-dock.js?v=20260826_core_pro_gate_v1"></script>
+  <script src="js/modules/staff-chat-dock.js?v=20260826_team_chat_settings_v1"></script>
   <script src="js/modules/demo-control-panel.js?v=20260821_campaign_email_v1"></script>
   <script src="table-sort.js?v=20260706a_noemoji"></script>
 </body>
