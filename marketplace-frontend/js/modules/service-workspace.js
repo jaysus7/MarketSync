@@ -462,13 +462,14 @@ ENGINES['service-overview'] = {
     // dead endpoint and a quiet shop looked identical on screen.
     const miss = [];
     const grab = (label, p) => p.catch(() => { miss.push(label); return null; });
-    const [ros, appts, reqs, closed, calls, cfg] = await Promise.all([
+    const [ros, appts, reqs, closed, calls, cfg, gamification] = await Promise.all([
       grab('repair orders', apiGetJson('/service-engine/ros')),
       grab('the appointment book', apiGetJson('/service/appointments')),
       grab('parts demand', apiGetJson('/service-engine/part-requests')),
       grab('closed repair orders', apiGetJson('/service-engine/ros?status=closed')),
       grab('follow-up calls', apiGetJson('/service-engine/follow-up-calls')),
       grab('service settings', apiGetJson('/service-engine/config')),
+      apiGetJson('/gamification').catch(() => null),
     ]);
     const d = {
       ros: (ros?.ros || []).filter(r => r.status !== 'closed'),
@@ -478,6 +479,7 @@ ENGINES['service-overview'] = {
       closedRos: closed ? (closed.ros || []) : null,
       followUps: calls ? (calls.calls || []) : null,
       config: cfg ? (cfg.config || null) : null,
+      gamification,
       unavailable: miss,
     };
     __svcData = d;
@@ -674,14 +676,9 @@ ENGINES['service-overview'] = {
             return count ? pulseRow({ badge: count, label: svcStatusLabel(status), onclick: "engineTab('service-overview','ros')" }) : '';
           }).filter(Boolean).join(''), empty: 'No open repair orders.',
         }),
-        // Service must call no endpoint outside /service(-engine)/… (it is sold and must
-        // work standalone), so the leaderboard itself is NOT fetched here — this links to
-        // the platform's own Leaderboard page, pre-set to the Service department, which
-        // reads /gamification on its own.
-        pulseCard({
-          title: 'Service leaderboard', tier: 'compact', onclick: "window.__activeLbDept='service'; switchPage('leaderboard')",
-          inner: `<p class="text-[12px] text-slate-500 dark:text-slate-400 leading-snug">Repair orders closed, revenue and CSI, ranked by advisor and tech.</p>`,
-        }),
+        // Department leaderboard embeds on the Service Pulse (same /gamification
+        // payload as the full Leaderboard page — ranked here, not navigated away).
+        pulseLeaderboardCard(d.gamification, 'service', { title: 'Service leaderboard', metric: 'ro_closed', tier: 'feature', limit: 8 }),
       ]);
 
       // The widget grid is the Service Pulse. Detailed repair-order work remains
