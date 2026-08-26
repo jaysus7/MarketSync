@@ -21,6 +21,8 @@ function buildMarketingSuiteConfig(key) {
   if (key === 'digital') {
     const navItems = [
       suiteItem('marketing-overview', 'Pulse', 'chart', { tab: 'overview' }),
+      suiteItem('marketing-overview', 'Sales Marketing', 'currency', { tab: 'sales_overview', dealerOnly: true }),
+      suiteItem('marketing-overview', 'Service Marketing', 'wrench', { tab: 'service_overview', dealerOnly: true }),
       suiteItem('website', 'Dealer Website', 'globe', { tab: 'setup' }),
       suiteItem('seo', 'MarketSync SEO', 'chart', { tab: 'overview' }),
       suiteItem('ai-home', 'AI Customer Agent', 'sparkles', { tab: 'conversations' }),
@@ -45,11 +47,13 @@ function buildMarketingSuiteConfig(key) {
         suiteItem('ai-home', 'Pulse', 'sparkles', { tab: 'conversations' }),
         suiteItem('ai-home', 'Setup', 'wrench', { tab: 'setup' }),
       ] },
-      { id: 'design', label: 'Design Studio', icon: 'camera', items: [navItems[4]] },
-      { id: 'social', label: 'Social Studio & Scheduler', icon: 'calendar', items: [navItems[5]] },
-      { id: 'marketplace', label: 'Facebook Marketplace', icon: 'megaphone', items: [navItems[6]] },
-      { id: 'video', label: 'Video', icon: 'video', items: [navItems[7]] },
-      { id: 'campaigns', label: 'Email, SMS & Campaigns', icon: 'chat', items: [navItems[8]] },
+      { id: 'sales', label: 'Sales Marketing', icon: 'currency', items: [navItems[1]] },
+      { id: 'service', label: 'Service Marketing', icon: 'wrench', items: [navItems[2]] },
+      { id: 'design', label: 'Design Studio', icon: 'camera', items: [navItems[6]] },
+      { id: 'social', label: 'Social Studio & Scheduler', icon: 'calendar', items: [navItems[7]] },
+      { id: 'marketplace', label: 'Facebook Marketplace', icon: 'megaphone', items: [navItems[8]] },
+      { id: 'video', label: 'Video', icon: 'video', items: [navItems[9]] },
+      { id: 'campaigns', label: 'Email, SMS & Campaigns', icon: 'chat', items: [navItems[10]] },
     ];
     return {
       id: key,
@@ -176,6 +180,26 @@ function getActiveMarketingSuite() {
   return null;
 }
 
+
+function isDealerSuiteLogin() {
+  const role = (typeof profileContext !== 'undefined' && profileContext?.role)
+    || (typeof window !== 'undefined' && window.__access && window.__access.role)
+    || '';
+  return ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'DEALER_GROUP'].includes(String(role));
+}
+
+function filterSuiteNavForRole(cfg) {
+  if (!cfg) return cfg;
+  const dealer = isDealerSuiteLogin();
+  const keep = (item) => !item?.dealerOnly || dealer;
+  const navItems = (cfg.navItems || []).filter(keep);
+  const areas = (cfg.areas || []).map(area => ({
+    ...area,
+    items: (area.items || []).filter(keep),
+  })).filter(area => (area.items || []).length);
+  return { ...cfg, navItems, areas, sections: [{ title: (cfg.badge || '').toUpperCase(), items: navItems }] };
+}
+
 function getMarketingSuiteConfig(suiteKey) {
   const key = suiteKey || getActiveMarketingSuite() || 'complete';
   const base = MARKETING_SUITE_CONFIG[key] || MARKETING_SUITE_CONFIG.complete;
@@ -200,7 +224,7 @@ function getMarketingSuiteConfig(suiteKey) {
       return { ...base, areas, navItems, sections: [{ title: (base.badge || '').toUpperCase(), items: navItems }] };
     }
   }
-  return base;
+  return filterSuiteNavForRole(base);
 }
 
 if (typeof window !== 'undefined') {
@@ -743,6 +767,37 @@ function mktDigitalPulseOverview(body, d, cfg, dayCaveat = '') {
 // Marketing Pulse is a readout of connected dealership sources, not a demo dashboard.
 // A source that failed to load is shown as unavailable; an empty source is shown as zero.
 // Keeping those states separate prevents an API failure from looking like business activity.
+
+function mktModePulse(body, d, mode, cfg, dayCaveat = '') {
+  const label = mode === 'service' ? 'Service Marketing' : 'Sales Marketing';
+  const sub = mode === 'service'
+    ? 'Retention, reviews, reminders, and service journeys.'
+    : 'Lead response, sales campaigns, and sales journeys.';
+  const match = (item) => {
+    const owner = String(item?.owner || item?.department || item?.mode || item?.category || '').toLowerCase();
+    return mode === 'service'
+      ? /service|retention|review|ro\b/.test(owner)
+      : /sales|lead|bdc|inventory/.test(owner) || !/service|retention/.test(owner);
+  };
+  const campaigns = (d.campaigns || []).filter(match);
+  const automations = (d.automations || []).filter(match);
+  body.innerHTML = `
+    ${pulseHeader(label, sub)}
+    ${pulseBoard([
+      pulseCard({ title: 'Campaigns', count: campaigns.length, tier: 'feature',
+        inner: campaigns.slice(0, 8).map(c => pulseRow({ badge: '•', label: c.name || c.title || 'Campaign', sub: c.status || c.channel || '' })).join(''),
+        empty: 'No ' + mode + ' campaigns yet.' }),
+      pulseCard({ title: 'Automations', count: automations.length, tier: 'feature',
+        inner: automations.slice(0, 8).map(a => pulseRow({ badge: '•', label: a.name || a.title || 'Automation', sub: a.status || a.channel || '' })).join(''),
+        empty: 'No ' + mode + ' automations yet.' }),
+      pulseCard({ title: 'Build', tier: 'standard',
+        inner: `<div class="flex flex-wrap gap-2 mt-1">
+          <button type="button" onclick="openVisualWorkflowBuilder()" class="px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black">Build Automation</button>
+          <button type="button" onclick="openEmailSmsBuilder({mode:'email'})" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">New Campaign</button>
+        </div>` }),
+    ])}`;
+}
+
 function mktPulseOverview(body, d, suite, cfg, dayCaveat = '') {
   if (suite === 'digital') {
     mktDigitalPulseOverview(body, d, cfg, dayCaveat);
@@ -881,7 +936,7 @@ ENGINES['marketing-overview'] = {
   reports: [
     { label: 'Marketing ROI', icon: 'chart', onclick: "openDeptReport('marketing')" },
   ],
-  tabLabels: { overview: 'Pulse', automations: 'Automations', campaigns: 'Campaigns', templates: 'Templates', audiences: 'Audiences', performance: 'Performance', studio: 'Design Studio', 'video-studio': 'Video Studio', chatbot: 'AI ChatBot', website: 'Website' },
+  tabLabels: { overview: 'Pulse', sales_overview: 'Sales Marketing', service_overview: 'Service Marketing', automations: 'Automations', campaigns: 'Campaigns', templates: 'Templates', audiences: 'Audiences', performance: 'Performance', studio: 'Design Studio', 'video-studio': 'Video Studio', chatbot: 'AI ChatBot', website: 'Website' },
   get tabOrder() {
     const access = (typeof window !== "undefined" && window.__access) ? window.__access : {};
     const feats = access.features || [];
@@ -988,6 +1043,18 @@ ENGINES['marketing-overview'] = {
 
       mktPulseOverview(body, d, suite, cfg, caveat);
       return;
+    },
+    sales_overview(body, d) {
+      const caveat = '';
+      const cfg = getMarketingSuiteConfig(getActiveMarketingSuite() || 'digital');
+      if (typeof mktModePulse === 'function') return mktModePulse(body, d, 'sales', cfg, caveat);
+      mktPulseOverview(body, d, 'sales', cfg, caveat);
+    },
+    service_overview(body, d) {
+      const caveat = '';
+      const cfg = getMarketingSuiteConfig(getActiveMarketingSuite() || 'digital');
+      if (typeof mktModePulse === 'function') return mktModePulse(body, d, 'service', cfg, caveat);
+      mktPulseOverview(body, d, 'service', cfg, caveat);
     },
     automations(body) {
       body.innerHTML = `<div id="mkt-automations-mount"></div>`;
