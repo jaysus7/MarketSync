@@ -904,7 +904,7 @@ function pulseCard({ title, count, tone, onclick, inner, span, empty, tier }) {
   // desktop padding on a phone. data-empty lets the board collapse a hero that
   // has nothing in it rather than reserving three rows for an empty box.
   if (tier) {
-    const material = (tier === 'hero' || tier === 'feature') ? ' ms-c--glass' : '';
+    const material = ' ms-c--glass';
     const interactive = onclick ? ' ms-c--interactive' : '';
     return `<div class="ms-c ms-c--${esc(tier)}${material}${interactive}" data-tier="${esc(tier)}"${inner ? '' : ' data-empty="true"'}>${body}</div>`;
   }
