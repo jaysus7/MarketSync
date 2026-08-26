@@ -366,7 +366,7 @@ ENGINES['fni-overview'] = {
             icon: 'document', label: fniCustomer(x), sub: [fniVehicle(x), 'Contract not signed'].filter(Boolean).join(' · '), onclick: "switchPage('fni')",
           })).join('') : '', empty: 'Every sold deal has a signed contract.',
         }),
-        pulseLeaderboardCard(d.gamification, 'fni', { title: 'F&I leaderboard', metric: 'pvr_avg' }),
+        pulseLeaderboardCard(d.gamification, 'fni', { title: 'F&I leaderboard', metric: 'pvr_avg', tier: 'feature', limit: 8 }),
       ]);
 
       // Keep one operational Pulse. The retired view below mirrors these same
