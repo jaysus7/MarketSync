@@ -278,7 +278,7 @@ async function openSiteManager() {
 function wsSettings() {
   if (!__siteCfg) return '<div class="mt-4 text-sm text-slate-400">Loading…</div>';
   return `
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full space-y-8">
+    <div class="w-full px-0 sm:px-1 py-2 space-y-6">
       <section class="ms-glass rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/70 p-5 md:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shadow-sm">
         <div class="min-w-0 flex items-start gap-3.5">
           <div class="w-11 h-11 rounded-2xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center justify-center flex-shrink-0">
@@ -430,7 +430,7 @@ function wsSetup() {
   `;
 
   return `
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full space-y-8">
+    <div class="w-full px-0 sm:px-1 py-2 space-y-6">
       <!-- Setup header — DealerOS-style glass bar -->
       <section class="ms-glass rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/70 p-5 md:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shadow-sm">
         <div class="min-w-0 flex items-start gap-3.5">
@@ -3006,7 +3006,7 @@ function renderLiveBuilder(body) {
 }
 function wsBlog() {
   return `
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full space-y-6">
+    <div class="w-full px-0 sm:px-1 py-2 space-y-6">
       <div class="flex items-center justify-between flex-wrap gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
         <div>
           <h1 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Website Blog &amp; Content Management</h1>
