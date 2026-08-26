@@ -1370,38 +1370,37 @@ function renderAutoCampaignsTab(container) {
       </div>
 
       <!-- Campaigns List -->
-      <div class="grid gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
         ${filtered.length ? filtered.map(c => `
-          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex items-center justify-between flex-wrap gap-4 hover:border-slate-300 dark:hover:border-slate-700 transition">
-            <div class="space-y-1">
-              <div class="flex items-center gap-2">
-                <h4 class="text-sm font-black text-slate-900 dark:text-white">${esc(c.name)}</h4>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${c.status === 'sent' ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' : c.status === 'sending' ? 'bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/30 animate-pulse' : c.status === 'scheduled' ? 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}">${c.status}</span>
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs flex flex-col gap-3 hover:border-slate-300 dark:hover:border-slate-700 transition">
+            <div class="space-y-1.5 min-w-0">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${c.status === 'sent' ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' : c.status === 'sending' ? 'bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/30' : c.status === 'scheduled' ? 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}">${c.status}</span>
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${esc(c.channel)}</span>
               </div>
-              <p class="text-xs text-slate-500 dark:text-slate-400">Audience: <span class="font-bold text-slate-700 dark:text-slate-300">${esc(c.audience)}</span> · ${c.date}</p>
+              <h4 class="text-sm font-black text-slate-900 dark:text-white leading-snug">${esc(c.name)}</h4>
+              <p class="text-xs text-slate-500 dark:text-slate-400">${esc(c.audience)} · ${c.date}</p>
             </div>
-
-            <div class="flex items-center gap-6 text-xs">
-              <div class="text-right">
+            <div class="grid grid-cols-3 gap-2 text-xs pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div>
                 <div class="text-[10px] uppercase font-bold text-slate-400">Recipients</div>
                 <div class="font-mono font-bold text-slate-900 dark:text-white">${c.sent_count ? c.sent_count.toLocaleString() : '—'}</div>
               </div>
-              <div class="text-right">
-                <div class="text-[10px] uppercase font-bold text-slate-400">Open / Read</div>
+              <div>
+                <div class="text-[10px] uppercase font-bold text-slate-400">Open</div>
                 <div class="font-mono font-bold text-indigo-600 dark:text-indigo-400">${c.open_rate}</div>
               </div>
-              <div class="text-right">
-                <div class="text-[10px] uppercase font-bold text-slate-400">Attributed Rev</div>
+              <div>
+                <div class="text-[10px] uppercase font-bold text-slate-400">Rev</div>
                 <div class="font-mono font-black text-emerald-600 dark:text-emerald-400">${c.rev}</div>
               </div>
-              <button onclick="openEmailSmsBuilder({ campaignId: '${c.id}', templateId: '${c.template_id || ''}', mode: '${c.channel.includes('SMS') ? 'sms' : 'email'}' })" class="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs transition cursor-pointer">
-                Edit Campaign &rarr;
-              </button>
             </div>
+            <button onclick="openEmailSmsBuilder({ campaignId: '${c.id}', templateId: '${c.template_id || ''}', mode: '${c.channel.includes('SMS') ? 'sms' : 'email'}' })" class="mt-auto w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs">
+              Edit Campaign
+            </button>
           </div>
         `).join('') : `
-          <div class="py-12 text-center text-sm text-slate-400 italic bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+          <div class="col-span-full py-12 text-center text-sm text-slate-400 italic bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
             No campaigns matching this filter. Click <b>+ New Campaign</b> to start one.
           </div>
         `}
