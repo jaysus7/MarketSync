@@ -1650,48 +1650,50 @@ function renderVideoStudioWorkspace(videos, isSaas = false) {
   });
 
   return `
-    <div class="space-y-6">
-      <!-- App Top Navigation Bar -->
-      <div class="flex items-center justify-between flex-wrap gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-violet-600/10 text-violet-600 dark:text-violet-400 flex items-center justify-center font-black">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+    <div class="space-y-6 md:space-y-8">
+      <!-- Feature header (suite product — not a department) -->
+      <section class="ms-glass rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/85 dark:bg-slate-900/75 p-5 md:p-6 shadow-sm">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div class="min-w-0 flex items-start gap-3.5">
+            <div class="w-12 h-12 rounded-2xl bg-violet-600/10 text-violet-700 dark:text-violet-300 border border-violet-500/25 flex items-center justify-center flex-shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            </div>
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <h1 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">${isSaas ? 'Product Video Studio' : 'MarketSync Video'}</h1>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/10 text-violet-800 dark:text-violet-300 border border-violet-500/25">${isSaas ? 'Product' : 'Feature'}</span>
+              </div>
+              <p class="text-sm text-slate-600 dark:text-slate-300 mt-1 max-w-2xl leading-relaxed">${isSaas ? 'Customer demos, onboarding, product updates, and watch-time evidence.' : 'Customer video messaging and sent-video library for sales and service.'}</p>
+            </div>
           </div>
-          <div>
-            <h1 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">${isSaas ? 'Product Video Studio' : 'MarketSync Video'}</h1>
-            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">${isSaas ? 'Customer demos, onboarding videos, product updates, and watch-time evidence' : 'Canonical Customer Video Messaging & Sent Videos Library'}</p>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <button onclick="openCustomerVideoStudio('', ${isSaas ? "{department:'MarketSync',scriptKey:'product_demo'}" : '{}'} )" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition flex items-center gap-2 shadow-sm cursor-pointer">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+          <button onclick="openCustomerVideoStudio('', ${isSaas ? "{department:'MarketSync',scriptKey:'product_demo'}" : '{}'} )" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-black transition flex items-center gap-1.5 shadow-md cursor-pointer flex-shrink-0">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
             Record Video
           </button>
         </div>
-      </div>
+      </section>
 
       <!-- Filter Controls & Search -->
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-4">
+      <div class="ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div class="flex flex-wrap items-center gap-2">
-            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Status:</span>
+            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400">Status</span>
             ${['all', 'draft', 'sent', 'viewed'].map(st => `
-              <button onclick="msFilterVideoStatus('${st}')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition capitalize ${__videoLibraryFilterStatus === st ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}">${st === 'all' ? 'All Videos' : st}</button>
+              <button onclick="msFilterVideoStatus('${st}')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition capitalize ${__videoLibraryFilterStatus === st ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'}">${st === 'all' ? 'All Videos' : st}</button>
             `).join('')}
           </div>
 
           <div class="${isSaas ? 'hidden' : 'flex'} items-center gap-2">
-            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Dept:</span>
+            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400">Dept</span>
             ${(isSaas ? ['all'] : ['all', 'sales', 'service']).map(dp => `
-              <button onclick="msFilterVideoDept('${dp}')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition capitalize ${__videoLibraryFilterDept === dp ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}">${dp}</button>
+              <button onclick="msFilterVideoDept('${dp}')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition capitalize ${__videoLibraryFilterDept === dp ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'}">${dp}</button>
             `).join('')}
           </div>
         </div>
 
         <div class="relative">
-          <input type="text" oninput="msSearchVideos(this.value)" value="${escV(__videoLibrarySearch)}" placeholder="${isSaas ? 'Search by customer, product, title, or employee…' : 'Search by customer name, title, vehicle, or salesperson...'}" class="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-violet-500">
-          <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          <input type="text" oninput="msSearchVideos(this.value)" value="${escV(__videoLibrarySearch)}" placeholder="${isSaas ? 'Search by customer, product, title, or employee…' : 'Search by customer name, title, vehicle, or salesperson...'}" class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-violet-500">
+          <svg class="w-4 h-4 text-slate-400 absolute left-3 top-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         </div>
       </div>
 
