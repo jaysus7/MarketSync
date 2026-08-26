@@ -1457,7 +1457,14 @@ function restrictedNavPages() {
   // MarketSync Internal is a server-resolved workspace, not a dealer role or
   // product bundle. Resolve it before dealer-role/product navigation so a
   // platform owner can never inherit a dealership Pulse from stale entitlements.
-  if (profileContext?.workspace === 'saas_admin' || profileContext?.is_marketsync === true) {
+  const suiteNow = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;
+  const demoProd = String(window.__demoActiveProduct || window.__demoActivePackage || '').toLowerCase();
+  const suiteFromDemo = /digital|marketing/.test(demoProd);
+  if (suiteNow && typeof getMarketingSuiteConfig === 'function') {
+    const cfg = getMarketingSuiteConfig(suiteNow);
+    if (cfg && Array.isArray(cfg.navItems) && cfg.navItems.length) return cfg.navItems;
+  }
+  if ((profileContext?.workspace === 'saas_admin' || profileContext?.is_marketsync === true) && !suiteFromDemo) {
     return [
       { page: 'saas-command', label: 'Pulse', icon: 'chart' },
       { page: 'saas-customers', label: 'Accounts', icon: 'building' },
