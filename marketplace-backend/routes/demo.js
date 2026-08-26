@@ -322,14 +322,31 @@ export function registerDemo(app) {
 
 export async function seedDemoEmployees(dealershipId, ownerId) {
   for (const employee of DEMO_EMPLOYEES) {
-    const { data: existing, error: findError } = await supabaseAdmin.from('staff_members')
+    const { data: existing } = await supabaseAdmin.from('staff_members')
       .select('id').eq('dealership_id', dealershipId).eq('email', employee.email).maybeSingle()
-    if (findError) throw findError
     if (existing) continue
-    const { data: created, error } = await supabaseAdmin.from('staff_members').insert({
+    const full = {
       dealership_id: dealershipId, ...employee, employment_status: 'active', active: true,
       onboarding_status: 'not_started', compliance_status: 'not_started', created_by: ownerId,
-    }).select('id').single()
+    }
+    let created = null, error = null
+    ;({ data: created, error } = await supabaseAdmin.from('staff_members').insert(full).select('id').single())
+    if (error) {
+      const minimal = {
+        dealership_id: dealershipId,
+        name: employee.name,
+        email: employee.email,
+        phone: employee.phone || null,
+        department: employee.department,
+        team: employee.team || employee.department,
+        job_title: employee.job_title,
+        location_name: employee.location_name || null,
+        start_date: employee.start_date || null,
+        employment_status: 'active',
+        created_by: ownerId,
+      }
+      ;({ data: created, error } = await supabaseAdmin.from('staff_members').insert(minimal).select('id').single())
+    }
     if (error) throw error
     await supabaseAdmin.from('staff_status_history').insert({
       dealership_id: dealershipId, staff_member_id: created.id, from_status: null,
