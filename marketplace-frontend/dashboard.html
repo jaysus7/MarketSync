@@ -27,7 +27,7 @@
   <link rel="stylesheet" href="css/dashboard-nav.css">
   <link rel="stylesheet" href="css/dashboard-brand-repaint.css">
   <link rel="stylesheet" href="css/tailwind-built.css?v=20260825_header_spacing_v1">
-  <link rel="stylesheet" href="css/ms-design-system.css?v=20260826_pulse_hierarchy_v3">
+  <link rel="stylesheet" href="css/ms-design-system.css?v=20260826_pulse_appr_v4">
   <meta name="color-scheme" content="light dark">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
@@ -2995,13 +2995,13 @@
           </button>
         </div>
 
-        <!-- Appraisal flow (3-column workflow) on the left; Appraisals list pinned right on wide screens -->
-        <div class="grid gap-6 items-start xl:grid-cols-[minmax(0,1fr)_340px]">
+        <!-- Appraisal flow on the left; Appraisals list pinned right on wide screens (stacks under form when space is tight / engine-mounted) -->
+        <div class="grid gap-6 items-start xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
           <div class="space-y-6 min-w-0">
 
         <!-- Appraisal workflow — three columns: Vehicle & VIN · Condition & Appraisal · Market & Value.
              One column on mobile, two on tablet, three on desktop; no control is ever squeezed. -->
-        <div class="grid gap-4 items-start md:grid-cols-2 xl:grid-cols-3">
+        <div class="grid gap-4 items-start md:grid-cols-2">
 
         <!-- Column / Card 1 — Vehicle & VIN -->
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
@@ -3104,8 +3104,8 @@
 
         </div>
 
-        <!-- Column / Card 3 — Market & Value -->
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+        <!-- Market & Value — full width under vehicle/condition (avoids empty third column) -->
+        <div class="md:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
           <div class="flex items-center gap-2"><span class="w-1.5 h-4 rounded-full bg-emerald-500 flex-shrink-0"></span><h3 class="text-sm font-bold text-slate-900 dark:text-white">Market &amp; Value</h3></div>
           <p class="text-xs text-slate-500 dark:text-slate-400">Live retail comps and a suggested cash/trade offer from MarketCheck.</p>
           <button id="appr-run" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-5 py-2.5 rounded-lg transition">Appraise</button>
@@ -3917,7 +3917,7 @@
   <script src="js/modules/dashboard-part7.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part8.js?v=20260818_videostaff_v2"></script>
   <script src="js/modules/dashboard-part9.js?v=20260825_settings_masonry_v1"></script>
-  <script src="js/modules/dashboard-part10.js?v=20260826_lb_embed_v1"></script>
+  <script src="js/modules/dashboard-part10.js?v=20260826_pulse_appr_v4"></script>
   <script src="js/modules/dashboard-part11.js?v=20260825_mobile_polish_v1"></script>
   <script src="js/modules/dashboard-part12.js?v=20260825_deep_links_v1"></script>
   <script src="js/modules/dashboard-part13.js?v=20260824_ai_panel_contrast_v1"></script>
@@ -3935,18 +3935,18 @@
   <script src="js/modules/dashboard-part25.js?v=20260817_punchclock_v1"></script>
   <script src="js/modules/dashboard-part26.js?v=20260824_staff_password_css_v1"></script>
   <!-- Sales workspace: registers ENGINES['sales']; must load after the parts. -->
-  <script src="js/modules/sales-workspace.js?v=20260826_lb_embed_v1"></script>
+  <script src="js/modules/sales-workspace.js?v=20260826_pulse_appr_v4"></script>
   <script src="js/modules/inventory-workspace.js?v=20260824_ai_panel_contrast_inventory_v2"></script>
-  <script src="js/modules/fni-workspace.js?v=20260826_lb_embed_v1"></script>
+  <script src="js/modules/fni-workspace.js?v=20260826_pulse_appr_v4"></script>
   <!-- Vehicle Record: one unit, one surface. Loads after inventory-workspace.js,
        whose merchandising/acquisition definitions it renders. -->
   <script src="js/modules/vehicle-record.js?v=20260824_inventory_accuracy_v1"></script>
   <script src="js/modules/receipt-engine.js?v=20260824_real_receipt_data_v1"></script>
   <script src="js/modules/video-studio.js?v=20260824_no_hardcoded_videos_digital_restore_v1"></script>
   <script src="js/modules/service-views.js?v=20260824_ai_panel_contrast_v1"></script>
-  <script src="js/modules/service-workspace.js?v=20260826_lb_embed_v1"></script>
+  <script src="js/modules/service-workspace.js?v=20260826_pulse_appr_v4"></script>
   <script src="js/modules/parts-views.js?v=20260825_dead_handlers_v1"></script>
-  <script src="js/modules/parts-workspace.js?v=20260826_pulse_hierarchy_v3"></script>
+  <script src="js/modules/parts-workspace.js?v=20260826_pulse_appr_v4"></script>
   <script src="js/modules/accounting-views.js?v=20260817_simple_internal"></script>
   <script src="js/modules/accounting-workspace.js?v=20260824_department_header_v1"></script>
   <script src="js/modules/studio/scene-model.js?v=20260814_v12"></script>
