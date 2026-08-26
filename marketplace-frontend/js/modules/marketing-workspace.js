@@ -21,8 +21,6 @@ function buildMarketingSuiteConfig(key) {
   if (key === 'digital') {
     const navItems = [
       suiteItem('marketing-overview', 'Pulse', 'chart', { tab: 'overview' }),
-      suiteItem('marketing-overview', 'Sales Marketing', 'currency', { tab: 'sales_overview', dealerOnly: true }),
-      suiteItem('marketing-overview', 'Service Marketing', 'wrench', { tab: 'service_overview', dealerOnly: true }),
       suiteItem('website', 'Dealer Website', 'globe', { tab: 'setup' }),
       suiteItem('seo', 'MarketSync SEO', 'chart', { tab: 'overview' }),
       suiteItem('ai-home', 'AI Customer Agent', 'sparkles', { tab: 'conversations' }),
@@ -47,13 +45,11 @@ function buildMarketingSuiteConfig(key) {
         suiteItem('ai-home', 'Pulse', 'sparkles', { tab: 'conversations' }),
         suiteItem('ai-home', 'Setup', 'wrench', { tab: 'setup' }),
       ] },
-      { id: 'sales', label: 'Sales Marketing', icon: 'currency', items: [navItems[1]] },
-      { id: 'service', label: 'Service Marketing', icon: 'wrench', items: [navItems[2]] },
-      { id: 'design', label: 'Design Studio', icon: 'camera', items: [navItems[6]] },
-      { id: 'social', label: 'Social Studio & Scheduler', icon: 'calendar', items: [navItems[7]] },
-      { id: 'marketplace', label: 'Facebook Marketplace', icon: 'megaphone', items: [navItems[8]] },
-      { id: 'video', label: 'Video', icon: 'video', items: [navItems[9]] },
-      { id: 'campaigns', label: 'Email, SMS & Campaigns', icon: 'chat', items: [navItems[10]] },
+      { id: 'design', label: 'Design Studio', icon: 'camera', items: [navItems[4]] },
+      { id: 'social', label: 'Social Studio & Scheduler', icon: 'calendar', items: [navItems[5]] },
+      { id: 'marketplace', label: 'Facebook Marketplace', icon: 'megaphone', items: [navItems[6]] },
+      { id: 'video', label: 'Video', icon: 'video', items: [navItems[7]] },
+      { id: 'campaigns', label: 'Email, SMS & Campaigns', icon: 'chat', items: [navItems[8]] },
     ];
     return {
       id: key,
@@ -74,10 +70,12 @@ function buildMarketingSuiteConfig(key) {
   const navItems = [
     suiteItem('marketing-overview', 'Pulse', 'chart', { tab: 'overview' }),
   ];
-  if (definition.marketingModes.includes('sales')) {
+  // Complete (and Digital) fold sales+service into the main Pulse.
+  // Single-mode suites keep one named hub because that IS the product.
+  if (key === 'sales') {
     navItems.push(suiteItem('marketing-overview', 'Sales Marketing', 'currency', { tab: 'sales_overview' }));
   }
-  if (definition.marketingModes.includes('service')) {
+  if (key === 'service') {
     navItems.push(suiteItem('marketing-overview', 'Service Marketing', 'wrench', { tab: 'service_overview' }));
   }
   navItems.push(
@@ -521,6 +519,51 @@ async function mktTakeover(conversationId) {
 }
 window.mktTakeover = mktTakeover;
 
+
+function mktIsServiceItem(item) {
+  const s = [item?.owner, item?.department, item?.mode, item?.category, item?.channel, item?.name, item?.title].join(' ').toLowerCase();
+  return /service|retention|review|ro\b|reminder|csi|advisor/.test(s);
+}
+function mktFeatureOn(page, invmode) {
+  try { return typeof pageFeatureOk !== 'function' || pageFeatureOk(page, invmode || null); } catch { return true; }
+}
+function mktSalesServicePulseCards(d) {
+  const campaigns = Array.isArray(d?.campaigns) ? d.campaigns : [];
+  const autos = Array.isArray(d?.automations) ? d.automations : [];
+  const videos = Array.isArray(d?.videos) ? d.videos : (Array.isArray(d?.assets) ? d.assets : []);
+  const salesCamps = campaigns.filter(c => !mktIsServiceItem(c));
+  const svcCamps = campaigns.filter(mktIsServiceItem);
+  const salesAutos = autos.filter(a => !mktIsServiceItem(a));
+  const svcAutos = autos.filter(mktIsServiceItem);
+  const salesVids = videos.filter(v => !mktIsServiceItem(v));
+  const svcVids = videos.filter(mktIsServiceItem);
+  const row = (list) => list.slice(0, 6).map(x => {
+    const label = x.name || x.title || x.subject || 'Item';
+    const sub = [x.status, x.channel, x.department].filter(Boolean).join(' · ');
+    return (typeof pulseRow === 'function')
+      ? pulseRow({ badge: '•', label, sub })
+      : `<div class="py-1 text-[13px] font-semibold">${esc(label)}</div>`;
+  }).join('');
+  const cards = [];
+  if (mktFeatureOn('automation-builder')) {
+    cards.push(pulseCard({ title: 'Sales campaigns', count: salesCamps.length, tier: 'feature',
+      onclick: "switchPage('automation-builder')", inner: row(salesCamps), empty: 'No sales campaigns yet.' }));
+    cards.push(pulseCard({ title: 'Service campaigns', count: svcCamps.length, tier: 'feature',
+      onclick: "switchPage('automation-builder')", inner: row(svcCamps), empty: 'No service campaigns yet.' }));
+    cards.push(pulseCard({ title: 'Sales automations', count: salesAutos.length, tier: 'standard',
+      onclick: "switchPage('automation-builder')", inner: row(salesAutos), empty: 'No sales automations yet.' }));
+    cards.push(pulseCard({ title: 'Service automations', count: svcAutos.length, tier: 'standard',
+      onclick: "switchPage('automation-builder')", inner: row(svcAutos), empty: 'No service automations yet.' }));
+  }
+  if (mktFeatureOn('video-studio')) {
+    cards.push(pulseCard({ title: 'Sales video', count: salesVids.length, tier: 'standard',
+      onclick: "switchPage('video-studio')", inner: row(salesVids), empty: 'No sales videos yet.' }));
+    cards.push(pulseCard({ title: 'Service video', count: svcVids.length, tier: 'standard',
+      onclick: "switchPage('video-studio')", inner: row(svcVids), empty: 'No service videos yet.' }));
+  }
+  return cards.filter(Boolean);
+}
+
 function mktDigitalPulseOverview(body, d, cfg, dayCaveat = '') {
   const sourceStatus = d.sourceStatus || {};
   const isAvailable = (source) => sourceStatus[source] !== false;
@@ -596,6 +639,9 @@ function mktDigitalPulseOverview(body, d, cfg, dayCaveat = '') {
           <div class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 truncate">ADF Real-time</div>
         </div>
       </section>
+
+      ${pulseHeader('Sales & Service', 'Campaigns, automations, and video — split by department, gated to what this dealership owns')}
+      ${pulseBoard(mktSalesServicePulseCards(d))}
 
       <!-- ALL FEATURE PULSES GRID -->
       <div class="space-y-6 pt-1">
@@ -888,6 +934,8 @@ function mktPulseOverview(body, d, suite, cfg, dayCaveat = '') {
       pulseCard({ title: 'Open conversations', count: metric('conversations', openConversations.length), tier: 'compact' }),
       pulseCard({ title: 'Actual spend', count: spendValue, tier: 'compact' }),
     ])}
+    ${pulseHeader('Sales & Service', 'Campaigns, automations, and video from both sides of the store')}
+    ${pulseBoard(mktSalesServicePulseCards(d))}
     <section>
       ${isAvailable('roi') && d.roi != null
         ? mktAdRoi(d)
