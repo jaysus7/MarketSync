@@ -382,7 +382,7 @@ ENGINES['sales'] = {
       // ── Pulse grid — the at-a-glance widget wall ────────────────────────────
       const grid = pulseBoard([
         pulseCard({
-          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', tier: att.length ? 'tall' : 'standard',
+          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', tier: att.length ? 'hero' : 'standard',
           inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '', empty: 'Nothing needs you right now.',
         }),
         pulseCard({
