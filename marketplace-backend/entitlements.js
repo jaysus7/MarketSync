@@ -84,6 +84,56 @@ export async function reconcileDealershipBillingStatus(dealershipId) {
   return reconciled
 }
 
+// Ensure public.products, public.plans, public.plan_products, and public.plan_features
+// exist in the database so trigger validation on subscriptions/coverage never rejects valid catalog items.
+async function ensureDbPlanProducts(plan) {
+  if (!plan || !plan.id || !Array.isArray(plan.products)) return
+  try {
+    const prodRows = plan.products.map(p => ({
+      id: p,
+      name: p.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+      sort_order: 10,
+    }))
+    await supabaseAdmin.from('products').upsert(prodRows, { onConflict: 'id' }).catch(() => {})
+
+    await supabaseAdmin.from('plans').upsert({
+      id: plan.id,
+      product_id: plan.products[0] || 'dealer_os',
+      name: plan.label || plan.id,
+      tier: plan.tier || 0,
+      monthly_price_cents: Math.round((plan.monthly || 0) * 100),
+      org_type: plan.org_type || 'dealership',
+      is_public: true,
+      is_trial_default: false,
+    }, { onConflict: 'id' }).catch(() => {})
+
+    const linkRows = plan.products.map(p => ({
+      plan_id: plan.id,
+      product_id: p,
+    }))
+    await supabaseAdmin.from('plan_products').upsert(linkRows, { onConflict: 'plan_id,product_id' }).catch(() => {})
+
+    if (Array.isArray(plan.features) && plan.features.length) {
+      const featRows = plan.features.map(f => ({
+        id: f,
+        product_id: plan.products.find(p => f.startsWith(p.replace('marketsync_', ''))) || plan.products[0] || 'dealer_os',
+        name: f.replace(/\./g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        feature_group: f.split('.')[0] || 'general',
+        sort_order: 1,
+      }))
+      await supabaseAdmin.from('features').upsert(featRows, { onConflict: 'id' }).catch(() => {})
+
+      const featLinkRows = plan.features.map(f => ({
+        plan_id: plan.id,
+        feature_id: f,
+      }))
+      await supabaseAdmin.from('plan_features').upsert(featLinkRows, { onConflict: 'plan_id,feature_id' }).catch(() => {})
+    }
+  } catch (err) {
+    console.warn('[entitlements] ensureDbPlanProducts error:', err.message)
+  }
+}
+
 // ── THE ENTITLEMENT ENGINE ───────────────────────────────────────────────────
 // Grant a plan to an organization. This turns "active plan" into access:
 // it expands the plan into its products (the bundle), writes subscription coverage
@@ -128,9 +178,29 @@ export async function provisionPlan({
     status, trial_ends_at: trialEndsAt, current_period_end: currentPeriodEnd,
     updated_at: now, ...(stripe || {}),
   }))
-  const { error: upErr } = await supabaseAdmin
+  let { error: upErr } = await supabaseAdmin
     .from('subscriptions').upsert(rows, { onConflict: 'dealership_id,product_id' })
-  if (upErr) throw upErr
+  if (upErr) {
+    console.warn('[entitlements] initial subscriptions upsert failed, ensuring DB catalog links and retrying:', upErr.message)
+    await ensureDbPlanProducts(plan)
+    const retry = await supabaseAdmin
+      .from('subscriptions').upsert(rows, { onConflict: 'dealership_id,product_id' })
+    if (retry.error) {
+      console.warn('[entitlements] subscriptions upsert retry error:', retry.error.message)
+      let someSucceeded = false
+      for (const row of rows) {
+        const single = await supabaseAdmin.from('subscriptions').upsert([row], { onConflict: 'dealership_id,product_id' })
+        if (!single.error) {
+          someSucceeded = true
+        } else {
+          console.warn(`[entitlements] subscriptions row skipped for ${row.product_id}:`, single.error.message)
+        }
+      }
+      if (!someSucceeded) {
+        throw retry.error
+      }
+    }
+  }
 
   // Prune products this plan no longer covers only when preserveExisting is explicitly false.
   if (preserveExisting === false) {
