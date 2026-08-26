@@ -246,15 +246,15 @@ async function aiHomeOverviewAndFeed(body) {
       name: chatbot.assistant_name || '',
     })}
 
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-5 md:gap-6 items-start">
-      <div class="xl:col-span-3 space-y-4">
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-5 md:gap-6 items-start">
+      <div class="xl:col-span-5 space-y-4 min-w-0">
         ${insights}
-        <div class="grid md:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           ${breakdown('By department', byDept, AI_DEPT_LABELS, 'bg-emerald-500')}
           ${breakdown('By lead type', byType, AI_TYPE_LABELS, 'bg-indigo-500')}
         </div>
       </div>
-      <div class="xl:col-span-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4">
+      <div class="xl:col-span-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4 min-w-0">
       <div class="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 class="text-base font-black text-slate-900 dark:text-white uppercase tracking-wider">AI Leads &amp; Conversations</h2>
