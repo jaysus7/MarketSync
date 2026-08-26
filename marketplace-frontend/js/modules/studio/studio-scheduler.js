@@ -213,49 +213,43 @@ async function loadSocialSchedulerPageTab(tab) {
   ];
 
   root.innerHTML = `
-    <div class="space-y-6">
-      <!-- Product Header & Action Banner -->
-      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 border border-indigo-500/20 shadow-xl relative overflow-hidden">
-        <div class="absolute -right-16 -bottom-16 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div class="space-y-2">
-            <div class="flex items-center gap-2.5 flex-wrap">
-              <span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 flex items-center gap-1.5">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5"/></svg>
-                Social Media Suite
-              </span>
-              <span class="text-xs text-indigo-200/80 font-medium">Multi-Platform Publishing &amp; Content Calendar</span>
+    <div class="space-y-6 md:space-y-8">
+      <!-- Department glass header -->
+      <section class="ms-glass rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/85 dark:bg-slate-900/75 p-5 md:p-6 shadow-sm">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div class="min-w-0 flex items-start gap-3.5">
+            <div class="w-12 h-12 rounded-2xl bg-indigo-600/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/25 flex items-center justify-center flex-shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5"/></svg>
             </div>
-            <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Social Scheduler</h1>
-            <p class="text-sm text-slate-300 max-w-2xl">
-              Create, organize, and publish social media content across Facebook, Instagram, LinkedIn, TikTok, YouTube, and X.
-            </p>
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <h1 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">Social Scheduler</h1>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/25">Social Media Suite</span>
+              </div>
+              <p class="text-sm text-slate-600 dark:text-slate-300 mt-1 max-w-2xl leading-relaxed">Publish and schedule across Facebook, Instagram, LinkedIn, TikTok, YouTube, and X.</p>
+            </div>
           </div>
-
-          <div class="flex items-center gap-2.5 flex-wrap shrink-0">
-            <button type="button" onclick="loadSocialSchedulerPage('create')" class="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-lg shadow-indigo-600/30 transition flex items-center gap-2 cursor-pointer">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-              <span>+ Create Post</span>
+          <div class="flex items-center gap-2 flex-wrap shrink-0">
+            <button type="button" onclick="loadSocialSchedulerPage('create')" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md transition flex items-center gap-1.5 cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+              Create Post
             </button>
-            <label class="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-sm font-bold border border-white/10 backdrop-blur-sm transition flex items-center gap-2 cursor-pointer">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
-              <span>+ Upload from Canva / Adobe / Phone</span>
+            <label class="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs font-bold border border-slate-200 dark:border-slate-700 transition flex items-center gap-1.5 cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+              Upload
               <input type="file" accept="image/*,video/*" class="hidden" onchange="studioSchedulerUploadMedia(this)">
             </label>
-            <button type="button" onclick="loadSocialSchedulerPage('accounts')" class="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-sm font-bold border border-white/10 backdrop-blur-sm transition flex items-center gap-2 cursor-pointer">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/></svg>
-              <span>Accounts</span>
-            </button>
+            <button type="button" onclick="loadSocialSchedulerPage('accounts')" class="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs font-bold border border-slate-200 dark:border-slate-700 transition cursor-pointer">Accounts</button>
           </div>
         </div>
-      </div>
+      </section>
 
       <!-- Navigation Sub-Tab Bar -->
-      <div class="border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 overflow-x-auto pb-2">
+      <div class="border-b border-slate-200 dark:border-slate-800 flex items-center gap-1.5 overflow-x-auto pb-1">
         ${tabsConfig.map(t => {
           const active = __studioSchedulerTab === t.id;
           return `
-            <button type="button" onclick="loadSocialSchedulerPage('${t.id}')" class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${active ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'}">
+            <button type="button" onclick="loadSocialSchedulerPage('${t.id}')" class="px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${active ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-800 dark:text-slate-200 hover:text-indigo-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'}">
               <span>${t.label}</span>
               ${t.badge ? `<span class="px-1.5 py-0.5 rounded-full text-[10px] bg-slate-900/40 text-white">${t.badge}</span>` : ''}
             </button>
