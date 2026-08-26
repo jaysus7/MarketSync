@@ -1488,9 +1488,9 @@ body.website-builder-mode {
    that duplication predates this merge; harmless in CSS (last write wins, same
    values), left as-is rather than risk trimming something still relied upon. */
 :root {
-  --ms-bg: #f7f8fa;
+  --ms-bg: #e8ecf2;
   --ms-surface: rgba(255, 255, 255, 0.85);
-  --ms-surface-solid: #ffffff;
+  --ms-surface-solid: #f3f5f8;
   --ms-text: #17191f;
   --ms-text-muted: #687386;
   --ms-border: rgba(23, 25, 31, 0.12);
@@ -1530,9 +1530,9 @@ body.ms-app-booting > header { background:var(--ms-surface) !important; border-c
    handlers, role gates, and API contracts remain unchanged.
 ────────────────────────────────────────────────────────────────────────── */
 :root {
-  --ms-bg: #f7f8fa;
+  --ms-bg: #e8ecf2;
   --ms-surface: rgba(255, 255, 255, 0.85);
-  --ms-surface-solid: #ffffff;
+  --ms-surface-solid: #f3f5f8;
   --ms-text: #17191f;
   --ms-text-muted: #687386;
   --ms-border: rgba(23, 25, 31, 0.12);
@@ -2507,6 +2507,26 @@ html[data-ms-suite="digital"] .ms-digital-suite > div,
 }
 [role="tablist"]::-webkit-scrollbar {
   display: none;
+}
+.no-scrollbar, .scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar, .scrollbar-none::-webkit-scrollbar { display: none; }
+html:not(.dark) {
+  --ms-bg: #e8ecf2;
+  --ms-surface: rgba(247, 249, 252, 0.78);
+  --ms-surface-solid: #f3f5f8;
+}
+html:not(.dark) .ms-c--glass,
+html:not(.dark) .ms-glass,
+html:not(.dark) .ms-c {
+  background: rgba(247, 249, 252, 0.82);
+  border-color: rgba(15, 23, 42, 0.08);
+}
+html:not(.dark) #seo-workspace-root .rounded-2xl,
+html:not(.dark) #seo-workspace-root table {
+  background: #f6f7fa;
 }
 /* MarketSync Internal — one restrained liquid-glass company operating system. */
 html[data-dash-mode="marketsync"] body {
