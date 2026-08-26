@@ -1224,10 +1224,10 @@ ENGINES['marketing-overview'] = {
     // Pulse home for the site: SEO analytics live here. Builder is a tool that
     // returns to this Pulse. Dealer OS treats SEO as under Website.
     website(body) {
-      window.websiteWorkspacePreviousRoute = { dept: 'marketing', page: 'marketing-overview', tab: 'overview' };
+      window.websiteWorkspacePreviousRoute = { dept: 'marketing', page: 'marketing-overview', tab: 'website' };
       body.innerHTML = `
         ${mktSuiteBand('Website', 'Websites', 'SEO analytics live on this Pulse. The builder opens full screen and comes back here.',
-          `<button type="button" onclick="window.websiteWorkspacePreviousRoute={dept:'marketing',page:'marketing-overview',tab:'website'};switchPage('website')" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Open builder</button>
+          `<button type="button" onclick="window.websiteWorkspacePreviousRoute={dept:'marketing',page:'marketing-overview',tab:'website'};if(typeof openWebsiteBuilder==='function')openWebsiteBuilder();else switchPage('website')" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Open builder</button>
            <button type="button" onclick="document.getElementById('seo-workspace-root')?.scrollIntoView({behavior:'smooth'})" class="liquid-glass-btn-secondary px-4 py-2 rounded-xl text-sm font-black">SEO</button>`)}
         <div id="seo-workspace-root" class="space-y-6"></div>
       `;
