@@ -922,37 +922,33 @@ function renderAutoAutomationsTab(container) {
   }
 
   container.innerHTML = `
-    <div class="space-y-6">
-      <!-- Clean App-like Section Header -->
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
+    <div class="space-y-6 md:space-y-8">
+      <!-- Feature section header -->
+      <div class="ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
         <div class="flex items-center justify-between flex-wrap gap-4">
-          <div>
+          <div class="min-w-0">
             <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Logic &amp; Journeys</div>
-            <h3 class="text-xl font-black text-slate-900 dark:text-white mt-0.5">Automated Communication Workflows</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">Event-driven automations, 90-second speed-to-lead, review requests, and service interval triggers.</p>
+            <h3 class="text-xl font-black text-slate-900 dark:text-white mt-0.5 tracking-tight">Automated Communication Workflows</h3>
+            <p class="text-sm text-slate-600 dark:text-slate-300 mt-1 max-w-2xl leading-relaxed">Event-driven automations, 90-second speed-to-lead, review requests, and service interval triggers.</p>
           </div>
-          <div class="flex items-center gap-2 flex-wrap">
-            <button onclick="openVisualWorkflowBuilder()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer">
-              <svg class="w-3.5 h-3.5 text-amber-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
-              <span>+ Build Automation</span>
-            </button>
-          </div>
+          <button onclick="openVisualWorkflowBuilder()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer flex-shrink-0">
+            <svg class="w-3.5 h-3.5 text-amber-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
+            <span>+ Build Automation</span>
+          </button>
         </div>
-
-        <!-- Filter Category Pills -->
         <div class="flex items-center gap-1.5 overflow-x-auto pt-4 mt-4 border-t border-slate-100 dark:border-slate-800">
           ${cats.map(c => `
-            <button onclick="__autoCategoryFilter='${c.key}'; renderAutoAutomationsTab(document.getElementById('auto-leads-root'))" class="px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${__autoCategoryFilter === c.key ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">
+            <button onclick="__autoCategoryFilter='${c.key}'; renderAutoAutomationsTab(document.getElementById('auto-leads-root'))" class="px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${__autoCategoryFilter === c.key ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'}">
               ${c.label}
             </button>
           `).join('')}
         </div>
       </div>
 
-      <!-- Workflow Cards Grid -->
-      <div class="grid gap-4">
+      <!-- 3-column workflow grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6 items-stretch">
         ${items.length ? items.map(wf => renderAutoWorkflowCard(wf)).join('') : `
-          <div class="py-12 text-center text-sm text-slate-400 italic bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+          <div class="md:col-span-2 xl:col-span-3 py-12 text-center text-sm text-slate-400 italic bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
             No active workflows in this category yet. Click <b>+ Build Automation</b> to create one.
           </div>
         `}
@@ -974,7 +970,7 @@ function renderAutoWorkflowCard(wf) {
   const chLabel = isBoth ? 'Email + SMS' : isSms ? 'SMS Only' : isTask ? 'Sales Rep Task' : 'Email Only';
 
   return `
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs transition hover:border-slate-300 dark:hover:border-slate-700 space-y-4">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs transition hover:border-slate-300 dark:hover:border-slate-700 space-y-4 h-full flex flex-col">
       <div class="flex items-start justify-between flex-wrap gap-3">
         <div class="flex items-start gap-3">
           <div class="w-3.5 h-3.5 rounded-full mt-1 ${wf.is_active !== false ? 'bg-emerald-500 ring-4 ring-emerald-500/20' : 'bg-slate-400'}"></div>
