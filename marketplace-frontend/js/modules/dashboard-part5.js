@@ -221,7 +221,7 @@ function setupMobileMoreMenu() {
         const b = mk(`<button type="button" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition text-left"><span class="w-5 h-5 flex-shrink-0 text-indigo-500">${typeof svgIcon === 'function' ? svgIcon(p.icon || 'dot', 'w-5 h-5') : ''}</span><span class="truncate">${esc(p.label)}</span></button>`);
         b.addEventListener('click', () => {
           close();
-          if (p.studioLaunch) { window.openMarketSyncStudio?.(); return; }
+          if (p.studioLaunch) { (window.ensureOpenMarketSyncStudio||window.openMarketSyncStudio)?.(); return; }
           if (typeof deptGo === 'function') deptGo(p.page, p.invmode || '', p.tab || '');
           else switchPage(p.page);
         });
@@ -249,7 +249,7 @@ function setupMobileMoreMenu() {
         const b = mk(`<button type="button" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition text-left"><span class="w-5 h-5 flex-shrink-0 text-indigo-500">${svgIcon(p.icon || 'dot', 'w-5 h-5')}</span><span class="truncate">${esc(p.label)}</span></button>`);
         b.addEventListener('click', () => {
           close();
-          if (p.studioLaunch) { if (typeof window.openMarketSyncStudio === 'function') window.openMarketSyncStudio(); return; }
+          if (p.studioLaunch) { if (typeof window.ensureOpenMarketSyncStudio === 'function') window.ensureOpenMarketSyncStudio(); else if (typeof window.openMarketSyncStudio === 'function') window.openMarketSyncStudio(); return; }
           if (typeof deptGo === 'function') {
             deptGo(p.page, p.invmode, p.tab);
           } else {
