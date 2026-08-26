@@ -1194,7 +1194,20 @@ function engineRail(eng, d) {
         <span class="mt-0.5 ${a.tone || 'text-slate-500'}">${svgIcon(a.icon || 'chevronRight', 'w-3.5 h-3.5')}</span>
         <span class="text-xs font-semibold text-slate-800 dark:text-slate-100">${esc(a.label)}</span></button>`).join('')
     : `<div class="text-xs font-medium text-slate-500 dark:text-slate-400 py-1">Nothing needs attention.</div>`;
-  const qa = (eng.quickActions || []).map(q =>
+  // Team Messaging lives on the department right rail (not as a left-nav department).
+  const teamQa = [];
+  try {
+    const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+    const teamOk = access.isPlatformStaff
+      || window.__teamChatAllowed === true
+      || (Array.isArray(access.features) && access.features.includes('os.team'))
+      || (typeof pageFeatureOk === 'function' && pageFeatureOk('sales-team'));
+    if (teamOk) {
+      teamQa.push({ label: 'Team Messaging', icon: 'chat', onclick: "switchPage('ai-inbox')" });
+    }
+  } catch {}
+  const qaList = [...teamQa, ...(eng.quickActions || [])];
+  const qa = qaList.map(q =>
     `<button onclick="${q.onclick}" class="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">${svgIcon(q.icon || 'bolt', 'w-3.5 h-3.5 ' + A.text)}${esc(q.label)}</button>`
   ).join('') || '<div class="text-xs text-slate-400">—</div>';
   return sec('Reports', 'chart', reportsHtml) + sec('Next Actions', 'check', naHtml) + sec('Quick Actions', 'bolt', qa);
