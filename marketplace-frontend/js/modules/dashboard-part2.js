@@ -2172,10 +2172,22 @@ function switchPage(pageId) {
   if (pageId === 'automation') loadAutomationPage();
   if (pageId === 'automation-builder') loadAutoBuilderPage();
   if (pageId === 'email-marketing' || pageId === 'email-campaigns') loadDealerEmail();
-  if (pageId === 'studio' || pageId === 'design-studio') { if (typeof openMarketSyncStudio === 'function') openMarketSyncStudio(); }
+  if (pageId === 'studio' || pageId === 'design-studio') {
+    Promise.resolve(window.msLoadScript ? window.msLoadScript('js/modules/studio/scene-model.js?v=20260814_v12') : null)
+      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260818_fontfamily_v1'))
+      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260826_digital_pages_v3'))
+      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-shell.js?v=20260826_studio_tp_v1'))
+      .then(() => { if (typeof openMarketSyncStudio === 'function') openMarketSyncStudio(); });
+  }
   if (pageId === 'social-scheduler') { if (typeof loadSocialSchedulerPage === 'function') loadSocialSchedulerPage(); }
-  if (pageId === 'video-studio') loadVideoStudioPage();
-  if (pageId === 'academy') loadAcademyWorkspace();
+  if (pageId === 'video-studio') {
+    Promise.resolve(window.msLoadScript ? window.msLoadScript('js/modules/video-studio.js?v=20260826_studio_tp_v1') : null)
+      .then(() => { if (typeof loadVideoStudioPage === 'function') loadVideoStudioPage(); });
+  }
+  if (pageId === 'academy') {
+    Promise.resolve(window.msLoadScript ? window.msLoadScript('js/modules/academy-workspace.js?v=20260826_academy_load_v1') : null)
+      .then(() => { if (typeof loadAcademyWorkspace === 'function') loadAcademyWorkspace(); });
+  }
   if (pageId === 'launch') loadLaunchHub();
   if (pageId === 'people-overview') loadPeopleWorkspace();
   if (pageId === 'fni') loadFniPage();
