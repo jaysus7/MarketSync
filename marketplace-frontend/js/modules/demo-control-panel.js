@@ -176,6 +176,10 @@
           window.__demoPackageId = data.state.packageId;
           window.__demoActivePackage = data.state.packageId;
           window.__demoActiveProduct = mapDemoPackageToProduct(data.state.packageId);
+          try {
+            sessionStorage.setItem('ms_demo_package', data.state.packageId);
+            localStorage.setItem('ms_demo_package', data.state.packageId);
+          } catch {}
 
           const legacyMap = {
             design_studio: { design_studio: true },
@@ -201,15 +205,16 @@
       const isMarketingSuiteDemo = suiteProducts.has(window.__demoActiveProduct);
       const isIdentityVerifyDemo = window.__demoActiveProduct === 'marketsync_identity';
       const singleProduct = typeof window.isSingleProductWorkspace === 'function' && window.isSingleProductWorkspace();
-      if (isIdentityVerifyDemo) {
+      const current = window.__currentPage || '';
+      if (isIdentityVerifyDemo && current !== 'crm') {
         if (typeof switchPage === 'function') switchPage('crm');
-      } else if (isMarketingSuiteDemo) {
+      } else if (isMarketingSuiteDemo && current !== 'marketing-overview') {
         if (typeof deptGo === 'function') deptGo('marketing-overview', '', 'overview');
         else if (typeof switchPage === 'function') switchPage('marketing-overview');
-      } else if (typeof switchPage === 'function' && !singleProduct) {
-        switchPage('inventory');
       }
     } catch (e) { /* network hiccup — no demo panel this load, not fatal */ }
+    document.body.classList.remove('ms-app-booting');
+    window.__msHoldBootForDemo = false;
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
