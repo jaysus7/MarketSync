@@ -1417,8 +1417,12 @@ function pageFeatureOk(pg, invmode = null) {
   const requiredProduct = (pg === 'inventory' && (invmode || __inventoryMode) === 'facebook')
     ? 'facebook' : PAGE_PRODUCT[pg];
   if (requiredProduct) {
-    // The entitlement context is derived server-side from live subscription rows. Until
-    // it is available, do not advertise an add-on as part of a lower DealerOS plan.
+    if (requiredProduct === 'design_studio') {
+      const suite = typeof getActiveMarketingSuite === 'function' ? getActiveMarketingSuite() : null;
+      if (suite === 'digital' || suite === 'complete' || suite === 'sales' || suite === 'service') return true;
+      const prod = String(window.__demoActiveProduct || window.__demoActivePackage || document.documentElement.getAttribute('data-product') || '');
+      if (/digital|marketing-suite|design_studio|design-studio/.test(prod)) return true;
+    }
     return !!((access && (access.isPlatformStaff || (access.products || []).includes(requiredProduct)))
       || fallback.products?.has(requiredProduct));
   }
@@ -1470,7 +1474,7 @@ function renderDeptTabbar(pageId) {
     const tabs = area.items.map(item => {
       const on = item.page === pageId && (!item.tab || item.tab === activeTab);
       const call = item.studioLaunch
-        ? 'window.openMarketSyncStudio()'
+        ? 'ensureOpenMarketSyncStudio()'
         : `deptGo('${esc(item.page)}'${item.tab ? `,'','${esc(item.tab)}'` : ''})`;
       return `<button type="button" role="tab" aria-selected="${on}"${on ? ' aria-current="page"' : ''} onclick="${call}" class="px-3.5 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${on ? 'text-indigo-700 dark:text-indigo-300 border-current' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}">${esc(item.label)}</button>`;
     }).join('');
@@ -1504,7 +1508,7 @@ function renderDeptTabbar(pageId) {
     const tabs = restricted.map(item => {
       const on = item.page === pageId && (!item.tab || item.tab === activeTab);
       const call = item.studioLaunch
-        ? 'window.openMarketSyncStudio()'
+        ? 'ensureOpenMarketSyncStudio()'
         : item.studioSchedulerLaunch
           ? 'window.openStudioSchedulerWithEntitlementCheck()'
           : `deptGo('${esc(item.page)}'${item.invmode ? `,'${esc(item.invmode)}'` : `,''`}${item.tab ? `,'${esc(item.tab)}'` : ''})`;
@@ -1748,7 +1752,7 @@ function renderMarketingSuiteNav(suiteKey, host, navRoot) {
     const dealer = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'DEALER_GROUP'].includes(String(profileContext?.role || ''));
     html += cfg.navItems.filter(item => !item.dealerOnly || dealer).map(item => {
       const call = item.studioLaunch
-        ? 'window.openMarketSyncStudio()'
+        ? 'ensureOpenMarketSyncStudio()'
         : `deptGo('${esc(item.page)}'${item.invmode ? `,'${esc(item.invmode)}'` : `,''`}${item.tab ? `,'${esc(item.tab)}'` : ''})`;
       return `<button type="button" data-page="${esc(item.page)}"${item.tab ? ` data-tab="${esc(item.tab)}"` : ''} title="${esc(item.label)}" onclick="${call}" class="ms-suite-nav-item dept-nav-item w-full flex items-center gap-2.5 px-3 py-1.5 rounded font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-[13px]"><span class="text-indigo-500 flex-shrink-0">${svgIcon(item.icon || 'dot', 'w-4 h-4')}</span><span class="truncate">${esc(item.label)}</span></button>`;
     }).join('');
@@ -1756,7 +1760,7 @@ function renderMarketingSuiteNav(suiteKey, host, navRoot) {
     const heading = `<div class="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">${esc(area.label)}</div>`;
     const items = (area.items || []).map(item => {
       const call = item.studioLaunch
-        ? 'window.openMarketSyncStudio()'
+        ? 'ensureOpenMarketSyncStudio()'
         : `deptGo('${esc(item.page)}'${item.invmode ? `,'${esc(item.invmode)}'` : `,''`}${item.tab ? `,'${esc(item.tab)}'` : ''})`;
       return `<button type="button" data-page="${esc(item.page)}"${item.tab ? ` data-tab="${esc(item.tab)}"` : ''} title="${esc(item.label)}" onclick="${call}" class="ms-suite-nav-item dept-nav-item w-full flex items-center gap-2.5 px-3 py-1.5 rounded font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-[13px]"><span class="text-indigo-500 flex-shrink-0">${svgIcon(item.icon || area.icon || 'dot', 'w-4 h-4')}</span><span class="truncate">${esc(item.label)}</span></button>`;
     }).join('');
@@ -1779,7 +1783,7 @@ function suiteAreaOpen(areaId) {
   // its practical landing workspace instead of launching a full-screen tool.
   const home = area?.items?.find(item => item.page === area.defaultPage) || area?.items?.[0];
   if (!home) return;
-  if (home.studioLaunch) return window.openMarketSyncStudio?.();
+  if (home.studioLaunch) return (window.ensureOpenMarketSyncStudio || window.openMarketSyncStudio)?.();
   deptGo(home.page, home.invmode || '', home.tab || '');
 }
 window.suiteAreaOpen = suiteAreaOpen;
@@ -1824,7 +1828,7 @@ function renderDeptNav(role) {
         const call = p.studioSchedulerLaunch
           ? 'window.openStudioSchedulerWithEntitlementCheck()'
           : p.studioLaunch
-          ? 'window.openMarketSyncStudio()'
+          ? 'ensureOpenMarketSyncStudio()'
           : `deptGo('${esc(p.page)}'${p.tab ? `,'${esc(p.invmode || '')}','${esc(p.tab)}'` : (p.invmode ? `,'${esc(p.invmode)}'` : '')})`;
         return `<button type="button" data-page="${esc(p.page)}"${p.tab ? ` data-tab="${esc(p.tab)}"` : ''} onclick="${call}" title="${esc(p.label)}" class="ms-product-nav-item dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-indigo-500 flex-shrink-0">${svgIcon(p.icon || 'dot', 'w-4 h-4')}</span><span>${esc(p.label)}</span></button>`;
       }).join('');
@@ -2377,3 +2381,31 @@ async function extractPdfText(file, options = {}) {
   }
   return out.slice(0, maxChars);
 }
+
+window.ensureOpenMarketSyncStudio = function ensureOpenMarketSyncStudio(designId, opts) {
+  const run = () => {
+    const fn = window.__msOpenStudioReal || (typeof window.openMarketSyncStudio === 'function' && window.openMarketSyncStudio !== ensureOpenMarketSyncStudio ? window.openMarketSyncStudio : null);
+    if (typeof fn === 'function') {
+      window.__msOpenStudioReal = fn;
+      return fn(designId || null, opts || {});
+    }
+    if (typeof switchPage === 'function') switchPage('studio');
+  };
+  if (typeof window.openMarketSyncStudio === 'function' && window.openMarketSyncStudio !== ensureOpenMarketSyncStudio) {
+    window.__msOpenStudioReal = window.openMarketSyncStudio;
+    return run();
+  }
+  const load = window.msLoadScript
+    ? Promise.resolve(window.msLoadScript('js/modules/studio/scene-model.js?v=20260814_v12'))
+        .then(() => window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260818_fontfamily_v1'))
+        .then(() => window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260826_digital_pages_v3'))
+        .then(() => window.msLoadScript('js/modules/studio/studio-shell.js?v=20260826_studio_tp_v1'))
+    : Promise.resolve();
+  return Promise.resolve(load).then(() => {
+    if (typeof window.openMarketSyncStudio === 'function' && window.openMarketSyncStudio !== ensureOpenMarketSyncStudio) {
+      window.__msOpenStudioReal = window.openMarketSyncStudio;
+    }
+    run();
+  }).catch(run);
+};
+if (typeof window.openMarketSyncStudio !== 'function') window.openMarketSyncStudio = window.ensureOpenMarketSyncStudio;
