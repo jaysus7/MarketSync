@@ -92,7 +92,8 @@ function catalogGapBadge(v) {
 
 function renderCatalog() {
   const list = document.getElementById('catalog-list');
-  const q = document.getElementById('catalog-search').value.trim().toLowerCase();
+  if (!list) return;
+  const q = (document.getElementById('catalog-search')?.value || '').trim().toLowerCase();
   const statusFilter = __catalogStatusFilter;
   const typeFilter = __catalogTypeFilter;
   const segmentFilter = __catalogSegmentFilter;
