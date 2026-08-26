@@ -21,6 +21,11 @@
     // It must win over a stale disabled state from an earlier provisional pass.
     if (window.__teamChatAllowed === true) return false;
     if (window.__teamChatAllowed === false) return true;
+    // Core / Pro do not include os.team — hide even if the department shell is visible.
+    const feats = window.__demoEntitlements?.features || window.__access?.features || [];
+    if (Array.isArray(feats) && feats.length && !feats.includes('os.team') && !window.__access?.isPlatformStaff) {
+      return true;
+    }
     // The rendered full department navigation is the final shell-level signal
     // when older access payloads do not expose dealer_os in their product array.
     // Standalone tools replace this list and set data-product instead.
@@ -29,7 +34,11 @@
       && !!document.querySelector('#dept-nav [data-dept="sales"]')
       && !!document.querySelector('#dept-nav [data-dept="inventory"]')
       && !!document.querySelector('#dept-nav [data-dept="service"]');
-    if (hasFullDealerShell) return false;
+    // Full shell alone is not enough — Team Messaging is Complete / os.team only.
+    if (hasFullDealerShell) {
+      if (Array.isArray(feats) && feats.length) return !feats.includes('os.team');
+      return false;
+    }
     // Resolve the canonical access context before consulting provisional workspace
     // classification. DealerOS can be the account's only product and is still the
     // full dealership operating system with Team Chat.
