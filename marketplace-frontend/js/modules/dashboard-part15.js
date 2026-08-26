@@ -1158,12 +1158,12 @@ function renderReconBoard() {
     ? pulseCard({ title, count, tier, inner: list.length ? list.map(reconItem).join('') : '', empty })
     : `<div class="ms-c ms-c--glass p-4"><div class="text-xs font-black uppercase mb-2">${title} (${count})</div>${list.length ? list.map(reconItem).join('') : `<div class="text-sm text-slate-400">${empty}</div>`}</div>`);
   const board = [
-    card('Delivering today', deliveringToday, deliveringToday ? 'hero' : 'standard', todayList, 'Nothing delivering today.'),
-    card('Ready for delivery', readyCount, readyCount ? 'feature' : 'standard', readyList, 'No units signed off yet.'),
-    card('Still in cleanup', progressList.length, 'feature', progressList, 'Every unit is ready.'),
+    card('Delivering today', deliveringToday, 'hero', todayList, 'Nothing delivering today.'),
+    card('Ready for delivery', readyCount, 'hero', readyList, 'No units signed off yet.'),
+    card('Still in cleanup', progressList.length, 'hero', progressList, 'Every unit is ready.'),
     card('All units', cards.length, 'hero', sorted, 'No vehicles in cleanup.'),
   ];
-  root.innerHTML = header + ((typeof pulseBoard === 'function') ? pulseBoard(board) : `<div class="grid gap-4">${board.join('')}</div>`);
+  root.innerHTML = header + `<div class="flex flex-col gap-5 w-full">${board.join('')}</div>`;
 
   wire();
 }
@@ -1326,16 +1326,16 @@ async function openReconCard(inventoryId) {
   const renderModalContent = () => {
     const { tot, done, isReady, isBlocked, pct } = computeReadiness();
     const readinessCls = isReady
-      ? 'from-emerald-950 via-slate-900 to-slate-900 border-emerald-500/40 text-emerald-300'
+      ? 'from-emerald-50 to-white dark:from-emerald-950 dark:via-slate-900 dark:to-slate-900 border-emerald-200 dark:border-emerald-500/40 text-emerald-800 dark:text-emerald-300'
       : isBlocked
-      ? 'from-rose-950 via-slate-900 to-slate-900 border-rose-500/40 text-rose-300'
-      : 'from-indigo-950 via-slate-900 to-slate-900 border-indigo-500/40 text-indigo-300';
+      ? 'from-rose-50 to-white dark:from-rose-950 dark:via-slate-900 dark:to-slate-900 border-rose-200 dark:border-rose-500/40 text-rose-800 dark:text-rose-300'
+      : 'from-indigo-50 to-white dark:from-indigo-950 dark:via-slate-900 dark:to-slate-900 border-indigo-200 dark:border-indigo-500/40 text-indigo-800 dark:text-indigo-300';
 
     const readinessBadge = isReady
-      ? '<span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-xs">Ready for Delivery</span>'
+      ? '<span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/40">Ready for Delivery</span>'
       : isBlocked
-      ? `<span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-xs">Blocked · ${esc(blockedReason || 'Attention Required')}</span>`
-      : `<span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-400 border border-indigo-500/40 shadow-xs">${done} of ${tot || 1} Items Complete</span>`;
+      ? `<span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-100 dark:bg-rose-500/20 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-500/40">Blocked · ${esc(blockedReason || 'Attention Required')}</span>`
+      : `<span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-indigo-100 dark:bg-indigo-500/20 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/40">${done} of ${tot || 1} Items Complete</span>`;
 
     modal.innerHTML = `
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-5xl my-4 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
@@ -1366,8 +1366,8 @@ async function openReconCard(inventoryId) {
           <div class="bg-gradient-to-r ${readinessCls} border rounded-2xl p-5 shadow-lg space-y-3">
             <div class="flex items-center justify-between gap-4 flex-wrap">
               <div>
-                <div class="text-[10px] font-black uppercase tracking-widest text-slate-400">Delivery Readiness &amp; Handoff Status</div>
-                <div class="text-lg font-black text-white mt-0.5 flex items-center gap-2.5">
+                <div class="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">Delivery Readiness &amp; Handoff Status</div>
+                <div class="text-lg font-black text-slate-900 dark:text-white mt-0.5 flex items-center gap-2.5">
                   ${isReady ? 'Vehicle Ready for Customer Delivery' : isBlocked ? 'Delivery Handoff Blocked' : 'Delivery Preparation in Progress'}
                 </div>
               </div>
@@ -1383,31 +1383,31 @@ async function openReconCard(inventoryId) {
 
             <!-- Operational Readiness Check Indicators -->
             <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 pt-1 text-[11px] font-bold">
-              <div class="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center gap-1.5 ${isReady || done > 0 ? 'text-emerald-400' : 'text-slate-400'}">
+              <div class="p-2 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 flex items-center gap-1.5 ${isReady || done > 0 ? 'text-emerald-400' : 'text-slate-400'}">
                 <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
                 <span>Detailing</span>
               </div>
-              <div class="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center gap-1.5 ${veh.fuel_level_pct >= 90 ? 'text-emerald-400' : 'text-slate-400'}">
+              <div class="p-2 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 flex items-center gap-1.5 ${veh.fuel_level_pct >= 90 ? 'text-emerald-400' : 'text-slate-400'}">
                 <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
                 <span>Fuel / Charge</span>
               </div>
-              <div class="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center gap-1.5 ${checklist.some(i => i.label.toLowerCase().includes('plate') && i.done) ? 'text-emerald-400' : 'text-slate-400'}">
+              <div class="p-2 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 flex items-center gap-1.5 ${checklist.some(i => i.label.toLowerCase().includes('plate') && i.done) ? 'text-emerald-400' : 'text-slate-400'}">
                 <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
                 <span>Plates</span>
               </div>
-              <div class="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center gap-1.5 ${veh.key_fob_count >= 2 ? 'text-emerald-400' : 'text-slate-400'}">
+              <div class="p-2 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 flex items-center gap-1.5 ${veh.key_fob_count >= 2 ? 'text-emerald-400' : 'text-slate-400'}">
                 <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
                 <span>Keys (${veh.key_fob_count || 2})</span>
               </div>
-              <div class="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center gap-1.5 text-emerald-400">
+              <div class="p-2 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 flex items-center gap-1.5 text-emerald-400">
                 <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
                 <span>F&amp;I Office</span>
               </div>
-              <div class="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center gap-1.5 ${trade.has_trade ? 'text-emerald-400' : 'text-slate-400'}">
+              <div class="p-2 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 flex items-center gap-1.5 ${trade.has_trade ? 'text-emerald-400' : 'text-slate-400'}">
                 <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
                 <span>Trade ${trade.has_trade ? 'Appraised' : 'N/A'}</span>
               </div>
-              <div class="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center gap-1.5 text-emerald-400">
+              <div class="p-2 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 flex items-center gap-1.5 text-emerald-400">
                 <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
                 <span>Contacted</span>
               </div>
