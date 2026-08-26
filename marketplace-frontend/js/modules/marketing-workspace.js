@@ -1181,19 +1181,9 @@ ENGINES['marketing-overview'] = {
     // Leaves Marketing dashboard shell and opens the full-screen canvas workspace
     studio(body, d) {
       body.innerHTML = `
-        <div class="space-y-6">
-          <div class="py-8 px-6 text-center space-y-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl">
-            <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
-            </div>
-            <h3 class="text-base font-black">Design Studio Full-Screen Workspace</h3>
-            <p class="text-sm text-slate-500">Automotive social graphics, inventory flyers, and story assets. Branding here is the same kit as Settings and the Website.</p>
-            <div class="flex justify-center gap-3">
-              <button onclick="openMarketSyncStudio()" class="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-black text-xs">Open Studio Canvas →</button>
-              <button onclick="engineTab('marketing-overview','overview')" class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-bold text-xs">Back to Pulse</button>
-            </div>
-          </div>
-          <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div class="space-y-4">
+          ${typeof mktSuiteBand === 'function' ? mktSuiteBand('Creative', 'Design Studio', 'Brand kit and assets used on Settings, Website, and the canvas.', '<button type="button" onclick="openMarketSyncStudio()" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Open Studio Canvas</button>') : ''}
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <section class="ms-c ms-c--standard ms-c--glass p-4 space-y-3">
               <div class="flex items-center justify-between">
                 <div>
