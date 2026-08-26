@@ -45,9 +45,9 @@ function buildMarketingSuiteConfig(key) {
         suiteItem('ai-home', 'Pulse', 'sparkles', { tab: 'conversations' }),
         suiteItem('ai-home', 'Setup', 'wrench', { tab: 'setup' }),
       ] },
-      { id: 'design', label: 'Design Studio', icon: 'camera', items: [navItems[4]] },
-      { id: 'social', label: 'Social Studio & Scheduler', icon: 'calendar', items: [navItems[5]] },
-      { id: 'marketplace', label: 'Facebook Marketplace', icon: 'megaphone', items: [navItems[6]] },
+      { id: 'marketplace', label: 'Facebook Auto Poster', icon: 'megaphone', items: [navItems[1]] },
+      { id: 'design', label: 'Design Studio', icon: 'camera', items: [navItems[5]] },
+      { id: 'social', label: 'Social Studio & Scheduler', icon: 'calendar', items: [navItems[6]] },
       { id: 'video', label: 'Video', icon: 'video', items: [navItems[7]] },
       { id: 'campaigns', label: 'Email, SMS & Campaigns', icon: 'chat', items: [navItems[8]] },
     ];
