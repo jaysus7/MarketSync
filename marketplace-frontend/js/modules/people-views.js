@@ -150,34 +150,8 @@ function pplRenderTimeWorkspace(d) {
       ${(board.week?.late || []).map(p => `<div class="py-2 border-b border-slate-100 dark:border-slate-800 flex justify-between"><span class="font-semibold">${esc(p.name)}</span><span>${p.late_days} time(s)</span></div>`).join('') || engEmpty('No late days this week.')}
       <button type="button" onclick="pplSendLateDigest()" class="mt-3 liquid-glass-btn px-3 py-2 rounded-xl text-sm font-black">Email late digest</button>
     `)}
-    ${engCard('Department schedules', `
-      <div class="flex gap-2 mb-3 flex-wrap">
-        <input id="hr-sched-dept" placeholder="Department" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-        <input id="hr-sched-start" type="time" value="09:00" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-        <input id="hr-sched-end" type="time" value="17:00" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-        <button type="button" onclick="pplAddSchedule()" class="liquid-glass-btn px-3 py-2 rounded-xl text-sm font-black">Add schedule</button>
-      </div>
-      ${(ops.schedules || []).map((s,i) => `<div class="py-2 border-b border-slate-100 dark:border-slate-800 flex justify-between"><span>${esc(s.department || s.name || 'Schedule')} · ${esc(s.start)}–${esc(s.end)}</span><button class="text-sm font-bold" onclick="pplRemoveOps('schedules',${i})">Remove</button></div>`).join('') || engEmpty('No department schedules yet — default is 9:00–5:00.')}
-    `)}
-    ${engCard('Time off requests', `
-      <div class="flex gap-2 mb-3 flex-wrap">
-        <input id="hr-off-name" placeholder="Staff name" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-        <input id="hr-off-date" type="date" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-        <input id="hr-off-reason" placeholder="Reason" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-        <button type="button" onclick="pplAddTimeOff()" class="liquid-glass-btn px-3 py-2 rounded-xl text-sm font-black">Add request</button>
-      </div>
-      ${(ops.time_off || []).map((s,i) => `<div class="py-2 border-b border-slate-100 dark:border-slate-800 flex justify-between"><span>${esc(s.name || '')} · ${esc(s.date || '')} · ${esc(s.reason || '')} · ${esc(s.status || 'pending')}</span><button class="text-sm font-bold" onclick="pplRemoveOps('time_off',${i})">Remove</button></div>`).join('') || engEmpty('No time-off requests.')}
-    `)}
-    ${engCard('Timesheets', `
-      <div class="flex gap-2 mb-3 flex-wrap">
-        <input id="hr-ts-name" placeholder="Staff name" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-        <input id="hr-ts-hours" placeholder="Hours" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm w-28">
-        <input id="hr-ts-week" placeholder="Week of" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-        <button type="button" onclick="pplAddTimesheet()" class="liquid-glass-btn px-3 py-2 rounded-xl text-sm font-black">Add timesheet line</button>
-      </div>
-      ${(ops.timesheets || []).map((s,i) => `<div class="py-2 border-b border-slate-100 dark:border-slate-800 flex justify-between"><span>${esc(s.name || '')} · ${esc(s.week || '')} · ${esc(String(s.hours || ''))}h</span><button class="text-sm font-bold" onclick="pplRemoveOps('timesheets',${i})">Remove</button></div>`).join('') || engEmpty('No saved timesheet lines. Approved punches also feed payroll.')}
-    `)}
-    ${(() => {
+    ${pplRenderScheduleCalendar(d)}
+        ${(() => {
       const docs = ops.documents && ops.documents.length ? ops.documents : [
         { group: 'Onboarding Documents', title: 'Company Demonstrator Policy' },
         { group: 'Onboarding Documents', title: 'Email, Internet and Computer Use Policy' },
@@ -457,3 +431,123 @@ window.pplOpenHrDoc = function (i) {
   const d = docs[i] || { title: 'HR document' };
   showToast((d.title || 'Document') + ' — template on file. Upload a signed copy on the employee card.', 'success');
 };
+
+window.__pplCalCursor = window.__pplCalCursor || new Date();
+window.__pplCalView = window.__pplCalView || 'calendar';
+
+function pplShiftFor(name, date) {
+  const ops = ENGINE_DATA['people-overview']?.ops || {};
+  const hit = (ops.schedules || []).find(s => s.name === name && s.date === date);
+  if (hit) return hit.shift || hit.start && `${hit.start}–${hit.end}` || '';
+  const d = new Date(date + 'T12:00:00');
+  const dow = d.getDay();
+  if (dow === 0) return '';
+  const names = (ENGINE_DATA['people-overview']?.team || []).map(p => p.name);
+  const idx = Math.max(0, names.indexOf(name));
+  if (dow === 6) return idx % 3 === 2 ? 'OFF' : '9am–5pm';
+  if (dow === 5) return idx % 2 === 0 ? '9am–6pm' : 'OFF';
+  return (idx + dow) % 2 === 0 ? '9am–3pm' : '3pm–8pm';
+}
+
+function pplRenderScheduleCalendar(d) {
+  const cursor = window.__pplCalCursor instanceof Date ? window.__pplCalCursor : new Date();
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const title = cursor.toLocaleString(undefined, { month: 'long', year: 'numeric' }).toUpperCase();
+  const team = (d.team || []).filter(p => p.employment_status !== 'terminated').slice(0, 12);
+  const people = team.length ? team : [
+    { name: 'Jordan' }, { name: 'John' }, { name: 'Kristin' },
+    { name: 'Anthony' }, { name: 'Corey' }, { name: 'Jason' },
+  ];
+  const first = new Date(year, month, 1);
+  const start = new Date(first);
+  start.setDate(1 - first.getDay());
+  const weeks = [];
+  let cur = new Date(start);
+  for (let w = 0; w < 6; w++) {
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      days.push(new Date(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+    if (days.some(dt => dt.getMonth() === month)) weeks.push(days);
+  }
+  const dow = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  if (window.__pplCalView === 'list') {
+    const rows = [];
+    weeks.forEach(days => days.forEach(dt => {
+      if (dt.getMonth() !== month) return;
+      const iso = dt.toISOString().slice(0,10);
+      people.forEach(p => {
+        const shift = pplShiftFor(p.name, iso);
+        if (!shift) return;
+        rows.push(`<tr class="border-t border-slate-100 dark:border-slate-800"><td class="p-2 font-semibold">${esc(p.name)}</td><td class="p-2">${dt.toLocaleDateString()}</td><td class="p-2">${esc(shift)}</td></tr>`);
+      });
+    }));
+    return engCard('Schedule & timesheets', `
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div class="font-black">${esc(title)}</div>
+        <div class="flex gap-2">
+          <button type="button" onclick="pplCalView('calendar')" class="px-3 py-1.5 rounded-lg border text-sm font-black">Calendar</button>
+          <button type="button" onclick="pplCalView('list')" class="liquid-glass-btn px-3 py-1.5 rounded-lg text-sm font-black">List</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-left text-[11px] uppercase text-slate-500"><th class="p-2">Employee</th><th class="p-2">Date</th><th class="p-2">Shift</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
+    `);
+  }
+  const weekTables = weeks.map(days => {
+    const head = `<tr><th class="p-2 text-left text-[11px] uppercase text-slate-500"> </th>${days.map(dt => `<th class="p-2 text-center text-xs font-black ${dt.getMonth()===month?'':'opacity-30'}">${dow[dt.getDay()].slice(0,3)} ${dt.getDate()}</th>`).join('')}</tr>`;
+    const body = people.map(p => `<tr class="border-t border-slate-100 dark:border-slate-800">
+      <td class="p-2 text-sm font-black whitespace-nowrap">${esc(p.name)}</td>
+      ${days.map(dt => {
+        const iso = dt.toISOString().slice(0,10);
+        const shift = dt.getMonth() === month ? pplShiftFor(p.name, iso) : '';
+        const off = shift === 'OFF';
+        return `<td class="p-1.5 text-center text-xs font-semibold ${dt.getMonth()!==month?'opacity-20':''} ${off?'text-slate-400':''}"><button type="button" class="w-full min-h-[2.25rem] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-1 py-1 hover:border-indigo-400" onclick="pplEditShift('${esc(p.name)}','${iso}',this)">${esc(shift || '—')}</button></td>`;
+      }).join('')}
+    </tr>`).join('');
+    return `<div class="overflow-x-auto mb-4 border border-slate-200 dark:border-slate-800 rounded-xl">${'<table class="w-full min-w-[720px]">'+head+body+'</table>'}</div>`;
+  }).join('');
+  return engCard('Schedule & timesheets', `
+    <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+      <div class="flex items-center gap-2">
+        <button type="button" onclick="pplCalMove(-1)" class="px-2 py-1 rounded-lg border font-black">‹</button>
+        <div class="font-black tracking-wide">${esc(title)}</div>
+        <button type="button" onclick="pplCalMove(1)" class="px-2 py-1 rounded-lg border font-black">›</button>
+      </div>
+      <div class="flex gap-2">
+        <button type="button" onclick="pplCalView('calendar')" class="liquid-glass-btn px-3 py-1.5 rounded-lg text-sm font-black">Calendar</button>
+        <button type="button" onclick="pplCalView('list')" class="px-3 py-1.5 rounded-lg border text-sm font-black">List</button>
+      </div>
+    </div>
+    ${weekTables}
+    <p class="text-xs text-slate-500">Tap a cell to change the shift. OFF, 9am–3pm, 3pm–8pm, 9am–6pm, 9am–5pm.</p>
+  `);
+}
+
+window.pplCalMove = function (delta) {
+  const c = window.__pplCalCursor instanceof Date ? window.__pplCalCursor : new Date();
+  window.__pplCalCursor = new Date(c.getFullYear(), c.getMonth() + delta, 1);
+  engineTab('people-overview', 'time', true);
+};
+window.pplCalView = function (v) {
+  window.__pplCalView = v;
+  engineTab('people-overview', 'time', true);
+};
+window.pplEditShift = async function (name, date, el) {
+  const next = prompt('Shift for ' + name + ' on ' + date, el?.textContent || '9am–3pm');
+  if (next == null) return;
+  const d = ENGINE_DATA['people-overview'] || {};
+  const ops = { ...(d.ops || {}), schedules: [...((d.ops || {}).schedules || [])] };
+  const i = ops.schedules.findIndex(s => s.name === name && s.date === date);
+  const row = { name, date, shift: next.trim() || 'OFF' };
+  if (i >= 0) ops.schedules[i] = row; else ops.schedules.push(row);
+  try {
+    await apiSendJson('/hr/ops', 'PUT', ops);
+    ENGINE_DATA['people-overview'].ops = ops;
+    if (el) el.textContent = row.shift;
+    showToast('Shift saved', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+};
+window.pplRenderScheduleCalendar = pplRenderScheduleCalendar;
+
