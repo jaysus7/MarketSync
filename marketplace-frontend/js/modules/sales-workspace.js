@@ -409,6 +409,8 @@ ENGINES['sales'] = {
             label: v.contact_name, sub: v.vehicle, onclick: `openPublicVideoLink('${v.share_token}', '${v.contact_id}')`,
           })).join(''), empty: 'No customer videos sent today.',
         }),
+        pulseLeaderboardCard(d.gamification, 'sales', { title: 'Internal Sales leaderboard', metric: 'total_sold', tier: 'feature', limit: 8 }),
+        pulseLeaderboardCard(d.gamification, 'facebook', { title: 'Facebook Marketplace leaderboard', metric: 'total_posted', tier: 'feature', limit: 8 }),
         pulseSearchCard({ title: 'Inventory', placeholder: 'Search inventory by year, make or model', tier: 'compact', onclick: "switchPage('inventory-overview')" }),
         pulseCard({
           title: 'Follow-up tasks', count: (d.tasks || []).length,
@@ -462,8 +464,6 @@ ENGINES['sales'] = {
             onclick: c.id ? `openCrmContact('${c.id}')` : "engineTab('sales','work')",
           })).join('') : '', empty: 'No open opportunities.',
         }),
-        pulseLeaderboardCard(d.gamification, 'sales', { title: 'Internal Sales leaderboard', metric: 'total_sold', tier: 'feature', limit: 8 }),
-        pulseLeaderboardCard(d.gamification, 'facebook', { title: 'Facebook Marketplace leaderboard', metric: 'total_posted', tier: 'feature', limit: 8 }),
       ]);
 
       // Pulse is the canonical at-a-glance view. The former dashboard repeated the
