@@ -1156,14 +1156,18 @@ body.website-builder-mode {
 }
 
 /* Website Builder & Workspace Root Styling */
-.website-builder-mode #website-root,
-.website-workspace-mode #website-root {
+.website-builder-mode #website-root {
   display: flex !important;
   flex-direction: column !important;
   height: 100% !important;
   width: 100% !important;
   background-color: var(--ws-bg, transparent) !important;
   color: var(--ws-text, inherit) !important;
+}
+.website-workspace-mode #website-root {
+  display: flex !important;
+  flex-direction: column !important;
+  background-color: transparent !important;
 }
 
 /* ==========================================================================
@@ -2530,10 +2534,13 @@ html:not(.dark) #seo-workspace-root table {
 }
 /* MarketSync Internal — one restrained liquid-glass company operating system. */
 html[data-dash-mode="marketsync"] body {
-  background:
-    radial-gradient(70rem 40rem at 8% -10%, rgba(59,130,246,.16), transparent 62%),
-    radial-gradient(54rem 34rem at 100% 0%, rgba(124,58,237,.10), transparent 66%),
-    var(--ms-bg) !important;
+  background: var(--ms-bg) !important;
+}
+html:not(.website-builder-mode) #website-root,
+html:not(.website-builder-mode) [data-page-content="website"],
+html:not(.website-builder-mode) [data-ws-theme] #website-root,
+html:not(.website-builder-mode) [data-ws-theme] div[data-page-content="website"] {
+  background: transparent !important;
 }
 html[data-dash-mode="marketsync"] :is(#dept-tabbar, .page-content .eng-shell-header, .page-content .rounded-xl.border:not(.ms-kpi), .page-content .rounded-2xl.border:not(.ms-kpi)) {
   background: linear-gradient(145deg, rgba(255,255,255,.72), rgba(245,248,255,.52)) !important;
