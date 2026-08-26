@@ -150,7 +150,7 @@ function acadCourseRow(c, certsMap = new Map(), heldByKey = new Map(), doneSet =
     </div>
 
     <div class="shrink-0 flex items-center gap-2 sm:self-center">
-      <a href="/training.html?lesson=${encodeURIComponent(lessonTarget)}" target="_blank" class="px-4 py-2 rounded-xl text-xs font-bold ${isDone ? 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700' : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm shadow-indigo-600/20'} transition flex items-center gap-1.5">
+      <a href="/training.html?lesson=${encodeURIComponent(lessonTarget)}" class="px-4 py-2 rounded-xl text-xs font-bold ${isDone ? 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700' : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm shadow-indigo-600/20'} transition flex items-center gap-1.5">
         <span>${isDone ? 'Review Lesson' : pct > 0 ? 'Continue Lesson' : 'Start Course'}</span>
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
       </a>
