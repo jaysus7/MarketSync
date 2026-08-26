@@ -299,9 +299,9 @@ ENGINES['fni-overview'] = {
       const awaitingContracts = deals.filter(x => /sold|delivered/i.test(x.deal_status || '') && !x.contract_signed_at);
 
       // ── Pulse grid — the at-a-glance widget wall ────────────────────────────
-      const grid = pulseGrid([
+      const grid = pulseBoard([
         pulseCard({
-          title: 'Deliveries', count: (d.deliveryQueue || []).length,
+          title: 'Deliveries', count: (d.deliveryQueue || []).length, tier: 'standard',
           onclick: "switchPage('delivery')",
           inner: (d.deliveryQueue || []).length ? d.deliveryQueue.slice(0, 5).map(x => pulseRow({
             badge: x.blocker ? '!' : undefined, icon: x.blocker ? undefined : 'check', badgeTone: x.blocker ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300' : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
@@ -309,21 +309,21 @@ ENGINES['fni-overview'] = {
           })).join('') : '', empty: 'Nothing in the delivery queue.',
         }),
         pulseCard({
-          title: 'Deals in funding', count: funding.length, tone: funding.length ? 'bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300' : '',
+          title: 'Deals in funding', count: funding.length, tier: funding.length ? 'feature' : 'standard', tone: funding.length ? 'bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300' : '',
           onclick: "switchPage('fni')",
           inner: funding.length ? funding.slice(0, 5).map(x => pulseRow({
             badge: '$', label: fniCustomer(x), sub: fniVehicle(x) || fniStage(x), onclick: "switchPage('fni')",
           })).join('') : '', empty: 'No deals currently in funding.',
         }),
         pulseCard({
-          title: 'Incomplete deals', count: pending, tone: pending ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : '',
+          title: 'Incomplete deals', count: pending, tier: pending ? 'feature' : 'standard', tone: pending ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : '',
           onclick: "switchPage('fni')",
           inner: pending ? deals.filter(x => x.deal_status === 'pending').slice(0, 5).map(x => pulseRow({
             badge: '…', label: fniCustomer(x), sub: fniVehicle(x), onclick: "switchPage('fni')",
           })).join('') : '', empty: 'No deals awaiting a decision.',
         }),
         pulseCard({
-          title: 'F&I products', count: products.length,
+          title: 'F&I products', count: products.length, tier: 'compact',
           onclick: "engineTab('fni-overview','settings')",
           inner: products.length ? products.slice(0, 5).map(p => pulseRow({
             badge: p.active === false ? '–' : undefined, icon: p.active === false ? undefined : 'check', badgeTone: p.active === false ? 'bg-slate-100 dark:bg-slate-800 text-slate-400' : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
@@ -331,18 +331,18 @@ ENGINES['fni-overview'] = {
           })).join('') : '', empty: 'No F&I products set up yet.',
         }),
         pulseCard({
-          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', span: 'tall',
+          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', tier: att.length ? 'tall' : 'standard',
           inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '', empty: 'No deals need immediate attention.',
         }),
         pulseCard({
-          title: 'Deals by stage', count: deals.length,
+          title: 'Deals by stage', count: deals.length, tier: 'standard',
           inner: Object.entries(FNI_STAGE_LABEL).map(([st, label]) => {
             const n = deals.filter(x => x.deal_status === st).length;
             return n ? pulseRow({ badge: n, label, onclick: "switchPage('fni')" }) : '';
           }).filter(Boolean).join('') || '', empty: 'No deals yet.',
         }),
         pulseCard({
-          title: 'Incoming desked deals', count: incomingDeals.length,
+          title: 'Incoming desked deals', count: incomingDeals.length, tier: incomingDeals.length ? 'feature' : 'standard',
           onclick: "switchPage('fni')",
           inner: deskedToShow.length ? deskedToShow.slice(0, 6).map(x => pulseRow({
             badge: '$', label: fniCustomer(x),
@@ -351,7 +351,7 @@ ENGINES['fni-overview'] = {
           })).join('') : '', empty: 'No deals have been desked yet.',
         }),
         pulseCard({
-          title: 'Delivery blockers', count: blocked,
+          title: 'Delivery blockers', count: blocked, tier: blocked ? 'hero' : 'standard',
           tone: blocked ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
           onclick: "switchPage('delivery')",
           inner: blocked ? (d.blocked || []).slice(0, 6).map(x => pulseRow({
@@ -360,7 +360,7 @@ ENGINES['fni-overview'] = {
           })).join('') : '', empty: 'No delivery blockers.',
         }),
         pulseCard({
-          title: 'Contracts outstanding', count: awaitingContracts.length,
+          title: 'Contracts outstanding', count: awaitingContracts.length, tier: awaitingContracts.length ? 'feature' : 'standard',
           onclick: "switchPage('fni')",
           inner: awaitingContracts.length ? awaitingContracts.slice(0, 6).map(x => pulseRow({
             icon: 'document', label: fniCustomer(x), sub: [fniVehicle(x), 'Contract not signed'].filter(Boolean).join(' · '), onclick: "switchPage('fni')",
