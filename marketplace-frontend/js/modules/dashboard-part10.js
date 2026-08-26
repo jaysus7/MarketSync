@@ -1225,7 +1225,7 @@ function renderEngine(engineId, force = false) {
   // Suite products: primary actions live on the main header (no second title card).
   const isMktSuite = engineId === 'marketing-overview' && typeof getActiveMarketingSuite === 'function' && !!getActiveMarketingSuite();
   const suiteActions = isMktSuite ? `
-      <button type="button" onclick="openVisualWorkflowBuilder()" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[13px] font-black shadow-sm transition">Build Automation</button>
+      <button type="button" onclick="deptGo('inventory','facebook')" class="px-3.5 py-2 rounded-xl bg-[#1877F2] hover:bg-[#166fe0] text-white text-[13px] font-black shadow-sm transition">Facebook Auto Poster</button>
       <button type="button" onclick="openEmailSmsBuilder({ mode: 'email' })" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-[13px] font-black transition">New Campaign</button>` : '';
 
   root.innerHTML = (eng.hideHeader ? '' : `
