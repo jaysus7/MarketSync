@@ -1513,8 +1513,11 @@ function applyTeamChatSettings(cfg) {
   const role = (typeof profileContext !== 'undefined' && profileContext?.role) || '';
   const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'DEALER_GROUP'].includes(String(role));
   const allowed = cfg.enabled !== false && (cfg.staffAccess !== 'managers' || isMgr);
-  document.getElementById('staff-chat-dock-bar')?.classList.toggle('hidden', !allowed);
-  document.getElementById('team-chat-dock-panel')?.classList.toggle('hidden', !allowed);
+  const bar = document.getElementById('staff-chat-dock-bar');
+  if (bar) bar.classList.toggle('hidden', !allowed);
+  const panel = document.getElementById('team-chat-dock-panel');
+  // Never force-open the messenger. Only hide it when Team Chat is off.
+  if (panel && !allowed) panel.classList.add('hidden');
   if (!allowed && typeof window.disableStaffChatDock === 'function') {
     try { window.disableStaffChatDock(); } catch {}
   }
