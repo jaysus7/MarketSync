@@ -2257,16 +2257,10 @@ ENGINES['command'] = {
             : closeOpen === 0
               ? '<div class="py-2 text-[13px] font-semibold text-emerald-600 dark:text-emerald-400">Nothing is blocking the close.</div>'
               : `<button onclick="switchPage('accounting')" class="w-full text-left py-2"><span class="text-[13px] font-semibold text-amber-600 dark:text-amber-400">${closeOpen} item${closeOpen === 1 ? '' : 's'} still open on the close checklist</span></button>`)}
-          <p class="text-[12px] text-slate-500 px-1 mt-2">Read from the canonical Accounting ledger and close state. A figure that could not be read shows as Unknown rather than zero.</p>
         </div>
       `;
 
-      const marketCheckHtml = `
-        <div class="mb-6">
-          <h3 class="text-sm font-black uppercase tracking-wider text-slate-500 mb-3">Market Intelligence</h3>
-          <div id="marketcheck-status" class="text-[12px] font-bold py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">Loading MarketCheck status…</div>
-        </div>
-      `;
+      const marketCheckHtml = '';
 
       const gaps = d.day.not_covered || [];
       const notCovered = gaps.length
@@ -2311,7 +2305,6 @@ ENGINES['command'] = {
         </div>
         ${forecastHtml}
         ${financialsHtml}
-        ${marketCheckHtml}
         ${cmdAcademyStrip(d)}
         ${notCovered}
       `;
