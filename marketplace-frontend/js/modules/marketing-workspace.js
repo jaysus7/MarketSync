@@ -39,7 +39,7 @@ function buildMarketingSuiteConfig(key) {
       ] },
       { id: 'seo', label: 'MarketSync SEO', icon: 'chart', items: [
         suiteItem('seo', 'SEO Builder', 'sparkles', { tab: 'settings' }),
-        suiteItem('seo', 'Pulse', 'chart', { tab: 'analytics' }),
+        suiteItem('seo', 'Pulse', 'chart', { tab: 'overview' }),
       ] },
       { id: 'ai', label: 'AI Customer Agent', icon: 'sparkles', items: [
         suiteItem('ai-home', 'Pulse', 'sparkles', { tab: 'conversations' }),
@@ -202,7 +202,7 @@ function getMarketingSuiteConfig(suiteKey) {
     if (ownsSeo) {
       const seoArea = { id: 'seo', label: 'MarketSync SEO', icon: 'chart', items: [
         suiteItem('seo', 'SEO Builder', 'sparkles', { tab: 'settings' }),
-        suiteItem('seo', 'Pulse', 'chart', { tab: 'analytics' }),
+        suiteItem('seo', 'Pulse', 'chart', { tab: 'overview' }),
       ] };
       const academyIdx = base.areas.findIndex(area => area.id === 'academy');
       const areas = [...base.areas];
