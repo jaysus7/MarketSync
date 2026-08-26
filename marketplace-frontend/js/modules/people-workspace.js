@@ -348,61 +348,51 @@ function pplRenderPerson() {
   }).join('');
 
   panel.innerHTML = `
-    <!-- Header Hero Profile Card -->
-    <div class="p-6 pb-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 ms-ai-panel text-white rounded-t-2xl border-b border-slate-800">
+    <div class="p-6 pb-4 rounded-t-2xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800">
       <div class="flex items-start justify-between gap-4">
         <div class="flex items-center gap-4 min-w-0">
-          <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg ring-2 ring-white/20 shrink-0">
-            ${esc(initials)}
-          </div>
+          <div class="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-xl shrink-0">${esc(initials)}</div>
           <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2">
-              <h2 class="text-xl font-black text-white truncate">${esc(p.name || 'Employee')}</h2>
-              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                ${esc(pplStatus(p.employment_status))}
-              </span>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h2 class="text-xl font-black text-slate-900 dark:text-white truncate">${esc(p.name || 'Employee')}</h2>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">${esc(pplStatus(p.employment_status))}</span>
             </div>
-            <div class="text-xs text-slate-300 font-semibold truncate mt-0.5">
-              ${esc([p.job_title, p.department, p.location_name || 'Main Dealership'].filter(Boolean).join(' · '))}
-              ${p.manager_name ? ` · Manager: ${esc(p.manager_name)}` : ''}
-            </div>
-            <div class="text-[11px] text-slate-400 flex flex-wrap items-center gap-2 mt-1">
-              <span>Emp #: <strong>${esc(p.employee_number || 'EMP-104')}</strong></span>
-              <span>· Email: <strong>${esc(p.email || 'employee@dealership.com')}</strong></span>
-              <span>· Phone: <strong>${esc(p.phone || '(555) 234-5678')}</strong></span>
+            <div class="text-sm text-slate-600 dark:text-slate-300 font-semibold truncate mt-0.5">${esc([p.job_title, p.department, p.location_name || 'Main Dealership'].filter(Boolean).join(' · '))}${p.manager_name ? ` · Manager: ${esc(p.manager_name)}` : ''}</div>
+            <div class="text-sm text-slate-500 dark:text-slate-400 flex flex-wrap gap-x-3 gap-y-1 mt-1">
+              <span>Emp # ${esc(p.employee_number || '—')}</span>
+              <span>${esc(p.email || '—')}</span>
+              <span>${esc(p.phone || '—')}</span>
             </div>
           </div>
         </div>
-        <button onclick="this.closest('.fixed').remove()" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition" aria-label="Close">
+        <button type="button" onclick="this.closest('.fixed')?.remove()" class="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
-
-      <!-- Quick Metrics Ribbon -->
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mt-4 pt-3 border-t border-slate-800/80 text-xs">
-        <div class="p-2 rounded-xl bg-slate-800/50 border border-slate-700/60">
-          <div class="text-[10px] uppercase font-bold text-slate-400">Monthly Volume</div>
-          <div class="text-sm font-black text-sky-300">${esc(String(salesUnits))}</div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mt-4">
+        <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Monthly volume</div>
+          <div class="text-sm font-black text-slate-900 dark:text-white">${esc(String(salesUnits))}</div>
         </div>
-        <div class="p-2 rounded-xl bg-slate-800/50 border border-slate-700/60">
-          <div class="text-[10px] uppercase font-bold text-slate-400">Gross Generated</div>
-          <div class="text-sm font-black text-emerald-400">${esc(String(grossProfit))}</div>
+        <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Gross generated</div>
+          <div class="text-sm font-black text-slate-900 dark:text-white">${esc(String(grossProfit))}</div>
         </div>
-        <div class="p-2 rounded-xl bg-slate-800/50 border border-slate-700/60">
-          <div class="text-[10px] uppercase font-bold text-slate-400">Store Rank</div>
-          <div class="text-sm font-black text-amber-300">${esc(leadRank)}</div>
+        <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Store rank</div>
+          <div class="text-sm font-black text-slate-900 dark:text-white">${esc(leadRank)}</div>
         </div>
-        <div class="p-2 rounded-xl bg-slate-800/50 border border-slate-700/60">
-          <div class="text-[10px] uppercase font-bold text-slate-400">AutoPoster Rank</div>
-          <div class="text-sm font-black text-purple-300">${esc(autoPosterRank)}</div>
+        <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Autoposter rank</div>
+          <div class="text-sm font-black text-slate-900 dark:text-white">${esc(autoPosterRank)}</div>
         </div>
-        <div class="p-2 rounded-xl bg-slate-800/50 border border-slate-700/60">
-          <div class="text-[10px] uppercase font-bold text-slate-400">CSAT Score</div>
-          <div class="text-sm font-black text-yellow-300">${esc(csat)}</div>
+        <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">CSAT</div>
+          <div class="text-sm font-black text-slate-900 dark:text-white">${esc(String(csat))}</div>
         </div>
-        <div class="p-2 rounded-xl bg-slate-800/50 border border-slate-700/60">
-          <div class="text-[10px] uppercase font-bold text-slate-400">Clock Status</div>
-          <div class="text-sm font-black text-emerald-400">Clocked In (8:28 AM)</div>
+        <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Clock</div>
+          <div class="text-sm font-black text-emerald-700 dark:text-emerald-300">On shift</div>
         </div>
       </div>
     </div>
