@@ -399,47 +399,49 @@ function crmEquityMiningTab(c, d, eqData) {
 
   return `
     <div class="space-y-4">
-      <div class="bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900 border border-indigo-500/30 rounded-xl p-4">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4">
         <div class="flex items-center justify-between gap-3 flex-wrap mb-2">
           <div class="flex items-center gap-2">
-            <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <span class="text-sm font-bold text-white">Equity &amp; Lease Opportunity</span>
+            <span class="w-8 h-8 rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </span>
+            <span class="text-sm font-bold text-slate-900 dark:text-white">Equity &amp; Lease Opportunity</span>
           </div>
           <div>${eqBadge}</div>
         </div>
-        ${isPos ? `
-        <div class="text-xs text-indigo-200 bg-indigo-950/80 border border-indigo-800/60 rounded-lg p-2.5 mb-3">
-          <span class="text-amber-500 mr-2"><i data-lucide="zap" class="w-5 h-5 inline"></i></span> <b>Auto Alert:</b> Customer has <b>$${Math.abs(netEq).toLocaleString()}</b> in positive trade equity. Eligible to upgrade into a new vehicle with <b>$0 cash down</b> while keeping monthly payment at or under <b>$${payment ? payment : 'current'}/mo</b>.
+        ${isPos && netEq > 0 ? `
+        <div class="text-xs text-slate-700 dark:text-slate-200 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-800 rounded-xl p-2.5 mb-3">
+          <b>Auto Alert:</b> Customer has <b>$${Math.abs(netEq).toLocaleString()}</b> in positive trade equity. Eligible to upgrade into a new vehicle with <b>$0 cash down</b> while keeping monthly payment at or under <b>$${payment ? payment : 'current'}/mo</b>.
         </div>` : `
-        <div class="text-xs text-slate-300 bg-slate-950/80 border border-slate-800 rounded-lg p-2.5 mb-3">
-          Customer currently has negative equity position ($${Math.abs(netEq).toLocaleString()}). Review lender roll-over terms or appraisal adjustment.
+        <div class="text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 mb-3">
+          ${netEq < 0 ? `Customer currently has negative equity ($${Math.abs(netEq).toLocaleString()}). Review lender roll-over terms or appraisal adjustment.` : 'Equity calculation pending — add a trade to estimate market value and payoff.'}
         </div>`}
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs mb-3">
-          <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
-            <div class="text-slate-400 font-medium">Trade Vehicle</div>
-            <div class="font-bold text-white truncate" title="${esc(vehLabel)}">${esc(vehLabel)}</div>
+          <div class="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div class="text-slate-500 font-medium">Trade Vehicle</div>
+            <div class="font-bold text-slate-900 dark:text-white truncate" title="${esc(vehLabel)}">${esc(vehLabel)}</div>
             ${vin !== '—' ? `<div class="text-[10px] text-slate-500 font-mono">VIN ${esc(vin)}</div>` : ''}
-            ${tv.unappraised ? `<div class="text-[10px] text-emerald-400 font-semibold mt-0.5">Quick Add (No Appraisal)</div>` : ''}
+            ${tv.unappraised ? `<div class="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold mt-0.5">Quick Add (No Appraisal)</div>` : ''}
           </div>
-          <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
-            <div class="text-slate-400 font-medium">Est. Market Value</div>
-            <div class="font-bold text-emerald-400 text-sm">$${Number(estVal || 0).toLocaleString()}</div>
+          <div class="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div class="text-slate-500 font-medium">Est. Market Value</div>
+            <div class="font-bold text-slate-900 dark:text-white text-sm">$${Number(estVal || 0).toLocaleString()}</div>
           </div>
-          <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
-            <div class="text-slate-400 font-medium">Payoff / Residual</div>
-            <div class="font-bold text-slate-200 text-sm">$${Number(payoff || 0).toLocaleString()}</div>
+          <div class="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div class="text-slate-500 font-medium">Payoff / Residual</div>
+            <div class="font-bold text-slate-900 dark:text-white text-sm">$${Number(payoff || 0).toLocaleString()}</div>
           </div>
-          <div class="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800">
-            <div class="text-slate-400 font-medium">Monthly Payment</div>
-            <div class="font-bold text-indigo-300 text-sm">${payment ? '$' + Number(payment).toLocaleString() + '/mo' : '—'}</div>
+          <div class="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div class="text-slate-500 font-medium">Monthly Payment</div>
+            <div class="font-bold text-slate-900 dark:text-white text-sm">${payment ? '$' + Number(payment).toLocaleString() + '/mo' : '—'}</div>
           </div>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
-          <button onclick="openDeskForContact('${c.id}')" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1">
+          <button onclick="openDeskForContact('${c.id}')" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-xl flex items-center gap-1">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m3 6V7m3 10v-4M4 4h16v16H4z"/></svg>
             Desk Deal with Equity
           </button>
-          ${allowQuickAdd ? `<button onclick="crmQuickAddTradeModal('${c.id}')" class="text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1">
+          ${allowQuickAdd ? `<button onclick="crmQuickAddTradeModal('${c.id}')" class="text-xs font-bold bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 px-3 py-1.5 rounded-xl flex items-center gap-1">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
             ${tv.make || tv.vin ? 'Edit Quick Trade' : 'Quick Add Trade'}
           </button>` : ''}
@@ -447,7 +449,7 @@ function crmEquityMiningTab(c, d, eqData) {
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             Appraise Trade (Full)
           </button>
-          ${c.email ? `<button onclick="crmEmailForm('${c.id}')" class="text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1">
+          ${c.email ? `<button onclick="crmEmailForm('${c.id}')" class="text-xs font-bold bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 px-3 py-1.5 rounded-xl flex items-center gap-1">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l9 6 9-6M4 6h16v12H4z"/></svg>
             Send Equity Offer
           </button>` : ''}
@@ -778,18 +780,18 @@ function crmVehicleCards(c, d) {
       <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(label || 'Trade vehicle')}</div>
       ${sub ? `<div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(sub)}</div>` : ''}
       <div class="flex items-center gap-1.5 flex-wrap mt-2">
-        ${allowQuickAddCard ? `<button onclick="crmQuickAddTradeModal('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1">Edit Quick Trade</button>` : ''}
+        ${allowQuickAddCard ? `<button onclick="crmQuickAddTradeModal('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1">Edit Quick Trade</button>` : ''}
         ${SALES_ROLES.includes(profileContext?.role) ? `<button onclick="switchPage('appraisal')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200">${tv.appraisal_id ? 'View appraisal' : 'Full Appraisal'}</button>` : ''}
       </div>
     </div>`);
   } else if (allowQuickAddCard) {
-    cards.push(`<div class="flex-1 min-w-[220px] bg-slate-900/50 border border-slate-800 border-dashed rounded-xl p-3 flex flex-col justify-between">
+    cards.push(`<div class="flex-1 min-w-[220px] bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-600 rounded-xl p-3 flex flex-col justify-between">
       <div>
         <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1">${svgIcon('tag', 'w-3.5 h-3.5')}Trade-in</div>
-        <div class="text-xs text-slate-400">No trade vehicle on file</div>
+        <div class="text-xs text-slate-500">No trade vehicle on file</div>
       </div>
       <div class="flex items-center gap-1.5 mt-2">
-        <button onclick="crmQuickAddTradeModal('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1">+ Quick Add Trade</button>
+        <button onclick="crmQuickAddTradeModal('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1">+ Quick Add Trade</button>
       </div>
     </div>`);
   }
