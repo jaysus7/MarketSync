@@ -61,7 +61,7 @@ export function transitionError(from, to) {
 // that already exist; this is the join, not a third one.
 const ROLE_DEPARTMENT = {
   OWNER: 'Management', DEALER_ADMIN: 'Management', MANAGER: 'Management', SALES_REP: 'Sales', FNI: 'F&I',
-  SERVICE: 'Service', ACCOUNTING: 'Accounting', CLEANUP: 'Recon',
+  SERVICE: 'Service', PARTS: 'Parts', ACCOUNTING: 'Accounting', CLEANUP: 'Recon',
 }
 export const departmentForRole = (role) => ROLE_DEPARTMENT[String(role || '').toUpperCase()] || null
 
