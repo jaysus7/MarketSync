@@ -1253,7 +1253,12 @@ function renderEngine(engineId, force = false) {
       ${eng.hideRail ? '' : `<aside data-engine-rail="${engineId}" class="space-y-3 xl:sticky xl:top-4"></aside>`}
     </div>`;
   engineTab(engineId, tab, force);   // full render re-uses cached data unless `force` is explicitly requested
+  // Suite top-strip decision needs suite-feature-tabbar in the DOM (just mounted above).
+  if (engineId === 'marketing-overview' && typeof renderDeptTabbar === 'function') {
+    try { renderDeptTabbar(engineId); } catch {}
+  }
 }
+
 window.renderEngine = renderEngine;
 
 function openInventoryIntelligence(focusId) {
