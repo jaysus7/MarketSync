@@ -50,8 +50,18 @@ window.deskCollectDeposit = deskCollectDeposit; window.deskDepositCreate = deskD
 function openDeskForContact(contactId) { __deskContactId = contactId; switchPage('desk'); }
 // Open the Trade Appraisal page pre-filled with this customer's details.
 function apprFromContact(c) {
-  switchPage('appraisal');
-  setTimeout(() => { try { if (typeof apprPickCustomer === 'function') apprPickCustomer(c); } catch (e) {} }, 80);
+  document.querySelector('.ms-modal-scrim')?.remove();
+  window.__apprPrefillContact = c || {};
+  if (typeof switchPage === 'function') switchPage('appraisal');
+  const apply = () => {
+    if (typeof apprPickCustomer !== 'function') return false;
+    apprPickCustomer(window.__apprPrefillContact || c || {});
+    return true;
+  };
+  if (!apply()) {
+    let n = 0;
+    const tmr = setInterval(() => { if (apply() || ++n > 40) clearInterval(tmr); }, 100);
+  }
 }
 window.apprFromContact = apprFromContact;
 window.loadDeskDeal = loadDeskDeal;
