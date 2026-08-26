@@ -904,8 +904,8 @@ function pulseRow({ badge, icon, badgeTone, label, sub, value, valueTone, done, 
   </${Tag}>`;
 }
 // Search-box widget card — click-through to the department's real search/list page.
-function pulseSearchCard({ title, placeholder, onclick, count }) {
-  return pulseCard({ title, count, onclick, inner: `<div class="mt-1 flex items-center gap-2 px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-400 text-[12px] font-semibold">
+function pulseSearchCard({ title, placeholder, onclick, count, tier }) {
+  return pulseCard({ title, count, onclick, tier, inner: `<div class="mt-1 flex items-center gap-2 px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-400 text-[12px] font-semibold">
     <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd"/></svg>
     ${esc(placeholder || 'Search')}</div>` });
 }
