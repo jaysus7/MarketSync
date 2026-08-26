@@ -9,7 +9,8 @@ export const SYSTEM_ROLES = Object.freeze({
 export const LEGACY_DEALER_ROLE_MAP = Object.freeze({
   OWNER: 'dealer_owner', DEALER_ADMIN: 'dealer_owner', DEALER_GROUP: 'dealer_group_owner',
   MANAGER: 'general_manager', SALES_REP: 'salesperson', BDC: 'bdc',
-  FNI: 'fni_manager', SERVICE: 'service_manager', ACCOUNTING: 'accounting',
+  FNI: 'fni_manager', SERVICE: 'service_manager', PARTS: 'service_manager',
+  ACCOUNTING: 'accounting', CLEANUP: 'salesperson',
 })
 
 export function systemRoleForLegacyRole(legacyRole) {
