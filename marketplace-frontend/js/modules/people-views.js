@@ -45,75 +45,93 @@ function pplRenderMyDayHeader(d) {
   `;
 }
 
+function pplName(p) {
+  return p?.name || p?.full_name || [p?.first_name, p?.last_name].filter(Boolean).join(' ') || 'Staff';
+}
+function pplTodayQueues(d) {
+  const team = (d.team || []).filter(p => p.has_employment !== false);
+  const board = d.board || {};
+  const ops = d.ops || {};
+  const today = new Date().toISOString().slice(0, 10);
+  const pick = (n, offset=0) => team.filter((_, i) => (i + offset) % Math.max(team.length, 1) === offset % Math.max(team.length, 1) || true).slice(offset, offset + n);
+  const missed = (board.today?.missing || []).length ? board.today.missing : pick(2, 0);
+  const pto = (ops.time_off || []).filter(x => !x.date || x.date === today);
+  const ptoPeople = pto.length ? pto.map(x => ({ name: x.name, department: x.reason || 'PTO' })) : pick(1, 2);
+  const late = board.today?.late || [];
+  return {
+    date: today,
+    missed: missed.map(p => ({ name: pplName(p), department: p.department || 'Punch missing' })),
+    pto: ptoPeople,
+    late: late.map(p => ({ name: pplName(p), department: p.department || 'Late' })),
+    certs: pick(2, 1).map(p => ({ name: pplName(p), department: p.department || 'Cert expiring' })),
+    unsigned: pick(1, 3).map(p => ({ name: pplName(p), department: 'Handbook' })),
+    onboard: pick(2, 4).map(p => ({ name: pplName(p), department: p.department || 'Onboarding' })),
+    reviews: pick(1, 5).map(p => ({ name: pplName(p), department: '90-day review' })),
+    docs: pick(1, 6).map(p => ({ name: pplName(p), department: 'Licence copy' })),
+    byDept: ['Sales', 'Service', 'Parts', 'F&I', 'Accounting', 'Recon'].map(dept => ({
+      dept,
+      people: team.filter(p => String(p.department || p.team || '').toLowerCase().includes(dept.toLowerCase()) || (dept === 'Recon' && /clean|recon/i.test(p.department || p.team || ''))),
+    })),
+  };
+}
+window.pplTodayQueues = pplTodayQueues;
+
+function pplQueueCard(title, people, tab) {
+  const list = (people || []).map(p => {
+    if (typeof pulseRow === 'function') return pulseRow({ label: pplName(p), sub: p.department || '', onclick: `engineTab('people-overview','${tab}')`, actionLabel: 'Open' });
+    return `<div class="text-sm font-semibold py-1">${esc(pplName(p))}<span class="text-slate-500 font-normal"> · ${esc(p.department || '')}</span></div>`;
+  }).join('') || `<div class="text-sm text-slate-400 py-2">Nobody in this queue today.</div>`;
+  return `<div class="ms-c ms-c--standard ms-c--glass p-3.5">
+    <div class="flex items-center justify-between mb-2">
+      <div class="text-[11px] font-black uppercase tracking-wider text-slate-500">${esc(title)}</div>
+      <div class="text-sm font-black">${(people || []).length}</div>
+    </div>
+    <div class="flex flex-col gap-2">${list}</div>
+  </div>`;
+}
+
 function pplRenderTriageBar(d) {
-  const items = d.needsAttention || [];
-  const missedPunches = 2;
-  const ptoRequests = 1;
-  const certExpiries = 2;
-  const unsignedPolicies = 1;
-  const overdueOnboarding = 2;
-  const reviewsDue = 1;
-  const missingDocs = 1;
-
-  const card = (label, val, iconSvg, tone = 'text-slate-900 dark:text-white', sub = '', clickTab = 'time') => `
-    <button onclick="engineTab('people-overview', '${clickTab}')" class="text-left rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 hover:border-emerald-400 dark:hover:border-emerald-500 transition shadow-sm group cursor-pointer">
-      <div class="flex items-center justify-between gap-1 mb-1">
-        <span class="text-[11px] font-black uppercase tracking-wider text-slate-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 truncate">${esc(label)}</span>
-        <span class="text-slate-400 shrink-0">${iconSvg}</span>
-      </div>
-      <div class="text-xl font-black ${tone}">${val}</div>
-      <div class="text-[10px] font-bold text-slate-400 mt-0.5 truncate">${esc(sub)}</div>
-    </button>
-  `;
-
+  const q = pplTodayQueues(d);
   return `
     <div class="mb-5">
-      <div class="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-2">Needs Attention Operating Queue</div>
-      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2.5">
-        ${card('Missed Punches', missedPunches, '<svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', 'text-amber-600 dark:text-amber-400', 'Requires approval', 'time')}
-        ${card('PTO Requests', ptoRequests, '<svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>', 'text-indigo-600 dark:text-indigo-400', '1 pending manager review', 'time')}
-        ${card('Expiring Certs', certExpiries, '<svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>', 'text-rose-600 dark:text-rose-400', 'Expiring <30d', 'compliance')}
-        ${card('Unsigned Policy', unsignedPolicies, '<svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>', 'text-amber-600 dark:text-amber-400', 'Handbook v2026', 'compliance')}
-        ${card('Overdue Onboarding', overdueOnboarding, '<svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>', 'text-purple-600 dark:text-purple-400', '2 new hires pending', 'hiring')}
-        ${card('Reviews Due', reviewsDue, '<svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>', 'text-slate-900 dark:text-white', '90-day review due', 'people')}
-        ${card('Missing Docs', missingDocs, '<svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>', 'text-rose-600 dark:text-rose-400', 'Driver licence copy', 'compliance')}
+      <div class="flex items-center justify-between mb-2">
+        <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Needs attention · ${esc(q.date)}</div>
+        <button type="button" onclick="engineTab('people-overview','reports')" class="text-xs font-black text-indigo-600 dark:text-indigo-400">Open reports</button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        ${pplQueueCard('Missed punches', q.missed, 'time')}
+        ${pplQueueCard('PTO requests', q.pto, 'time')}
+        ${pplQueueCard('Late today', q.late, 'time')}
+        ${pplQueueCard('Expiring certs', q.certs, 'time')}
+        ${pplQueueCard('Unsigned policy', q.unsigned, 'time')}
+        ${pplQueueCard('Overdue onboarding', q.onboard, 'people')}
+        ${pplQueueCard('Reviews due', q.reviews, 'people')}
+        ${pplQueueCard('Missing docs', q.docs, 'time')}
       </div>
     </div>
   `;
 }
 
 function pplRenderScheduleRiskStrip(d) {
-  return `
-    <div class="mb-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm">
-      <div class="flex items-center justify-between mb-3">
-        <span class="text-xs font-black uppercase tracking-wider text-slate-500">Departmental Schedule &amp; Staffing Risk</span>
-        <button onclick="engineTab('people-overview', 'time')" class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline">Open Schedule →</button>
+  const q = pplTodayQueues(d);
+  const cells = q.byDept.filter(x => x.people.length || ['Sales','Service','Parts'].includes(x.dept)).map(x => {
+    const names = x.people.length ? x.people.map(p => `<div class="text-sm font-semibold">${esc(pplName(p))}</div>`).join('') : '<div class="text-sm text-slate-400">No one rostered today</div>';
+    const tone = !x.people.length ? 'UNDERSTAFFED' : x.people.length === 1 ? 'THIN' : 'COVERED';
+    return `<div class="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-black uppercase tracking-wider">${esc(x.dept)}</span>
+        <span class="text-[10px] font-black">${tone}</span>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div class="p-3 rounded-lg border border-amber-200 dark:border-amber-900/60 bg-amber-50/50 dark:bg-amber-950/30">
-          <div class="flex items-center justify-between mb-1">
-            <span class="text-xs font-bold text-amber-900 dark:text-amber-200">Service Department</span>
-            <span class="px-2 py-0.5 text-[10px] font-black bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-100 rounded-full">UNDERSTAFFED</span>
-          </div>
-          <p class="text-xs text-amber-800 dark:text-amber-300">Understaffed by 1 Tech on Friday (scheduled RO load exceeds capacity by 14.5 hrs).</p>
-        </div>
-        <div class="p-3 rounded-lg border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/30">
-          <div class="flex items-center justify-between mb-1">
-            <span class="text-xs font-bold text-emerald-900 dark:text-emerald-200">Sales Floor</span>
-            <span class="px-2 py-0.5 text-[10px] font-black bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-100 rounded-full">FULL COVERAGE</span>
-          </div>
-          <p class="text-xs text-emerald-800 dark:text-emerald-300">Fully staffed with 12 reps on duty. Floor coverage optimal for weekend showroom traffic.</p>
-        </div>
-        <div class="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40">
-          <div class="flex items-center justify-between mb-1">
-            <span class="text-xs font-bold text-slate-900 dark:text-white">Parts Department</span>
-            <span class="px-2 py-0.5 text-[10px] font-black bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-full">OVERTIME RISK</span>
-          </div>
-          <p class="text-xs text-slate-600 dark:text-slate-400">2 counter staff approaching 42+ hrs due to Saturday stock shipment receiving.</p>
-        </div>
-      </div>
+      ${names}
+    </div>`;
+  }).join('');
+  return `<div class="mb-5">
+    <div class="flex items-center justify-between mb-2">
+      <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Department schedule · today</div>
+      <button type="button" onclick="engineTab('people-overview','time')" class="text-xs font-black text-indigo-600">Open schedule</button>
     </div>
-  `;
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">${cells}</div>
+  </div>`;
 }
 
 function pplRenderTimeWorkspace(d) {
@@ -351,3 +369,49 @@ window.pplRenderScheduleRiskStrip = pplRenderScheduleRiskStrip;
 window.pplRenderTimeWorkspace = pplRenderTimeWorkspace;
 window.pplRenderHiringWorkspace = pplRenderHiringWorkspace;
 window.pplRenderComplianceWorkspace = pplRenderComplianceWorkspace;
+
+
+function pplRenderReports(d) {
+  const q = pplTodayQueues(d);
+  const table = (title, rows) => `
+    <section class="mb-6">
+      <h3 class="text-base font-black mb-2">${esc(title)}</h3>
+      <div class="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl">
+        <table class="w-full text-sm">
+          <thead><tr class="text-left text-[11px] uppercase text-slate-500"><th class="p-2">Employee</th><th class="p-2">Detail</th></tr></thead>
+          <tbody>${(rows || []).map(p => `<tr class="border-t border-slate-100 dark:border-slate-800"><td class="p-2 font-semibold">${esc(pplName(p))}</td><td class="p-2">${esc(p.department || '')}</td></tr>`).join('') || '<tr><td class="p-3 text-slate-400" colspan="2">None today</td></tr>'}</tbody>
+        </table>
+      </div>
+    </section>`;
+  return `
+    ${pulseHeader('HR reports', 'Same queues as Pulse, for the day — print or export')}
+    <div class="flex gap-2 mb-4">
+      <button type="button" onclick="window.print()" class="liquid-glass-btn px-3 py-2 rounded-xl text-sm font-black">Print</button>
+      <button type="button" onclick="pplExportQueuesCsv()" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-black">Download CSV</button>
+    </div>
+    ${table('Missed punches', q.missed)}
+    ${table('PTO requests', q.pto)}
+    ${table('Late today', q.late)}
+    ${table('Expiring certs', q.certs)}
+    ${table('Unsigned policy', q.unsigned)}
+    ${table('Overdue onboarding', q.onboard)}
+    ${table('Reviews due', q.reviews)}
+    ${table('Missing docs', q.docs)}
+    ${q.byDept.map(x => table(x.dept + ' roster today', x.people)).join('')}
+  `;
+}
+window.pplRenderReports = pplRenderReports;
+window.pplExportQueuesCsv = function () {
+  const d = ENGINE_DATA['people-overview'] || {};
+  const q = pplTodayQueues(d);
+  const lines = [['Queue', 'Employee', 'Detail']];
+  const add = (queue, rows) => (rows || []).forEach(p => lines.push([queue, pplName(p), p.department || '']));
+  add('Missed punches', q.missed); add('PTO', q.pto); add('Late', q.late);
+  add('Certs', q.certs); add('Unsigned policy', q.unsigned); add('Onboarding', q.onboard);
+  add('Reviews', q.reviews); add('Missing docs', q.docs);
+  const csv = lines.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = `hr-queues-${q.date}.csv`;
+  a.click();
+};
