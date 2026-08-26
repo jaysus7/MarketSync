@@ -1231,15 +1231,19 @@ ENGINES['marketing-overview'] = {
     'video-studio'(body) {
       body.innerHTML = `
         ${mktSuiteBand('Creative', 'Video Studio', 'Sales and service videos for customers, plus a marketing library you can post from.',
-          '<button type="button" onclick="msRecordForLane && msRecordForLane()" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Record video</button>')}
+          '<button type="button" onclick="(typeof msRecordForLane===\'function\'?msRecordForLane():(typeof openCustomerVideoStudio===\'function\'&&openCustomerVideoStudio(\'\',{department:\'Sales\'})))" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Record video</button>')}
         <div id="mkt-video-studio-mount"></div>`;
       const mount = document.getElementById('mkt-video-studio-mount');
-      if (mount && typeof loadVideoStudioPage === 'function') loadVideoStudioPage(mount);
-      else if (mount && typeof renderVideoStudioWorkspace === 'function') {
-        mount.innerHTML = renderVideoStudioWorkspace([]);
-      } else if (mount) {
-        mount.innerHTML = '<div class="text-sm text-slate-500 p-6">Video Studio could not load.</div>';
-      }
+      const paint = () => {
+        if (!mount) return;
+        if (typeof loadVideoStudioPage === 'function') loadVideoStudioPage(mount);
+        else if (typeof renderVideoStudioWorkspace === 'function') mount.innerHTML = renderVideoStudioWorkspace([]);
+        else mount.innerHTML = '<div class="text-sm text-slate-500 p-6">Video Studio could not load.</div>';
+      };
+      if (typeof loadVideoStudioPage === 'function') paint();
+      else if (window.msLoadScript) {
+        window.msLoadScript('js/modules/video-studio.js?v=20260826_video_fix_v2').then(paint).catch(paint);
+      } else paint();
     },
   },
 };
