@@ -67,7 +67,7 @@ ENGINES['people-overview'] = {
     overview: 'Pulse',
     people: 'People',
     work: 'Staff',
-    insights: 'Insights',
+    insights: 'Insights', time: 'Time & Docs',
     time: 'Time',
     hiring: 'Hiring',
     compliance: 'Compliance',
@@ -75,8 +75,8 @@ ENGINES['people-overview'] = {
   },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    return mgr ? ['overview', 'work', 'insights', 'settings']
-               : ['overview', 'work', 'insights'];
+    return mgr ? ['overview', 'work', 'time', 'settings']
+               : ['overview', 'work', 'time'];
   },
 
   quickActions: [
@@ -93,12 +93,14 @@ ENGINES['people-overview'] = {
   })),
 
   fetch: async () => {
-    const [day, team, compliance, policies, templates] = await Promise.all([
+    const [day, team, compliance, policies, templates, board, opsWrap] = await Promise.all([
       apiGetJson('/my-day').catch(() => ({ needs_attention: [], failed: [{ source: 'my-day', label: 'My Day', reason: 'could not be loaded' }], not_covered: [] })),
       apiGetJson('/hr/team').catch(() => ({ team: [] })),
       apiGetJson('/hr/compliance').catch(() => null),
       apiGetJson('/hr/policies').catch(() => null),
       apiGetJson('/hr/lifecycle/templates').catch(() => null),
+      apiGetJson('/hr/time/board').catch(() => null),
+      apiGetJson('/hr/ops').catch(() => ({ ops: { schedules: [], time_off: [], documents: [], timesheets: [] } })),
     ]);
     const mine = ['people', 'academy', 'time', 'compliance', 'setup'];
     return {
@@ -109,6 +111,8 @@ ENGINES['people-overview'] = {
       compliance,
       policies: policies ? (policies.policies || []) : null,
       lifecycleTemplates: templates ? (templates.templates || []) : null,
+      board: board || { today: { late: [], early: [], on_time: [], missing: [] }, live: { in: [], out: [] }, week: { late: [] } },
+      ops: opsWrap?.ops || { schedules: [], time_off: [], documents: [], timesheets: [] },
     };
   },
 
@@ -147,6 +151,28 @@ ENGINES['people-overview'] = {
           pulseCard({ title: 'Needs attention', count: items.length, tier: items.length ? 'hero' : 'feature',
             inner: items.length ? items.slice(0, 10).map(pplAttentionRow).join('') : '',
             empty: 'Nothing in People needs you right now.' }),
+          pulseCard({ title: 'Clocked in now', count: (d.board?.live?.in || []).length, tier: 'standard',
+            onclick: "engineTab('people-overview','time')",
+            inner: (d.board?.live?.in || []).slice(0,6).map(p => pulseRow({ icon: 'check', label: p.name, sub: p.department || '' })).join(''),
+            empty: 'Nobody is punched in.' }),
+          pulseCard({ title: 'Not punched in', count: (d.board?.today?.missing || []).length, tone: (d.board?.today?.missing || []).length ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : '',
+            tier: (d.board?.today?.missing || []).length ? 'feature' : 'standard',
+            onclick: "engineTab('people-overview','time')",
+            inner: (d.board?.today?.missing || []).slice(0,8).map(p => pulseRow({ badge: '—', label: p.name, sub: p.department || 'No punch today' })).join(''),
+            empty: 'Everyone expected is punched in.' }),
+          pulseCard({ title: 'Late today', count: (d.board?.today?.late || []).length, tone: (d.board?.today?.late || []).length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
+            tier: 'standard', onclick: "engineTab('people-overview','time')",
+            inner: (d.board?.today?.late || []).slice(0,8).map(p => pulseRow({ badge: '!', badgeTone: 'bg-rose-100 text-rose-700', label: p.name, sub: p.punched ? new Date(p.punched).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}) : '' })).join(''),
+            empty: 'Nobody late yet.' }),
+          pulseCard({ title: 'Early / on time', count: ((d.board?.today?.early||[]).length + (d.board?.today?.on_time||[]).length),
+            tier: 'standard', onclick: "engineTab('people-overview','time')",
+            inner: [...(d.board?.today?.early||[]).map(p => pulseRow({ badge: '↑', label: p.name, sub: 'Early' })), ...(d.board?.today?.on_time||[]).slice(0,6).map(p => pulseRow({ icon: 'check', label: p.name, sub: 'On time' }))].join(''),
+            empty: 'No on-time punches yet.' }),
+          pulseCard({ title: 'Late this week', count: (d.board?.week?.late || []).length, tier: 'feature',
+            onclick: "engineTab('people-overview','time')",
+            inner: (d.board?.week?.late || []).slice(0,8).map(p => pulseRow({ badge: String(p.late_days), label: p.name, sub: `${p.late_days} late day(s)` })).join('')
+              + `<button type="button" onclick="pplSendLateDigest()" class="mt-3 liquid-glass-btn px-3 py-1.5 rounded-lg text-xs font-black">Email late digest</button>`,
+            empty: 'No late days recorded this week.' }),
           pulseCard({ title: 'Staff roster', count: team.length, tier: 'standard',
             onclick: "engineTab('people-overview','people')" }),
           pulseCard({ title: 'Unlinked logins', count: unlinked, tier: unlinked ? 'standard' : 'compact',
@@ -1024,3 +1050,55 @@ async function pplSubmitAddStaff() {
   } catch (e) { showToast(e.message, 'error'); }
 }
 window.pplSubmitAddStaff = pplSubmitAddStaff;
+
+
+async function pplSaveOps(patch) {
+  const cur = (ENGINE_DATA['people-overview']?.ops) || { schedules: [], time_off: [], documents: [], timesheets: [] };
+  const next = { ...cur, ...patch };
+  const saved = await apiSendJson('/hr/ops', 'PUT', next);
+  ENGINE_DATA['people-overview'].ops = saved.ops || next;
+  engineTab('people-overview', 'time', true);
+}
+
+window.pplAddSchedule = async function () {
+  const department = document.getElementById('hr-sched-dept')?.value?.trim();
+  const start = document.getElementById('hr-sched-start')?.value || '09:00';
+  const end = document.getElementById('hr-sched-end')?.value || '17:00';
+  if (!department) return showToast('Department is required.', 'error');
+  const schedules = [ ...((ENGINE_DATA['people-overview']?.ops?.schedules) || []), { department, start, end } ];
+  try { await pplSaveOps({ schedules }); showToast('Schedule saved', 'success'); } catch (e) { showToast(e.message, 'error'); }
+};
+window.pplAddTimeOff = async function () {
+  const name = document.getElementById('hr-off-name')?.value?.trim();
+  const date = document.getElementById('hr-off-date')?.value;
+  const reason = document.getElementById('hr-off-reason')?.value?.trim();
+  if (!name || !date) return showToast('Name and date are required.', 'error');
+  const time_off = [ ...((ENGINE_DATA['people-overview']?.ops?.time_off) || []), { name, date, reason, status: 'pending' } ];
+  try { await pplSaveOps({ time_off }); showToast('Time off saved', 'success'); } catch (e) { showToast(e.message, 'error'); }
+};
+window.pplAddTimesheet = async function () {
+  const name = document.getElementById('hr-ts-name')?.value?.trim();
+  const hours = document.getElementById('hr-ts-hours')?.value;
+  const week = document.getElementById('hr-ts-week')?.value?.trim();
+  if (!name) return showToast('Staff name is required.', 'error');
+  const timesheets = [ ...((ENGINE_DATA['people-overview']?.ops?.timesheets) || []), { name, hours, week } ];
+  try { await pplSaveOps({ timesheets }); showToast('Timesheet line saved', 'success'); } catch (e) { showToast(e.message, 'error'); }
+};
+window.pplAddDocument = async function () {
+  const title = document.getElementById('hr-doc-title')?.value?.trim();
+  const department = document.getElementById('hr-doc-dept')?.value?.trim() || 'All';
+  if (!title) return showToast('Document name is required.', 'error');
+  const documents = [ ...((ENGINE_DATA['people-overview']?.ops?.documents) || []), { title, department, created_at: new Date().toISOString() } ];
+  try { await pplSaveOps({ documents }); showToast('Document created', 'success'); } catch (e) { showToast(e.message, 'error'); }
+};
+window.pplRemoveOps = async function (key, idx) {
+  const list = [ ...((ENGINE_DATA['people-overview']?.ops?.[key]) || []) ];
+  list.splice(idx, 1);
+  try { await pplSaveOps({ [key]: list }); } catch (e) { showToast(e.message, 'error'); }
+};
+window.pplSendLateDigest = async function () {
+  try {
+    const r = await apiSendJson('/hr/time/late-digest', 'POST', {});
+    showToast(r.ok ? `Late digest emailed to ${r.sent_to}` : 'Could not send the digest.', r.ok ? 'success' : 'error');
+  } catch (e) { showToast(e.message, 'error'); }
+};
