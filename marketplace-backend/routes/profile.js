@@ -349,8 +349,13 @@ export function registerRoutes(app) {
     //
     // Not best-effort: a login with no employment record is precisely the broken state this
     // slice exists to end, so a failure here is reported rather than swallowed.
-    const { error: staffError } = await ensureStaffMember(req.dealershipId, newUser.user.id, {
-      name: full_name, email, role: newRole, createdBy: req.user.id, status: 'invited',
+    const { error: staffError, staff: hired } = await ensureStaffMember(req.dealershipId, newUser.user.id, {
+      name: full_name, email, role: newRole,
+      department: req.body?.department || null,
+      team: req.body?.team || req.body?.department || null,
+      jobTitle: req.body?.job_title || null,
+      startDate: req.body?.start_date || null,
+      createdBy: req.user.id, status: 'invited',
     })
     if (staffError) {
       // Identity is atomic: never leave a login operationally present while People/Academy
@@ -360,6 +365,24 @@ export function registerRoutes(app) {
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
       return res.status(500).json({ error: `Employment record could not be created: ${staffError}` })
     }
+
+    const notesBits = [
+      req.body?.date_of_birth && `Birthday: ${req.body.date_of_birth}`,
+      req.body?.licence_number && `Licence: ${req.body.licence_number}`,
+      req.body?.address && `Address: ${req.body.address}`,
+      req.body?.emergency_contact_name && `Emergency: ${req.body.emergency_contact_name} ${req.body.emergency_contact_phone || ''}`.trim(),
+      req.body?.benefits_plan && `Benefits: ${req.body.benefits_plan}`,
+      req.body?.insurance_plan && `Insurance: ${req.body.insurance_plan}`,
+      req.body?.demo_vehicle && `Demo: ${req.body.demo_vehicle}`,
+      req.body?.notes,
+    ].filter(Boolean).join('\n')
+    await supabaseAdmin.from('staff_members').update({
+      phone: req.body?.phone || null,
+      employee_number: req.body?.employee_number || null,
+      location_name: req.body?.location_name || null,
+      notes: notesBits || null,
+      updated_by: req.user.id,
+    }).eq('dealership_id', req.dealershipId).eq('user_id', newUser.user.id)
 
     // Optionally confine this member to a single product (e.g. a rep hired for Facebook
     // only) and apply per-member permission overrides. Both are additive to the RBAC role.
@@ -397,10 +420,15 @@ export function registerRoutes(app) {
     }) : { ok: false, error: tokenError?.message || 'Could not create password setup link' }
 
     if (!mail.ok) {
-      await supabaseAdmin.from('password_reset_tokens').delete().eq('token_hash', tokenHash)
-      await supabaseAdmin.from('profiles').delete().eq('id', newUser.user.id)
-      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
-      return res.status(503).json({ error: 'Invitation email could not be sent. No account was created.' })
+      audit(req, AuditAction.TEAM_MEMBER_INVITED, { invited_email: email, invited_user_id: newUser.user.id, delivery: 'saved_without_email', reason: mail.error })
+      return res.json({
+        success: true,
+        user_id: newUser.user.id,
+        email,
+        invitation_sent: false,
+        staff_saved: true,
+        note: 'Staff file was saved. Invitation email could not be sent — they can use password reset.',
+      })
     }
 
     audit(req, AuditAction.TEAM_MEMBER_INVITED, { invited_email: email, invited_user_id: newUser.user.id, delivery: 'resend' })
