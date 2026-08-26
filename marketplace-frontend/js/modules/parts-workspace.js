@@ -682,9 +682,9 @@ ENGINES['parts-overview'] = {
       const blockedRoIds = [...new Set(reqs.filter(q => q.ro_id && ['requested', 'backordered'].includes(q.status)).map(q => q.ro_id))];
       const otherRequests = reqs.filter(q => (q.requested_for || 'service') !== 'service');
       const completedMovement = reqs.filter(q => ['issued', 'fulfilled'].includes(q.status));
-      const pulse = pulseGrid([
+      const pulse = pulseBoard([
         pulseCard({
-          title: 'Backordered — shop waiting', count: backordered.length, tone: backordered.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
+          title: 'Backordered — shop waiting', count: backordered.length, tier: backordered.length ? 'hero' : 'standard', tone: backordered.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
           onclick: "engineTab('parts-overview','work')",
           inner: backordered.length ? backordered.slice(0, 5).map(q => pulseRow({
             badge: '!', badgeTone: 'bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300',
@@ -692,27 +692,27 @@ ENGINES['parts-overview'] = {
           })).join('') : '', empty: 'Nothing on backorder.',
         }),
         pulseCard({
-          title: 'New requests to order', count: requested.length,
+          title: 'New requests to order', count: requested.length, tier: requested.length ? 'feature' : 'standard',
           onclick: "engineTab('parts-overview','work')",
           inner: requested.length ? requested.slice(0, 5).map(q => pulseRow({
             badge: '#', label: d.partById?.[q.part_id]?.part_number || 'Part', sub: pwReqShort(q),
           })).join('') : '', empty: 'No new requests.',
         }),
         pulseCard({
-          title: 'Reserved — ready to issue', count: reserved.length, tone: reserved.length ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300' : '',
+          title: 'Reserved — ready to issue', count: reserved.length, tier: 'standard', tone: reserved.length ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300' : '',
           onclick: "engineTab('parts-overview','work')",
           inner: reserved.length ? reserved.slice(0, 5).map(q => pulseRow({
             icon: 'check', badgeTone: 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300',
             label: d.partById?.[q.part_id]?.part_number || 'Part', sub: pwReqShort(q),
           })).join('') : '', empty: 'Nothing reserved right now.',
         }),
-        pulseSearchCard({ title: 'Inventory', placeholder: 'Search parts by number or description', count: parts.length, onclick: "engineTab('parts-overview','work')" }),
+        pulseSearchCard({ title: 'Inventory', placeholder: 'Search parts by number or description', count: parts.length, tier: 'compact', onclick: "engineTab('parts-overview','work')" }),
         pulseCard({
-          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', span: 'tall',
+          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', tier: att.length ? 'tall' : 'standard',
           inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '', empty: 'Nothing is waiting on Parts.',
         }),
         pulseCard({
-          title: 'At or below reorder point', count: lowStockParts.length, tone: lowStockParts.length ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : '',
+          title: 'At or below reorder point', count: lowStockParts.length, tier: lowStockParts.length ? 'feature' : 'standard', tone: lowStockParts.length ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : '',
           inner: lowStockParts.length ? lowStockParts.slice(0, 6).map(p => pulseRow({
             badge: '↓', badgeTone: 'bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-300',
             label: pwPartLabel(p), done: Number(p.qty_available ?? 0) === 0,
@@ -720,7 +720,7 @@ ENGINES['parts-overview'] = {
           })).join('') : '', empty: 'Nothing needs reordering.',
         }),
         pulseCard({
-          title: 'Highest value in stock', count: highestValueParts.length,
+          title: 'Highest value in stock', count: highestValueParts.length, tier: 'standard',
           onclick: "engineTab('parts-overview','work')",
           inner: highestValueParts.length ? highestValueParts.map(p => pulseRow({
             badge: '$', label: pwPartLabel(p), sub: `${p.qty_on_hand || 0} on hand`,
@@ -728,7 +728,7 @@ ENGINES['parts-overview'] = {
           })).join('') : '', empty: 'No parts on file yet.',
         }),
         pulseCard({
-          title: 'Stock health', count: unitsOnHand,
+          title: 'Stock health', count: unitsOnHand, tier: 'standard',
           onclick: "engineTab('parts-overview','work')",
           inner: [
             pulseRow({ badge: parts.length, label: 'Parts on file' }),
@@ -738,7 +738,7 @@ ENGINES['parts-overview'] = {
           ].join(''),
         }),
         pulseCard({
-          title: 'Waiting repair orders', count: blockedRoIds.length,
+          title: 'Waiting repair orders', count: blockedRoIds.length, tier: blockedRoIds.length ? 'feature' : 'standard',
           tone: blockedRoIds.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
           onclick: "engineTab('parts-overview','work')",
           inner: blockedRoIds.length ? blockedRoIds.slice(0, 6).map(roId => {
@@ -751,7 +751,7 @@ ENGINES['parts-overview'] = {
           }).join('') : '', empty: 'No repair order is waiting on parts.',
         }),
         pulseCard({
-          title: 'Other department demand', count: otherRequests.length,
+          title: 'Other department demand', count: otherRequests.length, tier: 'standard',
           onclick: "engineTab('parts-overview','work')",
           inner: otherRequests.length ? otherRequests.slice(0, 6).map(q => pulseRow({
             badge: '#', label: d.partById?.[q.part_id]?.part_number || 'Part',
@@ -759,7 +759,7 @@ ENGINES['parts-overview'] = {
           })).join('') : '', empty: 'No demand outside Service.',
         }),
         pulseCard({
-          title: 'Issued and fulfilled', count: completedMovement.length,
+          title: 'Issued and fulfilled', count: completedMovement.length, tier: 'compact',
           onclick: "engineTab('parts-overview','work')",
           inner: completedMovement.length ? completedMovement.slice(0, 6).map(q => pulseRow({
             icon: 'check', label: d.partById?.[q.part_id]?.part_number || 'Part', sub: pwReqShort(q), done: q.status === 'fulfilled',
