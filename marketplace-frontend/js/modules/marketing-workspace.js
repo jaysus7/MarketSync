@@ -283,18 +283,19 @@ function mktGo(kind) {
 }
 
 function mktAttentionRow(x) {
-  return `<div class="py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-    <button onclick="${mktGo(x.kind)}" class="w-full text-left">
-      <div class="flex items-start gap-3">
-        <div class="min-w-0 flex-1">
-          <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(x.subject || x.kind)}</div>
-          <div class="text-[12px] text-slate-400">${esc(x.reason || '')}</div>
-        </div>
-        ${x.amount != null ? `<div class="shrink-0 text-[13px] font-bold ${MKT_TONE[x.severity] || ''}">${esc(mktMoney(x.amount))}</div>` : ''}
-      </div>
-      <div class="text-[12px] font-semibold mt-1 ${MKT_TONE[x.severity] || ''}">${esc(x.action || 'Review')}${x.owner ? ` · ${esc(x.owner)}` : ''}</div>
-    </button>
-  </div>`;
+  const label = x.subject || x.kind || 'Needs attention';
+  const sub = [x.reason, x.action, x.owner].filter(Boolean).join(' · ');
+  const go = (typeof mktGo === 'function' ? mktGo(x.kind) : '') || x.onclick || '';
+  if (typeof pulseRow === 'function') {
+    return pulseRow({
+      label,
+      sub,
+      value: x.amount != null ? mktMoney(x.amount) : '',
+      onclick: go,
+      actionLabel: x.action_label || 'Open',
+    });
+  }
+  return mktRow({ title: label, sub, onclick: go, actionLabel: 'Open' });
 }
 
 function mktRow({ title, sub, right, tone, note, onclick, actionLabel = 'View' }) {
