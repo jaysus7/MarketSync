@@ -116,15 +116,19 @@ ENGINES['accounting-overview'] = {
       const apDue = (d.payables || []).filter(x => x.due_date && new Date(x.due_date) <= new Date()).length;
       const open = (d.receivables || []).filter(x => x.status === 'open');
       body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          ${engKpi('Needs attention', exc.length, exc.length ? 'text-rose-600 dark:text-rose-400' : '')}
-          ${engKpi('Critical', critical, critical ? 'text-rose-600 dark:text-rose-400' : '')}
-          ${engKpi('Awaiting funding', unfunded, unfunded ? 'text-amber-600 dark:text-amber-400' : '')}
-          ${engKpi('Bills due', apDue, apDue ? 'text-amber-600 dark:text-amber-400' : '')}
-        </div>
-        ${engCard(`Needs attention (${exc.length})`,
-          exc.length ? exc.slice(0, 25).map(accExceptionRow).join('')
-                     : engEmpty('Nothing needs Accounting right now.'))}
+        ${pulseHeader('Accounting Pulse', 'Exceptions, funding, bills and where the money stands')}
+        ${pulseBoard([
+          pulseCard({ title: 'Needs attention', count: exc.length, tier: exc.length ? 'hero' : 'feature',
+            tone: exc.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
+            inner: exc.length ? exc.slice(0, 12).map(accExceptionRow).join('') : '',
+            empty: 'Nothing needs Accounting right now.' }),
+          pulseCard({ title: 'Critical', count: critical, tier: critical ? 'standard' : 'compact',
+            tone: critical ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '' }),
+          pulseCard({ title: 'Awaiting funding', count: unfunded, tier: unfunded ? 'standard' : 'compact',
+            tone: unfunded ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300' : '' }),
+          pulseCard({ title: 'Bills due', count: apDue, tier: apDue ? 'standard' : 'compact',
+            tone: apDue ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300' : '' }),
+        ])}
         ${engSection('Where the money stands', `
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
             ${engKpi('Customer AR', accMoney(d.arTotal))}
