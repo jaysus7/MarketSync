@@ -1359,6 +1359,11 @@ function applyProductNav(products) {
   });
   // Land on this product's home screen.
   const home = PRODUCT_HOME[active[0]] || [...allow][0] || 'profile';
+  // Digital / marketing suites never land on DealerOS Complete Pulse.
+  if ((home === 'marketing-overview' || String(active[0]||'').includes('digital') || String(active[0]||'').includes('marketing-suite')) && window.__currentPage === 'command') {
+    setTimeout(() => { if (typeof deptGo === 'function') deptGo('marketing-overview','','overview'); else if (typeof switchPage === 'function') switchPage('marketing-overview'); }, 0);
+  }
+
   __productHome = home;
   applyMobileQuickRow();   // trim the mobile bottom bar to this tier's pages
   if (home) {
