@@ -2389,9 +2389,9 @@
       <!-- ── Inventory Intelligence Page ───────────────────────────────────── -->
       <!-- ───────── MARKET & COMPETITORS PAGE (Inventory Intelligence) ───────── -->
       <div data-page-content="market" class="page-content hidden space-y-6">
-        <div>
-          <h1 class="text-2xl font-black text-slate-900 dark:text-white">Market &amp; Competitors</h1>
-          <p class="text-sm text-slate-500 dark:text-slate-400">Live market snapshots and nearby-lot pricing — part of Inventory Intelligence.</p>
+        <div class="ms-c ms-c--glass ms-c--feature p-5">
+          <h1 class="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Market &amp; Competitors</h1>
+          <p class="text-sm text-slate-600 dark:text-slate-300 mt-1">Live market snapshots and nearby-lot pricing.</p>
         </div>
         <div id="market-upsell" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 text-sm text-slate-500 dark:text-slate-400">Market &amp; Competitors is part of <span class="font-bold text-slate-700 dark:text-slate-200">Inventory Intelligence</span>. Activate it to track nearby lots and pull live market snapshots.</div>
         <div id="market-content" class="space-y-6">
@@ -2464,13 +2464,15 @@
       <div data-page-content="inv-intel" class="page-content hidden space-y-6 ms-inventory-intelligence">
 
         <!-- Header -->
-        <div class="flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <svg class="w-5 h-5 text-violet-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
-              Intelligence by MarketSync
-            </h2>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Inventory Intelligence for your lot: turn rate, health scores, vehicle gaps, and approved actions.</p>
+        <div class="ms-c ms-c--glass ms-c--feature p-5 mb-2">
+          <div class="flex items-start gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 flex items-center justify-center flex-shrink-0">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
+            </div>
+            <div class="min-w-0">
+              <h2 class="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Inventory Intelligence</h2>
+              <p class="text-sm text-slate-600 dark:text-slate-300 mt-1">Turn rate, lot health, vehicle gaps, market position, and approved actions.</p>
+            </div>
           </div>
         </div>
 
@@ -3972,7 +3974,7 @@
   <script src="js/modules/dashboard-part26.js?v=20260824_staff_password_css_v1"></script>
   <!-- Sales workspace: registers ENGINES['sales']; must load after the parts. -->
   <script src="js/modules/sales-workspace.js?v=20260826_pulse_pills_v1"></script>
-  <script src="js/modules/inventory-workspace.js?v=20260826_dept_pulse_board_v1"></script>
+  <script src="js/modules/inventory-workspace.js?v=20260826_inv_intel_glass_v1"></script>
   <script src="js/modules/fni-workspace.js?v=20260826_pulse_clean_v2"></script>
   <!-- Vehicle Record: one unit, one surface. Loads after inventory-workspace.js,
        whose merchandising/acquisition definitions it renders. -->
