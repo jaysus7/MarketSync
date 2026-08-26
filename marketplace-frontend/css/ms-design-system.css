@@ -280,7 +280,7 @@
 .ms-span-hero,     .ms-c--hero     { grid-column: span 6; }
 .ms-span-feature,  .ms-c--feature  { grid-column: span 4; }
 .ms-span-wide,     .ms-c--wide     { grid-column: span 8; }
-.ms-span-tall,     .ms-c--tall     { grid-column: span 3; }
+.ms-span-tall,     .ms-c--tall     { grid-column: span 4; }
 .ms-span-standard, .ms-c--standard { grid-column: span 3; }
 .ms-span-compact,  .ms-c--compact  { grid-column: span 2; }
 .ms-span-full,     .ms-c--full     { grid-column: 1 / -1; }
