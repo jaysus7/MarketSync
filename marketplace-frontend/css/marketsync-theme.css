@@ -2729,3 +2729,8 @@ html.dark[data-dash-mode="marketsync"] .page-content .ms-ai-panel {
 .ms-crm-glass .ms-crm-actions button,
 .ms-crm-glass #crm-actions-menu button { color: #0f172a; }
 .dark .ms-crm-glass #crm-actions-menu button { color: #f1f5f9; }
+
+/* Facebook-only product keeps a larger Marketplace hero. Complete stays compact. */
+html[data-dash-tier="fb"] #feeds-panel { padding: 1.75rem !important; }
+html[data-dash-tier="fb"] #feeds-panel h2 { font-size: 1.875rem !important; line-height: 1.1 !important; }
+html[data-dash-tier="fb"] #feeds-panel .fb-hero-copy { display: block !important; }
