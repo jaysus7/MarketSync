@@ -1003,9 +1003,26 @@ function facebookLeaderboardActive() {
 const calcPoints = (m) => (m.total_listings || 0) * 100 + (m.sold_listings || 0) * 500
   + (facebookLeaderboardActive() ? 0 : (m.deals_closed || 0) * 500 + (m.appraisals || 0) * 50);
 
+function leaderboardDeptsForRole(role) {
+  const r = String(role || '').toUpperCase();
+  if (r === 'SERVICE') return ['service'];
+  if (r === 'PARTS') return ['parts'];
+  if (r === 'FNI') return ['fni'];
+  if (r === 'ACCOUNTING') return ['accounting'];
+  if (r === 'CLEANUP') return ['cleanup'];
+  if (r === 'SALES_REP') return ['sales', 'facebook'];
+  return ['facebook', 'sales', 'service', 'fni', 'video'];
+}
+
 function applyLeaderboardProductPresentation() {
   const facebook = facebookLeaderboardActive();
   const video = typeof isVideoOnlyWorkspace === 'function' && isVideoOnlyWorkspace();
+  const allowed = leaderboardDeptsForRole(typeof profileContext !== 'undefined' ? profileContext?.role : '');
+  document.querySelectorAll('#lb-dept-tabs .lb-dept-btn').forEach(btn => {
+    const key = (btn.id || '').replace('lb-dept-', '');
+    btn.classList.toggle('hidden', allowed.length < 3 && !allowed.includes(key));
+  });
+  if (allowed.length && !allowed.includes(window.__activeLbDept)) window.__activeLbDept = allowed[0];
   const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
   // A Facebook-tier or Video-tier account has no Sales/Service/F&I department to
   // browse — the department tab row is Global vs My Team only (both already
@@ -1108,7 +1125,9 @@ window.loadMyTierChip = loadMyTierChip;
 window.__activeLbDept = 'facebook';
 
 function switchLeaderboardDept(deptKey) {
-  window.__activeLbDept = deptKey || 'facebook';
+  const allowed = leaderboardDeptsForRole(typeof profileContext !== 'undefined' ? profileContext?.role : '');
+  if (allowed.length && deptKey && !allowed.includes(deptKey)) return;
+  window.__activeLbDept = deptKey || allowed[0] || 'facebook';
   ['facebook', 'sales', 'service', 'fni', 'video'].forEach(k => {
     const btn = document.getElementById(`lb-dept-${k}`);
     if (!btn) return;
