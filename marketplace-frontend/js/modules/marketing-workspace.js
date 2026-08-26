@@ -292,15 +292,17 @@ function mktAttentionRow(x) {
   </div>`;
 }
 
-function mktRow({ title, sub, right, tone, note, onclick, actionLabel = 'Open' }) {
-  return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+function mktRow({ title, sub, right, tone, note, onclick, actionLabel = 'View' }) {
+  const subline = [sub, note, right].filter(Boolean).join(' · ');
+  if (typeof pulseRow === 'function') {
+    return pulseRow({ label: title, sub: subline, onclick, actionLabel });
+  }
+  return `<div class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-white border border-slate-100">
     <div class="min-w-0 flex-1">
-      <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(title)}</div>
-      <div class="text-[12px] text-slate-400 truncate">${esc(sub || '')}</div>
-      ${note ? `<div class="text-[12px] ${tone || 'text-slate-400'}">${esc(note)}</div>` : ''}
+      <div class="font-bold text-[14px] text-slate-900 truncate">${esc(title)}</div>
+      ${subline ? `<div class="text-[12px] text-slate-500 mt-0.5 truncate">${esc(subline)}</div>` : ''}
     </div>
-    <div class="shrink-0 text-right text-[13px] font-bold ${tone || ''}">${esc(right || '')}</div>
-    ${onclick ? `<button onclick="${onclick}" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">${esc(actionLabel)}</button>` : ''}
+    ${onclick ? `<button type="button" onclick="${onclick}" class="shrink-0 px-3.5 py-1.5 rounded-full border border-slate-200 text-[13px] font-semibold">${esc(actionLabel)}</button>` : ''}
   </div>`;
 }
 
