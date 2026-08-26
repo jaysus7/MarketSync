@@ -802,11 +802,22 @@ window.svcSubmitCheckInForm = async function(apptId) {
 
 window.svcOpenVideoWalkaround = function(roId = null, contactId = null) {
   document.getElementById('svc-checkin-modal')?.remove();
-  if (typeof openCustomerVideoStudio === 'function') {
-    openCustomerVideoStudio(contactId || 'demo-customer', { department: 'Service', scriptKey: 'service' });
-    if (typeof showToast === 'function') showToast('Opening Service Video Walkaround Studio...', 'info');
-  } else {
-    if (typeof showToast === 'function') showToast('Video Studio loading...', 'info');
+  window.__videoStudioLane = 'service';
+  const start = () => {
+    if (typeof openCustomerVideoStudio === 'function') {
+      openCustomerVideoStudio(contactId || '', { department: 'Service', scriptKey: 'service', roId: roId || null, studioMode: false });
+      if (typeof showToast === 'function') showToast('Service walkaround camera', 'success');
+      return true;
+    }
+    return false;
+  };
+  if (start()) return;
+  if (window.msLoadScript) {
+    window.msLoadScript('js/modules/video-studio.js?v=20260826_video_fix_v2').then(() => {
+      if (!start() && typeof showToast === 'function') showToast('Could not open the service camera.', 'error');
+    });
+  } else if (typeof showToast === 'function') {
+    showToast('Video Studio is not loaded.', 'error');
   }
 };
 
