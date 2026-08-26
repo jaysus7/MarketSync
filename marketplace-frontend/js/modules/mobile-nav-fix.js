@@ -23,6 +23,14 @@
         && result[0].page === 'saas-command') {
       return null;
     }
+    if (demoIsActive && !demoForcesDealerOs
+        && Array.isArray(result)
+        && result[0]
+        && result[0].page === 'saas-command'
+        && typeof window.navPagesForProductKey === 'function') {
+      const mapped = window.navPagesForProductKey(demoProd);
+      if (mapped && mapped.length) return mapped;
+    }
     return result;
   };
 })();
