@@ -22,7 +22,7 @@ function buildMarketingSuiteConfig(key) {
     const navItems = [
       suiteItem('marketing-overview', 'Pulse', 'chart', { tab: 'overview' }),
       suiteItem('website', 'Dealer Website', 'globe', { tab: 'setup' }),
-      suiteItem('seo', 'MarketSync SEO', 'chart', { tab: 'settings' }),
+      suiteItem('seo', 'MarketSync SEO', 'chart', { tab: 'overview' }),
       suiteItem('ai-home', 'AI Customer Agent', 'sparkles', { tab: 'conversations' }),
       suiteItem('studio', 'Design Studio', 'camera', { studioLaunch: true }),
       suiteItem('social-scheduler', 'Social Studio & Scheduler', 'calendar'),
@@ -519,34 +519,6 @@ function mktDigitalPulseOverview(body, d, cfg, dayCaveat = '') {
   body.innerHTML = `
     <div class="space-y-10 md:space-y-12 ms-digital-suite">
       ${dayCaveat}
-
-      <!-- Top Liquid Glass Hero Header -->
-      <section class="ms-glass rounded-[var(--ms-radius-card,24px)] p-7 md:p-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between shadow-lg">
-        <div class="min-w-0">
-          <div class="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-600/10 px-3.5 py-1 text-xs font-black uppercase tracking-[0.14em] text-indigo-600 dark:text-indigo-400">
-            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            MarketSync Digital · Live Operations
-          </div>
-          <h2 class="mt-3 text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white">Dealership Digital Pulse</h2>
-          <p class="mt-2 max-w-3xl text-sm sm:text-base leading-relaxed text-slate-600 dark:text-slate-300">
-            One unified pulse across all digital capabilities: Website, SEO, 24/7 AI Customer Agent, Design Studio, Social Media, Facebook Marketplace, Video, and Automated Email &amp; SMS Campaigns.
-          </p>
-        </div>
-        <div class="flex flex-wrap items-center gap-2.5 shrink-0">
-          <button onclick="switchPage('automation-builder')" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs sm:text-sm shadow-md transition flex items-center gap-1.5 cursor-pointer">
-            <svg class="w-4 h-4 text-amber-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
-            <span>+ Build Automation</span>
-          </button>
-          <button onclick="openEmailSmsBuilder({ mode: 'email' })" class="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-800/80 text-slate-800 dark:text-white font-bold text-xs sm:text-sm hover:bg-white dark:hover:bg-slate-700 shadow-xs transition flex items-center gap-1.5 cursor-pointer">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-            <span>+ New Campaign</span>
-          </button>
-          <button onclick="if (typeof openMarketSyncStudio === 'function') openMarketSyncStudio(); else switchPage('studio');" class="px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs sm:text-sm shadow-md transition flex items-center gap-1.5 cursor-pointer">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/></svg>
-            <span>Design Studio</span>
-          </button>
-        </div>
-      </section>
 
       <!-- 8 Live Connected Metric Tiles -->
       <section aria-label="Digital operational metrics" class="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-4 md:gap-5">
