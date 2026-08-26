@@ -935,18 +935,35 @@ function pulseActionsRow(actions) {
 // real Performance/Leaderboard page (switchPage('leaderboard')) already renders, so a
 // Pulse card never shows a number that isn't also standing behind that page today.
 // gam: the raw /gamification response (or null if it could not be loaded).
-function pulseLeaderboardCard(gam, deptKey, { title, metric, onclick, tier } = {}) {
+function pulseLeaderboardCard(gam, deptKey, { title, metric, onclick, tier, limit } = {}) {
+  // Embedded department leaderboard — lives ON the Pulse. Do not navigate away
+  // unless the caller explicitly passes onclick (e.g. a "View full board" affordance).
   const dept = gam?.departments?.[deptKey];
-  const rows = (dept?.leaderboard || []).slice().sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99)).slice(0, 5);
+  const rows = (dept?.leaderboard || []).slice().sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99)).slice(0, limit || 8);
+  const formatPts = (v) => {
+    if (v == null || v === '') return null;
+    const n = Number(v);
+    if (!Number.isFinite(n)) return String(v);
+    return n >= 1000 ? `${n.toLocaleString()} pts` : `${n} pts`;
+  };
+  const inner = rows.length ? rows.map(r => {
+    const raw = metric ? (r.metrics?.[metric] ?? r.score ?? null) : (r.score ?? null);
+    return pulseLeaderRow({
+      rank: r.rank,
+      name: r.full_name,
+      sub: r.title || '',
+      value: formatPts(raw),
+      valueTone: 'text-amber-600 dark:text-amber-400',
+      // Rows stay on the pulse; only an explicit onclick navigates.
+      onclick: onclick || null,
+    });
+  }).join('') : '';
   return pulseCard({
     title: title || (dept?.title ? `${dept.title} leaderboard` : 'Leaderboard'),
-    onclick: onclick || "switchPage('leaderboard')",
-    tier: tier || 'compact',
-    inner: rows.length ? rows.map(r => pulseLeaderRow({
-      rank: r.rank, name: r.full_name, sub: r.title || '',
-      value: metric ? (r.metrics?.[metric] ?? r.score ?? null) : (r.score ?? null),
-      onclick: onclick || "switchPage('leaderboard')",
-    })).join('') : '',
+    // No card-level navigation — the board is the destination.
+    onclick: null,
+    tier: tier || 'standard',
+    inner,
     empty: gam === null ? 'Could not be loaded.' : 'No ranked activity yet.',
   });
 }
