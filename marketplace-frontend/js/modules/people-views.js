@@ -177,14 +177,50 @@ function pplRenderTimeWorkspace(d) {
       </div>
       ${(ops.timesheets || []).map((s,i) => `<div class="py-2 border-b border-slate-100 dark:border-slate-800 flex justify-between"><span>${esc(s.name || '')} · ${esc(s.week || '')} · ${esc(String(s.hours || ''))}h</span><button class="text-sm font-bold" onclick="pplRemoveOps('timesheets',${i})">Remove</button></div>`).join('') || engEmpty('No saved timesheet lines. Approved punches also feed payroll.')}
     `)}
-    ${engCard('HR documents', `
-      <div class="flex gap-2 mb-3 flex-wrap">
-        <input id="hr-doc-title" placeholder="Document name (handbook, schedule, agreement)" class="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-        <input id="hr-doc-dept" placeholder="Department or All" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-        <button type="button" onclick="pplAddDocument()" class="liquid-glass-btn px-3 py-2 rounded-xl text-sm font-black">Create document</button>
-      </div>
-      ${(ops.documents || []).map((s,i) => `<div class="py-2 border-b border-slate-100 dark:border-slate-800 flex justify-between"><span>${esc(s.title)} · ${esc(s.department || 'All')}</span><button class="text-sm font-bold" onclick="pplRemoveOps('documents',${i})">Remove</button></div>`).join('') || engEmpty('No HR documents created yet.')}
-    `)}
+    ${(() => {
+      const docs = ops.documents && ops.documents.length ? ops.documents : [
+        { group: 'Onboarding Documents', title: 'Company Demonstrator Policy' },
+        { group: 'Onboarding Documents', title: 'Email, Internet and Computer Use Policy' },
+        { group: 'Onboarding Documents', title: 'Employee Agreement' },
+        { group: 'Onboarding Documents', title: 'Employee New Hire Checklist' },
+        { group: 'Onboarding Documents', title: 'Employee Orientation Checklist' },
+        { group: 'Onboarding Documents', title: 'Group Coverage Form' },
+        { group: 'Onboarding Documents', title: 'Sexual Harassment Policy' },
+        { group: 'Onboarding Documents', title: 'Substance Use Policy' },
+        { group: 'Onboarding Documents', title: 'Workplace Violence and Harassment Policy' },
+        { group: 'Onboarding Documents', title: 'Health and Safety Policy' },
+        { group: 'Onboarding Documents', title: 'Confidentiality and Privacy Agreement' },
+        { group: 'Onboarding Documents', title: 'Code of Conduct' },
+        { group: 'Tax Forms', title: '2026 Federal TD1 Form' },
+        { group: 'Tax Forms', title: '2026 Ontario TD1ON Form' },
+        { group: 'Payroll & Banking', title: 'Direct Deposit Authorization' },
+        { group: 'Payroll & Banking', title: 'Emergency Contact Form' },
+        { group: 'Licensing', title: 'OMVIC Registration Copy' },
+        { group: 'Licensing', title: 'Driver Licence Copy' },
+      ];
+      const groups = [];
+      docs.forEach((s, i) => {
+        const g = s.group || 'Documents';
+        let bucket = groups.find(x => x.g === g);
+        if (!bucket) { bucket = { g, items: [] }; groups.push(bucket); }
+        bucket.items.push({ ...s, i });
+      });
+      const list = groups.map(gr => `
+        <div class="mb-4">
+          <div class="text-[11px] font-black uppercase tracking-wider text-slate-500 mb-2">${esc(gr.g)}</div>
+          <div class="flex flex-col gap-2">${gr.items.map(s => (typeof pulseRow === 'function' ? pulseRow({
+            label: s.title, sub: s.department || 'All staff', actionLabel: 'Open', onclick: `pplOpenHrDoc(${s.i})`
+          }) : `<div class="py-2">${esc(s.title)}</div>`)).join('')}</div>
+        </div>`).join('');
+      return engCard('HR documents', `
+        <div class="flex gap-2 mb-4 flex-wrap">
+          <input id="hr-doc-title" placeholder="Add another document" class="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+          <input id="hr-doc-dept" placeholder="Department or All" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+          <button type="button" onclick="pplAddDocument()" class="liquid-glass-btn px-3 py-2 rounded-xl text-sm font-black">Create document</button>
+        </div>
+        ${list}
+      `);
+    })()}
   `;
 }
 
@@ -414,4 +450,10 @@ window.pplExportQueuesCsv = function () {
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
   a.download = `hr-queues-${q.date}.csv`;
   a.click();
+};
+
+window.pplOpenHrDoc = function (i) {
+  const docs = (ENGINE_DATA['people-overview']?.ops?.documents) || [];
+  const d = docs[i] || { title: 'HR document' };
+  showToast((d.title || 'Document') + ' — template on file. Upload a signed copy on the employee card.', 'success');
 };
