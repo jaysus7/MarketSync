@@ -639,6 +639,17 @@ function pplDetailsPanel(d) {
         <button onclick="pplSavePerson('${esc(p.id)}')" class="px-3 py-2 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold hover:opacity-90 transition">Save changes</button>
         <span class="text-[12px] text-slate-400">Editing the HR record does not change their login email — that only changes from their own profile.</span>
       </div>`)}
+    ${['DEALER_ADMIN','OWNER','MANAGER'].includes(profileContext?.role) ? engCard('Department access', `
+      <p class="text-sm text-slate-600 dark:text-slate-300 mb-3">Turn departments on or off for this login. Home page follows the primary role.</p>
+      <label class="block mb-3"><span class="block text-[12px] font-bold text-slate-600 dark:text-slate-300">Primary role</span>
+        <select id="ppl-access-role" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-semibold">
+          ${[['SALES_REP','Sales'],['FNI','F&I'],['SERVICE','Service'],['PARTS','Parts'],['ACCOUNTING','Accounting'],['CLEANUP','Cleanup'],['MANAGER','Manager'],['DEALER_ADMIN','Dealer Admin']].map(([v,l]) => `<option value="${v}" ${String(p.login_role||'').toUpperCase()===v?'selected':''}>${l}</option>`).join('')}
+        </select></label>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2" id="ppl-access-deps">
+        ${[['SALES_REP','Sales'],['FNI','F&I'],['SERVICE','Service'],['PARTS','Parts'],['ACCOUNTING','Accounting'],['CLEANUP','Cleanup']].map(([v,l]) => `<label class="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-semibold"><input type="checkbox" value="${v}" class="rounded border-slate-300" ${String(p.login_role||'').toUpperCase()===v || String(p.notes||'').includes(v) || String(p.department||'').toUpperCase().includes(l.toUpperCase()) ? 'checked' : ''}>${l}</label>`).join('')}
+      </div>
+      <button type="button" onclick="pplSaveAccess('${esc(p.id)}')" class="mt-3 liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Save access</button>
+    `) : ''}
 
     <div class="mt-4">${engCard('Pay', d.employment_withheld
       ? `<div class="text-[13px] text-slate-500 dark:text-slate-400">${esc(d.employment_withheld)}</div>`
@@ -876,3 +887,15 @@ window.pplDownloadDoc = pplDownloadDoc;
 
 function loadPeopleWorkspace() { renderEngine('people-overview') }
 window.loadPeopleWorkspace = loadPeopleWorkspace;
+
+async function pplSaveAccess(staffId) {
+  const role = document.getElementById('ppl-access-role')?.value || 'SALES_REP';
+  const departments = [...document.querySelectorAll('#ppl-access-deps input:checked')].map(i => i.value);
+  if (!departments.includes(role) && !['MANAGER','DEALER_ADMIN'].includes(role)) departments.unshift(role);
+  try {
+    await apiSendJson(`/hr/employees/${staffId}/access`, 'PUT', { role, departments });
+    showToast('Access updated', 'success');
+    await pplOpenPerson(staffId);
+  } catch (e) { showToast(e.message, 'error'); }
+}
+window.pplSaveAccess = pplSaveAccess;
