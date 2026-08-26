@@ -29,7 +29,7 @@
     { page: 'academy', label: 'Academy' },
     { page: 'config', label: 'Administration' },
   ];
-  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&', '<': '<', '>': '>', '"': '"' }[c])); }
 
   function apiBase() { return window.API || (location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com'); }
   function getToken() { return localStorage.getItem('token'); }
@@ -83,13 +83,6 @@
     badge.type = 'button';
     badge.title = `Demo mode — ${data.dealership.name}`;
     badge.textContent = 'Demo';
-    // Append the badge to <body> as a FIXED, top-of-everything overlay (see the
-    // #demo-mode-badge CSS: position:fixed, z-index above every product full-screen
-    // modal). It must NOT live inside the header/product chrome: single-product tiers and
-    // full-screen surfaces (Video / Design studio) hide or bury the header, and the
-    // operator has to reach this switcher to get back out — that's exactly the flow that
-    // broke when the badge was re-parented into the header. Appended BEFORE the panel is
-    // built so a later panel/nav error can never drop it.
     if (!document.getElementById('demo-mode-badge')) document.body.appendChild(badge);
 
     const field = (id, label, iconKey, options) => `
@@ -162,19 +155,12 @@
   }
 
   async function boot() {
-    // Avoid a guaranteed forbidden request for ordinary customer sessions. The
-    // server remains the authority for demo access when entitlement context is
-    // not available yet.
     if (window.__access && typeof window.isDemoAccount === 'function' && !window.isDemoAccount()) return;
     try {
       const res = await apiCall('/demo/control');
-      if (!res.ok) return; // not the demo account — render nothing
+      if (!res.ok) return;
       const data = await res.json();
       window.__demoControlData = data;
-      // Keep demo navigation tied to the exact package selected in the control center.
-      // This is intentionally separate from window.__access: the dedicated demo tenant
-      // has a broad showcase authorization overlay, while its visible navigation should
-      // match the canonical Core / Pro / Complete (or standalone) plan being presented.
       if (data.activePackage && Array.isArray(data.activePackage.products) && Array.isArray(data.activePackage.features)) {
         window.__demoEntitlements = {
           packageId: data.activePackage.id,
@@ -183,18 +169,8 @@
         };
       }
 
-      // Build the badge + panel FIRST so the operator can always reach the switcher —
-      // even if the product-nav narrowing below throws on some tier. boot()'s outer catch
-      // would otherwise swallow that error and leave no badge at all (the regression).
       buildPanel(data);
 
-      // Narrow the demo's VISIBLE nav to the currently-selected package, so a prospect
-      // sees just that one product's dashboard. The demo dealership is entitled to every
-      // product server-side (the showcase overlay in access-policy.js), so without this
-      // narrowing it would always show the full suite. This reuses the exact same
-      // applyProductNav() a real single-product customer goes through, so the demo view
-      // and a real single-product purchase render identically. Best-effort: never let it
-      // drop the badge/panel we just built.
       if (data?.state?.packageId) {
         try {
           window.__demoPackageId = data.state.packageId;
@@ -226,13 +202,8 @@
       const isIdentityVerifyDemo = window.__demoActiveProduct === 'marketsync_identity';
       const singleProduct = typeof window.isSingleProductWorkspace === 'function' && window.isSingleProductWorkspace();
       if (isIdentityVerifyDemo) {
-        // applyProductNav can already have consumed its one-time home redirect before
-        // the Demo selector resolves. Identity Verify must always land on its scan
-        // operations dashboard, never retain the previous package's Pulse page.
         if (typeof switchPage === 'function') switchPage('crm');
       } else if (isMarketingSuiteDemo) {
-        // Suite home is always Pulse. Set the engine tab as well as the page so a
-        // previous Marketing tab cannot survive a package switch or browser refresh.
         if (typeof deptGo === 'function') deptGo('marketing-overview', '', 'overview');
         else if (typeof switchPage === 'function') switchPage('marketing-overview');
       } else if (typeof switchPage === 'function' && !singleProduct) {
@@ -243,4 +214,36 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
+})();
+
+// Mobile "All pages" fix: when Demo is previewing DealerOS, do not trap the sheet
+// in MarketSync SaaS admin pages (Accounts / Leads / Work / …).
+(function patchRestrictedNavForDealerOsDemo() {
+  const install = () => {
+    const orig = window.restrictedNavPages;
+    if (typeof orig !== 'function' || orig.__msDemoNavPatched) return;
+    function restrictedNavPagesPatched() {
+      const result = orig.apply(this, arguments);
+      const demoProd = (window.__demoActiveProduct || window.__demoActivePackage || '').toString().toLowerCase();
+      const demoIsActive = !!(window.__demoActiveProduct || window.__demoActivePackage);
+      const demoForcesDealerOs = !demoProd
+        || demoProd === 'dealer_os'
+        || demoProd === 'dealer-os'
+        || demoProd.includes('dealer-os')
+        || demoProd.includes('dealer_os');
+      if (demoIsActive && demoForcesDealerOs
+          && Array.isArray(result)
+          && result[0]
+          && result[0].page === 'saas-command') {
+        return null;
+      }
+      return result;
+    }
+    restrictedNavPagesPatched.__msDemoNavPatched = true;
+    window.restrictedNavPages = restrictedNavPagesPatched;
+  };
+  install();
+  document.addEventListener('DOMContentLoaded', install);
+  setTimeout(install, 0);
+  setTimeout(install, 500);
 })();
