@@ -891,8 +891,31 @@ function mktPulseOverview(body, d, suite, cfg, dayCaveat = '') {
 }
 
 ENGINES['marketing-overview'] = {
-  rootId: 'marketing-overview-root', title: 'Marketing Department',
-  subtitle: 'Automated lead response, service retention, reviews, and visual workflow journeys.',
+  rootId: 'marketing-overview-root',
+  // Suite products use the feature name (Complete / Sales / Service Marketing Suite,
+  // MarketSync Digital) — never the DealerOS "Marketing Department" label.
+  get title() {
+    try {
+      if (typeof getActiveMarketingSuite === 'function' && typeof getMarketingSuiteConfig === 'function') {
+        const key = getActiveMarketingSuite();
+        if (key) {
+          const cfg = getMarketingSuiteConfig(key);
+          if (cfg?.badge || cfg?.title) return cfg.badge || cfg.title;
+        }
+      }
+    } catch {}
+    return 'Marketing';
+  },
+  get subtitle() {
+    try {
+      const key = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;
+      if (key === 'digital') return 'Website, SEO, AI agent, design, social, marketplace, video, and campaigns in one digital suite.';
+      if (key === 'sales') return 'Sales campaigns, automations, social, video, and lead-response journeys.';
+      if (key === 'service') return 'Service retention, reviews, reminders, and service marketing workflows.';
+      if (key === 'complete') return 'Sales and service marketing — campaigns, automations, social, video, and journeys.';
+    } catch {}
+    return 'Campaigns, automations, and marketing workflows.';
+  },
   icon: 'megaphone', accent: 'indigo',
   // Suppress the engine's OWN tab bar only for standalone marketing-suite products,
   // where the shared suite header (renderDeptTabbar) owns navigation — showing both
