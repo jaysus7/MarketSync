@@ -402,7 +402,7 @@ async function bootAcademy() {
     else {
       const loadingEl = document.getElementById('academy-loading');
       if (loadingEl) {
-        loadingEl.innerHTML = '<div class="max-w-md p-8 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm"><h1 class="text-lg font-black text-slate-900 dark:text-white">Academy could not load</h1><p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Return to the dashboard and try again.</p><a href="/dashboard.html" class="mt-5 inline-block rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white">Back to dashboard</a></div>';
+        loadingEl.innerHTML = '<div class="max-w-md p-8 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm"><h1 class="text-lg font-black text-slate-900 dark:text-white">Academy could not load</h1><p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Return to the dashboard and try again.</p><a href="/dashboard.html" target="_blank" rel="noopener noreferrer" class="mt-5 inline-block rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white">Back to dashboard</a></div>';
       }
     }
   }
