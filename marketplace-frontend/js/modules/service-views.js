@@ -670,133 +670,215 @@ window.svcOpenCheckInModal = function(appointmentId = null) {
   if (appointmentId && window.__svcData?.appointments) {
     appt = window.__svcData.appointments.find(a => a.id === appointmentId);
   }
+  window.__svcWalkMarks = [];
+  window.__svcWalkSig = { drawing: false };
 
   let modal = document.getElementById('svc-checkin-modal');
   if (!modal) {
     modal = document.createElement('div');
     modal.id = 'svc-checkin-modal';
-    modal.className = 'fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto';
+    modal.className = 'fixed inset-0 z-[99999] flex items-start justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm overflow-y-auto';
     document.body.appendChild(modal);
   }
 
-  const custName = appt?.customer || '';
-  const vehicle = appt?.service_type ? `${appt.service_type} Vehicle` : '';
+  const today = new Date().toISOString().slice(0, 10);
+  const custName = appt?.customer || appt?.customer_name || '';
+  const phone = appt?.phone || appt?.customer_phone || '';
+  const email = appt?.email || appt?.customer_email || '';
+  const vin = appt?.vin || '';
+  const year = appt?.year || '';
+  const make = appt?.make || '';
+  const model = appt?.model || appt?.vehicle || '';
+  const color = appt?.color || '';
+  const plate = appt?.plate || appt?.license || '';
+  const mileage = appt?.mileage || appt?.odometer || '';
+  const tag = appt?.tag || appt?.ro_number || '';
+  const inp = 'w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-sm font-semibold text-slate-900 dark:text-white';
+  const lab = 'text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400';
+
+  const viewBox = (id, label, svgInner) => `
+    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2">
+      <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1 text-center">${label}</div>
+      <svg id="svc-walk-${id}" viewBox="0 0 160 80" class="w-full h-24 cursor-crosshair touch-none" onclick="svcWalkMark(event,'${id}')">
+        ${svgInner}
+      </svg>
+    </div>`;
 
   modal.innerHTML = `
-    <div class="relative w-full max-w-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto p-5 sm:p-6 space-y-4">
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+    <div class="relative w-full max-w-4xl bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-4">
+      <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between gap-3 bg-white dark:bg-slate-900">
         <div>
-          <h3 class="text-base font-black uppercase text-indigo-600 dark:text-indigo-400 tracking-wider flex items-center gap-2">
-            <span>Service Customer Check-In</span>
-          </h3>
-          <p class="text-xs text-slate-500 dark:text-slate-400">Open repair order, record mileage in, fuel level in, services requested &amp; customer preferences.</p>
+          <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Service check-in</div>
+          <h3 class="text-xl font-black tracking-tight">Vehicle Walkaround Worksheet</h3>
+          <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Walk the car, tap damage on each view, then get a signature.</p>
         </div>
-        <button onclick="document.getElementById('svc-checkin-modal')?.remove()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold">X</button>
+        <button type="button" onclick="document.getElementById('svc-checkin-modal')?.remove()" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold">X</button>
       </div>
 
-      <!-- Customer & Vehicle Info -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div class="space-y-1">
-          <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Customer Full Name</label>
-          <input id="svc-in-name" type="text" value="${esc(custName || 'Jason Massie')}" placeholder="e.g. Jason Massie" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+      <div class="p-5 space-y-5 max-h-[80vh] overflow-y-auto">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <label class="space-y-1"><span class="${lab}">Date</span><input id="svc-in-date" type="date" value="${today}" class="${inp}"></label>
+          <label class="space-y-1"><span class="${lab}">Tag #</span><input id="svc-in-tag" value="${esc(tag)}" class="${inp}"></label>
+          <label class="space-y-1 md:col-span-2"><span class="${lab}">VIN</span><input id="svc-in-vin" value="${esc(vin)}" class="${inp}"></label>
+          <label class="space-y-1"><span class="${lab}">Year</span><input id="svc-in-year" value="${esc(String(year))}" class="${inp}"></label>
+          <label class="space-y-1"><span class="${lab}">Make</span><input id="svc-in-make" value="${esc(make)}" class="${inp}"></label>
+          <label class="space-y-1"><span class="${lab}">Model</span><input id="svc-in-model" value="${esc(model)}" class="${inp}"></label>
+          <label class="space-y-1"><span class="${lab}">Color</span><input id="svc-in-color" value="${esc(color)}" class="${inp}"></label>
+          <label class="space-y-1"><span class="${lab}">Lic #</span><input id="svc-in-plate" value="${esc(plate)}" class="${inp}"></label>
+          <label class="space-y-1"><span class="${lab}">Mileage</span><input id="svc-in-mileage" value="${esc(String(mileage))}" class="${inp}"></label>
+          <label class="space-y-1"><span class="${lab}">S/A</span><input id="svc-in-sa" value="${esc(appt?.advisor || '')}" class="${inp}"></label>
+          <label class="space-y-1"><span class="${lab}">Fuel in</span>
+            <select id="svc-in-fuel" class="${inp}"><option>Full</option><option>7/8</option><option selected>3/4</option><option>1/2</option><option>1/4</option><option>Empty</option></select>
+          </label>
         </div>
-        <div class="space-y-1">
-          <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Phone Number / Contact</label>
-          <input id="svc-in-phone" type="text" value="(555) 234-5678" placeholder="(555) 000-0000" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <label class="space-y-1"><span class="${lab}">Name</span><input id="svc-in-name" value="${esc(custName)}" class="${inp}"></label>
+          <label class="space-y-1"><span class="${lab}">Phone #1</span><input id="svc-in-phone" value="${esc(phone)}" class="${inp}"></label>
+          <label class="space-y-1"><span class="${lab}">Phone #2</span><input id="svc-in-phone2" class="${inp}"></label>
+          <label class="space-y-1"><span class="${lab}">e-Mail</span><input id="svc-in-email" value="${esc(email)}" class="${inp}"></label>
         </div>
-        <div class="space-y-1 sm:col-span-2">
-          <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Vehicle Description</label>
-          <input id="svc-in-vehicle" type="text" value="${esc(vehicle || '2024 Ford F-150 Lariat')}" placeholder="Year Make Model" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-2">
+          <div class="${lab}">Reason(s) for service visit</div>
+          <input id="svc-in-r1" class="${inp}" placeholder="1.">
+          <input id="svc-in-r2" class="${inp}" placeholder="2.">
+          <input id="svc-in-r3" class="${inp}" placeholder="3.">
+          <input id="svc-in-r4" class="${inp}" placeholder="4.">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <label class="space-y-1"><span class="${lab}">Requested pick up time</span><input id="svc-in-pickup" type="time" class="${inp}"></label>
+            <label class="space-y-1"><span class="${lab}">Waiter?</span>
+              <select id="svc-in-waiter" class="${inp}"><option value="no">No — drop off</option><option value="yes">Yes — waiting</option><option value="shuttle">Shuttle</option><option value="loaner">Loaner</option></select>
+            </label>
+          </div>
         </div>
-        <div class="space-y-1">
-          <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Check-In Mileage (Odometer)</label>
-          <input id="svc-in-mileage" type="text" value="38,450" placeholder="e.g. 45,000 miles" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <div class="${lab}">Walkaround map</div>
+              <p class="text-sm text-slate-600 dark:text-slate-300">Tap the car where you see a scratch, dent, chip, or crack.</p>
+            </div>
+            <button type="button" onclick="svcWalkClearMarks()" class="px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700">Clear marks</button>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            ${viewBox('left', 'Left side', '<rect x="8" y="22" width="144" height="36" rx="16" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="36" cy="62" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="124" cy="62" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M28 22 L48 10 H112 L132 22" fill="none" stroke="currentColor" stroke-width="2"/>')}
+            ${viewBox('right', 'Right side', '<rect x="8" y="22" width="144" height="36" rx="16" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="36" cy="62" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="124" cy="62" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M28 22 L48 10 H112 L132 22" fill="none" stroke="currentColor" stroke-width="2"/>')}
+            ${viewBox('front', 'Front', '<rect x="48" y="10" width="64" height="50" rx="8" fill="none" stroke="currentColor" stroke-width="2"/><rect x="56" y="18" width="48" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="80" y="74" text-anchor="middle" font-size="9" fill="currentColor">FRONT</text>')}
+            ${viewBox('rear', 'Rear', '<rect x="48" y="10" width="64" height="50" rx="8" fill="none" stroke="currentColor" stroke-width="2"/><rect x="56" y="36" width="48" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="80" y="74" text-anchor="middle" font-size="9" fill="currentColor">REAR</text>')}
+          </div>
+          ${viewBox('top', 'Top / roof', '<ellipse cx="80" cy="40" rx="62" ry="28" fill="none" stroke="currentColor" stroke-width="2"/><rect x="52" y="22" width="56" height="36" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>')}
+          <div class="flex flex-wrap gap-2 text-[11px] font-bold text-slate-500">
+            <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>Tap = mark</span>
+            <span id="svc-walk-count">0 marks</span>
+          </div>
+          <textarea id="svc-in-notes" rows="2" placeholder="Note chips, cracks, missing parts, customer items in cabin..." class="${inp}"></textarea>
         </div>
-        <div class="space-y-1">
-          <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Fuel Level In</label>
-          <select id="svc-in-fuel" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
-            <option value="Full">Full Tank (100%)</option>
-            <option value="7/8">7/8 Tank (87%)</option>
-            <option value="3/4" selected>3/4 Tank (75%)</option>
-            <option value="5/8">5/8 Tank (62%)</option>
-            <option value="1/2">1/2 Tank (50%)</option>
-            <option value="3/8">3/8 Tank (37%)</option>
-            <option value="1/4">1/4 Tank (25%)</option>
-            <option value="1/8">1/8 Tank (12%)</option>
-            <option value="Empty">Empty (0%)</option>
-          </select>
+
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="${lab}">Customer signature</div>
+            <button type="button" onclick="svcWalkClearSig()" class="text-xs font-bold text-slate-500">Clear</button>
+          </div>
+          <p class="text-[11px] text-slate-500">I inspected the vehicle with the advisor and agree the marks above are present at check-in.</p>
+          <canvas id="svc-walk-sig" class="w-full h-28 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 touch-none"></canvas>
         </div>
       </div>
 
-      <!-- Services Requested Checkboxes -->
-      <div class="space-y-1.5">
-        <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Primary Services &amp; Customer Concerns</label>
-        <div class="grid grid-cols-2 gap-2 text-xs">
-          <label class="flex items-center gap-2 p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 cursor-pointer">
-            <input type="checkbox" checked class="accent-indigo-600"> <span>Oil &amp; Filter Service</span>
-          </label>
-          <label class="flex items-center gap-2 p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 cursor-pointer">
-            <input type="checkbox" checked class="accent-indigo-600"> <span>Multi-Point Inspection</span>
-          </label>
-          <label class="flex items-center gap-2 p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 cursor-pointer">
-            <input type="checkbox" class="accent-indigo-600"> <span>Brake Inspection &amp; Noise</span>
-          </label>
-          <label class="flex items-center gap-2 p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 cursor-pointer">
-            <input type="checkbox" class="accent-indigo-600"> <span>Tire Rotation &amp; Balance</span>
-          </label>
+      <div class="px-5 py-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-wrap items-center justify-between gap-2">
+        <button type="button" onclick="svcOpenVideoWalkaround(null, null)" class="px-4 py-2 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white">Record video walkaround</button>
+        <div class="flex gap-2">
+          <button type="button" onclick="document.getElementById('svc-checkin-modal')?.remove()" class="px-4 py-2 rounded-xl text-xs font-bold">Cancel</button>
+          <button type="button" onclick="svcSubmitCheckInForm('${appointmentId || ''}')" class="px-5 py-2 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white">Confirm check-in &amp; open RO</button>
         </div>
       </div>
+    </div>`;
 
-      <!-- Transportation & Loaner Preference -->
-      <div class="space-y-1">
-        <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Transportation / Mobility Preference</label>
-        <div class="grid grid-cols-3 gap-2 text-xs">
-          <label class="flex items-center justify-center p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-center cursor-pointer font-bold">
-            <input type="radio" name="svc-trans" value="lounge" checked class="mr-1.5 accent-indigo-600"> Waiting Lounge
-          </label>
-          <label class="flex items-center justify-center p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-center cursor-pointer font-bold">
-            <input type="radio" name="svc-trans" value="shuttle" class="mr-1.5 accent-indigo-600"> Shuttle Dropoff
-          </label>
-          <label class="flex items-center justify-center p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-center cursor-pointer font-bold">
-            <input type="radio" name="svc-trans" value="loaner" class="mr-1.5 accent-indigo-600"> Loaner Vehicle
-          </label>
-        </div>
-      </div>
+  requestAnimationFrame(() => {
+    const canvas = document.getElementById('svc-walk-sig');
+    if (!canvas) return;
+    const fit = () => { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; };
+    fit();
+    const ctx = canvas.getContext('2d');
+    const pos = (e) => {
+      const r = canvas.getBoundingClientRect();
+      const src = e.touches ? e.touches[0] : e;
+      return { x: src.clientX - r.left, y: src.clientY - r.top };
+    };
+    const start = (e) => { e.preventDefault(); window.__svcWalkSig.drawing = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
+    const move = (e) => { if (!window.__svcWalkSig.drawing) return; e.preventDefault(); const p = pos(e); ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#0f172a'; ctx.lineTo(p.x, p.y); ctx.stroke(); };
+    const end = () => { window.__svcWalkSig.drawing = false; };
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    canvas.addEventListener('touchstart', start, { passive: false });
+    canvas.addEventListener('touchmove', move, { passive: false });
+    canvas.addEventListener('touchend', end);
+  });
+};
 
-      <!-- Initial Condition & Scratch Notes -->
-      <div class="space-y-1">
-        <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Advisor Pre-existing Condition Notes</label>
-        <textarea id="svc-in-notes" rows="2" placeholder="Note pre-existing scratches, windshield chips or customer requests..." class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-semibold text-slate-900 dark:text-white"></textarea>
-      </div>
-
-      <!-- Action Buttons -->
-      <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-        <button onclick="svcOpenVideoWalkaround(null, null)" class="px-3.5 py-2 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white shadow-md transition flex items-center gap-1.5 cursor-pointer">
-          Record Video Walkaround
-        </button>
-        <div class="flex items-center gap-2">
-          <button onclick="document.getElementById('svc-checkin-modal')?.remove()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
-          <button onclick="svcSubmitCheckInForm('${appointmentId || ''}')" class="px-5 py-2 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition">
-            Confirm Check-In &amp; Open RO
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
+window.svcWalkMark = function(evt, view) {
+  const svg = document.getElementById('svc-walk-' + view);
+  if (!svg) return;
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  const loc = pt.matrixTransform(svg.getScreenCTM().inverse());
+  const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  dot.setAttribute('cx', loc.x);
+  dot.setAttribute('cy', loc.y);
+  dot.setAttribute('r', '4');
+  dot.setAttribute('fill', '#e11d48');
+  svg.appendChild(dot);
+  (window.__svcWalkMarks || (window.__svcWalkMarks = [])).push({ view, x: Math.round(loc.x), y: Math.round(loc.y) });
+  const n = window.__svcWalkMarks.length;
+  const el = document.getElementById('svc-walk-count');
+  if (el) el.textContent = n + (n === 1 ? ' mark' : ' marks');
+};
+window.svcWalkClearMarks = function() {
+  window.__svcWalkMarks = [];
+  ['left','right','front','rear','top'].forEach(id => {
+    const svg = document.getElementById('svc-walk-' + id);
+    if (!svg) return;
+    [...svg.querySelectorAll('circle[fill="#e11d48"]')].forEach(n => n.remove());
+  });
+  const el = document.getElementById('svc-walk-count');
+  if (el) el.textContent = '0 marks';
+};
+window.svcWalkClearSig = function() {
+  const canvas = document.getElementById('svc-walk-sig');
+  if (!canvas) return;
+  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 };
 
 window.svcSubmitCheckInForm = async function(apptId) {
   const name = document.getElementById('svc-in-name')?.value || 'Customer';
-  const vehicle = document.getElementById('svc-in-vehicle')?.value || 'Vehicle';
+  const year = document.getElementById('svc-in-year')?.value || '';
+  const make = document.getElementById('svc-in-make')?.value || '';
+  const model = document.getElementById('svc-in-model')?.value || '';
+  const vehicle = [year, make, model].filter(Boolean).join(' ') || 'Vehicle';
   const mileage = document.getElementById('svc-in-mileage')?.value || '0';
   const fuel = document.getElementById('svc-in-fuel')?.value || '3/4';
-
-  if (apptId) {
-    if (typeof svcCheckIn === 'function') await svcCheckIn(apptId, { mileage_in: mileage, fuel_in: fuel, odometer: mileage }).catch(() => null);
-  } else {
-    if (typeof showToast === 'function') showToast(`Checked in ${name} (${vehicle} · Mileage In: ${mileage} mi · Fuel In: ${fuel}). RO opened!`, 'success');
+  const reasons = [1,2,3,4].map(i => document.getElementById('svc-in-r'+i)?.value).filter(Boolean);
+  const marks = window.__svcWalkMarks || [];
+  const sig = document.getElementById('svc-walk-sig');
+  const signed = !!(sig && sig.toDataURL && sig.toDataURL().length > 2000);
+  window.__lastServiceWalkaround = {
+    date: document.getElementById('svc-in-date')?.value,
+    tag: document.getElementById('svc-in-tag')?.value,
+    vin: document.getElementById('svc-in-vin')?.value,
+    vehicle, mileage, fuel,
+    name, phone: document.getElementById('svc-in-phone')?.value,
+    reasons, pickup: document.getElementById('svc-in-pickup')?.value,
+    waiter: document.getElementById('svc-in-waiter')?.value,
+    notes: document.getElementById('svc-in-notes')?.value,
+    marks, signed,
+    signature: signed ? sig.toDataURL('image/png') : null,
+  };
+  if (apptId && typeof svcCheckIn === 'function') {
+    await svcCheckIn(apptId, { mileage_in: mileage, fuel_in: fuel, odometer: mileage, walkaround: window.__lastServiceWalkaround }).catch(() => null);
+  } else if (typeof showToast === 'function') {
+    showToast(`Checked in ${name} · ${vehicle} · ${marks.length} walkaround mark${marks.length===1?'':'s'}`, 'success');
   }
-
   document.getElementById('svc-checkin-modal')?.remove();
 };
 
