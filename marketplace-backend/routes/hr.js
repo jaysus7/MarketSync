@@ -419,7 +419,15 @@ export function registerHR(app) {
    */
   app.get('/hr/team', requireAuth, requirePermission('staff.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    try { res.json({ team: await teamDirectory(req.dealershipId) }) }
+    try {
+      try {
+        const demo = await import('./demo.js')
+        if (await demo.isDemoDealershipId(req.dealershipId)) {
+          await demo.seedDemoEmployees(req.dealershipId, req.user?.id || null)
+        }
+      } catch (_) {}
+      res.json({ team: await teamDirectory(req.dealershipId) })
+    }
     catch (e) { res.status(500).json({ error: e.message }) }
   })
 
