@@ -814,10 +814,10 @@ function mktPulseOverview(body, d, suite, cfg, dayCaveat = '') {
   const spendValue = !isAvailable('campaigns') || !campaignsWithSpend.length ? '—' : mktMoney(actualSpend);
   const unavailable = Object.entries(sourceStatus).filter(([, ok]) => ok === false).map(([source]) => source);
 
-  const kpi = (label, value, note) => `<div class="ms-card rounded-[var(--ms-radius-card,20px)] p-4 min-w-0">
+  const kpi = (label, value, note) => `<div class="ms-card rounded-[var(--ms-radius-card,20px)] p-5 min-w-0">
     <div class="text-[11px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">${esc(label)}</div>
-    <div class="mt-1 text-2xl font-black tracking-tight text-slate-950 dark:text-white">${esc(String(value))}</div>
-    <div class="mt-1 text-sm text-slate-500 dark:text-slate-400">${esc(note)}</div>
+    <div class="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white">${esc(String(value))}</div>
+    <div class="mt-1.5 text-sm text-slate-500 dark:text-slate-400">${esc(note)}</div>
   </div>`;
 
   const sourceEmpty = (source, emptyText) => isAvailable(source)
@@ -856,7 +856,7 @@ function mktPulseOverview(body, d, suite, cfg, dayCaveat = '') {
   const subtitle = cfg?.subtitle || 'Connected campaign, automation, social, conversation, and attribution activity.';
   const badge = cfg?.badge || 'Marketing';
 
-  body.innerHTML = `<div class="space-y-7">
+  body.innerHTML = `<div class="space-y-9">
     ${dayCaveat}
     ${unavailable.length ? `<div class="rounded-2xl border border-amber-200/80 bg-amber-50/80 p-4 text-sm text-amber-900 backdrop-blur-xl dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
       Some Marketing sources are unavailable: ${esc(unavailable.map(mktLabel).join(', '))}. Their values are shown as — and are not estimated.
@@ -873,7 +873,7 @@ function mktPulseOverview(body, d, suite, cfg, dayCaveat = '') {
       </div>
     </section>
 
-    <section aria-label="Connected marketing metrics" class="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
+    <section aria-label="Connected marketing metrics" class="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-8 md:gap-5">
       ${kpi('Needs attention', metric('myDay', attention.length), 'Connected My Day items')}
       ${kpi('Opportunities', metric('myDay', opportunities.length), 'Connected My Day items')}
       ${kpi('Active campaigns', metric('campaigns', campaigns.filter(isActive).length), `${metric('campaigns', campaigns.length)} loaded`)}
@@ -884,11 +884,11 @@ function mktPulseOverview(body, d, suite, cfg, dayCaveat = '') {
       ${kpi('Actual spend', spendValue, campaignsWithSpend.length ? 'Reported by campaigns' : 'No actual spend reported')}
     </section>
 
-    <section class="grid gap-5 xl:grid-cols-2">
+    <section class="grid gap-6 xl:grid-cols-2">
       ${engCard('Needs attention', attentionRows)}
       ${engCard('Opportunities', opportunityRows)}
     </section>
-    <section class="grid gap-5 xl:grid-cols-2">
+    <section class="grid gap-6 xl:grid-cols-2">
       ${engCard('Campaigns from connected data', campaignRows)}
       ${engCard('Automation workflows from connected data', automationRows)}
     </section>
