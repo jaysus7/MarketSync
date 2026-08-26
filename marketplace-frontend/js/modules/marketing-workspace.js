@@ -1217,18 +1217,13 @@ ENGINES['marketing-overview'] = {
 
     // ── Video Studio ─────────────────────────────────────────────────────────
     'video-studio'(body) {
-      body.innerHTML = `
-        <div class="space-y-4">
-          <div class="pb-3 border-b border-slate-200 dark:border-slate-800">
-            <h3 class="text-sm font-black text-slate-900 dark:text-white">Video Studio Product Workspace</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Customer video walkaround recorder, camera app, and delivery analytics.</p>
-          </div>
-          <div id="mkt-video-studio-mount"></div>
-        </div>
-      `;
+      body.innerHTML = `<div id="mkt-video-studio-mount"></div>`;
       const mount = document.getElementById('mkt-video-studio-mount');
-      if (mount) {
-        engMountPage(mount, 'video-studio', () => { if (typeof loadVideoStudioPage === 'function') loadVideoStudioPage(); });
+      if (mount && typeof loadVideoStudioPage === 'function') loadVideoStudioPage(mount);
+      else if (mount && typeof renderVideoStudioWorkspace === 'function') {
+        mount.innerHTML = renderVideoStudioWorkspace([]);
+      } else if (mount) {
+        mount.innerHTML = '<div class="text-sm text-slate-500 p-6">Video Studio could not load.</div>';
       }
     },
   },
