@@ -106,7 +106,7 @@ window.svcRenderDispatchBoard = function(d) {
     window.__svcTechnicians = [
       { id: 'tech_1', name: 'Mike Miller (Master Tech)', specialty: 'Transmission / Heavy Repair', bay: 'Bay 1 (Lift A)', status: 'Active', capacity: 85, clocked: 6.2, sold: 7.5, currentJob: 'RO-1094: Transmission Flush', blocked: false },
       { id: 'tech_2', name: 'David Smith (Diagnostics)', specialty: 'Electrical / Engine Diag', bay: 'Bay 2 (Diag Hub)', status: 'Active', capacity: 100, clocked: 7.0, sold: 8.2, currentJob: 'RO-1098: Electrical Harness Check', blocked: true, blockedReason: 'Waiting for Wiring Harness' },
-      { id: 'tech_3', name: 'Carlos Gomez (Brakes/Susp)', specialty: 'Brakes & Suspension', bay: 'Bay 3 (Lift B)', status: 'Available', capacity: 40, clocked: 3.5, sold: 4.0, currentJob: 'RO-1102: Front Brake Pads', blocked: false },
+      { id: 'tech_3', name: 'Carlos Gomez (Brakes/Susp)', specialty: 'Brakes & Suspension', bay: 'Bay 3 (Lift B)', status: 'Lunch', capacity: 40, clocked: 3.5, sold: 4.0, currentJob: 'RO-1102: Front Brake Pads', blocked: false, lunchEnds: '1:15 PM' },
       { id: 'tech_4', name: 'Alex Johnson (Lube/Tires)', specialty: 'Express Lube & Maintenance', bay: 'Bay 4 (Express)', status: 'Available', capacity: 20, clocked: 2.0, sold: 2.5, currentJob: 'RO-1106: Oil & Filter Service', blocked: false },
     ];
   }
