@@ -470,7 +470,8 @@ async function loadInventoryFeeds() {
   if (!list) return;
   list.innerHTML = '<div class="text-xs text-slate-500 italic">Loading inventory source…</div>';
   try {
-    const res = await fetch(`${API}/inventory-feeds`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const curToken = (typeof token !== 'undefined' && token) ? token : (localStorage.getItem('token') || localStorage.getItem('ms_auth_token') || '');
+    const res = await fetch(`${API}/inventory-feeds`, { headers: { 'Authorization': `Bearer ${curToken}` } });
     const feeds = res.ok ? await res.json() : [];
     
     // Anyone who can manage feeds (dealer admins, solo reps, and Facebook AutoPoster accounts)

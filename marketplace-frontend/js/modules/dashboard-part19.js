@@ -15,9 +15,11 @@ let __inventoryMode = 'manual';   // 'facebook' | 'manual'
 function applyInventoryMode() {
   const facebook = __inventoryMode === 'facebook';
   const feeds = document.getElementById('feeds-panel');
+  const catalogPanel = document.getElementById('catalog-panel');
   const title = document.getElementById('catalog-title');
   const sub = document.getElementById('catalog-sub');
   
+  if (catalogPanel) catalogPanel.classList.remove('hidden');
   if (feeds) {
     if (facebook) feeds.classList.remove('hidden');
     else feeds.classList.add('hidden'); // Only show inventory cards in manual mode
@@ -29,8 +31,17 @@ function applyInventoryMode() {
     ? 'All of your stock, ready to post on Facebook Marketplace.'
     : 'Your whole lot — Facebook-synced, manually added, and won trade appraisals.';
   applyInventoryProductGating();
-  // Re-render if the catalog is already loaded; first open loads it via page init.
-  if (typeof __catalogCache !== 'undefined' && __catalogCache && document.getElementById('catalog-list')) renderCatalog();
+  // Ensure inventory catalog is loaded and rendered
+  if (typeof loadInventoryCatalog === 'function') {
+    if (typeof __catalogCache === 'undefined' || !__catalogCache || !__catalogCache.length) {
+      loadInventoryCatalog();
+    } else if (document.getElementById('catalog-list')) {
+      renderCatalog();
+    }
+  }
+  if (facebook && typeof loadInventoryFeeds === 'function') {
+    loadInventoryFeeds();
+  }
 }
 window.applyInventoryMode = applyInventoryMode;
 // The feed panel is always shown on the inventory view now; the "Sync Inventory"
