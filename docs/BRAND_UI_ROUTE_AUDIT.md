@@ -309,3 +309,10 @@ Staging origin works: `https://marketsync-staging-site.onrender.com/`. Sessionle
 `A001 /login.html` light desktop + mobile inspected on that origin. Score held at NEEDS WORK (~78 / ~76). Sign-in control is off Market Blue. Authenticated rows unchanged. Average **60.8**. PASS **0**.
 
 Credentials still required for My Day through HQ.
+
+
+## Phase 2 — 2026-08-26 credentials received
+
+Staging API accepted `admin@marketsync.link`. Live visual inspection still limited to the **login** screen (light desktop + mobile). The verification browser did not apply the session to `dashboard.html`, so My Day–HQ rows are unchanged.
+
+Average **60.8**. PASS **0**. Login Sign In button logged as GLOBAL token violation; not patched in this phase.
