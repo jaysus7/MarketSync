@@ -43,3 +43,9 @@
 - POST /owner/user/:id/status — activate/deactivate with reason
 - HQ pages: Usage, System health
 - Customer 360 DealerOS module toggles
+
+
+## Batch 9
+- GET /owner/onboarding — 5-step checklist from real account data
+- GET /owner/integrations — dealer_integrations
+- All Users cards: Deactivate user, open 360
