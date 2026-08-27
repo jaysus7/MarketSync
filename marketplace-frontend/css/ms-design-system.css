@@ -317,17 +317,16 @@
 }
 
 /* List rows and action buttons inline alignment */
-.ms-list-row,
-.ms-c--compact {
+.ms-list-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  text-align: left;
   gap: var(--ms-sp-3, 0.75rem);
+  width: 100%;
 }
 .ms-list-row .ms-btn,
-.ms-list-row button,
-.ms-c--compact .ms-btn,
-.ms-c--compact button {
+.ms-list-row button {
   flex-shrink: 0;
   white-space: nowrap;
   vertical-align: middle;
@@ -346,6 +345,8 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+  text-align: left;
   gap: var(--ms-sp-2);
   min-width: 0;                       /* lets truncation work inside grid */
   padding: var(--ms-sp-5);
@@ -357,6 +358,28 @@
   transition: box-shadow var(--ms-m-normal) var(--ms-m-ease),
               transform var(--ms-m-normal) var(--ms-m-ease),
               border-color var(--ms-m-normal) var(--ms-m-ease);
+}
+
+.ms-c > *,
+.ms-c > div,
+.ms-c > ul,
+.ms-c > ol,
+.ms-c > dl,
+.ms-c > p,
+.ms-c > header,
+.ms-c > section,
+.ms-c .ms-c__body,
+.ms-c .ms-c__content,
+.ms-c [class*="space-y"] {
+  text-align: left;
+  align-self: stretch;
+}
+
+.ms-c ul,
+.ms-c ol,
+.ms-c dl,
+.ms-c li {
+  text-align: left;
 }
 
 /* Tier 1 — critical. Bigger radius and elevation because it should read as
