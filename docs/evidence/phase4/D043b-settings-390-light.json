@@ -1,0 +1,11 @@
+{
+  "name": "D043b-settings",
+  "w": 390,
+  "theme": "light",
+  "wanted": "#/p/profile",
+  "hash": "#/p/profile",
+  "dark": false,
+  "h1": "Settings",
+  "banner": true,
+  "profileOn": true
+}

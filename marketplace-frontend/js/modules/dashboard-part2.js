@@ -56,6 +56,8 @@ if (typeof window.loadSalesWorkspace !== 'function') window.loadSalesWorkspace =
   else if (typeof showToast === 'function') showToast('Sales workspace is still loading — refresh once and try again.', 'warning');
 };
 if (typeof window.toggleTeamChatWidget !== 'function') window.toggleTeamChatWidget = function() { const p = document.getElementById('team-chat-dock-panel'); if (p) p.classList.toggle('hidden'); };
+if (typeof window.loadProfileBranding !== 'function') window.loadProfileBranding = function() {};
+if (typeof window.loadCrmAdfSetting !== 'function') window.loadCrmAdfSetting = function() {};
 
 function isDemoAccount() {
   const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
