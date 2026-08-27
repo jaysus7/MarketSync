@@ -27,7 +27,7 @@ and recorded here instead.
 | **8** | Dealer Management + unified My Day / UX simplification | **COMPLETE ON STAGING** |
 | **9A** | Full Dealer OS E2E + Security + Production Hardening | **COMPLETE ON STAGING** |
 | **9B** | MarketSync Internal OS + Affiliate Login / Dashboard | **COMPLETE ON STAGING** |
-| **9C** | Controlled Pilot + Production Launch | **NEXT** |
+| **9C** | Controlled Pilot + Production Launch | **COMPLETE ON STAGING** |
 
 Phases 0–8 are **dealer-facing product**. MarketSync's own internal workspaces, the
 affiliate login and dashboard, and any partner portal belong to **9B** — they are not to be
