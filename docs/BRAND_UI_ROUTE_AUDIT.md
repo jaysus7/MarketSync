@@ -369,3 +369,14 @@ Queue remains the 167-row inventory. Next: recapture Pulse family, then Customer
 
 ## Phase 4 batch 2
 engCard/engKpi and CRM rows migrated to ms-c. D003/H00x still NEEDS WORK pending recapture.
+
+
+## Closest to PASS (Phase 4 tracker)
+
+| ID | Route | Est. now | Why not 95 |
+|---|---|---|---|
+| D043 | Settings | ~86 | 390 hero/tabs look right; 1440 recapture raced to Sales; Intelligence overlap in pre-fix 390 shot |
+| A001 | Login | ~80 | Sign In is Market Blue; not full a11y/glass pass |
+| D000 | Shell | ~78 | Chrome/tokens good; mobile nav and glass depth remain |
+
+PASS still 0. Open STATE: Pulse Loading; `#/w/sales/crm` → sales.
