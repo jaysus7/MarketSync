@@ -366,7 +366,86 @@ async function setupPageRoutes(page) {
             ] }
           },
           recommendations: [
-            { id: 'rec-1', pillar: 'GEO / LLMO', severity: 'High', title: 'Publish Silverado & Used SUV Knowledge Guides for Local Area', whatChanged: 'Local truck search volume grew 22% while AI answer engines cited competitors.', whyItMatters: 'Capturing citations drives high-intent test drives.', whatShouldIDo: 'Auto-generate localized buying guide with Vehicle JSON-LD.', actionType: 'create_ai_content' }
+            {
+              id: 'rec-1',
+              pillar: 'SEO',
+              category: 'Quick Wins',
+              title: 'Add Geotargeted Title Tag to Used Trucks Inventory Page',
+              whatChanged: 'The /inventory?body_style=Truck page lacks a specific city-targeted title tag.',
+              whyItMatters: 'Title tags are the #1 on-page organic ranking factor. Geotargeting lifts local search impressions by ~35%.',
+              whatShouldIDo: 'Include body style and primary city in title tag.',
+              affected_urls: ['/inventory?body_style=Truck'],
+              recommended_change: { field: 'meta_title', before: 'Inventory | Apex Auto Gallery', after: 'Used Trucks for Sale in Welland, ON | Apex Auto Gallery' },
+              execution_class: 'auto_fixable',
+              risk_level: 'low',
+              confidence: 96,
+              estimated_score_gain: '+3',
+              status: 'open'
+            },
+            {
+              id: 'rec-2',
+              pillar: 'AEO',
+              category: 'Quick Wins',
+              title: 'Inject Verified FAQPage JSON-LD Schema into Service Department',
+              whatChanged: 'Service department has 5 visible customer FAQs without corresponding FAQPage JSON-LD schema.',
+              whyItMatters: 'Enables instant rich snippet question accordion in Google Search and voice search answers.',
+              whatShouldIDo: 'Generate FAQPage schema from already-approved visible service FAQ content.',
+              affected_urls: ['/service'],
+              recommended_change: { field: 'schema_json', before: null, after: '{"@context":"https://schema.org","@type":"FAQPage"}' },
+              execution_class: 'auto_fixable',
+              risk_level: 'low',
+              confidence: 94,
+              estimated_score_gain: '+4',
+              status: 'open'
+            },
+            {
+              id: 'rec-3',
+              pillar: 'Validation',
+              category: 'AI Visibility',
+              title: 'Enable llms.txt AI Crawler Manifest',
+              whatChanged: 'llms.txt manifest file is disabled in Discoverability settings.',
+              whyItMatters: 'Allows ChatGPT, Gemini, and Perplexity crawlers to index direct inventory feeds.',
+              whatShouldIDo: 'Enable structured llms.txt generation for AI model discoverability.',
+              affected_urls: ['/llms.txt'],
+              recommended_change: { field: 'llms_txt_enabled', before: false, after: true },
+              execution_class: 'auto_fixable',
+              risk_level: 'low',
+              confidence: 98,
+              estimated_score_gain: '+2',
+              status: 'open'
+            },
+            {
+              id: 'rec-4',
+              pillar: 'GEO / LLMO',
+              category: 'AI Visibility',
+              title: 'Publish Silverado & Used SUV Knowledge Guides for Welland',
+              whatChanged: 'Local truck search volume grew 22% while AI answer engines cited competitors.',
+              whyItMatters: 'Capturing citations in AI models drives high-intent referral traffic and test drives.',
+              whatShouldIDo: 'Publish authoritative long-form local guide with structured vehicle specs.',
+              affected_urls: ['/blog/used-truck-buying-guide-welland'],
+              recommended_change: { field: 'content_html', before: null, after: '<h2>Guide to Used Trucks...</h2>' },
+              execution_class: 'approval_required',
+              risk_level: 'medium',
+              confidence: 88,
+              estimated_score_gain: '+5',
+              status: 'open'
+            },
+            {
+              id: 'rec-5',
+              pillar: 'ASO',
+              category: 'Store Visibility',
+              title: 'Acquire 5 Verified Reviews on Chrome Web Store Listing',
+              whatChanged: 'MarketSync Chrome Extension rating is 4.9/5.0 with 38 reviews. Target is 50 reviews.',
+              whyItMatters: 'Unlocks Top Extension badge and lifts install conversion rate from 8.2% to ~12%.',
+              whatShouldIDo: 'Invite 12 active sales reps to submit verified feedback on Chrome Web Store.',
+              affected_urls: ['https://chromewebstore.google.com/detail/marketsync'],
+              recommended_change: { field: 'manual_outreach', before: '38 reviews', after: '50 reviews' },
+              execution_class: 'manual',
+              risk_level: 'low',
+              confidence: 90,
+              estimated_score_gain: '+2',
+              status: 'open'
+            }
           ],
           history: { dates: ['7d', '6d', '5d', '4d', '3d', '2d', 'Today'], searchSovTrend: [18, 19, 21, 20, 22, 23, 24], aiSovTrend: [12, 14, 15, 18, 19, 21, 25], compositeScoreTrend: [81, 82, 83, 84, 84, 85, 86] }
         })
@@ -420,6 +499,8 @@ async function captureAll(browser, baseUrl) {
     { id: 'D016-discoverability', route: '#/p/discoverability', pageId: 'discoverability', w: 1440, h: 900, theme: 'dark', isMobile: false },
     { id: 'D016-discoverability', route: '#/p/discoverability', pageId: 'discoverability', w: 390, h: 844, theme: 'light', isMobile: true },
     { id: 'D016-discoverability', route: '#/p/discoverability', pageId: 'discoverability', w: 390, h: 844, theme: 'dark', isMobile: true },
+    { id: 'D016-discoverability-recommendations', route: '#/p/discoverability', pageId: 'discoverability', discTab: 'recommendations', w: 1440, h: 900, theme: 'dark', isMobile: false },
+    { id: 'D016-discoverability-apply-modal', route: '#/p/discoverability', pageId: 'discoverability', discTab: 'recommendations', openModal: 'applyAll', w: 1440, h: 900, theme: 'dark', isMobile: false },
 
     // Login Surface (A001)
     { id: 'A001-login', isLogin: true, url: '/login.html', w: 1440, h: 900, theme: 'light', isMobile: false },
@@ -491,7 +572,7 @@ async function captureAll(browser, baseUrl) {
       await page.goto(`${baseUrl}/dashboard.html${t.route}`, { waitUntil: 'domcontentloaded' })
       await page.waitForTimeout(600)
 
-      await page.evaluate(async ({ targetPage, theme, customerId, isHq }) => {
+      await page.evaluate(async ({ targetPage, theme, customerId, isHq, discTab, openModal }) => {
         window.checkLoginPunchClockPrompt = () => {}
         if (isHq) {
           document.documentElement.setAttribute('data-dash-owner', '1')
@@ -520,15 +601,20 @@ async function captureAll(browser, baseUrl) {
         }
 
         if (targetPage === 'discoverability' && typeof loadDiscoverabilityWorkspace === 'function') {
-          await loadDiscoverabilityWorkspace()
+          await loadDiscoverabilityWorkspace(discTab)
+          if (openModal === 'applyAll' && typeof openApplyAllSafeModal === 'function') {
+            openApplyAllSafeModal()
+          }
         }
 
         if (customerId && typeof openCrmContact === 'function') {
           await openCrmContact(customerId)
         }
 
-        document.querySelectorAll('#punch-clock-modal, #shift-clock-modal, [data-modal="punch-clock"], .punch-clock-overlay, #modal-backdrop, .modal-backdrop').forEach(m => m.remove());
-      }, { targetPage: t.pageId, theme: t.theme, customerId: t.customerId, isHq: !!t.isHq })
+        if (!openModal) {
+          document.querySelectorAll('#punch-clock-modal, #shift-clock-modal, [data-modal="punch-clock"], .punch-clock-overlay, #modal-backdrop, .modal-backdrop').forEach(m => m.remove());
+        }
+      }, { targetPage: t.pageId, theme: t.theme, customerId: t.customerId, isHq: !!t.isHq, discTab: t.discTab, openModal: t.openModal })
 
       await page.waitForTimeout(800)
     }

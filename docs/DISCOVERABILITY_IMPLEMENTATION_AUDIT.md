@@ -55,4 +55,5 @@ MarketSync Discoverability Intelligence
 | **1440 & 390 Mobile Responsive** | **PASS** | Responsive grid layouts (`grid-cols-2 md:grid-cols-4`), 46px touch targets, mobile bottom row compatibility. |
 | **Accessibility (a11y)** | **PASS** | Contrast-checked badges, descriptive button labels, clean focus rings (`#2563EB`). |
 | **Error & Empty States** | **PASS** | Explicit status banners for disconnected providers or zero-result searches (§A19). |
-| **Automated Tests** | **PASS** | 13/13 passing tests across `test/discoverability-intelligence.test.js` and `test/marketsync-seo-full.test.js`. |
+| **Recommendations Engine** | **PASS** | 3 execution classes (`AUTO-FIXABLE`, `APPROVAL_REQUIRED`, `MANUAL`), pre-apply rollback snapshots with SHA-256 checksums, post-apply automated validation, failure auto-revert, and batch "Apply All Safe Recommendations". |
+| **Automated Tests** | **PASS** | 35/35 passing tests across `test/discoverability-recommendations.test.js`, `test/discoverability-intelligence.test.js`, and `test/marketsync-seo-full.test.js`. |

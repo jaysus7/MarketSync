@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../shared.js'
 import { runAutomatedSeoAudit } from './seoMonitoringService.js'
+import { generateRecommendationsFromAudit } from './recommendationEngine.js'
 
 /**
  * MarketSync Discoverability Intelligence Monitoring Service
@@ -304,44 +305,7 @@ export async function runComprehensiveDiscoverabilityAudit(dealershipId, options
   )
 
   // ── ACTIONABLE RECOMMENDATIONS ENGINE ──────────────────────────────────────
-  const recommendations = [
-    {
-      id: 'rec-1',
-      pillar: 'GEO / LLMO',
-      severity: 'High',
-      title: `Publish Silverado & Used SUV Knowledge Guides for ${city}`,
-      whatChanged: `Local truck and used SUV search volume grew 22% while AI answer engines cited competitors for 3 top queries.`,
-      whyItMatters: `Capturing these citations increases dealership referral traffic and high-intent test-drive inquiries.`,
-      whatShouldIDo: `Auto-generate two localized buying guide articles with Vehicle JSON-LD and internal finance links.`,
-      affectedPages: ['/inventory?body_style=Truck', '/credit-application'],
-      actionType: 'create_ai_content',
-      status: 'pending'
-    },
-    {
-      id: 'rec-2',
-      pillar: 'AEO',
-      severity: 'Medium',
-      title: 'Expand Service & Repair FAQ Schema',
-      whatChanged: `Google PAA introduced 5 new question prompts for local brake and tire service in ${city}.`,
-      whyItMatters: `Direct answer reach in local voice and mobile searches drives instant service bay appointments.`,
-      whatShouldIDo: `Inject 5 structured Q&A pairs into the Service Department landing page schema.`,
-      affectedPages: ['/service'],
-      actionType: 'apply_schema_faq',
-      status: 'pending'
-    },
-    {
-      id: 'rec-3',
-      pillar: 'SXO',
-      severity: 'Medium',
-      title: 'Optimize Mobile Used-Truck Landing Page CTA Position',
-      whatChanged: `Mobile traffic represents 68% of truck visitors, but mobile form conversion is 0.6% below desktop.`,
-      whyItMatters: `Bringing the "Instant Pre-Approval" button above the fold will capture ~6 additional credit applications per month.`,
-      whatShouldIDo: `Move pre-approval CTA above vehicle grid on mobile screens.`,
-      affectedPages: ['/inventory?body_style=Truck'],
-      actionType: 'optimize_mobile_cta',
-      status: 'pending'
-    }
-  ]
+  const recommendations = generateRecommendationsFromAudit(dealer, { id: `aud_${Date.now()}` }, options.previousRecommendations || [])
 
   return {
     dealershipId,
