@@ -51,6 +51,7 @@ function hqEntitlementMatrix(d) {
     <div class="flex flex-wrap gap-2 mt-3">
       <button type="button" class="px-3 py-1.5 rounded-xl text-[11px] font-black bg-amber-500 text-slate-950" onclick="hqExtendTrial('${d.id}')">Extend trial</button>
       <button type="button" class="px-3 py-1.5 rounded-xl text-[11px] font-black border border-slate-200 dark:border-slate-700" onclick="hqSupportSession('${d.id}')">Start support inspect</button>
+      <button type="button" class="px-3 py-1.5 rounded-xl text-[11px] font-black bg-indigo-600 text-white" onclick="hqOpenBilling('${d.id}')">Open billing</button>
     </div>
   </div>`;
 }
@@ -146,9 +147,15 @@ function hqOpenSearch() {
       const out = document.getElementById('hq-search-out');
       if (v.length < 2) { out.textContent = 'Type at least 2 characters.'; return; }
       try {
-        const d = await apiGetJson('/saas/customers');
-        const rows = Object.values(d.by_stage || {}).flat().filter(a => JSON.stringify(a).toLowerCase().includes(v.toLowerCase()));
-        out.innerHTML = rows.slice(0, 20).map(a => `<button type="button" class="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800" onclick="document.getElementById('hq-search')?.remove();openSaasCustomer('${a.id}')">${esc(a.name || a.id)}</button>`).join('') || '<div class="p-3">No matches.</div>';
+        const [cust, users] = await Promise.all([
+          apiGetJson('/saas/customers').catch(() => ({})),
+          apiGetJson('/owner/users').catch(() => ({ users: [] })),
+        ]);
+        const accounts = Object.values(cust.by_stage || {}).flat().filter(a => JSON.stringify(a).toLowerCase().includes(v.toLowerCase()));
+        const people = (users.users || []).filter(u => JSON.stringify(u).toLowerCase().includes(v.toLowerCase()));
+        const accHtml = accounts.slice(0, 12).map(a => `<button type="button" class="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800" onclick="document.getElementById('hq-search')?.remove();openSaasCustomer('${a.id}')"><span class="text-[10px] font-black uppercase text-slate-400">Dealership</span> ${esc(a.name || a.id)}</button>`).join('');
+        const userHtml = people.slice(0, 12).map(u => `<button type="button" class="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800" onclick="document.getElementById('hq-search')?.remove();${u.dealership_id ? `openSaasCustomer('${u.dealership_id}')` : ''}"><span class="text-[10px] font-black uppercase text-slate-400">User</span> ${esc(u.name)} · ${esc(u.email||'')} · ${esc(u.dealership||'')}</button>`).join('');
+        out.innerHTML = accHtml + userHtml || '<div class="p-3">No matches.</div>';
       } catch (e) { out.textContent = e.message || 'Search failed'; }
     }, 200);
   };
@@ -447,6 +454,11 @@ window.loadHqAllUsers = loadHqAllUsers;
 window.loadHqRoles = loadHqRoles;
 
 
+function hqConfirmProd(action) {
+  const prod = /marketsync\.link$/.test(location.hostname || '') && !/staging/.test(location.hostname || '');
+  if (!prod) return true;
+  return confirm('PRODUCTION billing action: ' + action + '. Continue?');
+}
 function hqMoney(cents, cur) {
   const n = Number(cents || 0) / 100;
   return (cur || 'cad').toUpperCase() + ' ' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -510,6 +522,7 @@ window.hqOpenBilling = async function(id) {
         <button class="px-3 py-1.5 rounded-xl border text-xs font-black" onclick="hqBillingCancel('${id}')">Cancel at period end</button>
         <button class="px-3 py-1.5 rounded-xl border text-xs font-black" onclick="hqBillingReactivate('${id}')">Reactivate</button>
         <button class="px-3 py-1.5 rounded-xl border text-xs font-black" onclick="hqBillingTrial('${id}')">Stripe trial days</button>
+        <button class="px-3 py-1.5 rounded-xl border text-xs font-black" onclick="hqBillingCoupon('${id}')">Apply coupon</button>
       </div>
       <label class="block text-[11px] font-black uppercase text-slate-400 mb-1">Change plan</label>
       <div class="flex gap-2 mb-4">
@@ -532,6 +545,7 @@ window.hqOpenBilling = async function(id) {
 };
 
 window.hqBillingPortal = async function(id) {
+  if (!hqConfirmProd('open portal')) return;
   const reason = prompt('Open Stripe portal — reason') || '';
   if (!reason.trim()) return;
   try {
@@ -541,6 +555,7 @@ window.hqBillingPortal = async function(id) {
   } catch (e) { showToast(e.message || 'Portal failed', 'error'); }
 };
 window.hqBillingCancel = async function(id) {
+  if (!hqConfirmProd('cancel at period end')) return;
   if (!confirm('Cancel at period end on Stripe?')) return;
   const reason = prompt('Reason') || '';
   if (!reason.trim()) return;
@@ -561,6 +576,7 @@ window.hqBillingTrial = async function(id) {
   catch (e) { showToast(e.message || 'Trial failed', 'error'); }
 };
 window.hqBillingPlan = async function(id) {
+  if (!hqConfirmProd('change plan')) return;
   const plan_id = document.getElementById('hq-plan-id')?.value;
   const currency = document.getElementById('hq-plan-cur')?.value || 'cad';
   const reason = prompt('Change plan to ' + plan_id + ' — reason') || '';
