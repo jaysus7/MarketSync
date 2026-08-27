@@ -313,8 +313,8 @@ ENGINES['inventory-overview'] = {
         inner: `
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 text-left">
             <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 p-2.5 text-left">
-              <div class="text-[10px] font-black uppercase tracking-wider text-slate-500">On lot</div>
-              <div class="text-lg font-black text-slate-900 dark:text-white mt-0.5">${veh.length}</div>
+              <div class="text-[10px] font-black uppercase tracking-wider text-slate-500">Vehicles on lot</div>
+              <div class="text-lg font-black text-slate-900 dark:text-white mt-0.5" id="lot-ov-count">${veh.length}</div>
             </div>
             <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 p-2.5 text-left">
               <div class="text-[10px] font-black uppercase tracking-wider text-slate-500">Aged 60+</div>
@@ -333,15 +333,15 @@ ENGINES['inventory-overview'] = {
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 text-left">
             <div class="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 p-2 text-left">
               <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Price Range</div>
-              <div class="text-xs font-black text-slate-900 dark:text-white mt-0.5">${prices.length ? `$${minPrice.toLocaleString()} - $${maxPrice.toLocaleString()}` : '—'}</div>
+              <div class="text-xs font-black text-slate-900 dark:text-white mt-0.5" id="lot-ov-range">${prices.length ? `$${minPrice.toLocaleString()} - $${maxPrice.toLocaleString()}` : '—'}</div>
             </div>
             <div class="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 p-2 text-left">
               <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Average Price</div>
-              <div class="text-xs font-black text-slate-900 dark:text-white mt-0.5">${avgPrice ? `$${avgPrice.toLocaleString()}` : '—'}</div>
+              <div class="text-xs font-black text-slate-900 dark:text-white mt-0.5" id="lot-ov-avg">${avgPrice ? `$${avgPrice.toLocaleString()}` : '—'}</div>
             </div>
             <div class="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 p-2 text-left">
               <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">New / Used</div>
-              <div class="text-xs font-black text-slate-900 dark:text-white mt-0.5">${newCount} new · ${usedCount} used</div>
+              <div class="text-xs font-black text-slate-900 dark:text-white mt-0.5" id="lot-ov-split">${newCount} new · ${usedCount} used</div>
             </div>
             <div class="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 p-2 text-left">
               <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Turn Rate (90d)</div>
@@ -349,21 +349,110 @@ ENGINES['inventory-overview'] = {
             </div>
           </div>
 
-          <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200/70 dark:border-slate-800/70">
-            <div class="flex items-center gap-2">
-              <button type="button" onclick="if(typeof scanAllInventory==='function')scanAllInventory();else switchPage('inv-intel')" class="ms-btn ms-btn--secondary inline-flex items-center gap-1.5 !min-h-0 !py-1.5 !px-3 !text-[12px]">
-                <svg class="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
-                Scan All Inventory
-              </button>
+          <div class="pt-2 border-t border-slate-200/70 dark:border-slate-800/70 space-y-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
+                <button type="button" id="ai-sync-all-btn" onclick="if(typeof syncAllInventoryClick==='function')syncAllInventoryClick();" class="ms-btn ms-btn--primary inline-flex items-center gap-1.5 !min-h-0 !py-1.5 !px-3.5 !text-[12px]">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                  Scan All Inventory
+                </button>
+                <button type="button" id="ai-lot-report-btn" onclick="if(typeof openLotReport==='function')openLotReport();" class="ms-btn ms-btn--secondary inline-flex items-center gap-1.5 !min-h-0 !py-1.5 !px-3 !text-[12px]">
+                  <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17V9m4 8V5m4 12v-4M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                  Lot Average Report
+                </button>
+                <button type="button" id="ai-activity-refresh" onclick="if(typeof loadAIActivity==='function')loadAIActivity();" class="ms-btn ms-btn--secondary inline-flex items-center gap-1 !min-h-0 !py-1.5 !px-2.5 !text-[12px]" title="Refresh Log">
+                  <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                </button>
+              </div>
+              <div id="inv-scan-usage" class="text-[11px] text-slate-400"></div>
             </div>
-            <button type="button" onclick="switchPage('inv-intel')" class="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1">
-              Full Intelligence &amp; Reports &rarr;
-            </button>
+
+            <!-- Sync Status / Progress -->
+            <div id="ai-sync-status" class="hidden space-y-1.5 pt-1">
+              <div class="flex items-center justify-between text-xs">
+                <span id="ai-sync-status-text" class="font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5 animate-spin inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                  Scanning…
+                </span>
+                <span id="ai-sync-progress-label" class="text-slate-500 font-mono text-[11px]"></span>
+              </div>
+              <div class="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div id="ai-sync-progress-bar" class="h-full bg-blue-600 rounded-full transition-all duration-300" style="width:0%"></div>
+              </div>
+            </div>
           </div>
         `
       });
 
-      // 2. Needs Attention Card
+      // 2. AI Lot Analysis & Movers Hero Card
+      const lotAnalysisCard = pulseCard({
+        title: 'AI Lot Analysis & Movers',
+        tier: 'hero',
+        headerAction: `<div class="flex items-center gap-2">
+          <button type="button" id="inv-intel-refresh-btn" onclick="if(typeof _loadIntel==='function')_loadIntel(true);" class="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+            Refresh Readout
+          </button>
+          <span class="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">AI Intelligence</span>
+        </div>`,
+        inner: `
+          <!-- Loading state -->
+          <div id="inv-intel-loading" class="hidden flex items-center justify-center py-6 gap-2 text-slate-400 text-xs">
+            <svg class="animate-spin w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+            <span>Analyzing your inventory…</span>
+          </div>
+
+          <!-- Duplicate VINs Warning Alert -->
+          <div id="inv-intel-dups-wrap" class="hidden bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl p-3.5 text-rose-900 dark:text-rose-200 mb-2">
+            <div class="flex items-center gap-1.5 font-bold text-xs text-rose-700 dark:text-rose-300 mb-1">
+              <svg class="w-4 h-4 text-rose-600 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+              Duplicate VINs Detected On Lot
+            </div>
+            <div id="inv-intel-dups" class="space-y-1.5 text-xs"></div>
+          </div>
+
+          <!-- AI Narrative Box -->
+          <div id="inv-intel-narrative" class="hidden bg-blue-50/50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 rounded-xl p-3.5 mb-3 text-left">
+            <div class="text-[11px] font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+              AI Lot Narrative Insights
+            </div>
+            <ul id="inv-intel-narrative-list" class="space-y-1.5 text-xs text-slate-700 dark:text-slate-300"></ul>
+          </div>
+
+          <!-- 4 Stats Summary Row -->
+          <div id="inv-intel-stats" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 text-left"></div>
+
+          <!-- Hot / Cold Split -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+            <!-- Top 5 Hot -->
+            <div class="rounded-xl border border-emerald-200/70 dark:border-emerald-800/40 bg-emerald-50/20 dark:bg-emerald-950/10 p-3 text-left">
+              <div class="flex items-center justify-between gap-1.5 mb-2 pb-1.5 border-b border-emerald-100 dark:border-emerald-900/30">
+                <div class="flex items-center gap-1.5 font-bold text-xs text-slate-900 dark:text-white">
+                  <svg class="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z"/></svg>
+                  Top 5 Hot Movers
+                </div>
+                <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Fast Turn</span>
+              </div>
+              <div id="inv-intel-hot" class="space-y-1.5 text-xs text-slate-500">—</div>
+            </div>
+
+            <!-- Top 5 Cold -->
+            <div class="rounded-xl border border-rose-200/70 dark:border-rose-800/40 bg-rose-50/20 dark:bg-rose-950/10 p-3 text-left">
+              <div class="flex items-center justify-between gap-1.5 mb-2 pb-1.5 border-b border-rose-100 dark:border-rose-900/30">
+                <div class="flex items-center gap-1.5 font-bold text-xs text-slate-900 dark:text-white">
+                  <svg class="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v18m9-9H3m15.364 6.364l-12.728-12.728m12.728 0L5.636 18.364"/></svg>
+                  Top 5 Cold Movers
+                </div>
+                <span class="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">Slow Moving</span>
+              </div>
+              <div id="inv-intel-cold" class="space-y-1.5 text-xs text-slate-500">—</div>
+            </div>
+          </div>
+        `
+      });
+
+      // 3. Needs Attention Card
       const attentionCard = pulseCard({
         title: 'Needs attention',
         count: att.length,
@@ -373,7 +462,100 @@ ENGINES['inventory-overview'] = {
         empty: 'Every vehicle is frontline ready.'
       });
 
-      // 3. Merchandising Readiness Card
+      // 4. Pricing & Age Alignment (Velocity & Turn Rate 90d) Card
+      const turnRateCard = pulseCard({
+        title: 'Pricing & Age Alignment',
+        tier: 'feature',
+        headerAction: `<span class="text-[10px] font-bold text-slate-400">Last 90 days</span>`,
+        inner: `
+          <div class="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-white/40 dark:bg-slate-900/40">
+            <div style="-webkit-overflow-scrolling:touch;max-height:300px;overflow-x:auto;overflow-y:auto">
+              <table class="min-w-full text-xs">
+                <thead class="bg-slate-50/80 dark:bg-slate-900/80 sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th class="text-left px-3 py-2 font-bold text-slate-500 uppercase tracking-wider">Vehicle</th>
+                    <th class="text-right px-2 py-2 font-bold text-slate-500 uppercase tracking-wider">30d</th>
+                    <th class="text-right px-2 py-2 font-bold text-slate-500 uppercase tracking-wider">90d</th>
+                    <th class="text-right px-2 py-2 font-bold text-slate-500 uppercase tracking-wider">Stock</th>
+                    <th class="text-right px-3 py-2 font-bold text-slate-500 uppercase tracking-wider">Mo. Supply</th>
+                  </tr>
+                </thead>
+                <tbody id="inv-intel-velocity-body" class="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  <tr><td colspan="5" class="py-6 text-center text-xs text-slate-400 italic">Loading sell-through velocity…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `
+      });
+
+      // 5. Vehicle Health Scores Card
+      const healthScoreCard = pulseCard({
+        title: 'Vehicle Health Scores',
+        tier: 'feature',
+        headerAction: `<button type="button" id="health-score-photos-btn" onclick="if(typeof scorePhotosClick==='function')scorePhotosClick(this);" class="ms-btn ms-btn--secondary shrink-0 inline-flex items-center gap-1 !min-h-0 !py-1 !px-2.5 !text-[11px]">
+          <svg class="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"/></svg>
+          Score Photos
+        </button>`,
+        inner: `
+          <div class="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-white/40 dark:bg-slate-900/40">
+            <div style="max-height:300px;overflow-x:auto;overflow-y:auto">
+              <table class="w-full text-xs">
+                <thead class="bg-slate-50/80 dark:bg-slate-900/80 sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th class="text-left px-3 py-2 font-bold text-slate-500 uppercase tracking-wider">Unit</th>
+                    <th class="text-center px-2 py-2 font-bold text-slate-500 uppercase tracking-wider">Score</th>
+                    <th class="text-center px-2 py-2 font-bold text-slate-500 uppercase tracking-wider">Photos</th>
+                    <th class="text-center px-2 py-2 font-bold text-slate-500 uppercase tracking-wider">Days</th>
+                    <th class="px-2 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody id="inv-intel-health-body" class="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  <tr><td colspan="5" class="py-6 text-center text-xs text-slate-400 italic">Loading vehicle health scores…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `
+      });
+
+      // 6. Inventory Scan Results & Flags
+      const scanActivityCard = pulseCard({
+        title: 'Inventory Scan Results',
+        tier: 'feature',
+        headerAction: `<span id="ai-activity-count" class="text-[10px] font-bold text-slate-400"></span>`,
+        inner: `
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-2.5">
+            <button type="button" data-ai-filter="all" onclick="if(typeof setAiActivityFilter==='function')setAiActivityFilter('all');" class="ai-stat-card text-left bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-lg p-2 transition hover:border-blue-400">
+              <div class="text-[9px] uppercase font-bold tracking-wider text-slate-400">Total</div>
+              <div class="text-sm font-black text-slate-900 dark:text-white" id="ai-stat-total">—</div>
+            </button>
+            <button type="button" data-ai-filter="price" onclick="if(typeof setAiActivityFilter==='function')setAiActivityFilter('price');" class="ai-stat-card text-left bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-lg p-2 transition hover:border-red-400">
+              <div class="text-[9px] uppercase font-bold tracking-wider text-red-500">Price Flags</div>
+              <div class="text-sm font-black text-red-500" id="ai-stat-price-flags">—</div>
+            </button>
+            <button type="button" data-ai-filter="missing" onclick="if(typeof setAiActivityFilter==='function')setAiActivityFilter('missing');" class="ai-stat-card text-left bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-lg p-2 transition hover:border-amber-400">
+              <div class="text-[9px] uppercase font-bold tracking-wider text-amber-500">Missing Info</div>
+              <div class="text-sm font-black text-amber-500" id="ai-stat-warnings">—</div>
+            </button>
+            <button type="button" data-ai-filter="copies" onclick="if(typeof setAiActivityFilter==='function')setAiActivityFilter('copies');" class="ai-stat-card text-left bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-lg p-2 transition hover:border-emerald-400">
+              <div class="text-[9px] uppercase font-bold tracking-wider text-emerald-500">Copy Written</div>
+              <div class="text-sm font-black text-emerald-500" id="ai-stat-copies">—</div>
+            </button>
+          </div>
+
+          <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 overflow-hidden">
+            <div class="max-h-[260px] overflow-y-auto">
+              <div id="ai-activity-loading" class="py-8 text-center text-xs text-slate-400 italic">Loading scan activity…</div>
+              <div id="ai-activity-empty" class="hidden py-8 text-center text-xs text-slate-400 px-4">No scan activity yet — click <strong>Scan All Inventory</strong> above.</div>
+              <div id="ai-activity-error" class="hidden py-4 px-4 text-xs text-red-500"></div>
+              <ul id="ai-activity-list" class="hidden divide-y divide-slate-100 dark:divide-slate-800"></ul>
+            </div>
+          </div>
+        `
+      });
+
+      // 7. Merchandising Readiness Card
       const merchCard = pulseCard({
         title: 'Merchandising Readiness',
         count: notReady.length,
@@ -394,7 +576,57 @@ ENGINES['inventory-overview'] = {
         empty: 'Every vehicle is fully merchandised.'
       });
 
-      // 4. Acquisition Pipeline Card
+      // 8. Automated Repricing Watchdog Card
+      const repricingCard = pulseCard({
+        title: 'Automated Repricing Watchdog',
+        tier: 'compact',
+        inner: `
+          <div class="space-y-3 text-left">
+            <div class="flex items-center justify-between gap-2 pb-2 border-b border-slate-200/70 dark:border-slate-800/70">
+              <div class="text-xs font-semibold text-slate-700 dark:text-slate-200">Enable Repricing Watchdog Alerts</div>
+              <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <input type="checkbox" id="repricing-enabled" class="sr-only peer">
+                <div class="w-9 h-5 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-4 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div>
+                <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Days on Lot</label>
+                <input type="number" id="repricing-days" min="1" max="365" value="45" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white">
+              </div>
+              <div>
+                <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Suggested Drop %</label>
+                <input type="number" id="repricing-drop-pct" min="1" max="50" value="5" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white">
+              </div>
+              <div>
+                <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Overprice %</label>
+                <input type="number" id="repricing-overprice-pct" min="1" max="100" value="20" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white">
+              </div>
+            </div>
+            <div class="flex items-center gap-2 pt-1">
+              <button type="button" id="repricing-save-btn" onclick="if(typeof saveRepricingClick==='function')saveRepricingClick(this);" class="ms-btn ms-btn--primary !min-h-0 !py-1.5 !px-3.5 !text-[11px]">Save Rules</button>
+              <button type="button" id="repricing-apply-btn" onclick="if(typeof applyRepricingClick==='function')applyRepricingClick(this);" class="ms-btn ms-btn--secondary !min-h-0 !py-1.5 !px-3.5 !text-[11px]">Apply Rules Now</button>
+            </div>
+          </div>
+        `
+      });
+
+      // 9. AI Stocking Recommendations Card
+      const stockingCard = pulseCard({
+        title: 'AI Stocking Recommendations',
+        tier: 'compact',
+        headerAction: `<button type="button" id="stocking-generate-btn" onclick="if(typeof loadStockingRecommendations==='function')loadStockingRecommendations(true);" class="ms-btn ms-btn--secondary shrink-0 inline-flex items-center gap-1 !min-h-0 !py-1 !px-2.5 !text-[11px]">
+          <svg class="w-3 h-3 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+          Refresh
+        </button>`,
+        inner: `
+          <div id="stocking-results" class="space-y-2 text-left">
+            <div class="py-6 text-center text-xs text-slate-400 italic">Analyzing sales velocity and market demand…</div>
+          </div>
+        `
+      });
+
+      // 10. Acquisition Pipeline Card
       const acqList = [
         ...appraisals.slice(0, 3).map(a => `
           <div class="ms-list-row w-full flex items-center justify-between gap-3 text-left">
@@ -435,21 +667,7 @@ ENGINES['inventory-overview'] = {
         empty: 'No incoming acquisitions or pending appraisals.'
       });
 
-      // 5. Pricing & Age Alignment Card (Pricing and age)
-      const pricingCard = pulseCard({
-        title: 'Pricing & Age Alignment',
-        count: noPrice.length + agedVehicles.length,
-        tier: 'feature',
-        inner: `
-          <div class="space-y-1 text-left">
-            ${noPrice.slice(0, 4).map(v => invRow(v, d, '<span class="text-rose-500 font-bold">Unpriced unit</span>')).join('')}
-            ${agedVehicles.slice(0, 4).map(v => invRow(v, d, `<span class="text-amber-600 dark:text-amber-400 font-bold">Aged ${invDays(v.created_at) || v.age_days || 60}d on lot</span>`)).join('')}
-          </div>
-        `,
-        empty: 'All units are priced and within turnover targets.'
-      });
-
-      // 6. Market & Competitors Live Card
+      // 11. Market & Competitors Live Card
       const marketCard = pulseCard({
         title: 'Market & Competitors',
         tier: 'hero',
@@ -506,7 +724,40 @@ ENGINES['inventory-overview'] = {
         `
       });
 
-      // 7. AI Merchandising Card
+      // 12. Reports & Daily Briefing Alerts Card
+      const reportsCard = pulseCard({
+        title: 'Reports & Alerts',
+        tier: 'compact',
+        inner: `
+          <div class="space-y-2.5 text-left">
+            <div class="flex items-center justify-between gap-2 pb-2 border-b border-slate-200/70 dark:border-slate-800/70">
+              <div>
+                <div class="text-xs font-semibold text-slate-800 dark:text-slate-200">Daily Briefing Email</div>
+                <div class="text-[11px] text-slate-400">Receive morning digest on days with actionable inventory alerts.</div>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <input type="checkbox" id="daily-digest-toggle" onchange="if(typeof toggleDailyDigest==='function')toggleDailyDigest(this);" class="sr-only peer">
+                <div class="w-9 h-5 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-4 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+            <div class="flex items-center justify-between gap-2 flex-wrap pt-1">
+              <div class="flex items-center gap-2">
+                <button type="button" id="weekly-report-btn" onclick="if(typeof sendWeeklyReportClick==='function')sendWeeklyReportClick(this);" class="ms-btn ms-btn--primary inline-flex items-center gap-1.5 !min-h-0 !py-1.5 !px-3 !text-[11px]">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+                  Send Report Now
+                </button>
+                <button type="button" id="weekly-report-pdf-btn" onclick="if(typeof downloadWeeklyReportPdfClick==='function')downloadWeeklyReportPdfClick(this);" class="ms-btn ms-btn--secondary inline-flex items-center gap-1.5 !min-h-0 !py-1.5 !px-3 !text-[11px]">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+                  PDF
+                </button>
+              </div>
+              <span id="weekly-report-last-sent" class="text-[10px] text-slate-400"></span>
+            </div>
+          </div>
+        `
+      });
+
+      // 13. AI Merchandising Automation Card
       const aiAssistantCard = pulseCard({
         title: 'AI Merchandising',
         tier: 'feature',
@@ -517,22 +768,273 @@ ENGINES['inventory-overview'] = {
         ${pulseHeader('Inventory Pulse', 'Lot health, merchandising gaps, acquisition and market position')}
         ${pulseBoard([
           intelCard,
+          lotAnalysisCard,
           attentionCard,
+          turnRateCard,
+          healthScoreCard,
+          scanActivityCard,
           merchCard,
+          repricingCard,
+          stockingCard,
           acqCard,
-          pricingCard,
           marketCard,
+          reportsCard,
           aiAssistantCard
         ])}
       `;
 
-      // Load competitor and lot status
+      // Trigger all legacy data loaders
       if (typeof loadCompetitors === 'function') loadCompetitors();
       if (typeof loadLotOverview === 'function') loadLotOverview();
+      if (typeof loadAIActivity === 'function') loadAIActivity();
+      if (typeof _loadIntel === 'function') _loadIntel(false);
+      else if (typeof loadIntel === 'function') loadIntel(false);
+      if (typeof loadRepricingRules === 'function') loadRepricingRules();
+      if (typeof loadStockingRecommendations === 'function') loadStockingRecommendations(false);
+      if (typeof loadDigestToggle === 'function') loadDigestToggle();
+      if (typeof loadScanUsage === 'function') loadScanUsage();
     },
     work: invRenderWork,
   },
 };
 
+// ── Global Helper Handlers for Inventory Pulse Masonry ───────────────────────
+function syncAllInventoryClick() {
+  const btn = document.getElementById('ai-sync-all-btn');
+  const status = document.getElementById('ai-sync-status');
+  const statusText = document.getElementById('ai-sync-status-text');
+  const progressBar = document.getElementById('ai-sync-progress-bar');
+  const progressLabel = document.getElementById('ai-sync-progress-label');
+
+  const resetBtn = () => {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Scan All Inventory`;
+    }
+    if (status) status.classList.add('hidden');
+    if (progressBar) progressBar.style.width = '0%';
+  };
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Scanning…';
+  }
+  if (status) status.classList.remove('hidden');
+  if (statusText) statusText.textContent = 'Starting scan…';
+  if (progressBar) progressBar.style.width = '0%';
+  if (progressLabel) progressLabel.textContent = '';
+
+  const tk = localStorage.getItem('token') || localStorage.getItem('ms_auth_token');
+  const API_URL = typeof API !== 'undefined' ? API : '';
+
+  fetch(`${API_URL}/ai/sync-all`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${tk}` }
+  })
+    .then(r => r.json())
+    .then(data => {
+      const total = data.queued || 0;
+      if (statusText) statusText.textContent = `Scanning ${total} vehicles…`;
+      if (total === 0) { resetBtn(); return; }
+
+      const scanStartedAt = new Date(Date.now() - 15000);
+      let lastProcessed = -1;
+      let lastAdvanceAt = Date.now();
+
+      const finishScan = (label) => {
+        clearInterval(pollInterval);
+        if (statusText) statusText.textContent = label;
+        if (progressBar) progressBar.style.width = '100%';
+        if (progressLabel) progressLabel.textContent = `${total} of ${total} checked (100%)`;
+        if (typeof loadAIActivity === 'function') loadAIActivity();
+        setTimeout(resetBtn, 3000);
+      };
+
+      const pollInterval = setInterval(async () => {
+        try {
+          const r = await fetch(`${API_URL}/ai/activity?limit=500`, { headers: { 'Authorization': `Bearer ${tk}` } });
+          const d = r.ok ? await r.json() : {};
+          const processed = (d.activity || []).filter(a => new Date(a.created_at) >= scanStartedAt).length;
+          if (processed > lastProcessed) { lastProcessed = processed; lastAdvanceAt = Date.now(); }
+          const pct = Math.min(100, Math.round((processed / total) * 100));
+          if (progressBar) progressBar.style.width = pct + '%';
+          if (progressLabel) progressLabel.textContent = `${Math.min(processed, total)} of ${total} checked (${pct}%)`;
+          if (statusText) statusText.textContent = `Scanning ${total} vehicles…`;
+          if (typeof loadAIActivity === 'function') loadAIActivity();
+          if (processed >= total) {
+            finishScan(`Done — ${total} vehicles scanned`);
+          } else if (processed > 0 && (Date.now() - lastAdvanceAt) > 45000) {
+            finishScan(`Done — ${processed} of ${total} scanned`);
+          }
+        } catch {}
+      }, 3000);
+
+      setTimeout(() => { clearInterval(pollInterval); resetBtn(); }, 600000);
+    })
+    .catch(err => {
+      resetBtn();
+      showToast('Scan failed: ' + err.message, 'error');
+    });
+}
+window.syncAllInventoryClick = syncAllInventoryClick;
+
+function scorePhotosClick(btn) {
+  if (!btn || btn._busy) return;
+  btn._busy = true; btn.disabled = true;
+  const orig = btn.innerHTML;
+  btn.textContent = 'Scoring photos…';
+  const tk = localStorage.getItem('token') || localStorage.getItem('ms_auth_token');
+  const API_URL = typeof API !== 'undefined' ? API : '';
+
+  fetch(`${API_URL}/ai/vision/scan`, { method: 'POST', headers: { 'Authorization': `Bearer ${tk}` } })
+    .then(r => r.json())
+    .then(data => {
+      const total = data.total || 0;
+      if (!total) showToast('All photos are already scored.', 'info');
+      else showToast(`Scoring photos on ${total} listing${total === 1 ? '' : 's'} — refresh in a moment to see grades fill in.`, 'info', 6000);
+      try {
+        if (typeof _loadIntel === 'function') _loadIntel(true);
+        else if (typeof loadIntel === 'function') loadIntel(true);
+      } catch {}
+      if (total > (data.scored_now || 0)) {
+        setTimeout(() => {
+          try {
+            if (typeof _loadIntel === 'function') _loadIntel(true);
+            else if (typeof loadIntel === 'function') loadIntel(true);
+          } catch {}
+        }, 20000);
+      }
+    })
+    .catch(e => showToast(e.message, 'error'))
+    .finally(() => {
+      btn._busy = false; btn.disabled = false; btn.innerHTML = orig;
+    });
+}
+window.scorePhotosClick = scorePhotosClick;
+
+function saveRepricingClick(btn) {
+  if (!btn) return;
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const tk = localStorage.getItem('token') || localStorage.getItem('ms_auth_token');
+  const API_URL = typeof API !== 'undefined' ? API : '';
+
+  fetch(`${API_URL}/ai/repricing-rules`, {
+    method: 'PUT',
+    headers: { 'Authorization': `Bearer ${tk}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      enabled: document.getElementById('repricing-enabled')?.checked,
+      days_on_lot_threshold: Number(document.getElementById('repricing-days')?.value),
+      price_drop_pct: Number(document.getElementById('repricing-drop-pct')?.value),
+      overprice_threshold_pct: Number(document.getElementById('repricing-overprice-pct')?.value),
+    })
+  })
+    .then(async r => {
+      if (!r.ok) throw new Error((await r.json()).error || 'Save failed');
+      showToast('Repricing rules saved', 'success');
+    })
+    .catch(e => showToast(e.message, 'error'))
+    .finally(() => { btn.disabled = false; btn.textContent = 'Save Rules'; });
+}
+window.saveRepricingClick = saveRepricingClick;
+
+function applyRepricingClick(btn) {
+  if (!btn) return;
+  btn.disabled = true; btn.textContent = 'Applying…';
+  const tk = localStorage.getItem('token') || localStorage.getItem('ms_auth_token');
+  const API_URL = typeof API !== 'undefined' ? API : '';
+
+  fetch(`${API_URL}/ai/repricing-apply`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${tk}` }
+  })
+    .then(async r => {
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Failed');
+      showToast(`${data.flagged} vehicle${data.flagged !== 1 ? 's' : ''} flagged for repricing`, data.flagged > 0 ? 'info' : 'success');
+      if (data.flagged > 0 && typeof loadAIActivity === 'function') loadAIActivity();
+    })
+    .catch(e => showToast(e.message, 'error'))
+    .finally(() => { btn.disabled = false; btn.textContent = 'Apply Rules Now'; });
+}
+window.applyRepricingClick = applyRepricingClick;
+
+function setAiActivityFilter(filter) {
+  if (typeof __aiActivityFilter !== 'undefined') {
+    __aiActivityFilter = filter || 'all';
+    if (typeof renderAiActivity === 'function') renderAiActivity();
+  }
+}
+window.setAiActivityFilter = setAiActivityFilter;
+
+function sendWeeklyReportClick(btn) {
+  if (!btn) return;
+  btn.disabled = true; btn.textContent = 'Sending…';
+  const tk = localStorage.getItem('token') || localStorage.getItem('ms_auth_token');
+  const API_URL = typeof API !== 'undefined' ? API : '';
+
+  fetch(`${API_URL}/ai/weekly-report`, { method: 'POST', headers: { 'Authorization': `Bearer ${tk}` } })
+    .then(async r => {
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Failed');
+      const now = new Date().toISOString();
+      localStorage.setItem('weekly-report-last-sent', now);
+      const lastSentEl = document.getElementById('weekly-report-last-sent');
+      if (lastSentEl) lastSentEl.textContent = `Last sent: ${new Date(now).toLocaleDateString()}`;
+      showToast(`Report sent to ${data.sent_to || data.recipient}`, 'success', 5000);
+    })
+    .catch(e => showToast(e.message, 'error'))
+    .finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg> Send Report Now`;
+    });
+}
+window.sendWeeklyReportClick = sendWeeklyReportClick;
+
+function downloadWeeklyReportPdfClick(btn) {
+  if (!btn) return;
+  btn.disabled = true; btn.textContent = 'Generating…';
+  const tk = localStorage.getItem('token') || localStorage.getItem('ms_auth_token');
+  const API_URL = typeof API !== 'undefined' ? API : '';
+
+  fetch(`${API_URL}/ai/weekly-report/html`, { headers: { 'Authorization': `Bearer ${tk}` } })
+    .then(async r => {
+      if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'Failed'); }
+      const html = await r.text();
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const w = window.open(url, '_blank');
+      if (w) setTimeout(() => URL.revokeObjectURL(url), 30000);
+      else showToast('Pop-up blocked — allow pop-ups and try again', 'error');
+    })
+    .catch(e => showToast(e.message, 'error'))
+    .finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg> PDF`;
+    });
+}
+window.downloadWeeklyReportPdfClick = downloadWeeklyReportPdfClick;
+
+function toggleDailyDigest(input) {
+  if (!input) return;
+  const tk = localStorage.getItem('token') || localStorage.getItem('ms_auth_token');
+  const API_URL = typeof API !== 'undefined' ? API : '';
+
+  fetch(`${API_URL}/ai/config`, {
+    method: 'PUT',
+    headers: { 'Authorization': `Bearer ${tk}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ daily_digest_enabled: input.checked }),
+  })
+    .then(r => {
+      if (!r.ok) throw new Error();
+      showToast(input.checked ? 'Daily briefing email on' : 'Daily briefing email off', 'success');
+    })
+    .catch(() => {
+      input.checked = !input.checked;
+      showToast('Could not save setting', 'error');
+    });
+}
+window.toggleDailyDigest = toggleDailyDigest;
+
 function loadInventoryWorkspace() { renderEngine('inventory-overview'); }
 window.loadInventoryWorkspace = loadInventoryWorkspace;
+
