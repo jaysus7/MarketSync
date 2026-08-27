@@ -255,3 +255,77 @@ window.hqWriteFlag = async function() {
 window.loadHqAudit = loadHqAudit;
 window.loadHqSecurity = loadHqSecurity;
 window.loadHqFlags = loadHqFlags;
+
+
+const HQ_MODULES = [
+  ['sales.crm','Sales CRM'],['sales.desk','Desk a Deal'],['sales.calendar','Sales calendar'],
+  ['inventory.manage','Inventory'],['inventory.intelligence','Inventory intelligence'],
+  ['service.ros','Repair orders'],['service.schedule','Service schedule'],
+  ['parts.counter','Parts counter'],['accounting.ledger','Accounting ledger'],
+  ['accounting.commissions','Commissions'],['marketing.studio','Design Studio'],
+  ['marketing.scheduler','Social Scheduler'],['hr.people','HR / People'],['admin.settings','Settings'],
+];
+
+window.hqModuleMatrix = function(d) {
+  if (!d?.id) return '';
+  return `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mt-3">
+    <div class="text-[13px] font-black mb-2">DealerOS modules</div>
+    <p class="text-[11px] text-slate-500 mb-2">Package default plus HQ override. Stored on feature_flags.dealer_os_modules.</p>
+    ${HQ_MODULES.map(([k,l]) => `<div class="flex items-center justify-between py-1.5 border-t border-slate-100 dark:border-slate-800 text-[12px]">
+      <span>${l}</span>
+      <button class="text-[11px] font-black text-indigo-600" onclick="hqToggleModule('${d.id}','${k}')">Toggle</button>
+    </div>`).join('')}
+  </div>`;
+};
+
+window.hqToggleModule = async function(id, key) {
+  const reason = prompt('Toggle ' + key + ' — reason') || '';
+  if (!reason.trim()) return showToast('Reason required', 'error');
+  try {
+    const cur = await apiGetJson('/owner/modules/' + id);
+    const on = !!(cur.modules && cur.modules[key]);
+    await apiSendJson('/owner/modules/' + id, 'POST', { key, active: !on, reason });
+    showToast((on ? 'Disabled ' : 'Enabled ') + key, 'success');
+  } catch (e) { showToast(e.message || 'Module update failed', 'error'); }
+};
+
+async function loadHqUsage() {
+  const root = document.getElementById('saas-usage-root'); if (!root) return;
+  root.innerHTML = '<div class="text-sm text-slate-400 p-4">Loading usage…</div>';
+  try {
+    const d = await apiGetJson('/owner/usage');
+    const ns = Object.entries(d.by_namespace || {}).sort((a,b)=>b[1]-a[1]);
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Usage','Last 30 days from events table'):''}
+      <div class="text-sm mb-3">${Number(d.total_events||0).toLocaleString()} events</div>
+      <div class="grid md:grid-cols-2 gap-3">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+          ${ns.map(([k,v]) => `<div class="flex justify-between py-1 text-sm border-t border-slate-100 dark:border-slate-800 first:border-0"><span>${esc(k)}</span><b>${v}</b></div>`).join('') || 'No events'}
+        </div>
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+          ${(d.top_dealerships||[]).map(r => `<button class="w-full text-left py-1.5 text-sm border-t border-slate-100 dark:border-slate-800 first:border-0" onclick="openSaasCustomer('${r.dealership_id}')"><b>${esc(r.dealership_id.slice(0,8))}</b> · ${r.events_30d} events</button>`).join('') || 'No dealership activity'}
+        </div>
+      </div>`;
+  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message)}</div>`; }
+}
+
+async function loadHqHealth() {
+  const root = document.getElementById('saas-health-root'); if (!root) return;
+  root.innerHTML = '<div class="text-sm text-slate-400 p-4">Checking systems…</div>';
+  try {
+    const d = await apiGetJson('/owner/health');
+    const email = await apiGetJson('/owner/email/health').catch(() => null);
+    const entries = Object.entries(d.checks || {});
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('System health','Live checks — not decorative'):''}
+      <div class="grid md:grid-cols-2 gap-3">
+        ${entries.map(([k,v]) => `<div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+          <div class="text-[10px] font-black uppercase text-slate-400">${esc(k)}</div>
+          <div class="text-lg font-black ${v && v.ok === false ? 'text-rose-600' : 'text-emerald-600'}">${v && v.ok === false ? 'Down' : (typeof v === 'boolean' ? (v ? 'Yes' : 'No') : 'OK')}</div>
+          <div class="text-xs text-slate-500">${esc(v && v.error ? v.error : (v && v.ms != null ? v.ms + ' ms' : JSON.stringify(v)))}</div>
+        </div>`).join('')}
+        ${email ? `<div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4"><div class="text-[10px] font-black uppercase text-slate-400">Email</div><pre class="text-[11px] whitespace-pre-wrap">${esc(JSON.stringify(email, null, 2))}</pre></div>` : ''}
+      </div>`;
+  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message)}</div>`; }
+}
+
+window.loadHqUsage = loadHqUsage;
+window.loadHqHealth = loadHqHealth;
