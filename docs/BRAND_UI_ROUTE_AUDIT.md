@@ -293,3 +293,10 @@ Code-proven this batch:
 Not proven without screenshots: per-route contrast, 375–1440 layout, logo geometry match to the approved die-cut, every leftover Tailwind violet class.
 
 Average score is **not** auto-raised. Next: logged-in visual pass.
+
+
+## Phase 2 visual pass — 2026-08-26
+
+**Not executed.** Staging credentials were not supplied in the verification request, and the verification browser received HTTP Not Found from `staging-site.onrender.com`. No authenticated route scores changed. Average remains 60.8. PASS count remains 0.
+
+See `docs/BRAND_UI_VISUAL_VERIFICATION.md`.
