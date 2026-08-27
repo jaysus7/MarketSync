@@ -343,3 +343,8 @@ Shared token lock and chrome glass landed (`72cb559`, `716c1ac`). Captured actio
 ## Phase 3 follow-up 2026-08-27
 
 Login Sign In and staff-chat FAB now render Market Blue in evidence. A001 color subscore improved; route still NEEDS WORK (not 95+). PASS 0. Average ~61. Phase 4 not started.
+
+
+## Phase 3 P0 closed 2026-08-27
+
+Shared token/glass/chrome/dark P0 landed. PASS 0. Average ~61. Phase 4 (route-specific) not started.

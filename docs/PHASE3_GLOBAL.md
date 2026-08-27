@@ -32,3 +32,19 @@ No route at 95+. Shell color improved on captured routes. Average remains **60.8
 Staff-chat FAB source + CSS kill gradient. Login Sign In confirmed Market Blue.
 Chat FAB confirmed Market Blue on Pulse light and Sales dark.
 Evidence: docs/evidence/phase3/A001-login-*.png, R-pulse-1440-light.png, R-sales-1440-dark.png.
+
+## Phase 3 P0 closed `9dbdded`
+
+Shared system work for this phase is complete:
+- Market Blue token lock on actions/FABs/Sign In
+- indigo→violet remaps removed
+- header/sidebar/mobile sheet glass
+- dark canvas #0B1220
+- chat FAB Market Blue
+
+Not in Phase 3 (deferred to Phase 4):
+- department cards/tables/copy
+- route-by-route 95+ scoring
+- full 167-route matrix
+
+PASS 0. Average ~61. Do not treat Phase 3 close as product-complete.
