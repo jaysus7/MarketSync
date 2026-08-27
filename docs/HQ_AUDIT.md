@@ -49,3 +49,15 @@
 - GET /owner/onboarding — 5-step checklist from real account data
 - GET /owner/integrations — dealer_integrations
 - All Users cards: Deactivate user, open 360
+
+
+## Batch 10 — remaining closable work
+- GET /owner/users + POST /owner/user/:id/role
+- HQ All Users + HQ Roles pages
+- Tests: marketplace-backend/test/hq-owner-admin.test.js
+
+## Still external / not faked
+- Stripe change-plan / invoice mutation (no existing write API reused; customer 360 already lists Stripe invoices when a customer id exists)
+- JWT impersonation (support inspect only)
+- Percentage feature-flag rollout (no backend)
+- n8n / webhook live probes beyond email + supabase health
