@@ -2,6 +2,14 @@
 
 **Control document** for the brand migration. Created 2026-08-26. Identity lock: MarketSync / DealerOS by MarketSync / One dealership. One system. / Market Blue `#2563EB`.
 
+
+## Open STATE / ROUTE defects (do not drop)
+
+| ID | Defect | Class | Status |
+|---|---|---|---|
+| D001/D002 | Department Pulse often captures as “Loading…” | STATE | Open — retry later, do not stall queue |
+| D003 | `#/w/sales/crm` settles on Sales Pulse (`#/w/sales/sales`) | STATE/ROUTE | Open — not accepted |
+
 This file is the definition of “every page is done.” A surface is done only at **95/100 PASS** with no automatic-fail defects.
 
 ## Method

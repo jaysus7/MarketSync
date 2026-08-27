@@ -2079,12 +2079,12 @@ body {
 .dark .ms-crm-glass {
   border-color: rgba(190,205,230,.18);
   /* Same stops as before, at full alpha. */
-  background: linear-gradient(145deg, #1C2943, #09101E) !important;
+  background: #121318 !important;
   box-shadow: 0 34px 110px rgba(0,0,0,.52), inset 0 1px 0 rgba(255,255,255,.12) !important;
 }
 
 .dark .ms-crm-glass > .sticky {
-  background: #162238 !important;
+  background: #1A1D24 !important;
   border-color: rgba(190,205,230,.12) !important;
 }
 
@@ -2097,7 +2097,7 @@ body {
   border-color: rgba(100,116,139,.24) !important;
   background: rgba(255,255,255,.78) !important;
   color: #0f172a !important;
-  caret-color: #4f46e5 !important;
+  caret-color: #2563EB !important;
 }
 
 .dark .ms-crm-glass input,
