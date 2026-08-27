@@ -1,32 +1,35 @@
 # Brand UI visual verification (Phase 2)
 
 Date: 2026-08-26  
-Staging origin confirmed: `https://marketsync-staging-site.onrender.com/`  
-Entry: `dashboard.html#/p/profile` → redirected to login (no session).
+Origin: `https://marketsync-staging-site.onrender.com/`  
+Accounts used: staging QA identities supplied in-chat. Password not stored in this file.  
+API check: `POST https://marketsync-staging-backend.onrender.com/auth/login` returned 200 for `admin@marketsync.link`. No dealership/customer/billing writes.
 
-## Status: BLOCKED on authenticated app
+## What rendered
 
-Email and password were still not included in the request. No production account was used. No pages were restyled.
+| Route | Viewport | Theme | Evidence | Score | Status |
+|---|---|---|---|---|---|
+| Login | ~1440 | Light | Live screenshot this pass | 78 | NEEDS WORK |
+| Login | ~390 | Light | Live screenshot this pass | 76 | NEEDS WORK |
+| Login | 768 / dark | — | Not captured | — | NEEDS WORK |
+| My Day through HQ | 1440 / 768 / 390 × L/D | — | Browser tool did not execute page JS to persist the session or submit the form. Authenticated shell never appeared. | — | NEEDS WORK |
 
-## Surfaces opened
+## Login defects (GLOBAL)
 
-| Route | Viewport | Theme | Date | Defects | Score | Status |
-|---|---|---|---|---|---|---|
-| `/login.html` (staging) | ~1440 desktop | Light | 2026-08-26 | Official wordmark present. Tagline correct. Card is opaque content (good). Sign In reads more indigo/violet than Market Blue `#2563EB`. Inputs are tall enough. No glass on the form (correct). Dark mode not forced in this browser. | 78 | NEEDS WORK |
-| `/login.html` (staging) | ~390 mobile | Light | 2026-08-26 | No horizontal clip. Card stacks cleanly. Touch targets OK. Same button-blue drift. | 76 | NEEDS WORK |
-| `/login.html` dark | 1440 / 390 | Dark | — | Not verified (browser stayed in light). | — | NEEDS WORK |
-| DealerOS / HQ routes | 1440 / 768 / 390 × light/dark | — | — | Not opened. Login wall. | — | NEEDS WORK |
+- STATE / GLOBAL: Sign In uses `bg-indigo-600` and reads purple-indigo, not Market Blue `#2563EB`. Recorded only; not fixed this phase.
+- GLOBAL: focus ring `focus:border-indigo-500`.
+- GLOBAL: dark login not verified in this browser (stayed light).
+- Content card is opaque. Correct Liquid Glass (none on the form).
 
-## Classification so far (login only)
+## Authenticated routes
 
-- GLOBAL — primary button not locked to `#2563EB` on staging login (looks Tailwind indigo).
-- GLOBAL — dark mode of auth not verified.
-- STATE — unauthenticated only; menus/modals/drawers of the app not reachable.
-- AREA / ROUTE — DealerOS departments unchecked.
+Not visually opened in this environment after credentials were provided. Do not score them as PASS or as newly inspected.
 
-## Required to finish Phase 2
+## Classification
 
-Staging-only credentials, on their own lines:
+- GLOBAL: primary button token on auth.
+- AREA / ROUTE / STATE for DealerOS+HQ: unchecked this pass.
 
-Email:  
-Password:
+## Not done
+
+Phase 3. Data changes. Production.
