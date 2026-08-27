@@ -426,9 +426,16 @@ export async function updateTaskExecution(taskId, agentId, {
   const task = memoryStore.tasks.get(taskId)
   if (!task) throw new Error(`Task '${taskId}' not found`)
 
-  // Authorization check: Only current owner, QA owner, or founder can update
-  if (task.owner && task.owner !== agentId && task.qa_owner !== agentId && agentId !== 'founder' && agentId !== 'admin') {
-    throw new Error(`Agent '${agentId}' is not the owner or QA reviewer for task '${taskId}'`)
+  // Authorization check: Only current owner, QA owner, handoff target, or founder can update
+  if (
+    task.owner &&
+    task.owner !== agentId &&
+    task.qa_owner !== agentId &&
+    task.handoff_target !== agentId &&
+    agentId !== 'founder' &&
+    agentId !== 'admin'
+  ) {
+    throw new Error(`Unauthorized: Agent '${agentId}' is not the owner or QA reviewer for task '${taskId}'`)
   }
 
   const prevState = { ...task }
@@ -479,7 +486,7 @@ export async function handoffTask(taskId, agentId, {
 
   task.status = 'Review'
   task.handoff_target = target
-  if (qaOwner) task.qa_owner = qaOwner
+  if (qaOwner || !task.qa_owner) task.qa_owner = qaOwner || target
   task.updated_at = now
 
   // Update original agent status
@@ -657,8 +664,13 @@ export async function requestApproval({
 
 export async function decideApproval(approvalId, decision, {
   reason = '',
-  decidedBy = 'founder'
+  decidedBy = 'founder',
+  isFounder = true
 } = {}) {
+  if (isFounder === false || ['chatgpt', 'claude', 'gemini', 'grok'].includes(decidedBy)) {
+    throw new Error('Unauthorized: Only platform founders can decide approval requests')
+  }
+
   const approval = memoryStore.approvals.get(approvalId)
   if (!approval) throw new Error(`Approval '${approvalId}' not found`)
 
