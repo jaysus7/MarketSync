@@ -2310,17 +2310,39 @@ function msSyncRoute(pageId) {
 }
 
 function msRouteFromHash() {
-  const m = String(window.location.hash || '').match(/^#\/(?:w\/[^/]+\/|p\/)([\w-]+)$/);
-  return m ? m[1] : null;
+  const raw = String(window.location.hash || '');
+  const full = raw.match(/^#\/(?:w\/[^/]+\/|p\/)([\w-]+)$/);
+  if (full) return full[1];
+  // Short workspace form: #/w/sales → department home page (not Pulse).
+  const deptOnly = raw.match(/^#\/w\/([\w-]+)\/?$/);
+  if (!deptOnly) return null;
+  const id = deptOnly[1];
+  const reg = __deptRegistry || (typeof MS_WORKSPACES !== 'undefined' ? MS_WORKSPACES : null);
+  const d = reg && reg[id];
+  if (!d) return null;
+  if (typeof deptHomePage === 'function') {
+    const home = deptHomePage(d);
+    return home && home.page;
+  }
+  return (d.pages && d.pages[0] && d.pages[0].page) || null;
 }
 
 function msApplyRoute() {
+  const raw = String(window.location.hash || '');
+  const deptOnly = raw.match(/^#\/w\/([\w-]+)\/?$/);
+  if (deptOnly && typeof deptOpen === 'function' && (__deptRegistry || {})[deptOnly[1]]) {
+    if (__activeDept === deptOnly[1] && __currentPage) return;
+    __msRouting = true;
+    try { deptOpen(deptOnly[1]); } finally { __msRouting = false; }
+    return;
+  }
   const pageId = msRouteFromHash();
   if (!pageId || pageId === __currentPage) return;
   __msRouting = true;
   try { switchPage(pageId); } finally { __msRouting = false; }
 }
 window.addEventListener('popstate', msApplyRoute);
+window.addEventListener('hashchange', msApplyRoute);
 
 let __msBootTarget = msRouteFromHash();
 let __msBootTries = 0;
