@@ -329,3 +329,54 @@ async function loadHqHealth() {
 
 window.loadHqUsage = loadHqUsage;
 window.loadHqHealth = loadHqHealth;
+
+
+window.hqUserStatus = async function(userId, active) {
+  const reason = prompt((active ? 'Activate' : 'Deactivate') + ' user — reason') || '';
+  if (!reason.trim()) return showToast('Reason required', 'error');
+  try {
+    await apiSendJson('/owner/user/' + userId + '/status', 'POST', { active: !!active, reason });
+    showToast(active ? 'User activated' : 'User deactivated', 'success');
+    if (typeof loadOwnerUsersPage === 'function') loadOwnerUsersPage();
+  } catch (e) { showToast(e.message || 'Could not update user', 'error'); }
+};
+
+async function loadHqOnboarding() {
+  const root = document.getElementById('saas-onboarding-root'); if (!root) return;
+  root.innerHTML = '<div class="text-sm text-slate-400 p-4">Loading onboarding…</div>';
+  try {
+    const d = await apiGetJson('/owner/onboarding');
+    const rows = d.accounts || [];
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Onboarding','Profile, users, products, billing, integrations'):''}
+      <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <table class="w-full text-left text-xs">
+          <thead><tr class="text-[10px] uppercase text-slate-400 border-b border-slate-200 dark:border-slate-800">
+            <th class="p-3">Dealership</th><th class="p-3">%</th><th class="p-3">Steps</th><th class="p-3"></th></tr></thead>
+          <tbody>${rows.slice(0,250).map(a => `<tr class="border-t border-slate-100 dark:border-slate-800">
+            <td class="p-3 font-bold">${esc(a.name||a.id)}</td>
+            <td class="p-3">${a.percent}%</td>
+            <td class="p-3">${Object.entries(a.steps||{}).map(([k,v]) => v ? k : '<s>'+k+'</s>').join(' · ')}</td>
+            <td class="p-3"><button class="text-indigo-600 font-black" onclick="openSaasCustomer('${a.id}')">360</button></td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>`;
+  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message)}</div>`; }
+}
+
+async function loadHqIntegrations() {
+  const root = document.getElementById('saas-integrations-root'); if (!root) return;
+  root.innerHTML = '<div class="text-sm text-slate-400 p-4">Loading integrations…</div>';
+  try {
+    const d = await apiGetJson('/owner/integrations');
+    const rows = d.connections || [];
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Integrations','dealer_integrations across customers'):''}
+      <div class="space-y-2">${rows.length ? rows.slice(0,300).map(r => `
+        <button class="w-full text-left rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 text-sm" onclick="openSaasCustomer('${r.dealership_id}')">
+          <b>${esc(r.provider)}</b> · ${esc(r.status||'unknown')} · ${r.enabled ? 'enabled' : 'off'}
+          <div class="text-[11px] text-slate-500">${esc(r.dealership_id)} · ${esc(String(r.updated_at||'').slice(0,16))}</div>
+        </button>`).join('') : '<div class="text-sm text-slate-400">No dealer_integrations rows.</div>'}</div>`;
+  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message)}</div>`; }
+}
+
+window.loadHqOnboarding = loadHqOnboarding;
+window.loadHqIntegrations = loadHqIntegrations;
