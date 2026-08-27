@@ -87,8 +87,8 @@ html[data-dash-mode="marketsync"] [aria-current="page"]{background-color:#EFF6FF
   html[data-dash-mode="marketsync"] .bg-slate-100{background-color:#F1F5F9!important}
 }
 @media (prefers-color-scheme: dark) {
-  html[data-dash-mode="marketsync"] body{background-color:#0B1220!important}
-  html[data-dash-mode="marketsync"] .dark\:bg-slate-950{background-color:#0B1220!important}
+  html[data-dash-mode="marketsync"] body{background-color:#121318!important}
+  html[data-dash-mode="marketsync"] .dark\:bg-slate-950{background-color:#121318!important}
   html[data-dash-mode="marketsync"] .dark\:bg-slate-900{background-color:#111827!important}
   html[data-dash-mode="marketsync"] .dark\:bg-slate-800{background-color:#1F2937!important}
   html[data-dash-mode="marketsync"] .dark\:border-slate-800{border-color:#1E293B!important}
