@@ -480,7 +480,7 @@
 
     launcherWrap.innerHTML = `
       <!-- Launcher Button -->
-      <button type="button" id="staff-chat-launcher-btn" onclick="window.toggleStaffDirectoryPopover()" class="staff-chat-head-btn bg-gradient-to-tr from-indigo-600 to-violet-600 text-white" title="Internal Staff Messaging">
+      <button type="button" id="staff-chat-launcher-btn" onclick="window.toggleStaffDirectoryPopover()" class="staff-chat-head-btn bg-[#2563EB] text-white" title="Internal Staff Messaging">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.7 9.7 0 01-4-.85L3 21l1.85-4.5A8 8 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
         <span id="staff-chat-global-badge" class="hidden absolute -top-1 -right-1 bg-rose-500 text-white font-extrabold text-[10px] w-5 h-5 rounded-full flex items-center justify-center ring-2 ring-white">0</span>
       </button>
