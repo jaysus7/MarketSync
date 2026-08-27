@@ -27,7 +27,8 @@
     "validate:imports": "node scripts/validate-imports.js",
     "seed:jms": "node scripts/seed-jms.js",
     "seed:admin": "node scripts/seed-admin.js",
-    "bootstrap:platform-staff": "node scripts/bootstrap-platform-staff.js"
+    "bootstrap:platform-staff": "node scripts/bootstrap-platform-staff.js",
+    "generate:agent-keys": "NODE_ENV=test node scripts/generate-agent-keys.js"
   },
   "keywords": [],
   "author": "",

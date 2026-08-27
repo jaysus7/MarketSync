@@ -25,10 +25,10 @@ test('E2E Hub Verification: 1. Four Agents Connected and Ready in HQ', async () 
   assert.equal(agents.length, 4, 'Exactly 4 agents registered')
 
   const expectedAgents = [
-    { id: 'chatgpt', name: 'ChatGPT', role: 'lead_architect' },
-    { id: 'claude', name: 'Claude', role: 'senior_developer' },
-    { id: 'gemini', name: 'Gemini', role: 'infrastructure_specialist' },
-    { id: 'grok', name: 'Grok', role: 'qa_reviewer' }
+    { id: 'chatgpt', name: 'ChatGPT', role: 'chief_of_staff' },
+    { id: 'claude', name: 'Claude', role: 'senior_builder' },
+    { id: 'gemini', name: 'Gemini', role: 'workspace_specialist' },
+    { id: 'grok', name: 'Grok', role: 'implementation_engineer' }
   ]
 
   for (const exp of expectedAgents) {

@@ -590,10 +590,10 @@ window.loadHqBilling = loadHqBilling;
 // ── HQ Agent Hub ─────────────────────────────────────────────────────────────
 
 const AGENT_META = {
-  chatgpt: { name: 'ChatGPT', provider: 'OpenAI', icon: '🤖', color: 'emerald', role: 'Lead Architect' },
-  claude:  { name: 'Claude',  provider: 'Anthropic', icon: '🟣', color: 'purple',  role: 'Senior Developer' },
-  gemini:  { name: 'Gemini',  provider: 'Google', icon: '🔷', color: 'blue',    role: 'Infrastructure & Workspace' },
-  grok:    { name: 'Grok',    provider: 'xAI', icon: '⚡', color: 'amber',   role: 'QA & Verification' },
+  chatgpt: { name: 'ChatGPT', provider: 'OpenAI', icon: '🤖', color: 'emerald', role: 'Chief of Staff / Architecture / QA' },
+  claude:  { name: 'Claude',  provider: 'Anthropic', icon: '🟣', color: 'purple',  role: 'Senior Builder' },
+  gemini:  { name: 'Gemini',  provider: 'Google', icon: '🔷', color: 'blue',    role: 'Workspace / Search / Visual QA' },
+  grok:    { name: 'Grok',    provider: 'xAI', icon: '⚡', color: 'amber',   role: 'Implementation Engineer / Testing' },
 };
 
 async function loadHqAgents() {

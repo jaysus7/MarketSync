@@ -41,7 +41,7 @@ test('MarketSync HQ Agent Hub — 1. Four required agent identities exist', asyn
 
   const gemini = await getAgent('gemini')
   assert.equal(gemini.display_name, 'Gemini')
-  assert.equal(gemini.role, 'infrastructure_specialist')
+  assert.equal(gemini.role, 'workspace_specialist')
   assert.equal(gemini.is_enabled, true)
   assert.ok(gemini.permission_scope.includes('claim_tasks'))
 })
