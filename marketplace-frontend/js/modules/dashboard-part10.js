@@ -951,8 +951,11 @@ function pulseLeaderRow({ rank, name, value, sub, valueTone, onclick }) {
 }
 // A row of big quick-action buttons across the top of a Pulse page (Check-in / Check-out …).
 function pulseActionsRow(actions) {
-  return `<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">${(actions || []).map(a => `
-    <button onclick="${a.onclick}" class="ms-c ms-c--compact ms-c--glass text-center">
+  const list = actions || [];
+  const n = list.length || 4;
+  const gridCols = n === 2 ? 'grid-cols-2' : (n === 3 ? 'grid-cols-3' : (n === 1 ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-4'));
+  return `<div class="grid ${gridCols} gap-2.5 mb-3">${list.map(a => `
+    <button type="button" onclick="${a.onclick}" class="ms-c ms-c--glass text-center py-3.5 px-4 justify-center items-center cursor-pointer transition hover:opacity-90 active:scale-[0.99]" style="grid-column: auto !important; height: auto !important;">
       <div class="text-[14px] font-black text-slate-800 dark:text-slate-100">${esc(a.label)}</div>
     </button>`).join('')}</div>`;
 }
