@@ -1524,7 +1524,17 @@ window.loadSaasCustomers = loadSaasCustomers;
 
 // ══ Customer 360 drawer — one account: products, MRR/ARR/LTV, tenure, team,
 // usage timeline, billing history, and follow-ups (create + complete inline). ══
-const SAAS_PRODUCT_LABEL = { facebook_solo: 'FB AutoPoster · Solo', facebook_dealer: 'FB AutoPoster · Dealer', ai_chatbot: 'AI ChatBot', dealer_os: 'DealerOS' };
+const SAAS_PRODUCT_LABEL = {
+  facebook_solo: 'FB AutoPoster · Salesperson', facebook_dealer: 'FB AutoPoster · Dealer',
+  marketsync_social: 'Social Scheduler', design_studio: 'Design Studio', marketsync_video: 'Video',
+  marketsync_email: 'Campaigns', marketsync_website: 'Dealer Website', ai_chatbot: 'AI ChatBot',
+  'sales-marketing-suite': 'Sales Marketing Suite', 'service-marketing-suite': 'Service Marketing Suite',
+  'complete-marketing-suite': 'Complete Marketing Suite', 'marketsync-digital': 'MarketSync Digital',
+  dealer_os_core: 'DealerOS Core', dealer_os_pro: 'DealerOS Pro', dealer_os: 'DealerOS Complete',
+};
+window.SAAS_PRODUCT_LABEL = SAAS_PRODUCT_LABEL;
+window.HQ_PRODUCT_KEYS = Object.keys(SAAS_PRODUCT_LABEL);
+
 function saasRel(iso) {
   if (!iso) return '';
   const s = Math.floor((Date.now() - new Date(iso)) / 1000);
@@ -1555,6 +1565,7 @@ async function renderSaasCustomer(id) {
     : (d.status === 'PAST_DUE' || d.status === 'INACTIVE') ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
     : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300';
   const chips = (d.product_keys || []).map(k => `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">${esc(SAAS_PRODUCT_LABEL[k] || k)}</span>`).join('') || '<span class="text-xs text-slate-400">No products</span>';
+  const entitlementMatrix = typeof hqEntitlementMatrix === 'function' ? hqEntitlementMatrix(d) : '';
   const kpi = (label, val, tone = '') => `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3"><div class="text-[11px] uppercase font-bold tracking-wide text-slate-400">${label}</div><div class="text-xl font-black ${tone || 'text-slate-900 dark:text-white'}">${val}</div></div>`;
   const open = (d.followups || []).filter(f => !f.completed_at);
   const fRow = f => `<div class="flex gap-2 items-start py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
@@ -1597,7 +1608,7 @@ async function renderSaasCustomer(id) {
       ${kpi('Activity · 90 days', (d.activity_90d ?? 0).toLocaleString() + ' events')}
       ${kpi('Last active', d.last_activity_days == null ? 'No activity' : d.last_activity_days === 0 ? 'Today' : d.last_activity_days + 'd ago')}
     </div>
-    <div class="mb-4"><div class="text-[11px] uppercase font-bold tracking-wide text-slate-400 mb-1.5">Products</div><div class="flex flex-wrap gap-1.5">${chips}</div></div>
+    <div class="mb-4"><div class="text-[11px] uppercase font-bold tracking-wide text-slate-400 mb-1.5">Products</div><div class="flex flex-wrap gap-1.5">${chips}${entitlementMatrix || ''}</div></div>
     <div class="flex items-center gap-2 mb-4"><span class="text-[11px] uppercase font-bold tracking-wide text-slate-400">Owner</span>
       <select onchange="saasCustSetOwner('${id}', this.value)" class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 text-[13px]">${['<option value="">Unassigned</option>'].concat((d.owner_options || []).map(o => `<option value="${o.id}" ${d.owner_id === o.id ? 'selected' : ''}>${esc(o.name)}</option>`)).join('')}</select></div>
     <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4">
