@@ -25,3 +25,10 @@ docs/evidence/phase3/ Pulse, Sales, Service, Inventory, Accounting, Marketing, H
 
 ## Scores
 No route at 95+. Shell color improved on captured routes. Average remains **60.8** until a full re-score pass. Phase 4 not started.
+
+
+## Follow-up `64f4217`
+
+Staff-chat FAB source + CSS kill gradient. Login Sign In confirmed Market Blue.
+Chat FAB confirmed Market Blue on Pulse light and Sales dark.
+Evidence: docs/evidence/phase3/A001-login-*.png, R-pulse-1440-light.png, R-sales-1440-dark.png.

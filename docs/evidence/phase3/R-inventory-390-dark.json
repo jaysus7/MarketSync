@@ -1,0 +1,9 @@
+{
+  "name": "R-inventory",
+  "w": 390,
+  "theme": "dark",
+  "wanted": "#/w/inventory/inventory-overview",
+  "url": "https://marketsync-staging-site.onrender.com/dashboard.html#/w/inventory/inventory-overview",
+  "hash": "#/w/inventory/inventory-overview",
+  "dark": true
+}

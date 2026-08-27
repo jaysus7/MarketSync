@@ -1,0 +1,9 @@
+{
+  "name": "R-service",
+  "w": 390,
+  "theme": "light",
+  "wanted": "#/w/service/service-overview",
+  "url": "https://marketsync-staging-site.onrender.com/dashboard.html#/w/service/service-overview",
+  "hash": "#/w/service/service-overview",
+  "dark": false
+}
