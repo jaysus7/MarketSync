@@ -175,7 +175,7 @@ function renderAiActivity() {
   document.querySelectorAll('.ai-stat-card').forEach(c => {
     const on = c.dataset.aiFilter === __aiActivityFilter;
     c.classList.toggle('ring-2', on);
-    c.classList.toggle('ring-indigo-500', on);
+    c.classList.toggle('ring-blue-600', on);
   });
 
   const f = __aiActivityFilter;
@@ -199,7 +199,7 @@ function renderAiActivity() {
 
   list.innerHTML = filtered.map(item => {
     const date = new Date(item.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-    const stock = item.stocknumber ? `<span class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400">#${esc(item.stocknumber)}</span>` : '';
+    const stock = item.stocknumber ? `<span class="text-[11px] font-bold text-blue-600 dark:text-blue-400">#${esc(item.stocknumber)}</span>` : '';
     const badges = [];
     if (item.price_flagged) {
       const dir = (item.price_pct_diff || 0) > 0 ? 'overpriced' : 'underpriced';
@@ -207,7 +207,7 @@ function renderAiActivity() {
       badges.push(`<span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300">${pct}% ${dir}</span>`);
     }
     if (item.warnings?.length > 0) badges.push(`<span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">${item.warnings.length} alert${item.warnings.length > 1 ? 's' : ''}</span>`);
-    if (item.copy_generated) badges.push(`<span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">Copy written</span>`);
+    if (item.copy_generated) badges.push(`<span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">Copy written</span>`);
     const warningList = item.warnings?.length > 0
       ? `<ul class="mt-1.5 text-xs text-amber-700 dark:text-amber-300 space-y-0.5 list-disc list-inside">${item.warnings.map(w => `<li>${esc(w)}</li>`).join('')}</ul>`
       : '';
@@ -222,7 +222,7 @@ function renderAiActivity() {
           </div>
           <div class="flex flex-wrap gap-1.5 mt-1.5">${badges.join('') || '<span class="text-xs text-slate-400">No issues found</span>'}</div>
           ${warningList}
-          ${clickable ? `<div class="text-[10px] text-indigo-500 dark:text-indigo-400 mt-1">${hint}</div>` : ''}
+          ${clickable ? `<div class="text-[10px] text-blue-600 dark:text-blue-400 mt-1">${hint}</div>` : ''}
         </div>
         <div class="text-xs text-slate-400 whitespace-nowrap flex-shrink-0 mt-0.5">${date}</div>
       </div>
@@ -294,7 +294,7 @@ function openUpgradeModal(addon) {
   document.getElementById('upgrade-modal-tagline').textContent = plan.tagline;
   document.getElementById('upgrade-modal-price').textContent = plan.price;
   document.getElementById('upgrade-modal-features').innerHTML = plan.features.map(f =>
-    `<li class="flex items-start gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-violet-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg><span>${esc(f)}</span></li>`
+    `<li class="flex items-start gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg><span>${esc(f)}</span></li>`
   ).join('');
   const buy = document.getElementById('upgrade-modal-buy');
   buy.textContent = plan.cta;
