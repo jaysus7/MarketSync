@@ -2,6 +2,14 @@
 
 **Control document** for the brand migration. Created 2026-08-26. Identity lock: MarketSync / DealerOS by MarketSync / One dealership. One system. / Market Blue `#2563EB`.
 
+
+## Open STATE / ROUTE defects (do not drop)
+
+| ID | Defect | Class | Status |
+|---|---|---|---|
+| D001/D002 | Department Pulse often captures as “Loading…” | STATE | Open — retry later, do not stall queue |
+| D003 | `#/w/sales/crm` settles on Sales Pulse (`#/w/sales/sales`) | STATE/ROUTE | Open — not accepted |
+
 This file is the definition of “every page is done.” A surface is done only at **95/100 PASS** with no automatic-fail defects.
 
 ## Method
@@ -328,3 +336,47 @@ Dealer session via real login (sales@marketsync.link). Pulse 1440 light scored 7
 
 ## Phase 2 routing 2026-08-26
 Hash boot bugs fixed in 1d2ab54 and 67e7c79. Sales workspace visually confirmed. PASS 0. Average 60.8.
+
+
+## Phase 2 matrix 2026-08-27
+
+Evidence folder updated with dealer 1440 light/dark for core workspaces, Pulse/Sales 390, Pulse 768, HQ command. Hashes resolve to the intended workspace. PASS 0. Average 60.8. Phase 3 not started.
+
+
+## Phase 3 P0 2026-08-27
+
+Shared token lock and chrome glass landed (`72cb559`, `716c1ac`). Captured actions on Sales 1440 light now use Market Blue for Install Extension, Intelligence, and Demo. Chat FAB still violet until v2 CSS caches. PASS 0. Average 60.8. No department-content edits. Phase 4 not started.
+
+
+## Phase 3 follow-up 2026-08-27
+
+Login Sign In and staff-chat FAB now render Market Blue in evidence. A001 color subscore improved; route still NEEDS WORK (not 95+). PASS 0. Average ~61. Phase 4 not started.
+
+
+## Phase 3 P0 closed 2026-08-27
+
+Shared token/glass/chrome/dark P0 landed. PASS 0. Average ~61. Phase 4 (route-specific) not started.
+
+
+## Phase 4 started 2026-08-27
+
+Canonical dark canvas locked to **#121318**. `#0B1220` is `--ms-blue-950` ink only.
+
+Batch 1 (`ffe699c`): shared pulseRow / pulseCard / pulseActionsRow now use `ms-c` + `ms-btn`. Affects every department Pulse that composes those helpers. No route promoted to PASS yet.
+
+Queue remains the 167-row inventory. Next: recapture Pulse family, then Customers / Settings / HQ cards.
+
+
+## Phase 4 batch 2
+engCard/engKpi and CRM rows migrated to ms-c. D003/H00x still NEEDS WORK pending recapture.
+
+
+## Closest to PASS (Phase 4 tracker)
+
+| ID | Route | Est. now | Why not 95 |
+|---|---|---|---|
+| D043 | Settings | ~86 | 390 hero/tabs look right; 1440 recapture raced to Sales; Intelligence overlap in pre-fix 390 shot |
+| A001 | Login | ~80 | Sign In is Market Blue; not full a11y/glass pass |
+| D000 | Shell | ~78 | Chrome/tokens good; mobile nav and glass depth remain |
+
+PASS still 0. Open STATE: Pulse Loading; `#/w/sales/crm` → sales.

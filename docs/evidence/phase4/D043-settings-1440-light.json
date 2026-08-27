@@ -1,0 +1,9 @@
+{
+  "name": "D043-settings",
+  "w": 1440,
+  "theme": "light",
+  "wanted": "#/p/profile",
+  "hash": "#/p/profile",
+  "dark": false,
+  "h1": "Settings"
+}

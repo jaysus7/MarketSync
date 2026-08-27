@@ -56,41 +56,42 @@ html[data-dash-mode="marketsync"] #settings-tabs [data-stab="inventory"],
 html[data-dash-mode="marketsync"] #settings-tabs [data-stab="service"],
 html[data-dash-mode="marketsync"] #settings-tabs [data-stab="accounting"] { display: none !important; }
 
+/* Phase 3: Market Blue family only. Do not remap brand actions to violet. */
 html[data-dash-mode="marketsync"] .bg-indigo-600{background-color:#2563EB!important}
-html[data-dash-mode="marketsync"] .bg-indigo-500{background-color:#8b5cf6!important}
-html[data-dash-mode="marketsync"] .bg-indigo-700{background-color:#6d28d9!important}
-html[data-dash-mode="marketsync"] .bg-indigo-50{background-color:#f5f3ff!important}
-html[data-dash-mode="marketsync"] .hover\:bg-indigo-500:hover{background-color:#8b5cf6!important}
-html[data-dash-mode="marketsync"] .hover\:bg-indigo-100:hover{background-color:#ede9fe!important}
+html[data-dash-mode="marketsync"] .bg-indigo-500{background-color:#1F4ED8!important}
+html[data-dash-mode="marketsync"] .bg-indigo-700{background-color:#153AA6!important}
+html[data-dash-mode="marketsync"] .bg-indigo-50{background-color:#EFF6FF!important}
+html[data-dash-mode="marketsync"] .hover\:bg-indigo-500:hover{background-color:#1F4ED8!important}
+html[data-dash-mode="marketsync"] .hover\:bg-indigo-100:hover{background-color:#DBEAFE!important}
 html[data-dash-mode="marketsync"] .text-indigo-600{color:#2563EB!important}
-html[data-dash-mode="marketsync"] .text-indigo-700{color:#6d28d9!important}
-html[data-dash-mode="marketsync"] .text-indigo-400{color:#a78bfa!important}
-html[data-dash-mode="marketsync"] .text-indigo-300{color:#c4b5fd!important}
-html[data-dash-mode="marketsync"] .border-indigo-200{border-color:#ddd6fe!important}
+html[data-dash-mode="marketsync"] .text-indigo-700{color:#1E40AF!important}
+html[data-dash-mode="marketsync"] .text-indigo-400{color:#60A5FA!important}
+html[data-dash-mode="marketsync"] .text-indigo-300{color:#93C5FD!important}
+html[data-dash-mode="marketsync"] .border-indigo-200{border-color:#BFDBFE!important}
 html[data-dash-mode="marketsync"] .border-indigo-600{border-color:#2563EB!important}
-html[data-dash-mode="marketsync"] .border-indigo-800{border-color:#5b21b6!important}
+html[data-dash-mode="marketsync"] .border-indigo-800{border-color:#1E3A8A!important}
 html[data-dash-mode="marketsync"] .accent-indigo-600{accent-color:#2563EB!important}
-html[data-dash-mode="marketsync"] .ring-indigo-500{--tw-ring-color:#8b5cf6!important}
+html[data-dash-mode="marketsync"] .ring-indigo-500{--tw-ring-color:#2563EB!important}
 html[data-dash-mode="marketsync"] .from-indigo-600{--tw-gradient-from:#2563EB var(--tw-gradient-from-position)!important}
-html[data-dash-mode="marketsync"] .to-indigo-700{--tw-gradient-to:#6d28d9 var(--tw-gradient-to-position)!important}
-html[data-dash-mode="marketsync"] .dark\:bg-indigo-950\/40{background-color:rgba(46,16,101,.4)!important}
-html[data-dash-mode="marketsync"] .dark\:text-indigo-300{color:#c4b5fd!important}
-html[data-dash-mode="marketsync"] .dark\:text-indigo-400{color:#a78bfa!important}
-html[data-dash-mode="marketsync"] [aria-current="page"]{background-color:#ede9fe!important;color:#6d28d9!important}
+html[data-dash-mode="marketsync"] .to-indigo-700{--tw-gradient-to:#1F4ED8 var(--tw-gradient-to-position)!important}
+html[data-dash-mode="marketsync"] .dark\:bg-indigo-950\/40{background-color:rgba(37,99,235,.18)!important}
+html[data-dash-mode="marketsync"] .dark\:text-indigo-300{color:#93C5FD!important}
+html[data-dash-mode="marketsync"] .dark\:text-indigo-400{color:#60A5FA!important}
+html[data-dash-mode="marketsync"] [aria-current="page"]{background-color:#EFF6FF!important;color:#1E40AF!important}
 
 @media (prefers-color-scheme: light) {
   html[data-dash-mode="marketsync"] body,
-  html[data-dash-mode="marketsync"] .bg-slate-50{background-color:#faf8ff!important}
-  html[data-dash-mode="marketsync"] .border-slate-200{border-color:#e7e0fb!important}
-  html[data-dash-mode="marketsync"] .bg-white{background-color:#fffdff!important}
-  html[data-dash-mode="marketsync"] .bg-slate-100{background-color:#f1ecfe!important}
+  html[data-dash-mode="marketsync"] .bg-slate-50{background-color:#F8FAFC!important}
+  html[data-dash-mode="marketsync"] .border-slate-200{border-color:#E2E8F0!important}
+  html[data-dash-mode="marketsync"] .bg-white{background-color:#FFFFFF!important}
+  html[data-dash-mode="marketsync"] .bg-slate-100{background-color:#F1F5F9!important}
 }
 @media (prefers-color-scheme: dark) {
-  html[data-dash-mode="marketsync"] body{background-color:#0f0a1e!important}
-  html[data-dash-mode="marketsync"] .dark\:bg-slate-950{background-color:#0f0a1e!important}
-  html[data-dash-mode="marketsync"] .dark\:bg-slate-900{background-color:#160f2b!important}
-  html[data-dash-mode="marketsync"] .dark\:bg-slate-800{background-color:#241a45!important}
-  html[data-dash-mode="marketsync"] .dark\:border-slate-800{border-color:#2e1065!important}
+  html[data-dash-mode="marketsync"] body{background-color:#121318!important}
+  html[data-dash-mode="marketsync"] .dark\:bg-slate-950{background-color:#121318!important}
+  html[data-dash-mode="marketsync"] .dark\:bg-slate-900{background-color:#111827!important}
+  html[data-dash-mode="marketsync"] .dark\:bg-slate-800{background-color:#1F2937!important}
+  html[data-dash-mode="marketsync"] .dark\:border-slate-800{border-color:#1E293B!important}
 }
 html[data-dash-mode="marketsync"] button.bg-indigo-600,
 html[data-dash-mode="marketsync"] a.bg-indigo-600{box-shadow:0 1px 2px rgba(124,58,237,.35),0 4px 12px -2px rgba(124,58,237,.35)!important}
@@ -124,7 +125,7 @@ html[data-dash-mode="marketsync"] #ms-mode-switch{background:#ede9fe}
 #nav-desktop > [data-page="taskboard"] { order:21; border-left-color:#f43f5e; }
 #nav-desktop > #nav-commissions        { order:22; border-left-color:#10b981; }
 #nav-desktop > .nav-group[data-group="auto"]    { order:23; border-left-color:#64748b; }
-#nav-desktop > #nav-affiliates         { order:24; border-left-color:#8b5cf6; }
+#nav-desktop > #nav-affiliates         { order:24; border-left-color:#2563EB; }
 #nav-desktop > #nav-owner-users        { order:25; border-left-color:#d946ef; }
 #nav-desktop > #nav-config             { order:26; border-left-color:#64748b; }
 #nav-desktop > #nav-api                { order:27; border-left-color:#64748b; }

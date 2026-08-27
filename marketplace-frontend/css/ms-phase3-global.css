@@ -1,0 +1,169 @@
+/* Phase 3 P0 — shared token lock, chrome glass, action surfaces. Not page content. */
+:root {
+  --ms-market-blue: #2563EB;
+  --ms-dealer-blue: #1F4ED8;
+  --ms-ink-blue: #153AA6;
+}
+
+/* Brand-action remaps (interface drift only; status greens/ambers/reds untouched). */
+.bg-indigo-600, .bg-indigo-500, .bg-violet-600, .bg-violet-500, .bg-purple-600, .bg-purple-500 {
+  background-color: var(--ms-market-blue) !important;
+}
+.hover\:bg-indigo-500:hover, .hover\:bg-violet-500:hover, .hover\:bg-purple-500:hover {
+  background-color: var(--ms-dealer-blue) !important;
+}
+.text-indigo-600, .text-indigo-500, .text-violet-600, .text-purple-600 {
+  color: var(--ms-market-blue) !important;
+}
+.dark .text-indigo-400, .dark .text-violet-400, .dark .text-purple-400 {
+  color: #93C5FD !important;
+}
+.bg-indigo-50, .bg-violet-50, .bg-purple-50 { background-color: #EFF6FF !important; }
+.border-indigo-200, .border-violet-200, .border-purple-200 { border-color: #BFDBFE !important; }
+.accent-indigo-600, .accent-violet-600 { accent-color: var(--ms-market-blue) !important; }
+.shadow-indigo-600\/40, .shadow-purple-500\/40, .shadow-violet-600\/40 {
+  --tw-shadow-color: rgba(37, 99, 235, 0.35);
+}
+
+/* Layer 2 — chrome */
+header.ms-chrome-glass,
+#dashboard-nav {
+  background: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+#dashboard-nav {
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08) !important;
+}
+.dark header.ms-chrome-glass,
+.dark #dashboard-nav {
+  background: rgba(17, 24, 39, 0.72) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+}
+
+#dept-nav .dept-nav-item[aria-current="page"],
+#dept-nav button.ms-acc-bg,
+#dashboard-nav .nav-item.bg-slate-100 {
+  background: rgba(37, 99, 235, 0.10) !important;
+  color: var(--ms-ink-blue) !important;
+}
+.dark #dept-nav .dept-nav-item[aria-current="page"],
+.dark #dashboard-nav .nav-item.bg-slate-800 {
+  background: rgba(37, 99, 235, 0.22) !important;
+  color: #DBEAFE !important;
+}
+
+/* Layer 3 — FABs and chips */
+#ai-dock-btn,
+#team-chat-dock-btn,
+#staff-chat-launcher-btn,
+.staff-chat-head-btn,
+#install-ext-btn,
+#ext-header-btn {
+  background: var(--ms-market-blue) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.28) !important;
+}
+#ai-dock-btn:hover,
+#team-chat-dock-btn:hover,
+#staff-chat-launcher-btn:hover,
+.staff-chat-head-btn:hover,
+#install-ext-btn:hover,
+#ext-header-btn:hover {
+  background: var(--ms-dealer-blue) !important;
+}
+#ext-header-btn {
+  background: rgba(37, 99, 235, 0.10) !important;
+  color: var(--ms-market-blue) !important;
+  border: 1px solid rgba(37, 99, 235, 0.22) !important;
+  box-shadow: none !important;
+}
+.dark #ext-header-btn {
+  background: rgba(37, 99, 235, 0.18) !important;
+  color: #93C5FD !important;
+  border-color: rgba(147, 197, 253, 0.28) !important;
+}
+
+#demo-mode-badge {
+  background: var(--ms-market-blue) !important;
+}
+
+#submit-btn {
+  background: var(--ms-market-blue) !important;
+}
+#submit-btn:hover { background: var(--ms-dealer-blue) !important; }
+
+@media (prefers-reduced-transparency: reduce) {
+  header.ms-chrome-glass, #dashboard-nav {
+    backdrop-filter: none;
+    background: #fff !important;
+  }
+  .dark header.ms-chrome-glass, .dark #dashboard-nav {
+    background: #111827 !important;
+  }
+}
+
+/* Gradients used as brand actions, not charts. */
+.from-indigo-600, .from-violet-600 { --tw-gradient-from: #2563EB var(--tw-gradient-from-position) !important; --tw-gradient-from-position: ; }
+.to-violet-600, .to-indigo-600, .to-purple-600 { --tw-gradient-to: #1F4ED8 var(--tw-gradient-to-position) !important; }
+.from-indigo-500, .from-violet-500 { --tw-gradient-from: #1F4ED8 var(--tw-gradient-from-position) !important; }
+.to-violet-500, .to-indigo-500 { --tw-gradient-to: #153AA6 var(--tw-gradient-to-position) !important; }
+
+#staff-chat-launcher-btn,
+.staff-chat-head-btn {
+  background-image: none !important;
+  background-color: var(--ms-market-blue) !important;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.32) !important;
+}
+
+#notif-panel aside,
+#nav-more-menu,
+#demo-control-panel {
+  background: rgba(255,255,255,.82) !important;
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+}
+.dark #notif-panel aside,
+.dark #nav-more-menu,
+.dark #demo-control-panel {
+  background: rgba(17,24,39,.86) !important;
+}
+
+html.dark body.ms-app-booting,
+html.dark body {
+  background-color: #121318;
+}
+
+/* Phase 3 close-out — dark canvas, mobile sheet, selected chrome */
+html.dark body,
+.dark body {
+  background-color: #121318 !important;
+  color: #F7F8FA;
+}
+html.dark header.ms-chrome-glass {
+  background: rgba(11, 18, 32, 0.78) !important;
+  border-bottom-color: rgba(255,255,255,0.08);
+}
+.ms-more-sheet {
+  background: rgba(255,255,255,0.86) !important;
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  border: 1px solid rgba(15,23,42,0.08);
+}
+.dark .ms-more-sheet {
+  background: rgba(17,24,39,0.90) !important;
+  border-color: rgba(255,255,255,0.08);
+}
+#header-shift-clock-chip,
+#header-demo-switcher-container button {
+  backdrop-filter: blur(12px);
+}
+#dashboard-nav .nav-item[aria-current="page"],
+#dept-nav [aria-current="page"] {
+  box-shadow: inset 3px 0 0 #2563EB;
+}

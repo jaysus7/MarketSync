@@ -1,0 +1,11 @@
+{
+  "name": "D-accounting",
+  "w": 1440,
+  "theme": "dark",
+  "wanted": "#/w/accounting/accounting-overview",
+  "file": "/tmp/MS9/docs/evidence/phase2/D-accounting-1440-dark.png",
+  "url": "https://marketsync-staging-site.onrender.com/dashboard.html#/w/accounting/accounting-overview",
+  "hash": "#/w/accounting/accounting-overview",
+  "dark": true,
+  "hasToken": true
+}

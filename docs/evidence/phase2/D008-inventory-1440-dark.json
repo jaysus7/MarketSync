@@ -1,0 +1,11 @@
+{
+  "name": "D008-inventory",
+  "w": 1440,
+  "theme": "dark",
+  "wanted": "#/w/inventory/inventory-overview",
+  "file": "/tmp/MS9/docs/evidence/phase2/D008-inventory-1440-dark.png",
+  "url": "https://marketsync-staging-site.onrender.com/dashboard.html#/w/inventory/inventory-overview",
+  "hash": "#/w/inventory/inventory-overview",
+  "dark": true,
+  "hasToken": true
+}

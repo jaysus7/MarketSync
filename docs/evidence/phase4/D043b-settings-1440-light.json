@@ -1,0 +1,11 @@
+{
+  "name": "D043b-settings",
+  "w": 1440,
+  "theme": "light",
+  "wanted": "#/p/profile",
+  "hash": "#/w/sales/sales",
+  "dark": false,
+  "h1": "Settings",
+  "banner": false,
+  "profileOn": false
+}

@@ -1,0 +1,9 @@
+{
+  "name": "Z-service",
+  "w": 1440,
+  "theme": "dark",
+  "wanted": "#/w/service/service-overview",
+  "url": "https://marketsync-staging-site.onrender.com/dashboard.html#/w/service/service-overview",
+  "hash": "#/w/service/service-overview",
+  "dark": true
+}

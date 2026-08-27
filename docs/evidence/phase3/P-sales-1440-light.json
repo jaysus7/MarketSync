@@ -1,0 +1,11 @@
+{
+  "name": "P-sales",
+  "w": 1440,
+  "theme": "light",
+  "wanted": "#/w/sales/sales",
+  "file": "/tmp/MS9/docs/evidence/phase3/P-sales-1440-light.png",
+  "url": "https://marketsync-staging-site.onrender.com/dashboard.html#/w/sales/sales",
+  "hash": "#/w/sales/sales",
+  "dark": false,
+  "hasToken": true
+}

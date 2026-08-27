@@ -16,7 +16,7 @@
      500/600/700 (the "primary/secondary/tertiary" swatches). 50-400 extend
      Tailwind's own well-tested blue scale (unspecified by the brand guide,
      used only for light tints); 800-950 darken toward this codebase's
-     existing dark-canvas ink (#0b1220, see assets/public-shell.css --ms-ink).
+     deep ink only (#0b1220 = --ms-blue-950). Dark canvas/surfaces stay --ms-dark-canvas #121318.
      -rgb companions let alpha-blended utilities (e.g. bg-indigo-950/40) use
      rgb(var(--ms-blue-950-rgb) / 40%) instead of a second hardcoded hex. */
   --ms-blue-50: #eff6ff;   --ms-blue-50-rgb: 239 246 255;
@@ -2079,12 +2079,12 @@ body {
 .dark .ms-crm-glass {
   border-color: rgba(190,205,230,.18);
   /* Same stops as before, at full alpha. */
-  background: linear-gradient(145deg, #1C2943, #09101E) !important;
+  background: #121318 !important;
   box-shadow: 0 34px 110px rgba(0,0,0,.52), inset 0 1px 0 rgba(255,255,255,.12) !important;
 }
 
 .dark .ms-crm-glass > .sticky {
-  background: #162238 !important;
+  background: #1A1D24 !important;
   border-color: rgba(190,205,230,.12) !important;
 }
 
@@ -2097,7 +2097,7 @@ body {
   border-color: rgba(100,116,139,.24) !important;
   background: rgba(255,255,255,.78) !important;
   color: #0f172a !important;
-  caret-color: #4f46e5 !important;
+  caret-color: #2563EB !important;
 }
 
 .dark .ms-crm-glass input,

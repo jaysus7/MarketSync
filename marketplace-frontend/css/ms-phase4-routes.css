@@ -1,0 +1,83 @@
+/* Phase 4 route families — compose existing ms-* primitives. */
+[data-page-content="profile"] h1 {
+  font-size: 1.75rem;
+  letter-spacing: -0.03em;
+}
+[data-page-content="profile"] .bg-white.border.rounded-lg,
+[data-page-content="profile"] .bg-white.border.rounded-2xl,
+[data-page-content="profile"] .bg-white.dark\:bg-slate-900 {
+  background: var(--ms-s-glass, rgba(255,255,255,.78)) !important;
+  border-color: var(--ms-g-border, rgba(15,23,42,.10)) !important;
+  box-shadow: var(--ms-g-shadow, 0 10px 30px rgba(15,23,42,.06)) !important;
+  border-radius: 18px !important;
+}
+.dark [data-page-content="profile"] .bg-white.dark\:bg-slate-900,
+.dark [data-page-content="profile"] .bg-white.border {
+  background: rgba(26,29,36,.72) !important;
+  border-color: #2B303A !important;
+}
+.stab-btn.stab-on,
+#settings-tabs .stab-btn[aria-current="true"] {
+  color: #153AA6 !important;
+  border-bottom-color: #2563EB !important;
+}
+.dark .stab-btn.stab-on { color: #93C5FD !important; }
+
+[data-page-content="profile"] input,
+[data-page-content="profile"] select,
+[data-page-content="profile"] textarea {
+  min-height: 44px;
+  border-radius: 12px;
+}
+
+#saas-command-root .bg-white,
+#saas-customers-root .bg-white,
+[data-page-content="saas-command"] .bg-white {
+  background: var(--ms-s-glass, rgba(255,255,255,.78)) !important;
+  border-color: var(--ms-g-border, rgba(15,23,42,.10)) !important;
+}
+
+/* Settings cleanup — banner, translate chrome, hero type, FAB clearance */
+body:has([data-page-content="profile"]:not(.hidden)) #ext-cta-banner {
+  display: none !important;
+}
+[data-page-content="profile"] {
+  padding-bottom: 6rem;
+}
+[data-page-content="profile"] > div:first-child {
+  padding: 1.25rem 1.5rem 1rem;
+  margin-bottom: 0.25rem;
+}
+[data-page-content="profile"] h1 {
+  font-size: clamp(2rem, 3vw, 2.75rem) !important;
+  line-height: 1.05;
+  font-weight: 900;
+  letter-spacing: -0.045em;
+}
+[data-page-content="profile"] h1 + p {
+  font-size: 1rem;
+  color: #334155;
+}
+.dark [data-page-content="profile"] h1 + p { color: #CBD5E1; }
+
+iframe.skiptranslate,
+.goog-te-banner-frame,
+body > .skiptranslate {
+  display: none !important;
+}
+body { top: 0 !important; }
+#google_translate_element .goog-logo-link,
+#google_translate_element .goog-te-gadget span {
+  display: none !important;
+}
+#google_translate_element .goog-te-gadget { font-size: 0 !important; }
+#google_translate_element .goog-te-combo {
+  font-size: 14px !important;
+  min-height: 44px;
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+  padding: 0 12px;
+}
+
+body:has([data-page-content="profile"]:not(.hidden)) #ai-dock-btn { display: none !important; }

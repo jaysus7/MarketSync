@@ -1,0 +1,11 @@
+{
+  "name": "P-service",
+  "w": 1440,
+  "theme": "light",
+  "wanted": "#/w/service/service-overview",
+  "file": "/tmp/MS9/docs/evidence/phase3/P-service-1440-light.png",
+  "url": "https://marketsync-staging-site.onrender.com/dashboard.html#/w/service/service-overview",
+  "hash": "#/w/service/service-overview",
+  "dark": false,
+  "hasToken": true
+}

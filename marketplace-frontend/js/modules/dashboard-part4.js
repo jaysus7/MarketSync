@@ -162,11 +162,11 @@ async function crmLoadContacts(targetEl) {
         <span id="crm-repfilter"></span>
       </div>
       <div class="flex items-center gap-2">
-        <button type="button" id="crm-bulk-btn" data-admin-only onclick="openBulkOutreach()" class="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold px-3 py-2 rounded-lg transition">
+        <button type="button" id="crm-bulk-btn" data-admin-only onclick="openBulkOutreach()" class="ms-btn ms-btn--primary !text-xs !min-h-0 !px-3 !py-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
           Bulk message
         </button>
-        <button type="button" onclick="openCrmContactModal()" class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-2 rounded-lg transition">
+        <button type="button" onclick="openCrmContactModal()" class="ms-btn ms-btn--primary !text-xs !min-h-0 !px-3 !py-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
           New contact
         </button>
@@ -222,9 +222,9 @@ async function crmRefreshContacts() {
         </table></div></div>
         <div class="text-[11px] text-slate-400 mt-2">${contacts.length} sold customer${contacts.length === 1 ? '' : 's'} · ${scopeNote}</div>`;
     } else {
-      list.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+      list.innerHTML = `<div class="grid gap-2">
         ${contacts.map(crmContactRow).join('')}</div>
-        <div class="text-[11px] text-slate-400 mt-2">${contacts.length} contact${contacts.length === 1 ? '' : 's'} · ${scopeNote}</div>`;
+        <div class="text-[13px] text-slate-500 mt-2">${contacts.length} contact${contacts.length === 1 ? '' : 's'} · ${scopeNote}</div>`;
     }
   } catch (e) {
     const list = document.getElementById('crm-list');
@@ -234,7 +234,7 @@ async function crmRefreshContacts() {
 function crmContactRow(c) {
   const initials = (c.full_name || '?').split(/\s+/).map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
   const sub = [c.email, c.phone].filter(Boolean).join(' · ');
-  return `<div onclick="openCrmContact('${c.id}')" class="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-950/20 transition">
+  return `<div onclick="openCrmContact('${c.id}')" class="ms-c ms-c--compact ms-c--glass flex items-center gap-3 cursor-pointer">
     <div class="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-300 flex items-center justify-center text-xs font-black flex-shrink-0">${esc(initials || '?')}</div>
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-2"><span class="font-bold text-slate-900 dark:text-white truncate">${esc(c.full_name || 'Unknown')}</span>
