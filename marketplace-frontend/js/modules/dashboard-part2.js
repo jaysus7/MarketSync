@@ -1608,13 +1608,28 @@ window.deptGo = deptGo;
 // The MarketSync owner's SaaS back office is its own flat department list —
 // the company operating system, not a dealership.
 const SAAS_DEPARTMENTS = {
-  pulse:          { label: 'Pulse',          icon: 'chart',    accent: 'indigo', always: true, pages: [{ page: 'saas-command', label: 'Company Pulse' }] },
-  accounts:       { label: 'Accounts',       icon: 'building', accent: 'indigo', always: true, pages: [{ page: 'saas-customers', label: 'Customer Accounts' }] },
-  leads:          { label: 'Leads',          icon: 'funnel',   accent: 'indigo', always: true, pages: [{ page: 'saas-funnel', label: 'Sales Leads' }] },
-  work:           { label: 'Work',           icon: 'check',    accent: 'indigo', always: true, pages: [{ page: 'saas-followups', label: 'Follow-ups' }] },
-  people:         { label: 'People',         icon: 'users',    accent: 'indigo', always: true, pages: [{ page: 'saas-employees', label: 'People Directory' }] },
-  communications: { label: 'Communications', icon: 'chat',     accent: 'indigo', always: true, pages: [{ page: 'saas-automation', label: 'Email, SMS & Automations' }] },
-  money:          { label: 'Money',          icon: 'currency', accent: 'emerald', always: true, pages: [{ page: 'saas-accounting', label: 'Company Money' }] },
+  pulse:          { label: 'HQ',             icon: 'chart',    accent: 'indigo', always: true, pages: [{ page: 'saas-command', label: 'Overview' }] },
+  accounts:       { label: 'Customers',      icon: 'building', accent: 'indigo', always: true, pages: [
+    { page: 'saas-customers', label: 'Dealerships' },
+    { page: 'saas-trials', label: 'Trials' },
+    { page: 'saas-followups', label: 'Customer Health' },
+  ] },
+  people:         { label: 'Users',          icon: 'users',    accent: 'indigo', always: true, pages: [
+    { page: 'owner-users', label: 'All Users' },
+    { page: 'saas-employees', label: 'HQ Staff' },
+  ] },
+  money:          { label: 'Revenue',        icon: 'currency', accent: 'indigo', always: true, pages: [
+    { page: 'saas-accounting', label: 'Subscriptions' },
+    { page: 'saas-products', label: 'Product Catalog' },
+  ] },
+  platform:       { label: 'Platform',       icon: 'bolt',     accent: 'indigo', always: true, pages: [
+    { page: 'saas-entitlements', label: 'Entitlements' },
+    { page: 'saas-funnel', label: 'Integrations' },
+  ] },
+  work:           { label: 'Operations',     icon: 'check',    accent: 'indigo', always: true, pages: [
+    { page: 'saas-automation', label: 'Support' },
+    { page: 'config', label: 'Configuration' },
+  ] },
 };
 let __deptNavBuilt = false;
 let __deptRegistry = DEPARTMENTS;   // which department set the flat nav is showing
@@ -2229,6 +2244,9 @@ function switchPage(pageId) {
   if (pageId === 'saas-automation') loadSaasAutomation();
   if (pageId === 'saas-employees') loadSaasEmployees();
   if (pageId === 'saas-accounting') loadSaasAccounting();
+  if (pageId === 'saas-entitlements' && typeof loadHqEntitlements === 'function') loadHqEntitlements();
+  if (pageId === 'saas-products' && typeof loadHqProducts === 'function') loadHqProducts();
+  if (pageId === 'saas-trials' && typeof loadHqTrials === 'function') loadHqTrials();
   if (pageId === 'config') loadConfigHub();
   if (pageId === 'api-keys') loadApiKeys();
   if (pageId === 'delivery') loadDeliveryQueue();
