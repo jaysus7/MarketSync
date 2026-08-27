@@ -90,6 +90,7 @@ import { registerPlaid } from './routes/plaid.js'
 import { registerAffiliate } from './routes/affiliate.js'
 import { registerHR } from './routes/hr.js'
 import { registerStaffChat } from './routes/staff-chat.js'
+import { registerHqAgentsRoutes } from './routes/hq-agents.js'
 
 const app = express()
 const PORT = process.env.PORT || 10000
@@ -229,6 +230,7 @@ registerPlaid(app)
 registerAffiliate(app)
 registerHR(app)
 registerStaffChat(app)
+registerHqAgentsRoutes(app)
 registerSeoRoutes(app)
 registerWebhookRoutes(app)
 

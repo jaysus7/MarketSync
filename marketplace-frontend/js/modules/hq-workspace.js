@@ -586,3 +586,374 @@ window.hqBillingPlan = async function(id) {
 };
 
 window.loadHqBilling = loadHqBilling;
+
+// ── HQ Agent Hub ─────────────────────────────────────────────────────────────
+
+const AGENT_META = {
+  chatgpt: { name: 'ChatGPT', provider: 'OpenAI', icon: '🤖', color: 'emerald', role: 'Lead Architect' },
+  claude:  { name: 'Claude',  provider: 'Anthropic', icon: '🟣', color: 'purple',  role: 'Senior Developer' },
+  gemini:  { name: 'Gemini',  provider: 'Google', icon: '🔷', color: 'blue',    role: 'Infrastructure & Workspace' },
+  grok:    { name: 'Grok',    provider: 'xAI', icon: '⚡', color: 'amber',   role: 'QA & Verification' },
+};
+
+async function loadHqAgents() {
+  const root = document.getElementById('saas-agents-root');
+  if (!root) return;
+  root.innerHTML = '<div class="text-sm text-slate-400 p-6">Loading HQ Agent Hub…</div>';
+
+  try {
+    const [agentsRes, tasksRes, approvalsRes, integrationsRes] = await Promise.all([
+      apiGetJson('/api/hq/agents').catch(() => ({ agents: [] })),
+      apiGetJson('/api/hq/tasks').catch(() => ({ tasks: [] })),
+      apiGetJson('/api/hq/approvals').catch(() => ({ approvals: [] })),
+      apiGetJson('/api/hq/integrations/status').catch(() => ({ integrations: [] }))
+    ]);
+
+    const agents = agentsRes.agents || [];
+    const tasks = tasksRes.tasks || [];
+    const approvals = (approvalsRes.approvals || []).filter(a => a.status === 'pending');
+    const integrations = integrationsRes.integrations || [];
+
+    // Compute status counts
+    const counts = { Inbox: 0, Ready: 0, 'In Progress': 0, Review: 0, Blocked: 0, Done: 0 };
+    tasks.forEach(t => { if (counts[t.status] !== undefined) counts[t.status]++; });
+
+    root.innerHTML = `
+      <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 class="text-2xl font-black text-slate-900 dark:text-white">AI Agent Hub</h1>
+          <p class="text-xs text-slate-500 mt-1">Central control plane and task ledger for ChatGPT, Claude, Gemini, and Grok.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" class="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800" onclick="hqSyncWorkQueuePrompt()">
+            ↻ Sync Work Queue
+          </button>
+          <button type="button" class="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold hover:opacity-90" onclick="hqCreateTaskPrompt()">
+            + New Task
+          </button>
+        </div>
+      </div>
+
+      <!-- Lifecycle Counters -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        ${['Inbox', 'Ready', 'In Progress', 'Review', 'Blocked', 'Done'].map(st => {
+          const color = st === 'Done' ? 'text-emerald-600' : st === 'Blocked' ? 'text-rose-600' : st === 'In Progress' ? 'text-blue-600' : st === 'Review' ? 'text-purple-600' : 'text-slate-700 dark:text-slate-200';
+          return `
+            <div class="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm cursor-pointer hover:border-slate-300" onclick="hqFilterTasks('${st}')">
+              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">${st}</div>
+              <div class="text-2xl font-black ${color} mt-1">${counts[st] || 0}</div>
+            </div>`;
+        }).join('')}
+      </div>
+
+      <!-- Agent Cards Grid -->
+      <div class="text-sm font-black text-slate-900 dark:text-white mb-3">Active Autonomous Agents</div>
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+        ${['chatgpt', 'claude', 'gemini', 'grok'].map(id => {
+          const ag = agents.find(a => a.id === id) || { id, display_name: id, status: 'idle', role: 'contributor' };
+          const meta = AGENT_META[id] || { name: id, provider: 'AI', icon: '🤖', color: 'slate', role: 'Agent' };
+          const statusTone = ag.status === 'working' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300' :
+                             ag.status === 'blocked' ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-300' :
+                             ag.status === 'review'  ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300' :
+                             'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
+
+          return `
+            <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between gap-2 mb-2">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xl">${meta.icon}</span>
+                    <div>
+                      <div class="font-black text-sm text-slate-900 dark:text-white">${esc(meta.name)}</div>
+                      <div class="text-[10px] text-slate-400 font-semibold">${esc(meta.provider)} · ${esc(meta.role)}</div>
+                    </div>
+                  </div>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${statusTone}">
+                    ${esc(ag.status || 'idle')}
+                  </span>
+                </div>
+
+                <div class="space-y-1.5 mt-3 text-xs">
+                  <div class="flex justify-between text-slate-500">
+                    <span>Current Task:</span>
+                    <span class="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[130px]">${ag.current_task_id ? `<a href="javascript:void(0)" onclick="openHqTaskDetail('${ag.current_task_id}')" class="text-indigo-600 underline">${esc(ag.current_task_id)}</a>` : '—'}</span>
+                  </div>
+                  <div class="flex justify-between text-slate-500">
+                    <span>Heartbeat:</span>
+                    <span class="font-semibold text-slate-600 dark:text-slate-400">${ag.last_heartbeat ? new Date(ag.last_heartbeat).toLocaleTimeString() : 'Online'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-[11px]">
+                <span class="text-slate-400 font-semibold">Scope: standard</span>
+                <button type="button" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline" onclick="hqFilterTasks('', '${id}')">
+                  View Tasks →
+                </button>
+              </div>
+            </div>`;
+        }).join('')}
+      </div>
+
+      <!-- Pending Approvals Queue -->
+      ${approvals.length ? `
+        <div class="p-4 rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 mb-6">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-amber-600 font-black text-sm">⚡ Founder Approval Required (${approvals.length})</span>
+          </div>
+          <div class="space-y-2">
+            ${approvals.map(ap => `
+              <div class="p-3 rounded-xl bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900/40 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div>
+                  <div class="font-bold text-slate-900 dark:text-white">${esc(ap.title)}</div>
+                  <div class="text-[11px] text-slate-500 mt-0.5">Requested by <b>${esc(ap.agent_id)}</b> for task <b>${esc(ap.task_id || 'general')}</b> (${esc(ap.action_type)})</div>
+                  ${ap.description ? `<p class="text-[11px] text-slate-600 dark:text-slate-300 mt-1">${esc(ap.description)}</p>` : ''}
+                </div>
+                <div class="flex items-center gap-2">
+                  <button type="button" class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold text-[11px]" onclick="hqDecideApproval('${ap.id}', 'approved')">Approve</button>
+                  <button type="button" class="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-600 font-bold text-[11px]" onclick="hqDecideApproval('${ap.id}', 'rejected')">Reject</button>
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>` : ''}
+
+      <!-- Task Ledger Table -->
+      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
+        <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+          <div class="font-black text-sm text-slate-900 dark:text-white">Task Ledger (${tasks.length})</div>
+          <div class="flex items-center gap-2 text-xs">
+            <select id="hq-task-filter-status" class="rounded-xl border border-slate-200 dark:border-slate-700 bg-transparent px-2.5 py-1" onchange="hqApplyTaskFilters()">
+              <option value="">All Statuses</option>
+              <option value="Inbox">Inbox</option>
+              <option value="Ready">Ready</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Review">Review</option>
+              <option value="Blocked">Blocked</option>
+              <option value="Done">Done</option>
+            </select>
+            <select id="hq-task-filter-owner" class="rounded-xl border border-slate-200 dark:border-slate-700 bg-transparent px-2.5 py-1" onchange="hqApplyTaskFilters()">
+              <option value="">All Agents</option>
+              <option value="chatgpt">ChatGPT</option>
+              <option value="claude">Claude</option>
+              <option value="gemini">Gemini</option>
+              <option value="grok">Grok</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs" id="hq-tasks-table">
+            <thead>
+              <tr class="border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase text-slate-400 bg-slate-50 dark:bg-slate-800/50">
+                <th class="p-3">ID</th>
+                <th class="p-3">Title & Acceptance Criteria</th>
+                <th class="p-3">Priority</th>
+                <th class="p-3">Owner</th>
+                <th class="p-3">Status</th>
+                <th class="p-3">QA / Reviewer</th>
+                <th class="p-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="hq-tasks-tbody">
+              ${tasks.length ? tasks.map(t => hqRenderTaskRow(t)).join('') : '<tr><td colspan="7" class="p-6 text-center text-slate-400">No tasks in ledger. Click "+ New Task" or "Sync Work Queue" to add.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  } catch (e) {
+    root.innerHTML = `<div class="text-rose-500 text-sm p-6">${esc(e.message || 'Could not load Agent Hub')}</div>`;
+  }
+}
+
+function hqRenderTaskRow(t) {
+  const pTone = t.priority === 'P0' ? 'bg-rose-100 text-rose-700' : t.priority === 'P1' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600';
+  const sTone = t.status === 'Done' ? 'text-emerald-600 font-bold' : t.status === 'In Progress' ? 'text-blue-600 font-bold' : t.status === 'Blocked' ? 'text-rose-600 font-bold' : 'text-slate-600';
+
+  return `
+    <tr class="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/40" data-status="${esc(t.status)}" data-owner="${esc(t.owner || '')}">
+      <td class="p-3 font-mono font-black text-indigo-600 dark:text-indigo-400">${esc(t.id)}</td>
+      <td class="p-3">
+        <div class="font-bold text-slate-900 dark:text-white cursor-pointer hover:underline" onclick="openHqTaskDetail('${esc(t.id)}')">${esc(t.title)}</div>
+        ${t.next_action ? `<div class="text-[11px] text-slate-400 mt-0.5">Next: ${esc(t.next_action)}</div>` : ''}
+      </td>
+      <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] font-black ${pTone}">${esc(t.priority)}</span></td>
+      <td class="p-3 font-semibold">${esc(t.owner ? (AGENT_META[t.owner]?.name || t.owner) : 'Unassigned')}</td>
+      <td class="p-3 ${sTone}">${esc(t.status)}</td>
+      <td class="p-3 text-slate-500">${esc(t.qa_owner ? (AGENT_META[t.qa_owner]?.name || t.qa_owner) : '—')}</td>
+      <td class="p-3 text-right whitespace-nowrap">
+        <button type="button" class="px-2 py-1 rounded border border-slate-200 dark:border-slate-700 font-bold text-[11px] mr-1" onclick="openHqTaskDetail('${esc(t.id)}')">Detail</button>
+        ${t.status === 'Ready' || t.status === 'Inbox' ? `<button type="button" class="px-2 py-1 rounded bg-indigo-600 text-white font-bold text-[11px]" onclick="hqClaimTaskPrompt('${esc(t.id)}')">Claim</button>` : ''}
+      </td>
+    </tr>`;
+}
+
+window.openHqTaskDetail = async function(taskId) {
+  document.getElementById('hq-task-drawer')?.remove();
+  const drawer = document.createElement('div');
+  drawer.id = 'hq-task-drawer';
+  drawer.className = 'fixed inset-0 z-[130] flex items-center justify-center p-4';
+  drawer.innerHTML = `<div class="absolute inset-0 bg-slate-950/50" onclick="document.getElementById('hq-task-drawer')?.remove()"></div>
+    <div class="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-xl" id="hq-task-detail-body">
+      Loading task ${esc(taskId)}…
+    </div>`;
+  document.body.appendChild(drawer);
+
+  try {
+    const res = await apiGetJson(`/api/hq/tasks/${taskId}`);
+    const t = res.task;
+    if (!t) throw new Error('Task not found');
+
+    const events = t.events || [];
+    const evidence = t.evidence || [];
+
+    document.getElementById('hq-task-detail-body').innerHTML = `
+      <div class="flex justify-between items-start gap-3 mb-4">
+        <div>
+          <span class="font-mono text-xs font-black text-indigo-600 dark:text-indigo-400">${esc(t.id)} · ${esc(t.priority)}</span>
+          <h2 class="text-xl font-black text-slate-900 dark:text-white mt-0.5">${esc(t.title)}</h2>
+          <div class="text-xs text-slate-500 mt-1">Status: <b>${esc(t.status)}</b> · Owner: <b>${esc(t.owner || 'Unassigned')}</b> · QA: <b>${esc(t.qa_owner || '—')}</b></div>
+        </div>
+        <button type="button" class="text-slate-400 hover:text-slate-600" onclick="document.getElementById('hq-task-drawer')?.remove()">✕</button>
+      </div>
+
+      ${t.description ? `<div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 text-xs text-slate-700 dark:text-slate-300 mb-4">${esc(t.description)}</div>` : ''}
+
+      <!-- Evidence -->
+      <div class="mb-4">
+        <div class="text-xs font-black text-slate-900 dark:text-white mb-2">Attached Evidence (${evidence.length})</div>
+        ${evidence.length ? `
+          <div class="space-y-1.5">
+            ${evidence.map(ev => `
+              <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
+                <div class="font-bold">${esc(ev.title)} <span class="text-slate-400 font-normal">(${esc(ev.evidence_type)})</span></div>
+                ${ev.url ? `<a href="${esc(ev.url)}" target="_blank" class="text-indigo-600 underline text-[11px]">${esc(ev.url)}</a>` : ''}
+              </div>`).join('')}
+          </div>` : '<div class="text-xs text-slate-400">No evidence attached yet.</div>'}
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex flex-wrap gap-2 pt-3 border-t border-slate-100 dark:border-slate-800 mb-4">
+        ${t.status === 'Ready' || t.status === 'Inbox' ? `<button type="button" class="px-3 py-1.5 rounded-xl bg-indigo-600 text-white font-bold text-xs" onclick="hqClaimTaskPrompt('${esc(t.id)}')">Claim Task</button>` : ''}
+        ${t.status === 'In Progress' ? `<button type="button" class="px-3 py-1.5 rounded-xl bg-purple-600 text-white font-bold text-xs" onclick="hqHandoffTaskPrompt('${esc(t.id)}')">Handoff to QA</button>` : ''}
+        ${t.status !== 'Done' ? `<button type="button" class="px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs" onclick="hqCompleteTaskPrompt('${esc(t.id)}')">Mark Done</button>` : ''}
+      </div>
+
+      <!-- Timeline Events -->
+      <div>
+        <div class="text-xs font-black text-slate-900 dark:text-white mb-2">Timeline & Audit Events (${events.length})</div>
+        <div class="space-y-2">
+          ${events.map(ev => `
+            <div class="text-xs border-l-2 border-slate-300 dark:border-slate-700 pl-3 py-1">
+              <div class="text-slate-500 text-[10px]">${new Date(ev.created_at).toLocaleString()} · <b>${esc(ev.agent_id || 'system')}</b></div>
+              <div class="font-semibold text-slate-800 dark:text-slate-200">${esc(ev.note || ev.event_type)}</div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  } catch (e) {
+    document.getElementById('hq-task-detail-body').innerHTML = `<div class="text-rose-500 text-xs">${esc(e.message)}</div>`;
+  }
+};
+
+window.hqClaimTaskPrompt = async function(taskId) {
+  const agentId = prompt('Claim as agent (chatgpt / claude / gemini / grok):', 'gemini');
+  if (!agentId) return;
+  try {
+    await apiSendJson(`/api/hq/tasks/${taskId}/claim`, 'POST', { agentId });
+    if (typeof showToast === 'function') showToast(`Task ${taskId} claimed by ${agentId}`, 'success');
+    document.getElementById('hq-task-drawer')?.remove();
+    loadHqAgents();
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message || 'Could not claim task', 'error');
+  }
+};
+
+window.hqHandoffTaskPrompt = async function(taskId) {
+  const targetAgentId = prompt('Hand off to QA reviewer (grok / chatgpt / claude / gemini):', 'grok');
+  if (!targetAgentId) return;
+  const note = prompt('Handoff note:', 'Implementation complete. Ready for QA review.');
+  try {
+    await apiSendJson(`/api/hq/tasks/${taskId}/handoff`, 'POST', { targetAgentId, note });
+    if (typeof showToast === 'function') showToast(`Handed off ${taskId} to ${targetAgentId}`, 'success');
+    document.getElementById('hq-task-drawer')?.remove();
+    loadHqAgents();
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message || 'Handoff failed', 'error');
+  }
+};
+
+window.hqCompleteTaskPrompt = async function(taskId) {
+  const resultSummary = prompt('Result / Verification Summary:', 'All verification checks and automated tests passed.');
+  if (!resultSummary) return;
+  try {
+    await apiSendJson(`/api/hq/tasks/${taskId}/review`, 'POST', { status: 'Done', resultSummary });
+    if (typeof showToast === 'function') showToast(`Task ${taskId} marked Done`, 'success');
+    document.getElementById('hq-task-drawer')?.remove();
+    loadHqAgents();
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message || 'Could not update task', 'error');
+  }
+};
+
+window.hqDecideApproval = async function(approvalId, decision) {
+  const reason = prompt(`Reason for ${decision}:`, 'Verified by platform owner');
+  try {
+    await apiSendJson(`/api/hq/approvals/${approvalId}/decide`, 'POST', { decision, reason });
+    if (typeof showToast === 'function') showToast(`Approval ${decision}`, 'success');
+    loadHqAgents();
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message || 'Decision failed', 'error');
+  }
+};
+
+window.hqCreateTaskPrompt = async function() {
+  const id = prompt('Task ID (e.g. MS-006):');
+  if (!id) return;
+  const title = prompt('Task Title / Objective:');
+  if (!title) return;
+  const priority = prompt('Priority (P0, P1, P2, P3):', 'P1') || 'P2';
+  const owner = prompt('Assign Agent (chatgpt, claude, gemini, grok):', 'gemini') || null;
+
+  try {
+    await apiSendJson('/api/hq/tasks', 'POST', { id, title, priority, owner, status: 'Ready' });
+    if (typeof showToast === 'function') showToast(`Task ${id} created`, 'success');
+    loadHqAgents();
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message || 'Could not create task', 'error');
+  }
+};
+
+window.hqSyncWorkQueuePrompt = async function() {
+  if (!confirm('Sync work queue tasks from Google Sheets adapter?')) return;
+  try {
+    // Default sync probe
+    const res = await apiSendJson('/api/hq/sync/work-queue', 'POST', { rows: [] });
+    if (typeof showToast === 'function') showToast(`Work queue synced (${res.importedCount || 0} imported, ${res.updatedCount || 0} updated)`, 'success');
+    loadHqAgents();
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message || 'Sync failed', 'error');
+  }
+};
+
+window.hqApplyTaskFilters = function() {
+  const st = document.getElementById('hq-task-filter-status')?.value || '';
+  const ow = document.getElementById('hq-task-filter-owner')?.value || '';
+  const rows = document.querySelectorAll('#hq-tasks-tbody tr[data-status]');
+  rows.forEach(r => {
+    const matchStatus = !st || r.dataset.status === st;
+    const matchOwner = !ow || r.dataset.owner === ow;
+    r.style.display = matchStatus && matchOwner ? '' : 'none';
+  });
+};
+
+window.hqFilterTasks = function(status, owner) {
+  if (status !== undefined && document.getElementById('hq-task-filter-status')) {
+    document.getElementById('hq-task-filter-status').value = status;
+  }
+  if (owner !== undefined && document.getElementById('hq-task-filter-owner')) {
+    document.getElementById('hq-task-filter-owner').value = owner;
+  }
+  hqApplyTaskFilters();
+};
+
+window.loadHqAgents = loadHqAgents;
+
