@@ -56,8 +56,8 @@ if (typeof window.loadSalesWorkspace !== 'function') window.loadSalesWorkspace =
   else if (typeof showToast === 'function') showToast('Sales workspace is still loading — refresh once and try again.', 'warning');
 };
 if (typeof window.toggleTeamChatWidget !== 'function') window.toggleTeamChatWidget = function() { const p = document.getElementById('team-chat-dock-panel'); if (p) p.classList.toggle('hidden'); };
-if (typeof window.loadProfileBranding !== 'function') window.loadProfileBranding = function() {};
-if (typeof window.loadCrmAdfSetting !== 'function') window.loadCrmAdfSetting = function() {};
+if (typeof window.loadProfileBranding !== 'function') window.loadProfileBranding = function() { if (typeof window._realLoadProfileBranding === 'function') return window._realLoadProfileBranding(); };
+if (typeof window.loadCrmAdfSetting !== 'function') window.loadCrmAdfSetting = function() { if (typeof window._realLoadCrmAdfSetting === 'function') return window._realLoadCrmAdfSetting(); };
 
 function isDemoAccount() {
   const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
@@ -1967,12 +1967,8 @@ function highlightDeptNav(pageId) {
 
 const MS_LEGACY_PAGE_REDIRECTS = Object.freeze({
   'ai-boost': 'inventory-overview', 'ai-insights': 'command', insights: 'command',
-  inventory: 'inventory-overview', fni: 'fni-overview', service: 'service-overview',
-  'service-ros': 'service-overview', 'service-appointments': 'service-overview',
-  parts: 'parts-overview', accounting: 'accounting-overview', marketing: 'marketing-overview',
-  people: 'people-overview', hr: 'people-overview', crm: 'sales', leads: 'sales',
-  appointments: 'sales', reports: 'command',
-  operations: 'command', taskboard: 'command', settings: 'profile',
+  people: 'people-overview', hr: 'people-overview',
+  settings: 'profile',
 });
 function canonicalDashboardPage(pageId) {
   const key = String(pageId || '').trim();

@@ -337,6 +337,8 @@ async function loadProfileBranding() {
     }
   } catch {}
 }
+window.loadProfileBranding = loadProfileBranding;
+window._realLoadProfileBranding = loadProfileBranding;
 
 async function uploadProfileLogo() {
   const file = document.getElementById('prof-brand-logo-input').files[0];

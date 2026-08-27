@@ -1,9 +1,10 @@
 {
-  "name": "D043-settings",
+  "name": "D043-settings-1440-light",
   "w": 1440,
+  "h": 900,
   "theme": "light",
-  "wanted": "#/p/profile",
+  "route": "#/p/profile",
+  "pageId": "profile",
   "hash": "#/p/profile",
-  "dark": false,
-  "h1": "Settings"
+  "timestamp": "2026-08-27T07:12:45.778Z"
 }

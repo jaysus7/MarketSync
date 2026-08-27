@@ -1551,6 +1551,8 @@ async function loadCrmAdfSetting() {
     const inp = document.getElementById('crm-adf-email'); if (inp) inp.value = d.crm_adf_email || '';
   } catch { /* leave as-is */ }
 }
+window.loadCrmAdfSetting = loadCrmAdfSetting;
+window._realLoadCrmAdfSetting = loadCrmAdfSetting;
 async function saveCrmAdfEmail(btn) {
   const inp = document.getElementById('crm-adf-email'), msg = document.getElementById('crm-adf-msg');
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';

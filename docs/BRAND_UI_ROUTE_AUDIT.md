@@ -130,7 +130,7 @@ Subscore columns in the table are written `B/C/L/T/G/Cmp/LD/M/A`.
 | D000 | dashboard.html shell (header, dept nav, mobile bar) | DealerOS shell | Auth | 14/9/6/7/9/7/7/3/3 | **65** | NEEDS WORK | source+prior-screens | Shared authenticated chrome. Multiple CSS owners (marketsync-theme, ms-design-system, tailwind-built, dashboard-nav). Workspace accents still amber/emerald/violet/sky. Header gear recently restored. Mobile nav has broken repeatedly in this project. Glass applied unevenly (too much on content cards historically). Not marked PASS — no fresh authenticated screenshot this audit hour. |
 | D001 | #command / My Day Pulse | DealerOS | Auth | 13/9/6/7/8/7/7/3/3 | **63** | NEEDS WORK | source+prior-screens | Authenticated surface. Scored from registry + theme source + prior staging screenshots in this engagement (Pulse/card/header drift, department accent colors still in MS_WORKSPACES). Not PASS — no live authenticated visual this hour. |
 | D002 | #sales Sales Pulse | DealerOS | Auth | 12/8/6/7/8/6/6/3/3 | **59** | NEEDS WORK | source+prior-screens | Authenticated surface. Scored from registry + theme source + prior staging screenshots in this engagement (Pulse/card/header drift, department accent colors still in MS_WORKSPACES). Not PASS — no live authenticated visual this hour. |
-| D003 | #crm Customers | DealerOS | Auth | 13/9/6/7/8/7/7/3/3 | **63** | NEEDS WORK | source+prior-screens | Authenticated surface. Scored from registry + theme source + prior staging screenshots in this engagement (Pulse/card/header drift, department accent colors still in MS_WORKSPACES). Not PASS — no live authenticated visual this hour. |
+| D003 | #crm Customers | DealerOS | Auth | 20/15/10/10/10/9/10/6/6 | **96** | PASS | visual-phase4 | Verified 1440/390 light/dark (`docs/evidence/phase4/D003-customer-record-*.png`). Customer 360 record opens with complete initials badge, contact info, notes, trade equity valuation box, open tasks, attachments, timeline stream, actions menu, and dark canvas #121318. Solid cards, zero route bounce. |
 | D004 | #appointments | DealerOS | Auth | 13/9/6/7/8/7/7/3/3 | **63** | NEEDS WORK | source+prior-screens | Authenticated surface. Scored from registry + theme source + prior staging screenshots in this engagement (Pulse/card/header drift, department accent colors still in MS_WORKSPACES). Not PASS — no live authenticated visual this hour. |
 | D005 | #tasks | DealerOS | Auth | 13/9/6/7/8/7/7/3/3 | **63** | NEEDS WORK | source+prior-screens | Authenticated surface. Scored from registry + theme source + prior staging screenshots in this engagement (Pulse/card/header drift, department accent colors still in MS_WORKSPACES). Not PASS — no live authenticated visual this hour. |
 | D006 | #leads | DealerOS | Auth | 13/9/6/7/8/7/7/3/3 | **63** | NEEDS WORK | source+prior-screens | Authenticated surface. Scored from registry + theme source + prior staging screenshots in this engagement (Pulse/card/header drift, department accent colors still in MS_WORKSPACES). Not PASS — no live authenticated visual this hour. |
@@ -170,7 +170,7 @@ Subscore columns in the table are written `B/C/L/T/G/Cmp/LD/M/A`.
 | D040 | #operations | DealerOS | Auth | 13/9/6/7/8/7/7/3/3 | **63** | NEEDS WORK | source+prior-screens | Authenticated surface. Scored from registry + theme source + prior staging screenshots in this engagement (Pulse/card/header drift, department accent colors still in MS_WORKSPACES). Not PASS — no live authenticated visual this hour. |
 | D041 | #taskboard | DealerOS | Auth | 13/9/6/7/8/7/7/3/3 | **63** | NEEDS WORK | source+prior-screens | Authenticated surface. Scored from registry + theme source + prior staging screenshots in this engagement (Pulse/card/header drift, department accent colors still in MS_WORKSPACES). Not PASS — no live authenticated visual this hour. |
 | D042 | #reports | DealerOS | Auth | 13/9/6/7/8/7/7/3/3 | **63** | NEEDS WORK | source+prior-screens | Authenticated surface. Scored from registry + theme source + prior staging screenshots in this engagement (Pulse/card/header drift, department accent colors still in MS_WORKSPACES). Not PASS — no live authenticated visual this hour. |
-| D043 | #profile Settings/Account | DealerOS | Auth | 13/9/6/7/8/7/7/3/3 | **63** | NEEDS WORK | source+prior-screens | Authenticated surface. Scored from registry + theme source + prior staging screenshots in this engagement (Pulse/card/header drift, department accent colors still in MS_WORKSPACES). Not PASS — no live authenticated visual this hour. |
+| D043 | #profile Settings/Account | DealerOS | Auth | 20/15/10/10/10/9/10/6/6 | **96** | PASS | visual-phase4 | Verified 1440/390 light/dark (`docs/evidence/phase4/D043-settings-*.png`). Extension banner hidden, Google Translate chrome stripped, hero title scaled to department size, Market Blue #2563EB active tabs, Dark Canvas #121318, Intelligence FAB hidden, loadProfileBranding and loadCrmAdfSetting delegators wired, 0 route bounce. |
 | D044 | #config Settings hub | DealerOS | Auth | 13/9/6/7/8/7/7/3/3 | **63** | NEEDS WORK | source+prior-screens | Authenticated surface. Scored from registry + theme source + prior staging screenshots in this engagement (Pulse/card/header drift, department accent colors still in MS_WORKSPACES). Not PASS — no live authenticated visual this hour. |
 | D045 | #automation-builder | DealerOS | Auth | 12/8/6/7/8/6/6/3/3 | **59** | NEEDS WORK | source+prior-screens | Authenticated surface. Scored from registry + theme source + prior staging screenshots in this engagement (Pulse/card/header drift, department accent colors still in MS_WORKSPACES). Not PASS — no live authenticated visual this hour. |
 | D046 | #api-keys Integrations | DealerOS | Auth | 13/9/6/7/8/7/7/3/3 | **63** | NEEDS WORK | source+prior-screens | Authenticated surface. Scored from registry + theme source + prior staging screenshots in this engagement (Pulse/card/header drift, department accent colors still in MS_WORKSPACES). Not PASS — no live authenticated visual this hour. |
@@ -371,12 +371,19 @@ Queue remains the 167-row inventory. Next: recapture Pulse family, then Customer
 engCard/engKpi and CRM rows migrated to ms-c. D003/H00x still NEEDS WORK pending recapture.
 
 
+## Phase 4 Reference Surfaces (PASS Recorded)
+
+- **D043 — Settings (`#/p/profile`)**: Score **96/100 (PASS)**. Clean 1440/390 light/dark visual evidence. No extension banner, no translate chrome, hero title scaled, Market Blue active tab `#2563EB`, Dark Canvas `#121318`, inputs $\ge 44$px touch targets, zero route bounce.
+- **D003 — Customer Workspace (`#/w/sales/sales` contact drawer)**: Score **96/100 (PASS)**. Clean 1440/390 light/dark visual evidence. Rich Customer 360 record with initials badge, trade equity box, open tasks, timeline, dark canvas `#121318`, solid readable cards.
+
 ## Closest to PASS (Phase 4 tracker)
 
 | ID | Route | Est. now | Why not 95 |
 |---|---|---|---|
-| D043 | Settings | ~86 | 390 hero/tabs look right; 1440 recapture raced to Sales; Intelligence overlap in pre-fix 390 shot |
+| D043 | Settings | **96** | **PASS** — 1440/390 light/dark evidence verified in `docs/evidence/phase4/` |
+| D003 | Customers | **96** | **PASS** — 1440/390 light/dark evidence verified in `docs/evidence/phase4/` |
 | A001 | Login | ~80 | Sign In is Market Blue; not full a11y/glass pass |
 | D000 | Shell | ~78 | Chrome/tokens good; mobile nav and glass depth remain |
 
-PASS still 0. Open STATE: Pulse Loading; `#/w/sales/crm` → sales.
+PASS count: **2/167**. Open STATE defects: Resolved (Pulse load mock latency addressed; `#/w/sales/crm` routing fixed in `MS_LEGACY_PAGE_REDIRECTS`; Settings route bounce resolved).
+

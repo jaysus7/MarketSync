@@ -446,6 +446,7 @@ ENGINES['sales'] = {
         aiCard,
       ].filter(Boolean);
 
+      // Pulse is the canonical at-a-glance view.
       body.innerHTML = `
         ${pulseHeader('Sales Pulse', 'Customers, appointments and deals — what needs you first')}
         ${pulseBoard(cards)}

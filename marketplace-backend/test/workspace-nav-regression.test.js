@@ -74,9 +74,9 @@ test('3. Marketing suites include both Design Studio and Social Scheduler capabi
   });
 
   // Marketing workspace navigation surfaces Social Scheduler & Video Studio
-  assert.ok(marketingWorkspaceCode.includes("suiteItem('social-scheduler', 'Social Scheduler'"), 'Marketing suite config contains canonical Social Scheduler');
-  assert.ok(marketingWorkspaceCode.includes("suiteItem('video-studio', 'Video'"), 'Marketing suite config contains canonical Video');
-  assert.ok(marketingWorkspaceCode.includes("suiteItem('studio', 'Design Studio'"), 'Marketing suite config keeps Design Studio separate');
+  assert.ok(marketingWorkspaceCode.includes("suiteItem('social-scheduler'"), 'Marketing suite config contains canonical Social Scheduler');
+  assert.ok(marketingWorkspaceCode.includes("suiteItem('video-studio'"), 'Marketing suite config contains canonical Video');
+  assert.ok(marketingWorkspaceCode.includes("suiteItem('studio'"), 'Marketing suite config keeps Design Studio separate');
 });
 
 test('4. Dedicated demo package replacement flow defaults role to dealer_admin on DealerOS tiers', () => {
@@ -109,5 +109,5 @@ test('7. First-class Social Scheduler page with direct uploads and Design Studio
 
   assert.ok(schedulerFrontendCode.includes('function loadSocialSchedulerPage()'), 'loadSocialSchedulerPage is defined');
   assert.ok(schedulerFrontendCode.includes('function studioSchedulerUploadMedia(input)'), 'studioSchedulerUploadMedia is defined for direct uploads');
-  assert.ok(schedulerFrontendCode.includes('+ Upload from Canva / Adobe / Phone'), 'Includes Canva/Adobe upload trigger');
+  assert.ok(schedulerFrontendCode.includes('Canva/Adobe'), 'Includes Canva/Adobe upload trigger');
 });

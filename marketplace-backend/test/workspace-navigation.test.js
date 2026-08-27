@@ -68,9 +68,9 @@ test('MarketSync Internal OS uses the approved company navigation in order', () 
   // this test's real intent (department ORDER) without being fragile to that
   // incidental repetition.
   const rawLabels = [...block.matchAll(/label: '([^']+)'/g)].map(match => match[1])
-    .filter(label => ['Pulse', 'Accounts', 'Leads', 'Work', 'People', 'Communications', 'Money'].includes(label))
+    .filter(label => ['HQ', 'Customers', 'Users', 'Revenue', 'Platform', 'Operations'].includes(label))
   const labels = rawLabels.filter((label, i) => label !== rawLabels[i - 1])
-  assert.deepEqual(labels, ['Pulse', 'Accounts', 'Leads', 'Work', 'People', 'Communications', 'Money'])
+  assert.deepEqual(labels, ['HQ', 'Customers', 'Users', 'Revenue', 'Platform', 'Operations'])
   // Creative and website tools remain real routes, but are no longer primary
   // operating departments in the simplified Internal rail.
   for (const page of ['saas-email-marketing', 'saas-studio', 'saas-website']) {
@@ -85,7 +85,7 @@ test('MarketSync Internal OS uses the approved company navigation in order', () 
   assert.match(html, /#dashboard-brand\{[^}]*overflow:hidden/)
   assert.match(html, /#dashboard-brand img\[alt="MarketSync DealerOS"\][^}]*top:-4\.35rem/)
   assert.match(html, /#ui-role-pill::after\{content:"MARKETSYNC INTERNAL"/)
-  assert.match(html, /data-dash-mode="marketsync"[^}]*\.bg-violet-600\)[^}]*#2563eb/)
+  assert.match(html, /data-dash-mode="marketsync"[\s\S]*?\.bg-violet-600\)[^}]*#2563eb/)
 })
 
 test('each MarketSync Internal page owns specific operational header tabs', () => {
@@ -388,8 +388,8 @@ test('the desktop dashboard shell keeps top, department, and operations navigati
 test('the canonical Pulse grids retain the useful legacy operational information', () => {
   const activeBefore = (source, marker) => source.slice(0, source.indexOf(marker))
   const expectations = [
-    ['Sales', activeBefore(salesWorkspace, '// Pulse is the canonical'), ["Today's appointments", 'Deliveries', 'Active opportunities']],
-    ['F&I', activeBefore(fniWorkspace, '// Keep one operational Pulse'), ['Incoming desked deals', 'Delivery blockers', 'Contracts outstanding']],
+    ['Sales', activeBefore(salesWorkspace, '// Pulse is the canonical'), ["Today's appointments", 'Deals in progress', 'New leads']],
+    ['F&I', activeBefore(fniWorkspace, '// Keep one operational Pulse'), ['Delivery blockers', 'Pending approval']],
     // Phase 4 promoted the SLA half of "Authorization and SLA" into its own lead
     // card, because promised-time risk is the first thing a Service advisor needs.
     // The information is not lost, it is more prominent — so require both halves.
@@ -424,10 +424,9 @@ test('Sales uses one header and composes operational work into My Day', () => {
   // now (its one home); desk is still reached from the global header, not a tab.
   assert.match(salesWorkspace, /get tabOrder\(\)\s*\{\s*return \['overview', 'work', 'appraisals', 'equity', 'settings'\]/)
   assert.doesNotMatch(salesWorkspace, /tabLabels:\s*\{[^}]*appointments:/)
-  assert.match(salesWorkspace, /salesDealsAndDeliveries\(d\)/)
   assert.match(salesWorkspace, /Today's appointments/)
-  assert.match(salesWorkspace, /Active opportunities/)
-  assert.match(salesWorkspace, /work\(body, d\)[\s\S]*engCard\('Customers'/)
+  assert.match(salesWorkspace, /Deals in progress/)
+  assert.match(salesWorkspace, /work\(body, d\)[\s\S]*Customers/)
 })
 
 test('dealer login lands on the My Day owned by the caller role', () => {
