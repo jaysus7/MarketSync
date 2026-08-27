@@ -348,4 +348,42 @@ export function registerOwnerAdmin(app) {
     await audit(req, active ? 'hq.user_activated' : 'hq.user_deactivated', { after_state: { user_id: req.params.id, reason } })
     res.json({ ok: true, active })
   })
+
+  app.get('/owner/onboarding', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const [{ data: dealers }, { data: profiles }, { data: ints }] = await Promise.all([
+      supabaseAdmin.from('dealerships').select('id, name, billing_status, products, created_at, stripe_customer_id').limit(2000),
+      supabaseAdmin.from('profiles').select('id, dealership_id').limit(8000),
+      supabaseAdmin.from('dealer_integrations').select('dealership_id, provider, enabled, status').limit(8000),
+    ])
+    const usersBy = {}
+    for (const p of profiles || []) usersBy[p.dealership_id] = (usersBy[p.dealership_id] || 0) + 1
+    const intBy = {}
+    for (const i of ints || []) {
+      intBy[i.dealership_id] = intBy[i.dealership_id] || []
+      intBy[i.dealership_id].push(i)
+    }
+    const rows = (dealers || []).map(d => {
+      const steps = {
+        profile: !!d.name,
+        users: (usersBy[d.id] || 0) > 0,
+        products: Object.values(d.products || {}).some(Boolean),
+        billing: !!d.stripe_customer_id || String(d.billing_status || '').toUpperCase() === 'ACTIVE',
+        integrations: (intBy[d.id] || []).some(i => i.enabled || i.status === 'connected'),
+      }
+      const done = Object.values(steps).filter(Boolean).length
+      return { id: d.id, name: d.name, status: d.billing_status, created_at: d.created_at, percent: Math.round(done / 5 * 100), steps, users: usersBy[d.id] || 0 }
+    }).sort((a, b) => a.percent - b.percent)
+    res.json({ accounts: rows })
+  })
+
+  app.get('/owner/integrations', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data, error } = await supabaseAdmin.from('dealer_integrations')
+      .select('dealership_id, provider, enabled, status, updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(2000)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ connections: data || [] })
+  })
 }
