@@ -1046,7 +1046,9 @@ async function initializeDashboardEcosystem() {
     // dealership role's own My Day. This is a UX landing choice; route permissions remain
     // authoritative and switchPage will refuse any destination the caller cannot open.
     const bootRoute = typeof msRouteFromHash === 'function' ? msRouteFromHash() : null;
-    const bootPage = (bootRoute && bootRoute.page) ? bootRoute.page : null;
+    const bootPage = (bootRoute && typeof bootRoute === 'object' && bootRoute.page)
+      ? bootRoute.page
+      : (typeof bootRoute === 'string' ? bootRoute : null);
     const settledWorkspace = typeof resolveWorkspaceContext === 'function' ? resolveWorkspaceContext() : null;
     if (settledWorkspace?.type === 'website' || settledWorkspace === 'website') {
       switchPage('website');
