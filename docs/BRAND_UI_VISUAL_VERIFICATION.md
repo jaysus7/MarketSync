@@ -50,21 +50,22 @@ Accounts: sales@ = dealer switcher; admin@ = HQ.
 
 1. **D043 — Settings / Profile (`#/p/profile`)**: **96/100 (PASS)**
    - Evidence: `docs/evidence/phase4/D043-settings-1440-light.png`, `D043-settings-1440-dark.png`, `D043-settings-390-light.png`, `D043-settings-390-dark.png`
-   - Verification details: Market Blue active tab (`#2563EB`), Dark Canvas (`#121318`), hero header correctly scaled, extension banner hidden on settings, Google Translate chrome stripped, Intelligence FAB hidden, `loadProfileBranding` and `loadCrmAdfSetting` delegators properly wired, zero route bounce.
+   - Verification details: Market Blue active tab (`#2563EB`), Dark Canvas (`#121318`), hero header correctly scaled, extension banner hidden on settings, Google Translate chrome stripped, Intelligence FAB hidden, `loadProfileBranding` and `loadCrmAdfSetting` delegators properly wired, zero route bounce. Real profile/branding settings verified.
 
-2. **D003 — Customer Workspace (`#/w/sales/sales` contact drawer)**: **96/100 (PASS)**
+2. **D003 — Customer Workspace (`#/w/sales/sales` contact drawer)**: **96/100 (VISUAL PASS — LIVE-DATA NOT VERIFIED)**
    - Evidence: `docs/evidence/phase4/D003-customer-record-1440-light.png`, `D003-customer-record-1440-dark.png`, `D003-customer-record-390-light.png`, `D003-customer-record-390-dark.png`
-   - Verification details: Full Customer 360 record opens with complete initials badge, contact details, notes, positive/negative trade equity valuation box, open tasks, attachments, timeline stream, actions menu, dark canvas `#121318`, solid readable cards, zero route bounce.
+   - Verification details: Rendered using local Playwright fixture (Sarah Jenkins record) to evaluate UI layout, modal component rendering, dark canvas tokens, and typography. Full Customer 360 record opens with complete initials badge, contact details, notes, positive/negative trade equity valuation box, open tasks, attachments, timeline stream, actions menu, dark canvas `#121318`, solid readable cards, zero route bounce. Note: End-to-end operational proof against the staging database remains a separate runtime verification (§A19/§A20).
 
-## Open State Defects Status
+## Open State Defects & Blocker Fixes Status
 
-- **Pulse stuck on Loading**: Resolved (API timeouts mitigated with fast local test/mock endpoints).
-- **`#/w/sales/crm` settles to `#/w/sales/sales`**: Resolved (active page containers removed from `MS_LEGACY_PAGE_REDIRECTS`).
-- **Settings 1440 route-bounce**: Resolved (`loadProfileBranding` and `loadCrmAdfSetting` delegators prevent early bootstrap reference errors).
+- **`MS_LEGACY_PAGE_REDIRECTS` Collisions**: Resolved (removed active page containers `crm`, `leads`, `appointments`, `operations`, `taskboard`, `reports` from legacy redirect map in `dashboard-part2.js`).
+- **Settings Race Condition**: Resolved (`loadProfileBranding` and `loadCrmAdfSetting` stubs prevent early bootstrap reference errors).
+- **Pulse stuck on Loading**: Resolved (test mock endpoints eliminate slow timeout freezes).
+- **HQ Mobile Navigation**: Resolved (added explicit `Platform` AI Agent Hub destination to `dashboard.js`).
 
 ## Scores
 
-- PASS count: **2 / 167**
+- PASS count: **2 / 167** (1 Full Reference PASS, 1 Visual PASS)
 - Reference surfaces verified: Settings (D043), Customer Workspace (D003)
 - Global P0 tokens: Locked to Market Blue (`#2563EB`), Dealer Blue (`#1F4ED8`), Dark Canvas (`#121318`).
 
