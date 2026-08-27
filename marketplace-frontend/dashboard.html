@@ -29,6 +29,7 @@
   <link rel="stylesheet" href="css/dashboard-brand-repaint.css">
   <link rel="stylesheet" href="css/tailwind-built.css?v=20260825_header_spacing_v1">
   <link rel="stylesheet" href="css/ms-design-system.css?v=20260826_b1_v1">
+  <link rel="stylesheet" href="css/ms-phase3-global.css?v=20260827_p3_v1">
   <meta name="color-scheme" content="light dark">
   <!-- Chart.js / QR / WebAuthn load on demand via msLoadScript — they blocked first paint when in <head>. -->
   <script src="password-toggle.js" defer></script>
@@ -398,7 +399,7 @@
        clock ticks into #header-shift-timer-display, entitlement code toggles
        #fb-post-btn and #ext-header-btn, the tour points at #idscan-btn). Moving
        them keeps every one of those working; deleting them would not. -->
-  <header class="bg-white dark:bg-slate-900 px-3 sm:px-4 lg:px-4 py-2.5 sm:py-3 flex justify-between items-center gap-1 sm:gap-4 flex-shrink-0 fixed top-0 inset-x-0 z-40">
+  <header class="ms-chrome-glass bg-white dark:bg-slate-900 px-3 sm:px-4 lg:px-4 py-2.5 sm:py-3 flex justify-between items-center gap-1 sm:gap-4 flex-shrink-0 fixed top-0 inset-x-0 z-40">
     <!-- LEFT SIDE: Logo + Role Pill + Live Shift Punch Clock -->
     <div class="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
       <a id="dashboard-brand" href="#" onclick="switchPage('command'); return false;" class="flex items-center gap-2 flex-shrink-0" aria-label="MarketSync home">
