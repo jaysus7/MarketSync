@@ -194,6 +194,7 @@ function checkLoginPunchClockPrompt() {
         // by which point applyProductNav() — called synchronously right after
         // this function, in the same caller — has always already run.
         if (typeof isSingleProductWorkspace === 'function' && isSingleProductWorkspace()) return;
+        if (typeof marketsyncOwnerMode === 'function' && marketsyncOwnerMode()) return;
         const modalHtml = `
           <div class="space-y-5">
             <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
