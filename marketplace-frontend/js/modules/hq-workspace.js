@@ -1,0 +1,164 @@
+/* MarketSync HQ — entitlements, catalog, trials, search. Uses live /saas and /owner APIs. */
+const HQ_CATALOG = [
+  ['facebook_solo', 'Facebook AutoPoster — Salesperson', 19],
+  ['facebook_dealer', 'Facebook AutoPoster — Dealer', 79],
+  ['marketsync_social', 'Social Scheduler', 59],
+  ['design_studio', 'Design Studio', 5],
+  ['marketsync_video', 'Video', 99],
+  ['marketsync_email', 'Campaigns', 129],
+  ['marketsync_website', 'Dealer Website', 249],
+  ['ai_chatbot', 'AI ChatBot', 299],
+  ['sales-marketing-suite', 'Sales Marketing Suite', 249],
+  ['service-marketing-suite', 'Service Marketing Suite', 249],
+  ['complete-marketing-suite', 'Complete Marketing Suite', 399],
+  ['marketsync-digital', 'MarketSync Digital', 599],
+  ['dealer_os_core', 'DealerOS Core', 1499],
+  ['dealer_os_pro', 'DealerOS Pro', 2499],
+  ['dealer_os', 'DealerOS Complete', 3999],
+];
+
+function hqEnvBanner() {
+  if (document.getElementById('hq-env-banner')) return;
+  const host = location.hostname || '';
+  const prod = /marketsync\.link$/.test(host) && !/staging/.test(host);
+  const bar = document.createElement('div');
+  bar.id = 'hq-env-banner';
+  bar.className = prod
+    ? 'fixed top-0 left-0 right-0 z-[200] text-center text-[11px] font-black tracking-wider py-1 bg-rose-600 text-white'
+    : 'fixed top-0 left-0 right-0 z-[200] text-center text-[11px] font-black tracking-wider py-1 bg-amber-500 text-slate-950';
+  bar.textContent = prod ? 'PRODUCTION — HQ changes are live' : 'STAGING — HQ sandbox';
+  document.body.appendChild(bar);
+}
+
+function hqEntitlementMatrix(d) {
+  const enabled = new Set(d.product_keys || Object.keys(d.products || {}).filter(k => d.products[k]));
+  const rows = HQ_CATALOG.map(([key, label]) => {
+    const on = enabled.has(key);
+    return `<div class="grid grid-cols-12 gap-2 items-center py-2 border-t border-slate-100 dark:border-slate-800 text-[12px]">
+      <div class="col-span-5 font-semibold text-slate-800 dark:text-slate-100">${esc(label)}</div>
+      <div class="col-span-2 text-slate-500">${on ? 'Entitled' : 'Off'}</div>
+      <div class="col-span-2 ${on ? 'text-emerald-600 font-bold' : 'text-slate-400'}">${on ? 'Enabled' : 'Disabled'}</div>
+      <div class="col-span-3 text-right">
+        <button type="button" class="px-2 py-1 rounded-lg text-[11px] font-black ${on ? 'bg-rose-50 text-rose-600' : 'bg-indigo-600 text-white'}"
+          onclick="hqToggleProduct('${d.id}','${key}',${!on})">${on ? 'Disable' : 'Enable'}</button>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mt-4 mb-4">
+    <div class="text-[13px] font-black text-slate-800 dark:text-white mb-1">Products & entitlements</div>
+    <p class="text-[11px] text-slate-500 mb-2">Purchased / entitled / enabled. Disable is an HQ override and must include a reason.</p>
+    ${rows}
+  </div>`;
+}
+
+window.hqToggleProduct = async function(dealershipId, key, active) {
+  const reason = prompt((active ? 'Enable ' : 'Disable ') + key + ' — reason (required)') || '';
+  if (!reason.trim()) { if (typeof showToast === 'function') showToast('Reason required', 'error'); return; }
+  try {
+    await apiSendJson('/owner/dealership/' + dealershipId + '/products', 'POST', { key, active: !!active, reason });
+    if (typeof showToast === 'function') showToast((active ? 'Enabled ' : 'Disabled ') + key, 'success');
+    if (typeof renderSaasCustomer === 'function') await renderSaasCustomer(dealershipId);
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message || 'Could not change entitlement', 'error');
+  }
+};
+
+async function loadHqEntitlements() {
+  const root = document.getElementById('saas-entitlements-root'); if (!root) return;
+  root.innerHTML = '<div class="text-sm text-slate-400 p-4">Loading accounts…</div>';
+  try {
+    const d = await apiGetJson('/owner/accounts');
+    const accounts = d.accounts || [];
+    root.innerHTML = `
+      ${typeof pulseHeader === 'function' ? pulseHeader('Entitlements', 'Every dealership product matrix. Toggle is an HQ override.') : '<h1 class="text-2xl font-black">Entitlements</h1>'}
+      <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <table class="w-full text-left text-xs">
+          <thead><tr class="border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase text-slate-400">
+            <th class="p-3">Dealership</th><th class="p-3">Status</th><th class="p-3">Products</th><th class="p-3"></th>
+          </tr></thead>
+          <tbody>${accounts.slice(0, 200).map(a => `
+            <tr class="border-t border-slate-100 dark:border-slate-800">
+              <td class="p-3 font-bold">${esc(a.name || a.id)}</td>
+              <td class="p-3">${esc(a.billing_status || '—')}</td>
+              <td class="p-3">${Object.keys(a.products || {}).filter(k => a.products[k]).map(k => esc((window.SAAS_PRODUCT_LABEL||{})[k] || k)).join(', ') || '—'}</td>
+              <td class="p-3 text-right"><button class="text-indigo-600 font-black" onclick="openSaasCustomer('${a.id}')">Open 360</button></td>
+            </tr>`).join('')}</tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message || 'Owner API required')}</div>`;
+  }
+}
+
+function loadHqProducts() {
+  const root = document.getElementById('saas-products-root'); if (!root) return;
+  root.innerHTML = `
+    ${typeof pulseHeader === 'function' ? pulseHeader('Product catalog', 'List prices in CAD. Stripe IDs stay in billing config.') : ''}
+    <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
+      ${HQ_CATALOG.map(([key, label, cad]) => `
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+          <div class="text-[10px] font-black uppercase text-slate-400">${esc(key)}</div>
+          <div class="text-sm font-black text-slate-900 dark:text-white mt-1">${esc(label)}</div>
+          <div class="text-lg font-black text-indigo-600 mt-2">$${cad} <span class="text-xs font-semibold text-slate-400">CAD/mo</span></div>
+        </div>`).join('')}
+    </div>`;
+}
+
+async function loadHqTrials() {
+  const root = document.getElementById('saas-trials-root'); if (!root) return;
+  root.innerHTML = '<div class="text-sm text-slate-400 p-4">Loading trials…</div>';
+  try {
+    const d = await apiGetJson('/saas/overview');
+    const trials = d.trials || [];
+    root.innerHTML = `
+      ${typeof pulseHeader === 'function' ? pulseHeader('Trials', 'Expiring access across the platform') : ''}
+      <div class="space-y-2">${trials.length ? trials.map(t => `
+        <button type="button" onclick="${t.id ? `openSaasCustomer('${t.id}')` : ''}" class="w-full text-left rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+          <div class="font-black text-slate-900 dark:text-white">${esc(t.name || 'Account')}</div>
+          <div class="text-xs text-slate-500">${t.days_left != null ? t.days_left + ' days left' : 'Trialing'}</div>
+        </button>`).join('') : '<div class="text-sm text-slate-400">No trials returned by /saas/overview.</div>'}</div>`;
+  } catch (e) {
+    root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message || 'Could not load trials')}</div>`;
+  }
+}
+
+function hqOpenSearch() {
+  document.getElementById('hq-search')?.remove();
+  const el = document.createElement('div');
+  el.id = 'hq-search';
+  el.className = 'fixed inset-0 z-[210] flex items-start justify-center p-6 bg-slate-950/50';
+  el.innerHTML = `<div class="w-full max-w-xl rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden">
+    <input id="hq-search-q" autofocus placeholder="Search dealership, email, account id…" class="w-full px-4 py-3 text-sm bg-transparent border-b border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white">
+    <div id="hq-search-out" class="max-h-80 overflow-y-auto p-2 text-sm text-slate-500">Type at least 2 characters.</div>
+  </div>`;
+  el.addEventListener('click', (e) => { if (e.target === el) el.remove(); });
+  document.body.appendChild(el);
+  const q = document.getElementById('hq-search-q');
+  let tmr;
+  q.oninput = () => {
+    clearTimeout(tmr);
+    tmr = setTimeout(async () => {
+      const v = q.value.trim();
+      const out = document.getElementById('hq-search-out');
+      if (v.length < 2) { out.textContent = 'Type at least 2 characters.'; return; }
+      try {
+        const d = await apiGetJson('/saas/customers');
+        const rows = Object.values(d.by_stage || {}).flat().filter(a => JSON.stringify(a).toLowerCase().includes(v.toLowerCase()));
+        out.innerHTML = rows.slice(0, 20).map(a => `<button type="button" class="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800" onclick="document.getElementById('hq-search')?.remove();openSaasCustomer('${a.id}')">${esc(a.name || a.id)}</button>`).join('') || '<div class="p-3">No matches.</div>';
+      } catch (e) { out.textContent = e.message || 'Search failed'; }
+    }, 200);
+  };
+}
+
+window.loadHqEntitlements = loadHqEntitlements;
+window.loadHqProducts = loadHqProducts;
+window.loadHqTrials = loadHqTrials;
+window.hqEntitlementMatrix = hqEntitlementMatrix;
+window.hqOpenSearch = hqOpenSearch;
+window.hqEnvBanner = hqEnvBanner;
+if (typeof marketsyncOwnerMode === 'function' && marketsyncOwnerMode()) {
+  document.addEventListener('DOMContentLoaded', hqEnvBanner);
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); hqOpenSearch(); }
+  });
+}
