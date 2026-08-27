@@ -56,22 +56,22 @@ html[data-dash-mode="marketsync"] #settings-tabs [data-stab="inventory"],
 html[data-dash-mode="marketsync"] #settings-tabs [data-stab="service"],
 html[data-dash-mode="marketsync"] #settings-tabs [data-stab="accounting"] { display: none !important; }
 
-html[data-dash-mode="marketsync"] .bg-indigo-600{background-color:#7c3aed!important}
+html[data-dash-mode="marketsync"] .bg-indigo-600{background-color:#2563EB!important}
 html[data-dash-mode="marketsync"] .bg-indigo-500{background-color:#8b5cf6!important}
 html[data-dash-mode="marketsync"] .bg-indigo-700{background-color:#6d28d9!important}
 html[data-dash-mode="marketsync"] .bg-indigo-50{background-color:#f5f3ff!important}
 html[data-dash-mode="marketsync"] .hover\:bg-indigo-500:hover{background-color:#8b5cf6!important}
 html[data-dash-mode="marketsync"] .hover\:bg-indigo-100:hover{background-color:#ede9fe!important}
-html[data-dash-mode="marketsync"] .text-indigo-600{color:#7c3aed!important}
+html[data-dash-mode="marketsync"] .text-indigo-600{color:#2563EB!important}
 html[data-dash-mode="marketsync"] .text-indigo-700{color:#6d28d9!important}
 html[data-dash-mode="marketsync"] .text-indigo-400{color:#a78bfa!important}
 html[data-dash-mode="marketsync"] .text-indigo-300{color:#c4b5fd!important}
 html[data-dash-mode="marketsync"] .border-indigo-200{border-color:#ddd6fe!important}
-html[data-dash-mode="marketsync"] .border-indigo-600{border-color:#7c3aed!important}
+html[data-dash-mode="marketsync"] .border-indigo-600{border-color:#2563EB!important}
 html[data-dash-mode="marketsync"] .border-indigo-800{border-color:#5b21b6!important}
-html[data-dash-mode="marketsync"] .accent-indigo-600{accent-color:#7c3aed!important}
+html[data-dash-mode="marketsync"] .accent-indigo-600{accent-color:#2563EB!important}
 html[data-dash-mode="marketsync"] .ring-indigo-500{--tw-ring-color:#8b5cf6!important}
-html[data-dash-mode="marketsync"] .from-indigo-600{--tw-gradient-from:#7c3aed var(--tw-gradient-from-position)!important}
+html[data-dash-mode="marketsync"] .from-indigo-600{--tw-gradient-from:#2563EB var(--tw-gradient-from-position)!important}
 html[data-dash-mode="marketsync"] .to-indigo-700{--tw-gradient-to:#6d28d9 var(--tw-gradient-to-position)!important}
 html[data-dash-mode="marketsync"] .dark\:bg-indigo-950\/40{background-color:rgba(46,16,101,.4)!important}
 html[data-dash-mode="marketsync"] .dark\:text-indigo-300{color:#c4b5fd!important}

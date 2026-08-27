@@ -657,3 +657,113 @@ p.ms-text-caption,
   .pulse-summary-grid > :first-child { grid-column: 1 / -1; }
   [data-emphasis="lead"] .ms-kpi__value { font-size: 2.25rem; }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BATCH 1 — ownership, materials, buttons, inputs, modal
+   This file owns tokens + primitives. marketsync-theme.css composes surfaces.
+   dashboard-nav.css owns nav layout only. dashboard-brand-repaint.css is a
+   temporary indigo→Market Blue utility map and must not grow new features.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --ms-market-blue: #2563EB;
+  --ms-dealer-blue: #1F4ED8;
+  --ms-deep-blue: #153AA6;
+  --ms-graphite: #17191F;
+  --ms-warm-white: #F7F8FA;
+  --ms-steel: #6B7280;
+  --ms-dark-canvas: #121318;
+  --ms-dark-raised: #1A1D24;
+  --ms-dark-border: #2B303A;
+  --ms-dark-muted: #A5ACB8;
+  --ms-mat-content: var(--ms-warm-white);
+  --ms-mat-structure: #FFFFFF;
+  --ms-mat-raised: #FFFFFF;
+  --ms-mat-glass: rgba(255,255,255,.62);
+  --ms-mat-glass-strong: rgba(255,255,255,.78);
+  --ms-mat-glass-clear: rgba(255,255,255,.42);
+  --ms-mat-overlay: rgba(18,19,24,.46);
+}
+
+html.dark, .dark {
+  --ms-mat-content: var(--ms-dark-canvas);
+  --ms-mat-structure: var(--ms-dark-raised);
+  --ms-mat-raised: #22262F;
+  --ms-mat-glass: rgba(26,29,36,.62);
+  --ms-mat-glass-strong: rgba(26,29,36,.82);
+  --ms-mat-glass-clear: rgba(26,29,36,.38);
+  --ms-mat-overlay: rgba(0,0,0,.55);
+}
+
+.ms-mat-content { background: var(--ms-mat-content); color: var(--ms-graphite); }
+.dark .ms-mat-content { color: var(--ms-warm-white); }
+.ms-mat-structure { background: var(--ms-mat-structure); border: 1px solid rgba(23,25,31,.10); }
+.dark .ms-mat-structure { border-color: var(--ms-dark-border); }
+.ms-mat-raised { background: var(--ms-mat-raised); box-shadow: 0 8px 24px rgba(23,25,31,.06); }
+.ms-mat-overlay { background: var(--ms-mat-overlay); }
+.ms-glass, .ms-glass-nav, .ms-glass-toolbar, .ms-glass-popover, .ms-glass-dropdown, .ms-glass-action, .ms-glass-float, .ms-glass-command {
+  background: var(--ms-mat-glass);
+  border: 1px solid rgba(23,25,31,.10);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.ms-glass-strong { background: var(--ms-mat-glass-strong); }
+.ms-glass-clear { background: var(--ms-mat-glass-clear); }
+.dark .ms-glass, .dark .ms-glass-nav, .dark .ms-glass-toolbar, .dark .ms-glass-popover,
+.dark .ms-glass-dropdown, .dark .ms-glass-action, .dark .ms-glass-float, .dark .ms-glass-command {
+  border-color: var(--ms-dark-border);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .ms-glass, .ms-glass-nav, .ms-glass-toolbar, .ms-glass-popover, .ms-glass-dropdown,
+  .ms-glass-action, .ms-glass-float, .ms-glass-command, .ms-glass-strong, .ms-glass-clear {
+    backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--ms-mat-structure);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .ms-glass, .ms-glass-nav, .ms-glass-toolbar, .ms-glass-popover, .ms-glass-dropdown,
+  .ms-glass-action, .ms-glass-float, .ms-glass-command, .ms-glass-strong, .ms-glass-clear {
+    backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--ms-mat-structure);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ms-glass, .ms-btn, .ms-modal { transition: none !important; }
+}
+
+.ms-btn { display:inline-flex; align-items:center; justify-content:center; gap:.4rem;
+  min-height:44px; padding:.6rem 1rem; border-radius:12px; font-family:var(--font-ui, Inter, sans-serif);
+  font-weight:800; font-size:.875rem; border:1px solid transparent; cursor:pointer; }
+.ms-btn--primary { background: var(--ms-market-blue); color:#fff; }
+.ms-btn--primary:hover { background: var(--ms-dealer-blue); }
+.ms-btn--secondary { background: rgba(37,99,235,.08); color: var(--ms-market-blue); border-color: rgba(37,99,235,.2); }
+.ms-btn--tertiary, .ms-btn--ghost { background: transparent; color: var(--ms-graphite); }
+.dark .ms-btn--tertiary, .dark .ms-btn--ghost { color: var(--ms-warm-white); }
+.ms-btn--danger { background:#DC2626; color:#fff; }
+.ms-btn--icon { min-width:44px; padding:.6rem; }
+
+.ms-input, .ms-select, .ms-textarea {
+  width:100%; min-height:44px; border-radius:12px; padding:.65rem .85rem;
+  border:1px solid #D9DEE8; background:#fff; color: var(--ms-graphite);
+  font-family: var(--font-ui, Inter, sans-serif); font-size:1rem;
+}
+.dark .ms-input, .dark .ms-select, .dark .ms-textarea {
+  background: var(--ms-dark-canvas); color: var(--ms-warm-white); border-color: var(--ms-dark-border);
+}
+.ms-input:focus, .ms-select:focus, .ms-textarea:focus {
+  outline: 2px solid var(--ms-market-blue); outline-offset: 1px; border-color: var(--ms-market-blue);
+}
+.ms-textarea { min-height: 96px; }
+
+.ms-modal-backdrop { position:fixed; inset:0; z-index:80; background: var(--ms-mat-overlay); display:flex; align-items:center; justify-content:center; padding:1rem; }
+.ms-modal { width:100%; max-width:32rem; border-radius:20px; background: var(--ms-mat-structure); color: var(--ms-graphite);
+  border:1px solid rgba(23,25,31,.10); box-shadow: 0 24px 60px rgba(23,25,31,.18); }
+.dark .ms-modal { color: var(--ms-warm-white); border-color: var(--ms-dark-border); }
+.ms-modal__header, .ms-modal__footer { padding:1rem 1.1rem; display:flex; align-items:center; justify-content:space-between; gap:.75rem; }
+.ms-modal__body { padding:0 1.1rem 1.1rem; }
+.ms-modal__close { min-width:44px; min-height:44px; border:0; background:transparent; color: inherit; }
+
+#nav-more-panel, #nav-more-menu .ms-more-sheet {
+  background: var(--ms-mat-glass-strong);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}

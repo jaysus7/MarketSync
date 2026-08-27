@@ -240,8 +240,8 @@ function renderStudioWorkspaceHtml(designName, scene) {
           ${typeof isDesignStudioOnlyWorkspace === 'function' && isDesignStudioOnlyWorkspace() ? '← Settings' : '← Back to Marketing'}
         </button>
         <div class="h-5 w-px bg-slate-100 dark:bg-slate-800"></div>
-        <img src="/Logo 2.0.png" alt="MarketSync" class="h-8 w-auto dark:hidden">
-        <img src="/Logo 2.1.png" alt="MarketSync" class="h-8 w-auto hidden dark:block">
+        <img src="/assets/brand/marketsync-logo-primary.png" alt="MarketSync" class="h-8 w-auto dark:hidden">
+        <img src="/assets/brand/marketsync-logo-white.png" alt="MarketSync" class="h-8 w-auto hidden dark:block">
         <span class="px-2 py-0.5 rounded-lg text-[11px] font-black bg-indigo-600 text-white dark:bg-indigo-600/20 dark:text-indigo-400 border border-indigo-600 dark:border-indigo-500/40 tracking-wide uppercase">Design Studio</span>
         <input type="text" id="studio-design-name" value="${escS(designName)}" onchange="saveStudioDesignName(this.value)" class="bg-transparent text-sm font-black text-slate-900 dark:text-white focus:bg-slate-100 dark:focus:bg-slate-800 px-2 py-1 rounded-lg border border-transparent hover:border-slate-300 dark:hover:border-slate-700 transition">
         <span id="studio-save-status" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-600 text-white dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-600 dark:border-emerald-500/40">SAVED</span>
@@ -680,7 +680,7 @@ function renderStudioToolPanelContent(tool) {
         <h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Dealership Brand Kit</h3>
         <div class="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 space-y-2">
           <div class="text-xs font-bold text-slate-900 dark:text-white">${escS(storeName)}</div>
-          <button onclick="if(window.__studioAdapter) window.__studioAdapter.addImage('/logo.png', 'MarketSync Logo')" class="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold">
+          <button onclick="if(window.__studioAdapter) window.__studioAdapter.addImage('/assets/brand/marketsync-logo-primary.png', 'MarketSync Logo')" class="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold">
             + Insert Dealership Logo
           </button>
         </div>

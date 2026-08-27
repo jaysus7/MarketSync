@@ -261,7 +261,7 @@ async function acadOpenCredential(credentialId) {
         <!-- Printable Certificate Card -->
         <div id="printable-credential-frame" class="p-8 sm:p-10 rounded-2xl border-4 border-double border-amber-500/60 bg-gradient-to-b from-[#fffdfa] to-[#fbf8f0] text-slate-900 shadow-xl relative overflow-hidden text-center">
           <div class="flex justify-between items-start mb-6">
-            <img src="/Logo 2.0.png" alt="MarketSync" class="h-9 w-auto">
+            <img src="/assets/brand/marketsync-logo-primary.png" alt="MarketSync" class="h-9 w-auto">
             <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-500/20 text-amber-800 border border-amber-500/40">OFFICIAL CERTIFICATION</span>
           </div>
 

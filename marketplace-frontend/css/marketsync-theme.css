@@ -3,10 +3,10 @@
  * Official Brand Identity: MarketSync | "One dealership. One system." | DealerOS
  *
  * Single authoritative design-system layer for public marketing and DealerOS.
- * Native CSS Variables, semantic tokens, 8px grid, Satoshi typography, accessibility rules.
+ * Native CSS Variables, semantic tokens, 8px grid, Manrope + Inter typography, accessibility rules.
  */
 
-@import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
 /* ==========================================================================
    1. DESIGN TOKENS (PRIMITIVES)
@@ -75,8 +75,8 @@
   --ms-info-bg-dark: rgba(59, 130, 246, 0.15);
 
   /* Typography Tokens */
-  --font-primary: 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-ui: 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-primary: 'Manrope', Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-ui: 'Inter', Manrope, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
   --text-xs: 0.875rem;    /* 14px */
   --text-sm: 1rem;        /* 16px */
@@ -1500,7 +1500,7 @@ body.website-builder-mode {
   --ms-border: rgba(23, 25, 31, 0.12);
   --ms-primary: #2563eb;
   --ms-primary-hover: #1f4ed8;
-  --ms-accent: #7c3aed;
+  --ms-accent: #2563EB;
   --ms-glass-blur: 24px;
   --ms-radius-card: 20px;
   --ms-radius-control: 12px;
@@ -1520,7 +1520,7 @@ body.ms-app-booting > header { background:var(--ms-surface) !important; border-c
 .ms-suite-nav-item:hover,
 .ms-product-nav-item:hover { background:rgba(255,255,255,.24) !important; }
 .ms-engine-header { padding:clamp(1rem,2vw,1.5rem); border:1px solid var(--ms-border); border-radius:var(--ms-radius-card); background:var(--ms-surface); box-shadow:var(--ms-shadow-glass); backdrop-filter:blur(var(--ms-glass-blur)); -webkit-backdrop-filter:blur(var(--ms-glass-blur)); }
-.ms-engine-title { font-size:clamp(2rem,4vw,3.5rem) !important; line-height:.98 !important; letter-spacing:-.055em !important; font-weight:900 !important; font-family:Satoshi,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+.ms-engine-title { font-size:clamp(2rem,4vw,3.5rem) !important; line-height:.98 !important; letter-spacing:-.055em !important; font-weight:900 !important; font-family:Manrope,Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
 #service-overview-root .rounded-2xl, #parts-overview-root .rounded-2xl { border-radius:var(--ms-radius-card); }
 #service-overview-root .bg-white, #parts-overview-root .bg-white { background:var(--ms-surface) !important; border-color:var(--ms-border) !important; }
 #service-overview-root button, #parts-overview-root button { border-radius:var(--ms-radius-control); }
@@ -1542,7 +1542,7 @@ body.ms-app-booting > header { background:var(--ms-surface) !important; border-c
   --ms-border: rgba(23, 25, 31, 0.12);
   --ms-primary: #2563eb;
   --ms-primary-hover: #1f4ed8;
-  --ms-accent: #7c3aed;
+  --ms-accent: #2563EB;
   --ms-glass-blur: 24px;
   --ms-radius-card: 20px;
   --ms-radius-control: 12px;
