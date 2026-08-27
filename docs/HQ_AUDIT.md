@@ -34,3 +34,12 @@
 - Feature flags: GET/POST /owner/flags/:id (dealerships.feature_flags)
 - Support inspect session: POST /owner/support-session (audited, no JWT swap)
 - Customer 360: Extend trial + Start support inspect
+
+
+## Batch 8
+- GET /owner/usage — 30-day events aggregation
+- GET /owner/health — Supabase + Stripe config + email health
+- GET/POST /owner/modules/:id — DealerOS module overrides
+- POST /owner/user/:id/status — activate/deactivate with reason
+- HQ pages: Usage, System health
+- Customer 360 DealerOS module toggles
