@@ -1612,6 +1612,7 @@ const SAAS_DEPARTMENTS = {
   accounts:       { label: 'Customers',      icon: 'building', accent: 'indigo', always: true, pages: [
     { page: 'saas-customers', label: 'Dealerships' },
     { page: 'saas-trials', label: 'Trials' },
+    { page: 'saas-onboarding', label: 'Onboarding' },
     { page: 'saas-followups', label: 'Customer Health' },
   ] },
   people:         { label: 'Users',          icon: 'users',    accent: 'indigo', always: true, pages: [
@@ -1626,6 +1627,7 @@ const SAAS_DEPARTMENTS = {
     { page: 'saas-entitlements', label: 'Entitlements' },
     { page: 'saas-flags', label: 'Feature flags' },
     { page: 'saas-usage', label: 'Usage' },
+    { page: 'saas-integrations', label: 'Integrations' },
   ] },
   work:           { label: 'Operations',     icon: 'check',    accent: 'indigo', always: true, pages: [
     { page: 'saas-automation', label: 'Support' },
@@ -2256,6 +2258,8 @@ function switchPage(pageId) {
   if (pageId === 'saas-security' && typeof loadHqSecurity === 'function') loadHqSecurity();
   if (pageId === 'saas-usage' && typeof loadHqUsage === 'function') loadHqUsage();
   if (pageId === 'saas-health' && typeof loadHqHealth === 'function') loadHqHealth();
+  if (pageId === 'saas-onboarding' && typeof loadHqOnboarding === 'function') loadHqOnboarding();
+  if (pageId === 'saas-integrations' && typeof loadHqIntegrations === 'function') loadHqIntegrations();
   if (pageId === 'config') loadConfigHub();
   if (pageId === 'api-keys') loadApiKeys();
   if (pageId === 'delivery') loadDeliveryQueue();
