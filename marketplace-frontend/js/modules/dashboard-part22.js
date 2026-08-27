@@ -655,127 +655,123 @@ async function loadCompetitors() {
   } catch {}
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('competitor-add-btn')?.addEventListener('click', async () => {
-    const name = document.getElementById('competitor-name-input')?.value.trim();
-    const url = document.getElementById('competitor-url-input')?.value.trim();
-    if (!name) { showToast('Dealership name required', 'error'); return; }
-    try {
-      const res = await fetch(`${API}/ai/competitors`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, autotrader_url: url || null })
-      });
-      if (!res.ok) throw new Error((await res.json()).error || 'Failed');
-      document.getElementById('competitor-name-input').value = '';
-      document.getElementById('competitor-url-input').value = '';
-      loadCompetitors();
-      showToast('Competitor added', 'success');
-    } catch (e) { showToast(e.message, 'error'); }
-  });
+async function addCompetitor() {
+  const name = document.getElementById('competitor-name-input')?.value.trim();
+  const url = document.getElementById('competitor-url-input')?.value.trim();
+  if (!name) { showToast('Dealership name required', 'error'); return; }
+  try {
+    const res = await fetch(`${API}/ai/competitors`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, autotrader_url: url || null })
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+    if (document.getElementById('competitor-name-input')) document.getElementById('competitor-name-input').value = '';
+    if (document.getElementById('competitor-url-input')) document.getElementById('competitor-url-input').value = '';
+    loadCompetitors();
+    showToast('Competitor added', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+window.addCompetitor = addCompetitor;
 
-  document.getElementById('competitors-scan-btn')?.addEventListener('click', async () => {
-    const btn = document.getElementById('competitors-scan-btn');
-    const compPanel = document.getElementById('competitor-comparison');
-    btn.disabled = true; btn.textContent = 'Scanning…';
-    compPanel?.classList.add('hidden');
-    try {
-      // Kick off the background scan on its own. Scan returns immediately with
-      // { status: 'scanning', total }. One retry for iOS cold-start / dropped
-      // connections so a transient network blip doesn't read as "scan failed".
-      let scanRes;
-      for (let i = 0; i < 2; i++) {
-        try {
-          scanRes = await fetch(`${API}/ai/competitors/scan`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
-          break;
-        } catch (netErr) {
-          if (i === 1) throw new Error('Could not reach the server to start the scan. Check your connection and try again.');
-          await new Promise(r => setTimeout(r, 2500));
-        }
+async function scanAllCompetitors() {
+  const btn = document.getElementById('competitors-scan-btn');
+  const compPanel = document.getElementById('competitor-comparison');
+  if (btn) { btn.disabled = true; btn.textContent = 'Scanning…'; }
+  compPanel?.classList.add('hidden');
+  try {
+    // Kick off the background scan on its own. Scan returns immediately with
+    // { status: 'scanning', total }. One retry for iOS cold-start / dropped
+    // connections so a transient network blip doesn't read as "scan failed".
+    let scanRes;
+    for (let i = 0; i < 2; i++) {
+      try {
+        scanRes = await fetch(`${API}/ai/competitors/scan`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+        break;
+      } catch (netErr) {
+        if (i === 1) throw new Error('Could not reach the server to start the scan. Check your connection and try again.');
+        await new Promise(r => setTimeout(r, 2500));
       }
-      const scanData = await scanRes.json();
-      if (!scanRes.ok) throw new Error(scanData.error || 'Scan failed');
+    }
+    const scanData = await scanRes.json();
+    if (!scanRes.ok) throw new Error(scanData.error || 'Scan failed');
 
-      // Our own lot stats — fetched separately and tolerantly. A failure here
-      // must NOT abort the competitor scan (it's only used for the comparison).
-      let ourRes = null;
-      try { ourRes = await fetch(`${API}/inventory/all`, { headers: { 'Authorization': `Bearer ${token}` } }); }
-      catch { ourRes = null; }
+    // Our own lot stats — fetched separately and tolerantly. A failure here
+    // must NOT abort the competitor scan (it's only used for the comparison).
+    let ourRes = null;
+    try { ourRes = await fetch(`${API}/inventory/all`, { headers: { 'Authorization': `Bearer ${token}` } }); }
+    catch { ourRes = null; }
 
-      // Poll GET /ai/competitors until all entries have a fresh last_scanned_at
-      const total = scanData.total || 1;
-      // Backdate 15s: last_scanned_at is stamped with the SERVER clock, scanStarted
-      // is the CLIENT clock. If the phone runs ahead, freshly-scanned rows look
-      // "older" than start and never count as done — the button sticks on
-      // "Scanning 0/N…" for minutes even though the data already landed.
-      const scanStarted = Date.now() - 15000;
-      let competitors = [];
-      btn.textContent = `Scanning 0/${total}…`;
-      for (let attempt = 0; attempt < 40; attempt++) {
-        await new Promise(r => setTimeout(r, 7000));
-        let pollRes;
-        try { pollRes = await fetch(`${API}/ai/competitors`, { headers: { 'Authorization': `Bearer ${token}` } }); }
-        catch { continue; } // network/CORS during cold-start — keep waiting
-        if (!pollRes.ok) continue;
-        const pollData = await pollRes.json();
-        competitors = pollData.competitors || [];
-        const done = competitors.filter(c => c.last_scanned_at && new Date(c.last_scanned_at) > new Date(scanStarted)).length;
-        btn.textContent = `Scanning ${done}/${total}…`;
-        if (done >= total) break;
-      }
+    // Poll GET /ai/competitors until all entries have a fresh last_scanned_at
+    const total = scanData.total || 1;
+    const scanStarted = Date.now() - 15000;
+    let competitors = [];
+    if (btn) btn.textContent = `Scanning 0/${total}…`;
+    for (let attempt = 0; attempt < 40; attempt++) {
+      await new Promise(r => setTimeout(r, 7000));
+      let pollRes;
+      try { pollRes = await fetch(`${API}/ai/competitors`, { headers: { 'Authorization': `Bearer ${token}` } }); }
+      catch { continue; } // network/CORS during cold-start — keep waiting
+      if (!pollRes.ok) continue;
+      const pollData = await pollRes.json();
+      competitors = pollData.competitors || [];
+      const done = competitors.filter(c => c.last_scanned_at && new Date(c.last_scanned_at) > new Date(scanStarted)).length;
+      if (btn) btn.textContent = `Scanning ${done}/${total}…`;
+      if (done >= total) break;
+    }
 
-      // Build comparison using freshly-scanned competitor data
-      const scanDataFinal = { results: competitors.map(c => ({ id: c.id, name: c.name, result: c.last_scan_result })) };
+    // Build comparison using freshly-scanned competitor data
+    const scanDataFinal = { results: competitors.map(c => ({ id: c.id, name: c.name, result: c.last_scan_result })) };
 
-      // Build our lot stats from available inventory
-      const ourVehicles = (ourRes && ourRes.ok) ? (await ourRes.json()).filter(v => v.status === 'available' && v.price > 0) : [];
-      const ourPrices = ourVehicles.map(v => Number(v.price)).filter(p => p > 0).sort((a, b) => a - b);
-      const ourAvg = ourPrices.length ? Math.round(ourPrices.reduce((a, b) => a + b, 0) / ourPrices.length) : null;
-      const ourMin = ourPrices[0] || null;
-      const ourMax = ourPrices[ourPrices.length - 1] || null;
-      const ourCount = ourVehicles.length;
+    // Build our lot stats from available inventory
+    const ourVehicles = (ourRes && ourRes.ok) ? (await ourRes.json()).filter(v => v.status === 'available' && v.price > 0) : [];
+    const ourPrices = ourVehicles.map(v => Number(v.price)).filter(p => p > 0).sort((a, b) => a - b);
+    const ourAvg = ourPrices.length ? Math.round(ourPrices.reduce((a, b) => a + b, 0) / ourPrices.length) : null;
+    const ourMin = ourPrices[0] || null;
+    const ourMax = ourPrices[ourPrices.length - 1] || null;
+    const ourCount = ourVehicles.length;
 
-      const results = (scanDataFinal.results || []).filter(r => r.result && !r.result.error);
-      if (results.length && compPanel) {
-        const fmt = n => n != null ? `$${Number(n).toLocaleString()}` : '—';
-        const pct = (a, b) => (a != null && b != null && b !== 0) ? Math.round(((a - b) / b) * 100) : null;
+    const results = (scanDataFinal.results || []).filter(r => r.result && !r.result.error);
+    if (results.length && compPanel) {
+      const fmt = n => n != null ? `$${Number(n).toLocaleString()}` : '—';
+      const pct = (a, b) => (a != null && b != null && b !== 0) ? Math.round(((a - b) / b) * 100) : null;
 
-        const rows = results.map(r => {
-          const s = r.result;
-          const avgDiff = pct(s.avg_price, ourAvg);
-          const flags = [];
-          if (avgDiff != null && avgDiff < -5) flags.push(`<span class="text-amber-500 font-semibold"> Avg price ${Math.abs(avgDiff)}% below yours</span>`);
-          if (avgDiff != null && avgDiff > 10) flags.push(`<span class="text-emerald-500 font-semibold"> You're priced ${avgDiff}% cheaper on avg</span>`);
-          if (s.listing_count != null && ourCount > 0 && s.listing_count > ourCount * 1.5) flags.push(`<span class="text-amber-500 font-semibold"> They have ${s.listing_count - ourCount} more units</span>`);
-          if (s.min_price != null && ourMin != null && s.min_price < ourMin * 0.9) flags.push(`<span class="text-amber-500 font-semibold"> Their lowest price is ${fmt(s.min_price)} vs your ${fmt(ourMin)}</span>`);
+      const rows = results.map(r => {
+        const s = r.result;
+        const avgDiff = pct(s.avg_price, ourAvg);
+        const flags = [];
+        if (avgDiff != null && avgDiff < -5) flags.push(`<span class="text-amber-500 font-semibold"> Avg price ${Math.abs(avgDiff)}% below yours</span>`);
+        if (avgDiff != null && avgDiff > 10) flags.push(`<span class="text-emerald-500 font-semibold"> You're priced ${avgDiff}% cheaper on avg</span>`);
+        if (s.listing_count != null && ourCount > 0 && s.listing_count > ourCount * 1.5) flags.push(`<span class="text-amber-500 font-semibold"> They have ${s.listing_count - ourCount} more units</span>`);
+        if (s.min_price != null && ourMin != null && s.min_price < ourMin * 0.9) flags.push(`<span class="text-amber-500 font-semibold"> Their lowest price is ${fmt(s.min_price)} vs your ${fmt(ourMin)}</span>`);
 
-          return `
-            <div class="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-              <div class="px-4 py-2.5 border-b border-slate-200 dark:border-slate-700 font-bold text-sm text-slate-900 dark:text-white">${r.name}</div>
-              <div class="grid grid-cols-2 divide-x divide-slate-200 dark:divide-slate-700">
-                <div class="px-4 py-3 space-y-2">
-                  <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Your Lot</div>
-                  <div class="text-xs text-slate-700 dark:text-slate-300 space-y-1">
-                    <div><span class="text-slate-400">Units:</span> <span class="font-semibold">${ourCount}</span></div>
-                    <div><span class="text-slate-400">Avg price:</span> <span class="font-semibold">${fmt(ourAvg)}</span></div>
-                    <div><span class="text-slate-400">Range:</span> <span class="font-semibold">${fmt(ourMin)} – ${fmt(ourMax)}</span></div>
-                  </div>
-                </div>
-                <div class="px-4 py-3 space-y-2">
-                  <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400">${r.name}</div>
-                  <div class="text-xs text-slate-700 dark:text-slate-300 space-y-1">
-                    <div><span class="text-slate-400">Units:</span> <span class="font-semibold">${s.listing_count ?? '—'}</span></div>
-                    <div><span class="text-slate-400">Avg price:</span> <span class="font-semibold">${fmt(s.avg_price)}</span></div>
-                    <div><span class="text-slate-400">Range:</span> <span class="font-semibold">${fmt(s.min_price)} – ${fmt(s.max_price)}</span></div>
-                  </div>
+        return `
+          <div class="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+            <div class="px-4 py-2.5 border-b border-slate-200 dark:border-slate-700 font-bold text-sm text-slate-900 dark:text-white">${r.name}</div>
+            <div class="grid grid-cols-2 divide-x divide-slate-200 dark:divide-slate-700">
+              <div class="px-4 py-3 space-y-2">
+                <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Your Lot</div>
+                <div class="text-xs text-slate-700 dark:text-slate-300 space-y-1">
+                  <div><span class="text-slate-400">Units:</span> <span class="font-semibold">${ourCount}</span></div>
+                  <div><span class="text-slate-400">Avg price:</span> <span class="font-semibold">${fmt(ourAvg)}</span></div>
+                  <div><span class="text-slate-400">Range:</span> <span class="font-semibold">${fmt(ourMin)} – ${fmt(ourMax)}</span></div>
                 </div>
               </div>
-              ${flags.length ? `<div class="px-4 py-2.5 border-t border-slate-200 dark:border-slate-700 flex flex-col gap-1 text-xs">${flags.join('')}</div>` : ''}
-            </div>`;
-        }).join('');
+              <div class="px-4 py-3 space-y-2">
+                <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400">${r.name}</div>
+                <div class="text-xs text-slate-700 dark:text-slate-300 space-y-1">
+                  <div><span class="text-slate-400">Units:</span> <span class="font-semibold">${s.listing_count ?? '—'}</span></div>
+                  <div><span class="text-slate-400">Avg price:</span> <span class="font-semibold">${fmt(s.avg_price)}</span></div>
+                  <div><span class="text-slate-400">Range:</span> <span class="font-semibold">${fmt(s.min_price)} – ${fmt(s.max_price)}</span></div>
+                </div>
+              </div>
+            </div>
+            ${flags.length ? `<div class="px-4 py-2 bg-amber-50 dark:bg-amber-950/20 border-t border-amber-200 dark:border-amber-900/40 text-xs text-amber-800 dark:text-amber-300 flex flex-wrap gap-2">${flags.join(' · ')}</div>` : ''}
+          </div>`;
+      }).join('');
 
-        compPanel.innerHTML = `
-          <div class="pt-1">
+      compPanel.innerHTML = `
+        <div class="pt-1">
             <div class="flex items-center justify-between mb-3">
               <div class="text-xs uppercase font-bold tracking-wider text-slate-400">Lot Comparison</div>
               <button id="competitor-pdf-btn" class="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors">
@@ -831,26 +827,29 @@ ${inner}
       showToast(`Scanned ${total} competitor${total !== 1 ? 's' : ''}`, 'success');
       loadCompetitors();
     } catch (e) { showToast(e.message, 'error'); }
-    finally { btn.disabled = false; btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg> Scan All'; }
-  });
-
-  // Load competitors when the accordion opens. It can now START open (default
-  // expanded), in which case the "class added" observer never fires — so load
-  // immediately if it's already open, and otherwise wait for the first open.
-  const competitorAccordion = document.getElementById('competitors-list')?.closest('.rounded-xl');
-  if (competitorAccordion) {
-    if (competitorAccordion.classList.contains('ai-accordion-open')) {
-      loadCompetitors();
-    } else {
-      new MutationObserver((_, obs) => {
-        if (competitorAccordion.classList.contains('ai-accordion-open')) {
-          loadCompetitors();
-          obs.disconnect();
-        }
-      }).observe(competitorAccordion, { attributes: true, attributeFilter: ['class'] });
-    }
+    finally { if (btn) { btn.disabled = false; btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg> Scan All'; } }
   }
-});
+  window.scanAllCompetitors = scanAllCompetitors;
+  document.getElementById('competitors-scan-btn')?.addEventListener('click', scanAllCompetitors);
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Load competitors when the accordion opens. It can now START open (default
+    // expanded), in which case the "class added" observer never fires — so load
+    // immediately if it's already open, and otherwise wait for the first open.
+    const competitorAccordion = document.getElementById('competitors-list')?.closest('.rounded-xl');
+    if (competitorAccordion) {
+      if (competitorAccordion.classList.contains('ai-accordion-open')) {
+        loadCompetitors();
+      } else {
+        new MutationObserver((_, obs) => {
+          if (competitorAccordion.classList.contains('ai-accordion-open')) {
+            loadCompetitors();
+            obs.disconnect();
+          }
+        }).observe(competitorAccordion, { attributes: true, attributeFilter: ['class'] });
+      }
+    }
+  });
 
 // ── Weekly Lot Health Report ──────────────────────────────────────────────────
 

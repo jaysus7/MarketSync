@@ -46,8 +46,18 @@ async function deskDepositCreate(contactId) {
   }
 }
 window.deskCollectDeposit = deskCollectDeposit; window.deskDepositCreate = deskDepositCreate;
-// Open the Desk-a-deal page focused on one customer (from a CRM row).
-function openDeskForContact(contactId) { __deskContactId = contactId; switchPage('desk'); }
+// Open the Desk-a-deal page focused on one customer/deal (from CRM, F&I, or Sales rows).
+let __deskDealId = null;
+function openDeskForContact(contactId, dealId) {
+  __deskContactId = contactId || null;
+  __deskDealId = dealId || null;
+  switchPage('desk');
+}
+function openDeskForDeal(dealId, contactId) {
+  __deskContactId = contactId || null;
+  __deskDealId = dealId || null;
+  switchPage('desk');
+}
 // Open the Trade Appraisal page pre-filled with this customer's details.
 function apprFromContact(c) {
   document.querySelector('.ms-modal-scrim')?.remove();
@@ -83,6 +93,7 @@ window.openEsignStatus = openEsignStatus;
 window.openEsignDetail = openEsignDetail;
 window.esignCopyLink = esignCopyLink;
 window.openDeskForContact = openDeskForContact;
+window.openDeskForDeal = openDeskForDeal;
 
 // ── Settings hub: tab-filter the profile page into named sections ────────────
 let __settingsTab = 'account';

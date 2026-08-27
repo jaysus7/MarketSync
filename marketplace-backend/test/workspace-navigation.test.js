@@ -214,13 +214,14 @@ test('required UI moves landed in the right workspace', () => {
 test('Inventory Intelligence has one connected home inside Inventory Pulse', () => {
   const inv = readFileSync(new URL('../../marketplace-frontend/js/modules/inventory-workspace.js', import.meta.url), 'utf8')
   // The sub-nav that used to list these is gone; discoverability now rests on the
-  // Pricing and age section plus the two rail shortcuts. Both still have to be there —
+  // Inventory Pulse grid (Pricing & Age Alignment, Market & Competitors, Inventory Intelligence)
+  // plus the two rail shortcuts. Both still have to be there —
   // an Inventory Intelligence nobody can find is an Inventory Intelligence nobody uses.
-  assert.match(inv, /engSection\('Pricing and age'/)
+  assert.match(inv, /title:\s*['"]Pricing & Age Alignment['"]/)
+  assert.match(inv, /title:\s*['"]Inventory Intelligence['"]/)
+  assert.match(inv, /title:\s*['"]Market & Competitors['"]/)
   assert.match(inv, /label: 'Inventory Intelligence'.*engineTab\('inventory-overview','overview'\)/s)
   assert.match(inv, /label: 'Market & Competitors'.*engineTab\('inventory-overview','overview'\)/s)
-  assert.match(inv, /engMountPage\(body, 'inv-intel'/)
-  assert.match(inv, /engMountPage\(body, 'market'/)
   assert.match(part2, /pageId === 'inv-intel'[\s\S]*?openInventoryIntelligence/)
   const reg = readFileSync(new URL('../../marketplace-frontend/js/modules/workspace-registry.js', import.meta.url), 'utf8')
   assert.ok(!reg.includes("page: 'inv-intel'"), 'the duplicate destination must be removed')
