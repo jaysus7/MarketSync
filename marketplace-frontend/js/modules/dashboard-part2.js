@@ -1307,7 +1307,7 @@ const PAGE_FEATURE = {
   'acct-expenses': 'os.accounting', 'acct-budget': 'os.accounting', 'acct-tax': 'os.accounting',
   'acct-reports': 'os.accounting', 'acct-settings': 'os.accounting',
   'service-ros': 'os.service', 'service-appointments': 'os.service', 'service-parts': 'os.service',
-  website: 'os.website', seo: 'os.marketing',
+  website: 'os.website', seo: 'os.marketing', discoverability: 'os.marketing',
   'automation-builder': 'os.automations', operations: 'os.automations', taskboard: 'os.automations',
   'email-marketing': 'os.email_marketing',
   delivery: 'os.sales', fni: 'os.sales',
@@ -1341,6 +1341,8 @@ const PAGE_ANY_FEATURE = {
   studio: ['design.canvas', 'os.marketing'],
   'social-scheduler': ['social.scheduler', 'os.marketing'],
   'email-marketing': ['os.email_marketing', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations'],
+  discoverability: ['os.marketing', 'seo.overview'],
+  seo: ['os.marketing', 'seo.overview'],
   'automation-builder': ['os.automations', 'os.marketing', 'os.email_marketing', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations'],
   'video-studio': ['os.marketing', 'video.library'],
   website: ['os.website', 'website.builder'],
@@ -1351,6 +1353,7 @@ const PAGE_ANY_FEATURE = {
   // both grant all ten seo.* features and both FAILED this gate — they owned the
   // product and could not see the tab. DealerOS Complete passed only incidentally,
   // via os.marketing, rather than because it owns SEO.
+  discoverability: ['seo.overview', 'seo.audit', 'seo.settings', 'os.marketing'],
   seo: ['seo.overview', 'seo.audit', 'seo.settings', 'os.marketing'],
   'ai-home': ['os.marketing', 'ai.overview'],
 };
@@ -1377,7 +1380,9 @@ const DEALER_OS_PLAN_FEATURES = {
   dealeros_complete: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.settings', 'os.sales', 'os.service', 'os.team', 'os.accounting', 'os.marketing', 'os.website', 'os.automations', 'os.email_marketing', 'os.integrations', 'fb.inventory', 'fb.leaderboard', 'fb.sales_reps', 'design.canvas', 'social.scheduler', 'social.accounts', 'social.calendar', 'social.studio', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations', 'video.library', 'video.record', 'video.templates', 'video.settings', 'website.builder', 'website.pages', 'website.domains', 'website.settings', 'ai.overview', 'ai.conversations', 'ai.agents', 'ai.knowledge', 'ai.settings', 'seo.overview', 'seo.audit', 'seo.autofix', 'seo.content', 'seo.competitors', 'seo.local', 'seo.inventory', 'seo.ai_search', 'seo.reports', 'seo.settings']),
 };
 function dealerPlanFallback() {
-  const plan = String(profileContext?.plan || profileContext?.dealership?.plan || '').toLowerCase();
+  let plan = String(profileContext?.plan || profileContext?.dealership?.plan || '').toLowerCase().replace(/[-]/g, '_');
+  if (plan === 'dealer_os_complete') plan = 'dealeros_complete';
+  if (plan === 'dealer_os_pro') plan = 'dealeros_pro';
   const features = DEALER_OS_PLAN_FEATURES[plan];
   if (!features) return { features: null, products: null };
   // ONLY Complete bundles the MarketSync Digital products. Core & Pro are operational
@@ -2206,7 +2211,13 @@ function switchPage(pageId) {
   if (pageId === 'website-settings') loadWebsiteSettings();
   // Blog and SEO are normal in-dashboard pages (not the full-screen Builder workspace).
   if (pageId === 'blog' && typeof loadBlogPage === 'function') loadBlogPage();
-  if (pageId === 'seo' && typeof loadSeoPage === 'function') loadSeoPage();
+  if (pageId === 'discoverability') {
+    if (typeof loadDiscoverabilityWorkspace === 'function') loadDiscoverabilityWorkspace();
+  }
+  if (pageId === 'seo') {
+    if (typeof loadDiscoverabilityWorkspace === 'function') loadDiscoverabilityWorkspace('seo');
+    else if (typeof loadSeoPage === 'function') loadSeoPage();
+  }
   if (pageId === 'automation') loadAutomationPage();
   if (pageId === 'automation-builder') loadAutoBuilderPage();
   if (pageId === 'email-marketing' || pageId === 'email-campaigns') loadDealerEmail();
