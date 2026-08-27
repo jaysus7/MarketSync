@@ -25,3 +25,12 @@
 - Trials + catalog + entitlements pages
 - Cmd/Ctrl-K search against `/saas/customers`
 - Staging/production banner
+
+
+## Batch 4–7 (this pass)
+- Trial extend: POST /owner/dealership/:id/trial (reason required)
+- Audit log page: GET /owner/audit (audit_log)
+- Security page: GET /owner/security (security_events)
+- Feature flags: GET/POST /owner/flags/:id (dealerships.feature_flags)
+- Support inspect session: POST /owner/support-session (audited, no JWT swap)
+- Customer 360: Extend trial + Start support inspect
