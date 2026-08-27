@@ -27,8 +27,8 @@ test('HQ owner-admin exposes the command-center APIs', async () => {
     "app.post('/owner/billing/:id/cancel'",
     "app.post('/owner/billing/:id/reactivate'",
     "app.post('/owner/billing/:id/plan'",
-    "app.post('/owner/billing/:id/stripe-trial',
-    "app.post('/owner/billing/:id/coupon'"",
+    "app.post('/owner/billing/:id/stripe-trial'",
+    "app.post('/owner/billing/:id/coupon'",
   ]) {
     assert.match(s, new RegExp(route.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), route)
   }
