@@ -14,6 +14,7 @@ import { supabaseAdmin, sendEmail, emailHealth, resend } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { PRODUCT_KEYS, resolveProducts } from './profile.js'
 import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
+import { audit } from '../audit.js'
 
 const PRODUCT_LABELS = {
   facebook_solo: 'Facebook AutoPoster — Salesperson',
@@ -183,6 +184,82 @@ export function registerOwnerAdmin(app) {
     if (!Object.keys(patch).length) return res.status(400).json({ error: 'nothing to update' })
     const { error } = await supabaseAdmin.from('profiles').update(patch).eq('id', req.params.id)
     if (error) return res.status(500).json({ error: error.message })
+    await audit(req, 'hq.user_billing_updated', { after_state: patch, dealership_id: null })
     res.json({ ok: true, ...patch })
+  })
+
+  app.post('/owner/dealership/:id/trial', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const days = Math.max(1, Math.min(365, Math.trunc(Number(req.body?.days) || 14)))
+    const reason = String(req.body?.reason || '').slice(0, 500)
+    if (!reason) return res.status(400).json({ error: 'reason required' })
+    const patch = { trial_ends_at: new Date(Date.now() + days * 86400000).toISOString(), billing_status: 'TRIALING' }
+    const { error } = await supabaseAdmin.from('dealerships').update(patch).eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    await audit(req, 'hq.trial_extended', { after_state: { ...patch, reason }, dealership_id: req.params.id })
+    res.json({ ok: true, ...patch, reason })
+  })
+
+  app.get('/owner/audit', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data, error } = await supabaseAdmin.from('audit_log')
+      .select('id, action, actor_id, actor_email, dealership_id, ip, created_at, meta')
+      .like('action', 'hq.%')
+      .order('created_at', { ascending: false })
+      .limit(200)
+    if (error) {
+      const fallback = await supabaseAdmin.from('audit_log').select('id, action, actor_id, actor_email, dealership_id, ip, created_at, meta').order('created_at', { ascending: false }).limit(100)
+      return res.json({ events: fallback.data || [], note: error.message })
+    }
+    res.json({ events: data || [] })
+  })
+
+  app.get('/owner/security', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data, error } = await supabaseAdmin.from('security_events')
+      .select('id, event_type, user_id, dealership_id, ip, created_at, metadata')
+      .order('created_at', { ascending: false })
+      .limit(150)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ events: data || [] })
+  })
+
+  app.get('/owner/flags/:id', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data, error } = await supabaseAdmin.from('dealerships').select('id, name, feature_flags').eq('id', req.params.id).maybeSingle()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ id: data?.id, name: data?.name, flags: data?.feature_flags || {} })
+  })
+
+  app.post('/owner/flags/:id', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const key = String(req.body?.key || '').slice(0, 80)
+    if (!key) return res.status(400).json({ error: 'flag key required' })
+    const reason = String(req.body?.reason || '').slice(0, 500)
+    if (!reason) return res.status(400).json({ error: 'reason required' })
+    const { data: row } = await supabaseAdmin.from('dealerships').select('feature_flags').eq('id', req.params.id).maybeSingle()
+    const flags = (row?.feature_flags && typeof row.feature_flags === 'object') ? { ...row.feature_flags } : {}
+    flags[key] = !!req.body?.active
+    const { error } = await supabaseAdmin.from('dealerships').update({ feature_flags: flags }).eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    await audit(req, 'hq.feature_flag', { after_state: { key, active: !!req.body?.active, reason }, dealership_id: req.params.id })
+    res.json({ ok: true, flags })
+  })
+
+  app.post('/owner/support-session', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const dealershipId = String(req.body?.dealership_id || '')
+    const reason = String(req.body?.reason || '').slice(0, 500)
+    if (!dealershipId || !reason) return res.status(400).json({ error: 'dealership_id and reason required' })
+    const expires = new Date(Date.now() + 30 * 60 * 1000).toISOString()
+    await audit(req, 'hq.support_session_started', { after_state: { dealership_id: dealershipId, reason, expires_at: expires }, dealership_id: dealershipId })
+    res.json({
+      ok: true,
+      session_id: 'sup_' + Date.now(),
+      dealership_id: dealershipId,
+      expires_at: expires,
+      mode: 'inspect',
+      note: 'Inspect-only support session. This does not swap the HQ JWT for a dealer user.',
+    })
   })
 }
