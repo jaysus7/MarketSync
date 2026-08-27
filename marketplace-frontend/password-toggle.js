@@ -38,7 +38,7 @@
     btn.innerHTML = createEyeSvg(input.type === 'password');
 
     btn.addEventListener('mouseenter', function () {
-      btn.style.color = '#4f46e5';
+      btn.style.color = '#2563EB';
     });
     btn.addEventListener('mouseleave', function () {
       btn.style.color = '#94a3b8';
