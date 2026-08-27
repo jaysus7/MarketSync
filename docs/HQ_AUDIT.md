@@ -68,3 +68,9 @@
 - POST portal, cancel at period end, reactivate, plan change (proration), Stripe trial
 - All mutations reason + audit + syncSubscriptionFromStripe
 - 503 if Stripe is not configured rather than fake success
+
+
+## Close-out
+Customer 360 opens full Stripe billing. Global search covers dealerships and users. Production hostname requires an extra confirm on billing mutations. Coupons apply on the Stripe customer when a valid coupon id exists.
+
+HQ is operationally complete against existing backend primitives. Remaining external-only items: JWT impersonation, percentage flag rollout, n8n live probes.
