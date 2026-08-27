@@ -462,14 +462,13 @@ ENGINES['service-overview'] = {
     // dead endpoint and a quiet shop looked identical on screen.
     const miss = [];
     const grab = (label, p) => p.catch(() => { miss.push(label); return null; });
-    const [ros, appts, reqs, closed, calls, cfg, gamification] = await Promise.all([
+    const [ros, appts, reqs, closed, calls, cfg] = await Promise.all([
       grab('repair orders', apiGetJson('/service-engine/ros')),
       grab('the appointment book', apiGetJson('/service/appointments')),
       grab('parts demand', apiGetJson('/service-engine/part-requests')),
       grab('closed repair orders', apiGetJson('/service-engine/ros?status=closed')),
       grab('follow-up calls', apiGetJson('/service-engine/follow-up-calls')),
       grab('service settings', apiGetJson('/service-engine/config')),
-      apiGetJson('/gamification').catch(() => null),
     ]);
     const d = {
       ros: (ros?.ros || []).filter(r => r.status !== 'closed'),
@@ -479,7 +478,6 @@ ENGINES['service-overview'] = {
       closedRos: closed ? (closed.ros || []) : null,
       followUps: calls ? (calls.calls || []) : null,
       config: cfg ? (cfg.config || null) : null,
-      gamification,
       unavailable: miss,
     };
     __svcData = d;
@@ -707,7 +705,7 @@ ENGINES['service-overview'] = {
         ])}
         ${typeof svcUnavailableNote === 'function' ? svcUnavailableNote(d) : ''}
         ${grid}
-        ${typeof pulseDeptLeaderboard === 'function' ? pulseDeptLeaderboard(d.gamification, 'service', { title: 'Service leaderboard', metric: 'ro_closed' }) : ''}`;
+        ${typeof svcInsightsStrip === 'function' ? svcInsightsStrip(d) : ''}`;
     },
     appointments: svcRenderAppointments,
     ros: svcRenderRos,

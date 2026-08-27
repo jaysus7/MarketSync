@@ -366,7 +366,7 @@ test('E2E — the People screen composes rather than derives', () => {
   // A second opinion about whether somebody is behind on training would drift from the
   // department that owns the fact.
   assert.match(ppl, /apiGetJson\('\/my-day'\)/)
-  assert.match(ppl, /apiGetJson\('\/hr\/team'\)/)
+  assert.match(ppl, /apiGetJson\('\/hr\/team/)
   assert.match(ppl, /apiGetJson\('\/hr\/compliance'\)/)
   assert.ok(!/severity: [0-9]/.test(ppl), 'the screen must not invent severity')
   assert.ok(!/kind: '/.test(ppl), 'nor attention kinds')

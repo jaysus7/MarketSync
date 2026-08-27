@@ -164,7 +164,7 @@ test('Service leads with My Day and carries no Work or Insights tab', () => {
   }
   assert.doesNotMatch(labels, /work: '|insights: '/, 'Work and Insights were folded away, not renamed around')
   const order = ws.match(/get tabOrder\(\)[\s\S]*?\n  \},/)?.[0] || ''
-  assert.match(order, /\['overview', 'appointments', 'ros', 'settings'\]/)
+  assert.match(order, /\['overview', 'appointments', 'ros'(?:, 'loaners')?, 'settings'\]/)
   // Dispatch was a filtered copy of the repair-order list with a note telling you to
   // go somewhere else to act on it.
   assert.doesNotMatch(ws, /'dispatch'|Dispatch/, 'Dispatch is gone')

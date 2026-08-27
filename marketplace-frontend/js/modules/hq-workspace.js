@@ -590,10 +590,10 @@ window.loadHqBilling = loadHqBilling;
 // ── HQ Agent Hub ─────────────────────────────────────────────────────────────
 
 const AGENT_META = {
-  chatgpt: { name: 'ChatGPT', provider: 'OpenAI', icon: '🤖', color: 'emerald', role: 'Chief of Staff / Architecture / QA' },
-  claude:  { name: 'Claude',  provider: 'Anthropic', icon: '🟣', color: 'purple',  role: 'Senior Builder' },
-  gemini:  { name: 'Gemini',  provider: 'Google', icon: '🔷', color: 'blue',    role: 'Workspace / Search / Visual QA' },
-  grok:    { name: 'Grok',    provider: 'xAI', icon: '⚡', color: 'amber',   role: 'Implementation Engineer / Testing' },
+  chatgpt: { name: 'ChatGPT', provider: 'OpenAI', icon: '<span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>', color: 'emerald', role: 'Chief of Staff / Architecture / QA' },
+  claude:  { name: 'Claude',  provider: 'Anthropic', icon: '<span class="inline-block w-2.5 h-2.5 rounded-full bg-purple-500"></span>', color: 'purple',  role: 'Senior Builder' },
+  gemini:  { name: 'Gemini',  provider: 'Google', icon: '<span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-500"></span>', color: 'blue',    role: 'Workspace / Search / Visual QA' },
+  grok:    { name: 'Grok',    provider: 'xAI', icon: '<span class="inline-block w-2.5 h-2.5 rounded-full bg-amber-500"></span>', color: 'amber',   role: 'Implementation Engineer / Testing' },
 };
 
 async function loadHqAgents() {
@@ -662,7 +662,7 @@ async function loadHqAgents() {
       <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
         ${['chatgpt', 'claude', 'gemini', 'grok'].map(id => {
           const ag = agents.find(a => a.id === id) || { id, display_name: id, status: 'idle', role: 'contributor' };
-          const meta = AGENT_META[id] || { name: id, provider: 'AI', icon: '🤖', color: 'slate', role: 'Agent' };
+          const meta = AGENT_META[id] || { name: id, provider: 'AI', icon: '<span class="inline-block w-2.5 h-2.5 rounded-full bg-slate-500"></span>', color: 'slate', role: 'Agent' };
           const statusTone = ag.status === 'working' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300' :
                              ag.status === 'blocked' ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-300' :
                              ag.status === 'review'  ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300' :
@@ -719,7 +719,7 @@ async function loadHqAgents() {
             <p class="text-xs text-slate-500 mt-0.5">Manage secure API keys and MCP connections. Plaintext secrets are displayed only once upon generation.</p>
           </div>
           <button type="button" class="px-3.5 py-1.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold hover:opacity-90 transition-opacity" onclick="hqGenerateMissingKeysPrompt()">
-            ⚡ Generate Missing Agent Keys
+            Generate Missing Agent Keys
           </button>
         </div>
 
@@ -739,7 +739,7 @@ async function loadHqAgents() {
             <tbody>
               ${['chatgpt', 'claude', 'gemini', 'grok'].map(id => {
                 const cred = credentials.find(c => c.agent_id === id) || { agent_id: id, has_active_credential: false };
-                const meta = AGENT_META[id] || { name: id, role: 'Agent', icon: '🤖' };
+                const meta = AGENT_META[id] || { name: id, role: 'Agent', icon: '<span class="inline-block w-2.5 h-2.5 rounded-full bg-slate-500"></span>' };
                 const statusBadge = cred.has_active_credential
                   ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">Active</span>'
                   : '<span class="px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">Not Configured</span>';
@@ -776,7 +776,7 @@ async function loadHqAgents() {
       ${approvals.length ? `
         <div class="p-4 rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 mb-6">
           <div class="flex items-center gap-2 mb-3">
-            <span class="text-amber-600 font-black text-sm">⚡ Founder Approval Required (${approvals.length})</span>
+            <span class="text-amber-600 font-black text-sm">Founder Approval Required (${approvals.length})</span>
           </div>
           <div class="space-y-2">
             ${approvals.map(ap => `
@@ -890,7 +890,7 @@ window.openHqTaskDetail = async function(taskId) {
           <h2 class="text-xl font-black text-slate-900 dark:text-white mt-0.5">${esc(t.title)}</h2>
           <div class="text-xs text-slate-500 mt-1">Status: <b>${esc(t.status)}</b> · Owner: <b>${esc(t.owner || 'Unassigned')}</b> · QA: <b>${esc(t.qa_owner || '—')}</b></div>
         </div>
-        <button type="button" class="text-slate-400 hover:text-slate-600" onclick="document.getElementById('hq-task-drawer')?.remove()">✕</button>
+        <button type="button" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg" onclick="document.getElementById('hq-task-drawer')?.remove()"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
       </div>
 
       ${t.description ? `<div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 text-xs text-slate-700 dark:text-slate-300 mb-4">${esc(t.description)}</div>` : ''}
@@ -1057,7 +1057,7 @@ window.openHqSecretModal = function({ environment, credentials }) {
 
       <!-- One-time Warning Banner -->
       <div class="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 mb-6 flex items-start gap-3">
-        <span class="text-2xl">⚠️</span>
+        <span class="text-amber-600 shrink-0"><svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></span>
         <div class="text-xs text-amber-900 dark:text-amber-200">
           <div class="font-black text-sm">Save these tokens securely now</div>
           <div class="mt-0.5">These plaintext tokens will <b>never</b> be shown again. Store them in your AI client configurations (Claude Desktop, OpenAI Custom Actions, Gemini MCP, Grok MCP). Only SHA-256 hashes are stored server-side.</div>
@@ -1067,7 +1067,7 @@ window.openHqSecretModal = function({ environment, credentials }) {
       <!-- Credential List -->
       <div class="space-y-4 mb-6">
         ${credentials.map(c => {
-          const meta = AGENT_META[c.agent_id] || { name: c.agent_id, icon: '🤖' };
+          const meta = AGENT_META[c.agent_id] || { name: c.agent_id, icon: '<span class="inline-block w-2.5 h-2.5 rounded-full bg-slate-500"></span>' };
           return `
             <div class="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
               <div class="flex items-center justify-between mb-2">
@@ -1075,7 +1075,7 @@ window.openHqSecretModal = function({ environment, credentials }) {
                   <span>${meta.icon}</span> <span>${esc(meta.name)}</span>
                 </span>
                 <button type="button" class="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-700 hq-copy-btn" onclick="hqCopyToken(this, '${esc(c.token)}')">
-                  📋 Copy Token
+                  Copy Token
                 </button>
               </div>
               <div class="font-mono text-xs p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 break-all select-all">
@@ -1089,7 +1089,7 @@ window.openHqSecretModal = function({ environment, credentials }) {
       <div class="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <button type="button" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 font-bold text-xs hover:bg-slate-50 dark:hover:bg-slate-800" onclick="hqCopyAllTokens()">
-            📋 Copy All Tokens
+            Copy All Tokens
           </button>
           <label class="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
             <input type="checkbox" id="hq-confirm-saved-cb" class="rounded border-slate-300" onchange="hqToggleModalCloseBtn()">
@@ -1110,7 +1110,7 @@ window.openHqSecretModal = function({ environment, credentials }) {
 window.hqCopyToken = function(btn, token) {
   navigator.clipboard.writeText(token).then(() => {
     const orig = btn.innerHTML;
-    btn.innerHTML = '✓ Copied!';
+    btn.innerHTML = 'Copied!';
     setTimeout(() => { btn.innerHTML = orig; }, 2000);
   });
 };
