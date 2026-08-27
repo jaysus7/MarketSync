@@ -33,3 +33,16 @@ Not visually opened in this environment after credentials were provided. Do not 
 ## Not done
 
 Phase 3. Data changes. Production.
+
+
+## Account map (2026-08-26)
+
+| Email | Role in this pass | API login |
+|---|---|---|
+| `admin@marketsync.link` | MarketSync HQ | 200 |
+| `sales@marketsync.link` | Dealer switcher (DealerOS departments) | 200 |
+
+Use **admin** for HQ surfaces (Customers, Users, Revenue, Platform, Operations).  
+Use **sales** for My Day, Sales, F&I, Inventory, Service, Parts, Accounting, Cleanup, Marketing, HR, Settings.
+
+Passwords are not stored in-repo. No writes were issued after login tests.
