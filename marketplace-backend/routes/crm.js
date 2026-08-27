@@ -256,8 +256,22 @@ export function registerCrm(app) {
   // ── Contact detail: profile + unified timeline + open tasks ────────────────
   app.get('/crm/contacts/:id', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data: contact } = await req.supabase.from('contacts')
+    let { data: contact } = await req.supabase.from('contacts')
       .select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!contact) {
+      const { data: lead } = await req.supabase.from('leads').select('contact_id').eq('id', req.params.id).maybeSingle();
+      if (lead?.contact_id) {
+        const { data: c } = await req.supabase.from('contacts').select('*').eq('id', lead.contact_id).eq('dealership_id', req.dealershipId).maybeSingle();
+        if (c) contact = c;
+      }
+    }
+    if (!contact) {
+      const { data: dl } = await req.supabase.from('deals').select('contact_id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle();
+      if (dl?.contact_id) {
+        const { data: c } = await req.supabase.from('contacts').select('*').eq('id', dl.contact_id).eq('dealership_id', req.dealershipId).maybeSingle();
+        if (c) contact = c;
+      }
+    }
     if (!contact) return res.status(404).json({ error: 'Contact not found' })
 
     const [{ data: comms }, { data: leads }, { data: appraisals }, { data: tasks }, { data: attachments }, { data: deal }] = await Promise.all([

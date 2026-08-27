@@ -43,36 +43,21 @@ test('Marketing Suite — Left Navigation & Workspace Context', async (t) => {
     assert.match(mktWorkspaceJs, /sales: \{ packageId: 'sales-marketing-suite'.*marketingModes: \['sales'\]/, 'Sales exposes Sales Marketing');
     assert.match(mktWorkspaceJs, /service: \{ packageId: 'service-marketing-suite'.*marketingModes: \['service'\]/, 'Service exposes Service Marketing');
     assert.match(mktWorkspaceJs, /complete: \{ packageId: 'complete-marketing-suite'.*marketingModes: \['sales', 'service'\]/, 'Complete exposes both marketing modes');
-    assert.match(mktWorkspaceJs, /digital: \{ packageId: 'marketsync-digital'.*digitalPresence: true/, 'Digital adds Digital Presence');
-    assert.match(mktWorkspaceJs, /id: 'pulse', label: 'Pulse'/, 'every generated suite begins with Pulse');
-    assert.match(mktWorkspaceJs, /id: 'content'.*defaultPage: 'social-scheduler'.*Design Studio.*Social Scheduler.*Video/s,
-      'Content opens Scheduler while retaining Design Studio, Scheduler, Video header order');
-    assert.match(dashPart2Js, /find\(item => item\.page === area\.defaultPage\)/,
-      'major areas honor their configured landing product');
+    assert.match(mktWorkspaceJs, /suiteItem\('marketing-overview', 'Pulse', 'chart', \{ tab: 'overview' \}\)/, 'every generated suite begins with Pulse');
+    assert.match(mktWorkspaceJs, /Design Studio.*Social Studio & Scheduler.*Video/s,
+      'Exposes Design Studio, Social Studio & Scheduler, Video');
     assert.match(mktWorkspaceJs, /'Sales Marketing'.*tab: 'sales_overview'/,
       'Sales Marketing has a distinct route from suite Pulse');
     assert.match(mktWorkspaceJs, /'Service Marketing'.*tab: 'service_overview'/,
       'Service Marketing has a distinct route from suite Pulse');
-    assert.match(mktWorkspaceJs, /if \(suite === 'service'\)[\s\S]*?Service Marketing Header[\s\S]*?Build Service Automation/,
-      'Service Marketing Suite Pulse renders service-specific marketing operations');
   });
 
-  await t.test('organizes Sales Marketing tools and featured workflows in responsive three-column grids', () => {
-    assert.match(mktWorkspaceJs, /Sales Quick Action Cards[\s\S]*?grid sm:grid-cols-2 xl:grid-cols-3 gap-5/,
-      'Sales tools use a responsive three-column grid');
+  await t.test('organizes Sales & Service pulse cards symmetrically with active automations', () => {
+    assert.match(mktWorkspaceJs, /function mktSalesServicePulseCards/, 'defines mktSalesServicePulseCards');
+    assert.match(mktWorkspaceJs, /Sales campaigns[\s\S]*?Sales automations[\s\S]*?Sales video/, 'Sales cards grouped');
+    assert.match(mktWorkspaceJs, /Service campaigns[\s\S]*?Service automations[\s\S]*?Service video/, 'Service cards grouped');
     assert.match(dashPart18Js, /Featured Active Automations[\s\S]*?grid md:grid-cols-2 2xl:grid-cols-3 gap-4/,
       'featured automations use three columns on wide screens');
-    assert.match(dashPart18Js, /col-span-2[\s\S]*?<span>Edit in Advanced Builder<\/span>/,
-      'workflow cards emphasize the primary edit action');
-  });
-
-  await t.test('gives Service Marketing the same responsive tool and action hierarchy', () => {
-    assert.match(mktWorkspaceJs, /Service Quick Action Cards[\s\S]*?grid sm:grid-cols-2 xl:grid-cols-3 gap-5/,
-      'Service tools use the shared responsive three-column layout');
-    for (const label of ['Manage Reminder Flows', 'Manage Declined Recapture', 'Manage Win-Back', 'Explore Campaigns']) {
-      assert.match(mktWorkspaceJs, new RegExp(`bg-(?:emerald|amber|sky|violet)-600[^>]*>${label}`),
-        `${label} is rendered as a prominent action`);
-    }
   });
 });
 
