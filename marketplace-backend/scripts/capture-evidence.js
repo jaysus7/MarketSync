@@ -357,7 +357,13 @@ async function captureAll(browser, baseUrl) {
     { id: 'H004-hq-agents', route: '#/p/saas-agents', pageId: 'saas-agents', w: 1440, h: 900, theme: 'light', isMobile: false, isHq: true },
     { id: 'H004-hq-agents', route: '#/p/saas-agents', pageId: 'saas-agents', w: 1440, h: 900, theme: 'dark', isMobile: false, isHq: true },
     { id: 'H004-hq-agents', route: '#/p/saas-agents', pageId: 'saas-agents', w: 390, h: 844, theme: 'light', isMobile: true, isHq: true },
-    { id: 'H004-hq-agents', route: '#/p/saas-agents', pageId: 'saas-agents', w: 390, h: 844, theme: 'dark', isMobile: true, isHq: true }
+    { id: 'H004-hq-agents', route: '#/p/saas-agents', pageId: 'saas-agents', w: 390, h: 844, theme: 'dark', isMobile: true, isHq: true },
+
+    // Login Surface (A001)
+    { id: 'A001-login', isLogin: true, url: '/login.html', w: 1440, h: 900, theme: 'light', isMobile: false },
+    { id: 'A001-login', isLogin: true, url: '/login.html', w: 1440, h: 900, theme: 'dark', isMobile: false },
+    { id: 'A001-login', isLogin: true, url: '/login.html', w: 390, h: 844, theme: 'light', isMobile: true },
+    { id: 'A001-login', isLogin: true, url: '/login.html', w: 390, h: 844, theme: 'dark', isMobile: true }
   ]
 
   for (const t of tasks) {
@@ -370,70 +376,83 @@ async function captureAll(browser, baseUrl) {
     const page = await context.newPage()
     await setupPageRoutes(page)
 
-    await page.addInitScript(({ themeVal, isHq }) => {
-      window.API = '/api'
-      window.__API_URL = '/api'
-
-      const user = isHq ? {
-        id: '00000000-0000-0000-0000-000000000002',
-        email: 'admin@marketsync.link',
-        role: 'platform_owner',
-        system_role: 'platform_owner',
-        saas_role: 'owner',
-        full_name: 'Jason Massie',
-        dealership_name: 'MarketSync HQ'
-      } : {
-        id: '00000000-0000-0000-0000-000000000001',
-        email: 'sales@marketsync.link',
-        role: 'owner_admin',
-        full_name: 'Jason Massie',
-        dealership_name: 'Apex Auto Gallery',
-        dealership: {
-          id: '00000000-0000-0000-0000-000000000001',
-          name: 'Apex Auto Gallery',
-          plan: 'dealer-os-complete'
+    if (t.isLogin) {
+      await page.goto(`${baseUrl}${t.url}`, { waitUntil: 'domcontentloaded' })
+      await page.waitForTimeout(400)
+      await page.evaluate(({ theme }) => {
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark')
+        } else {
+          document.documentElement.classList.remove('dark')
         }
-      }
+      }, { theme: t.theme })
+      await page.waitForTimeout(300)
+    } else {
+      await page.addInitScript(({ themeVal, isHq }) => {
+        window.API = '/api'
+        window.__API_URL = '/api'
 
-      localStorage.setItem('token', isHq ? 'mock-token-hq-admin' : 'mock-token-dealer-admin')
-      localStorage.setItem('user', JSON.stringify(user))
-      localStorage.setItem('ms_remember_until', String(Date.now() + 86400000))
-      localStorage.setItem('theme', themeVal)
-    }, { themeVal: t.theme, isHq: !!t.isHq })
+        const user = isHq ? {
+          id: '00000000-0000-0000-0000-000000000002',
+          email: 'admin@marketsync.link',
+          role: 'platform_owner',
+          system_role: 'platform_owner',
+          saas_role: 'owner',
+          full_name: 'Jason Massie',
+          dealership_name: 'MarketSync HQ'
+        } : {
+          id: '00000000-0000-0000-0000-000000000001',
+          email: 'sales@marketsync.link',
+          role: 'owner_admin',
+          full_name: 'Jason Massie',
+          dealership_name: 'Apex Auto Gallery',
+          dealership: {
+            id: '00000000-0000-0000-0000-000000000001',
+            name: 'Apex Auto Gallery',
+            plan: 'dealer-os-complete'
+          }
+        }
 
-    await page.goto(`${baseUrl}/dashboard.html${t.route}`, { waitUntil: 'domcontentloaded' })
-    await page.waitForTimeout(600)
+        localStorage.setItem('token', isHq ? 'mock-token-hq-admin' : 'mock-token-dealer-admin')
+        localStorage.setItem('user', JSON.stringify(user))
+        localStorage.setItem('ms_remember_until', String(Date.now() + 86400000))
+        localStorage.setItem('theme', themeVal)
+      }, { themeVal: t.theme, isHq: !!t.isHq })
 
-    await page.evaluate(async ({ targetPage, theme, customerId, isHq }) => {
-      if (isHq) {
-        document.documentElement.setAttribute('data-dash-owner', '1')
-        document.documentElement.setAttribute('data-dash-mode', 'marketsync')
-      }
+      await page.goto(`${baseUrl}/dashboard.html${t.route}`, { waitUntil: 'domcontentloaded' })
+      await page.waitForTimeout(600)
 
-      if (typeof switchPage === 'function') switchPage(targetPage)
-      if (theme === 'dark') {
-        document.documentElement.classList.add('dark')
-      } else {
-        document.documentElement.classList.remove('dark')
-      }
+      await page.evaluate(async ({ targetPage, theme, customerId, isHq }) => {
+        if (isHq) {
+          document.documentElement.setAttribute('data-dash-owner', '1')
+          document.documentElement.setAttribute('data-dash-mode', 'marketsync')
+        }
 
-      const banner = document.getElementById('dash-load-fail-banner')
-      if (banner) banner.classList.add('hidden')
+        if (typeof switchPage === 'function') switchPage(targetPage)
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark')
+        } else {
+          document.documentElement.classList.remove('dark')
+        }
 
-      if (typeof renderDeptNav === 'function') renderDeptNav()
-      if (typeof applyMobileQuickRow === 'function') applyMobileQuickRow()
-      if (typeof applyExtensionVisibility === 'function') applyExtensionVisibility()
+        const banner = document.getElementById('dash-load-fail-banner')
+        if (banner) banner.classList.add('hidden')
 
-      if (isHq && typeof loadHqAgents === 'function' && targetPage === 'saas-agents') {
-        await loadHqAgents()
-      }
+        if (typeof renderDeptNav === 'function') renderDeptNav()
+        if (typeof applyMobileQuickRow === 'function') applyMobileQuickRow()
+        if (typeof applyExtensionVisibility === 'function') applyExtensionVisibility()
 
-      if (customerId && typeof openCrmContact === 'function') {
-        await openCrmContact(customerId)
-      }
-    }, { targetPage: t.pageId, theme: t.theme, customerId: t.customerId, isHq: !!t.isHq })
+        if (isHq && typeof loadHqAgents === 'function' && targetPage === 'saas-agents') {
+          await loadHqAgents()
+        }
 
-    await page.waitForTimeout(800)
+        if (customerId && typeof openCrmContact === 'function') {
+          await openCrmContact(customerId)
+        }
+      }, { targetPage: t.pageId, theme: t.theme, customerId: t.customerId, isHq: !!t.isHq })
+
+      await page.waitForTimeout(800)
+    }
 
     const screenshotName = `${t.id}-${t.w}-${t.theme}`
     const imgPath = path.join(EVIDENCE_DIR, `${screenshotName}.png`)

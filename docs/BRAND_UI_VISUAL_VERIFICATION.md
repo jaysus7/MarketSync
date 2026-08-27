@@ -48,17 +48,25 @@ Accounts: sales@ = dealer switcher; admin@ = HQ.
 
 ## Phase 4 Verified PASS Surfaces (95+)
 
+### Full PASS (3 surfaces)
+
 1. **D043 — Settings / Profile (`#/p/profile`)**: **96/100 (PASS)**
    - Evidence: `docs/evidence/phase4/D043-settings-1440-light.png`, `D043-settings-1440-dark.png`, `D043-settings-390-light.png`, `D043-settings-390-dark.png`
    - Verification details: Market Blue active tab (`#2563EB`), Dark Canvas (`#121318`), hero header correctly scaled, extension banner hidden on settings, Google Translate chrome stripped, Intelligence FAB hidden, `loadProfileBranding` and `loadCrmAdfSetting` delegators properly wired, zero route bounce. Real profile/branding settings verified.
 
-2. **D003 — Customer Workspace (`#/w/sales/sales` contact drawer)**: **96/100 (VISUAL PASS — LIVE-DATA NOT VERIFIED)**
-   - Evidence: `docs/evidence/phase4/D003-customer-record-1440-light.png`, `D003-customer-record-1440-dark.png`, `D003-customer-record-390-light.png`, `D003-customer-record-390-dark.png`
-   - Verification details: Rendered using local Playwright fixture (Sarah Jenkins record) to evaluate UI layout, modal component rendering, dark canvas tokens, and typography. Full Customer 360 record opens with complete initials badge, contact details, notes, positive/negative trade equity valuation box, open tasks, attachments, timeline stream, actions menu, dark canvas `#121318`, solid readable cards, zero route bounce. Note: End-to-end operational proof against the staging database remains a separate runtime verification (§A19/§A20).
-
-3. **H004 — HQ AI Agent Hub & Credentials (`#/p/saas-agents`)**: **96/100 (PASS)**
+2. **H004 — HQ AI Agent Hub & Credentials (`#/p/saas-agents`)**: **96/100 (PASS)**
    - Evidence: `docs/evidence/phase4/H004-hq-agents-1440-light.png`, `H004-hq-agents-1440-dark.png`, `H004-hq-agents-390-light.png`, `H004-hq-agents-390-dark.png`
    - Verification details: Market Blue actions (`#2563EB`), Dark Canvas (`#121318`), dark surface cards (`#1A1D24`), borders (`#2B303A`), live agent queue telemetry, founder credentials table, generate/rotate key modals, mobile quick row with Platform icon, dealership punch clock excluded for HQ mode.
+
+3. **A001 — Login (`/login.html`)**: **97/100 (PASS)**
+   - Evidence: `docs/evidence/phase4/A001-login-1440-light.png`, `A001-login-1440-dark.png`, `A001-login-390-light.png`, `A001-login-390-dark.png`
+   - Verification details: Primary Sign In action uses central Market Blue `#2563EB` button system (`bg-[#2563EB] hover:bg-[#1F4ED8]`). Dark Canvas `#121318` paired with solid `#1A1D24` card (zero liquid glass on auth cards). Canonical brand assets (`marketsync-logo-primary.png` / `marketsync-logo-white.png`). 46px touch targets, a11y label associations, autocomplete attributes, eye toggle with `#2563EB` hover, passkey biometric authentication button, light/dark parity across 1440 desktop and 390 mobile breakpoints.
+
+### Visual PASS / Integration Unverified (1 surface)
+
+1. **D003 — Customer Workspace (`#/w/sales/sales` contact drawer)**: **96/100 (VISUAL PASS — LIVE-DATA NOT VERIFIED)**
+   - Evidence: `docs/evidence/phase4/D003-customer-record-1440-light.png`, `D003-customer-record-1440-dark.png`, `D003-customer-record-390-light.png`, `D003-customer-record-390-dark.png`
+   - Verification details: Rendered using local Playwright fixture (Sarah Jenkins record) to evaluate UI layout, modal component rendering, dark canvas tokens, and typography. Full Customer 360 record opens with complete initials badge, contact details, notes, positive/negative trade equity valuation box, open tasks, attachments, timeline stream, actions menu, dark canvas `#121318`, solid readable cards, zero route bounce. Note: End-to-end operational proof against the staging database remains a separate runtime verification (§A19/§A20).
 
 ## Open State Defects & Blocker Fixes Status
 
