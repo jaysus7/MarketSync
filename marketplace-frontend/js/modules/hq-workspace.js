@@ -741,26 +741,26 @@ async function loadHqAgents() {
                 const cred = credentials.find(c => c.agent_id === id) || { agent_id: id, has_active_credential: false };
                 const meta = AGENT_META[id] || { name: id, role: 'Agent', icon: '🤖' };
                 const statusBadge = cred.has_active_credential
-                  ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">Active</span>'
-                  : '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">Not Configured</span>';
+                  ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">Active</span>'
+                  : '<span class="px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">Not Configured</span>';
 
                 return `
                   <tr class="border-t border-slate-100 dark:border-slate-800/60 hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                    <td class="py-3 px-3 font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <td class="py-3 px-3 font-bold text-slate-900 dark:text-white flex items-center gap-1.5 whitespace-nowrap">
                       <span>${meta.icon}</span> <span>${esc(meta.name)}</span>
                     </td>
-                    <td class="py-3 px-3 text-slate-500 font-semibold">${esc(meta.role)}</td>
+                    <td class="py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">${esc(meta.role)}</td>
                     <td class="py-3 px-3">${statusBadge}</td>
-                    <td class="py-3 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-400">${cred.key_prefix ? `${esc(cred.key_prefix)}...` : '—'}</td>
-                    <td class="py-3 px-3 text-slate-500">${cred.created_at ? new Date(cred.created_at).toLocaleDateString() : '—'}</td>
-                    <td class="py-3 px-3 text-slate-500">${cred.last_used_at ? new Date(cred.last_used_at).toLocaleTimeString() : 'Never'}</td>
-                    <td class="py-3 px-3 text-right">
+                    <td class="py-3 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-400 whitespace-nowrap">${cred.key_prefix ? `${esc(cred.key_prefix)}...` : '—'}</td>
+                    <td class="py-3 px-3 text-slate-500 whitespace-nowrap">${cred.created_at ? new Date(cred.created_at).toLocaleDateString() : '—'}</td>
+                    <td class="py-3 px-3 text-slate-500 whitespace-nowrap">${cred.last_used_at ? new Date(cred.last_used_at).toLocaleTimeString() : 'Never'}</td>
+                    <td class="py-3 px-3 text-right whitespace-nowrap">
                       ${cred.has_active_credential ? `
                         <button type="button" class="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-slate-800" onclick="hqRotateSingleKeyPrompt('${id}')">
                           Rotate Key
                         </button>
                       ` : `
-                        <button type="button" class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold text-[11px] hover:bg-indigo-700" onclick="hqGenerateSingleKeyPrompt('${id}')">
+                        <button type="button" class="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-bold text-[11px] hover:bg-blue-700" onclick="hqGenerateSingleKeyPrompt('${id}')">
                           Generate Key
                         </button>
                       `}

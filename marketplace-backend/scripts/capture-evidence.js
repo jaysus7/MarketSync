@@ -422,6 +422,7 @@ async function captureAll(browser, baseUrl) {
 
       if (typeof renderDeptNav === 'function') renderDeptNav()
       if (typeof applyMobileQuickRow === 'function') applyMobileQuickRow()
+      if (typeof applyExtensionVisibility === 'function') applyExtensionVisibility()
 
       if (isHq && typeof loadHqAgents === 'function' && targetPage === 'saas-agents') {
         await loadHqAgents()
