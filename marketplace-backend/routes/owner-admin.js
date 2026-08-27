@@ -262,4 +262,90 @@ export function registerOwnerAdmin(app) {
       note: 'Inspect-only support session. This does not swap the HQ JWT for a dealer user.',
     })
   })
+
+  app.get('/owner/usage', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const since = new Date(Date.now() - 30 * 86400000).toISOString()
+    const { data, error } = await supabaseAdmin.from('events')
+      .select('dealership_id, event_name, created_at')
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .limit(20000)
+    if (error) return res.status(500).json({ error: error.message })
+    const byDealer = {}
+    const byEvent = {}
+    for (const e of data || []) {
+      const d = e.dealership_id || 'unknown'
+      const ns = String(e.event_name || 'event').split('.')[0]
+      byDealer[d] = byDealer[d] || { count: 0, namespaces: {} }
+      byDealer[d].count++
+      byDealer[d].namespaces[ns] = (byDealer[d].namespaces[ns] || 0) + 1
+      byEvent[ns] = (byEvent[ns] || 0) + 1
+    }
+    const top = Object.entries(byDealer).sort((a,b) => b[1].count - a[1].count).slice(0, 40)
+      .map(([id, v]) => ({ dealership_id: id, events_30d: v.count, namespaces: v.namespaces }))
+    res.json({ window_days: 30, total_events: (data || []).length, by_namespace: byEvent, top_dealerships: top })
+  })
+
+  app.get('/owner/health', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const checks = {}
+    const t0 = Date.now()
+    try {
+      const { error } = await supabaseAdmin.from('dealerships').select('id', { head: true, count: 'exact' }).limit(1)
+      checks.supabase = { ok: !error, ms: Date.now() - t0, error: error?.message || null }
+    } catch (e) {
+      checks.supabase = { ok: false, ms: Date.now() - t0, error: e.message }
+    }
+    try {
+      const { data, error } = await supabaseAdmin.from('profiles').select('id', { head: true, count: 'exact' }).limit(1)
+      checks.profiles = { ok: !error, error: error?.message || null }
+    } catch (e) { checks.profiles = { ok: false, error: e.message } }
+    checks.stripe_configured = Boolean(process.env.STRIPE_SECRET_KEY)
+    checks.env = process.env.NODE_ENV || 'unknown'
+    res.json({ ok: Object.values(checks).every(c => c.ok !== false || c === true || typeof c === 'boolean'), checks })
+  })
+
+  const DEALEROS_MODULES = [
+    'sales.crm','sales.desk','sales.calendar','inventory.manage','inventory.intelligence',
+    'service.ros','service.schedule','parts.counter','accounting.ledger','accounting.commissions',
+    'marketing.studio','marketing.scheduler','hr.people','admin.settings'
+  ]
+
+  app.get('/owner/modules/:id', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data, error } = await supabaseAdmin.from('dealerships').select('id, name, products, feature_flags').eq('id', req.params.id).maybeSingle()
+    if (error) return res.status(500).json({ error: error.message })
+    const flags = data?.feature_flags || {}
+    const modules = flags.dealer_os_modules && typeof flags.dealer_os_modules === 'object' ? flags.dealer_os_modules : {}
+    res.json({ id: data?.id, name: data?.name, catalog: DEALEROS_MODULES, modules, products: data?.products || {} })
+  })
+
+  app.post('/owner/modules/:id', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const key = String(req.body?.key || '')
+    if (!DEALEROS_MODULES.includes(key)) return res.status(400).json({ error: 'unknown module' })
+    const reason = String(req.body?.reason || '').slice(0, 500)
+    if (!reason) return res.status(400).json({ error: 'reason required' })
+    const { data: row } = await supabaseAdmin.from('dealerships').select('feature_flags').eq('id', req.params.id).maybeSingle()
+    const flags = (row?.feature_flags && typeof row.feature_flags === 'object') ? { ...row.feature_flags } : {}
+    const modules = { ...(flags.dealer_os_modules || {}) }
+    modules[key] = !!req.body?.active
+    flags.dealer_os_modules = modules
+    const { error } = await supabaseAdmin.from('dealerships').update({ feature_flags: flags }).eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    await audit(req, 'hq.module_override', { after_state: { key, active: !!req.body?.active, reason }, dealership_id: req.params.id })
+    res.json({ ok: true, modules })
+  })
+
+  app.post('/owner/user/:id/status', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const active = !!req.body?.active
+    const reason = String(req.body?.reason || '').slice(0, 500)
+    if (!reason) return res.status(400).json({ error: 'reason required' })
+    const { error } = await supabaseAdmin.from('profiles').update({ active }).eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    await audit(req, active ? 'hq.user_activated' : 'hq.user_deactivated', { after_state: { user_id: req.params.id, reason } })
+    res.json({ ok: true, active })
+  })
 }
