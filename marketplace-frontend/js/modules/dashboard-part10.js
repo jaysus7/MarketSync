@@ -764,9 +764,11 @@ const ENGINE_TAB_ICON = {
   hiring: 'users', compliance: 'shield', settings: 'wrench'
 };
 const ENGINE_ACCENTS = {
-  violet: { text: 'text-violet-700 dark:text-violet-300', bg: 'bg-violet-100 dark:bg-violet-950/50', solid: 'bg-violet-600 hover:bg-violet-700' },
-  indigo:  { text: 'text-indigo-600 dark:text-indigo-400',   bg: 'bg-indigo-50 dark:bg-indigo-950/40',   solid: 'bg-indigo-600 hover:bg-indigo-500' },
-  sky:     { text: 'text-sky-600 dark:text-sky-400',         bg: 'bg-sky-50 dark:bg-sky-950/40',         solid: 'bg-sky-600 hover:bg-sky-500' },
+  market:  { text: 'ms-acc-text', bg: 'ms-acc-bg', solid: 'ms-acc-solid' },
+  indigo:  { text: 'ms-acc-text', bg: 'ms-acc-bg', solid: 'ms-acc-solid' },
+  violet:  { text: 'ms-acc-text', bg: 'ms-acc-bg', solid: 'ms-acc-solid' },
+  sky:     { text: 'ms-acc-text', bg: 'ms-acc-bg', solid: 'ms-acc-solid' },
+  /* Status-only. Do not use for department identity. */
   emerald: { text: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/40', solid: 'bg-emerald-600 hover:bg-emerald-500' },
   amber:   { text: 'text-amber-600 dark:text-amber-400',     bg: 'bg-amber-50 dark:bg-amber-950/40',     solid: 'bg-amber-600 hover:bg-amber-500' },
 };
@@ -1192,7 +1194,7 @@ window.engineTab = engineTab;
 // supply nextActions(d)/quickActions; the rail owns the chrome. Only real,
 // wired actions are shown (no fabricated timelines).
 function engineRail(eng, d) {
-  const A = ENGINE_ACCENTS[eng.accent] || ENGINE_ACCENTS.indigo;
+  const A = ENGINE_ACCENTS[eng.accent] || ENGINE_ACCENTS.market || ENGINE_ACCENTS.indigo;
   const sec = (title, icon, inner) => `<details open class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
     <summary class="list-none cursor-pointer select-none p-3.5 flex items-center justify-between gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-xl" aria-label="Expand or collapse ${esc(title)}">
       <span class="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">${svgIcon(icon, 'w-3.5 h-3.5')}${esc(title)}</span>
@@ -1239,7 +1241,7 @@ function renderEngine(engineId, force = false) {
   const order = eng.tabOrder || ENGINE_TAB_ORDER;   // engines may show a subset of the 5 tabs
   let tab = ENGINE_STATE[engineId] || order[0];
   if (!order.includes(tab)) tab = order[0];          // stored tab may have been removed
-  const A = ENGINE_ACCENTS[eng.accent] || ENGINE_ACCENTS.indigo;
+  const A = ENGINE_ACCENTS[eng.accent] || ENGINE_ACCENTS.market || ENGINE_ACCENTS.indigo;
   const tabBtn = (t) => `<button data-engine-tab="${t}" role="tab" onclick="engineTab('${engineId}','${t}')"
     class="ms-engine-tab px-4 py-2.5 text-xs font-bold whitespace-nowrap transition border-transparent text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400">${svgIcon(ENGINE_TAB_ICON[t] || 'dot', 'w-4 h-4')}<span>${esc((eng.tabLabels && eng.tabLabels[t]) || ENGINE_TAB_LABEL[t])}</span></button>`;
   // Suite products: primary actions live on the main header (no second title card).

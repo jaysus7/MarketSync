@@ -1264,7 +1264,7 @@ window.openLeaderboardOnDash = openLeaderboardOnDash;
 // registry file ever fails to load (nav is presentation; the API still enforces
 // permissions server-side).
 const DEPARTMENTS = (typeof MS_WORKSPACES !== 'undefined' && MS_WORKSPACES) || {
-  executive: { label: 'Pulse', icon: 'chart', accent: 'indigo', mgr: true, pages: [{ page: 'command', label: 'Pulse' }] },
+  executive: { label: 'Pulse', icon: 'chart', accent: 'market', mgr: true, pages: [{ page: 'command', label: 'Pulse' }] },
   sales: {
     label: 'Sales', icon: 'currency', accent: 'amber',
     pages: [
@@ -1540,7 +1540,7 @@ function renderDeptTabbar(pageId) {
   const dept = DEPARTMENTS[deptId];
   const pages = dept.pages.filter(deptPageAllowed);
   if (pages.length <= 1) return hide();   // nothing to move between → no tab-bar
-  const A = ENGINE_ACCENTS[dept.accent] || ENGINE_ACCENTS.indigo;
+  const A = ENGINE_ACCENTS[dept.accent] || ENGINE_ACCENTS.market || ENGINE_ACCENTS.indigo;
   const tabs = pages.map(p => {
     const on = p.page === pageId && (!p.invmode || p.invmode === __inventoryMode) && (!p.tab || (p.page === 'ai-home' ? (p.tab === (window.__aiHomeTab || 'conversations')) : true));
     return `<button onclick="deptGo('${p.page}'${p.invmode ? `,'${p.invmode}'` : (p.tab ? `,'','${p.tab}'` : '')})" class="px-3.5 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition ${on ? A.text + ' border-current' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}">${esc(p.label)}</button>`;
@@ -1611,31 +1611,31 @@ window.deptGo = deptGo;
 // The MarketSync owner's SaaS back office is its own flat department list —
 // the company operating system, not a dealership.
 const SAAS_DEPARTMENTS = {
-  pulse:          { label: 'HQ',             icon: 'chart',    accent: 'indigo', always: true, pages: [{ page: 'saas-command', label: 'Overview' }] },
-  accounts:       { label: 'Customers',      icon: 'building', accent: 'indigo', always: true, pages: [
+  pulse:          { label: 'HQ',             icon: 'chart',    accent: 'market', always: true, pages: [{ page: 'saas-command', label: 'Overview' }] },
+  accounts:       { label: 'Customers',      icon: 'building', accent: 'market', always: true, pages: [
     { page: 'saas-customers', label: 'Dealerships' },
     { page: 'saas-trials', label: 'Trials' },
     { page: 'saas-onboarding', label: 'Onboarding' },
     { page: 'saas-followups', label: 'Customer Health' },
   ] },
-  people:         { label: 'Users',          icon: 'users',    accent: 'indigo', always: true, pages: [
+  people:         { label: 'Users',          icon: 'users',    accent: 'market', always: true, pages: [
     { page: 'owner-users', label: 'Accounts & access' },
     { page: 'saas-all-users', label: 'All Users' },
     { page: 'saas-roles', label: 'HQ Roles' },
     { page: 'saas-employees', label: 'HQ Staff' },
   ] },
-  money:          { label: 'Revenue',        icon: 'currency', accent: 'indigo', always: true, pages: [
+  money:          { label: 'Revenue',        icon: 'currency', accent: 'market', always: true, pages: [
     { page: 'saas-billing', label: 'Billing' },
     { page: 'saas-accounting', label: 'Company money' },
     { page: 'saas-products', label: 'Product Catalog' },
   ] },
-  platform:       { label: 'Platform',       icon: 'bolt',     accent: 'indigo', always: true, pages: [
+  platform:       { label: 'Platform',       icon: 'bolt',     accent: 'market', always: true, pages: [
     { page: 'saas-entitlements', label: 'Entitlements' },
     { page: 'saas-flags', label: 'Feature flags' },
     { page: 'saas-usage', label: 'Usage' },
     { page: 'saas-integrations', label: 'Integrations' },
   ] },
-  work:           { label: 'Operations',     icon: 'check',    accent: 'indigo', always: true, pages: [
+  work:           { label: 'Operations',     icon: 'check',    accent: 'market', always: true, pages: [
     { page: 'saas-automation', label: 'Support' },
     { page: 'saas-audit', label: 'Audit log' },
     { page: 'saas-security', label: 'Security' },
@@ -1880,7 +1880,7 @@ function renderDeptNav(role) {
   // anything else that is not a dealership department) drop to a separate rail at
   // the bottom, under a divider — an employee scans DEPARTMENTS first.
   const navBtn = ([id, d]) => {
-    const A = ENGINE_ACCENTS[d.accent] || ENGINE_ACCENTS.indigo;
+    const A = ENGINE_ACCENTS[d.accent] || ENGINE_ACCENTS.market || ENGINE_ACCENTS.indigo;
     return `<button type="button" data-dept="${id}" onclick="deptOpen('${id}')" title="${esc(d.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="${A.text} flex-shrink-0">${svgIcon(d.icon || 'dot', 'w-4 h-4')}</span><span>${esc(d.label)}</span></button>`;
   };
   const visible = Object.entries(registry).filter(([, d]) => deptVisible(d) && !d.hideFromSidebar);

@@ -28,7 +28,7 @@ const MS_WORKSPACES = {
   // in the day rather than in a rail nobody scrolls to. Outstanding courses surface in
   // My Day itself and disappear as they are completed.
   executive: {
-    label: 'Pulse', icon: 'chart', accent: 'indigo', mgr: true,
+    label: 'Pulse', icon: 'chart', accent: 'market', mgr: true,
     pages: [
       { page: 'command', label: 'Pulse' },
       // Academy belongs to the day, but as `legacy` — a plain page here would draw a
@@ -56,7 +56,7 @@ const MS_WORKSPACES = {
   // The individual pages below stay in the tab-bar so every existing entry point,
   // deep link and bookmark keeps working; `sales` simply leads.
   sales: {
-    label: 'Sales', icon: 'currency', accent: 'indigo',
+    label: 'Sales', icon: 'currency', accent: 'market',
     pages: [
       { page: 'sales', label: 'Pulse' },
       { page: 'crm', label: 'Customers', legacy: true },
@@ -74,7 +74,7 @@ const MS_WORKSPACES = {
   },
 
   inventory: {
-    label: 'Inventory', icon: 'gem', accent: 'indigo',
+    label: 'Inventory', icon: 'gem', accent: 'market',
     pages: [
       { page: 'inventory-overview', label: 'Pulse' },
       { page: 'inventory', label: 'Vehicles', invmode: 'manual', legacy: true },
@@ -93,14 +93,14 @@ const MS_WORKSPACES = {
   // operational work — reconditioning a unit before it can go frontline — so it gets
   // its own place in the sidebar, same as any other department.
   cleanup: {
-    label: 'Cleanup', icon: 'droplet', accent: 'indigo',
+    label: 'Cleanup', icon: 'droplet', accent: 'market',
     pages: [
       { page: 'recon', label: 'Cleanup' },
     ],
   },
 
   fni: {
-    label: 'F&I', icon: 'shield', accent: 'indigo', roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'],
+    label: 'F&I', icon: 'shield', accent: 'market', roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'],
     pages: [
       { page: 'fni-overview', label: 'Pulse' },
       // Deals is no longer a tab of its own — the full deal list is mounted directly
@@ -113,7 +113,7 @@ const MS_WORKSPACES = {
   },
 
   service: {
-    label: 'Service', icon: 'wrench', accent: 'indigo', mgr: true,
+    label: 'Service', icon: 'wrench', accent: 'market', mgr: true,
     pages: [
       { page: 'service-overview', label: 'Pulse' },
       { page: 'service-appointments', label: 'Schedule', legacy: true },
@@ -122,7 +122,7 @@ const MS_WORKSPACES = {
   },
 
   parts: {
-    label: 'Parts', icon: 'gem', accent: 'indigo', mgr: true,
+    label: 'Parts', icon: 'gem', accent: 'market', mgr: true,
     pages: [
       { page: 'parts-overview', label: 'Pulse' },
       { page: 'service-parts', label: 'Catalogue' },
@@ -130,7 +130,7 @@ const MS_WORKSPACES = {
   },
 
   accounting: {
-    label: 'Accounting', icon: 'currency', accent: 'indigo', probe: '#grp-accounting-wrap', mgr: true,
+    label: 'Accounting', icon: 'currency', accent: 'market', probe: '#grp-accounting-wrap', mgr: true,
     pages: [
       { page: 'accounting-overview', label: 'Pulse' },
       { page: 'accounting', label: 'Overview' },
@@ -139,7 +139,7 @@ const MS_WORKSPACES = {
   },
 
   marketing: {
-    label: 'Marketing', icon: 'megaphone', accent: 'indigo', mgr: true,
+    label: 'Marketing', icon: 'megaphone', accent: 'market', mgr: true,
     pages: [
       { page: 'marketing-overview', label: 'Pulse' },
       { page: 'social-scheduler', label: 'Social Scheduler' },
@@ -156,7 +156,7 @@ const MS_WORKSPACES = {
   },
 
   people: {
-    label: 'HR', icon: 'user', accent: 'indigo', mgr: true,
+    label: 'HR', icon: 'user', accent: 'market', mgr: true,
     pages: [
       { page: 'people-overview', label: 'Pulse' },
       // Retained as redirect/deep-link identities only. The HR engine owns Staff and
@@ -176,7 +176,7 @@ const MS_WORKSPACES = {
   // Academy is slated to become its own site rather than a page in the dashboard; when
   // that lands, this entry becomes the link out and My Day keeps the outstanding list.
   academy: {
-    label: 'Academy', icon: 'sparkles', accent: 'indigo', system: true,
+    label: 'Academy', icon: 'sparkles', accent: 'market', system: true,
     pages: [
       { page: 'academy', label: 'Your Learning' },
     ],
@@ -191,7 +191,7 @@ const MS_WORKSPACES = {
   // its one door. `hideFromSidebar` tells renderDeptNav to drop it from #dept-nav
   // entirely instead of rendering it under the divider like other system entries.
   settings: {
-    label: 'Settings', icon: 'shield', accent: 'slate', system: true, hideFromSidebar: true,
+    label: 'Settings', icon: 'shield', accent: 'market', system: true, hideFromSidebar: true,
     pages: [
       // The primary Settings surface is Configuration; Automations and Integrations
       // remain deep links (legacy) so they don't render competing primary tabs.
