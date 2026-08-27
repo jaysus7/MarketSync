@@ -405,6 +405,11 @@ async function captureAll(browser, baseUrl) {
     await page.waitForTimeout(600)
 
     await page.evaluate(async ({ targetPage, theme, customerId, isHq }) => {
+      if (isHq) {
+        document.documentElement.setAttribute('data-dash-owner', '1')
+        document.documentElement.setAttribute('data-dash-mode', 'marketsync')
+      }
+
       if (typeof switchPage === 'function') switchPage(targetPage)
       if (theme === 'dark') {
         document.documentElement.classList.add('dark')
@@ -414,6 +419,9 @@ async function captureAll(browser, baseUrl) {
 
       const banner = document.getElementById('dash-load-fail-banner')
       if (banner) banner.classList.add('hidden')
+
+      if (typeof renderDeptNav === 'function') renderDeptNav()
+      if (typeof applyMobileQuickRow === 'function') applyMobileQuickRow()
 
       if (isHq && typeof loadHqAgents === 'function' && targetPage === 'saas-agents') {
         await loadHqAgents()
