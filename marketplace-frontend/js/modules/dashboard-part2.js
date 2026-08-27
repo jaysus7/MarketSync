@@ -1632,6 +1632,7 @@ const SAAS_DEPARTMENTS = {
     { page: 'saas-products', label: 'Product Catalog' },
   ] },
   platform:       { label: 'Platform',       icon: 'bolt',     accent: 'market', always: true, pages: [
+    { page: 'saas-agents', label: 'AI Agent Hub' },
     { page: 'saas-entitlements', label: 'Entitlements' },
     { page: 'saas-flags', label: 'Feature flags' },
     { page: 'saas-usage', label: 'Usage' },
@@ -2258,6 +2259,7 @@ function switchPage(pageId) {
   if (pageId === 'saas-automation') loadSaasAutomation();
   if (pageId === 'saas-employees') loadSaasEmployees();
   if (pageId === 'saas-accounting') loadSaasAccounting();
+  if (pageId === 'saas-agents' && typeof loadHqAgents === 'function') loadHqAgents();
   if (pageId === 'saas-entitlements' && typeof loadHqEntitlements === 'function') loadHqEntitlements();
   if (pageId === 'saas-products' && typeof loadHqProducts === 'function') loadHqProducts();
   if (pageId === 'saas-trials' && typeof loadHqTrials === 'function') loadHqTrials();
