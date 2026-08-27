@@ -569,19 +569,23 @@ function mktSalesServicePulseCards(d) {
   }).join('');
   const cards = [];
   if (mktFeatureOn('automation-builder')) {
-    cards.push(pulseCard({ title: 'Sales campaigns', count: salesCamps.length, tier: 'hero',
+    cards.push(pulseCard({ title: 'Sales campaigns', count: salesCamps.length, tier: 'standard',
       onclick: "engineTab('marketing-overview','campaigns')", inner: row(salesCamps), empty: 'No sales campaigns yet.' }));
-    cards.push(pulseCard({ title: 'Service campaigns', count: svcCamps.length, tier: 'hero',
-      onclick: "engineTab('marketing-overview','campaigns')", inner: row(svcCamps), empty: 'No service campaigns yet.' }));
-    cards.push(pulseCard({ title: 'Sales automations', count: salesAutos.length, tier: 'hero',
+    cards.push(pulseCard({ title: 'Sales automations', count: salesAutos.length, tier: 'standard',
       onclick: "engineTab('marketing-overview','automations')", inner: row(salesAutos), empty: 'No sales automations yet.' }));
-    cards.push(pulseCard({ title: 'Service automations', count: svcAutos.length, tier: 'hero',
+  }
+  if (mktFeatureOn('video-studio')) {
+    cards.push(pulseCard({ title: 'Sales video', count: salesVids.length, tier: 'standard',
+      onclick: "switchPage('video-studio')", inner: row(salesVids), empty: 'No sales videos yet.' }));
+  }
+  if (mktFeatureOn('automation-builder')) {
+    cards.push(pulseCard({ title: 'Service campaigns', count: svcCamps.length, tier: 'standard',
+      onclick: "engineTab('marketing-overview','campaigns')", inner: row(svcCamps), empty: 'No service campaigns yet.' }));
+    cards.push(pulseCard({ title: 'Service automations', count: svcAutos.length, tier: 'standard',
       onclick: "engineTab('marketing-overview','automations')", inner: row(svcAutos), empty: 'No service automations yet.' }));
   }
   if (mktFeatureOn('video-studio')) {
-    cards.push(pulseCard({ title: 'Sales video', count: salesVids.length, tier: 'hero',
-      onclick: "switchPage('video-studio')", inner: row(salesVids), empty: 'No sales videos yet.' }));
-    cards.push(pulseCard({ title: 'Service video', count: svcVids.length, tier: 'hero',
+    cards.push(pulseCard({ title: 'Service video', count: svcVids.length, tier: 'standard',
       onclick: "switchPage('video-studio')", inner: row(svcVids), empty: 'No service videos yet.' }));
   }
   return cards.filter(Boolean);
