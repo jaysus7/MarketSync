@@ -119,6 +119,7 @@ function ownerAccountCard(a) {
         <button onclick="ownerBill('user','${u.id}','comp')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100">Comp</button>
         <button onclick="ownerBill('user','${u.id}','trial30')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200">+30d</button>
         <button onclick="ownerBill('user','${u.id}','block')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 hover:bg-rose-100">Block</button>
+        <button onclick="hqUserStatus('${u.id}', false)" class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-900 text-white">Deactivate</button>
       </span>
     </div>`).join('') || '<div class="text-[12px] text-slate-400 py-1">No users.</div>';
   return `
@@ -128,7 +129,9 @@ function ownerAccountCard(a) {
         ${a.is_personal ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300">PERSONAL</span>' : ''}
         ${a.plan ? `<span class="text-[11px] text-slate-400">${esc(a.plan)}</span>` : ''}
         ${ownerBillChip(effStatus)}${ownerTrialTxt(effTrial)}
-        <span class="ml-auto text-[11px] text-slate-400">${a.users?.length || 0} user(s)</span>
+        <span class="ml-auto flex items-center gap-2 text-[11px] text-slate-400">${a.users?.length || 0} user(s)
+          <button onclick="openSaasCustomer('${a.id}')" class="font-black text-indigo-600">360</button>
+        </span>
       </div>
       <div class="flex flex-wrap gap-1.5">
         <button onclick="${billTarget},'comp')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500">Comp (indefinite)</button>
