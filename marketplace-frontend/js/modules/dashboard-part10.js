@@ -899,7 +899,7 @@ function pulseCard({ title, count, tone, onclick, inner, span, empty, tier }) {
         ${countBadge}
       </div>`;
   const body = `${header}
-    <div class="flex-1 min-h-0 mt-3 flex flex-col gap-2">${inner || (empty ? `<div class="text-[12px] text-slate-400 py-4 text-center">${esc(empty)}</div>` : '')}</div>`;
+    <div class="flex-1 min-h-0 mt-3 flex flex-col gap-2 w-full text-left">${inner || (empty ? `<div class="text-[12px] text-slate-400 py-4 text-center">${esc(empty)}</div>` : '')}</div>`;
   // A tiered card takes its material, radius, padding and span from the design
   // system, so it must NOT also carry the Tailwind card utilities — those are the
   // same properties, and two sources for one decision is how a card ends up with
@@ -908,9 +908,9 @@ function pulseCard({ title, count, tone, onclick, inner, span, empty, tier }) {
   if (tier) {
     const material = ' ms-c--glass';
     const interactive = onclick ? ' ms-c--interactive' : '';
-    return `<div class="ms-c ms-c--${esc(tier)}${material}${interactive}" data-tier="${esc(tier)}"${inner ? '' : ' data-empty="true"'}>${body}</div>`;
+    return `<div class="ms-c ms-c--${esc(tier)}${material}${interactive} text-left" data-tier="${esc(tier)}"${inner ? '' : ' data-empty="true"'}>${body}</div>`;
   }
-  return `<div class="ms-c ms-c--glass ms-c--compact w-full flex flex-col gap-2 ${spanCls} transition-shadow hover:shadow-[0_6px_20px_-8px_rgba(15,23,42,.18)] dark:hover:shadow-[0_6px_20px_-8px_rgba(0,0,0,.45)]">
+  return `<div class="ms-c ms-c--glass ms-c--compact w-full flex flex-col gap-2 text-left ${spanCls} transition-shadow hover:shadow-[0_6px_20px_-8px_rgba(15,23,42,.18)] dark:hover:shadow-[0_6px_20px_-8px_rgba(0,0,0,.45)]">
     ${body}
   </div>`;
 }
@@ -924,27 +924,27 @@ function pulseRow({ badge, icon, badgeTone, label, sub, value, valueTone, done, 
   const go = onclick || '';
   const action = actionLabel || 'View';
   const subline = [sub, value != null ? String(value) : ''].filter(Boolean).join(' · ');
-  return `<div class="ms-c ms-c--compact ms-c--glass w-full flex items-center justify-between gap-3 ${done ? 'opacity-50' : ''}">
-    <div class="min-w-0 flex-1">
-      <div class="font-bold text-[14px] text-slate-900 dark:text-white truncate ${done ? 'line-through' : ''}">${esc(label ?? '')}</div>
-      ${subline ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">${esc(subline)}</div>` : ''}
+  return `<div class="ms-list-row ms-c--glass w-full flex items-center justify-between gap-3 text-left ${done ? 'opacity-50' : ''}">
+    <div class="min-w-0 flex-1 text-left">
+      <div class="font-bold text-[14px] text-slate-900 dark:text-white truncate text-left ${done ? 'line-through' : ''}">${esc(label ?? '')}</div>
+      ${subline ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 truncate text-left">${esc(subline)}</div>` : ''}
     </div>
     ${go ? `<button type="button" onclick="${go}" class="ms-btn ms-btn--secondary shrink-0 inline-flex items-center justify-center whitespace-nowrap !min-h-0 !py-1.5 !px-3.5 !text-[12px]">${esc(action)}</button>` : ''}
   </div>`;
 }
 // Search-box widget card — click-through to the department's real search/list page.
 function pulseSearchCard({ title, placeholder, onclick, count, tier }) {
-  return pulseCard({ title, count, onclick, tier, inner: `<div class="mt-1 flex items-center gap-2 px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-400 text-[12px] font-semibold">
+  return pulseCard({ title, count, onclick, tier, inner: `<div class="mt-1 flex items-center gap-2 px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-400 text-[12px] font-semibold text-left">
     <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd"/></svg>
     ${esc(placeholder || 'Search')}</div>` });
 }
 // Ranked row for a leaderboard-style widget — initials avatar + name + one stat.
 function pulseLeaderRow({ rank, name, value, sub, valueTone, onclick }) {
   const subline = [sub, value != null ? String(value) : ''].filter(Boolean).join(' · ');
-  return `<div class="ms-c ms-c--compact ms-c--glass w-full flex items-center justify-between gap-3">
-    <div class="min-w-0 flex-1">
-      <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${rank != null ? esc(String(rank)) + '. ' : ''}${esc(name || 'Unknown')}</div>
-      ${subline ? `<div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">${esc(subline)}</div>` : ''}
+  return `<div class="ms-list-row ms-c--glass w-full flex items-center justify-between gap-3 text-left">
+    <div class="min-w-0 flex-1 text-left">
+      <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate text-left">${rank != null ? esc(String(rank)) + '. ' : ''}${esc(name || 'Unknown')}</div>
+      ${subline ? `<div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate text-left">${esc(subline)}</div>` : ''}
     </div>
     ${onclick ? `<button type="button" onclick="${onclick}" class="shrink-0 inline-flex items-center justify-center whitespace-nowrap px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[12px] font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition">View</button>` : ''}
   </div>`;
