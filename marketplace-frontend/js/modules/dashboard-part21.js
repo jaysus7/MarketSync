@@ -593,8 +593,8 @@ function showNoOemPrompt(vehicleId, btn, type = 'window-sticker') {
       </div>
       <h3 class="text-base font-bold text-slate-900 dark:text-white mb-1">No factory ${noun} found</h3>
       <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">${detail}</p>
-      <button data-act="generate" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2.5 rounded-lg transition flex items-center justify-center gap-1.5">
-        ${genLabel} <svg viewBox="0 0 24 24" width="14" height="14" class="inline-block flex-shrink-0" aria-hidden="true"><title>AI Boost feature</title><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg>
+      <button data-act="generate" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold px-4 py-2.5 rounded-lg transition flex items-center justify-center gap-1.5">
+        ${genLabel} <svg viewBox="0 0 24 24" width="14" height="14" class="inline-block flex-shrink-0" aria-hidden="true"><title>AI Boost feature</title><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#93c5fd" fill-opacity="0.5" stroke="#2563eb" stroke-width="1.4" stroke-linejoin="round"/></svg>
       </button>
       <button data-act="cancel" class="mt-2.5 w-full text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 py-1.5 transition">Cancel</button>
     </div>`;
@@ -633,11 +633,11 @@ function showBrochureChoice(btn) {
           <div class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">${oemUrl ? 'View OEM Brochure' : 'Get OEM Brochure'} ${oemUrl ? savedTag : ''}</div>
           <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${oemUrl ? 'Open your saved factory brochure.' : 'Pull the authentic manufacturer sales brochure (available up to 2023).'}</div>
         </button>
-        <button data-choice="generate" class="w-full text-left px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition ${__aiDocsActive ? '' : 'opacity-70'}">
-          <div class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">${genUrl ? 'View Dealer Brochure' : 'Generate Dealer Brochure'} <svg viewBox="0 0 24 24" width="14" height="14" class="inline-block flex-shrink-0" aria-hidden="true"><title>AI Boost feature — included in your plan</title><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg> ${genUrl ? savedTag : (__aiDocsActive ? '' : '<span class="text-[10px] font-bold uppercase bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300 px-1.5 py-0.5 rounded">AI Boost</span>')}</div>
+        <button data-choice="generate" class="w-full text-left px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition ${__aiDocsActive ? '' : 'opacity-70'}">
+          <div class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">${genUrl ? 'View Dealer Brochure' : 'Generate Dealer Brochure'} <svg viewBox="0 0 24 24" width="14" height="14" class="inline-block flex-shrink-0" aria-hidden="true"><title>AI Boost feature — included in your plan</title><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#93c5fd" fill-opacity="0.5" stroke="#2563eb" stroke-width="1.4" stroke-linejoin="round"/></svg> ${genUrl ? savedTag : (__aiDocsActive ? '' : '<span class="text-[10px] font-bold uppercase bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 px-1.5 py-0.5 rounded">AI Boost</span>')}</div>
           <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${genUrl ? 'Open your saved branded brochure, or regenerate.' : 'Build a branded MarketSync brochure.'}${(!genUrl && !__aiDocsActive) ? ' Included with AI Boost.' : ''}</div>
         </button>
-        ${genUrl ? '<button data-choice="regen" class="w-full text-center text-xs font-bold text-indigo-500 hover:text-indigo-400 py-1 transition">↻ Regenerate dealer brochure</button>' : ''}
+        ${genUrl ? '<button data-choice="regen" class="w-full text-center text-xs font-bold text-blue-600 hover:text-blue-500 py-1 transition">↻ Regenerate dealer brochure</button>' : ''}
       </div>
       <button data-choice="cancel" class="mt-4 w-full text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 py-1.5 transition">Cancel</button>
     </div>`;
@@ -825,7 +825,7 @@ function renderInvIntelSidebar(cfg) {
     const trialEnd = cfg?.inv_intel_trial_ends_at;
     const inTrial = trialEnd && new Date(trialEnd) > new Date();
     badge.textContent = inTrial ? 'Trial' : 'Active';
-    badge.className = `text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full ${inTrial ? 'bg-violet-600 text-white' : 'bg-emerald-600 text-white'}`;
+    badge.className = `text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full ${inTrial ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'}`;
     badge.classList.remove('hidden');
     inactive.classList.add('hidden');
     activeEl.classList.remove('hidden');
@@ -1130,7 +1130,7 @@ async function loadVinStickerInventory() {
 
       const stickerBtnCls   = hasSticker ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-emerald-600 hover:bg-emerald-500';
       const stickerBtnLabel = hasSticker ? `&#10003; Sticker` : `Sticker`;
-      const brochureBtnCls  = hasBrochure ? 'bg-indigo-500 hover:bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-500';
+      const brochureBtnCls  = hasBrochure ? 'bg-blue-500 hover:bg-blue-400' : 'bg-blue-600 hover:bg-blue-500';
       const brochureBtnLabel = hasBrochure ? `&#10003; Brochure` : `Brochure`;
 
       const thumbUrl = v.image_urls?.[0] || null;

@@ -22,11 +22,11 @@ function showStickerChoice(btn) {
           <div class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">${oemUrl ? 'View OEM Sticker' : 'Get OEM Sticker'} ${oemUrl ? savedTag : ''}</div>
           <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${oemUrl ? 'Open your saved factory window sticker.' : 'Pull the authentic factory window sticker for this VIN, when available.'}</div>
         </button>
-        <button data-choice="generate" class="w-full text-left px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition ${__aiDocsActive ? '' : 'opacity-70'}">
-          <div class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">${genUrl ? 'View Dealer Sticker' : 'Generate Dealer Sticker'} <svg viewBox="0 0 24 24" width="14" height="14" class="inline-block flex-shrink-0" aria-hidden="true"><title>AI Boost feature — included in your plan</title><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg> ${genUrl ? savedTag : (__aiDocsActive ? '' : '<span class="text-[10px] font-bold uppercase bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300 px-1.5 py-0.5 rounded">AI Boost</span>')}</div>
+        <button data-choice="generate" class="w-full text-left px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition ${__aiDocsActive ? '' : 'opacity-70'}">
+          <div class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">${genUrl ? 'View Dealer Sticker' : 'Generate Dealer Sticker'} <svg viewBox="0 0 24 24" width="14" height="14" class="inline-block flex-shrink-0" aria-hidden="true"><title>AI Boost feature — included in your plan</title><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#93c5fd" fill-opacity="0.5" stroke="#2563eb" stroke-width="1.4" stroke-linejoin="round"/></svg> ${genUrl ? savedTag : (__aiDocsActive ? '' : '<span class="text-[10px] font-bold uppercase bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 px-1.5 py-0.5 rounded">AI Boost</span>')}</div>
           <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${genUrl ? 'Open your saved branded sticker, or regenerate.' : 'Build a branded MarketSync window sticker.'}${(!genUrl && !__aiDocsActive) ? ' Included with AI Boost.' : ''}</div>
         </button>
-        ${genUrl ? '<button data-choice="regen" class="w-full text-center text-xs font-bold text-indigo-500 hover:text-indigo-400 py-1 transition">↻ Regenerate dealer sticker</button>' : ''}
+        ${genUrl ? '<button data-choice="regen" class="w-full text-center text-xs font-bold text-blue-600 hover:text-blue-500 py-1 transition">↻ Regenerate dealer sticker</button>' : ''}
       </div>
       <button data-choice="cancel" class="mt-4 w-full text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 py-1.5 transition">Cancel</button>
     </div>`;
@@ -569,7 +569,7 @@ async function loadCompetitors() {
     // Always clear the spinner and offer a retry — a silent return here is what
     // left "Loading…" hanging forever.
     if (loadingEl) loadingEl.remove();
-    listEl.innerHTML = `<div class="text-xs text-slate-500 dark:text-slate-400">Couldn't load competitors: ${esc(e.message)} <button onclick="loadCompetitors()" class="text-indigo-500 hover:text-indigo-400 font-bold ml-1">Retry</button></div>`;
+    listEl.innerHTML = `<div class="text-xs text-slate-500 dark:text-slate-400">Couldn't load competitors: ${esc(e.message)} <button onclick="loadCompetitors()" class="text-blue-600 hover:text-blue-500 font-bold ml-1">Retry</button></div>`;
     return;
   }
   try {
@@ -584,7 +584,7 @@ async function loadCompetitors() {
       const hasData = sr.listing_count != null || sr.avg_price != null;
       const count = sr.listing_count != null ? `${sr.listing_count} listings` : '—';
       const priceRange = sr.min_price && sr.max_price ? `$${Number(sr.min_price).toLocaleString()} – $${Number(sr.max_price).toLocaleString()}` : '—';
-      const platformBadge = sr.platform ? `<span class="text-[10px] text-indigo-400 font-semibold ml-1">(${sr.platform})</span>` : '';
+      const platformBadge = sr.platform ? `<span class="text-[10px] text-blue-600 dark:text-blue-400 font-semibold ml-1">(${sr.platform})</span>` : '';
       const isBlocked = sr.error && /WAF|bot|block|protect/i.test(sr.error);
       const atQuery = encodeURIComponent(c.name + ' Ontario');
       const atSearchUrl = `https://www.autotrader.ca/dealers/?search=${atQuery}`;
@@ -593,7 +593,7 @@ async function loadCompetitors() {
           ? `<div class="text-xs text-amber-500 mt-1 leading-snug">Couldn't read this site — no public sitemap and the page is bot-protected. For pricing detail, paste their AutoTrader or CarGurus dealer page below.</div>
             <div class="mt-2 flex gap-1.5 competitor-url-edit hidden" id="url-edit-${c.id}">
               <input type="url" placeholder="AutoTrader, CarGurus, or dealer URL…" class="flex-1 text-xs border border-slate-300 dark:border-slate-600 rounded px-2 py-1 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200" id="url-input-${c.id}" value="${c.autotrader_url || ''}">
-              <button class="competitor-url-save-btn text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded font-semibold" data-id="${c.id}">Save</button>
+              <button class="competitor-url-save-btn text-xs bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded font-semibold" data-id="${c.id}">Save</button>
             </div>`
           : `<div class="text-xs text-amber-500 mt-1 leading-snug"> ${sr.error}</div>`
         : '';
@@ -602,11 +602,11 @@ async function loadCompetitors() {
           <div class="min-w-0 flex-1">
             <div class="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">${c.name}</div>
             <div class="text-xs text-slate-400 mt-0.5">${scannedAt}${hasData ? ` · ${count} · ${priceRange}` : ''}${platformBadge}</div>
-            ${c.autotrader_url ? `<a href="${c.autotrader_url}" target="_blank" rel="noopener" class="text-xs text-indigo-500 hover:underline truncate block max-w-xs">${c.autotrader_url}</a>` : '<span class="text-xs text-slate-400">No URL set</span>'}
+            ${c.autotrader_url ? `<a href="${c.autotrader_url}" target="_blank" rel="noopener" class="text-xs text-blue-600 dark:text-blue-400 hover:underline truncate block max-w-xs">${c.autotrader_url}</a>` : '<span class="text-xs text-slate-400">No URL set</span>'}
             ${errorLine}
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
-            ${isBlocked ? `<button class="competitor-url-toggle-btn text-xs text-indigo-500 hover:text-indigo-700 font-semibold" data-id="${c.id}">Update URL</button>` : ''}
+            ${isBlocked ? `<button class="competitor-url-toggle-btn text-xs text-blue-600 hover:text-blue-700 font-semibold" data-id="${c.id}">Update URL</button>` : ''}
             <button class="competitor-delete-btn text-red-400 hover:text-red-600 transition" data-id="${c.id}" title="Remove">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
@@ -904,11 +904,11 @@ function syncDesktopNotifToggle() {
   document.querySelectorAll('#notif-desktop-toggle').forEach(btn => {
     if (state === 'granted') {
       btn.title = 'Desktop alerts are on';
-      btn.classList.add('text-indigo-600', 'dark:text-indigo-400');
+      btn.classList.add('text-blue-600', 'dark:text-blue-400');
       btn.classList.remove('text-slate-400');
     } else {
       btn.title = state === 'denied' ? 'Desktop alerts are blocked in your browser' : 'Turn on desktop alerts';
-      btn.classList.remove('text-indigo-600', 'dark:text-indigo-400');
+      btn.classList.remove('text-blue-600', 'dark:text-blue-400');
       btn.classList.add('text-slate-400');
     }
   });
@@ -1043,25 +1043,25 @@ window.requestDesktopPermission = requestDesktopPermission;
     missing_info: { icon: NI.camera, color: 'text-blue-500' },
     new_arrival:  { icon: NI.car, color: 'text-emerald-500' },
     competitor:   { icon: NI.search, color: 'text-purple-500' },
-    billing:      { icon: NI.card, color: 'text-indigo-500' },
+    billing:      { icon: NI.card, color: 'text-blue-500' },
     weekly_report:{ icon: NI.chart, color: 'text-slate-500' },
     window_sticker:{ icon: NI.window, color: 'text-cyan-500' },
     brochure:     { icon: NI.doc, color: 'text-rose-500' },
     email_sent:   { icon: NI.mail, color: 'text-teal-500' },
-    appointment:  { icon: NI.calendar, color: 'text-indigo-500' },
+    appointment:  { icon: NI.calendar, color: 'text-blue-500' },
     new_lead:     { icon: NI.user, color: 'text-emerald-500' },
-    appraisal:    { icon: NI.clipboard, color: 'text-violet-500' },
+    appraisal:    { icon: NI.clipboard, color: 'text-blue-500' },
     fb_sold:      { icon: NI.car, color: 'text-emerald-500' },
     sold_vehicle: { icon: NI.car, color: 'text-rose-500' },
     pending_sale: { icon: NI.clock, color: 'text-amber-500' },
     extension_disconnected: { icon: NI.alert, color: 'text-rose-500' },
-    video_viewed: { icon: NI.camera, color: 'text-indigo-500' },
+    video_viewed: { icon: NI.camera, color: 'text-blue-500' },
     video_failed: { icon: NI.alert, color: 'text-rose-500' },
-    customer_replied: { icon: NI.mail, color: 'text-indigo-500' },
+    customer_replied: { icon: NI.mail, color: 'text-blue-500' },
     automation_failed: { icon: NI.alert, color: 'text-amber-500' },
     form_lead:    { icon: NI.user, color: 'text-emerald-500' },
     human_requested: { icon: NI.alert, color: 'text-rose-500' },
-    chat_lead:    { icon: NI.user, color: 'text-violet-500' },
+    chat_lead:    { icon: NI.user, color: 'text-blue-500' },
     scheduled_post_failed: { icon: NI.alert, color: 'text-amber-500' },
     indexing_issue: { icon: NI.search, color: 'text-orange-500' },
   }
@@ -1089,13 +1089,13 @@ window.requestDesktopPermission = requestDesktopPermission;
           <div class="flex items-center justify-between">
             <div>
               <h2 class="text-base font-black text-slate-900 dark:text-white">Notifications</h2>
-              <p id="notif-scope-title" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 mt-0.5">${esc(prodLabel)} Feed</p>
+              <p id="notif-scope-title" class="text-xs font-bold text-blue-600 dark:text-blue-400 mt-0.5">${esc(prodLabel)} Feed</p>
             </div>
             <div class="flex items-center gap-2">
-              <button id="notif-desktop-toggle" onclick="requestDesktopPermission()" title="Turn on desktop alerts" class="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition p-1.5 rounded-lg">
+              <button id="notif-desktop-toggle" onclick="requestDesktopPermission()" title="Turn on desktop alerts" class="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition p-1.5 rounded-lg">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
               </button>
-              <button id="notif-read-all" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-bold">Mark read</button>
+              <button id="notif-read-all" class="text-xs text-blue-600 dark:text-blue-400 hover:underline font-bold">Mark read</button>
               <button id="notif-close" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
               </button>
@@ -1105,12 +1105,12 @@ window.requestDesktopPermission = requestDesktopPermission;
           <!-- Scope Switcher & Filter Tabs -->
           <div class="flex items-center justify-between pt-1 gap-2">
             <div class="inline-flex p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-bold">
-              <button id="notif-tab-unread" onclick="window.switchNotifTab('unread')" class="px-2.5 py-1 rounded-md transition ${_notifTab === 'unread' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-slate-500'}">Unread</button>
-              <button id="notif-tab-action" onclick="window.switchNotifTab('needs_action')" class="px-2.5 py-1 rounded-md transition ${_notifTab === 'needs_action' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-slate-500'}">Needs Action</button>
-              <button id="notif-tab-all" onclick="window.switchNotifTab('all')" class="px-2.5 py-1 rounded-md transition ${_notifTab === 'all' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-slate-500'}">All</button>
+              <button id="notif-tab-unread" onclick="window.switchNotifTab('unread')" class="px-2.5 py-1 rounded-md transition ${_notifTab === 'unread' ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-slate-500'}">Unread</button>
+              <button id="notif-tab-action" onclick="window.switchNotifTab('needs_action')" class="px-2.5 py-1 rounded-md transition ${_notifTab === 'needs_action' ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-slate-500'}">Needs Action</button>
+              <button id="notif-tab-all" onclick="window.switchNotifTab('all')" class="px-2.5 py-1 rounded-md transition ${_notifTab === 'all' ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-slate-500'}">All</button>
             </div>
 
-            <button id="notif-scope-toggle" onclick="window.toggleNotifScope()" class="text-[10px] font-bold text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 underline whitespace-nowrap">
+            <button id="notif-scope-toggle" onclick="window.toggleNotifScope()" class="text-[10px] font-bold text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 underline whitespace-nowrap">
               ${_notifScope === 'active' ? 'Show All Products' : 'Active Product Only'}
             </button>
           </div>
@@ -1183,7 +1183,7 @@ window.requestDesktopPermission = requestDesktopPermission;
           <div class="flex items-center justify-between pt-1.5 gap-2">
             <div class="flex items-center gap-2">
               ${actionLabel ? `
-                <button onclick="window.handleNotifAction('${esc(n.id)}', '${esc(n.action_page || n.link_page || '')}', '${esc(n.action_filter || n.link_filter || '')}', '${esc(n.action_url || n.link_url || '')}')" class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow-xs">
+                <button onclick="window.handleNotifAction('${esc(n.id)}', '${esc(n.action_page || n.link_page || '')}', '${esc(n.action_filter || n.link_filter || '')}', '${esc(n.action_url || n.link_url || '')}')" class="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition shadow-xs">
                   ${esc(actionLabel)}
                 </button>
               ` : ''}
@@ -1193,7 +1193,7 @@ window.requestDesktopPermission = requestDesktopPermission;
                 </button>
               ` : ''}
             </div>
-            ${!n.read ? '<span class="w-2 h-2 rounded-full bg-indigo-600 flex-shrink-0"></span>' : ''}
+            ${!n.read ? '<span class="w-2 h-2 rounded-full bg-blue-600 flex-shrink-0"></span>' : ''}
           </div>
         </div>
       `
@@ -1251,7 +1251,7 @@ window.requestDesktopPermission = requestDesktopPermission;
         el.className = 'px-2.5 py-1 rounded-md transition text-slate-500'
       })
       const activeBtn = aside.querySelector(`#notif-tab-${t === 'needs_action' ? 'action' : t}`)
-      if (activeBtn) activeBtn.className = 'px-2.5 py-1 rounded-md transition bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
+      if (activeBtn) activeBtn.className = 'px-2.5 py-1 rounded-md transition bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
     }
     renderList(_notifications)
   }
@@ -1345,7 +1345,7 @@ window.requestDesktopPermission = requestDesktopPermission;
   }
 
   function statCard(label, value, sub, accent) {
-    return `<div class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+    return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
       <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">${label}</div>
       <div class="text-2xl font-black ${accent || 'text-slate-900 dark:text-white'}">${value}</div>
       ${sub ? `<div class="text-xs text-slate-500 mt-0.5">${sub}</div>` : ''}
@@ -1421,7 +1421,7 @@ window.requestDesktopPermission = requestDesktopPermission;
     const dupsEl = document.getElementById('inv-intel-dups')
     if (dupsWrap && dupsEl) {
       if (duplicate_vins.length) {
-        dupsEl.innerHTML = duplicate_vins.map(d => `<div onclick="switchPage('inventory-overview'); setTimeout(() => { engineTab('inventory-overview', 'work'); const i = document.getElementById('catalog-search'); if(i) { i.value = '${d.vin}'; renderCatalog(); } }, 50);" class="bg-white dark:bg-slate-800 rounded-lg px-3 py-2 cursor-pointer hover:ring-2 hover:ring-indigo-500 transition">
+        dupsEl.innerHTML = duplicate_vins.map(d => `<div onclick="switchPage('inventory-overview'); setTimeout(() => { engineTab('inventory-overview', 'work'); const i = document.getElementById('catalog-search'); if(i) { i.value = '${d.vin}'; renderCatalog(); } }, 50);" class="bg-white dark:bg-slate-800 rounded-lg px-3 py-2 cursor-pointer hover:ring-2 hover:ring-blue-500 transition">
           <div class="font-mono text-xs font-bold text-red-700 dark:text-red-400 mb-1">VIN: ${d.vin}</div>
           <div class="flex flex-wrap gap-2">${(Array.isArray(d.units) ? d.units : []).map(u => `<span class="text-xs bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 px-2 py-0.5 rounded">${u.year} ${u.make} ${u.model}${u.stock ? ' · ' + u.stock : ''}</span>`).join('')}</div>
         </div>`).join('')
@@ -1513,7 +1513,7 @@ window.requestDesktopPermission = requestDesktopPermission;
               const flags = Array.isArray(v.photo_flags) ? v.photo_flags : [];
               return `<div class="mb-3 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 p-2.5">
                 <div class="flex justify-between text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                  <span class="flex items-center gap-1"><svg viewBox="0 0 24 24" width="12" height="12" class="inline-block flex-shrink-0" aria-hidden="true"><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg> AI Vision — Photo Quality</span>
+                  <span class="flex items-center gap-1"><svg viewBox="0 0 24 24" width="12" height="12" class="inline-block flex-shrink-0" aria-hidden="true"><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#93c5fd" fill-opacity="0.5" stroke="#2563eb" stroke-width="1.4" stroke-linejoin="round"/></svg> AI Vision — Photo Quality</span>
                   <span>${ps}%</span>
                 </div>
                 <div class="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-1.5 rounded-full ${barColor}" style="width:${ps}%"></div></div>
@@ -1523,7 +1523,7 @@ window.requestDesktopPermission = requestDesktopPermission;
             })()}
             ${v.issues.length ? `<div class="flex flex-wrap gap-1">${issueList}</div>` : '<div class="text-emerald-500 text-xs font-semibold"> No issues</div>'}
             <div class="mt-3 flex justify-end">
-              <button onclick="event.stopPropagation(); editVehicle('${v.id}')" class="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition">
+              <button onclick="event.stopPropagation(); editVehicle('${v.id}')" class="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 4H4a1 1 0 00-1 1v14a1 1 0 001 1h14a1 1 0 001-1v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Open stock card to fix →
               </button>
             </div>
@@ -1535,7 +1535,7 @@ window.requestDesktopPermission = requestDesktopPermission;
           if (bd) { bd.classList.toggle('hidden'); this.querySelector('.hbd-arrow')?.classList.toggle('rotate-90'); }
         ">
           <td class="px-4 py-5">
-            <div class="font-semibold text-sm text-indigo-600 dark:text-indigo-400">${stockNum}</div>
+            <div class="font-semibold text-sm text-blue-600 dark:text-blue-400">${stockNum}</div>
             <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${vehicleLine}</div>
           </td>
           <td class="px-4 py-5 text-center">
@@ -1600,7 +1600,7 @@ window.requestDesktopPermission = requestDesktopPermission;
         body: JSON.stringify(payload),
       })
       if (result.narrative?.length) {
-        narList.innerHTML = result.narrative.map(b => `<li class="flex gap-2 text-sm text-slate-700 dark:text-slate-300"><span class="text-indigo-500 flex-shrink-0 mt-0.5">›</span>${b}</li>`).join('')
+        narList.innerHTML = result.narrative.map(b => `<li class="flex gap-2 text-sm text-slate-700 dark:text-slate-300"><span class="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5">›</span>${b}</li>`).join('')
         narEl.classList.remove('hidden')
       }
     } catch {
@@ -1641,7 +1641,7 @@ function aiDockInline(text) {
       const url = new URL(href);
       if (!['http:', 'https:'].includes(url.protocol)) return label;
       const token = `@@AI_LINK_${links.length}@@`;
-      links.push(`<a href="${esc(url.href)}" target="_blank" rel="noopener" class="underline text-indigo-600 dark:text-indigo-400">${esc(label)}</a>`);
+      links.push(`<a href="${esc(url.href)}" target="_blank" rel="noopener" class="underline text-blue-600 dark:text-blue-400">${esc(label)}</a>`);
       return token;
     } catch { return `${label} (${href})`; }
   });
