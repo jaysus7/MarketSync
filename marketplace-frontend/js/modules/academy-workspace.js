@@ -708,24 +708,5 @@ ENGINES['academy'] = {
   },
 };
 
-function loadAcademyWorkspace() {
-  const root = document.getElementById('academy-root');
-  const url = '/training.html';
-  try { window.open(url, 'ms-academy'); } catch {}
-  if (root) {
-    root.innerHTML = `
-      <div class="min-h-[80vh] flex flex-col bg-white dark:bg-slate-950">
-        <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-800">
-          <div>
-            <div class="text-sm font-black text-slate-900 dark:text-white">MarketSync Academy</div>
-            <div class="text-[11px] text-slate-500">Courses, certifications, and dealership training</div>
-          </div>
-          <a href="${url}" target="ms-academy" rel="noopener" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black">Open in new window</a>
-        </div>
-        <iframe src="${url}" title="MarketSync Academy" class="flex-1 w-full min-h-[75vh] border-0 bg-white"></iframe>
-      </div>`;
-    return;
-  }
-  renderEngine('academy');
-}
+function loadAcademyWorkspace() { renderEngine('academy') }
 window.loadAcademyWorkspace = loadAcademyWorkspace;

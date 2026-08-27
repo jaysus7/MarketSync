@@ -2229,10 +2229,7 @@ function switchPage(pageId) {
     Promise.resolve(window.msLoadScript ? window.msLoadScript('js/modules/video-studio.js?v=20260826_video_fix_v2') : null)
       .then(() => { if (typeof loadVideoStudioPage === 'function') loadVideoStudioPage(); });
   }
-  if (pageId === 'academy') {
-    Promise.resolve(window.msLoadScript ? window.msLoadScript('js/modules/academy-workspace.js?v=20260826_academy_load_v1') : null)
-      .then(() => { if (typeof loadAcademyWorkspace === 'function') loadAcademyWorkspace(); });
-  }
+  if (pageId === 'academy') loadAcademyWorkspace();
   if (pageId === 'launch') loadLaunchHub();
   if (pageId === 'people-overview') loadPeopleWorkspace();
   if (pageId === 'fni') loadFniPage();
