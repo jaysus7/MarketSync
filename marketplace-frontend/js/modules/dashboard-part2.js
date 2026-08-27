@@ -1625,11 +1625,13 @@ const SAAS_DEPARTMENTS = {
   platform:       { label: 'Platform',       icon: 'bolt',     accent: 'indigo', always: true, pages: [
     { page: 'saas-entitlements', label: 'Entitlements' },
     { page: 'saas-flags', label: 'Feature flags' },
+    { page: 'saas-usage', label: 'Usage' },
   ] },
   work:           { label: 'Operations',     icon: 'check',    accent: 'indigo', always: true, pages: [
     { page: 'saas-automation', label: 'Support' },
     { page: 'saas-audit', label: 'Audit log' },
     { page: 'saas-security', label: 'Security' },
+    { page: 'saas-health', label: 'System health' },
     { page: 'config', label: 'Configuration' },
   ] },
 };
@@ -2252,6 +2254,8 @@ function switchPage(pageId) {
   if (pageId === 'saas-flags' && typeof loadHqFlags === 'function') loadHqFlags();
   if (pageId === 'saas-audit' && typeof loadHqAudit === 'function') loadHqAudit();
   if (pageId === 'saas-security' && typeof loadHqSecurity === 'function') loadHqSecurity();
+  if (pageId === 'saas-usage' && typeof loadHqUsage === 'function') loadHqUsage();
+  if (pageId === 'saas-health' && typeof loadHqHealth === 'function') loadHqHealth();
   if (pageId === 'config') loadConfigHub();
   if (pageId === 'api-keys') loadApiKeys();
   if (pageId === 'delivery') loadDeliveryQueue();
