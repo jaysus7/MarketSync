@@ -1,0 +1,11 @@
+{
+  "name": "D-marketing",
+  "w": 1440,
+  "theme": "dark",
+  "wanted": "#/w/marketing/marketing-overview",
+  "file": "/tmp/MS9/docs/evidence/phase2/D-marketing-1440-dark.png",
+  "url": "https://marketsync-staging-site.onrender.com/dashboard.html#/w/marketing/marketing-overview",
+  "hash": "#/w/marketing/marketing-overview",
+  "dark": true,
+  "hasToken": true
+}
