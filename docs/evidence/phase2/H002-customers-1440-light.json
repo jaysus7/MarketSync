@@ -1,0 +1,11 @@
+{
+  "name": "H002-customers",
+  "w": 1440,
+  "theme": "light",
+  "wanted": "#/p/saas-customers",
+  "file": "/tmp/MS9/docs/evidence/phase2/H002-customers-1440-light.png",
+  "url": "https://marketsync-staging-site.onrender.com/dashboard.html#/p/saas-customers",
+  "hash": "#/p/saas-customers",
+  "dark": false,
+  "hasToken": true
+}

@@ -1,0 +1,11 @@
+{
+  "name": "D002-sales",
+  "w": 390,
+  "theme": "dark",
+  "wanted": "#/w/sales/sales",
+  "file": "/tmp/MS9/docs/evidence/phase2/D002-sales-390-dark.png",
+  "url": "https://marketsync-staging-site.onrender.com/dashboard.html#/w/sales/sales",
+  "hash": "#/w/sales/sales",
+  "dark": true,
+  "hasToken": true
+}

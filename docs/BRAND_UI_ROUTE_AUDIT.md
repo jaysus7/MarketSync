@@ -328,3 +328,8 @@ Dealer session via real login (sales@marketsync.link). Pulse 1440 light scored 7
 
 ## Phase 2 routing 2026-08-26
 Hash boot bugs fixed in 1d2ab54 and 67e7c79. Sales workspace visually confirmed. PASS 0. Average 60.8.
+
+
+## Phase 2 matrix 2026-08-27
+
+Evidence folder updated with dealer 1440 light/dark for core workspaces, Pulse/Sales 390, Pulse 768, HQ command. Hashes resolve to the intended workspace. PASS 0. Average 60.8. Phase 3 not started.
