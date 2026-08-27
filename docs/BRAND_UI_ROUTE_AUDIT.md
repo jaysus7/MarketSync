@@ -33,10 +33,11 @@ Subscore columns in the table are written `B/C/L/T/G/Cmp/LD/M/A`.
 | User-facing surfaces discovered | **167** |
 | Public | 54 |
 | Authenticated (DealerOS + HQ + overlays) | 113 |
-| PASS (95+) | **0** |
-| NEEDS WORK | **164** |
+| **Full PASS (95+)** | **3** (`D043`, `H004`, `A001`) |
+| **Visual PASS / integration unverified** | **1** (`D003`) |
+| NEEDS WORK | **160** |
 | BLOCKED | **3** |
-| Average score (excluding BLOCKED) | **60.8** |
+| Average score (excluding BLOCKED) | **61.8** |
 
 ### Lowest-scoring scored surfaces
 
@@ -122,7 +123,7 @@ Subscore columns in the table are written `B/C/L/T/G/Cmp/LD/M/A`.
 | P051 | /group.html | Public orphan | Public | 8/8/5/6/4/5/5/2/3 | **46** | NEEDS WORK | source | Orphan HTML. |
 | P052 | /chat-widget.html | Embed | Public | 10/10/4/6/5/6/6/3/3 | **53** | NEEDS WORK | source | Embeddable widget; must inherit brand tokens, not a third palette. |
 | P053 | /esign.html | Public/auth hybrid | Public | 12/11/6/7/6/6/6/3/3 | **60** | NEEDS WORK | source | eSign receiver surface. |
-| A001 | /login.html | Auth | Auth | 14/12/5/6/6/7/8/4/4 | **66** | NEEDS WORK | source-inspected | Source inspected. Warm White/Graphite tokens present. Logo files are /Logo 2.0.png and /Logo 2.1.png (not canonical assets/brand). Loads Satoshi from Fontshare. Buttons/focus use Tailwind indigo, not tokenized Market Blue. Form radius not on central control spec. Heading says “Log in to DealerOS”. |
+| A001 | /login.html | Auth | Auth | 20/15/10/10/10/10/10/6/6 | **97** | PASS | visual-phase4 | Verified 1440/390 light/dark (`docs/evidence/phase4/A001-login-*.png`). Primary Sign In uses Market Blue `#2563EB` button system. Dark canvas `#121318` with solid `#1A1D24` card (zero liquid glass). Canonical logo `/assets/brand/marketsync-logo-*.png`. 46px touch targets, a11y labels, autocomplete attributes, eye toggle with `#2563EB` hover, passkey biometric authentication button. |
 | A002 | /register.html | Auth | Auth | 13/12/5/6/6/7/7/4/4 | **64** | NEEDS WORK | source | Same auth family as login; expect same logo/font drift. |
 | A003 | /forgot-password.html | Auth | Auth | 13/12/5/6/6/7/7/4/4 | **64** | NEEDS WORK | source | Auth family. |
 | A004 | /reset-password.html | Auth | Auth | 13/12/5/6/6/7/7/4/4 | **64** | NEEDS WORK | source | Auth family. |
@@ -130,7 +131,7 @@ Subscore columns in the table are written `B/C/L/T/G/Cmp/LD/M/A`.
 | D000 | dashboard.html shell (header, dept nav, mobile bar) | DealerOS shell | Auth | 14/9/6/7/9/7/7/3/3 | **65** | NEEDS WORK | source+prior-screens | Shared authenticated chrome. Multiple CSS owners (marketsync-theme, ms-design-system, tailwind-built, dashboard-nav). Workspace accents still amber/emerald/violet/sky. Header gear recently restored. Mobile nav has broken repeatedly in this project. Glass applied unevenly (too much on content cards historically). Not marked PASS — no fresh authenticated screenshot this audit hour. |
 | D001 | #command / My Day Pulse | DealerOS | Auth | 13/9/6/7/8/7/7/3/3 | **63** | NEEDS WORK | source+prior-screens | Authenticated surface. Scored from registry + theme source + prior staging screenshots in this engagement (Pulse/card/header drift, department accent colors still in MS_WORKSPACES). Not PASS — no live authenticated visual this hour. |
 | D002 | #sales Sales Pulse | DealerOS | Auth | 12/8/6/7/8/6/6/3/3 | **59** | NEEDS WORK | source+prior-screens | Authenticated surface. Scored from registry + theme source + prior staging screenshots in this engagement (Pulse/card/header drift, department accent colors still in MS_WORKSPACES). Not PASS — no live authenticated visual this hour. |
-| D003 | #crm Customers | DealerOS | Auth | 20/15/10/10/10/9/10/6/6 | **96** | PASS | visual-phase4 | Verified 1440/390 light/dark (`docs/evidence/phase4/D003-customer-record-*.png`). Customer 360 record opens with complete initials badge, contact info, notes, trade equity valuation box, open tasks, attachments, timeline stream, actions menu, and dark canvas #121318. Solid cards, zero route bounce. |
+| D003 | #crm Customers | DealerOS | Auth | 20/15/10/10/10/9/10/6/6 | **96** | VISUAL PASS | visual-phase4 | Verified 1440/390 light/dark (`docs/evidence/phase4/D003-customer-record-*.png`). Customer 360 record opens with complete initials badge, contact info, notes, trade equity valuation box, open tasks, attachments, timeline stream, actions menu, and dark canvas #121318. Solid cards, zero route bounce. (Note: Integration/live-data unverified). |
 | D004 | #appointments | DealerOS | Auth | 13/9/6/7/8/7/7/3/3 | **63** | NEEDS WORK | source+prior-screens | Authenticated surface. Scored from registry + theme source + prior staging screenshots in this engagement (Pulse/card/header drift, department accent colors still in MS_WORKSPACES). Not PASS — no live authenticated visual this hour. |
 | D005 | #tasks | DealerOS | Auth | 13/9/6/7/8/7/7/3/3 | **63** | NEEDS WORK | source+prior-screens | Authenticated surface. Scored from registry + theme source + prior staging screenshots in this engagement (Pulse/card/header drift, department accent colors still in MS_WORKSPACES). Not PASS — no live authenticated visual this hour. |
 | D006 | #leads | DealerOS | Auth | 13/9/6/7/8/7/7/3/3 | **63** | NEEDS WORK | source+prior-screens | Authenticated surface. Scored from registry + theme source + prior staging screenshots in this engagement (Pulse/card/header drift, department accent colors still in MS_WORKSPACES). Not PASS — no live authenticated visual this hour. |
