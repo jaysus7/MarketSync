@@ -333,3 +333,8 @@ Hash boot bugs fixed in 1d2ab54 and 67e7c79. Sales workspace visually confirmed.
 ## Phase 2 matrix 2026-08-27
 
 Evidence folder updated with dealer 1440 light/dark for core workspaces, Pulse/Sales 390, Pulse 768, HQ command. Hashes resolve to the intended workspace. PASS 0. Average 60.8. Phase 3 not started.
+
+
+## Phase 3 P0 2026-08-27
+
+Shared token lock and chrome glass landed (`72cb559`, `716c1ac`). Captured actions on Sales 1440 light now use Market Blue for Install Extension, Intelligence, and Demo. Chat FAB still violet until v2 CSS caches. PASS 0. Average 60.8. No department-content edits. Phase 4 not started.
