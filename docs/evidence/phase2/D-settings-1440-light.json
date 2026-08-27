@@ -1,0 +1,11 @@
+{
+  "name": "D-settings",
+  "w": 1440,
+  "theme": "light",
+  "wanted": "#/w/settings/config",
+  "file": "/tmp/MS9/docs/evidence/phase2/D-settings-1440-light.png",
+  "url": "https://marketsync-staging-site.onrender.com/dashboard.html#/w/settings/config",
+  "hash": "#/w/settings/config",
+  "dark": false,
+  "hasToken": true
+}

@@ -1,0 +1,11 @@
+{
+  "name": "D-hr",
+  "w": 1440,
+  "theme": "light",
+  "wanted": "#/w/people/people-overview",
+  "file": "/tmp/MS9/docs/evidence/phase2/D-hr-1440-light.png",
+  "url": "https://marketsync-staging-site.onrender.com/dashboard.html#/w/people/people-overview",
+  "hash": "#/w/people/people-overview",
+  "dark": false,
+  "hasToken": true
+}
