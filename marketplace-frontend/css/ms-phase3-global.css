@@ -138,3 +138,32 @@ html.dark body.ms-app-booting,
 html.dark body {
   background-color: #0B1220;
 }
+
+/* Phase 3 close-out — dark canvas, mobile sheet, selected chrome */
+html.dark body,
+.dark body {
+  background-color: #0B1220 !important;
+  color: #F7F8FA;
+}
+html.dark header.ms-chrome-glass {
+  background: rgba(11, 18, 32, 0.78) !important;
+  border-bottom-color: rgba(255,255,255,0.08);
+}
+.ms-more-sheet {
+  background: rgba(255,255,255,0.86) !important;
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  border: 1px solid rgba(15,23,42,0.08);
+}
+.dark .ms-more-sheet {
+  background: rgba(17,24,39,0.90) !important;
+  border-color: rgba(255,255,255,0.08);
+}
+#header-shift-clock-chip,
+#header-demo-switcher-container button {
+  backdrop-filter: blur(12px);
+}
+#dashboard-nav .nav-item[aria-current="page"],
+#dept-nav [aria-current="page"] {
+  box-shadow: inset 3px 0 0 #2563EB;
+}
