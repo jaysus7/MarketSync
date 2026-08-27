@@ -441,12 +441,12 @@ function apprCompsTable(comps, du, money, numFound) {
             ${rows.map(c => {
               const loc = [c.dealer, [c.city, c.region].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
               const clickable = !!c.url;
-              return `<tr class="border-b border-slate-100 dark:border-slate-800/60 ${clickable ? 'cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-950/30' : ''}" ${clickable ? `onclick="window.open('${encodeURI(c.url)}','_blank','noopener')"` : ''}>
-                <td class="py-2 px-2 font-bold text-slate-900 dark:text-white tabular-nums">${money(c.price)}</td>
-                <td class="py-2 px-2 text-right tabular-nums text-slate-600 dark:text-slate-300">${c.miles ? Number(c.miles).toLocaleString() : '—'}</td>
-                <td class="py-2 px-2 text-slate-600 dark:text-slate-300 truncate max-w-[220px]">${esc(loc || '—')}</td>
-                <td class="py-2 px-2 text-slate-500 dark:text-slate-400">${esc(srcLabel(c))}</td>
-                <td class="py-2 px-2 text-right">${clickable ? '<span class="text-indigo-500 font-bold text-xs whitespace-nowrap">View ↗</span>' : ''}</td>
+              return `<tr class="border-b border-slate-100 dark:border-slate-800/60 ${clickable ? 'cursor-pointer hover:bg-blue-50/70 dark:hover:bg-blue-950/30' : ''}" ${clickable ? `onclick="window.open('${encodeURI(c.url)}','_blank','noopener')"` : ''}>
+                <td class="py-2.5 px-2 font-bold text-slate-900 dark:text-white tabular-nums">${money(c.price)}</td>
+                <td class="py-2.5 px-2 text-right tabular-nums text-slate-600 dark:text-slate-300">${c.miles ? Number(c.miles).toLocaleString() : '—'}</td>
+                <td class="py-2.5 px-2 text-slate-600 dark:text-slate-300 truncate max-w-[220px]">${esc(loc || '—')}</td>
+                <td class="py-2.5 px-2 text-slate-500 dark:text-slate-400">${esc(srcLabel(c))}</td>
+                <td class="py-2.5 px-2 text-right">${clickable ? '<span class="text-blue-600 dark:text-blue-400 font-bold text-xs whitespace-nowrap">View ↗</span>' : ''}</td>
               </tr>`;
             }).join('')}
           </tbody>
@@ -512,7 +512,7 @@ function renderAppraisal(d) {
   const money = (n) => n != null ? '$' + Number(n).toLocaleString() : '—';
 
   if (!d.retail || !d.appraisal) {
-    return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+    return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
       <div class="font-bold text-slate-900 dark:text-white">${esc(label)}</div>
       <div class="text-sm text-amber-600 dark:text-amber-400 mt-2">${esc(d.message || 'No market data found for this vehicle.')}</div>
     </div>`;
@@ -522,23 +522,23 @@ function renderAppraisal(d) {
   const hasTradeSpread = ap.trade_value != null && ap.retail_mid != null && ap.trade_value < ap.retail_mid - 1;
   return `
     <div class="space-y-4">
-      <div class="bg-indigo-600 text-white rounded-xl p-5">
+      <div class="bg-blue-600 text-white rounded-2xl p-5 shadow-sm">
         <div class="flex items-start justify-between gap-3">
           <div>
-            <div class="text-xs font-bold uppercase tracking-wider text-indigo-200">Suggested trade / cash offer</div>
+            <div class="text-xs font-bold uppercase tracking-wider text-blue-100">Suggested trade / cash offer</div>
             <div class="flex items-center gap-2 mt-1 flex-wrap">
-              <div class="text-3xl font-black">${money(ap.suggested_offer)} <span class="text-base font-semibold text-indigo-200">${cur}</span></div>
-              ${hasTradeSpread ? `<span class="text-[11px] font-bold bg-white/15 rounded-full px-2 py-0.5">Wholesale ${money(ap.trade_value)}</span>` : ''}
-              ${ap.book_value ? `<span class="text-[11px] font-bold bg-white/15 rounded-full px-2 py-0.5">Book ${money(ap.book_value)}</span>` : ''}
-              ${ap.book_capped ? `<span class="text-[11px] font-bold bg-amber-400/90 text-amber-950 rounded-full px-2 py-0.5">Capped to book</span>` : ''}
+              <div class="text-3xl font-black">${money(ap.suggested_offer)} <span class="text-base font-semibold text-blue-100">${cur}</span></div>
+              ${hasTradeSpread ? `<span class="text-[11px] font-bold bg-white/20 rounded-full px-2.5 py-0.5">Wholesale ${money(ap.trade_value)}</span>` : ''}
+              ${ap.book_value ? `<span class="text-[11px] font-bold bg-white/20 rounded-full px-2.5 py-0.5">Book ${money(ap.book_value)}</span>` : ''}
+              ${ap.book_capped ? `<span class="text-[11px] font-bold bg-amber-400/95 text-amber-950 rounded-full px-2.5 py-0.5">Capped to book</span>` : ''}
             </div>
           </div>
-          <button onclick="generateAppraisalPdf()" class="flex-shrink-0 flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-bold px-3 py-2 rounded-lg transition">
+          <button onclick="generateAppraisalPdf()" class="flex-shrink-0 flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
             PDF
           </button>
         </div>
-        <div class="text-xs text-indigo-100 mt-2">${hasTradeSpread ? 'Wholesale ' + money(ap.trade_value) : 'Retail ' + money(ap.retail_mid)} − recon ${money(ap.recon)} − gross ${money(ap.target_gross)} = ACV / wholesale take-in</div>
+        <div class="text-xs text-blue-100 mt-2">${hasTradeSpread ? 'Wholesale ' + money(ap.trade_value) : 'Retail ' + money(ap.retail_mid)} − recon ${money(ap.recon)} − gross ${money(ap.target_gross)} = ACV / wholesale take-in</div>
       </div>
       ${ap.adjustments ? (() => {
         const adj = ap.adjustments;
@@ -555,14 +555,14 @@ function renderAppraisal(d) {
         if (adj.market_realism_amount) {
           rows.push([`Ask → sold (${adj.market_realism_pct}%)`, signed(adj.market_realism_amount), adj.market_realism_proven ? 'from real sold comps' : 'est. transaction gap', true]);
         }
-        return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+        return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-3 shadow-sm">
           <div class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">How we got to retail value</div>
-          <div class="space-y-1.5">
+          <div class="space-y-2">
             ${rows.map(([lbl, val, sub, neg]) => `<div class="flex items-center justify-between gap-3 text-sm">
               <div class="min-w-0"><span class="text-slate-700 dark:text-slate-200">${esc(lbl)}</span>${sub ? `<span class="text-[11px] text-slate-400 ml-1.5">${esc(sub)}</span>` : ''}</div>
               <div class="font-bold tabular-nums flex-shrink-0 ${neg ? 'text-rose-500' : 'text-slate-900 dark:text-white'}">${val}</div>
             </div>`).join('')}
-            <div class="flex items-center justify-between gap-3 text-sm border-t border-slate-200 dark:border-slate-700 pt-1.5 mt-1.5">
+            <div class="flex items-center justify-between gap-3 text-sm border-t border-slate-200 dark:border-slate-700 pt-2 mt-2">
               <div class="font-bold text-slate-900 dark:text-white">Adjusted retail value${adj.accident_amount ? ' (clean history)' : ''}</div>
               <div class="font-black tabular-nums text-slate-900 dark:text-white">${money(adj.retail_clean != null ? adj.retail_clean : adj.retail_value)}</div>
             </div>
@@ -578,13 +578,13 @@ function renderAppraisal(d) {
               <div class="min-w-0"><span class="text-slate-700 dark:text-slate-200">Retail → wholesale${adj.trade_ratio_pct != null ? ` (${adj.trade_ratio_pct}% of retail)` : ''}</span><span class="text-[11px] text-slate-400 ml-1.5">wholesale spread</span></div>
               <div class="font-bold tabular-nums flex-shrink-0 text-rose-500">−${money(adj.retail_value - adj.trade_value)}</div>
             </div>
-            <div class="flex items-center justify-between gap-3 text-sm border-t border-slate-200 dark:border-slate-700 pt-1.5 mt-1.5">
+            <div class="flex items-center justify-between gap-3 text-sm border-t border-slate-200 dark:border-slate-700 pt-2 mt-2">
               <div class="font-bold text-slate-900 dark:text-white">Wholesale value (ACV) <span class="text-[11px] font-medium text-slate-400">(compare to AutoTrader)</span></div>
-              <div class="font-black tabular-nums text-indigo-600 dark:text-indigo-400">${money(adj.trade_value)}</div>
+              <div class="font-black tabular-nums text-blue-600 dark:text-blue-400">${money(adj.trade_value)}</div>
             </div>` : ''}
             ${adj.recon ? `<div class="flex items-center justify-between gap-3 text-sm"><div class="text-slate-700 dark:text-slate-200">Reconditioning</div><div class="font-bold tabular-nums text-rose-500">−${money(Math.abs(adj.recon))}</div></div>` : ''}
             ${adj.target_gross ? `<div class="flex items-center justify-between gap-3 text-sm"><div class="text-slate-700 dark:text-slate-200">Target gross</div><div class="font-bold tabular-nums text-rose-500">−${money(Math.abs(adj.target_gross))}</div></div>` : ''}
-            <div class="flex items-center justify-between gap-3 text-sm border-t border-slate-200 dark:border-slate-700 pt-1.5 mt-1.5">
+            <div class="flex items-center justify-between gap-3 text-sm border-t border-slate-200 dark:border-slate-700 pt-2 mt-2">
               <div class="font-bold text-slate-900 dark:text-white">Suggested offer</div>
               <div class="font-black tabular-nums text-emerald-600 dark:text-emerald-400">${money(ap.suggested_offer)}</div>
             </div>
@@ -603,17 +603,17 @@ function renderAppraisal(d) {
         if (sig.sold != null) cards.push({ lbl: 'Recently sold', val: sig.sold, sub: `${(d.sold && d.sold.count) || '—'} sold`, hot: true });
         if (sig.model != null) cards.push({ lbl: 'VIN model', val: sig.model, sub: (d.prediction && d.prediction.low && d.prediction.high) ? `${money(d.prediction.low)}–${money(d.prediction.high)}` : 'MarketCheck' });
         if (cards.length < 2) return '';
-        return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+        return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-3 shadow-sm">
           <div class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Retail cross-check — reconciled from ${cards.length} independent reads</div>
-          <div class="grid grid-cols-2 sm:grid-cols-${Math.min(4, cards.length + 1)} gap-2">
-            ${cards.map(c => `<div class="rounded-lg border ${c.hot ? 'border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20' : 'border-slate-200 dark:border-slate-700'} p-2.5">
+          <div class="grid grid-cols-2 sm:grid-cols-${Math.min(4, cards.length + 1)} gap-2.5">
+            ${cards.map(c => `<div class="rounded-xl border ${c.hot ? 'border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20' : 'border-slate-200 dark:border-slate-700'} p-3">
               <div class="text-[10px] font-bold uppercase tracking-wider ${c.hot ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">${esc(c.lbl)}</div>
               <div class="text-lg font-black text-slate-900 dark:text-white tabular-nums">${money(c.val)}</div>
               <div class="text-[10px] text-slate-400">${esc(c.sub)}</div>
             </div>`).join('')}
-            <div class="rounded-lg border-2 border-indigo-300 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/30 p-2.5">
-              <div class="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Retail used</div>
-              <div class="text-lg font-black text-indigo-700 dark:text-indigo-300 tabular-nums">${money(sig.reconciled != null ? sig.reconciled : rt.median)}</div>
+            <div class="rounded-xl border-2 border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-3">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">Retail used</div>
+              <div class="text-lg font-black text-blue-700 dark:text-blue-300 tabular-nums">${money(sig.reconciled != null ? sig.reconciled : rt.median)}</div>
               <div class="text-[10px] text-slate-400">weighted blend</div>
             </div>
           </div>

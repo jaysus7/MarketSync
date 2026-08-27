@@ -810,7 +810,7 @@ function initApprDeal() {
 
   const fWrap = document.getElementById('appr-features');
   if (fWrap && !fWrap.children.length) {
-    fWrap.innerHTML = APPR_FEATURES.map(f => `<label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" value="${esc(f)}" class="accent-indigo-600"> <span>${esc(f)}</span></label>`).join('');
+    fWrap.innerHTML = APPR_FEATURES.map(f => `<label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" value="${esc(f)}" class="accent-blue-600 rounded"> <span>${esc(f)}</span></label>`).join('');
   }
 
   const qWrap = document.getElementById('appr-disclosure-qa');
@@ -829,8 +829,8 @@ function initApprDeal() {
       <div class="flex items-center justify-between gap-3 mb-2">
         <div class="text-sm font-black text-slate-900 dark:text-white">Disclosure <span id="appr-disc-page-label">1 of 2</span></div>
         <div class="flex gap-2">
-          <button type="button" id="appr-disc-prev" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-600 dark:text-slate-300 disabled:opacity-40">Back</button>
-          <button type="button" id="appr-disc-next" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-bold">Next</button>
+          <button type="button" id="appr-disc-prev" class="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 transition">Back</button>
+          <button type="button" id="appr-disc-next" class="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition">Next</button>
         </div>
       </div>
       ${pageHtml(page1, 1)}
@@ -868,7 +868,7 @@ async function loadApprAppraisers() {
     const r = await fetch(`${API}/ai/appraisers`, { headers: { 'Authorization': `Bearer ${token}` } });
     const list = await r.json().catch(() => []);
     if (!Array.isArray(list) || !list.length) { box.innerHTML = '<div class="text-xs text-slate-400 italic col-span-full">No managers to notify.</div>'; return; }
-    box.innerHTML = list.map(m => `<label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="appr-notify accent-indigo-600" value="${esc(m.id)}"> <span>${esc(m.name)}</span></label>`).join('');
+    box.innerHTML = list.map(m => `<label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="appr-notify accent-blue-600 rounded" value="${esc(m.id)}"> <span>${esc(m.name)}</span></label>`).join('');
   } catch { box.innerHTML = '<div class="text-xs text-rose-500 col-span-full">Could not load managers.</div>'; }
 }
 
@@ -1264,8 +1264,8 @@ async function loadAppraisalRecord(id) {
           acquireCtrl = `<span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold px-2.5 py-1">Live on website</span>`;
         }
       }
-      resEl.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-900 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
-        <div><div class="text-xs font-bold uppercase tracking-wider text-indigo-500">Loaded saved appraisal</div>
+      resEl.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-900/60 rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap shadow-sm">
+        <div><div class="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">Loaded saved appraisal</div>
         <div class="text-sm font-semibold text-slate-900 dark:text-white mt-0.5">${esc(label)}</div></div>
         ${row.appraisal ? `<div class="text-right"><div class="text-[10px] uppercase tracking-wider text-slate-400">Suggested offer</div><div class="text-lg font-black text-slate-900 dark:text-white">${money(row.appraisal.suggested_offer)} ${esc(row.currency || '')}</div></div>` : ''}
         ${acquireCtrl ? `<div class="w-full flex justify-end pt-1 border-t border-slate-100 dark:border-slate-800 mt-1">${acquireCtrl}</div>` : ''}
