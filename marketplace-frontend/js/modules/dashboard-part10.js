@@ -991,13 +991,17 @@ function pulseLeaderboardCard(gam, deptKey, { title, metric, onclick, tier, limi
   const dept = gam?.departments?.[deptKey];
   const rows = (dept?.leaderboard || []).slice().sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
   const shown = rows.slice(0, limit || 12);
+  const me = dept?.me || rows[0];
+  const badges = me ? (dept?.repBadges?.[me.rep_id]?.badges || me.badges || []) : [];
+  const visibleBadges = badges.filter(b => Number(b?.level || 0) > 0).slice(0, 4);
+
   const formatPts = (v) => {
     if (v == null || v === '') return null;
     const n = Number(v);
     if (!Number.isFinite(n)) return String(v);
     return `${n.toLocaleString()} pts`;
   };
-  const list = shown.map(r => pulseLeaderRow({
+  const list = shown.slice(3).map(r => pulseLeaderRow({
     rank: r.rank,
     name: r.full_name,
     sub: r.title || '',
@@ -1005,13 +1009,17 @@ function pulseLeaderboardCard(gam, deptKey, { title, metric, onclick, tier, limi
     valueTone: 'text-amber-700 dark:text-amber-400',
     onclick: onclick || null,
   })).join('');
-  const inner = `${pulseLeaderboardPodium(rows)}${list || ''}`;
+  const podiumHtml = pulseLeaderboardPodium(rows);
+  const badgeMarkup = visibleBadges.length ? visibleBadges.map(b => `<span title="${esc(b.description || b.label || '')}" class="inline-flex items-center gap-1 rounded-full border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/70 px-2 py-1 text-[10px] font-black text-slate-700 dark:text-slate-200">${b.icon ? esc(b.icon) : (typeof svgIcon === 'function' ? svgIcon('star', 'w-3 h-3') : '')} ${esc(b.label || 'Badge')}</span>`).join('') : '';
+  const badgesSection = badgeMarkup ? `<div class="mt-3 pt-2.5 border-t border-slate-200/70 dark:border-slate-800/70"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">${esc(me ? `${me.full_name || 'My'} badges` : 'Department badges')}</div><div class="flex flex-wrap gap-1.5">${badgeMarkup}</div></div>` : '';
+
+  const inner = `${podiumHtml}${list ? `<div class="mt-2 pt-2 border-t border-slate-200/70 dark:border-slate-800/70 divide-y divide-slate-100 dark:divide-slate-800">${list}</div>` : ''}${badgesSection}`;
   return pulseCard({
     title: title || (dept?.title ? `${dept.title} leaderboard` : 'Leaderboard'),
     onclick: null,
-    tier: 'hero',
+    tier: tier || 'hero',
     inner,
-    empty: shown.length ? '' : (gam === null ? 'Could not be loaded.' : 'No ranked activity yet.'),
+    empty: rows.length ? '' : (gam === null ? 'Could not be loaded.' : 'No ranked activity yet.'),
   });
 }
 
