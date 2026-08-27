@@ -1,48 +1,48 @@
 # Brand UI visual verification (Phase 2)
 
-Date: 2026-08-26  
-Origin: `https://marketsync-staging-site.onrender.com/`  
-Accounts used: staging QA identities supplied in-chat. Password not stored in this file.  
-API check: `POST https://marketsync-staging-backend.onrender.com/auth/login` returned 200 for `admin@marketsync.link`. No dealership/customer/billing writes.
+Date: 2026-08-26
+Origin: https://marketsync-staging-site.onrender.com/
+Accounts: sales@marketsync.link = dealer switcher; admin@marketsync.link = HQ.
+Auth: normal /login.html via headless Chrome. No production auth change. No clock-in/billing/user writes.
 
-## What rendered
+## Coverage
 
-| Route | Viewport | Theme | Evidence | Score | Status |
+| Surface | 1440 light | 1440 dark | 768 | 390 light | 390 dark |
 |---|---|---|---|---|---|
-| Login | ~1440 | Light | Live screenshot this pass | 78 | NEEDS WORK |
-| Login | ~390 | Light | Live screenshot this pass | 76 | NEEDS WORK |
-| Login | 768 / dark | — | Not captured | — | NEEDS WORK |
-| My Day through HQ | 1440 / 768 / 390 × L/D | — | Browser tool did not execute page JS to persist the session or submit the form. Authenticated shell never appeared. | — | NEEDS WORK |
+| Login | Yes | No | No | Yes | No |
+| Pulse / My Day | Yes | No | No | No | No |
+| Punch-clock modal | Yes | No | No | No | No |
+| Other DealerOS departments | Hash stayed on Pulse | — | — | — | — |
+| HQ | Capture timed out | — | — | — | — |
 
-## Login defects (GLOBAL)
+Evidence:
+- docs/evidence/phase2/sales-pulse-1440-light-clear.png
+- docs/evidence/phase2/sales-myday-1440-light.png
 
-- STATE / GLOBAL: Sign In uses `bg-indigo-600` and reads purple-indigo, not Market Blue `#2563EB`. Recorded only; not fixed this phase.
-- GLOBAL: focus ring `focus:border-indigo-500`.
-- GLOBAL: dark login not verified in this browser (stayed light).
-- Content card is opaque. Correct Liquid Glass (none on the form).
+## Scores (inspected only)
 
-## Authenticated routes
+| Route | Score | Status |
+|---|---|---|
+| Login 1440/390 light | 78 / 76 | NEEDS WORK |
+| Pulse 1440 light | 71 | NEEDS WORK |
+| Punch clock modal | 74 | NEEDS WORK |
+| All other required routes | — | NEEDS WORK |
 
-Not visually opened in this environment after credentials were provided. Do not score them as PASS or as newly inspected.
+PASS 0. Average still 60.8.
 
 ## Classification
 
-- GLOBAL: primary button token on auth.
-- AREA / ROUTE / STATE for DealerOS+HQ: unchecked this pass.
+GLOBAL: indigo/violet Sign In, purple extension CTA, purple chat FAB, indigo Intelligence FAB, Demo chip, flat header/sidebar vs functional glass.
 
-## Not done
+AREA: DealerOS hash routes did not leave Pulse in this session.
 
-Phase 3. Data changes. Production.
+ROUTE: Pulse placeholder subtitle; purple Marketplace banner.
 
+STATE: Punch-clock modal intercepts first load; #/w/{dept} did not activate departments.
 
-## Account map (2026-08-26)
+## Queue (Phase 3 not started)
 
-| Email | Role in this pass | API login |
-|---|---|---|
-| `admin@marketsync.link` | MarketSync HQ | 200 |
-| `sales@marketsync.link` | Dealer switcher (DealerOS departments) | 200 |
-
-Use **admin** for HQ surfaces (Customers, Users, Revenue, Platform, Operations).  
-Use **sales** for My Day, Sales, F&I, Inventory, Service, Parts, Accounting, Cleanup, Marketing, HR, Settings.
-
-Passwords are not stored in-repo. No writes were issued after login tests.
+P0: Market Blue buttons/FABs; glass on header/sidebar/sheet; workspace routing.
+P1: Pulse copy/banner; punch-clock icon tokens.
+P2: department pages after routing works.
+P3: HQ + remaining viewport/theme matrix.

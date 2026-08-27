@@ -319,3 +319,8 @@ Average **60.8**. PASS **0**. Login Sign In button logged as GLOBAL token violat
 
 
 Phase 2 account map: admin = HQ, sales = dealer switcher. Both API-authenticated. Authenticated UI still not captured by the verification browser.
+
+
+## Phase 2 live Pulse — 2026-08-26
+
+Dealer session via real login (sales@marketsync.link). Pulse 1440 light scored 71. Punch-clock modal scored 74. Login already 76-78. PASS 0. Average 60.8. Evidence in docs/evidence/phase2/.
