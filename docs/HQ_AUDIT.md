@@ -61,3 +61,10 @@
 - JWT impersonation (support inspect only)
 - Percentage feature-flag rollout (no backend)
 - n8n / webhook live probes beyond email + supabase health
+
+
+## Full billing
+- GET /owner/billing and /owner/billing/:id (DB + Stripe customer/subs/invoices)
+- POST portal, cancel at period end, reactivate, plan change (proration), Stripe trial
+- All mutations reason + audit + syncSubscriptionFromStripe
+- 503 if Stripe is not configured rather than fake success
