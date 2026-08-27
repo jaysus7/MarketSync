@@ -20,10 +20,10 @@ CREATE TABLE IF NOT EXISTS public.hq_agents (
 -- Seed the four required agent identities
 INSERT INTO public.hq_agents (id, display_name, role, status, permission_scope, is_enabled, metadata)
 VALUES
-  ('chatgpt', 'ChatGPT', 'lead_architect', 'idle', '{"read_context", "read_tasks", "claim_tasks", "update_task_state", "attach_evidence", "handoff_qa", "request_approval"}'::text[], true, '{"provider": "openai", "model": "gpt-4o / o1"}'::jsonb),
-  ('claude', 'Claude', 'senior_developer', 'idle', '{"read_context", "read_tasks", "claim_tasks", "update_task_state", "attach_evidence", "handoff_qa", "request_approval"}'::text[], true, '{"provider": "anthropic", "model": "claude-3-7-sonnet"}'::jsonb),
-  ('gemini', 'Gemini', 'infrastructure_specialist', 'idle', '{"read_context", "read_tasks", "claim_tasks", "update_task_state", "attach_evidence", "handoff_qa", "request_approval"}'::text[], true, '{"provider": "google", "model": "gemini-2.0-flash / pro"}'::jsonb),
-  ('grok', 'Grok', 'qa_reviewer', 'idle', '{"read_context", "read_tasks", "claim_tasks", "update_task_state", "attach_evidence", "handoff_qa", "request_approval"}'::text[], true, '{"provider": "xai", "model": "grok-2"}'::jsonb)
+  ('chatgpt', 'ChatGPT', 'chief_of_staff', 'idle', '{"read_context", "read_tasks", "claim_tasks", "update_task_state", "attach_evidence", "handoff_qa", "request_approval"}'::text[], true, '{"provider": "openai", "model": "gpt-4o / o1"}'::jsonb),
+  ('claude', 'Claude', 'senior_builder', 'idle', '{"read_context", "read_tasks", "claim_tasks", "update_task_state", "attach_evidence", "handoff_qa", "request_approval"}'::text[], true, '{"provider": "anthropic", "model": "claude-3-7-sonnet"}'::jsonb),
+  ('gemini', 'Gemini', 'workspace_specialist', 'idle', '{"read_context", "read_tasks", "claim_tasks", "update_task_state", "attach_evidence", "handoff_qa", "request_approval"}'::text[], true, '{"provider": "google", "model": "gemini-2.0-flash / pro"}'::jsonb),
+  ('grok', 'Grok', 'implementation_engineer', 'idle', '{"read_context", "read_tasks", "claim_tasks", "update_task_state", "attach_evidence", "handoff_qa", "request_approval"}'::text[], true, '{"provider": "xai", "model": "grok-2"}'::jsonb)
 ON CONFLICT (id) DO UPDATE SET
   display_name = EXCLUDED.display_name,
   role = EXCLUDED.role,

@@ -13,7 +13,7 @@ export const CORE_AGENTS = Object.freeze({
   chatgpt: {
     id: 'chatgpt',
     display_name: 'ChatGPT',
-    role: 'lead_architect',
+    role: 'chief_of_staff',
     status: 'idle',
     permission_scope: ['read_context', 'read_tasks', 'claim_tasks', 'update_task_state', 'attach_evidence', 'handoff_qa', 'request_approval'],
     is_enabled: true,
@@ -23,7 +23,7 @@ export const CORE_AGENTS = Object.freeze({
   claude: {
     id: 'claude',
     display_name: 'Claude',
-    role: 'senior_developer',
+    role: 'senior_builder',
     status: 'idle',
     permission_scope: ['read_context', 'read_tasks', 'claim_tasks', 'update_task_state', 'attach_evidence', 'handoff_qa', 'request_approval'],
     is_enabled: true,
@@ -33,7 +33,7 @@ export const CORE_AGENTS = Object.freeze({
   gemini: {
     id: 'gemini',
     display_name: 'Gemini',
-    role: 'infrastructure_specialist',
+    role: 'workspace_specialist',
     status: 'idle',
     permission_scope: ['read_context', 'read_tasks', 'claim_tasks', 'update_task_state', 'attach_evidence', 'handoff_qa', 'request_approval'],
     is_enabled: true,
@@ -43,7 +43,7 @@ export const CORE_AGENTS = Object.freeze({
   grok: {
     id: 'grok',
     display_name: 'Grok',
-    role: 'qa_reviewer',
+    role: 'implementation_engineer',
     status: 'idle',
     permission_scope: ['read_context', 'read_tasks', 'claim_tasks', 'update_task_state', 'attach_evidence', 'handoff_qa', 'request_approval'],
     is_enabled: true,
