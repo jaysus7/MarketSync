@@ -1,0 +1,11 @@
+{
+  "name": "P-inventory",
+  "w": 1440,
+  "theme": "light",
+  "wanted": "#/w/inventory/inventory-overview",
+  "file": "/tmp/MS9/docs/evidence/phase3/P-inventory-1440-light.png",
+  "url": "https://marketsync-staging-site.onrender.com/dashboard.html#/w/inventory/inventory-overview",
+  "hash": "#/w/inventory/inventory-overview",
+  "dark": false,
+  "hasToken": true
+}
