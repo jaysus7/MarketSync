@@ -20,26 +20,34 @@
 const FNI_STAGE_LABEL = {
   working: 'Working', pending: 'Pending approval', approved: 'Approved',
   fni: 'In F&I', contracted: 'Contracted', sold: 'Sold', delivered: 'Delivered',
+  contract_signed: 'Contract Signed', credit_approved: 'Credit Approved',
+  deposit_received: 'Deposit Received', quoted: 'Quoted', draft: 'Draft',
 };
-const fniStage = (x) => FNI_STAGE_LABEL[x?.deal_status] || x?.deal_status || 'Working';
+const fniStage = (x) => FNI_STAGE_LABEL[x?.deal_status] || (x?.deal_status ? String(x.deal_status).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Working');
 
 let __fniWsData = null;
 let __fniDeliveries = null;   // lazy — not part of the landing payload
 let __fniProducts = null;     // lazy
 let __fniDecisions = {};      // dealId -> lender decisions (lazy, per deal)
 
-const fniCustomer = (x) => x.customer_name || x.contact_name || 'Customer';
-const fniVehicle = (x) => x.vehicle_label || [x.year, x.make, x.model].filter(Boolean).join(' ') || '';
+const fniCustomer = (x) => x?.customer || x?.customer_name || x?.contact_name || x?.name || 'Customer';
+const fniVehicle = (x) => x?.vehicle || x?.vehicle_label || [x?.year, x?.make, x?.model].filter(Boolean).join(' ') || (x?.stocknumber ? `#${x.stocknumber}` : '');
 
 // Next action, derived from the deal's own status — no second workflow engine.
 function fniNextAction(x) {
-  switch (x.deal_status) {
-    case 'pending': return { label: 'Manager review', reason: 'Waiting on approval', tone: 'rose', onclick: x.contact_id ? `openDeskForContact('${x.contact_id}')` : `switchPage('fni')` };
-    case 'approved': return { label: 'Start F&I', reason: 'Approved — begin F&I', tone: 'amber', onclick: x.contact_id ? `openDeskForContact('${x.contact_id}')` : `switchPage('fni')` };
-    case 'fni': return { label: 'Complete contracts', reason: 'In F&I', tone: 'sky', onclick: `switchPage('fni')` };
+  const dealClick = x?.contact_id ? `openDeskForContact('${x.contact_id}','${x.id || ''}')` : (x?.id ? `openDeskForDeal('${x.id}')` : `switchPage('fni')`);
+  switch (x?.deal_status) {
+    case 'pending': return { label: 'Manager review', reason: 'Waiting on approval', tone: 'rose', onclick: dealClick };
+    case 'approved': return { label: 'Start F&I', reason: 'Approved — begin F&I', tone: 'amber', onclick: dealClick };
+    case 'fni': return { label: 'Complete contracts', reason: 'In F&I', tone: 'sky', onclick: dealClick };
     case 'contracted':
     case 'sold': return { label: 'Prepare Delivery', reason: 'Contracted — prepare delivery', tone: 'emerald', onclick: `switchPage('delivery')` };
-    default: return { label: 'Open Deal', reason: 'Working deal', tone: 'slate', onclick: x.contact_id ? `openDeskForContact('${x.contact_id}')` : `switchPage('fni')` };
+    case 'contract_signed': return { label: 'Contract Signed', reason: 'Ready for funding/delivery', tone: 'emerald', onclick: dealClick };
+    case 'credit_approved': return { label: 'Credit Approved', reason: 'Structure F&I package', tone: 'amber', onclick: dealClick };
+    case 'deposit_received': return { label: 'Deposit Received', reason: 'Finalize contracts', tone: 'sky', onclick: dealClick };
+    case 'quoted': return { label: 'Quote Sent', reason: 'Follow up quote', tone: 'slate', onclick: dealClick };
+    case 'draft': return { label: 'Draft Deal', reason: 'Resume drafting', tone: 'slate', onclick: dealClick };
+    default: return { label: 'Open Deal', reason: 'Working deal', tone: 'slate', onclick: dealClick };
   }
 }
 
@@ -51,13 +59,14 @@ function fniAttention(d) {
     else if (x.deal_status === 'approved') { sev = 1; why = 'Approved — waiting on F&I'; }
     else if (x.deal_status === 'fni' && !(x.fni_products || []).length) { sev = 2; why = 'In F&I — no products presented'; }
     else if (['contracted', 'sold'].includes(x.deal_status) && !x.delivery_date) { sev = 2; why = 'Contracted — delivery not scheduled'; }
+    else if (['contract_signed', 'credit_approved', 'deposit_received'].includes(x.deal_status)) { sev = 1; why = `${fniStage(x)} — pending completion`; }
     if (sev == null) continue;
-    items.push({ sev, id: x.id, who: fniCustomer(x), why, age: '',
+    items.push({ sev, id: x.id, contact_id: x.contact_id, who: fniCustomer(x), why, age: '',
                  sub: fniVehicle(x) || (x.deal_number ? `#${x.deal_number}` : ''), action: fniNextAction(x) });
   }
   // Delivery blockers come from the delivery queue, which owns that state.
   for (const b of d.blocked || []) {
-    items.push({ sev: 1, id: b.id, who: b.customer_name || b.contact_name || 'Delivery',
+    items.push({ sev: 1, id: b.id, contact_id: b.contact_id, who: b.customer || b.customer_name || b.contact_name || 'Delivery',
                  why: `Delivery blocked · ${b.blocker}`, age: '', sub: fniVehicle(b),
                  action: { label: 'Prepare Delivery', onclick: `switchPage('delivery')`, tone: 'rose' } });
   }
@@ -67,11 +76,32 @@ function fniAttention(d) {
   return out.slice(0, 25);
 }
 
+// Reuses salesAttentionRow pattern for F&I domain
+function fniAttentionRow(it) {
+  const onclick = it.action?.onclick || (it.contact_id ? `openDeskForContact('${it.contact_id}','${it.id || ''}')` : (it.id ? `openDeskForDeal('${it.id}')` : `switchPage('fni')`));
+  const sub = [it.why, it.sub, it.age].filter(Boolean).join(' · ');
+  if (typeof pulseRow === 'function') {
+    return pulseRow({ label: it.who || 'Deal', sub, onclick, actionLabel: it.action?.label || 'View' });
+  }
+  return `<div class="ms-list-row w-full flex items-center justify-between gap-3 text-left">
+    <div ${onclick ? `onclick="${onclick}" class="min-w-0 flex-1 text-left cursor-pointer"` : `class="min-w-0 flex-1 text-left"`}>
+      <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate text-left">${esc(it.who || 'Deal')}</div>
+      <div class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 text-left">${esc(sub)}</div>
+    </div>
+    ${onclick ? `<button type="button" onclick="${onclick}" class="ms-btn ms-btn--secondary shrink-0 inline-flex items-center justify-center whitespace-nowrap !min-h-0 !py-1.5 !px-3.5 !text-[12px]">${esc(it.action?.label || 'View')}</button>` : ''}
+  </div>`;
+}
+window.fniAttentionRow = fniAttentionRow;
+
 function fniRow(x) {
   const na = fniNextAction(x);
+  const dealClick = x.contact_id ? `openDeskForContact('${x.contact_id}','${x.id || ''}')` : (x.id ? `openDeskForDeal('${x.id}')` : `switchPage('fni')`);
   return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-    <button onclick="${x.contact_id ? `crmOpenForm('${x.contact_id}')` : `switchPage('fni')`}" class="min-w-0 flex-1 text-left">
-      <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(fniCustomer(x))}</div>
+    <button onclick="${dealClick}" class="min-w-0 flex-1 text-left">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(fniCustomer(x))}</span>
+        ${x.dl_number ? `<span class="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 font-mono">DL #${esc(x.dl_number)}</span>` : ''}
+      </div>
       <div class="text-[12px] text-slate-400 truncate">
         <span class="font-semibold text-slate-500 dark:text-slate-300">${esc(fniStage(x))}</span>
         ${fniVehicle(x) ? ` · ${esc(fniVehicle(x))}` : ''}${x.selling_price ? ` · $${Number(x.selling_price).toLocaleString()}` : ''}
@@ -93,23 +123,23 @@ const FNI_FUNDING_NEXT = {
   exception:  { label: 'Mark Funded',    to: 'funded' },
 };
 
-function fniFundingRow(r) {
-  const sel = r.selected_decision || null;
-  const next = FNI_FUNDING_NEXT[r.funding_state];
-  const aged = (r.days_in_funding ?? 0) >= 14;
+function fniFundingRow(x) {
+  const sel = x.selected_decision || null;
+  const next = FNI_FUNDING_NEXT[x.funding_state];
+  const aged = (x.days_in_funding ?? 0) >= 14;
   return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-    <button onclick="${r.contact_id ? `crmOpenForm('${r.contact_id}')` : ''}" class="min-w-0 flex-1 text-left">
-      <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(r.customer_name || r.deal_number || 'Deal')}</div>
+    <button onclick="${x.contact_id ? `crmOpenForm('${x.contact_id}')` : ''}" class="min-w-0 flex-1 text-left">
+      <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(x.customer_name || x.deal_number || 'Deal')}</div>
       <div class="text-[12px] text-slate-400 truncate">
-        ${esc(salesLabel(r.funding_state))}${sel?.lender_id ? ' · lender selected' : ''}
-        ${r.funding_submitted_at ? ` · submitted ${esc(new Date(r.funding_submitted_at).toLocaleDateString())}` : ''}
-        ${r.days_in_funding != null ? ` · <span class="${aged ? 'text-rose-500 font-bold' : ''}">${r.days_in_funding}d outstanding</span>` : ''}
+        ${esc(salesLabel(x.funding_state))}${sel?.lender_id ? ' · lender selected' : ''}
+        ${x.funding_submitted_at ? ` · submitted ${esc(new Date(x.funding_submitted_at).toLocaleDateString())}` : ''}
+        ${x.days_in_funding != null ? ` · <span class="${aged ? 'text-rose-500 font-bold' : ''}">${x.days_in_funding}d outstanding</span>` : ''}
         ${sel?.conditions ? ` · <span class="text-amber-600 dark:text-amber-400">${esc(sel.conditions)}</span>` : ''}
-        ${r.funded_at ? ` · funded ${esc(new Date(r.funded_at).toLocaleDateString())}` : ''}
+        ${x.funded_at ? ` · funded ${esc(new Date(x.funded_at).toLocaleDateString())}` : ''}
       </div>
     </button>
-    <button onclick="fniOpenLenders('${r.id}')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Lenders</button>
-    ${next ? `<button onclick="fniSetFunding('${r.id}','${next.to}')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">${esc(next.label)}</button>` : ''}
+    <button onclick="fniOpenLenders('${x.id}')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Lenders</button>
+    ${next ? `<button onclick="fniSetFunding('${x.id}','${next.to}')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">${esc(next.label)}</button>` : ''}
   </div>`;
 }
 
@@ -182,9 +212,14 @@ function fniContractsAndFunding(d) {
   const deals = d.deals || [];
   const awaitingContract = deals.filter(x => /sold|delivered/i.test(x.deal_status || '') && !x.contract_signed_at);
   const row = (x, note) => `<div class="flex items-center gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-    <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(fniCustomer(x))}</div>
-    <div class="text-[12px] text-slate-400 truncate">${esc(note)}</div></div>
-    <button onclick="switchPage('fni')" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700">Open deal</button></div>`;
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(fniCustomer(x))}</span>
+        ${x.dl_number ? `<span class="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 font-mono">DL #${esc(x.dl_number)}</span>` : ''}
+      </div>
+      <div class="text-[12px] text-slate-400 truncate">${esc(note)}</div>
+    </div>
+    <button onclick="${x.contact_id ? `openDeskForContact('${x.contact_id}')` : `switchPage('fni')`}" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Open deal</button></div>`;
 
   // Funding is CANONICAL state (Stage 3A) — funding_state, funding_submitted_at,
   // funded_at, days_in_funding and the selected lender decision, all from /fni/funding.
@@ -298,41 +333,39 @@ ENGINES['fni-overview'] = {
           title: 'Needs attention', count: att.length,
           tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '',
           tier: att.length ? 'hero' : 'standard',
-          inner: att.length ? att.slice(0, 8).map(x => {
-            if (typeof fniAttentionRow === 'function') return fniAttentionRow(x);
-            return pulseRow({ badge: '!', label: x.reason || x.kind || 'Item', sub: x.action || '' });
-          }).join('') : '',
+          inner: att.length ? att.slice(0, 8).map(fniAttentionRow).join('') : '',
           empty: 'Nothing needs F&I right now.',
         }),
         pulseCard({
           title: 'Incoming desked (1h)', count: incomingDeals.length,
           tier: incomingDeals.length ? 'feature' : 'standard',
-          onclick: "engineTab('fni-overview','deals')",
+          onclick: "switchPage('fni')",
           inner: (incomingDeals.length ? incomingDeals : deals.slice(0, 5)).slice(0, 6).map(x => pulseRow({
             badge: formatTimeAgo(x.desked_at || x.created_at || x.updated_at),
-            label: (typeof fniCustomer === 'function' ? fniCustomer(x) : (x.customer_name || 'Deal')),
-            sub: [typeof fniStage === 'function' ? fniStage(x) : x.deal_status, typeof fniVehicle === 'function' ? fniVehicle(x) : x.vehicle_label].filter(Boolean).join(' · '),
-            onclick: "engineTab('fni-overview','deals')",
+            label: fniCustomer(x),
+            sub: [fniStage(x), fniVehicle(x)].filter(Boolean).join(' · '),
+            onclick: x.contact_id ? `openDeskForContact('${x.contact_id}','${x.id || ''}')` : (x.id ? `openDeskForDeal('${x.id}')` : `switchPage('fni')`),
           })).join(''),
           empty: 'No recent desked deals.',
         }),
         pulseCard({
           title: 'Pending approval', count: pending,
           tier: pending ? 'feature' : 'standard',
-          onclick: "engineTab('fni-overview','deals')",
+          onclick: "switchPage('fni')",
           inner: deals.filter(x => x.deal_status === 'pending').slice(0, 6).map(x => pulseRow({
-            badge: '…', label: (typeof fniCustomer === 'function' ? fniCustomer(x) : (x.customer_name || 'Deal')),
-            sub: typeof fniVehicle === 'function' ? fniVehicle(x) : (x.vehicle_label || ''),
-            onclick: "engineTab('fni-overview','deals')",
+            badge: '…', label: fniCustomer(x),
+            sub: fniVehicle(x) || '',
+            onclick: x.contact_id ? `openDeskForContact('${x.contact_id}','${x.id || ''}')` : (x.id ? `openDeskForDeal('${x.id}')` : `switchPage('fni')`),
           })).join(''),
           empty: 'No deals awaiting lender decision.',
         }),
         pulseCard({
           title: 'In F&I', count: inFni, tier: 'standard',
-          onclick: "engineTab('fni-overview','deals')",
+          onclick: "switchPage('fni')",
           inner: deals.filter(x => x.deal_status === 'fni').slice(0, 5).map(x => pulseRow({
-            badge: '$', label: (typeof fniCustomer === 'function' ? fniCustomer(x) : (x.customer_name || 'Deal')),
-            sub: typeof fniVehicle === 'function' ? fniVehicle(x) : '',
+            badge: '$', label: fniCustomer(x),
+            sub: fniVehicle(x) || '',
+            onclick: x.contact_id ? `openDeskForContact('${x.contact_id}','${x.id || ''}')` : (x.id ? `openDeskForDeal('${x.id}')` : `switchPage('fni')`),
           })).join(''),
           empty: 'No deals in F&I.',
         }),
@@ -373,6 +406,7 @@ ENGINES['fni-overview'] = {
       ].filter(Boolean);
 
       // Keep one operational Pulse.
+      // In progress deals list: engMountPage(body, 'fni')
       body.innerHTML = `
         ${pulseHeader('F&I Pulse', 'Approvals, credit, products, contracts and delivery readiness')}
         ${pulseBoard(cards)}

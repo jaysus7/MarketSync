@@ -12,7 +12,7 @@ async function loadAdSpendPanel() {
     let right;
     if (!p.configured) right = '<span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">Setup pending</span>';
     else if (p.connected) right = data.can_manage ? `<button onclick="adDisconnect('${p.provider}')" class="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline">Disconnect</button>` : '<span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">Connected</span>';
-    else right = data.can_manage ? `<button onclick="adConnect('${p.provider}')" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition">Connect</button>` : '<span class="text-[10px] text-slate-400">Ask an admin</span>';
+    else right = data.can_manage ? `<button onclick="adConnect('${p.provider}')" class="text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg transition">Connect</button>` : '<span class="text-[10px] text-slate-400">Ask an admin</span>';
     const sub = p.connected ? `${esc(p.account || 'Connected')}${p.last_synced_at ? ' · synced ' + new Date(p.last_synced_at).toLocaleDateString('en-US') : ''}${p.last_error ? ' · <span class="text-rose-500">' + esc(p.last_error.slice(0, 50)) + '</span>' : ''}` : (p.configured ? 'Auto-import monthly spend' : 'Server setup pending');
     return `<div class="flex items-center gap-2.5 py-2 border-b border-slate-100 dark:border-slate-800 last:border-0">
       <div class="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-300 flex items-center justify-center shrink-0">${svgIcon(icon[p.provider] || 'megaphone', 'w-4 h-4')}</div>
@@ -200,7 +200,7 @@ async function loadReportBuilder() {
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>
               Print / PDF
             </button>
-            <button id="rb-export" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition inline-flex items-center gap-1.5">
+            <button id="rb-export" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition inline-flex items-center gap-1.5">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
               Export CSV
             </button>
@@ -231,7 +231,7 @@ async function loadReportBuilder() {
         </div>
         <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
           <details class="relative">
-            <summary class="cursor-pointer text-xs font-bold text-indigo-600 dark:text-indigo-400 select-none">Columns ▾</summary>
+            <summary class="cursor-pointer text-xs font-bold text-blue-600 dark:text-blue-400 select-none">Columns ▾</summary>
             <div id="rb-cols" class="absolute z-20 mt-2 w-72 max-h-72 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl p-3 grid grid-cols-1 gap-1"></div>
           </details>
           <label id="rb-hideblank-wrap" class="text-xs font-semibold text-slate-600 dark:text-slate-300 inline-flex items-center gap-1.5 cursor-pointer">
@@ -310,7 +310,7 @@ function rbRenderTable() {
     cols.map(c => `<th class="py-2 px-3 whitespace-nowrap ${c.blank ? 'text-slate-400' : ''}">${esc(c.label)}</th>`).join('');
   const body = rows.map((r, i) => `<tr class="border-b border-slate-100 dark:border-slate-800/60">
       <td class="py-2 px-3 text-right tabular-nums text-slate-400 sticky left-0 bg-white dark:bg-slate-900">${i + 1}</td>
-      ${dealCol ? `<td class="py-2 px-3"><button onclick="rbOpenDeal('${r.contact_id}')" title="${r.has_deal ? 'Edit deal desk fields' : 'Add deal desk fields'}" class="text-xs font-bold ${r.has_deal ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400'} hover:underline whitespace-nowrap">${r.has_deal ? ' Deal' : '+ Deal'}</button></td>` : ''}
+      ${dealCol ? `<td class="py-2 px-3"><button onclick="rbOpenDeal('${r.contact_id}')" title="${r.has_deal ? 'Edit deal desk fields' : 'Add deal desk fields'}" class="text-xs font-bold ${r.has_deal ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400'} hover:underline whitespace-nowrap">${r.has_deal ? ' Deal' : '+ Deal'}</button></td>` : ''}
       ${cols.map(c => `<td class="py-2 px-3 whitespace-nowrap ${c.blank ? 'text-slate-300 dark:text-slate-600' : 'text-slate-700 dark:text-slate-200'}">${esc(rbFmt(r[c.key], c.type))}</td>`).join('')}
     </tr>`).join('');
   rr.innerHTML = `
@@ -443,7 +443,7 @@ async function rbOpenDeal(contactId) {
       <div class="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">${dealFormFieldsHtml(deal)}</div>
       <div class="flex items-center justify-end gap-2 p-5 border-t border-slate-200 dark:border-slate-800">
         <button onclick="document.getElementById('rb-deal-modal').remove()" class="text-sm font-bold text-slate-600 dark:text-slate-300 px-4 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
-        <button id="dl-save" onclick="rbSaveDeal('${contactId}')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-5 py-2 rounded-lg transition">Save deal</button>
+        <button id="dl-save" onclick="rbSaveDeal('${contactId}')" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold px-5 py-2 rounded-lg transition">Save deal</button>
       </div>
     </div>`;
   document.body.appendChild(m);
@@ -574,7 +574,15 @@ async function loadDeskDeal() {
 
     <div id="desk-form"></div>`;
 
-  if (__deskContactId) { deskPickCustomer(__deskContactId); __deskContactId = null; } else { deskRenderForm(null); }
+  if (typeof __deskDealId !== 'undefined' && __deskDealId || typeof __deskContactId !== 'undefined' && __deskContactId) {
+    const cid = typeof __deskContactId !== 'undefined' ? __deskContactId : null;
+    const did = typeof __deskDealId !== 'undefined' ? __deskDealId : null;
+    __deskContactId = null;
+    if (typeof __deskDealId !== 'undefined') __deskDealId = null;
+    deskPickCustomer(cid, did);
+  } else {
+    deskRenderForm(null);
+  }
 }
 
 async function deskCustomerSearch(q) {
@@ -591,11 +599,11 @@ async function deskCustomerSearch(q) {
           <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(r.name)}</div>
           <div class="text-xs text-slate-500 dark:text-slate-400">${[r.email, r.phone, [r.city, r.province].filter(Boolean).join(', ')].filter(Boolean).map(esc).join(' · ')}</div>
         </div>
-        <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400">Select →</span>
+        <span class="text-xs font-bold text-blue-600 dark:text-blue-400">Select →</span>
       </button>`).join('');
 
     html += `
-      <button type="button" onclick="deskOpenAddCustomerModal('${esc(q)}')" class="w-full text-left px-4 py-3 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 font-bold text-xs transition flex items-center gap-2 border-t border-indigo-100 dark:border-indigo-900">
+      <button type="button" onclick="deskOpenAddCustomerModal('${esc(q)}')" class="w-full text-left px-4 py-3 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold text-xs transition flex items-center gap-2 border-t border-blue-100 dark:border-blue-900">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
         <span>+ Add New Customer ${q ? `"${esc(q)}"` : ''}</span>
       </button>
@@ -604,7 +612,7 @@ async function deskCustomerSearch(q) {
     box.classList.remove('hidden');
   } catch {
     box.innerHTML = `
-      <button type="button" onclick="deskOpenAddCustomerModal('${esc(q)}')" class="w-full text-left px-4 py-3 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 font-bold text-xs transition flex items-center gap-2">
+      <button type="button" onclick="deskOpenAddCustomerModal('${esc(q)}')" class="w-full text-left px-4 py-3 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold text-xs transition flex items-center gap-2">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
         <span>+ Add New Customer</span>
       </button>`;
@@ -628,7 +636,7 @@ window.deskOpenAddCustomerModal = function(initialName = '') {
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
       <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
         <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-          <span class="p-1.5 rounded-lg bg-indigo-100 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400">
+          <span class="p-1.5 rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
           </span>
           Add New Customer
@@ -676,7 +684,7 @@ window.deskOpenAddCustomerModal = function(initialName = '') {
         </div>
         <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
           <button type="button" onclick="document.getElementById('desk-add-customer-modal').remove()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
-          <button type="submit" id="desk-add-cust-btn" class="px-5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition">Save & Select Customer</button>
+          <button type="submit" id="desk-add-cust-btn" class="px-5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white transition">Save & Select Customer</button>
         </div>
       </form>
     </div>
@@ -711,13 +719,26 @@ window.deskSubmitNewCustomer = async function(e) {
   }
 };
 
-async function deskPickCustomer(id) {
+async function deskPickCustomer(id, dealId) {
   document.getElementById('desk-results')?.classList.add('hidden');
   const wrap = document.getElementById('desk-form');
   if (wrap) wrap.innerHTML = '<div class="text-sm text-slate-400 italic p-4">Loading deal…</div>';
   __deskBuyer = null; __deskDeal = {};
-  try { const d = await apiGetJson(`/deals/customer?id=${encodeURIComponent(id)}`, { retries: 1 }); __deskBuyer = d?.contact || null; __deskDeal.__vehicleOfInterest = d?.vehicle || null; } catch {}
-  try { const d = await apiGetJson(`/reports/deal?contact_id=${encodeURIComponent(id)}`, { retries: 1 }); __deskDeal = { ...__deskDeal, ...(d?.deal || {}) }; __deskCustomerNumber = d?.customer_number || __deskDeal.customer_number || null; __deskSalesperson = d?.salesperson || null; } catch {}
+  if (dealId) {
+    try {
+      const d = await apiGetJson(`/reports/deal?deal_id=${encodeURIComponent(dealId)}`, { retries: 1 });
+      __deskDeal = { ...__deskDeal, ...(d?.deal || {}) };
+      __deskCustomerNumber = d?.customer_number || __deskDeal.customer_number || null;
+      __deskSalesperson = d?.salesperson || null;
+      if (__deskDeal.contact_id && !id) id = __deskDeal.contact_id;
+    } catch {}
+  }
+  if (id) {
+    try { const d = await apiGetJson(`/deals/customer?id=${encodeURIComponent(id)}`, { retries: 1 }); __deskBuyer = d?.contact || null; __deskDeal.__vehicleOfInterest = d?.vehicle || null; } catch {}
+    if (!dealId) {
+      try { const d = await apiGetJson(`/reports/deal?contact_id=${encodeURIComponent(id)}`, { retries: 1 }); __deskDeal = { ...__deskDeal, ...(d?.deal || {}) }; __deskCustomerNumber = d?.customer_number || __deskDeal.customer_number || null; __deskSalesperson = d?.salesperson || null; } catch {}
+    }
+  }
   const s = document.getElementById('desk-search');
   if (s && __deskBuyer) s.value = __deskBuyer.full_name || [__deskBuyer.first_name, __deskBuyer.last_name].filter(Boolean).join(' ') || '';
   const deal = __deskDeal;
@@ -769,17 +790,20 @@ function deskRenderForm(contactId) {
   const customerHeaderHtml = b ? `
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 mb-5 shadow-sm flex items-center justify-between gap-4 flex-wrap">
       <div class="flex items-center gap-3.5">
-        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-black text-lg flex items-center justify-center uppercase shadow-md">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 text-white font-black text-lg flex items-center justify-center uppercase shadow-md">
           ${esc((buyerName[0] || 'C'))}
         </div>
         <div>
-          <div class="text-lg font-black text-slate-900 dark:text-white">${esc(buyerName)}</div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-lg font-black text-slate-900 dark:text-white">${esc(buyerName)}</span>
+            ${b.dl_number ? `<span class="text-xs font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 font-mono">DL #${esc(b.dl_number)}${b.dl_expiry ? ' (exp ' + esc(b.dl_expiry) + ')' : ''}</span>` : `<button type="button" onclick="crmScanLicense()" class="text-xs font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/60 transition inline-flex items-center gap-1">Scan DL →</button>`}
+          </div>
           <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${[b.email, b.phone || b.phone_mobile, [b.city, b.province].filter(Boolean).join(', ')].filter(Boolean).map(esc).join(' · ') || 'No contact details on file'}</div>
         </div>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
         ${__deskCustomerNumber ? `<span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 font-mono">Customer #${__deskCustomerNumber}</span>` : ''}
-        ${(__deskDeal.deal_number) ? `<span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 font-mono">Deal #${__deskDeal.deal_number}</span>` : ''}
+        ${(__deskDeal.deal_number) ? `<span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 font-mono">Deal #${__deskDeal.deal_number}</span>` : ''}
         <span class="text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${onFile ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}">${onFile ? 'On file' : 'New deal'}</span>
         <button type="button" onclick="__deskBuyer = null; deskRenderForm(null);" class="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Change Customer</button>
       </div>
@@ -797,7 +821,7 @@ function deskRenderForm(contactId) {
         </button>
       </div>
       <div class="relative">
-        <input id="desk-search" type="text" autocomplete="off" placeholder="Search customer by name, email or phone number…" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition">
+        <input id="desk-search" type="text" autocomplete="off" placeholder="Search customer by name, email or phone number…" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition">
         <div id="desk-results" class="absolute z-20 left-0 right-0 mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl overflow-hidden hidden max-h-80 overflow-y-auto"></div>
       </div>
     </div>
@@ -814,7 +838,7 @@ function deskRenderForm(contactId) {
     <div class="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-4 items-start">
       <div>
         ${card('Insurance', `<details ${(ins.company || ins.policy || ins.agent || ins.phone || ins.expiry) ? 'open' : ''} class="group">
-            <summary class="cursor-pointer list-none text-sm font-bold text-indigo-600 dark:text-indigo-400 select-none inline-flex items-center gap-1.5"><span class="group-open:hidden">＋ Add insurance details</span><span class="hidden group-open:inline">Insurance details</span></summary>
+            <summary class="cursor-pointer list-none text-sm font-bold text-blue-600 dark:text-blue-400 select-none inline-flex items-center gap-1.5"><span class="group-open:hidden">＋ Add insurance details</span><span class="hidden group-open:inline">Insurance details</span></summary>
             <div class="grid grid-cols-2 gap-3 mt-3">
               ${fld('Company', txt('dk-ins-company', ins.company, ''))}
               ${fld('Policy #', txt('dk-ins-policy', ins.policy, ''))}
@@ -883,17 +907,17 @@ function deskRenderForm(contactId) {
           </div>`)}
 
         ${card('Add-ons', `<div id="desk-addons"></div>
-          <button type="button" onclick="deskAddLine('addon')" class="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add an add-on</button>`, 'Accessories, protection packages, etc. Taxable.')}
+          <button type="button" onclick="deskAddLine('addon')" class="mt-2 text-xs font-bold text-blue-600 dark:text-blue-400">＋ Add an add-on</button>`, 'Accessories, protection packages, etc. Taxable.')}
 
         ${card('F&amp;I products', `<div id="desk-fni"></div>
           <div class="mt-2 flex items-center gap-2 flex-wrap">
             <select id="desk-fni-picker" onchange="deskAddFniFromCatalog(this.value); this.value='';" class="${iCls} text-xs"><option value="">＋ Add from catalog…</option></select>
-            <button type="button" onclick="deskAddLine('fni')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add manually</button>
-            ${['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role) ? `<button type="button" onclick="openFniCatalogManager()" class="ml-auto text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400">Manage catalog &amp; lenders</button>` : ''}
+            <button type="button" onclick="deskAddLine('fni')" class="text-xs font-bold text-blue-600 dark:text-blue-400">＋ Add manually</button>
+            ${['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role) ? `<button type="button" onclick="openFniCatalogManager()" class="ml-auto text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400">Manage catalog &amp; lenders</button>` : ''}
           </div>`, 'Warranty, GAP, appearance protection, etc. Taxable. Financing is arranged through your lender program.')}
 
         ${card('Fees', `<div id="desk-fees"></div>
-          <button type="button" onclick="deskAddLine('fee')" class="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add a fee</button>`, 'Uncheck “taxable” for government passthroughs like licensing.')}
+          <button type="button" onclick="deskAddLine('fee')" class="mt-2 text-xs font-bold text-blue-600 dark:text-blue-400">＋ Add a fee</button>`, 'Uncheck “taxable” for government passthroughs like licensing.')}
 
         <details class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden mb-4">
           <summary class="px-5 py-3 cursor-pointer text-sm font-black text-slate-900 dark:text-white">Internal — F&amp;I tracking &amp; delivery</summary>
@@ -927,10 +951,10 @@ function deskRenderForm(contactId) {
             <button onclick="deskPrint('estimate')" class="liquid-glass-btn-secondary text-sm font-black px-3 py-2.5 rounded-xl">Print estimate</button>
             <button onclick="deskPrint('bill')" class="liquid-glass-btn-secondary text-sm font-black px-3 py-2.5 rounded-xl">Bill of sale</button>
           </div>
-          <button onclick="openCreditApp('${contactId}')" class="w-full inline-flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold px-3 py-2.5 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Credit application</button>
+          <button onclick="openCreditApp('${contactId}')" class="w-full inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold px-3 py-2.5 rounded-xl shadow-sm transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Credit application</button>
           <button onclick="deskEsign('${contactId}','bill')" class="w-full inline-flex items-center justify-center gap-2 liquid-glass-btn text-sm font-black px-3 py-2.5 rounded-xl"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>Send for e-signature</button>
           <button id="desk-deposit-btn" onclick="deskCollectDeposit('${contactId}')" class="w-full inline-flex items-center justify-center gap-2 liquid-glass-btn-secondary text-sm font-black px-3 py-2.5 rounded-xl"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>Collect deposit</button>
-          <button onclick="openEsignStatus('${contactId}')" class="w-full text-center text-xs font-semibold text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition py-1">View signature status →</button>
+          <button onclick="openEsignStatus('${contactId}')" class="w-full text-center text-xs font-semibold text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition py-1">View signature status →</button>
         </div>
       </div>
     </div>`;
@@ -1114,7 +1138,7 @@ function fniMgrRender() {
         <input id="fni-np-cat" placeholder="Category" class="${iCls} w-28">
         <input id="fni-np-cost" type="text" inputmode="decimal" placeholder="Cost" class="${iCls} w-24 text-right">
         <input id="fni-np-retail" type="text" inputmode="decimal" placeholder="Retail" class="${iCls} w-24 text-right">
-        <button onclick="fniMgrAddProduct()" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white">Add</button>
+        <button onclick="fniMgrAddProduct()" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white">Add</button>
       </div>
     </div>
     <div>
@@ -1125,7 +1149,7 @@ function fniMgrRender() {
         <input id="fni-nl-name" placeholder="Lender (e.g. TD Auto Finance)" class="${iCls} flex-1 min-w-[160px]">
         <input id="fni-nl-tier" placeholder="Tier" class="${iCls} w-24">
         <input id="fni-nl-rate" type="number" step="0.01" placeholder="Rate %" class="${iCls} w-24 text-right">
-        <button onclick="fniMgrAddLender()" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white">Add</button>
+        <button onclick="fniMgrAddLender()" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white">Add</button>
       </div>
     </div>`;
 }

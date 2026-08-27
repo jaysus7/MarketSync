@@ -399,12 +399,13 @@ ENGINES['sales'] = {
           tier: (d.deals && d.deals.length) ? 'feature' : 'standard',
           onclick: "engineTab('sales','desk')",
           inner: d.deals == null ? '' : (d.deals || []).slice(0, 6).map(x => {
-            const customer = x.customer_name || x.contact_name;
-            const vehicle = x.vehicle_label || x.vehicle;
+            const customer = x.customer || x.customer_name || x.contact_name;
+            const vehicle = x.vehicle || x.vehicle_label;
+            const dealClick = x.contact_id ? `openDeskForContact('${x.contact_id}','${x.id || ''}')` : (x.id ? `openDeskForDeal('${x.id}')` : `switchPage('desk')`);
             return pulseRow({
               badge: '$', label: customer || vehicle || 'Deal',
-              sub: customer ? [vehicle, x.status].filter(Boolean).join(' · ') : x.status || '',
-              onclick: "switchPage('desk')",
+              sub: customer ? [vehicle, x.status || x.deal_status].filter(Boolean).join(' · ') : (x.status || x.deal_status || ''),
+              onclick: dealClick,
             });
           }).join(''),
           empty: d.deals == null ? 'No permission to view deals.' : 'No deals in progress.',

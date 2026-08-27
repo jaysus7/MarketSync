@@ -1031,6 +1031,11 @@ function applyLeaderboardProductPresentation() {
   document.getElementById('lb-dept-tabs')?.classList.toggle('hidden', facebook || video);
   if (facebook) window.__activeLbDept = 'facebook';
   else if (video) window.__activeLbDept = 'video';
+  const isFb = window.__activeLbDept === 'facebook';
+  const scopeTabs = document.getElementById('lb-scope-tabs');
+  if (scopeTabs) {
+    scopeTabs.classList.toggle('hidden', !isFb);
+  }
   // The 5 middle ranking-table columns are shared markup across every department
   // — Facebook's "Deals/Appr./Listings/FB Sold/Conv." labels are the DEFAULT text,
   // not fixed captions, so a department with different metrics (Video) must
@@ -1136,6 +1141,10 @@ function switchLeaderboardDept(deptKey) {
       ? 'bg-indigo-600 text-white shadow-sm'
       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`;
   });
+  if (window.__activeLbDept !== 'facebook') {
+    const tabTeam = document.getElementById('lb-tab-team');
+    if (tabTeam && typeof setCarouselTab === 'function') setCarouselTab('team');
+  }
   loadLeaderboard();
   loadAchievements();
 }
@@ -1282,7 +1291,62 @@ async function loadAchievements() {
     const deptInfo = d.departments ? d.departments[currentDeptKey] : null;
 
     const myRep = deptInfo ? deptInfo.me : d.me;
-    const myBadges = myRep ? myRep.badges : [];
+    let myBadges = myRep ? (myRep.badges || []) : [];
+
+    if (!myBadges.length) {
+      const defaultDeptBadges = {
+        fni: [
+          { key: 'fni_mastermind', icon: 'gem', label: 'F&I Mastermind', description: 'Average PVR of $1,500, $2,500, or $3,500+.', unit: '$', thresholds: [1500, 2500, 3500] },
+          { key: 'warranty_wizard', icon: 'shield', label: 'Warranty Wizard', description: 'VSC / warranty attach rate 50%, 70%, 85%.', unit: '%', thresholds: [50, 70, 85] },
+          { key: 'protection_pro', icon: 'document', label: 'Protection Pro', description: 'Sell F&I products on 10, 50, 150 deals.', thresholds: [10, 50, 150] },
+          { key: 'gross_titan', icon: 'cash', label: 'F&I Gross Titan', description: 'Generate $15k, $50k, or $150k F&I gross.', unit: '$', thresholds: [15000, 50000, 150000] },
+          { key: 'menu_master', icon: 'trophy', label: 'F&I Producer', description: 'Work 10, 50, or 100 F&I deals.', thresholds: [10, 50, 100] },
+        ],
+        sales: [
+          { key: 'sales_fast_starter', icon: 'rocket', label: 'First 5 Sales', description: 'Sell your first 5 vehicles.', thresholds: [5] },
+          { key: 'sales_month_master', icon: 'trophy', label: 'Monthly 15 Club', description: 'Sell 15 units in 30 days.', thresholds: [15] },
+          { key: 'sales_trade_hunter', icon: 'refresh', label: 'Trade Hunter', description: 'Appraise 10, 30, or 75 trades.', thresholds: [10, 30, 75] },
+          { key: 'sales_gross_champion', icon: 'cash', label: 'Gross Champion', description: 'Generate $25k, $75k, or $150k gross.', unit: '$', thresholds: [25000, 75000, 150000] },
+          { key: 'sales_quick_close', icon: 'bolt', label: 'Fast Lot Turn', description: 'Close inventory in under 14 days.', unit: 'd', thresholds: [14] },
+        ],
+        service: [
+          { key: 'service_ro_closer', icon: 'tool', label: 'RO Finisher', description: 'Close 25, 100, or 300 repair orders.', thresholds: [25, 100, 300] },
+          { key: 'service_tech_efficiency', icon: 'bolt', label: 'Tech Efficiency', description: 'Reach 85%, 100%, 120% efficiency.', unit: '%', thresholds: [85, 100, 120] },
+          { key: 'service_csi_star', icon: 'star', label: 'CSI 5-Star', description: 'Achieve 90%, 95%, 98% satisfaction.', unit: '%', thresholds: [90, 95, 98] },
+          { key: 'service_revenue_titan', icon: 'cash', label: 'Service Rev Titan', description: 'Generate $25k, $75k, $200k service rev.', unit: '$', thresholds: [25000, 75000, 200000] },
+          { key: 'service_turnaround', icon: 'clock', label: 'Fast Turnaround', description: 'Complete same-day service work.', thresholds: [1] },
+        ],
+        facebook: [
+          { key: 'fb_speed_demon', icon: 'bolt', label: 'Speed to Lead', description: 'Reply in under 5 minutes.', unit: 'm', thresholds: [5] },
+          { key: 'fb_post_machine', icon: 'car', label: 'Posting Machine', description: 'Post 10, 50, 200 listings.', thresholds: [10, 50, 200] },
+          { key: 'fb_closer', icon: 'cash', label: 'Marketplace Closer', description: 'Sell 5, 20, 50 marketplace leads.', thresholds: [5, 20, 50] },
+          { key: 'fb_volume_king', icon: 'crown', label: '30-Day Volume King', description: 'Top volume poster on lot.', thresholds: [30] },
+          { key: 'fb_fast_turn', icon: 'clock', label: 'Fast Lot Turn', description: 'Units sold in under 21 days.', unit: 'd', thresholds: [21] },
+        ],
+        video: [
+          { key: 'vid_first_send', icon: 'video', label: 'First Send', description: 'Send your first walkaround video.', thresholds: [1] },
+          { key: 'vid_prolific', icon: 'video', label: 'Prolific Sender', description: 'Send 10, 50, 200 walkaround videos.', thresholds: [10, 50, 200] },
+          { key: 'vid_watched', icon: 'eye', label: 'Getting Watched', description: 'Have 5, 25, 75 videos watched.', thresholds: [5, 25, 75] },
+          { key: 'vid_engagement', icon: 'fire', label: 'High Engagement', description: 'Reach 40%, 65%, 85% watch rate.', unit: '%', thresholds: [40, 65, 85] },
+          { key: 'vid_full_watch', icon: 'star', label: 'Full Attention', description: 'Average 40%, 65%, 90% completion.', unit: '%', thresholds: [40, 65, 90] },
+        ],
+        parts: [
+          { key: 'parts_order_ace', icon: 'box', label: 'Order Ace', description: 'Fulfill 20, 100, 300 parts orders.', thresholds: [20, 100, 300] },
+          { key: 'parts_accuracy', icon: 'target', label: 'Inventory Accuracy', description: 'Maintain 98%+ stock accuracy.', unit: '%', thresholds: [98] },
+          { key: 'parts_turnover', icon: 'bolt', label: 'Fast Turnover', description: 'Rapid movement turnover on parts.', thresholds: [50] },
+          { key: 'parts_counter_pro', icon: 'tool', label: 'Counter Pro', description: 'Serve 50, 200, 500 repair order parts.', thresholds: [50, 200, 500] },
+        ],
+        accounting: [
+          { key: 'acct_ledger_master', icon: 'chart', label: 'Ledger Master', description: 'Post 50, 200, 1000 journal entries.', thresholds: [50, 200, 1000] },
+          { key: 'acct_speed_post', icon: 'bolt', label: 'Fast Posting', description: 'Post vehicle deals within 24h.', thresholds: [24] },
+          { key: 'acct_audit_ready', icon: 'shield', label: 'Audit Ready', description: 'Zero unassigned variances on ledger.', thresholds: [100] },
+          { key: 'acct_cash_flow', icon: 'cash', label: 'Cash Flow Champion', description: 'Collect CIT in under 7 days.', unit: 'd', thresholds: [7] },
+        ],
+      };
+      myBadges = defaultDeptBadges[currentDeptKey] || defaultDeptBadges.sales;
+    }
+
+    const unlockedCount = myBadges.filter(b => Number(b.level || 0) > 0).length;
 
     wrap.innerHTML = `
       <div class="mb-4">
@@ -1290,10 +1354,10 @@ async function loadAchievements() {
           <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">
             ${deptInfo ? deptInfo.title : 'Department'} Badges to be Won
           </div>
-          <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400">${myBadges.filter(b => b.level > 0).length} of ${myBadges.length} unlocked</span>
+          <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400">${unlockedCount} of ${myBadges.length} unlocked</span>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          ${myBadges.length ? myBadges.map(badgeCard).join('') : '<div class="text-xs text-slate-400 italic">No badges for this department yet.</div>'}
+          ${myBadges.map(badgeCard).join('')}
         </div>
       </div>
     `;
@@ -1320,14 +1384,15 @@ function badgeCard(b) {
        </div>
        <div class="text-[10px] text-slate-400 mt-1">${next}${b.unit === '%' ? '%' : ''} for next tier</div>`
     : (next == null
-        ? `<div class="text-[10px] font-bold text-amber-500 mt-2"> Max tier reached</div>`
+        ? `<div class="text-[10px] font-bold text-amber-500 mt-2">Max tier reached</div>`
         : `<div class="text-[10px] text-slate-400 mt-2">Reach ${next}${b.unit === 'h' ? 'h or less' : ''} to unlock</div>`);
+  const iconSvg = typeof getBadgeIconSvg === 'function' ? getBadgeIconSvg(b.icon || b.key || 'star', 'w-6 h-6') : (typeof svgIcon === 'function' ? svgIcon('star', 'w-6 h-6') : '');
   return `
     <div class="rounded-xl border p-3 ${earned
       ? 'bg-white dark:bg-slate-900 border-indigo-200 dark:border-indigo-800'
       : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800'}">
       <div class="flex items-start justify-between gap-2">
-        <div class="text-2xl leading-none ${earned ? '' : 'opacity-30 grayscale'}">${b.icon || ''}</div>
+        <div class="p-1.5 rounded-lg ${earned ? 'bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 opacity-40'}">${iconSvg}</div>
         ${earned ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300">TIER ${roman}</span>`
           : `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-400">LOCKED</span>`}
       </div>

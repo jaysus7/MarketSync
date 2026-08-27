@@ -951,13 +951,105 @@ function svcRenderLoaners(body) {
 
 window.svcLoanerCheckout = function(id) {
   const c = svcEnsureLoaners().find(x => x.id === id); if (!c) return;
-  const km = prompt('Kilometres out', String(c.km)); if (km == null) return;
-  const fuel = prompt('Fuel out (Full / 3/4 / 1/2 / 1/4)', c.fuel || 'Full'); if (fuel == null) return;
-  const who = prompt('Customer name', c.customer || '');
-  c.status = 'out'; c.outKm = Number(String(km).replace(/[^\d.]/g,'')) || c.km; c.outFuel = fuel; c.km = c.outKm; c.fuel = fuel; c.customer = who || c.customer;
-  if (typeof showToast === 'function') showToast(c.stock + ' checked out at ' + c.outKm + ' km', 'success');
+  let modal = document.getElementById('svc-loaner-checkout-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'svc-loaner-checkout-modal';
+    modal.className = 'fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto';
+    document.body.appendChild(modal);
+  }
+
+  const reqs = (window.__svcLoanerRequests || []).filter(r => r.status === 'pending');
+  const recentCustomers = [
+    { name: 'Sarah Connor', phone: '(555) 345-6789', reason: 'Repair Order #RO-1103 · Warranty Work' },
+    { name: 'Jordan Lee', phone: '(555) 456-7890', reason: 'Appraisal & Sales Appointment' },
+    { name: 'Michael Scott', phone: '(555) 678-9012', reason: 'Major 60k Service #RO-1106' },
+    { name: 'Elena Rostova', phone: '(555) 567-8901', reason: 'Brake Service #RO-1105' },
+    ...reqs.map(r => ({ name: r.customer, phone: '', reason: `${r.reason} (${r.when})` }))
+  ];
+
+  modal.innerHTML = `
+    <div class="relative w-full max-w-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto p-5 sm:p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div>
+          <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 font-mono">Loaner Fleet Management</div>
+          <h3 class="text-lg font-black tracking-tight text-slate-900 dark:text-white mt-0.5">Check Out Loaner Vehicle</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400">${esc(c.stock)} · ${esc(c.year)} ${esc(c.make)} ${esc(c.model)} · Plate: ${esc(c.plate)}</p>
+        </div>
+        <button onclick="document.getElementById('svc-loaner-checkout-modal')?.remove()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold" aria-label="Close">X</button>
+      </div>
+
+      <!-- Quick Pick Customer -->
+      <div class="space-y-1.5">
+        <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Select Customer / Active Request</label>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto p-1 bg-slate-50 dark:bg-slate-950/40 rounded-xl border border-slate-200/80 dark:border-slate-800">
+          ${recentCustomers.map(rc => `
+            <button type="button" onclick="document.getElementById('svc-ln-cust').value='${esc(rc.name)}'; document.getElementById('svc-ln-reason').value='${esc(rc.reason)}';" class="text-left p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-400 transition text-xs group cursor-pointer">
+              <div class="font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400">${esc(rc.name)}</div>
+              <div class="text-[10px] text-slate-500 dark:text-slate-400 truncate">${esc(rc.reason)}</div>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- Custom / Selected Customer -->
+      <div class="space-y-1">
+        <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Customer Name &amp; Contact</label>
+        <input id="svc-ln-cust" type="text" value="${esc(c.customer || '')}" placeholder="Customer full name..." class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <div class="space-y-1">
+          <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Kilometres Out</label>
+          <input id="svc-ln-km" type="number" value="${c.km || 0}" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+        </div>
+        <div class="space-y-1">
+          <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Fuel Level Out</label>
+          <select id="svc-ln-fuel" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+            <option value="Full" ${c.fuel === 'Full' || !c.fuel ? 'selected' : ''}>Full Tank (100%)</option>
+            <option value="3/4" ${c.fuel === '3/4' ? 'selected' : ''}>3/4 Tank (75%)</option>
+            <option value="1/2" ${c.fuel === '1/2' ? 'selected' : ''}>1/2 Tank (50%)</option>
+            <option value="1/4" ${c.fuel === '1/4' ? 'selected' : ''}>1/4 Tank (25%)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="space-y-1">
+        <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Reason / Notes</label>
+        <input id="svc-ln-reason" type="text" value="${esc(c.requestedBy ? `Requested by ${c.requestedBy}` : 'Service Repair Order Loaner')}" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <button onclick="document.getElementById('svc-loaner-checkout-modal')?.remove()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
+        <button onclick="svcSubmitLoanerCheckout('${c.id}')" class="px-5 py-2 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition">
+          Confirm Check Out
+        </button>
+      </div>
+    </div>
+  `;
+};
+
+window.svcSubmitLoanerCheckout = function(id) {
+  const c = svcEnsureLoaners().find(x => x.id === id); if (!c) return;
+  const who = document.getElementById('svc-ln-cust')?.value?.trim() || c.customer || 'Customer';
+  const km = Number(document.getElementById('svc-ln-km')?.value) || c.km;
+  const fuel = document.getElementById('svc-ln-fuel')?.value || c.fuel || 'Full';
+  const reason = document.getElementById('svc-ln-reason')?.value || '';
+
+  c.status = 'out';
+  c.outKm = km;
+  c.outFuel = fuel;
+  c.km = km;
+  c.fuel = fuel;
+  c.customer = who;
+  c.reason = reason;
+
+  document.getElementById('svc-loaner-checkout-modal')?.remove();
+  if (typeof showToast === 'function') showToast(`${c.stock} checked out to ${who} at ${c.outKm.toLocaleString()} km`, 'success');
   engineTab('service-overview', 'loaners', true);
 };
+
 window.svcLoanerCheckin = function(id) {
   const c = svcEnsureLoaners().find(x => x.id === id); if (!c) return;
   const km = prompt('Kilometres in', String(c.km)); if (km == null) return;

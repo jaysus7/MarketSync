@@ -1292,7 +1292,7 @@
               <button type="button" id="nav-fni-deals" data-page="fni" title="F&amp;I" class="nav-item nav-sub hidden w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>F&amp;I</button>
               <button type="button" data-page="recon" title="Cleanup" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Cleanup</button>
               <!-- Desk a Deal — button at bottom (managers) -->
-              <button type="button" id="nav-desk" data-page="desk" title="Desk a Deal" class="nav-item hidden w-full flex items-center justify-center gap-2 px-3 py-2 mt-1.5 rounded-lg text-[13px] font-bold !text-white bg-indigo-600 hover:bg-indigo-500 border border-indigo-600 shadow-sm transition"><svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 1v8m0 0v1"/></svg>Desk a Deal</button>
+              <button type="button" id="nav-desk" data-page="desk" title="Desk a Deal" class="nav-item hidden w-full flex items-center justify-center gap-2 px-3 py-2 mt-1.5 rounded-lg text-[13px] font-bold !text-white bg-blue-600 hover:bg-blue-500 border border-blue-600 shadow-sm transition"><svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 1v8m0 0v1"/></svg>Desk a Deal</button>
             </div>
           </div>
 
@@ -2192,19 +2192,29 @@
       </div>
       <!-- ───────── RECONDITIONING PAGE ───────── -->
       <div data-page-content="recon" data-pulse-kind="cleanup" class="page-content hidden space-y-5">
-        <div class="ms-engine-header flex items-center justify-between gap-4 flex-wrap">
+        <div class="ms-engine-header flex items-center justify-between gap-4 flex-wrap bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
           <div class="flex items-center gap-4">
-            <div class="ms-engine-mark w-11 h-11 rounded-xl bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center flex-shrink-0 shadow-xs">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 01-9-9c0-3.6 4.5-9.75 9-11.25C16.5 2.25 21 8.4 21 12a9 9 0 01-9 9z"/></svg>
+            <div class="ms-engine-mark w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 shadow-sm border border-blue-100 dark:border-blue-900/60">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 01-9-9c0-3.6 4.5-9.75 9-11.25C16.5 2.25 21 8.4 21 12a9 9 0 01-9 9z"/></svg>
             </div>
             <div>
-            <h2 class="ms-engine-title text-slate-900 dark:text-white">Cleanup Department</h2>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Get-ready list for cars going out — delivery times, what each car needs, and sign-off. Cars land here automatically when a deal is approved in FNI.</p>
+              <div class="flex items-center gap-2">
+                <h2 class="ms-engine-title text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">Cleanup Department</h2>
+                <span class="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/40">Get-Ready &amp; Recon</span>
+              </div>
+              <p class="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">Get-ready queue for sold &amp; frontline vehicles — delivery schedules, detailing tasks, and quality sign-off.</p>
             </div>
           </div>
-        </div>
-        <div class="ms-engine-tabs flex items-center gap-2 overflow-x-auto" role="tablist" aria-label="Cleanup Department sections">
-          <button type="button" class="ms-engine-tab" role="tab" aria-selected="true"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg><span>Pulse</span></button>
+          <div class="flex items-center gap-2.5">
+            <button type="button" onclick="loadReconPage()" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 transition flex items-center gap-1.5 shadow-xs">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              <span>Refresh</span>
+            </button>
+            <button type="button" onclick="openReconAddPicker()" class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+              <span>+ Add Vehicle</span>
+            </button>
+          </div>
         </div>
         <div id="recon-root" class="w-full">
           <div class="py-16 text-center text-sm text-slate-400 italic">Loading cleanup…</div>
@@ -2212,10 +2222,28 @@
       </div>
       <!-- ───────── FNI DEALS PAGE ───────── -->
       <div data-page-content="fni" class="page-content hidden space-y-5">
-        <div class="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h2 class="text-xl font-black text-slate-900 dark:text-white">Deals</h2>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pending &amp; pushed deals waiting for delivery. Do the credit app &amp; F&amp;I products, hit <b>Approve</b> to send get-ready to cleanup/service, then <b>Delivered</b> to close it out.</p>
+        <div class="flex items-center justify-between gap-4 flex-wrap bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 shadow-sm border border-blue-100 dark:border-blue-900/60">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">F&amp;I Deals</h2>
+                <span class="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/40">Worklist</span>
+              </div>
+              <p class="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">Pending &amp; pushed deals awaiting delivery. Finalize credit apps, F&amp;I products, contracts, and driver's licences.</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2.5">
+            <button type="button" onclick="loadFniPage()" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 transition flex items-center gap-1.5 shadow-xs">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              <span>Refresh</span>
+            </button>
+            <button type="button" onclick="openDeskForContact(null)" class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+              <span>Desk a Deal</span>
+            </button>
           </div>
         </div>
         <div id="fni-root">
@@ -2242,7 +2270,7 @@
               <div id="lb-team-summary" class="text-xs text-slate-500"><span id="lb-team-sold">0</span> sold of <span id="lb-team-total">0</span> posted</div>
             </div>
             <!-- Carousel tab pills -->
-            <div class="inline-flex bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 text-xs font-bold">
+            <div id="lb-scope-tabs" class="inline-flex bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 text-xs font-bold">
               <button type="button" id="lb-tab-team" class="lb-view-tab px-3 py-1.5 rounded bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm transition">My Team</button>
               <button type="button" id="lb-tab-global" class="lb-view-tab px-3 py-1.5 rounded text-slate-500 dark:text-slate-400 transition"> Global</button>
             </div>

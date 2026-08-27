@@ -717,6 +717,7 @@ async function runMarketSnapshot() {
     btn.disabled = false; btn.textContent = 'Get snapshot';
   }
 }
+window.runMarketSnapshot = runMarketSnapshot;
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('msnap-run')?.addEventListener('click', runMarketSnapshot);
   ['msnap-make', 'msnap-model', 'msnap-year', 'msnap-trim'].forEach(id => {

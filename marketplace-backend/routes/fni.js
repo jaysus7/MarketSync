@@ -31,18 +31,24 @@ export function registerFni(app) {
     const invIds = [...new Set((deals || []).map(d => d.inventory_id).filter(Boolean))]
     const repIds = [...new Set((deals || []).map(d => d.created_by).filter(Boolean))]
     const [contacts, inv, reps, dealer] = await Promise.all([
-      contactIds.length ? supabaseAdmin.from('contacts').select('id, full_name, first_name, last_name').in('id', contactIds) : Promise.resolve({ data: [] }),
+      contactIds.length ? supabaseAdmin.from('contacts').select('id, full_name, first_name, last_name, dl_number, dl_expiry').in('id', contactIds) : Promise.resolve({ data: [] }),
       invIds.length ? supabaseAdmin.from('inventory').select('id, year, make, model, trim, stocknumber').in('id', invIds) : Promise.resolve({ data: [] }),
       repIds.length ? supabaseAdmin.from('profiles').select('id, full_name, display_name').in('id', repIds) : Promise.resolve({ data: [] }),
       supabaseAdmin.from('dealerships').select('cleanup_notify_emails').eq('id', req.dealershipId).maybeSingle(),
     ])
-    const cById = Object.fromEntries((contacts.data || []).map(c => [c.id, c.full_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || '—']))
+    const cById = Object.fromEntries((contacts.data || []).map(c => [c.id, {
+      name: c.full_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || '—',
+      dl_number: c.dl_number || null,
+      dl_expiry: c.dl_expiry || null,
+    }]))
     const iById = Object.fromEntries((inv.data || []).map(v => [v.id, { label: [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') || 'Vehicle', stock: v.stocknumber }]))
     const rById = Object.fromEntries((reps.data || []).map(r => [r.id, r.display_name || r.full_name || '—']))
 
     const rows = (deals || []).map(d => ({
       id: d.id, deal_number: d.deal_number || null, deal_status: d.deal_status || null,
-      customer: d.contact_id ? (cById[d.contact_id] || '—') : '—',
+      customer: d.contact_id ? (cById[d.contact_id]?.name || '—') : '—',
+      dl_number: d.contact_id ? (cById[d.contact_id]?.dl_number || null) : null,
+      dl_expiry: d.contact_id ? (cById[d.contact_id]?.dl_expiry || null) : null,
       vehicle: d.inventory_id ? (iById[d.inventory_id]?.label || 'Vehicle') : 'Vehicle',
       stocknumber: d.inventory_id ? (iById[d.inventory_id]?.stock || null) : null,
       salesperson: d.created_by ? (rById[d.created_by] || null) : null,

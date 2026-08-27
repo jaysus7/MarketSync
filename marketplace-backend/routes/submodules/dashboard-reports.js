@@ -449,14 +449,22 @@ export function registerDashboardReportsRoutes(app) {
   app.get('/reports/deal', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const contactId = String(req.query.contact_id || '')
-    if (!contactId) return res.status(400).json({ error: 'contact_id required' })
-    const { data } = await supabaseAdmin.from('deals')
-      .select('*').eq('dealership_id', req.dealershipId).eq('contact_id', contactId).maybeSingle()
+    const dealId = String(req.query.deal_id || req.query.id || '')
+    if (!contactId && !dealId) return res.status(400).json({ error: 'contact_id or deal_id required' })
+    let query = supabaseAdmin.from('deals').select('*').eq('dealership_id', req.dealershipId)
+    if (dealId) query = query.eq('id', dealId)
+    else query = query.eq('contact_id', contactId)
+    const { data } = await query.maybeSingle()
     const { data: dlr } = await supabaseAdmin.from('dealerships')
       .select('cost_tracking_enabled, cost_rep_visible').eq('id', req.dealershipId).maybeSingle()
     if (data && !dlr?.cost_tracking_enabled) delete data.cost
-    const { data: cust } = await supabaseAdmin.from('contacts')
-      .select('customer_number').eq('id', contactId).maybeSingle()
+    const targetContactId = contactId || data?.contact_id
+    let cust = null
+    if (targetContactId) {
+      const { data: c } = await supabaseAdmin.from('contacts')
+        .select('customer_number').eq('id', targetContactId).maybeSingle()
+      cust = c
+    }
     let salesperson = null
     const repId = data?.created_by
     if (repId) {

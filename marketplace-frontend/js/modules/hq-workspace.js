@@ -575,6 +575,13 @@ window.hqBillingTrial = async function(id) {
   try { await apiSendJson('/owner/billing/' + id + '/stripe-trial', 'POST', { days: Number(days), reason }); showToast('Stripe trial updated', 'success'); hqOpenBilling(id); }
   catch (e) { showToast(e.message || 'Trial failed', 'error'); }
 };
+window.hqBillingCoupon = async function(id) {
+  const coupon = prompt('Stripe coupon code') || '';
+  const reason = prompt('Reason') || '';
+  if (!coupon.trim() || !reason.trim()) return;
+  try { await apiSendJson('/owner/billing/' + id + '/coupon', 'POST', { coupon: coupon.trim(), reason }); showToast('Coupon applied', 'success'); hqOpenBilling(id); }
+  catch (e) { showToast(e.message || 'Coupon failed', 'error'); }
+};
 window.hqBillingPlan = async function(id) {
   if (!hqConfirmProd('change plan')) return;
   const plan_id = document.getElementById('hq-plan-id')?.value;

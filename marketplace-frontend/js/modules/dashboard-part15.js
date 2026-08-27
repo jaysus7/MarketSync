@@ -698,7 +698,7 @@ function fniStatusPill(s) {
   const map = {
     working: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
     pending_credit: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
-    sold: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300',
+    sold: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300',
     delivered: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
   };
   const label = { working: 'Working', pending_credit: 'Pending credit', sold: 'Sold', delivered: 'Delivered' }[s] || (s || '—');
@@ -709,14 +709,20 @@ function fniRowHtml(d) {
   const approved = !!d.approved_at;
   const deliv = d.delivery_date ? `${d.delivery_date}${d.delivery_time ? ' ' + d.delivery_time : ''}` : '<span class="text-slate-400">—</span>';
   return `<tr class="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 ${d.contact_id ? 'cursor-pointer' : ''}" ${d.contact_id ? `data-fni-view="${esc(d.contact_id)}"` : ''}>
-    <td class="py-2.5 px-3"><div class="text-sm font-semibold text-indigo-700 dark:text-indigo-300">${esc(d.customer)}</div><div class="text-[11px] text-slate-400">${d.deal_number ? 'Deal #' + esc(String(d.deal_number)) : ''}</div></td>
+    <td class="py-2.5 px-3">
+      <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(d.customer)}</div>
+      <div class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2 flex-wrap">
+        ${d.deal_number ? '<span>Deal #' + esc(String(d.deal_number)) + '</span>' : ''}
+        ${d.dl_number ? `<span class="inline-flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400 font-semibold font-mono">DL #${esc(d.dl_number)}${d.dl_expiry ? ' (exp ' + esc(d.dl_expiry) + ')' : ''}</span>` : `<span class="text-amber-600 dark:text-amber-400 font-medium">No DL attached</span>`}
+      </div>
+    </td>
     <td class="py-2.5 px-3 text-sm text-slate-700 dark:text-slate-200">${esc(d.vehicle)}${d.stocknumber ? ` <span class="text-[11px] text-slate-400">#${esc(d.stocknumber)}</span>` : ''}</td>
     <td class="py-2.5 px-3 text-sm text-slate-600 dark:text-slate-300">${d.salesperson ? esc(d.salesperson) : '<span class="text-slate-400">—</span>'}</td>
     <td class="py-2.5 px-3 whitespace-nowrap">${fniStatusPill(d.deal_status)}${approved ? ' <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400"> Approved</span>' : ''}</td>
     <td class="py-2.5 px-3 text-sm whitespace-nowrap">${deliv}</td>
     <td class="py-2.5 px-3 text-right whitespace-nowrap">
-      ${d.contact_id ? `<button data-fni-view="${esc(d.contact_id)}" class="text-slate-500 hover:text-indigo-500 text-xs font-bold">View deal</button>` : ''}
-      <button data-fni-approve="${d.id}" class="text-indigo-500 hover:text-indigo-400 text-xs font-bold ml-3">${approved ? 'Edit get-ready' : 'Approve'}</button>
+      ${d.contact_id ? `<button data-fni-view="${esc(d.contact_id)}" class="text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 text-xs font-bold">View deal</button>` : ''}
+      <button data-fni-approve="${d.id}" class="text-blue-600 hover:text-blue-500 dark:text-blue-400 text-xs font-bold ml-3">${approved ? 'Edit get-ready' : 'Approve'}</button>
       <button data-fni-delivered="${d.id}" class="text-emerald-600 hover:text-emerald-500 text-xs font-bold ml-3">Delivered</button>
     </td>
   </tr>`;
@@ -749,7 +755,7 @@ function fniSwitchTab(tab) {
 window.fniSwitchTab = fniSwitchTab;
 
 function fniTabsHtml() {
-  const btn = (id, label) => `<button onclick="fniSwitchTab('${id}')" class="px-3 py-1.5 rounded-lg text-sm font-bold transition ${__fniTab === id ? 'bg-indigo-600 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}">${label}</button>`;
+  const btn = (id, label) => `<button onclick="fniSwitchTab('${id}')" class="px-3 py-1.5 rounded-lg text-sm font-bold transition ${__fniTab === id ? 'bg-blue-600 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}">${label}</button>`;
   return `<div class="inline-flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl mb-4">${btn('worklist', 'Worklist')}${btn('esign', 'E-signatures')}${btn('reports', 'Reports')}</div>`;
 }
 
@@ -828,7 +834,7 @@ function renderFniPage() {
       <p class="text-xs text-slate-500 dark:text-slate-400 mb-2">Extra recipients (cleanup + service teams) that get the get-ready email on Approve. Comma or newline separated. Managers &amp; the salesperson are always included.</p>
       <div class="flex gap-2">
         <textarea id="fni-emails" rows="2" class="flex-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white" placeholder="detail@dealer.com, service@dealer.com">${esc(__fniData.cleanup_notify_emails || '')}</textarea>
-        <button onclick="saveFniEmails(this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg self-start">Save</button>
+        <button onclick="saveFniEmails(this)" class="text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg self-start">Save</button>
       </div>
     </div>`;
   document.getElementById('fni-search')?.addEventListener('input', fniRenderRows);
@@ -863,7 +869,7 @@ function openFniApprove(dealId) {
     </div>
     <div class="flex items-center justify-end gap-2 p-5 border-t border-slate-200 dark:border-slate-800">
       <button data-x class="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-200">Cancel</button>
-      <button data-approve class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">Approve &amp; send get-ready</button>
+      <button data-approve class="text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg">Approve &amp; send get-ready</button>
     </div>
   </div>`;
   document.body.appendChild(modal);
@@ -1103,13 +1109,22 @@ function renderReconBoard() {
   const deliveringToday = cards.filter(c => c.delivery_at && new Date(c.delivery_at).toDateString() === today).length;
   const readyCount = cards.filter(reconIsReady).length;
 
-  const tabBtn = (id, label) => `<button data-recon-view="${id}" class="px-2.5 py-1 rounded-md text-xs font-bold ${__reconView === id ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400'}">${label}</button>`;
+  const tabBtn = (id, label) => `<button data-recon-view="${id}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition ${__reconView === id ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}">${label}</button>`;
   const header = `
-    <div class="flex items-center gap-3 text-xs mb-3 flex-wrap">
-      <span class="text-slate-500 dark:text-slate-400">${cards.length} in cleanup</span>
-      <span class="text-amber-600 dark:text-amber-400 font-semibold">${deliveringToday} delivering today</span>
-      <span class="text-emerald-600 dark:text-emerald-400 font-semibold">${readyCount} ready</span>
-      <div class="ml-auto inline-flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">${tabBtn('list', 'List')}${tabBtn('calendar', 'Calendar')}</div>
+    <div class="flex items-center gap-2.5 text-xs mb-3.5 flex-wrap">
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60">
+        <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+        ${cards.length} in cleanup
+      </span>
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${deliveringToday ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/40' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200/60 dark:border-slate-700/60'}">
+        <span class="w-1.5 h-1.5 rounded-full ${deliveringToday ? 'bg-amber-500' : 'bg-slate-400'}"></span>
+        ${deliveringToday} delivering today
+      </span>
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${readyCount ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/40' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200/60 dark:border-slate-700/60'}">
+        <span class="w-1.5 h-1.5 rounded-full ${readyCount ? 'bg-emerald-500' : 'bg-slate-400'}"></span>
+        ${readyCount} ready
+      </span>
+      <div class="ml-auto inline-flex bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700/60">${tabBtn('list', 'List')}${tabBtn('calendar', 'Calendar')}</div>
     </div>`;
 
   const wire = () => {
@@ -1131,38 +1146,38 @@ function renderReconBoard() {
   const reconItem = (c) => {
     const d = reconDelivery(c.delivery_at);
     const done = reconChkDone(c), tot = reconChkTotal(c), ready = reconIsReady(c);
-    const chk = tot ? `${done}/${tot} done` : 'No list';
+    const chk = tot ? `${done}/${tot} done` : 'No checklist';
     const extra = (c.tasks && c.tasks.length) ? ` · +${c.tasks.length} task${c.tasks.length === 1 ? '' : 's'}` : '';
-    return `<div class="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/70 transition flex items-center justify-between gap-3 shadow-xs">
-      <button type="button" onclick="openReconCard('${c.inventory_id}')" class="min-w-0 flex-1 text-left">
-        <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(c.label || 'Vehicle')}</div>
-        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">${c.stocknumber ? '#' + esc(c.stocknumber) + ' · ' : ''}${esc(d.txt)}</div>
-        <div class="text-[11px] ${ready ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-slate-400'} mt-0.5">${esc(chk)}${extra}${c.salesperson_name ? ` · ${esc(c.salesperson_name)}` : ''}</div>
-      </button>
-      <button type="button" onclick="openReconCard('${c.inventory_id}')" class="shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition whitespace-nowrap inline-flex items-center">Stock card</button>
+    return `<div class="ms-list-row w-full flex items-center justify-between gap-3 text-left">
+      <div onclick="openReconCard('${c.inventory_id}')" class="min-w-0 flex-1 text-left cursor-pointer">
+        <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate text-left">${esc(c.label || 'Vehicle')}</div>
+        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate text-left">${c.stocknumber ? '#' + esc(c.stocknumber) + ' · ' : ''}${esc(d.txt)}</div>
+        <div class="text-[11px] ${ready ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-slate-400'} mt-0.5 text-left">${esc(chk)}${extra}${c.salesperson_name ? ` · ${esc(c.salesperson_name)}` : ''}</div>
+      </div>
+      <button type="button" onclick="openReconCard('${c.inventory_id}')" class="ms-btn ms-btn--secondary shrink-0 inline-flex items-center justify-center whitespace-nowrap !min-h-0 !py-1.5 !px-3.5 !text-[12px]">Stock Card</button>
     </div>`;
   };
   const todayList = sorted.filter(c => c.delivery_at && new Date(c.delivery_at).toDateString() === today);
   const readyList = sorted.filter(reconIsReady);
   const progressList = sorted.filter(c => !reconIsReady(c));
-  const card = (colNum, title, count, list, empty, toneCls, borderCls) => `
-    <div class="recon-column flex flex-col h-full rounded-2xl p-4 bg-white/80 dark:bg-slate-900/80 border ${borderCls || 'border-slate-200 dark:border-slate-800'} shadow-sm">
-      <div class="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
+  const card = (title, count, list, empty, dotCls, toneCls) => `
+    <div class="recon-column flex flex-col h-full ms-c ms-c--glass p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm text-left">
+      <div class="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100 dark:border-slate-800 text-left">
         <div class="flex items-center gap-2">
-          <span class="w-5 h-5 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] font-black flex items-center justify-center">${colNum}</span>
+          <span class="w-2.5 h-2.5 rounded-full ${dotCls || 'bg-slate-400'} flex-shrink-0"></span>
           <div class="font-black text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200">${title}</div>
         </div>
-        <span class="px-2.5 py-0.5 rounded-full text-xs font-black ${toneCls || 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}">${count}</span>
+        <span class="px-2.5 py-0.5 rounded-full text-[11px] font-black ${toneCls || 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}">${count}</span>
       </div>
-      <div class="space-y-2 flex-1">
+      <div class="space-y-1.5 flex-1 text-left">
         ${list.length ? list.map(reconItem).join('') : `<div class="py-12 text-center text-xs text-slate-400 dark:text-slate-500 font-medium">${empty}</div>`}
       </div>
     </div>`;
 
   const board = [
-    card(1, 'Delivering today', deliveringToday, todayList, 'Nothing delivering today.', 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300', 'border-amber-200/60 dark:border-amber-800/40'),
-    card(2, 'In cleanup / detail', progressList.length, progressList, 'Every unit is ready.', 'bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300', 'border-sky-200/60 dark:border-sky-800/40'),
-    card(3, 'Ready for delivery', readyCount, readyList, 'No units signed off yet.', 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300', 'border-emerald-200/60 dark:border-emerald-800/40'),
+    card('Delivering today', deliveringToday, todayList, 'Nothing delivering today.', 'bg-amber-500', 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/40'),
+    card('In cleanup / detail', progressList.length, progressList, 'Every unit is ready.', 'bg-blue-500', 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/40'),
+    card('Ready for delivery', readyCount, readyList, 'No units signed off yet.', 'bg-emerald-500', 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/40'),
   ];
   root.innerHTML = header + `<div class="recon-kanban-board">${board.join('')}</div>`;
 
@@ -1330,20 +1345,20 @@ async function openReconCard(inventoryId) {
       ? 'from-emerald-50 to-white dark:from-emerald-950 dark:via-slate-900 dark:to-slate-900 border-emerald-200 dark:border-emerald-500/40 text-emerald-800 dark:text-emerald-300'
       : isBlocked
       ? 'from-rose-50 to-white dark:from-rose-950 dark:via-slate-900 dark:to-slate-900 border-rose-200 dark:border-rose-500/40 text-rose-800 dark:text-rose-300'
-      : 'from-indigo-50 to-white dark:from-indigo-950 dark:via-slate-900 dark:to-slate-900 border-indigo-200 dark:border-indigo-500/40 text-indigo-800 dark:text-indigo-300';
+      : 'from-blue-50 to-white dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 border-blue-200 dark:border-blue-500/40 text-blue-800 dark:text-blue-300';
 
     const readinessBadge = isReady
       ? '<span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/40">Ready for Delivery</span>'
       : isBlocked
       ? `<span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-100 dark:bg-rose-500/20 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-500/40">Blocked · ${esc(blockedReason || 'Attention Required')}</span>`
-      : `<span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-indigo-100 dark:bg-indigo-500/20 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/40">${done} of ${tot || 1} Items Complete</span>`;
+      : `<span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-blue-100 dark:bg-blue-500/20 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-500/40">${done} of ${tot || 1} Items Complete</span>`;
 
     modal.innerHTML = `
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-5xl my-4 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         <!-- Top Modal Title Bar -->
         <div class="flex items-center justify-between gap-4 px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 shrink-0">
           <div class="flex items-center gap-3 min-w-0">
-            <div class="w-10 h-10 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-black text-sm shrink-0">
+            <div class="w-10 h-10 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 font-black text-sm shrink-0">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/></svg>
             </div>
             <div class="min-w-0">
@@ -1379,7 +1394,7 @@ async function openReconCard(inventoryId) {
 
             <!-- Progress Bar -->
             <div class="w-full bg-black/40 rounded-full h-2 overflow-hidden border border-white/10">
-              <div class="h-full transition-all duration-300 ${isReady ? 'bg-emerald-500' : isBlocked ? 'bg-rose-500' : 'bg-indigo-500'}" style="width: ${pct}%"></div>
+              <div class="h-full transition-all duration-300 ${isReady ? 'bg-emerald-500' : isBlocked ? 'bg-rose-500' : 'bg-blue-500'}" style="width: ${pct}%"></div>
             </div>
 
             <!-- Operational Readiness Check Indicators -->
@@ -1422,7 +1437,7 @@ async function openReconCard(inventoryId) {
               <div class="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
                 <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
                   <div class="flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-sky-500"></span>
+                    <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
                     <h4 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Cleanup &amp; Preparation</h4>
                   </div>
                   <div class="text-[11px] font-bold text-slate-400">Primary Workflow</div>
@@ -1432,11 +1447,11 @@ async function openReconCard(inventoryId) {
                 <div class="grid sm:grid-cols-2 gap-3">
                   <div>
                     <label class="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Scheduled Delivery Time</label>
-                    <input data-delivery type="datetime-local" value="${c.delivery_at ? reconToLocalInput(c.delivery_at) : ''}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500">
+                    <input data-delivery type="datetime-local" value="${c.delivery_at ? reconToLocalInput(c.delivery_at) : ''}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500">
                   </div>
                   <div>
                     <label class="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Cleanup Stage Status</label>
-                    <select data-status class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500">
+                    <select data-status class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500">
                       <option value="not_started" ${currentStatus === 'not_started' ? 'selected' : ''}>Not Started</option>
                       <option value="in_progress" ${currentStatus === 'in_progress' ? 'selected' : ''}>In Progress</option>
                       <option value="ready" ${currentStatus === 'ready' ? 'selected' : ''}>Ready for Delivery</option>
@@ -1457,7 +1472,7 @@ async function openReconCard(inventoryId) {
                 <div>
                   <div class="flex items-center justify-between mb-2">
                     <label class="block text-[10px] font-black uppercase tracking-wider text-slate-400">What This Car Needs</label>
-                    <span class="text-[11px] font-black ${isReady ? 'text-emerald-400' : 'text-indigo-400'}">${done}/${tot || 0} Done</span>
+                    <span class="text-[11px] font-black ${isReady ? 'text-emerald-400' : 'text-blue-400'}">${done}/${tot || 0} Done</span>
                   </div>
 
                   <!-- Quick Preset Pills -->
@@ -1465,7 +1480,7 @@ async function openReconCard(inventoryId) {
                     <div class="text-[10px] font-bold text-slate-400 mb-1.5">Quick Add Presets:</div>
                     <div class="flex flex-wrap gap-1.5">
                       ${PRESETS.map(p => `
-                        <button data-preset="${esc(p)}" type="button" class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 transition cursor-pointer">+ ${esc(p)}</button>
+                        <button data-preset="${esc(p)}" type="button" class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 transition cursor-pointer">+ ${esc(p)}</button>
                       `).join('')}
                     </div>
                   </div>
@@ -1476,7 +1491,7 @@ async function openReconCard(inventoryId) {
                   <!-- Custom Item Input -->
                   <div class="flex gap-2">
                     <input data-chk-new type="text" placeholder="Add custom item (e.g. Tint windows, Ceramic coat, PDI)..." class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-900 dark:text-white">
-                    <button data-chk-add class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black transition cursor-pointer shadow-xs">Add Item</button>
+                    <button data-chk-add class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black transition cursor-pointer shadow-xs">Add Item</button>
                   </div>
                 </div>
 
@@ -1543,10 +1558,10 @@ async function openReconCard(inventoryId) {
 
                 <!-- Customer Action Buttons -->
                 <div class="grid grid-cols-4 gap-1.5 pt-1">
-                  <a href="tel:${esc(cust.phone)}" class="px-2 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 text-center text-[10px] font-bold text-slate-700 dark:text-slate-300 transition cursor-pointer flex items-center justify-center gap-1">Call</a>
-                  <a href="sms:${esc(cust.phone)}" class="px-2 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 text-center text-[10px] font-bold text-slate-700 dark:text-slate-300 transition cursor-pointer flex items-center justify-center gap-1">SMS</a>
-                  <a href="mailto:${esc(cust.email)}" class="px-2 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 text-center text-[10px] font-bold text-slate-700 dark:text-slate-300 transition cursor-pointer flex items-center justify-center gap-1">Email</a>
-                  <button data-open-timeline class="px-2 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white text-center text-[10px] font-black transition cursor-pointer">Timeline</button>
+                  <a href="tel:${esc(cust.phone)}" class="px-2 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 text-center text-[10px] font-bold text-slate-700 dark:text-slate-300 transition cursor-pointer flex items-center justify-center gap-1">Call</a>
+                  <a href="sms:${esc(cust.phone)}" class="px-2 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 text-center text-[10px] font-bold text-slate-700 dark:text-slate-300 transition cursor-pointer flex items-center justify-center gap-1">SMS</a>
+                  <a href="mailto:${esc(cust.email)}" class="px-2 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 text-center text-[10px] font-bold text-slate-700 dark:text-slate-300 transition cursor-pointer flex items-center justify-center gap-1">Email</a>
+                  <button data-open-timeline class="px-2 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600 text-blue-500 dark:text-blue-400 hover:text-white text-center text-[10px] font-black transition cursor-pointer">Timeline</button>
                 </div>
               </div>
 
@@ -1622,7 +1637,7 @@ async function openReconCard(inventoryId) {
         <!-- Modal Footer -->
         <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-between gap-3 shrink-0 flex-wrap">
           <div class="text-xs text-slate-400 font-medium">All changes sync to canonical DealerOS records in real time.</div>
-          <button data-x class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition cursor-pointer shadow-md">Done / Close</button>
+          <button data-x class="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs transition cursor-pointer shadow-md">Done / Close</button>
         </div>
       </div>
     `;

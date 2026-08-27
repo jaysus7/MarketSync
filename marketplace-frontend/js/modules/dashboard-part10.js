@@ -750,16 +750,19 @@ Object.assign(window, { loadAiHome, aiHomeSaveKnowledge, aiHomeSavePersonality, 
 const ENGINE_TAB_ORDER = ['overview', 'work', 'insights', 'automation', 'settings'];
 const ENGINE_TAB_LABEL = {
   overview: 'Pulse', work: 'Work', desk: 'Desk a Deal', appraisal: 'Appraise Trade', equity: 'Equity Mining',
+  appointments: 'Appointments', ros: 'Repair Orders', loaners: 'Loaners',
   money_in: 'Money In', money_out: 'Money Out', bank: 'Bank', close: 'Close', reports: 'Reports', budget: 'Budget',
   journal: 'Journal', payroll: 'Payroll', insights: 'Insights', automation: 'Automation', settings: 'Settings'
 };
 const ENGINE_TAB_ICON = {
   overview: 'chart', pulse: 'chart', work: 'clipboard', customers: 'users', desk: 'currency',
   appraisal: 'car', appraisals: 'car', equity: 'gem', appointments: 'calendar', ros: 'wrench',
-  requests: 'clipboard', money_in: 'currency', money_out: 'receipt', bank: 'currency',
+  loaners: 'car', requests: 'clipboard', money_in: 'currency', money_out: 'receipt', bank: 'building',
   close: 'check', reports: 'chart', budget: 'currency', journal: 'document', payroll: 'users',
   insights: 'sparkles', automation: 'bolt', automations: 'bolt', campaigns: 'megaphone',
   templates: 'document', audiences: 'users', performance: 'chart', studio: 'sparkles',
+  scheduler: 'calendar', sales_overview: 'megaphone', service_overview: 'wrench',
+  sources: 'globe', routing: 'bolt', export: 'download', my_day: 'calendar', forecast: 'chart', financials: 'currency',
   'video-studio': 'video', chatbot: 'chat', website: 'globe', people: 'users', time: 'calendar',
   hiring: 'users', compliance: 'shield', settings: 'wrench'
 };
@@ -886,17 +889,18 @@ function pulseBoard(cardsHtml) {
 // button out of its parent, so the row visibly detaches from its card and lands as a
 // stray sibling in the grid. The card's own click-through affordance lives on its
 // header only, which is its own sibling-level control — never an ancestor of the rows.
-function pulseCard({ title, count, tone, onclick, inner, span, empty, tier }) {
+function pulseCard({ title, count, tone, onclick, inner, span, empty, tier, headerAction }) {
   const spanCls = span === 2 ? 'sm:col-span-2' : span === 'tall' ? 'row-span-2' : '';
   const countBadge = count != null ? `<span class="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-black ${tone || 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">${esc(String(count))}</span>` : '';
+  const rightEl = headerAction || countBadge;
   const header = onclick
     ? `<button type="button" onclick="${onclick}" class="group/h w-full flex items-center justify-between gap-2 text-left -m-0.5 p-0.5">
         <span class="text-[11px] uppercase tracking-wider font-black text-slate-800 dark:text-slate-200 group-hover/h:text-slate-950 dark:group-hover/h:text-white transition-colors">${esc(title)}</span>
-        <span class="flex items-center gap-1.5 shrink-0">${countBadge}<svg class="w-3 h-3 text-slate-300 dark:text-slate-600 transition-transform group-hover/h:translate-x-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 010-1.06L11.94 9 7.2 4.29a.75.75 0 111.06-1.06l5.25 5.25a.75.75 0 010 1.06L8.27 14.77a.75.75 0 01-1.06 0z" clip-rule="evenodd"/></svg></span>
+        <span class="flex items-center gap-1.5 shrink-0">${rightEl}<svg class="w-3 h-3 text-slate-300 dark:text-slate-600 transition-transform group-hover/h:translate-x-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 010-1.06L11.94 9 7.2 4.29a.75.75 0 111.06-1.06l5.25 5.25a.75.75 0 010 1.06L8.27 14.77a.75.75 0 01-1.06 0z" clip-rule="evenodd"/></svg></span>
       </button>`
     : `<div class="w-full flex items-center justify-between gap-2">
         <span class="text-[11px] uppercase tracking-wider font-black text-slate-800 dark:text-slate-200">${esc(title)}</span>
-        ${countBadge}
+        ${rightEl}
       </div>`;
   const body = `${header}
     <div class="flex-1 min-h-0 mt-3 flex flex-col gap-2 w-full text-left">${inner || (empty ? `<div class="text-[12px] text-slate-400 py-4 text-center">${esc(empty)}</div>` : '')}</div>`;
@@ -924,10 +928,10 @@ function pulseRow({ badge, icon, badgeTone, label, sub, value, valueTone, done, 
   const go = onclick || '';
   const action = actionLabel || 'View';
   const subline = [sub, value != null ? String(value) : ''].filter(Boolean).join(' · ');
-  return `<div class="ms-list-row ms-c--glass w-full flex items-center justify-between gap-3 text-left ${done ? 'opacity-50' : ''}">
-    <div class="min-w-0 flex-1 text-left">
-      <div class="font-bold text-[14px] text-slate-900 dark:text-white truncate text-left ${done ? 'line-through' : ''}">${esc(label ?? '')}</div>
-      ${subline ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 truncate text-left">${esc(subline)}</div>` : ''}
+  return `<div class="ms-list-row w-full flex items-center justify-between gap-3 text-left ${done ? 'opacity-50' : ''}">
+    <div ${go ? `onclick="${go}" class="min-w-0 flex-1 text-left cursor-pointer"` : `class="min-w-0 flex-1 text-left"`}>
+      <div class="font-bold text-[13px] sm:text-[14px] text-slate-900 dark:text-white truncate text-left ${done ? 'line-through' : ''}">${esc(label ?? '')}</div>
+      ${subline ? `<div class="text-[11px] sm:text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 truncate text-left">${esc(subline)}</div>` : ''}
     </div>
     ${go ? `<button type="button" onclick="${go}" class="ms-btn ms-btn--secondary shrink-0 inline-flex items-center justify-center whitespace-nowrap !min-h-0 !py-1.5 !px-3.5 !text-[12px]">${esc(action)}</button>` : ''}
   </div>`;
@@ -941,12 +945,12 @@ function pulseSearchCard({ title, placeholder, onclick, count, tier }) {
 // Ranked row for a leaderboard-style widget — initials avatar + name + one stat.
 function pulseLeaderRow({ rank, name, value, sub, valueTone, onclick }) {
   const subline = [sub, value != null ? String(value) : ''].filter(Boolean).join(' · ');
-  return `<div class="ms-list-row ms-c--glass w-full flex items-center justify-between gap-3 text-left">
-    <div class="min-w-0 flex-1 text-left">
+  return `<div class="ms-list-row w-full flex items-center justify-between gap-3 text-left">
+    <div ${onclick ? `onclick="${onclick}" class="min-w-0 flex-1 text-left cursor-pointer"` : `class="min-w-0 flex-1 text-left"`}>
       <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate text-left">${rank != null ? esc(String(rank)) + '. ' : ''}${esc(name || 'Unknown')}</div>
       ${subline ? `<div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate text-left">${esc(subline)}</div>` : ''}
     </div>
-    ${onclick ? `<button type="button" onclick="${onclick}" class="shrink-0 inline-flex items-center justify-center whitespace-nowrap px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[12px] font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition">View</button>` : ''}
+    ${onclick ? `<button type="button" onclick="${onclick}" class="ms-btn ms-btn--secondary shrink-0 inline-flex items-center justify-center whitespace-nowrap !min-h-0 !py-1.5 !px-3 !text-[12px]">${esc('View')}</button>` : ''}
   </div>`;
 }
 // A row of big quick-action buttons across the top of a Pulse page (Check-in / Check-out …).
@@ -987,39 +991,394 @@ function pulseLeaderboardPodium(rows) {
   </div>`;
 }
 
-function pulseLeaderboardCard(gam, deptKey, { title, metric, onclick, tier, limit } = {}) {
-  const dept = gam?.departments?.[deptKey];
-  const rows = (dept?.leaderboard || []).slice().sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
-  const shown = rows.slice(0, limit || 12);
-  const me = dept?.me || rows[0];
-  const badges = me ? (dept?.repBadges?.[me.rep_id]?.badges || me.badges || []) : [];
-  const visibleBadges = badges.filter(b => Number(b?.level || 0) > 0).slice(0, 4);
+// ── Leaderboard Scoring Legends by Department ─────────────────────────────────
+function pulseLeaderboardLegend(deptKey, scope) {
+  const formulas = {
+    fni: {
+      name: 'F&I Scoring Formula',
+      points: '300 pts / Deal worked · $2 / $1 PVR Avg · $1 / $100 F&I Gross · VSC Attach',
+    },
+    sales: {
+      name: 'Sales Scoring Formula',
+      points: '500 pts / Unit sold · 150 pts / Appraisal · $1 / $100 Gross Profit',
+    },
+    service: {
+      name: 'Service Scoring Formula',
+      points: '250 pts / RO closed · Tech Efficiency % · CSI Satisfaction Rating',
+    },
+    parts: {
+      name: 'Parts Scoring Formula',
+      points: '200 pts / Order fulfilled · Inventory Turn Speed · Stock Accuracy %',
+    },
+    accounting: {
+      name: 'Accounting Scoring Formula',
+      points: '300 pts / Reconciled Entry · Deal Post Speed · Zero Variance Audit',
+    },
+    facebook: {
+      name: 'Marketplace Scoring Formula',
+      points: '100 pts / Listing posted · 50 pts / Lead · 500 pts / Sold unit',
+    },
+    video: {
+      name: 'Sales Video Scoring Formula',
+      points: '100 pts / Video sent · 250 pts / Video watched · Avg completion %',
+    },
+  };
+  const f = (scope === 'global')
+    ? { name: 'Global Network Scoring', points: 'Total verified production volume · Deal gross · Customer engagements' }
+    : (formulas[deptKey] || { name: 'Performance Scoring', points: 'Production volume · Gross yield · Workflow velocity' });
 
+  return `
+    <div class="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 p-3 my-3 text-left">
+      <div class="flex flex-wrap items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-200/60 dark:border-slate-800/60 text-[11px]">
+        <div class="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white">
+          <span class="text-amber-500 font-bold uppercase tracking-wider text-[10px]">Formula:</span>
+          <span>${esc(f.name)}:</span>
+          <span class="text-slate-600 dark:text-slate-300 font-normal">${esc(f.points)}</span>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+        <span class="font-bold text-slate-700 dark:text-slate-200">Podium & Tiers:</span>
+        <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> 1st Gold</span>
+        <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span> 2nd Silver</span>
+        <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-700"></span> 3rd Bronze</span>
+        <span class="inline-flex items-center gap-1 font-mono text-[10px] bg-slate-200/80 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300">Active Tier</span>
+        <span class="inline-flex items-center gap-1 font-mono text-[10px] bg-slate-200/80 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">Locked Goal</span>
+      </div>
+    </div>
+  `;
+}
+window.pulseLeaderboardLegend = pulseLeaderboardLegend;
+
+// ── Complete Staff Standings List Below Podium ────────────────────────────────
+function pulseLeaderboardStaffList(rows, selfId, metric, onclick) {
+  if (!rows || !rows.length) {
+    return `<div class="py-4 text-center text-xs text-slate-400 italic">No staff members ranked for this department yet.</div>`;
+  }
   const formatPts = (v) => {
-    if (v == null || v === '') return null;
+    if (v == null || v === '') return '0 pts';
     const n = Number(v);
     if (!Number.isFinite(n)) return String(v);
     return `${n.toLocaleString()} pts`;
   };
-  const list = shown.slice(3).map(r => pulseLeaderRow({
-    rank: r.rank,
-    name: r.full_name,
-    sub: r.title || '',
-    value: formatPts(metric ? (r.metrics?.[metric] ?? r.score) : r.score),
-    valueTone: 'text-amber-700 dark:text-amber-400',
-    onclick: onclick || null,
-  })).join('');
-  const podiumHtml = pulseLeaderboardPodium(rows);
-  const badgeMarkup = visibleBadges.length ? visibleBadges.map(b => `<span title="${esc(b.description || b.label || '')}" class="inline-flex items-center gap-1 rounded-full border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/70 px-2 py-1 text-[10px] font-black text-slate-700 dark:text-slate-200">${b.icon ? esc(b.icon) : (typeof svgIcon === 'function' ? svgIcon('star', 'w-3 h-3') : '')} ${esc(b.label || 'Badge')}</span>`).join('') : '';
-  const badgesSection = badgeMarkup ? `<div class="mt-3 pt-2.5 border-t border-slate-200/70 dark:border-slate-800/70"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">${esc(me ? `${me.full_name || 'My'} badges` : 'Department badges')}</div><div class="flex flex-wrap gap-1.5">${badgeMarkup}</div></div>` : '';
 
-  const inner = `${podiumHtml}${list ? `<div class="mt-2 pt-2 border-t border-slate-200/70 dark:border-slate-800/70 divide-y divide-slate-100 dark:divide-slate-800">${list}</div>` : ''}${badgesSection}`;
+  const listHtml = rows.map((r, i) => {
+    const rank = r.rank || (i + 1);
+    const isMe = r.isYou || (selfId && (r.rep_id === selfId || r.id === selfId));
+    const pts = formatPts(metric ? (r.metrics?.[metric] ?? r.score) : (r.score ?? r.points));
+
+    let rankPillClass = 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700';
+    if (rank === 1) rankPillClass = 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-600 font-black shadow-xs';
+    else if (rank === 2) rankPillClass = 'bg-slate-200/80 dark:bg-slate-700/80 text-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-500 font-bold';
+    else if (rank === 3) rankPillClass = 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400 border-amber-400/60 font-bold';
+
+    const m = r.metrics || {};
+    const metricsSummary = Object.entries(m)
+      .filter(([k, v]) => typeof v === 'number' && v > 0)
+      .slice(0, 3)
+      .map(([k, v]) => {
+        const label = k.replace(/_/g, ' ');
+        const formattedVal = (k.includes('gross') || k.includes('pvr') || k.includes('rev') || k.includes('price'))
+          ? '$' + Number(v).toLocaleString()
+          : (k.includes('pct') || k.includes('rate') ? v + '%' : Number(v).toLocaleString());
+        return `${label}: ${formattedVal}`;
+      }).join(' · ');
+
+    const subText = [r.title || '', metricsSummary].filter(Boolean).join(' · ');
+    const rowClick = onclick ? `${onclick}('${r.rep_id || r.id}')` : '';
+
+    return `
+      <div class="ms-list-row w-full flex items-center justify-between gap-3 text-left py-2.5 px-3 rounded-xl transition ${isMe ? 'bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/80 shadow-xs' : ''}">
+        <div class="flex items-center gap-3 min-w-0 flex-1 text-left">
+          <div class="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black border ${rankPillClass}">
+            #${rank}
+          </div>
+          <div ${rowClick ? `onclick="${rowClick}" class="min-w-0 flex-1 cursor-pointer"` : `class="min-w-0 flex-1"`}>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-bold text-[13px] sm:text-[14px] text-slate-900 dark:text-white truncate">${esc(r.full_name || r.name || 'Team Member')}</span>
+              ${isMe ? `<span class="inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/70 text-indigo-700 dark:text-indigo-300 font-mono">YOU</span>` : ''}
+              ${r.tier ? `<span class="inline-flex items-center text-[10px] font-bold px-1.5 py-0.2 rounded border ${r.tier.cls || 'border-slate-200 dark:border-slate-700 text-slate-500'}">${esc(r.tier.name || '')}</span>` : ''}
+            </div>
+            <div class="text-[11px] sm:text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 truncate text-left">${esc(subText || 'Active staff member')}</div>
+          </div>
+        </div>
+        <div class="shrink-0 text-right">
+          <div class="font-mono font-black text-[13px] sm:text-[14px] text-amber-700 dark:text-amber-400">${pts}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="mt-4 pt-3 border-t border-slate-200/70 dark:border-slate-800/70 text-left">
+      <div class="flex items-center justify-between gap-2 mb-2 px-1">
+        <span class="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Staff Standings</span>
+        <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">${rows.length} team member${rows.length === 1 ? '' : 's'}</span>
+      </div>
+      <div class="space-y-1.5">
+        ${listHtml}
+      </div>
+    </div>
+  `;
+}
+window.pulseLeaderboardStaffList = pulseLeaderboardStaffList;
+
+// ── Department Badges with Counts & Progress ─────────────────────────────────
+function getBadgeIconSvg(iconKey, keyOrCls, maybeCls) {
+  const cls = (typeof maybeCls === 'string') ? maybeCls : (typeof keyOrCls === 'string' && keyOrCls.includes('w-') ? keyOrCls : 'w-6 h-6');
+  const fallbackKey = (typeof keyOrCls === 'string' && !keyOrCls.includes('w-')) ? keyOrCls : '';
+  const k = `${String(iconKey || '')} ${String(fallbackKey || '')}`.toLowerCase();
+  const icons = {
+    gem: '<svg class="' + cls + '" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 3h12l4 6-10 12L2 9l4-6z"/></svg>',
+    shield: '<svg class="' + cls + '" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+    document: '<svg class="' + cls + '" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>',
+    cash: '<svg class="' + cls + '" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+    trophy: '<svg class="' + cls + '" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 21h8m-4-4v4M7 4h10v4a5 5 0 01-10 0V4zM7 6H4v1a3 3 0 003 3m10-4h3v1a3 3 0 01-3 3"/></svg>',
+    rocket: '<svg class="' + cls + '" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.63 8.41m5.96 5.96a14.926 14.926 0 01-5.84 2.58m-.12 4.8a6 6 0 01-7.38-5.84h4.8m2.58-5.84a14.927 14.927 0 00-2.58-5.84m7.38 5.84l-5.96-5.96"/></svg>',
+    refresh: '<svg class="' + cls + '" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>',
+    bolt: '<svg class="' + cls + '" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>',
+    tool: '<svg class="' + cls + '" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>',
+    star: '<svg class="' + cls + '" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>',
+    clock: '<svg class="' + cls + '" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+    car: '<svg class="' + cls + '" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 17a2 2 0 11-4 0 2 2 0 014 0zm12 0a2 2 0 11-4 0 2 2 0 014 0zM3 13h18l-1.5-5.5A2 2 0 0017.6 6H6.4a2 2 0 00-1.9 1.5L3 13zm0 0v3h1m16-3v3h-1"/></svg>',
+    crown: '<svg class="' + cls + '" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>',
+    video: '<svg class="' + cls + '" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>',
+    eye: '<svg class="' + cls + '" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>',
+    fire: '<svg class="' + cls + '" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/></svg>',
+    box: '<svg class="' + cls + '" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>',
+    target: '<svg class="' + cls + '" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>',
+    chart: '<svg class="' + cls + '" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>',
+  };
+  if (k.includes('gem') || k.includes('mastermind') || k.includes('diamond')) return icons.gem;
+  if (k.includes('shield') || k.includes('wizard') || k.includes('protect') || k.includes('audit')) return icons.shield;
+  if (k.includes('doc') || k.includes('pro') || k.includes('contract')) return icons.document;
+  if (k.includes('cash') || k.includes('gross') || k.includes('titan') || k.includes('rev') || k.includes('flow')) return icons.cash;
+  if (k.includes('trophy') || k.includes('king') || k.includes('club') || k.includes('producer')) return icons.trophy;
+  if (k.includes('rocket') || k.includes('starter') || k.includes('speed')) return icons.rocket;
+  if (k.includes('refresh') || k.includes('hunter') || k.includes('trade')) return icons.refresh;
+  if (k.includes('bolt') || k.includes('efficiency') || k.includes('demon') || k.includes('quick')) return icons.bolt;
+  if (k.includes('tool') || k.includes('closer') || k.includes('counter')) return icons.tool;
+  if (k.includes('car') || k.includes('machine') || k.includes('post')) return icons.car;
+  if (k.includes('crown')) return icons.crown;
+  if (k.includes('video') || k.includes('send')) return icons.video;
+  if (k.includes('eye') || k.includes('watch')) return icons.eye;
+  if (k.includes('fire') || k.includes('engage')) return icons.fire;
+  if (k.includes('box') || k.includes('order')) return icons.box;
+  if (k.includes('target') || k.includes('accuracy')) return icons.target;
+  if (k.includes('chart') || k.includes('ledger')) return icons.chart;
+  if (k.includes('clock') || k.includes('turn')) return icons.clock;
+  return icons[k] || icons[iconKey] || icons.star;
+}
+window.getBadgeIconSvg = getBadgeIconSvg;
+
+function pulseLeaderboardBadges(deptKey, me, repBadges) {
+  const defaultDeptBadges = {
+    fni: [
+      { key: 'fni_mastermind', icon: 'gem', label: 'F&I Mastermind', description: 'Average PVR of $1,500, $2,500, or $3,500+.', unit: '$', thresholds: [1500, 2500, 3500] },
+      { key: 'warranty_wizard', icon: 'shield', label: 'Warranty Wizard', description: 'VSC / warranty attach rate 50%, 70%, 85%.', unit: '%', thresholds: [50, 70, 85] },
+      { key: 'protection_pro', icon: 'document', label: 'Protection Pro', description: 'Sell F&I products on 10, 50, 150 deals.', thresholds: [10, 50, 150] },
+      { key: 'gross_titan', icon: 'cash', label: 'F&I Gross Titan', description: 'Generate $15k, $50k, or $150k F&I gross.', unit: '$', thresholds: [15000, 50000, 150000] },
+      { key: 'menu_master', icon: 'trophy', label: 'F&I Producer', description: 'Work 10, 50, or 100 F&I deals.', thresholds: [10, 50, 100] },
+    ],
+    sales: [
+      { key: 'sales_fast_starter', icon: 'rocket', label: 'First 5 Sales', description: 'Sell your first 5 vehicles.', thresholds: [5] },
+      { key: 'sales_month_master', icon: 'trophy', label: 'Monthly 15 Club', description: 'Sell 15 units in 30 days.', thresholds: [15] },
+      { key: 'sales_trade_hunter', icon: 'refresh', label: 'Trade Hunter', description: 'Appraise 10, 30, or 75 trades.', thresholds: [10, 30, 75] },
+      { key: 'sales_gross_champion', icon: 'cash', label: 'Gross Champion', description: 'Generate $25k, $75k, or $150k gross.', unit: '$', thresholds: [25000, 75000, 150000] },
+      { key: 'sales_quick_close', icon: 'bolt', label: 'Fast Lot Turn', description: 'Close inventory in under 14 days.', unit: 'd', thresholds: [14] },
+    ],
+    service: [
+      { key: 'service_ro_closer', icon: 'tool', label: 'RO Finisher', description: 'Close 25, 100, or 300 repair orders.', thresholds: [25, 100, 300] },
+      { key: 'service_tech_efficiency', icon: 'bolt', label: 'Tech Efficiency', description: 'Reach 85%, 100%, 120% efficiency.', unit: '%', thresholds: [85, 100, 120] },
+      { key: 'service_csi_star', icon: 'star', label: 'CSI 5-Star', description: 'Achieve 90%, 95%, 98% satisfaction.', unit: '%', thresholds: [90, 95, 98] },
+      { key: 'service_revenue_titan', icon: 'cash', label: 'Service Rev Titan', description: 'Generate $25k, $75k, $200k service rev.', unit: '$', thresholds: [25000, 75000, 200000] },
+      { key: 'service_turnaround', icon: 'clock', label: 'Fast Turnaround', description: 'Complete same-day service work.', thresholds: [1] },
+    ],
+    facebook: [
+      { key: 'fb_speed_demon', icon: 'bolt', label: 'Speed to Lead', description: 'Reply in under 5 minutes.', unit: 'm', thresholds: [5] },
+      { key: 'fb_post_machine', icon: 'car', label: 'Posting Machine', description: 'Post 10, 50, 200 listings.', thresholds: [10, 50, 200] },
+      { key: 'fb_closer', icon: 'cash', label: 'Marketplace Closer', description: 'Sell 5, 20, 50 marketplace leads.', thresholds: [5, 20, 50] },
+      { key: 'fb_volume_king', icon: 'crown', label: '30-Day Volume King', description: 'Top volume poster on lot.', thresholds: [30] },
+      { key: 'fb_fast_turn', icon: 'clock', label: 'Fast Lot Turn', description: 'Units sold in under 21 days.', unit: 'd', thresholds: [21] },
+    ],
+    video: [
+      { key: 'vid_first_send', icon: 'video', label: 'First Send', description: 'Send your first walkaround video.', thresholds: [1] },
+      { key: 'vid_prolific', icon: 'video', label: 'Prolific Sender', description: 'Send 10, 50, 200 walkaround videos.', thresholds: [10, 50, 200] },
+      { key: 'vid_watched', icon: 'eye', label: 'Getting Watched', description: 'Have 5, 25, 75 videos watched.', thresholds: [5, 25, 75] },
+      { key: 'vid_engagement', icon: 'fire', label: 'High Engagement', description: 'Reach 40%, 65%, 85% watch rate.', unit: '%', thresholds: [40, 65, 85] },
+      { key: 'vid_full_watch', icon: 'star', label: 'Full Attention', description: 'Average 40%, 65%, 90% completion.', unit: '%', thresholds: [40, 65, 90] },
+    ],
+    parts: [
+      { key: 'parts_order_ace', icon: 'box', label: 'Order Ace', description: 'Fulfill 20, 100, 300 parts orders.', thresholds: [20, 100, 300] },
+      { key: 'parts_accuracy', icon: 'target', label: 'Inventory Accuracy', description: 'Maintain 98%+ stock accuracy.', unit: '%', thresholds: [98] },
+      { key: 'parts_turnover', icon: 'bolt', label: 'Fast Turnover', description: 'Rapid movement turnover on parts.', thresholds: [50] },
+      { key: 'parts_counter_pro', icon: 'tool', label: 'Counter Pro', description: 'Serve 50, 200, 500 repair order parts.', thresholds: [50, 200, 500] },
+    ],
+    accounting: [
+      { key: 'acct_ledger_master', icon: 'chart', label: 'Ledger Master', description: 'Post 50, 200, 1000 journal entries.', thresholds: [50, 200, 1000] },
+      { key: 'acct_speed_post', icon: 'bolt', label: 'Fast Posting', description: 'Post vehicle deals within 24h.', thresholds: [24] },
+      { key: 'acct_audit_ready', icon: 'shield', label: 'Audit Ready', description: 'Zero unassigned variances on ledger.', thresholds: [100] },
+      { key: 'acct_cash_flow', icon: 'cash', label: 'Cash Flow Champion', description: 'Collect CIT in under 7 days.', unit: 'd', thresholds: [7] },
+    ],
+  };
+
+  const rawBadges = (me?.badges && me.badges.length) ? me.badges : (defaultDeptBadges[deptKey] || defaultDeptBadges.sales);
+  const unlockedCount = rawBadges.filter(b => Number(b.level || 0) > 0).length;
+  const totalCount = rawBadges.length;
+  const romanTiers = ['', 'I', 'II', 'III', 'IV', 'V'];
+
+  const cards = rawBadges.map(b => {
+    const lvl = Number(b.level || 0);
+    const earned = lvl > 0;
+    const roman = romanTiers[lvl] || (lvl ? String(lvl) : '');
+    const valLabel = b.value == null ? (earned ? 'Earned' : '0')
+      : b.unit === '$' ? '$' + Number(b.value).toLocaleString()
+      : b.unit === '%' ? `${b.value}%`
+      : `${Number(b.value).toLocaleString()}${b.unit ? ' ' + b.unit : ''}`;
+
+    const nextThreshold = b.next ?? (b.thresholds ? (b.thresholds[lvl] ?? null) : null);
+    const progressPct = b.progress_pct ?? (nextThreshold ? Math.min(100, Math.round(((b.value || 0) / nextThreshold) * 100)) : (earned ? 100 : 0));
+    const iconSvg = getBadgeIconSvg(b.icon || b.key || 'star', 'w-6 h-6');
+
+    return `
+      <div class="rounded-xl border p-3 text-left transition ${earned
+        ? 'bg-white/80 dark:bg-slate-900/80 border-indigo-200 dark:border-indigo-800/80 shadow-xs'
+        : 'bg-slate-50/50 dark:bg-slate-950/40 border-slate-200/70 dark:border-slate-800/70 opacity-75'}">
+        <div class="flex items-start justify-between gap-2">
+          <div class="p-2 rounded-lg ${earned ? 'bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 opacity-50'}">${iconSvg}</div>
+          ${earned
+            ? `<span class="inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 font-mono">TIER ${roman}</span>`
+            : `<span class="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-500 font-mono">LOCKED</span>`}
+        </div>
+        <div class="font-bold text-[13px] text-slate-900 dark:text-white mt-2 truncate text-left">${esc(b.label || 'Badge')}</div>
+        <div class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-0.5 text-left">${esc(b.description || '')}</div>
+        
+        <div class="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/60">
+          <div class="flex items-center justify-between text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+            <span>Current: <strong class="text-slate-900 dark:text-white font-mono">${valLabel}</strong></span>
+            ${nextThreshold ? `<span class="text-slate-400 font-mono text-[10px]">Next: ${b.unit === '$' ? '$' + Number(nextThreshold).toLocaleString() : nextThreshold + (b.unit || '')}</span>` : `<span class="text-amber-500 text-[10px] font-bold">Max Tier</span>`}
+          </div>
+          <div class="w-full bg-slate-200/80 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+            <div class="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 transition-all duration-300" style="width:${progressPct}%"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="mt-5 pt-4 border-t border-slate-200/70 dark:border-slate-800/70 text-left">
+      <div class="flex items-center justify-between gap-2 mb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Department Badges & Achievements</span>
+          <span class="inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">${unlockedCount} of ${totalCount} Unlocked</span>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+        ${cards}
+      </div>
+    </div>
+  `;
+}
+window.pulseLeaderboardBadges = pulseLeaderboardBadges;
+
+window.__pulseLbScope = window.__pulseLbScope || {};
+
+function switchPulseLeaderboardScope(deptKey, scope, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  window.__pulseLbScope[deptKey] = scope;
+  const teamBtn = document.getElementById(`pulse-lb-tab-${deptKey}-team`);
+  const globalBtn = document.getElementById(`pulse-lb-tab-${deptKey}-global`);
+  const onTeam = scope === 'team';
+  if (teamBtn && globalBtn) {
+    teamBtn.className = `pulse-lb-scope-btn px-2.5 py-0.5 rounded transition ${onTeam ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm font-black' : 'text-slate-500 dark:text-slate-400 font-semibold'}`;
+    globalBtn.className = `pulse-lb-scope-btn px-2.5 py-0.5 rounded transition ${!onTeam ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm font-black' : 'text-slate-500 dark:text-slate-400 font-semibold'}`;
+  }
+  const bodyEl = document.getElementById(`pulse-lb-body-${deptKey}`);
+  if (!bodyEl) return;
+
+  const selfId = (typeof user !== 'undefined' && user?.id) ? user.id : (typeof authGetUser === 'function' ? authGetUser()?.id : null);
+
+  if (onTeam) {
+    const gam = window.__lastPulseGam;
+    const dept = gam?.departments?.[deptKey];
+    const rows = (dept?.leaderboard || []).slice().sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
+    const me = dept?.me || rows[0];
+    const legendHtml = pulseLeaderboardLegend(deptKey, 'team');
+    const podiumHtml = pulseLeaderboardPodium(rows);
+    const staffListHtml = pulseLeaderboardStaffList(rows, selfId, null, null);
+    const badgesHtml = pulseLeaderboardBadges(deptKey, me, dept?.repBadges);
+
+    bodyEl.innerHTML = `${legendHtml}${podiumHtml}${staffListHtml}${badgesHtml}`;
+  } else {
+    bodyEl.innerHTML = `<div class="py-8 text-center text-xs text-slate-400 italic">Loading global network standings...</div>`;
+    const renderGlobal = (data) => {
+      if (!data || (!data.dealers?.length && !data.reps?.length)) {
+        bodyEl.innerHTML = `<div class="py-6 text-center text-xs text-slate-400">Global leaderboard unavailable right now.</div>`;
+        return;
+      }
+      const reps = (data.reps || []).slice(0, 20);
+      const youRep = data.you_rep;
+      const legendHtml = pulseLeaderboardLegend(deptKey, 'global');
+      const podiumHtml = pulseLeaderboardPodium(reps.map(r => ({
+        full_name: `${r.name || 'Rep'}${r.isYou ? ' (you)' : ''}`,
+        score: r.points || r.score || 0
+      })));
+      const staffListHtml = pulseLeaderboardStaffList(reps, selfId, null, null);
+      const yourRankNotice = youRep ? `<div class="mt-3 pt-2.5 border-t border-slate-200/70 dark:border-slate-800/70 flex items-center justify-between text-xs"><span class="font-bold text-slate-600 dark:text-slate-300">Your Global Ranking:</span><span class="font-black text-blue-600 dark:text-blue-400 font-mono">#${youRep.rank || '—'} of ${data.total_reps || reps.length} (${(youRep.points || 0).toLocaleString()} pts)</span></div>` : '';
+      bodyEl.innerHTML = `${legendHtml}${podiumHtml}${staffListHtml}${yourRankNotice}`;
+    };
+
+    if (window.__glData) {
+      renderGlobal(window.__glData);
+    } else {
+      const token = typeof getToken === 'function' ? getToken() : (typeof authGetToken === 'function' ? authGetToken() : localStorage.getItem('token'));
+      const API_URL = typeof API !== 'undefined' ? API : 'https://vehicle-marketplace-s0e4.onrender.com';
+      fetch(`${API_URL}/leaderboard/global`, { headers: { 'Authorization': `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          window.__glData = data;
+          renderGlobal(data);
+        })
+        .catch(() => {
+          bodyEl.innerHTML = `<div class="py-6 text-center text-xs text-red-500 italic">Could not load global network standings.</div>`;
+        });
+    }
+  }
+}
+window.switchPulseLeaderboardScope = switchPulseLeaderboardScope;
+
+function pulseLeaderboardCard(gam, deptKey, { title, metric, onclick, tier, limit, allowGlobal } = {}) {
+  if (gam) window.__lastPulseGam = gam;
+  const dept = gam?.departments?.[deptKey];
+  const rows = (dept?.leaderboard || []).slice().sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
+  const me = dept?.me || rows[0];
+  const selfId = (typeof user !== 'undefined' && user?.id) ? user.id : (typeof authGetUser === 'function' ? authGetUser()?.id : null);
+
+  const isGlobalAllowed = deptKey === 'facebook' || allowGlobal;
+  const currentScope = isGlobalAllowed ? (window.__pulseLbScope?.[deptKey] || 'team') : 'team';
+  const headerAction = isGlobalAllowed
+    ? `<div class="inline-flex bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-lg p-0.5 text-[11px] font-bold">
+        <button type="button" onclick="switchPulseLeaderboardScope('${deptKey}', 'team', event)" id="pulse-lb-tab-${deptKey}-team" class="pulse-lb-scope-btn px-2.5 py-0.5 rounded transition ${currentScope === 'team' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm font-black' : 'text-slate-500 dark:text-slate-400 font-semibold'}">My Team</button>
+        <button type="button" onclick="switchPulseLeaderboardScope('${deptKey}', 'global', event)" id="pulse-lb-tab-${deptKey}-global" class="pulse-lb-scope-btn px-2.5 py-0.5 rounded transition ${currentScope === 'global' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm font-black' : 'text-slate-500 dark:text-slate-400 font-semibold'}">Global</button>
+      </div>`
+    : null;
+
+  const legendHtml = pulseLeaderboardLegend(deptKey, currentScope);
+  const podiumHtml = pulseLeaderboardPodium(rows);
+  const staffListHtml = pulseLeaderboardStaffList(rows, selfId, metric, onclick);
+  const badgesHtml = pulseLeaderboardBadges(deptKey, me, dept?.repBadges);
+
+  const inner = `<div id="pulse-lb-body-${deptKey}" class="w-full">${legendHtml}${podiumHtml}${staffListHtml}${badgesHtml}</div>`;
   return pulseCard({
     title: title || (dept?.title ? `${dept.title} leaderboard` : 'Leaderboard'),
     onclick: null,
     tier: tier || 'hero',
+    headerAction,
     inner,
-    empty: rows.length ? '' : (gam === null ? 'Could not be loaded.' : 'No ranked activity yet.'),
+    empty: (rows.length || dept) ? '' : (gam === null ? 'Could not be loaded.' : 'No ranked activity yet.'),
   });
 }
 
@@ -1031,6 +1390,8 @@ if (typeof window !== 'undefined') {
   window.pulseHeader = pulseHeader; window.pulseGrid = pulseGrid; window.pulseBoard = pulseBoard; window.pulseCard = pulseCard;
   window.pulseRow = pulseRow; window.pulseSearchCard = pulseSearchCard; window.pulseLeaderRow = pulseLeaderRow;
   window.pulseActionsRow = pulseActionsRow; window.pulseLeaderboardCard = pulseLeaderboardCard; window.pulseDeptLeaderboard = pulseDeptLeaderboard; window.pulseLeaderboardPodium = pulseLeaderboardPodium;
+  window.pulseLeaderboardLegend = pulseLeaderboardLegend; window.pulseLeaderboardStaffList = pulseLeaderboardStaffList; window.pulseLeaderboardBadges = pulseLeaderboardBadges;
+  window.switchPulseLeaderboardScope = switchPulseLeaderboardScope;
 }
 
 // ── Sections you scroll to, instead of a second row of tabs ──────────────────
@@ -1258,7 +1619,7 @@ function renderEngine(engineId, force = false) {
   if (!order.includes(tab)) tab = order[0];          // stored tab may have been removed
   const A = ENGINE_ACCENTS[eng.accent] || ENGINE_ACCENTS.market || ENGINE_ACCENTS.indigo;
   const tabBtn = (t) => `<button data-engine-tab="${t}" role="tab" onclick="engineTab('${engineId}','${t}')"
-    class="ms-engine-tab px-4 py-2.5 text-xs font-bold whitespace-nowrap transition border-transparent text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400">${svgIcon(ENGINE_TAB_ICON[t] || 'dot', 'w-4 h-4')}<span>${esc((eng.tabLabels && eng.tabLabels[t]) || ENGINE_TAB_LABEL[t])}</span></button>`;
+    class="ms-engine-tab px-4 py-2.5 text-xs font-bold whitespace-nowrap transition border-transparent text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400">${svgIcon((eng.tabIcons && eng.tabIcons[t]) || ENGINE_TAB_ICON[t] || 'dot', 'w-4 h-4')}<span>${esc((eng.tabLabels && eng.tabLabels[t]) || ENGINE_TAB_LABEL[t] || t)}</span></button>`;
   // Suite products: primary actions live on the main header (no second title card).
   const isMktSuite = engineId === 'marketing-overview' && typeof getActiveMarketingSuite === 'function' && !!getActiveMarketingSuite();
   const suiteActions = isMktSuite ? `

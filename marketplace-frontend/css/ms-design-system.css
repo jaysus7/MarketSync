@@ -324,6 +324,25 @@
   text-align: left;
   gap: var(--ms-sp-3, 0.75rem);
   width: 100%;
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--ms-r-md, 0.75rem);
+  border: 1px solid var(--ms-line);
+  background: var(--ms-s-glass);
+  box-sizing: border-box;
+  transition: background var(--ms-m-fast, 0.15s) ease, border-color var(--ms-m-fast, 0.15s) ease;
+}
+.dark .ms-list-row {
+  border-color: rgba(30, 41, 59, 0.6);
+  background: rgba(15, 23, 42, 0.35);
+}
+.ms-list-row:hover {
+  background: rgba(241, 245, 249, 0.8);
+}
+.dark .ms-list-row:hover {
+  background: rgba(30, 41, 59, 0.6);
+}
+.ms-list-row > * {
+  text-align: left;
 }
 .ms-list-row .ms-btn,
 .ms-list-row button {

@@ -199,19 +199,19 @@ function checkLoginPunchClockPrompt() {
           <div class="space-y-5">
             <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
               <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-2xl font-black shadow-lg shadow-indigo-500/30">
-                  ⏱
+                <div class="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-2xl font-black shadow-lg shadow-blue-500/30">
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 </div>
                 <div>
                   <h3 class="text-lg font-black text-slate-900 dark:text-white">Good Morning, ${esc(userName)}!</h3>
-                  <p class="text-xs text-indigo-600 dark:text-indigo-400 font-bold">${esc(dateNow)} · ${esc(timeNow)}</p>
+                  <p class="text-xs text-blue-600 dark:text-blue-400 font-bold">${esc(dateNow)} · ${esc(timeNow)}</p>
                 </div>
               </div>
               <button data-close class="text-slate-400 hover:text-slate-600 text-2xl font-bold">×</button>
             </div>
 
-            <div class="bg-gradient-to-br from-indigo-50 to-slate-50 dark:from-indigo-950/40 dark:to-slate-900 border border-indigo-100 dark:border-indigo-900/40 p-4 rounded-2xl text-xs space-y-2">
-              <div class="font-black text-indigo-950 dark:text-indigo-200 text-sm flex items-center gap-1.5">
+            <div class="bg-gradient-to-br from-blue-50 to-slate-50 dark:from-blue-950/40 dark:to-slate-900 border border-blue-100 dark:border-blue-900/40 p-4 rounded-2xl text-xs space-y-2">
+              <div class="font-black text-blue-950 dark:text-blue-200 text-sm flex items-center gap-1.5">
                 <span></span><span>Daily Shift Punch Clock</span>
               </div>
               <p class="text-slate-600 dark:text-slate-300 leading-relaxed">

@@ -1,0 +1,563 @@
+{
+  "deployedCommit": "abdc1c53",
+  "timestamp": "2026-08-27T15:17:56.040Z",
+  "routesTested": [],
+  "overflowAudit": [
+    {
+      "route": "my-day",
+      "vp": "1440",
+      "scrollW": 1440,
+      "clientW": 1440,
+      "bodyW": 1440,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "pipeline",
+      "vp": "1440",
+      "scrollW": 1440,
+      "clientW": 1440,
+      "bodyW": 1440,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "service",
+      "vp": "1440",
+      "scrollW": 1440,
+      "clientW": 1440,
+      "bodyW": 1440,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "recon",
+      "vp": "1440",
+      "scrollW": 1440,
+      "clientW": 1440,
+      "bodyW": 1440,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "inv-intel",
+      "vp": "1440",
+      "scrollW": 1440,
+      "clientW": 1440,
+      "bodyW": 1440,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "customers",
+      "vp": "1440",
+      "scrollW": 1440,
+      "clientW": 1440,
+      "bodyW": 1440,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "settings",
+      "vp": "1440",
+      "scrollW": 1440,
+      "clientW": 1440,
+      "bodyW": 1440,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "hq-ai-agents",
+      "vp": "1440",
+      "scrollW": 1440,
+      "clientW": 1440,
+      "bodyW": 1440,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "marketing",
+      "vp": "1440",
+      "scrollW": 1440,
+      "clientW": 1440,
+      "bodyW": 1440,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "discoverability",
+      "vp": "1440",
+      "scrollW": 1440,
+      "clientW": 1440,
+      "bodyW": 1440,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "my-day",
+      "vp": "1024",
+      "scrollW": 1024,
+      "clientW": 1024,
+      "bodyW": 1024,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "pipeline",
+      "vp": "1024",
+      "scrollW": 1024,
+      "clientW": 1024,
+      "bodyW": 1024,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "service",
+      "vp": "1024",
+      "scrollW": 1024,
+      "clientW": 1024,
+      "bodyW": 1024,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "recon",
+      "vp": "1024",
+      "scrollW": 1024,
+      "clientW": 1024,
+      "bodyW": 1024,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "inv-intel",
+      "vp": "1024",
+      "scrollW": 1024,
+      "clientW": 1024,
+      "bodyW": 1024,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "customers",
+      "vp": "1024",
+      "scrollW": 1024,
+      "clientW": 1024,
+      "bodyW": 1024,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "settings",
+      "vp": "1024",
+      "scrollW": 1024,
+      "clientW": 1024,
+      "bodyW": 1024,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "hq-ai-agents",
+      "vp": "1024",
+      "scrollW": 1024,
+      "clientW": 1024,
+      "bodyW": 1024,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "marketing",
+      "vp": "1024",
+      "scrollW": 1024,
+      "clientW": 1024,
+      "bodyW": 1024,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "discoverability",
+      "vp": "1024",
+      "scrollW": 1024,
+      "clientW": 1024,
+      "bodyW": 1024,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "my-day",
+      "vp": "768",
+      "scrollW": 768,
+      "clientW": 768,
+      "bodyW": 768,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "pipeline",
+      "vp": "768",
+      "scrollW": 768,
+      "clientW": 768,
+      "bodyW": 768,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "service",
+      "vp": "768",
+      "scrollW": 768,
+      "clientW": 768,
+      "bodyW": 768,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "recon",
+      "vp": "768",
+      "scrollW": 768,
+      "clientW": 768,
+      "bodyW": 768,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "inv-intel",
+      "vp": "768",
+      "scrollW": 768,
+      "clientW": 768,
+      "bodyW": 768,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "customers",
+      "vp": "768",
+      "scrollW": 768,
+      "clientW": 768,
+      "bodyW": 768,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "settings",
+      "vp": "768",
+      "scrollW": 768,
+      "clientW": 768,
+      "bodyW": 768,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "hq-ai-agents",
+      "vp": "768",
+      "scrollW": 768,
+      "clientW": 768,
+      "bodyW": 768,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "marketing",
+      "vp": "768",
+      "scrollW": 768,
+      "clientW": 768,
+      "bodyW": 768,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "discoverability",
+      "vp": "768",
+      "scrollW": 768,
+      "clientW": 768,
+      "bodyW": 768,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "my-day",
+      "vp": "430",
+      "scrollW": 430,
+      "clientW": 430,
+      "bodyW": 430,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "pipeline",
+      "vp": "430",
+      "scrollW": 430,
+      "clientW": 430,
+      "bodyW": 430,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "service",
+      "vp": "430",
+      "scrollW": 430,
+      "clientW": 430,
+      "bodyW": 430,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "recon",
+      "vp": "430",
+      "scrollW": 430,
+      "clientW": 430,
+      "bodyW": 430,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "inv-intel",
+      "vp": "430",
+      "scrollW": 430,
+      "clientW": 430,
+      "bodyW": 430,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "customers",
+      "vp": "430",
+      "scrollW": 430,
+      "clientW": 430,
+      "bodyW": 430,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "settings",
+      "vp": "430",
+      "scrollW": 430,
+      "clientW": 430,
+      "bodyW": 430,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "hq-ai-agents",
+      "vp": "430",
+      "scrollW": 430,
+      "clientW": 430,
+      "bodyW": 430,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "marketing",
+      "vp": "430",
+      "scrollW": 430,
+      "clientW": 430,
+      "bodyW": 430,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "discoverability",
+      "vp": "430",
+      "scrollW": 430,
+      "clientW": 430,
+      "bodyW": 430,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "my-day",
+      "vp": "390",
+      "scrollW": 390,
+      "clientW": 390,
+      "bodyW": 390,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "pipeline",
+      "vp": "390",
+      "scrollW": 390,
+      "clientW": 390,
+      "bodyW": 390,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "service",
+      "vp": "390",
+      "scrollW": 390,
+      "clientW": 390,
+      "bodyW": 390,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "recon",
+      "vp": "390",
+      "scrollW": 390,
+      "clientW": 390,
+      "bodyW": 390,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "inv-intel",
+      "vp": "390",
+      "scrollW": 390,
+      "clientW": 390,
+      "bodyW": 390,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "customers",
+      "vp": "390",
+      "scrollW": 390,
+      "clientW": 390,
+      "bodyW": 390,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "settings",
+      "vp": "390",
+      "scrollW": 390,
+      "clientW": 390,
+      "bodyW": 390,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "hq-ai-agents",
+      "vp": "390",
+      "scrollW": 390,
+      "clientW": 390,
+      "bodyW": 390,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "marketing",
+      "vp": "390",
+      "scrollW": 390,
+      "clientW": 390,
+      "bodyW": 390,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "discoverability",
+      "vp": "390",
+      "scrollW": 390,
+      "clientW": 390,
+      "bodyW": 390,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "my-day",
+      "vp": "375",
+      "scrollW": 375,
+      "clientW": 375,
+      "bodyW": 375,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "pipeline",
+      "vp": "375",
+      "scrollW": 375,
+      "clientW": 375,
+      "bodyW": 375,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "service",
+      "vp": "375",
+      "scrollW": 375,
+      "clientW": 375,
+      "bodyW": 375,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "recon",
+      "vp": "375",
+      "scrollW": 375,
+      "clientW": 375,
+      "bodyW": 375,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "inv-intel",
+      "vp": "375",
+      "scrollW": 375,
+      "clientW": 375,
+      "bodyW": 375,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "customers",
+      "vp": "375",
+      "scrollW": 375,
+      "clientW": 375,
+      "bodyW": 375,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "settings",
+      "vp": "375",
+      "scrollW": 375,
+      "clientW": 375,
+      "bodyW": 375,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "hq-ai-agents",
+      "vp": "375",
+      "scrollW": 375,
+      "clientW": 375,
+      "bodyW": 375,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "marketing",
+      "vp": "375",
+      "scrollW": 375,
+      "clientW": 375,
+      "bodyW": 375,
+      "isOverflowing": false,
+      "diff": 0
+    },
+    {
+      "route": "discoverability",
+      "vp": "375",
+      "scrollW": 375,
+      "clientW": 375,
+      "bodyW": 375,
+      "isOverflowing": false,
+      "diff": 0
+    }
+  ],
+  "interactions": [
+    {
+      "name": "Team Chat Open",
+      "success": false
+    },
+    {
+      "name": "Recon 3-Column Grid Verification",
+      "cols": 3,
+      "success": true
+    },
+    {
+      "name": "Mobile Header Density & Fit",
+      "success": true
+    }
+  ],
+  "errors": []
+}

@@ -903,6 +903,53 @@ window.svcOpenVideoWalkaround = function(roId = null, contactId = null) {
   }
 };
 
+window.svcRenderCheckoutCustomerCard = function(c) {
+  const isReady = ['ready', 'delivered', 'completed', 'done'].includes(String(c.status).toLowerCase());
+  const statusLabel = isReady ? 'READY FOR RELEASE' : (String(c.status).toUpperCase() || 'IN PROGRESS');
+  const statusCls = isReady
+    ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+    : 'bg-sky-100 dark:bg-sky-950/70 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800';
+
+  return `
+    <button type="button" onclick="svcOpenCheckOutModal('${esc(c.id)}')" class="w-full text-left p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 hover:border-emerald-300 dark:hover:border-emerald-700 transition flex items-center justify-between gap-3 group shadow-xs">
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-black text-sm text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">${esc(c.customer)}</span>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-black border ${statusCls}">${esc(statusLabel)}</span>
+        </div>
+        <div class="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-0.5 truncate">${esc(c.vehicle_desc)} · Tag #${esc(c.ro_number)}</div>
+        <div class="text-[11px] text-slate-400 mt-0.5">${c.phone ? esc(c.phone) + ' · ' : ''}Service Advisor: ${esc(c.advisor || 'Dave Miller')}</div>
+      </div>
+      <div class="text-right shrink-0">
+        <div class="font-black text-sm text-slate-900 dark:text-white">$${Number(c.total || 0).toFixed(2)}</div>
+        <div class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center justify-end gap-1 mt-1 group-hover:translate-x-0.5 transition-transform">
+          <span>Check Out</span> <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+        </div>
+      </div>
+    </button>
+  `;
+};
+
+window.svcFilterCheckoutCustomers = function(query) {
+  const q = String(query || '').toLowerCase().trim();
+  const listEl = document.getElementById('svc-checkout-list');
+  if (!listEl) return;
+  const items = window.__svcCheckoutQueue || [];
+  const filtered = items.filter(c => {
+    if (!q) return true;
+    return `${c.customer} ${c.phone} ${c.vehicle_desc} ${c.ro_number} ${c.advisor}`.toLowerCase().includes(q);
+  });
+  if (!filtered.length) {
+    listEl.innerHTML = `
+      <div class="text-center py-8 px-4 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
+        <div class="text-xs font-bold text-slate-500 dark:text-slate-400">No customers found matching "${esc(query)}"</div>
+        <button type="button" onclick="svcOpenCheckOutModal('custom_walkin')" class="mt-3 px-3.5 py-1.5 rounded-lg text-xs font-black bg-emerald-600 text-white hover:bg-emerald-500 transition">Check Out as Walk-In / New Customer</button>
+      </div>`;
+    return;
+  }
+  listEl.innerHTML = filtered.map(c => svcRenderCheckoutCustomerCard(c)).join('');
+};
+
 window.svcOpenCheckOutModal = function(roId = null) {
   let modal = document.getElementById('svc-checkout-modal');
   if (!modal) {
@@ -912,37 +959,105 @@ window.svcOpenCheckOutModal = function(roId = null) {
     document.body.appendChild(modal);
   }
 
-  const ro = (window.__svcData?.ros || []).find(r => r.id === roId) || {
-    id: roId || 'ro_1102',
-    ro_number: 'RO-1102',
-    customer: 'Robert Vance',
-    vehicle_desc: '2023 Ram 1500 Big Horn',
-    total: 485.00
-  };
+  const rawRos = (window.__svcData?.ros || (typeof ENGINE_DATA !== 'undefined' && ENGINE_DATA['service-overview']?.ros) || []);
+  const fallbackQueue = [
+    { id: 'ro_1102', ro_number: 'RO-1102', customer: 'Robert Vance', phone: '(555) 234-5678', vehicle_desc: '2023 Ram 1500 Big Horn', status: 'ready', total: 485.00, advisor: 'Dave Miller', mileage: '38,454', fuel: '3/4' },
+    { id: 'ro_1103', ro_number: 'RO-1103', customer: 'Sarah Connor', phone: '(555) 345-6789', vehicle_desc: '2024 Honda CR-V AWD', status: 'ready', total: 312.50, advisor: 'Dave Miller', mileage: '22,110', fuel: 'Full' },
+    { id: 'ro_1104', ro_number: 'RO-1104', customer: 'Jordan Lee', phone: '(555) 456-7890', vehicle_desc: '2024 Ford Explorer XLT', status: 'delivered', total: 620.00, advisor: 'Alex Rivera', mileage: '18,400', fuel: '1/2' },
+    { id: 'ro_1105', ro_number: 'RO-1105', customer: 'Elena Rostova', phone: '(555) 567-8901', vehicle_desc: '2023 Hyundai Tucson', status: 'ready', total: 195.00, advisor: 'Dave Miller', mileage: '29,850', fuel: '3/4' },
+    { id: 'ro_1106', ro_number: 'RO-1106', customer: 'Michael Scott', phone: '(555) 678-9012', vehicle_desc: '2022 Chrysler Pacifica', status: 'in_progress', total: 540.00, advisor: 'Alex Rivera', mileage: '44,200', fuel: '1/4' },
+  ];
 
-  const laborTotal = 240.00;
-  const partsTotal = 185.00;
-  const shopSupplies = 24.50;
-  const taxTotal = 35.50;
-  const grandTotal = laborTotal + partsTotal + shopSupplies + taxTotal;
+  window.__svcCheckoutQueue = (rawRos && rawRos.length) ? rawRos.map((r, idx) => ({
+    id: r.id || ('ro_' + (idx + 1)),
+    ro_number: r.ro_number || 'RO-#' + (r.id || '').slice(0, 4),
+    customer: r.customer_name || r.customer || (r.contact ? `${r.contact.first_name || ''} ${r.contact.last_name || ''}`.trim() : '') || 'Customer',
+    phone: r.phone || r.customer_phone || r.contact?.phone || '',
+    vehicle_desc: r.vehicle_desc || (r.vehicle ? `${r.vehicle.year || ''} ${r.vehicle.make || ''} ${r.vehicle.model || ''}`.trim() : '') || 'Vehicle',
+    status: r.status || 'ready',
+    total: Number(r.total || r.grand_total || 350),
+    advisor: r.advisor_name || r.advisor || 'Dave Miller',
+    mileage: r.mileage_in || r.odometer || '35,000',
+    fuel: r.fuel_in || '3/4'
+  })) : fallbackQueue;
+
+  // Step 1: If no specific RO/customer was selected, show the customer selection list
+  if (!roId) {
+    modal.innerHTML = `
+      <div class="relative w-full max-w-2xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto p-5 sm:p-6 space-y-4">
+        <div class="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div>
+            <div class="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-mono">Service Department</div>
+            <h3 class="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white mt-0.5">Select Customer to Check Out</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Select a customer with work ready for release, vehicle handoff, and payment collection.</p>
+          </div>
+          <button onclick="document.getElementById('svc-checkout-modal')?.remove()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold" aria-label="Close">X</button>
+        </div>
+
+        <!-- Live Instant Search Filter -->
+        <div class="relative">
+          <input type="text" id="svc-checkout-search" placeholder="Search by customer name, phone, RO#, plate, or vehicle..." oninput="svcFilterCheckoutCustomers(this.value)" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-3.5 py-2.5 text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <!-- Customer Queue List -->
+        <div id="svc-checkout-list" class="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
+          ${window.__svcCheckoutQueue.map(c => svcRenderCheckoutCustomerCard(c)).join('')}
+        </div>
+
+        <!-- Walk-in / Custom footer -->
+        <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <button type="button" onclick="svcOpenCheckOutModal('custom_walkin')" class="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center gap-1.5 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+            <span>Check out a walk-in / custom customer</span>
+          </button>
+          <button onclick="document.getElementById('svc-checkout-modal')?.remove()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Close</button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  // Step 2: Customer selected -> Render Check-Out & Vehicle Release details modal
+  const ro = (window.__svcCheckoutQueue || []).find(r => r.id === roId)
+    || (window.__svcData?.ros || []).find(r => r.id === roId)
+    || {
+      id: roId,
+      ro_number: 'RO-1102',
+      customer: 'Walk-in Customer',
+      vehicle_desc: 'Vehicle on Lot',
+      total: 350.00,
+      advisor: 'Dave Miller',
+      mileage: '35,000',
+      fuel: '3/4'
+    };
+
+  const grandTotal = Number(ro.total || 485.00);
+  const laborTotal = Math.round(grandTotal * 0.50 * 100) / 100;
+  const partsTotal = Math.round(grandTotal * 0.38 * 100) / 100;
+  const shopSupplies = Math.round(grandTotal * 0.05 * 100) / 100;
+  const taxTotal = Math.round((grandTotal - (laborTotal + partsTotal + shopSupplies)) * 100) / 100;
 
   modal.innerHTML = `
     <div class="relative w-full max-w-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto p-5 sm:p-6 space-y-4">
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
         <div>
+          <button type="button" onclick="svcOpenCheckOutModal(null)" class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 mb-1 cursor-pointer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
+            <span>Back to Customer List</span>
+          </button>
           <h3 class="text-base font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider flex items-center gap-2">
             <span>Service Customer Check-Out &amp; Vehicle Release</span>
           </h3>
           <p class="text-xs text-slate-500 dark:text-slate-400">Final invoice breakdown, mileage out, fuel level out, payment collection &amp; key release.</p>
         </div>
-        <button onclick="document.getElementById('svc-checkout-modal')?.remove()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold">X</button>
+        <button onclick="document.getElementById('svc-checkout-modal')?.remove()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold" aria-label="Close">X</button>
       </div>
 
       <!-- RO & Customer Card -->
       <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex justify-between items-center text-xs">
         <div>
           <div class="font-bold text-slate-900 dark:text-white">${esc(ro.customer || 'Customer')} · ${esc(ro.vehicle_desc || 'Vehicle')}</div>
-          <div class="text-slate-500 dark:text-slate-400">${esc(ro.ro_number || 'RO-1102')} · Service Advisor: Dave Miller</div>
+          <div class="text-slate-500 dark:text-slate-400">${esc(ro.ro_number || 'RO-1102')} · Service Advisor: ${esc(ro.advisor || 'Dave Miller')}</div>
         </div>
         <span class="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">READY FOR RELEASE</span>
       </div>
@@ -950,7 +1065,7 @@ window.svcOpenCheckOutModal = function(roId = null) {
       <!-- Financial Charges Breakdown -->
       <div class="p-4 rounded-xl bg-slate-900 text-white space-y-2 text-xs">
         <div class="font-black text-sky-400 uppercase tracking-wider text-[11px] mb-1">Final Financial Breakdown</div>
-        <div class="flex justify-between text-slate-300"><span>Labor Charges (2.5 hrs @ $96/hr):</span><span>$${laborTotal.toFixed(2)}</span></div>
+        <div class="flex justify-between text-slate-300"><span>Labor Charges:</span><span>$${laborTotal.toFixed(2)}</span></div>
         <div class="flex justify-between text-slate-300"><span>OEM Parts &amp; Fluids:</span><span>$${partsTotal.toFixed(2)}</span></div>
         <div class="flex justify-between text-slate-300"><span>Shop Supplies &amp; Hazmat Disposal:</span><span>$${shopSupplies.toFixed(2)}</span></div>
         <div class="flex justify-between text-slate-300"><span>Sales &amp; Local Tax:</span><span>$${taxTotal.toFixed(2)}</span></div>
@@ -974,20 +1089,20 @@ window.svcOpenCheckOutModal = function(roId = null) {
         </div>
         <div class="space-y-1">
           <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Check-Out Mileage (Odometer)</label>
-          <input id="svc-out-mileage" type="text" value="38,454" placeholder="e.g. 38,454 miles" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
+          <input id="svc-out-mileage" type="text" value="${esc(String(ro.mileage || '38,454'))}" placeholder="e.g. 38,454 miles" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
         </div>
         <div class="space-y-1">
           <label class="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Fuel Level Out</label>
           <select id="svc-out-fuel" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-xs font-bold text-slate-900 dark:text-white">
-            <option value="Full">Full Tank (100%)</option>
-            <option value="7/8">7/8 Tank (87%)</option>
-            <option value="3/4" selected>3/4 Tank (75%)</option>
-            <option value="5/8">5/8 Tank (62%)</option>
-            <option value="1/2">1/2 Tank (50%)</option>
-            <option value="3/8">3/8 Tank (37%)</option>
-            <option value="1/4">1/4 Tank (25%)</option>
-            <option value="1/8">1/8 Tank (12%)</option>
-            <option value="Empty">Empty (0%)</option>
+            <option value="Full" ${ro.fuel === 'Full' ? 'selected' : ''}>Full Tank (100%)</option>
+            <option value="7/8" ${ro.fuel === '7/8' ? 'selected' : ''}>7/8 Tank (87%)</option>
+            <option value="3/4" ${ro.fuel === '3/4' || !ro.fuel ? 'selected' : ''}>3/4 Tank (75%)</option>
+            <option value="5/8" ${ro.fuel === '5/8' ? 'selected' : ''}>5/8 Tank (62%)</option>
+            <option value="1/2" ${ro.fuel === '1/2' ? 'selected' : ''}>1/2 Tank (50%)</option>
+            <option value="3/8" ${ro.fuel === '3/8' ? 'selected' : ''}>3/8 Tank (37%)</option>
+            <option value="1/4" ${ro.fuel === '1/4' ? 'selected' : ''}>1/4 Tank (25%)</option>
+            <option value="1/8" ${ro.fuel === '1/8' ? 'selected' : ''}>1/8 Tank (12%)</option>
+            <option value="Empty" ${ro.fuel === 'Empty' ? 'selected' : ''}>Empty (0%)</option>
           </select>
         </div>
       </div>
@@ -1003,11 +1118,14 @@ window.svcOpenCheckOutModal = function(roId = null) {
       </div>
 
       <!-- Action Buttons -->
-      <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-        <button onclick="document.getElementById('svc-checkout-modal')?.remove()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
-        <button onclick="svcSubmitCheckOutForm('${ro.id}')" class="px-5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition">
-          Confirm Check-Out &amp; Release Keys
-        </button>
+      <div class="flex items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <button type="button" onclick="svcOpenCheckOutModal(null)" class="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1">← Change Customer</button>
+        <div class="flex items-center gap-2">
+          <button onclick="document.getElementById('svc-checkout-modal')?.remove()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
+          <button onclick="svcSubmitCheckOutForm('${ro.id}')" class="px-5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition">
+            Confirm Check-Out &amp; Release Keys
+          </button>
+        </div>
       </div>
     </div>
   `;
