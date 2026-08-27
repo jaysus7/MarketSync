@@ -300,3 +300,12 @@ Average score is **not** auto-raised. Next: logged-in visual pass.
 **Not executed.** Staging credentials were not supplied in the verification request, and the verification browser received HTTP Not Found from `staging-site.onrender.com`. No authenticated route scores changed. Average remains 60.8. PASS count remains 0.
 
 See `docs/BRAND_UI_VISUAL_VERIFICATION.md`.
+
+
+## Phase 2 update — 2026-08-26 (staging URL confirmed)
+
+Staging origin works: `https://marketsync-staging-site.onrender.com/`. Sessionless visit of `#/p/profile` renders login.
+
+`A001 /login.html` light desktop + mobile inspected on that origin. Score held at NEEDS WORK (~78 / ~76). Sign-in control is off Market Blue. Authenticated rows unchanged. Average **60.8**. PASS **0**.
+
+Credentials still required for My Day through HQ.

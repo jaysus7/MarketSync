@@ -1,35 +1,32 @@
 # Brand UI visual verification (Phase 2)
 
 Date: 2026-08-26  
-Control: `docs/BRAND_UI_ROUTE_AUDIT.md`  
-Pre-pass code: `22f80aa` (workspace accents → Market Blue family)
+Staging origin confirmed: `https://marketsync-staging-site.onrender.com/`  
+Entry: `dashboard.html#/p/profile` → redirected to login (no session).
 
-## Result: BLOCKED
+## Status: BLOCKED on authenticated app
 
-Authenticated visual verification did **not** run.
+Email and password were still not included in the request. No production account was used. No pages were restyled.
 
-### Blockers
+## Surfaces opened
 
-1. **No staging credentials in this chat turn.** The instruction said “use this account” but did not include an email or password. Guessing or using a production/owner login is forbidden.
-2. **This environment could not load the staging origin used in prior phone QA.** `https://staging-site.onrender.com/`, `/login.html`, and `/dashboard.html` returned **Not Found** from the verification browser. No authenticated shell rendered here.
+| Route | Viewport | Theme | Date | Defects | Score | Status |
+|---|---|---|---|---|---|---|
+| `/login.html` (staging) | ~1440 desktop | Light | 2026-08-26 | Official wordmark present. Tagline correct. Card is opaque content (good). Sign In reads more indigo/violet than Market Blue `#2563EB`. Inputs are tall enough. No glass on the form (correct). Dark mode not forced in this browser. | 78 | NEEDS WORK |
+| `/login.html` (staging) | ~390 mobile | Light | 2026-08-26 | No horizontal clip. Card stacks cleanly. Touch targets OK. Same button-blue drift. | 76 | NEEDS WORK |
+| `/login.html` dark | 1440 / 390 | Dark | — | Not verified (browser stayed in light). | — | NEEDS WORK |
+| DealerOS / HQ routes | 1440 / 768 / 390 × light/dark | — | — | Not opened. Login wall. | — | NEEDS WORK |
 
-### Policy followed
+## Classification so far (login only)
 
-- No production login
-- No billing, integrations, customer, or permission writes
-- No department restyles
-- No routes marked PASS from CSS
+- GLOBAL — primary button not locked to `#2563EB` on staging login (looks Tailwind indigo).
+- GLOBAL — dark mode of auth not verified.
+- STATE — unauthenticated only; menus/modals/drawers of the app not reachable.
+- AREA / ROUTE — DealerOS departments unchecked.
 
-### Surfaces not opened
+## Required to finish Phase 2
 
-My Day, Customer workspace, Sales, F&I, Inventory, Service, Parts, Accounting, Cleanup, Intelligence, Marketing/Campaigns, Social Scheduler, Design Studio, Website builder, Academy/Guide, HR/Admin, Settings, HQ, menus/modals/drawers, mobile sheet — all **unchecked** at 1440 / 768 / 390 in light and dark.
+Staging-only credentials, on their own lines:
 
-### To unblock
-
-Provide:
-
-- Staging base URL that actually serves DealerOS (if not `staging-site.onrender.com`)
-- Staging-only email + password with DealerOS department + HQ access
-- Confirm the account has no production data and cannot change live billing
-
-Then re-run Phase 2 exactly.
+Email:  
+Password:
