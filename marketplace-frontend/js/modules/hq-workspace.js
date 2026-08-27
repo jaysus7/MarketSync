@@ -445,3 +445,128 @@ async function loadHqRoles() {
 
 window.loadHqAllUsers = loadHqAllUsers;
 window.loadHqRoles = loadHqRoles;
+
+
+function hqMoney(cents, cur) {
+  const n = Number(cents || 0) / 100;
+  return (cur || 'cad').toUpperCase() + ' ' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+async function loadHqBilling() {
+  const root = document.getElementById('saas-billing-root') || document.getElementById('saas-accounting-root');
+  if (!root) return;
+  root.innerHTML = '<div class="text-sm text-slate-400 p-4">Loading billing…</div>';
+  try {
+    const d = await apiGetJson('/owner/billing');
+    window.__hqBillingPlans = d.plans || [];
+    const rows = d.accounts || [];
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Billing','Live Stripe customer, invoices, plan change, cancel at period end'):''}
+      <p class="text-sm text-slate-500 mb-3">${d.stripe_configured ? 'Stripe is configured on this environment.' : 'Stripe secret is not configured — list is from the database only; mutations will 503.'}</p>
+      <input id="hq-bill-q" oninput="hqFilterBilling()" placeholder="Search dealership or Stripe id" class="w-full max-w-lg mb-3 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm">
+      <div id="hq-bill-table"></div>`;
+    window.__hqBillingAccounts = rows;
+    hqFilterBilling();
+  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message)}</div>`; }
+}
+window.hqFilterBilling = function() {
+  const q = (document.getElementById('hq-bill-q')?.value || '').toLowerCase();
+  const host = document.getElementById('hq-bill-table'); if (!host) return;
+  const rows = (window.__hqBillingAccounts || []).filter(a => !q || JSON.stringify(a).toLowerCase().includes(q));
+  host.innerHTML = `<div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+    <table class="w-full text-left text-xs"><thead><tr class="text-[10px] uppercase text-slate-400 border-b border-slate-200 dark:border-slate-800">
+      <th class="p-3">Dealership</th><th class="p-3">Status</th><th class="p-3">Plan</th><th class="p-3">Stripe</th><th class="p-3"></th></tr></thead>
+      <tbody>${rows.slice(0,400).map(a => `<tr class="border-t border-slate-100 dark:border-slate-800">
+        <td class="p-3 font-bold">${esc(a.name||a.id)}</td>
+        <td class="p-3">${esc(a.billing_status||'—')}</td>
+        <td class="p-3">${esc(a.plan|| (a.subscriptions||[]).map(s=>s.plan_id).filter(Boolean).join(', ') || '—')}</td>
+        <td class="p-3 font-mono text-[10px]">${esc((a.stripe_customer_id||'').slice(0,18) || 'none')}</td>
+        <td class="p-3 text-right"><button class="font-black text-indigo-600" onclick="hqOpenBilling('${a.id}')">Open</button></td>
+      </tr>`).join('')}</tbody></table></div>`;
+};
+
+window.hqOpenBilling = async function(id) {
+  document.getElementById('hq-bill-drawer')?.remove();
+  const el = document.createElement('div');
+  el.id = 'hq-bill-drawer';
+  el.className = 'fixed inset-0 z-[120] flex items-center justify-center p-4';
+  el.innerHTML = `<div class="absolute inset-0 bg-slate-950/50" onclick="document.getElementById('hq-bill-drawer')?.remove()"></div>
+    <div class="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5" id="hq-bill-body">Loading…</div>`;
+  document.body.appendChild(el);
+  try {
+    const d = await apiGetJson('/owner/billing/' + id);
+    const plans = window.__hqBillingPlans || [];
+    const subs = d.stripe_subscriptions || [];
+    const inv = d.invoices || [];
+    document.getElementById('hq-bill-body').innerHTML = `
+      <div class="flex justify-between gap-3 mb-3">
+        <div><div class="text-[10px] font-black uppercase text-slate-400">Billing</div>
+        <h2 class="text-xl font-black">${esc(d.name||id)}</h2>
+        <div class="text-xs text-slate-500">${esc(d.billing_status||'')} · ${esc(d.plan||'')} · ${esc(d.stripe_customer_id||'no customer')}</div></div>
+        <button onclick="document.getElementById('hq-bill-drawer')?.remove()">Close</button>
+      </div>
+      ${d.stripe_error ? `<div class="text-sm text-rose-600 mb-3">${esc(d.stripe_error)}</div>` : ''}
+      <div class="flex flex-wrap gap-2 mb-4">
+        <button class="px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-black" onclick="hqBillingPortal('${id}')">Stripe portal</button>
+        <button class="px-3 py-1.5 rounded-xl border text-xs font-black" onclick="hqBillingCancel('${id}')">Cancel at period end</button>
+        <button class="px-3 py-1.5 rounded-xl border text-xs font-black" onclick="hqBillingReactivate('${id}')">Reactivate</button>
+        <button class="px-3 py-1.5 rounded-xl border text-xs font-black" onclick="hqBillingTrial('${id}')">Stripe trial days</button>
+      </div>
+      <label class="block text-[11px] font-black uppercase text-slate-400 mb-1">Change plan</label>
+      <div class="flex gap-2 mb-4">
+        <select id="hq-plan-id" class="flex-1 rounded-xl border px-2 py-2 text-sm">${plans.map(p => `<option value="${esc(p.id)}">${esc(p.label)} ($${p.monthly})</option>`).join('')}</select>
+        <select id="hq-plan-cur" class="rounded-xl border px-2 py-2 text-sm"><option value="cad">CAD</option><option value="usd">USD</option></select>
+        <button class="px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-black" onclick="hqBillingPlan('${id}')">Apply</button>
+      </div>
+      <div class="text-[13px] font-black mb-1">Stripe subscriptions</div>
+      <div class="space-y-2 mb-4">${subs.length ? subs.map(s => `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3 text-xs">
+        <b>${esc(s.id)}</b> · ${esc(s.status)} · cancel_at_period_end ${s.cancel_at_period_end ? 'yes' : 'no'}
+        <div>period end ${s.current_period_end ? new Date(s.current_period_end*1000).toISOString().slice(0,10) : '—'}</div>
+      </div>`).join('') : '<div class="text-sm text-slate-400">No Stripe subscriptions returned.</div>'}</div>
+      <div class="text-[13px] font-black mb-1">Invoices</div>
+      <div class="space-y-1">${inv.length ? inv.map(i => `<a class="block rounded-xl border border-slate-200 dark:border-slate-800 p-3 text-xs" href="${esc(i.hosted_invoice_url||i.invoice_pdf||'#')}" target="_blank" rel="noopener">
+        ${esc(i.number||i.id)} · ${esc(i.status)} · ${hqMoney(i.amount_paid || i.amount_due, i.currency)}
+      </a>`).join('') : '<div class="text-sm text-slate-400">No invoices.</div>'}</div>`;
+  } catch (e) {
+    document.getElementById('hq-bill-body').innerHTML = `<div class="text-rose-500 text-sm">${esc(e.message)}</div>`;
+  }
+};
+
+window.hqBillingPortal = async function(id) {
+  const reason = prompt('Open Stripe portal — reason') || '';
+  if (!reason.trim()) return;
+  try {
+    const r = await apiSendJson('/owner/billing/' + id + '/portal', 'POST', { reason });
+    if (r.url) window.open(r.url, '_blank', 'noopener');
+    else showToast('No portal URL', 'error');
+  } catch (e) { showToast(e.message || 'Portal failed', 'error'); }
+};
+window.hqBillingCancel = async function(id) {
+  if (!confirm('Cancel at period end on Stripe?')) return;
+  const reason = prompt('Reason') || '';
+  if (!reason.trim()) return;
+  try { await apiSendJson('/owner/billing/' + id + '/cancel', 'POST', { reason }); showToast('Set to cancel at period end', 'success'); hqOpenBilling(id); }
+  catch (e) { showToast(e.message || 'Cancel failed', 'error'); }
+};
+window.hqBillingReactivate = async function(id) {
+  const reason = prompt('Reason') || '';
+  if (!reason.trim()) return;
+  try { await apiSendJson('/owner/billing/' + id + '/reactivate', 'POST', { reason }); showToast('Reactivated', 'success'); hqOpenBilling(id); }
+  catch (e) { showToast(e.message || 'Reactivate failed', 'error'); }
+};
+window.hqBillingTrial = async function(id) {
+  const days = prompt('Stripe trial days', '14');
+  const reason = prompt('Reason') || '';
+  if (!days || !reason.trim()) return;
+  try { await apiSendJson('/owner/billing/' + id + '/stripe-trial', 'POST', { days: Number(days), reason }); showToast('Stripe trial updated', 'success'); hqOpenBilling(id); }
+  catch (e) { showToast(e.message || 'Trial failed', 'error'); }
+};
+window.hqBillingPlan = async function(id) {
+  const plan_id = document.getElementById('hq-plan-id')?.value;
+  const currency = document.getElementById('hq-plan-cur')?.value || 'cad';
+  const reason = prompt('Change plan to ' + plan_id + ' — reason') || '';
+  if (!reason.trim()) return;
+  try { await apiSendJson('/owner/billing/' + id + '/plan', 'POST', { plan_id, currency, reason }); showToast('Plan change sent to Stripe', 'success'); hqOpenBilling(id); }
+  catch (e) { showToast(e.message || 'Plan change failed', 'error'); }
+};
+
+window.loadHqBilling = loadHqBilling;
