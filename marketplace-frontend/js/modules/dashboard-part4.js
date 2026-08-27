@@ -337,18 +337,32 @@ function crmCloseMinimized() { document.querySelector('.fixed[data-minimized="1"
 Object.assign(window, { crmMinimizeModal, crmRestoreModal, crmCloseMinimized });
 
 async function openCrmContact(id, initialTab = 'timeline') {
+  if (!id || id === 'null' || id === 'undefined') {
+    showToast('Customer record not found', 'error');
+    return;
+  }
   const ov = crmOverlay(`<div class="p-10 text-center text-sm text-slate-400 italic">Loading customer card…</div>`, 'max-w-4xl');
   try {
     const [d, eqData] = await Promise.all([
-      apiGetJson(`/crm/contacts/${id}`).catch(e => ({ contact: {}, timeline: [], tasks: [] })),
+      apiGetJson(`/crm/contacts/${id}`).catch(e => ({ contact: null, error: e.message, timeline: [], tasks: [] })),
       apiGetJson(`/equity/lease/by-contact/${id}`).catch(e => ({ lease: null, settings: {} }))
     ]);
-    ov.querySelector('div > div').innerHTML = crmDetailHtml(d, eqData, initialTab);
-    ov.__contactId = id;
-    if (d.contact?.id) {
-      setTimeout(() => { idvFillProvider(); idvRefresh(id); }, 100);
+    if (!d?.contact || !d.contact.id) {
+      ov.querySelector('div > div').innerHTML = `
+        <div class="p-8 text-center space-y-3">
+          <div class="text-sm font-bold text-slate-800 dark:text-slate-200">Customer record not found</div>
+          <div class="text-xs text-slate-500">The requested customer could not be found or has been removed.</div>
+          <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold">Close</button>
+        </div>`;
+      return;
     }
-  } catch (e) { ov.querySelector('div > div').innerHTML = `<div class="p-8 text-center text-sm text-slate-500">Couldn't load customer: ${esc(e.message)}</div>`; }
+    window.__crmActiveContact = d.contact;
+    ov.querySelector('div > div').innerHTML = crmDetailHtml(d, eqData, initialTab);
+    ov.__contactId = d.contact.id;
+    setTimeout(() => { idvFillProvider(); idvRefresh(d.contact.id); }, 100);
+  } catch (e) {
+    ov.querySelector('div > div').innerHTML = `<div class="p-8 text-center text-sm text-slate-500">Couldn't load customer: ${esc(e.message)}</div>`;
+  }
 }
 
 function crmSwitchCardTab(tabName) {
@@ -444,11 +458,11 @@ function crmEquityMiningTab(c, d, eqData) {
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m3 6V7m3 10v-4M4 4h16v16H4z"/></svg>
             Desk Deal with Equity
           </button>
-          ${allowQuickAdd ? `<button onclick="crmQuickAddTradeModal('${c.id}')" class="text-xs font-bold bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 px-3 py-1.5 rounded-xl flex items-center gap-1">
+          ${allowQuickAdd ? `<button onclick="apprFromContact('${c.id}')" class="text-xs font-bold bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 px-3 py-1.5 rounded-xl flex items-center gap-1">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
             ${tv.make || tv.vin ? 'Appraise Trade' : 'Appraise Trade'}
           </button>` : ''}
-          <button onclick="apprFromContact(${JSON.stringify({ id: c.id, full_name: c.full_name || '', first_name: c.first_name || '', last_name: c.last_name || '', email: c.email || '', phone: c.phone || '', address: c.address || '', postal_code: c.postal_code || '' }).replace(/'/g, "&#39;")})" class="text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1">
+          <button onclick="apprFromContact('${c.id}')" class="text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             Appraise Trade (Full)
           </button>
@@ -581,7 +595,7 @@ function crmDetailHtml(d, eqData = {}, initialTab = 'timeline') {
         <button type="button" onclick="crmTaskForm('${c.id}');toggleCrmActionsMenu()" class="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800">Add task</button>
         <button type="button" onclick="crmApptForm('${c.id}');toggleCrmActionsMenu()" class="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800">Book appointment</button>
         ${SALES_ROLES.includes(profileContext?.role) ? `<button type="button" onclick="openDeskForContact('${c.id}');toggleCrmActionsMenu()" class="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800">${d.deal ? 'View deal' : 'Desk deal'}</button>` : ''}
-        ${SALES_ROLES.includes(profileContext?.role) ? `<button type="button" onclick='apprFromContact(${JSON.stringify({ id: c.id, full_name: c.full_name || '', first_name: c.first_name || '', last_name: c.last_name || '', email: c.email || '', phone: c.phone || '', address: c.address || '', postal_code: c.postal_code || '' }).replace(/'/g, "&#39;")});toggleCrmActionsMenu()' class="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800">Appraise vehicle</button>` : ''}
+        ${SALES_ROLES.includes(profileContext?.role) ? `<button type="button" onclick="apprFromContact('${c.id}');toggleCrmActionsMenu()" class="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800">Appraise vehicle</button>` : ''}
         <button type="button" onclick="openCustomerVideoStudio('${c.id}');toggleCrmActionsMenu()" class="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800">Record video</button>
       </div>
     </div>
@@ -783,8 +797,8 @@ function crmVehicleCards(c, d) {
       <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(label || 'Trade vehicle')}</div>
       ${sub ? `<div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(sub)}</div>` : ''}
       <div class="flex items-center gap-1.5 flex-wrap mt-2">
-        ${allowQuickAddCard ? `<button onclick="crmQuickAddTradeModal('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1">Appraise Trade</button>` : ''}
-        ${SALES_ROLES.includes(profileContext?.role) ? `<button onclick="switchPage('appraisal')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200">${tv.appraisal_id ? 'View appraisal' : 'Full Appraisal'}</button>` : ''}
+        ${allowQuickAddCard ? `<button onclick="apprFromContact('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1">Appraise Trade</button>` : ''}
+        ${SALES_ROLES.includes(profileContext?.role) ? `<button onclick="apprFromContact('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200">${tv.appraisal_id ? 'View appraisal' : 'Full Appraisal'}</button>` : ''}
       </div>
     </div>`);
   } else if (allowQuickAddCard) {
@@ -794,7 +808,7 @@ function crmVehicleCards(c, d) {
         <div class="text-xs text-slate-500">No trade vehicle on file</div>
       </div>
       <div class="flex items-center gap-1.5 mt-2">
-        <button onclick="crmQuickAddTradeModal('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1">Appraise Trade</button>
+        <button onclick="apprFromContact('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1">Appraise Trade</button>
       </div>
     </div>`);
   }
@@ -2116,24 +2130,16 @@ function startLeadTimers() {
   __leadTimerInterval = setInterval(tick, 1000);
 }
 
-function crmQuickAddTradeModal(contactId) {
-  const c = (typeof __crmActiveContact !== 'undefined' && __crmActiveContact) || {};
-  const contact = { ...c, id: contactId || c.id };
-  document.querySelector('.ms-modal-scrim')?.remove();
-  document.getElementById('crm-quick-trade-modal')?.remove();
-  window.__apprPrefillContact = contact;
-  if (typeof switchPage === 'function') switchPage('appraisal');
-  const apply = () => {
-    if (typeof apprPickCustomer === 'function') {
-      apprPickCustomer(window.__apprPrefillContact || contact);
-      return true;
-    }
-    return false;
-  };
-  if (!apply()) {
-    let n = 0;
-    const tmr = setInterval(() => { if (apply() || ++n > 40) clearInterval(tmr); }, 100);
+function crmQuickAddTradeModal(contactIdOrObj) {
+  let contact = null;
+  if (contactIdOrObj && typeof contactIdOrObj === 'object') {
+    contact = contactIdOrObj;
+  } else {
+    const cid = typeof contactIdOrObj === 'string' ? contactIdOrObj : null;
+    const active = (typeof __crmActiveContact !== 'undefined' && __crmActiveContact) || {};
+    contact = (cid && active.id === cid) ? active : { ...active, id: cid || active.id };
   }
+  apprFromContact(contact);
 }
 window.crmQuickAddTradeModal = crmQuickAddTradeModal;
 

@@ -338,20 +338,34 @@ async function apprSearchCustomers(q) {
   } catch (e) { box.classList.add('hidden'); }
 }
 function apprPickCustomer(c) {
-  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
-  const nameParts = (c.full_name || '').trim().split(/\s+/);
+  if (!c || typeof c !== 'object') return;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v != null ? v : ''); };
+  const fullName = (c.full_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || c.name || '').trim();
+  const nameParts = fullName.split(/\s+/);
   set('cust-first', c.first_name || nameParts[0] || '');
   set('cust-last', c.last_name || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : ''));
-  set('cust-home-phone', c.phone_home || '');
-  set('cust-mobile-phone', c.phone_mobile || c.phone || '');
+  set('cust-home-phone', c.phone_home || c.home_phone || '');
+  set('cust-mobile-phone', c.phone_mobile || c.mobile_phone || c.phone || '');
   set('cust-email', c.email || '');
-  set('cust-address', c.address || '');
-  set('cust-postal', c.postal_code || '');
+  set('cust-address', c.address || [c.street, c.address_line1, c.city, c.province].filter(Boolean).join(', ') || '');
+  set('cust-postal', c.postal_code || c.zip || c.postal || '');
+
+  // If customer has a trade vehicle on file, prefill appraisal vehicle inputs
+  const tv = c.trade_vehicle || c.tradeVehicle || c.vehicle;
+  if (tv && typeof tv === 'object') {
+    if (tv.vin) set('appr-vin', tv.vin);
+    if (tv.year) set('appr-year', tv.year);
+    if (tv.make) set('appr-make', tv.make);
+    if (tv.model) set('appr-model', tv.model);
+    if (tv.trim) set('appr-trim', tv.trim);
+    if (tv.mileage) set('appr-mileage', tv.mileage);
+  }
+
   __apprContactId = c.id || null;
   const badge = document.getElementById('appr-cust-linked');
   if (badge) { badge.classList.remove('hidden'); badge.classList.add('inline-flex'); }
   const nm = document.getElementById('appr-cust-linked-name');
-  if (nm) nm.textContent = c.full_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Linked';
+  if (nm) nm.textContent = fullName || 'Linked';
   const box = document.getElementById('appr-cust-results'); if (box) box.classList.add('hidden');
   const search = document.getElementById('appr-cust-search'); if (search) search.value = '';
   showToast('Customer linked to this appraisal', 'success');

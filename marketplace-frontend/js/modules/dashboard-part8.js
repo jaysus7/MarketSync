@@ -59,13 +59,30 @@ function openDeskForDeal(dealId, contactId) {
   switchPage('desk');
 }
 // Open the Trade Appraisal page pre-filled with this customer's details.
-function apprFromContact(c) {
+function apprFromContact(cIdOrObj) {
   document.querySelector('.ms-modal-scrim')?.remove();
-  window.__apprPrefillContact = c || {};
+  document.querySelectorAll('.fixed:has(#crm-actions-wrap), .fixed:has(#crm-actions-menu), .fixed:has(#crm-tab-btn-timeline)').forEach(el => el.remove());
+  let contact = null;
+  const active = (typeof __crmActiveContact !== 'undefined' && __crmActiveContact) || {};
+  if (cIdOrObj && typeof cIdOrObj === 'object') {
+    contact = (cIdOrObj.id && cIdOrObj.id === active.id) ? { ...active, ...cIdOrObj } : cIdOrObj;
+  } else {
+    const id = typeof cIdOrObj === 'string' ? cIdOrObj : null;
+    if (id && active.id === id) {
+      contact = active;
+    } else if (id && typeof __crmContactsCache !== 'undefined' && Array.isArray(__crmContactsCache)) {
+      contact = __crmContactsCache.find(x => x.id === id) || { id };
+    } else {
+      contact = active.id ? active : (id ? { id } : {});
+    }
+  }
+  window.__apprPrefillContact = contact;
   if (typeof switchPage === 'function') switchPage('appraisal');
   const apply = () => {
     if (typeof apprPickCustomer !== 'function') return false;
-    apprPickCustomer(window.__apprPrefillContact || c || {});
+    const firstEl = document.getElementById('cust-first');
+    if (!firstEl) return false;
+    apprPickCustomer(window.__apprPrefillContact || contact);
     return true;
   };
   if (!apply()) {

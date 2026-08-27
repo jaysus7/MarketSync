@@ -1547,6 +1547,9 @@ body.ms-app-booting > header { background:var(--ms-surface) !important; border-c
   --ms-radius-card: 20px;
   --ms-radius-control: 12px;
   --ms-shadow-glass: 0 16px 40px rgba(23, 25, 31, 0.08);
+  --ms-s-glass: rgba(255, 255, 255, 0.78);
+  --ms-g-border: rgba(15, 23, 42, 0.10);
+  --ms-g-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
 }
 
 .dark {
@@ -1557,6 +1560,9 @@ body.ms-app-booting > header { background:var(--ms-surface) !important; border-c
   --ms-text-muted: #a5acb8;
   --ms-border: rgba(255, 255, 255, 0.12);
   --ms-shadow-glass: 0 16px 40px rgba(0, 0, 0, 0.22);
+  --ms-s-glass: rgba(15, 23, 42, 0.55);
+  --ms-g-border: rgba(255, 255, 255, 0.10);
+  --ms-g-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
 .ms-glass {

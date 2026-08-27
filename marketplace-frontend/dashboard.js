@@ -1542,7 +1542,10 @@ function navPagesForProductKey(key) {
     return one('social-scheduler', 'Social Studio & Scheduler', 'calendar', { tab: 'overview' });
   }
   if (/email|campaign|automation/.test(only)) {
-    return one('automation-builder', 'Email, SMS & Campaigns', 'chat', { tab: 'overview' });
+    return [
+      { page: 'automation-builder', tab: 'overview', label: 'Pulse', icon: 'megaphone' },
+      { page: 'automation-builder', tab: 'automations', label: 'Automations', icon: 'bolt' },
+    ];
   }
   if (/video/.test(only)) {
     return one('video-studio', 'MarketSync Video', 'video');
@@ -1650,7 +1653,10 @@ function restrictedNavPages() {
       return one('social-scheduler', 'Social Studio & Scheduler', 'calendar', { tab: 'overview' });
     }
     if (/marketsync_email|email_marketing|campaigns|automations/.test(only)) {
-      return one('automation-builder', 'Email, SMS & Campaigns', 'chat', { tab: 'overview' });
+      return [
+        { page: 'automation-builder', tab: 'overview', label: 'Pulse', icon: 'megaphone' },
+        { page: 'automation-builder', tab: 'automations', label: 'Automations', icon: 'bolt' },
+      ];
     }
     if (/marketsync_video|^video$/.test(only)) {
       return one('video-studio', 'MarketSync Video', 'video');

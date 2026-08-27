@@ -2263,7 +2263,18 @@ function switchPage(pageId) {
   if (pageId === 'people-overview') loadPeopleWorkspace();
   if (pageId === 'fni') loadFniPage();
   if (pageId === 'equity') loadEquityPage();
-  if (pageId === 'appraisal') { initAppraisal(); loadApprList(); apprEnsureBranding(); }
+  if (pageId === 'appraisal') {
+    initAppraisal();
+    loadApprList();
+    apprEnsureBranding();
+    if (window.__apprPrefillContact && typeof apprPickCustomer === 'function') {
+      setTimeout(() => {
+        if (window.__apprPrefillContact && typeof apprPickCustomer === 'function') {
+          apprPickCustomer(window.__apprPrefillContact);
+        }
+      }, 50);
+    }
+  }
   if (pageId === 'taskboard') loadTaskBoard();
   if (pageId === 'command') loadCommandCenter();
   if (pageId === 'sales') loadSalesWorkspace();
