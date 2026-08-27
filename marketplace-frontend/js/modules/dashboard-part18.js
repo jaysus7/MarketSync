@@ -5698,7 +5698,8 @@ async function loadInventoryCatalog() {
   if (!list) return; // inventory page not mounted (Pulse / other workspaces)
   list.innerHTML = '<div class="text-xs text-slate-500 italic col-span-full">Loading catalog...</div>';
   try {
-    const res = await fetch(`${API}/inventory/all`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const curToken = (typeof token !== 'undefined' && token) ? token : (localStorage.getItem('token') || localStorage.getItem('ms_auth_token') || '');
+    const res = await fetch(`${API}/inventory/all`, { headers: { 'Authorization': `Bearer ${curToken}` } });
     const body = await res.json().catch(() => []);
     if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
     __catalogCache = Array.isArray(body) ? body : [];
@@ -5706,7 +5707,7 @@ async function loadInventoryCatalog() {
     // last Inventory Scan) so cards can show a "% to market" badge.
     if (__invIntelActive) {
       try {
-        const pr = await fetch(`${API}/ai/market-positions`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const pr = await fetch(`${API}/ai/market-positions`, { headers: { 'Authorization': `Bearer ${curToken}` } });
         if (pr.ok) { const pj = await pr.json(); __marketPositions = pj.positions || {}; __marketMeta = pj.meta || {}; __marketVerdicts = pj.verdicts || {}; }
       } catch {}
     }

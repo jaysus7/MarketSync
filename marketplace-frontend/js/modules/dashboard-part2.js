@@ -69,11 +69,14 @@ function isDemoAccount() {
 window.isDemoAccount = isDemoAccount;
 
 function dealerRoleLanding(role) {
-  const prod = String(window.__demoActiveProduct || window.__demoActivePackage || document.documentElement.getAttribute('data-product') || '').toLowerCase();
+  if (typeof __fbOnly !== 'undefined' && __fbOnly) return 'inventory';
+  if (typeof isFacebookOnlyWorkspace === 'function' && isFacebookOnlyWorkspace()) return 'inventory';
+  const prod = String(window.__demoActiveProduct || window.__demoActivePackage || document.documentElement.getAttribute('data-product') || window.__access?.product || (typeof profileContext !== 'undefined' ? (profileContext?.product || profileContext?.plan) : '') || '').toLowerCase();
   if (prod.includes('marketsync-digital') || prod.includes('marketsync_digital') || prod === 'digital') return 'marketing-overview';
   if (prod.includes('sales-marketing-suite')) return 'marketing-overview';
   if (prod.includes('service-marketing-suite')) return 'marketing-overview';
   if (prod.includes('complete-marketing-suite')) return 'marketing-overview';
+  if (prod.includes('facebook') || prod.includes('fb_autoposter') || prod.includes('facebook_solo') || prod.includes('facebook_dealer') || prod.includes('fb_solo') || prod.includes('fb_dealership')) return 'inventory';
   const routes = {
     DEALER_ADMIN: 'command', OWNER: 'command', MANAGER: 'command',
     SALES_REP: 'sales', BDC: 'sales', FNI: 'fni-overview', SERVICE: 'service-overview',
@@ -752,6 +755,10 @@ async function initializeDashboardEcosystem() {
       document.getElementById('catalog-panel')?.classList.remove('hidden');
       // Defer the actual data loads until the Inventory page is first opened.
       __pageInit.inventory = () => { if (typeof loadInventoryFeeds === 'function') loadInventoryFeeds(); if (typeof loadInventoryCatalog === 'function') loadInventoryCatalog(); if (typeof prefetchInvIntelTags === 'function') prefetchInvIntelTags(); };
+      if (document.querySelector('[data-page-content="inventory"]:not(.hidden)')) {
+        runPageInit('inventory');
+        if (typeof applyInventoryMode === 'function') applyInventoryMode();
+      }
     }
 
     if (!canManageFeeds) {
@@ -1429,6 +1436,12 @@ function pageFeatureOk(pg, invmode = null) {
   const requiredProduct = (pg === 'inventory' && (invmode || __inventoryMode) === 'facebook')
     ? 'facebook' : PAGE_PRODUCT[pg];
   if (requiredProduct) {
+    if (requiredProduct === 'facebook') {
+      if ((access?.products || []).some(p => p === 'facebook' || p === 'facebook_solo' || p === 'facebook_dealer' || p === 'dealer_os')) return true;
+      if ((access?.features || []).some(f => f === 'fb.inventory' || f === 'os.inventory')) return true;
+      if (fallback.products?.has('dealer_os') || fallback.products?.has('facebook')) return true;
+      if (fallback.features?.has('os.inventory') || fallback.features?.has('fb.inventory')) return true;
+    }
     if (requiredProduct === 'design_studio' || requiredProduct === 'marketsync_social') {
       const suite = typeof getActiveMarketingSuite === 'function' ? getActiveMarketingSuite() : null;
       if (suite === 'digital' || suite === 'complete' || suite === 'sales' || suite === 'service') return true;
@@ -2189,7 +2202,12 @@ function switchPage(pageId) {
   // leaderboard, guardrail settings, inventory-intelligence tags).
   runPageInit(pageId);
 
-  if (pageId === 'inventory') applyInventoryMode();
+  if (pageId === 'inventory') {
+    if (typeof applyInventoryMode === 'function') applyInventoryMode();
+    if (typeof loadInventoryCatalog === 'function' && (!window.__catalogCache || !window.__catalogCache.length)) {
+      loadInventoryCatalog();
+    }
+  }
   if (pageId === 'recon') loadReconPage();
   if (pageId === 'vin-sticker') loadVinStickerPage();
   if (pageId === 'profile') { loadProfileBranding(); loadCrmAdfSetting(); settingsTab(__settingsTab); }
