@@ -30,7 +30,7 @@
   <link rel="stylesheet" href="css/tailwind-built.css?v=20260825_header_spacing_v1">
   <link rel="stylesheet" href="css/ms-design-system.css?v=20260826_b1_v1">
   <link rel="stylesheet" href="css/ms-phase3-global.css?v=20260827_p4_v1">
-  <link rel="stylesheet" href="css/ms-phase4-routes.css?v=20260827_p4_s1">
+  <link rel="stylesheet" href="css/ms-phase4-routes.css?v=20260827_p4_s2">
   <meta name="color-scheme" content="light dark">
   <!-- Chart.js / QR / WebAuthn load on demand via msLoadScript — they blocked first paint when in <head>. -->
   <script src="password-toggle.js" defer></script>
@@ -1479,9 +1479,9 @@
       <!-- ───────── PROFILE & SETTINGS PAGE ───────── -->
       <!-- #profile-card is authored in the sidebar then relocated here by dashboard.js. -->
       <div data-page-content="profile" class="page-content hidden space-y-6">
-        <div>
-          <h1 class="text-2xl font-black text-slate-900 dark:text-white">Settings</h1>
-          <p class="text-sm text-slate-500 dark:text-slate-400">Your team, account, branding, billing and add-ons — all in one place.</p>
+        <div class="ms-c ms-c--hero ms-c--glass">
+          <h1 class="text-slate-900 dark:text-white">Settings</h1>
+          <p class="text-slate-600 dark:text-slate-300">Your team, account, branding, billing and add-ons — all in one place.</p>
         </div>
         <!-- Settings sub-nav — each tab reveals only its own section(s). -->
         <div id="settings-tabs" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none -mx-1 px-1">

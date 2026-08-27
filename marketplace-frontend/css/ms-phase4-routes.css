@@ -36,3 +36,46 @@
   background: var(--ms-s-glass, rgba(255,255,255,.78)) !important;
   border-color: var(--ms-g-border, rgba(15,23,42,.10)) !important;
 }
+
+/* Settings cleanup — banner, translate chrome, hero type, FAB clearance */
+body:has([data-page-content="profile"]:not(.hidden)) #ext-cta-banner {
+  display: none !important;
+}
+[data-page-content="profile"] {
+  padding-bottom: 6rem;
+}
+[data-page-content="profile"] > div:first-child {
+  padding: 1.25rem 1.5rem 1rem;
+  margin-bottom: 0.25rem;
+}
+[data-page-content="profile"] h1 {
+  font-size: clamp(2rem, 3vw, 2.75rem) !important;
+  line-height: 1.05;
+  font-weight: 900;
+  letter-spacing: -0.045em;
+}
+[data-page-content="profile"] h1 + p {
+  font-size: 1rem;
+  color: #334155;
+}
+.dark [data-page-content="profile"] h1 + p { color: #CBD5E1; }
+
+iframe.skiptranslate,
+.goog-te-banner-frame,
+body > .skiptranslate {
+  display: none !important;
+}
+body { top: 0 !important; }
+#google_translate_element .goog-logo-link,
+#google_translate_element .goog-te-gadget span {
+  display: none !important;
+}
+#google_translate_element .goog-te-gadget { font-size: 0 !important; }
+#google_translate_element .goog-te-combo {
+  font-size: 14px !important;
+  min-height: 44px;
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+  padding: 0 12px;
+}
