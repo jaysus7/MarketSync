@@ -464,6 +464,41 @@ async function setupPageRoutes(page) {
       })
     }
 
+    if (url.includes('/service-engine/ros')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          { id: 'ro-1', status: 'estimate_sent', customer: 'John Doe', vehicle: '2022 Ford F-150', advisor: 'Mike', total: 450 },
+          { id: 'ro-2', status: 'in_progress', customer: 'Jane Smith', vehicle: '2021 Toyota RAV4', advisor: 'Mike', total: 620 }
+        ])
+      })
+    }
+
+    if (url.includes('/service/appointments')) {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+    }
+
+    if (url.includes('/service-engine/part-requests')) {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+    }
+
+    if (url.includes('/service-engine/follow-up-calls')) {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+    }
+
+    if (url.includes('/service-engine/closed-today')) {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+    }
+
+    if (url.includes('/service-engine/config')) {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ labor_rate: 150 }) })
+    }
+
+    if (url.includes('/gamification')) {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ departments: { service: { leaderboard: [] } } }) })
+    }
+
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -501,6 +536,12 @@ async function captureAll(browser, baseUrl) {
     { id: 'D016-discoverability', route: '#/p/discoverability', pageId: 'discoverability', w: 390, h: 844, theme: 'dark', isMobile: true },
     { id: 'D016-discoverability-recommendations', route: '#/p/discoverability', pageId: 'discoverability', discTab: 'recommendations', w: 1440, h: 900, theme: 'dark', isMobile: false },
     { id: 'D016-discoverability-apply-modal', route: '#/p/discoverability', pageId: 'discoverability', discTab: 'recommendations', openModal: 'applyAll', w: 1440, h: 900, theme: 'dark', isMobile: false },
+
+    // Service Pulse (D017)
+    { id: 'D017-service-pulse', route: '#/w/service/service', pageId: 'service-overview', w: 1440, h: 900, theme: 'light', isMobile: false },
+    { id: 'D017-service-pulse', route: '#/w/service/service', pageId: 'service-overview', w: 1440, h: 900, theme: 'dark', isMobile: false },
+    { id: 'D017-service-pulse', route: '#/w/service/service', pageId: 'service-overview', w: 390, h: 844, theme: 'light', isMobile: true },
+    { id: 'D017-service-pulse', route: '#/w/service/service', pageId: 'service-overview', w: 390, h: 844, theme: 'dark', isMobile: true },
 
     // Login Surface (A001)
     { id: 'A001-login', isLogin: true, url: '/login.html', w: 1440, h: 900, theme: 'light', isMobile: false },
@@ -605,6 +646,11 @@ async function captureAll(browser, baseUrl) {
           if (openModal === 'applyAll' && typeof openApplyAllSafeModal === 'function') {
             openApplyAllSafeModal()
           }
+        }
+
+        if (targetPage === 'service-overview') {
+          if (typeof renderEngine === 'function') renderEngine('service-overview', true)
+          if (typeof engineTab === 'function') await engineTab('service-overview', 'overview', true)
         }
 
         if (customerId && typeof openCrmContact === 'function') {
