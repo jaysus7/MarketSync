@@ -625,7 +625,8 @@ ENGINES['service-overview'] = {
           inner: `<p class="text-[12px] text-slate-500 dark:text-slate-400 leading-snug">Record a walkaround on any repair order to show the customer what was found.</p>`,
         }),
         pulseCard({
-          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', tier: att.length ? 'hero' : 'standard',
+          title: 'Needs attention', count: att.length, tone: att.length ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300' : '', tier: att.length ? 'tall' : 'standard',
+          onclick: "engineTab('service-overview','ros')",
           inner: att.length ? att.slice(0, 8).map(salesAttentionRow).join('') : '', empty: 'Nothing is blocking the shop.',
         }),
         pulseCard({
@@ -705,7 +706,7 @@ ENGINES['service-overview'] = {
         ])}
         ${typeof svcUnavailableNote === 'function' ? svcUnavailableNote(d) : ''}
         ${grid}
-        ${typeof svcInsightsStrip === 'function' ? svcInsightsStrip(d) : ''}`;
+        ${svcInsightsStrip(d)}`;
     },
     appointments: svcRenderAppointments,
     ros: svcRenderRos,

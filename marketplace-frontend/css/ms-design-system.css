@@ -727,7 +727,7 @@ html.dark, .dark {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ms-glass, .ms-btn, .ms-modal { transition: none !important; }
+  .ms-glass, .ms-btn, .ms-modal { transition: none; }
 }
 
 .ms-btn { display:inline-flex; align-items:center; justify-content:center; gap:.4rem;

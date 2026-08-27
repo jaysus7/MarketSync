@@ -84,7 +84,7 @@ test('pulseCard tiering does not double-declare material', () => {
   // A tiered card takes background, border, radius and padding from the design
   // system. Carrying the Tailwind card utilities too means two sources for one
   // decision — which is how a card keeps desktop padding on a phone.
-  const tiered = part10.slice(part10.indexOf('if (tier) {'), part10.indexOf('return `<div class="w-full bg-white'))
+  const tiered = part10.slice(part10.indexOf('if (tier) {'), part10.indexOf('// A compact row inside a pulse card'))
   assert.ok(tiered.includes('ms-c ms-c--'), 'a tiered card must use the design system card')
   assert.ok(!tiered.includes('bg-white'), 'a tiered card must not also carry Tailwind card utilities')
   assert.ok(tiered.includes('data-empty'), 'an empty card must be collapsible by the board')
