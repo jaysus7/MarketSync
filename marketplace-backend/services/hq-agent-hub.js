@@ -91,9 +91,10 @@ export function hashApiKey(key) {
 }
 
 export function generateAgentKey(agentId, name = 'Default Key') {
-  const secret = `ms_agent_${agentId}_${crypto.randomBytes(24).toString('hex')}`
+  const randomHex = crypto.randomBytes(24).toString('hex')
+  const secret = `ms_agent_${agentId}_${randomHex}`
   const hash = hashApiKey(secret)
-  const prefix = secret.slice(0, 16)
+  const prefix = `ms_agent_${agentId}_${randomHex.slice(0, 8)}`
   return { apiKey: secret, hash, prefix, name, agentId }
 }
 
@@ -139,6 +140,26 @@ export async function recordHqAudit({
   }
 
   return logEntry
+}
+
+export async function listHqAuditLogs({ limit = 100, agentId = null } = {}) {
+  let logs = [...memoryStore.auditLogs]
+  if (!isTestEnv()) {
+    try {
+      let q = supabaseAdmin.from('hq_audit_logs').select('*').order('created_at', { ascending: false }).limit(limit)
+      if (agentId) q = q.eq('agent_id', agentId)
+      const { data, error } = await q
+      if (!error && Array.isArray(data)) {
+        logs = data
+      }
+    } catch (e) {
+      console.warn('[hq-agent-hub] DB audit fetch failed:', e.message)
+    }
+  }
+  if (agentId) {
+    logs = logs.filter(l => l.agent_id === agentId)
+  }
+  return logs.slice(-limit).reverse()
 }
 
 // ── AGENT AUTHENTICATION ──
@@ -224,6 +245,185 @@ export function registerAgentCredential({ agentId, name, apiKeyHash, keyPrefix, 
   }
   memoryStore.credentials.set(id, cred)
   return cred
+}
+
+export function getEnvironmentLabel() {
+  const isProd = process.env.NODE_ENV === 'production' &&
+    !process.env.RENDER_SERVICE_NAME?.toLowerCase().includes('staging') &&
+    !process.env.STAGING_URL &&
+    (process.env.SITE_DOMAIN_TARGET === 'marketsync.link' || process.env.RENDER_SERVICE_NAME?.toLowerCase().includes('prod'))
+  return isProd ? 'production' : 'staging'
+}
+
+export async function listAgentCredentialsStatus() {
+  const agentIds = ['chatgpt', 'claude', 'gemini', 'grok']
+  const statusList = []
+
+  let dbCredentials = []
+  if (!isTestEnv()) {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('hq_agent_credentials')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (!error && Array.isArray(data)) {
+        dbCredentials = data
+      }
+    } catch (e) {
+      console.warn('[hq-agent-hub] DB credentials fetch failed:', e.message)
+    }
+  }
+
+  for (const id of agentIds) {
+    const agent = memoryStore.agents.get(id) || CORE_AGENTS[id] || { display_name: id, role: 'contributor' }
+
+    let activeCred = dbCredentials.find(c => c.agent_id === id && c.is_active === true)
+    if (!activeCred) {
+      const memCreds = Array.from(memoryStore.credentials.values())
+        .filter(c => c.agent_id === id && c.is_active === true)
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      activeCred = memCreds[0] || null
+    }
+
+    statusList.push({
+      agent_id: id,
+      display_name: agent.display_name,
+      role: agent.role,
+      has_active_credential: Boolean(activeCred),
+      name: activeCred?.name || null,
+      key_prefix: activeCred?.key_prefix || null,
+      created_at: activeCred?.created_at || null,
+      last_used_at: activeCred?.last_used_at || null,
+      expires_at: activeCred?.expires_at || null,
+      is_active: activeCred?.is_active || false
+    })
+  }
+
+  return statusList
+}
+
+export async function generateAgentCredentials({
+  agents = ['chatgpt', 'claude', 'gemini', 'grok'],
+  rotateExisting = false,
+  actorId = 'founder'
+} = {}) {
+  const allowedAgents = ['chatgpt', 'claude', 'gemini', 'grok']
+
+  if (!Array.isArray(agents) || agents.length === 0) {
+    throw new Error('Agents list must be a non-empty array')
+  }
+
+  for (const agentId of agents) {
+    if (!allowedAgents.includes(agentId)) {
+      throw new Error(`Invalid agent_id '${agentId}'. Allowed agent identities: ${allowedAgents.join(', ')}`)
+    }
+  }
+
+  const envLabel = getEnvironmentLabel()
+  const currentStatus = await listAgentCredentialsStatus()
+
+  // Duplicate check if rotation not explicitly requested
+  if (!rotateExisting) {
+    for (const agentId of agents) {
+      const status = currentStatus.find(s => s.agent_id === agentId)
+      if (status && status.has_active_credential) {
+        throw new Error(`Active credential already exists for agent '${agentId}'. Set rotate_existing to true to rotate.`)
+      }
+    }
+  }
+
+  const generatedCredentials = []
+
+  for (const agentId of agents) {
+    const previousCred = currentStatus.find(s => s.agent_id === agentId)
+
+    if (rotateExisting && previousCred && previousCred.has_active_credential) {
+      for (const cred of memoryStore.credentials.values()) {
+        if (cred.agent_id === agentId && cred.is_active) {
+          cred.is_active = false
+          cred.updated_at = new Date().toISOString()
+        }
+      }
+
+      if (!isTestEnv()) {
+        try {
+          await supabaseAdmin
+            .from('hq_agent_credentials')
+            .update({ is_active: false, updated_at: new Date().toISOString() })
+            .eq('agent_id', agentId)
+            .eq('is_active', true)
+        } catch (e) {
+          console.warn('[hq-agent-hub] DB credential deactivation error:', e.message)
+        }
+      }
+    }
+
+    const randomHex = crypto.randomBytes(32).toString('hex')
+    const secret = `ms_agent_${agentId}_${randomHex}`
+    const hash = hashApiKey(secret)
+    const prefix = `ms_agent_${agentId}_${randomHex.slice(0, 8)}`
+    const id = crypto.randomUUID()
+    const now = new Date().toISOString()
+
+    const cred = {
+      id,
+      agent_id: agentId,
+      name: `${agentId.toUpperCase()} ${envLabel.toUpperCase()} Key`,
+      api_key_hash: hash,
+      key_prefix: prefix,
+      scopes: ['tasks:claim', 'tasks:write', 'evidence:write', 'approvals:request'],
+      is_active: true,
+      created_at: now,
+      updated_at: now
+    }
+
+    memoryStore.credentials.set(id, cred)
+
+    if (!isTestEnv()) {
+      try {
+        await supabaseAdmin.from('hq_agent_credentials').insert(cred)
+      } catch (e) {
+        console.warn('[hq-agent-hub] DB credential insert error:', e.message)
+      }
+    }
+
+    await recordHqAudit({
+      agentId,
+      action: rotateExisting && previousCred?.has_active_credential ? 'agent_credentials.rotated' : 'agent_credentials.generated',
+      actorType: 'founder',
+      actorId,
+      previousState: rotateExisting && previousCred?.has_active_credential ? {
+        agent_id: agentId,
+        previous_prefix: previousCred.key_prefix,
+        rotated_at: now
+      } : null,
+      resultingState: {
+        credential_id: id,
+        agent_id: agentId,
+        key_prefix: prefix,
+        scopes: cred.scopes,
+        environment: envLabel,
+        is_active: true
+      },
+      metadata: {
+        environment: envLabel,
+        key_prefix: prefix,
+        rotated: Boolean(rotateExisting && previousCred?.has_active_credential)
+      }
+    })
+
+    generatedCredentials.push({
+      agent_id: agentId,
+      key_prefix: prefix,
+      token: secret
+    })
+  }
+
+  return {
+    success: true,
+    environment: envLabel,
+    credentials: generatedCredentials
+  }
 }
 
 // ── AGENTS MANAGEMENT ──

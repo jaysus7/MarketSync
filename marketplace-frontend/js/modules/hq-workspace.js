@@ -602,17 +602,23 @@ async function loadHqAgents() {
   root.innerHTML = '<div class="text-sm text-slate-400 p-6">Loading HQ Agent Hub…</div>';
 
   try {
-    const [agentsRes, tasksRes, approvalsRes, integrationsRes] = await Promise.all([
+    const [agentsRes, tasksRes, approvalsRes, integrationsRes, credsRes] = await Promise.all([
       apiGetJson('/api/hq/agents').catch(() => ({ agents: [] })),
       apiGetJson('/api/hq/tasks').catch(() => ({ tasks: [] })),
       apiGetJson('/api/hq/approvals').catch(() => ({ approvals: [] })),
-      apiGetJson('/api/hq/integrations/status').catch(() => ({ integrations: [] }))
+      apiGetJson('/api/hq/integrations/status').catch(() => ({ integrations: [] })),
+      apiGetJson('/api/hq/agent-credentials/status').catch(() => ({ credentials: [], environment: 'staging' }))
     ]);
 
     const agents = agentsRes.agents || [];
     const tasks = tasksRes.tasks || [];
     const approvals = (approvalsRes.approvals || []).filter(a => a.status === 'pending');
     const integrations = integrationsRes.integrations || [];
+    const credentials = credsRes.credentials || [];
+    const credEnv = credsRes.environment || 'staging';
+    const envBadgeTone = credEnv === 'production'
+      ? 'bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-950/80 dark:text-rose-200'
+      : 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/80 dark:text-amber-200';
 
     // Compute status counts
     const counts = { Inbox: 0, Ready: 0, 'In Progress': 0, Review: 0, Blocked: 0, Done: 0 };
@@ -621,7 +627,12 @@ async function loadHqAgents() {
     root.innerHTML = `
       <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
-          <h1 class="text-2xl font-black text-slate-900 dark:text-white">AI Agent Hub</h1>
+          <div class="flex items-center gap-2">
+            <h1 class="text-2xl font-black text-slate-900 dark:text-white">AI Agent Hub</h1>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border ${envBadgeTone}">
+              ${esc(credEnv.toUpperCase())}
+            </span>
+          </div>
           <p class="text-xs text-slate-500 mt-1">Central control plane and task ledger for ChatGPT, Claude, Gemini, and Grok.</p>
         </div>
         <div class="flex items-center gap-2">
@@ -693,6 +704,72 @@ async function loadHqAgents() {
               </div>
             </div>`;
         }).join('')}
+      </div>
+
+      <!-- Founder Agent Credentials & Keys Section -->
+      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm p-5 mb-6">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-base font-black text-slate-900 dark:text-white">Agent Credentials & MCP Keys</h2>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border ${envBadgeTone}">
+                ${esc(credEnv.toUpperCase())}
+              </span>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">Manage secure API keys and MCP connections. Plaintext secrets are displayed only once upon generation.</p>
+          </div>
+          <button type="button" class="px-3.5 py-1.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold hover:opacity-90 transition-opacity" onclick="hqGenerateMissingKeysPrompt()">
+            ⚡ Generate Missing Agent Keys
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="border-b border-slate-100 dark:border-slate-800 text-[10px] font-black uppercase text-slate-400">
+                <th class="py-2.5 px-3">Agent</th>
+                <th class="py-2.5 px-3">Role</th>
+                <th class="py-2.5 px-3">Status</th>
+                <th class="py-2.5 px-3">Key Prefix</th>
+                <th class="py-2.5 px-3">Created</th>
+                <th class="py-2.5 px-3">Last Used</th>
+                <th class="py-2.5 px-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${['chatgpt', 'claude', 'gemini', 'grok'].map(id => {
+                const cred = credentials.find(c => c.agent_id === id) || { agent_id: id, has_active_credential: false };
+                const meta = AGENT_META[id] || { name: id, role: 'Agent', icon: '🤖' };
+                const statusBadge = cred.has_active_credential
+                  ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">Active</span>'
+                  : '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">Not Configured</span>';
+
+                return `
+                  <tr class="border-t border-slate-100 dark:border-slate-800/60 hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                    <td class="py-3 px-3 font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <span>${meta.icon}</span> <span>${esc(meta.name)}</span>
+                    </td>
+                    <td class="py-3 px-3 text-slate-500 font-semibold">${esc(meta.role)}</td>
+                    <td class="py-3 px-3">${statusBadge}</td>
+                    <td class="py-3 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-400">${cred.key_prefix ? `${esc(cred.key_prefix)}...` : '—'}</td>
+                    <td class="py-3 px-3 text-slate-500">${cred.created_at ? new Date(cred.created_at).toLocaleDateString() : '—'}</td>
+                    <td class="py-3 px-3 text-slate-500">${cred.last_used_at ? new Date(cred.last_used_at).toLocaleTimeString() : 'Never'}</td>
+                    <td class="py-3 px-3 text-right">
+                      ${cred.has_active_credential ? `
+                        <button type="button" class="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-slate-800" onclick="hqRotateSingleKeyPrompt('${id}')">
+                          Rotate Key
+                        </button>
+                      ` : `
+                        <button type="button" class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold text-[11px] hover:bg-indigo-700" onclick="hqGenerateSingleKeyPrompt('${id}')">
+                          Generate Key
+                        </button>
+                      `}
+                    </td>
+                  </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <!-- Pending Approvals Queue -->
@@ -955,5 +1032,165 @@ window.hqFilterTasks = function(status, owner) {
   hqApplyTaskFilters();
 };
 
+// ── FOUNDER AGENT CREDENTIALS HANDLERS ──
+
+window.openHqSecretModal = function({ environment, credentials }) {
+  document.getElementById('hq-secret-modal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'hq-secret-modal';
+  modal.className = 'fixed inset-0 z-[140] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm';
+
+  const envTone = environment === 'production'
+    ? 'bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-950/80 dark:text-rose-200'
+    : 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/80 dark:text-amber-200';
+
+  modal.innerHTML = `
+    <div class="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-2xl">
+      <div class="flex items-center justify-between gap-3 mb-4">
+        <div class="flex items-center gap-2">
+          <h2 class="text-xl font-black text-slate-900 dark:text-white">Generated Agent Credentials</h2>
+          <span class="px-3 py-0.5 rounded-full text-xs font-black uppercase border ${envTone}">
+            ${esc(environment.toUpperCase())}
+          </span>
+        </div>
+      </div>
+
+      <!-- One-time Warning Banner -->
+      <div class="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 mb-6 flex items-start gap-3">
+        <span class="text-2xl">⚠️</span>
+        <div class="text-xs text-amber-900 dark:text-amber-200">
+          <div class="font-black text-sm">Save these tokens securely now</div>
+          <div class="mt-0.5">These plaintext tokens will <b>never</b> be shown again. Store them in your AI client configurations (Claude Desktop, OpenAI Custom Actions, Gemini MCP, Grok MCP). Only SHA-256 hashes are stored server-side.</div>
+        </div>
+      </div>
+
+      <!-- Credential List -->
+      <div class="space-y-4 mb-6">
+        ${credentials.map(c => {
+          const meta = AGENT_META[c.agent_id] || { name: c.agent_id, icon: '🤖' };
+          return `
+            <div class="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
+              <div class="flex items-center justify-between mb-2">
+                <span class="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <span>${meta.icon}</span> <span>${esc(meta.name)}</span>
+                </span>
+                <button type="button" class="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-700 hq-copy-btn" onclick="hqCopyToken(this, '${esc(c.token)}')">
+                  📋 Copy Token
+                </button>
+              </div>
+              <div class="font-mono text-xs p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 break-all select-all">
+                ${esc(c.token)}
+              </div>
+            </div>`;
+        }).join('')}
+      </div>
+
+      <!-- Action Footer -->
+      <div class="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <button type="button" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 font-bold text-xs hover:bg-slate-50 dark:hover:bg-slate-800" onclick="hqCopyAllTokens()">
+            📋 Copy All Tokens
+          </button>
+          <label class="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+            <input type="checkbox" id="hq-confirm-saved-cb" class="rounded border-slate-300" onchange="hqToggleModalCloseBtn()">
+            I have saved these credentials securely
+          </label>
+        </div>
+
+        <button type="button" id="hq-close-secret-btn" disabled class="w-full py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-xs disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 transition-opacity" onclick="hqCloseAndWipeSecretModal()">
+          Done — Close & Wipe Secrets from Memory
+        </button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(modal);
+  window._hqTempTokens = credentials;
+};
+
+window.hqCopyToken = function(btn, token) {
+  navigator.clipboard.writeText(token).then(() => {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '✓ Copied!';
+    setTimeout(() => { btn.innerHTML = orig; }, 2000);
+  });
+};
+
+window.hqCopyAllTokens = function() {
+  if (!window._hqTempTokens || !window._hqTempTokens.length) return;
+  const formatted = window._hqTempTokens.map(c => `${c.agent_id.toUpperCase()}: ${c.token}`).join('\n\n');
+  navigator.clipboard.writeText(formatted).then(() => {
+    if (typeof showToast === 'function') showToast('All tokens copied to clipboard', 'success');
+  });
+};
+
+window.hqToggleModalCloseBtn = function() {
+  const cb = document.getElementById('hq-confirm-saved-cb');
+  const btn = document.getElementById('hq-close-secret-btn');
+  if (cb && btn) {
+    btn.disabled = !cb.checked;
+  }
+};
+
+window.hqCloseAndWipeSecretModal = function() {
+  window._hqTempTokens = null;
+  document.getElementById('hq-secret-modal')?.remove();
+  loadHqAgents();
+};
+
+window.hqGenerateMissingKeysPrompt = async function() {
+  try {
+    const statusRes = await apiGetJson('/api/hq/agent-credentials/status');
+    const missing = (statusRes.credentials || []).filter(c => !c.has_active_credential).map(c => c.agent_id);
+    if (!missing.length) {
+      if (typeof showToast === 'function') showToast('All agents already have active credentials. Use "Rotate Key" to generate new ones.', 'info');
+      return;
+    }
+
+    if (!confirm(`Generate keys for ${missing.length} unconfigured agent(s): ${missing.join(', ')}?`)) return;
+
+    const res = await apiSendJson('/api/hq/agent-credentials/generate', 'POST', {
+      agents: missing,
+      rotate_existing: false
+    });
+
+    if (res.success && res.credentials?.length) {
+      openHqSecretModal(res);
+    }
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message || 'Key generation failed', 'error');
+  }
+};
+
+window.hqGenerateSingleKeyPrompt = async function(agentId) {
+  try {
+    const res = await apiSendJson('/api/hq/agent-credentials/generate', 'POST', {
+      agents: [agentId],
+      rotate_existing: false
+    });
+    if (res.success && res.credentials?.length) {
+      openHqSecretModal(res);
+    }
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message || 'Key generation failed', 'error');
+  }
+};
+
+window.hqRotateSingleKeyPrompt = async function(agentId) {
+  if (!confirm(`Are you sure you want to rotate the credential for ${agentId.toUpperCase()}? The existing token will be immediately deactivated.`)) return;
+
+  try {
+    const res = await apiSendJson('/api/hq/agent-credentials/generate', 'POST', {
+      agents: [agentId],
+      rotate_existing: true
+    });
+    if (res.success && res.credentials?.length) {
+      openHqSecretModal(res);
+    }
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message || 'Key rotation failed', 'error');
+  }
+};
+
 window.loadHqAgents = loadHqAgents;
+
 
