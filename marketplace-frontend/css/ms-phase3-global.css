@@ -60,6 +60,8 @@ header.ms-chrome-glass,
 /* Layer 3 — FABs and chips */
 #ai-dock-btn,
 #team-chat-dock-btn,
+#staff-chat-launcher-btn,
+.staff-chat-head-btn,
 #install-ext-btn,
 #ext-header-btn {
   background: var(--ms-market-blue) !important;
@@ -69,6 +71,8 @@ header.ms-chrome-glass,
 }
 #ai-dock-btn:hover,
 #team-chat-dock-btn:hover,
+#staff-chat-launcher-btn:hover,
+.staff-chat-head-btn:hover,
 #install-ext-btn:hover,
 #ext-header-btn:hover {
   background: var(--ms-dealer-blue) !important;
