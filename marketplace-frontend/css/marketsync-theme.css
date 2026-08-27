@@ -16,7 +16,7 @@
      500/600/700 (the "primary/secondary/tertiary" swatches). 50-400 extend
      Tailwind's own well-tested blue scale (unspecified by the brand guide,
      used only for light tints); 800-950 darken toward this codebase's
-     existing dark-canvas ink (#0b1220, see assets/public-shell.css --ms-ink).
+     deep ink only (#0b1220 = --ms-blue-950). Dark canvas/surfaces stay --ms-dark-canvas #121318.
      -rgb companions let alpha-blended utilities (e.g. bg-indigo-950/40) use
      rgb(var(--ms-blue-950-rgb) / 40%) instead of a second hardcoded hex. */
   --ms-blue-50: #eff6ff;   --ms-blue-50-rgb: 239 246 255;

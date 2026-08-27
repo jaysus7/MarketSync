@@ -910,7 +910,7 @@ function pulseCard({ title, count, tone, onclick, inner, span, empty, tier }) {
     const interactive = onclick ? ' ms-c--interactive' : '';
     return `<div class="ms-c ms-c--${esc(tier)}${material}${interactive}" data-tier="${esc(tier)}"${inner ? '' : ' data-empty="true"'}>${body}</div>`;
   }
-  return `<div class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 flex flex-col gap-2 ${spanCls} transition-shadow hover:shadow-[0_6px_20px_-8px_rgba(15,23,42,.18)] dark:hover:shadow-[0_6px_20px_-8px_rgba(0,0,0,.45)]">
+  return `<div class="ms-c ms-c--glass ms-c--compact w-full flex flex-col gap-2 ${spanCls} transition-shadow hover:shadow-[0_6px_20px_-8px_rgba(15,23,42,.18)] dark:hover:shadow-[0_6px_20px_-8px_rgba(0,0,0,.45)]">
     ${body}
   </div>`;
 }
@@ -924,12 +924,12 @@ function pulseRow({ badge, icon, badgeTone, label, sub, value, valueTone, done, 
   const go = onclick || '';
   const action = actionLabel || 'View';
   const subline = [sub, value != null ? String(value) : ''].filter(Boolean).join(' · ');
-  return `<div class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-white dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.05)] ${done ? 'opacity-50' : ''}">
+  return `<div class="ms-c ms-c--compact ms-c--glass w-full flex items-center gap-3 ${done ? 'opacity-50' : ''}">
     <div class="min-w-0 flex-1">
-      <div class="font-bold text-[14px] text-slate-900 dark:text-white truncate ${done ? 'line-through' : ''}">${esc(label ?? '')}</div>
-      ${subline ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">${esc(subline)}</div>` : ''}
+      <div class="font-bold text-[16px] text-slate-900 dark:text-white truncate ${done ? 'line-through' : ''}">${esc(label ?? '')}</div>
+      ${subline ? `<div class="text-[14px] text-slate-600 dark:text-slate-300 mt-0.5 truncate">${esc(subline)}</div>` : ''}
     </div>
-    ${go ? `<button type="button" onclick="${go}" class="shrink-0 px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition">${esc(action)}</button>` : ''}
+    ${go ? `<button type="button" onclick="${go}" class="ms-btn ms-btn--secondary shrink-0 !min-h-0 !py-1.5 !px-3.5 !text-[13px]">${esc(action)}</button>` : ''}
   </div>`;
 }
 // Search-box widget card — click-through to the department's real search/list page.
@@ -941,7 +941,7 @@ function pulseSearchCard({ title, placeholder, onclick, count, tier }) {
 // Ranked row for a leaderboard-style widget — initials avatar + name + one stat.
 function pulseLeaderRow({ rank, name, value, sub, valueTone, onclick }) {
   const subline = [sub, value != null ? String(value) : ''].filter(Boolean).join(' · ');
-  return `<div class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-white dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
+  return `<div class="ms-c ms-c--compact ms-c--glass w-full flex items-center gap-3">
     <div class="min-w-0 flex-1">
       <div class="font-bold text-[14px] text-slate-900 dark:text-white truncate">${rank != null ? esc(String(rank)) + '. ' : ''}${esc(name || 'Unknown')}</div>
       ${subline ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">${esc(subline)}</div>` : ''}
@@ -952,8 +952,8 @@ function pulseLeaderRow({ rank, name, value, sub, valueTone, onclick }) {
 // A row of big quick-action buttons across the top of a Pulse page (Check-in / Check-out …).
 function pulseActionsRow(actions) {
   return `<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">${(actions || []).map(a => `
-    <button onclick="${a.onclick}" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-3 text-center hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-[0_6px_20px_-8px_rgba(15,23,42,.18)] dark:hover:shadow-[0_6px_20px_-8px_rgba(0,0,0,.45)] transition">
-      <div class="text-[12.5px] font-black text-slate-800 dark:text-slate-100">${esc(a.label)}</div>
+    <button onclick="${a.onclick}" class="ms-c ms-c--compact ms-c--glass text-center">
+      <div class="text-[14px] font-black text-slate-800 dark:text-slate-100">${esc(a.label)}</div>
     </button>`).join('')}</div>`;
 }
 // Leaderboard widget for a Pulse page — reads the SAME /gamification payload the
