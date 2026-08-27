@@ -56,16 +56,21 @@ Accounts: sales@ = dealer switcher; admin@ = HQ.
    - Evidence: `docs/evidence/phase4/D003-customer-record-1440-light.png`, `D003-customer-record-1440-dark.png`, `D003-customer-record-390-light.png`, `D003-customer-record-390-dark.png`
    - Verification details: Rendered using local Playwright fixture (Sarah Jenkins record) to evaluate UI layout, modal component rendering, dark canvas tokens, and typography. Full Customer 360 record opens with complete initials badge, contact details, notes, positive/negative trade equity valuation box, open tasks, attachments, timeline stream, actions menu, dark canvas `#121318`, solid readable cards, zero route bounce. Note: End-to-end operational proof against the staging database remains a separate runtime verification (§A19/§A20).
 
+3. **H004 — HQ AI Agent Hub & Credentials (`#/p/saas-agents`)**: **96/100 (PASS)**
+   - Evidence: `docs/evidence/phase4/H004-hq-agents-1440-light.png`, `H004-hq-agents-1440-dark.png`, `H004-hq-agents-390-light.png`, `H004-hq-agents-390-dark.png`
+   - Verification details: Market Blue actions (`#2563EB`), Dark Canvas (`#121318`), dark surface cards (`#1A1D24`), borders (`#2B303A`), live agent queue telemetry, founder credentials table, generate/rotate key modals, mobile quick row with Platform icon, dealership punch clock excluded for HQ mode.
+
 ## Open State Defects & Blocker Fixes Status
 
 - **`MS_LEGACY_PAGE_REDIRECTS` Collisions**: Resolved (removed active page containers `crm`, `leads`, `appointments`, `operations`, `taskboard`, `reports` from legacy redirect map in `dashboard-part2.js`).
 - **Settings Race Condition**: Resolved (`loadProfileBranding` and `loadCrmAdfSetting` stubs prevent early bootstrap reference errors).
 - **Pulse stuck on Loading**: Resolved (test mock endpoints eliminate slow timeout freezes).
 - **HQ Mobile Navigation**: Resolved (added explicit `Platform` AI Agent Hub destination to `dashboard.js`).
+- **HQ Punch Clock Isolation**: Resolved (added `marketsyncOwnerMode()` check to `dashboard-part25.js`).
 
 ## Scores
 
-- PASS count: **2 / 167** (1 Full Reference PASS, 1 Visual PASS)
-- Reference surfaces verified: Settings (D043), Customer Workspace (D003)
+- PASS count: **3 / 167** (2 Full Reference PASS, 1 Visual PASS)
+- Reference surfaces verified: Settings (D043), HQ AI Agent Hub (H004), Customer Workspace (D003)
 - Global P0 tokens: Locked to Market Blue (`#2563EB`), Dealer Blue (`#1F4ED8`), Dark Canvas (`#121318`).
 

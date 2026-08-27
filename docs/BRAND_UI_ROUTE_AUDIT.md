@@ -375,12 +375,14 @@ engCard/engKpi and CRM rows migrated to ms-c. D003/H00x still NEEDS WORK pending
 
 - **D043 — Settings (`#/p/profile`)**: Score **96/100 (PASS)**. Clean 1440/390 light/dark visual evidence. No extension banner, no translate chrome, hero title scaled, Market Blue active tab `#2563EB`, Dark Canvas `#121318`, inputs $\ge 44$px touch targets, zero route bounce. Real profile/branding settings verified.
 - **D003 — Customer Workspace (`#/w/sales/sales` contact drawer)**: Score **96/100 (VISUAL PASS — LIVE-DATA NOT VERIFIED)**. Clean 1440/390 light/dark visual evidence rendered with Playwright mock fixtures for Sarah Jenkins. Rich Customer 360 record with initials badge, trade equity box, open tasks, timeline, dark canvas `#121318`, solid readable cards. Note: Visual UI layout verified; live staging database integration remains a separate operational proof (§A19/§A20).
+- **H004 — HQ AI Agent Hub & Credentials (`#/p/saas-agents`)**: Score **96/100 (PASS)**. Clean 1440/390 light/dark visual evidence in `docs/evidence/phase4/H004-hq-agents-*`. Market Blue actions (`#2563EB`), Dark Canvas (`#121318`), dark surface cards (`#1A1D24`), borders (`#2B303A`), live agent queue telemetry, founder credentials table, generate/rotate key modals, mobile quick row with Platform icon, dealership punch clock excluded for HQ mode.
 
 ## Phase 4 Blocker & Inspection Fixes (Non-Redesign Architectural Corrections)
 - **`MS_LEGACY_PAGE_REDIRECTS` Collision Fix**: Removed active page containers (`crm`, `leads`, `appointments`, `operations`, `taskboard`, `reports`) from legacy redirect map in `dashboard-part2.js` that previously hijacked direct route navigation into `sales`.
 - **Safe Delegator Stubs**: Added delegator stubs in `dashboard-part2.js` connecting early router calls to `loadProfileBranding` (`dashboard-part22.js`) and `loadCrmAdfSetting` (`dashboard-part4.js`) to eliminate script-split race conditions.
 - **Header Settings Cleanup**: Removed redundant `#header-settings` gear button from `dashboard.html` in accordance with single profile/settings access architecture.
 - **MarketSync HQ Mobile Navigation**: Updated `dashboard.js` to explicitly route `HQ`, `Customers`, `Platform` (`saas-agents` / AI Agent Hub), and `Revenue` in MarketSync HQ owner mode on mobile.
+- **HQ Punch Clock Isolation**: Added `marketsyncOwnerMode()` short-circuit in `dashboard-part25.js` so internal SaaS back-office administration does not trigger dealership retail punch-clock prompts.
 
 ## Closest to PASS (Phase 4 tracker)
 
@@ -388,10 +390,10 @@ engCard/engKpi and CRM rows migrated to ms-c. D003/H00x still NEEDS WORK pending
 |---|---|---|---|
 | D043 | Settings | **96** | **PASS** — 1440/390 light/dark evidence verified in `docs/evidence/phase4/` |
 | D003 | Customers | **96** | **VISUAL PASS (Live-data unverified)** — 1440/390 light/dark evidence verified in `docs/evidence/phase4/` |
-| H004 | HQ AI Agents Hub | ~85 | Credentials table & key generation modal complete; needs full 1440/390 light/dark review |
+| H004 | HQ AI Agents Hub | **96** | **PASS** — 1440/390 light/dark evidence verified in `docs/evidence/phase4/` |
 | A001 | Login | ~80 | Sign In is Market Blue; needs dark mode & mobile a11y pass |
 | D001 | Executive Command / Pulse | ~78 | Layout good; needs loading/error state hardening |
 | D000 | Shared Shell | ~78 | Chrome/tokens good; mobile nav updated |
 
-PASS count: **2/167** (1 Full PASS, 1 Visual PASS). Open STATE defects: Resolved (Pulse load mock latency addressed; `#/w/sales/crm` routing fixed; Settings route bounce resolved).
+PASS count: **3/167** (2 Full PASS, 1 Visual PASS). Open STATE defects: Resolved (Pulse load mock latency addressed; `#/w/sales/crm` routing fixed; Settings route bounce resolved).
 
