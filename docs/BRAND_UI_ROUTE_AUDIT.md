@@ -324,3 +324,7 @@ Phase 2 account map: admin = HQ, sales = dealer switcher. Both API-authenticated
 ## Phase 2 live Pulse — 2026-08-26
 
 Dealer session via real login (sales@marketsync.link). Pulse 1440 light scored 71. Punch-clock modal scored 74. Login already 76-78. PASS 0. Average 60.8. Evidence in docs/evidence/phase2/.
+
+
+## Phase 2 routing 2026-08-26
+Hash boot bugs fixed in 1d2ab54 and 67e7c79. Sales workspace visually confirmed. PASS 0. Average 60.8.
