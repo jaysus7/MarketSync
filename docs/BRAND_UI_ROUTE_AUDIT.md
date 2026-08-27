@@ -357,3 +357,7 @@ Canonical dark canvas locked to **#121318**. `#0B1220` is `--ms-blue-950` ink on
 Batch 1 (`ffe699c`): shared pulseRow / pulseCard / pulseActionsRow now use `ms-c` + `ms-btn`. Affects every department Pulse that composes those helpers. No route promoted to PASS yet.
 
 Queue remains the 167-row inventory. Next: recapture Pulse family, then Customers / Settings / HQ cards.
+
+
+## Phase 4 batch 2
+engCard/engKpi and CRM rows migrated to ms-c. D003/H00x still NEEDS WORK pending recapture.

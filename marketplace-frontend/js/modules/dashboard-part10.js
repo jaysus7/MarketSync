@@ -821,18 +821,18 @@ function engKpi(label, val, tone, onclick) {
     <div class="text-2xl sm:text-3xl font-black mt-1 ${shown}" data-emphasis="${quiet ? 'quiet' : 'normal'}">${val}</div>
   `;
   if (onclick) {
-    return `<button onclick="${onclick}" class="w-full text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3.5 hover:border-slate-300 dark:hover:border-slate-700 transition cursor-pointer">
+    return `<button onclick="${onclick}" class="ms-c ms-c--compact ms-c--glass w-full text-left cursor-pointer">
       ${inner}
     </button>`;
   }
-  return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3.5">
+  return `<div class="ms-c ms-c--compact ms-c--glass">
     ${inner}
   </div>`;
 }
 function engCard(title, inner, extra) {
-  if (!title) return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 ${extra || ''}">${inner}</div>`;
-  return `<details open class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl ${extra || ''}">
-    <summary class="list-none cursor-pointer select-none px-4 py-3 flex items-center justify-between gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-xl" aria-label="Expand or collapse ${esc(title)}">
+  if (!title) return `<div class="ms-c ms-c--glass p-4 ${extra || ''}">${inner}</div>`;
+  return `<details open class="group ms-c ms-c--glass ${extra || ''}">
+    <summary class="list-none cursor-pointer select-none px-4 py-3 flex items-center justify-between gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] rounded-xl" aria-label="Expand or collapse ${esc(title)}">
       <span class="text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200 font-black">${esc(title)}</span>
       <svg class="w-4 h-4 text-slate-400 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
     </summary>
