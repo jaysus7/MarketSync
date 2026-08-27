@@ -274,52 +274,316 @@ export function registerCrm(app) {
     }
     if (!contact) return res.status(404).json({ error: 'Contact not found' })
 
-    const [{ data: comms }, { data: leads }, { data: appraisals }, { data: tasks }, { data: attachments }, { data: deal }] = await Promise.all([
+    const [
+      { data: comms },
+      { data: leads },
+      { data: appraisals },
+      { data: tasks },
+      { data: attachments },
+      { data: deals },
+      { data: repairOrders },
+      { data: partRequests },
+      { data: customerVehicles },
+    ] = await Promise.all([
       req.supabase.from('communications').select('*').eq('contact_id', contact.id).order('occurred_at', { ascending: false }).limit(200),
       req.supabase.from('leads').select('id, comments, source, status, inventory_id, created_by, created_at').eq('contact_id', contact.id).order('created_at', { ascending: false }),
       req.supabase.from('trade_appraisals').select('id, year, make, model, trim, vin, suggested_offer, currency, created_by, created_at').eq('contact_id', contact.id).order('created_at', { ascending: false }),
       req.supabase.from('crm_tasks').select('*').eq('contact_id', contact.id).order('due_at', { ascending: true, nullsFirst: false }),
       req.supabase.from('crm_attachments').select('id, url, filename, content_type, size, kind, uploaded_by, created_at').eq('contact_id', contact.id).is('deleted_at', null).order('created_at', { ascending: false }).then(r => r, () => ({ data: [] })),
-      // A worked deal for this customer (if any) — powers the "View deal / Desk a deal" button.
-      req.supabase.from('deals').select('deal_number, deal_status, insurance').eq('contact_id', contact.id).eq('dealership_id', req.dealershipId).maybeSingle().then(r => r, () => ({ data: null })),
+      req.supabase.from('deals').select('id, deal_number, deal_status, selling_price, total_price, down_payment, amount_financed, monthly_payment, term, rate, finance_type, inventory_id, insurance, delivery_date, delivery_time, created_by, sold_at, delivered_at, approved_at, created_at, updated_at').eq('contact_id', contact.id).eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).then(r => r, () => ({ data: [] })),
+      req.supabase.from('repair_orders').select('id, ro_number, status, total, labor_total, parts_total, sublet_total, fee_total, tax, discount, complaint, vehicle_desc, vin, odometer, mileage_in, fuel_in, advisor_id, technician_id, created_at, closed_at, paid_at').eq('contact_id', contact.id).eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).then(r => r, () => ({ data: [] })),
+      req.supabase.from('part_requests').select('id, ro_id, part_id, qty, status, requested_at, created_at, notes, requested_for').eq('contact_id', contact.id).eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).then(r => r, () => ({ data: [] })),
+      req.supabase.from('customer_vehicles').select('*').eq('contact_id', contact.id).eq('dealership_id', req.dealershipId).order('updated_at', { ascending: false }).then(r => r, () => ({ data: [] })),
     ])
 
-    // Resolve vehicle labels for pinned leads.
-    const invIds = [...new Set((leads || []).map(l => l.inventory_id).filter(Boolean))]
+    // Resolve vehicle labels and full stock details for referenced inventory units.
+    const invIds = [...new Set([
+      ...(leads || []).map(l => l.inventory_id),
+      ...(deals || []).map(d => d.inventory_id),
+      ...(customerVehicles || []).map(cv => cv.origin_inventory_id),
+      contact.interest_inventory_id,
+      contact.owned_vehicle_inventory_id,
+    ].filter(Boolean))]
+
     let vehicles = {}
     if (invIds.length) {
-      // Display-label lookup only. Kept on supabaseAdmin so CRM-only roles (BDC, F&I)
-      // that lack inventory.view still get vehicle names on the customer timeline.
-      const { data: inv } = await supabaseAdmin.from('inventory').select('id, year, make, model, trim, price, stocknumber').in('id', invIds)
+      const { data: inv } = await supabaseAdmin.from('inventory')
+        .select('id, year, make, model, trim, price, stocknumber, vin, mileage, exterior_color, interior_color, status, photos, image_url, thumbnail_url')
+        .in('id', invIds)
       vehicles = Object.fromEntries((inv || []).map(v => [v.id, v]))
     }
+
+    // Resolve parts information for part requests.
+    const partIds = [...new Set((partRequests || []).map(p => p.part_id).filter(Boolean))]
+    let partsById = {}
+    if (partIds.length) {
+      const { data: pts } = await supabaseAdmin.from('parts')
+        .select('id, part_number, description, price, bin')
+        .in('id', partIds)
+      partsById = Object.fromEntries((pts || []).map(p => [p.id, p]))
+    }
+
     // Rep names across everything.
-    const repIds = [...new Set([contact.assigned_rep, ...(comms || []).map(c => c.rep_id), ...(tasks || []).map(t => t.assigned_to)].filter(Boolean))]
+    const repIds = [...new Set([
+      contact.assigned_rep,
+      ...(comms || []).map(c => c.rep_id),
+      ...(tasks || []).map(t => t.assigned_to),
+      ...(deals || []).map(d => d.created_by),
+      ...(repairOrders || []).map(ro => ro.advisor_id),
+    ].filter(Boolean))]
+
     let reps = {}
     if (repIds.length) {
       const { data: rp } = await supabaseAdmin.from('profiles').select('id, full_name, display_name').in('id', repIds)
       reps = Object.fromEntries((rp || []).map(r => [r.id, r.full_name || r.display_name || '—']))
     }
 
-    // Merge into one time-ordered timeline.
+    // ── Build Canonical Owned Vehicles (Stock Cards / Garage) ─────────────────
+    const ownedVehicles = []
+    const seenVins = new Set()
+
+    // 1. Vehicles from deals (sold, delivered, contracted, or active working deals)
+    for (const d of (deals || [])) {
+      const v = vehicles[d.inventory_id]
+      const vin = (v?.vin || d.vin || '').trim().toUpperCase()
+      if (vin) seenVins.add(vin)
+      const label = v ? [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') : (d.vehicle || 'Purchased Vehicle')
+      const isDelivered = ['sold', 'delivered', 'contracted'].includes(d.deal_status)
+      ownedVehicles.push({
+        id: v?.id || d.id,
+        inventory_id: d.inventory_id || null,
+        deal_id: d.id,
+        deal_number: d.deal_number || null,
+        deal_status: d.deal_status || 'working',
+        is_delivered: isDelivered,
+        year: v?.year || null,
+        make: v?.make || null,
+        model: v?.model || null,
+        trim: v?.trim || null,
+        label,
+        vin: vin || null,
+        stocknumber: v?.stocknumber || null,
+        mileage: v?.mileage || null,
+        exterior_color: v?.exterior_color || null,
+        interior_color: v?.interior_color || null,
+        purchase_price: d.selling_price || d.total_price || v?.price || null,
+        down_payment: d.down_payment || null,
+        amount_financed: d.amount_financed || null,
+        monthly_payment: d.monthly_payment || null,
+        finance_type: d.finance_type || (d.amount_financed ? 'Finance' : 'Retail Sale'),
+        purchase_date: d.sold_at || d.delivered_at || d.created_at || null,
+        delivery_date: d.delivery_date || d.delivered_at || null,
+        image_url: v?.thumbnail_url || v?.image_url || (Array.isArray(v?.photos) && v.photos[0]) || null,
+        source: 'deal'
+      })
+    }
+
+    // 2. Customer Vehicles registered in Service Garage
+    for (const cv of (customerVehicles || [])) {
+      const vin = (cv.vin || '').trim().toUpperCase()
+      if (vin && seenVins.has(vin)) continue
+      if (vin) seenVins.add(vin)
+      const originStock = vehicles[cv.origin_inventory_id]
+      const label = [cv.year || originStock?.year, cv.make || originStock?.make, cv.model || originStock?.model, cv.trim || originStock?.trim].filter(Boolean).join(' ') || cv.plate || 'Customer Vehicle'
+      ownedVehicles.push({
+        id: cv.id,
+        inventory_id: cv.origin_inventory_id || null,
+        deal_id: null,
+        deal_number: null,
+        deal_status: 'owned',
+        is_delivered: true,
+        year: cv.year || originStock?.year || null,
+        make: cv.make || originStock?.make || null,
+        model: cv.model || originStock?.model || null,
+        trim: cv.trim || originStock?.trim || null,
+        label,
+        vin: vin || null,
+        stocknumber: originStock?.stocknumber || null,
+        plate: cv.plate || null,
+        mileage: cv.current_odometer || originStock?.mileage || null,
+        exterior_color: cv.color || originStock?.exterior_color || null,
+        purchase_price: originStock?.price || null,
+        image_url: originStock?.thumbnail_url || originStock?.image_url || (Array.isArray(originStock?.photos) && originStock.photos[0]) || null,
+        source: 'service_garage'
+      })
+    }
+
+    // 3. Fallback to contact.owned_vehicle if specified and not yet listed
+    if (contact.owned_vehicle && typeof contact.owned_vehicle === 'object') {
+      const ov = contact.owned_vehicle
+      const vin = (ov.vin || '').trim().toUpperCase()
+      if (!vin || !seenVins.has(vin)) {
+        if (vin) seenVins.add(vin)
+        const label = [ov.year, ov.make, ov.model, ov.trim].filter(Boolean).join(' ') || 'Owned Vehicle'
+        ownedVehicles.push({
+          id: 'contact_ov',
+          inventory_id: ov.inventory_id || null,
+          deal_id: null,
+          deal_number: null,
+          deal_status: 'owned',
+          is_delivered: true,
+          year: ov.year || null,
+          make: ov.make || null,
+          model: ov.model || null,
+          trim: ov.trim || null,
+          label,
+          vin: vin || null,
+          stocknumber: ov.stocknumber || null,
+          mileage: ov.mileage || null,
+          exterior_color: ov.color || null,
+          purchase_price: ov.price || null,
+          purchase_date: ov.purchase_date || null,
+          image_url: ov.image_url || null,
+          source: 'profile'
+        })
+      }
+    }
+
+    // Count repair orders per owned vehicle
+    for (const ov of ownedVehicles) {
+      const matchingRos = (repairOrders || []).filter(ro => (ov.vin && ro.vin && ro.vin.trim().toUpperCase() === ov.vin) || ro.vehicle_desc?.includes(ov.make || ''));
+      ov.service_ro_count = matchingRos.length;
+      ov.last_service_date = matchingRos[0]?.closed_at || matchingRos[0]?.created_at || null;
+    }
+
+    // ── Merge into one unified time-ordered timeline ─────────────────────────
     const timeline = []
-    for (const c of (comms || [])) timeline.push({ kind: 'comm', id: c.id, at: c.occurred_at, channel: c.channel, direction: c.direction, subject: c.subject, body: c.body, rep: reps[c.rep_id] || null, meta: c.meta })
+
+    // 1. Communications & Logged Receipts
+    for (const c of (comms || [])) {
+      timeline.push({
+        kind: c.meta?.kind === 'receipt' ? 'receipt' : 'comm',
+        id: c.id,
+        at: c.occurred_at || c.created_at,
+        channel: c.channel,
+        direction: c.direction,
+        subject: c.subject,
+        body: c.body,
+        rep: reps[c.rep_id] || null,
+        meta: c.meta || null,
+        invoice_no: c.meta?.invoice_no || null,
+        amount: c.meta?.amount || null,
+        receipt_type: c.meta?.receipt_type || null,
+      })
+    }
+
+    // 2. Leads
     for (const l of (leads || [])) {
       const v = vehicles[l.inventory_id]
-      timeline.push({ kind: 'lead', at: l.created_at, source: l.source, status: l.status, body: l.comments,
-        vehicle: v ? [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') : null, rep: reps[l.created_by] || null })
+      timeline.push({
+        kind: 'lead',
+        id: l.id,
+        at: l.created_at,
+        source: l.source,
+        status: l.status,
+        body: l.comments,
+        vehicle: v ? [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') : null,
+        stocknumber: v?.stocknumber || null,
+        rep: reps[l.created_by] || null,
+      })
     }
-    for (const a of (appraisals || [])) timeline.push({ kind: 'appraisal', at: a.created_at,
-      vehicle: [a.year, a.make, a.model, a.trim].filter(Boolean).join(' '), offer: a.suggested_offer, currency: a.currency,
-      appraisal_id: a.id, rep: reps[a.created_by] || null })
-    timeline.sort((x, y) => new Date(y.at) - new Date(x.at))
+
+    // 3. Trade Appraisals
+    for (const a of (appraisals || [])) {
+      timeline.push({
+        kind: 'appraisal',
+        id: a.id,
+        appraisal_id: a.id,
+        at: a.created_at,
+        vehicle: [a.year, a.make, a.model, a.trim].filter(Boolean).join(' '),
+        vin: a.vin || null,
+        offer: a.suggested_offer,
+        currency: a.currency,
+        rep: reps[a.created_by] || null,
+      })
+    }
+
+    // 4. Sales & F&I Deals
+    for (const d of (deals || [])) {
+      const v = vehicles[d.inventory_id]
+      const vehLabel = v ? [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') : 'Vehicle'
+      timeline.push({
+        kind: 'deal',
+        id: d.id,
+        deal_id: d.id,
+        deal_number: d.deal_number || `DEAL-${d.id.slice(0, 6)}`,
+        deal_status: d.deal_status || 'working',
+        at: d.sold_at || d.delivered_at || d.approved_at || d.created_at,
+        subject: `Deal #${d.deal_number || ''} — ${(d.deal_status || 'WORKING').toUpperCase()}`.trim(),
+        vehicle: vehLabel,
+        vehicle_id: d.inventory_id || null,
+        stocknumber: v?.stocknumber || null,
+        vin: v?.vin || null,
+        selling_price: d.selling_price || d.total_price || v?.price || null,
+        amount_financed: d.amount_financed || null,
+        down_payment: d.down_payment || null,
+        monthly_payment: d.monthly_payment || null,
+        finance_type: d.finance_type || null,
+        delivery_date: d.delivery_date || d.delivered_at || null,
+        rep: reps[d.created_by] || null,
+        body: `Deal #${d.deal_number || ''} for ${vehLabel}. Status: ${d.deal_status || 'working'}.${d.selling_price ? ` Selling price: $${Number(d.selling_price).toLocaleString()}` : ''}${d.monthly_payment ? ` · Payment: $${Number(d.monthly_payment).toLocaleString()}/mo` : ''}`,
+      })
+    }
+
+    // 5. Service Invoices / Repair Orders
+    for (const ro of (repairOrders || [])) {
+      const vehLabel = ro.vehicle_desc || (ro.vin ? `VIN ${ro.vin}` : 'Vehicle')
+      const roNo = ro.ro_number || `RO-${ro.id.slice(0, 6)}`
+      const totalAmount = ro.total != null ? Number(ro.total) : (Number(ro.labor_total || 0) + Number(ro.parts_total || 0) + Number(ro.tax || 0))
+      timeline.push({
+        kind: 'service_ro',
+        id: ro.id,
+        ro_id: ro.id,
+        ro_number: roNo,
+        status: ro.status || 'checked_in',
+        at: ro.paid_at || ro.closed_at || ro.created_at,
+        subject: `Official Service Invoice ${roNo}`,
+        vehicle: vehLabel,
+        vin: ro.vin || null,
+        odometer: ro.odometer || ro.mileage_in || null,
+        total: totalAmount,
+        labor_total: ro.labor_total || 0,
+        parts_total: ro.parts_total || 0,
+        tax: ro.tax || 0,
+        complaint: ro.complaint || null,
+        advisor: reps[ro.advisor_id] || null,
+        rep: reps[ro.advisor_id] || null,
+        body: `Service Work Order ${roNo} for ${vehLabel}. Status: ${ro.status || 'checked_in'}. Total: $${Number(totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}.${ro.complaint ? ` Complaint: ${ro.complaint}` : ''}`,
+      })
+    }
+
+    // 6. Parts Counter Orders & Purchases
+    for (const po of (partRequests || [])) {
+      const pt = partsById[po.part_id] || {}
+      const partNo = pt.part_number || 'Part'
+      const poNo = `PO-${po.id.slice(0, 6)}`
+      const qty = po.qty || 1
+      const totalAmount = qty * (Number(pt.price) || 0)
+      timeline.push({
+        kind: 'part_purchase',
+        id: po.id,
+        po_id: po.id,
+        order_number: poNo,
+        part_id: po.part_id,
+        part_number: partNo,
+        part_desc: pt.description || null,
+        qty,
+        unit_price: pt.price || null,
+        total: totalAmount,
+        status: po.status || 'issued',
+        at: po.requested_at || po.created_at,
+        subject: `Parts Counter Invoice ${poNo} — ${partNo}`,
+        body: `Purchased ${qty}x ${partNo}${pt.description ? ` (${pt.description})` : ''}. Total: $${Number(totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+      })
+    }
+
+    timeline.sort((x, y) => new Date(y.at || 0) - new Date(x.at || 0))
 
     // Resolve the "new car of interest" label from our stock, if pinned.
     let interest_vehicle_label = null
     if (contact.interest_inventory_id) {
-      // Display-label lookup only (see note above) — kept on supabaseAdmin.
-      const { data: iv } = await supabaseAdmin.from('inventory')
-        .select('year, make, model, trim, price, stocknumber').eq('id', contact.interest_inventory_id).maybeSingle()
+      const iv = vehicles[contact.interest_inventory_id] || (await supabaseAdmin.from('inventory')
+        .select('year, make, model, trim, price, stocknumber').eq('id', contact.interest_inventory_id).maybeSingle().then(r => r.data, () => null))
       if (iv) interest_vehicle_label = { label: [iv.year, iv.make, iv.model, iv.trim].filter(Boolean).join(' '), price: iv.price, stocknumber: iv.stocknumber, inventory_id: contact.interest_inventory_id }
     } else if (contact.interest_vehicle) {
       const v = contact.interest_vehicle
@@ -327,15 +591,29 @@ export function registerCrm(app) {
     }
 
     // Relationship tags: "sales" if they have a deal/lead/appraisal or a sales
-    // status; "service" from the service_customer flag. A customer can be both.
+    // status; "service" from the service_customer flag or repair orders.
     const SALES_STATUSES = ['contacted', 'appointment', 'sold', 'fni', 'delivered', 'negotiating', 'working']
-    const is_sales_customer = !!deal || (leads || []).length > 0 || (appraisals || []).length > 0 || SALES_STATUSES.includes(contact.status)
+    const is_sales_customer = (deals || []).length > 0 || (leads || []).length > 0 || (appraisals || []).length > 0 || SALES_STATUSES.includes(contact.status)
+    const is_service_customer = !!contact.service_customer || (repairOrders || []).length > 0 || (partRequests || []).length > 0
+
+    const primaryDeal = (deals || [])[0] || null
+
     res.json({
-      contact: { ...contact, rep_name: reps[contact.assigned_rep] || null, interest_vehicle_label, is_sales_customer, is_service_customer: !!contact.service_customer },
+      contact: {
+        ...contact,
+        rep_name: reps[contact.assigned_rep] || null,
+        interest_vehicle_label,
+        is_sales_customer,
+        is_service_customer,
+      },
       timeline,
       tasks: (tasks || []).map(t => ({ ...t, assignee_name: reps[t.assigned_to] || null })),
       attachments: attachments || [],
-      deal: deal || null,
+      deal: primaryDeal,
+      deals: deals || [],
+      repair_orders: repairOrders || [],
+      parts_purchases: partRequests || [],
+      owned_vehicles: ownedVehicles,
       can_see_all: isDealerLevel(req),
     })
   })
@@ -449,6 +727,32 @@ export function registerCrm(app) {
     })
     // A logged inbound reply (call/text/email from the customer) freezes automation.
     if (direction === 'in' && channel !== 'note') freezeSequences(contact.id, 'customer_replied')
+    res.json({ ok: true, comm })
+  })
+
+  // ── Log a timeline event or receipt ───────────────────────────────────────
+  app.post('/crm/contacts/:id/timeline', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: contact } = await req.supabase.from('contacts')
+      .select('id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!contact) return res.status(404).json({ error: 'Contact not found' })
+    const b = req.body || {}
+    const comm = await logComm({
+      dealershipId: req.dealershipId,
+      contactId: contact.id,
+      channel: b.channel || 'note',
+      direction: b.direction || 'internal',
+      subject: b.subject || (b.invoice_no ? `${b.receipt_type || 'Receipt'} ${b.invoice_no}` : 'Timeline Activity'),
+      body: b.body || '',
+      repId: req.user?.id || null,
+      meta: {
+        kind: b.kind || 'receipt',
+        invoice_no: b.invoice_no || null,
+        amount: b.amount || null,
+        receipt_type: b.receipt_type || null,
+        ...(b.meta || {})
+      }
+    })
     res.json({ ok: true, comm })
   })
 

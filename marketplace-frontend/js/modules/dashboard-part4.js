@@ -631,7 +631,7 @@ function crmDetailHtml(d, eqData = {}, initialTab = 'timeline') {
       <div id="crm-detail-form"></div>
       <div>
         <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Activity timeline</div>
-        ${(d.timeline || []).length ? `<div class="space-y-2.5">${d.timeline.map(t => crmTimelineItem(t, c.id)).join('')}</div>`
+        ${(d.timeline || []).length ? `<div class="space-y-2.5">${d.timeline.map(t => crmTimelineItem(t, c.id, c)).join('')}</div>`
           : '<div class="text-sm text-slate-400 italic py-4">No activity yet.</div>'}
       </div>
     </div>
@@ -745,11 +745,12 @@ function crmNeedPhone(id) {
 window.crmNeedPhone = crmNeedPhone;
 
 // Compact facts grid on the contact detail (address, DL, birthday, extra phones,
-// source/salesperson, trade + new-car-of-interest vehicles).
+// source/salesperson, trade + new-car-of-interest vehicles, deal summary, service/parts stats).
 function crmDetailFacts(c, d) {
   const rows = [];
   const fact = (k, v) => { if (v) rows.push(`<div><dt class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${esc(k)}</dt><dd class="text-sm text-slate-800 dark:text-slate-100">${esc(v)}</dd></div>`); };
   if (c.contact_type === 'company') fact('Company', c.company_name);
+  if (c.customer_number) fact('Customer #', `#${c.customer_number}`);
   const addr = [c.address, [c.city, c.province, c.postal_code].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
   fact('Address', addr);
   if (c.phone_home) fact('Home #', c.phone_home);
@@ -758,19 +759,77 @@ function crmDetailFacts(c, d) {
   if (c.dl_number) fact("Driver's licence", c.dl_number + (c.dl_expiry ? ` (exp ${new Date(c.dl_expiry).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })})` : ''));
   fact('Source', c.source);
   fact('Salesperson', c.rep_name);
-  // Trade-in + desired vehicle now render as their own cards (crmVehicleCards).
+  if (Array.isArray(d?.deals) && d.deals.length) fact('Deals on File', `${d.deals.length} deal${d.deals.length === 1 ? '' : 's'}`);
+  if (Array.isArray(d?.repair_orders) && d.repair_orders.length) fact('Service Visits', `${d.repair_orders.length} order${d.repair_orders.length === 1 ? '' : 's'}`);
+  if (Array.isArray(d?.parts_purchases) && d.parts_purchases.length) fact('Parts Purchases', `${d.parts_purchases.length} item${d.parts_purchases.length === 1 ? '' : 's'}`);
   if (!rows.length) return '';
-  return `<dl class="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-3">${rows.join('')}</dl>`;
+  return `<dl class="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-3">${rows.join('')}</dl>`;
 }
-// Prominent cards: the vehicle they want to buy + their trade-in (pulled from the
-// appraisal). The desired-vehicle card carries the Desk-a-Deal action.
+
+// Prominent cards: Owned & Purchased vehicle (Stock Card), vehicle they want to buy,
+// trade-in, and insurance on file.
 function crmVehicleCards(c, d) {
   const cards = [];
+
+  // 1. Purchased & Owned Vehicle Stock Card(s)
+  const owned = (d.owned_vehicles && d.owned_vehicles.length) ? d.owned_vehicles : (c.owned_vehicles || (c.owned_vehicle ? [c.owned_vehicle] : []));
+  if (Array.isArray(owned) && owned.length) {
+    for (const ov of owned) {
+      const label = ov.label || [ov.year, ov.make, ov.model, ov.trim].filter(Boolean).join(' ') || 'Purchased Vehicle';
+      const stockBadge = ov.stocknumber ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">Stock #${esc(ov.stocknumber)}</span>` : '';
+      const vinText = ov.vin ? `VIN ${ov.vin}` : '';
+      const milesText = ov.mileage != null ? `${Number(ov.mileage).toLocaleString()} mi` : '';
+      const subInfo = [vinText, milesText, ov.exterior_color].filter(Boolean).join(' · ');
+      const priceText = ov.purchase_price ? `$${Number(ov.purchase_price).toLocaleString()}` : '';
+      const dealText = ov.deal_number ? `Deal #${ov.deal_number}` : '';
+      const pmtText = ov.monthly_payment ? `$${Number(ov.monthly_payment).toLocaleString()}/mo` : '';
+      const termsLine = [dealText, priceText, pmtText, ov.finance_type].filter(Boolean).join(' · ');
+      
+      const vdpLink = (ov.stocknumber || ov.inventory_id)
+        ? `<a href="#" onclick="switchPage('inventory');const s=document.getElementById('catalog-search');if(s){s.value='${esc(ov.stocknumber || ov.inventory_id)}';renderCatalog();}return false;" class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1">Stock Unit ${ov.stocknumber ? '#' + esc(ov.stocknumber) : ''} →</a>`
+        : '';
+      
+      const dealBtn = (ov.deal_id || d.deal)
+        ? `<button onclick="openDeskForContact('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1 cursor-pointer"><svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>View Deal</button>`
+        : '';
+        
+      const serviceBtn = `<button onclick="switchPage('service')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 hover:bg-teal-100 flex items-center gap-1 cursor-pointer"><svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>Service / RO</button>`;
+      const appraiseBtn = `<button onclick="apprFromContact('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1 cursor-pointer">Appraise Trade</button>`;
+
+      cards.push(`<div class="w-full bg-gradient-to-br from-emerald-500/5 via-slate-900/5 to-indigo-500/5 dark:from-emerald-950/20 dark:via-slate-900/40 dark:to-indigo-950/20 border-2 border-emerald-500/30 dark:border-emerald-500/40 rounded-2xl p-4 shadow-sm relative overflow-hidden">
+        <div class="flex items-start justify-between gap-3 flex-wrap">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white shadow-xs flex items-center gap-1">
+              ${svgIcon('check', 'w-3 h-3')}Purchased &amp; Owned Vehicle
+            </span>
+            ${stockBadge}
+          </div>
+          ${vdpLink}
+        </div>
+        
+        <div class="mt-2.5 flex items-start gap-3.5">
+          ${ov.image_url ? `<div class="w-20 h-14 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 flex-shrink-0 border border-slate-200 dark:border-slate-700"><img src="${esc(ov.image_url)}" class="w-full h-full object-cover" loading="lazy"></div>` : `<div class="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">${svgIcon('car', 'w-6 h-6')}</div>`}
+          <div class="min-w-0 flex-1">
+            <div class="text-base font-black text-slate-900 dark:text-white leading-tight">${esc(label)}</div>
+            ${subInfo ? `<div class="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-0.5">${esc(subInfo)}</div>` : ''}
+            ${termsLine ? `<div class="text-xs font-bold text-emerald-700 dark:text-emerald-300 mt-1 flex items-center gap-1.5 flex-wrap">${esc(termsLine)}</div>` : ''}
+          </div>
+        </div>
+
+        <div class="mt-3 pt-3 border-t border-slate-200/80 dark:border-slate-800/80 flex items-center gap-2 flex-wrap">
+          ${dealBtn}
+          ${serviceBtn}
+          ${appraiseBtn}
+          ${ov.service_ro_count ? `<span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 ml-auto">${ov.service_ro_count} service visit${ov.service_ro_count === 1 ? '' : 's'} on record</span>` : ''}
+        </div>
+      </div>`);
+    }
+  }
+
+  // 2. Wants to buy (pinned interest or active lead vehicle)
   const wants = d.interest_vehicle_label;
   if (wants && wants.label) {
     const canDesk = canEditContact(c) && SALES_ROLES.includes(profileContext?.role);
-    // If the interest is pinned to a real stock unit, link straight to it (VDP) —
-    // opens the Inventory catalog filtered to its stock #, like the stocking recs.
     const vdp = (wants.inventory_id && (wants.stocknumber || wants.inventory_id))
       ? `<a href="#" onclick="switchPage('inventory');const s=document.getElementById('catalog-search');if(s){s.value='${esc(wants.stocknumber || wants.inventory_id)}';renderCatalog();}return false;" class="text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:underline">${wants.stocknumber ? '#' + esc(wants.stocknumber) : 'View unit'} →</a>`
       : '';
@@ -781,9 +840,11 @@ function crmVehicleCards(c, d) {
         ${wants.price ? `<span class="text-[12px] text-slate-500 dark:text-slate-400">$${Number(wants.price).toLocaleString()}</span>` : ''}
         ${vdp}
       </div>
-      ${canDesk ? `<button onclick="openDeskForContact('${c.id}')" class="mt-2 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white">${d.deal ? 'View deal' : 'Desk a deal'}</button>` : ''}
+      ${canDesk ? `<button onclick="openDeskForContact('${c.id}')" class="mt-2 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer">${d.deal ? 'View deal' : 'Desk a deal'}</button>` : ''}
     </div>`);
   }
+
+  // 3. Trade-in vehicle
   const tv = c.trade_vehicle;
   const allowQuickAddCard = window.__dealerConfig?.allow_quick_add_trade !== false;
   if (tv && (tv.make || tv.vin)) {
@@ -797,8 +858,8 @@ function crmVehicleCards(c, d) {
       <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(label || 'Trade vehicle')}</div>
       ${sub ? `<div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(sub)}</div>` : ''}
       <div class="flex items-center gap-1.5 flex-wrap mt-2">
-        ${allowQuickAddCard ? `<button onclick="apprFromContact('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1">Appraise Trade</button>` : ''}
-        ${SALES_ROLES.includes(profileContext?.role) ? `<button onclick="apprFromContact('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200">${tv.appraisal_id ? 'View appraisal' : 'Full Appraisal'}</button>` : ''}
+        ${allowQuickAddCard ? `<button onclick="apprFromContact('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1 cursor-pointer">Appraise Trade</button>` : ''}
+        ${SALES_ROLES.includes(profileContext?.role) ? `<button onclick="apprFromContact('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 cursor-pointer">${tv.appraisal_id ? 'View appraisal' : 'Full Appraisal'}</button>` : ''}
       </div>
     </div>`);
   } else if (allowQuickAddCard) {
@@ -808,11 +869,12 @@ function crmVehicleCards(c, d) {
         <div class="text-xs text-slate-500">No trade vehicle on file</div>
       </div>
       <div class="flex items-center gap-1.5 mt-2">
-        <button onclick="apprFromContact('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1">Appraise Trade</button>
+        <button onclick="apprFromContact('${c.id}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1 cursor-pointer">Appraise Trade</button>
       </div>
     </div>`);
   }
-  // Insurance — pulled from the deal once F&I fills it on the desk.
+
+  // 4. Insurance
   const insr = d.deal?.insurance;
   if (insr && (insr.company || insr.policy || insr.agent || insr.phone || insr.expiry)) {
     const line = [insr.policy ? 'Policy ' + insr.policy : '', insr.agent || '', insr.phone || '', insr.expiry ? 'exp ' + insr.expiry : ''].filter(Boolean).join(' · ');
@@ -822,6 +884,7 @@ function crmVehicleCards(c, d) {
       ${line ? `<div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(line)}</div>` : ''}
     </div>`);
   }
+
   if (!cards.length) return '';
   return `<div class="flex flex-wrap gap-3">${cards.join('')}</div>`;
 }
@@ -885,11 +948,187 @@ async function crmApptRescheduleSave(taskId, contactId, title) {
   } catch (e) { showToast(e.message, 'error'); }
 }
 Object.assign(window, { crmApptOutcome, crmApptReschedule, crmApptRescheduleSave });
-function crmTimelineItem(t, cid) {
+
+function crmTimelineItem(t, cid, c = null) {
   const chIco = { call: 'phone', sms: 'chat', email: 'mail', note: 'note', video: 'video' };
   let head = '', bodyTxt = t.body || '', reply = '', iconName = 'note';
 
-  // Video walkaround / customer video message handling
+  // ── 1. Official Service Invoice / Repair Order Receipt ─────────────────────
+  if (t.kind === 'service_ro' || (t.kind === 'comm' && t.meta?.receipt_type === 'Service Work Order') || (t.kind === 'receipt' && (t.receipt_type === 'Service Work Order' || /service/i.test(t.subject || '')))) {
+    const roNo = t.ro_number || t.invoice_no || (t.meta && t.meta.invoice_no) || (t.ro_id ? `RO-${String(t.ro_id).slice(0, 6)}` : `RO-${String(t.id || '').slice(0, 6)}`);
+    const veh = t.vehicle || 'Service Vehicle';
+    const totalVal = t.total != null ? t.total : (t.amount != null ? t.amount : (t.meta && t.meta.amount));
+    const totalFmt = totalVal != null ? `$${Number(totalVal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00';
+    const statusText = (t.status || 'checked_in').toUpperCase().replace(/_/g, ' ');
+    const isPaidOrClosed = ['PAID', 'CLOSED', 'READY'].includes(statusText);
+    const badgeColor = isPaidOrClosed ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800' : 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border-blue-300 dark:border-blue-800';
+
+    const roPayloadParam = JSON.stringify({
+      id: t.ro_id || t.id,
+      ro_number: roNo,
+      customer: { name: c?.full_name, phone: c?.phone, email: c?.email, id: cid },
+      customer_name: c?.full_name,
+      customer_phone: c?.phone,
+      customer_email: c?.email,
+      vehicle_desc: veh,
+      vin: t.vin,
+      odometer: t.odometer,
+      labor_total: t.labor_total,
+      parts_total: t.parts_total,
+      tax: t.tax,
+      total: totalVal,
+      complaint: t.complaint,
+      status: t.status || 'checked_in',
+      closed_at: t.at,
+      created_at: t.at
+    }).replace(/"/g, '&quot;');
+
+    return `<div class="flex gap-2.5">
+      <div class="w-7 flex-shrink-0 flex justify-center pt-0.5 text-blue-600 dark:text-blue-400">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <div class="min-w-0 flex-1 border-l-2 border-blue-500/40 pl-3 pb-2">
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <div class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
+            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${badgeColor}">
+              Official Service Invoice ${esc(roNo)}
+            </span>
+            <span class="text-xs font-bold text-slate-600 dark:text-slate-300">· ${esc(veh)}</span>
+          </div>
+          <span class="text-[11px] font-bold text-slate-400">${esc(crmWhen(t.at))}</span>
+        </div>
+        
+        <div class="mt-1.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1.5">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <span class="text-xs font-bold text-slate-700 dark:text-slate-200">${t.vin ? 'VIN: ' + esc(t.vin) : 'Service Work Order'} ${t.odometer ? '· ' + Number(t.odometer).toLocaleString() + ' mi' : ''}</span>
+            <span class="text-sm font-black text-blue-600 dark:text-blue-400">TOTAL: ${totalFmt}</span>
+          </div>
+          ${t.complaint ? `<div class="text-xs text-slate-600 dark:text-slate-300 italic">"${esc(t.complaint)}"</div>` : ''}
+          ${t.labor_total || t.parts_total ? `<div class="text-[11px] text-slate-500 dark:text-slate-400 flex gap-3">
+            ${t.labor_total ? `<span>Labor: $${Number(t.labor_total).toFixed(2)}</span>` : ''}
+            ${t.parts_total ? `<span>Parts: $${Number(t.parts_total).toFixed(2)}</span>` : ''}
+            ${t.tax ? `<span>Tax: $${Number(t.tax).toFixed(2)}</span>` : ''}
+          </div>` : ''}
+        </div>
+
+        <div class="mt-2.5 flex items-center gap-2 flex-wrap">
+          <button onclick="printServiceReceipt(${roPayloadParam})" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-black bg-blue-600 hover:bg-blue-500 text-white shadow-sm transition cursor-pointer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+            View / Print Official Receipt
+          </button>
+          <button onclick="switchPage('service')" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition cursor-pointer">
+            Service Workspace →
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // ── 2. Parts Counter Order / Invoice Receipt ───────────────────────────────
+  if (t.kind === 'part_purchase' || (t.kind === 'comm' && t.meta?.receipt_type === 'Parts Order') || (t.kind === 'receipt' && (t.receipt_type === 'Parts Order' || /parts/i.test(t.subject || '')))) {
+    const poNo = t.order_number || t.invoice_no || (t.meta && t.meta.invoice_no) || (t.po_id ? `PO-${String(t.po_id).slice(0, 6)}` : `PO-${String(t.id || '').slice(0, 6)}`);
+    const partNum = t.part_number || 'Part Item';
+    const totalVal = t.total != null ? t.total : (t.amount != null ? t.amount : (t.meta && t.meta.amount));
+    const totalFmt = totalVal != null ? `$${Number(totalVal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00';
+    
+    const partsPayloadParam = JSON.stringify({
+      id: t.po_id || t.id,
+      order_number: poNo,
+      customer: { name: c?.full_name, phone: c?.phone, email: c?.email, id: cid },
+      customer_name: c?.full_name,
+      customer_phone: c?.phone,
+      part_number: partNum,
+      description: t.part_desc,
+      qty: t.qty || 1,
+      unit_price: t.unit_price,
+      total: totalVal,
+      status: t.status || 'issued',
+      created_at: t.at
+    }).replace(/"/g, '&quot;');
+
+    return `<div class="flex gap-2.5">
+      <div class="w-7 flex-shrink-0 flex justify-center pt-0.5 text-emerald-600 dark:text-emerald-400">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+      </div>
+      <div class="min-w-0 flex-1 border-l-2 border-emerald-500/40 pl-3 pb-2">
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <div class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
+            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+              Parts Counter Invoice ${esc(poNo)}
+            </span>
+            <span class="text-xs font-bold text-slate-600 dark:text-slate-300">· ${esc(partNum)}</span>
+          </div>
+          <span class="text-[11px] font-bold text-slate-400">${esc(crmWhen(t.at))}</span>
+        </div>
+
+        <div class="mt-1.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <span class="text-xs font-bold text-slate-800 dark:text-slate-200">${esc(partNum)} ${t.part_desc ? '— ' + esc(t.part_desc) : ''} (Qty: ${t.qty || 1})</span>
+            <span class="text-sm font-black text-emerald-600 dark:text-emerald-400">TOTAL: ${totalFmt}</span>
+          </div>
+          ${t.body ? `<div class="text-xs text-slate-500 dark:text-slate-400">${esc(t.body)}</div>` : ''}
+        </div>
+
+        <div class="mt-2.5 flex items-center gap-2 flex-wrap">
+          <button onclick="printPartsReceipt(${partsPayloadParam})" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition cursor-pointer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+            View / Print Parts Receipt
+          </button>
+          <button onclick="switchPage('parts')" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition cursor-pointer">
+            Parts Workspace →
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // ── 3. Sales & F&I Deal ───────────────────────────────────────────────────
+  if (t.kind === 'deal') {
+    const dealNo = t.deal_number || (t.deal_id ? `DEAL-${String(t.deal_id).slice(0, 6)}` : 'Deal');
+    const veh = t.vehicle || 'Vehicle';
+    const statusText = (t.deal_status || 'working').toUpperCase();
+    const isSoldOrDelivered = ['SOLD', 'DELIVERED', 'CONTRACTED'].includes(statusText);
+    const badgeColor = isSoldOrDelivered ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800' : 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border-purple-300 dark:border-purple-800';
+    const priceFmt = t.selling_price ? `$${Number(t.selling_price).toLocaleString()}` : '';
+    const downFmt = t.down_payment ? `Down: $${Number(t.down_payment).toLocaleString()}` : '';
+    const pmtFmt = t.monthly_payment ? `Payment: $${Number(t.monthly_payment).toLocaleString()}/mo` : '';
+    const terms = [priceFmt, downFmt, pmtFmt, t.finance_type].filter(Boolean).join(' · ');
+
+    return `<div class="flex gap-2.5">
+      <div class="w-7 flex-shrink-0 flex justify-center pt-0.5 text-purple-600 dark:text-purple-400">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <div class="min-w-0 flex-1 border-l-2 border-purple-500/40 pl-3 pb-2">
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <div class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
+            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${badgeColor}">
+              Deal #${esc(dealNo)} · ${esc(statusText)}
+            </span>
+            <span class="text-xs font-bold text-slate-600 dark:text-slate-300">· ${esc(veh)}</span>
+          </div>
+          <span class="text-[11px] font-bold text-slate-400">${esc(crmWhen(t.at))}</span>
+        </div>
+
+        <div class="mt-1.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <span class="text-xs font-bold text-slate-800 dark:text-slate-200">${esc(veh)}${t.stocknumber ? ' (Stock #' + esc(t.stocknumber) + ')' : ''}</span>
+            ${priceFmt ? `<span class="text-sm font-black text-purple-600 dark:text-purple-400">${priceFmt}</span>` : ''}
+          </div>
+          ${terms ? `<div class="text-xs font-semibold text-slate-600 dark:text-slate-400">${esc(terms)}</div>` : ''}
+        </div>
+
+        <div class="mt-2.5 flex items-center gap-2 flex-wrap">
+          <button onclick="openDeskForContact('${cid}')" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition cursor-pointer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            View Deal / Open Desk
+          </button>
+          ${t.stocknumber ? `<button onclick="switchPage('inventory');const s=document.getElementById('catalog-search');if(s){s.value='${esc(t.stocknumber)}';renderCatalog();}" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition cursor-pointer">View Unit #${esc(t.stocknumber)} →</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // ── 4. Video walkaround / customer video message handling ──────────────────
   const isVideo = t.kind === 'video_walkaround' || t.kind === 'video_watched' || t.channel === 'video' ||
     (t.subject && /video/i.test(t.subject)) || (t.body && /Watch Video|v_\w+/i.test(t.body));
 
@@ -923,7 +1162,7 @@ function crmTimelineItem(t, cid) {
         </div>
         ${cleanBody ? `<div class="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-1 whitespace-pre-wrap">${esc(cleanBody)}</div>` : ''}
         <div class="mt-2.5 flex items-center gap-2 flex-wrap">
-          <button onclick="openPublicVideoLink('${vidId}', '${cid}')" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-black bg-rose-600 hover:bg-rose-500 text-white shadow-sm transition">
+          <button onclick="openPublicVideoLink('${vidId}', '${cid}')" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-black bg-rose-600 hover:bg-rose-500 text-white shadow-sm transition cursor-pointer">
             ▶ Play Video &amp; Activity
           </button>
           <span class="text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
@@ -934,7 +1173,8 @@ function crmTimelineItem(t, cid) {
     </div>`;
   }
 
-  if (t.kind === 'comm') {
+  // ── 5. Standard Communications & Transcripts ──────────────────────────────
+  if (t.kind === 'comm' || t.kind === 'receipt') {
     // Saved AI/marketplace transcript → show a "View AI conversation" opener.
     if (t.meta && t.meta.kind === 'ai_chat' && t.id) {
       const SRC = { website: 'Website AI chat', marketplace: 'Marketplace conversation', sms: 'Text conversation', other: 'AI conversation' };
@@ -944,7 +1184,7 @@ function crmTimelineItem(t, cid) {
         <div class="min-w-0 flex-1 border-l-2 border-slate-100 dark:border-slate-800 pl-3 pb-1">
           <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">${svgIcon('sparkles', 'w-4 h-4 text-indigo-500')}${esc(SRC[t.meta.source] || 'AI conversation')}</div>
           <div class="text-sm text-slate-600 dark:text-slate-300 mt-0.5">${n} message${n === 1 ? '' : 's'} with the AI concierge.</div>
-          <button onclick="openChatTx('${t.id}')" class="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">${msIco('chat', 'w-3 h-3')} View AI conversation</button>
+          <button onclick="openChatTx('${t.id}')" class="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">${msIco('chat', 'w-3 h-3')} View AI conversation</button>
           <div class="text-[11px] text-slate-400 mt-0.5">${esc(crmWhen(t.at))}</div>
         </div>
       </div>`;
@@ -955,7 +1195,7 @@ function crmTimelineItem(t, cid) {
     head = `${label}${dir}${t.subject ? ` — ${esc(t.subject)}` : ''}`;
     // Reply to an inbound customer message right from the timeline.
     if (cid && t.direction === 'in' && ['sms', 'email', 'call'].includes(t.channel)) {
-      reply = `<button onclick="crmReplyForm('${cid}','${t.channel}',${JSON.stringify(t.subject || '').replace(/"/g, '&quot;')})" class="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">${msIco('reply', 'w-3 h-3')} Reply</button>`;
+      reply = `<button onclick="crmReplyForm('${cid}','${t.channel}',${JSON.stringify(t.subject || '').replace(/"/g, '&quot;')})" class="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">${msIco('reply', 'w-3 h-3')} Reply</button>`;
     }
     // Booked appointment with a video link → one-tap Join.
     if (t.meta && t.meta.meet_url) {
@@ -968,7 +1208,10 @@ function crmTimelineItem(t, cid) {
     iconName = 'car';
     head = `Appraisal — ${esc(t.vehicle || 'vehicle')}${t.offer != null ? ` · offer ${crmMoney(t.offer, t.currency)}` : ''}`;
     bodyTxt = '';
-  } else if (t.kind === 'sale') { iconName = 'check'; }
+  } else if (t.kind === 'sale') {
+    iconName = 'check';
+  }
+
   return `<div class="flex gap-2.5">
     <div class="w-7 flex-shrink-0 flex justify-center pt-0.5 text-slate-400">${msIco(iconName, 'w-4 h-4')}</div>
     <div class="min-w-0 flex-1 border-l-2 border-slate-100 dark:border-slate-800 pl-3 pb-1">
