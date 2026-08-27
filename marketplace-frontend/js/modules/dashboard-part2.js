@@ -619,9 +619,12 @@ async function initializeDashboardEcosystem() {
 
     // Purple "Desk a deal" quick-launch — any admin/manager/F&I (including a solo
     // "Independent" account, which is still allowed to desk deals).
-    if (isAdminHeader) {
+    if (isAdminHeader && !(typeof marketsyncOwnerMode === 'function' && marketsyncOwnerMode())) {
       const deskBtn = document.getElementById('header-desk-btn');
       if (deskBtn) { deskBtn.classList.remove('hidden'); deskBtn.classList.add('inline-flex'); }
+    } else {
+      const deskBtn = document.getElementById('header-desk-btn');
+      if (deskBtn) { deskBtn.classList.add('hidden'); deskBtn.classList.remove('inline-flex'); }
     }
 
     if (isAdminHeader && !isPersonalDealership) {
