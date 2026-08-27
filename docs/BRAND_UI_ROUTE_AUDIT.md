@@ -338,3 +338,8 @@ Evidence folder updated with dealer 1440 light/dark for core workspaces, Pulse/S
 ## Phase 3 P0 2026-08-27
 
 Shared token lock and chrome glass landed (`72cb559`, `716c1ac`). Captured actions on Sales 1440 light now use Market Blue for Install Extension, Intelligence, and Demo. Chat FAB still violet until v2 CSS caches. PASS 0. Average 60.8. No department-content edits. Phase 4 not started.
+
+
+## Phase 3 follow-up 2026-08-27
+
+Login Sign In and staff-chat FAB now render Market Blue in evidence. A001 color subscore improved; route still NEEDS WORK (not 95+). PASS 0. Average ~61. Phase 4 not started.
