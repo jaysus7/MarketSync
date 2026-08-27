@@ -1136,41 +1136,40 @@ function renderReconBoard() {
   const reconItem = (c) => {
     const d = reconDelivery(c.delivery_at);
     const done = reconChkDone(c), tot = reconChkTotal(c), ready = reconIsReady(c);
-    const chk = tot ? `${done}/${tot}` : 'No list';
+    const chk = tot ? `${done}/${tot} done` : 'No list';
     const extra = (c.tasks && c.tasks.length) ? ` · +${c.tasks.length} task${c.tasks.length === 1 ? '' : 's'}` : '';
-    if (typeof pulseRow === 'function') {
-      return pulseRow({
-        label: c.label || 'Vehicle',
-        sub: [c.stocknumber ? '#' + c.stocknumber : '', d.txt, c.salesperson_name || '', chk + extra].filter(Boolean).join(' · '),
-        actionLabel: 'Stock card',
-        onclick: `openReconCard('${c.inventory_id}')`,
-      });
-    }
-    return `<button type="button" data-recon-open="${c.inventory_id}" class="w-full text-left px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 mb-2">
-      <div class="font-bold text-sm text-slate-900 dark:text-white">${esc(c.label)}</div>
-      <div class="text-[12px] text-slate-500">${esc(d.txt)} · ${esc(chk)}</div>
-    </button>`;
+    return `<div class="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/70 transition flex items-center justify-between gap-3 shadow-xs">
+      <button type="button" onclick="openReconCard('${c.inventory_id}')" class="min-w-0 flex-1 text-left">
+        <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(c.label || 'Vehicle')}</div>
+        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">${c.stocknumber ? '#' + esc(c.stocknumber) + ' · ' : ''}${esc(d.txt)}</div>
+        <div class="text-[11px] ${ready ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-slate-400'} mt-0.5">${esc(chk)}${extra}${c.salesperson_name ? ` · ${esc(c.salesperson_name)}` : ''}</div>
+      </button>
+      <button type="button" onclick="openReconCard('${c.inventory_id}')" class="shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition whitespace-nowrap inline-flex items-center">Stock card</button>
+    </div>`;
   };
   const todayList = sorted.filter(c => c.delivery_at && new Date(c.delivery_at).toDateString() === today);
   const readyList = sorted.filter(reconIsReady);
   const progressList = sorted.filter(c => !reconIsReady(c));
-  const card = (title, count, list, empty, toneCls) => `
-    <div class="ms-c ms-c--glass flex flex-col h-full rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm">
+  const card = (colNum, title, count, list, empty, toneCls, borderCls) => `
+    <div class="recon-column flex flex-col h-full rounded-2xl p-4 bg-white/80 dark:bg-slate-900/80 border ${borderCls || 'border-slate-200 dark:border-slate-800'} shadow-sm">
       <div class="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
-        <div class="font-black text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200">${title}</div>
+        <div class="flex items-center gap-2">
+          <span class="w-5 h-5 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] font-black flex items-center justify-center">${colNum}</span>
+          <div class="font-black text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200">${title}</div>
+        </div>
         <span class="px-2.5 py-0.5 rounded-full text-xs font-black ${toneCls || 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}">${count}</span>
       </div>
       <div class="space-y-2 flex-1">
-        ${list.length ? list.map(reconItem).join('') : `<div class="py-8 text-center text-xs text-slate-400 dark:text-slate-500 font-medium">${empty}</div>`}
+        ${list.length ? list.map(reconItem).join('') : `<div class="py-12 text-center text-xs text-slate-400 dark:text-slate-500 font-medium">${empty}</div>`}
       </div>
     </div>`;
 
   const board = [
-    card('Delivering today', deliveringToday, todayList, 'Nothing delivering today.', 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'),
-    card('Still in cleanup', progressList.length, progressList, 'Every unit is ready.', 'bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300'),
-    card('Ready for delivery', readyCount, readyList, 'No units signed off yet.', 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'),
+    card(1, 'Delivering today', deliveringToday, todayList, 'Nothing delivering today.', 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300', 'border-amber-200/60 dark:border-amber-800/40'),
+    card(2, 'In cleanup / detail', progressList.length, progressList, 'Every unit is ready.', 'bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300', 'border-sky-200/60 dark:border-sky-800/40'),
+    card(3, 'Ready for delivery', readyCount, readyList, 'No units signed off yet.', 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300', 'border-emerald-200/60 dark:border-emerald-800/40'),
   ];
-  root.innerHTML = header + `<div class="grid grid-cols-1 md:grid-cols-3 gap-5 w-full items-start">${board.join('')}</div>`;
+  root.innerHTML = header + `<div class="recon-kanban-board">${board.join('')}</div>`;
 
   wire();
 }

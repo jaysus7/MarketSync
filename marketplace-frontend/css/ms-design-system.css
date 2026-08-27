@@ -253,7 +253,7 @@
   grid-template-columns: repeat(var(--ms-grid-cols), minmax(0, 1fr));
   grid-auto-rows: minmax(var(--ms-grid-row), auto);
   gap: var(--ms-grid-gap);
-  align-items: stretch;
+  align-items: start;
   /* Dense packing backfills the pocket a tall card leaves beside it; without
      it CSS Grid's sparse algorithm strands later cards past the gap. */
   grid-auto-flow: row dense;
