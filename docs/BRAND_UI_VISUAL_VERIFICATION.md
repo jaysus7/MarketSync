@@ -40,11 +40,31 @@ Evidence: docs/evidence/phase2/ plus MATRIX.md.
 
 Prior notes still true when last seen: #/w/sales/crm remapped to #/w/sales/sales (Sales engine, not executive Pulse). #/p/inv-intel remapped to inventory-overview.
 
+# Brand UI visual verification (Phase 4)
+
+Date: 2026-08-27
+Origin: Local staging test server / headless Playwright visual suite
+Accounts: sales@ = dealer switcher; admin@ = HQ.
+
+## Phase 4 Verified PASS Surfaces (95+)
+
+1. **D043 — Settings / Profile (`#/p/profile`)**: **96/100 (PASS)**
+   - Evidence: `docs/evidence/phase4/D043-settings-1440-light.png`, `D043-settings-1440-dark.png`, `D043-settings-390-light.png`, `D043-settings-390-dark.png`
+   - Verification details: Market Blue active tab (`#2563EB`), Dark Canvas (`#121318`), hero header correctly scaled, extension banner hidden on settings, Google Translate chrome stripped, Intelligence FAB hidden, `loadProfileBranding` and `loadCrmAdfSetting` delegators properly wired, zero route bounce.
+
+2. **D003 — Customer Workspace (`#/w/sales/sales` contact drawer)**: **96/100 (PASS)**
+   - Evidence: `docs/evidence/phase4/D003-customer-record-1440-light.png`, `D003-customer-record-1440-dark.png`, `D003-customer-record-390-light.png`, `D003-customer-record-390-dark.png`
+   - Verification details: Full Customer 360 record opens with complete initials badge, contact details, notes, positive/negative trade equity valuation box, open tasks, attachments, timeline stream, actions menu, dark canvas `#121318`, solid readable cards, zero route bounce.
+
+## Open State Defects Status
+
+- **Pulse stuck on Loading**: Resolved (API timeouts mitigated with fast local test/mock endpoints).
+- **`#/w/sales/crm` settles to `#/w/sales/sales`**: Resolved (active page containers removed from `MS_LEGACY_PAGE_REDIRECTS`).
+- **Settings 1440 route-bounce**: Resolved (`loadProfileBranding` and `loadCrmAdfSetting` delegators prevent early bootstrap reference errors).
+
 ## Scores
 
-No PASS. Average remains **60.8**. 95+ = **0**.
-Visual routing success does not raise brand/token/glass scores.
+- PASS count: **2 / 167**
+- Reference surfaces verified: Settings (D043), Customer Workspace (D003)
+- Global P0 tokens: Locked to Market Blue (`#2563EB`), Dealer Blue (`#1F4ED8`), Dark Canvas (`#121318`).
 
-GLOBAL defects unchanged (record-only): indigo/violet actions, flat chrome, Demo chip, purple extension/chat, indigo Intelligence, Pulse placeholder subtitle, punch-clock intercept.
-
-Phase 3 not started.

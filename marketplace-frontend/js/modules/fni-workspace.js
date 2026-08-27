@@ -372,6 +372,7 @@ ENGINES['fni-overview'] = {
         }),
       ].filter(Boolean);
 
+      // Keep one operational Pulse.
       body.innerHTML = `
         ${pulseHeader('F&I Pulse', 'Approvals, credit, products, contracts and delivery readiness')}
         ${pulseBoard(cards)}
