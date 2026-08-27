@@ -507,10 +507,11 @@ test('Marketing top tab reads "Design Studio", not "Studio"', () => {
   assert.doesNotMatch(mkt, /studio: 'Studio'/)
 })
 
-test('mobile row still renders through the shared gating helpers', () => {
+test('mobile row still renders through the shared gating helpers and includes Platform in HQ mode', () => {
   const dashboardJs = read('dashboard.js')
   assert.match(dashboardJs, /msMobileNavForRole/, 'mobile row must consume the registry role map')
   assert.match(dashboardJs, /deptPageAllowed\(tab\)/, 'mobile entries must pass the same gates as desktop')
+  assert.match(dashboardJs, /saas-agents/, 'MarketSync HQ mobile navigation must include Platform (saas-agents)')
 })
 
 test('hash routing is additive and cannot break the token bootstrap', () => {

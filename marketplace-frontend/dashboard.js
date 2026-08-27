@@ -1443,37 +1443,54 @@ function applyMobileQuickRow() {
     pages = restricted.slice(0, 4);
     showMoreBtn = restricted.length > pages.length;
   } else if (__deptNavBuilt && __deptRegistry) {
-    // Full DealerOS: ROLE-AWARE bottom row — a salesperson gets Pipeline/Customers/
+    // Full DealerOS / MarketSync HQ: ROLE-AWARE bottom row — a salesperson gets Pipeline/Customers/
     // Tasks, a technician gets Repair Orders/Schedule, a manager gets the store view.
-    // This is not a shrunken sidebar: the destinations come from MS_ROLE_MOBILE_NAV,
+    // In MarketSync HQ owner mode, the founder gets HQ, Customers, Platform (AI Agents), Revenue.
+    // This is not a shrunken sidebar: the destinations come from MS_ROLE_MOBILE_NAV (or HQ destinations),
     // resolved against the SAME workspace registry the desktop nav uses, and each
     // one still passes deptPageAllowed (role + entitlement + dealer flags) before it
     // renders — an entry the user can't reach is dropped, never shown dead.
-    const wanted = typeof msMobileNavForRole === 'function'
-      ? msMobileNavForRole(profileContext?.role) : null;
-    if (wanted) {
-      // Resolve each page to its registry tab so label/icon stay in one place.
-      pages = wanted.map(pg => {
+    const isHq = (typeof marketsyncOwnerMode === 'function' && marketsyncOwnerMode())
+      || document.documentElement.getAttribute('data-dash-mode') === 'marketsync';
+    if (isHq) {
+      const hqWanted = ['saas-command', 'saas-customers', 'saas-agents', 'saas-billing'];
+      pages = hqWanted.map(pg => {
         for (const d of Object.values(__deptRegistry)) {
           const tab = (d.pages || []).find(p => p.page === pg);
-          if (tab && deptRoleOk(d) && deptPageAllowed(tab)) {
-            // A workspace's FIRST tab is its home, and those are all called
-            // "Overview" — useless on a 4-icon bar (Executive and Sales would both
-            // read "Overview"). Show the workspace name for a home tab, the tab name
-            // for a deeper one: Executive · Sales · Inventory · Tasks.
+          if (tab) {
             const isHome = d.pages[0] && d.pages[0].page === pg;
-            return { page: tab.page, label: isHome ? d.label : tab.label, icon: d.icon, invmode: tab.invmode };
+            return { page: tab.page, label: isHome ? d.label : (tab.label.includes('Agent') ? 'Platform' : tab.label), icon: d.icon, invmode: tab.invmode };
           }
         }
         return null;
-      }).filter(Boolean).slice(0, 4);
-    }
-    // No role mapping (or nothing survived gating) → first visible workspaces' homes.
-    if (!pages || !pages.length) {
-      pages = Object.values(__deptRegistry).filter(d => deptVisible(d) && !d.system).slice(0, 4).map(d => {
-        const home = d.pages.find(deptPageAllowed) || d.pages[0] || {};
-        return { page: home.page, label: d.label, icon: d.icon, invmode: home.invmode };
-      }).filter(p => p.page);
+      }).filter(Boolean);
+    } else {
+      const wanted = typeof msMobileNavForRole === 'function'
+        ? msMobileNavForRole(profileContext?.role) : null;
+      if (wanted) {
+        // Resolve each page to its registry tab so label/icon stay in one place.
+        pages = wanted.map(pg => {
+          for (const d of Object.values(__deptRegistry)) {
+            const tab = (d.pages || []).find(p => p.page === pg);
+            if (tab && deptRoleOk(d) && deptPageAllowed(tab)) {
+              // A workspace's FIRST tab is its home, and those are all called
+              // "Overview" — useless on a 4-icon bar (Executive and Sales would both
+              // read "Overview"). Show the workspace name for a home tab, the tab name
+              // for a deeper one: Executive · Sales · Inventory · Tasks.
+              const isHome = d.pages[0] && d.pages[0].page === pg;
+              return { page: tab.page, label: isHome ? d.label : tab.label, icon: d.icon, invmode: tab.invmode };
+            }
+          }
+          return null;
+        }).filter(Boolean).slice(0, 4);
+      }
+      // No role mapping (or nothing survived gating) → first visible workspaces' homes.
+      if (!pages || !pages.length) {
+        pages = Object.values(__deptRegistry).filter(d => deptVisible(d) && !d.system).slice(0, 4).map(d => {
+          const home = d.pages.find(deptPageAllowed) || d.pages[0] || {};
+          return { page: home.page, label: d.label, icon: d.icon, invmode: home.invmode };
+        }).filter(p => p.page);
+      }
     }
   }
   if (!pages || !pages.length) {
