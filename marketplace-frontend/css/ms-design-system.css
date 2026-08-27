@@ -767,3 +767,10 @@ html.dark, .dark {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
+
+.ms-acc-text { color: #2563EB; }
+.dark .ms-acc-text, html.dark .ms-acc-text { color: #93C5FD; }
+.ms-acc-bg { background: #EFF6FF; }
+.dark .ms-acc-bg, html.dark .ms-acc-bg { background: rgba(37,99,235,.16); }
+.ms-acc-solid { background: #2563EB; color: #fff; }
+.ms-acc-solid:hover { background: #1F4ED8; }
