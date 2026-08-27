@@ -290,8 +290,9 @@ function setupMobileMoreMenu() {
     // Quick actions — header-only destinations that don't live in the sidebar, so
     // admins get Desk a deal + Settings right at the top of the menu.
     const isAdmin = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+    const hqMode = typeof marketsyncOwnerMode === 'function' && marketsyncOwnerMode();
     const quick = [];
-    if (isAdmin && !simpleCrmActive()) quick.push(['desk', 'Desk a deal']);
+    if (isAdmin && !hqMode && !simpleCrmActive()) quick.push(['desk', 'Desk a deal']);
     quick.push(['profile', 'Settings']);
     if (quick.length) {
       const wrap = mk('<div class="grid grid-cols-2 gap-1.5"></div>');
