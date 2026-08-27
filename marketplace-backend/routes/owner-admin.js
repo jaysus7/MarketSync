@@ -15,7 +15,24 @@ import { requireAuth } from '../middleware.js'
 import { PRODUCT_KEYS, resolveProducts } from './profile.js'
 import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
 
-const PRODUCT_LABELS = { facebook_solo: 'Facebook Solo', facebook_dealer: 'Facebook Dealer', ai_chatbot: 'AI Chatbot', dealer_os: 'DealerOS' }
+const PRODUCT_LABELS = {
+  facebook_solo: 'Facebook AutoPoster — Salesperson',
+  facebook_dealer: 'Facebook AutoPoster — Dealer',
+  marketsync_social: 'Social Scheduler',
+  design_studio: 'Design Studio',
+  marketsync_video: 'Video',
+  marketsync_email: 'Campaigns',
+  marketsync_website: 'Dealer Website',
+  ai_chatbot: 'AI ChatBot',
+  'sales-marketing-suite': 'Sales Marketing Suite',
+  'service-marketing-suite': 'Service Marketing Suite',
+  'complete-marketing-suite': 'Complete Marketing Suite',
+  'marketsync-digital': 'MarketSync Digital',
+  dealer_os_core: 'DealerOS Core',
+  dealer_os_pro: 'DealerOS Pro',
+  dealer_os: 'DealerOS Complete',
+}
+const HQ_PRODUCT_KEYS = Object.keys(PRODUCT_LABELS)
 const isOwner = (req) => hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)
 
 // The engine/entitlement flags the owner can toggle per dealership (column → label).
@@ -111,14 +128,25 @@ export function registerOwnerAdmin(app) {
   app.post('/owner/dealership/:id/products', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
     const key = String(req.body?.key || '')
-    if (!PRODUCT_KEYS.includes(key)) return res.status(400).json({ error: 'unknown product key' })
+    if (!HQ_PRODUCT_KEYS.includes(key) && !PRODUCT_KEYS.includes(key)) return res.status(400).json({ error: 'unknown product key' })
     const active = !!req.body?.active
     const { data: row } = await supabaseAdmin.from('dealerships').select('products').eq('id', req.params.id).maybeSingle()
     const products = (row?.products && typeof row.products === 'object') ? { ...row.products } : {}
     if (active) products[key] = true; else delete products[key]
+    const reason = String(req.body?.reason || '').slice(0, 500)
     const { error } = await supabaseAdmin.from('dealerships').update({ products }).eq('id', req.params.id)
     if (error) return res.status(500).json({ error: error.message })
-    res.json({ ok: true, products: resolveProducts({ products }) })
+    try {
+      await supabaseAdmin.from('hq_audit_events').insert({
+        actor_id: req.profile?.id || null,
+        action: active ? 'product.enabled' : 'product.disabled',
+        dealership_id: req.params.id,
+        target: key,
+        reason: reason || null,
+        new_value: active,
+      })
+    } catch { /* table may not exist yet — entitlement still applied */ }
+    res.json({ ok: true, products, key, active, reason: reason || null })
   })
 
   // Toggle one engine/entitlement flag on a dealership.
