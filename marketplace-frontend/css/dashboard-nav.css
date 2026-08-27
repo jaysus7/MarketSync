@@ -125,7 +125,7 @@ html[data-dash-mode="marketsync"] #ms-mode-switch{background:#ede9fe}
 #nav-desktop > [data-page="taskboard"] { order:21; border-left-color:#f43f5e; }
 #nav-desktop > #nav-commissions        { order:22; border-left-color:#10b981; }
 #nav-desktop > .nav-group[data-group="auto"]    { order:23; border-left-color:#64748b; }
-#nav-desktop > #nav-affiliates         { order:24; border-left-color:#8b5cf6; }
+#nav-desktop > #nav-affiliates         { order:24; border-left-color:#2563EB; }
 #nav-desktop > #nav-owner-users        { order:25; border-left-color:#d946ef; }
 #nav-desktop > #nav-config             { order:26; border-left-color:#64748b; }
 #nav-desktop > #nav-api                { order:27; border-left-color:#64748b; }
