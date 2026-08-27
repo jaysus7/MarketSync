@@ -1317,9 +1317,10 @@ ENGINES['saas-command'] = {
   icon: 'chart', accent: 'indigo', hideRail: true, hideTabBar: true, tabOrder: ['overview'],
   fetch: () => apiGetJson('/saas/overview'),
   quickActions: [
-    { label: 'Review customers', icon: 'chart', onclick: "switchPage('saas-customers')" },
-    { label: 'Review leads', icon: 'bolt', onclick: "switchPage('saas-funnel')" },
-    { label: 'Employees', icon: 'user', onclick: "switchPage('saas-employees')" },
+    { label: 'Dealerships', icon: 'chart', onclick: "switchPage('saas-customers')" },
+    { label: 'Billing', icon: 'currency', onclick: "switchPage('saas-billing')" },
+    { label: 'Users', icon: 'user', onclick: "switchPage('saas-all-users')" },
+    { label: 'Health', icon: 'bolt', onclick: "switchPage('saas-health')" },
   ],
   nextActions: (d) => {
     const out = [];
