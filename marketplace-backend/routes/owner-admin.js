@@ -386,4 +386,42 @@ export function registerOwnerAdmin(app) {
     if (error) return res.status(500).json({ error: error.message })
     res.json({ connections: data || [] })
   })
+
+  const DEALER_ROLES = ['DEALER_ADMIN','OWNER','MANAGER','SALES_REP','SALES_MANAGER','FNI','SERVICE_ADVISOR','SERVICE_MANAGER','TECHNICIAN','PARTS','ACCOUNTING','MARKETING','RECEPTION','BDC','READ_ONLY']
+
+  app.get('/owner/users', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const [{ data: profiles, error }, { data: dealers }] = await Promise.all([
+      supabaseAdmin.from('profiles').select('id, full_name, role, dealership_id, billing_status, trial_ends_at, active, business_email, last_login_at').limit(8000),
+      supabaseAdmin.from('dealerships').select('id, name').limit(2000),
+    ])
+    if (error) return res.status(500).json({ error: error.message })
+    const names = Object.fromEntries((dealers || []).map(d => [d.id, d.name]))
+    res.json({
+      users: (profiles || []).map(p => ({
+        id: p.id,
+        name: p.full_name || '—',
+        email: p.business_email || null,
+        role: p.role,
+        active: p.active !== false,
+        dealership_id: p.dealership_id,
+        dealership: names[p.dealership_id] || null,
+        billing_status: p.billing_status,
+        trial_ends_at: p.trial_ends_at,
+        last_login_at: p.last_login_at || null,
+      })),
+    })
+  })
+
+  app.post('/owner/user/:id/role', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const role = String(req.body?.role || '').toUpperCase()
+    const reason = String(req.body?.reason || '').slice(0, 500)
+    if (!DEALER_ROLES.includes(role)) return res.status(400).json({ error: 'unknown dealer role' })
+    if (!reason) return res.status(400).json({ error: 'reason required' })
+    const { error } = await supabaseAdmin.from('profiles').update({ role }).eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    await audit(req, 'hq.user_role_changed', { after_state: { user_id: req.params.id, role, reason } })
+    res.json({ ok: true, role })
+  })
 }
