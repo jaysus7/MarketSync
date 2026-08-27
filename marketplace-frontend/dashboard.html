@@ -17,17 +17,18 @@
        never applied and dark-mode phones fell back to their own inconsistent forced-dark
        repaint (dark background, unrepainted dark text). -->
   <script>(function(){var m=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)');function apply(){document.documentElement.classList.toggle('dark',!!(m&&m.matches));}apply();if(m){if(m.addEventListener)m.addEventListener('change',apply);else if(m.addListener)m.addListener(apply);}})();</script>
-  <link rel="icon" type="image/png" href="/favicon.png">
-  <link rel="apple-touch-icon" href="/favicon.png">
+  <link rel="icon" type="image/png" href="/assets/brand/favicon.png">
+  <link rel="apple-touch-icon" href="/assets/brand/favicon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DealerOS by MarketSync · Dashboard</title>
-  <link rel="preconnect" href="https://api.fontshare.com">
-  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260826_no_page_bg_v1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260826_b1_v1">
   <link rel="stylesheet" href="css/dashboard-nav.css">
   <link rel="stylesheet" href="css/dashboard-brand-repaint.css">
   <link rel="stylesheet" href="css/tailwind-built.css?v=20260825_header_spacing_v1">
-  <link rel="stylesheet" href="css/ms-design-system.css?v=20260826_type_16_v1">
+  <link rel="stylesheet" href="css/ms-design-system.css?v=20260826_b1_v1">
   <meta name="color-scheme" content="light dark">
   <!-- Chart.js / QR / WebAuthn load on demand via msLoadScript — they blocked first paint when in <head>. -->
   <script src="password-toggle.js" defer></script>
@@ -401,8 +402,8 @@
     <!-- LEFT SIDE: Logo + Role Pill + Live Shift Punch Clock -->
     <div class="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
       <a id="dashboard-brand" href="#" onclick="switchPage('command'); return false;" class="flex items-center gap-2 flex-shrink-0" aria-label="MarketSync home">
-        <img src="/Logo 2.0.png" alt="MarketSync DealerOS" class="h-12 w-auto dark:hidden">
-        <img src="/Logo 2.1.png" alt="MarketSync DealerOS" class="h-12 w-auto hidden dark:block">
+        <img src="/assets/brand/marketsync-logo-primary.png" alt="MarketSync DealerOS" class="h-12 w-auto dark:hidden">
+        <img src="/assets/brand/marketsync-logo-white.png" alt="MarketSync DealerOS" class="h-12 w-auto hidden dark:block">
       </a>
       <!-- Who you are signed in AS -->
       <span class="hidden sm:inline-block text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 font-mono px-2 py-0.5 rounded truncate" id="ui-role-pill">Loading...</span>
@@ -1432,8 +1433,8 @@
       </nav>
 
       <!-- Mobile "all pages" sheet (populated + toggled by dashboard.js) -->
-      <div id="nav-more-menu" class="hidden md:hidden fixed inset-0 z-[60] bg-black/40">
-        <div class="absolute top-0 inset-x-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 rounded-b-2xl shadow-xl p-3 max-h-[85vh] overflow-y-auto">
+      <div id="nav-more-menu" class="hidden md:hidden fixed inset-0 z-[60] ms-mat-overlay">
+        <div class="ms-more-sheet ms-glass-strong absolute top-0 inset-x-0 rounded-b-2xl shadow-xl p-3 max-h-[85vh] overflow-y-auto">
           <div class="flex items-center justify-between px-2 pb-2 mb-1 border-b border-slate-100 dark:border-slate-800">
             <span class="text-sm font-bold text-slate-900 dark:text-white">All pages</span>
             <button id="nav-more-close" class="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1" aria-label="Close">

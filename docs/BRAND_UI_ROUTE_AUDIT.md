@@ -274,3 +274,22 @@ Legacy SEO landings (rewrite or redirect), legal, blog, affiliates, HQ density p
 - Zero routes are PASS.
 - Authenticated scores will be revised after a logged-in screenshot pass at 375 / 390 / 430 / 768 / 1024 / 1440 in light and dark.
 - This document does not implement visual fixes.
+
+
+## Batch 1 — Global Foundation Lock (2026-08-26)
+
+Applied shared-system remediations. **No route is marked PASS.** Authenticated visual verification is still required.
+
+Code-proven this batch:
+
+- Canonical assets live in `marketplace-frontend/assets/brand/`. Public shell, auth, dashboard, favicons retargeted.
+- `--ms-accent` purple `#7c3aed` remapped to Market Blue `#2563EB`. HQ `data-dash-mode=marketsync` nav overrides no longer force purple.
+- Department `MS_WORKSPACES` accents collapsed to `indigo` (blue family). Semantic status colors untouched.
+- Satoshi/Fontshare removed from theme + auth/dashboard HTML; Manrope + Inter loaded.
+- Shared primitives added: `.ms-btn*`, `.ms-input`, `.ms-modal*`, `.ms-mat-*`, `.ms-glass-*` with reduced-motion / reduced-transparency / no-backdrop-filter fallbacks.
+- CSS ownership documented in `docs/CSS_OWNERSHIP.md`.
+- Mobile All-pages sheet uses overlay + strong glass.
+
+Not proven without screenshots: per-route contrast, 375–1440 layout, logo geometry match to the approved die-cut, every leftover Tailwind violet class.
+
+Average score is **not** auto-raised. Next: logged-in visual pass.
