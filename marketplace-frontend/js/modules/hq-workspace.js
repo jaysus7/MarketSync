@@ -48,6 +48,10 @@ function hqEntitlementMatrix(d) {
     <div class="text-[13px] font-black text-slate-800 dark:text-white mb-1">Products & entitlements</div>
     <p class="text-[11px] text-slate-500 mb-2">Purchased / entitled / enabled. Disable is an HQ override and must include a reason.</p>
     ${rows}
+    <div class="flex flex-wrap gap-2 mt-3">
+      <button type="button" class="px-3 py-1.5 rounded-xl text-[11px] font-black bg-amber-500 text-slate-950" onclick="hqExtendTrial('${d.id}')">Extend trial</button>
+      <button type="button" class="px-3 py-1.5 rounded-xl text-[11px] font-black border border-slate-200 dark:border-slate-700" onclick="hqSupportSession('${d.id}')">Start support inspect</button>
+    </div>
   </div>`;
 }
 
@@ -162,3 +166,92 @@ if (typeof marketsyncOwnerMode === 'function' && marketsyncOwnerMode()) {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); hqOpenSearch(); }
   });
 }
+
+
+window.hqExtendTrial = async function(id) {
+  const days = prompt('Extend trial by how many days?', '14');
+  if (!days) return;
+  const reason = prompt('Reason (required)') || '';
+  if (!reason.trim()) return showToast('Reason required', 'error');
+  try {
+    await apiSendJson('/owner/dealership/' + id + '/trial', 'POST', { days: Number(days), reason });
+    showToast('Trial extended', 'success');
+    if (typeof renderSaasCustomer === 'function') await renderSaasCustomer(id);
+  } catch (e) { showToast(e.message || 'Could not extend trial', 'error'); }
+};
+
+window.hqSupportSession = async function(id) {
+  const reason = prompt('Support inspect reason (required)') || '';
+  if (!reason.trim()) return showToast('Reason required', 'error');
+  try {
+    const d = await apiSendJson('/owner/support-session', 'POST', { dealership_id: id, reason });
+    window.__hqSupportSession = d;
+    let bar = document.getElementById('hq-support-banner');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'hq-support-banner';
+      bar.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 z-[220] px-4 py-2 rounded-2xl bg-indigo-600 text-white text-xs font-black shadow-xl flex items-center gap-3';
+      document.body.appendChild(bar);
+    }
+    bar.innerHTML = `SUPPORT INSPECT · ${esc(id.slice(0,8))} · ends ${esc(String(d.expires_at||'').slice(11,16))} UTC <button class="underline" onclick="document.getElementById('hq-support-banner')?.remove();window.__hqSupportSession=null">Exit</button>`;
+    showToast(d.note || 'Support inspect started', 'info');
+    if (typeof openSaasCustomer === 'function') openSaasCustomer(id);
+  } catch (e) { showToast(e.message || 'Could not start support session', 'error'); }
+};
+
+async function loadHqAudit() {
+  const root = document.getElementById('saas-audit-root'); if (!root) return;
+  root.innerHTML = '<div class="text-sm text-slate-400 p-4">Loading audit…</div>';
+  try {
+    const d = await apiGetJson('/owner/audit');
+    const ev = d.events || [];
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Audit log','HQ actions from audit_log'):''}
+      <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <table class="w-full text-left text-xs"><thead><tr class="text-[10px] uppercase text-slate-400 border-b border-slate-200 dark:border-slate-800">
+          <th class="p-3">When</th><th class="p-3">Action</th><th class="p-3">Actor</th><th class="p-3">Dealership</th></tr></thead>
+          <tbody>${ev.map(e => `<tr class="border-t border-slate-100 dark:border-slate-800"><td class="p-3 whitespace-nowrap">${esc(String(e.created_at||'').replace('T',' ').slice(0,16))}</td><td class="p-3 font-bold">${esc(e.action)}</td><td class="p-3">${esc(e.actor_email||e.actor_id||'—')}</td><td class="p-3">${esc(e.dealership_id||'—')}</td></tr>`).join('') || '<tr><td class="p-3" colspan="4">No HQ audit rows yet.</td></tr>'}</tbody></table></div>`;
+  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message)}</div>`; }
+}
+
+async function loadHqSecurity() {
+  const root = document.getElementById('saas-security-root'); if (!root) return;
+  root.innerHTML = '<div class="text-sm text-slate-400 p-4">Loading security events…</div>';
+  try {
+    const d = await apiGetJson('/owner/security');
+    const ev = d.events || [];
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Security center','security_events stream'):''}
+      <div class="space-y-2">${ev.slice(0,80).map(e => `<div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 text-xs">
+        <div class="font-black">${esc(e.event_type)}</div>
+        <div class="text-slate-500">${esc(String(e.created_at||'').replace('T',' ').slice(0,19))} · ${esc(e.ip||'no ip')} · user ${esc(e.user_id||'—')}</div>
+      </div>`).join('') || '<div class="text-sm text-slate-400">No security events readable.</div>'}</div>`;
+  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message)}</div>`; }
+}
+
+async function loadHqFlags() {
+  const root = document.getElementById('saas-flags-root'); if (!root) return;
+  root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Feature flags','Per-dealership flags on dealerships.feature_flags. Not a paid entitlement.'):''}
+    <p class="text-sm text-slate-500 mb-3">Open a customer 360 from Entitlements or Dealerships, then use support inspect. Flag writes: POST /owner/flags/:dealershipId with key, active, reason.</p>
+    <div class="text-sm">Use Customer 360 search (Ctrl/Cmd-K) then apply flags against a known account id.</div>
+    <form class="mt-4 grid gap-2 max-w-md" onsubmit="event.preventDefault();hqWriteFlag();">
+      <input id="hq-flag-id" class="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm" placeholder="Dealership UUID">
+      <input id="hq-flag-key" class="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm" placeholder="Flag key e.g. beta_video">
+      <select id="hq-flag-on" class="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm"><option value="true">Enable</option><option value="false">Disable</option></select>
+      <input id="hq-flag-reason" class="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm" placeholder="Reason">
+      <button class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-black">Write flag</button>
+    </form>`;
+}
+window.hqWriteFlag = async function() {
+  const id = document.getElementById('hq-flag-id')?.value.trim();
+  const key = document.getElementById('hq-flag-key')?.value.trim();
+  const active = document.getElementById('hq-flag-on')?.value === 'true';
+  const reason = document.getElementById('hq-flag-reason')?.value.trim();
+  if (!id || !key || !reason) return showToast('Dealership, key, and reason required', 'error');
+  try {
+    await apiSendJson('/owner/flags/' + id, 'POST', { key, active, reason });
+    showToast('Flag saved', 'success');
+  } catch (e) { showToast(e.message || 'Flag write failed', 'error'); }
+};
+
+window.loadHqAudit = loadHqAudit;
+window.loadHqSecurity = loadHqSecurity;
+window.loadHqFlags = loadHqFlags;
