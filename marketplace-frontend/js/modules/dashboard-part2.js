@@ -1616,7 +1616,9 @@ const SAAS_DEPARTMENTS = {
     { page: 'saas-followups', label: 'Customer Health' },
   ] },
   people:         { label: 'Users',          icon: 'users',    accent: 'indigo', always: true, pages: [
-    { page: 'owner-users', label: 'All Users' },
+    { page: 'owner-users', label: 'Accounts & access' },
+    { page: 'saas-all-users', label: 'All Users' },
+    { page: 'saas-roles', label: 'HQ Roles' },
     { page: 'saas-employees', label: 'HQ Staff' },
   ] },
   money:          { label: 'Revenue',        icon: 'currency', accent: 'indigo', always: true, pages: [
@@ -2260,6 +2262,8 @@ function switchPage(pageId) {
   if (pageId === 'saas-health' && typeof loadHqHealth === 'function') loadHqHealth();
   if (pageId === 'saas-onboarding' && typeof loadHqOnboarding === 'function') loadHqOnboarding();
   if (pageId === 'saas-integrations' && typeof loadHqIntegrations === 'function') loadHqIntegrations();
+  if (pageId === 'saas-all-users' && typeof loadHqAllUsers === 'function') loadHqAllUsers();
+  if (pageId === 'saas-roles' && typeof loadHqRoles === 'function') loadHqRoles();
   if (pageId === 'config') loadConfigHub();
   if (pageId === 'api-keys') loadApiKeys();
   if (pageId === 'delivery') loadDeliveryQueue();
