@@ -316,3 +316,6 @@ Credentials still required for My Day through HQ.
 Staging API accepted `admin@marketsync.link`. Live visual inspection still limited to the **login** screen (light desktop + mobile). The verification browser did not apply the session to `dashboard.html`, so My Day–HQ rows are unchanged.
 
 Average **60.8**. PASS **0**. Login Sign In button logged as GLOBAL token violation; not patched in this phase.
+
+
+Phase 2 account map: admin = HQ, sales = dealer switcher. Both API-authenticated. Authenticated UI still not captured by the verification browser.
