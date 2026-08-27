@@ -10,11 +10,13 @@
  *    profile's billing there. So the console exposes both targets.
  *  - Engines/entitlements are always per-dealership columns.
  */
-import { supabaseAdmin, sendEmail, emailHealth, resend } from '../shared.js'
+import { supabaseAdmin, sendEmail, emailHealth, resend, stripe } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { PRODUCT_KEYS, resolveProducts } from './profile.js'
 import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
 import { audit } from '../audit.js'
+import { syncSubscriptionFromStripe } from '../entitlements.js'
+import { PLAN_CATALOG, stripePriceForPlan } from '../plan-catalog.js'
 
 const PRODUCT_LABELS = {
   facebook_solo: 'Facebook AutoPoster — Salesperson',
@@ -423,5 +425,160 @@ export function registerOwnerAdmin(app) {
     if (error) return res.status(500).json({ error: error.message })
     await audit(req, 'hq.user_role_changed', { after_state: { user_id: req.params.id, role, reason } })
     res.json({ ok: true, role })
+  })
+
+  const stripeReady = () => {
+    try { return !!(stripe && process.env.STRIPE_SECRET_KEY) }
+    catch { return false }
+  }
+
+  async function hqStripeIds(dealershipId) {
+    const [{ data: dealer }, { data: subs }] = await Promise.all([
+      supabaseAdmin.from('dealerships').select('id, name, stripe_customer_id, stripe_subscription_id, billing_status, trial_ends_at, plan, products').eq('id', dealershipId).maybeSingle(),
+      supabaseAdmin.from('subscriptions').select('*').eq('dealership_id', dealershipId),
+    ])
+    const customerId = dealer?.stripe_customer_id || (subs || []).find(s => s.stripe_customer_id)?.stripe_customer_id || null
+    const subscriptionId = dealer?.stripe_subscription_id || (subs || []).find(s => s.stripe_subscription_id)?.stripe_subscription_id || null
+    return { dealer, subs: subs || [], customerId, subscriptionId }
+  }
+
+  app.get('/owner/billing', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const [{ data: dealers }, { data: subs }] = await Promise.all([
+      supabaseAdmin.from('dealerships').select('id, name, billing_status, trial_ends_at, plan, stripe_customer_id, stripe_subscription_id, products').order('name').limit(2000),
+      supabaseAdmin.from('subscriptions').select('dealership_id, product_id, plan_id, status, trial_ends_at, current_period_end, stripe_customer_id, stripe_subscription_id, cancel_at_period_end').limit(8000),
+    ])
+    const byD = {}
+    for (const s of subs || []) {
+      (byD[s.dealership_id] = byD[s.dealership_id] || []).push(s)
+    }
+    res.json({
+      stripe_configured: stripeReady(),
+      plans: Object.values(PLAN_CATALOG || {}).map(p => ({ id: p.id, label: p.label, monthly: p.monthly })),
+      accounts: (dealers || []).map(d => ({
+        id: d.id,
+        name: d.name,
+        plan: d.plan,
+        billing_status: d.billing_status,
+        trial_ends_at: d.trial_ends_at,
+        stripe_customer_id: d.stripe_customer_id || (byD[d.id] || []).find(s => s.stripe_customer_id)?.stripe_customer_id || null,
+        stripe_subscription_id: d.stripe_subscription_id || (byD[d.id] || []).find(s => s.stripe_subscription_id)?.stripe_subscription_id || null,
+        subscriptions: byD[d.id] || [],
+      })),
+    })
+  })
+
+  app.get('/owner/billing/:id', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const ids = await hqStripeIds(req.params.id)
+    if (!ids.dealer) return res.status(404).json({ error: 'Dealership not found' })
+    const out = {
+      ...ids.dealer,
+      subscriptions: ids.subs,
+      stripe_configured: stripeReady(),
+      customer: null,
+      stripe_subscriptions: [],
+      invoices: [],
+    }
+    if (!stripeReady() || !ids.customerId) return res.json(out)
+    try {
+      out.customer = await stripe.customers.retrieve(ids.customerId)
+      const slist = await stripe.subscriptions.list({ customer: ids.customerId, status: 'all', limit: 20 })
+      out.stripe_subscriptions = slist.data || []
+      const inv = await stripe.invoices.list({ customer: ids.customerId, limit: 24 })
+      out.invoices = (inv.data || []).map(i => ({
+        id: i.id, number: i.number, status: i.status,
+        amount_due: i.amount_due, amount_paid: i.amount_paid, currency: i.currency,
+        created: i.created, hosted_invoice_url: i.hosted_invoice_url, invoice_pdf: i.invoice_pdf,
+      }))
+    } catch (e) {
+      out.stripe_error = e.message
+    }
+    res.json(out)
+  })
+
+  app.post('/owner/billing/:id/portal', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    if (!stripeReady()) return res.status(503).json({ error: 'Stripe is not configured on this environment' })
+    const reason = String(req.body?.reason || '').slice(0, 500)
+    if (!reason) return res.status(400).json({ error: 'reason required' })
+    const ids = await hqStripeIds(req.params.id)
+    if (!ids.customerId) return res.status(400).json({ error: 'No Stripe customer on this dealership' })
+    const origin = String(req.headers.origin || process.env.PUBLIC_APP_URL || 'https://marketsync.link')
+    const portal = await stripe.billingPortal.sessions.create({
+      customer: ids.customerId,
+      return_url: origin.replace(/\/$/, '') + '/dashboard.html',
+    })
+    await audit(req, 'hq.billing_portal', { after_state: { dealership_id: req.params.id, reason }, dealership_id: req.params.id })
+    res.json({ url: portal.url })
+  })
+
+  app.post('/owner/billing/:id/cancel', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    if (!stripeReady()) return res.status(503).json({ error: 'Stripe is not configured on this environment' })
+    const reason = String(req.body?.reason || '').slice(0, 500)
+    if (!reason) return res.status(400).json({ error: 'reason required' })
+    const ids = await hqStripeIds(req.params.id)
+    const subId = String(req.body?.subscription_id || ids.subscriptionId || '')
+    if (!subId) return res.status(400).json({ error: 'No Stripe subscription id' })
+    const sub = await stripe.subscriptions.update(subId, { cancel_at_period_end: true })
+    await syncSubscriptionFromStripe(req.params.id, sub).catch(() => null)
+    await audit(req, 'hq.billing_cancel_at_period_end', { after_state: { subscription_id: subId, reason }, dealership_id: req.params.id })
+    res.json({ ok: true, cancel_at_period_end: true, current_period_end: sub.current_period_end })
+  })
+
+  app.post('/owner/billing/:id/reactivate', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    if (!stripeReady()) return res.status(503).json({ error: 'Stripe is not configured on this environment' })
+    const reason = String(req.body?.reason || '').slice(0, 500)
+    if (!reason) return res.status(400).json({ error: 'reason required' })
+    const ids = await hqStripeIds(req.params.id)
+    const subId = String(req.body?.subscription_id || ids.subscriptionId || '')
+    if (!subId) return res.status(400).json({ error: 'No Stripe subscription id' })
+    const sub = await stripe.subscriptions.update(subId, { cancel_at_period_end: false })
+    await syncSubscriptionFromStripe(req.params.id, sub).catch(() => null)
+    await audit(req, 'hq.billing_reactivated', { after_state: { subscription_id: subId, reason }, dealership_id: req.params.id })
+    res.json({ ok: true, cancel_at_period_end: false })
+  })
+
+  app.post('/owner/billing/:id/plan', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    if (!stripeReady()) return res.status(503).json({ error: 'Stripe is not configured on this environment' })
+    const planId = String(req.body?.plan_id || '')
+    const currency = String(req.body?.currency || 'cad').toLowerCase()
+    const reason = String(req.body?.reason || '').slice(0, 500)
+    if (!planId || !reason) return res.status(400).json({ error: 'plan_id and reason required' })
+    const priceId = stripePriceForPlan(planId, currency, process.env)
+    if (!priceId) return res.status(400).json({ error: 'No Stripe price configured for ' + planId + ' / ' + currency })
+    const ids = await hqStripeIds(req.params.id)
+    const subId = String(req.body?.subscription_id || ids.subscriptionId || '')
+    if (!subId) return res.status(400).json({ error: 'No Stripe subscription to change' })
+    const current = await stripe.subscriptions.retrieve(subId)
+    const itemId = current.items?.data?.[0]?.id
+    if (!itemId) return res.status(400).json({ error: 'Subscription has no line item to replace' })
+    const sub = await stripe.subscriptions.update(subId, {
+      items: [{ id: itemId, price: priceId }],
+      proration_behavior: 'create_prorations',
+      metadata: { hq_plan: planId, hq_reason: reason.slice(0, 200) },
+    })
+    await syncSubscriptionFromStripe(req.params.id, sub, { preserveExisting: false }).catch(() => null)
+    await audit(req, 'hq.billing_plan_changed', { after_state: { planId, priceId, subscription_id: subId, reason }, dealership_id: req.params.id })
+    res.json({ ok: true, plan_id: planId, price_id: priceId, status: sub.status })
+  })
+
+  app.post('/owner/billing/:id/stripe-trial', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    if (!stripeReady()) return res.status(503).json({ error: 'Stripe is not configured on this environment' })
+    const days = Math.max(1, Math.min(365, Math.trunc(Number(req.body?.days) || 14)))
+    const reason = String(req.body?.reason || '').slice(0, 500)
+    if (!reason) return res.status(400).json({ error: 'reason required' })
+    const ids = await hqStripeIds(req.params.id)
+    const subId = String(req.body?.subscription_id || ids.subscriptionId || '')
+    if (!subId) return res.status(400).json({ error: 'No Stripe subscription id' })
+    const trialEnd = Math.floor(Date.now() / 1000) + days * 86400
+    const sub = await stripe.subscriptions.update(subId, { trial_end: trialEnd, proration_behavior: 'none' })
+    await syncSubscriptionFromStripe(req.params.id, sub).catch(() => null)
+    await audit(req, 'hq.billing_stripe_trial', { after_state: { days, trial_end: trialEnd, reason }, dealership_id: req.params.id })
+    res.json({ ok: true, trial_end: trialEnd })
   })
 }
