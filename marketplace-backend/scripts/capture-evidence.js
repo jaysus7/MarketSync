@@ -168,6 +168,19 @@ async function setupPageRoutes(page) {
       })
     }
 
+    if (url.includes('/access/context')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          isPlatformStaff: false,
+          dealership: { id: '00000000-0000-0000-0000-000000000001', name: 'Apex Auto Gallery', plan: 'dealeros_complete' },
+          products: ['dealer_os', 'facebook', 'ai_dealer', 'design_studio', 'marketsync_social', 'marketsync_email', 'marketsync_video', 'marketsync_website', 'marketsync_seo', 'marketsync_identity'],
+          features: ['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.settings', 'os.sales', 'os.service', 'os.team', 'os.accounting', 'os.marketing', 'os.website', 'os.automations', 'os.email_marketing', 'os.integrations', 'seo.overview', 'seo.audit', 'seo.autofix', 'seo.content', 'seo.competitors', 'seo.local', 'seo.inventory', 'seo.ai_search', 'seo.reports', 'seo.settings']
+        })
+      })
+    }
+
     if (url.includes('/crm/contacts/c1111111') || url.includes('/crm/contacts/')) {
       return route.fulfill({
         status: 200,
@@ -317,6 +330,49 @@ async function setupPageRoutes(page) {
       })
     }
 
+    if (url.includes('/discoverability/overview')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          entitled: true,
+          compositeScore: 86,
+          standardsVersion: 'MarketSync Discoverability Standards — 2026',
+          pillars: {
+            seo: { score: 88, organicClicks: 1420, organicImpressions: 28400, averagePosition: 11.8, clickThroughRate: '5.0%', keywordTiers: { top3: 14, top10: 48, top100: 186 }, cwvStatus: 'Good', indexationStatus: 'Healthy' },
+            aeo: { score: 88, featuredSnippets: { activeCount: 6, potentialCount: 14, winRate: '42.8%', recentWins: ['What is the towing capacity of 2025 Silverado 1500?'], recentLosses: ['Best trade-in value near Welland'] }, peopleAlsoAsk: { coveredQuestions: 19, totalTracked: 32, reachPercent: '59.3%' }, schemaValidation: { autoDealerSchema: 'Valid', vehicleSchema: 'Valid', faqSchema: 'Valid', localBusinessSchema: 'Valid' }, voiceSearchOptimization: { conversationalReadinessScore: 86, longTailQueryMatchCount: 24 } },
+            geo: { score: 82, brandMentionRate: '68.5%', urlCitationRate: '41.2%', citationShareOfVoice: '24.8%', sentimentBreakdown: { positive: '76%', neutral: '21%', negative: '3%' }, hallucinationCount: 0, modelCoverage: [
+              { engine: 'ChatGPT (GPT-4o)', mentions: 18, citations: 12, accuracy: '100%', status: 'Active' },
+              { engine: 'Google Gemini', mentions: 22, citations: 16, accuracy: '100%', status: 'Active' },
+              { engine: 'Perplexity AI', mentions: 19, citations: 15, accuracy: '98%', status: 'Active' },
+              { engine: 'Microsoft Copilot', mentions: 14, citations: 9, accuracy: '100%', status: 'Active' },
+              { engine: 'Anthropic Claude', mentions: 12, citations: 7, accuracy: '100%', status: 'Active' },
+              { engine: 'Google AI Overviews', mentions: 16, citations: 11, accuracy: '100%', status: 'Active' }
+            ], benchmarkEvidenceLog: [
+              { id: 'bm-1', query: 'Best dealership for used trucks in Welland', engine: 'Google Gemini', model: 'Gemini 1.5 Pro', timestamp: new Date().toISOString(), locale: 'en-CA', mentioned: true, cited: true, sourceUrl: 'https://marketsync.link', accuracy: 'Accurate' }
+            ] },
+            sxo: { score: 87, conversionRate: '3.4%', bounceRate: '28.6%', mobileVsDesktop: { mobileTrafficShare: '68%', mobileConversionRate: '3.2%', desktopTrafficShare: '32%', desktopConversionRate: '3.8%' }, topLandingPages: [
+              { url: '/inventory?body_style=Truck', visits: 640, conversions: 24, cvr: '3.75%' },
+              { url: '/credit-application', visits: 410, conversions: 38, cvr: '9.27%' }
+            ], funnel: [
+              { step: 'Search Visitors', count: 1820 },
+              { step: 'VDP / Lead Page Views', count: 940 },
+              { step: 'Qualified Organic Leads Captured', count: 18 },
+              { step: 'Deals Closed / Delivered', count: 3 }
+            ] },
+            aso: { score: 92, stores: [{ store: 'Chrome Web Store', listingName: 'MarketSync Dealer Extension & Copilot', status: 'Published / Verified', rating: '4.9 / 5.0', reviewCount: 38, weeklyImpressions: 1420, weeklyInstalls: 116, installConversionRate: '8.17%' }] },
+            validation: { score: 90, criticalCount: 0, highCount: 1, mediumCount: 1, lowCount: 1, issues: [
+              { id: 'val-1', severity: 'High', category: 'Brand & NAP Consistency', title: 'Incomplete Dealership Address in Canonical Settings', description: 'Missing postal code limits local map pack indexing.', impact: 'Local search relevance', autoFixable: false, affectedUrl: '/settings' }
+            ] }
+          },
+          recommendations: [
+            { id: 'rec-1', pillar: 'GEO / LLMO', severity: 'High', title: 'Publish Silverado & Used SUV Knowledge Guides for Local Area', whatChanged: 'Local truck search volume grew 22% while AI answer engines cited competitors.', whyItMatters: 'Capturing citations drives high-intent test drives.', whatShouldIDo: 'Auto-generate localized buying guide with Vehicle JSON-LD.', actionType: 'create_ai_content' }
+          ],
+          history: { dates: ['7d', '6d', '5d', '4d', '3d', '2d', 'Today'], searchSovTrend: [18, 19, 21, 20, 22, 23, 24], aiSovTrend: [12, 14, 15, 18, 19, 21, 25], compositeScoreTrend: [81, 82, 83, 84, 84, 85, 86] }
+        })
+      })
+    }
+
     if (url.includes('/saas/customers') || url.includes('/owner/customers')) {
       return route.fulfill({
         status: 200,
@@ -358,6 +414,12 @@ async function captureAll(browser, baseUrl) {
     { id: 'H004-hq-agents', route: '#/p/saas-agents', pageId: 'saas-agents', w: 1440, h: 900, theme: 'dark', isMobile: false, isHq: true },
     { id: 'H004-hq-agents', route: '#/p/saas-agents', pageId: 'saas-agents', w: 390, h: 844, theme: 'light', isMobile: true, isHq: true },
     { id: 'H004-hq-agents', route: '#/p/saas-agents', pageId: 'saas-agents', w: 390, h: 844, theme: 'dark', isMobile: true, isHq: true },
+
+    // Discoverability Intelligence Workspace (D016)
+    { id: 'D016-discoverability', route: '#/p/discoverability', pageId: 'discoverability', w: 1440, h: 900, theme: 'light', isMobile: false },
+    { id: 'D016-discoverability', route: '#/p/discoverability', pageId: 'discoverability', w: 1440, h: 900, theme: 'dark', isMobile: false },
+    { id: 'D016-discoverability', route: '#/p/discoverability', pageId: 'discoverability', w: 390, h: 844, theme: 'light', isMobile: true },
+    { id: 'D016-discoverability', route: '#/p/discoverability', pageId: 'discoverability', w: 390, h: 844, theme: 'dark', isMobile: true },
 
     // Login Surface (A001)
     { id: 'A001-login', isLogin: true, url: '/login.html', w: 1440, h: 900, theme: 'light', isMobile: false },
@@ -409,7 +471,7 @@ async function captureAll(browser, baseUrl) {
           dealership: {
             id: '00000000-0000-0000-0000-000000000001',
             name: 'Apex Auto Gallery',
-            plan: 'dealer-os-complete'
+            plan: 'dealeros_complete'
           }
         }
 
@@ -417,16 +479,27 @@ async function captureAll(browser, baseUrl) {
         localStorage.setItem('user', JSON.stringify(user))
         localStorage.setItem('ms_remember_until', String(Date.now() + 86400000))
         localStorage.setItem('theme', themeVal)
+        const todayStr = new Date().toISOString().split('T')[0]
+        localStorage.setItem('ms_timeclock_prompt_date', todayStr)
+        localStorage.setItem('ms_time_clock_state', JSON.stringify({ status: 'in', start_time: Date.now() }))
+        localStorage.setItem('ms_timeclock_state', JSON.stringify({ status: 'in', start_time: Date.now() }))
+        localStorage.setItem('shift_clock_dismissed', 'true')
+        localStorage.setItem('ms_clock_dismissed_until', String(Date.now() + 86400000))
+        localStorage.setItem('ms_shift_clock_state', JSON.stringify({ clocked_in: true, shift_id: 'sh1', start_time: new Date().toISOString() }))
       }, { themeVal: t.theme, isHq: !!t.isHq })
 
       await page.goto(`${baseUrl}/dashboard.html${t.route}`, { waitUntil: 'domcontentloaded' })
       await page.waitForTimeout(600)
 
       await page.evaluate(async ({ targetPage, theme, customerId, isHq }) => {
+        window.checkLoginPunchClockPrompt = () => {}
         if (isHq) {
           document.documentElement.setAttribute('data-dash-owner', '1')
           document.documentElement.setAttribute('data-dash-mode', 'marketsync')
         }
+
+        // Dismiss any intrusive modal overlays during evidence capture
+        document.querySelectorAll('#automation-modal, #automation-modal-backdrop, #punch-clock-modal, #shift-clock-modal, [data-modal="punch-clock"], .punch-clock-overlay, #modal-backdrop, .modal-backdrop').forEach(m => m.remove());
 
         if (typeof switchPage === 'function') switchPage(targetPage)
         if (theme === 'dark') {
@@ -446,9 +519,15 @@ async function captureAll(browser, baseUrl) {
           await loadHqAgents()
         }
 
+        if (targetPage === 'discoverability' && typeof loadDiscoverabilityWorkspace === 'function') {
+          await loadDiscoverabilityWorkspace()
+        }
+
         if (customerId && typeof openCrmContact === 'function') {
           await openCrmContact(customerId)
         }
+
+        document.querySelectorAll('#punch-clock-modal, #shift-clock-modal, [data-modal="punch-clock"], .punch-clock-overlay, #modal-backdrop, .modal-backdrop').forEach(m => m.remove());
       }, { targetPage: t.pageId, theme: t.theme, customerId: t.customerId, isHq: !!t.isHq })
 
       await page.waitForTimeout(800)

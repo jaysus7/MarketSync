@@ -44,6 +44,7 @@ import { registerService } from './routes/service.js'
 import { registerReports } from './routes/reports.js'
 import { registerEsign } from './routes/esign.js'
 import registerSeoRoutes from './routes/seo.js'
+import registerDiscoverabilityRoutes from './routes/discoverability.js'
 import { registerCalendar } from './routes/calendar.js'
 import { registerAdSpend } from './routes/adspend.js'
 import { registerIdentity } from './routes/identity.js'
@@ -232,6 +233,7 @@ registerHR(app)
 registerStaffChat(app)
 registerHqAgentsRoutes(app)
 registerSeoRoutes(app)
+registerDiscoverabilityRoutes(app)
 registerWebhookRoutes(app)
 
 // Background event dispatcher and webhook retry worker: start only on dedicated worker instances (RUN_WORKERS=true)
