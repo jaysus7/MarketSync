@@ -1608,7 +1608,7 @@ async function renderSaasCustomer(id) {
       ${kpi('Activity · 90 days', (d.activity_90d ?? 0).toLocaleString() + ' events')}
       ${kpi('Last active', d.last_activity_days == null ? 'No activity' : d.last_activity_days === 0 ? 'Today' : d.last_activity_days + 'd ago')}
     </div>
-    <div class="mb-4"><div class="text-[11px] uppercase font-bold tracking-wide text-slate-400 mb-1.5">Products</div><div class="flex flex-wrap gap-1.5">${chips}${entitlementMatrix || ''}</div></div>
+    <div class="mb-4"><div class="text-[11px] uppercase font-bold tracking-wide text-slate-400 mb-1.5">Products</div><div class="flex flex-wrap gap-1.5">${chips}${entitlementMatrix || ''}${typeof hqModuleMatrix==='function'?hqModuleMatrix(d):''}</div></div>
     <div class="flex items-center gap-2 mb-4"><span class="text-[11px] uppercase font-bold tracking-wide text-slate-400">Owner</span>
       <select onchange="saasCustSetOwner('${id}', this.value)" class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 text-[13px]">${['<option value="">Unassigned</option>'].concat((d.owner_options || []).map(o => `<option value="${o.id}" ${d.owner_id === o.id ? 'selected' : ''}>${esc(o.name)}</option>`)).join('')}</select></div>
     <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4">
