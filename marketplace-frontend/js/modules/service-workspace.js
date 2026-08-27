@@ -92,22 +92,22 @@ function svcAttention(d) {
 function svcRoRow(r, d) {
   const blocked = (d.partRequests || []).some(q => q.ro_id === r.id && ['requested', 'backordered'].includes(q.status));
   const isOverdue = r.promise_time && new Date(r.promise_time) < new Date() && !['ready', 'delivered', 'closed'].includes(r.status);
-  return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+  return `<div class="flex items-center justify-between gap-3 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-white/50 dark:bg-slate-900/40 mb-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition shadow-xs">
     <button onclick="svcOpenRecord('${r.id}')" class="min-w-0 flex-1 text-left">
       <div class="flex items-center gap-2">
-        <span class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(svcCustomer(r))}</span>
+        <span class="font-bold text-[14px] text-slate-900 dark:text-white truncate">${esc(svcCustomer(r))}</span>
         ${isOverdue ? '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-700 animate-pulse">SLA LATE</span>' : ''}
       </div>
-      <div class="text-[12px] text-slate-400 truncate">${svcVehicle(r) ? esc(svcVehicle(r)) : ''}${r.ro_number ? `${svcVehicle(r) ? ' · ' : ''}${esc(r.ro_number)}` : ''}</div>
-      <div class="text-[12px] text-slate-400"><span class="font-semibold text-slate-500 dark:text-slate-300">${esc(svcStatusLabel(r.status))}</span>${blocked ? ' · <span class="text-orange-500 font-semibold">waiting for parts</span>' : ''}${Number(r.total) ? ` · $${Number(r.total).toLocaleString()}` : ''}</div>
+      <div class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">${svcVehicle(r) ? esc(svcVehicle(r)) : ''}${r.ro_number ? `${svcVehicle(r) ? ' · ' : ''}${esc(r.ro_number)}` : ''}</div>
+      <div class="text-[12px] text-slate-400 mt-0.5"><span class="font-semibold text-slate-600 dark:text-slate-300">${esc(svcStatusLabel(r.status))}</span>${blocked ? ' · <span class="text-orange-500 font-semibold">waiting for parts</span>' : ''}${Number(r.total) ? ` · $${Number(r.total).toLocaleString()}` : ''}</div>
     </button>
-    <div class="flex items-center gap-1.5 shrink-0">
-      <button onclick="svcOpenVideoWalkaround('${r.id}', '${r.customer_id || ''}')" title="Record Service Video Walkaround" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 hover:bg-rose-100 transition">Video Walkaround</button>
-      <button onclick="svcOpenDviModal('${r.id}')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">DVI</button>
-      <button onclick="printServiceReceipt('${r.id}')" title="Print / Save Receipt to Timeline" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 transition">Print Receipt</button>
-      ${['ready', 'delivered'].includes(r.status) ? `<button onclick="svcOpenCheckOutModal('${r.id}')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-500 transition">Check Out</button>` : ''}
-      ${r.status === 'estimate_sent' ? `<button onclick="svcOpenEstimateDrawer('${r.id}')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-amber-600 text-white hover:bg-amber-500 transition">Estimate</button>` : ''}
-      <button onclick="svcOpenRecord('${r.id}')" class="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">Open RO</button>
+    <div class="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+      <button onclick="svcOpenVideoWalkaround('${r.id}', '${r.customer_id || ''}')" title="Record Service Video Walkaround" class="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 hover:bg-rose-100 transition whitespace-nowrap inline-flex items-center">Video Walkaround</button>
+      <button onclick="svcOpenDviModal('${r.id}')" class="px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition whitespace-nowrap inline-flex items-center">DVI</button>
+      <button onclick="printServiceReceipt('${r.id}')" title="Print / Save Receipt to Timeline" class="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 transition whitespace-nowrap inline-flex items-center">Print Receipt</button>
+      ${['ready', 'delivered'].includes(r.status) ? `<button onclick="svcOpenCheckOutModal('${r.id}')" class="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-emerald-600 text-white hover:bg-emerald-500 transition whitespace-nowrap inline-flex items-center">Check Out</button>` : ''}
+      ${r.status === 'estimate_sent' ? `<button onclick="svcOpenEstimateDrawer('${r.id}')" class="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-amber-600 text-white hover:bg-amber-500 transition whitespace-nowrap inline-flex items-center">Estimate</button>` : ''}
+      <button onclick="svcOpenRecord('${r.id}')" class="px-3.5 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition whitespace-nowrap inline-flex items-center">Open RO</button>
     </div>
   </div>`;
 }
@@ -280,19 +280,21 @@ function svcJobRow(j, d) {
     : l.line_status === 'complete' || l.line_status === 'qc' ? null
     : l.line_status === 'in_progress' ? ['complete', 'Complete']
     : ['start', 'Start'];
-  return `<div class="py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-    <div class="flex items-center gap-3">
+  return `<div class="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-white/50 dark:bg-slate-900/40 mb-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition shadow-xs">
+    <div class="flex items-center justify-between gap-3">
       <button onclick="svcOpenRecord('${r.id}')" class="min-w-0 flex-1 text-left">
-        <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(l.description || 'Job')}</div>
-        <div class="text-[12px] text-slate-400 truncate">${esc(svcVehicle(r) || svcCustomer(r))}${r.ro_number ? ` · ${esc(r.ro_number)}` : ''}</div>
-        <div class="text-[12px] text-slate-400">${esc(l.line_status || 'pending')}${blocked ? ' · <span class="text-orange-500">waiting for parts</span>' : ''}</div>
+        <div class="font-bold text-[14px] text-slate-900 dark:text-white truncate">${esc(l.description || 'Job')}</div>
+        <div class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">${esc(svcVehicle(r) || svcCustomer(r))}${r.ro_number ? ` · ${esc(r.ro_number)}` : ''}</div>
+        <div class="text-[12px] text-slate-400 mt-0.5">${esc(l.line_status || 'pending')}${blocked ? ' · <span class="text-orange-500 font-semibold">waiting for parts</span>' : ''}</div>
       </button>
-      ${next ? `<button onclick="svcJob('${l.id}','${next[0]}')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">${next[1]}</button>` : ''}
-      ${l.line_status === 'complete' ? `<button onclick="svcJob('${l.id}','qc')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Send to QC</button>` : ''}
-      ${l.line_status !== 'blocked' && l.line_status !== 'complete' ? `<button onclick="svcJob('${l.id}','block')" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Block</button>` : ''}
+      <div class="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+        ${next ? `<button onclick="svcJob('${l.id}','${next[0]}')" class="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition whitespace-nowrap inline-flex items-center">${next[1]}</button>` : ''}
+        ${l.line_status === 'complete' ? `<button onclick="svcJob('${l.id}','qc')" class="px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition whitespace-nowrap inline-flex items-center">Send to QC</button>` : ''}
+        ${l.line_status !== 'blocked' && l.line_status !== 'complete' ? `<button onclick="svcJob('${l.id}','block')" class="px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition whitespace-nowrap inline-flex items-center">Block</button>` : ''}
+      </div>
     </div>
-    ${l.concern ? `<div class="text-[12px] text-slate-500 mt-1"><span class="font-semibold">Concern:</span> ${esc(l.concern)}</div>` : ''}
-    ${l.blocked_reason ? `<div class="text-[12px] text-orange-500 mt-0.5">Blocked: ${esc(l.blocked_reason)}</div>` : ''}
+    ${l.concern ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 mt-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-800"><span class="font-semibold text-slate-600 dark:text-slate-300">Concern:</span> ${esc(l.concern)}</div>` : ''}
+    ${l.blocked_reason ? `<div class="text-[12px] text-orange-500 font-semibold mt-1">Blocked: ${esc(l.blocked_reason)}</div>` : ''}
   </div>`;
 }
 
@@ -345,12 +347,12 @@ function svcRenderAppointments(body, d) {
 }
 
 function svcApptRow(a) {
-  return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+  return `<div class="flex items-center justify-between gap-3 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-white/50 dark:bg-slate-900/40 mb-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition shadow-xs">
     <div class="min-w-0 flex-1">
-      <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(a.customer || 'Customer')}</div>
-      <div class="text-[12px] text-slate-400 truncate">${a.when ? esc(new Date(a.when).toLocaleString()) : ''}${a.service_type ? ` · ${esc(a.service_type)}` : ''}</div>
+      <div class="font-bold text-[14px] text-slate-900 dark:text-white truncate">${esc(a.customer || 'Customer')}</div>
+      <div class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">${a.when ? esc(new Date(a.when).toLocaleString()) : ''}${a.service_type ? ` · ${esc(a.service_type)}` : ''}</div>
     </div>
-    <button onclick="${a.repair_order_id ? `svcOpenRecord('${a.repair_order_id}')` : `svcOpenCheckInModal('${a.id}')`}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold ${a.repair_order_id ? 'border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800' : 'bg-indigo-600 text-white hover:bg-indigo-500'} transition">${a.repair_order_id ? 'Open RO' : 'Check In'}</button>
+    <button onclick="${a.repair_order_id ? `svcOpenRecord('${a.repair_order_id}')` : `svcOpenCheckInModal('${a.id}')`}" class="shrink-0 px-3.5 py-1.5 rounded-lg text-[12px] font-bold ${a.repair_order_id ? 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800' : 'bg-indigo-600 text-white hover:bg-indigo-500'} transition whitespace-nowrap inline-flex items-center">${a.repair_order_id ? 'Open RO' : 'Check In'}</button>
   </div>`;
 }
 
@@ -377,17 +379,19 @@ function svcClosedRow(r, d) {
   else if (call.done) followUp = `<span class="text-emerald-600 dark:text-emerald-400 font-semibold">Called${call.done_at ? ` ${esc(new Date(call.done_at).toLocaleDateString())}` : ''}</span>`;
   else followUp = `<span class="text-amber-600 dark:text-amber-400 font-semibold">Call the customer${call.due_at ? ` · due ${esc(new Date(call.due_at).toLocaleDateString())}` : ''}</span>`;
   const phone = call && call.phone ? call.phone : null;
-  return `<div class="py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-    <div class="flex items-center gap-3">
+  return `<div class="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-white/50 dark:bg-slate-900/40 mb-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition shadow-xs">
+    <div class="flex items-center justify-between gap-3">
       <button onclick="svcOpenRecord('${r.id}')" class="min-w-0 flex-1 text-left">
-        <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(svcCustomer(r))}</div>
-        <div class="text-[12px] text-slate-400 truncate">${svcVehicle(r) ? esc(svcVehicle(r)) : ''}${r.ro_number ? `${svcVehicle(r) ? ' · ' : ''}${esc(r.ro_number)}` : ''}</div>
-        <div class="text-[12px] text-slate-400">${r.closed_at ? `Closed ${esc(new Date(r.closed_at).toLocaleDateString())}` : 'Closed'}${r.financial_disposition ? ` · ${esc(r.financial_disposition)}` : ''}${Number(r.total) ? ` · $${Number(r.total).toLocaleString()}` : ''}</div>
+        <div class="font-bold text-[14px] text-slate-900 dark:text-white truncate">${esc(svcCustomer(r))}</div>
+        <div class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">${svcVehicle(r) ? esc(svcVehicle(r)) : ''}${r.ro_number ? `${svcVehicle(r) ? ' · ' : ''}${esc(r.ro_number)}` : ''}</div>
+        <div class="text-[12px] text-slate-400 mt-0.5">${r.closed_at ? `Closed ${esc(new Date(r.closed_at).toLocaleDateString())}` : 'Closed'}${r.financial_disposition ? ` · ${esc(r.financial_disposition)}` : ''}${Number(r.total) ? ` · $${Number(r.total).toLocaleString()}` : ''}</div>
       </button>
-      ${phone ? `<a href="tel:${esc(phone)}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">Call ${esc(phone)}</a>` : ''}
-      ${call && !call.done ? `<button onclick="svcCallDone('${call.id}')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Mark called</button>` : ''}
+      <div class="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+        ${phone ? `<a href="tel:${esc(phone)}" class="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition whitespace-nowrap inline-flex items-center">Call ${esc(phone)}</a>` : ''}
+        ${call && !call.done ? `<button onclick="svcCallDone('${call.id}')" class="px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition whitespace-nowrap inline-flex items-center">Mark called</button>` : ''}
+      </div>
     </div>
-    <div class="text-[12px] mt-0.5">${followUp}</div>
+    <div class="text-[12px] mt-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-800">${followUp}</div>
   </div>`;
 }
 
@@ -743,14 +747,16 @@ function svcInsightsStrip(d) {
 
 function svcCallbackRow(c) {
   const overdue = c.due_at && new Date(c.due_at) < new Date();
-  return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+  return `<div class="flex items-center justify-between gap-3 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-white/50 dark:bg-slate-900/40 mb-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition shadow-xs">
     <button onclick="svcOpenRecord('${c.repair_order_id}')" class="min-w-0 flex-1 text-left">
-      <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(c.customer || 'Customer')}</div>
-      <div class="text-[12px] text-slate-400 truncate">${esc(c.title || 'Follow-up call')}</div>
-      <div class="text-[12px] ${overdue ? 'text-rose-500 font-semibold' : 'text-slate-400'}">${c.due_at ? `${overdue ? 'Overdue since' : 'Due'} ${esc(new Date(c.due_at).toLocaleDateString())}` : 'No due date'}</div>
+      <div class="font-bold text-[14px] text-slate-900 dark:text-white truncate">${esc(c.customer || 'Customer')}</div>
+      <div class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">${esc(c.title || 'Follow-up call')}</div>
+      <div class="text-[12px] mt-0.5 ${overdue ? 'text-rose-500 font-semibold' : 'text-slate-400'}">${c.due_at ? `${overdue ? 'Overdue since' : 'Due'} ${esc(new Date(c.due_at).toLocaleDateString())}` : 'No due date'}</div>
     </button>
-    ${c.phone ? `<a href="tel:${esc(c.phone)}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">Call</a>` : ''}
-    <button onclick="svcCallDone('${c.id}')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Done</button>
+    <div class="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+      ${c.phone ? `<a href="tel:${esc(c.phone)}" class="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition whitespace-nowrap inline-flex items-center">Call</a>` : ''}
+      <button onclick="svcCallDone('${c.id}')" class="px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition whitespace-nowrap inline-flex items-center">Done</button>
+    </div>
   </div>`;
 }
 

@@ -1163,33 +1163,41 @@ function pulseLeaderboardCard(gamification, deptKey) {
   const config = PULSE_GAMIFICATION_DEPTS[deptKey];
   const dept = gamification?.departments?.[deptKey];
   if (!config) return '';
-  if (!dept) return `<div class="p-3.5 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
+  if (!dept) return `<div class="p-4 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
     <div class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">${esc(config.label)} leaderboard</div>
     <div class="text-xs font-semibold text-slate-400 dark:text-slate-500 mt-2">Leaderboard data is not available for this department yet.</div>
   </div>`;
 
-  const rows = Array.isArray(dept.leaderboard) ? dept.leaderboard.slice(0, 3) : [];
+  const rows = Array.isArray(dept.leaderboard) ? dept.leaderboard : [];
   const me = dept.me || rows[0];
   const badges = me ? (dept.repBadges?.[me.rep_id]?.badges || me.badges || []) : [];
   const visibleBadges = badges.filter(b => Number(b?.level || 0) > 0).slice(0, 4);
-  const ranking = rows.length ? rows.map(row => `<div class="flex items-center justify-between gap-3 py-1.5">
+
+  const podiumHtml = typeof pulseLeaderboardPodium === 'function' ? pulseLeaderboardPodium(rows) : '';
+  const remaining = rows.slice(3, 7);
+  const ranking = remaining.length ? remaining.map(row => `<div class="flex items-center justify-between gap-3 py-1.5">
     <div class="flex min-w-0 items-center gap-2"><span class="w-5 text-center text-[11px] font-black text-slate-400">${row.rank}</span><span class="truncate text-xs font-bold text-slate-800 dark:text-slate-200">${esc(row.full_name || 'Team member')}</span></div>
     <span class="shrink-0 text-xs font-black ${config.color}">${Number(row.score || 0).toLocaleString()} pts</span>
-  </div>`).join('') : '<div class="text-xs font-semibold text-slate-400 dark:text-slate-500">No ranked activity yet.</div>';
+  </div>`).join('') : '';
+
   const badgeMarkup = visibleBadges.length ? visibleBadges.map(b => `<span title="${esc(b.description || b.label || '')}" class="inline-flex items-center gap-1 rounded-full border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/70 px-2 py-1 text-[10px] font-black text-slate-700 dark:text-slate-200">${b.icon ? esc(b.icon) : svgIcon('star', 'w-3 h-3')} ${esc(b.label || 'Badge')}</span>`).join('') : '<span class="text-xs font-semibold text-slate-400 dark:text-slate-500">No badges earned yet.</span>';
 
-  return `<div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
-    <div class="flex items-center justify-between gap-2 mb-2"><div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">${esc(config.label)} leaderboard</div><button onclick="switchPage('${config.page}')" class="text-[11px] font-extrabold ${config.color} hover:underline">View →</button></div>
-    <div class="divide-y divide-slate-200/70 dark:divide-slate-800/70">${ranking}</div>
-    <div class="mt-3 pt-2 border-t border-slate-200/70 dark:border-slate-800/70"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">${esc(me ? `${me.full_name || 'My'} badges` : 'Department badges')}</div><div class="flex flex-wrap gap-1.5">${badgeMarkup}</div></div>
+  return `<div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 shadow-sm">
+    <div class="flex items-center justify-between gap-2 mb-1">
+      <div class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">${esc(config.label)} leaderboard</div>
+      <button onclick="switchPage('${config.page}')" class="text-[11px] font-extrabold ${config.color} hover:underline inline-flex items-center gap-1">Full Leaderboard →</button>
+    </div>
+    ${podiumHtml || (rows.length ? '' : '<div class="py-6 text-center text-xs font-semibold text-slate-400 dark:text-slate-500">No ranked activity yet.</div>')}
+    ${ranking ? `<div class="mt-2 pt-2 border-t border-slate-200/70 dark:border-slate-800/70 divide-y divide-slate-100 dark:divide-slate-800">${ranking}</div>` : ''}
+    <div class="mt-3 pt-2.5 border-t border-slate-200/70 dark:border-slate-800/70"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">${esc(me ? `${me.full_name || 'My'} badges` : 'Department badges')}</div><div class="flex flex-wrap gap-1.5">${badgeMarkup}</div></div>
   </div>`;
 }
 
 function pulsePerformancePanel(d, deptKeys) {
   const cards = deptKeys.map(key => pulseLeaderboardCard(d?.gamification, key)).filter(Boolean).join('');
-  return `<div class="pulse-performance-panel rounded-xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-950/20 p-3.5 space-y-3">
+  return `<div class="pulse-performance-panel rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-950/20 p-4 space-y-3">
     <div class="flex items-center justify-between gap-2"><div class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Team leaderboard &amp; badges</div><span class="text-[10px] font-bold text-slate-400">Connected performance</span></div>
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">${cards || '<div class="text-xs font-semibold text-slate-400">No connected leaderboard configured.</div>'}</div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">${cards || '<div class="text-xs font-semibold text-slate-400">No connected leaderboard configured.</div>'}</div>
   </div>`;
 }
 

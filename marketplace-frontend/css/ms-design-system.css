@@ -285,6 +285,57 @@
 .ms-span-compact,  .ms-c--compact  { grid-column: span 4; }
 .ms-span-full,     .ms-c--full     { grid-column: 1 / -1; }
 
+/* Multi-column masonry container for variable-height cards across all dashboard pages */
+.ms-masonry,
+.ms-masonry-grid {
+  column-count: 1;
+  column-gap: var(--ms-grid-gap, 1.25rem);
+  width: 100%;
+}
+@media (min-width: 768px) {
+  .ms-masonry,
+  .ms-masonry-grid {
+    column-count: 2;
+  }
+}
+@media (min-width: 1280px) {
+  .ms-masonry,
+  .ms-masonry-grid {
+    column-count: 3;
+  }
+}
+.ms-masonry > *,
+.ms-masonry-grid > *,
+.ms-masonry-item {
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  page-break-inside: avoid;
+  margin-bottom: var(--ms-grid-gap, 1.25rem);
+  display: inline-block;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* List rows and action buttons inline alignment */
+.ms-list-row,
+.ms-c--compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ms-sp-3, 0.75rem);
+}
+.ms-list-row .ms-btn,
+.ms-list-row button,
+.ms-c--compact .ms-btn,
+.ms-c--compact button {
+  flex-shrink: 0;
+  white-space: nowrap;
+  vertical-align: middle;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* ───────────────────────────────────────────────────────────────────────────
    4. CARD SYSTEM
    Card = material + span + internal hierarchy. Variants map to operational

@@ -924,12 +924,12 @@ function pulseRow({ badge, icon, badgeTone, label, sub, value, valueTone, done, 
   const go = onclick || '';
   const action = actionLabel || 'View';
   const subline = [sub, value != null ? String(value) : ''].filter(Boolean).join(' · ');
-  return `<div class="ms-c ms-c--compact ms-c--glass w-full flex items-center gap-3 ${done ? 'opacity-50' : ''}">
+  return `<div class="ms-c ms-c--compact ms-c--glass w-full flex items-center justify-between gap-3 ${done ? 'opacity-50' : ''}">
     <div class="min-w-0 flex-1">
-      <div class="font-bold text-[16px] text-slate-900 dark:text-white truncate ${done ? 'line-through' : ''}">${esc(label ?? '')}</div>
-      ${subline ? `<div class="text-[14px] text-slate-600 dark:text-slate-300 mt-0.5 truncate">${esc(subline)}</div>` : ''}
+      <div class="font-bold text-[14px] text-slate-900 dark:text-white truncate ${done ? 'line-through' : ''}">${esc(label ?? '')}</div>
+      ${subline ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">${esc(subline)}</div>` : ''}
     </div>
-    ${go ? `<button type="button" onclick="${go}" class="ms-btn ms-btn--secondary shrink-0 !min-h-0 !py-1.5 !px-3.5 !text-[13px]">${esc(action)}</button>` : ''}
+    ${go ? `<button type="button" onclick="${go}" class="ms-btn ms-btn--secondary shrink-0 inline-flex items-center justify-center whitespace-nowrap !min-h-0 !py-1.5 !px-3.5 !text-[12px]">${esc(action)}</button>` : ''}
   </div>`;
 }
 // Search-box widget card — click-through to the department's real search/list page.
@@ -941,12 +941,12 @@ function pulseSearchCard({ title, placeholder, onclick, count, tier }) {
 // Ranked row for a leaderboard-style widget — initials avatar + name + one stat.
 function pulseLeaderRow({ rank, name, value, sub, valueTone, onclick }) {
   const subline = [sub, value != null ? String(value) : ''].filter(Boolean).join(' · ');
-  return `<div class="ms-c ms-c--compact ms-c--glass w-full flex items-center gap-3">
+  return `<div class="ms-c ms-c--compact ms-c--glass w-full flex items-center justify-between gap-3">
     <div class="min-w-0 flex-1">
-      <div class="font-bold text-[14px] text-slate-900 dark:text-white truncate">${rank != null ? esc(String(rank)) + '. ' : ''}${esc(name || 'Unknown')}</div>
-      ${subline ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">${esc(subline)}</div>` : ''}
+      <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${rank != null ? esc(String(rank)) + '. ' : ''}${esc(name || 'Unknown')}</div>
+      ${subline ? `<div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">${esc(subline)}</div>` : ''}
     </div>
-    ${onclick ? `<button type="button" onclick="${onclick}" class="shrink-0 px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition">View</button>` : ''}
+    ${onclick ? `<button type="button" onclick="${onclick}" class="shrink-0 inline-flex items-center justify-center whitespace-nowrap px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[12px] font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition">View</button>` : ''}
   </div>`;
 }
 // A row of big quick-action buttons across the top of a Pulse page (Check-in / Check-out …).
@@ -964,23 +964,27 @@ function pulseActionsRow(actions) {
 // Pulse card never shows a number that isn't also standing behind that page today.
 // gam: the raw /gamification response (or null if it could not be loaded).
 function pulseLeaderboardPodium(rows) {
-  const top = [rows[1], rows[0], rows[2]];
+  const list = rows || [];
+  const r0 = list[0], r1 = list[1], r2 = list[2];
+  const top = [r1, r0, r2];
   const meta = [
-    { place: 2, h: 'h-24', bar: 'from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500', icon: 'star' },
-    { place: 1, h: 'h-32', bar: 'from-amber-300 to-amber-500', icon: 'trophy' },
-    { place: 3, h: 'h-20', bar: 'from-orange-300 to-orange-500', icon: 'star' },
+    { place: 2, label: '2nd', h: 'h-20 sm:h-24', bar: 'from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500', icon: 'star', tone: 'text-slate-400' },
+    { place: 1, label: '1st', h: 'h-28 sm:h-32', bar: 'from-amber-400 to-amber-500 shadow-md', icon: 'trophy', tone: 'text-amber-500' },
+    { place: 3, label: '3rd', h: 'h-14 sm:h-18', bar: 'from-amber-700 to-amber-800 dark:from-amber-800 dark:to-amber-900', icon: 'star', tone: 'text-amber-700 dark:text-amber-500' },
   ];
-  return `<div class="grid grid-cols-3 gap-3 items-end mb-5">${meta.map((m, i) => {
-    const r = top[i];
-    const name = r ? esc(r.full_name || r.name || 'Teammate') : 'Open';
-    const pts = r ? `${Number(r.score || r.points || 0).toLocaleString()} pts` : '—';
-    return `<div class="flex flex-col items-center text-center ${r ? '' : 'opacity-40'}">
-      <div class="mb-1 text-amber-500">${typeof svgIcon === 'function' ? svgIcon(m.icon, m.place === 1 ? 'w-7 h-7' : 'w-6 h-6') : ''}</div>
-      <div class="font-black text-sm text-slate-900 dark:text-white truncate w-full">${name}</div>
-      <div class="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-1 mb-2">${pts}</div>
-      <div class="w-full rounded-t-xl bg-gradient-to-b ${m.bar} ${m.h} flex items-start justify-center pt-2 text-white font-black text-xl">${m.place}</div>
-    </div>`;
-  }).join('')}</div>`;
+  return `<div class="grid grid-cols-3 gap-2.5 items-end my-3 pt-2">
+    ${meta.map((m, i) => {
+      const r = top[i];
+      const name = r ? esc(r.full_name || r.name || 'Teammate') : 'Open';
+      const pts = r ? `${Number(r.score || r.points || 0).toLocaleString()} pts` : '—';
+      return `<div class="flex flex-col items-center text-center ${r ? '' : 'opacity-40'}">
+        <div class="mb-1 ${m.tone}">${typeof svgIcon === 'function' ? svgIcon(m.icon, m.place === 1 ? 'w-6 h-6' : 'w-5 h-5') : ''}</div>
+        <div class="font-black text-xs text-slate-900 dark:text-white truncate w-full px-1">${name}</div>
+        <div class="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-0.5 mb-1.5">${pts}</div>
+        <div class="w-full rounded-t-xl bg-gradient-to-b ${m.bar} ${m.h} flex items-start justify-center pt-1.5 text-white font-black text-sm sm:text-base">${m.label}</div>
+      </div>`;
+    }).join('')}
+  </div>`;
 }
 
 function pulseLeaderboardCard(gam, deptKey, { title, metric, onclick, tier, limit } = {}) {

@@ -1154,16 +1154,23 @@ function renderReconBoard() {
   const todayList = sorted.filter(c => c.delivery_at && new Date(c.delivery_at).toDateString() === today);
   const readyList = sorted.filter(reconIsReady);
   const progressList = sorted.filter(c => !reconIsReady(c));
-  const card = (title, count, tier, list, empty) => (typeof pulseCard === 'function'
-    ? pulseCard({ title, count, tier, inner: list.length ? list.map(reconItem).join('') : '', empty })
-    : `<div class="ms-c ms-c--glass p-4"><div class="text-xs font-black uppercase mb-2">${title} (${count})</div>${list.length ? list.map(reconItem).join('') : `<div class="text-sm text-slate-400">${empty}</div>`}</div>`);
+  const card = (title, count, list, empty, toneCls) => `
+    <div class="ms-c ms-c--glass flex flex-col h-full rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm">
+      <div class="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
+        <div class="font-black text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200">${title}</div>
+        <span class="px-2.5 py-0.5 rounded-full text-xs font-black ${toneCls || 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}">${count}</span>
+      </div>
+      <div class="space-y-2 flex-1">
+        ${list.length ? list.map(reconItem).join('') : `<div class="py-8 text-center text-xs text-slate-400 dark:text-slate-500 font-medium">${empty}</div>`}
+      </div>
+    </div>`;
+
   const board = [
-    card('Delivering today', deliveringToday, 'hero', todayList, 'Nothing delivering today.'),
-    card('Ready for delivery', readyCount, 'hero', readyList, 'No units signed off yet.'),
-    card('Still in cleanup', progressList.length, 'hero', progressList, 'Every unit is ready.'),
-    card('All units', cards.length, 'hero', sorted, 'No vehicles in cleanup.'),
+    card('Delivering today', deliveringToday, todayList, 'Nothing delivering today.', 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'),
+    card('Still in cleanup', progressList.length, progressList, 'Every unit is ready.', 'bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300'),
+    card('Ready for delivery', readyCount, readyList, 'No units signed off yet.', 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'),
   ];
-  root.innerHTML = header + `<div class="flex flex-col gap-5 w-full">${board.join('')}</div>`;
+  root.innerHTML = header + `<div class="grid grid-cols-1 md:grid-cols-3 gap-5 w-full items-start">${board.join('')}</div>`;
 
   wire();
 }
