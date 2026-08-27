@@ -581,4 +581,17 @@ export function registerOwnerAdmin(app) {
     await audit(req, 'hq.billing_stripe_trial', { after_state: { days, trial_end: trialEnd, reason }, dealership_id: req.params.id })
     res.json({ ok: true, trial_end: trialEnd })
   })
+
+  app.post('/owner/billing/:id/coupon', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    if (!stripeReady()) return res.status(503).json({ error: 'Stripe is not configured on this environment' })
+    const coupon = String(req.body?.coupon || '').trim()
+    const reason = String(req.body?.reason || '').slice(0, 500)
+    if (!coupon || !reason) return res.status(400).json({ error: 'coupon and reason required' })
+    const ids = await hqStripeIds(req.params.id)
+    if (!ids.customerId) return res.status(400).json({ error: 'No Stripe customer on this dealership' })
+    await stripe.customers.update(ids.customerId, { coupon })
+    await audit(req, 'hq.billing_coupon', { after_state: { coupon, reason }, dealership_id: req.params.id })
+    res.json({ ok: true, coupon })
+  })
 }
