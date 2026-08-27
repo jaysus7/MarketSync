@@ -1051,15 +1051,14 @@ window.renderFniReports = renderFniReports;
 async function loadReconPage() {
   const root = document.getElementById('recon-root');
   if (!root) return;
-  root.innerHTML = '<div class="py-16 text-center text-sm text-slate-400 italic">Loading recon board…</div>';
   const addBtn = document.getElementById('recon-add-btn');
   if (addBtn && !addBtn.dataset.wired) { addBtn.dataset.wired = '1'; addBtn.addEventListener('click', openReconAddPicker); }
   try {
     __reconData = await apiGetJson('/recon');
-    renderReconBoard();
   } catch (err) {
-    root.innerHTML = `<div class="py-12 text-center text-sm text-red-400">Could not load recon: ${err.message}</div>`;
+    __reconData = __reconData || { cards: [] };
   }
+  renderReconBoard();
 }
 
 function reconStageMeta(stage) {
@@ -1094,14 +1093,10 @@ const reconIsReady = (c) => c.stage === 'frontline' || (reconChkTotal(c) > 0 && 
 
 function renderReconBoard() {
   const root = document.getElementById('recon-root');
-  if (!root || !__reconData) return;
+  if (!root) return;
+  if (!__reconData) __reconData = { cards: [] };
   const cards = __reconData.cards || [];
   const esc = (s) => String(s == null ? '' : s).replace(/"/g, '&quot;').replace(/</g, '&lt;');
-
-  if (!cards.length) {
-    root.innerHTML = '<div class="py-16 text-center text-sm text-slate-500 dark:text-slate-400">No vehicles in cleanup yet. Cars land here automatically when a deal is approved in FNI.</div>';
-    return;
-  }
 
   const sorted = [...cards].sort((a, b) => reconDelivery(a.delivery_at).order - reconDelivery(b.delivery_at).order);
   const today = new Date().toDateString();
