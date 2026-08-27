@@ -1,0 +1,38 @@
+/* Phase 4 route families — compose existing ms-* primitives. */
+[data-page-content="profile"] h1 {
+  font-size: 1.75rem;
+  letter-spacing: -0.03em;
+}
+[data-page-content="profile"] .bg-white.border.rounded-lg,
+[data-page-content="profile"] .bg-white.border.rounded-2xl,
+[data-page-content="profile"] .bg-white.dark\:bg-slate-900 {
+  background: var(--ms-s-glass, rgba(255,255,255,.78)) !important;
+  border-color: var(--ms-g-border, rgba(15,23,42,.10)) !important;
+  box-shadow: var(--ms-g-shadow, 0 10px 30px rgba(15,23,42,.06)) !important;
+  border-radius: 18px !important;
+}
+.dark [data-page-content="profile"] .bg-white.dark\:bg-slate-900,
+.dark [data-page-content="profile"] .bg-white.border {
+  background: rgba(26,29,36,.72) !important;
+  border-color: #2B303A !important;
+}
+.stab-btn.stab-on,
+#settings-tabs .stab-btn[aria-current="true"] {
+  color: #153AA6 !important;
+  border-bottom-color: #2563EB !important;
+}
+.dark .stab-btn.stab-on { color: #93C5FD !important; }
+
+[data-page-content="profile"] input,
+[data-page-content="profile"] select,
+[data-page-content="profile"] textarea {
+  min-height: 44px;
+  border-radius: 12px;
+}
+
+#saas-command-root .bg-white,
+#saas-customers-root .bg-white,
+[data-page-content="saas-command"] .bg-white {
+  background: var(--ms-s-glass, rgba(255,255,255,.78)) !important;
+  border-color: var(--ms-g-border, rgba(15,23,42,.10)) !important;
+}

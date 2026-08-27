@@ -51,7 +51,7 @@ function hqEntitlementMatrix(d) {
     <div class="flex flex-wrap gap-2 mt-3">
       <button type="button" class="px-3 py-1.5 rounded-xl text-[11px] font-black bg-amber-500 text-slate-950" onclick="hqExtendTrial('${d.id}')">Extend trial</button>
       <button type="button" class="px-3 py-1.5 rounded-xl text-[11px] font-black border border-slate-200 dark:border-slate-700" onclick="hqSupportSession('${d.id}')">Start support inspect</button>
-      <button type="button" class="px-3 py-1.5 rounded-xl text-[11px] font-black bg-indigo-600 text-white" onclick="hqOpenBilling('${d.id}')">Open billing</button>
+      <button type="button" class="ms-btn ms-btn--primary !text-[11px] !min-h-0 !px-3 !py-1.5" onclick="hqOpenBilling('${d.id}')">Open billing</button>
     </div>
   </div>`;
 }
