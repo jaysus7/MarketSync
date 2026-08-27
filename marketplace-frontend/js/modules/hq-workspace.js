@@ -380,3 +380,68 @@ async function loadHqIntegrations() {
 
 window.loadHqOnboarding = loadHqOnboarding;
 window.loadHqIntegrations = loadHqIntegrations;
+
+
+async function loadHqAllUsers() {
+  const root = document.getElementById('saas-all-users-root'); if (!root) return;
+  root.innerHTML = '<div class="text-sm text-slate-400 p-4">Loading users…</div>';
+  try {
+    const d = await apiGetJson('/owner/users');
+    const users = d.users || [];
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('All users','Every profile across dealerships'):''}
+      <input id="hq-user-q" oninput="hqFilterUsers()" placeholder="Search name, email, dealership, role" class="w-full max-w-lg mb-3 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm">
+      <div id="hq-user-table" class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"></div>`;
+    window.__hqUsers = users;
+    hqFilterUsers();
+  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message)}</div>`; }
+}
+window.hqFilterUsers = function() {
+  const q = (document.getElementById('hq-user-q')?.value || '').toLowerCase();
+  const host = document.getElementById('hq-user-table'); if (!host) return;
+  const rows = (window.__hqUsers || []).filter(u => !q || JSON.stringify(u).toLowerCase().includes(q)).slice(0, 400);
+  host.innerHTML = `<table class="w-full text-left text-xs"><thead><tr class="text-[10px] uppercase text-slate-400 border-b border-slate-200 dark:border-slate-800">
+    <th class="p-3">User</th><th class="p-3">Dealership</th><th class="p-3">Role</th><th class="p-3">Status</th><th class="p-3"></th></tr></thead>
+    <tbody>${rows.map(u => `<tr class="border-t border-slate-100 dark:border-slate-800">
+      <td class="p-3"><b>${esc(u.name)}</b><div class="text-slate-400">${esc(u.email||'')}</div></td>
+      <td class="p-3">${esc(u.dealership||'—')}</td>
+      <td class="p-3">${esc(u.role||'—')}</td>
+      <td class="p-3">${u.active ? 'Active' : 'Inactive'}</td>
+      <td class="p-3 text-right whitespace-nowrap">
+        <button class="font-black text-indigo-600" onclick="hqChangeDealerRole('${u.id}')">Role</button>
+        <button class="font-black text-rose-600 ml-2" onclick="hqUserStatus('${u.id}', ${u.active ? 'false' : 'true'})">${u.active ? 'Deactivate' : 'Activate'}</button>
+        ${u.dealership_id ? `<button class="font-black text-slate-600 ml-2" onclick="openSaasCustomer('${u.dealership_id}')">360</button>` : ''}
+      </td></tr>`).join('')}</tbody></table>`;
+};
+window.hqChangeDealerRole = async function(id) {
+  const role = prompt('Dealer role (SALES_REP, SERVICE_ADVISOR, ACCOUNTING, …)') || '';
+  const reason = prompt('Reason') || '';
+  if (!role || !reason) return;
+  try {
+    await apiSendJson('/owner/user/' + id + '/role', 'POST', { role, reason });
+    showToast('Role updated', 'success');
+    loadHqAllUsers();
+  } catch (e) { showToast(e.message || 'Role change failed', 'error'); }
+};
+
+async function loadHqRoles() {
+  const root = document.getElementById('saas-roles-root'); if (!root) return;
+  root.innerHTML = '<div class="text-sm text-slate-400 p-4">Loading HQ roles…</div>';
+  try {
+    const d = await apiGetJson('/saas/employees');
+    const matrix = d.permissions_matrix || {};
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('HQ roles','saas_role permissions — owner is platform super-admin'):''}
+      <div class="grid md:grid-cols-2 gap-3 mb-4">${Object.entries(matrix).map(([role, perms]) => `
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+          <div class="font-black capitalize">${esc(role)}</div>
+          <div class="text-xs text-slate-500 mt-1">${(perms||[]).join(', ')}</div>
+        </div>`).join('')}</div>
+      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+        ${(d.staff||[]).map(s => `<div class="flex justify-between py-2 border-t border-slate-100 dark:border-slate-800 first:border-0 text-sm">
+          <span><b>${esc(s.name)}</b> · ${esc(s.email||'')}</span><span>${esc(s.saas_role||'')} · ${s.active ? 'active' : 'off'}</span>
+        </div>`).join('') || 'No HQ staff rows.'}
+      </div>`;
+  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message)}</div>`; }
+}
+
+window.loadHqAllUsers = loadHqAllUsers;
+window.loadHqRoles = loadHqRoles;
