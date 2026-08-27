@@ -348,3 +348,12 @@ Login Sign In and staff-chat FAB now render Market Blue in evidence. A001 color 
 ## Phase 3 P0 closed 2026-08-27
 
 Shared token/glass/chrome/dark P0 landed. PASS 0. Average ~61. Phase 4 (route-specific) not started.
+
+
+## Phase 4 started 2026-08-27
+
+Canonical dark canvas locked to **#121318**. `#0B1220` is `--ms-blue-950` ink only.
+
+Batch 1 (`ffe699c`): shared pulseRow / pulseCard / pulseActionsRow now use `ms-c` + `ms-btn`. Affects every department Pulse that composes those helpers. No route promoted to PASS yet.
+
+Queue remains the 167-row inventory. Next: recapture Pulse family, then Customers / Settings / HQ cards.
