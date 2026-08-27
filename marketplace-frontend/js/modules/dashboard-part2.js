@@ -1622,7 +1622,8 @@ const SAAS_DEPARTMENTS = {
     { page: 'saas-employees', label: 'HQ Staff' },
   ] },
   money:          { label: 'Revenue',        icon: 'currency', accent: 'indigo', always: true, pages: [
-    { page: 'saas-accounting', label: 'Subscriptions' },
+    { page: 'saas-billing', label: 'Billing' },
+    { page: 'saas-accounting', label: 'Company money' },
     { page: 'saas-products', label: 'Product Catalog' },
   ] },
   platform:       { label: 'Platform',       icon: 'bolt',     accent: 'indigo', always: true, pages: [
@@ -2264,6 +2265,7 @@ function switchPage(pageId) {
   if (pageId === 'saas-integrations' && typeof loadHqIntegrations === 'function') loadHqIntegrations();
   if (pageId === 'saas-all-users' && typeof loadHqAllUsers === 'function') loadHqAllUsers();
   if (pageId === 'saas-roles' && typeof loadHqRoles === 'function') loadHqRoles();
+  if (pageId === 'saas-billing' && typeof loadHqBilling === 'function') loadHqBilling();
   if (pageId === 'config') loadConfigHub();
   if (pageId === 'api-keys') loadApiKeys();
   if (pageId === 'delivery') loadDeliveryQueue();
